@@ -1,0 +1,35 @@
+-------------------------------------------------------------------------------
+Test set: org.praxisplatform.uischema.controller.base.AbstractCrudControllerGetByIdsTest
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 2, Errors: 1, Skipped: 0, Time elapsed: 0.399 s <<< FAILURE! -- in org.praxisplatform.uischema.controller.base.AbstractCrudControllerGetByIdsTest
+org.praxisplatform.uischema.controller.base.AbstractCrudControllerGetByIdsTest.getByIdsReturnsOrderedList -- Time elapsed: 0.017 s <<< ERROR!
+java.lang.NullPointerException: Cannot invoke "org.praxisplatform.uischema.repository.base.BaseCrudRepository.findAllById(java.lang.Iterable)" because the return value of "org.praxisplatform.uischema.service.base.BaseCrudService.getRepository()" is null
+	at org.praxisplatform.uischema.service.base.BaseCrudService.findAllById(BaseCrudService.java:123)
+	at org.praxisplatform.uischema.service.base.BaseCrudService.findAllById(BaseCrudService.java:122)
+	at org.praxisplatform.uischema.controller.base.AbstractCrudControllerGetByIdsTest.getByIdsReturnsOrderedList(AbstractCrudControllerGetByIdsTest.java:29)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+org.praxisplatform.uischema.controller.base.AbstractCrudControllerGetByIdsTest.getByIdsReturnsEmptyListWhenNoIds -- Time elapsed: 0.009 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<404>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at org.praxisplatform.uischema.controller.base.AbstractCrudControllerGetByIdsTest.getByIdsReturnsEmptyListWhenNoIds(AbstractCrudControllerGetByIdsTest.java:45)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+org.praxisplatform.uischema.controller.base.AbstractCrudControllerGetByIdsTest.getByIdsReturns422WhenExceedsLimit -- Time elapsed: 0.006 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<422> but was:<404>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at org.praxisplatform.uischema.controller.base.AbstractCrudControllerGetByIdsTest.getByIdsReturns422WhenExceedsLimit(AbstractCrudControllerGetByIdsTest.java:55)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+

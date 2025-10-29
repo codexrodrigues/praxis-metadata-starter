@@ -1,0 +1,15 @@
+-------------------------------------------------------------------------------
+Test set: org.praxisplatform.uischema.controller.base.AbstractCrudControllerLocateNotImplementedTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.304 s <<< FAILURE! -- in org.praxisplatform.uischema.controller.base.AbstractCrudControllerLocateNotImplementedTest
+org.praxisplatform.uischema.controller.base.AbstractCrudControllerLocateNotImplementedTest.returns501WhenNotImplemented -- Time elapsed: 0.011 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<501> but was:<404>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at org.praxisplatform.uischema.controller.base.AbstractCrudControllerLocateNotImplementedTest.returns501WhenNotImplemented(AbstractCrudControllerLocateNotImplementedTest.java:34)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+

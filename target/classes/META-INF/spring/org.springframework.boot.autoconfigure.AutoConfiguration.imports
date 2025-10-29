@@ -1,0 +1,2 @@
+org.praxisplatform.uischema.configuration.OpenApiUiSchemaAutoConfiguration
+org.praxisplatform.uischema.configuration.PraxisMetadataAutoConfiguration

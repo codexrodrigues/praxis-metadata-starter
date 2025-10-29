@@ -1,0 +1,16 @@
+-------------------------------------------------------------------------------
+Test set: org.praxisplatform.uischema.controller.docs.ApiDocsControllerTest
+-------------------------------------------------------------------------------
+Tests run: 4, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.089 s <<< FAILURE! -- in org.praxisplatform.uischema.controller.docs.ApiDocsControllerTest
+org.praxisplatform.uischema.controller.docs.ApiDocsControllerTest.getFilteredSchemaSelectsSchemas -- Time elapsed: 0.035 s <<< FAILURE!
+java.lang.AssertionError: 
+Further request(s) expected leaving 1 unsatisfied expectation(s).
+0 request(s) executed.
+
+	at org.springframework.test.web.client.AbstractRequestExpectationManager.verify(AbstractRequestExpectationManager.java:132)
+	at org.springframework.test.web.client.MockRestServiceServer.verify(MockRestServiceServer.java:117)
+	at org.praxisplatform.uischema.controller.docs.ApiDocsControllerTest.getFilteredSchemaSelectsSchemas(ApiDocsControllerTest.java:108)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+

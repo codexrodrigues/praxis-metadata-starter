@@ -1,0 +1,55 @@
+-------------------------------------------------------------------------------
+Test set: org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 3, Errors: 2, Skipped: 0, Time elapsed: 0.325 s <<< FAILURE! -- in org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest
+org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest.getOptionsByIdsReturns422WhenExceedsLimit -- Time elapsed: 0.006 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<422> but was:<404>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest.getOptionsByIdsReturns422WhenExceedsLimit(AbstractCrudControllerOptionsTest.java:79)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest.getOptionsByIdsReturnsEmptyListWhenNoIds -- Time elapsed: 0.007 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<404>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest.getOptionsByIdsReturnsEmptyListWhenNoIds(AbstractCrudControllerOptionsTest.java:69)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest.filterOptionsReturnsProjectedPage -- Time elapsed: 0.008 s <<< ERROR!
+java.lang.NullPointerException: Cannot invoke "org.springframework.data.domain.Pageable.getSort()" because "pageable" is null
+	at org.praxisplatform.uischema.service.base.BaseCrudService.filter(BaseCrudService.java:390)
+	at org.praxisplatform.uischema.service.base.BaseCrudService.filter(BaseCrudService.java:389)
+	at org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest.filterOptionsReturnsProjectedPage(AbstractCrudControllerOptionsTest.java:36)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest.getOptionsByIdsReturnsOrderedList -- Time elapsed: 0.006 s <<< ERROR!
+java.lang.NullPointerException: Cannot invoke "org.praxisplatform.uischema.repository.base.BaseCrudRepository.findAllById(java.lang.Iterable)" because the return value of "org.praxisplatform.uischema.service.base.BaseCrudService.getRepository()" is null
+	at org.praxisplatform.uischema.service.base.BaseCrudService.findAllById(BaseCrudService.java:123)
+	at org.praxisplatform.uischema.service.base.BaseCrudService.findAllById(BaseCrudService.java:122)
+	at org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest.getOptionsByIdsReturnsOrderedList(AbstractCrudControllerOptionsTest.java:52)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest.filterOptionsReturns422WhenPageSizeExceedsLimit -- Time elapsed: 0.006 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<422> but was:<404>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at org.praxisplatform.uischema.controller.base.AbstractCrudControllerOptionsTest.filterOptionsReturns422WhenPageSizeExceedsLimit(AbstractCrudControllerOptionsTest.java:91)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+

@@ -1,0 +1,3 @@
+org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.class
+org/praxisplatform/uischema/service/base/AbstractReadOnlyService.class
+org/praxisplatform/uischema/annotation/ResourceCapabilities.class

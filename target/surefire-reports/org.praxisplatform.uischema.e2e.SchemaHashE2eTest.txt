@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: org.praxisplatform.uischema.e2e.SchemaHashE2eTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.659 s -- in org.praxisplatform.uischema.e2e.SchemaHashE2eTest

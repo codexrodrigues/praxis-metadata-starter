@@ -1,0 +1,9 @@
+${AnsiColor.BRIGHT_BLUE}
+Praxis
+
+${AnsiStyle.NORMAL}${AnsiColor.DEFAULT}
+
+${AnsiStyle.BOLD}${AnsiColor.BRIGHT_MAGENTA}:: Praxis ::${AnsiStyle.NORMAL}${AnsiColor.DEFAULT} ${application.formatted-version} ${AnsiColor.BRIGHT_BLACK}(Boot ${spring-boot.version})${AnsiColor.DEFAULT}
+App: ${AnsiColor.BRIGHT_BLACK}${spring.application.name}${AnsiColor.DEFAULT}
+Java: ${java.version} | OS: ${os.name} ${os.version} | Profile(s): ${spring.profiles.active} | PID: ${PID}
+${AnsiColor.BRIGHT_BLACK}────────────────────────────────────────────────────────────────────────────────────${AnsiColor.DEFAULT}

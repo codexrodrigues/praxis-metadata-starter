@@ -1,0 +1,117 @@
+name: Release Java Starter (praxis-metadata-starter)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.0.0-beta.1)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      # Provide as repository secrets
+      CENTRAL_TOKEN_USER: ${{ secrets.CENTRAL_TOKEN_USER }}
+      CENTRAL_TOKEN_PASS: ${{ secrets.CENTRAL_TOKEN_PASS }}
+      MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 (Temurin) + Central server
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: 'maven'
+          server-id: central
+          server-username: CENTRAL_TOKEN_USER
+          server-password: CENTRAL_TOKEN_PASS
+
+      - name: Import GPG private key (sanitize + import)
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          gpgconf --kill gpg-agent || true
+          printf '%s' "$GPG_PRIVATE_KEY" > /tmp/gpg.key.raw
+          perl -i -pe 's/^\x{FEFF}//;' /tmp/gpg.key.raw
+          tr -d '\r' < /tmp/gpg.key.raw > /tmp/gpg.key.nocrlf
+          if grep -q "BEGIN PGP PRIVATE KEY BLOCK" /tmp/gpg.key.nocrlf; then
+            awk 'found{print} /BEGIN PGP PRIVATE KEY BLOCK/{found=1} /END PGP PRIVATE KEY BLOCK/{print; exit}' /tmp/gpg.key.nocrlf > /tmp/gpg.key
+          else
+            tr -d ' \t\n\r' < /tmp/gpg.key.nocrlf > /tmp/gpg.key.b64
+            base64 -d /tmp/gpg.key.b64 > /tmp/gpg.key
+          fi
+          gpg --batch --import /tmp/gpg.key
+          gpg --batch --list-secret-keys --keyid-format LONG
+
+      - name: Resolve GPG key id (fallback if secret missing)
+        run: |
+          set -euo pipefail
+          if [ -z "${GPG_KEY_ID:-}" ]; then
+            KEY=$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}')
+            if [ "$KEY" ]; then
+              echo "No GPG secret key found after import" >&2
+              exit 1
+            fi
+            echo "GPG_KEY_ID=$KEY" >> "$GITHUB_ENV"
+            echo "Resolved GPG_KEY_ID=$KEY"
+          else
+            echo "GPG_KEY_ID provided via secrets"
+          fi
+
+      - name: Resolve version from tag
+        id: ver
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            V="${{ inputs.version }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            # Expect tags like: java-praxis-metadata-starter-v1.0.0-beta.1
+            V="${TAG##*-v}"
+          fi
+          echo "resolved=${V}" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $V"
+
+      - name: Set module version (starter only)
+        run: |
+          ./mvnw -q versions:set -DnewVersion=${{ steps.ver.outputs.resolved }} -DgenerateBackupPoms=false
+
+      - name: Build and sign (verify)
+        run: |
+          ./mvnw -B -P release -DskipTests -Dgpg.skip=false -Dgpg.keyname="${GPG_KEY_ID}" -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -Dgpg.executable=gpg -T 1C \
+            -am clean verify
+
+      - name: Check signatures exist
+        run: |
+          V='${{ steps.ver.outputs.resolved }}'
+          ls -l backend-libs/praxis-metadata-starter/target || true
+          test -f backend-libs/praxis-metadata-starter/target/praxis-metadata-starter-${V}.jar.asc
+          test -f backend-libs/praxis-metadata-starter/target/praxis-metadata-starter-${V}-sources.jar.asc
+          test -f backend-libs/praxis-metadata-starter/target/praxis-metadata-starter-${V}-javadoc.jar.asc
+          # POM signature may be generated as pom.xml.asc in the module root; not all builds surface it in target.
+          if [ ! -f backend-libs/praxis-metadata-starter/pom.xml.asc ]; then
+            echo "Note: pom.xml.asc not found in module root; central plugin will pick attached POM signature if present."
+          fi
+
+      - name: Publish to Central
+        run: |
+          # Important: run package/verify in the SAME Maven invocation so the
+          # main artifact is attached in-session before publishing. Otherwise
+          # central plugin sees no assigned artifact file.
+          ./mvnw -B -P release -DskipTests -Dgpg.skip=false -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -T 1C \
+            -am \
+            clean verify org.sonatype.central:central-publishing-maven-plugin:publish

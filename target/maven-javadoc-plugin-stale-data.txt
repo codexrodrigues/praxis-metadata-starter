@@ -1,0 +1,147 @@
+-Xdoclint:none
+@options
+@packages
+-classpath
+'/home/codex/.m2/repository/org/mapstruct/mapstruct/1.5.5.Final/mapstruct-1.5.5.Final.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-autoconfigure/3.2.5/spring-boot-autoconfigure-3.2.5.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot/3.2.5/spring-boot-3.2.5.jar:/home/codex/.m2/repository/org/springframework/spring-context/6.1.6/spring-context-6.1.6.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-configuration-processor/3.2.5/spring-boot-configuration-processor-3.2.5.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-autoconfigure-processor/3.2.5/spring-boot-autoconfigure-processor-3.2.5.jar:/home/codex/.m2/repository/org/springframework/data/spring-data-commons/3.2.5/spring-data-commons-3.2.5.jar:/home/codex/.m2/repository/org/springframework/spring-core/6.1.6/spring-core-6.1.6.jar:/home/codex/.m2/repository/org/springframework/spring-jcl/6.1.6/spring-jcl-6.1.6.jar:/home/codex/.m2/repository/org/springframework/spring-beans/6.1.6/spring-beans-6.1.6.jar:/home/codex/.m2/repository/org/slf4j/slf4j-api/2.0.13/slf4j-api-2.0.13.jar:/home/codex/.m2/repository/jakarta/persistence/jakarta.persistence-api/3.1.0/jakarta.persistence-api-3.1.0.jar:/home/codex/.m2/repository/io/swagger/core/v3/swagger-annotations/2.2.22/swagger-annotations-2.2.22.jar:/home/codex/.m2/repository/org/projectlombok/lombok/1.18.32/lombok-1.18.32.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter/3.2.5/spring-boot-starter-3.2.5.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-logging/3.2.5/spring-boot-starter-logging-3.2.5.jar:/home/codex/.m2/repository/ch/qos/logback/logback-classic/1.4.14/logback-classic-1.4.14.jar:/home/codex/.m2/repository/ch/qos/logback/logback-core/1.4.14/logback-core-1.4.14.jar:/home/codex/.m2/repository/org/apache/logging/log4j/log4j-to-slf4j/2.21.1/log4j-to-slf4j-2.21.1.jar:/home/codex/.m2/repository/org/apache/logging/log4j/log4j-api/2.21.1/log4j-api-2.21.1.jar:/home/codex/.m2/repository/org/slf4j/jul-to-slf4j/2.0.13/jul-to-slf4j-2.0.13.jar:/home/codex/.m2/repository/jakarta/annotation/jakarta.annotation-api/2.1.1/jakarta.annotation-api-2.1.1.jar:/home/codex/.m2/repository/org/yaml/snakeyaml/2.2/snakeyaml-2.2.jar:/home/codex/.m2/repository/com/jayway/jsonpath/json-path/2.9.0/json-path-2.9.0.jar:/home/codex/.m2/repository/jakarta/xml/bind/jakarta.xml.bind-api/4.0.2/jakarta.xml.bind-api-4.0.2.jar:/home/codex/.m2/repository/jakarta/activation/jakarta.activation-api/2.1.3/jakarta.activation-api-2.1.3.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-data-jpa/3.2.5/spring-boot-starter-data-jpa-3.2.5.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-aop/3.2.5/spring-boot-starter-aop-3.2.5.jar:/home/codex/.m2/repository/org/springframework/spring-aop/6.1.6/spring-aop-6.1.6.jar:/home/codex/.m2/repository/org/aspectj/aspectjweaver/1.9.22/aspectjweaver-1.9.22.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-jdbc/3.2.5/spring-boot-starter-jdbc-3.2.5.jar:/home/codex/.m2/repository/com/zaxxer/HikariCP/5.0.1/HikariCP-5.0.1.jar:/home/codex/.m2/repository/org/springframework/spring-jdbc/6.1.6/spring-jdbc-6.1.6.jar:/home/codex/.m2/repository/org/hibernate/orm/hibernate-core/6.4.4.Final/hibernate-core-6.4.4.Final.jar:/home/codex/.m2/repository/jakarta/transaction/jakarta.transaction-api/2.0.1/jakarta.transaction-api-2.0.1.jar:/home/codex/.m2/repository/org/antlr/antlr4-runtime/4.13.0/antlr4-runtime-4.13.0.jar:/home/codex/.m2/repository/org/springframework/data/spring-data-jpa/3.2.5/spring-data-jpa-3.2.5.jar:/home/codex/.m2/repository/org/springframework/spring-orm/6.1.6/spring-orm-6.1.6.jar:/home/codex/.m2/repository/org/springframework/spring-tx/6.1.6/spring-tx-6.1.6.jar:/home/codex/.m2/repository/org/springframework/spring-aspects/6.1.6/spring-aspects-6.1.6.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-web/3.2.5/spring-boot-starter-web-3.2.5.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-json/3.2.5/spring-boot-starter-json-3.2.5.jar:/home/codex/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.15.4/jackson-databind-2.15.4.jar:/home/codex/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.15.4/jackson-annotations-2.15.4.jar:/home/codex/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.15.4/jackson-core-2.15.4.jar:/home/codex/.m2/repository/com/fasterxml/jackson/datatype/jackson-datatype-jdk8/2.15.4/jackson-datatype-jdk8-2.15.4.jar:/home/codex/.m2/repository/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.15.4/jackson-datatype-jsr310-2.15.4.jar:/home/codex/.m2/repository/com/fasterxml/jackson/module/jackson-module-parameter-names/2.15.4/jackson-module-parameter-names-2.15.4.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-tomcat/3.2.5/spring-boot-starter-tomcat-3.2.5.jar:/home/codex/.m2/repository/org/apache/tomcat/embed/tomcat-embed-core/10.1.20/tomcat-embed-core-10.1.20.jar:/home/codex/.m2/repository/org/apache/tomcat/embed/tomcat-embed-el/10.1.20/tomcat-embed-el-10.1.20.jar:/home/codex/.m2/repository/org/apache/tomcat/embed/tomcat-embed-websocket/10.1.20/tomcat-embed-websocket-10.1.20.jar:/home/codex/.m2/repository/org/springframework/spring-web/6.1.6/spring-web-6.1.6.jar:/home/codex/.m2/repository/io/micrometer/micrometer-observation/1.12.5/micrometer-observation-1.12.5.jar:/home/codex/.m2/repository/io/micrometer/micrometer-commons/1.12.5/micrometer-commons-1.12.5.jar:/home/codex/.m2/repository/org/springframework/spring-webmvc/6.1.6/spring-webmvc-6.1.6.jar:/home/codex/.m2/repository/org/springframework/spring-expression/6.1.6/spring-expression-6.1.6.jar:/home/codex/.m2/repository/org/springdoc/springdoc-openapi-starter-webmvc-ui/2.6.0/springdoc-openapi-starter-webmvc-ui-2.6.0.jar:/home/codex/.m2/repository/org/springdoc/springdoc-openapi-starter-webmvc-api/2.6.0/springdoc-openapi-starter-webmvc-api-2.6.0.jar:/home/codex/.m2/repository/org/springdoc/springdoc-openapi-starter-common/2.6.0/springdoc-openapi-starter-common-2.6.0.jar:/home/codex/.m2/repository/io/swagger/core/v3/swagger-core-jakarta/2.2.22/swagger-core-jakarta-2.2.22.jar:/home/codex/.m2/repository/org/apache/commons/commons-lang3/3.13.0/commons-lang3-3.13.0.jar:/home/codex/.m2/repository/io/swagger/core/v3/swagger-annotations-jakarta/2.2.22/swagger-annotations-jakarta-2.2.22.jar:/home/codex/.m2/repository/io/swagger/core/v3/swagger-models-jakarta/2.2.22/swagger-models-jakarta-2.2.22.jar:/home/codex/.m2/repository/jakarta/validation/jakarta.validation-api/3.0.2/jakarta.validation-api-3.0.2.jar:/home/codex/.m2/repository/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.15.4/jackson-dataformat-yaml-2.15.4.jar:/home/codex/.m2/repository/org/webjars/swagger-ui/5.17.14/swagger-ui-5.17.14.jar:/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-hateoas/3.2.5/spring-boot-starter-hateoas-3.2.5.jar:/home/codex/.m2/repository/org/springframework/hateoas/spring-hateoas/2.2.2/spring-hateoas-2.2.2.jar:/home/codex/.m2/repository/org/springframework/plugin/spring-plugin-core/3.0.0/spring-plugin-core-3.0.0.jar'
+-encoding
+'UTF-8'
+-protected
+--release
+21
+-sourcepath
+'/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/src/main/java:/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/generated-sources/annotations'
+-author
+-bottom
+'Copyright &#169; 2025. All rights reserved.'
+-charset
+'UTF-8'
+-d
+'/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs'
+-docencoding
+'UTF-8'
+-Xdoclint:none
+-doctitle
+'Praxis Metadata Starter 1.0.0-beta.1 API'
+-use
+-version
+-windowtitle
+'Praxis Metadata Starter 1.0.0-beta.1 API'
+org.praxisplatform.uischema
+org.praxisplatform.uischema.annotation
+org.praxisplatform.uischema.configuration
+org.praxisplatform.uischema.constants
+org.praxisplatform.uischema.controller.base
+org.praxisplatform.uischema.controller.docs
+org.praxisplatform.uischema.dto
+org.praxisplatform.uischema.extension.annotation
+org.praxisplatform.uischema.extension
+org.praxisplatform.uischema.filter.annotation
+org.praxisplatform.uischema.filter.dto
+org.praxisplatform.uischema.filter.specification
+org.praxisplatform.uischema.hash
+org.praxisplatform.uischema.http
+org.praxisplatform.uischema.id
+org.praxisplatform.uischema.mapper.base
+org.praxisplatform.uischema.mapper.config
+org.praxisplatform.uischema.numeric
+org.praxisplatform.uischema.repository.base
+org.praxisplatform.uischema.rest.exceptionhandler
+org.praxisplatform.uischema.rest.exceptionhandler.exception
+org.praxisplatform.uischema.rest.response
+org.praxisplatform.uischema.service.base
+org.praxisplatform.uischema.service.base.annotation
+org.praxisplatform.uischema.util
+/home/codex/.m2/repository/org/mapstruct/mapstruct/1.5.5.Final/mapstruct-1.5.5.Final.jar = 1682280440000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-autoconfigure/3.2.5/spring-boot-autoconfigure-3.2.5.jar = 1713463052000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot/3.2.5/spring-boot-3.2.5.jar = 1713463081000
+/home/codex/.m2/repository/org/springframework/spring-context/6.1.6/spring-context-6.1.6.jar = 1712825154000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-configuration-processor/3.2.5/spring-boot-configuration-processor-3.2.5.jar = 1713463010000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-autoconfigure-processor/3.2.5/spring-boot-autoconfigure-processor-3.2.5.jar = 1713463041000
+/home/codex/.m2/repository/org/springframework/data/spring-data-commons/3.2.5/spring-data-commons-3.2.5.jar = 1712910163000
+/home/codex/.m2/repository/org/springframework/spring-core/6.1.6/spring-core-6.1.6.jar = 1712825153000
+/home/codex/.m2/repository/org/springframework/spring-jcl/6.1.6/spring-jcl-6.1.6.jar = 1712825148000
+/home/codex/.m2/repository/org/springframework/spring-beans/6.1.6/spring-beans-6.1.6.jar = 1712825149000
+/home/codex/.m2/repository/org/slf4j/slf4j-api/2.0.13/slf4j-api-2.0.13.jar = 1712931843000
+/home/codex/.m2/repository/jakarta/persistence/jakarta.persistence-api/3.1.0/jakarta.persistence-api-3.1.0.jar = 1645787726000
+/home/codex/.m2/repository/io/swagger/core/v3/swagger-annotations/2.2.22/swagger-annotations-2.2.22.jar = 1715766165000
+/home/codex/.m2/repository/org/projectlombok/lombok/1.18.32/lombok-1.18.32.jar = 1710893632000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter/3.2.5/spring-boot-starter-3.2.5.jar = 1713462937000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-logging/3.2.5/spring-boot-starter-logging-3.2.5.jar = 1713462705000
+/home/codex/.m2/repository/ch/qos/logback/logback-classic/1.4.14/logback-classic-1.4.14.jar = 1701431604000
+/home/codex/.m2/repository/ch/qos/logback/logback-core/1.4.14/logback-core-1.4.14.jar = 1701431559000
+/home/codex/.m2/repository/org/apache/logging/log4j/log4j-to-slf4j/2.21.1/log4j-to-slf4j-2.21.1.jar = 1697831384000
+/home/codex/.m2/repository/org/apache/logging/log4j/log4j-api/2.21.1/log4j-api-2.21.1.jar = 1697831380000
+/home/codex/.m2/repository/org/slf4j/jul-to-slf4j/2.0.13/jul-to-slf4j-2.0.13.jar = 1712931978000
+/home/codex/.m2/repository/jakarta/annotation/jakarta.annotation-api/2.1.1/jakarta.annotation-api-2.1.1.jar = 1655206218000
+/home/codex/.m2/repository/org/yaml/snakeyaml/2.2/snakeyaml-2.2.jar = 1693124795000
+/home/codex/.m2/repository/com/jayway/jsonpath/json-path/2.9.0/json-path-2.9.0.jar = 1705745093000
+/home/codex/.m2/repository/jakarta/xml/bind/jakarta.xml.bind-api/4.0.2/jakarta.xml.bind-api-4.0.2.jar = 1708335734000
+/home/codex/.m2/repository/jakarta/activation/jakarta.activation-api/2.1.3/jakarta.activation-api-2.1.3.jar = 1707984867000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-data-jpa/3.2.5/spring-boot-starter-data-jpa-3.2.5.jar = 1713462830000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-aop/3.2.5/spring-boot-starter-aop-3.2.5.jar = 1713462897000
+/home/codex/.m2/repository/org/springframework/spring-aop/6.1.6/spring-aop-6.1.6.jar = 1712825153000
+/home/codex/.m2/repository/org/aspectj/aspectjweaver/1.9.22/aspectjweaver-1.9.22.jar = 1711213940000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-jdbc/3.2.5/spring-boot-starter-jdbc-3.2.5.jar = 1713462748000
+/home/codex/.m2/repository/com/zaxxer/HikariCP/5.0.1/HikariCP-5.0.1.jar = 1641789548000
+/home/codex/.m2/repository/org/springframework/spring-jdbc/6.1.6/spring-jdbc-6.1.6.jar = 1712825153000
+/home/codex/.m2/repository/org/hibernate/orm/hibernate-core/6.4.4.Final/hibernate-core-6.4.4.Final.jar = 1707398464000
+/home/codex/.m2/repository/jakarta/transaction/jakarta.transaction-api/2.0.1/jakarta.transaction-api-2.0.1.jar = 1648723059000
+/home/codex/.m2/repository/org/antlr/antlr4-runtime/4.13.0/antlr4-runtime-4.13.0.jar = 1684690120000
+/home/codex/.m2/repository/org/springframework/data/spring-data-jpa/3.2.5/spring-data-jpa-3.2.5.jar = 1712910327000
+/home/codex/.m2/repository/org/springframework/spring-orm/6.1.6/spring-orm-6.1.6.jar = 1712825152000
+/home/codex/.m2/repository/org/springframework/spring-tx/6.1.6/spring-tx-6.1.6.jar = 1712825150000
+/home/codex/.m2/repository/org/springframework/spring-aspects/6.1.6/spring-aspects-6.1.6.jar = 1712825149000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-web/3.2.5/spring-boot-starter-web-3.2.5.jar = 1713462596000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-json/3.2.5/spring-boot-starter-json-3.2.5.jar = 1713462717000
+/home/codex/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.15.4/jackson-databind-2.15.4.jar = 1708018528000
+/home/codex/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.15.4/jackson-annotations-2.15.4.jar = 1708016371000
+/home/codex/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.15.4/jackson-core-2.15.4.jar = 1708016988000
+/home/codex/.m2/repository/com/fasterxml/jackson/datatype/jackson-datatype-jdk8/2.15.4/jackson-datatype-jdk8-2.15.4.jar = 1708020620000
+/home/codex/.m2/repository/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.15.4/jackson-datatype-jsr310-2.15.4.jar = 1708020617000
+/home/codex/.m2/repository/com/fasterxml/jackson/module/jackson-module-parameter-names/2.15.4/jackson-module-parameter-names-2.15.4.jar = 1708020616000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-tomcat/3.2.5/spring-boot-starter-tomcat-3.2.5.jar = 1713462622000
+/home/codex/.m2/repository/org/apache/tomcat/embed/tomcat-embed-core/10.1.20/tomcat-embed-core-10.1.20.jar = 1710854871000
+/home/codex/.m2/repository/org/apache/tomcat/embed/tomcat-embed-el/10.1.20/tomcat-embed-el-10.1.20.jar = 1710854916000
+/home/codex/.m2/repository/org/apache/tomcat/embed/tomcat-embed-websocket/10.1.20/tomcat-embed-websocket-10.1.20.jar = 1710854926000
+/home/codex/.m2/repository/org/springframework/spring-web/6.1.6/spring-web-6.1.6.jar = 1712825154000
+/home/codex/.m2/repository/io/micrometer/micrometer-observation/1.12.5/micrometer-observation-1.12.5.jar = 1712584839000
+/home/codex/.m2/repository/io/micrometer/micrometer-commons/1.12.5/micrometer-commons-1.12.5.jar = 1712584828000
+/home/codex/.m2/repository/org/springframework/spring-webmvc/6.1.6/spring-webmvc-6.1.6.jar = 1712825153000
+/home/codex/.m2/repository/org/springframework/spring-expression/6.1.6/spring-expression-6.1.6.jar = 1712825154000
+/home/codex/.m2/repository/org/springdoc/springdoc-openapi-starter-webmvc-ui/2.6.0/springdoc-openapi-starter-webmvc-ui-2.6.0.jar = 1719771046000
+/home/codex/.m2/repository/org/springdoc/springdoc-openapi-starter-webmvc-api/2.6.0/springdoc-openapi-starter-webmvc-api-2.6.0.jar = 1719771052000
+/home/codex/.m2/repository/org/springdoc/springdoc-openapi-starter-common/2.6.0/springdoc-openapi-starter-common-2.6.0.jar = 1719771053000
+/home/codex/.m2/repository/io/swagger/core/v3/swagger-core-jakarta/2.2.22/swagger-core-jakarta-2.2.22.jar = 1715766163000
+/home/codex/.m2/repository/org/apache/commons/commons-lang3/3.13.0/commons-lang3-3.13.0.jar = 1690141497000
+/home/codex/.m2/repository/io/swagger/core/v3/swagger-annotations-jakarta/2.2.22/swagger-annotations-jakarta-2.2.22.jar = 1715766170000
+/home/codex/.m2/repository/io/swagger/core/v3/swagger-models-jakarta/2.2.22/swagger-models-jakarta-2.2.22.jar = 1715766160000
+/home/codex/.m2/repository/jakarta/validation/jakarta.validation-api/3.0.2/jakarta.validation-api-3.0.2.jar = 1653588099000
+/home/codex/.m2/repository/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.15.4/jackson-dataformat-yaml-2.15.4.jar = 1708020165000
+/home/codex/.m2/repository/org/webjars/swagger-ui/5.17.14/swagger-ui-5.17.14.jar = 1717111051000
+/home/codex/.m2/repository/org/springframework/boot/spring-boot-starter-hateoas/3.2.5/spring-boot-starter-hateoas-3.2.5.jar = 1713462760000
+/home/codex/.m2/repository/org/springframework/hateoas/spring-hateoas/2.2.2/spring-hateoas-2.2.2.jar = 1712903046000
+/home/codex/.m2/repository/org/springframework/plugin/spring-plugin-core/3.0.0/spring-plugin-core-3.0.0.jar = 1668598250000
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/src/main/java = 1756058326382
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/generated-sources/annotations = 1760126712127
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/allclasses-index.html = 1760827966008
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/allpackages-index.html = 1760827966011
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/constant-values.html = 1760827965182
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/copy.svg = 1760827966112
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/element-list = 1760827964564
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/help-doc.html = 1760827966099
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/index-all.html = 1760827966086
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/index.html = 1760827965975
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/link.svg = 1760827966114
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/member-search-index.js = 1760827966023
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/module-search-index.js = 1760827966014
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/overview-summary.html = 1760827966093
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/overview-tree.html = 1760827965970
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/package-search-index.js = 1760827966017
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/script.js = 1760827966108
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/search-page.js = 1760827966121
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/search.html = 1760827966090
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/search.js = 1760827966117
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/serialized-form.html = 1760827965193
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/stylesheet.css = 1760827966104
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/tag-search-index.js = 1760827966028
+/mnt/d/Developer/praxis/backend-libs/praxis-metadata-starter/target/apidocs/type-search-index.js = 1760827966019
