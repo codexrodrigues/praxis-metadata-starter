@@ -7,7 +7,19 @@
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; line-height: 1.5; padding: 1.2rem; }
     h1, h2 { margin: 0.2rem 0 0.6rem; }
     ul { margin: 0.2rem 0 1rem 1.2rem; }
-    code { background: #f6f8fa; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    code { background: #1b1f28; color:#e8eaed; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    /* Badges + endpoint grid */
+    .badges { display:flex; flex-wrap:wrap; gap:.35rem; margin:.35rem 0; }
+    .badge { font:600 12px/1 system-ui,sans-serif; padding:.18rem .5rem; border-radius:999px; border:1px solid rgba(148,163,184,.28); letter-spacing:.02em }
+    .method { color:#e5e7eb; background:#1f2937; }
+    .get   { background:#10b98122; border-color:#10b98155; color:#34d399 }
+    .post  { background:#3b82f622; border-color:#3b82f655; color:#60a5fa }
+    .put   { background:#f59e0b22; border-color:#f59e0b55; color:#fbbf24 }
+    .del   { background:#ef444422; border-color:#ef444455; color:#f87171 }
+    .misc  { background:#8b5cf622; border-color:#8b5cf655; color:#a78bfa }
+    .ep-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap:.5rem; }
+    .ep { background: #11151b; border:1px solid rgba(148,163,184,.25); border-radius:10px; padding:.5rem .75rem }
+    .ep code{ background:transparent; color:inherit; padding:0 }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="Praxis Metadata Starter — anotações e auto‑configuração para gerar metadados de UI em OpenAPI (x-ui)." />
@@ -35,15 +47,22 @@
   </ul>
 
   <h2>O que este starter entrega</h2>
+  <div class="ep-grid">
+    <div class="ep"><span class="badge method get">GET</span> <code>/{id}</code></div>
+    <div class="ep"><span class="badge method get">GET</span> <code>/all</code></div>
+    <div class="ep"><span class="badge method post">POST</span> <code>/filter</code></div>
+    <div class="ep"><span class="badge method post">POST</span> <code>/filter/cursor</code></div>
+    <div class="ep"><span class="badge method post">POST</span> <code>/locate</code></div>
+    <div class="ep"><span class="badge method get">GET</span> <code>/by-ids</code></div>
+    <div class="ep"><span class="badge method post">POST</span> <code>/options/filter</code></div>
+    <div class="ep"><span class="badge method get">GET</span> <code>/options/by-ids</code></div>
+    <div class="ep"><span class="badge method post">POST</span> <code>/</code></div>
+    <div class="ep"><span class="badge method put">PUT</span> <code>/{id}</code></div>
+    <div class="ep"><span class="badge method del">DELETE</span> <code>/{id}</code></div>
+    <div class="ep"><span class="badge method del">DELETE</span> <code>/batch</code></div>
+    <div class="ep"><span class="badge method misc">GET</span> <code>/schemas</code> → <code>/schemas/filtered</code></div>
+  </div>
   <ul>
-    <li><strong>Endpoints REST prontos (até 13 por recurso):</strong>
-      <div>
-        <code>GET /{id}</code>, <code>GET /all</code>, <code>POST /filter</code>, <code>POST /filter/cursor</code>,
-        <code>POST /locate</code>, <code>GET /by-ids</code>, <code>POST /options/filter</code>, <code>GET /options/by-ids</code>,
-        <code>POST /</code>, <code>PUT /{id}</code>, <code>DELETE /{id}</code>, <code>DELETE /batch</code>,
-        <code>GET /schemas</code> (redirect para <code>/schemas/filtered</code>)
-      </div>
-    </li>
     <li><strong>Filtro dinâmico com Specifications JPA:</strong> 26 operações embutidas
       (igual/diferente, like/not like, starts/ends with, &gt;/&ge;/&lt;/&le;, in/not in, between, between exclusive, not between,
       outside range, on date, in last/next days, size eq/gt/lt, is true/false/null/not null)
@@ -56,7 +75,8 @@
     <li><strong>Documentação performática:</strong> detecção automática de grupos OpenAPI por path e cache de documentos; endpoint <code>/schemas/filtered</code> com <code>ETag</code> e canonicalização.</li>
   </ul>
 
-  <h2>Exemplos rápidos</h2>
+  <a id="exemplos-r-pidos-heading"></a>
+  <h2 id="exemplos-rapidos">Exemplos rápidos</h2>
   <h3>Modelando DTO com @UISchema</h3>
   <pre><code>import jakarta.validation.constraints.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;

@@ -43,14 +43,24 @@ import org.praxisplatform.uischema.util.SortBuilder;
  * <h2>🏗️ Controller Base com Auto-Detecção de Path e Integração OpenAPI</h2>
  *
  * <h3>✨ O que vem pronto (por números)</h3>
- * <ul>
- *   <li><strong>13 endpoints por recurso:</strong> {@code GET /{id}}, {@code GET /all}, {@code POST /filter}, {@code POST /filter/cursor},
- *   {@code POST /locate}, {@code GET /by-ids}, {@code POST /options/filter}, {@code GET /options/by-ids},
- *   {@code POST /}, {@code PUT /{id}}, {@code DELETE /{id}}, {@code DELETE /batch}, {@code GET /schemas}</li>
- *   <li><strong>26 operações de filtro:</strong> texto (like/not/starts/ends), comparações (&gt;, &ge;, &lt;, &le;), listas (in/not),
- *   intervalos (between/…​), datas relativas (últimos/próximos), tamanho de coleções, nulidade/booleanos.</li>
- *   <li><strong>Documentação viva:</strong> OpenAPI por grupo + cache + ETag e metadados de UI (x‑ui).</li>
- * </ul>
+ * <div class="ep-grid">
+ *   <div class="ep"><span class="badge method get">GET</span> <code>/{id}</code></div>
+ *   <div class="ep"><span class="badge method get">GET</span> <code>/all</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/filter</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/filter/cursor</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/locate</code></div>
+ *   <div class="ep"><span class="badge method get">GET</span> <code>/by-ids</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/options/filter</code></div>
+ *   <div class="ep"><span class="badge method get">GET</span> <code>/options/by-ids</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/</code></div>
+ *   <div class="ep"><span class="badge method put">PUT</span> <code>/{id}</code></div>
+ *   <div class="ep"><span class="badge method del">DELETE</span> <code>/{id}</code></div>
+ *   <div class="ep"><span class="badge method del">DELETE</span> <code>/batch</code></div>
+ *   <div class="ep"><span class="badge method misc">GET</span> <code>/schemas</code> → <code>/schemas/filtered</code></div>
+ * </div>
+ * <p><strong>26 operações de filtro</strong>: texto (like/not/starts/ends), comparações (&gt;, &ge;, &lt;, &le;), listas (in/not),
+ * intervalos (between/…​), datas relativas (últimos/próximos), tamanho de coleções, nulidade/booleanos.</p>
+ * <p><strong>Documentação viva</strong>: OpenAPI por grupo + cache + ETag, com metadados de UI (x‑ui).</p>
  * 
  * <h3>🎯 Problema Resolvido</h3>
  * <p>Antes desta implementação, era necessário implementar manualmente o método {@code getBasePath()} 

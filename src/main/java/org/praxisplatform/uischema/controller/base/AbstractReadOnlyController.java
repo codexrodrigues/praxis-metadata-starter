@@ -29,13 +29,19 @@ import java.util.List;
  * </p>
  *
  * <h3>✨ O que vem pronto</h3>
- * <ul>
- *   <li>Leitura rica: {@code GET /{id}}, {@code GET /all}, {@code POST /filter}, {@code POST /filter/cursor},
- *   {@code POST /locate}, {@code GET /by-ids}, {@code POST /options/filter}, {@code GET /options/by-ids}, {@code GET /schemas}</li>
- *   <li>Escrita segura: {@code POST /}, {@code PUT /{id}}, {@code DELETE /{id}}, {@code DELETE /batch} → {@code 405 Method Not Allowed}</li>
- *   <li>Filtros (26 operações) + paginação tradicional e por cursor</li>
- *   <li>Options id/label e integração com schema de UI (x‑ui)</li>
- * </ul>
+ * <div class="ep-grid">
+ *   <div class="ep"><span class="badge method get">GET</span> <code>/{id}</code></div>
+ *   <div class="ep"><span class="badge method get">GET</span> <code>/all</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/filter</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/filter/cursor</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/locate</code></div>
+ *   <div class="ep"><span class="badge method get">GET</span> <code>/by-ids</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/options/filter</code></div>
+ *   <div class="ep"><span class="badge method get">GET</span> <code>/options/by-ids</code></div>
+ *   <div class="ep"><span class="badge method misc">GET</span> <code>/schemas</code> → <code>/schemas/filtered</code></div>
+ * </div>
+ * <p><strong>Escrita segura:</strong> {@code POST /}, {@code PUT /{id}}, {@code DELETE /{id}}, {@code DELETE /batch} → {@code 405 Method Not Allowed}</p>
+ * <p><strong>Filtros (26 operações)</strong> + paginação tradicional e por cursor; <strong>Options id/label</strong> e schema x‑ui.</p>
  */
 public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFilterDTO>
         extends AbstractCrudController<E, D, ID, FD> {
