@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Visão Geral — Filtros (Specifications)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; line-height: 1.55; padding: 1.2rem; }
+    h1,h2 { margin: 0.4rem 0 0.6rem; }
+    h3 { margin: 1.0rem 0 0.4rem; }
+    code, pre { background: #f6f8fa; border-radius: 4px; }
+    pre { padding: 0.6rem; overflow: auto; }
+    ul { margin: 0.2rem 0 0.8rem 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Visão Geral de Filtros</h1>
+  <p>
+    Este documento explica como o mecanismo de filtros converte DTOs anotados com <code>@Filterable</code>
+    em <em>Specifications</em> JPA, cobrindo as operações suportadas, boas práticas e considerações de uso corporativo.
+  </p>
+
+  <h2>Arquitetura</h2>
+  <ul>
+    <li><strong>DTOs de Filtro</strong>: implementam <code>GenericFilterDTO</code> e declaram campos com <code>@Filterable</code>.</li>
+    <li><strong>GenericSpecificationsBuilder</strong>: lê os DTOs e monta predicados (Criteria API) conforme as operações.</li>
+    <li><strong>Services</strong>: consomem a <em>Specification</em> resultante para executar consultas paginadas/ordenadas.</li>
+  </ul>
+
+  <h2>Operações Suportadas (principais)</h2>
+  <ul>
+    <li>Igualdade e comparação: <code>EQUAL</code>, <code>NOT_EQUAL</code>, <code>GREATER_THAN</code>, <code>GREATER_OR_EQUAL</code>, <code>LESS_THAN</code>, <code>LESS_OR_EQUAL</code></li>
+    <li>Strings (case-insensitive): <code>LIKE</code>, <code>NOT_LIKE</code>, <code>STARTS_WITH</code>, <code>ENDS_WITH</code></li>
+    <li>Listas: <code>IN</code>, <code>NOT_IN</code></li>
+    <li>Intervalos: <code>BETWEEN</code> (inclusivo), <code>BETWEEN_EXCLUSIVE</code> (exclusivo), <code>NOT_BETWEEN</code>, <code>OUTSIDE_RANGE</code></li>
+    <li>Datas/relativos: <code>ON_DATE</code> (usa janela do dia), <code>IN_LAST_DAYS</code>, <code>IN_NEXT_DAYS</code></li>
+    <li>Nulos/booleanos: <code>IS_NULL</code>, <code>IS_NOT_NULL</code>, <code>IS_TRUE</code>, <code>IS_FALSE</code></li>
+    <li>Coleções: <code>SIZE_EQ</code>, <code>SIZE_GT</code>, <code>SIZE_LT</code> (requer relation para atributo de coleção)</li>
+  </ul>
+
+  <h3>Notas de Modelagem</h3>
+  <ul>
+    <li><strong>IS_NULL/IS_NOT_NULL</strong>: modele como <code>Boolean</code> e envie <code>true</code> para ativar o predicado.</li>
+    <li><strong>IS_TRUE/IS_FALSE</strong>: o predicado é aplicado quando o campo do DTO é fornecido (recomenda-se enviar <code>true</code>).</li>
+    <li><strong>SIZE_* (coleções)</strong>: aponte <code>relation</code> para um atributo de coleção (ex.: <code>"itens"</code>); caso contrário, o builder lança erro informativo.</li>
+    <li><strong>Datas</strong>: <code>ON_DATE</code>/<code>IN_LAST_DAYS</code>/<code>IN_NEXT_DAYS</code> normalizam para <code>Instant</code> e horário atual; padronize em UTC em ambientes multi-região.</li>
+  </ul>
+
+  <h2>Exemplo de DTO de Filtro (trecho)</h2>
+  <pre><code>public class PedidoFilterDTO implements GenericFilterDTO {
+  @Filterable(operation = FilterOperation.LIKE)
+  private String clienteNome;
+
+  @Filterable(operation = FilterOperation.GREATER_OR_EQUAL)
+  private BigDecimal valorMin;
+
+  @Filterable(operation = FilterOperation.ON_DATE)
+  private LocalDate criadoEm;
+
+  @Filterable(operation = FilterOperation.SIZE_GT, relation = "itens")
+  private Integer quantItensMaiorQue;
+
+  @Filterable(operation = FilterOperation.IS_TRUE)
+  private Boolean ativo;
+}
+  </code></pre>
+
+  <h2>Ordenação (Sort) com Relações</h2>
+  <p>
+    Para ordenar por um atributo relacionado, use o <em>nome do campo</em> do DTO no parâmetro <code>sort</code> da requisição.
+    O builder usa o <code>relation</code> da anotação <code>@Filterable</code> para mapear corretamente.
+  </p>
+  <pre><code>POST /api/pedidos/filter?page=0&amp;size=20&amp;sort=clienteNome,asc
+{
+  "clienteNome": "ana"
+}
+  </code></pre>
+
+  <h2>Boas Práticas Corporativas</h2>
+  <ul>
+    <li>Prefira filtros seletivos (evitar IN/NOT_IN com listas muito grandes).</li>
+    <li>Garanta índices para colunas frequentemente filtradas ou ordenadas.</li>
+    <li>Padronize timezone (UTC) para consistência entre backends/banco.</li>
+    <li>Documente relações usadas em <code>relation</code> e padrões de ordenação expostos.</li>
+  </ul>
+
+  <p>
+    Consulte também a documentação do pacote e os Javadocs de
+    <a href="../GenericSpecificationsBuilder.html">GenericSpecificationsBuilder</a>
+    e <a href="../../filter/annotation/Filterable.html">@Filterable</a>.
+  </p>
+</body>
+</html>

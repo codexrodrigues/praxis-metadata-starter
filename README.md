@@ -1081,4 +1081,4 @@ Lote 1 (Core) — adicionais:
 - SIZE_EQ, SIZE_GT, SIZE_LT (coleções)
 - IS_TRUE, IS_FALSE (booleanos)
 
-Veja exemplos e tabela completa em docs/guides/FILTROS-E-PAGINACAO.md.
+Veja exemplos e tabela completa em docs/guides/FILTROS-E-PAGINACAO.md e a visão geral em docs/apidocs/org/praxisplatform/uischema/filter/specification/doc-files/filters-overview.html.

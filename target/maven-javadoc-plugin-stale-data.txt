@@ -11,14 +11,14 @@
 --release
 21
 -sourcepath
-'/mnt/d/Developer/praxis-metadata-starter/src/main/java:/mnt/d/Developer/praxis-metadata-starter/target/generated-sources/annotations:/mnt/d/Developer/praxis-metadata-starter/src/main/javadoc'
+'/mnt/d/Developer/praxis-metadata-starter/src/main/java:/mnt/d/Developer/praxis-metadata-starter/src/main/javadoc'
 -author
 -bottom
 'Copyright &#169; 2025. All rights reserved.'
 -charset
 'UTF-8'
 -d
-'/mnt/d/Developer/praxis-metadata-starter/target/apidocs'
+'/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs'
 -docencoding
 'UTF-8'
 -Xdoclint:none
@@ -124,28 +124,27 @@ org.praxisplatform.uischema.util
 /mnt/d/Developer/praxis-metadata-starter/.m2repo/org/springframework/hateoas/spring-hateoas/2.2.2/spring-hateoas-2.2.2.jar = 1712903046000
 /mnt/d/Developer/praxis-metadata-starter/.m2repo/org/springframework/plugin/spring-plugin-core/3.0.0/spring-plugin-core-3.0.0.jar = 1668598250000
 /mnt/d/Developer/praxis-metadata-starter/src/main/java = 1761776348808
-/mnt/d/Developer/praxis-metadata-starter/target/generated-sources/annotations = 1761817649262
 /mnt/d/Developer/praxis-metadata-starter/src/main/javadoc/overview.html = 1761819724809
 /mnt/d/Developer/praxis-metadata-starter/src/main/javadoc = 1761818887054
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/allclasses-index.html = 1761825175223
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/allpackages-index.html = 1761825175230
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/constant-values.html = 1761825174106
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/copy.svg = 1761825175372
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/element-list = 1761825173291
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/help-doc.html = 1761825175351
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/index-all.html = 1761825175340
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/index.html = 1761825175187
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/link.svg = 1761825175379
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/member-search-index.js = 1761825175246
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/module-search-index.js = 1761825175233
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/overview-summary.html = 1761825175351
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/overview-tree.html = 1761825175161
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/package-search-index.js = 1761825175238
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/script.js = 1761825175368
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/search-page.js = 1761825175395
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/search.html = 1761825175346
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/search.js = 1761825175387
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/serialized-form.html = 1761825174123
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/stylesheet.css = 1761825175361
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/tag-search-index.js = 1761825175255
-/mnt/d/Developer/praxis-metadata-starter/target/apidocs/type-search-index.js = 1761825175241
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/allclasses-index.html = 1761836565288
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/allpackages-index.html = 1761836565293
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/constant-values.html = 1761836564130
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/copy.svg = 1761836565485
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/element-list = 1761836563273
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/help-doc.html = 1761836565467
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/index-all.html = 1761836565423
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/index.html = 1761836565252
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/link.svg = 1761836565488
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/member-search-index.js = 1761836565313
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/module-search-index.js = 1761836565299
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/overview-summary.html = 1761836565431
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/overview-tree.html = 1761836565172
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/package-search-index.js = 1761836565302
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/script.js = 1761836565481
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/search-page.js = 1761836565500
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/search.html = 1761836565428
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/search.js = 1761836565495
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/serialized-form.html = 1761836564189
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/stylesheet.css = 1761836565473
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/tag-search-index.js = 1761836565321
+/mnt/d/Developer/praxis-metadata-starter/target/site/apidocs/type-search-index.js = 1761836565302

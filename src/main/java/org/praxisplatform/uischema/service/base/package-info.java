@@ -4,10 +4,11 @@
  *
  * <p>
  * Fornece implementações como {@link org.praxisplatform.uischema.service.base.BaseCrudService}
- * e {@link org.praxisplatform.uischema.service.base.BaseReadOnlyService},
+ * e {@link org.praxisplatform.uischema.service.base.AbstractReadOnlyService},
  * pensadas para trabalhar com os controllers de {@code controller.base} e os
  * repositórios em {@code repository.base}. Essa camada também fornece
- * integrações com {@link org.praxisplatform.uischema.filter.dto.FilterDefinitionDTO}.
+ * integra com {@link org.praxisplatform.uischema.filter.dto.GenericFilterDTO} e o
+ * {@link org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder}.
  * </p>
  *
  * @since 1.0.0

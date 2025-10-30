@@ -24,6 +24,7 @@ Pacotes principais:
 - Filtros e Especificações
   - [`org.praxisplatform.uischema.filter.dto`](../apidocs/org/praxisplatform/uischema/filter/dto/package-summary.html)
   - [`org.praxisplatform.uischema.filter.specification`](../apidocs/org/praxisplatform/uischema/filter/specification/package-summary.html)
+  - Visão geral: [`Filters Overview`](../apidocs/org/praxisplatform/uischema/filter/specification/doc-files/filters-overview.html)
 
 - Requisições/Respostas e Erros
   - [`org.praxisplatform.uischema.rest.response`](../apidocs/org/praxisplatform/uischema/rest/response/package-summary.html)
