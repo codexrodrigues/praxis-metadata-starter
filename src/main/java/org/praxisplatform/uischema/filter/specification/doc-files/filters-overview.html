@@ -1,93 +1,229 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <title>Praxis — Tour Visual de Filtros</title>
+  <meta charset="UTF-8" />
+  <title>Visão Geral de Filtros</title>
   <style>
-    :root { --bg:#ffffff; --fg:#111827; --muted:#6b7280; --card:#f9fafb; --accent:#0ea5e9; }
-    @media (prefers-color-scheme: dark){ :root{ --bg:#0f1115; --fg:#e5e7eb; --muted:#9ca3af; --card:#11151b; --accent:#60a5fa; } }
-    body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,sans-serif;margin:0;padding:24px;background:var(--bg);color:var(--fg);} 
-    h1,h2,h3{margin:.2rem 0 .6rem}
-    .muted{color:var(--muted)}
-    .card{background:var(--card);padding:16px;border-radius:10px;border:1px solid rgba(148,163,184,.2);margin:12px 0}
-    code,pre{background:#1b1f28;color:#e8eaed;padding:.25rem .5rem;border-radius:6px}
-    a{color:var(--accent);text-decoration:none}
-    table{width:100%;border-collapse:collapse;margin:.6rem 0}
-    th,td{border:1px solid rgba(148,163,184,.35);padding:.5rem;text-align:left}
-    th{background:rgba(148,163,184,.12)}
+    /* Estilos mínimos para harmonizar com o Javadoc */
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: .4rem; }
+    th { background: #f2f2f2; }
+    code, pre { background: #f6f8fa; border-radius: 4px; }
+    pre { padding: .6rem; overflow: auto; }
   </style>
 </head>
 <body>
   <div class="flex-content">
-  <h1>Tour Visual — Filtros Dinâmicos</h1>
-  <p class="muted">Declare no DTO. O Starter entrega a <strong>Specification JPA</strong> correta — com <strong>26 operações</strong>, relações legíveis e paginação previsível.</p>
+  <h1>Visão Geral de Filtros</h1>
+  <p>Como o starter converte DTOs anotados com <code>@Filterable</code> em <em>Specifications</em> JPA — cobrindo operações, modelagem, ordenação/paginação e práticas recomendadas.</p>
 
-  <div class="card">
-    <h2>Como pensar (e usar) filtros</h2>
-    <ul>
-      <li><strong>Declare</strong> no DTO com <code>@Filterable</code> (operação + relation opcional).</li>
-      <li><strong>Relacione</strong> com <code>relation="a.b.campo"</code> — joins legíveis, sem dor.</li>
-      <li><strong>Combine</strong> operações (texto, intervalos, datas relativas, listas, coleções, nulidade, booleanos).</li>
-      <li><strong>Entregue</strong> com os endpoints prontos (<code>POST /filter</code> e <code>/filter/cursor</code>).</li>
-    </ul>
-  </div>
+  <h2>Como funciona</h2>
+  <ul>
+    <li><strong>DTO de Filtro</strong>: implementa <code>GenericFilterDTO</code> e anota campos com <code>@Filterable</code> (operação + relation opcional).</li>
+    <li><strong>GenericSpecificationsBuilder</strong>: monta predicados (Criteria API) conforme tipo/operação, inclusive relações.</li>
+    <li><strong>Service</strong>: aplica a <em>Specification</em> com paginação e ordenação.</li>
+  </ul>
 
-  <h2>Exemplo rápido</h2>
-  <pre><code>public class PedidoFilterDTO implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
-  @Filterable(operation = Filterable.FilterOperation.LIKE)
-  private String cliente;
-
-  @Filterable(operation = Filterable.FilterOperation.BETWEEN)
-  private java.util.List&lt;java.time.LocalDate&gt; emissaoEntre; // [de, ate]
-
-  @Filterable(operation = Filterable.FilterOperation.IN_LAST_DAYS)
-  private Integer atualizadosUltimosDias; // ex.: 7
-
-  @Filterable(operation = Filterable.FilterOperation.IN)
-  private java.util.List&lt;String&gt; canais; // ["ONLINE","LOJA"]
-
-  @Filterable(operation = Filterable.FilterOperation.LIKE, relation = "vendedor.nome")
-  private String vendedorNome;
-}
-  </code></pre>
-
-  <h2>Catálogo (26 operações)</h2>
+  <h2>Operações suportadas (categorias)</h2>
   <table>
     <tr><th>Categoria</th><th>Operações</th></tr>
     <tr><td>Igualdade</td><td>EQUAL, NOT_EQUAL</td></tr>
-    <tr><td>Texto</td><td>LIKE, NOT_LIKE, STARTS_WITH, ENDS_WITH</td></tr>
+    <tr><td>Texto (case-insensitive)</td><td>LIKE, NOT_LIKE, STARTS_WITH, ENDS_WITH</td></tr>
     <tr><td>Comparações</td><td>GREATER_THAN, GREATER_OR_EQUAL, LESS_THAN, LESS_OR_EQUAL</td></tr>
     <tr><td>Listas</td><td>IN, NOT_IN</td></tr>
     <tr><td>Intervalos</td><td>BETWEEN, BETWEEN_EXCLUSIVE, NOT_BETWEEN, OUTSIDE_RANGE</td></tr>
     <tr><td>Datas</td><td>ON_DATE, IN_LAST_DAYS, IN_NEXT_DAYS</td></tr>
     <tr><td>Coleções</td><td>SIZE_EQ, SIZE_GT, SIZE_LT</td></tr>
-    <tr><td>Bool/Nulidade</td><td>IS_TRUE, IS_FALSE, IS_NULL, IS_NOT_NULL</td></tr>
+    <tr><td>Boolean/Nulidade</td><td>IS_TRUE, IS_FALSE, IS_NULL, IS_NOT_NULL</td></tr>
   </table>
 
-  <div class="card">
-    <h3>Relações sem dor</h3>
-    <p>Use <code>relation="a.b.campo"</code> para filtrar por atributos relacionados. O builder resolve os joins com segurança.</p>
-  </div>
+  <h2>Matriz Didática (operação → UX/uso)</h2>
+  <p><strong>Legenda:</strong> ✓ recomendado • ⚠️ cautela</p>
+  <table>
+    <tr>
+      <th>Operação</th>
+      <th>Ícone</th>
+      <th>Descrição (UX/Quando usar)</th>
+      <th>Tipos</th>
+      <th>Valor no DTO</th>
+      <th>Exemplo</th>
+      <th>Nota</th>
+    </tr>
+    <tr>
+      <td><code>LIKE</code></td>
+      <td>🔍</td>
+      <td>Busca por trecho (contém). Ótimo para caixas de busca.</td>
+      <td>String</td>
+      <td>String</td>
+      <td><code>nomeContem = "ana"</code></td>
+      <td>✓ Case-insensitive por <code>lower()</code>.</td>
+    </tr>
+    <tr>
+      <td><code>STARTS_WITH</code></td>
+      <td>🔎</td>
+      <td>Prefixo. Ajuda em autocompletes com grandes listas.</td>
+      <td>String</td>
+      <td>String</td>
+      <td><code>codigoPrefixo = "jo"</code></td>
+      <td>✓ Também case-insensitive.</td>
+    </tr>
+    <tr>
+      <td><code>GREATER_OR_EQUAL</code></td>
+      <td>📈</td>
+      <td>Faixas numéricas e datas: “a partir de”.</td>
+      <td>Comparable</td>
+      <td>Número/Data</td>
+      <td><code>valorMin = 100.00</code></td>
+      <td>✓ Combine com <code>LESS_OR_EQUAL</code> para faixa.</td>
+    </tr>
+    <tr>
+      <td><code>BETWEEN_EXCLUSIVE</code></td>
+      <td>📏</td>
+      <td>Faixa excludente (sem bordas). Útil para janelas precisas.</td>
+      <td>Comparable</td>
+      <td>Lista[2]</td>
+      <td><code>faixaExclusiva = [100.0, 500.0]</code></td>
+      <td>✓ Alternativa ao <code>BETWEEN</code> inclusivo.</td>
+    </tr>
+    <tr>
+      <td><code>OUTSIDE_RANGE</code></td>
+      <td>↔️</td>
+      <td>Fora da faixa. Ótimo para achados extremos/outliers.</td>
+      <td>Comparable</td>
+      <td>Lista[2]</td>
+      <td><code>foraIntervalo = [0, 10]</code></td>
+      <td>✓ Combina <code>&lt; min</code> OR <code>&gt; max</code>.</td>
+    </tr>
+    <tr>
+      <td><code>ON_DATE</code></td>
+      <td>📅</td>
+      <td>Data exata (ignora hora). Para “emissão em…”.</td>
+      <td>Data</td>
+      <td>LocalDate</td>
+      <td><code>criadoEm = "2024-05-10"</code></td>
+      <td>✓ Janela [início do dia, próximo dia) em UTC.</td>
+    </tr>
+    <tr>
+      <td><code>IN_LAST_DAYS</code></td>
+      <td>⏱️</td>
+      <td>Atualizados “nos últimos N dias”.</td>
+      <td>Data</td>
+      <td>Integer</td>
+      <td><code>ultimosDias = 7</code></td>
+      <td>✓ Relativo ao “agora” do backend.</td>
+    </tr>
+    <tr>
+      <td><code>SIZE_GT</code></td>
+      <td>🧮</td>
+      <td>Cardinalidade de coleção. “Pedidos com &gt; N itens”.</td>
+      <td>Coleção</td>
+      <td>Integer</td>
+      <td><code>itensMaiorQue = 2</code></td>
+      <td>⚠️ Exige <code>relation="itens"</code> no campo.</td>
+    </tr>
+    <tr>
+      <td><code>IN</code>/<code>NOT_IN</code></td>
+      <td>📋</td>
+      <td>Listas de inclusão/exclusão.</td>
+      <td>Qualquer</td>
+      <td>Lista</td>
+      <td><code>ids = ["...","..."]</code></td>
+      <td>⚠️ Evite listas muito grandes.</td>
+    </tr>
+    <tr>
+      <td><code>IS_NULL</code>/<code>IS_NOT_NULL</code></td>
+      <td>∅</td>
+      <td>Completar análises: campos vazios/preenchidos.</td>
+      <td>Qualquer</td>
+      <td>Boolean</td>
+      <td><code>descricaoIsNull = true</code></td>
+      <td>✓ <code>true</code> ativa o predicado.</td>
+    </tr>
+    <tr>
+      <td><code>IS_TRUE</code>/<code>IS_FALSE</code></td>
+      <td>✅/❌</td>
+      <td>Filtros booleanos diretos (flags).</td>
+      <td>Boolean</td>
+      <td>Presença</td>
+      <td><code>ativo = true</code></td>
+      <td>✓ Aplica quando o campo é fornecido.</td>
+    </tr>
+  </table>
 
-  <h2>Chamadas (REST)</h2>
-  <pre><code>POST /api/pedidos/filter?page=0&amp;size=20
+  <h2>Modelagem de DTO — boas práticas</h2>
+  <ul>
+    <li><strong>Ausente x Null x Vazio</strong>: Campo ausente → filtro ignorado. Em IN/NOT_IN, evite listas vazias.</li>
+    <li><strong>IS_NULL/IS_NOT_NULL</strong>: use <code>Boolean</code>; envie <code>true</code> para ativar.</li>
+    <li><strong>IS_TRUE/IS_FALSE</strong>: o predicado é aplicado quando o campo está presente (recomenda-se <code>true</code>).</li>
+    <li><strong>SIZE_* (coleções)</strong>: aponte <code>relation</code> para o atributo de coleção (ex.: "itens").</li>
+    <li><strong>Strings</strong>: LIKE/STARTS/ENDS normalizam via <code>lower()</code>; collation do DB pode afetar ordenação.</li>
+  </ul>
+
+  <h2>Ordenação e paginação</h2>
+  <p>Use <code>sort={campoDTO},{asc|desc}</code>. Para relação, o builder mapeia pelo <code>relation</code> do campo anotado.</p>
+  <pre><code>POST /api/pedidos/filter?page=0&amp;size=20&amp;sort=clienteNome,asc
 Content-Type: application/json
-
 {
-  "cliente": "maria",
-  "emissaoEntre": ["2024-01-01", "2024-12-31"],
-  "atualizadosUltimosDias": 7,
-  "canais": ["ONLINE", "LOJA"],
-  "vendedorNome": "silva"
+  "clienteNome": "ana"
 }
   </code></pre>
 
-  <h2>Saiba mais</h2>
+  <h2>Timezone e datas</h2>
   <ul>
-    <li><a href="../annotation/Filterable.html">Javadoc: @Filterable</a></li>
-    <li><a href="../specification/GenericSpecificationsBuilder.html">Javadoc: GenericSpecificationsBuilder</a></li>
-    <li><a href="../../../../controller/base/AbstractCrudController.html">Javadoc: AbstractCrudController</a></li>
+    <li><code>ON_DATE</code> aplica janela [início do dia, próximo dia) em UTC por padrão.</li>
+    <li><code>IN_LAST_DAYS</code>/<code>IN_NEXT_DAYS</code> são relativos ao “agora” do backend; padronize UTC no app/DB.</li>
   </ul>
-</div>
+
+  <h2>Exemplos (REST)</h2>
+  <pre><code>curl -s -X POST "https://exemplo/api/pedidos/filter?page=0&amp;size=20" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "cliente": "maria",
+        "emissaoEntre": ["2024-01-01", "2024-12-31"],
+        "atualizadosUltimosDias": 7,
+        "canais": ["ONLINE", "LOJA"]
+      }'
+  </code></pre>
+
+  <h2>Armadilhas comuns</h2>
+  <ul>
+    <li>Listas vazias em IN/NOT_IN → evite (não envie o campo).</li>
+    <li>NOT_IN muito grande → considere outra estratégia (flags, filtros combinados).</li>
+    <li>Relações profundas → atenção a N+1; use <code>distinct</code> no repositório quando necessário.</li>
+    <li>Campos sem índice → avalie impacto de performance com filtros frequentes.</li>
+  </ul>
+
+  <h2>Recomendações por Persona</h2>
+  <h3>UX / Produto</h3>
+  <ul>
+    <li>Autosuggest: prefira <code>STARTS_WITH</code> para respostas rápidas (✓).</li>
+    <li>Filtros “tempo real”: use <code>IN_LAST_DAYS</code>/<code>IN_NEXT_DAYS</code> em painéis e relatórios (✓).</li>
+    <li>Evite <code>NOT_IN</code> com listas extensas — UX e performance sofrem (⚠️).</li>
+    <li>Explique claramente o comportamento de <code>ON_DATE</code> (data exata, ignora hora).</li>
+  </ul>
+  <h3>Back‑end / Engenharia</h3>
+  <ul>
+    <li>Garanta índices para campos mais filtrados/ordenados (✓).</li>
+    <li>Em <code>SIZE_*</code>, sempre usar <code>relation</code> e revisar cardinalidade (⚠️).</li>
+    <li>Limite o tamanho de listas em <code>IN</code>/<code>NOT_IN</code>; prefira filtros mais seletivos (⚠️).</li>
+    <li>Padronize timezone em UTC para <code>ON_DATE</code>/<code>IN_LAST/NEXT_DAYS</code> (✓).</li>
+  </ul>
+  <h3>Dados / BI</h3>
+  <ul>
+    <li>Use <code>BETWEEN_EXCLUSIVE</code> para recortes precisos e fronteiras (✓).</li>
+    <li><code>OUTSIDE_RANGE</code> ajuda a detectar outliers/anomalias (✓).</li>
+    <li>Completude: <code>IS_NULL</code>/<code>IS_NOT_NULL</code> destacam lacunas de dados (✓).</li>
+  </ul>
+
+  <h2>Veja também</h2>
+  <ul>
+    <li><a href="../GenericSpecificationsBuilder.html">GenericSpecificationsBuilder</a></li>
+    <li><a href="../../filter/annotation/Filterable.html">@Filterable</a></li>
+    <li><a href="../../../../guides/FILTROS-E-PAGINACAO.html">Guia: Filtros &amp; Paginação</a></li>
+    <li><a href="../../../../examples/DTO-FILTROS-EXEMPLOS.html">DTO — todas as operações</a></li>
+    <li><a href="../../../../examples/FILTER-CHEATSHEET.html">Cheat Sheet — POST /filter</a></li>
+  </ul>
+
+  </div>
 </body>
 </html>

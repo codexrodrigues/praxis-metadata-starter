@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Exemplos — Consumindo o contrato (/schemas/filtered)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#ffffff; --fg:#111827; --muted:#6b7280; --card:#f9fafb; --accent:#0ea5e9; }
+    @media (prefers-color-scheme: dark){ :root{ --bg:#0f1115; --fg:#e5e7eb; --muted:#9ca3af; --card:#11151b; --accent:#60a5fa; } }
+    body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,sans-serif;margin:0;padding:24px;background:var(--bg);color:var(--fg);} 
+    h1,h2,h3{margin:.2rem 0 .6rem}
+    .muted{color:var(--muted)}
+    .card{background:var(--card);padding:16px;border-radius:10px;border:1px solid rgba(148,163,184,.2);margin:12px 0}
+    code,pre{background:#1b1f28;color:#e8eaed;padding:.25rem .5rem;border-radius:6px}
+    a{color:var(--accent);text-decoration:none}
+    ul{margin:.4rem 0 .8rem 1.2rem}
+  </style>
+</head>
+<body>
+  <div class="flex-content">
+    <a id="consumindo-o-contrato-heading"></a>
+    <h1>Consumindo o contrato</h1>
+    <p class="muted">Recupere schemas de <strong>request</strong> e <strong>response</strong> para guiar sua UI a partir das rotas expostas pelo starter.</p>
+
+    <div class="card">
+      <h2>Exemplos (curl)</h2>
+      <pre><code># Schema de grid (response)
+curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/all&amp;operation=get&amp;schemaType=response"
+
+# Schema de filtro (request)
+curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/filter&amp;operation=post&amp;schemaType=request"
+      </code></pre>
+    </div>
+
+    <h2>Parâmetros</h2>
+    <ul>
+      <li><code>path</code>: caminho do endpoint (ex.: <code>/api/human-resources/pessoas/filter</code>).</li>
+      <li><code>operation</code>: método HTTP (<code>get</code>, <code>post</code>).</li>
+      <li><code>schemaType</code>: <code>request</code> ou <code>response</code>.</li>
+    </ul>
+
+    <div class="card">
+      <h3>Boas práticas</h3>
+      <ul>
+        <li>Cache condicional: use <code>ETag</code> e <code>If-None-Match</code> para reduzir tráfego.</li>
+        <li>Exiba labels e dicas do <code>x-ui</code>; valide tipos/limites via Bean Validation mapeados.</li>
+        <li>Para selects, utilize os endpoints de <code>options</code> e preserve ordenação.</li>
+      </ul>
+    </div>
+
+    <h2>Ver também</h2>
+    <ul>
+      <li><a href="exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading">Expondo controller com @ApiResource</a></li>
+      <li><a href="exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">Modelando DTO com @UISchema</a></li>
+      <li><a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">Javadoc: ApiDocsController</a></li>
+    </ul>
+  </div>
+</body>
+</html>
+

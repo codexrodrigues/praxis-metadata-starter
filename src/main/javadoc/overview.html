@@ -34,6 +34,29 @@
     (<code>/schemas/filtered</code>).
   </p>
 
+  <!-- CTAs principais para exemplos -->
+  <style>
+    .cta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.6rem;margin:.8rem 0 1.2rem}
+    .cta{display:block;background:#11151b;border:1px solid rgba(148,163,184,.28);border-radius:12px;padding:.7rem .9rem;text-decoration:none;color:#e5e7eb}
+    .cta:hover{border-color:#60a5fa;box-shadow:0 0 0 1px #60a5fa20 inset}
+    .cta .title{font:600 14px/1.15 system-ui,sans-serif;margin:0 0 .25rem}
+    .cta .desc{font:12px/1.35 system-ui,sans-serif;color:#9ca3af;margin:0}
+  </style>
+  <div class="cta-grid" aria-label="Exemplos em destaque">
+    <a class="cta" href="doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">
+      <div class="title">🧩 Modelando DTO com @UISchema</div>
+      <p class="desc">Labels, tipos, validações e dicas refletidas no OpenAPI (x‑ui).</p>
+    </a>
+    <a class="cta" href="doc-files/exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading">
+      <div class="title">🛠️ Expondo controller com @ApiResource</div>
+      <p class="desc">Até 13 endpoints prontos por recurso (+ modo read‑only).</p>
+    </a>
+    <a class="cta" href="doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">
+      <div class="title">🔗 Consumindo o contrato (/schemas/filtered)</div>
+      <p class="desc">Schemas de request/response com ETag para UIs estáveis.</p>
+    </a>
+  </div>
+
   <h2>Exemplo completo (Quickstart)</h2>
   <p>
     Recomendamos o projeto de exemplo abaixo para ver o starter funcionando em uma aplicação Spring Boot real, com controllers,
@@ -123,6 +146,11 @@
   <!-- Stable anchor for external links (GitHub Pages, README, etc.) -->
   <a id="exemplos-rapidos"></a>
   <h2>Exemplos rápidos</h2>
+  <ul>
+    <li><a href="doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">Modelando DTO com @UISchema</a></li>
+    <li><a href="doc-files/exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading">Expondo controller com @ApiResource</a></li>
+    <li><a href="doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">Consumindo o contrato (/schemas/filtered)</a></li>
+  </ul>
   <h3>Modelando DTO com @UISchema</h3>
   <pre><code>import jakarta.validation.constraints.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;

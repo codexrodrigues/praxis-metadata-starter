@@ -16,6 +16,10 @@ O Praxis Metadata Starter (`praxis-metadata-starter`) é uma biblioteca fundamen
 Documentação online (GitHub Pages):
 - Site: https://codexrodrigues.github.io/praxis-metadata-starter/
 - Javadoc: https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/
+- Exemplos no Javadoc:
+  - Modelando DTO com @UISchema: https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading
+  - Expondo controller com @ApiResource: https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading
+  - Consumindo o contrato (/schemas/filtered): https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading
 
 ### Leituras recomendadas
 

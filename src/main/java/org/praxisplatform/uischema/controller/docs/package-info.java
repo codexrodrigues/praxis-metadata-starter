@@ -11,6 +11,12 @@
  * pacote {@code configuration}.
  * </p>
  *
+ * <p><strong>Veja exemplos:</strong>
+ * <ul>
+ *   <li><a href="../../../../../doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">Consumindo o contrato (/schemas/filtered)</a></li>
+ * </ul>
+ * </p>
+ *
  * @since 1.0.0
  */
 package org.praxisplatform.uischema.controller.docs;

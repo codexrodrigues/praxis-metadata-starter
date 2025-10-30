@@ -11,6 +11,13 @@
  * {@link org.praxisplatform.uischema.extension.CustomOpenApiResolver}.
  * </p>
  *
+ * <p><strong>Veja exemplos:</strong>
+ * <ul>
+ *   <li><a href="../../../../doc-files/exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading">Expondo controller com {@code @ApiResource}</a></li>
+ *   <li><a href="../../../../doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">Modelando DTO com {@code @UISchema}</a></li>
+ * </ul>
+ * </p>
+ *
  * @since 1.0.0
  */
 package org.praxisplatform.uischema.annotation;

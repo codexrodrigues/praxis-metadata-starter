@@ -11,7 +11,11 @@
  * <strong>Leitura complementar:</strong>
  * Veja a visão geral dos filtros em
  * <a href="../specification/doc-files/filters-overview.html">filters-overview.html</a>
- * e os exemplos na pasta {@code docs/examples/} deste repositório.
+ * e exemplos práticos:
+ * <ul>
+ *   <li><a href="../../../../../doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">Modelando DTO com {@code @UISchema}</a></li>
+ *   <li><a href="../../../../../doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">Consumindo o contrato (/schemas/filtered)</a></li>
+ * </ul>
  * </p>
  * </p>
  *

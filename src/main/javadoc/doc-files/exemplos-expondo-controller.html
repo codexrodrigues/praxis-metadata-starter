@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Exemplos — Expondo controller com @ApiResource</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#ffffff; --fg:#111827; --muted:#6b7280; --card:#f9fafb; --accent:#0ea5e9; }
+    @media (prefers-color-scheme: dark){ :root{ --bg:#0f1115; --fg:#e5e7eb; --muted:#9ca3af; --card:#11151b; --accent:#60a5fa; } }
+    body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,sans-serif;margin:0;padding:24px;background:var(--bg);color:var(--fg);} 
+    h1,h2,h3{margin:.2rem 0 .6rem}
+    .muted{color:var(--muted)}
+    .card{background:var(--card);padding:16px;border-radius:10px;border:1px solid rgba(148,163,184,.2);margin:12px 0}
+    code,pre{background:#1b1f28;color:#e8eaed;padding:.25rem .5rem;border-radius:6px}
+    a{color:var(--accent);text-decoration:none}
+    ul{margin:.4rem 0 .8rem 1.2rem}
+    .badges { display:flex; flex-wrap:wrap; gap:.35rem; margin:.35rem 0; }
+    .badge { font:600 12px/1 system-ui,sans-serif; padding:.18rem .5rem; border-radius:999px; border:1px solid rgba(148,163,184,.28); letter-spacing:.02em }
+    .method { color:#e5e7eb; background:#1f2937; }
+    .get   { background:#10b98122; border-color:#10b98155; color:#34d399 }
+    .post  { background:#3b82f622; border-color:#3b82f655; color:#60a5fa }
+    .put   { background:#f59e0b22; border-color:#f59e0b55; color:#fbbf24 }
+    .del   { background:#ef444422; border-color:#ef444455; color:#f87171 }
+    .misc  { background:#8b5cf622; border-color:#8b5cf655; color:#a78bfa }
+    .ep-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap:.5rem; }
+    .ep { background: var(--card); border:1px solid rgba(148,163,184,.25); border-radius:10px; padding:.5rem .75rem }
+    .ep code{ background:transparent; color:inherit; padding:0 }
+  </style>
+</head>
+<body>
+  <div class="flex-content">
+    <a id="expondo-controller-com-apiresource-heading"></a>
+    <h1>Expondo controller com @ApiResource</h1>
+    <p class="muted">Ganhe até <strong>13 endpoints</strong> por recurso ao estender as bases do starter. Read‑only também é suportado.</p>
+
+    <div class="card">
+      <h2>Exemplo de CRUD completo</h2>
+      <pre><code>import org.praxisplatform.uischema.annotation.ApiResource;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@ApiResource("/api/human-resources/pessoas")
+public class PessoaController extends AbstractCrudController&lt;Pessoa, PessoaDTO, Long, PessoaFilterDTO&gt; {
+  // injete serviços (service/repository) conforme sua arquitetura
+}
+      </code></pre>
+    </div>
+
+    <h2>Endpoints prontos</h2>
+    <div class="ep-grid">
+      <div class="ep"><span class="badge method get">GET</span> <code>/{id}</code></div>
+      <div class="ep"><span class="badge method get">GET</span> <code>/all</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/filter</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/filter/cursor</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/locate</code></div>
+      <div class="ep"><span class="badge method get">GET</span> <code>/by-ids</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/options/filter</code></div>
+      <div class="ep"><span class="badge method get">GET</span> <code>/options/by-ids</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/</code></div>
+      <div class="ep"><span class="badge method put">PUT</span> <code>/{id}</code></div>
+      <div class="ep"><span class="badge method del">DELETE</span> <code>/{id}</code></div>
+      <div class="ep"><span class="badge method del">DELETE</span> <code>/batch</code></div>
+      <div class="ep"><span class="badge method misc">GET</span> <code>/schemas</code> → <code>/schemas/filtered</code></div>
+    </div>
+
+    <div class="card">
+      <h3>Read‑only (Views/@Immutable)</h3>
+      <p>Use a base read‑only para manter os endpoints de leitura e bloquear escrita com <code>405</code>.</p>
+    </div>
+
+    <h2>Ver também</h2>
+    <ul>
+      <li><a href="../org/praxisplatform/uischema/annotation/ApiResource.html">Javadoc: @ApiResource</a></li>
+      <li><a href="../org/praxisplatform/uischema/controller/base/AbstractCrudController.html">Javadoc: AbstractCrudController</a></li>
+      <li><a href="exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">Modelando DTO com @UISchema</a></li>
+      <li><a href="exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">Consumindo o contrato</a></li>
+    </ul>
+  </div>
+</body>
+</html>
+

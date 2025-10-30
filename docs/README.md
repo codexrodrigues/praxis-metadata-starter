@@ -5,6 +5,11 @@ Este diretório contém a documentação completa do **Praxis Metadata Starter**
 Site da documentação (GitHub Pages):
 - https://codexrodrigues.github.io/praxis-metadata-starter/
 
+Exemplos no Javadoc (GitHub Pages):
+- Modelando DTO com @UISchema: https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading
+- Expondo controller com @ApiResource: https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading
+- Consumindo o contrato (/schemas/filtered): https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading
+
 ## 🗂️ **Estrutura da Documentação**
 
 ```

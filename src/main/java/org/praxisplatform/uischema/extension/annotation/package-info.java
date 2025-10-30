@@ -9,6 +9,12 @@
  * enriquecer schemas OpenAPI conforme descrito em {@code docs/architecture-overview.md}.
  * </p>
  *
+ * <p><strong>Veja exemplos:</strong>
+ * <ul>
+ *   <li><a href="../../../../../doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">Modelando DTO com {@code @UISchema}</a></li>
+ * </ul>
+ * </p>
+ *
  * @since 1.0.0
  */
 package org.praxisplatform.uischema.extension.annotation;

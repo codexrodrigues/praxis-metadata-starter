@@ -16,5 +16,12 @@
  *
  * <p><strong>Tour visual:</strong> veja um panorama dos endpoints e recursos em
  * <a href="doc-files/controllers-overview.html">controllers-overview.html</a>.</p>
+ *
+ * <p><strong>Veja exemplos:</strong>
+ * <ul>
+ *   <li><a href="../../../../../doc-files/exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading">Expondo controller com {@code @ApiResource}</a></li>
+ *   <li><a href="../../../../../doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">Consumindo o contrato (/schemas/filtered)</a></li>
+ * </ul>
+ * </p>
  */
 package org.praxisplatform.uischema.controller.base;
