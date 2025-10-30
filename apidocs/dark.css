@@ -1,75 +1,105 @@
-/*
-  Dark theme overrides for Javadoc (auto‑applies when OS is in dark mode).
-  Tip: The default generated stylesheet is available (for reference) at issues/stylesheet.css in your repo.
-*/
-
+/* === Dark mode para Javadoc (auto por prefers-color-scheme) === */
 @media (prefers-color-scheme: dark) {
-  html, body {
-    background-color: #0f1115 !important;
-    color: #e6e6e6 !important;
-  }
+    :root {
+        /* Texto */
+        --body-text-color: #e6e6e6;
+        --block-text-color: #d0d0d0;
+        --title-color: #ffffff;
 
-  a, a:link, a:visited {
-    color: #8ab4f8 !important;
-  }
-  a:hover, a:active {
-    color: #a8c7ff !important;
-  }
+        /* Fundos principais */
+        --body-background-color: #0f1115;
+        --section-background-color: #12151b;    /* blocos de resumo/detalhes */
+        --detail-background-color: #0f1115;
 
-  /* Header and navigation */
-  .header, .subTitle, .topNav, .bottomNav, .navPadding, .ui-widget-header {
-    background-color: #11151b !important;
-    color: #e6e6e6 !important;
-    border-color: #2a2f36 !important;
-  }
-  .topNav a, .bottomNav a { color: #c9d1d9 !important; }
+        /* Navbar + subnav */
+        --navbar-background-color: #1e2936;     /* topo */
+        --navbar-text-color: #e6e6e6;
+        --subnav-background-color: #151a22;     /* faixa abaixo */
 
-  /* Containers */
-  .contentContainer, .indexContainer, .leftContainer, .rightContainer,
-  .mainContainer, .docSummary, .description, .details, .serializedFormContainer,
-  .summary, .footer {
-    background-color: #0f1115 !important;
-    color: #e6e6e6 !important;
-  }
+        /* Abas/seleção */
+        --selected-background-color: #0ea5e9;   /* destaque acessível no dark */
+        --selected-text-color: #0b1220;
+        --selected-link-color: #93c5fd;
 
-  /* Tables and summaries */
-  table, .overviewSummary, .memberSummary, .typeSummary, .summaryTable,
-  .constantValuesContainer, .useSummary, .requiresSummary, .packagesSummary,
-  .classesSummary, .packages, .classUseContainer {
-    background-color: #11151b !important;
-    color: #e6e6e6 !important;
-    border-color: #2a2f36 !important;
-  }
-  th, .tableHeader, .colFirst, .colSecond, .colLast {
-    background-color: #151a22 !important;
-    color: #e6e6e6 !important;
-    border-color: #2a2f36 !important;
-  }
-  td, tr {
-    border-color: #2a2f36 !important;
-  }
+        /* Tabelas (linhas alternadas) */
+        --even-row-color: #12151b;
+        --odd-row-color: #171c25;
 
-  /* Blocks */
-  .block, .deprecationBlock, .legalCopy {
-    color: #cfcfcf !important;
-  }
+        /* Links */
+        --link-color: #8ab4f8;
+        --link-color-active: #ffd28a;
 
-  /* Code */
-  pre, code, tt {
-    background-color: #1b1f28 !important;
-    color: #e8eaed !important;
-    border: 1px solid #2a2f36 !important;
-  }
+        /* Snippets/código */
+        --snippet-background-color: #1b1f28;
+        --snippet-text-color: var(--block-text-color);
+        --snippet-highlight-color: #3a2f16;
 
-  /* Search */
-  input, select, textarea {
-    background-color: #141821 !important;
-    color: #e6e6e6 !important;
-    border-color: #2a2f36 !important;
-  }
+        /* Bordas */
+        --border-color: #2a2e35;
+        --table-border-color: #3b4048;
 
-  /* Labels */
-  .deprecatedLabel { background: #6e1e1e !important; color: #fff !important; }
-  .sinceLabel, .previewLabel { background: #2a2f36 !important; color: #e6e6e6 !important; }
+        /* Busca */
+        --search-input-background-color: #0f1115;
+        --search-input-text-color: #e6e6e6;
+        --search-input-placeholder-color: #9aa0a6;
+
+        /* Auxiliares */
+        --search-tag-highlight-color: #42370a;
+        --copy-icon-brightness: 350%;
+        --copy-button-background-color-active: rgba(255,255,255,0.08);
+
+        /* Notificações de tag */
+        --invalid-tag-background-color: #3b1f1f;
+        --invalid-tag-text-color: #ffd9d9;
+    }
+
+    /* ====== Ajustes pontuais que não usam só variáveis ====== */
+
+    /* Barras superiores e cabeçalhos de busca */
+    .top-nav, .sub-nav, .page-search-header {
+        background-color: var(--navbar-background-color) !important;
+        color: var(--navbar-text-color) !important;
+    }
+    .top-nav a:link, .top-nav a:active, .top-nav a:visited {
+        color: var(--navbar-text-color) !important;
+    }
+
+    /* Títulos de seções (tabs de tabelas / captions) */
+    .caption span,
+    div.table-tabs > .active-table-tab {
+        background: var(--selected-background-color) !important;
+        color: var(--selected-text-color) !important;
+    }
+    div.table-tabs > button.table-tab {
+        background: var(--navbar-background-color) !important;
+        color: var(--navbar-text-color) !important;
+    }
+
+    /* Cabeçalhos de tabelas */
+    .table-header { background: var(--subnav-background-color) !important; }
+
+    /* Campos de busca */
+    #search-input, #page-search-input {
+        background-color: var(--search-input-background-color) !important;
+        color: var(--search-input-text-color) !important;
+        border-color: var(--border-color) !important;
+    }
+
+    /* Código (inline e blocos) */
+    pre.snippet, pre, code, tt {
+        background: var(--snippet-background-color) !important;
+        color: var(--snippet-text-color) !important;
+        border-color: var(--border-color) !important;
+    }
+
+    /* Auto-complete/resultado de busca */
+    ul.ui-autocomplete {
+        background-color: var(--body-background-color) !important;
+        color: var(--body-text-color) !important;
+    }
+
+    /* Links externos (ícone SVG embutido): reduz saturação para não “gritar” */
+    main a[href*="://"]::after {
+        filter: brightness(0.8);
+    }
 }
-
