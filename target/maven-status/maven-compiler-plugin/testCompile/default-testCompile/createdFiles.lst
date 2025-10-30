@@ -1,3 +1,10 @@
+org/praxisplatform/uischema/extension/BooleanInferenceTest.class
+org/praxisplatform/uischema/extension/ArrayEnumInferenceTest.class
+org/praxisplatform/uischema/extension/NumericPercentInferenceTest.class
+org/praxisplatform/uischema/extension/NumericPercentInferenceTest$Dummy.class
 org/praxisplatform/uischema/extension/CustomOpenApiResolverTest.class
+org/praxisplatform/uischema/filter/specification/PredicateBuildersTest.class
+org/praxisplatform/uischema/extension/EnumInferenceTest.class
 org/praxisplatform/uischema/extension/CustomOpenApiResolverTest$Dummy.class
 org/praxisplatform/uischema/util/OpenApiUiUtilsControlTypeTest.class
+org/praxisplatform/uischema/filter/specification/MorePredicateBuildersTest.class

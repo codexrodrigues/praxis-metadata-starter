@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.extension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.models.media.ArraySchema;
+import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
@@ -18,7 +19,7 @@ class ArrayEnumInferenceTest {
     void smallArrayEnumShouldUseChipInput() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
         ArraySchema property = new ArraySchema();
-        Schema<?> items = new Schema<>().type("string");
+        StringSchema items = new StringSchema();
         items.setEnum(Arrays.asList("A","B","C"));
         property.setItems(items);
         resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
@@ -30,7 +31,7 @@ class ArrayEnumInferenceTest {
     void largeArrayEnumShouldUseMultiSelectAndFilterHint() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
         ArraySchema property = new ArraySchema();
-        Schema<?> items = new Schema<>().type("string");
+        StringSchema items = new StringSchema();
         java.util.List<String> values = new java.util.ArrayList<>();
         for (int i=0;i<50;i++) values.add("V"+i);
         items.setEnum(values);
@@ -50,4 +51,3 @@ class ArrayEnumInferenceTest {
         return (Map<String, Object>) xui;
     }
 }
-

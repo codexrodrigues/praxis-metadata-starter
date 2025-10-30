@@ -2,6 +2,9 @@
 
 Este diretório contém a documentação completa do **Praxis Metadata Starter**, organizadas seguindo as melhores práticas de documentação de projetos.
 
+Site da documentação (GitHub Pages):
+- https://codexrodrigues.github.io/praxis-metadata-starter/
+
 ## 🗂️ **Estrutura da Documentação**
 
 ```

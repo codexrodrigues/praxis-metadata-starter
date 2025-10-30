@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.extension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
@@ -16,7 +17,7 @@ class EnumInferenceTest {
     @Test
     void smallEnumShouldUseRadio() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
-        Schema<?> property = new Schema<>().type("string");
+        StringSchema property = new StringSchema();
         property.setEnum(Arrays.asList("A","B","C"));
         resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
         Map<String,Object> xui = getXui(property);
@@ -26,7 +27,7 @@ class EnumInferenceTest {
     @Test
     void mediumEnumShouldUseSelect() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
-        Schema<?> property = new Schema<>().type("string");
+        StringSchema property = new StringSchema();
         property.setEnum(Arrays.asList("A","B","C","D","E","F","G","H","I","J")); // 10
         resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
         Map<String,Object> xui = getXui(property);
@@ -36,7 +37,7 @@ class EnumInferenceTest {
     @Test
     void largeEnumShouldUseAutoComplete() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
-        Schema<?> property = new Schema<>().type("string");
+        StringSchema property = new StringSchema();
         java.util.List<String> values = new java.util.ArrayList<>();
         for (int i=0;i<100;i++) values.add("V"+i);
         property.setEnum(values);
@@ -54,4 +55,3 @@ class EnumInferenceTest {
         return (Map<String, Object>) xui;
     }
 }
-

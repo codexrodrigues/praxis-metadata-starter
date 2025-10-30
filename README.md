@@ -1,8 +1,21 @@
 # Praxis Metadata Starter
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
+[![Java](https://img.shields.io/badge/Java-21-007396?logo=openjdk)](https://adoptium.net)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2%2B-6DB33F?logo=spring-boot)](https://spring.io/projects/spring-boot)
+[![Last Commit](https://img.shields.io/github/last-commit/codexrodrigues/praxis-metadata-starter?logo=github)](https://github.com/codexrodrigues/praxis-metadata-starter/commits)
+[![Release CI](https://img.shields.io/github/actions/workflow/status/codexrodrigues/praxis-metadata-starter/release.yml?label=release&logo=github)](https://github.com/codexrodrigues/praxis-metadata-starter/actions/workflows/release.yml)
+[![Docs CI](https://img.shields.io/github/actions/workflow/status/codexrodrigues/praxis-metadata-starter/docs.yml?label=docs&logo=github)](https://github.com/codexrodrigues/praxis-metadata-starter/actions/workflows/docs.yml)
+[![Docs Site](https://img.shields.io/badge/docs-GitHub%20Pages-0A0?logo=github)](https://codexrodrigues.github.io/praxis-metadata-starter/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+
 ## Introdução
 
 O Praxis Metadata Starter (`praxis-metadata-starter`) é uma biblioteca fundamental para o framework Praxis UI Metadata. Ele permite que os desenvolvedores definam metadados de UI diretamente em seu código de backend, facilitando a geração e configuração automática de componentes de UI, como formulários, tabelas e filtros.
+
+Documentação online (GitHub Pages):
+- Site: https://codexrodrigues.github.io/praxis-metadata-starter/
+- Javadoc: https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/
 
 ### Concept Usage
 
@@ -1036,3 +1049,20 @@ public class FuncionarioViewService extends AbstractReadOnlyService<FuncView, Fu
 Heurística de `idField`:
 - Controller infere o campo id pela entidade: primeiro campo anotado com `@Id`; fallback: `"id"`.
 - `/schemas/filtered` valida o campo no schema do DTO; caso `id` não exista, usa a primeira propriedade terminando com `Id`.
+### Filtros — Operações Suportadas
+
+Além de EQUAL/LIKE/IN/BETWEEN/GREATER_THAN/LESS_THAN, o mecanismo suporta:
+
+- NOT_EQUAL, NOT_LIKE, STARTS_WITH, ENDS_WITH
+- GREATER_OR_EQUAL, LESS_OR_EQUAL
+- NOT_IN
+- IS_NULL, IS_NOT_NULL (ativadas quando `Boolean.TRUE` no DTO)
+
+Lote 1 (Core) — adicionais:
+
+- BETWEEN_EXCLUSIVE, NOT_BETWEEN, OUTSIDE_RANGE
+- ON_DATE, IN_LAST_DAYS, IN_NEXT_DAYS
+- SIZE_EQ, SIZE_GT, SIZE_LT (coleções)
+- IS_TRUE, IS_FALSE (booleanos)
+
+Veja exemplos e tabela completa em docs/guides/FILTROS-E-PAGINACAO.md.

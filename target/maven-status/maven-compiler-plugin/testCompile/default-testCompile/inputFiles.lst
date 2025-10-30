@@ -4,11 +4,13 @@
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/hash/SchemaCanonicalizerTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/util/SortBuilderTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/docs/ApiDocsControllerAllOfTest.java
+/mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/extension/BooleanInferenceTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/base/AbstractCrudControllerGetByIdsTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/dummy/DummyApplication.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/TestApplication.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/base/AbstractCrudControllerBatchDeleteTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/extension/CustomOpenApiResolverTest.java
+/mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/filter/specification/MorePredicateBuildersTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/base/AbstractCrudControllerCursorPaginationTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/base/AbstractCrudControllerFilterWithIncludeIdsTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/base/SimpleFilterDTO.java
@@ -19,14 +21,17 @@
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/extension/TypeDetectionTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/util/OpenApiGroupResolverTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/extension/EndpointPropertiesTest.java
+/mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/extension/EnumInferenceTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/service/base/BaseCrudServiceOptionMapperTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/dummy/controllers/TestAnnotationsController.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/e2e/SchemaHashE2eTest.java
+/mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/extension/NumericPercentInferenceTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/util/PageableBuilderTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/dummy/OpenApiConfig.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/extension/DateFieldUISchemaTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/base/AbstractCrudControllerLocateTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/base/SimpleDto.java
+/mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/extension/ArrayEnumInferenceTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/docs/ApiDocsControllerReadOnlyMetaTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/base/AbstractCrudControllerLocateNotImplementedTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/base/AbstractCrudControllerLinksTest.java
@@ -34,3 +39,4 @@
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/base/AbstractCrudControllerOptionsTest.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/e2e/E2eTestController.java
 /mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/FieldControlTypeTest.java
+/mnt/d/Developer/praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/filter/specification/PredicateBuildersTest.java

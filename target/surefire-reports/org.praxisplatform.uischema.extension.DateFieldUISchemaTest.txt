@@ -1,8 +1,8 @@
 -------------------------------------------------------------------------------
 Test set: org.praxisplatform.uischema.extension.DateFieldUISchemaTest
 -------------------------------------------------------------------------------
-Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.023 s <<< FAILURE! -- in org.praxisplatform.uischema.extension.DateFieldUISchemaTest
-org.praxisplatform.uischema.extension.DateFieldUISchemaTest.testDateFieldWithCorrectControlType -- Time elapsed: 0.023 s <<< FAILURE!
+Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.014 s <<< FAILURE! -- in org.praxisplatform.uischema.extension.DateFieldUISchemaTest
+org.praxisplatform.uischema.extension.DateFieldUISchemaTest.testDateFieldWithCorrectControlType -- Time elapsed: 0.013 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: expected: <date> but was: <input>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -12,6 +12,6 @@ org.opentest4j.AssertionFailedError: expected: <date> but was: <input>
 	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
 	at org.praxisplatform.uischema.extension.DateFieldUISchemaTest.testDateFieldWithCorrectControlType(DateFieldUISchemaTest.java:133)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
 

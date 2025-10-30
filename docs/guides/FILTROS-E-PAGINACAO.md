@@ -58,6 +58,58 @@ Content-Type: application/json
 - `array` de `enum` com muitas opções: o resolver sugere `filterControlType = multiColumnComboBox`.
 - Enums pequenos (≤5) tendem a usar `radio`/`chipInput`; médios `select`; grandes `autoComplete`/`multiSelect`.
 
+## Operações de Filtro Suportadas
+
+| Operação           | Descrição                                | Exemplo DTO                               |
+|--------------------|-------------------------------------------|-------------------------------------------|
+| EQUAL              | Igualdade                                 | `@Filterable(EQUAL)`                      |
+| NOT_EQUAL          | Diferente                                 | `@Filterable(NOT_EQUAL)`                  |
+| LIKE               | Contém (ci)                               | `@Filterable(LIKE)`                       |
+| NOT_LIKE           | Não contém (ci)                           | `@Filterable(NOT_LIKE)`                   |
+| STARTS_WITH        | Começa com (ci)                           | `@Filterable(STARTS_WITH)`                |
+| ENDS_WITH          | Termina com (ci)                          | `@Filterable(ENDS_WITH)`                  |
+| GREATER_THAN       | Maior que                                 | `@Filterable(GREATER_THAN)`               |
+| GREATER_OR_EQUAL   | Maior ou igual                            | `@Filterable(GREATER_OR_EQUAL)`           |
+| LESS_THAN          | Menor que                                 | `@Filterable(LESS_THAN)`                  |
+| LESS_OR_EQUAL      | Menor ou igual                            | `@Filterable(LESS_OR_EQUAL)`              |
+| IN                 | Pertence a uma lista                      | `@Filterable(IN)`                         |
+| NOT_IN             | Não pertence a uma lista                  | `@Filterable(NOT_IN)`                     |
+| BETWEEN            | Entre (2 valores)                         | `@Filterable(BETWEEN)`                    |
+| IS_NULL            | É nulo (usar Boolean TRUE no DTO)         | `@Filterable(IS_NULL)` + `Boolean campo`  |
+| IS_NOT_NULL        | Não é nulo (usar Boolean TRUE no DTO)     | `@Filterable(IS_NOT_NULL)` + `Boolean`    |
+
+### Lote 1 (Core) — Operações Adicionadas
+
+| Operação            | Descrição                                        | Exemplo DTO                                 |
+|---------------------|---------------------------------------------------|---------------------------------------------|
+| BETWEEN_EXCLUSIVE   | Entre exclusivo: `> a AND < b`                    | `@Filterable(BETWEEN_EXCLUSIVE)`            |
+| NOT_BETWEEN         | Negação do between (inclusive)                    | `@Filterable(NOT_BETWEEN)`                  |
+| OUTSIDE_RANGE       | Fora do intervalo: `< min OR > max`               | `@Filterable(OUTSIDE_RANGE)`                |
+| ON_DATE             | Igual à data (parte de data)                      | `@Filterable(ON_DATE)` + `LocalDate`        |
+| IN_LAST_DAYS        | Nos últimos N dias                                | `@Filterable(IN_LAST_DAYS)` + `Integer dias`|
+| IN_NEXT_DAYS        | Nos próximos N dias                               | `@Filterable(IN_NEXT_DAYS)` + `Integer dias`|
+| SIZE_EQ             | Tamanho de coleção igual a N                      | `@Filterable(SIZE_EQ)` + `Integer`          |
+| SIZE_GT             | Tamanho de coleção maior que N                    | `@Filterable(SIZE_GT)` + `Integer`          |
+| SIZE_LT             | Tamanho de coleção menor que N                    | `@Filterable(SIZE_LT)` + `Integer`          |
+| IS_TRUE             | Campo booleano verdadeiro                         | `@Filterable(IS_TRUE)`                      |
+| IS_FALSE            | Campo booleano falso                              | `@Filterable(IS_FALSE)`                     |
+
+Notas:
+- Para `ON_DATE`, use `LocalDate` no DTO. A comparação considera o intervalo [início do dia, início do dia seguinte).
+- Para `IN_LAST_DAYS/IN_NEXT_DAYS`, o valor é relativo ao horário atual (UTC) e converte para `Instant`.
+- Para `SIZE_*`, aplique apenas em atributos de coleção (OneToMany/ManyToMany); o builder usa `CriteriaBuilder.size`.
+- Requisito de coleção em `SIZE_*`: defina `relation` para apontar explicitamente para o atributo de coleção na entidade. Se o caminho não for coleção, o builder lança erro informativo.
+- Dica de UI `filterControlType = multiColumnComboBox` para enums grandes é uma sugestão de componente; alinhe o valor com o catálogo do frontend.
+
+### Notas de Timezone
+
+- `ON_DATE`, `IN_LAST_DAYS` e `IN_NEXT_DAYS` utilizam normalização com `Instant` e horário atual do backend. Em ambientes multi‑região, verifique a zona padrão da aplicação e do banco. Recomenda‑se padronizar em UTC.
+
+Notas:
+- Operações com `ci` (case-insensitive) normalizam usando `lower()`.
+- Para IS_NULL/IS_NOT_NULL, sugere-se modelar no DTO como `Boolean campoIsNull`; quando `true`, o predicado é aplicado.
+- Para IS_TRUE/IS_FALSE, o predicado é aplicado quando o campo do DTO está presente (não nulo). Recomenda‑se enviar `true` para indicar que o predicado deve ser considerado.
+
 ## Referências
 
 - [`@Filterable`](../apidocs/org/praxisplatform/uischema/filter/annotation/Filterable.html)

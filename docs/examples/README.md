@@ -81,4 +81,11 @@ Crie uma funcionalidade CRUD+Bulk completa para a seguinte entidade usando o gui
 
 ---
 
+## 🔎 Exemplos de Filtros (novos)
+
+- DTO demonstrando todas as operações: [DTO-FILTROS-EXEMPLOS.md](DTO-FILTROS-EXEMPLOS.md)
+- Cheat Sheet de payloads `POST /{resource}/filter`: [FILTER-CHEATSHEET.md](FILTER-CHEATSHEET.md)
+
+---
+
 **🎯 Dica:** Use estes exemplos como referência rápida - eles foram testados e garantem 100% de sucesso!

@@ -94,24 +94,106 @@ public @interface Filterable {
          */
         EQUAL,
         /**
+         * Filtro de diferença (e.g., campo <> valor).
+         */
+        NOT_EQUAL,
+        /**
          * Filtro de semelhança (e.g., campo LIKE '%valor%').
          */
         LIKE,
+        /**
+         * Filtro de não semelhança (e.g., NOT LIKE), case-insensitive.
+         */
+        NOT_LIKE,
+        /**
+         * Filtro por prefixo (e.g., LIKE 'valor%'), case-insensitive.
+         */
+        STARTS_WITH,
+        /**
+         * Filtro por sufixo (e.g., LIKE '%valor'), case-insensitive.
+         */
+        ENDS_WITH,
         /**
          * Filtro de maior que (e.g., campo > valor).
          */
         GREATER_THAN,
         /**
+         * Filtro de maior ou igual (e.g., campo >= valor).
+         */
+        GREATER_OR_EQUAL,
+        /**
          * Filtro de menor que (e.g., campo &lt; valor).
          */
         LESS_THAN,
+        /**
+         * Filtro de menor ou igual (e.g., campo <= valor).
+         */
+        LESS_OR_EQUAL,
         /**
          * Filtro de valores dentro de uma lista (e.g., campo IN (valores)).
          */
         IN,
         /**
+         * Filtro de valores fora de uma lista (e.g., campo NOT IN (valores)).
+         */
+        NOT_IN,
+        /**
          * Filtro de valores entre dois limites (e.g., campo BETWEEN valor1 AND valor2).
          */
-        BETWEEN
+        BETWEEN,
+        /**
+         * Filtro que verifica se o campo é NULL.
+         * Espera valor {@code Boolean.TRUE} para ativar.
+         */
+        IS_NULL,
+        /**
+         * Filtro que verifica se o campo não é NULL.
+         * Espera valor {@code Boolean.TRUE} para ativar.
+         */
+        IS_NOT_NULL,
+        /**
+         * Filtro estritamente entre (exclusivo): campo > a AND campo < b.
+         */
+        BETWEEN_EXCLUSIVE,
+        /**
+         * Filtro de negação do between (inclusive): NOT (campo BETWEEN a AND b).
+         */
+        NOT_BETWEEN,
+        /**
+         * Fora do intervalo (exclusivo): campo < min OR campo > max.
+         */
+        OUTSIDE_RANGE,
+        /**
+         * Igual a data (apenas a parte de data é comparada). Valor esperado: LocalDate.
+         */
+        ON_DATE,
+        /**
+         * Nos últimos N dias: Valor esperado: Integer (dias). Usa horário atual como referência.
+         */
+        IN_LAST_DAYS,
+        /**
+         * Nos próximos N dias: Valor esperado: Integer (dias). Usa horário atual como referência.
+         */
+        IN_NEXT_DAYS,
+        /**
+         * Tamanho de coleção igual a N. Valor esperado: Integer.
+         */
+        SIZE_EQ,
+        /**
+         * Tamanho de coleção maior que N. Valor esperado: Integer.
+         */
+        SIZE_GT,
+        /**
+         * Tamanho de coleção menor que N. Valor esperado: Integer.
+         */
+        SIZE_LT,
+        /**
+         * Campo booleano verdadeiro.
+         */
+        IS_TRUE,
+        /**
+         * Campo booleano falso.
+         */
+        IS_FALSE
     }
 }

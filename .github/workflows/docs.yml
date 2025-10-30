@@ -73,7 +73,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y pandoc
-          find docs -name '*.md' -print0 | xargs -0 -I{} sh -c 'pandoc "$1" -o "${1%.md}.html" --standalone' -- {}
+          while IFS= read -r -d '' md; do
+            title=$(grep -m1 '^# ' "$md" | sed 's/^# \+//')
+            if [ -z "$title" ]; then title=$(basename "$md" .md); fi
+            pandoc "$md" -o "${md%.md}.html" --standalone --metadata title="$title"
+          done < <(find docs -name '*.md' -print0)
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

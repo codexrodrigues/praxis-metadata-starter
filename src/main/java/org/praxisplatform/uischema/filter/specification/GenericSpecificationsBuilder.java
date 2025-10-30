@@ -38,11 +38,31 @@ public class GenericSpecificationsBuilder<E> {
      */
     private final List<PredicateBuilder> predicateBuilders = List.of(
             new EqualPredicateBuilder(),
+            new NotEqualPredicateBuilder(),
             new LikePredicateBuilder(),
+            new NotLikePredicateBuilder(),
+            new StartsWithPredicateBuilder(),
+            new EndsWithPredicateBuilder(),
             new GreaterThanPredicateBuilder(),
+            new GreaterOrEqualPredicateBuilder(),
             new LessThanPredicateBuilder(),
+            new LessOrEqualPredicateBuilder(),
             new InPredicateBuilder(),
-            new BetweenPredicateBuilder() // Adiciona o suporte para BETWEEN
+            new NotInPredicateBuilder(),
+            new BetweenPredicateBuilder(), // BETWEEN
+            new BetweenExclusivePredicateBuilder(),
+            new NotBetweenPredicateBuilder(),
+            new OutsideRangePredicateBuilder(),
+            new OnDatePredicateBuilder(),
+            new InLastDaysPredicateBuilder(),
+            new InNextDaysPredicateBuilder(),
+            new SizeEqPredicateBuilder(),
+            new SizeGtPredicateBuilder(),
+            new SizeLtPredicateBuilder(),
+            new IsTruePredicateBuilder(),
+            new IsFalsePredicateBuilder(),
+            new IsNullPredicateBuilder(),
+            new IsNotNullPredicateBuilder()
     );
 
     /**
@@ -235,6 +255,18 @@ class EqualPredicateBuilder implements PredicateBuilder {
     }
 }
 
+class NotEqualPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.NOT_EQUAL;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        return criteriaBuilder.notEqual(path, value);
+    }
+}
+
 class LikePredicateBuilder implements PredicateBuilder {
     @Override
     public boolean supports(Filterable.FilterOperation operation) {
@@ -259,6 +291,65 @@ class LikePredicateBuilder implements PredicateBuilder {
     }
 }
 
+class NotLikePredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.NOT_LIKE;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof String) {
+            jakarta.persistence.criteria.Expression<String> stringExpression = path.as(String.class);
+            return criteriaBuilder.not(
+                    criteriaBuilder.like(
+                            criteriaBuilder.lower(stringExpression),
+                            "%" + ((String) value).toLowerCase() + "%"
+                    )
+            );
+        }
+        throw new IllegalArgumentException("NOT_LIKE operation requires a String value.");
+    }
+}
+
+class StartsWithPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.STARTS_WITH;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof String) {
+            jakarta.persistence.criteria.Expression<String> stringExpression = path.as(String.class);
+            return criteriaBuilder.like(
+                    criteriaBuilder.lower(stringExpression),
+                    ((String) value).toLowerCase() + "%"
+            );
+        }
+        throw new IllegalArgumentException("STARTS_WITH operation requires a String value.");
+    }
+}
+
+class EndsWithPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.ENDS_WITH;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof String) {
+            jakarta.persistence.criteria.Expression<String> stringExpression = path.as(String.class);
+            return criteriaBuilder.like(
+                    criteriaBuilder.lower(stringExpression),
+                    "%" + ((String) value).toLowerCase()
+            );
+        }
+        throw new IllegalArgumentException("ENDS_WITH operation requires a String value.");
+    }
+}
+
 
 class GreaterThanPredicateBuilder implements PredicateBuilder {
     @Override
@@ -275,6 +366,24 @@ class GreaterThanPredicateBuilder implements PredicateBuilder {
             );
         }
         throw new IllegalArgumentException("GREATER_THAN operation requires a Comparable value.");
+    }
+}
+
+class GreaterOrEqualPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.GREATER_OR_EQUAL;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof Comparable) {
+            return criteriaBuilder.greaterThanOrEqualTo(
+                    (jakarta.persistence.criteria.Expression<? extends Comparable>) path,
+                    (Comparable) value
+            );
+        }
+        throw new IllegalArgumentException("GREATER_OR_EQUAL operation requires a Comparable value.");
     }
 }
 
@@ -296,6 +405,24 @@ class LessThanPredicateBuilder implements PredicateBuilder {
     }
 }
 
+class LessOrEqualPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.LESS_OR_EQUAL;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof Comparable) {
+            return criteriaBuilder.lessThanOrEqualTo(
+                    (jakarta.persistence.criteria.Expression<? extends Comparable>) path,
+                    (Comparable) value
+            );
+        }
+        throw new IllegalArgumentException("LESS_OR_EQUAL operation requires a Comparable value.");
+    }
+}
+
 class InPredicateBuilder implements PredicateBuilder {
     @Override
     public boolean supports(Filterable.FilterOperation operation) {
@@ -312,6 +439,25 @@ class InPredicateBuilder implements PredicateBuilder {
             return inClause;
         }
         throw new IllegalArgumentException("IN operation requires a List value.");
+    }
+}
+
+class NotInPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.NOT_IN;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof java.util.List<?> list) {
+            CriteriaBuilder.In<Object> inClause = criteriaBuilder.in(path);
+            for (Object val : list) {
+                inClause.value(val);
+            }
+            return criteriaBuilder.not(inClause);
+        }
+        throw new IllegalArgumentException("NOT_IN operation requires a List value.");
     }
 }
 
@@ -342,6 +488,266 @@ class BetweenPredicateBuilder implements PredicateBuilder {
         }
 
         throw new IllegalArgumentException("BETWEEN operation requires a list of exactly two values (start and end).");
+    }
+}
+
+class BetweenExclusivePredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.BETWEEN_EXCLUSIVE;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof List<?> values && values.size() == 2) {
+            Object start = values.get(0);
+            Object end = values.get(1);
+            jakarta.persistence.criteria.Expression<? extends Comparable> expression;
+            if (start instanceof LocalDate && end instanceof LocalDate) {
+                expression = path.as(Instant.class);
+                start = ((LocalDate) start).atStartOfDay().toInstant(ZoneOffset.UTC);
+                end = ((LocalDate) end).atStartOfDay().toInstant(ZoneOffset.UTC);
+            } else {
+                expression = path.as((Class<Comparable>) start.getClass());
+            }
+            Predicate gt = criteriaBuilder.greaterThan(expression, (Comparable) start);
+            Predicate lt = criteriaBuilder.lessThan(expression, (Comparable) end);
+            return criteriaBuilder.and(gt, lt);
+        }
+        throw new IllegalArgumentException("BETWEEN_EXCLUSIVE requires a list of exactly two values.");
+    }
+}
+
+class NotBetweenPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.NOT_BETWEEN;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof List<?> values && values.size() == 2) {
+            Object start = values.get(0);
+            Object end = values.get(1);
+            jakarta.persistence.criteria.Expression<? extends Comparable> expression;
+            if (start instanceof LocalDate && end instanceof LocalDate) {
+                expression = path.as(Instant.class);
+                start = ((LocalDate) start).atStartOfDay().toInstant(ZoneOffset.UTC);
+                end = ((LocalDate) end).atStartOfDay().toInstant(ZoneOffset.UTC);
+            } else {
+                expression = path.as((Class<Comparable>) start.getClass());
+            }
+            Predicate between = criteriaBuilder.between(expression, (Comparable) start, (Comparable) end);
+            return criteriaBuilder.not(between);
+        }
+        throw new IllegalArgumentException("NOT_BETWEEN requires a list of exactly two values.");
+    }
+}
+
+class OutsideRangePredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.OUTSIDE_RANGE;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof List<?> values && values.size() == 2) {
+            Object min = values.get(0);
+            Object max = values.get(1);
+            jakarta.persistence.criteria.Expression<? extends Comparable> expression;
+            if (min instanceof LocalDate && max instanceof LocalDate) {
+                expression = path.as(Instant.class);
+                min = ((LocalDate) min).atStartOfDay().toInstant(ZoneOffset.UTC);
+                max = ((LocalDate) max).atStartOfDay().toInstant(ZoneOffset.UTC);
+            } else {
+                expression = path.as((Class<Comparable>) min.getClass());
+            }
+            Predicate lt = criteriaBuilder.lessThan(expression, (Comparable) min);
+            Predicate gt = criteriaBuilder.greaterThan(expression, (Comparable) max);
+            return criteriaBuilder.or(lt, gt);
+        }
+        throw new IllegalArgumentException("OUTSIDE_RANGE requires a list of exactly two values.");
+    }
+}
+
+class OnDatePredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.ON_DATE;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof LocalDate date) {
+            Instant start = date.atStartOfDay().toInstant(ZoneOffset.UTC);
+            Instant end = date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+            jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
+            return criteriaBuilder.between(expression, (Comparable) start, (Comparable) end);
+        }
+        throw new IllegalArgumentException("ON_DATE requires a LocalDate value.");
+    }
+}
+
+class InLastDaysPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.IN_LAST_DAYS;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof Number n) {
+            long days = n.longValue();
+            Instant now = Instant.now();
+            Instant start = now.minusSeconds(days * 24 * 60 * 60);
+            jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
+            return criteriaBuilder.between(expression, (Comparable) start, (Comparable) now);
+        }
+        throw new IllegalArgumentException("IN_LAST_DAYS requires a numeric value (days).");
+    }
+}
+
+class InNextDaysPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.IN_NEXT_DAYS;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof Number n) {
+            long days = n.longValue();
+            Instant now = Instant.now();
+            Instant end = now.plusSeconds(days * 24 * 60 * 60);
+            jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
+            return criteriaBuilder.between(expression, (Comparable) now, (Comparable) end);
+        }
+        throw new IllegalArgumentException("IN_NEXT_DAYS requires a numeric value (days).");
+    }
+}
+
+class SizeEqPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.SIZE_EQ;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof Number n) {
+            if (!java.util.Collection.class.isAssignableFrom(path.getJavaType())) {
+                throw new IllegalArgumentException("SIZE_EQ requires a collection relation. Use @Filterable(relation=...) pointing to a collection attribute.");
+            }
+            @SuppressWarnings("unchecked")
+            jakarta.persistence.criteria.Expression<java.util.Collection<?>> collExpr = (jakarta.persistence.criteria.Expression<java.util.Collection<?>>) path;
+            jakarta.persistence.criteria.Expression<Integer> sizeExpr = criteriaBuilder.size(collExpr);
+            return criteriaBuilder.equal(sizeExpr, n.intValue());
+        }
+        throw new IllegalArgumentException("SIZE_EQ requires an Integer value.");
+    }
+}
+
+class SizeGtPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.SIZE_GT;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof Number n) {
+            if (!java.util.Collection.class.isAssignableFrom(path.getJavaType())) {
+                throw new IllegalArgumentException("SIZE_GT requires a collection relation. Use @Filterable(relation=...) pointing to a collection attribute.");
+            }
+            @SuppressWarnings("unchecked")
+            jakarta.persistence.criteria.Expression<java.util.Collection<?>> collExpr = (jakarta.persistence.criteria.Expression<java.util.Collection<?>>) path;
+            jakarta.persistence.criteria.Expression<Integer> sizeExpr = criteriaBuilder.size(collExpr);
+            return criteriaBuilder.gt(sizeExpr, n.intValue());
+        }
+        throw new IllegalArgumentException("SIZE_GT requires an Integer value.");
+    }
+}
+
+class SizeLtPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.SIZE_LT;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (value instanceof Number n) {
+            if (!java.util.Collection.class.isAssignableFrom(path.getJavaType())) {
+                throw new IllegalArgumentException("SIZE_LT requires a collection relation. Use @Filterable(relation=...) pointing to a collection attribute.");
+            }
+            @SuppressWarnings("unchecked")
+            jakarta.persistence.criteria.Expression<java.util.Collection<?>> collExpr = (jakarta.persistence.criteria.Expression<java.util.Collection<?>>) path;
+            jakarta.persistence.criteria.Expression<Integer> sizeExpr = criteriaBuilder.size(collExpr);
+            return criteriaBuilder.lt(sizeExpr, n.intValue());
+        }
+        throw new IllegalArgumentException("SIZE_LT requires an Integer value.");
+    }
+}
+
+class IsTruePredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.IS_TRUE;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        jakarta.persistence.criteria.Expression<Boolean> boolExpr = path.as(Boolean.class);
+        return criteriaBuilder.isTrue(boolExpr);
+    }
+}
+
+class IsFalsePredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.IS_FALSE;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        jakarta.persistence.criteria.Expression<Boolean> boolExpr = path.as(Boolean.class);
+        return criteriaBuilder.isFalse(boolExpr);
+    }
+}
+
+class IsNullPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.IS_NULL;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (Boolean.TRUE.equals(value)) {
+            return criteriaBuilder.isNull(path);
+        }
+        // não adiciona predicado quando null/false → sem efeito
+        return criteriaBuilder.conjunction();
+    }
+}
+
+class IsNotNullPredicateBuilder implements PredicateBuilder {
+    @Override
+    public boolean supports(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.IS_NOT_NULL;
+    }
+
+    @Override
+    public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
+        if (Boolean.TRUE.equals(value)) {
+            return criteriaBuilder.isNotNull(path);
+        }
+        // não adiciona predicado quando null/false → sem efeito
+        return criteriaBuilder.conjunction();
     }
 }
 

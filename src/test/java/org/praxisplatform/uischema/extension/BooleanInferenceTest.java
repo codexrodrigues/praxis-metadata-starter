@@ -1,6 +1,8 @@
 package org.praxisplatform.uischema.extension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.oas.models.media.BooleanSchema;
+import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
@@ -16,7 +18,7 @@ class BooleanInferenceTest {
     @Test
     void booleanWithoutEnumShouldBeCheckbox() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
-        Schema<?> property = new Schema<>().type("boolean");
+        BooleanSchema property = new BooleanSchema();
         resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.CHECKBOX.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
@@ -25,7 +27,7 @@ class BooleanInferenceTest {
     @Test
     void booleanTextualEnumShouldPreferRadio() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
-        Schema<?> property = new Schema<>().type("string");
+        StringSchema property = new StringSchema();
         property.setEnum(Arrays.asList("Sim","Não"));
         resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
         Map<String,Object> xui = getXui(property);
@@ -41,4 +43,3 @@ class BooleanInferenceTest {
         return (Map<String, Object>) xui;
     }
 }
-

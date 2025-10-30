@@ -665,10 +665,10 @@ public class CustomOpenApiResolver extends ModelResolver {
                 uiExtension.put(FieldConfigProperties.NUMERIC_FORMAT.getValue(), format.toString());
             }
 
-            // Configura step para garantir precisão adequada
+            // Configura step para garantir precisão adequada (usar helper centralizado)
             if (!uiExtension.containsKey(FieldConfigProperties.NUMERIC_STEP.getValue())) {
-                double step = Math.pow(10, -fractionDigits);
-                uiExtension.put(FieldConfigProperties.NUMERIC_STEP.getValue(), String.valueOf(step));
+                String step = org.praxisplatform.uischema.util.OpenApiUiUtils.numericStepFromDigits(fractionDigits);
+                uiExtension.put(FieldConfigProperties.NUMERIC_STEP.getValue(), step);
             }
 
         } catch (Exception e) {
