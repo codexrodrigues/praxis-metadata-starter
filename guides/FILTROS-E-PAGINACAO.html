@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>FILTROS-E-PAGINACAO</title>
+  <title>Filtros e Paginação</title>
   <style>
     html {
       color: #1a1a1a;
@@ -229,6 +229,9 @@
   </style>
 </head>
 <body>
+<header id="title-block-header">
+<h1 class="title">Filtros e Paginação</h1>
+</header>
 <h1 id="filtros-e-paginação">Filtros e Paginação</h1>
 <p>Como implementar filtros e paginação usando <code>@Filterable</code>,
 <code>GenericFilterDTO</code> e
@@ -300,6 +303,201 @@ resolver sugere
 <code>radio</code>/<code>chipInput</code>; médios <code>select</code>;
 grandes <code>autoComplete</code>/<code>multiSelect</code>.</li>
 </ul>
+<h2 id="operações-de-filtro-suportadas">Operações de Filtro
+Suportadas</h2>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 40%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Operação</th>
+<th>Descrição</th>
+<th>Exemplo DTO</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>EQUAL</td>
+<td>Igualdade</td>
+<td><code>@Filterable(EQUAL)</code></td>
+</tr>
+<tr class="even">
+<td>NOT_EQUAL</td>
+<td>Diferente</td>
+<td><code>@Filterable(NOT_EQUAL)</code></td>
+</tr>
+<tr class="odd">
+<td>LIKE</td>
+<td>Contém (ci)</td>
+<td><code>@Filterable(LIKE)</code></td>
+</tr>
+<tr class="even">
+<td>NOT_LIKE</td>
+<td>Não contém (ci)</td>
+<td><code>@Filterable(NOT_LIKE)</code></td>
+</tr>
+<tr class="odd">
+<td>STARTS_WITH</td>
+<td>Começa com (ci)</td>
+<td><code>@Filterable(STARTS_WITH)</code></td>
+</tr>
+<tr class="even">
+<td>ENDS_WITH</td>
+<td>Termina com (ci)</td>
+<td><code>@Filterable(ENDS_WITH)</code></td>
+</tr>
+<tr class="odd">
+<td>GREATER_THAN</td>
+<td>Maior que</td>
+<td><code>@Filterable(GREATER_THAN)</code></td>
+</tr>
+<tr class="even">
+<td>GREATER_OR_EQUAL</td>
+<td>Maior ou igual</td>
+<td><code>@Filterable(GREATER_OR_EQUAL)</code></td>
+</tr>
+<tr class="odd">
+<td>LESS_THAN</td>
+<td>Menor que</td>
+<td><code>@Filterable(LESS_THAN)</code></td>
+</tr>
+<tr class="even">
+<td>LESS_OR_EQUAL</td>
+<td>Menor ou igual</td>
+<td><code>@Filterable(LESS_OR_EQUAL)</code></td>
+</tr>
+<tr class="odd">
+<td>IN</td>
+<td>Pertence a uma lista</td>
+<td><code>@Filterable(IN)</code></td>
+</tr>
+<tr class="even">
+<td>NOT_IN</td>
+<td>Não pertence a uma lista</td>
+<td><code>@Filterable(NOT_IN)</code></td>
+</tr>
+<tr class="odd">
+<td>BETWEEN</td>
+<td>Entre (2 valores)</td>
+<td><code>@Filterable(BETWEEN)</code></td>
+</tr>
+<tr class="even">
+<td>IS_NULL</td>
+<td>É nulo (usar Boolean TRUE no DTO)</td>
+<td><code>@Filterable(IS_NULL)</code> + <code>Boolean campo</code></td>
+</tr>
+<tr class="odd">
+<td>IS_NOT_NULL</td>
+<td>Não é nulo (usar Boolean TRUE no DTO)</td>
+<td><code>@Filterable(IS_NOT_NULL)</code> + <code>Boolean</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="lote-1-core-operações-adicionadas">Lote 1 (Core) — Operações
+Adicionadas</h3>
+<table>
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 43%" />
+<col style="width: 38%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Operação</th>
+<th>Descrição</th>
+<th>Exemplo DTO</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>BETWEEN_EXCLUSIVE</td>
+<td>Entre exclusivo: <code>&gt; a AND &lt; b</code></td>
+<td><code>@Filterable(BETWEEN_EXCLUSIVE)</code></td>
+</tr>
+<tr class="even">
+<td>NOT_BETWEEN</td>
+<td>Negação do between (inclusive)</td>
+<td><code>@Filterable(NOT_BETWEEN)</code></td>
+</tr>
+<tr class="odd">
+<td>OUTSIDE_RANGE</td>
+<td>Fora do intervalo: <code>&lt; min OR &gt; max</code></td>
+<td><code>@Filterable(OUTSIDE_RANGE)</code></td>
+</tr>
+<tr class="even">
+<td>ON_DATE</td>
+<td>Igual à data (parte de data)</td>
+<td><code>@Filterable(ON_DATE)</code> + <code>LocalDate</code></td>
+</tr>
+<tr class="odd">
+<td>IN_LAST_DAYS</td>
+<td>Nos últimos N dias</td>
+<td><code>@Filterable(IN_LAST_DAYS)</code> +
+<code>Integer dias</code></td>
+</tr>
+<tr class="even">
+<td>IN_NEXT_DAYS</td>
+<td>Nos próximos N dias</td>
+<td><code>@Filterable(IN_NEXT_DAYS)</code> +
+<code>Integer dias</code></td>
+</tr>
+<tr class="odd">
+<td>SIZE_EQ</td>
+<td>Tamanho de coleção igual a N</td>
+<td><code>@Filterable(SIZE_EQ)</code> + <code>Integer</code></td>
+</tr>
+<tr class="even">
+<td>SIZE_GT</td>
+<td>Tamanho de coleção maior que N</td>
+<td><code>@Filterable(SIZE_GT)</code> + <code>Integer</code></td>
+</tr>
+<tr class="odd">
+<td>SIZE_LT</td>
+<td>Tamanho de coleção menor que N</td>
+<td><code>@Filterable(SIZE_LT)</code> + <code>Integer</code></td>
+</tr>
+<tr class="even">
+<td>IS_TRUE</td>
+<td>Campo booleano verdadeiro</td>
+<td><code>@Filterable(IS_TRUE)</code></td>
+</tr>
+<tr class="odd">
+<td>IS_FALSE</td>
+<td>Campo booleano falso</td>
+<td><code>@Filterable(IS_FALSE)</code></td>
+</tr>
+</tbody>
+</table>
+<p>Notas: - Para <code>ON_DATE</code>, use <code>LocalDate</code> no
+DTO. A comparação considera o intervalo [início do dia, início do dia
+seguinte). - Para <code>IN_LAST_DAYS/IN_NEXT_DAYS</code>, o valor é
+relativo ao horário atual (UTC) e converte para <code>Instant</code>. -
+Para <code>SIZE_*</code>, aplique apenas em atributos de coleção
+(OneToMany/ManyToMany); o builder usa <code>CriteriaBuilder.size</code>.
+- Requisito de coleção em <code>SIZE_*</code>: defina
+<code>relation</code> para apontar explicitamente para o atributo de
+coleção na entidade. Se o caminho não for coleção, o builder lança erro
+informativo. - Dica de UI
+<code>filterControlType = multiColumnComboBox</code> para enums grandes
+é uma sugestão de componente; alinhe o valor com o catálogo do
+frontend.</p>
+<h3 id="notas-de-timezone">Notas de Timezone</h3>
+<ul>
+<li><code>ON_DATE</code>, <code>IN_LAST_DAYS</code> e
+<code>IN_NEXT_DAYS</code> utilizam normalização com <code>Instant</code>
+e horário atual do backend. Em ambientes multi‑região, verifique a zona
+padrão da aplicação e do banco. Recomenda‑se padronizar em UTC.</li>
+</ul>
+<p>Notas: - Operações com <code>ci</code> (case-insensitive) normalizam
+usando <code>lower()</code>. - Para IS_NULL/IS_NOT_NULL, sugere-se
+modelar no DTO como <code>Boolean campoIsNull</code>; quando
+<code>true</code>, o predicado é aplicado. - Para IS_TRUE/IS_FALSE, o
+predicado é aplicado quando o campo do DTO está presente (não nulo).
+Recomenda‑se enviar <code>true</code> para indicar que o predicado deve
+ser considerado.</p>
 <h2 id="referências">Referências</h2>
 <ul>
 <li><a
