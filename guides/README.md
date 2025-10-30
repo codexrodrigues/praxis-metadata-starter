@@ -39,6 +39,9 @@ Defina `@DefaultSortColumn` e tenha ordenação determinística por padrão.
 ### ✅ [Options (id/label)](OPTIONS-ENDPOINT.md)
 Exponha endpoints de opções id/label usando `@OptionLabel` e `OptionMapper`.
 
+### 📄 [Views / Somente Leitura](READ-ONLY-VIEWS.md)
+Aproveite o modo read‑only para entidades de views (`@Immutable`): filtros, paginação e opções prontos, com bloqueio de escrita (405).
+
 ### ❗ [Erros e Envelope de Respostas](ERROS-E-RESPOSTAS.md)
 Padronize respostas de erro e sucesso para melhor DX/UX.
 

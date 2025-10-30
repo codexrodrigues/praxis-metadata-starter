@@ -289,9 +289,23 @@ ordenação padrão definida pela entidade
 <ul>
 <li>Mantenha os tipos do DTO de filtro coerentes com os campos da
 entidade/DTO</li>
-<li>Prefira operações específicas (CONTAINS, EQUAL) para resultados
+<li>Prefira operações específicas (EQUAL, LIKE, BETWEEN) para resultados
 previsíveis</li>
 <li>Limite o <code>size</code> conforme sua política de performance</li>
+</ul>
+<hr />
+<h2
+id="por-que-este-filtro-é-diferente-zero-boilerplate-pronto-pra-produção">Por
+que este filtro é diferente (zero boilerplate, pronto pra produção)</h2>
+<ul>
+<li>Expressivo e seguro: você declara no DTO e o Starter gera a
+Specification JPA correta.</li>
+<li>Cobertura completa (26 operações): de LIKE/IN/BETWEEN a datas
+relativas (últimos/próximos N dias) e tamanho de coleções.</li>
+<li>Relações sem dor: use <code>relation="a.b.campo"</code> para navegar
+por joins de forma legível.</li>
+<li>Ordem previsível: integrado à ordenação padrão e ao
+<code>PageableBuilder</code> para requests consistentes.</li>
 </ul>
 <h3 id="dicas-de-ui-para-filtros-com-enums-grandes">Dicas de UI para
 filtros com enums grandes</h3>
@@ -396,6 +410,8 @@ Suportadas</h2>
 </tr>
 </tbody>
 </table>
+<h3 id="lote-2-intervalosdatalistacoleçãobooleanos">Lote 2 —
+Intervalos/Data/Lista/Coleção/Booleanos</h3>
 <h3 id="lote-1-core-operações-adicionadas">Lote 1 (Core) — Operações
 Adicionadas</h3>
 <table>
@@ -498,6 +514,64 @@ modelar no DTO como <code>Boolean campoIsNull</code>; quando
 predicado é aplicado quando o campo do DTO está presente (não nulo).
 Recomenda‑se enviar <code>true</code> para indicar que o predicado deve
 ser considerado.</p>
+<h2 id="exemplos-práticos-dto-chamadas">Exemplos práticos (DTO +
+chamadas)</h2>
+<h3 id="dto-de-filtro-vendas">DTO de filtro (vendas)</h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">filter</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Filterable</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">time</span><span class="op">.</span><span class="im">LocalDate</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">util</span><span class="op">.</span><span class="im">List</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaFilterDTO <span class="kw">implements</span> org<span class="op">.</span><span class="fu">praxisplatform</span><span class="op">.</span><span class="fu">uischema</span><span class="op">.</span><span class="fu">filter</span><span class="op">.</span><span class="fu">dto</span><span class="op">.</span><span class="fu">GenericFilterDTO</span> <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">)</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">String</span> cliente<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">GREATER_OR_EQUAL</span><span class="op">)</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> java<span class="op">.</span><span class="fu">math</span><span class="op">.</span><span class="fu">BigDecimal</span> valorMin<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LESS_OR_EQUAL</span><span class="op">)</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> java<span class="op">.</span><span class="fu">math</span><span class="op">.</span><span class="fu">BigDecimal</span> valorMax<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">BETWEEN</span><span class="op">)</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span>LocalDate<span class="op">&gt;</span> emissaoEntre<span class="op">;</span> <span class="co">// [de, ate]</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">IN</span><span class="op">)</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span><span class="bu">String</span><span class="op">&gt;</span> canais<span class="op">;</span> <span class="co">// [&quot;ONLINE&quot;,&quot;LOJA&quot;]</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">,</span> relation <span class="op">=</span> <span class="st">&quot;vendedor.nome&quot;</span><span class="op">)</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">String</span> vendedorNome<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">IS_TRUE</span><span class="op">)</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">Boolean</span> pago<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<pre class="http"><code>POST /api/vendas/filter?page=0&amp;size=20
+Content-Type: application/json
+
+{
+  &quot;cliente&quot;: &quot;maria&quot;,
+  &quot;valorMin&quot;: 100.00,
+  &quot;valorMax&quot;: 1000.00,
+  &quot;emissaoEntre&quot;: [&quot;2024-01-01&quot;, &quot;2024-12-31&quot;],
+  &quot;canais&quot;: [&quot;ONLINE&quot;, &quot;LOJA&quot;],
+  &quot;vendedorNome&quot;: &quot;silva&quot;,
+  &quot;pago&quot;: true
+}</code></pre>
+<hr />
+<h2 id="vantagem-competitiva-por-números">Vantagem competitiva (por
+números)</h2>
+<ul>
+<li>26 operações prontas de filtro — sem escrever Specifications na
+mão</li>
+<li>Até 13 endpoints por recurso — CRUD, filtros, paginação por cursor,
+options id/label e schemas</li>
+<li>Redução de ~97% no payload da documentação por grupo OpenAPI — com
+cache inteligente</li>
+</ul>
+<blockquote>
+<p>Resultado: menos boilerplate, tempo de entrega menor e APIs/UX mais
+consistentes — alinhadas com as melhores práticas do ecossistema Spring
++ OpenAPI.</p>
+</blockquote>
 <h2 id="referências">Referências</h2>
 <ul>
 <li><a
