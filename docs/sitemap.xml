@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/packages-overview.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/concepts/ui-schema.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/examples/filter-dto.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/examples/spring-integration.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/docs/index.html</loc>
+  </url>
+</urlset>

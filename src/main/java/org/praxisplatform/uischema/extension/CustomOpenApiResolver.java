@@ -18,18 +18,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Resolver de modelos OpenAPI que enriquece schemas com metadados de UI
- * (extensão {@code x-ui}) a partir de:
- * <ol>
- *   <li>valores padrão de {@link org.praxisplatform.uischema.extension.annotation.UISchema}</li>
- *   <li>detecção automática derivada do schema (type/format/enum)</li>
- *   <li>valores explícitos definidos na anotação {@code @UISchema}</li>
- *   <li>anotações Jakarta Validation (@Size, @Min, @Max, ...)</li>
- *   <li>propriedades extras definidas em {@code extraProperties}</li>
- * </ol>
+ * Resolve modelos OpenAPI enriquecendo-os com a extensão {@code x-ui} usada
+ * pelos frontends Praxis.
  *
- * <p>O resultado é uma documentação OpenAPI com dicas ricas de renderização
- * para frontends (placeholders, controlType, mensagens de validação, etc.).</p>
+ * <p>
+ * A ordem de precedência aplicada segue o fluxo descrito em
+ * {@code docs/architecture-overview.md}: valores padrão de
+ * {@link org.praxisplatform.uischema.extension.annotation.UISchema},
+ * detecção heurística baseada no schema, overrides explícitos, validações
+ * Jakarta e, por fim, {@code extraProperties}. As chaves utilizadas são
+ * definidas em {@link org.praxisplatform.uischema.FieldConfigProperties} e
+ * {@link org.praxisplatform.uischema.ValidationProperties}.
+ * </p>
  *
  * <h3>Exemplo</h3>
  * <pre>{@code
@@ -39,6 +39,13 @@ import java.util.Map;
  *     private String nome;
  * }
  * }</pre>
+ *
+ * <p>
+ * O resultado é uma documentação OpenAPI com dicas ricas de renderização
+ * (placeholders, controlType, mensagens de validação) consumidas pelo endpoint
+ * {@code /schemas/filtered} controlado por
+ * {@link org.praxisplatform.uischema.controller.docs.ApiDocsController}.
+ * </p>
  *
  * @since 1.0.0
  */

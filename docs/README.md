@@ -10,14 +10,20 @@ Site da documentação (GitHub Pages):
 ```
 docs/
 ├── README.md                 # Este arquivo - índice principal
+├── architecture-overview.md  # Visão arquitetural com diagramas
+├── packages-overview.md      # Mapa dos pacotes Java
+├── sitemap.xml               # Navegação para motores de busca
 ├── overview/                 # Visão geral para novos usuários
 │   └── VISAO-GERAL.md
 ├── guides/                   # Guias completos de implementação
 │   ├── GUIA-CLAUDE-AI-CRUD-BULK.md
 │   └── GUIA-CLAUDE-AI-APLICACAO-NOVA.md
 ├── examples/                 # Exemplos práticos e templates
-│   └── EXEMPLO-PROMPT-CRUD-BULK.md
+│   ├── EXEMPLO-PROMPT-CRUD-BULK.md
+│   ├── filter-dto.md
+│   └── spring-integration.md
 ├── concepts/               # Conceitos fundamentais (Self-describing, UI vs Data Schema, etc.)
+│   └── ui-schema.md
 ├── technical/               # Documentação técnica detalhada
 │   ├── AUTO-CONFIGURACAO.md
 │   ├── ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
@@ -32,6 +38,12 @@ docs/
 ## 📘 **Visão Geral** (`/overview/`)
 - Leitura rápida (problema/abordagem/benefícios) e como começar:
   - [VISAO-GERAL.md](overview/VISAO-GERAL.md)
+
+## 🏛️ **Arquitetura e Mapa de Pacotes**
+
+- [Visão Arquitetural](architecture-overview.md): diagramas Mermaid, fluxo de enriquecimento x-ui e principais componentes.
+- [Visão dos Pacotes](packages-overview.md): responsabilidades de cada pacote Java e quando estender contratos.
+- [Sitemap](sitemap.xml): referência para indexadores (Google, IA) e navegação cruzada entre tópicos.
 
 ### 🤖 [Guia CRUD+Bulk Automatizado](guides/GUIA-CLAUDE-AI-CRUD-BULK.md)
 **O guia principal para geração automatizada de funcionalidades CRUD+Bulk**
@@ -66,6 +78,20 @@ docs/
 - 🏆 **Garantia de 100% de sucesso** baseada no guia aprimorado
 
 **Quando usar:** Como referência ao solicitar criação de novas funcionalidades CRUD+Bulk.
+
+### 🧾 [Filter DTO com Metadados x-ui](examples/filter-dto.md)
+**Mostra um filtro completo com `@Filterable` + `@UISchema`**
+
+- 🔍 Mapeamento para Specifications com operadores personalizados.
+- 🧭 Ordem e agrupamento pensados para formulários avançados.
+- 🔗 Links diretos para endpoints `/options` e `/schemas/filtered`.
+
+### 🔌 [Integração Spring Boot ponta a ponta](examples/spring-integration.md)
+**Guia rápido para subir uma aplicação consumindo o starter**
+
+- ⚙️ Configuração mínima com `@SpringBootApplication`.
+- 🧱 Controller CRUD que reutiliza `AbstractCrudController`.
+- 📄 Resposta real do endpoint `/schemas/filtered`.
 
 ---
 
