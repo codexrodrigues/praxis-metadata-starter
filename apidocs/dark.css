@@ -51,7 +51,20 @@
         /* Notificações de tag */
         --invalid-tag-background-color: #3b1f1f;
         --invalid-tag-text-color: #ffd9d9;
-    }
+}
+
+/* Endpoint badges/grid (aplica em todo o Javadoc) */
+.badges { display:flex; flex-wrap:wrap; gap:.35rem; margin:.35rem 0; }
+.badge { font:600 12px/1 system-ui,sans-serif; padding:.18rem .5rem; border-radius:999px; border:1px solid rgba(148,163,184,.28); letter-spacing:.02em }
+.method { color:#e5e7eb; background:#1f2937; }
+.get   { background:#10b98122; border-color:#10b98155; color:#34d399 }
+.post  { background:#3b82f622; border-color:#3b82f655; color:#60a5fa }
+.put   { background:#f59e0b22; border-color:#f59e0b55; color:#fbbf24 }
+.del   { background:#ef444422; border-color:#ef444455; color:#f87171 }
+.misc  { background:#8b5cf622; border-color:#8b5cf655; color:#a78bfa }
+.ep-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap:.5rem; }
+.ep { background:#11151b; border:1px solid rgba(148,163,184,.25); border-radius:10px; padding:.5rem .75rem }
+.ep code{ background:transparent; color:inherit; padding:0 }
 
     /* ====== Ajustes pontuais que não usam só variáveis ====== */
 
