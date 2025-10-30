@@ -24,6 +24,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Make Maven Wrapper executable
+        run: chmod +x mvnw
+
       - name: Set up Java 21 (Temurin) + Central server
         uses: actions/setup-java@v4
         with:

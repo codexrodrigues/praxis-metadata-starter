@@ -26,6 +26,9 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
+      - name: Make Maven Wrapper executable
+        run: chmod +x mvnw
+
       - name: Build and generate Javadoc
         run: |
           ./mvnw --batch-mode -DskipTests package javadoc:javadoc
