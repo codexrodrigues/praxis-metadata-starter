@@ -40,6 +40,17 @@ jobs:
           mkdir -p docs/apidocs
           cp -r target/site/apidocs/. docs/apidocs/
 
+      - name: Create root index.html redirect
+        run: |
+          mkdir -p docs
+          cat > docs/index.html <<'HTML'
+          <!doctype html>
+          <meta charset="utf-8">
+          <meta http-equiv="refresh" content="0; url=apidocs/">
+          <title>Praxis Metadata Starter docs</title>
+          <a href="apidocs/">Ir para a documentação</a>
+          HTML
+
       - name: Check local Markdown links
         run: |
           set -euo pipefail

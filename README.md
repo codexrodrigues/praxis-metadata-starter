@@ -1,6 +1,6 @@
 # Praxis Metadata Starter
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue&cacheSeconds=600)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
 [![Java](https://img.shields.io/badge/Java-21-007396?logo=openjdk)](https://adoptium.net)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2%2B-6DB33F?logo=spring-boot)](https://spring.io/projects/spring-boot)
 [![Last Commit](https://img.shields.io/github/last-commit/codexrodrigues/praxis-metadata-starter?logo=github)](https://github.com/codexrodrigues/praxis-metadata-starter/commits)

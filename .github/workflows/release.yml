@@ -118,3 +118,25 @@ jobs:
           ./mvnw -B -P release -Dmaven.test.skip=true -Dgpg.skip=false -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -T 1C \
             -am \
             clean verify org.sonatype.central:central-publishing-maven-plugin:publish
+
+      - name: Bust badges cache (update README Maven Central badge)
+        run: |
+          set -euo pipefail
+          V='${{ steps.ver.outputs.resolved }}'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main:main
+          git checkout main
+          # 1) Update existing t= param to current version if present
+          sed -i -E "s_(img\.shields\.io/maven-central/v/[^?]+\?[^)]*t=)[^)&]+_\1${V}_g" README.md || true
+          # 2) Append &t= if not present yet (on the Maven Central badge only)
+          if ! grep -qE "img\.shields\.io/maven-central/v/[^?]+\?[^)]*t=" README.md; then
+            sed -i -E "s_(img\.shields\.io/maven-central/v/[^?]+\?[^)]*)_\1\&t=${V}_" README.md || true
+          fi
+          git add README.md || true
+          if git diff --cached --quiet; then
+            echo "No README changes to commit."
+          else
+            git commit -m "docs(badge): bust Maven Central badge cache for v${V}"
+            git push origin HEAD:main
+          fi
