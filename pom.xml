@@ -219,6 +219,26 @@
                         <!-- Add a dark-mode stylesheet (JDK 9+) -->
                         <additionalOption>--add-stylesheet=${project.basedir}/src/main/javadoc/dark.css</additionalOption>
                     </additionalOptions>
+                    <doctitle>Praxis Metadata Starter — API Javadoc</doctitle>
+                    <windowtitle>Praxis Metadata Starter</windowtitle>
+                    <header>
+                        <![CDATA[
+                        <div style="display:flex;gap:16px;align-items:center;font:14px system-ui,sans-serif;">
+                          <a href="https://codexrodrigues.github.io/praxis-metadata-starter/" target="_blank">Docs</a>
+                          <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/" target="_blank">Javadoc</a>
+                          <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank">GitHub</a>
+                          <a href="https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter" target="_blank">Maven Central</a>
+                        </div>
+                        ]]>
+                    </header>
+                    <bottom>
+                        <![CDATA[
+                        <div style="font:12px system-ui,sans-serif;color:#6b7280;">
+                          Built with ❤️ for fast, consistent, contract‑driven backends.
+                          <a href="https://codexrodrigues.github.io/praxis-metadata-starter/" target="_blank">Learn more</a>.
+                        </div>
+                        ]]>
+                    </bottom>
                 </configuration>
             </plugin>
         </plugins>

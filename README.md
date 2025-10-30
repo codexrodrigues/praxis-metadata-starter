@@ -44,15 +44,50 @@ Documentação online (GitHub Pages):
 
 ### Principais Recursos
 
-*   **🎯 Resolução Automática de Grupos OpenAPI:** Sistema inteligente que elimina parâmetros manuais, criando grupos específicos baseados nos paths dos controllers (~97% redução de tamanho dos documentos).
-*   **🔄 Geração Dinâmica de Esquemas de UI:** Use a anotação `@UISchema` em seus DTOs ou entidades para definir metadados de UI avançados.
-*   **🏗️ Infraestrutura CRUD com Auto-Detecção:** Controllers base com detecção automática de paths, eliminando necessidade de implementar `getBasePath()` manualmente.
-*   **🔍 Filtragem Dinâmica de Consultas:** Use a anotação `@Filterable` para habilitar campos para geração de consultas JPA dinâmicas e com segurança de tipo.
-*   **✅ Integração Automática de Validação:** As anotações de Validação do Jakarta Bean são traduzidas automaticamente em regras de validação de UI.
-*   **🔗 Suporte a HATEOAS:** As respostas da API incluem automaticamente links HATEOAS baseados no path detectado automaticamente.
-*   **📋 Respostas de API Padronizadas:** Um wrapper `RestApiResponse` consistente é usado para todos os endpoints da API.
-*   **📊 Paginação e Ordenação:** Suporte pronto para uso para paginação e ordenação padrão.
-*   **💾 Cache Inteligente:** Documentos OpenAPI específicos são cacheados para otimização de performance.
+*   **🚀 Endpoints prontos (até 13 por recurso):**
+    `GET /{id}`, `GET /all`, `POST /filter`, `POST /filter/cursor`, `POST /locate`, `GET /by-ids`,
+    `POST /options/filter`, `GET /options/by-ids`, `POST /`, `PUT /{id}`, `DELETE /{id}`, `DELETE /batch`,
+    `GET /schemas` (redirect para `/schemas/filtered`).
+*   **🔎 Filtros com Specifications JPA:** 26 operações embutidas (igual, diferente, like/not like, starts/ends with, >, >=, <, <=, in/not in, between, between exclusive, not between, outside range, on date, in last/next days, size eq/gt/lt, is true/false/null/not null) e suporte a relacionamentos (`relation="a.b.campo"`).
+*   **🔢 Ordenação padrão declarativa:** `@DefaultSortColumn` define a ordem quando `sort` não é enviado.
+*   **📊 Paginação moderna:** `pageable` tradicional e keyset pagination por cursores (`after/before`).
+*   **🧾 Opções id/label para selects:** `@OptionLabel` + heurísticas; preserva ordem e permite `extra` por opção.
+*   **🔗 HATEOAS + versão de dados:** links automáticos (configuráveis) e cabeçalho `X-Data-Version` opcional.
+*   **🧠 OpenAPI enriquecido (x‑ui):** `@UISchema` + Bean Validation → metadados de UI no contrato.
+*   **🎯 Grupos OpenAPI automáticos:** redução de ~97% no payload com documentos por grupo + cache inteligente.
+*   **📄 Views / Read‑only sem esforço:** herde de `AbstractReadOnlyController`/`Service` e ganhe filtros, paginação e opções id/label; escritas retornam 405.
+
+## Por que times amam (parece mágica, é engenharia)
+
+- Entrega acelerada: telas nascem do contrato. Você foca no domínio; nós resolvemos o resto.
+- Zero boilerplate crítico: 13 endpoints por recurso, 26 operações de filtro e paginação moderna — prontos.
+- Documentação viva: OpenAPI enxuto por grupo, com cache + ETag e metadados de UI “prontos para a tela”.
+- Consistência premium: respostas padronizadas, HATEOAS opcional, ordenação determinística, options id/label nativos.
+- Enterprise‑ready: read‑only para views com 405 seguro, cabeçalho X‑Data‑Version e joins de filtro declarativos.
+
+## Casos de uso (Views / Read‑only)
+
+- Relatórios executivos: publique views SQL como APIs ricas com filtro/paginação/ordem e leve para a UI em minutos.
+- Catálogos mestres: listas de apoio (cidades, departamentos, tipos) com options id/label e cache de schema.
+- Dashboards & auditoria: consultas caras expondo apenas leitura, com paginação por cursor e queries previsíveis.
+
+> Do zero ao relatório filtrável, com paginação e documentação: em ~1 hora.
+
+## Por números (o que vem de graça)
+
+- 13 endpoints por recurso (CRUD, filtros, cursor, options, schemas)
+- 26 operações de filtro (texto, intervalos, datas relativas, listas, coleções, nulidade, booleanos)
+- ~97% de redução no payload da documentação por grupo (vs doc completa)
+- 0 linhas de Specification manual e 0 wiring de endpoints repetitivos
+
+## Comece em 5 minutos
+
+1) Adicione a dependência (última versão em Maven Central)
+2) Anote DTOs com `@UISchema` e exponha `@ApiResource` nos controllers
+3) (Views) Use `AbstractReadOnlyController`/`Service` para read‑only “à prova de sustos”
+4) Abra o Quickstart e veja as telas nascerem do contrato (x‑ui)
+
+[Quickstart (API)](https://github.com/codexrodrigues/praxis-api-quickstart) · [Docs](https://codexrodrigues.github.io/praxis-metadata-starter/) · [Javadoc](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
 
 ## Primeiros Passos
 

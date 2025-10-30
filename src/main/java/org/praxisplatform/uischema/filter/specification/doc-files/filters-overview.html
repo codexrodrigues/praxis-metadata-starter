@@ -1,93 +1,92 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Visão Geral — Filtros (Specifications)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
+  <title>Praxis — Tour Visual de Filtros</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; line-height: 1.55; padding: 1.2rem; }
-    h1,h2 { margin: 0.4rem 0 0.6rem; }
-    h3 { margin: 1.0rem 0 0.4rem; }
-    code, pre { background: #f6f8fa; border-radius: 4px; }
-    pre { padding: 0.6rem; overflow: auto; }
-    ul { margin: 0.2rem 0 0.8rem 1.2rem; }
+    :root { --bg:#ffffff; --fg:#111827; --muted:#6b7280; --card:#f9fafb; --accent:#0ea5e9; }
+    @media (prefers-color-scheme: dark){ :root{ --bg:#0f1115; --fg:#e5e7eb; --muted:#9ca3af; --card:#11151b; --accent:#60a5fa; } }
+    body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,sans-serif;margin:0;padding:24px;background:var(--bg);color:var(--fg);} 
+    h1,h2,h3{margin:.2rem 0 .6rem}
+    .muted{color:var(--muted)}
+    .card{background:var(--card);padding:16px;border-radius:10px;border:1px solid rgba(148,163,184,.2);margin:12px 0}
+    code,pre{background:#1b1f28;color:#e8eaed;padding:.25rem .5rem;border-radius:6px}
+    a{color:var(--accent);text-decoration:none}
+    table{width:100%;border-collapse:collapse;margin:.6rem 0}
+    th,td{border:1px solid rgba(148,163,184,.35);padding:.5rem;text-align:left}
+    th{background:rgba(148,163,184,.12)}
   </style>
 </head>
 <body>
-  <h1>Visão Geral de Filtros</h1>
-  <p>
-    Este documento explica como o mecanismo de filtros converte DTOs anotados com <code>@Filterable</code>
-    em <em>Specifications</em> JPA, cobrindo as operações suportadas, boas práticas e considerações de uso corporativo.
-  </p>
+  <h1>Tour Visual — Filtros Dinâmicos</h1>
+  <p class="muted">Declare no DTO. O Starter entrega a <strong>Specification JPA</strong> correta — com <strong>26 operações</strong>, relações legíveis e paginação previsível.</p>
 
-  <h2>Arquitetura</h2>
-  <ul>
-    <li><strong>DTOs de Filtro</strong>: implementam <code>GenericFilterDTO</code> e declaram campos com <code>@Filterable</code>.</li>
-    <li><strong>GenericSpecificationsBuilder</strong>: lê os DTOs e monta predicados (Criteria API) conforme as operações.</li>
-    <li><strong>Services</strong>: consomem a <em>Specification</em> resultante para executar consultas paginadas/ordenadas.</li>
-  </ul>
+  <div class="card">
+    <h2>Como pensar (e usar) filtros</h2>
+    <ul>
+      <li><strong>Declare</strong> no DTO com <code>@Filterable</code> (operação + relation opcional).</li>
+      <li><strong>Relacione</strong> com <code>relation="a.b.campo"</code> — joins legíveis, sem dor.</li>
+      <li><strong>Combine</strong> operações (texto, intervalos, datas relativas, listas, coleções, nulidade, booleanos).</li>
+      <li><strong>Entregue</strong> com os endpoints prontos (<code>POST /filter</code> e <code>/filter/cursor</code>).</li>
+    </ul>
+  </div>
 
-  <h2>Operações Suportadas (principais)</h2>
-  <ul>
-    <li>Igualdade e comparação: <code>EQUAL</code>, <code>NOT_EQUAL</code>, <code>GREATER_THAN</code>, <code>GREATER_OR_EQUAL</code>, <code>LESS_THAN</code>, <code>LESS_OR_EQUAL</code></li>
-    <li>Strings (case-insensitive): <code>LIKE</code>, <code>NOT_LIKE</code>, <code>STARTS_WITH</code>, <code>ENDS_WITH</code></li>
-    <li>Listas: <code>IN</code>, <code>NOT_IN</code></li>
-    <li>Intervalos: <code>BETWEEN</code> (inclusivo), <code>BETWEEN_EXCLUSIVE</code> (exclusivo), <code>NOT_BETWEEN</code>, <code>OUTSIDE_RANGE</code></li>
-    <li>Datas/relativos: <code>ON_DATE</code> (usa janela do dia), <code>IN_LAST_DAYS</code>, <code>IN_NEXT_DAYS</code></li>
-    <li>Nulos/booleanos: <code>IS_NULL</code>, <code>IS_NOT_NULL</code>, <code>IS_TRUE</code>, <code>IS_FALSE</code></li>
-    <li>Coleções: <code>SIZE_EQ</code>, <code>SIZE_GT</code>, <code>SIZE_LT</code> (requer relation para atributo de coleção)</li>
-  </ul>
+  <h2>Exemplo rápido</h2>
+  <pre><code>public class PedidoFilterDTO implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
+  @Filterable(operation = Filterable.FilterOperation.LIKE)
+  private String cliente;
 
-  <h3>Notas de Modelagem</h3>
-  <ul>
-    <li><strong>IS_NULL/IS_NOT_NULL</strong>: modele como <code>Boolean</code> e envie <code>true</code> para ativar o predicado.</li>
-    <li><strong>IS_TRUE/IS_FALSE</strong>: o predicado é aplicado quando o campo do DTO é fornecido (recomenda-se enviar <code>true</code>).</li>
-    <li><strong>SIZE_* (coleções)</strong>: aponte <code>relation</code> para um atributo de coleção (ex.: <code>"itens"</code>); caso contrário, o builder lança erro informativo.</li>
-    <li><strong>Datas</strong>: <code>ON_DATE</code>/<code>IN_LAST_DAYS</code>/<code>IN_NEXT_DAYS</code> normalizam para <code>Instant</code> e horário atual; padronize em UTC em ambientes multi-região.</li>
-  </ul>
+  @Filterable(operation = Filterable.FilterOperation.BETWEEN)
+  private java.util.List&lt;java.time.LocalDate&gt; emissaoEntre; // [de, ate]
 
-  <h2>Exemplo de DTO de Filtro (trecho)</h2>
-  <pre><code>public class PedidoFilterDTO implements GenericFilterDTO {
-  @Filterable(operation = FilterOperation.LIKE)
-  private String clienteNome;
+  @Filterable(operation = Filterable.FilterOperation.IN_LAST_DAYS)
+  private Integer atualizadosUltimosDias; // ex.: 7
 
-  @Filterable(operation = FilterOperation.GREATER_OR_EQUAL)
-  private BigDecimal valorMin;
+  @Filterable(operation = Filterable.FilterOperation.IN)
+  private java.util.List&lt;String&gt; canais; // ["ONLINE","LOJA"]
 
-  @Filterable(operation = FilterOperation.ON_DATE)
-  private LocalDate criadoEm;
-
-  @Filterable(operation = FilterOperation.SIZE_GT, relation = "itens")
-  private Integer quantItensMaiorQue;
-
-  @Filterable(operation = FilterOperation.IS_TRUE)
-  private Boolean ativo;
+  @Filterable(operation = Filterable.FilterOperation.LIKE, relation = "vendedor.nome")
+  private String vendedorNome;
 }
   </code></pre>
 
-  <h2>Ordenação (Sort) com Relações</h2>
-  <p>
-    Para ordenar por um atributo relacionado, use o <em>nome do campo</em> do DTO no parâmetro <code>sort</code> da requisição.
-    O builder usa o <code>relation</code> da anotação <code>@Filterable</code> para mapear corretamente.
-  </p>
-  <pre><code>POST /api/pedidos/filter?page=0&amp;size=20&amp;sort=clienteNome,asc
+  <h2>Catálogo (26 operações)</h2>
+  <table>
+    <tr><th>Categoria</th><th>Operações</th></tr>
+    <tr><td>Igualdade</td><td>EQUAL, NOT_EQUAL</td></tr>
+    <tr><td>Texto</td><td>LIKE, NOT_LIKE, STARTS_WITH, ENDS_WITH</td></tr>
+    <tr><td>Comparações</td><td>GREATER_THAN, GREATER_OR_EQUAL, LESS_THAN, LESS_OR_EQUAL</td></tr>
+    <tr><td>Listas</td><td>IN, NOT_IN</td></tr>
+    <tr><td>Intervalos</td><td>BETWEEN, BETWEEN_EXCLUSIVE, NOT_BETWEEN, OUTSIDE_RANGE</td></tr>
+    <tr><td>Datas</td><td>ON_DATE, IN_LAST_DAYS, IN_NEXT_DAYS</td></tr>
+    <tr><td>Coleções</td><td>SIZE_EQ, SIZE_GT, SIZE_LT</td></tr>
+    <tr><td>Bool/Nulidade</td><td>IS_TRUE, IS_FALSE, IS_NULL, IS_NOT_NULL</td></tr>
+  </table>
+
+  <div class="card">
+    <h3>Relações sem dor</h3>
+    <p>Use <code>relation="a.b.campo"</code> para filtrar por atributos relacionados. O builder resolve os joins com segurança.</p>
+  </div>
+
+  <h2>Chamadas (REST)</h2>
+  <pre><code>POST /api/pedidos/filter?page=0&amp;size=20
+Content-Type: application/json
+
 {
-  "clienteNome": "ana"
+  "cliente": "maria",
+  "emissaoEntre": ["2024-01-01", "2024-12-31"],
+  "atualizadosUltimosDias": 7,
+  "canais": ["ONLINE", "LOJA"],
+  "vendedorNome": "silva"
 }
   </code></pre>
 
-  <h2>Boas Práticas Corporativas</h2>
+  <h2>Saiba mais</h2>
   <ul>
-    <li>Prefira filtros seletivos (evitar IN/NOT_IN com listas muito grandes).</li>
-    <li>Garanta índices para colunas frequentemente filtradas ou ordenadas.</li>
-    <li>Padronize timezone (UTC) para consistência entre backends/banco.</li>
-    <li>Documente relações usadas em <code>relation</code> e padrões de ordenação expostos.</li>
+    <li><a href="../annotation/Filterable.html">Javadoc: @Filterable</a></li>
+    <li><a href="../specification/GenericSpecificationsBuilder.html">Javadoc: GenericSpecificationsBuilder</a></li>
+    <li><a href="../../../../controller/base/AbstractCrudController.html">Javadoc: AbstractCrudController</a></li>
   </ul>
-
-  <p>
-    Consulte também a documentação do pacote e os Javadocs de
-    <a href="../GenericSpecificationsBuilder.html">GenericSpecificationsBuilder</a>
-    e <a href="../../filter/annotation/Filterable.html">@Filterable</a>.
-  </p>
 </body>
 </html>
+

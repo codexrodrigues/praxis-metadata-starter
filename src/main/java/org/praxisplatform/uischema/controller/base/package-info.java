@@ -1,16 +1,20 @@
 /**
- * Controllers genéricos que expõem operações CRUD, paginação, filtros e
- * endpoints de opções reutilizáveis.
+ * Camada base de controllers com foco em entrega rápida e consistente.
  *
  * <p>
- * Essa camada fornece classes como {@link org.praxisplatform.uischema.controller.base.AbstractCrudController}
- * e {@link org.praxisplatform.uischema.controller.base.BaseFilterController},
- * utilizadas diretamente pelas aplicações. Os controllers são pensados para
- * trabalhar em conjunto com os serviços de {@code service.base} e com as
- * anotações {@code @ApiResource} e {@code @Filterable}.
+ * <strong>Por que usar:</strong> até 13 endpoints por recurso (CRUD completo, filtros, paginação por cursor,
+ * options id/label e schemas), documentação viva (OpenAPI por grupo + cache + ETag) e HATEOAS opcional.
  * </p>
  *
- * @since 1.0.0
+ * <p>
+ * <strong>Classes principais:</strong>
+ * <ul>
+ *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractCrudController} — superfície completa de endpoints.</li>
+ *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractReadOnlyController} — modo read‑only (views/@Immutable) com 405 para escrita.</li>
+ * </ul>
+ * </p>
+ *
+ * <p><strong>Tour visual:</strong> veja um panorama dos endpoints e recursos em
+ * <a href="doc-files/controllers-overview.html">controllers-overview.html</a>.</p>
  */
 package org.praxisplatform.uischema.controller.base;
-

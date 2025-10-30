@@ -36,11 +36,24 @@
 
   <h2>O que este starter entrega</h2>
   <ul>
-    <li>Anotação <code>@UISchema</code> para metadados de UI diretamente em DTOs/entidades.</li>
-    <li>Enriquecimento do OpenAPI com extensão <code>x-ui</code> (controles, validações, hints).</li>
-    <li>Endpoint self‑describing <code>/schemas/filtered</code> com ETag (cache condicional) e <code>x-ui.resource.idField</code>.</li>
-    <li>Detecção automática de grupos OpenAPI por path e cache de documentos (payloads menores).</li>
-    <li>Infra base (controllers/services) com respostas padronizadas e HATEOAS opcional.</li>
+    <li><strong>Endpoints REST prontos (até 13 por recurso):</strong>
+      <div>
+        <code>GET /{id}</code>, <code>GET /all</code>, <code>POST /filter</code>, <code>POST /filter/cursor</code>,
+        <code>POST /locate</code>, <code>GET /by-ids</code>, <code>POST /options/filter</code>, <code>GET /options/by-ids</code>,
+        <code>POST /</code>, <code>PUT /{id}</code>, <code>DELETE /{id}</code>, <code>DELETE /batch</code>,
+        <code>GET /schemas</code> (redirect para <code>/schemas/filtered</code>)
+      </div>
+    </li>
+    <li><strong>Filtro dinâmico com Specifications JPA:</strong> 26 operações embutidas
+      (igual/diferente, like/not like, starts/ends with, &gt;/&ge;/&lt;/&le;, in/not in, between, between exclusive, not between,
+      outside range, on date, in last/next days, size eq/gt/lt, is true/false/null/not null)
+      e suporte a relacionamentos via <code>relation="a.b.campo"</code>.</li>
+    <li><strong>Ordenação padrão declarativa:</strong> defina <code>@DefaultSortColumn</code> na entidade e tenha ordenação determinística quando <code>sort</code> não for enviado.</li>
+    <li><strong>Paginação moderna:</strong> <em>pageable</em> tradicional (<code>POST /filter</code>) e <em>keyset pagination</em> (<code>POST /filter/cursor</code>) com cursores <code>after/before</code>.</li>
+    <li><strong>Opções id/label para selects:</strong> anote o label com <code>@OptionLabel</code> ou use heurísticas; preserva ordem e aceita enriquecimento (<code>extra</code>).</li>
+    <li><strong>HATEOAS e versão de dados:</strong> links automáticos (configuráveis) e cabeçalho <code>X-Data-Version</code> opcional para estratégias corporativas de cache.</li>
+    <li><strong>OpenAPI enriquecido (x‑ui):</strong> o starter publica metadados de UI gerados pelas anotações (<code>@UISchema</code>) e Bean Validation.</li>
+    <li><strong>Documentação performática:</strong> detecção automática de grupos OpenAPI por path e cache de documentos; endpoint <code>/schemas/filtered</code> com <code>ETag</code> e canonicalização.</li>
   </ul>
 
   <h2>Exemplos rápidos</h2>

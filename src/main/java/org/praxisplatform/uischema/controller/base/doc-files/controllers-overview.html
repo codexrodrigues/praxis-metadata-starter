@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Praxis — Tour Visual de Controllers</title>
+  <style>
+    :root { --bg:#ffffff; --fg:#111827; --muted:#6b7280; --card:#f9fafb; --accent:#0ea5e9; }
+    @media (prefers-color-scheme: dark){ :root{ --bg:#0f1115; --fg:#e5e7eb; --muted:#9ca3af; --card:#11151b; --accent:#60a5fa; } }
+    body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,sans-serif;margin:0;padding:24px;background:var(--bg);color:var(--fg);} 
+    h1,h2,h3{margin:.2rem 0 .6rem}
+    .muted{color:var(--muted)}
+    .card{background:var(--card);padding:16px;border-radius:10px;border:1px solid rgba(148,163,184,.2);margin:12px 0}
+    code,pre{background:#1b1f28;color:#e8eaed;padding:.25rem .5rem;border-radius:6px}
+    a{color:var(--accent);text-decoration:none}
+    ul{margin:.4rem 0 .8rem 1.2rem}
+  </style>
+</head>
+<body>
+  <h1>Tour Visual — Controllers Base</h1>
+  <p class="muted">Até <strong>13 endpoints</strong> por recurso. Read‑only para views. Documentação viva com HATEOAS opcional.</p>
+
+  <div class="card">
+    <h2>Endpoints prontos</h2>
+    <p>
+      <code>GET /{id}</code>, <code>GET /all</code>, <code>POST /filter</code>, <code>POST /filter/cursor</code>,
+      <code>POST /locate</code>, <code>GET /by-ids</code>, <code>POST /options/filter</code>, <code>GET /options/by-ids</code>,
+      <code>POST /</code>, <code>PUT /{id}</code>, <code>DELETE /{id}</code>, <code>DELETE /batch</code>,
+      <code>GET /schemas</code>
+    </p>
+  </div>
+
+  <h2>Read‑only (Views/@Immutable)</h2>
+  <ul>
+    <li>Mesmo tour de leitura (9+ endpoints), escrita bloqueada com <code>405</code>.</li>
+    <li>Filtros (26 operações), cursor pagination, options id/label e schema x‑ui.</li>
+  </ul>
+
+  <h2>Saiba mais</h2>
+  <ul>
+    <li><a href="../AbstractCrudController.html">Javadoc: AbstractCrudController</a></li>
+    <li><a href="../AbstractReadOnlyController.html">Javadoc: AbstractReadOnlyController</a></li>
+    <li><a href="../../../filter/specification/doc-files/filters-overview.html">Tour: Filtros</a></li>
+  </ul>
+</body>
+</html>
+

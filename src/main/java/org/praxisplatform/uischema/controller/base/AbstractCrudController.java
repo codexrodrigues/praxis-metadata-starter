@@ -41,6 +41,16 @@ import org.praxisplatform.uischema.util.SortBuilder;
 
 /**
  * <h2>🏗️ Controller Base com Auto-Detecção de Path e Integração OpenAPI</h2>
+ *
+ * <h3>✨ O que vem pronto (por números)</h3>
+ * <ul>
+ *   <li><strong>13 endpoints por recurso:</strong> {@code GET /{id}}, {@code GET /all}, {@code POST /filter}, {@code POST /filter/cursor},
+ *   {@code POST /locate}, {@code GET /by-ids}, {@code POST /options/filter}, {@code GET /options/by-ids},
+ *   {@code POST /}, {@code PUT /{id}}, {@code DELETE /{id}}, {@code DELETE /batch}, {@code GET /schemas}</li>
+ *   <li><strong>26 operações de filtro:</strong> texto (like/not/starts/ends), comparações (&gt;, &ge;, &lt;, &le;), listas (in/not),
+ *   intervalos (between/…​), datas relativas (últimos/próximos), tamanho de coleções, nulidade/booleanos.</li>
+ *   <li><strong>Documentação viva:</strong> OpenAPI por grupo + cache + ETag e metadados de UI (x‑ui).</li>
+ * </ul>
  * 
  * <h3>🎯 Problema Resolvido</h3>
  * <p>Antes desta implementação, era necessário implementar manualmente o método {@code getBasePath()} 

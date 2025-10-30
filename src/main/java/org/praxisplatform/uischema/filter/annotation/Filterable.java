@@ -64,6 +64,14 @@ import java.lang.annotation.Target;
  *     </li>
  * </ul>
  *
+ * <h2>Resumo executivo (venda técnica)</h2>
+ * <ul>
+ *   <li><strong>26 operações embutidas</strong> — de LIKE/IN/BETWEEN a datas relativas (últimos/próximos N dias),
+ *   tamanho de coleções e nulidade/booleanos.</li>
+ *   <li><strong>Relações legíveis</strong> — {@code relation="a.b.campo"} para navegar por joins sem dor.</li>
+ *   <li><strong>Zero Specification manual</strong> — o builder converte DTOs anotados em Criteria com segurança.</li>
+ * </ul>
+ *
  * @see FilterOperation
  */
 @Retention(RetentionPolicy.RUNTIME)
