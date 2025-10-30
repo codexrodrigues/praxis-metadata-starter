@@ -153,27 +153,30 @@ graph TD
         A[Java DTO com @UISchema]
         B[Validações Jakarta]
     end
+
     subgraph Starter
         C[CustomOpenApiResolver]
         D[OpenApiGroupResolver]
         E[ApiDocsController]
     end
+
     subgraph OpenAPI
-        F[/v3/api-docs/{group}]
+        F["/v3/api-docs/{group}"]
         G[Schema filtrado]
     end
+
     subgraph Frontend
         H[Aplicação de UI]
         I[Componentes Dinâmicos]
     end
 
-    A --> C;
-    B --> C;
-    C --> F;
-    F --> E;
-    E --> G;
-    G --> H;
-    H --> I;
+    A --> C
+    B --> C
+    C --> F
+    F --> E
+    E --> G
+    G --> H
+    H --> I
 ```
 
 > Diagrama expandido disponível em [docs/architecture-overview.md](docs/architecture-overview.md#fluxo-de-enriquecimento-x-ui).
@@ -1023,6 +1026,7 @@ Contribuições são bem-vindas. Por favor, abra uma issue ou envie um pull requ
 ## Licença
 
 Este projeto está licenciado sob a Licença Apache 2.0.
+
 ## Recursos Read‑Only (Views)
 
 Suporte nativo a recursos somente leitura (ex.: entidades JPA mapeando views com `@Immutable`).
