@@ -31,7 +31,7 @@ jobs:
 
       - name: Build and generate Javadoc
         run: |
-          ./mvnw --batch-mode -DskipTests package javadoc:javadoc
+          ./mvnw --batch-mode -Dmaven.test.skip=true package javadoc:javadoc
           test -f target/site/apidocs/index.html
 
       - name: Prepare docs folder

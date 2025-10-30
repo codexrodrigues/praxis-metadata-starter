@@ -95,7 +95,7 @@ jobs:
 
       - name: Build and sign (verify)
         run: |
-          ./mvnw -B -P release -DskipTests -Dgpg.skip=false -Dgpg.keyname="${GPG_KEY_ID}" -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -Dgpg.executable=gpg -T 1C \
+          ./mvnw -B -P release -Dmaven.test.skip=true -Dgpg.skip=false -Dgpg.keyname="${GPG_KEY_ID}" -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -Dgpg.executable=gpg -T 1C \
             -am clean verify
 
       - name: Check signatures exist
@@ -115,6 +115,6 @@ jobs:
           # Important: run package/verify in the SAME Maven invocation so the
           # main artifact is attached in-session before publishing. Otherwise
           # central plugin sees no assigned artifact file.
-          ./mvnw -B -P release -DskipTests -Dgpg.skip=false -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -T 1C \
+          ./mvnw -B -P release -Dmaven.test.skip=true -Dgpg.skip=false -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -T 1C \
             -am \
             clean verify org.sonatype.central:central-publishing-maven-plugin:publish
