@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Visão dos Pacotes do Praxis Metadata Starter</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Visão dos Pacotes do Praxis Metadata Starter</h1>
+</header>
+<h1 id="visão-dos-pacotes-do-praxis-metadata-starter">Visão dos Pacotes
+do Praxis Metadata Starter</h1>
+<p>Esta referência resume os pacotes Java disponibilizados pelo starter,
+destacando <strong>responsabilidades</strong>, <strong>principais
+tipos</strong> e <strong>como cada peça se conecta aos fluxos descritos
+na <a href="architecture-overview.md">visão
+arquitetural</a></strong>.</p>
+<blockquote>
+<p>💡 Use esta página como mapa mental antes de navegar pelo Javadoc.
+Cada seção cita classes chave com links para facilitar a exploração.</p>
+</blockquote>
+<h2 id="pacote-raiz-org.praxisplatform.uischema">Pacote Raiz:
+<code>org.praxisplatform.uischema</code></h2>
+<p>Abriga enums e tipos compartilhados entre as camadas.</p>
+<table>
+<colgroup>
+<col style="width: 28%" />
+<col style="width: 38%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Tipo</th>
+<th>Função</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><a
+href="../src/main/java/org/praxisplatform/uischema/FieldConfigProperties.java"><code>FieldConfigProperties</code></a></td>
+<td>Lista oficial de chaves <code>x-ui</code> para propriedades de
+campos</td>
+<td>Usada por <code>CustomOpenApiResolver</code> e pela UI</td>
+</tr>
+<tr class="even">
+<td><a
+href="../src/main/java/org/praxisplatform/uischema/ValidationProperties.java"><code>ValidationProperties</code></a></td>
+<td>Mapeia restrições de validação e mensagens padrão</td>
+<td>Preenchida automaticamente a partir de Bean Validation</td>
+</tr>
+<tr class="odd">
+<td><code>FieldControlType</code>, <code>FieldDataType</code>,
+<code>FieldAlignment</code></td>
+<td>Enumerações de suporte visual</td>
+<td>Podem ser referenciadas diretamente em <code>@UISchema</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="annotation"><code>annotation</code></h2>
+<p>Fornece anotações que descrevem recursos API e comportamento de
+UI.</p>
+<ul>
+<li><code>@ApiResource</code> / <code>@ApiGroup</code> — categorizam
+controllers REST para geração de grupos OpenAPI.</li>
+<li><code>@UISchema</code> (exposta em
+<code>extension.annotation</code>) — descreve propriedades visuais; ver
+<a href="concepts/ui-schema.md">conceito detalhado</a>.</li>
+<li><code>@Filterable</code> — identifica campos que participam de
+filtros dinâmicos.</li>
+</ul>
+<h2 id="configuration"><code>configuration</code></h2>
+<p>Auto-configurações Spring Boot que ligam todos os componentes
+automaticamente.</p>
+<ul>
+<li><code>OpenApiUiSchemaAutoConfiguration</code> habilita resolvers,
+controllers e utilitários.</li>
+<li><code>DynamicSwaggerConfig</code> registra grupos adicionais e
+integra com <code>OpenApiGroupResolver</code>.</li>
+<li><code>RepositoryConfiguration</code> expõe beans com
+<code>JpaSpecificationExecutor</code> para filtros dinâmicos.</li>
+</ul>
+<h2 id="controller"><code>controller</code></h2>
+<p>Camada HTTP responsável por expor operações prontas.</p>
+<ul>
+<li><code>controller.base</code> — controllers genéricos
+(<code>AbstractCrudController</code>, <code>BaseFilterController</code>)
+com operações CRUD, paginação e filtros.</li>
+<li><code>controller.docs</code> — endpoints de documentação
+(<code>ApiDocsController</code>) com cache e ETag. Faz a ponte entre
+<code>/v3/api-docs</code> e o fluxo de enriquecimento descrito em <a
+href="architecture-overview.md">architecture-overview.md</a>.</li>
+</ul>
+<h2 id="dto"><code>dto</code></h2>
+<p>Objetos de transporte utilizados por controllers e services.</p>
+<ul>
+<li><code>OptionDTO</code> — payload leve para combos e
+autocompletes.</li>
+<li><code>PagedResponseDTO</code> — abstrai paginação padrão.</li>
+<li>Exemplos de uso: <a href="examples/filter-dto.md">Filter DTO
+real</a>.</li>
+</ul>
+<h2 id="extension"><code>extension</code></h2>
+<p>Corpo do processo de enriquecimento OpenAPI.</p>
+<ul>
+<li><code>CustomOpenApiResolver</code> — converte metadados de anotações
+e validação em <code>x-ui</code>.</li>
+<li><code>ResolverUtils</code> — utilitários para leitura de anotações e
+classes.</li>
+<li><code>extension.annotation</code> — contém <code>@UISchema</code>,
+organizada separadamente para minimizar dependências.</li>
+</ul>
+<h2 id="filter"><code>filter</code></h2>
+<p>Infraestrutura de filtros dinâmicos baseada em Specification.</p>
+<ul>
+<li><code>filter.annotation</code> — <code>@Filterable</code> e
+metadados adicionais.</li>
+<li><code>filter.dto</code> — contratos de DTOs e adaptadores (por
+exemplo, <code>FilterDefinitionDTO</code>). Veja <a
+href="examples/filter-dto.md">exemplo detalhado</a>.</li>
+<li><code>filter.specification</code> — builders de Specifications
+Spring Data que transformam DTOs em consultas.</li>
+</ul>
+<h2 id="hash"><code>hash</code></h2>
+<p>Geração e comparação de hashes de schema.</p>
+<ul>
+<li>Utilizado por <code>ApiDocsController</code> para calcular ETag do
+payload filtrado.</li>
+<li>Extensível para persistência de versões via banco ou cache
+distribuído.</li>
+</ul>
+<h2 id="http"><code>http</code></h2>
+<p>Classes auxiliares para construção de respostas padronizadas.</p>
+<ul>
+<li><code>RestApiResponse</code> — wrapper com categoria, payload e
+erros.</li>
+<li><code>LinkBuilder</code> — utilitário para montagem de links HATEOAS
+baseados em rota.</li>
+</ul>
+<h2 id="id"><code>id</code></h2>
+<p>Estruturas relacionadas a identificação única e extração de IDs.</p>
+<ul>
+<li><code>Identifiable</code> — contrato usado pelos serviços base para
+extrair chave primária.</li>
+<li><code>IdExtractor</code> — reflexão segura para identificar getters
+de ID.</li>
+</ul>
+<h2 id="mapper"><code>mapper</code></h2>
+<p>Configurações compartilhadas para MapStruct e mapeamento de
+entidades.</p>
+<ul>
+<li><code>mapper.base</code> — mapeadores genéricos
+(<code>BaseMapper</code>, <code>OptionMapper</code>).</li>
+<li><code>mapper.config</code> — configurações corporativas
+(<code>CorporateMapperConfig</code>).</li>
+</ul>
+<h2 id="numeric"><code>numeric</code></h2>
+<p>Conversores e utilitários para campos numéricos.</p>
+<ul>
+<li><code>NumberFormatStyle</code> — enum com estilos (percentual, moeda
+etc.).</li>
+<li>Integrado diretamente pelo <code>CustomOpenApiResolver</code>.</li>
+</ul>
+<h2 id="repository"><code>repository</code></h2>
+<p>Infraestrutura de acesso a dados.</p>
+<ul>
+<li><code>repository.base</code> — interfaces base
+(<code>BaseRepository</code>, <code>BaseReadOnlyRepository</code>).</li>
+<li>Extensível por aplicações consumidoras que desejam padronizar
+operações CRUD.</li>
+</ul>
+<h2 id="rest"><code>rest</code></h2>
+<p>Exceções e respostas específicas da camada REST.</p>
+<ul>
+<li><code>rest.exceptionhandler</code> —
+<code>GlobalExceptionHandler</code> padroniza respostas de erro.</li>
+<li><code>rest.response</code> — builders auxiliares para
+<code>RestApiResponse</code>.</li>
+</ul>
+<h2 id="service"><code>service</code></h2>
+<p>Serviços base orientados a domínio.</p>
+<ul>
+<li><code>service.base</code> — implementações padrão para CRUD
+(<code>BaseCrudService</code>) e leitura
+(<code>BaseReadOnlyService</code>).</li>
+<li><code>service.base.annotation</code> — metadados de serviço
+utilizados por anotações.</li>
+</ul>
+<h2 id="util"><code>util</code></h2>
+<p>Utilitários diversos.</p>
+<ul>
+<li><code>OpenApiUiUtils</code> — converte validações em mensagens
+amigáveis.</li>
+<li><code>OpenApiGroupResolver</code> — estratégia para detectar grupos
+(<code>ApiDocsController</code> depende dele).</li>
+<li><code>LocaleUtils</code> — suporte a localização para mensagens e
+labels.</li>
+</ul>
+<hr />
+<h3 id="como-usar-esta-visão">Como usar esta visão</h3>
+<ol type="1">
+<li>Identifique o pacote relevante via tabela acima.</li>
+<li>Abra o <code>package-info.java</code> correspondente para obter
+detalhes extras e links cruzados.</li>
+<li>Consulte o Javadoc da classe desejada para obter exemplos de uso e
+contratos detalhados.</li>
+<li>Navegue pelos <a href="examples/">exemplos</a> para ver o pacote em
+ação.</li>
+</ol>
+</body>
+</html>

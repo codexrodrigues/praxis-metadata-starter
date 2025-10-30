@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Praxis Metadata Starter — Visão Arquitetural</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Praxis Metadata Starter — Visão Arquitetural</h1>
+</header>
+<h1 id="praxis-metadata-starter-visão-arquitetural">Praxis Metadata
+Starter — Visão Arquitetural</h1>
+<p>A arquitetura do <strong>Praxis Metadata Starter</strong> foi
+desenhada para transformar <strong>DTOs Java anotados</strong> em
+<strong>documentos OpenAPI enriquecidos com metadados
+<code>x-ui</code></strong>. Esta visão detalha os componentes
+principais, como eles se relacionam e quais extensões estão disponíveis
+para personalização.</p>
+<h2 id="camadas-principais">Camadas Principais</h2>
+<pre class="mermaid"><code>graph TD
+    A[Aplicação Spring Boot] --&gt;|Depende| B[Praxis Metadata Starter]
+    B --&gt; C[Auto-configurações]
+    B --&gt; D[Processadores de Anotação]
+    B --&gt; E[Serviços Base]
+    B --&gt; F[Controladores de Documentação]
+    C --&gt;|Registra| D
+    D --&gt;|Enriquece| G[Documentos OpenAPI]
+    G --&gt;|Estende| H[x-ui Metadata]
+    H --&gt;|Consumido por| I[Frontends dinâmicos]</code></pre>
+<ul>
+<li><strong>Auto-configurações</strong> (<code>configuration</code>):
+ativadas pelo Spring Boot, ligam processadores, resolvers e registram
+beans obrigatórios.</li>
+<li><strong>Processadores de Anotação</strong> (<code>annotation</code>,
+<code>extension</code>): interpretam <code>@UISchema</code>,
+<code>@Filterable</code>, <code>@ApiResource</code> e geram
+metadados.</li>
+<li><strong>Serviços Base</strong> (<code>service.base</code>): definem
+contratos CRUD, mapeamento de opções e integração com repositórios e
+filtros.</li>
+<li><strong>Controladores</strong> (<code>controller.docs</code>):
+expõem endpoints como <code>/schemas/filtered</code>, resolvendo
+automaticamente grupos OpenAPI.</li>
+<li><strong>Metadados x-ui</strong> (<code>FieldConfigProperties</code>,
+<code>ValidationProperties</code>): padronizam chaves para consumo dos
+frontends Praxis.</li>
+</ul>
+<h2 id="fluxo-de-enriquecimento-x-ui">Fluxo de Enriquecimento x-ui</h2>
+<pre class="mermaid"><code>sequenceDiagram
+    participant DTO as DTO com @UISchema
+    participant Resolver as CustomOpenApiResolver
+    participant OpenAPI as Documento OpenAPI
+    participant Controller as ApiDocsController
+
+    DTO-&gt;&gt;Resolver: Propriedades de campos + Bean Validation
+    Resolver-&gt;&gt;Resolver: Aplica precedência (defaults → detecção → overrides → validações)
+    Resolver-&gt;&gt;OpenAPI: Persiste extensão x-ui por campo
+    Controller-&gt;&gt;OpenAPI: Recupera documento correto (grupo autodetectado)
+    Controller-&gt;&gt;Controller: Cacheia e filtra schemas relevantes
+    Controller--&gt;&gt;Frontend: Retorna JSON com `components.schemas.*.x-ui`</code></pre>
+<ol type="1">
+<li><strong>Entrada</strong>: DTOs anotados com <code>@UISchema</code> e
+validações Jakarta.</li>
+<li><strong>Processamento</strong>: <code>CustomOpenApiResolver</code>
+aplica heurísticas e gera <code>x-ui</code> coerente.</li>
+<li><strong>Entrega</strong>: <code>ApiDocsController</code> filtra o
+documento, injeta traduções, resolve <code>$ref</code> e devolve apenas
+o necessário ao frontend.</li>
+</ol>
+<h2 id="principais-componentes-técnicos">Principais Componentes
+Técnicos</h2>
+<table>
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 11%" />
+<col style="width: 26%" />
+<col style="width: 43%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Componente</th>
+<th>Pacote</th>
+<th>Responsabilidade</th>
+<th>Quando estender/configurar</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>OpenApiUiSchemaAutoConfiguration</code></td>
+<td><code>configuration</code></td>
+<td>Ativa resolvers, registradores e endpoints de documentação</td>
+<td>Override quando precisar desligar peças automáticas em aplicações
+multi-módulo</td>
+</tr>
+<tr class="even">
+<td><code>@UISchema</code></td>
+<td><code>extension.annotation</code></td>
+<td>Declara propriedades visuais e comportamentais de campos</td>
+<td>Estenda atributos via <code>extraProperties</code> ou
+metaprogramação</td>
+</tr>
+<tr class="odd">
+<td><code>CustomOpenApiResolver</code></td>
+<td><code>extension</code></td>
+<td>Aplica precedência de metadados e Bean Validation</td>
+<td>Substitua para alterar heurísticas globais</td>
+</tr>
+<tr class="even">
+<td><code>ApiDocsController</code></td>
+<td><code>controller.docs</code></td>
+<td>Exponde <code>/schemas/filtered</code> com cache e filtro</td>
+<td>Habilite filtros customizados ou headers adicionais</td>
+</tr>
+<tr class="odd">
+<td><code>Filterable</code> &amp; Filtros</td>
+<td><code>filter.annotation</code>, <code>filter.dto</code>,
+<code>filter.specification</code></td>
+<td>Convertem DTOs em Specifications dinamicamente</td>
+<td>Crie DTOs específicos por contexto e reutilize adaptadores</td>
+</tr>
+<tr class="even">
+<td><code>BaseCrudService</code></td>
+<td><code>service.base</code></td>
+<td>Implementa CRUD padrão com mapeamento de opções</td>
+<td>Substitua métodos para lógica de negócio específica</td>
+</tr>
+</tbody>
+</table>
+<h2 id="integração-com-springdoc-e-openapi">Integração com SpringDoc e
+OpenAPI</h2>
+<ol type="1">
+<li><code>springdoc-openapi</code> publica <code>/v3/api-docs</code> com
+os esquemas da aplicação.</li>
+<li>O starter registra <code>CustomOpenApiResolver</code> como
+<code>ModelResolver</code> para interceptar geração de schemas.</li>
+<li><code>ApiDocsController</code> consulta o documento adequado e
+aplica filtros específicos:
+<ul>
+<li>Resolução automática de grupo
+(<code>OpenApiGroupResolver</code>).</li>
+<li>Substituição opcional de <code>$ref</code> por objetos
+expandidos.</li>
+<li>Conversão de mensagens de validação em
+<code>x-ui.validation</code>.</li>
+</ul></li>
+</ol>
+<h2 id="observabilidade-e-cache">Observabilidade e Cache</h2>
+<ul>
+<li><strong>Cache in-memory</strong>: resultados de
+<code>/v3/api-docs/{group}</code> são guardados em
+<code>ConcurrentHashMap</code> com ETag calculada a partir do schema
+filtrado.</li>
+<li><strong>Headers HTTP</strong>: <code>If-None-Match</code> é
+respeitado e retorna <code>304</code> quando não há alterações.</li>
+<li><strong>Logs</strong>: <code>ApiDocsController</code> e
+<code>CustomOpenApiResolver</code> utilizam SLF4J para rastrear grupos
+resolvidos e propriedades aplicadas.</li>
+</ul>
+<h2 id="próximos-passos">Próximos Passos</h2>
+<ul>
+<li>Leia a <a href="packages-overview.md">visão de pacotes</a> para
+localizar rapidamente responsabilidades.</li>
+<li>Confira os <a href="examples/filter-dto.md">exemplos de DTO</a> e <a
+href="examples/spring-integration.md">integrações Spring</a>.</li>
+<li>Aprofunde-se nos conceitos de <a
+href="concepts/ui-schema.md"><code>@UISchema</code> e validações
+estendidas</a>.</li>
+</ul>
+</body>
+</html>

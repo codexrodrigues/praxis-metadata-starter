@@ -179,14 +179,20 @@ https://codexrodrigues.github.io/praxis-metadata-starter/</p>
 Documentação</strong></h2>
 <pre><code>docs/
 ├── README.md                 # Este arquivo - índice principal
+├── architecture-overview.md  # Visão arquitetural com diagramas
+├── packages-overview.md      # Mapa dos pacotes Java
+├── sitemap.xml               # Navegação para motores de busca
 ├── overview/                 # Visão geral para novos usuários
 │   └── VISAO-GERAL.md
 ├── guides/                   # Guias completos de implementação
 │   ├── GUIA-CLAUDE-AI-CRUD-BULK.md
 │   └── GUIA-CLAUDE-AI-APLICACAO-NOVA.md
 ├── examples/                 # Exemplos práticos e templates
-│   └── EXEMPLO-PROMPT-CRUD-BULK.md
+│   ├── EXEMPLO-PROMPT-CRUD-BULK.md
+│   ├── filter-dto.md
+│   └── spring-integration.md
 ├── concepts/               # Conceitos fundamentais (Self-describing, UI vs Data Schema, etc.)
+│   └── ui-schema.md
 ├── technical/               # Documentação técnica detalhada
 │   ├── AUTO-CONFIGURACAO.md
 │   ├── ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
@@ -202,6 +208,16 @@ Implementação</strong> (<code>/guides/</code>)</h2>
 <ul>
 <li><a href="overview/VISAO-GERAL.md">VISAO-GERAL.md</a></li>
 </ul></li>
+</ul>
+<h2 id="arquitetura-e-mapa-de-pacotes">🏛️ <strong>Arquitetura e Mapa de
+Pacotes</strong></h2>
+<ul>
+<li><a href="architecture-overview.md">Visão Arquitetural</a>: diagramas
+Mermaid, fluxo de enriquecimento x-ui e principais componentes.</li>
+<li><a href="packages-overview.md">Visão dos Pacotes</a>:
+responsabilidades de cada pacote Java e quando estender contratos.</li>
+<li><a href="sitemap.xml">Sitemap</a>: referência para indexadores
+(Google, IA) e navegação cruzada entre tópicos.</li>
 </ul>
 <h3 id="guia-crudbulk-automatizado">🤖 <a
 href="guides/GUIA-CLAUDE-AI-CRUD-BULK.md">Guia CRUD+Bulk
@@ -253,6 +269,28 @@ aprimorado</li>
 </ul>
 <p><strong>Quando usar:</strong> Como referência ao solicitar criação de
 novas funcionalidades CRUD+Bulk.</p>
+<h3 id="filter-dto-com-metadados-x-ui">🧾 <a
+href="examples/filter-dto.md">Filter DTO com Metadados x-ui</a></h3>
+<p><strong>Mostra um filtro completo com <code>@Filterable</code> +
+<code>@UISchema</code></strong></p>
+<ul>
+<li>🔍 Mapeamento para Specifications com operadores
+personalizados.</li>
+<li>🧭 Ordem e agrupamento pensados para formulários avançados.</li>
+<li>🔗 Links diretos para endpoints <code>/options</code> e
+<code>/schemas/filtered</code>.</li>
+</ul>
+<h3 id="integração-spring-boot-ponta-a-ponta">🔌 <a
+href="examples/spring-integration.md">Integração Spring Boot ponta a
+ponta</a></h3>
+<p><strong>Guia rápido para subir uma aplicação consumindo o
+starter</strong></p>
+<ul>
+<li>⚙️ Configuração mínima com <code>@SpringBootApplication</code>.</li>
+<li>🧱 Controller CRUD que reutiliza
+<code>AbstractCrudController</code>.</li>
+<li>📄 Resposta real do endpoint <code>/schemas/filtered</code>.</li>
+</ul>
 <hr />
 <h2 id="documentação-técnica-technical">🔧 <strong>Documentação
 Técnica</strong> (<code>/technical/</code>)</h2>
