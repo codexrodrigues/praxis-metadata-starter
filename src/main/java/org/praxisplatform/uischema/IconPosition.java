@@ -2,6 +2,21 @@ package org.praxisplatform.uischema;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
+/**
+ * Posições relativas para exibição de ícones em componentes de UI.
+ * <p>
+ * Os valores são serializados como strings compatíveis com convenções de
+ * layout (ex.: {@code start}, {@code end}, {@code inline-start}).
+ * </p>
+ *
+ * <h3>Exemplo</h3>
+ * <pre>{@code
+ * @UISchema(controlType = FieldControlType.INPUT, icon = "search", iconPosition = "end")
+ * private String consulta;
+ * }</pre>
+ *
+ * @since 1.0.0
+ */
 public enum IconPosition {
     LEFT("left"),
     RIGHT("right"),
@@ -30,6 +45,12 @@ public enum IconPosition {
 
     private final String value;
     IconPosition(String value) { this.value = value; }
+
+    /**
+     * Valor textual para consumo pelo frontend.
+     *
+     * @return posição do ícone (ex.: {@code end})
+     */
     @JsonValue
     public String getValue() { return value; }
 }

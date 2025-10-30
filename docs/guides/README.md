@@ -27,9 +27,26 @@ Esta seção contém guias completos e detalhados para implementar funcionalidad
 
 ---
 
+### 🧭 [CRUD com @ApiResource e @ApiGroup](CRUD-COM-APIRESOURCE.md)
+Exponha recursos REST e organize a documentação em grupos OpenAPI.
+
+### 🔎 [Filtros e Paginação](FILTROS-E-PAGINACAO.md)
+Implemente filtros com `@Filterable` + Specifications e paginação consistente.
+
+### 🔢 [Ordenação Padrão](ORDEM-PADRAO.md)
+Defina `@DefaultSortColumn` e tenha ordenação determinística por padrão.
+
+### ✅ [Options (id/label)](OPTIONS-ENDPOINT.md)
+Exponha endpoints de opções id/label usando `@OptionLabel` e `OptionMapper`.
+
+### ❗ [Erros e Envelope de Respostas](ERROS-E-RESPOSTAS.md)
+Padronize respostas de erro e sucesso para melhor DX/UX.
+
+---
+
 ## 🎯 **Como Usar os Guias**
 
-1. **Para primeira implementação:** Comece com o [Guia CRUD+Bulk](GUIA-CLAUDE-AI-CRUD-BULK.md)
+1. **Para primeira implementação:** Comece com a [Visão Geral](../overview/VISAO-GERAL.md) e depois o [Guia CRUD+Bulk](GUIA-CLAUDE-AI-CRUD-BULK.md)
 2. **Para novo projeto:** Use o [Guia de Aplicação Nova](GUIA-CLAUDE-AI-APLICACAO-NOVA.md)
 3. **Para exemplos práticos:** Consulte os [Examples](../examples/)
 4. **Para detalhes técnicos:** Veja a [Documentação Técnica](../technical/)
@@ -48,3 +65,19 @@ Todos os guias nesta seção foram **validados através de implementações reai
 ---
 
 **📌 Nota:** Para uma visão geral de toda a documentação, volte ao [índice principal](../README.md).
+
+---
+
+## 🔎 Referências de API
+
+- Javadoc (publicado no GitHub Pages): [Visão geral](../apidocs/index.html)
+- API por pacote: [allpackages-index](../apidocs/allpackages-index.html)
+
+## ✅ Pré‑requisitos
+- Java 21
+- Spring Boot 3.2+
+- SpringDoc OpenAPI (starter já incluso como dependência)
+- Maven (para build e publicação)
+
+## 🚀 Exemplo completo (Quickstart)
+- Repositório de exemplo: https://github.com/codexrodrigues/praxis-api-quickstart

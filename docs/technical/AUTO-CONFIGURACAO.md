@@ -302,7 +302,7 @@ public class DynamicSwaggerConfig {
 
 - [Spring Boot Auto-Configuration](https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.developing-auto-configuration)
 - [SpringDoc OpenAPI GroupedOpenApi](https://springdoc.org/#how-can-i-separate-different-api-definitions)
-- [PraxisMetadataAutoConfiguration.java](src/main/java/org/praxisplatform/uischema/configuration/PraxisMetadataAutoConfiguration.java)
-- [OpenApiUiSchemaAutoConfiguration.java](src/main/java/org/praxisplatform/uischema/configuration/OpenApiUiSchemaAutoConfiguration.java)
+- [PraxisMetadataAutoConfiguration.java](../../src/main/java/org/praxisplatform/uischema/configuration/PraxisMetadataAutoConfiguration.java)
+- [OpenApiUiSchemaAutoConfiguration.java](../../src/main/java/org/praxisplatform/uischema/configuration/OpenApiUiSchemaAutoConfiguration.java)
 - [Praxis Metadata Starter README](README.md)
 - [Validação @ApiResource](VALIDACAO-API-RESOURCE.md)

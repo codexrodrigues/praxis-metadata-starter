@@ -1,7 +1,3 @@
-org/praxisplatform/uischema/controller/base/AbstractReadOnlyControllerLinksTest$ReadOnlyService.class
-org/praxisplatform/uischema/controller/base/AbstractReadOnlyControllerLinksTest$SimpleFilterDTO.class
-org/praxisplatform/uischema/controller/docs/ApiDocsControllerReadOnlyMetaTest.class
-org/praxisplatform/uischema/controller/base/AbstractReadOnlyControllerLinksTest$SimpleDto.class
-org/praxisplatform/uischema/controller/base/AbstractReadOnlyControllerLinksTest.class
-org/praxisplatform/uischema/controller/base/AbstractReadOnlyControllerLinksTest$SimpleEntity.class
-org/praxisplatform/uischema/controller/base/AbstractReadOnlyControllerLinksTest$ReadOnlyController.class
+org/praxisplatform/uischema/extension/CustomOpenApiResolverTest.class
+org/praxisplatform/uischema/extension/CustomOpenApiResolverTest$Dummy.class
+org/praxisplatform/uischema/util/OpenApiUiUtilsControlTypeTest.class

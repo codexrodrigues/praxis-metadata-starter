@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -13,13 +14,15 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.praxisplatform.uischema.service.base.BaseCrudService;
+
 @WebMvcTest(AbstractCrudControllerBatchDeleteTest.SimpleController.class)
 class AbstractCrudControllerBatchDeleteTest {
 
     @Autowired
     MockMvc mockMvc;
 
-    @MockBean
+    @MockBean(answer = Answers.CALLS_REAL_METHODS)
     SimpleService service;
 
     @Test
@@ -42,7 +45,7 @@ class AbstractCrudControllerBatchDeleteTest {
         verify(service, never()).deleteAllById(any());
     }
 
-    interface SimpleService extends org.praxisplatform.uischema.service.base.BaseCrudService<SimpleEntity, SimpleDto, Long, SimpleFilterDTO> {}
+    interface SimpleService extends BaseCrudService<SimpleEntity, SimpleDto, Long, SimpleFilterDTO> {}
 
     static class SimpleEntity {
         private Long id;
@@ -67,16 +70,22 @@ class AbstractCrudControllerBatchDeleteTest {
     static class SimpleController extends AbstractCrudController<SimpleEntity, SimpleDto, Long, SimpleFilterDTO> {
         @Autowired
         SimpleService service;
+
         @Override
         protected SimpleService getService() { return service; }
+
         @Override
         protected SimpleDto toDto(SimpleEntity entity) { return new SimpleDto(entity.getId()); }
+
         @Override
         protected SimpleEntity toEntity(SimpleDto dto) { return new SimpleEntity(dto.getId()); }
+
         @Override
         protected Long getEntityId(SimpleEntity entity) { return entity.getId(); }
+
         @Override
         protected Long getDtoId(SimpleDto dto) { return dto.getId(); }
+
         @Override
         protected String getBasePath() { return "/simple"; }
     }

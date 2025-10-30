@@ -109,6 +109,8 @@ Esta seção contém documentação técnica detalhada sobre os recursos avança
 - 📖 [Guias de Implementação](../guides/)
 - 💡 [Exemplos Práticos](../examples/)
 - 🏠 [Índice Principal](../README.md)
+ - 🧭 [Heurística de ControlType](../concepts/CONTROLTYPE-HEURISTICA.md)
+ - 🔎 Javadoc: [Visão geral](../apidocs/index.html), [Pacotes](../apidocs/allpackages-index.html)
 
 ---
 

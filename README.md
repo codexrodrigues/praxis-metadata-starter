@@ -6,14 +6,22 @@ O Praxis Metadata Starter (`praxis-metadata-starter`) é uma biblioteca fundamen
 
 ### Concept Usage
 
-- [Self‑describing APIs](../../../docs/concepts/self-describing-apis.md)
-- [UI Schema vs Data Schema](../../../docs/concepts/ui-schema-vs-data-schema.md)
-- [Metadata‑driven backend‑agnostic](../../../docs/concepts/metadata-driven-backend-agnostic.md)
-- [Configuration‑driven development](../../../docs/concepts/configuration-driven-development.md)
+- Conceitos
+  - [Self‑describing APIs](docs/concepts/self-describing-apis.md)
+  - [UI Schema vs Data Schema](docs/concepts/ui-schema-vs-data-schema.md)
+  - [Metadata‑driven backend‑agnostic](docs/concepts/metadata-driven-backend-agnostic.md)
+  - [Configuration‑driven development](docs/concepts/configuration-driven-development.md)
+- Técnico
+  - [Estratégia de grupos OpenAPI](docs/technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md)
+  - [Auto-configuração](docs/technical/AUTO-CONFIGURACAO.md)
+  - [Validação @ApiResource](docs/technical/VALIDACAO-API-RESOURCE.md)
+  - [Guia CRUD + Bulk](docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md)
 
 ### Apresentação (artigo)
 
-- Visão para gestores/arquitetos e exemplos de uso do starter: [APRESENTACAO-BACKEND-METADATA-STARTER.md](../../APRESENTACAO-BACKEND-METADATA-STARTER.md)
+- Visão geral e exemplos de uso do starter: [APRESENTACAO-BACKEND-METADATA-STARTER.md](APRESENTACAO-BACKEND-METADATA-STARTER.md)
+- Índice da documentação do projeto: [docs/README.md](docs/README.md)
+- Visão rápida para novos usuários: [docs/overview/VISAO-GERAL.md](docs/overview/VISAO-GERAL.md)
 
 ### Principais Recursos
 
@@ -36,8 +44,20 @@ Para usar o Praxis Metadata Starter, adicione a seguinte dependência ao seu `po
     <groupId>io.github.codexrodrigues</groupId>
     <artifactId>praxis-metadata-starter</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-</dependency>
+    <!-- Após publicar o RC: use 1.0.0-rc.1 -->
+    <!-- Após a versão final: use 1.0.0 -->
+    <!-- Confira a aba Releases para a última versão. -->
+  </dependency>
 ```
+
+Exemplo completo (Quickstart):
+- Repositório de exemplo usando o starter em uma aplicação Spring Boot real:
+  - https://github.com/codexrodrigues/praxis-api-quickstart
+
+### Release Candidate (RC)
+
+- Para testar a build RC assim que publicada no Central, ajuste a versão no snippet acima para `1.0.0-rc.1`.
+- Guia de publicação e processo de release: veja `RELEASING.md`.
 
 ## MapStruct Config (Fail‑Fast)
 
@@ -191,13 +211,33 @@ graph TD
 | string       | binary/byte       | `file-upload`              | `file`                 |
 | string       | phone             | `phone`                    | `text`                 |
 | string       | color             | `color-picker`             | `text`                 |
-| string       | (maxLength > 100) | `textarea`                 | `text`                 |
+| string       | (maxLength > 300) | `textarea`                 | `text`                 |
 | number       | currency          | `currency-input`           | `number`               |
 | number       | percent           | `numeric-text-box`         | `number`               |
 | boolean      | -                 | `checkbox`                 | `boolean`              |
 | array        | (itens com enum)  | `multi-select`             | -                      |
 
 ### A Anotação `@UISchema`
+
+#### Heurística específica de `controlType` (string)
+
+- `textarea` apenas quando `maxLength > 300`.
+- Força `input` por nome: `nome`, `name`, `titulo`, `title`, `assunto`, `subject`.
+- Força `textarea` por nome: `descricao`, `observacao`, `description`, `comment`.
+- Precedência aplicada ao `controlType`:
+  1) Valor explícito em `@UISchema(controlType=...)`
+  2) Heurística por nome (apenas sobre INPUT/TEXTAREA do schema)
+  3) Detecção por schema (type/format/enum)
+  4) Defaults
+
+Mais detalhes: veja docs/concepts/CONTROLTYPE-HEURISTICA.md.
+
+#### Enums, Booleanos, Arrays e Percent
+
+- Enums (string): pequeno (≤5) → `radio`; médio (6–25) → `select`; grande (>25) → `autoComplete`.
+- Booleanos: padrão `checkbox` (ou `toggle`); enum textual binária ("Sim/Não") → `radio`.
+- Arrays de enums: pequeno → `chipInput`; médios/grandes → `multiSelect` e `filterControlType = multiColumnComboBox` para filtros.
+- Percent (`format=percent`): aplica `numericStep=0.01`, `placeholder="0–100%"`, `numericMin=0`, `numericMax=100` (apenas se ausentes).
 
 ## Options (OptionDTO)
 
@@ -811,7 +851,7 @@ Para informações detalhadas sobre implementação, consulte nossa **[documenta
 
 ## Aplicação de Exemplo
 
-Uma aplicação de exemplo completa está disponível no diretório `examples/praxis-backend-libs-sample-app`. Ela demonstra como usar a biblioteca e seus vários recursos, **incluindo o novo sistema de resolução automática de grupos**. 
+Consulte os guias e exemplos em `docs/guides` e `docs/examples` para ver cenários completos de uso e integrações com o novo sistema de resolução automática de grupos.
 
 Recursos destacados na aplicação de exemplo:
 - Controllers usando `@ApiResource` e `@ApiGroup`

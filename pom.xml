@@ -34,8 +34,8 @@
         </developer>
     </developers>
     <scm>
-        <connection>scm:git:https://github.com/codexrodrigues/praxis.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/codexrodrigues/praxis.git</developerConnection>
+        <connection>scm:git:https://github.com/codexrodrigues/praxis-metadata-starter.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/codexrodrigues/praxis-metadata-starter.git</developerConnection>
         <url>https://github.com/codexrodrigues/praxis-metadata-starter</url>
         <tag>HEAD</tag>
     </scm>
@@ -99,10 +99,19 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>6.1.6</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -140,10 +149,18 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
                     <encoding>${project.build.sourceEncoding}</encoding>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.32</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
 
@@ -191,9 +208,13 @@
                 </executions>
                 <configuration>
                     <source>${java.version}</source>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <docencoding>${project.build.sourceEncoding}</docencoding>
+                    <charset>${project.build.sourceEncoding}</charset>
                     <failOnError>false</failOnError>
                     <doclint>none</doclint>
                     <additionalJOption>-Xdoclint:none</additionalJOption>
+                    <overview>src/main/javadoc/overview.html</overview>
                 </configuration>
             </plugin>
         </plugins>

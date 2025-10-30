@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Praxis Metadata Starter — Visão Geral</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; line-height: 1.5; padding: 1.2rem; }
+    h1, h2 { margin: 0.2rem 0 0.6rem; }
+    ul { margin: 0.2rem 0 1rem 1.2rem; }
+    code { background: #f6f8fa; padding: 0.1rem 0.3rem; border-radius: 4px; }
+  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Praxis Metadata Starter — anotações e auto‑configuração para gerar metadados de UI em OpenAPI (x-ui)." />
+  <meta name="robots" content="index, follow" />
+</head>
+<body>
+  <h1>Praxis Metadata Starter</h1>
+  <p>
+    Biblioteca para expor metadados de UI a partir de anotações Java (<code>@UISchema</code>) e integração com OpenAPI (extensão
+    <code>x-ui</code>). Inclui endpoints utilitários, configuração automática e classes base para CRUD e documentação filtrada
+    (<code>/schemas/filtered</code>).
+  </p>
+
+  <h2>Exemplo completo (Quickstart)</h2>
+  <p>
+    Recomendamos o projeto de exemplo abaixo para ver o starter funcionando em uma aplicação Spring Boot real, com controllers,
+    filtros e consumo de <code>/schemas/filtered</code>:
+  </p>
+  <ul>
+    <li>
+      <a href="https://github.com/codexrodrigues/praxis-api-quickstart" target="_blank" rel="noopener noreferrer">
+        github.com/codexrodrigues/praxis-api-quickstart
+      </a>
+    </li>
+  </ul>
+
+  <h2>O que este starter entrega</h2>
+  <ul>
+    <li>Anotação <code>@UISchema</code> para metadados de UI diretamente em DTOs/entidades.</li>
+    <li>Enriquecimento do OpenAPI com extensão <code>x-ui</code> (controles, validações, hints).</li>
+    <li>Endpoint self‑describing <code>/schemas/filtered</code> com ETag (cache condicional) e <code>x-ui.resource.idField</code>.</li>
+    <li>Detecção automática de grupos OpenAPI por path e cache de documentos (payloads menores).</li>
+    <li>Infra base (controllers/services) com respostas padronizadas e HATEOAS opcional.</li>
+  </ul>
+
+  <h2>Exemplos rápidos</h2>
+  <h3>Modelando DTO com @UISchema</h3>
+  <pre><code>import jakarta.validation.constraints.*;
+import org.praxisplatform.uischema.extension.annotation.UISchema;
+import org.praxisplatform.uischema.FieldControlType;
+import org.praxisplatform.uischema.FieldDataType;
+
+public class PessoaDTO {
+  @UISchema(label = "Nome Completo")
+  @NotBlank @Size(max = 120)
+  private String nomeCompleto;
+
+  @UISchema(type = FieldDataType.NUMBER, controlType = FieldControlType.INPUT)
+  @NotNull
+  private Long departamentoId;
+}
+  </code></pre>
+
+  <h3>Expondo controller com @ApiResource</h3>
+  <pre><code>@ApiResource("/api/human-resources/pessoas")
+public class PessoaController extends AbstractCrudController&lt;Pessoa, PessoaDTO, Long, PessoaFilterDTO&gt; {
+  // ... serviços e mapeamentos
+}
+  </code></pre>
+
+  <h3>Consumindo o contrato</h3>
+  <pre><code># Schema de grid (response)
+curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/all&amp;operation=get&amp;schemaType=response"
+
+# Schema de filtro (request)
+curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/filter&amp;operation=post&amp;schemaType=request"
+  </code></pre>
+
+  <h2>Benefícios</h2>
+  <ul>
+    <li>Contrato único guia a UI e reduz divergência entre back e front.</li>
+    <li>Evolução segura com ETag/If‑None‑Match e versionamento lógico quando necessário.</li>
+    <li>Menos boilerplate e foco no domínio; melhora velocidade e qualidade.</li>
+  </ul>
+
+  <h2>Repositório do Starter</h2>
+  <ul>
+    <li>
+      <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener noreferrer">
+        github.com/codexrodrigues/praxis-metadata-starter
+      </a>
+    </li>
+  </ul>
+
+  <h2>Como começar</h2>
+  <pre><code>&lt;dependency&gt;
+  &lt;groupId&gt;io.github.codexrodrigues&lt;/groupId&gt;
+  &lt;artifactId&gt;praxis-metadata-starter&lt;/artifactId&gt;
+  &lt;version&gt;1.0.0-rc.1&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+  <p>Nas suas classes DTO/entidade, anote campos com <code>@UISchema</code> e exponha controllers com <code>@ApiResource</code>.</p>
+
+  <p>Para documentação de conceitos e guias, veja o diretório <code>docs/</code> no repositório do projeto.</p>
+
+  <h2>Mapa de Pacotes</h2>
+  <ul>
+    <li>Anotações: <a href="org/praxisplatform/uischema/annotation/package-summary.html">org.praxisplatform.uischema.annotation</a>,
+      <a href="org/praxisplatform/uischema/extension/annotation/package-summary.html">org.praxisplatform.uischema.extension.annotation</a>,
+      <a href="org/praxisplatform/uischema/filter/annotation/package-summary.html">org.praxisplatform.uischema.filter.annotation</a>,
+      <a href="org/praxisplatform/uischema/service/base/annotation/package-summary.html">org.praxisplatform.uischema.service.base.annotation</a></li>
+    <li>Configuração: <a href="org/praxisplatform/uischema/configuration/package-summary.html">org.praxisplatform.uischema.configuration</a></li>
+    <li>Controllers: <a href="org/praxisplatform/uischema/controller/base/package-summary.html">org.praxisplatform.uischema.controller.base</a>,
+      <a href="org/praxisplatform/uischema/controller/docs/package-summary.html">org.praxisplatform.uischema.controller.docs</a></li>
+    <li>Serviços/Repos: <a href="org/praxisplatform/uischema/service/base/package-summary.html">org.praxisplatform.uischema.service.base</a>,
+      <a href="org/praxisplatform/uischema/repository/base/package-summary.html">org.praxisplatform.uischema.repository.base</a></li>
+    <li>REST/Erros: <a href="org/praxisplatform/uischema/rest/response/package-summary.html">org.praxisplatform.uischema.rest.response</a>,
+      <a href="org/praxisplatform/uischema/rest/exceptionhandler/package-summary.html">org.praxisplatform.uischema.rest.exceptionhandler</a></li>
+    <li>Infra/Utils: <a href="org/praxisplatform/uischema/util/package-summary.html">org.praxisplatform.uischema.util</a>,
+      <a href="org/praxisplatform/uischema/extension/package-summary.html">org.praxisplatform.uischema.extension</a></li>
+  </ul>
+
+  <h2>Pontos de Entrada</h2>
+  <ul>
+    <li><code>@ApiResource</code>: <a href="org/praxisplatform/uischema/annotation/ApiResource.html">definição</a></li>
+    <li><code>@UISchema</code>: <a href="org/praxisplatform/uischema/extension/annotation/UISchema.html">definição</a></li>
+    <li>Controller de documentação: <a href="org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a></li>
+    <li>Auto-configuração: <a href="org/praxisplatform/uischema/configuration/PraxisMetadataAutoConfiguration.html">PraxisMetadataAutoConfiguration</a></li>
+  </ul>
+</body>
+<!-- Gerado para aparecer como página inicial do Javadoc publicado no Maven Central -->
+</html>

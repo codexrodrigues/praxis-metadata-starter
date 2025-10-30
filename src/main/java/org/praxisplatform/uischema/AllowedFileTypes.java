@@ -1,6 +1,24 @@
 package org.praxisplatform.uischema;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+/**
+ * Tipos de arquivos permitidos para upload/seleção em componentes de UI.
+ * <p>
+ * Os valores são serializados como MIME types via {@link #getValue()} (anotado
+ * com {@link JsonValue}), permitindo que o frontend aplique restrições em inputs
+ * de arquivo (accept) ou validadores.
+ * </p>
+ *
+ * <h3>Exemplo</h3>
+ * <pre>{@code
+ * @UISchema(controlType = FieldControlType.FILE_UPLOAD)
+ * private byte[] comprovante;
+ *
+ * // No frontend (accept): image/*, application/pdf
+ * }</pre>
+ *
+ * @since 1.0.0
+ */
 public enum AllowedFileTypes {
     ALL("*/*"),
     IMAGES("image/*"),
@@ -20,7 +38,12 @@ public enum AllowedFileTypes {
 
     private final String value;
     AllowedFileTypes(String value) { this.value = value; }
+
+    /**
+     * Valor MIME representando o tipo de arquivo aceito.
+     *
+     * @return string de MIME type (ex.: {@code image/*})
+     */
     @JsonValue
     public String getValue() { return value; }
 }
-

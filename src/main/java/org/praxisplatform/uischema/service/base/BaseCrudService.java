@@ -300,9 +300,9 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
      * }
      * 
      * // URLs suportadas:
-     * GET /api/funcionarios/all?page=0&size=10                    // Usa @DefaultSortColumn
-     * GET /api/funcionarios/all?page=0&size=10&sort=nome,asc      // Usa ordenação específica
-     * GET /api/funcionarios/all?page=0&size=10&sort=salario,desc  // Usa ordenação específica
+     * GET /api/funcionarios/all?page=0&amp;size=10                    // Usa @DefaultSortColumn
+     * GET /api/funcionarios/all?page=0&amp;size=10&amp;sort=nome,asc      // Usa ordenação específica
+     * GET /api/funcionarios/all?page=0&amp;size=10&amp;sort=salario,desc  // Usa ordenação específica
      * }</pre>
      * 
      * @param pageable Parâmetros de paginação e ordenação opcional
@@ -361,14 +361,14 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
      * 
      * <h4>🌐 Exemplos de Requisições:</h4>
      * <pre>
-     * POST /api/funcionarios/filter?page=0&size=10
+     * POST /api/funcionarios/filter?page=0&amp;size=10
      * Body: {"nome": "João", "departamento": "TI"}
      * → SQL: SELECT * FROM funcionarios 
      *        WHERE nome LIKE '%João%' AND departamento = 'TI'
      *        ORDER BY departamento ASC, nome ASC  -- @DefaultSortColumn aplicada
      *        LIMIT 10
      * 
-     * POST /api/funcionarios/filter?page=0&size=10&sort=salario,desc  
+     * POST /api/funcionarios/filter?page=0&amp;size=10&amp;sort=salario,desc  
      * Body: {"nome": "Maria"}
      * → SQL: SELECT * FROM funcionarios 
      *        WHERE nome LIKE '%Maria%'

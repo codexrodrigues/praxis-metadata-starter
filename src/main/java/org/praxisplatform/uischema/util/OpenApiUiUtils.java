@@ -154,14 +154,15 @@ public class OpenApiUiUtils {
                     }
                 }
                 // General string handling (after specific formats)
-                if (maxLength != null && maxLength > 100) {
+                // Heurística de tamanho: considerar textarea apenas para textos realmente longos
+                if (maxLength != null && maxLength > 300) {
                     return FieldControlType.TEXTAREA.getValue();
                 }
                 return FieldControlType.INPUT.getValue(); // Default for string
 
             case "number":
             case "integer":
-                if (hasEnum) { // Though less common for numbers, if enum is present, SELECT might be applicable
+                if (hasEnum) { // enum numérico raramente é usado; manter SELECT por compatibilidade
                     return FieldControlType.SELECT.getValue();
                 }
                 // Specific formats for numbers can override default
@@ -174,9 +175,7 @@ public class OpenApiUiUtils {
                 return FieldControlType.NUMERIC_TEXT_BOX.getValue(); // Default for number/integer
 
             case "boolean":
-                if (hasEnum) { // If boolean has enum (e.g. "Sim", "Não")
-                     return FieldControlType.SELECT.getValue();
-                }
+                // Evitar SELECT como padrão para boolean
                 return FieldControlType.CHECKBOX.getValue();
 
             case "array":
@@ -649,6 +648,13 @@ public class OpenApiUiUtils {
         }
         String normalizedFieldName = fieldName.toLowerCase();
 
+        // Campos que devem permanecer single-line (INPUT), mesmo com maxLength alto
+        if (normalizedFieldName.contains("nome") || normalizedFieldName.contains("name") ||
+                normalizedFieldName.contains("titulo") || normalizedFieldName.contains("title") ||
+                normalizedFieldName.contains("assunto") || normalizedFieldName.contains("subject")) {
+            return FieldControlType.INPUT.getValue();
+        }
+
         if (normalizedFieldName.contains("descricao") || normalizedFieldName.contains("observacao") ||
                 normalizedFieldName.contains("description") || normalizedFieldName.contains("comment")) {
             return FieldControlType.TEXTAREA.getValue();
@@ -693,6 +699,61 @@ public class OpenApiUiUtils {
             }
         }
         return null;
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Helpers para enums/arrays/percent e numeric step
+    // -----------------------------------------------------------------------------------------
+
+    private static final int ENUM_SMALL_MAX = 5;   // pode ser configurável futuramente
+    private static final int ENUM_MEDIUM_MAX = 25; // pode ser configurável futuramente
+
+    /**
+     * Determina controle ideal para enums de string por cardinalidade.
+     * Pequeno (≤5): radio; Médio (≤25): select; Grande (>25): autoComplete.
+     */
+    public static String determineEnumControlBySize(int count) {
+        if (count <= ENUM_SMALL_MAX) return FieldControlType.RADIO.getValue();
+        if (count <= ENUM_MEDIUM_MAX) return FieldControlType.SELECT.getValue();
+        return FieldControlType.AUTO_COMPLETE.getValue();
+    }
+
+    /**
+     * Determina controle para arrays de enums: pequeno → chipInput; demais → multiSelect.
+     */
+    public static String determineArrayEnumControlBySize(int count) {
+        if (count <= ENUM_SMALL_MAX) return FieldControlType.CHIP_INPUT.getValue();
+        return FieldControlType.MULTI_SELECT.getValue();
+    }
+
+    /**
+     * Aplica defaults amigáveis para percent (0–100%). Apenas define se ausentes.
+     */
+    public static void applyPercentDefaults(Map<String, Object> xUiMap) {
+        if (!xUiMap.containsKey(FieldConfigProperties.NUMERIC_STEP.getValue())) {
+            xUiMap.put(FieldConfigProperties.NUMERIC_STEP.getValue(), "0.01");
+        }
+        if (!xUiMap.containsKey(FieldConfigProperties.PLACEHOLDER.getValue())) {
+            xUiMap.put(FieldConfigProperties.PLACEHOLDER.getValue(), "0–100%");
+        }
+        if (!xUiMap.containsKey(FieldConfigProperties.NUMERIC_MIN.getValue())) {
+            xUiMap.put(FieldConfigProperties.NUMERIC_MIN.getValue(), "0");
+        }
+        if (!xUiMap.containsKey(FieldConfigProperties.NUMERIC_MAX.getValue())) {
+            xUiMap.put(FieldConfigProperties.NUMERIC_MAX.getValue(), "100");
+        }
+    }
+
+    /**
+     * Retorna step numérico como string a partir do número de casas decimais.
+     * Ex.: fraction=2 → "0.01".
+     */
+    public static String numericStepFromDigits(int fraction) {
+        if (fraction <= 0) return "1";
+        StringBuilder sb = new StringBuilder("0.");
+        for (int i = 1; i < fraction; i++) sb.append('0');
+        sb.append('1');
+        return sb.toString();
     }
 
 /**

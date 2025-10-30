@@ -17,6 +17,31 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Resolver de modelos OpenAPI que enriquece schemas com metadados de UI
+ * (extensão {@code x-ui}) a partir de:
+ * <ol>
+ *   <li>valores padrão de {@link org.praxisplatform.uischema.extension.annotation.UISchema}</li>
+ *   <li>detecção automática derivada do schema (type/format/enum)</li>
+ *   <li>valores explícitos definidos na anotação {@code @UISchema}</li>
+ *   <li>anotações Jakarta Validation (@Size, @Min, @Max, ...)</li>
+ *   <li>propriedades extras definidas em {@code extraProperties}</li>
+ * </ol>
+ *
+ * <p>O resultado é uma documentação OpenAPI com dicas ricas de renderização
+ * para frontends (placeholders, controlType, mensagens de validação, etc.).</p>
+ *
+ * <h3>Exemplo</h3>
+ * <pre>{@code
+ * public class PessoaDTO {
+ *     @UISchema(label = "Nome", placeholder = "Informe o nome")
+ *     @Size(min = 3, max = 100)
+ *     private String nome;
+ * }
+ * }</pre>
+ *
+ * @since 1.0.0
+ */
 public class CustomOpenApiResolver extends ModelResolver {
 
     // Cache para armazenar campos constantes das interfaces
@@ -710,7 +735,8 @@ public class CustomOpenApiResolver extends ModelResolver {
                 detectedControlType = FieldControlType.INPUT.getValue();
                 
                 if (hasEnum) {
-                    detectedControlType = FieldControlType.SELECT.getValue();
+                    int count = property.getEnum().size();
+                    detectedControlType = OpenApiUiUtils.determineEnumControlBySize(count);
                 } else if (openApiFormat != null) {
                     switch (openApiFormat) {
                         case "date":
@@ -755,9 +781,9 @@ public class CustomOpenApiResolver extends ModelResolver {
                     }
                 }
                 
-                // Verificar maxLength para textarea
+                // Verificar maxLength para textarea (threshold ajustado)
                 Integer maxLength = property.getMaxLength();
-                if (maxLength != null && maxLength > 100 && 
+                if (maxLength != null && maxLength > 300 &&
                     FieldControlType.INPUT.getValue().equals(detectedControlType)) {
                     detectedControlType = FieldControlType.TEXTAREA.getValue();
                 }
@@ -777,13 +803,24 @@ public class CustomOpenApiResolver extends ModelResolver {
                 
             case "boolean":
                 detectedDataType = FieldDataType.BOOLEAN.getValue();
-                detectedControlType = hasEnum ? FieldControlType.SELECT.getValue() : FieldControlType.CHECKBOX.getValue();
+                // Evitar SELECT por padrão. Se enum binário estiver presente, preferir RADIO; caso contrário, CHECKBOX.
+                if (hasEnum) {
+                    int size = property.getEnum().size();
+                    detectedControlType = (size == 2) ? FieldControlType.RADIO.getValue() : FieldControlType.CHECKBOX.getValue();
+                } else {
+                    detectedControlType = FieldControlType.CHECKBOX.getValue();
+                }
                 break;
                 
             case "array":
-                if (property.getItems() != null && property.getItems().getEnum() != null && 
+                if (property.getItems() != null && property.getItems().getEnum() != null &&
                     !property.getItems().getEnum().isEmpty()) {
-                    detectedControlType = FieldControlType.MULTI_SELECT.getValue();
+                    int c = property.getItems().getEnum().size();
+                    detectedControlType = OpenApiUiUtils.determineArrayEnumControlBySize(c);
+                    if (c > 5) {
+                        // Em listas maiores, indicar controle adequado para filtros
+                        uiExtension.putIfAbsent(FieldConfigProperties.FILTER_CONTROL_TYPE.getValue(), "multiColumnComboBox");
+                    }
                 } else {
                     detectedControlType = FieldControlType.ARRAY_INPUT.getValue();
                 }
@@ -820,10 +857,11 @@ public class CustomOpenApiResolver extends ModelResolver {
             uiExtension.put(FieldConfigProperties.TYPE.getValue(), detectedDataType);
         }
         
-        // Fallback: detecção inteligente por nome do campo
-        if (detectedControlType == null || FieldControlType.INPUT.getValue().equals(detectedControlType)) {
-            String smartControlType = OpenApiUiUtils.determineSmartControlTypeByFieldName(fieldName);
-            if (smartControlType != null) {
+        // Detecção inteligente por nome do campo (precedência sobre INPUT/TEXTAREA gerados por schema)
+        String smartControlType = OpenApiUiUtils.determineSmartControlTypeByFieldName(fieldName);
+        if (smartControlType != null) {
+            Object current = uiExtension.get(FieldConfigProperties.CONTROL_TYPE.getValue());
+            if (current == null || FieldControlType.INPUT.getValue().equals(current) || FieldControlType.TEXTAREA.getValue().equals(current)) {
                 uiExtension.put(FieldConfigProperties.CONTROL_TYPE.getValue(), smartControlType);
             }
         }
@@ -843,11 +881,12 @@ public class CustomOpenApiResolver extends ModelResolver {
         OpenApiUiUtils.populateUiOptionsFromEnum(uiExtension, property.getEnum(), this._mapper);
         OpenApiUiUtils.populateUiRequired(uiExtension, property.getRequired() != null && !property.getRequired().isEmpty());
         
-        // Adicionar NUMERIC_FORMAT se o formato for "percent"
+        // Adicionar NUMERIC_FORMAT e defaults se o formato for "percent"
         if ("number".equals(openApiType) && "percent".equals(openApiFormat)) {
             if (!uiExtension.containsKey(FieldConfigProperties.NUMERIC_FORMAT.getValue())) {
                 uiExtension.put(FieldConfigProperties.NUMERIC_FORMAT.getValue(), NumberFormatStyle.PERCENT.getValue());
             }
+            OpenApiUiUtils.applyPercentDefaults(uiExtension);
         }
     }
 

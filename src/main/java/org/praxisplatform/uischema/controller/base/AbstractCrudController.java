@@ -86,20 +86,20 @@ import org.praxisplatform.uischema.util.SortBuilder;
  * <h4>🌐 Exemplos de Uso:</h4>
  * <pre>
  * // Entidade com ordenação padrão:
- * @Entity
+ * {@code @Entity}
  * public class Funcionario {
- *     @DefaultSortColumn(priority = 1)
+ *     {@code @DefaultSortColumn(priority = 1)}
  *     private String departamento;
  *     
- *     @DefaultSortColumn(priority = 2)  
+ *     {@code @DefaultSortColumn(priority = 2)}  
  *     private String nomeCompleto;
  * }
  * 
  * // URLs suportadas:
  * GET /api/funcionarios/all                           → ORDER BY departamento ASC, nomeCompleto ASC
  * GET /api/funcionarios/all?sort=salario,desc         → ORDER BY salario DESC
- * POST /api/funcionarios/filter?page=0&size=10        → ORDER BY departamento ASC, nomeCompleto ASC
- * POST /api/funcionarios/filter?page=0&size=10&sort=nome,asc → ORDER BY nome ASC
+ * POST /api/funcionarios/filter?page=0&amp;size=10        → ORDER BY departamento ASC, nomeCompleto ASC
+ * POST /api/funcionarios/filter?page=0&amp;size=10&amp;sort=nome,asc → ORDER BY nome ASC
  * </pre>
  * 
  * <h3>📋 Exemplos de Uso</h3>
@@ -219,16 +219,16 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
      * </ol>
      * 
      * <h4>🔄 Exemplos de Detecção:</h4>
-     * <pre>
-     * @RequestMapping("/api/human-resources/funcionarios")
-     * → detectedBasePath = "/api/human-resources/funcionarios"
-     * 
-     * @ApiResource("/api/human-resources/eventos-folha")  
-     * → detectedBasePath = "/api/human-resources/eventos-folha"
+ * <pre>
+ * {@code @RequestMapping("/api/human-resources/funcionarios")}
+ * → detectedBasePath = "/api/human-resources/funcionarios"
+ * 
+ * {@code @ApiResource("/api/human-resources/eventos-folha")}  
+ * → detectedBasePath = "/api/human-resources/eventos-folha"
      * 
      * FuncionarioController sem anotações
-     * → ⚠️ WARNING: Controller precisa usar @RequestMapping ou @ApiResource
-     * </pre>
+ * → ⚠️ WARNING: Controller precisa usar {@code @RequestMapping} ou {@code @ApiResource}
+ * </pre>
      * 
      * <h4>🔗 Integração Sistêmica:</h4>
      * <p>O path detectado é usado pelo DynamicSwaggerConfig para criar grupos OpenAPI
@@ -236,8 +236,8 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
      * garante que toda a documentação e navegação fique sincronizada.</p>
      * 
      * <h4>🚨 Importante:</h4>
-     * <p>Controllers que estendem AbstractCrudController DEVEM usar @RequestMapping 
-     * ou @ApiResource. Não há fallback automático para evitar configurações implícitas.</p>
+     * <p>Controllers que estendem AbstractCrudController DEVEM usar {@code @RequestMapping} 
+     * ou {@code @ApiResource}. Não há fallback automático para evitar configurações implícitas.</p>
      */
     @PostConstruct
     protected void initializeBasePath() {
@@ -415,14 +415,15 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     /**
      * Endpoint para filtrar entidades com paginação.
      *
-     * @param filterDTO DTO contendo os critérios de filtro
-     * @param pageable   configurações de paginação (page, size, sort)
+     * @param filterDTO  DTO contendo os critérios de filtro
+     * @param page       número da página (inicia em 0)
+     * @param size       quantidade de registros por página
      * @param includeIds IDs adicionais que devem aparecer no topo da primeira página
-     *                  (repetir nas páginas subsequentes para evitar duplicação,
-     *                  sem nova injeção)
+     *                   (repetir nas páginas subsequentes para evitar duplicação,
+     *                   sem nova injeção)
+     * @param queryParams parâmetros de query adicionais (ex.: {@code sort})
      * @return página de entidades filtradas com links HATEOAS
-     * @implNote tamanho máximo configurável via {@code praxis.pagination.max-size}
-     * (padrão: 200)
+     * <p><em>Nota:</em> tamanho máximo configurável via {@code praxis.pagination.max-size} (padrão: 200)</p>
      */
     @PostMapping("/filter")
     @Operation(
@@ -487,11 +488,11 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
      * Endpoint para paginação baseada em cursor, oferecendo resultados estáveis
      * durante listas longas.
      *
-     * @param filterDTO critérios de filtro
-     * @param after     cursor para avançar
-     * @param before    cursor para retroceder
-     * @param size      quantidade de registros
-     * @param sort      ordenação estável (ex.: updatedAt,desc)
+     * @param filterDTO  critérios de filtro
+     * @param after      cursor para avançar
+     * @param before     cursor para retroceder
+     * @param size       quantidade de registros
+     * @param queryParams parâmetros de query adicionais (ex.: {@code sort})
      * @return página baseada em cursor
      */
     @PostMapping("/filter/cursor")

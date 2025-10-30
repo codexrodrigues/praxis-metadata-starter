@@ -1,8 +1,8 @@
 -------------------------------------------------------------------------------
 Test set: org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest
 -------------------------------------------------------------------------------
-Tests run: 4, Failures: 4, Errors: 0, Skipped: 0, Time elapsed: 0.015 s <<< FAILURE! -- in org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest
-org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest.dateListBetweenWorksWithoutFiltroSuffix -- Time elapsed: 0.008 s <<< FAILURE!
+Tests run: 4, Failures: 4, Errors: 0, Skipped: 0, Time elapsed: 0.009 s <<< FAILURE! -- in org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest
+org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest.dateListBetweenWorksWithoutFiltroSuffix -- Time elapsed: 0.003 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: expected: <dateRange> but was: <input>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -12,8 +12,8 @@ org.opentest4j.AssertionFailedError: expected: <dateRange> but was: <input>
 	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
 	at org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest.dateListBetweenWorksWithoutFiltroSuffix(FilterableBetweenListDetectionTest.java:168)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
 org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest.dateTimeListBetweenWorksWithoutFiltroSuffix -- Time elapsed: 0.001 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: expected: <dateTimeRange> but was: <input>
@@ -25,8 +25,8 @@ org.opentest4j.AssertionFailedError: expected: <dateTimeRange> but was: <input>
 	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
 	at org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest.dateTimeListBetweenWorksWithoutFiltroSuffix(FilterableBetweenListDetectionTest.java:182)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
 org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest.dateListBetweenSetsDateRange -- Time elapsed: 0.001 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: expected: <dateRange> but was: <input>
@@ -38,10 +38,10 @@ org.opentest4j.AssertionFailedError: expected: <dateRange> but was: <input>
 	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
 	at org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest.dateListBetweenSetsDateRange(FilterableBetweenListDetectionTest.java:140)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
-org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest.dateTimeListBetweenSetsDateTimeRange -- Time elapsed: 0.001 s <<< FAILURE!
+org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest.dateTimeListBetweenSetsDateTimeRange -- Time elapsed: 0.002 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: expected: <dateTimeRange> but was: <input>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -51,6 +51,6 @@ org.opentest4j.AssertionFailedError: expected: <dateTimeRange> but was: <input>
 	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
 	at org.praxisplatform.uischema.extension.FilterableBetweenListDetectionTest.dateTimeListBetweenSetsDateTimeRange(FilterableBetweenListDetectionTest.java:154)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 

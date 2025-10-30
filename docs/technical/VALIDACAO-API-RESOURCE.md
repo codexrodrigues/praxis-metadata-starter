@@ -110,10 +110,10 @@ Permite desenvolvimento sem interrupção, mas com alertas educativos.
 
 ## 🔗 Ver Também
 
-- [ApiResource.java](src/main/java/org/praxisplatform/uischema/annotation/ApiResource.java) - Anotação principal
-- [DynamicSwaggerConfig.java](src/main/java/org/praxisplatform/uischema/configuration/DynamicSwaggerConfig.java) - Implementação da validação
-- [ApiDocsController.java](src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java) - Resolução automática de grupos
-- [AbstractCrudController.java](src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java) - Controller base com validação
+- [ApiResource.java](../../src/main/java/org/praxisplatform/uischema/annotation/ApiResource.java) - Anotação principal
+- [DynamicSwaggerConfig.java](../../src/main/java/org/praxisplatform/uischema/configuration/DynamicSwaggerConfig.java) - Implementação da validação
+- [ApiDocsController.java](../../src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java) - Resolução automática de grupos
+- [AbstractCrudController.java](../../src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java) - Controller base com validação
 
 ## ❓ Perguntas Frequentes
 

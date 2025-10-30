@@ -46,7 +46,7 @@ import java.math.BigDecimal;
  * </table>
  * 
  * <h3>📦 Component Scanning Strategy</h3>
- * <p>Esta classe usa @ComponentScan para detectar automaticamente:</p>
+ * <p>Esta classe usa {@code @ComponentScan} para detectar automaticamente:</p>
  * <ul>
  *   <li><strong>org.praxisplatform.uischema.controller.docs:</strong> Controllers de documentação</li>
  *   <li><strong>org.praxisplatform.uischema.service:</strong> Serviços base e metadados</li>
@@ -60,7 +60,7 @@ import java.math.BigDecimal;
  *              ↓
  * PraxisMetadataAutoConfiguration
  *              ↓
- * @ComponentScan escaneia packages
+ * {@code @ComponentScan} escaneia packages
  *              ↓
  * Registra: Controllers, Services, Filters, Configs
  *              ↓  
@@ -90,7 +90,7 @@ import java.math.BigDecimal;
  * 
  * @see org.praxisplatform.uischema.configuration.OpenApiUiSchemaAutoConfiguration
  * @see org.praxisplatform.uischema.configuration.DynamicSwaggerConfig
- * @see org.praxisplatform.uischema.service
+ * @see org.praxisplatform.uischema.service.base.BaseCrudService
  */
 @AutoConfiguration
 @ComponentScan(basePackages = {
@@ -276,13 +276,13 @@ public class PraxisMetadataAutoConfiguration {
      * 
      * <h4>📋 Cenários de Uso:</h4>
      * <pre>
-     * Cenário 1 - Controller com @ApiResource:
-     * @ApiResource("/api/funcionarios") 
+     * Cenário 1 - Controller com {@code @ApiResource}:
+     * {@code @ApiResource("/api/funcionarios")} 
      * → DynamicSwaggerConfig cria grupo específico
      * → NÃO aparece no grupo "application"
      * 
-     * Cenário 2 - Controller sem @ApiResource:
-     * @RestController @RequestMapping("/api/legacy")
+     * Cenário 2 - Controller sem {@code @ApiResource}:
+     * {@code @RestController @RequestMapping("/api/legacy")}
      * → NÃO tem grupo específico criado
      * → APARECE no grupo "application" 
      * 

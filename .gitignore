@@ -1,0 +1,35 @@
+# Java / Maven
+target/
+.flattened-pom.xml
+.m2repo/
+dependency-reduced-pom.xml
+release.properties
+pom.xml.versionsBackup
+*.releaseBackup
+*.original
+*.log
+hs_err_pid*
+
+# IDEs / Editors
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docs generated locally (CI publica em gh-pages)
+docs/**/*.html
+
+# Signatures and temporary
+*.asc
+*.tmp
+*.swp
+*~
+.#*

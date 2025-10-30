@@ -1,6 +1,16 @@
 package org.praxisplatform.uischema;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+/**
+ * Conjunto padronizado de regex para validação de campos comuns (nacionais e
+ * internacionais). Os padrões são serializados via {@link #getPattern()} para
+ * consumo por validadores de UI.
+ *
+ * <p>Observação: os padrões fornecem validação sintática básica, não
+ * substituem validações de negócio.</p>
+ *
+ * @since 1.0.0
+ */
 public enum ValidationPattern {
     EMAIL("^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$"),
     URL("^(https?|ftp)://[\\w\\.-]+(:\\d+)?(/[\\w\\.-]*)*/?$"),
@@ -78,7 +88,12 @@ public enum ValidationPattern {
 
     private final String pattern;
     ValidationPattern(String pattern) { this.pattern = pattern; }
+
+    /**
+     * Expressão regular representando o padrão de validação.
+     *
+     * @return regex para validação
+     */
     @JsonValue
     public String getPattern() { return pattern; }
 }
-

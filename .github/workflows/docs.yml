@@ -1,0 +1,80 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Build and generate Javadoc
+        run: |
+          ./mvnw --batch-mode -DskipTests package javadoc:javadoc
+          test -f target/site/apidocs/index.html
+
+      - name: Prepare docs folder
+        run: |
+          rm -rf docs/apidocs
+          mkdir -p docs/apidocs
+          cp -r target/site/apidocs/. docs/apidocs/
+
+      - name: Check local Markdown links
+        run: |
+          set -euo pipefail
+          missing=0
+          while IFS= read -r -d '' file; do
+            dir=$(dirname "$file")
+            while IFS= read -r path; do
+              p=${path%%#*}
+              if [[ "$p" =~ ^https?:// ]] || [[ "$p" =~ ^mailto: ]]; then
+                continue
+              fi
+              if [[ -z "$p" ]] || [[ "$p" == \#* ]]; then
+                continue
+              fi
+              full=$(python3 -c 'import os,sys; print(os.path.normpath(os.path.join(sys.argv[1], sys.argv[2])))' "$dir" "$p" 2>/dev/null || true)
+              if [ -z "$full" ]; then
+                continue
+              fi
+              if [ ! -e "$full" ]; then
+                echo "MISSING: $file -> $path (resolved: $full)"
+                missing=$((missing+1))
+              fi
+            done < <(grep -oP "(?<=\]\().*?(?=\))" "$file" | sed 's/\"//g' || true)
+          done < <(find . -name "*.md" -print0)
+          if [ $missing -ne 0 ]; then
+            echo "$missing missing/invalid local links."
+            exit 1
+          fi
+
+      - name: Convert Markdown to HTML
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+          find docs -name '*.md' -print0 | xargs -0 -I{} sh -c 'pandoc "$1" -o "${1%.md}.html" --standalone' -- {}
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages

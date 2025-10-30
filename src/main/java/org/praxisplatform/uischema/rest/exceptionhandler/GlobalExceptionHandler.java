@@ -17,6 +17,16 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import java.net.URI;
 import java.util.List;
 
+/**
+ * Tratamento global e consistente de exceções REST.
+ * <p>
+ * Converte exceções comuns em {@link org.springframework.http.ResponseEntity}
+ * com {@link org.praxisplatform.uischema.rest.response.CustomProblemDetail},
+ * padronizando status, mensagem e categoria ({@link ErrorCategory}).
+ * </p>
+ *
+ * @since 1.0.0
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

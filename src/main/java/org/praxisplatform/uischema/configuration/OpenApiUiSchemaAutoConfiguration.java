@@ -15,7 +15,7 @@ import org.springdoc.core.models.GroupedOpenApi;
 import java.util.List;
 
 /**
- * <h2>🏗️ Auto-Configuração Principal do Praxis UI Schema & OpenAPI</h2>
+ * <h2>🏗️ Auto-Configuração Principal do Praxis UI Schema &amp; OpenAPI</h2>
  * 
  * <p>Esta classe é o <strong>"bootstrap"</strong> de todo o sistema Praxis UI Schema, 
  * responsável por registrar automaticamente todos os beans necessários para que 
@@ -52,14 +52,14 @@ import java.util.List;
  *                   │ injetados em
  *                   ▼
  * ┌─────────────────────────────────────────────┐
- * │     DynamicSwaggerConfig & Controllers      │
+ * │     DynamicSwaggerConfig &amp; Controllers      │
  * └─────────────────────────────────────────────┘
  * </pre>
  *
  * <h3>🚀 Benefícios para Desenvolvedores</h3>
  * <ul>
  *   <li><strong>Zero Setup:</strong> Apenas adicione a dependência no pom.xml</li>
- *   <li><strong>Plug & Play:</strong> Funciona imediatamente sem configurações</li>
+ *   <li><strong>Plug &amp; Play:</strong> Funciona imediatamente sem configurações</li>
  *   <li><strong>Não Conflitante:</strong> Usa @ConditionalOnMissingBean para evitar duplicações</li>
  *   <li><strong>Customizável:</strong> Pode sobrescrever qualquer bean se necessário</li>
  *   <li><strong>Zero Boilerplate:</strong> Não precisa registrar beans manualmente</li>

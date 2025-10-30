@@ -7,11 +7,14 @@ Este diretório contém a documentação completa do **Praxis Metadata Starter**
 ```
 docs/
 ├── README.md                 # Este arquivo - índice principal
+├── overview/                 # Visão geral para novos usuários
+│   └── VISAO-GERAL.md
 ├── guides/                   # Guias completos de implementação
 │   ├── GUIA-CLAUDE-AI-CRUD-BULK.md
 │   └── GUIA-CLAUDE-AI-APLICACAO-NOVA.md
 ├── examples/                 # Exemplos práticos e templates
 │   └── EXEMPLO-PROMPT-CRUD-BULK.md
+├── concepts/               # Conceitos fundamentais (Self-describing, UI vs Data Schema, etc.)
 ├── technical/               # Documentação técnica detalhada
 │   ├── AUTO-CONFIGURACAO.md
 │   ├── ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
@@ -22,6 +25,10 @@ docs/
 ---
 
 ## 📖 **Guias de Implementação** (`/guides/`)
+
+## 📘 **Visão Geral** (`/overview/`)
+- Leitura rápida (problema/abordagem/benefícios) e como começar:
+  - [VISAO-GERAL.md](overview/VISAO-GERAL.md)
 
 ### 🤖 [Guia CRUD+Bulk Automatizado](guides/GUIA-CLAUDE-AI-CRUD-BULK.md)
 **O guia principal para geração automatizada de funcionalidades CRUD+Bulk**
@@ -98,9 +105,10 @@ docs/
 3. ✅ Configure a [Validação @ApiResource](technical/VALIDACAO-API-RESOURCE.md)
 
 ### **Integração de Schema (Backend ↔ Frontend)**
-- 🔒 Plano integrado de hash/ETag, identidade de campos, diffs e persistência de versões/overrides:
-  - [SCHEMA-INTEGRATION-PLAN.md](../../../docs/SCHEMA-INTEGRATION-PLAN.md)
-- 🔁 Controle explícito de ETag/If-None-Match no front e migração para persistência no servidor:
+- 🔒 Planos de hash/ETag, identidade de campos, diffs e persistência de versões/overrides:
+  - [SCHEMA-HASH-PLAN.md](SCHEMA-HASH-PLAN.md)
+  - [SCHEMA-INTEGRATION-PLAN.md](SCHEMA-INTEGRATION-PLAN.md)
+- 🔁 Controle explícito de ETag/If-None-Match no front e trilha para persistência no servidor:
   - [FRONTEND-SCHEMA-CACHE-PLAN.md](FRONTEND-SCHEMA-CACHE-PLAN.md)
   - [RESUMO-EXECUTIVO.md](RESUMO-EXECUTIVO.md)
 
