@@ -1,0 +1,75 @@
+/*
+  Dark theme overrides for Javadoc (auto‑applies when OS is in dark mode).
+  Tip: The default generated stylesheet is available (for reference) at issues/stylesheet.css in your repo.
+*/
+
+@media (prefers-color-scheme: dark) {
+  html, body {
+    background-color: #0f1115 !important;
+    color: #e6e6e6 !important;
+  }
+
+  a, a:link, a:visited {
+    color: #8ab4f8 !important;
+  }
+  a:hover, a:active {
+    color: #a8c7ff !important;
+  }
+
+  /* Header and navigation */
+  .header, .subTitle, .topNav, .bottomNav, .navPadding, .ui-widget-header {
+    background-color: #11151b !important;
+    color: #e6e6e6 !important;
+    border-color: #2a2f36 !important;
+  }
+  .topNav a, .bottomNav a { color: #c9d1d9 !important; }
+
+  /* Containers */
+  .contentContainer, .indexContainer, .leftContainer, .rightContainer,
+  .mainContainer, .docSummary, .description, .details, .serializedFormContainer,
+  .summary, .footer {
+    background-color: #0f1115 !important;
+    color: #e6e6e6 !important;
+  }
+
+  /* Tables and summaries */
+  table, .overviewSummary, .memberSummary, .typeSummary, .summaryTable,
+  .constantValuesContainer, .useSummary, .requiresSummary, .packagesSummary,
+  .classesSummary, .packages, .classUseContainer {
+    background-color: #11151b !important;
+    color: #e6e6e6 !important;
+    border-color: #2a2f36 !important;
+  }
+  th, .tableHeader, .colFirst, .colSecond, .colLast {
+    background-color: #151a22 !important;
+    color: #e6e6e6 !important;
+    border-color: #2a2f36 !important;
+  }
+  td, tr {
+    border-color: #2a2f36 !important;
+  }
+
+  /* Blocks */
+  .block, .deprecationBlock, .legalCopy {
+    color: #cfcfcf !important;
+  }
+
+  /* Code */
+  pre, code, tt {
+    background-color: #1b1f28 !important;
+    color: #e8eaed !important;
+    border: 1px solid #2a2f36 !important;
+  }
+
+  /* Search */
+  input, select, textarea {
+    background-color: #141821 !important;
+    color: #e6e6e6 !important;
+    border-color: #2a2f36 !important;
+  }
+
+  /* Labels */
+  .deprecatedLabel { background: #6e1e1e !important; color: #fff !important; }
+  .sinceLabel, .previewLabel { background: #2a2f36 !important; color: #e6e6e6 !important; }
+}
+

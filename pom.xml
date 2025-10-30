@@ -215,6 +215,10 @@
                     <doclint>none</doclint>
                     <additionalJOption>-Xdoclint:none</additionalJOption>
                     <overview>src/main/javadoc/overview.html</overview>
+                    <additionalOptions>
+                        <!-- Add a dark-mode stylesheet (JDK 9+) -->
+                        <additionalOption>--add-stylesheet=${project.basedir}/src/main/javadoc/dark.css</additionalOption>
+                    </additionalOptions>
                 </configuration>
             </plugin>
         </plugins>
