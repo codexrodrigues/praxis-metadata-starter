@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>FASE-06-ERROS-HATEOAS-OPENAPI-ETAG</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="fase-6-erros-hateoas-openapi-e-cache-de-schema">Fase 6 — Erros,
+HATEOAS, OpenAPI e Cache de Schema</h1>
+<p>Objetivo: respostas padronizadas de erro, HATEOAS funcional e
+documentação otimizada com cache/ETag.</p>
+<p>Saídas esperadas:</p>
+<ul>
+<li>Confirmação de que handlers globais retornam
+<code>RestApiResponse</code> com <code>errors</code> estruturado nos
+cenários 400/404/500</li>
+<li>HATEOAS habilitado por padrão
+(<code>praxis.hateoas.enabled=true</code>) e links presentes nas
+respostas; <code>X-Data-Version</code> quando
+<code>getDatasetVersion()</code> existir</li>
+<li><code>/schemas/filtered</code> suportando ETag/If‑None‑Match (ou
+evidência/descrição de como funcionaria no projeto)</li>
+</ul>
+<p>Checklist</p>
+<ul>
+<li><code>GlobalExceptionHandler</code> cobre: validação (400), regra de
+negócio, not found (404), erro genérico (500)</li>
+<li>Controllers base retornam Links úteis (self, all, filter,
+schema)</li>
+<li><code>X-Data-Version</code> presente quando o service expõe
+<code>getDatasetVersion()</code></li>
+<li>ApiDocsController resolve grupo automaticamente, cacheia documentos
+pequenos e responde com ETag</li>
+</ul>
+<p>Verificações e evidências</p>
+<ul>
+<li>Revisar handlers e payloads</li>
+<li>Validar respostas do controller base (links, cabeçalhos)</li>
+<li>Testar mentalmente <code>/schemas/filtered</code> (ETag, 304) ou
+descrever a integração pretendida</li>
+</ul>
+<p>Correções comuns</p>
+<ul>
+<li>Padronizar payloads de erro em endpoints customizados fora do
+controller base</li>
+<li>Habilitar/desabilitar HATEOAS por propriedade quando necessário</li>
+</ul>
+<p>Referências rápidas</p>
+<ul>
+<li>Handlers:
+src/main/java/org/praxisplatform/uischema/rest/exceptionhandler/GlobalExceptionHandler.java:1</li>
+<li>Controller base (links/versão):
+src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java:867</li>
+<li>Schemas/ETag:
+src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java:1</li>
+<li>Plano de hash/ETag: docs/SCHEMA-HASH-PLAN.md:337</li>
+</ul>
+<p>Prompt para agente</p>
+<pre><code>Tarefa: Auditar tratamento de erros, HATEOAS e cache/ETag de schemas.
+
+Passos:
+1) Revise o GlobalExceptionHandler e confirme que respostas seguem RestApiResponse com &#39;errors&#39;
+2) Valide links HATEOAS nas respostas e cabeçalho X-Data-Version quando aplicável
+3) Verifique a presença de ETag/If-None-Match no /schemas/filtered (ou descreva como ficaria)
+
+Entregue:
+- Lacunas identificadas e diffs propostos
+- Evidências de links e cabeçalhos nas respostas
+- Evidência/descrição da estratégia de ETag</code></pre>
+</body>
+</html>

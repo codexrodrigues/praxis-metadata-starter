@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>CHECKLIST-GERAL</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="checklist-geral-de-auditoria-praxis-metadata-starter">Checklist
+Geral de Auditoria — Praxis Metadata Starter</h1>
+<p>Visão consolidada das fases. Cada fase possui um arquivo próprio com
+checklist detalhado, verificações, correções comuns, referências e um
+prompt pronto.</p>
+<ul>
+<li>Fase 1 — Build e Dependências
+<ul>
+<li>JDK 21 ativo, Maven Wrapper funcional, dependência do starter no(s)
+POM(s) e build <code>./mvnw -B -DskipTests package</code> sem erros</li>
+<li>Ref.: README.md:1, docs/technical/AUTO-CONFIGURACAO.md:1</li>
+</ul></li>
+<li>Fase 2 — Controllers e Grupos OpenAPI
+<ul>
+<li><code>@ApiResource</code> nos controllers base
+(<code>AbstractCrudController</code>), política de validação
+<code>praxis.openapi.validation.api-resource-required</code>, resolução
+automática em <code>/schemas/filtered</code></li>
+<li>Ref.:
+src/main/java/org/praxisplatform/uischema/annotation/ApiResource.java:1,
+src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java:242,
+docs/technical/VALIDACAO-API-RESOURCE.md:1,
+docs/technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md:1</li>
+</ul></li>
+<li>Fase 3 — DTOs de Entrada, Bean Validation e <span class="citation"
+data-cites="UISchema">@UISchema</span>
+<ul>
+<li>DTOs anotados com Jakarta Validation, <code>@Valid</code> em
+<code>create</code>/<code>update</code>, <code>@UISchema</code> conforme
+necessário; evitar <code>FieldDataType.STRING</code> (use
+<code>TEXT</code>)</li>
+<li>Ref.: README.md:58,
+src/main/java/org/praxisplatform/uischema/FieldDataType.java:1,
+src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java:682</li>
+</ul></li>
+<li>Fase 4 — Services, Repositórios, OptionDTO e Ordenação Padrão
+<ul>
+<li>Services implementam
+<code>BaseCrudService</code>/<code>AbstractBaseCrudService</code>;
+<code>OptionDTO</code> funciona (via
+<code>getId()</code>/<code>getOptionMapper()</code>),
+<code>@OptionLabel</code>, <code>@DefaultSortColumn</code>,
+<code>getDatasetVersion()</code> quando aplicável</li>
+<li>Ref.:
+src/main/java/org/praxisplatform/uischema/service/base/AbstractBaseCrudService.java:1,
+src/main/java/org/praxisplatform/uischema/service/base/BaseCrudService.java:61,
+src/main/java/org/praxisplatform/uischema/annotation/OptionLabel.java:1</li>
+</ul></li>
+<li>Fase 5 — Filtros, Paginação e Opções
+<ul>
+<li>Filter DTOs com <code>@Filterable</code> (operation e relation) e
+<code>@UISchema</code> por campo para UX adequada em filtros:
+<ul>
+<li>Texto: LIKE + <code>@UISchema</code></li>
+<li>Numéricos (intervalo): BETWEEN +
+<code>@UISchema(type=NUMBER, controlType=RANGE_SLIDER, numericFormat/step quando moeda)</code></li>
+<li>Datas (intervalo): BETWEEN +
+<code>@UISchema(type=DATE, controlType=DATE_RANGE)</code></li>
+<li>Booleanos: EQUAL +
+<code>@UISchema(type=BOOLEAN, controlType=CHECKBOX)</code></li>
+<li>Relações: EQUAL + <code>relation="entidade.id"</code> +
+<code>@UISchema(type=NUMBER, controlType=SELECT, endpoint=ApiPaths.&lt;Modulo&gt;.&lt;Recurso&gt; + "/filter")</code></li>
+</ul></li>
+<li>Limites de segurança (<code>praxis.pagination.max-size</code>,
+<code>praxis.query.by-ids.max</code>), endpoints de opções</li>
+<li>Seleção vs Listagem — qual endpoint usar:
+<ul>
+<li><code>POST /{resource}/options/filter</code> para
+SELECT/MULTI_SELECT/AUTOCOMPLETE (OptionDTO paginado)</li>
+<li><code>GET /{resource}/options/by-ids</code> para reidratar opções
+preservando a ordem</li>
+<li><code>POST /{resource}/filter</code> para listagens ricas (DTO
+completo)</li>
+<li>Guia detalhado:
+docs/audit/fases/FASE-05-FILTROS-PAGINACAO-OPCOES.md:1</li>
+</ul></li>
+<li>Ref.:
+src/main/java/org/praxisplatform/uischema/filter/annotation/Filterable.java:71,
+src/main/java/org/praxisplatform/uischema/filter/specification/GenericSpecificationsBuilder.java:21,
+src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java:188</li>
+</ul></li>
+<li>Fase 6 — Erros, HATEOAS, OpenAPI e Cache de Schema
+<ul>
+<li><code>GlobalExceptionHandler</code> padroniza erros; HATEOAS
+habilitado; <code>X-Data-Version</code> quando disponível;
+<code>/schemas/filtered</code> com ETag/If‑None‑Match</li>
+<li>Ref.:
+src/main/java/org/praxisplatform/uischema/rest/exceptionhandler/GlobalExceptionHandler.java:1,
+src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java:1,
+docs/SCHEMA-HASH-PLAN.md:337</li>
+</ul></li>
+<li>Fase 7 — MapStruct (Fail‑Fast)
+<ul>
+<li>Mappers usam <code>CorporateMapperConfig</code> com
+<code>unmappedTargetPolicy=ERROR</code>; corrigir unmapped</li>
+<li>Ref.:
+src/main/java/org/praxisplatform/uischema/mapper/config/CorporateMapperConfig.java:1,
+README.md:42</li>
+</ul></li>
+<li>Fase 8 — Auto‑config, Grupos de Infra/Fallback e BigDecimal
+<ul>
+<li>Auto‑configs ativas; grupos <code>praxis-metadata-infra</code> e
+<code>application</code> presentes; BigDecimal → number/decimal</li>
+<li>Ref.:
+src/main/java/org/praxisplatform/uischema/configuration/PraxisMetadataAutoConfiguration.java:1</li>
+</ul></li>
+</ul>
+<p>Siga as fases na ordem. Cada arquivo em docs/audit/fases inclui o
+prompt para execução por outro agente.</p>
+</body>
+</html>

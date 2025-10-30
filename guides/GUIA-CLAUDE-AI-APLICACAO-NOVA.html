@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>GUIA-CLAUDE-AI-APLICACAO-NOVA</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<h1 id="guia-completo-claude-ai---criar-aplicação-praxis-do-zero">🚀
+Guia Completo Claude AI - Criar Aplicação Praxis do Zero</h1>
+<h2 id="objetivo">📋 Objetivo</h2>
+<p>Este guia fornece instruções detalhadas para que o Claude AI possa
+criar uma aplicação Spring Boot completa usando a arquitetura Praxis
+Platform, incluindo configuração, estrutura de pacotes, dependências e
+padrões organizacionais.</p>
+<h2 id="entrada-esperada">🎯 Entrada Esperada</h2>
+<p>O usuário deve fornecer: 1. <strong>Nome da aplicação</strong> (ex:
+<code>sistema-vendas</code>, <code>gestao-estoque</code>) 2.
+<strong>Domínio base</strong> (ex: <code>com.empresa.vendas</code>,
+<code>com.empresa.estoque</code>) 3. <strong>Módulos desejados</strong>
+(ex: <code>produtos</code>, <code>clientes</code>, <code>vendas</code>)
+4. <strong>Porta do servidor</strong> (opcional, padrão: 8080)</p>
+<h2 id="estrutura-completa-da-aplicação">🏗️ Estrutura Completa da
+Aplicação</h2>
+<pre><code>{nome-aplicacao}/
+├── pom.xml                                   # Maven configuration
+├── README.md                                 # Project documentation
+├── .gitignore                               # Git ignore rules
+└── src/
+    ├── main/
+    │   ├── java/
+    │   │   └── {dominio-base}/
+    │   │       ├── {NomeApp}Application.java         # Main Spring Boot class
+    │   │       ├── common/
+    │   │       │   ├── config/
+    │   │       │   │   └── DevDataSeeder.java        # Development data seeder
+    │   │       │   ├── constants/
+    │   │       │   │   └── ApiPaths.java             # Centralized API paths
+    │   │       │   └── filter/
+    │   │       │       └── NotFoundLoggingFilter.java # 404 logging filter
+    │   │       ├── config/
+    │   │       │   ├── WebConfig.java                # CORS and web configuration
+    │   │       │   └── EndpointMappingsLogger.java   # Endpoint logging
+    │   │       └── {modulo}/                         # Para cada módulo
+    │   │           ├── entity/
+    │   │           ├── dto/
+    │   │           ├── mapper/
+    │   │           ├── repository/
+    │   │           ├── service/
+    │   │           └── controller/
+    │   └── resources/
+    │       ├── application.properties                # Main properties
+    │       ├── application-dev.properties            # Development config
+    │       ├── application-prod.properties           # Production config
+    │       ├── data.sql                             # Sample data
+    │       └── db/
+    │           └── migration/
+    │               └── common/
+    │                   └── V1__initial_schema.sql   # Flyway migration
+    └── test/
+        └── java/
+            └── {dominio-base}/
+                ├── {NomeApp}ApplicationTests.java    # Main test class
+                └── {modulo}/                         # Tests por módulo</code></pre>
+<h2 id="templates-essenciais">📝 Templates Essenciais</h2>
+<h3 id="pom.xml---configuração-maven-completa">1.
+<strong>pom.xml</strong> - Configuração Maven Completa</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode xml"><code class="sourceCode xml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">project</span><span class="ot"> xmlns=</span><span class="st">&quot;http://maven.apache.org/POM/4.0.0&quot;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ot">         xmlns:xsi=</span><span class="st">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ot">         xsi:schemaLocation=</span><span class="st">&quot;http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd&quot;</span>&gt;</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">modelVersion</span>&gt;4.0.0&lt;/<span class="kw">modelVersion</span>&gt;</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">parent</span>&gt;</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">artifactId</span>&gt;spring-boot-starter-parent&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">version</span>&gt;3.2.5&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">relativePath</span>/&gt;</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">parent</span>&gt;</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">groupId</span>&gt;{dominio-base}&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">artifactId</span>&gt;{nome-aplicacao}&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">version</span>&gt;1.0.0-SNAPSHOT&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">name</span>&gt;{nome-aplicacao}&lt;/<span class="kw">name</span>&gt;</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">description</span>&gt;{Descrição da aplicação}&lt;/<span class="kw">description</span>&gt;</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">properties</span>&gt;</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">java.version</span>&gt;21&lt;/<span class="kw">java.version</span>&gt;</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">praxis.core.version</span>&gt;1.0.0-SNAPSHOT&lt;/<span class="kw">praxis.core.version</span>&gt;</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">praxis.bulk.version</span>&gt;0.1.0-SNAPSHOT&lt;/<span class="kw">praxis.bulk.version</span>&gt;</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">org.mapstruct.version</span>&gt;1.5.5.Final&lt;/<span class="kw">org.mapstruct.version</span>&gt;</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">springdoc-openapi.version</span>&gt;2.6.0&lt;/<span class="kw">springdoc-openapi.version</span>&gt;</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">project.build.sourceEncoding</span>&gt;UTF-8&lt;/<span class="kw">project.build.sourceEncoding</span>&gt;</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">project.reporting.outputEncoding</span>&gt;UTF-8&lt;/<span class="kw">project.reporting.outputEncoding</span>&gt;</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">properties</span>&gt;</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependencyManagement</span>&gt;</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependencies</span>&gt;</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>            <span class="co">&lt;!-- Praxis Platform Dependencies --&gt;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">groupId</span>&gt;io.github.codexrodrigues&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">artifactId</span>&gt;praxis-metadata-starter&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">version</span>&gt;${praxis.core.version}&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">groupId</span>&gt;org.praxisplatform&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">artifactId</span>&gt;praxis-spring-boot-starter&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">version</span>&gt;${praxis.core.version}&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">groupId</span>&gt;org.praxisplatform&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">artifactId</span>&gt;praxis-metadata-springdoc&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">version</span>&gt;${praxis.core.version}&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">groupId</span>&gt;org.praxisplatform&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">artifactId</span>&gt;praxis-bulk-starter&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">version</span>&gt;${praxis.bulk.version}&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">groupId</span>&gt;org.praxisplatform&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">artifactId</span>&gt;praxis-bulk-web&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">version</span>&gt;${praxis.bulk.version}&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">groupId</span>&gt;org.springdoc&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">artifactId</span>&gt;springdoc-openapi-starter-webmvc-ui&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">version</span>&gt;${springdoc-openapi.version}&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependencies</span>&gt;</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependencyManagement</span>&gt;</span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependencies</span>&gt;</span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!-- Spring Boot Core Dependencies --&gt;</span></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;spring-boot-starter-web&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;spring-boot-starter-actuator&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;spring-boot-starter-data-jpa&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!-- Praxis Platform Dependencies --&gt;</span></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.praxisplatform&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;praxis-metadata-starter&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.praxisplatform&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;praxis-spring-boot-starter&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.praxisplatform&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;praxis-metadata-springdoc&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.praxisplatform&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;praxis-bulk-starter&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.praxisplatform&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;praxis-bulk-web&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!-- File Management (opcional) --&gt;</span></span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;br.com.praxis&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;praxis-files-starter&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">version</span>&gt;1.1.0-SNAPSHOT&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!-- Database &amp; Migration --&gt;</span></span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.flywaydb&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;flyway-core&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;com.vladmihalcea&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;hibernate-types-60&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">version</span>&gt;2.21.1&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!-- OpenAPI/Swagger Documentation --&gt;</span></span>
+<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.springdoc&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;springdoc-openapi-starter-webmvc-ui&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!-- Database Driver (escolha um) --&gt;</span></span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!-- H2 para desenvolvimento --&gt;</span></span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;com.h2database&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;h2&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">scope</span>&gt;runtime&lt;/<span class="kw">scope</span>&gt;</span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!-- PostgreSQL para produção (descomentar se usar) --&gt;</span></span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!--</span></span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a><span class="co">        &lt;dependency&gt;</span></span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a><span class="co">            &lt;groupId&gt;org.postgresql&lt;/groupId&gt;</span></span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a><span class="co">            &lt;artifactId&gt;postgresql&lt;/artifactId&gt;</span></span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a><span class="co">            &lt;scope&gt;runtime&lt;/scope&gt;</span></span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a><span class="co">        &lt;/dependency&gt;</span></span>
+<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a><span class="co">        --&gt;</span></span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!-- MapStruct para mapeamento avançado --&gt;</span></span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.mapstruct&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;mapstruct&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">version</span>&gt;${org.mapstruct.version}&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a>        <span class="co">&lt;!-- Test Dependencies --&gt;</span></span>
+<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;spring-boot-starter-test&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">scope</span>&gt;test&lt;/<span class="kw">scope</span>&gt;</span>
+<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">groupId</span>&gt;junit&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">artifactId</span>&gt;junit&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">scope</span>&gt;test&lt;/<span class="kw">scope</span>&gt;</span>
+<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependencies</span>&gt;</span>
+<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">build</span>&gt;</span>
+<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">resources</span>&gt;</span>
+<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">resource</span>&gt;</span>
+<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">directory</span>&gt;src/main/resources&lt;/<span class="kw">directory</span>&gt;</span>
+<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">filtering</span>&gt;false&lt;/<span class="kw">filtering</span>&gt;</span>
+<span id="cb2-168"><a href="#cb2-168" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">resource</span>&gt;</span>
+<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">resources</span>&gt;</span>
+<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">plugins</span>&gt;</span>
+<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">plugin</span>&gt;</span>
+<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">artifactId</span>&gt;spring-boot-maven-plugin&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">plugin</span>&gt;</span>
+<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a>            <span class="co">&lt;!-- Maven Compiler Plugin com MapStruct --&gt;</span></span>
+<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">plugin</span>&gt;</span>
+<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">groupId</span>&gt;org.apache.maven.plugins&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">artifactId</span>&gt;maven-compiler-plugin&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">version</span>&gt;3.11.0&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-182"><a href="#cb2-182" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">configuration</span>&gt;</span>
+<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a>                    &lt;<span class="kw">source</span>&gt;${java.version}&lt;/<span class="kw">source</span>&gt;</span>
+<span id="cb2-184"><a href="#cb2-184" aria-hidden="true" tabindex="-1"></a>                    &lt;<span class="kw">target</span>&gt;${java.version}&lt;/<span class="kw">target</span>&gt;</span>
+<span id="cb2-185"><a href="#cb2-185" aria-hidden="true" tabindex="-1"></a>                    &lt;<span class="kw">annotationProcessorPaths</span>&gt;</span>
+<span id="cb2-186"><a href="#cb2-186" aria-hidden="true" tabindex="-1"></a>                        &lt;<span class="kw">path</span>&gt;</span>
+<span id="cb2-187"><a href="#cb2-187" aria-hidden="true" tabindex="-1"></a>                            &lt;<span class="kw">groupId</span>&gt;org.mapstruct&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-188"><a href="#cb2-188" aria-hidden="true" tabindex="-1"></a>                            &lt;<span class="kw">artifactId</span>&gt;mapstruct-processor&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-189"><a href="#cb2-189" aria-hidden="true" tabindex="-1"></a>                            &lt;<span class="kw">version</span>&gt;${org.mapstruct.version}&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-190"><a href="#cb2-190" aria-hidden="true" tabindex="-1"></a>                        &lt;/<span class="kw">path</span>&gt;</span>
+<span id="cb2-191"><a href="#cb2-191" aria-hidden="true" tabindex="-1"></a>                    &lt;/<span class="kw">annotationProcessorPaths</span>&gt;</span>
+<span id="cb2-192"><a href="#cb2-192" aria-hidden="true" tabindex="-1"></a>                &lt;/<span class="kw">configuration</span>&gt;</span>
+<span id="cb2-193"><a href="#cb2-193" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">plugin</span>&gt;</span>
+<span id="cb2-194"><a href="#cb2-194" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">plugins</span>&gt;</span>
+<span id="cb2-195"><a href="#cb2-195" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">build</span>&gt;</span>
+<span id="cb2-196"><a href="#cb2-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-197"><a href="#cb2-197" aria-hidden="true" tabindex="-1"></a>    <span class="co">&lt;!-- Profile para desenvolvimento offline --&gt;</span></span>
+<span id="cb2-198"><a href="#cb2-198" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">profiles</span>&gt;</span>
+<span id="cb2-199"><a href="#cb2-199" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">profile</span>&gt;</span>
+<span id="cb2-200"><a href="#cb2-200" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">id</span>&gt;go-offline&lt;/<span class="kw">id</span>&gt;</span>
+<span id="cb2-201"><a href="#cb2-201" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">build</span>&gt;</span>
+<span id="cb2-202"><a href="#cb2-202" aria-hidden="true" tabindex="-1"></a>                &lt;<span class="kw">plugins</span>&gt;</span>
+<span id="cb2-203"><a href="#cb2-203" aria-hidden="true" tabindex="-1"></a>                    &lt;<span class="kw">plugin</span>&gt;</span>
+<span id="cb2-204"><a href="#cb2-204" aria-hidden="true" tabindex="-1"></a>                        &lt;<span class="kw">groupId</span>&gt;org.apache.maven.plugins&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb2-205"><a href="#cb2-205" aria-hidden="true" tabindex="-1"></a>                        &lt;<span class="kw">artifactId</span>&gt;maven-dependency-plugin&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb2-206"><a href="#cb2-206" aria-hidden="true" tabindex="-1"></a>                        &lt;<span class="kw">version</span>&gt;3.6.0&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb2-207"><a href="#cb2-207" aria-hidden="true" tabindex="-1"></a>                        &lt;<span class="kw">executions</span>&gt;</span>
+<span id="cb2-208"><a href="#cb2-208" aria-hidden="true" tabindex="-1"></a>                            &lt;<span class="kw">execution</span>&gt;</span>
+<span id="cb2-209"><a href="#cb2-209" aria-hidden="true" tabindex="-1"></a>                                &lt;<span class="kw">id</span>&gt;go-offline&lt;/<span class="kw">id</span>&gt;</span>
+<span id="cb2-210"><a href="#cb2-210" aria-hidden="true" tabindex="-1"></a>                                &lt;<span class="kw">goals</span>&gt;</span>
+<span id="cb2-211"><a href="#cb2-211" aria-hidden="true" tabindex="-1"></a>                                    &lt;<span class="kw">goal</span>&gt;go-offline&lt;/<span class="kw">goal</span>&gt;</span>
+<span id="cb2-212"><a href="#cb2-212" aria-hidden="true" tabindex="-1"></a>                                &lt;/<span class="kw">goals</span>&gt;</span>
+<span id="cb2-213"><a href="#cb2-213" aria-hidden="true" tabindex="-1"></a>                            &lt;/<span class="kw">execution</span>&gt;</span>
+<span id="cb2-214"><a href="#cb2-214" aria-hidden="true" tabindex="-1"></a>                        &lt;/<span class="kw">executions</span>&gt;</span>
+<span id="cb2-215"><a href="#cb2-215" aria-hidden="true" tabindex="-1"></a>                    &lt;/<span class="kw">plugin</span>&gt;</span>
+<span id="cb2-216"><a href="#cb2-216" aria-hidden="true" tabindex="-1"></a>                &lt;/<span class="kw">plugins</span>&gt;</span>
+<span id="cb2-217"><a href="#cb2-217" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">build</span>&gt;</span>
+<span id="cb2-218"><a href="#cb2-218" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">profile</span>&gt;</span>
+<span id="cb2-219"><a href="#cb2-219" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">profiles</span>&gt;</span>
+<span id="cb2-220"><a href="#cb2-220" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">project</span>&gt;</span></code></pre></div>
+<h3 id="classe-principal---nomeappapplication.java">2. <strong>Classe
+Principal - <code>{NomeApp}Application.java</code></strong></h3>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {dominio-base}</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">boot</span><span class="op">.</span><span class="im">SpringApplication</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">boot</span><span class="op">.</span><span class="im">autoconfigure</span><span class="op">.</span><span class="im">SpringBootApplication</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">boot</span><span class="op">.</span><span class="im">autoconfigure</span><span class="op">.</span><span class="im">domain</span><span class="op">.</span><span class="im">EntityScan</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">data</span><span class="op">.</span><span class="im">jpa</span><span class="op">.</span><span class="im">repository</span><span class="op">.</span><span class="im">config</span><span class="op">.</span><span class="im">EnableJpaRepositories</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">scheduling</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">EnableScheduling</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h1</span><span class="dt">&gt;</span><span class="co">🚀</span> <span class="co">{</span>Nome da Aplica<span class="co">çã</span>o<span class="co">}</span><span class="dt">&lt;/</span><span class="kw">h1</span><span class="dt">&gt;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Classe principal da aplica<span class="co">çã</span>o Spring Boot usando a arquitetura Praxis Platform<span class="co">.</span><span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h2</span><span class="dt">&gt;</span><span class="co">🔧</span> Configura<span class="co">çõ</span>es Autom<span class="co">á</span>ticas<span class="dt">&lt;/</span><span class="kw">h2</span><span class="dt">&gt;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span><span class="co">@</span>SpringBootApplication<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Configura<span class="co">çã</span>o autom<span class="co">á</span>tica do Spring Boot<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span><span class="co">@</span>EntityScan<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Escaneia entidades JPA nos pacotes especificados<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span><span class="co">@</span>EnableJpaRepositories<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Habilita reposit<span class="co">ó</span>rios JPA<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span><span class="co">@</span>EnableScheduling<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Habilita funcionalidades de agendamento<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;/</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h2</span><span class="dt">&gt;</span><span class="co">📦</span> Pacotes Escaneados<span class="dt">&lt;/</span><span class="kw">h2</span><span class="dt">&gt;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span><span class="co">{</span>dominio<span class="co">-</span>base<span class="co">}:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Todos os componentes da aplica<span class="co">çã</span>o<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>org<span class="co">.</span>praxisplatform<span class="co">.</span>bulk<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Componentes de opera<span class="co">çõ</span>es em lote<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;/</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h2</span><span class="dt">&gt;</span><span class="co">🌐</span> Endpoints Principais<span class="dt">&lt;/</span><span class="kw">h2</span><span class="dt">&gt;</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Swagger UI<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> http<span class="co">://</span>localhost<span class="co">:{</span>porta<span class="co">}/</span>swagger<span class="co">-</span>ui<span class="co">.</span>html<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>API Docs<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> http<span class="co">://</span>localhost<span class="co">:{</span>porta<span class="co">}/</span>v3<span class="co">/</span>api<span class="co">-</span>docs<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Actuator<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> http<span class="co">://</span>localhost<span class="co">:{</span>porta<span class="co">}/</span>actuator<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>H2 Console<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> http<span class="co">://</span>localhost<span class="co">:{</span>porta<span class="co">}/</span>h2<span class="co">-</span>console <span class="co">(</span>dev only<span class="co">)</span><span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;/</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a> <span class="co">*/</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="at">@SpringBootApplication</span><span class="op">(</span>scanBasePackages <span class="op">=</span> <span class="op">{</span><span class="st">&quot;{dominio-base}&quot;</span><span class="op">,</span> <span class="st">&quot;org.praxisplatform.bulk&quot;</span><span class="op">})</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="at">@EntityScan</span><span class="op">(</span>basePackages <span class="op">=</span> <span class="op">{</span><span class="st">&quot;{dominio-base}.*.entity&quot;</span><span class="op">,</span> <span class="st">&quot;org.praxisplatform.bulk.entity&quot;</span><span class="op">})</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="at">@EnableJpaRepositories</span><span class="op">(</span>basePackages <span class="op">=</span> <span class="op">{</span><span class="st">&quot;{dominio-base}.*.repository&quot;</span><span class="op">,</span> <span class="st">&quot;org.praxisplatform.bulk.repository&quot;</span><span class="op">})</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="at">@EnableScheduling</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> <span class="op">{</span>NomeApp<span class="op">}</span>Application <span class="op">{</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">void</span> <span class="fu">main</span><span class="op">(</span><span class="bu">String</span><span class="op">[]</span> args<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>        SpringApplication<span class="op">.</span><span class="fu">run</span><span class="op">({</span>NomeApp<span class="op">}</span>Application<span class="op">.</span><span class="fu">class</span><span class="op">,</span> args<span class="op">);</span></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="constantes-de-api---apipaths.java">3. <strong>Constantes de API
+- <code>ApiPaths.java</code></strong></h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {dominio-base}</span><span class="op">.</span><span class="im">common</span><span class="op">.</span><span class="im">constants</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h2</span><span class="dt">&gt;</span><span class="co">🗂️</span> Constantes Centralizadas de Paths da API<span class="dt">&lt;/</span><span class="kw">h2</span><span class="dt">&gt;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Esta classe centraliza todos os paths das APIs do sistema<span class="co">,</span> garantindo consist<span class="co">ê</span>ncia</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> e facilitando manuten<span class="co">çã</span>o<span class="co">. </span>Os paths s<span class="co">ã</span>o organizados hierarquicamente por dom<span class="co">í</span>nio<span class="co">.</span><span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h3</span><span class="dt">&gt;</span><span class="co">🎯</span> Benef<span class="co">í</span>cios<span class="dt">&lt;/</span><span class="kw">h3</span><span class="dt">&gt;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Consist<span class="co">ê</span>ncia<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> <span class="co">Ú</span>nico local para defini<span class="co">çã</span>o de paths<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Manuten<span class="co">çã</span>o<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Mudan<span class="co">ç</span>as de path em uma <span class="co">ú</span>nica localiza<span class="co">çã</span>o<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Integra<span class="co">çã</span>o<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Compat<span class="co">í</span>vel com <span class="co">@</span>ApiResource e DynamicSwaggerConfig<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Refactoring<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Suporte completo do IDE para mudan<span class="co">ç</span>as<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;/</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h3</span><span class="dt">&gt;</span><span class="co">📋</span> Exemplo de Uso<span class="dt">&lt;/</span><span class="kw">h3</span><span class="dt">&gt;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">pre</span><span class="dt">&gt;</span><span class="co">{@</span>code</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="co">@</span>ApiResource<span class="co">(</span>ApiPaths<span class="co">.{</span>Modulo<span class="co">}.{</span>ENTIDADES<span class="co">})</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="co">@</span>ApiGroup<span class="co">(&quot;{</span>grupo<span class="co">}&quot;)</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> public class <span class="co">{</span>Entidade<span class="co">}</span>Controller extends AbstractCrudController<span class="er">&lt;</span><span class="co">...&gt;</span> <span class="co">{</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>     <span class="co">//</span> Path detectado automaticamente<span class="co">,</span> grupo OpenAPI criado</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="co">}</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="co">}</span><span class="dt">&lt;/</span><span class="kw">pre</span><span class="dt">&gt;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a> <span class="co">*/</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="dt">final</span> <span class="kw">class</span> ApiPaths <span class="op">{</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">/**</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>     <span class="co">*</span> Path base para todas as APIs da aplica<span class="co">çã</span>o<span class="co">.</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>     <span class="co">*/</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> BASE <span class="op">=</span> <span class="st">&quot;/api&quot;</span><span class="op">;</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ⚠️ PARA CADA MÓDULO, CRIE UMA CLASSE INTERNA:</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>    <span class="co">/**</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>     <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h3</span><span class="dt">&gt;</span><span class="co">📦</span> <span class="co">{</span>Nome do M<span class="co">ó</span>dulo<span class="co">}</span><span class="dt">&lt;/</span><span class="kw">h3</span><span class="dt">&gt;</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>     <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Paths para opera<span class="co">çõ</span>es relacionadas ao m<span class="co">ó</span>dulo de <span class="co">{</span>descri<span class="co">çã</span>o do m<span class="co">ó</span>dulo<span class="co">}.</span><span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>     <span class="co">*/</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="kw">class</span> <span class="op">{</span>Modulo<span class="op">}</span> <span class="op">{</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>        <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> <span class="op">{</span>MODULO<span class="op">}</span>_BASE <span class="op">=</span> BASE <span class="op">+</span> <span class="st">&quot;/{modulo-kebab-case}&quot;</span><span class="op">;</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>        <span class="co">/**</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>         <span class="co">*</span> Endpoint para gest<span class="co">ã</span>o de <span class="co">{</span>entidades<span class="co">}.</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>         <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">br</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Padr<span class="co">ã</span>o<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> <span class="co">/</span>api<span class="co">/{</span>modulo<span class="co">-</span>kebab<span class="co">-</span>case<span class="co">}/{</span>entidades<span class="co">-</span>kebab<span class="co">-</span>case<span class="co">}</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>         <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">br</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Usado por<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> <span class="co">{</span>Entidade<span class="co">}</span>Controller<span class="co">,</span> <span class="co">{</span>Entidade<span class="co">}</span>BulkController<span class="co">,</span> <span class="co">{</span>Entidade<span class="co">}</span>CapabilitiesController</span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>         <span class="co">*/</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>        <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> <span class="op">{</span>ENTIDADES<span class="op">}</span> <span class="op">=</span> <span class="op">{</span>MODULO<span class="op">}</span>_BASE <span class="op">+</span> <span class="st">&quot;/{entidades-kebab-case}&quot;</span><span class="op">;</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ⚠️ REPITA PARA CADA ENTIDADE DO MÓDULO</span></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Construtor privado para evitar instanciação</span></span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>        <span class="kw">private</span> <span class="op">{</span>Modulo<span class="op">}()</span> <span class="op">{</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>            <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">IllegalStateException</span><span class="op">(</span><span class="st">&quot;Classe de constantes não deve ser instanciada&quot;</span><span class="op">);</span></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>    <span class="co">/**</span></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>     <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h3</span><span class="dt">&gt;</span><span class="co">🔧</span> Utilit<span class="co">á</span>rios e Configura<span class="co">çõ</span>es<span class="dt">&lt;/</span><span class="kw">h3</span><span class="dt">&gt;</span></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>     <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Paths para opera<span class="co">çõ</span>es utilit<span class="co">á</span>rias e de configura<span class="co">çã</span>o<span class="co">.</span><span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>     <span class="co">*/</span></span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="kw">class</span> Utils <span class="op">{</span></span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>        <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> UTILS_BASE <span class="op">=</span> BASE <span class="op">+</span> <span class="st">&quot;/utils&quot;</span><span class="op">;</span></span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a>        <span class="co">/**</span></span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a>         <span class="co">*</span> Endpoint para testes e valida<span class="co">çõ</span>es<span class="co">.</span></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>         <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">br</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Padr<span class="co">ã</span>o<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> <span class="co">/</span>api<span class="co">/</span>utils<span class="co">/</span>test</span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a>         <span class="co">*/</span></span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a>        <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> TEST <span class="op">=</span> UTILS_BASE <span class="op">+</span> <span class="st">&quot;/test&quot;</span><span class="op">;</span></span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Construtor privado para evitar instanciação</span></span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>        <span class="kw">private</span> <span class="fu">Utils</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>            <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">IllegalStateException</span><span class="op">(</span><span class="st">&quot;Classe de constantes não deve ser instanciada&quot;</span><span class="op">);</span></span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Construtor privado para evitar instanciação</span></span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="fu">ApiPaths</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">IllegalStateException</span><span class="op">(</span><span class="st">&quot;Classe de constantes não deve ser instanciada&quot;</span><span class="op">);</span></span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="configuração-web---webconfig.java">4. <strong>Configuração Web -
+<code>WebConfig.java</code></strong></h3>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {dominio-base}</span><span class="op">.</span><span class="im">config</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">beans</span><span class="op">.</span><span class="im">factory</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Value</span><span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">context</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Configuration</span><span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">web</span><span class="op">.</span><span class="im">servlet</span><span class="op">.</span><span class="im">config</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">CorsRegistry</span><span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">web</span><span class="op">.</span><span class="im">servlet</span><span class="op">.</span><span class="im">config</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">WebMvcConfigurer</span><span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h2</span><span class="dt">&gt;</span><span class="co">🌐</span> Configura<span class="co">çã</span>o Web Global<span class="dt">&lt;/</span><span class="kw">h2</span><span class="dt">&gt;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Configura<span class="co">çõ</span>es gerais para o comportamento web da aplica<span class="co">çã</span>o<span class="co">,</span> incluindo</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> pol<span class="co">í</span>ticas CORS<span class="co">,</span> interceptadores e configura<span class="co">çõ</span>es de seguran<span class="co">ç</span>a b<span class="co">á</span>sicas<span class="co">.</span><span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h3</span><span class="dt">&gt;</span><span class="co">🔧</span> Funcionalidades<span class="dt">&lt;/</span><span class="kw">h3</span><span class="dt">&gt;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>CORS<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Configura<span class="co">çã</span>o de origens permitidas<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Headers<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Configura<span class="co">çã</span>o de headers permitidos<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>M<span class="co">é</span>todos HTTP<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> GET<span class="co">,</span> POST<span class="co">,</span> PUT<span class="co">,</span> DELETE<span class="co">,</span> OPTIONS<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;/</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a> <span class="co">*/</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="at">@Configuration</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> WebConfig <span class="kw">implements</span> WebMvcConfigurer <span class="op">{</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Value</span><span class="op">(</span><span class="st">&quot;${app.cors.allowed-origins:http://localhost:4200}&quot;</span><span class="op">)</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">String</span><span class="op">[]</span> allowedOrigins<span class="op">;</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">addCorsMappings</span><span class="op">(</span>CorsRegistry registry<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>        registry<span class="op">.</span><span class="fu">addMapping</span><span class="op">(</span><span class="st">&quot;/**&quot;</span><span class="op">)</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span><span class="fu">allowedOrigins</span><span class="op">(</span>allowedOrigins<span class="op">)</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span><span class="fu">allowedMethods</span><span class="op">(</span><span class="st">&quot;GET&quot;</span><span class="op">,</span> <span class="st">&quot;POST&quot;</span><span class="op">,</span> <span class="st">&quot;PUT&quot;</span><span class="op">,</span> <span class="st">&quot;DELETE&quot;</span><span class="op">,</span> <span class="st">&quot;OPTIONS&quot;</span><span class="op">)</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span><span class="fu">allowedHeaders</span><span class="op">(</span><span class="st">&quot;*&quot;</span><span class="op">)</span></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span><span class="fu">allowCredentials</span><span class="op">(</span><span class="kw">true</span><span class="op">);</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="seeder-de-dados---devdataseeder.java">5. <strong>Seeder de Dados
+- <code>DevDataSeeder.java</code></strong></h3>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {dominio-base}</span><span class="op">.</span><span class="im">common</span><span class="op">.</span><span class="im">config</span><span class="op">;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">boot</span><span class="op">.</span><span class="im">ApplicationRunner</span><span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">context</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Bean</span><span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">context</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Configuration</span><span class="op">;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">context</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Profile</span><span class="op">;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">io</span><span class="op">.</span><span class="im">ClassPathResource</span><span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">jdbc</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">JdbcTemplate</span><span class="op">;</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">jdbc</span><span class="op">.</span><span class="im">datasource</span><span class="op">.</span><span class="im">init</span><span class="op">.</span><span class="im">ResourceDatabasePopulator</span><span class="op">;</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">javax</span><span class="op">.</span><span class="im">sql</span><span class="op">.</span><span class="im">DataSource</span><span class="op">;</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h2</span><span class="dt">&gt;</span><span class="co">🌱</span> Configura<span class="co">çã</span>o de Popula<span class="co">çã</span>o de Dados para Desenvolvimento<span class="dt">&lt;/</span><span class="kw">h2</span><span class="dt">&gt;</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Esta classe <span class="co">é</span> respons<span class="co">á</span>vel por popular o banco de dados com dados iniciais</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> durante o desenvolvimento<span class="co">,</span> garantindo que a aplica<span class="co">çã</span>o tenha dados para testes<span class="co">.</span><span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h3</span><span class="dt">&gt;</span><span class="co">🎯</span> Caracter<span class="co">í</span>sticas<span class="dt">&lt;/</span><span class="kw">h3</span><span class="dt">&gt;</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Profile<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Ativa apenas no profile <span class="co">&quot;</span>dev<span class="co">&quot;</span><span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Idempotente<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Verifica se dados j<span class="co">á</span> existem antes de inserir<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Flyway<span class="co">-</span>Safe<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Executa ap<span class="co">ó</span>s migra<span class="co">çõ</span>es do Flyway<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;/</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a> <span class="co">*/</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="at">@Configuration</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="at">@Profile</span><span class="op">(</span><span class="st">&quot;dev&quot;</span><span class="op">)</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> DevDataSeeder <span class="op">{</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Bean</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>    ApplicationRunner <span class="fu">seedData</span><span class="op">(</span><span class="bu">DataSource</span> dataSource<span class="op">,</span> JdbcTemplate jdbcTemplate<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> args <span class="op">-&gt;</span> <span class="op">{</span></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>            <span class="co">// ⚠️ SUBSTITUA &#39;tabela_principal&#39; pela tabela principal do seu sistema</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>            <span class="bu">Integer</span> count <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>            <span class="cf">try</span> <span class="op">{</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>                count <span class="op">=</span> jdbcTemplate<span class="op">.</span><span class="fu">queryForObject</span><span class="op">(</span><span class="st">&quot;SELECT COUNT(*) FROM {tabela_principal}&quot;</span><span class="op">,</span> <span class="bu">Integer</span><span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="bu">Exception</span> ignored<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>                <span class="co">// Tabela pode não existir ainda; o ResourceDatabasePopulator cuidará disso</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>count <span class="op">!=</span> <span class="kw">null</span> <span class="op">&amp;&amp;</span> count <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span><span class="op">;</span> <span class="co">// Dados já existem, não popular novamente</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>            ResourceDatabasePopulator populator <span class="op">=</span> <span class="kw">new</span> <span class="fu">ResourceDatabasePopulator</span><span class="op">();</span></span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>            populator<span class="op">.</span><span class="fu">setContinueOnError</span><span class="op">(</span><span class="kw">false</span><span class="op">);</span></span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>            populator<span class="op">.</span><span class="fu">addScript</span><span class="op">(</span><span class="kw">new</span> <span class="fu">ClassPathResource</span><span class="op">(</span><span class="st">&quot;data.sql&quot;</span><span class="op">));</span></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a>            populator<span class="op">.</span><span class="fu">execute</span><span class="op">(</span>dataSource<span class="op">);</span></span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>        <span class="op">};</span></span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="filtro-de-log---notfoundloggingfilter.java">6. <strong>Filtro de
+Log - <code>NotFoundLoggingFilter.java</code></strong></h3>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {dominio-base}</span><span class="op">.</span><span class="im">common</span><span class="op">.</span><span class="im">filter</span><span class="op">;</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">jakarta</span><span class="op">.</span><span class="im">servlet</span><span class="op">.</span><span class="im">Filter</span><span class="op">;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">jakarta</span><span class="op">.</span><span class="im">servlet</span><span class="op">.</span><span class="im">FilterChain</span><span class="op">;</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">jakarta</span><span class="op">.</span><span class="im">servlet</span><span class="op">.</span><span class="im">ServletException</span><span class="op">;</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">jakarta</span><span class="op">.</span><span class="im">servlet</span><span class="op">.</span><span class="im">ServletRequest</span><span class="op">;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">jakarta</span><span class="op">.</span><span class="im">servlet</span><span class="op">.</span><span class="im">ServletResponse</span><span class="op">;</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">jakarta</span><span class="op">.</span><span class="im">servlet</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">WebFilter</span><span class="op">;</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">jakarta</span><span class="op">.</span><span class="im">servlet</span><span class="op">.</span><span class="im">http</span><span class="op">.</span><span class="im">HttpServletRequest</span><span class="op">;</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">jakarta</span><span class="op">.</span><span class="im">servlet</span><span class="op">.</span><span class="im">http</span><span class="op">.</span><span class="im">HttpServletResponse</span><span class="op">;</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">slf4j</span><span class="op">.</span><span class="im">Logger</span><span class="op">;</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">slf4j</span><span class="op">.</span><span class="im">LoggerFactory</span><span class="op">;</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">stereotype</span><span class="op">.</span><span class="im">Component</span><span class="op">;</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">io</span><span class="op">.</span><span class="im">IOException</span><span class="op">;</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h2</span><span class="dt">&gt;</span><span class="co">🔍</span> Filtro de Log para Recursos N<span class="co">ã</span>o Encontrados<span class="dt">&lt;/</span><span class="kw">h2</span><span class="dt">&gt;</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Filtro que intercepta todas as requisi<span class="co">çõ</span>es HTTP e registra em log</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> quando recursos n<span class="co">ã</span>o s<span class="co">ã</span>o encontrados <span class="co">(</span>HTTP <span class="co">404),</span> facilitando a depura<span class="co">çã</span>o</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> e monitoramento da aplica<span class="co">çã</span>o<span class="co">.</span><span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> </span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h3</span><span class="dt">&gt;</span><span class="co">📊</span> Funcionalidades<span class="dt">&lt;/</span><span class="kw">h3</span><span class="dt">&gt;</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Log <span class="co">404:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Registra URLs que retornam <span class="co">404</span><span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Debugging<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Facilita identifica<span class="co">çã</span>o de endpoints quebrados<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span>   <span class="dt">&lt;</span><span class="kw">li</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Monitoramento<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> Permite an<span class="co">á</span>lise de padr<span class="co">õ</span>es de acesso<span class="dt">&lt;/</span><span class="kw">li</span><span class="dt">&gt;</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;/</span><span class="kw">ul</span><span class="dt">&gt;</span></span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a> <span class="co">*/</span></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a><span class="at">@Component</span></span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a><span class="at">@WebFilter</span><span class="op">(</span><span class="st">&quot;/*&quot;</span><span class="op">)</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> NotFoundLoggingFilter <span class="kw">implements</span> <span class="bu">Filter</span> <span class="op">{</span></span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">Logger</span> logger <span class="op">=</span> LoggerFactory<span class="op">.</span><span class="fu">getLogger</span><span class="op">(</span>NotFoundLoggingFilter<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">doFilter</span><span class="op">(</span>ServletRequest request<span class="op">,</span> ServletResponse response<span class="op">,</span> FilterChain chain<span class="op">)</span> </span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>            <span class="kw">throws</span> <span class="bu">IOException</span><span class="op">,</span> ServletException <span class="op">{</span></span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>        HttpServletRequest httpRequest <span class="op">=</span> <span class="op">(</span>HttpServletRequest<span class="op">)</span> request<span class="op">;</span></span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>        HttpServletResponse httpResponse <span class="op">=</span> <span class="op">(</span>HttpServletResponse<span class="op">)</span> response<span class="op">;</span></span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>        chain<span class="op">.</span><span class="fu">doFilter</span><span class="op">(</span>request<span class="op">,</span> response<span class="op">);</span></span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Log 404 errors para debugging</span></span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>httpResponse<span class="op">.</span><span class="fu">getStatus</span><span class="op">()</span> <span class="op">==</span> <span class="dv">404</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>            logger<span class="op">.</span><span class="fu">warn</span><span class="op">(</span><span class="st">&quot;🔍 Resource not found: {} {} - Status: 404&quot;</span><span class="op">,</span> </span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>                    httpRequest<span class="op">.</span><span class="fu">getMethod</span><span class="op">(),</span> </span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>                    httpRequest<span class="op">.</span><span class="fu">getRequestURI</span><span class="op">());</span></span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="configurações-de-properties">📊 <strong>Configurações de
+Properties</strong></h2>
+<h3
+id="application.properties-base"><strong>application.properties</strong>
+(Base)</h3>
+<pre class="properties"><code># Database Configuration
+spring.datasource.url=jdbc:h2:mem:{nome-app};MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+
+# JPA / Hibernate Configuration
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+
+# Flyway Migration
+spring.flyway.enabled=true
+spring.flyway.locations=classpath:db/migration/common,classpath:db/migration/h2
+
+# Server Configuration
+server.port={porta-personalizada:8080}
+
+# Management/Actuator
+management.endpoints.web.exposure.include=*
+management.endpoint.health.show-details=always
+
+# OpenAPI/Swagger Configuration
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.path=/swagger-ui.html
+springdoc.swagger-ui.display-request-duration=true
+springdoc.api-docs.groups.enabled=true
+springdoc.api-docs.path=/v3/api-docs
+
+# Active Profile
+spring.profiles.active=dev</code></pre>
+<h3
+id="application-dev.properties-desenvolvimento"><strong>application-dev.properties</strong>
+(Desenvolvimento)</h3>
+<pre class="properties"><code># CORS Configuration for Development
+app.cors.allowed-origins=http://localhost:4200,http://localhost:3000,http://localhost:8080
+
+# Enable SQL logging for development
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.hibernate.ddl-auto=update
+spring.sql.init.mode=never
+
+# H2 Console for Development
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+
+# Bulk Operations Configuration (se usar praxis-bulk)
+praxis.bulk.export.base-path=./target/bulk-exports
+praxis.bulk.export.url-ttl-minutes=60
+praxis.bulk.maxInlineFailures=100
+
+# File Management Configuration (se usar praxis-files)
+file.management.security.permit-file-endpoints=true
+file.management.security.require-authentication-by-default=false
+
+# ⚠️ ADICIONE políticas bulk para CADA entidade:
+# praxis.bulk.policy.{Entidade}.{campo}.operators=SET,INCREMENT,DECREMENT
+# praxis.bulk.policy.{Entidade}.{campo}.min=0</code></pre>
+<h3
+id="application-prod.properties-produção"><strong>application-prod.properties</strong>
+(Produção)</h3>
+<pre class="properties"><code># CORS Configuration for Production
+app.cors.allowed-origins=https://app.{dominio}.com,https://{dominio}.com
+
+# Database Configuration (PostgreSQL example)
+spring.datasource.url=${DATABASE_URL}
+spring.datasource.username=${DATABASE_USERNAME}
+spring.datasource.password=${DATABASE_PASSWORD}
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+
+# Production JPA Settings
+spring.jpa.show-sql=false
+spring.jpa.hibernate.ddl-auto=validate
+
+# Disable H2 Console in Production
+spring.h2.console.enabled=false
+
+# File Management Security (Production)
+file.management.security.permit-file-endpoints=false
+file.management.security.require-authentication-by-default=true
+
+# Actuator Security
+management.endpoints.web.exposure.include=health,info,metrics
+management.endpoint.health.show-details=when_authorized</code></pre>
+<h2 id="schema-de-banco-de-dados">🗃️ <strong>Schema de Banco de
+Dados</strong></h2>
+<h3
+id="dbmigrationcommonv1__initial_schema.sql">**db/migration/common/V1__initial_schema.sql**</h3>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode sql"><code class="sourceCode sql"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- ⚠️ TEMPLATE - SUBSTITUA pelas suas entidades</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Tabela exemplo: Categorias (entidade simples)</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> categorias (</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">id</span> BIGSERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    nome <span class="dt">VARCHAR</span>(<span class="dv">100</span>) <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">UNIQUE</span>,</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    descricao TEXT,</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>    ativo <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">TRUE</span>,</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> <span class="fu">CURRENT_TIMESTAMP</span>,</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    updated_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> <span class="fu">CURRENT_TIMESTAMP</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- Tabela exemplo: Produtos (entidade com relacionamento)</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> produtos (</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">id</span> BIGSERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>    nome <span class="dt">VARCHAR</span>(<span class="dv">200</span>) <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    codigo <span class="dt">VARCHAR</span>(<span class="dv">50</span>) <span class="kw">UNIQUE</span> <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>    descricao TEXT,</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>    preco <span class="dt">DECIMAL</span>(<span class="dv">10</span>,<span class="dv">2</span>) <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">CHECK</span> (preco <span class="op">&gt;=</span> <span class="dv">0</span>),</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>    categoria_id BIGINT <span class="kw">REFERENCES</span> categorias(<span class="kw">id</span>),</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>    ativo <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">TRUE</span>,</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>    created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> <span class="fu">CURRENT_TIMESTAMP</span>,</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>    updated_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> <span class="fu">CURRENT_TIMESTAMP</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a><span class="co">-- Índices para performance</span></span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_produtos_categoria <span class="kw">ON</span> produtos(categoria_id);</span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_produtos_codigo <span class="kw">ON</span> produtos(codigo);</span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_produtos_ativo <span class="kw">ON</span> produtos(ativo);</span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a><span class="co">-- ⚠️ ADICIONE suas tabelas seguindo o padrão:</span></span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a><span class="co">-- 1. id BIGSERIAL PRIMARY KEY</span></span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a><span class="co">-- 2. Campos de negócio</span></span>
+<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a><span class="co">-- 3. Relacionamentos com REFERENCES</span></span>
+<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a><span class="co">-- 4. ativo BOOLEAN DEFAULT TRUE (se aplicável)  </span></span>
+<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a><span class="co">-- 5. created_at, updated_at TIMESTAMP</span></span>
+<span id="cb11-37"><a href="#cb11-37" aria-hidden="true" tabindex="-1"></a><span class="co">-- 6. Índices para campos frequentemente consultados</span></span></code></pre></div>
+<h3 id="data.sql---dados-de-exemplo"><strong>data.sql</strong> - Dados
+de Exemplo</h3>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode sql"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- ⚠️ DADOS DE EXEMPLO - SUBSTITUA pelos seus dados</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Categorias de exemplo</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="kw">INSERT</span> <span class="kw">INTO</span> categorias (nome, descricao, ativo) <span class="kw">VALUES</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>(<span class="st">&#39;Eletrônicos&#39;</span>, <span class="st">&#39;Produtos eletrônicos e tecnológicos&#39;</span>, <span class="kw">true</span>),</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>(<span class="st">&#39;Roupas&#39;</span>, <span class="st">&#39;Vestuário e acessórios&#39;</span>, <span class="kw">true</span>),</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>(<span class="st">&#39;Casa&#39;</span>, <span class="st">&#39;Produtos para casa e decoração&#39;</span>, <span class="kw">true</span>);</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Produtos de exemplo  </span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="kw">INSERT</span> <span class="kw">INTO</span> produtos (nome, codigo, descricao, preco, categoria_id, ativo) <span class="kw">VALUES</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>(<span class="st">&#39;Smartphone XYZ&#39;</span>, <span class="st">&#39;PHONE001&#39;</span>, <span class="st">&#39;Smartphone com 128GB de armazenamento&#39;</span>, <span class="fl">1299.99</span>, <span class="dv">1</span>, <span class="kw">true</span>),</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>(<span class="st">&#39;Camiseta Básica&#39;</span>, <span class="st">&#39;SHIRT001&#39;</span>, <span class="st">&#39;Camiseta básica 100% algodão&#39;</span>, <span class="fl">49.90</span>, <span class="dv">2</span>, <span class="kw">true</span>),</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>(<span class="st">&#39;Mesa de Centro&#39;</span>, <span class="st">&#39;TABLE001&#39;</span>, <span class="st">&#39;Mesa de centro em madeira maciça&#39;</span>, <span class="fl">599.99</span>, <span class="dv">3</span>, <span class="kw">true</span>);</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a><span class="co">-- ⚠️ ADICIONE dados para suas entidades seguindo o padrão:</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a><span class="co">-- INSERT INTO {tabela} ({campos}) VALUES ({valores});</span></span></code></pre></div>
+<h2 id="fluxo-de-criação-automática">🎯 <strong>Fluxo de Criação
+Automática</strong></h2>
+<h3 id="estrutura-base"><strong>1. Estrutura Base</strong></h3>
+<ol type="1">
+<li>Criar diretório raiz <code>{nome-aplicacao}/</code></li>
+<li>Gerar <code>pom.xml</code> com todas as dependências Praxis</li>
+<li>Criar estrutura de pacotes Java</li>
+<li>Configurar arquivos de properties (dev, prod)</li>
+</ol>
+<h3 id="classe-principal-e-configuração"><strong>2. Classe Principal e
+Configuração</strong></h3>
+<ol type="1">
+<li>Criar <code>{NomeApp}Application.java</code> com scan
+automático</li>
+<li>Implementar <code>ApiPaths.java</code> com constantes
+centralizadas</li>
+<li>Configurar <code>WebConfig.java</code> para CORS</li>
+<li>Adicionar filtros e configurações auxiliares</li>
+</ol>
+<h3 id="banco-de-dados"><strong>3. Banco de Dados</strong></h3>
+<ol type="1">
+<li>Criar migration inicial <code>V1__initial_schema.sql</code></li>
+<li>Configurar <code>data.sql</code> com dados de exemplo</li>
+<li>Implementar <code>DevDataSeeder.java</code> para população
+automática</li>
+</ol>
+<h3 id="módulos-de-negócio"><strong>4. Módulos de Negócio</strong></h3>
+<ol type="1">
+<li>Para cada módulo fornecido pelo usuário:
+<ul>
+<li>Criar estrutura de pacotes (entity, dto, etc.)</li>
+<li>Implementar seguindo o guia CRUD+Bulk existente</li>
+<li>Adicionar paths no <code>ApiPaths.java</code></li>
+<li>Configurar políticas bulk no
+<code>application-dev.properties</code></li>
+</ul></li>
+</ol>
+<h3 id="testes-e-validação"><strong>5. Testes e Validação</strong></h3>
+<ol type="1">
+<li>Criar testes básicos de inicialização</li>
+<li>Configurar profiles e validações</li>
+<li>Testar compilação e execução</li>
+</ol>
+<h2 id="checklist-de-validação">✅ <strong>Checklist de
+Validação</strong></h2>
+<h3 id="estrutura"><strong>📁 Estrutura</strong></h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />Todos os diretórios criados
+corretamente</label></li>
+<li><label><input type="checkbox" />Pacotes Java organizados
+hierarquicamente<br />
+</label></li>
+<li><label><input type="checkbox" />Resources (properties, SQL) no local
+correto</label></li>
+</ul>
+<h3 id="dependências"><strong>📦 Dependências</strong></h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />pom.xml com todas as dependências
+Praxis</label></li>
+<li><label><input type="checkbox" />Versões compatíveis entre
+bibliotecas</label></li>
+<li><label><input type="checkbox" />MapStruct configurado no
+maven-compiler-plugin</label></li>
+</ul>
+<h3 id="configuração"><strong>🔧 Configuração</strong></h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />Classe principal com annotations
+corretas</label></li>
+<li><label><input type="checkbox" />ApiPaths com constantes para todos
+os módulos</label></li>
+<li><label><input type="checkbox" />WebConfig com CORS
+configurado</label></li>
+<li><label><input type="checkbox" />Properties para dev/prod
+separados</label></li>
+</ul>
+<h3 id="banco-de-dados-1"><strong>🗃️ Banco de Dados</strong></h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />Migration SQL com estrutura
+inicial</label></li>
+<li><label><input type="checkbox" />data.sql com dados de
+exemplo</label></li>
+<li><label><input type="checkbox" />DevDataSeeder
+funcionando</label></li>
+</ul>
+<h3 id="execução"><strong>🚀 Execução</strong></h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />Aplicação compila sem
+erros</label></li>
+<li><label><input type="checkbox" />Inicia corretamente na porta
+especificada</label></li>
+<li><label><input type="checkbox" />Swagger UI acessível</label></li>
+<li><label><input type="checkbox" />H2 Console funcionando
+(dev)</label></li>
+<li><label><input type="checkbox" />Endpoints básicos
+respondem</label></li>
+</ul>
+<h2 id="comandos-de-validação">🎮 <strong>Comandos de
+Validação</strong></h2>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Compilar aplicação</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> clean compile <span class="at">-DskipTests</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Executar testes</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> test</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Executar aplicação</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> spring-boot:run</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Validar endpoints (em terminal separado)</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> http://localhost:{porta}/actuator/health</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> http://localhost:{porta}/v3/api-docs</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Acessar interfaces</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Swagger: http://localhost:{porta}/swagger-ui.html  </span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="co"># H2 Console: http://localhost:{porta}/h2-console</span></span></code></pre></div>
+<h2 id="próximos-passos">📈 <strong>Próximos Passos</strong></h2>
+<p>Após criar a aplicação base:</p>
+<ol type="1">
+<li><strong>Implementar Entidades:</strong> Use o guia CRUD+Bulk para
+cada entidade</li>
+<li><strong>Configurar Segurança:</strong> Implementar autenticação se
+necessário</li>
+<li><strong>Deploy:</strong> Configurar CI/CD e ambientes</li>
+<li><strong>Monitoramento:</strong> Configurar logs e métricas</li>
+<li><strong>Documentação:</strong> Expandir README com informações
+específicas</li>
+</ol>
+<p><strong>🎯 Com este guia, o Claude AI pode criar uma aplicação Praxis
+completa e funcional, pronta para desenvolvimento de funcionalidades
+específicas!</strong></p>
+</body>
+</html>

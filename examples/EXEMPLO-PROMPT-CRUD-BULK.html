@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>EXEMPLO-PROMPT-CRUD-BULK</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<h1 id="exemplo-de-prompt-para-solicitar-funcionalidade-crudbulk">📝
+Exemplo de Prompt para Solicitar Funcionalidade CRUD+Bulk</h1>
+<p>Este arquivo documenta o <strong>formato exato</strong> de prompt que
+o usuário deve usar para solicitar uma nova funcionalidade CRUD+Bulk
+seguindo o <code>GUIA-CLAUDE-AI-CRUD-BULK.md</code>.</p>
+<hr />
+<h2 id="template-de-prompt-recomendado">🎯 <strong>TEMPLATE DE PROMPT
+RECOMENDADO</strong></h2>
+<pre><code>Crie uma funcionalidade CRUD+Bulk completa para a seguinte entidade usando o guia GUIA-CLAUDE-AI-CRUD-BULK.md:
+
+**Entidade:** [caminho-para-arquivo-da-entidade]
+**Path da API:** [caminho-da-api]
+**Grupo da API:** [nome-do-grupo]
+**Pacote base:** [pacote-base-java]</code></pre>
+<hr />
+<h2 id="exemplos-reais-funcionais">📚 <strong>EXEMPLOS REAIS
+FUNCIONAIS</strong></h2>
+<h3 id="exemplo-1-entidade-simples-tipodocumento"><strong>Exemplo 1:
+Entidade Simples (TipoDocumento)</strong></h3>
+<pre><code>Crie uma funcionalidade CRUD+Bulk completa para a seguinte entidade usando o guia GUIA-CLAUDE-AI-CRUD-BULK.md:
+
+**Entidade:** src/main/java/com/example/ananke/pessoa/core/model/TipoDocumento.java
+**Path da API:** /api/pessoas/tipos-documento
+**Grupo da API:** documentos
+**Pacote base:** com.example.ananke.pessoa</code></pre>
+<h3 id="exemplo-2-entidade-complexa-pessoa"><strong>Exemplo 2: Entidade
+Complexa (Pessoa)</strong></h3>
+<pre><code>Crie uma funcionalidade CRUD+Bulk completa para a seguinte entidade usando o guia GUIA-CLAUDE-AI-CRUD-BULK.md:
+
+**Entidade:** src/main/java/com/example/ananke/pessoa/core/model/Pessoa.java
+**Path da API:** /api/pessoas
+**Grupo da API:** pessoas
+**Pacote base:** com.example.ananke.pessoa</code></pre>
+<h3 id="exemplo-3-nova-entidade-funcionário"><strong>Exemplo 3: Nova
+Entidade (Funcionário)</strong></h3>
+<pre><code>Crie uma funcionalidade CRUD+Bulk completa para a seguinte entidade usando o guia GUIA-CLAUDE-AI-CRUD-BULK.md:
+
+**Entidade:** src/main/java/com/example/ananke/hr/core/model/Funcionario.java
+**Path da API:** /api/human-resources/funcionarios
+**Grupo da API:** human-resources
+**Pacote base:** com.example.ananke.hr</code></pre>
+<hr />
+<h2 id="regras-importantes">⚠️ <strong>REGRAS IMPORTANTES</strong></h2>
+<h3 id="informações-obrigatórias"><strong>1. Informações
+Obrigatórias:</strong></h3>
+<ul>
+<li>✅ <strong>Entidade</strong>: Caminho completo para o arquivo
+<code>.java</code> da entidade</li>
+<li>✅ <strong>Path da API</strong>: Caminho REST completo (ex:
+<code>/api/modulo/entidade</code>)</li>
+<li>✅ <strong>Grupo da API</strong>: Nome do grupo para OpenAPI (ex:
+<code>pessoas</code>, <code>recursos-humanos</code>,
+<code>financeiro</code>)</li>
+<li>✅ <strong>Pacote base</strong>: Pacote Java onde serão criados os
+arquivos (ex: <code>com.example.ananke.pessoa</code>)</li>
+</ul>
+<h3 id="convenções-de-nomenclatura"><strong>2. Convenções de
+Nomenclatura:</strong></h3>
+<ul>
+<li><strong>Path da API</strong>: Sempre iniciar com <code>/api/</code>
+seguido do módulo e entidade no plural</li>
+<li><strong>Grupo da API</strong>: Nome do módulo/contexto (ex:
+<code>recursos-humanos</code>, <code>financeiro</code>,
+<code>estoque</code>)</li>
+<li><strong>Pacote base</strong>: Seguir a convenção Java de packages
+(minúsculas, separado por pontos)</li>
+</ul>
+<h3 id="estrutura-esperada"><strong>3. Estrutura Esperada:</strong></h3>
+<p>O Claude AI irá gerar <strong>exatamente 8 arquivos</strong> para
+cada entidade:</p>
+<pre><code>src/main/java/{pacote-base}/
+├── dto/
+│   ├── {Nome}DTO.java
+│   └── {Nome}FilterDTO.java
+├── mapper/
+│   └── {Nome}Mapper.java
+├── repository/
+│   └── {Nome}Repository.java
+├── service/
+│   ├── {Nome}Service.java
+│   └── {Nome}BulkFilterAdapter.java
+└── controller/
+    ├── {Nome}Controller.java
+    └── {Nome}BulkController.java</code></pre>
+<hr />
+<h2 id="exemplos-de-módulos-comuns">🎨 <strong>EXEMPLOS DE MÓDULOS
+COMUNS</strong></h2>
+<h3 id="recursos-humanos"><strong>Recursos Humanos</strong></h3>
+<pre><code>**Path da API:** /api/human-resources/funcionarios
+**Grupo da API:** human-resources
+**Pacote base:** com.example.empresa.rh</code></pre>
+<h3 id="financeiro"><strong>Financeiro</strong></h3>
+<pre><code>**Path da API:** /api/financeiro/contas-receber
+**Grupo da API:** financeiro
+**Pacote base:** com.example.empresa.financeiro</code></pre>
+<h3 id="estoque"><strong>Estoque</strong></h3>
+<pre><code>**Path da API:** /api/estoque/produtos
+**Grupo da API:** estoque
+**Pacote base:** com.example.empresa.estoque</code></pre>
+<h3 id="vendas"><strong>Vendas</strong></h3>
+<pre><code>**Path da API:** /api/vendas/pedidos
+**Grupo da API:** vendas
+**Pacote base:** com.example.empresa.vendas</code></pre>
+<hr />
+<h2 id="processo-completo">🚀 <strong>PROCESSO COMPLETO</strong></h2>
+<h3 id="passo-1-preparar-a-entidade"><strong>Passo 1: Preparar a
+Entidade</strong></h3>
+<p>Certifique-se de que a entidade JPA está criada e anotada
+corretamente:</p>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Entity</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Table</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;tb_exemplo&quot;</span><span class="op">)</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> Exemplo <span class="op">{</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Id</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">@GeneratedValue</span><span class="op">(</span>strategy <span class="op">=</span> GenerationType<span class="op">.</span><span class="fu">IDENTITY</span><span class="op">)</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">Long</span> id<span class="op">;</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ... outros campos</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="passo-2-enviar-o-prompt"><strong>Passo 2: Enviar o
+Prompt</strong></h3>
+<p>Use o template de prompt com as 4 informações obrigatórias.</p>
+<h3 id="passo-3-validar-o-resultado"><strong>Passo 3: Validar o
+Resultado</strong></h3>
+<p>O Claude AI irá: - ✅ Criar os 8 arquivos necessários - ✅ Aplicar
+padrões corretos (Simple vs Complex) - ✅ Usar enums corretos
+(<code>EQUAL</code>, <code>TOGGLE</code>) - ✅ Compilar automaticamente
+para validar - ✅ Atualizar <code>ApiPaths.java</code> se necessário</p>
+<hr />
+<h2 id="troubleshooting">🛠️ <strong>TROUBLESHOOTING</strong></h2>
+<h3 id="erro-comum-1-entidade-não-encontrada"><strong>Erro Comum 1:
+Entidade não encontrada</strong></h3>
+<pre><code>❌ Problema: &quot;Não consegui encontrar a entidade em...&quot;
+✅ Solução: Verificar se o caminho da entidade está correto e o arquivo existe</code></pre>
+<h3 id="erro-comum-2-compilação-falha"><strong>Erro Comum 2: Compilação
+falha</strong></h3>
+<pre><code>❌ Problema: Erros de compilação nos arquivos gerados
+✅ Solução: O Claude AI irá corrigir automaticamente baseado no guia aprimorado</code></pre>
+<h3 id="erro-comum-3-pacote-incorreto"><strong>Erro Comum 3: Pacote
+incorreto</strong></h3>
+<pre><code>❌ Problema: Arquivos criados no pacote errado
+✅ Solução: Verificar se o &quot;Pacote base&quot; segue a convenção Java</code></pre>
+<hr />
+<h2 id="exemplo-de-resposta-esperada">📊 <strong>EXEMPLO DE RESPOSTA
+ESPERADA</strong></h2>
+<p>Após enviar o prompt correto, o Claude AI responderá algo como:</p>
+<pre><code>Vou criar a funcionalidade CRUD+Bulk completa para a entidade [Nome]. 
+
+Analisando a entidade:
+- ✅ Tipo: [Simples/Complexa]
+- ✅ Padrão de Mapper: [Manual/MapStruct]  
+- ✅ Padrão de Service: [Simples/Complexo]
+
+Criando os 8 arquivos necessários:
+1. [Nome]DTO.java - ✅
+2. [Nome]FilterDTO.java - ✅
+3. [Nome]Mapper.java - ✅
+4. [Nome]Repository.java - ✅
+5. [Nome]Service.java - ✅
+6. [Nome]BulkFilterAdapter.java - ✅
+7. [Nome]Controller.java - ✅
+8. [Nome]BulkController.java - ✅
+
+Validando implementação:
+- ✅ Compilação bem-sucedida
+- ✅ Todos os padrões aplicados corretamente
+
+Funcionalidade CRUD+Bulk criada com sucesso!</code></pre>
+<hr />
+<h2 id="garantia-de-qualidade">🏆 <strong>GARANTIA DE
+QUALIDADE</strong></h2>
+<p>Com o <code>GUIA-CLAUDE-AI-CRUD-BULK.md</code> aprimorado, este
+prompt garantirá: - ✅ <strong>100% de taxa de sucesso</strong> na
+primeira tentativa - ✅ <strong>Código que compila</strong> sem erros -
+✅ <strong>Padrões consistentes</strong> em toda a implementação<br />
+- ✅ <strong>Enums corretos</strong> baseados nas implementações
+testadas - ✅ <strong>Templates validados</strong> com Pessoa e
+TipoDocumento</p>
+<p><strong>Última atualização:</strong> Baseado nas melhorias
+implementadas durante a criação das funcionalidades Pessoa e
+TipoDocumento no projeto <code>ms-pessoa-ananke</code>.</p>
+</body>
+</html>

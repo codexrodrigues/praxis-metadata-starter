@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>RESUMO-EXECUTIVO</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="resumo-executivo-schemahash-e-cache-condicional-http">Resumo
+Executivo — schemaHash e Cache Condicional HTTP</h1>
+<h2 id="visão-geral">Visão Geral</h2>
+<ul>
+<li>Backend aderente ao plano: ETag forte com base no JSON canônico;
+suporte robusto a If-None-Match (lista e “*”); 304 sem body; headers
+Cache-Control e Vary presentes. Canonicalização segue as regras (ordem
+de chaves; arrays preservados, exceto <code>required</code> ordenado;
+normalização numérica; sem coerção de strings). Quando
+<code>includeInternalSchemas=true</code>, a expansão de
+<code>$ref</code> copia o schema referenciado completo em
+propriedades/itens e recursa.</li>
+<li>Testes: unitários e E2E passam localmente, exercitando 200→304 e
+mudança de ETag ao alternar <code>includeInternalSchemas</code>.
+Pendências para próxima fase: métricas/telemetria, cache por
+<code>schemaId</code> no servidor, e cobertura adicional de
+<code>$ref</code> em <code>allOf/oneOf/anyOf</code> e <code>$ref</code>
+no nível raiz.</li>
+<li>Frontend: plano sólido (CacheAdapter, fetchWithETag,
+useSchemaMetadata) com itens a detalhar: multi-aba, CORS/expose headers,
+de-dupe/abort e trilha de migração para persistência no servidor.</li>
+</ul>
+<h2 id="resultados-dos-testes">Resultados dos Testes</h2>
+<ul>
+<li>SchemaCanonicalizerTest: PASS</li>
+<li>ApiDocsControllerSchemaHashTest: PASS (200 com ETag; 304
+subsequente; <code>$ref</code> expandido integralmente)</li>
+<li>SchemaHashE2eTest: PASS (200→304; ETag diferente ao alternar
+<code>includeInternalSchemas</code>)</li>
+</ul>
+<h2 id="achados-correção">Achados — Correção</h2>
+<ul>
+<li>HTTP condicional: ApiDocsController retorna 200 com ETag forte e 304
+sem body; inclui
+<code>Cache-Control: public, max-age=0, must-revalidate</code> e
+<code>Vary: Accept-Encoding</code>.</li>
+<li>If-None-Match: parser forte com suporte a múltiplos ETags e “*”,
+ignorando fracos <code>W/</code>.</li>
+<li>Canonicalização/hash: objetos ordenados; arrays preservados (exceto
+<code>required</code>); números normalizados; strings preservadas;
+SHA‑256 em bytes compactos.</li>
+<li>Expansão de <code>$ref</code>: deep-copy do schema completo para
+propriedades/itens com recursão.</li>
+</ul>
+<h2 id="achados-completude">Achados — Completude</h2>
+<ul>
+<li>Cache por <code>schemaId</code> (server-side): pendente (há apenas
+<code>documentCache</code> do OpenAPI). [Iniciada base de cache em
+memória por <code>schemaId</code> no controller; próxima fase: promover
+a serviço + métricas]</li>
+<li>Métricas/telemetria (Micrometer): pendente.</li>
+<li><code>$ref</code> avançado: pendente para
+<code>allOf/oneOf/anyOf</code> e <code>$ref</code> no nível raiz
+selecionado.</li>
+</ul>
+<h2 id="riscos-de-migração-server-cacheoverrides">Riscos de Migração
+(Server Cache/Overrides)</h2>
+<ul>
+<li>Consistência de <code>schemaId</code> front/back — padronizar util
+no front.</li>
+<li>Variação por tenant/locale — quando aplicável, incluir
+<code>Vary</code> correspondente para caches proxy/CDN.</li>
+<li>Invalidação coordenada entre caches (OpenAPI vs schema
+canônico).</li>
+<li>Tamanho/memória do cache server-side — TTL/sizing/metrics.</li>
+</ul>
+<h2 id="propostas">Propostas</h2>
+<ul>
+<li>Header auxiliar <code>X-Schema-Hash</code> (ergonomia do front):
+incluído em 200/304.</li>
+<li>Vary condicional: adicionar
+<code>Accept-Language</code>/<code>X-Tenant</code> quando a
+representação variar.</li>
+<li><code>$ref</code> em <code>allOf/oneOf/anyOf</code> e root: estender
+o substituidor recursivo.</li>
+<li>Cache por <code>schemaId</code> (server): map
+<code>{canonicalJson, schemaHash, updatedAt}</code>, TTL e invalidation
+sincronizada com <code>clearDocumentCache()</code>.</li>
+<li>Métricas (Micrometer):
+<code>praxis.uischema.filtered.requests{status="200|304"}</code>,
+<code>praxis.uischema.hash.time</code>,
+<code>praxis.uischema.payload.bytes</code>,
+<code>praxis.uischema.cache.size</code>.</li>
+</ul>
+<h2 id="assinaturascabeçalhos-exemplos">Assinaturas/Cabeçalhos —
+Exemplos</h2>
+<ul>
+<li>Requisição:
+<ul>
+<li><code>GET /schemas/filtered?path=/e2e/with-ref&amp;schemaType=response&amp;includeInternalSchemas=true</code></li>
+<li><code>If-None-Match: "&lt;etagAnterior&gt;"</code></li>
+<li>(opcional) <code>X-Tenant: acme</code>,
+<code>Accept-Language: pt-BR</code></li>
+</ul></li>
+<li>Resposta 200:
+<ul>
+<li><code>ETag: "&lt;novoEtag&gt;"</code>,
+<code>X-Schema-Hash: &lt;hash&gt;</code>,
+<code>Cache-Control: public, max-age=0, must-revalidate</code>,
+<code>Vary: Accept-Encoding</code></li>
+</ul></li>
+<li>Resposta 304:
+<ul>
+<li><code>ETag: "&lt;etagAnterior&gt;"</code>,
+<code>X-Schema-Hash: &lt;hash&gt;</code>, sem body</li>
+</ul></li>
+</ul>
+<h2 id="frontend-complementos-ao-plano">Frontend — Complementos ao
+Plano</h2>
+<ul>
+<li><code>schemaId</code> e namespaces: incluir
+<code>includeInternalSchemas</code>, <code>tenant</code>,
+<code>locale</code>; normalizador idêntico ao backend; namespacing no
+storage.</li>
+<li><code>fetchWithETag</code>: suportar <code>AbortController</code> e
+de-dupe por <code>schemaId</code>; <code>cache: 'no-cache'</code>.</li>
+<li>CORS/expose headers: expor <code>ETag</code> e
+<code>X-Schema-Hash</code> quando houver CORS.</li>
+<li>Multi-aba: BroadcastChannel/storage events, payload
+<code>{schemaId, schemaHash}</code>.</li>
+<li>Offline/erros: stale-while-revalidate, backoff e telemetria.</li>
+<li>Migração para servidor: <code>ServerCacheAdapter</code>, contratos
+<code>/ui-schema/*</code>, <code>If-Match</code> em overrides.</li>
+</ul>
+<h2 id="plano-de-ação">Plano de Ação</h2>
+<ul>
+<li>Backend (próxima fase)
+<ul>
+<li>Estender <code>$ref</code> para <code>allOf/oneOf/anyOf</code> e
+root</li>
+<li>Implementar cache por <code>schemaId</code> como serviço +
+métricas</li>
+<li>Adicionar métricas (Micrometer)</li>
+</ul></li>
+<li>Frontend (próxima fase)
+<ul>
+<li>Implementar <code>buildSchemaId</code>,
+<code>LocalStorageCacheAdapter</code>, <code>fetchWithETag</code>,
+<code>useSchemaMetadata</code> com de‑dupe/abort e sync multi‑aba</li>
+<li>Telemetria mínima e feature flag para
+<code>ServerCacheAdapter</code></li>
+</ul></li>
+</ul>
+</body>
+</html>

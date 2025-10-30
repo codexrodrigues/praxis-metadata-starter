@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>CONTROLTYPE-HEURISTICA</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="heurística-de-controltype-input-vs-textarea">Heurística de
+ControlType (INPUT vs TEXTAREA)</h1>
+<p>Esta página documenta a heurística que determina
+<code>controlType</code> para campos <code>string</code>, combinando
+tamanho (maxLength) e nome do campo.</p>
+<h2 id="regras-atualizadas">Regras Atualizadas</h2>
+<ul>
+<li>Threshold para <code>textarea</code>:
+<ul>
+<li>Antes: <code>maxLength &gt; 100</code></li>
+<li>Agora: <code>maxLength &gt; 300</code></li>
+</ul></li>
+<li>Detecção por nome (maior precedência que detecção por tamanho):
+<ul>
+<li>Força <code>INPUT</code> para: <code>nome</code>, <code>name</code>,
+<code>titulo</code>, <code>title</code>, <code>assunto</code>,
+<code>subject</code></li>
+<li>Força <code>TEXTAREA</code> para: <code>descricao</code>,
+<code>observacao</code>, <code>description</code>,
+<code>comment</code></li>
+</ul></li>
+</ul>
+<h3 id="enums-string">Enums (string)</h3>
+<ul>
+<li>Cardinalidade controla o tipo de UI:
+<ul>
+<li>Pequeno (≤5) → <code>radio</code></li>
+<li>Médio (6–25) → <code>select</code></li>
+<li>Grande (&gt;25) → <code>autoComplete</code></li>
+</ul></li>
+</ul>
+<h3 id="booleanos">Booleanos</h3>
+<ul>
+<li>Padrão → <code>checkbox</code> (ou <code>toggle</code>).</li>
+<li>Enum textual binária (ex.: “Sim/Não”, “Yes/No”) →
+<code>radio</code>.</li>
+</ul>
+<h3 id="arrays-de-enums">Arrays de enums</h3>
+<ul>
+<li>Itens enum pequenos (≤5) → <code>chipInput</code></li>
+<li>Itens médios/grandes → <code>multiSelect</code> e dica de filtro
+<code>filterControlType = multiColumnComboBox</code></li>
+</ul>
+<h3 id="percentnuméricos">Percent/Numéricos</h3>
+<ul>
+<li><code>format="percent"</code> → <code>numericStep=0.01</code>,
+<code>placeholder="0–100%"</code>, <code>numericMin=0</code>,
+<code>numericMax=100</code> (se ausentes)</li>
+<li><code>@Digits(fraction=n)</code> → <code>numericStep</code> = passo
+a partir das casas decimais (ex.: 2 → <code>0.01</code>, se
+ausente)</li>
+</ul>
+<h2 id="precedência-geral">Precedência Geral</h2>
+<ol type="1">
+<li>Valor explícito em <code>@UISchema</code> (vence tudo)</li>
+<li>Heurística por nome (INPUT/TEXTAREA acima de detecção por
+tamanho)</li>
+<li>Detecção por schema (type/format/enum)</li>
+<li>Defaults</li>
+</ol>
+<blockquote>
+<p>Observação: formatos especiais e enum (ex.: <code>email</code>,
+<code>password</code>, <code>url</code>, <code>date/time</code>,
+<code>enum → select</code>) continuam tendo precedência e não são
+sobrescritos pela heurística de nome.</p>
+</blockquote>
+<h2 id="exemplos">Exemplos</h2>
+<ul>
+<li><code>nomeCompleto</code> com <code>@Size(max=200)</code> →
+<code>controlType = input</code></li>
+<li><code>descricao</code> com <code>@Size(max=1000)</code> →
+<code>controlType = textarea</code></li>
+<li><code>email</code> com <code>format=email</code> →
+<code>controlType = email-input</code> (não alterado)</li>
+<li><code>status</code> com 3 valores → <code>radio</code></li>
+<li><code>pais</code> com 10 valores → <code>select</code></li>
+<li><code>cidade</code> com 100 valores → <code>autoComplete</code></li>
+<li><code>habilitado</code> boolean (sem enum) →
+<code>checkbox</code></li>
+<li><code>roles</code> como <code>array&lt;string enum[...]&gt;</code>
+com 50 valores → <code>multiSelect</code> e
+<code>filterControlType = multiColumnComboBox</code></li>
+</ul>
+<h2 id="referências">Referências</h2>
+<ul>
+<li>Javadoc: <a
+href="../apidocs/org/praxisplatform/uischema/util/OpenApiUiUtils.html"><code>OpenApiUiUtils</code></a></li>
+<li>Javadoc: <a
+href="../apidocs/org/praxisplatform/uischema/extension/CustomOpenApiResolver.html"><code>CustomOpenApiResolver</code></a></li>
+</ul>
+</body>
+</html>

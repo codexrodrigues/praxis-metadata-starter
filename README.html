@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>README</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="documentação-praxis-metadata-starter">📚 Documentação Praxis
+Metadata Starter</h1>
+<p>Este diretório contém a documentação completa do <strong>Praxis
+Metadata Starter</strong>, organizadas seguindo as melhores práticas de
+documentação de projetos.</p>
+<h2 id="estrutura-da-documentação">🗂️ <strong>Estrutura da
+Documentação</strong></h2>
+<pre><code>docs/
+├── README.md                 # Este arquivo - índice principal
+├── overview/                 # Visão geral para novos usuários
+│   └── VISAO-GERAL.md
+├── guides/                   # Guias completos de implementação
+│   ├── GUIA-CLAUDE-AI-CRUD-BULK.md
+│   └── GUIA-CLAUDE-AI-APLICACAO-NOVA.md
+├── examples/                 # Exemplos práticos e templates
+│   └── EXEMPLO-PROMPT-CRUD-BULK.md
+├── concepts/               # Conceitos fundamentais (Self-describing, UI vs Data Schema, etc.)
+├── technical/               # Documentação técnica detalhada
+│   ├── AUTO-CONFIGURACAO.md
+│   ├── ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
+│   └── VALIDACAO-API-RESOURCE.md
+└── api/                    # Documentação de API (para futuras adições)</code></pre>
+<hr />
+<h2 id="guias-de-implementação-guides">📖 <strong>Guias de
+Implementação</strong> (<code>/guides/</code>)</h2>
+<h2 id="visão-geral-overview">📘 <strong>Visão Geral</strong>
+(<code>/overview/</code>)</h2>
+<ul>
+<li>Leitura rápida (problema/abordagem/benefícios) e como começar:
+<ul>
+<li><a href="overview/VISAO-GERAL.md">VISAO-GERAL.md</a></li>
+</ul></li>
+</ul>
+<h3 id="guia-crudbulk-automatizado">🤖 <a
+href="guides/GUIA-CLAUDE-AI-CRUD-BULK.md">Guia CRUD+Bulk
+Automatizado</a></h3>
+<p><strong>O guia principal para geração automatizada de funcionalidades
+CRUD+Bulk</strong></p>
+<ul>
+<li>✅ <strong>Templates 100% testados</strong> com entidades Pessoa e
+TipoDocumento<br />
+</li>
+<li>✅ <strong>Enums corretos</strong> (<code>EQUAL</code>,
+<code>TOGGLE</code>) baseados em implementações reais</li>
+<li>✅ <strong>Padrões validados</strong> para Mappers (Manual vs
+MapStruct) e Services (Simples vs Complexo)</li>
+<li>✅ <strong>BulkFilterAdapter completo</strong> com templates
+funcionais</li>
+<li>✅ <strong>4 Anexos de referência</strong> UISchema para
+consulta</li>
+</ul>
+<p><strong>Quando usar:</strong> Para criar novas funcionalidades
+CRUD+Bulk de forma automatizada e padronizada.</p>
+<h3 id="guia-para-aplicações-novas">🚀 <a
+href="guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md">Guia para Aplicações
+Novas</a></h3>
+<p><strong>Guia para setup completo de novas aplicações</strong></p>
+<ul>
+<li>Configuração inicial do projeto</li>
+<li>Estrutura de módulos e pacotes</li>
+<li>Integração com Praxis Platform</li>
+</ul>
+<p><strong>Quando usar:</strong> Ao criar uma nova aplicação Spring Boot
+com Praxis Metadata Starter.</p>
+<hr />
+<h2 id="exemplos-práticos-examples">💡 <strong>Exemplos
+Práticos</strong> (<code>/examples/</code>)</h2>
+<h3 id="template-de-prompt-para-crudbulk">📝 <a
+href="examples/EXEMPLO-PROMPT-CRUD-BULK.md">Template de Prompt para
+CRUD+Bulk</a></h3>
+<p><strong>Formato exato de prompt para solicitar novas
+funcionalidades</strong></p>
+<ul>
+<li>🎯 <strong>Template padronizado</strong> com 4 informações
+obrigatórias</li>
+<li>🎨 <strong>Exemplos por módulo</strong> (RH, Financeiro, Estoque,
+Vendas)</li>
+<li>🛠️ <strong>Troubleshooting</strong> para erros comuns</li>
+<li>🏆 <strong>Garantia de 100% de sucesso</strong> baseada no guia
+aprimorado</li>
+</ul>
+<p><strong>Quando usar:</strong> Como referência ao solicitar criação de
+novas funcionalidades CRUD+Bulk.</p>
+<hr />
+<h2 id="documentação-técnica-technical">🔧 <strong>Documentação
+Técnica</strong> (<code>/technical/</code>)</h2>
+<h3 id="auto-configuração">⚙️ <a
+href="technical/AUTO-CONFIGURACAO.md">Auto-configuração</a></h3>
+<p><strong>Documentação técnica sobre o sistema de
+auto-configuração</strong></p>
+<ul>
+<li>Configuração automática de componentes</li>
+<li>Propriedades disponíveis</li>
+<li>Personalização e extensões</li>
+</ul>
+<h3 id="estratégia-dupla-de-grupos-openapi">🏷️ <a
+href="technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md">Estratégia Dupla de
+Grupos OpenAPI</a></h3>
+<p><strong>Sistema avançado de resolução de grupos OpenAPI</strong></p>
+<ul>
+<li>✅ <strong><span class="citation"
+data-cites="ApiResource">@ApiResource</span> + <span class="citation"
+data-cites="ApiGroup">@ApiGroup</span></strong> - Sistema duplo de
+anotações</li>
+<li>✅ <strong>Resolução automática</strong> via
+OpenApiGroupResolver</li>
+<li>✅ <strong>Documentação técnica completa</strong> com exemplos</li>
+<li>✅ <strong>Testes de validação</strong> incluídos</li>
+</ul>
+<h3 id="validação-apiresource">✅ <a
+href="technical/VALIDACAO-API-RESOURCE.md">Validação <span
+class="citation" data-cites="ApiResource">@ApiResource</span></a></h3>
+<p><strong>Sistema de validação obrigatória de anotações</strong></p>
+<ul>
+<li>Validação automática de <span class="citation"
+data-cites="ApiResource">@ApiResource</span></li>
+<li>Detecção de controllers sem anotação</li>
+<li>Sistema de testes automatizados</li>
+</ul>
+<hr />
+<h2 id="como-navegar-pela-documentação">🧭 <strong>Como Navegar pela
+Documentação</strong></h2>
+<h3 id="para-desenvolvedores---primeira-implementação"><strong>Para
+Desenvolvedores - Primeira Implementação:</strong></h3>
+<ol type="1">
+<li>📖 Leia o <a href="guides/GUIA-CLAUDE-AI-CRUD-BULK.md">Guia
+CRUD+Bulk</a> completo</li>
+<li>📝 Use o <a href="examples/EXEMPLO-PROMPT-CRUD-BULK.md">Template de
+Prompt</a> como referência</li>
+<li>🔧 Consulte a documentação técnica conforme necessário</li>
+</ol>
+<h3 id="para-mantenedores---aprofundamento-técnico"><strong>Para
+Mantenedores - Aprofundamento Técnico:</strong></h3>
+<ol type="1">
+<li>🔧 Estude a <a
+href="technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md">Estratégia de Grupos
+OpenAPI</a></li>
+<li>⚙️ Entenda a <a
+href="technical/AUTO-CONFIGURACAO.md">Auto-configuração</a></li>
+<li>✅ Configure a <a
+href="technical/VALIDACAO-API-RESOURCE.md">Validação <span
+class="citation" data-cites="ApiResource">@ApiResource</span></a></li>
+</ol>
+<h3 id="integração-de-schema-backend-frontend"><strong>Integração de
+Schema (Backend ↔︎ Frontend)</strong></h3>
+<ul>
+<li>🔒 Planos de hash/ETag, identidade de campos, diffs e persistência
+de versões/overrides:
+<ul>
+<li><a href="SCHEMA-HASH-PLAN.md">SCHEMA-HASH-PLAN.md</a></li>
+<li><a
+href="SCHEMA-INTEGRATION-PLAN.md">SCHEMA-INTEGRATION-PLAN.md</a></li>
+</ul></li>
+<li>🔁 Controle explícito de ETag/If-None-Match no front e trilha para
+persistência no servidor:
+<ul>
+<li><a
+href="FRONTEND-SCHEMA-CACHE-PLAN.md">FRONTEND-SCHEMA-CACHE-PLAN.md</a></li>
+<li><a href="RESUMO-EXECUTIVO.md">RESUMO-EXECUTIVO.md</a></li>
+</ul></li>
+</ul>
+<h3 id="para-usuários---uso-rápido"><strong>Para Usuários - Uso
+Rápido:</strong></h3>
+<ol type="1">
+<li>📝 Vá direto ao <a
+href="examples/EXEMPLO-PROMPT-CRUD-BULK.md">Template de Prompt</a></li>
+<li>💡 Siga os exemplos práticos por módulo</li>
+<li>🚀 Solicite suas funcionalidades seguindo o formato</li>
+</ol>
+<hr />
+<h2 id="garantias-de-qualidade">🏆 <strong>Garantias de
+Qualidade</strong></h2>
+<p>Esta documentação foi <strong>validada através de implementações
+reais</strong>:</p>
+<ul>
+<li>✅ <strong>Entidade Pessoa</strong> (complexa, com relacionamentos)
+- 8 arquivos gerados ✅</li>
+<li>✅ <strong>Entidade TipoDocumento</strong> (simples, sem
+relacionamentos) - 8 arquivos gerados ✅</li>
+<li>✅ <strong>100% de compilação</strong> sem erros na primeira
+tentativa</li>
+<li>✅ <strong>Padrões consistentes</strong> em todo o código
+gerado</li>
+</ul>
+<hr />
+<h2 id="histórico-de-melhorias">📈 <strong>Histórico de
+Melhorias</strong></h2>
+<h3 id="v2.0-atual---validado-e-aprimorado"><strong>v2.0 (Atual) -
+Validado e Aprimorado</strong></h3>
+<ul>
+<li>✅ Enums corretos baseados em implementações reais</li>
+<li>✅ BulkFilterAdapter completamente documentado</li>
+<li>✅ Anexos UISchema de referência adicionados</li>
+<li>✅ Matrizes de decisão para Mappers e Services</li>
+<li>✅ Templates 100% testados e funcionais</li>
+</ul>
+<h3 id="v1.0---versão-inicial"><strong>v1.0 - Versão
+Inicial</strong></h3>
+<ul>
+<li>Templates básicos</li>
+<li>Documentação teórica</li>
+<li>Alguns enums incorretos (já corrigidos)</li>
+</ul>
+<hr />
+<h2 id="como-contribuir">🤝 <strong>Como Contribuir</strong></h2>
+<ol type="1">
+<li><strong>Encontrou um erro?</strong> Reporte através de issues</li>
+<li><strong>Quer melhorar?</strong> Teste os templates e documente
+melhorias</li>
+<li><strong>Nova funcionalidade?</strong> Siga os padrões estabelecidos
+na documentação</li>
+</ol>
+<hr />
+<p><strong>💡 Dica:</strong> Marque esta página nos seus favoritos - é
+seu ponto de partida para qualquer tarefa relacionada ao Praxis Metadata
+Starter!</p>
+</body>
+</html>

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>SCHEMA-HASH-PLAN</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="plano-de-assinatura-e-diferenças-de-schema-schemahash">Plano de
+Assinatura e Diferenças de Schema (schemaHash)</h1>
+<h2 id="objetivo">Objetivo</h2>
+<ul>
+<li>Garantir uma assinatura determinística do JSON de schema (DSL de UI
++ trechos OpenAPI relevantes) enviada pelo backend.</li>
+<li>Qualquer alteração no JSON (de qualquer propriedade ou ordem
+relevante) deve produzir um hash diferente.</li>
+<li>Habilitar verificação rápida no frontend via cabeçalho
+<code>ETag</code> (If-None-Match) e, opcionalmente, cabeçalho auxiliar
+<code>X-Schema-Hash</code>.</li>
+<li>Disponibilizar diffs (JSON Patch/Merge Patch) e classificação de
+mudanças para orientar atualização e merge de overrides.</li>
+</ul>
+<h2 id="escopo">Escopo</h2>
+<ul>
+<li>Projeto: <code>backend-libs/praxis-metadata-starter</code> (backend)
+e consumidores (frontends, ex.: Praxis Dynamic Fields).</li>
+<li>Endpoint atual: <code>/schemas/filtered</code> (mantido). Planejar
+suporte adicional a hash/condicional e endpoints de diff.</li>
+</ul>
+<p>Escopo do hash (definitivo): - O hash cobre exatamente o payload
+final retornado por <code>/schemas/filtered</code>: - O schema
+específico selecionado (após resolução e, se aplicável, expansão de
+<code>$ref</code>). - O bloco <code>x-ui</code> de nível de operação
+(copiado de <code>paths[&lt;path&gt;][&lt;operation&gt;].x-ui</code>). -
+Não considera extensões <code>x-ui</code> em
+<code>components/schemas/.../extensions</code> por propriedade.</p>
+<h2 id="conceitos">Conceitos</h2>
+<ul>
+<li>schemaId: Identidade lógica do schema (ex.: combinação de
+<code>path</code>, <code>operation</code>, e <code>schemaType</code> ou
+um alias consistente).</li>
+<li>schemaHash: SHA-256 do JSON canônico entregue pelo endpoint (sem
+timestamps ou metadados externos).</li>
+<li>Canonicalização: Regras para serializar sempre o mesmo conteúdo nos
+mesmos bytes, evitando variações não semânticas.</li>
+</ul>
+<h2 id="regras-de-canonicalização-determinísticas">Regras de
+Canonicalização (determinísticas)</h2>
+<ul>
+<li>Objetos: ordenar chaves lexicograficamente em toda a árvore.</li>
+<li>Arrays: manter a ordem original (ordem é semântica), exceto para
+<code>required</code>, que deve ser ordenado alfabeticamente
+(case-sensitive) para reduzir churn não semântico.</li>
+<li>Tipos: preservar exatamente o tipo JSON produzido (strings, números,
+booleanos, null, objetos, arrays).</li>
+<li>Números: normalizar nós numéricos JSON usando
+<code>BigDecimal.stripTrailingZeros()</code> ao gerar
+<code>DecimalNode</code> canônico (evita <code>1</code> vs
+<code>1.0</code>). Não converter strings numéricas do <code>x-ui</code>
+para número.</li>
+<li>Valores de <code>extraProperties</code>: são strings e permanecem
+como strings (se o valor for um JSON aninhado, ele continua string,
+preservando diferenças de whitespace/ordem de chaves conforme enviado
+pelo backend).</li>
+<li>Não introduzir/remover campos nulos durante a canonicalização (hash
+reflete exatamente o que o cliente recebe).</li>
+</ul>
+<p>Observação: Ordenar chaves de objetos estabiliza a assinatura frente
+à ordem de inserção em Maps; não reordenar arrays assegura que mudanças
+na ordenação de <code>options</code>, <code>required</code>, etc.,
+alterem o hash.</p>
+<h2 id="cálculo-do-hash">Cálculo do Hash</h2>
+<ul>
+<li>Entrada: o mesmo JSON (payload) retornado por
+<code>/schemas/filtered</code> após todas as transformações finais (ex.:
+expansão de <code>$ref</code> quando habilitada via
+<code>includeInternalSchemas</code>) e com a chave <code>x-ui</code> já
+copiada do nível de operação.</li>
+<li>Pipeline:
+<ol type="1">
+<li>Converter o payload final em <code>JsonNode</code>.</li>
+<li>Canonicalizar recursivamente (regras acima).</li>
+<li>Serializar em bytes UTF‑8 sem pretty/indent.</li>
+<li>Aplicar SHA‑256 e codificar em hex (ou base64url).</li>
+</ol></li>
+</ul>
+<p>Nenhum dado volátil (p.ex. timestamps) é adicionado ao payload,
+portanto o mesmo conteúdo produzirá o mesmo hash entre reinícios.</p>
+<h2 id="integração-http-backend">Integração HTTP (Backend)</h2>
+<ul>
+<li>Resposta de <code>/schemas/filtered</code>:
+<ul>
+<li>Header <code>ETag: "&lt;schemaHash&gt;"</code> (forte, baseado
+estritamente no conteúdo canônico).</li>
+<li>Além do ETag, recomendamos também retornar
+<code>X-Schema-Hash: &lt;schemaHash&gt;</code> como header auxiliar (não
+canônico).</li>
+<li>Não incluir <code>x-schema-hash</code> no body para evitar
+autorreferência no próprio payload.</li>
+</ul></li>
+<li>Requisição condicional:
+<ul>
+<li>Aceitar <code>If-None-Match: "&lt;hash-do-cliente&gt;"</code>.</li>
+<li>Se igual ao hash atual, responder <code>304 Not Modified</code> sem
+body.</li>
+</ul></li>
+<li>Opcional (ergonomia): aceitar cabeçalho
+<code>X-Schema-Hash: &lt;hash-do-cliente&gt;</code> ou query param
+<code>fromHash</code> para endpoints de diff.</li>
+</ul>
+<p>Headers adicionais recomendados para comportamento consistente via
+proxies/CDNs: -
+<code>Cache-Control: public, max-age=0, must-revalidate</code> -
+<code>Vary: Accept-Encoding</code> (adicionar <code>X-Tenant</code> e/ou
+<code>Accept-Language</code> apenas se a representação variar por esses
+cabeçalhos)</p>
+<p>Suporte a múltiplos ETags no <code>If-None-Match</code>: - Tratar
+lista de valores (<code>"h1", "h2"</code>) e retornar 304 se QUALQUER um
+coincidir com o hash atual. - Tratar <code>*</code> como “qualquer
+representação existente” conforme RFC. - Ao responder 304, ecoar o mesmo
+<code>ETag</code> na resposta.</p>
+<p>Assinatura e exemplo de uso no controller (proposta): -
+<code>public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; getFilteredSchema(@RequestParam String path, @RequestParam(defaultValue = "get") String operation, @RequestParam(defaultValue = "false") boolean includeInternalSchemas, @RequestParam(defaultValue = "response") String schemaType, @RequestHeader(value = "If-None-Match", required = false) String ifNoneMatch, @RequestHeader(value = "X-Tenant", required = false) String tenant, Locale locale)</code>
+- Fluxo: 1) Resolver documento e schema; aplicar expansão de
+<code>$ref</code> se <code>includeInternalSchemas=true</code>. 2) Montar
+<code>schemaMap</code> + injetar <code>x-ui</code> de operação. 3)
+Canonicalizar → bytes → SHA‑256 → <code>hashHex</code> →
+<code>etag = "\"" + hashHex + "\""</code>. 4) Se
+<code>IfNoneMatch.matches(ifNoneMatch, etag)</code> → <code>304</code>
+com <code>ETag</code> e cabeçalhos de cache; senão <code>200</code> com
+body + <code>ETag</code> + <code>X-Schema-Id</code>.</p>
+<p>Pseudocódigo de parser If-None-Match (forte, múltiplos):</p>
+<pre><code>static boolean matches(String header, String currentEtagQuoted) {
+  if (header == null || header.isBlank()) return false;
+  String h = header.trim();
+  if (&quot;*&quot;.equals(h)) return true; // recurso existe
+  for (String part : h.split(&quot;,&quot;)) {
+    String tag = part.trim();
+    if (tag.startsWith(&quot;W/&quot;)) tag = tag.substring(2).trim(); // ignorar fraqueza
+    if (tag.equals(currentEtagQuoted)) return true;
+    // tolerância opcional: comparar também sem aspas
+    String unquoted = currentEtagQuoted.replace(&quot;\&quot;&quot;, &quot;&quot;);
+    if (tag.equals(unquoted)) return true;
+  }
+  return false;
+}</code></pre>
+<h2 id="endpoints-de-diff-planejamento">Endpoints de Diff
+(planejamento)</h2>
+<ul>
+<li>Novos endpoints opt‑in (via
+<code>praxis.uischema.diff.enabled=true</code>):
+<ul>
+<li><code>GET /ui-schema/{schemaId}</code> → retorna o mesmo payload de
+schema + <code>ETag</code>.</li>
+<li><code>GET /ui-schema/{schemaId}/diff?fromHash=...&amp;format=patch|merge|summary</code>
+→ retorna:
+<ul>
+<li><code>patch</code>: JSON Patch (RFC 6902).</li>
+<li><code>merge</code>: JSON Merge Patch (RFC 7396).</li>
+<li><code>summary</code>: resumo estruturado (campos
+adicionados/removidos/modificados + classificação).</li>
+</ul></li>
+</ul></li>
+<li>Alternativa: incorporar <code>fromHash</code> em
+<code>/schemas/filtered</code> e responder com <code>x-diff</code>
+(resumo/patch) no body. Mantém compatibilidade com o fluxo atual.</li>
+<li>Otimização: quando <code>fromHash</code> for igual ao hash atual,
+responder <code>204 No Content</code>.</li>
+</ul>
+<h2 id="classificação-de-mudanças">Classificação de Mudanças</h2>
+<ul>
+<li>Breaking: alterar <code>type</code>/<code>controlType</code>; tornar
+opcional → obrigatório; remover campo; restringir faixas; remover opções
+de enum.</li>
+<li>Non‑breaking: adicionar campo opcional; tornar obrigatório →
+opcional; ampliar faixas; adicionar opções de enum.</li>
+<li>Potencialmente‑breaking (UX): mudar <code>label</code>,
+<code>order</code>, <code>defaultValue</code>,
+<code>helpText</code>.</li>
+</ul>
+<p>Detalhamento adicional (heurística): - <code>required</code>:
+adicionar → breaking; remover → non‑breaking; reordenar → não muda hash
+e não muda classificação. - <code>enum</code>: remover valor → breaking;
+adicionar valor → non‑breaking; reordenar → potencialmente‑breaking (UX)
+e muda hash. - <code>min/max</code>: aumentar <code>min</code> ou
+diminuir <code>max</code> → breaking; relaxar (diminuir
+<code>min</code>, aumentar <code>max</code>) → non‑breaking. -
+<code>pattern</code>: qualquer alteração → potencialmente‑breaking (sem
+análise semântica do regex). - <code>format</code> (ex.:
+<code>date</code> → <code>date-time</code>): breaking.</p>
+<h2 id="implementação-backend-fase-1">Implementação (Backend) — Fase
+1</h2>
+<ul>
+<li>Criar utilitários:
+<ul>
+<li><code>SchemaCanonicalizer.canonicalize(JsonNode)</code> — ordena
+chaves em objetos; mantém arrays; preserva tipos e nulls.</li>
+<li><code>SchemaHashUtil.compute(JsonNode)</code> — SHA‑256 em bytes da
+serialização canônica (hex/base64url).</li>
+</ul></li>
+<li>Integrar no <code>ApiDocsController</code>:
+<ul>
+<li>Após montar o <code>schemaMap</code>, convertê‑lo em
+<code>JsonNode</code>, canonicalizar e calcular
+<code>schemaHash</code>.</li>
+<li>Mudar assinatura para
+<code>ResponseEntity&lt;Map&lt;String,Object&gt;&gt;</code> e adicionar
+<code>ETag</code> ao <code>ResponseEntity</code>.</li>
+<li>Se header <code>If-None-Match</code> for igual ao hash atual,
+responder 304.</li>
+</ul></li>
+<li>Documentar no README e neste arquivo.</li>
+</ul>
+<p>Lacunas atuais no código (status “as is”): -
+<code>ApiDocsController.getFilteredSchema(...)</code> retorna
+<code>Map&lt;String,Object&gt;</code> diretamente (sem
+<code>ResponseEntity</code>, sem ETag/304/Cache-Control). - Não existem
+<code>SchemaCanonicalizer</code>/<code>SchemaHashUtil</code> no projeto.
+- O controller injeta <code>x-ui</code> a partir do path/operation
+(<code>paths[...][operation].x-ui</code>) e não dos
+<code>components/schemas/.../properties/.../extensions</code> — o hash
+deve cobrir exatamente este payload final (schema específico +
+<code>x-ui</code> de operation).</p>
+<p>Expansão de <code>$ref</code> (includeInternalSchemas): - A
+implementação atual substitui <code>$ref</code> apenas por
+<code>properties</code> do schema referenciado, perdendo metadados como
+<code>type</code>, <code>required</code>, <code>format</code>,
+<code>description</code>. - Diretriz: quando
+<code>includeInternalSchemas=true</code>, expandir o objeto referenciado
+por inteiro (preservar <code>type</code>, <code>required</code>,
+<code>format</code>, <code>description</code>,
+<code>allOf/oneOf/anyOf/items</code>, etc.). Reaplicar recursão em
+<code>items.$ref</code>. - Se um “achatamento” de
+<code>properties</code> for mantido por compatibilidade, documentar
+explicitamente que metadados do schema referenciado não serão incluídos
+e, portanto, não afetarão o hash.</p>
+<h2 id="schemaid-canônico">SchemaId Canônico</h2>
+<p>Para alinhar caches (backend e frontend) e evitar colisões,
+padronizar a composição do <code>schemaId</code>:</p>
+<p><code>schemaId = normalize(decodedPath) + "|" + operation + "|" + schemaType + "|internal:" + includeInternalSchemas + optional("|tenant:" + tenantHeader) + optional("|locale:" + acceptLanguage)</code></p>
+<p>Notas: - <code>normalize(decodedPath)</code>: path decodificado e
+normalizado (sem barras finais duplicadas, case preservado). - Em
+ambientes que exigem chave curta, pode-se aplicar SHA‑256 sobre a string
+acima e usar o hex como chave de cache. - O <code>schemaId</code> deve
+ser idêntico no backend e no frontend para indexar caches/local
+storage.</p>
+<h2 id="implementação-backend-fase-2">Implementação (Backend) — Fase
+2</h2>
+<ul>
+<li>Serviço de diff:
+<code>SchemaDiffService.compare(JsonNode from, JsonNode to)</code> →
+<code>SchemaDiffResult</code> com:
+<ul>
+<li><code>jsonPatch</code> (RFC 6902) — usando <code>zjsonpatch</code>
+ou implementação própria.</li>
+<li><code>mergePatch</code> (RFC 7396).</li>
+<li><code>summary</code> (added/removed/modified por
+<code>key</code>/nome do campo) + <code>classification</code>.</li>
+</ul></li>
+<li>Endpoints de diff (ou acoplados ao <code>/schemas/filtered</code>
+via <code>fromHash</code>).</li>
+</ul>
+<h2 id="implementação-backend-fase-3-opcional">Implementação (Backend) —
+Fase 3 (opcional)</h2>
+<ul>
+<li>Adicionar <code>key()</code> em <code>@UISchema</code> para
+identidade estável de campos (fallback: nome do atributo).</li>
+<li>Marcação <code>deprecated/replacementFor</code> para ajudar
+migrações.</li>
+</ul>
+<hr />
+<h1 id="plano-de-integração-no-frontend">Plano de Integração no
+Frontend</h1>
+<h2 id="armazenamento-local-de-schema">Armazenamento Local de
+Schema</h2>
+<ul>
+<li>Persistir por <code>schemaId</code> (chave que combine path +
+operation + schemaType, ou um id lógico do backend):
+<ul>
+<li><code>schema</code>: payload JSON completo.</li>
+<li><code>schemaHash</code>: string do hash (do header ETag ou campo
+<code>x-schema-hash</code>).</li>
+<li><code>overrides</code>: JSON Merge Patch local (opcional), aplicado
+sobre <code>schema</code> na renderização.</li>
+</ul></li>
+</ul>
+<h2 id="protocolo-de-verificação">Protocolo de Verificação</h2>
+<ul>
+<li>Requisição:
+<ul>
+<li>Preferir
+<code>If-None-Match: "&lt;schemaHash local&gt;"</code>.</li>
+<li>Alternativamente, enviar
+<code>X-Schema-Hash: &lt;schemaHash local&gt;</code> (apoio à depuração
+ou gateways que manipulam ETags).</li>
+</ul></li>
+<li>Resposta:
+<ul>
+<li><code>304 Not Modified</code>: usar <code>schema</code> cacheado
+localmente; não alterar UI.</li>
+<li><code>200 OK</code>: ler
+<code>ETag</code>/<code>x-schema-hash</code> e comparar com o local.
+<ul>
+<li>Diferente: considerar “schema atualizado” e seguir estratégia
+abaixo.</li>
+</ul></li>
+</ul></li>
+</ul>
+<h2 id="estratégia-ao-detectar-mudança-de-hash">Estratégia ao Detectar
+Mudança de Hash</h2>
+<ol type="1">
+<li>Aplicar overrides locais (se houver) como JSON Merge Patch sobre o
+novo <code>schema</code>.</li>
+<li>Se endpoint de diff estiver disponível:
+<ul>
+<li>Buscar <code>summary</code>/<code>classification</code> para
+feedback ao usuário/desenvolvedor.</li>
+</ul></li>
+<li>Regras por classificação (se disponível) ou política geral:
+<ul>
+<li>Non‑breaking: aplicar e re‑renderizar silenciosamente.</li>
+<li>Potencialmente‑breaking: aplicar, logar aviso/telemetria, oferecer
+banner de “UI atualizada”.</li>
+<li>Breaking: bloquear funcionalidade da tela/fluxo afetado, exibir
+mensagem clara e, opcionalmente, UI de migração.</li>
+</ul></li>
+</ol>
+<h2 id="estadoserros">Estados/Erros</h2>
+<ul>
+<li>Falha de rede: usar <code>schema</code> cacheado (modo offline). Ao
+voltar a rede, repetir verificação.</li>
+<li>Inconsistência (ETag ausente): tratar como <code>200</code> sem
+hash; comparar payloads por hash calculado no front (fallback) se
+necessário.</li>
+</ul>
+<h2 id="fases-no-frontend">Fases no Frontend</h2>
+<ul>
+<li>Fase A (mínima):
+<ul>
+<li>Persistir <code>schema</code> + <code>schemaHash</code>.</li>
+<li>Usar <code>If-None-Match</code> e aceitar <code>304</code>.</li>
+<li>Atualizar cache e re-render ao receber <code>200</code> com hash
+diferente.</li>
+</ul></li>
+<li>Fase B (melhorada):
+<ul>
+<li>Manter <code>overrides</code> como JSON Merge Patch (somente ajustes
+de layout/UX locais).</li>
+<li>Aplicar <code>overrides</code> a cada atualização de schema.</li>
+</ul></li>
+<li>Fase C (com diff e classificação):
+<ul>
+<li>Consumir endpoint de <code>summary</code>/<code>patch</code>.</li>
+<li>Exibir painel de mudanças e status
+(breaking/potential/non‑breaking).</li>
+<li>Automatizar decisões (silencioso vs. alerta vs. bloqueio).</li>
+</ul></li>
+</ul>
+<h2 id="métricastelemetria">Métricas/Telemetria</h2>
+<ul>
+<li>Registrar quando o hash muda, tempo entre mudanças, telas afetadas,
+quantidade de breaking vs. non‑breaking, e se houve erros de render
+pós‑atualização.</li>
+<li>Sugestões de métrica (Micrometer):
+<ul>
+<li><code>praxis.uischema.filtered.requests{status="200|304"}</code>
+(counter)</li>
+<li><code>praxis.uischema.hash.time</code> (timer de canonicalização +
+hash)</li>
+<li><code>praxis.uischema.payload.bytes</code> (distribution
+summary)</li>
+<li><code>praxis.uischema.hash.cache.size</code> (gauge)</li>
+<li><code>praxis.uischema.ifNoneMatch.matches</code> (counter)</li>
+</ul></li>
+</ul>
+<hr />
+<h1 id="próximas-fases-e-cenários-de-diferença-de-hash">Próximas Fases e
+Cenários de Diferença de Hash</h1>
+<ol type="1">
+<li>Hash diferente detectado (cliente → servidor):
+<ul>
+<li>Backend: já retorna <code>200</code> com novo <code>ETag</code> e
+payload atualizado.</li>
+<li>Frontend: aplica overrides, re-renderiza e salva novo
+<code>schemaHash</code> e <code>schema</code> no cache.</li>
+</ul></li>
+<li>Hash diferente + endpoint de diff ativo:
+<ul>
+<li>Frontend: chama
+<code>/ui-schema/{schemaId}/diff?fromHash=&lt;hashLocal&gt;&amp;format=summary</code>.</li>
+<li>Exibe resumo e, se “breaking”, bloqueia ações críticas e orienta
+migração.</li>
+</ul></li>
+<li>Múltiplas telas/rotas dependentes do mesmo schema:
+<ul>
+<li>Coordenar atualização em lote; evitar re-fetch redundante com
+memoização por <code>schemaId</code>.</li>
+</ul></li>
+<li>Rollback/Feature flags:
+<ul>
+<li>Se o hash novo causa regressões no front, um feature‑flag pode
+impedir uso do novo schema até correção (lado front), mantendo o cache
+anterior (com aviso claro ao usuário sobre desatualização).</li>
+</ul></li>
+</ol>
+<hr />
+<h1 id="tarefas-backlog">Tarefas (Backlog)</h1>
+<ul>
+<li>Backend — Fase 1:
+<ul>
+<li>Implementar <code>SchemaCanonicalizer</code> e
+<code>SchemaHashUtil</code>.</li>
+<li>Integrar ETag e <code>If-None-Match</code> em
+<code>/schemas/filtered</code> (retornar <code>ResponseEntity</code>,
+cabeçalhos <code>ETag</code>, <code>Cache-Control</code>,
+<code>Vary</code>).</li>
+<li>Parser robusto de <code>If-None-Match</code> (múltiplos valores,
+<code>*</code>, ETags fracas <code>W/</code> ignoradas para comparação
+de hash forte).</li>
+<li>Documentar contrato de hashing e headers.</li>
+<li>Métricas básicas (Micrometer): contadores 200 vs 304, tempo de
+canonicalização+hash, tamanho médio do payload.</li>
+<li>Corrigir expansão de <code>$ref</code> para copiar o objeto inteiro
+do schema referenciado (não apenas <code>properties</code>).</li>
+<li><code>SchemaIdBuilder</code> e cache por <code>schemaId</code> do
+<code>canonicalJson</code> + <code>schemaHash</code>, com invalidação
+coordenada ao limpar <code>documentCache</code> em
+<code>ApiDocsController</code>.</li>
+</ul></li>
+<li>Backend — Fase 2:
+<ul>
+<li>Implementar <code>SchemaDiffService</code> (JSON Patch/Merge
+Patch/Summary) e endpoints opt‑in.</li>
+<li>Classificação de mudanças.</li>
+</ul></li>
+<li>Backend — Fase 3 (opcional):
+<ul>
+<li><code>@UISchema.key()</code> e marcações
+<code>deprecated/replacementFor</code>.</li>
+<li>Cache por <code>schemaId</code> do <code>canonicalJson</code> +
+<code>schemaHash</code> com invalidation alinhada à limpeza do cache de
+documentos OpenAPI (evitar recomputo por request).</li>
+</ul></li>
+<li>Frontend — Fase A:
+<ul>
+<li>Cache com <code>schema</code> + <code>schemaHash</code> por
+<code>schemaId</code>.</li>
+<li>Requisições com <code>If-None-Match</code> e handling de
+<code>304</code>.</li>
+</ul></li>
+<li>Frontend — Fase B:
+<ul>
+<li>Suporte a <code>overrides</code> como JSON Merge Patch e aplicação
+pós‑update.</li>
+</ul></li>
+<li>Frontend — Fase C:
+<ul>
+<li>Consumo de diff/summary, exibição de mudanças e aplicação de
+políticas por classificação.</li>
+</ul></li>
+</ul>
+<hr />
+<h1 id="revisão-crítica-e-decisões-de-política">Revisão Crítica e
+Decisões de Política</h1>
+<p>Esta seção captura decisões refinadas após revisão do código atual e
+riscos práticos.</p>
+<ol type="1">
+<li>Arrays potencialmente instáveis</li>
+</ol>
+<ul>
+<li>Opções A/B:
+<ul>
+<li><ol type="A">
+<li>Ordenar apenas arrays com semântica de conjunto (ex.:
+<code>required</code>) para reduzir churn não semântico.
+Recomendada.</li>
+</ol></li>
+<li><ol start="2" type="A">
+<li>Não ordenar nenhum array (como no plano inicial), aceitando churn
+por reorder. Simples, porém ruidoso.</li>
+</ol></li>
+</ul></li>
+<li>Decisão: A (ordenar apenas <code>required</code>). Observação: isso
+implica que reordenar <code>required</code> sozinho não altera o hash,
+por ser não semântico.</li>
+</ul>
+<ol start="2" type="1">
+<li>Números e escala</li>
+</ol>
+<ul>
+<li>Normalizar números nativos com
+<code>BigDecimal.stripTrailingZeros()</code> durante a serialização
+canônica (evita <code>1</code> vs <code>1.0</code>).</li>
+<li>Manter strings numéricas do <code>x-ui</code> como strings (sem
+transformar tipo).</li>
+</ul>
+<ol start="3" type="1">
+<li>extraProperties</li>
+</ol>
+<ul>
+<li>Política: manter como string crua (qualquer alteração textual muda o
+hash). Documentar claramente.</li>
+<li>Opcional (futuro): permitir propriedades com sufixo
+<code>Json</code> para indicar parsing/canonicalização de JSON embutido
+(opt‑in).</li>
+</ul>
+<ol start="4" type="1">
+<li>Corpo vs. headers para hash</li>
+</ol>
+<ul>
+<li>Não incluir <code>x-schema-hash</code> no body. Usar
+<code>ETag</code> (forte) e header auxiliar
+<code>X-Schema-Hash</code>.</li>
+</ul>
+<ol start="5" type="1">
+<li>includeInternalSchemas</li>
+</ol>
+<ul>
+<li>O hash representa o payload final entregue (com ou sem expansão de
+<code>$ref</code>, conforme parâmetro). <code>schemaId</code> deve
+refletir também essa variação de representação.</li>
+</ul>
+<ol start="6" type="1">
+<li>HTTP Cache/Proxies</li>
+</ol>
+<ul>
+<li>Adotar
+<code>Cache-Control: public, max-age=0, must-revalidate</code> e
+<code>Vary: Accept, Accept-Encoding</code> para coerência com
+CDNs/proxies.</li>
+<li>Implementar parsing robusto de <code>If-None-Match</code> (múltiplas
+ETags e <code>*</code>).</li>
+</ul>
+<ol start="7" type="1">
+<li>Observabilidade/segurança</li>
+</ol>
+<ul>
+<li>Métricas de 200 vs 304, tempo de canonicalização, tamanho do
+payload.</li>
+<li>Evitar logar <code>schemaHash</code> em nível INFO em multi‑tenant;
+prefira DEBUG.</li>
+<li>Revisar conteúdo de <code>x-ui</code> para ambientes multi‑tenant
+(sanitização se necessário por feature flag).</li>
+</ul>
+<hr />
+<h1 id="plano-de-testes">Plano de Testes</h1>
+<p>Unitários (Canonicalizer/Hash): - Objetos: ordem diferente de chaves
+→ bytes iguais e hash igual. - Arrays: - <code>required</code> com ordem
+A/B → hash igual (política A). - <code>enum</code>/<code>options</code>
+reordenadas → hash diferente (ordem preservada). - Números:
+<code>1</code> (número) vs <code>1.0</code> (BigDecimal com escala) →
+hash igual pela normalização. - extraProperties: JSON em string com
+espaços diferentes → hash diferente (política string crua).</p>
+<p>Integração (ETag/304): - GET sem <code>If-None-Match</code> → 200 com
+<code>ETag</code> e headers de cache. - GET com
+<code>If-None-Match</code> igual → 304 sem body, com <code>ETag</code>.
+- <code>If-None-Match</code> com múltiplos ETags → 304 se qualquer um
+bater.</p>
+<p>Arrays e <code>$ref</code> (includeInternalSchemas): - Com e sem
+expansão de <code>$ref</code>, conferindo que o hash reflete o payload
+final.</p>
+<p>Diff (quando implementado): - <code>summary</code> classifica
+corretamente: adicionar campo opcional, remover item de enum, tornar
+<code>required</code>, relaxar/restringir <code>min/max</code> e
+<code>pattern</code>.</p>
+<hr />
+<h1 id="status-de-implementação-atual">Status de Implementação
+(Atual)</h1>
+<ul>
+<li>ETag/If-None-Match em <code>/schemas/filtered</code>: implementado
+<ul>
+<li>Resposta 200 inclui <code>ETag: "&lt;schemaHash&gt;"</code>,
+<code>Cache-Control: public, max-age=0, must-revalidate</code>,
+<code>Vary: Accept-Encoding</code></li>
+<li>Requisição condicional com <code>If-None-Match</code> retorna 304
+sem body quando o ETag coincide (suporta múltiplos valores e
+<code>*</code>)</li>
+</ul></li>
+<li>Canonicalização + hash: implementado
+<ul>
+<li><code>SchemaCanonicalizer</code>: objetos ordenados, arrays
+preservados (exceto <code>required</code> ordenado), números
+normalizados, strings preservadas</li>
+<li><code>SchemaHashUtil</code>: SHA-256 do JSON canônico (bytes
+compactos)</li>
+</ul></li>
+<li>Expansão de <code>$ref</code> com
+<code>includeInternalSchemas=true</code>: implementado para copiar o
+schema inteiro referenciado (não apenas <code>properties</code>)</li>
+<li><code>SchemaIdBuilder</code>: disponível para composição de chaves;
+cache por <code>schemaId</code> ainda pendente</li>
+<li>Métricas (Micrometer): pendente</li>
+</ul>
+<p>Assinatura atual do controller -
+<code>ResponseEntity&lt;Map&lt;String,Object&gt;&gt; getFilteredSchema(String path, String operation, boolean includeInternalSchemas, String schemaType, String ifNoneMatch, String tenant, Locale locale)</code></p>
+<p>Referências de código -
+<code>org.praxisplatform.uischema.hash.SchemaCanonicalizer</code> -
+<code>org.praxisplatform.uischema.hash.SchemaHashUtil</code> -
+<code>org.praxisplatform.uischema.http.IfNoneMatchUtils</code> -
+<code>org.praxisplatform.uischema.id.SchemaIdBuilder</code> -
+<code>org.praxisplatform.uischema.controller.docs.ApiDocsController</code></p>
+<p>Exemplos (E2E de teste) -
+<code>GET /schemas/filtered?path=/e2e&amp;operation=post&amp;schemaType=request&amp;includeInternalSchemas=true</code>
+→ 200 com ETag; chamada condicional subsequente retorna 304 -
+<code>GET /schemas/filtered?path=/e2e/with-ref&amp;schemaType=response&amp;includeInternalSchemas=false|true</code>
+→ ETags diferentes (expansão de <code>$ref</code> altera o hash)</p>
+</body>
+</html>

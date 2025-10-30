@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>SCHEMA-INTEGRATION-PLAN</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="plano-integrado-de-schema-backend-frontend">Plano Integrado de
+Schema (Backend ↔︎ Frontend)</h1>
+<p>Este documento consolida o entendimento do fluxo atual (schema base
+vs JSON de layout), as decisões já implementadas e o planejamento para
+evoluir com robustez (hash/ETag, identidade de campos,
+diff/classificação e persistência de versões/overrides no servidor).</p>
+<h2 id="resumo-do-que-investiguei-e-como-funciona-hoje">Resumo do que
+investiguei e como funciona hoje</h2>
+<p>Dois “tipos” de JSON convivem no frontend:</p>
+<ul>
+<li>JSON de estrutura (schema base, vindo do servidor)
+<ul>
+<li>É a resposta do <code>GET /schemas/filtered</code>
+(FieldDefinition[] com <code>x-ui</code>).</li>
+<li>Usado para montar colunas de grid, formulários e filtros.</li>
+</ul></li>
+<li>JSON de layout (customizações de UI no front)
+<ul>
+<li>É persistido no storage do front (LocalStorage via
+<code>ConfigStorage</code>).</li>
+<li>Representa o layout, regras e preferências salvas pelo
+usuário/editor visual (arranjo de sections/rows, behaviors, mensagens,
+regras, etc.).</li>
+<li>Para formulários: chave
+<code>praxis-form-config-&lt;formId&gt;</code> (legado:
+<code>form-config:&lt;formId&gt;</code>, migrado automaticamente).</li>
+<li>Para CRUD/tabela: chave <code>crud-overrides:&lt;tableId&gt;</code>
+(ex.: openMode por ação, route, formId).</li>
+</ul></li>
+</ul>
+<p>Onde fica cada coisa: - Estrutura (schema base) - Antes: não era
+salvo permanentemente; buscado a cada carga. - Agora:
+<code>GenericCrudService</code> guarda
+<code>{ schema, schemaHash }</code> por <code>schemaId</code> (cache
+LocalStorage+memória) e envia <code>If-None-Match</code> com o hash para
+304. - Layout (formulários) - <code>PraxisDynamicForm</code> carrega
+primeiro o layout local
+(<code>praxis-form-config-&lt;formId&gt;</code>), depois sincroniza com
+o schema do servidor (via <code>syncWithServerMetadata</code>),
+preservando customizações e incorporando mudanças do backend. - O campo
+<code>metadata.serverHash</code> em <code>FormConfig</code> é um hash
+leve gerado no front (não o ETag do backend) e ajuda a detectar
+mudanças. - Layout (CRUD) - Overrides por tabela são persistidos em
+<code>crud-overrides:&lt;tableId&gt;</code> e mesclados no
+<code>CrudLauncherService</code> ao abrir ações.</p>
+<p>Relação entre os dois JSONs: - O JSON de estrutura é a verdade do
+backend; o JSON de layout é derivado dele e enriquece com customizações.
+- Em cada carga: o <code>GenericCrudService</code> revalida o schema por
+ETag (304 vs 200) e, em formulários, o layout salvo é sincronizado com o
+schema atual.</p>
+<p>Chaves de storage relevantes: - Form:
+<code>praxis-form-config-&lt;formId&gt;</code> (legado:
+<code>form-config:&lt;formId&gt;</code>) - CRUD:
+<code>crud-overrides:&lt;tableId&gt;</code></p>
+<p>Referências de código principais: - Persistência local:
+<code>projects/praxis-core/src/lib/services/config-storage.service.ts</code>
+- Form dinâmico:
+<code>projects/praxis-dynamic-form/src/lib/praxis-dynamic-form.ts</code>
+- Modelos e sync:
+<code>projects/praxis-core/src/lib/models/form/form-config.model.ts</code>
+- Overrides CRUD: editor
+<code>projects/praxis-table/src/lib/crud-integration-editor/crud-integration-editor.component.ts</code>;
+merge <code>projects/praxis-crud/src/lib/crud-launcher.service.ts</code>
+- Busca de schemas:
+<code>projects/praxis-core/src/lib/services/generic-crud.service.ts</code></p>
+<h2 id="estado-atual-decisões-implementadas">Estado Atual (Decisões
+Implementadas)</h2>
+<ul>
+<li>Backend
+<ul>
+<li>ETag forte e <code>If-None-Match</code> (304) em
+<code>/schemas/filtered</code>.</li>
+<li><code>X-Schema-Hash</code> como header auxiliar.</li>
+<li><code>Access-Control-Expose-Headers: ETag, X-Schema-Hash</code>
+(CORS).</li>
+<li>Expansão de <code>$ref</code> ampliada (top-level, properties,
+items, allOf/oneOf/anyOf, additionalProperties, varredura
+genérica).</li>
+</ul></li>
+<li>Frontend
+<ul>
+<li><code>GenericCrudService</code>
+<ul>
+<li><code>getSchema()</code> e <code>getFilteredSchema()</code> com
+ETag/If-None-Match, 304 reaproveitando cache, 200 atualizando
+<code>{ schema, schemaHash }</code> por <code>schemaId</code>.</li>
+<li><code>schemaId = normalize(path)|operation|schemaType|internal:&lt;bool&gt;|tenant|locale</code>.</li>
+</ul></li>
+<li>Utilitários exportados: <code>buildSchemaId</code>,
+<code>fetchWithETag</code>, <code>LocalStorageCacheAdapter</code>.</li>
+</ul></li>
+</ul>
+<h2 id="robustez-recomendações">Robustez: Recomendações</h2>
+<ul>
+<li>Identidade e versionamento
+<ul>
+<li><code>schemaId</code> estável em todo lugar (front e back).
+Persistir em <code>FormConfig.metadata.schemaId</code>.</li>
+<li>Guardar ETag real do servidor junto ao layout (ex.:
+<code>FormConfig.metadata.serverHash</code>) para sync defensivo.</li>
+<li>Adotar <code>@UISchema.key()</code> (identidade estável de campos).
+No front, casar por <code>key</code>, fallback em
+<code>name</code>.</li>
+</ul></li>
+<li>Modelo de armazenamento
+<ul>
+<li>Preferir layout como ‘overlay’ (JSON Merge Patch) sobre o schema
+base, reduzindo drift.</li>
+<li>Separar “state bruto” de editores visuais (ex.:
+<code>formRulesState</code>) do layout final aplicado.</li>
+</ul></li>
+<li>Sincronização e mudanças
+<ul>
+<li>Sempre revalidar com ETag (If-None-Match). No 200, atualizar cache e
+<code>metadata.serverHash</code>.</li>
+<li><code>syncWithServerMetadata</code>:
+<ul>
+<li>Adições: inserir em local seguro (última section/row) e
+sinalizar.</li>
+<li>Remoções: marcar órfãos, oferecer limpeza.</li>
+<li>Modificações: merge preferindo servidor como base, preservando
+overrides compatíveis.</li>
+</ul></li>
+<li>Classificação (quando disponível): usar endpoint de diff para
+políticas (apply, warn, block).</li>
+</ul></li>
+<li>Concorrência e overrides no servidor
+<ul>
+<li><code>If-Match</code> nos
+<code>PUT /ui-schema/{schemaId}/overrides</code> para evitar
+sobrescrita.</li>
+<li>ETag efetivo para payload mesclado (ex.:
+<code>&lt;schemaHash&gt;:&lt;overridesEtag&gt;</code>).</li>
+</ul></li>
+<li>Escopos e governança
+<ul>
+<li>Overrides por escopo (<code>user|tenant|app</code>) com precedência
+clara.</li>
+<li>Namespacing por tenant/locale nas chaves de storage e no
+<code>schemaId</code>.</li>
+</ul></li>
+<li>Resiliência/UX
+<ul>
+<li>Offline-first (usar cache e revalidar ao voltar a rede), backoff
+exponencial e experiência previsível ao mudar de versão.</li>
+</ul></li>
+</ul>
+<h2 id="migração-por-fases">Migração por Fases</h2>
+<ul>
+<li>Fase 0 (feito): ETag/If-None-Match + cache por <code>schemaId</code>
+no front; backend com ETag e expansão de <code>$ref</code> robusta.</li>
+<li>Fase 1: <code>@UISchema.key()</code> + começar a persistir versões
+atuais quando hash mudar.</li>
+<li>Fase 2: serviço de diff/classificação + endpoints de overrides
+(If-Match).</li>
+<li>Fase 3: endpoint <code>/effective</code> e flip para
+ServerCacheAdapter no front.</li>
+</ul>
+<h2 id="perguntas-em-aberto-decisões">Perguntas em aberto /
+Decisões</h2>
+<ul>
+<li>Key obrigatória em todos os DTOs? (recomendado como best practice)
+ou fallback por nome/heurística.</li>
+<li>Escopo inicial dos overrides (user/tenant/app) e auditoria mínima
+(updatedBy/updatedAt).</li>
+<li>Estratégia de retenção (N versões ou janela de tempo) — schemas
+tendem a ser pequenos.</li>
+</ul>
+<hr />
+<p>Este plano busca manter o front robusto contra mudanças do backend,
+minimizar drift entre layout e schema, e preparar uma migração gradual
+para persistir versões/overrides no servidor com governança e
+auditoria.</p>
+<hr />
+<h1 id="diagramas-e-fluxos-mermaid">Diagramas e Fluxos (Mermaid)</h1>
+<ul>
+<li>Sequência: primeira chamada (200)
+<ul>
+<li>Ver arquivo:
+<code>docs/diagrams/schema-seq-first-200.mmd</code></li>
+</ul></li>
+<li>Sequência: chamada condicional (304)
+<ul>
+<li>Ver arquivo: <code>docs/diagrams/schema-seq-304.mmd</code></li>
+</ul></li>
+<li>Componentes e Caches (Front/Back)
+<ul>
+<li>Ver arquivo:
+<code>docs/diagrams/schema-components-and-caches.mmd</code></li>
+</ul></li>
+<li>Reconciliador de Tabela (merge por field)
+<ul>
+<li>Ver arquivo:
+<code>docs/diagrams/table-reconciler-seq.mmd</code></li>
+</ul></li>
+</ul>
+<p>Os arquivos acima usam Mermaid e podem ser renderizados diretamente
+por visualizadores compatíveis.</p>
+<hr />
+<h1 id="exemplos-de-curl-200-e-304">Exemplos de curl (200 e 304)</h1>
+<p>Assumindo a app exemplo em <code>http://localhost:8088</code> e um
+recurso válido (ex.: <code>ParametroController</code>):</p>
+<ol type="1">
+<li>200 OK (primeira chamada)</li>
+</ol>
+<pre><code>curl -i &quot;http://localhost:8088/schemas/filtered?path=/api/parametros/all&amp;operation=get&amp;schemaType=response&quot;
+
+HTTP/1.1 200 OK
+ETag: &quot;2f0a3a0c5a1b4e0e0c3a1d9a5b7c9e12aabbccddeeff00112233445566778899&quot;
+X-Schema-Hash: 2f0a3a0c5a1b4e0e0c3a1d9a5b7c9e12aabbccddeeff00112233445566778899
+Access-Control-Expose-Headers: ETag,X-Schema-Hash
+Content-Type: application/json
+
+{ ... schema com x-ui ... }</code></pre>
+<ol start="2" type="1">
+<li>304 Not Modified (com If-None-Match)</li>
+</ol>
+<pre><code>curl -i -H &#39;If-None-Match: &quot;2f0a3a0c5a1b4e0e0c3a1d9a5b7c9e12aabbccddeeff00112233445566778899&quot;&#39; \
+  &quot;http://localhost:8088/schemas/filtered?path=/api/parametros/all&amp;operation=get&amp;schemaType=response&quot;
+
+HTTP/1.1 304 Not Modified
+ETag: &quot;2f0a3a0c5a1b4e0e0c3a1d9a5b7c9e12aabbccddeeff00112233445566778899&quot;
+X-Schema-Hash: 2f0a3a0c5a1b4e0e0c3a1d9a5b7c9e12aabbccddeeff00112233445566778899
+Access-Control-Expose-Headers: ETag,X-Schema-Hash</code></pre>
+<p>Notas: - O backend sempre ecoa <code>ETag</code> e
+<code>X-Schema-Hash</code>. O frontend prefere
+<code>X-Schema-Hash</code> quando presente. - Para perfis
+multi-tenant/locale, inclua <code>X-Tenant</code> e
+<code>Accept-Language</code>.</p>
+<hr />
+<h1 id="exemplo-de-tableconfigv2-pósreconciliação">Exemplo de
+TableConfigV2 pós‑reconciliação</h1>
+</body>
+</html>

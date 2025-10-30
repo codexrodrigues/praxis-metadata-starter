@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>FASE-03-DTOS-VALIDACAO-UISCHEMA</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="fase-3-dtos-de-entrada-bean-validation-e-uischema">Fase 3 — DTOs
+de Entrada, Bean Validation e <span class="citation"
+data-cites="UISchema">@UISchema</span></h1>
+<p>Objetivo: falhar cedo (400), refletir regras nos docs e gerar
+metadados x-ui corretos.</p>
+<p>Saídas esperadas:</p>
+<ul>
+<li>Lista de DTOs usados em <code>create</code>/<code>update</code> com
+resumo das validações Jakarta</li>
+<li>Confirmação de <code>@Valid</code> no <code>@RequestBody</code> de
+<code>create</code> e <code>update</code></li>
+<li>Correções propostas para <code>FieldDataType</code> legado
+(substituir <code>STRING</code> por <code>TEXT</code>), se houver</li>
+<li>(Opcional) Uso de <code>@UISchema</code> onde necessário (labels,
+controlType, opções)</li>
+</ul>
+<p>Checklist</p>
+<ul>
+<li>DTOs de entrada anotados com <code>jakarta.validation</code>
+(<code>@NotBlank</code>, <code>@NotNull</code>, <code>@Size</code>,
+<code>@Pattern</code>, <code>@Email</code>, <code>@DecimalMin</code>,
+<code>@Past</code>, etc.)</li>
+<li>Controllers base mantêm <code>@Valid</code> em
+<code>create</code>/<code>update</code></li>
+<li><code>FieldDataType</code> usa valores válidos (ex.:
+<code>TEXT</code>, não <code>STRING</code>)</li>
+<li><code>@UISchema</code> é adotada quando ajuda a guiar a UI (sem
+conflitar com detecção automática)</li>
+</ul>
+<p>Verificações e evidências</p>
+<ul>
+<li>Vasculhar DTOs de entrada: campos obrigatórios e regras de
+formato/faixa</li>
+<li>Confirmar anotações nos métodos do controller:
+<ul>
+<li><code>create(@jakarta.validation.Valid @RequestBody D dto)</code></li>
+<li><code>update(@PathVariable ID, @jakarta.validation.Valid @RequestBody D dto)</code></li>
+</ul></li>
+<li>(Opcional) Coletar um schema via <code>/schemas/filtered</code> para
+visualizar <code>x-ui.validation</code></li>
+</ul>
+<p>Correções comuns</p>
+<ul>
+<li>Adicionar validações mínimas em campos críticos (nome, documentos,
+datas)</li>
+<li>Corrigir enum: <code>FieldDataType.STRING</code> →
+<code>FieldDataType.TEXT</code></li>
+<li>Preencher <code>@UISchema</code> apenas quando necessário; abusos
+podem conflitar com detecção automática</li>
+</ul>
+<p>Referências rápidas</p>
+<ul>
+<li>Guia de validação no README: README.md:58</li>
+<li>Controller base (assinaturas com <span class="citation"
+data-cites="Valid">@Valid</span>):
+src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java:682</li>
+<li>Enum de tipo:
+src/main/java/org/praxisplatform/uischema/FieldDataType.java:1</li>
+<li>Resolver de UI e precedência:
+src/main/java/org/praxisplatform/uischema/extension/CustomOpenApiResolver.java:31</li>
+</ul>
+<p>Prompt para agente</p>
+<pre><code>Tarefa: Auditar DTOs de entrada, validação Jakarta, uso de @Valid e @UISchema.
+
+Passos:
+1) Liste os DTOs usados em create/update e levante as validações presentes (ou ausentes)
+2) Confirme @Valid em create e update nos controllers base ou específicos
+3) Corrija usos de FieldDataType.STRING para TEXT (se existirem)
+4) Sugerir @UISchema quando útil para a UI (labels, controlType, etc.)
+
+Entregue:
+- Inventário de DTOs, validações e lacunas
+- Diffs para: adicionar validações, ajustar FieldDataType, incluir @Valid onde faltar
+- (Opcional) Evidência do x-ui.validation via /schemas/filtered</code></pre>
+</body>
+</html>

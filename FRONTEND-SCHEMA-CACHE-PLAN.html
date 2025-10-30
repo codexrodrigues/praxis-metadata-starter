@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>FRONTEND-SCHEMA-CACHE-PLAN</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1
+id="plano-de-controle-explícito-de-cacheetag-no-frontend-e-migração-para-persistência-no-servidor">Plano
+de Controle Explícito de Cache/ETag no Frontend e Migração para
+Persistência no Servidor</h1>
+<h2 id="objetivo-e-escopo">1) Objetivo e Escopo</h2>
+<ul>
+<li>Controlar explicitamente a revalidação de schemas via
+<code>ETag</code>/<code>If-None-Match</code> no frontend, sem depender
+do cache implícito do navegador.</li>
+<li>Padronizar identidade (<code>schemaId</code>), cache local,
+overrides e telemetria.</li>
+<li>Preparar desde já a arquitetura para migrar a persistência de
+<code>schema</code>/<code>overrides</code>/telemetria para o servidor,
+com mínimo retrabalho.</li>
+</ul>
+<p>Outros objetivos: - Evitar recomputo e tráfego redundante (304 em vez
+de 200 quando possível). - Garantir UX estável ao atualizar schemas
+(overrides + política de diffs no futuro).</p>
+<h2 id="estado-atual-backend">2) Estado Atual (Backend)</h2>
+<ul>
+<li>Endpoint: <code>GET /schemas/filtered</code>.</li>
+<li>Implementado: <code>ETag</code> (forte), <code>If-None-Match</code>
+(304), <code>Cache-Control: public, max-age=0, must-revalidate</code>,
+<code>Vary: Accept-Encoding</code>.</li>
+<li>O <code>ETag</code> é calculado sobre o JSON canônico do payload
+final (schema selecionado + <code>x-ui</code> de operação; refs
+expandidas quando <code>includeInternalSchemas=true</code>).</li>
+</ul>
+<h2 id="identidade-schemaid">3) Identidade: <code>schemaId</code></h2>
+<pre><code>schemaId = normalize(path)
+          + &#39;|&#39; + operation          // &#39;get&#39; (padrão), &#39;post&#39;, ...
+          + &#39;|&#39; + schemaType         // &#39;response&#39; (padrão) ou &#39;request&#39;
+          + &#39;|internal:&#39; + includeInternalSchemas
+          + (tenant ? &#39;|tenant:&#39; + tenant : &#39;&#39;)
+          + (locale ? &#39;|locale:&#39; + locale : &#39;&#39;)</code></pre>
+<p>Notas: - <code>normalize(path)</code>: remover barras duplicadas (sem
+alterar maiúsculas/minúsculas), sem barra final redundante. - O cálculo
+deve ser idêntico no front e no back (referência:
+<code>SchemaIdBuilder</code>).</p>
+<h2 id="abstrações-e-contratos">4) Abstrações e Contratos</h2>
+<h3 id="cacheadapter-front">4.1 CacheAdapter (front)</h3>
+<ul>
+<li>Contrato estável para leitura/escrita/local/servidor:</li>
+</ul>
+<pre><code>interface CacheAdapter {
+  get(schemaId: string): Promise&lt;{ schema: any; schemaHash: string; overrides?: any } | undefined&gt;;
+  set(schemaId: string, entry: { schema: any; schemaHash: string; overrides?: any }): Promise&lt;void&gt;;
+  remove(schemaId: string): Promise&lt;void&gt;;
+  subscribe?(cb: (schemaId: string, entry?: { schema: any; schemaHash: string }) =&gt; void): () =&gt; void;
+}</code></pre>
+<ul>
+<li>Implementações:
+<ul>
+<li>LocalStorageCacheAdapter (agora) — persistência local +
+memória.</li>
+<li>ServerCacheAdapter (futuro) — consome APIs do servidor.</li>
+<li>HybridCacheAdapter (migração) — dual-read/dual-write com feature
+flag.</li>
+</ul></li>
+</ul>
+<h3 id="fetchwithetag-front">4.2 fetchWithETag (front)</h3>
+<pre><code>type FetchResult =
+  | { status: 304 }
+  | { status: 200; schema: any; schemaHash: string };
+
+async function fetchWithETag({ url, schemaHash, tenant, locale, signal }): Promise&lt;FetchResult&gt; {
+  const headers: Record&lt;string, string&gt; = {};
+  if (schemaHash) headers[&#39;If-None-Match&#39;] = `\&quot;${schemaHash}\&quot;`;
+  if (tenant) headers[&#39;X-Tenant&#39;] = tenant;
+  if (locale) headers[&#39;Accept-Language&#39;] = locale;
+
+  const res = await fetch(url, { headers, cache: &#39;no-cache&#39;, credentials: &#39;include&#39;, signal });
+  if (res.status === 304) return { status: 304 };
+
+  const etag = res.headers.get(&#39;ETag&#39;) || &#39;&#39;;
+  const newHash = etag.replace(/^W\\//, &#39;&#39;).replace(/^\&quot;|\&quot;$/g, &#39;&#39;);
+  const schema = await res.json();
+  return { status: 200, schema, schemaHash: newHash };
+}</code></pre>
+<h3 id="useschemametadata-hook">4.3 useSchemaMetadata (hook)</h3>
+<pre><code>function useSchemaMetadata(params: {
+  path: string;
+  operation?: &#39;get&#39; | &#39;post&#39; | string;
+  schemaType?: &#39;response&#39; | &#39;request&#39;;
+  includeInternalSchemas?: boolean;
+  tenant?: string;
+  locale?: string;
+  overridesScope?: &#39;user&#39; | &#39;tenant&#39; | &#39;app&#39;;
+}) {
+  // Calcula schemaId, lê cache, chama fetchWithETag, aplica overrides,
+  // memoiza requests por schemaId, sincroniza mudanças via subscribe().
+  // Retorna { schema, loading, error, refresh }.
+}</code></pre>
+<h2 id="overrides">5) Overrides</h2>
+<ul>
+<li><code>overrides</code> como JSON Merge Patch por
+<code>schemaId</code> (escopo <code>user</code> inicialmente).</li>
+<li><code>applyOverrides(schema, mergePatch)</code> antes da
+renderização.</li>
+<li>Futuro: camadas de overrides (user/tenant/app) resolvidas por
+precedência e armazenadas no servidor.</li>
+</ul>
+<h2 id="concorrência-multi-aba-e-de-dupe">6) Concorrência, Multi-aba e
+De-dupe</h2>
+<ul>
+<li>Memoização por <code>schemaId</code>:
+<code>inFlight: Map&lt;string, Promise&lt;...&gt;&gt;</code> para evitar
+fetch duplicado.</li>
+<li>Multi-aba: <code>BroadcastChannel</code> (ou storage events) para
+sincronizar atualizações e invalidar caches em tempo real.</li>
+</ul>
+<h2 id="telemetria-front">7) Telemetria (front)</h2>
+<ul>
+<li>Contadores e timers:
+<ul>
+<li><code>uischema.requests.200|304</code></li>
+<li><code>uischema.fetch.duration</code></li>
+<li><code>uischema.cache.hit|miss</code></li>
+<li><code>uischema.schema.changed</code> (hash trocou)</li>
+</ul></li>
+<li>Futuro (server): POST <code>/ui-schema/events</code> para
+centralizar métricas.</li>
+</ul>
+<h2 id="erros-e-offline">8) Erros e Offline</h2>
+<ul>
+<li>Sem rede/timeout: retornar <code>schema</code> do cache (modo
+offline) e agendar revalidação posterior (<code>refresh</code>).</li>
+<li>4xx/5xx: não sobrescrever cache; expor erro; opção de retry.</li>
+<li>ETag ausente (caso raro): seguir fluxo e armazenar
+<code>schema</code>; marcar telemetria (não calcular hash no front por
+padrão).</li>
+</ul>
+<h2 id="apis-do-servidor-futuro">9) APIs do Servidor (Futuro)</h2>
+<ul>
+<li>Cache central de schemas:
+<ul>
+<li><code>GET /ui-schema/{schemaId}</code> →
+<code>{ schema, schemaHash, updatedAt }</code> + <code>ETag</code>.</li>
+<li><code>POST /ui-schema/prefetch?...</code> (opcional) → aquecimento
+assíncrono.</li>
+</ul></li>
+<li>Overrides:
+<ul>
+<li><code>GET /ui-schema/{schemaId}/overrides?scope=user|tenant|app</code></li>
+<li><code>PUT /ui-schema/{schemaId}/overrides</code> (com
+<code>If-Match</code> para evitar conflitos)</li>
+</ul></li>
+<li>Diff/sumário (opcional):
+<ul>
+<li><code>GET /ui-schema/{schemaId}/diff?fromHash=&lt;h&gt;&amp;format=summary|patch</code></li>
+</ul></li>
+<li>Telemetria:
+<ul>
+<li><code>POST /ui-schema/events</code> (200/304, latência, falhas,
+mudanças de hash)</li>
+</ul></li>
+</ul>
+<h2 id="migração-por-fases">10) Migração por Fases</h2>
+<ol type="1">
+<li>Preparação (agora)
+<ul>
+<li>Introduzir <code>CacheAdapter</code>, <code>fetchWithETag</code>,
+<code>useSchemaMetadata</code>, overrides locais e memoização.</li>
+</ul></li>
+<li>Dual-read (feature flag)
+<ul>
+<li><code>ServerCacheAdapter</code> lê do servidor com fallback local;
+dual-write seletivo de overrides.</li>
+</ul></li>
+<li>Flip para servidor
+<ul>
+<li>Tornar servidor origem primária; local como fallback offline.</li>
+<li>Pré-aquecer schemas críticos.</li>
+</ul></li>
+<li>Otimizações
+<ul>
+<li>Telemetria server-side, diffs/classificação, push (SSE/WebSocket)
+para invalidar caches.</li>
+</ul></li>
+</ol>
+<h2 id="testes">11) Testes</h2>
+<ul>
+<li>Unitários (front):
+<ul>
+<li><code>buildSchemaId</code> (variações
+path/operation/schemaType/internal/tenant/locale)</li>
+<li><code>fetchWithETag</code>: 200/304, extração de ETag, sem body em
+304</li>
+<li><code>useSchemaMetadata</code>: inicialização com/sem cache,
+refresh, overrides, memoização</li>
+</ul></li>
+<li>Integração (mock server):
+<ul>
+<li>200 → cache atualizado; 304 subsequente usa cache</li>
+<li>Mudança de <code>includeInternalSchemas</code> → novo
+<code>schemaId</code> e novo 200/ETag</li>
+</ul></li>
+</ul>
+<h2 id="critérios-de-aceite">12) Critérios de Aceite</h2>
+<ul>
+<li>Dado <code>schema</code> em cache com <code>schemaHash</code>,
+quando chamar <code>useSchemaMetadata</code>, então deve:
+<ul>
+<li>Enviar <code>If-None-Match</code> explícito com o hash vigente;</li>
+<li>Retornar 304 e usar o cache local sem quebrar;</li>
+<li>Retornar 200 quando o conteúdo mudar, atualizar
+<code>schema</code>/<code>schemaHash</code> e aplicar
+<code>overrides</code>.</li>
+</ul></li>
+<li>Multi-aba sincroniza mudanças de cache.</li>
+<li>Telemetria registra 200 vs 304 e latência.</li>
+</ul>
+<h2 id="riscos-e-mitigações">13) Riscos e Mitigações</h2>
+<ul>
+<li>Divergência entre <code>schemaId</code> front/back → padronizar util
+no front + testes.</li>
+<li>Gateways removendo ETag → telemetria + fallback controlado (não
+calcular hash no front por padrão).</li>
+<li>Concorrência/operação duplicada → memoização por
+<code>schemaId</code> e cancelamento via
+<code>AbortController</code>.</li>
+</ul>
+<h2 id="pontos-a-validar-com-outro-agente">14) Pontos a Validar (com
+outro agente)</h2>
+<ul>
+<li>Contrato do <code>CacheAdapter</code> cobre migração para servidor
+com mínimo retrabalho?</li>
+<li>Necessidade de <code>X-Tenant</code> e <code>Accept-Language</code>
+no front (variar representação)?</li>
+<li>Estratégia de overrides por escopo (user/tenant/app) e resolução de
+precedência.</li>
+<li>Eventos de sync entre abas (BroadcastChannel vs storage events) e
+impacto em browsers antigos.</li>
+<li>Prioridade de telemetria para MVP.</li>
+</ul>
+<h2 id="checklist-de-implementação-front">15) Checklist de Implementação
+(Front)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" /><code>buildSchemaId</code> +
+testes</label></li>
+<li><label><input
+type="checkbox" /><code>LocalStorageCacheAdapter</code> +
+testes</label></li>
+<li><label><input type="checkbox" /><code>fetchWithETag</code> +
+testes</label></li>
+<li><label><input type="checkbox" /><code>useSchemaMetadata</code>
+(memoização + sync) + testes</label></li>
+<li><label><input type="checkbox" /><code>applyOverrides</code> (merge
+patch) + testes</label></li>
+<li><label><input type="checkbox" />Documentação de uso + exemplos
+(React/Vanilla)</label></li>
+<li><label><input type="checkbox" />Feature flag para
+<code>ServerCacheAdapter</code> (stub da interface e contratos de
+API)</label></li>
+</ul>
+</body>
+</html>
