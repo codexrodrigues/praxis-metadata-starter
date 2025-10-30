@@ -1,7 +1,13 @@
 /**
- * Constantes de API e caminhos utilitários.
+ * Constantes compartilhadas entre controladores, serviços e utilitários para
+ * manter consistência em paths e nomes de recursos.
  *
- * @since 1.0.0-beta.1
+ * <p>
+ * Inclui chaves utilizadas na construção de respostas padronizadas e na
+ * resolução de endpoints documentados na "Visão Arquitetural".
+ * </p>
+ *
+ * @since 1.0.0
  */
 package org.praxisplatform.uischema.constants;
 

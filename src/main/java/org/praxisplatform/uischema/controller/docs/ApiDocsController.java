@@ -25,90 +25,40 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map.Entry;
 
 /**
- * <h2>📋 Controlador de Documentação OpenAPI com Resolução Automática via Estratégia Dupla</h2>
- * 
- * <h3>🎯 Problema Resolvido</h3>
- * <p>Antes desta implementação, era necessário especificar manualmente o parâmetro 'document' 
- * para obter schemas OpenAPI. Agora o grupo é resolvido automaticamente usando a estratégia dupla
- * do DynamicSwaggerConfig, resultando em performance extremamente otimizada.</p>
- * 
- * <h3>🚀 Estratégia Dupla de Resolução</h3>
- * 
- * <h4>🎯 1. Resolução Ultra-Específica (Grupos Individuais)</h4>
- * <p>Para controllers CRUD, resolve para grupos individuais ultra-específicos:</p>
- * <pre>
- * Requisição: GET /schemas/filtered?path=/api/human-resources/eventos-folha/all
- *    ↓
- * OpenApiGroupResolver → "api-human-resources-eventos-folha" (grupo individual)
- *    ↓
- * Cache → /v3/api-docs/api-human-resources-eventos-folha (~3KB - ultra-rápido!)
- *    ↓
- * Filtrar schema específico + metadados x-ui
- * </pre>
- * 
- * <h4>🏷️ 2. Resolução por Contexto (Grupos Agregados)</h4>
- * <p>Para contextos de negócio, resolve para grupos agregados:</p>
- * <pre>
- * Requisição: GET /schemas/filtered?path=/api/human-resources/bulk/funcionarios
- *    ↓
- * OpenApiGroupResolver → "human-resources-bulk" (grupo agregado)
- *    ↓
- * Cache → /v3/api-docs/human-resources-bulk (~50KB - ainda otimizado!)
- *    ↓
- * Filtrar schema específico + metadados x-ui
- * </pre>
- * 
- * <h3>📊 Performance Extremamente Otimizada</h3>
+ * Controlador REST que expõe o endpoint {@code /schemas/filtered} e integra o
+ * fluxo de enriquecimento OpenAPI descrito na documentação arquitetural.
+ *
+ * <p>
+ * Responsabilidades principais:
+ * </p>
  * <ul>
- *   <li><strong>Grupos Individuais:</strong> 3-5KB (~99% menor que completo)</li>
- *   <li><strong>Grupos Agregados:</strong> 50-100KB (~90% menor que completo)</li>
- *   <li><strong>Cache inteligente:</strong> Documentos reutilizados entre requisições</li>
- *   <li><strong>Busca otimizada:</strong> Apenas endpoints relevantes processados</li>
+ *   <li>Resolver automaticamente o grupo OpenAPI adequado via
+ *   {@link org.praxisplatform.uischema.util.OpenApiGroupResolver}</li>
+ *   <li>Aplicar cache em memória e validar {@code If-None-Match} gerando ETag
+ *   estável com utilitários do pacote {@code hash}</li>
+ *   <li>Filtrar o schema solicitado e retornar apenas as propriedades relevantes
+ *   com metadados {@code x-ui}</li>
  * </ul>
- * 
- * <h3>🎨 Estratégias de Resolução (ordem de prioridade)</h3>
- * <ol>
- *   <li><strong>OpenApiGroupResolver:</strong> Detecta grupos registrados pela estratégia dupla</li>
- *   <li><strong>Derivação do Path:</strong> "/api/human-resources/eventos-folha" → "api-human-resources-eventos-folha"</li>
- *   <li><strong>Primeiro Segmento:</strong> Usa primeiro segmento significativo se disponível</li>
- *   <li><strong>Fallback:</strong> "application" como último recurso</li>
- * </ol>
- * 
- * <h3>📋 Exemplos de Uso</h3>
+ *
+ * <p>
+ * Requisições típicas seguem o padrão
+ * {@code GET /schemas/filtered?path=/api/module/resource/all} e retornam um
+ * fragmento OpenAPI com campos enriquecidos pelo
+ * {@link org.praxisplatform.uischema.extension.CustomOpenApiResolver}. O fluxo
+ * completo é descrito em {@code docs/architecture-overview.md}.
+ * </p>
+ *
+ * <p><strong>Exemplo:</strong></p>
  * <pre>{@code
- * // ✅ CRUD Individual Ultra-Específico
  * GET /schemas/filtered?path=/api/human-resources/funcionarios/all
- * → Resolve: "api-human-resources-funcionarios" (~3KB)
- * 
- * // ✅ Bulk Agregado por Contexto  
- * GET /schemas/filtered?path=/api/human-resources/bulk/funcionarios
- * → Resolve: "human-resources-bulk" (~50KB)
- * 
- * // ✅ Contexto CRUD Agregado
- * GET /schemas/swagger-ui?group=recursos-humanos 
- * → Mostra todos os 8 controllers CRUD (~100KB)
- * 
- * // ❌ ANTES: Necessário especificar manualmente
- * GET /schemas/filtered?path=/funcionarios&document=api-human-resources-funcionarios
+ * → resolve grupo "api-human-resources-funcionarios"
+ * → aplica cache + ETag baseado no hash do schema filtrado
+ * → devolve JSON com components.schemas.EmployeeDTO.x-ui
  * }</pre>
- * 
- * <h3>🎯 Dropdown do Swagger UI Típico</h3>
- * <pre>
- * 📋 Grupos Individuais (ultra-rápidos):
- * ├── api-human-resources-funcionarios
- * ├── api-human-resources-cargos  
- * ├── api-human-resources-departamentos
- * └── ... (5 mais)
- * 
- * 🏷️ Grupos Agregados (contextos):
- * ├── human-resources (8 controllers CRUD)
- * └── human-resources-bulk (8 controllers Bulk)
- * 
- * 📈 Total: 10 grupos vs 1 documento completo (500KB+)
- * </pre>
- * 
+ *
  * @see org.praxisplatform.uischema.util.OpenApiGroupResolver
- * @see org.praxisplatform.uischema.configuration.DynamicSwaggerConfig
+ * @see org.praxisplatform.uischema.extension.CustomOpenApiResolver
+ * @since 1.0.0
  */
 @RestController
 @RequestMapping("/schemas/filtered")

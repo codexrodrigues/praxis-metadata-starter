@@ -2,7 +2,17 @@ package org.praxisplatform.uischema;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
- * Interface que define as configurações de validação para campos de formulário UI em APIs.
+ * Define propriedades de validação utilizadas na extensão {@code x-ui.validation}.
+ *
+ * <p>
+ * Cada constante representa uma chave consumida pelo frontend para exibir
+ * mensagens e restrições. Os valores são preenchidos automaticamente pelo
+ * {@link org.praxisplatform.uischema.extension.CustomOpenApiResolver} com base
+ * nas anotações Jakarta Bean Validation, podendo ser sobrescritos via
+ * {@code extraProperties} em {@link org.praxisplatform.uischema.extension.annotation.UISchema}.
+ * </p>
+ *
+ * @since 1.0.0
  */
 public enum ValidationProperties {
     REQUIRED("required"),

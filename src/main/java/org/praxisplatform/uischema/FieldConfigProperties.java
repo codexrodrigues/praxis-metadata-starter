@@ -1,25 +1,32 @@
 package org.praxisplatform.uischema;
 
 /**
- * Interface que define as configurações básicas dos campos de formulário para UI em APIs.
+ * Define as chaves canônicas {@code x-ui} utilizadas para descrever campos em
+ * formulários, tabelas e filtros.
  *
- * Essa interface centraliza as propriedades que serão utilizadas para descrever os metadados
- * dos campos de um formulário, tais como nome, rótulo, tipo de dado, comportamento e visibilidade.
+ * <p>
+ * O {@link org.praxisplatform.uischema.extension.CustomOpenApiResolver}
+ * utiliza esse enum para serializar metadados gerados a partir de
+ * {@link org.praxisplatform.uischema.extension.annotation.UISchema} e das
+ * validações Bean Validation. As propriedades estão agrupadas por contexto para
+ * facilitar a consulta e seguem o vocabulário documentado em
+ * {@code docs/architecture-overview.md}.
+ * </p>
  *
- * Os grupos de propriedades abaixo foram definidos para:
+ * <p>Grupos principais:</p>
+ * <ol>
+ *   <li><strong>Identificação e Rótulo</strong> – chaves básicas de nome, label e descrição</li>
+ *   <li><strong>Tipo e Componente</strong> – descrevem o tipo de dado e o controle visual</li>
+ *   <li><strong>Layout e Estilo</strong> – controlam ordem, largura e agrupamento</li>
+ *   <li><strong>Comportamento e Validação</strong> – habilitam regras dinâmicas e restrições</li>
+ *   <li><strong>Visibilidade</strong> – permitem ocultar campos em contextos específicos</li>
+ *   <li><strong>Dependências e Ações</strong> – definem reações a outros campos</li>
+ *   <li><strong>Ícones e Representação Visual</strong> – customizam ícones associados</li>
+ *   <li><strong>Opções e Mapeamento</strong> – conectam campos a endpoints e listas</li>
+ *   <li><strong>Filtros</strong> – ajustes específicos para telas de busca</li>
+ * </ol>
  *
- * 1. **Identificação e Rótulo:** Informações básicas sobre o campo.
- * 2. **Tipo e Componente:** Definem o tipo de dado e o controle utilizado na interface.
- * 3. **Layout e Estilo:** Propriedades relacionadas à disposição visual e estilo.
- * 4. **Comportamento e Validação:** Controles de habilitação, leitura, regras de validação e condições.
- * 5. **Visibilidade:** Controle de exibição nos diferentes contextos (table, form e filter).
- * 6. **Dependências e Ações:** Configurações para dependências entre campos e comportamentos dinâmicos.
- * 7. **Ícones e Representação Visual:** Propriedades para customizar ícones associados aos campos.
- * 8. **Opções e Mapeamento:** Propriedades para a configuração de listas, endpoints e mapeamento de valores.
- * 9. **Filtros:** Propriedades específicas para o contexto de filtragem.
- *
- * Cada propriedade é definida como uma constante de String, permitindo sua referência
- * unificada e evitando erros de digitação em todo o sistema.
+ * @since 1.0.0
  */
 public enum FieldConfigProperties {
 

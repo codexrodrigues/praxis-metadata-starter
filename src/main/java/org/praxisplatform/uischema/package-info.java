@@ -1,13 +1,19 @@
 /**
- * Núcleo do Praxis Metadata Starter: tipos, enums e propriedades centrais
- * para enriquecer documentos OpenAPI com metadados {@code x-ui} e habilitar
- * validações e geração de UI orientadas a esquema.
+ * Núcleo do Praxis Metadata Starter com enums, propriedades e contratos que
+ * descrevem o vocabulário {@code x-ui} compartilhado entre backend e frontend.
+ *
  * <p>
- * Ver também: {@link org.praxisplatform.uischema.FieldConfigProperties} e
- * {@link org.praxisplatform.uischema.ValidationProperties} para o conjunto
- * de chaves suportadas no {@code x-ui}.
+ * Os tipos aqui definidos são consumidos pelo {@link org.praxisplatform.uischema.extension.CustomOpenApiResolver}
+ * durante o fluxo de enriquecimento OpenAPI descrito na documentação arquitetural.
+ * Destaque para:
  * </p>
  *
- * @since 1.0.0-beta.1
+ * <ul>
+ *   <li>{@link org.praxisplatform.uischema.FieldConfigProperties} – lista canônica de chaves UI</li>
+ *   <li>{@link org.praxisplatform.uischema.ValidationProperties} – propriedades de validação suportadas</li>
+ *   <li>{@link org.praxisplatform.uischema.FieldControlType} – componentes padrão renderizados na UI</li>
+ * </ul>
+ *
+ * @since 1.0.0
  */
 package org.praxisplatform.uischema;

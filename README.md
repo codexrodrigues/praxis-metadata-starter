@@ -17,6 +17,12 @@ Documentação online (GitHub Pages):
 - Site: https://codexrodrigues.github.io/praxis-metadata-starter/
 - Javadoc: https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/
 
+### Leituras recomendadas
+
+- [Visão arquitetural detalhada](docs/architecture-overview.md): camadas, fluxos e diagramas Mermaid.
+- [Visão dos pacotes Java](docs/packages-overview.md): responsabilidades e classes principais por módulo.
+- [Mapa de navegação](docs/sitemap.xml): otimiza indexação por mecanismos de busca e robôs de IA.
+
 ### Concept Usage
 
 - Conceitos
@@ -145,26 +151,32 @@ Aqui está uma visão geral de alto nível de como o Praxis Metadata Starter con
 graph TD
     subgraph Backend
         A[Java DTO com @UISchema]
+        B[Validações Jakarta]
     end
-    subgraph Framework
-        B(Processo de Enriquecimento de Metadados)
+    subgraph Starter
+        C[CustomOpenApiResolver]
+        D[OpenApiGroupResolver]
+        E[ApiDocsController]
     end
-    subgraph Camada de API
-        C(Esquema OpenAPI com extensão x-ui)
-        D{Endpoint /schemas/filtered}
+    subgraph OpenAPI
+        F[/v3/api-docs/{group}]
+        G[Schema filtrado]
     end
     subgraph Frontend
-        E[Aplicação de UI]
-        F[Componentes Dinâmicos]
+        H[Aplicação de UI]
+        I[Componentes Dinâmicos]
     end
 
-    A --> B;
+    A --> C;
     B --> C;
-    C --> D;
-    E --> D;
-    D --> E;
-    E --> F;
+    C --> F;
+    F --> E;
+    E --> G;
+    G --> H;
+    H --> I;
 ```
+
+> Diagrama expandido disponível em [docs/architecture-overview.md](docs/architecture-overview.md#fluxo-de-enriquecimento-x-ui).
 
 ### Processo de Enriquecimento de Metadados
 
