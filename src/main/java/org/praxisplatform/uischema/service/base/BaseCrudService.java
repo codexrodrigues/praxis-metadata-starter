@@ -111,6 +111,12 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
      */
     default List<E> findAll() { return getRepository().findAll(getDefaultSort()); }
 
+    /**
+     * Recupera uma entidade pelo identificador.
+     * @param id identificador da entidade
+     * @return entidade encontrada
+     * @throws jakarta.persistence.EntityNotFoundException quando não encontrada
+     */
     default E findById(ID id) { return getRepository().findById(id).orElseThrow(this::getNotFoundException); }
 
     /**
@@ -137,6 +143,11 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
         }
     }
 
+    /**
+     * Persiste uma nova entidade.
+     * @param entity instância a ser salva
+     * @return entidade salva (com ID)
+     */
     default E save(E entity) { return getRepository().save(entity); }
     default E mergeUpdate(E existing, E update) {
         return existing;
@@ -242,6 +253,13 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
         }
     }
 
+    /**
+     * Atualiza uma entidade existente.
+     * @param id identificador da entidade a atualizar
+     * @param entity dados a serem mesclados e persistidos
+     * @return entidade atualizada
+     * @throws jakarta.persistence.EntityNotFoundException quando a entidade não existe
+     */
     default E update(ID id, E entity) {
         return getRepository()
                 .findById(id)
@@ -250,6 +268,10 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
                 .orElseThrow(this::getNotFoundException);
     }
 
+    /**
+     * Exclui uma entidade pelo identificador (ignora quando inexistente).
+     * @param id identificador da entidade a excluir
+     */
     default void deleteById(ID id) { getRepository().findById(id).ifPresent(e -> getRepository().delete(e)); }
 
     /**

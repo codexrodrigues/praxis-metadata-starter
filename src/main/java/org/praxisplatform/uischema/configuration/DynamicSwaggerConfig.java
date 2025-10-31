@@ -126,6 +126,7 @@ import java.util.Set;
  * }</pre>
  *
  * @see org.praxisplatform.uischema.annotation.ApiGroup
+ * @since 1.0.0
  * @see org.praxisplatform.uischema.annotation.ApiResource
  * @see org.praxisplatform.uischema.controller.docs.ApiDocsController
  * @see org.praxisplatform.uischema.util.OpenApiGroupResolver

@@ -34,6 +34,14 @@ jobs:
           ./mvnw --batch-mode -Dmaven.test.skip=true package javadoc:javadoc
           test -f target/site/apidocs/index.html
 
+      - name: Include root doc-files (custom examples)
+        run: |
+          # Copy src/main/javadoc/doc-files -> target/site/apidocs/doc-files
+          if [ -d src/main/javadoc/doc-files ]; then
+            mkdir -p target/site/apidocs/doc-files
+            cp -r src/main/javadoc/doc-files/. target/site/apidocs/doc-files/
+          fi
+
       - name: Prepare docs folder
         run: |
           rm -rf docs/apidocs

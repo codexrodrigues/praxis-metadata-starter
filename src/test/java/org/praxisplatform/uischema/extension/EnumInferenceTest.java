@@ -6,6 +6,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
+import java.lang.annotation.Annotation;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -19,7 +20,8 @@ class EnumInferenceTest {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
         StringSchema property = new StringSchema();
         property.setEnum(Arrays.asList("A","B","C"));
-        resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
+        Annotation[] anns = new Annotation[]{ TestUISchemaDefaults.instance() };
+        resolver.applyBeanValidatorAnnotations(property, anns, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.RADIO.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
     }
@@ -29,7 +31,8 @@ class EnumInferenceTest {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
         StringSchema property = new StringSchema();
         property.setEnum(Arrays.asList("A","B","C","D","E","F","G","H","I","J")); // 10
-        resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
+        Annotation[] anns = new Annotation[]{ TestUISchemaDefaults.instance() };
+        resolver.applyBeanValidatorAnnotations(property, anns, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.SELECT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
     }
@@ -41,7 +44,8 @@ class EnumInferenceTest {
         java.util.List<String> values = new java.util.ArrayList<>();
         for (int i=0;i<100;i++) values.add("V"+i);
         property.setEnum(values);
-        resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
+        Annotation[] anns = new Annotation[]{ TestUISchemaDefaults.instance() };
+        resolver.applyBeanValidatorAnnotations(property, anns, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.AUTO_COMPLETE.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
     }

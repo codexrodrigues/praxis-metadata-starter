@@ -52,6 +52,10 @@ public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFil
     @Override
     @PostMapping
     @Operation(summary = "Recurso somente leitura", hidden = true)
+    /**
+     * Operação não permitida em recurso somente leitura.
+     * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
+     */
     public ResponseEntity<RestApiResponse<D>> create(@jakarta.validation.Valid @RequestBody D dto) {
         throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "recurso somente leitura");
     }
@@ -59,6 +63,10 @@ public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFil
     @Override
     @PutMapping("/{id}")
     @Operation(summary = "Recurso somente leitura", hidden = true)
+    /**
+     * Operação não permitida em recurso somente leitura.
+     * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
+     */
     public ResponseEntity<RestApiResponse<D>> update(@PathVariable ID id, @jakarta.validation.Valid @RequestBody D dto) {
         throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "recurso somente leitura");
     }
@@ -66,6 +74,10 @@ public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFil
     @Override
     @DeleteMapping("/{id}")
     @Operation(summary = "Recurso somente leitura", hidden = true)
+    /**
+     * Operação não permitida em recurso somente leitura.
+     * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
+     */
     public ResponseEntity<Void> delete(@PathVariable ID id) {
         throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "recurso somente leitura");
     }
@@ -73,6 +85,10 @@ public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFil
     @Override
     @DeleteMapping("/batch")
     @Operation(summary = "Recurso somente leitura", hidden = true)
+    /**
+     * Operação não permitida em recurso somente leitura.
+     * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
+     */
     public ResponseEntity<Void> deleteBatch(@RequestBody List<ID> ids) {
         throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "recurso somente leitura");
     }

@@ -435,15 +435,37 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     /**
      * Endpoint para filtrar entidades com paginação.
      *
-     * @param filterDTO  DTO contendo os critérios de filtro
-     * @param page       número da página (inicia em 0)
-     * @param size       quantidade de registros por página
-     * @param includeIds IDs adicionais que devem aparecer no topo da primeira página
-     *                   (repetir nas páginas subsequentes para evitar duplicação,
-     *                   sem nova injeção)
+     * <h4>Problema que resolve</h4>
+     * <ul>
+     *   <li>Prover paginação tradicional com ordenação consistente por padrão quando nenhum <code>sort</code> é enviado.</li>
+     *   <li>Permitir injetar registros via <code>includeIds</code> na primeira página sem duplicar itens nas seguintes.</li>
+     * </ul>
+     *
+     * <h4>Como funciona internamente</h4>
+     * <ul>
+     *   <li>Valida <code>size</code> ≤ <code>praxis.pagination.max-size</code>; 422 quando excede.</li>
+     *   <li>Monta <code>Pageable</code> com {@link org.praxisplatform.uischema.util.PageableBuilder} e fallback de sort via {@link BaseCrudService#getDefaultSort()}.</li>
+     *   <li>Constrói {@code Specification} via {@link org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder} a partir do DTO.</li>
+     *   <li>Enriquece cada item com links HATEOAS através de {@link #toEntityModel(Object)} quando habilitado.</li>
+     *   <li>Adiciona links de documentação de schema (request/response) e <code>X-Data-Version</code> se disponível.</li>
+     * </ul>
+     *
+     * @param filterDTO   DTO contendo os critérios de filtro
+     * @param page        número da página (inicia em 0)
+     * @param size        quantidade de registros por página
+     * @param includeIds  IDs adicionais que devem aparecer no topo da primeira página
+     *                    (repetir nas páginas subsequentes para evitar duplicação,
+     *                    sem nova injeção)
      * @param queryParams parâmetros de query adicionais (ex.: {@code sort})
      * @return página de entidades filtradas com links HATEOAS
-     * <p><em>Nota:</em> tamanho máximo configurável via {@code praxis.pagination.max-size} (padrão: 200)</p>
+     * @throws org.springframework.web.server.ResponseStatusException quando o parâmetro
+     * <code>size</code> excede o limite configurado (422)
+     *
+     * <h4>Erros comuns</h4>
+     * <ul>
+     *   <li>422: <code>size</code> acima do limite configurado.</li>
+     *   <li>400: validação do body (campos inválidos).</li>
+     * </ul>
      */
     @PostMapping("/filter")
     @Operation(
@@ -505,15 +527,36 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     }
 
     /**
-     * Endpoint para paginação baseada em cursor, oferecendo resultados estáveis
+     * Endpoint para paginação baseada em cursor (keyset), oferecendo resultados estáveis
      * durante listas longas.
      *
-     * @param filterDTO  critérios de filtro
-     * @param after      cursor para avançar
-     * @param before     cursor para retroceder
-     * @param size       quantidade de registros
+     * <h4>Problema que resolve</h4>
+     * <ul>
+     *   <li>Evitar saltos/itens repetidos entre navegações quando dados mudam.</li>
+     * </ul>
+     *
+     * <h4>Como funciona internamente</h4>
+     * <ul>
+     *   <li>Valida <code>size</code> ≤ <code>praxis.pagination.max-size</code>.</li>
+     *   <li>Monta {@link Sort} com {@link org.praxisplatform.uischema.util.SortBuilder} e fallback do service.</li>
+     *   <li>Delegado para {@link BaseCrudService#filterByCursor(GenericFilterDTO, org.springframework.data.domain.Sort, String, String, int)}.</li>
+     *   <li>Mapeia conteúdo para <code>EntityModel&lt;D&gt;</code> e preserva <code>next</code>/<code>prev</code>/<code>size</code>.</li>
+     * </ul>
+     *
+     * @param filterDTO   critérios de filtro
+     * @param after       cursor para avançar
+     * @param before      cursor para retroceder
+     * @param size        quantidade de registros
      * @param queryParams parâmetros de query adicionais (ex.: {@code sort})
      * @return página baseada em cursor
+     * @throws org.springframework.web.server.ResponseStatusException quando <code>size</code>
+     * excede o limite (422) ou a operação não é suportada (501)
+     *
+     * <h4>Erros comuns</h4>
+     * <ul>
+     *   <li>501: service não implementa keyset.</li>
+     *   <li>422: <code>size</code> acima do limite.</li>
+     * </ul>
      */
     @PostMapping("/filter/cursor")
     @Operation(summary = "Filtrar com paginação por cursor",
@@ -556,7 +599,32 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
 
     /**
      * Localiza a posição de um registro considerando filtro e ordenação.
-     * Entidades que não implementarem o cálculo retornam 501.
+     *
+     * <h4>Problema que resolve</h4>
+     * <ul>
+     *   <li>Permitir que a UI navegue diretamente até a página onde um ID aparece.</li>
+     * </ul>
+     *
+     * <h4>Como funciona internamente</h4>
+     * <ul>
+     *   <li>Valida <code>size</code> ≤ <code>praxis.pagination.max-size</code>.</li>
+     *   <li>Calcula {@link Sort} e chama {@link BaseCrudService#locate(GenericFilterDTO, org.springframework.data.domain.Sort, Object)}.</li>
+     *   <li>Monta {@link LocateResponse} com índice absoluto e página (<code>index/size</code>).</li>
+     * </ul>
+     *
+     * @param filterDTO   critérios de filtro
+     * @param id          identificador do registro de interesse
+     * @param size        tamanho de página utilizado para derivar a página a partir do índice absoluto
+     * @param queryParams parâmetros de query adicionais (ex.: {@code sort})
+     * @return resposta com {@link LocateResponse} contendo índice e página
+     * @throws org.springframework.web.server.ResponseStatusException quando <code>size</code>
+     *                            excede o limite (422) ou a operação não é suportada (501)
+     *
+     * <h4>Erros comuns</h4>
+     * <ul>
+     *   <li>501: service não implementa localização.</li>
+     *   <li>422: <code>size</code> acima do limite.</li>
+     * </ul>
      */
     @PostMapping("/locate")
     @Operation(summary = "Localizar posição de registro",
@@ -585,8 +653,12 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     // Métodos de CRUD
     // -------------------------------------------------------------------------
 
+    /**
+     * Lista todos os registros aplicando @DefaultSortColumn quando nenhum sort é enviado.
+     * @return envelope de resposta com a lista de entidades como {@link EntityModel}
+     */
     @GetMapping("/all")
-    @Operation(summary = "Listar todos os registros", description = "Retorna todos os registros.")
+    @Operation(summary = "Listar todos os registros", description = "Retorna todos os registros, aplicando @DefaultSortColumn quando nenhum sort é enviado.")
     public ResponseEntity<RestApiResponse<List<EntityModel<D>>>> getAll() {
         List<E> entities = getService().findAll();
 
@@ -641,9 +713,51 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
 
     /**
      * Retorna opções paginadas para popular selects.
-     * <p>
-     * Tamanho máximo configurável via {@code praxis.pagination.max-size} (padrão: 200).
-     * </p>
+     *
+     * <h4>Problema que resolve</h4>
+     * <ul>
+     *   <li>Fornecer payload leve (id/label) com filtros e paginação para componentes de seleção.</li>
+     * </ul>
+     *
+     * <h4>Como funciona internamente</h4>
+     * <ul>
+     *   <li>Valida <code>size</code> ≤ <code>praxis.pagination.max-size</code>.</li>
+     *   <li>Aplica fallback de ordenação do service quando <code>sort</code> ausente.</li>
+     *   <li>Label resolvido por {@code @OptionLabel} ou heurísticas do {@link BaseCrudService#getOptionMapper()}.</li>
+     * </ul>
+     *
+     * <h4>Uso em DTOs (@UISchema)</h4>
+     * <p>Para referenciar este endpoint em um campo de seleção, anote o DTO com
+     * {@code @UISchema} configurando {@code endpoint}, {@code valueField} e {@code displayField}:</p>
+     * <pre>{@code
+     * // 1) Consumindo OptionDTO diretamente (payload leve)
+     * @UISchema(
+     *   controlType = FieldControlType.SELECT,
+     *   endpoint = ApiPaths.Catalog.CATEGORIAS + "/options/filter",
+     *   valueField = "id",     // OptionDTO.id
+     *   displayField = "label" // OptionDTO.label (via @OptionLabel/heurísticas)
+     * )
+     * private Long categoriaId;
+     *
+     * // 2) Alternativa: usar /filter do recurso (DTO completo) e mapear os campos
+     * @UISchema(
+     *   controlType = FieldControlType.SELECT,
+     *   endpoint = ApiPaths.Catalog.CATEGORIAS + "/filter", // ✅ sempre /filter
+     *   valueField = "id",
+     *   displayField = "nome"
+     * )
+     * private Long categoriaId;
+     * }
+     * </pre>
+     * <p>Dica: para combos dependentes, a propriedade {@code endpoint} suporta interpolação
+     * de parâmetros com {@code ${campo}}.</p>
+     *
+     * @param filterDTO   critérios de filtro
+     * @param page        número da página (0‑based)
+     * @param size        tamanho da página
+     * @param queryParams parâmetros adicionais (ex.: {@code sort})
+     * @return página de {@link OptionDTO}
+     * @throws org.springframework.web.server.ResponseStatusException quando <code>size</code> excede o limite (422)
      */
     @PostMapping("/options/filter")
     @Operation(summary = "Listar opções filtradas", description = "Retorna projeções id/label para selects.")
@@ -662,8 +776,29 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         return withVersion(ResponseEntity.ok(), result);
     }
 
+    /**
+     * Retorna opções (id/label) para uma coleção de IDs, preservando a ordem solicitada.
+     *
+     * <h4>Uso em DTOs (@UISchema)</h4>
+     * <p>Use em conjunto com {@code /options/filter} para reidratar valores já salvos
+     * quando a UI precisa montar o valor inicial de selects multivalorados:</p>
+     * <pre>{@code
+     * // Busca dinâmica enquanto o usuário digita
+     * endpoint = ApiPaths.Catalog.CATEGORIAS + "/options/filter"
+     * valueField = "id"
+     * displayField = "label"
+     *
+     * // Reidratação (IDs → id/label) ao abrir a tela
+     * GET ApiPaths.Catalog.CATEGORIAS + "/options/by-ids?ids=10&ids=7"
+     * }
+     * </pre>
+     *
+     * @param ids lista de identificadores (opcional)
+     * @return lista de {@link OptionDTO} na mesma ordem dos IDs
+     * @throws org.springframework.web.server.ResponseStatusException quando a quantidade de IDs excede o limite configurado (422)
+     */
     @GetMapping("/options/by-ids")
-    @Operation(summary = "Buscar opções por IDs", description = "Retorna projeções id/label na ordem solicitada.")
+    @Operation(summary = "Buscar opções por IDs", description = "Retorna projeções id/label na ordem solicitada. Limite configurável por 'praxis.query.by-ids.max'.")
     public ResponseEntity<List<OptionDTO<ID>>> getOptionsByIds(
             @RequestParam(name = "ids", required = false) List<ID> ids) {
         if (ids == null || ids.isEmpty()) {
@@ -679,7 +814,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     @GetMapping("/{id}")
     @Operation(
             summary = "Buscar registro por ID",
-            description = "Retorna um registro específico pelo ID fornecido. Retorna 404 se o registro não for encontrado.",
+            description = "Retorna um registro pelo ID com links HATEOAS úteis. 404 quando não encontrado.",
             parameters = {
                     @Parameter(
                             name = "id",
@@ -703,6 +838,12 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                     )
             }
     )
+    /**
+     * Recupera um registro pelo seu identificador.
+     * @param id identificador do registro
+     * @return envelope de resposta com o DTO
+     * @throws jakarta.persistence.EntityNotFoundException quando o registro não é encontrado
+     */
     public ResponseEntity<RestApiResponse<D>> getById(@PathVariable ID id) {
         // Se não existir, o service pode lançar ResourceNotFoundException
         E entity = getService().findById(id);
@@ -719,11 +860,16 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         Links links = Links.of(linkList);
 
         var response = RestApiResponse.success(dto, isHateoasEnabled() ? links : null);
-        return ResponseEntity.ok(response);
+        return withVersion(ResponseEntity.ok(), response);
     }
 
     @PostMapping
-    @Operation(summary = "Criar novo registro", description = "Cria um novo registro.")
+    @Operation(summary = "Criar novo registro", description = "Cria um novo registro. Retorna 201 + Location + envelope padronizado.")
+    /**
+     * Cria um novo registro a partir do DTO informado.
+     * @param dto DTO de entrada validado
+     * @return 201 Created com Location e envelope de resposta contendo o DTO salvo
+     */
     public ResponseEntity<RestApiResponse<D>> create(@jakarta.validation.Valid @RequestBody D dto) {
         E entityToSave = toEntity(dto);
         E savedEntity = getService().save(entityToSave);
@@ -742,13 +888,13 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         );
 
         var response = RestApiResponse.success(savedDto, isHateoasEnabled() ? links : null);
-        return ResponseEntity.created(selfLink.toUri()).body(response);
+        return withVersion(ResponseEntity.created(selfLink.toUri()), response);
     }
 
     @PutMapping("/{id}")
     @Operation(
             summary = "Atualizar registro existente",
-            description = "Atualiza um registro específico pelo ID fornecido. Retorna o registro atualizado ou um erro se não for encontrado.",
+            description = "Atualiza um registro pelo ID. 404 quando não encontrado. Retorna envelope padronizado.",
             parameters = {
                     @Parameter(
                             name = "id",
@@ -772,6 +918,13 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                     )
             }
     )
+    /**
+     * Atualiza um registro existente.
+     * @param id  identificador do registro a atualizar
+     * @param dto DTO com os novos dados (validado)
+     * @return envelope de resposta com o DTO atualizado
+     * @throws jakarta.persistence.EntityNotFoundException quando o registro não é encontrado
+     */
     public ResponseEntity<RestApiResponse<D>> update(@PathVariable ID id, @jakarta.validation.Valid @RequestBody D dto) {
         E entityToUpdate = toEntity(dto);
         E updatedEntity = getService().update(id, entityToUpdate);
@@ -788,7 +941,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         );
 
         var response = RestApiResponse.success(updatedDto, isHateoasEnabled() ? links : null);
-        return ResponseEntity.ok(response);
+        return withVersion(ResponseEntity.ok(), response);
     }
 
     @DeleteMapping("/{id}")
@@ -814,6 +967,11 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                     )
             }
     )
+    /**
+     * Exclui um registro pelo seu identificador.
+     * @param id identificador do registro a excluir
+     * @return 204 No Content
+     */
     public ResponseEntity<Void> delete(@PathVariable ID id) {
         getService().deleteById(id);
         return ResponseEntity.noContent().build();
@@ -834,6 +992,11 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                     )
             }
     )
+    /**
+     * Exclui múltiplos registros pelos seus identificadores.
+     * @param ids lista de IDs a excluir; retorna 400 quando nula ou vazia
+     * @return 204 No Content quando bem-sucedido
+     */
     public ResponseEntity<Void> deleteBatch(@RequestBody List<ID> ids) {
         if (ids == null || ids.isEmpty()) {
             return ResponseEntity.badRequest().build();
@@ -869,6 +1032,10 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                     )
             }
     )
+    /**
+     * Redireciona para o endpoint de schemas filtrados do recurso atual.
+     * @return resposta 302 com Location para o schema do recurso
+     */
     public ResponseEntity<Void> getSchema() {
         // Constrói o link para o endpoint de metadados
         Link metadataLink = linkToUiSchema("/all", "get", "response");

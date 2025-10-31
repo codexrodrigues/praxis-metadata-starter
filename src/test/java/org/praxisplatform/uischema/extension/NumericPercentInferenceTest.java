@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.extension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.models.media.Schema;
+import java.lang.annotation.Annotation;
 import jakarta.validation.constraints.Digits;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
@@ -26,7 +27,7 @@ class NumericPercentInferenceTest {
         Schema<?> property = new Schema<>().type("number").format("percent");
         property.setName("percentual");
 
-        resolver.applyBeanValidatorAnnotations(property, new Annotation[]{}, null, false);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[]{ TestUISchemaDefaults.instance() }, null, false);
 
         Map<String,Object> xui = getXui(property);
         assertEquals("0.01", xui.get(FieldConfigProperties.NUMERIC_STEP.getValue()));
@@ -42,7 +43,7 @@ class NumericPercentInferenceTest {
         property.setName("salary");
         Annotation digits = Dummy.class.getDeclaredField("salary").getAnnotation(Digits.class);
 
-        resolver.applyBeanValidatorAnnotations(property, new Annotation[]{ digits }, null, false);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[]{ TestUISchemaDefaults.instance(), digits }, null, false);
 
         Map<String,Object> xui = getXui(property);
         assertEquals("0.01", xui.get(FieldConfigProperties.NUMERIC_STEP.getValue()));
@@ -57,4 +58,3 @@ class NumericPercentInferenceTest {
         return (Map<String, Object>) xui;
     }
 }
-

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Endpoints — Guia Conceitual</title>
+  <style>
+    /* Estilos mínimos: compatível com tema claro/escuro do Javadoc */
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: .4rem; color: inherit; }
+    thead th { background: transparent !important; }
+    code, pre { background: #f6f8fa; border-radius: 4px; }
+    pre { padding: .6rem; overflow: auto; }
+  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+  <div class="flex-content">
+  <h1>Endpoints — Guia Conceitual</h1>
+  <p>Esta página explica de forma didática o que cada endpoint do controller base entrega, quando usar, quais parâmetros recebe e o que retorna. Também aponta boas práticas, limites e exemplos copy/paste.</p>
+
+  <h2>Visão Geral</h2>
+  <ul>
+    <li><strong>Controllers</strong>: estenda <code>AbstractCrudController</code> (CRUD completo) ou <code>AbstractReadOnlyController</code> (somente leitura).</li>
+    <li><strong>Anotações</strong>: use <code>@ApiResource</code> para declarar o path e <code>@ApiGroup</code> para organização do OpenAPI.</li>
+    <li><strong>Service</strong>: forneça um <code>BaseCrudService</code> (ou subclasse de <code>AbstractBaseCrudService</code>).</li>
+    <li><strong>HATEOAS (opt‑in)</strong>: controlado por <code>praxis.hateoas.enabled=true</code>. Itens trazem <code>self</code>, <code>create</code>, <code>update</code>, <code>delete</code> quando aplicável; respostas agregadas incluem links úteis (<code>all</code>, <code>filter</code>, <code>filter-cursor</code>, <code>schema</code>).</li>
+    <li><strong>Versão de dados</strong>: algumas respostas incluem o cabeçalho <code>X-Data-Version</code> (via <code>getDatasetVersion()</code> no service) para suportar cache/ETag na UI.</li>
+  </ul>
+
+  <h2>CRUD e Listagens</h2>
+  <table>
+    <thead>
+      <tr><th>Método</th><th>Path</th><th>Quando usar</th><th>Parâmetros</th><th>Retorno</th><th>Notas</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GET</td>
+        <td><code>/{id}</code></td>
+        <td>Recuperar um registro específico</td>
+        <td><code>id</code> (path)</td>
+        <td><code>RestApiResponse&lt;D&gt;</code></td>
+        <td>404 quando não encontrado</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td><code>/all</code></td>
+        <td>Listar todos com ordenação padrão</td>
+        <td>—</td>
+        <td><code>RestApiResponse&lt;List&lt;EntityModel&lt;D&gt;&gt;&gt;</code></td>
+        <td>Aplica <code>@DefaultSortColumn</code> quando presente</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td><code>/by-ids</code></td>
+        <td>Pré-carregar registros por IDs preservando ordem</td>
+        <td><code>ids</code> (query, repetido)</td>
+        <td><code>List&lt;D&gt;</code></td>
+        <td>Limite <code>praxis.query.by-ids.max</code>; vazio → lista vazia</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td><code>/filter</code></td>
+        <td>Listar com filtros e paginação</td>
+        <td><code>page</code>, <code>size</code>, <code>sort</code>, <code>includeIds</code> e body = <code>FD</code></td>
+        <td><code>RestApiResponse&lt;Page&lt;EntityModel&lt;D&gt;&gt;&gt;</code></td>
+        <td>Tamanho ≤ <code>praxis.pagination.max-size</code></td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td><code>/filter/cursor</code></td>
+        <td>Paginação por cursor (keyset)</td>
+        <td><code>after</code>, <code>before</code>, <code>size</code>, <code>sort</code> e body = <code>FD</code></td>
+        <td><code>RestApiResponse&lt;CursorPage&lt;EntityModel&lt;D&gt;&gt;&gt;</code></td>
+        <td>501 se não implementado no service</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td><code>/locate</code></td>
+        <td>Localizar posição absoluta (índice) e página do ID</td>
+        <td><code>id</code>, <code>size</code>, <code>sort</code> e body = <code>FD</code></td>
+        <td><code>LocateResponse (position, page)</code></td>
+        <td>501 se o service não implementar</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Problemas que resolve (listagens)</h3>
+  <ul>
+    <li><strong>/filter</strong>: paginação tradicional + filtros ricos (26 operações), ordenação padrão automática quando nenhum <code>sort</code> é enviado.</li>
+    <li><strong>/filter/cursor</strong>: paginação estável (keyset) para listas longas — evita saltos ao inserir/alterar dados.</li>
+    <li><strong>/locate</strong>: localizar rapidamente a posição de um ID para paginar diretamente até ele.</li>
+    <li><strong>/by-ids</strong>: recuperar um conjunto específico na ordem escolhida pelo usuário.</li>
+  </ul>
+
+  <h2>Options (id/label) para selects</h2>
+  <table>
+    <thead>
+      <tr><th>Método</th><th>Path</th><th>Quando usar</th><th>Parâmetros</th><th>Retorno</th><th>Notas</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>POST</td>
+        <td><code>/options/filter</code></td>
+        <td>Prover opções paginadas (id/label) a partir de filtros</td>
+        <td><code>page</code>, <code>size</code>, <code>sort</code> e body = <code>FD</code></td>
+        <td><code>Page&lt;OptionDTO&lt;ID&gt;&gt;</code></td>
+        <td>Label via <code>@OptionLabel</code> ou heurísticas</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td><code>/options/by-ids</code></td>
+        <td>Mapear IDs para labels, preservando ordem</td>
+        <td><code>ids</code> (query, repetido)</td>
+        <td><code>List&lt;OptionDTO&lt;ID&gt;&gt;</code></td>
+        <td>Limite segue <code>by-ids</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Problemas que resolve (options)</h3>
+  <ul>
+    <li><strong>/options/filter</strong>: payload leve (id/label) com paginação e filtros para combos/autocomplete.</li>
+    <li><strong>/options/by-ids</strong>: reidratar valores salvos (ids) com labels corretos, na mesma ordem.</li>
+  </ul>
+
+  <h2>CRUD (escrita)</h2>
+  <table>
+    <thead>
+      <tr><th>Método</th><th>Path</th><th>Quando usar</th><th>Parâmetros</th><th>Retorno</th><th>Notas</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>POST</td>
+        <td><code>/</code></td>
+        <td>Criar novo registro</td>
+        <td>body = <code>D</code></td>
+        <td><code>201 Created</code> + <code>RestApiResponse&lt;D&gt;</code></td>
+        <td>Location aponta para <code>/{id}</code></td>
+      </tr>
+      <tr>
+        <td>PUT</td>
+        <td><code>/{id}</code></td>
+        <td>Atualizar registro</td>
+        <td><code>id</code> e body = <code>D</code></td>
+        <td><code>RestApiResponse&lt;D&gt;</code></td>
+        <td>404 quando não encontrado</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td><code>/{id}</code></td>
+        <td>Remover registro</td>
+        <td><code>id</code></td>
+        <td><code>204 No Content</code></td>
+        <td>404 quando não encontrado</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td><code>/batch</code></td>
+        <td>Remover múltiplos registros por IDs</td>
+        <td>body = <code>List&lt;ID&gt;</code></td>
+        <td><code>204 No Content</code></td>
+        <td>400 quando lista vazia/nula</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Problemas que resolve (escrita)</h3>
+  <ul>
+    <li>Padroniza envoltório de resposta (<code>RestApiResponse</code>) e links HATEOAS úteis.</li>
+    <li>Em <strong>read‑only</strong>, todos os endpoints de escrita retornam <code>405</code>, evitando alterações indevidas.</li>
+  </ul>
+
+  <h2>Schemas (x‑ui / OpenAPI)</h2>
+  <table>
+    <thead>
+      <tr><th>Método</th><th>Path</th><th>Quando usar</th><th>Parâmetros</th><th>Retorno</th><th>Notas</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GET</td>
+        <td><code>/schemas</code></td>
+        <td>Obter/derivar esquema do recurso atual</td>
+        <td>—</td>
+        <td><code>302</code> para <code>/schemas/filtered</code></td>
+        <td>Redireciona com <code>path</code>, <code>operation</code>, <code>schemaType</code>, <code>idField</code>, <code>readOnly</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Problemas que resolve (schemas)</h3>
+  <ul>
+    <li>Integra UIs dinâmicas: a UI consome schemas filtrados/rotas corretas por recurso.</li>
+  </ul>
+
+  <h2>Parâmetros e Retornos (copiar/colar)</h2>
+  <h3>POST /filter</h3>
+  <pre><code>POST {base}/filter?page=0&amp;size=20&amp;sort=nome,asc&amp;sort=id,desc
+Content-Type: application/json
+
+{ /* FD - DTO de filtro, campos com @Filterable */ }
+  </code></pre>
+  <ul>
+    <li><strong>Query</strong>: <code>page:int</code>, <code>size:int</code> (≤ <code>praxis.pagination.max-size</code>), <code>sort:string[]</code> (<code>campo,asc|desc</code>), <code>includeIds:ID[]</code>.</li>
+    <li><strong>Body</strong>: <code>FD</code> (campos anotados com <code>@Filterable</code>).</li>
+    <li><strong>Retorno</strong>: <code>RestApiResponse&lt;Page&lt;EntityModel&lt;D&gt;&gt;&gt;</code> com links HATEOAS (quando habilitado).</li>
+    <li><strong>Erros</strong>: 422 (<code>size</code> excede); 400 validações; 500 internos.</li>
+  </ul>
+
+  <h3>POST /filter/cursor</h3>
+  <pre><code>POST {base}/filter/cursor?size=50&amp;after=eyJrIjoiY29kZS0xMjMifQ==
+Content-Type: application/json
+
+{ /* FD */ }
+  </code></pre>
+  <ul>
+    <li><strong>Query</strong>: <code>after:string</code> | <code>before:string</code> (cursores), <code>size:int</code> (≤ máx), <code>sort:string[]</code>.</li>
+    <li><strong>Retorno</strong>: <code>RestApiResponse&lt;CursorPage&lt;EntityModel&lt;D&gt;&gt;&gt;</code> com <code>content</code>, <code>next</code>, <code>prev</code>, <code>size</code>.</li>
+    <li><strong>Erros</strong>: 501 quando o service não implementa; 422 quando <code>size</code> excede.</li>
+  </ul>
+
+  <h3>POST /locate</h3>
+  <pre><code>POST {base}/locate?size=20&amp;id=123
+Content-Type: application/json
+
+{ /* FD */ }
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: <code>LocateResponse</code> com <code>position</code> (índice zero‑based) e <code>page</code> (derivada de <code>size</code>).</li>
+    <li><strong>Erros</strong>: 501 se não implementado; 422 quando <code>size</code> excede.</li>
+  </ul>
+
+  <h3>GET /all</h3>
+  <pre><code>GET {base}/all
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: <code>RestApiResponse&lt;List&lt;EntityModel&lt;D&gt;&gt;&gt;</code> com links (<code>filter</code>, <code>filter-cursor</code>, <code>schema</code>).</li>
+    <li><strong>Ordenação</strong>: aplica <code>@DefaultSortColumn</code> quando não há <code>sort</code>.</li>
+  </ul>
+
+  <h3>GET /by-ids</h3>
+  <pre><code>GET {base}/by-ids?ids=10&amp;ids=7&amp;ids=42
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: <code>List&lt;D&gt;</code> na mesma ordem dos <code>ids</code>.</li>
+    <li><strong>Limites</strong>: até <code>praxis.query.by-ids.max</code> itens; vazio/nulo → lista vazia.</li>
+  </ul>
+
+  <h3>POST /options/filter</h3>
+  <pre><code>POST {base}/options/filter?page=0&amp;size=20
+Content-Type: application/json
+
+{ /* FD */ }
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: <code>Page&lt;OptionDTO&lt;ID&gt;&gt;</code>. Label via <code>@OptionLabel</code> ou heurísticas do <code>BaseCrudService</code>.</li>
+  </ul>
+
+  <h3>GET /options/by-ids</h3>
+  <pre><code>GET {base}/options/by-ids?ids=10&amp;ids=7
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: <code>List&lt;OptionDTO&lt;ID&gt;&gt;</code> na ordem solicitada. Limite segue <code>by-ids</code>.</li>
+  </ul>
+
+  <h3>GET /{id}</h3>
+  <pre><code>GET {base}/{id}
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: <code>RestApiResponse&lt;D&gt;</code> com links (<code>self</code>, <code>all</code>, <code>filter</code>, <code>filter-cursor</code>, <code>update</code>/<code>delete</code> quando permitido).</li>
+    <li><strong>Erros</strong>: 404 quando não encontrado.</li>
+  </ul>
+
+  <h3>POST /</h3>
+  <pre><code>curl -s -X POST "{base}" \
+  -H "Content-Type: application/json" \
+  -d '{ /* D */ }'
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: <code>201 Created</code> + <code>Location</code> do recurso + <code>RestApiResponse&lt;D&gt;</code>.</li>
+    <li><strong>Erros</strong>: 400/422 validações; 405 em recursos read‑only.</li>
+  </ul>
+
+  <h3>PUT /{id}</h3>
+  <pre><code>curl -s -X PUT "{base}/{id}" \
+  -H "Content-Type: application/json" \
+  -d '{ /* D */ }'
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: <code>RestApiResponse&lt;D&gt;</code> com links; 404 quando não encontrado; 405 em read‑only.</li>
+  </ul>
+
+  <h3>DELETE /{id}</h3>
+  <pre><code>curl -s -X DELETE "{base}/{id}"
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: <code>204 No Content</code>; 404 quando não encontrado; 405 em read‑only.</li>
+  </ul>
+
+  <h3>DELETE /batch</h3>
+  <pre><code>curl -s -X DELETE "{base}/batch" \
+  -H "Content-Type: application/json" \
+  -d '[1,2,3]'
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: <code>204 No Content</code>; 400 para lista vazia/nula; 405 em read‑only.</li>
+  </ul>
+
+  <h3>GET /schemas</h3>
+  <pre><code>GET {base}/schemas  // 302 → /schemas/filtered?path=...&amp;operation=...&amp;schemaType=...
+  </code></pre>
+  <ul>
+    <li><strong>Uso</strong>: UIs dinâmicas (x‑ui): expõe <code>idField</code> e <code>readOnly</code> para enriquecer componentes de UI.</li>
+  </ul>
+
+  <h2>Como funciona internamente</h2>
+  <ul>
+    <li><strong>Pageable/Sort</strong>: <code>PageableBuilder</code>/<code>SortBuilder</code> convertem <code>page</code>/<code>size</code>/<code>sort</code> e aplicam <em>fallback</em> de <code>getDefaultSort()</code> do service.</li>
+    <li><strong>Filtros</strong>: <code>GenericSpecificationsBuilder</code> converte <code>FD</code> + <code>@Filterable</code> em <em>Specification</em> JPA (26 operações, com relações via <code>relation="a.b.campo"</code>).</li>
+    <li><strong>CursorPage</strong>: quando implementado no service, retorna <code>content</code>, <code>next</code>, <code>prev</code>, <code>size</code>; senão 501.</li>
+    <li><strong>Locate</strong>: <code>service.locate(FD, Sort, ID)</code> retorna <code>OptionalLong</code>; vazio → 501.</li>
+    <li><strong>Options</strong>: <code>BaseCrudService#getOptionMapper()</code> projeta <code>OptionDTO&lt;ID&gt;</code>; label via <code>@OptionLabel</code> ou heurísticas (<code>getLabel()</code>, <code>getNome()</code>...).</li>
+    <li><strong>HATEOAS</strong>: itens recebem <code>self</code>, <code>create</code>, <code>update</code>, <code>delete</code> (omitidos em read‑only). Respostas agregadas incluem links úteis (<code>all</code>, <code>filter</code>, <code>filter-cursor</code>, <code>schema</code>).</li>
+    <li><strong>Headers</strong>: <code>X-Data-Version</code> é adicionado nas respostas que usam <code>withVersion(...)</code>.</li>
+  </ul>
+
+  <h2>Erros comuns e mitigação</h2>
+  <ul>
+    <li><strong>422 Unprocessable Entity</strong>: <code>size</code> &gt; <code>praxis.pagination.max-size</code>; excesso de IDs em <code>by-ids</code>/<code>options/by-ids</code>.</li>
+    <li><strong>404 Not Found</strong>: GET <code>/{id}</code> quando não existe.</li>
+    <li><strong>405 Method Not Allowed</strong>: escrita em recursos <em>read‑only</em>.</li>
+    <li><strong>501 Not Implemented</strong>: <code>/filter/cursor</code> e <code>/locate</code> quando o service não implementa.</li>
+    <li><strong>400 Bad Request</strong>: validações de payload/param; <code>DELETE /batch</code> com lista vazia.</li>
+  </ul>
+
+  <h2>Configurações e limites</h2>
+  <ul>
+    <li><code>praxis.pagination.max-size</code> (padrão 200): tamanho máximo de página para <code>/filter</code>, <code>/filter/cursor</code>, <code>/locate</code>, <code>/options/filter</code>.</li>
+    <li><code>praxis.query.by-ids.max</code> (padrão 200): número máximo de IDs aceitos em <code>/by-ids</code> e <code>/options/by-ids</code>.</li>
+    <li><code>praxis.hateoas.enabled</code> (padrão true): habilita/omite links HATEOAS nas respostas.</li>
+  </ul>
+
+  <h2>Boas práticas corporativas</h2>
+  <ul>
+    <li><strong>Índices</strong>: garanta índices nos campos mais filtrados/ordenados (especialmente os anotados com <code>@DefaultSortColumn</code>).</li>
+    <li><strong>Seletividade</strong>: prefira filtros seletivos; evite <code>NOT_IN</code> gigantes e listas <code>IN</code> muito longas.</li>
+    <li><strong>Datas/UTC</strong>: padronize UTC no app/DB; <code>ON_DATE</code> usa janela [início do dia, próximo dia).</li>
+    <li><strong>Keyset</strong>: para listas muito grandes/estáveis, implemente <code>filterByCursor</code> no service.</li>
+  </ul>
+
+  <h2>Links úteis</h2>
+  <ul>
+    <li><a href="../AbstractCrudController.html">AbstractCrudController</a></li>
+    <li><a href="../AbstractReadOnlyController.html">AbstractReadOnlyController</a></li>
+    <li><a href="../../../filter/specification/doc-files/filters-overview.html">Visão Geral de Filtros</a></li>
+    <li><a href="../../../../guides/FILTROS-E-PAGINACAO.html">Guia: Filtros &amp; Paginação</a></li>
+  </ul>
+
+  <h2>Integração Frontend — Notas por Endpoint</h2>
+  <h3>POST /filter (grids com paginação)</h3>
+  <ul>
+    <li><strong>Debounce</strong>: aplique 300–500 ms em buscas “type‑ahead”.</li>
+    <li><strong>Sort múltiplo</strong>: envie repetido (<code>?sort=nome,asc&amp;sort=id,desc</code>).</li>
+    <li><strong>Itens “fixados”</strong>: use <code>includeIds</code> para priorizar selecionados na 1ª página.</li>
+    <li><strong>Sincronizar URL</strong>: reflita filtros/sort/página na rota para reabrir o estado.</li>
+    <li><strong>Cache</strong>: compare <code>X-Data-Version</code> para invalidar dados localmente.</li>
+  </ul>
+
+  <h3>POST /filter/cursor (infinite scroll)</h3>
+  <ul>
+    <li><strong>Cursores</strong>: persista <code>next</code>/<code>prev</code> e reenvie ao rolar.</li>
+    <li><strong>Sort estável</strong>: garanta tie‑break (ex.: <code>updatedAt desc, id desc</code>).</li>
+    <li><strong>Reset</strong>: trocou filtros/sort? Descarte cursores e recomece do início.</li>
+    <li><strong>Pré‑busca</strong>: opcional, pré‑carregue a próxima página ao 80% de scroll.</li>
+  </ul>
+
+  <h3>POST /locate (jump‑to‑row)</h3>
+  <ul>
+    <li><strong>Navegação direta</strong>: calcule <code>page = position/size</code> e vá à página.</li>
+    <li><strong>Consistência</strong>: use os mesmos filtros/sort ativos na grid.</li>
+    <li><strong>UX</strong>: destaque a linha localizada ao carregar a página.</li>
+    <li><strong>Fallback</strong>: 501 → desabilite “pular para linha” na UI.</li>
+  </ul>
+
+  <h3>Options (/options/filter e /options/by-ids)</h3>
+  <ul>
+    <li><strong>Type‑ahead</strong>: debounce 250–400 ms; mínimo de 2–3 caracteres.</li>
+    <li><strong>Reidratação</strong>: chame <code>/options/by-ids</code> ao abrir a tela para preencher labels.</li>
+    <li><strong>Dependentes</strong>: use interpolação (<code>${campo}</code>) no <code>endpoint</code> de <code>@UISchema</code>.</li>
+    <li><strong>Leve</strong>: prefira <code>/options/filter</code> (OptionDTO) para combos simples.</li>
+  </ul>
+
+  <h3>GET /by-ids (pré‑carregamento ordenado)</h3>
+  <ul>
+    <li><strong>Ordem preservada</strong>: ideal para listas personalizadas/drag‑and‑drop.</li>
+    <li><strong>Chunk</strong>: se exceder <code>praxis.query.by-ids.max</code>, divida requisições.</li>
+  </ul>
+
+  <h3>CRUD (GET/POST/PUT/DELETE)</h3>
+  <ul>
+    <li><strong>Toasts</strong>: 201 (criado), 200 (atualizado), 204 (removido) → mensagens claras.</li>
+    <li><strong>Read‑only</strong>: 405 → desabilite botões de escrita na UI.</li>
+    <li><strong>Validações</strong>: exiba mensagens de <code>RestApiResponse.errors</code>.</li>
+    <li><strong>Refresh</strong>: após POST/PUT/DELETE, recarregue grid usando <code>X-Data-Version</code> para decidir se invalida cache.</li>
+  </ul>
+
+  <h3>GET /schemas (UIs dinâmicas)</h3>
+  <ul>
+    <li><strong>x‑ui</strong>: consuma <code>controlType</code>, validações e dicas para montar formulários/grids.</li>
+    <li><strong>idField/readOnly</strong>: use para configurar chaves e bloquear edição quando necessário.</li>
+  </ul>
+
+  <h3>GET /all</h3>
+  <ul>
+    <li><strong>Uso pontual</strong>: apenas para combos pequenos/estáveis; prefira <code>/filter</code> com paginação.</li>
+  </ul>
+  <h2>Anti‑patterns frequentes</h2>
+  <ul>
+    <li><strong>Usar /all em listas grandes</strong>: bloqueia a UI. Prefira <code>/filter</code> com <code>size</code> controlado.</li>
+    <li><strong>Keyset sem tie‑break</strong>: ordenar só por <code>updatedAt</code> causa gaps/duplicações. Adicione <code>id</code> como desempate.</li>
+    <li><strong>Persistir cursores após mudar filtros/sort</strong>: cursores ficam inválidos. Sempre <em>reset</em> ao trocar filtros/sort.</li>
+    <li><strong>Ignorar X‑Data‑Version</strong>: pode mostrar dados obsoletos. Compare o cabeçalho para invalidar cache local.</li>
+    <li><strong>Enviar listas enormes em NOT_IN</strong>: caro no banco e na rede. Reavalie o critério (flags/filtros positivos).</li>
+    <li><strong>Options com payload pesado</strong>: se só precisa de id/label, use <code>/options/filter</code> (OptionDTO), não <code>/filter</code> do recurso.</li>
+    <li><strong>Não reenviar includeIds nas páginas seguintes</strong>: permite duplicação dos itens “fixados”. Reenvie <code>includeIds</code> sem reinjeção.</li>
+    <li><strong>Estourar limites</strong>: respeite <code>praxis.pagination.max-size</code> e <code>praxis.query.by-ids.max</code>; se necessário, faça <em>chunk</em>.</li>
+  </ul>
+  <h2>Exemplo client — cursor pagination (JS)</h2>
+  <pre><code>// Estado do feed
+let state = { after: null, before: null, size: 50, sort: ["updatedAt,desc","id,desc"], items: [] };
+
+async function fetchCursorPage(direction) {
+  const params = new URLSearchParams();
+  params.set('size', state.size);
+  state.sort.forEach(s => params.append('sort', s));
+  if (direction === 'next' && state.after) params.set('after', state.after);
+  if (direction === 'prev' && state.before) params.set('before', state.before);
+
+  const res = await fetch(`/api/recurso/filter/cursor?${params.toString()}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ /* FD */ })
+  });
+  if (!res.ok) throw new Error('Erro ao paginar');
+  const { data } = await res.json(); // RestApiResponse
+
+  // Atualiza cursores e conteúdo
+  state.after = data.next;   // cursor para avançar
+  state.before = data.prev;  // cursor para retroceder
+
+  if (direction === 'next') state.items.push(...data.content);
+  else if (direction === 'prev') state.items.unshift(...data.content);
+  else state.items = data.content;
+}
+
+// Uso:
+// 1) inicial
+await fetchCursorPage();
+// 2) ao rolar para o fim
+await fetchCursorPage('next');
+// 3) ao rolar para o topo
+await fetchCursorPage('prev');
+
+// Reset quando filtros/sort mudarem
+function onFiltersChanged(newFilter, newSort) {
+  state.after = null; state.before = null; state.items = [];
+  state.sort = newSort; // sempre inclua tie-break de id
+  fetchCursorPage();
+}
+  </code></pre>
+
+  <h2>Exemplo client — jump‑to‑row (/locate)</h2>
+  <pre><code>// Assumindo grid com paginação por página
+const pageSize = 50;
+
+async function jumpToRowById(id, currentFilter, currentSort) {
+  const params = new URLSearchParams();
+  params.set('size', String(pageSize));
+  params.set('id', String(id));
+  currentSort.forEach(s => params.append('sort', s)); // e.g. ["nome,asc","id,asc"]
+
+  const res = await fetch(`/api/recurso/locate?${params.toString()}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(currentFilter)
+  });
+  if (!res.ok) throw new Error('Não foi possível localizar');
+  const locate = await res.json(); // { position, page }
+
+  // 1) Ir para a página indicada
+  grid.goToPage(locate.page);
+
+  // 2) Após render, rolar/realçar o item
+  requestAnimationFrame(() => {
+    const row = document.querySelector(`[data-row-id="${id}"]`);
+    if (row) {
+      row.scrollIntoView({ block: 'center' });
+      row.classList.add('flash');
+      setTimeout(() => row.classList.remove('flash'), 1200);
+    }
+  });
+}
+  </code></pre>
+
+  <h2>Exemplos — reidratação de Options (by-ids)</h2>
+  <pre><code>// React: carregar labels iniciais a partir de IDs
+import { useEffect, useState } from 'react';
+
+function MySelect({ initialIds = [] }) {
+  const [options, setOptions] = useState([]); // OptionDTO[] { id, label }
+
+  useEffect(() => {
+    if (!initialIds.length) return;
+    const params = new URLSearchParams();
+    initialIds.forEach(id => params.append('ids', String(id)));
+    fetch(`/api/recurso/options/by-ids?${params.toString()}`)
+      .then(r => r.json())
+      .then(list => setOptions(list));
+  }, [initialIds]);
+
+  // Mapeie OptionDTO → shape do componente (value/label)
+  const uiOptions = options.map(o => ({ value: o.id, label: o.label }));
+  return <Select options={uiOptions} defaultValue={uiOptions} isMulti />;
+}
+
+// Angular: serviço e uso no componente
+// service.ts
+getOptionsByIds(ids: (number|string)[]) {
+  const params = new HttpParams({ fromObject: ids.reduce((acc, id) => { (acc['ids'] ||= [] as any).push(String(id)); return acc; }, {} as any) });
+  return this.http.get<OptionDTO<any>[]>(`/api/recurso/options/by-ids`, { params });
+}
+
+// component.ts
+ngOnInit() {
+  if (this.initialIds?.length) {
+    this.svc.getOptionsByIds(this.initialIds).subscribe(list => {
+      this.selectOptions = list.map(o => ({ value: o.id, label: o.label }));
+      this.form.patchValue({ field: this.initialIds }); // reidrata valores
+    });
+  }
+}
+  </code></pre>
+
+  </div>
+</body>
+</html>

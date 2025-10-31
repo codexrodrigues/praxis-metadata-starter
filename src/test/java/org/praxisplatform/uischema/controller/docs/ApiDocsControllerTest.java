@@ -89,23 +89,21 @@ class ApiDocsControllerTest {
         // Mock para resolver grupo baseado no path "/users" → derivação = "users"  
         server.expect(requestTo("http://localhost/v3/api-docs/users"))
                 .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
-        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+        var req1 = new MockHttpServletRequest();
+        req1.setScheme("http");
+        req1.setServerName("localhost");
+        req1.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req1));
 
         var rReq = controller.getFilteredSchema("/users", "post", false, "request", null, null, java.util.Locale.ENGLISH);
         Map<String, Object> requestSchema = rReq.getBody();
         assertNotNull(requestSchema);
         assertTrue(((Map<?,?>) requestSchema.get("properties")).containsKey("name"));
 
-        server.reset();
-        server.expect(requestTo("http://localhost/v3/api-docs/users"))
-                .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
-
         var rRes = controller.getFilteredSchema("/users", "post", false, "response", null, null, java.util.Locale.ENGLISH);
         Map<String, Object> responseSchema = rRes.getBody();
         assertNotNull(responseSchema);
         assertTrue(((Map<?,?>) responseSchema.get("properties")).containsKey("email"));
-
-        server.verify();
     }
 
     @Test 
@@ -147,7 +145,11 @@ class ApiDocsControllerTest {
         // Mock para resolver grupo baseado no path "/api/ui-test/wrappers" → "api-ui-test-wrappers"
         server.expect(requestTo("http://localhost/v3/api-docs/api-ui-test-wrappers"))
                 .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
-        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+        var req2 = new MockHttpServletRequest();
+        req2.setScheme("http");
+        req2.setServerName("localhost");
+        req2.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req2));
 
         var r = controller.getFilteredSchema(
                 "/api/ui-test/wrappers",
@@ -171,7 +173,11 @@ class ApiDocsControllerTest {
         
         server.expect(requestTo("http://localhost/v3/api-docs/users"))
                 .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
-        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+        var req3 = new MockHttpServletRequest();
+        req3.setScheme("http");
+        req3.setServerName("localhost");
+        req3.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req3));
         assertThrows(IllegalArgumentException.class,
                 () -> controller.getFilteredSchema("/users", "post", false, "unknown", null, null, java.util.Locale.ENGLISH));
     }

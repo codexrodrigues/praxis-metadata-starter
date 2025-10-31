@@ -47,7 +47,7 @@ class DateFieldUISchemaTest {
             @Override public String name() { return ""; }
             @Override public String label() { return ""; }
             @Override public FieldDataType type() { return FieldDataType.TEXT; }
-            @Override public FieldControlType controlType() { return FieldControlType.INPUT; }
+            @Override public FieldControlType controlType() { return FieldControlType.AUTO; }
             @Override public String placeholder() { return ""; }
             @Override public String defaultValue() { return ""; }
             @Override public String group() { return ""; }

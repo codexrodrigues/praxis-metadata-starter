@@ -26,7 +26,7 @@ class CustomOpenApiResolverTest {
         property.setName("nomeCompleto");
         property.setMaxLength(200);
 
-        resolver.applyBeanValidatorAnnotations(property, new Annotation[] {}, null, false);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { TestUISchemaDefaults.instance() }, null, false);
 
         Map<String, Object> xui = getXui(property);
         assertEquals(FieldControlType.INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
@@ -39,7 +39,7 @@ class CustomOpenApiResolverTest {
         property.setName("descricao");
         property.setMaxLength(1000);
 
-        resolver.applyBeanValidatorAnnotations(property, new Annotation[] {}, null, false);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { TestUISchemaDefaults.instance() }, null, false);
 
         Map<String, Object> xui = getXui(property);
         assertEquals(FieldControlType.TEXTAREA.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
@@ -53,7 +53,7 @@ class CustomOpenApiResolverTest {
         property.setMaxLength(1000);
 
         Annotation uiSchema = Dummy.class.getDeclaredField("descricao").getAnnotation(UISchema.class);
-        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema }, null, false);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema, TestUISchemaDefaults.instance() }, null, false);
 
         Map<String, Object> xui = getXui(property);
         assertEquals(FieldControlType.INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
@@ -68,4 +68,3 @@ class CustomOpenApiResolverTest {
         return (Map<String, Object>) xui;
     }
 }
-

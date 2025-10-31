@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.context.annotation.Import;
 
 import java.util.Collections;
 import java.util.List;
@@ -21,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AbstractReadOnlyControllerLinksTest.ReadOnlyController.class)
+@Import(AbstractReadOnlyControllerLinksTest.ReadOnlyController.class)
 class AbstractReadOnlyControllerLinksTest {
 
     @Autowired
@@ -74,9 +76,9 @@ class AbstractReadOnlyControllerLinksTest {
 
         mockMvc.perform(get("/ro/all"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$._embedded.._links.create").doesNotExist())
-                .andExpect(jsonPath("$._embedded.._links.update").doesNotExist())
-                .andExpect(jsonPath("$._embedded.._links.delete").doesNotExist());
+                .andExpect(jsonPath("$._embedded..links.create").doesNotExist())
+                .andExpect(jsonPath("$._embedded..links.update").doesNotExist())
+                .andExpect(jsonPath("$._embedded..links.delete").doesNotExist());
     }
 
     @Test
@@ -85,9 +87,9 @@ class AbstractReadOnlyControllerLinksTest {
 
         mockMvc.perform(get("/ro/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$._links.create").doesNotExist())
-                .andExpect(jsonPath("$._links.update").doesNotExist())
-                .andExpect(jsonPath("$._links.delete").doesNotExist());
+                .andExpect(jsonPath("$.links.create").doesNotExist())
+                .andExpect(jsonPath("$.links.update").doesNotExist())
+                .andExpect(jsonPath("$.links.delete").doesNotExist());
     }
 
     @Test
@@ -109,4 +111,3 @@ class AbstractReadOnlyControllerLinksTest {
                 .andExpect(status().isMethodNotAllowed());
     }
 }
-

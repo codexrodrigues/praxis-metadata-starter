@@ -93,6 +93,7 @@ import java.util.List;
  * <h3>🔗 Beans Registrados</h3>
  * <p>Veja documentação individual de cada método @Bean para detalhes específicos.</p>
  * 
+ * @since 1.0.0
  * @see org.praxisplatform.uischema.configuration.DynamicSwaggerConfig
  * @see org.praxisplatform.uischema.controller.docs.ApiDocsController
  * @see org.praxisplatform.uischema.util.OpenApiGroupResolver

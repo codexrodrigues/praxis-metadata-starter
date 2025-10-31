@@ -5,6 +5,7 @@ Este guia mostra como expor recursos REST usando `@ApiResource` e organizar a do
 - Javadoc: [`@ApiResource`](../apidocs/org/praxisplatform/uischema/annotation/ApiResource.html), [`@ApiGroup`](../apidocs/org/praxisplatform/uischema/annotation/ApiGroup.html)
 - Javadoc: [`AbstractCrudController`](../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html)
 - Conceitos: [Documentação Técnica](../technical/), [Índice de API](../api/README.md)
+ - Tour: [`Endpoints Overview`](../apidocs/org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html)
 
 ## Passo a passo
 

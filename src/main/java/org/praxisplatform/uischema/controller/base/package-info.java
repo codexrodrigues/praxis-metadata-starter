@@ -14,8 +14,8 @@
  * </ul>
  * </p>
  *
- * <p><strong>Tour visual:</strong> veja um panorama dos endpoints e recursos em
- * <a href="doc-files/controllers-overview.html">controllers-overview.html</a>.</p>
+ * <p><strong>Tour visual:</strong> guia conceitual dos endpoints e recursos em
+ * <a href="doc-files/endpoints-overview.html">endpoints-overview.html</a>.</p>
  *
  * <p><strong>Veja exemplos:</strong>
  * <ul>

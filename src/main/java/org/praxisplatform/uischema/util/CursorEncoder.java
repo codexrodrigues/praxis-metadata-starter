@@ -6,6 +6,8 @@ import java.util.Base64;
 /**
  * Encodes and decodes cursor tokens. The default implementation uses
  * URL-safe Base64 without padding.
+ *
+ * @since 1.0.0
  */
 public interface CursorEncoder {
 

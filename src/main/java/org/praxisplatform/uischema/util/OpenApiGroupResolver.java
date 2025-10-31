@@ -45,6 +45,7 @@ import java.util.List;
  * <p>Usado automaticamente pelo ApiDocsController para resolver grupos baseados
  * no path da requisição, eliminando necessidade de parâmetro 'document' manual.</p>
  * 
+ * @since 1.0.0
  * @see org.praxisplatform.uischema.controller.docs.ApiDocsController#resolveGroupFromPath(String)
  * @see org.praxisplatform.uischema.configuration.DynamicSwaggerConfig
  */

@@ -13,6 +13,59 @@ import static java.lang.annotation.ElementType.*;
 
 /**
  * Anotação usada para definir metadata para renderização de UI e geração de formulários.
+ *
+ * <h3>Referenciando endpoints de Options em DTOs</h3>
+ * <p>Para campos que exibem opções dinâmicas (combos, autocomplete, multi‑select),
+ * use {@link #endpoint()}, {@link #valueField()} e {@link #displayField()} para
+ * conectar a um endpoint REST e mapear o par id/label.</p>
+ *
+ * <h4>Padrões suportados</h4>
+ * <ol>
+ *   <li><strong>OptionDTO (payload leve)</strong>
+ *   <pre>{@code
+ * @UISchema(
+ *   controlType = FieldControlType.SELECT,
+ *   endpoint = ApiPaths.Catalog.CATEGORIAS + "/options/filter",
+ *   valueField = "id",     // org.praxisplatform.uischema.dto.OptionDTO.id
+ *   displayField = "label" // org.praxisplatform.uischema.dto.OptionDTO.label
+ * )
+ * private Long categoriaId;
+ * }</pre>
+ *   <p>O label é resolvido no backend via {@code @OptionLabel} ou heurísticas do
+ *   {@code BaseCrudService#computeOptionLabel}.</p>
+ *   </li>
+ *   <li><strong>DTO completo</strong> (recomendado quando a UI precisa de colunas extras no dropdown)
+ *   <pre>{@code
+ * @UISchema(
+ *   controlType = FieldControlType.SELECT,
+ *   endpoint = ApiPaths.Catalog.CATEGORIAS + "/filter", // ✅ sempre /filter
+ *   valueField = "id",            // campo do DTO usado como value
+ *   displayField = "nome"         // campo do DTO usado como label
+ * )
+ * private Long categoriaId;
+ * }</pre>
+ *   </li>
+ * </ol>
+ *
+ * <h4>Combos dependentes (interpolação)</h4>
+ * <p>O {@code endpoint} suporta interpolação de parâmetros usando o valor atual
+ * de outros campos (ex.: {@code ${estado}}) para combos em cascata:</p>
+ * <pre>{@code
+ * @UISchema(
+ *   name = "cidade",
+ *   controlType = FieldControlType.SELECT,
+ *   endpoint = "/api/cidades?estado=${estado}",
+ *   dependentField = "estado",
+ *   resetOnDependentChange = true
+ * )
+ * private String cidade;
+ * }
+ * </pre>
+ *
+ * <h4>Reidratação inicial</h4>
+ * <p>Para preencher selects com valores previamente salvos, consulte também
+ * <code>GET {base}/options/by-ids?ids=...</code> que retorna a lista
+ * <code>OptionDTO</code> na mesma ordem dos IDs.</p>
  */
 @Target({FIELD, METHOD, PARAMETER, TYPE, ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)

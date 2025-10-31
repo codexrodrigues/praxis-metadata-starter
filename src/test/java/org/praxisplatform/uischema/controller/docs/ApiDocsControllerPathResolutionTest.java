@@ -88,7 +88,6 @@ class ApiDocsControllerPathResolutionTest {
     void testResolveGroupFromPath_WithEmptyPath() {
         // Given
         String path = "";
-        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
 
         // When
         String resolvedGroup = invokeResolveGroupFromPath(path);
@@ -101,7 +100,7 @@ class ApiDocsControllerPathResolutionTest {
     void testResolveGroupFromPath_WithNullPath() {
         // Given
         String path = null;
-
+        // No stubbing needed; resolver not invoked for null path
         // When
         String resolvedGroup = invokeResolveGroupFromPath(path);
 

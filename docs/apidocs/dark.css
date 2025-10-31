@@ -1,0 +1,118 @@
+/* === Dark mode para Javadoc (auto por prefers-color-scheme) === */
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* Texto */
+        --body-text-color: #e6e6e6;
+        --block-text-color: #d0d0d0;
+        --title-color: #ffffff;
+
+        /* Fundos principais */
+        --body-background-color: #0f1115;
+        --section-background-color: #12151b;    /* blocos de resumo/detalhes */
+        --detail-background-color: #0f1115;
+
+        /* Navbar + subnav */
+        --navbar-background-color: #1e2936;     /* topo */
+        --navbar-text-color: #e6e6e6;
+        --subnav-background-color: #151a22;     /* faixa abaixo */
+
+        /* Abas/seleção */
+        --selected-background-color: #0ea5e9;   /* destaque acessível no dark */
+        --selected-text-color: #0b1220;
+        --selected-link-color: #93c5fd;
+
+        /* Tabelas (linhas alternadas) */
+        --even-row-color: #12151b;
+        --odd-row-color: #171c25;
+
+        /* Links */
+        --link-color: #8ab4f8;
+        --link-color-active: #ffd28a;
+
+        /* Snippets/código */
+        --snippet-background-color: #1b1f28;
+        --snippet-text-color: var(--block-text-color);
+        --snippet-highlight-color: #3a2f16;
+
+        /* Bordas */
+        --border-color: #2a2e35;
+        --table-border-color: #3b4048;
+
+        /* Busca */
+        --search-input-background-color: #0f1115;
+        --search-input-text-color: #e6e6e6;
+        --search-input-placeholder-color: #9aa0a6;
+
+        /* Auxiliares */
+        --search-tag-highlight-color: #42370a;
+        --copy-icon-brightness: 350%;
+        --copy-button-background-color-active: rgba(255,255,255,0.08);
+
+        /* Notificações de tag */
+        --invalid-tag-background-color: #3b1f1f;
+        --invalid-tag-text-color: #ffd9d9;
+}
+
+/* Endpoint badges/grid (aplica em todo o Javadoc) */
+.badges { display:flex; flex-wrap:wrap; gap:.35rem; margin:.35rem 0; }
+.badge { font:600 12px/1 system-ui,sans-serif; padding:.18rem .5rem; border-radius:999px; border:1px solid rgba(148,163,184,.28); letter-spacing:.02em }
+.method { color:#e5e7eb; background:#1f2937; }
+.get   { background:#10b98122; border-color:#10b98155; color:#34d399 }
+.post  { background:#3b82f622; border-color:#3b82f655; color:#60a5fa }
+.put   { background:#f59e0b22; border-color:#f59e0b55; color:#fbbf24 }
+.del   { background:#ef444422; border-color:#ef444455; color:#f87171 }
+.misc  { background:#8b5cf622; border-color:#8b5cf655; color:#a78bfa }
+.ep-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap:.5rem; }
+.ep { background:#11151b; border:1px solid rgba(148,163,184,.25); border-radius:10px; padding:.5rem .75rem }
+.ep code{ background:transparent; color:inherit; padding:0 }
+
+    /* ====== Ajustes pontuais que não usam só variáveis ====== */
+
+    /* Barras superiores e cabeçalhos de busca */
+    .top-nav, .sub-nav, .page-search-header {
+        background-color: var(--navbar-background-color) !important;
+        color: var(--navbar-text-color) !important;
+    }
+    .top-nav a:link, .top-nav a:active, .top-nav a:visited {
+        color: var(--navbar-text-color) !important;
+    }
+
+    /* Títulos de seções (tabs de tabelas / captions) */
+    .caption span,
+    div.table-tabs > .active-table-tab {
+        background: var(--selected-background-color) !important;
+        color: var(--selected-text-color) !important;
+    }
+    div.table-tabs > button.table-tab {
+        background: var(--navbar-background-color) !important;
+        color: var(--navbar-text-color) !important;
+    }
+
+    /* Cabeçalhos de tabelas */
+    .table-header { background: var(--subnav-background-color) !important; }
+
+    /* Campos de busca */
+    #search-input, #page-search-input {
+        background-color: var(--search-input-background-color) !important;
+        color: var(--search-input-text-color) !important;
+        border-color: var(--border-color) !important;
+    }
+
+    /* Código (inline e blocos) */
+    pre.snippet, pre, code, tt {
+        background: var(--snippet-background-color) !important;
+        color: var(--snippet-text-color) !important;
+        border-color: var(--border-color) !important;
+    }
+
+    /* Auto-complete/resultado de busca */
+    ul.ui-autocomplete {
+        background-color: var(--body-background-color) !important;
+        color: var(--body-text-color) !important;
+    }
+
+    /* Links externos (ícone SVG embutido): reduz saturação para não “gritar” */
+    main a[href*="://"]::after {
+        filter: brightness(0.8);
+    }
+}

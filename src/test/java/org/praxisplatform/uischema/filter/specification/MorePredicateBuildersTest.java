@@ -64,7 +64,7 @@ class MorePredicateBuildersTest {
     @Test
     void onDate() {
         when(path.as(Instant.class)).thenReturn(instantExpr);
-        when(cb.between(instantExpr, any(Instant.class), any(Instant.class))).thenReturn(pred);
+        when(cb.between(eq(instantExpr), any(Instant.class), any(Instant.class))).thenReturn(pred);
         var b = new OnDatePredicateBuilder();
         Predicate p = b.build(cb, path, LocalDate.of(2024,1,1));
         assertNotNull(p);
@@ -74,7 +74,7 @@ class MorePredicateBuildersTest {
     @Test
     void inLastDays() {
         when(path.as(Instant.class)).thenReturn(instantExpr);
-        when(cb.between(instantExpr, any(Instant.class), any(Instant.class))).thenReturn(pred);
+        when(cb.between(eq(instantExpr), any(Instant.class), any(Instant.class))).thenReturn(pred);
         var b = new InLastDaysPredicateBuilder();
         Predicate p = b.build(cb, path, 7);
         assertNotNull(p);
@@ -84,7 +84,7 @@ class MorePredicateBuildersTest {
     @Test
     void inNextDays() {
         when(path.as(Instant.class)).thenReturn(instantExpr);
-        when(cb.between(instantExpr, any(Instant.class), any(Instant.class))).thenReturn(pred);
+        when(cb.between(eq(instantExpr), any(Instant.class), any(Instant.class))).thenReturn(pred);
         var b = new InNextDaysPredicateBuilder();
         Predicate p = b.build(cb, path, 7);
         assertNotNull(p);
@@ -93,6 +93,7 @@ class MorePredicateBuildersTest {
 
     @Test
     void sizeOps() {
+        when(path.getJavaType()).thenReturn((Class) java.util.List.class);
         when(cb.size(any(Expression.class))).thenReturn(sizeExpr);
         when(cb.equal(sizeExpr, 3)).thenReturn(pred);
         when(cb.gt(sizeExpr, 3)).thenReturn(pred);

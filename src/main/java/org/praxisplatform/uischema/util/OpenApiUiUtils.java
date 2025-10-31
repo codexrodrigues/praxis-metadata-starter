@@ -34,6 +34,8 @@ etc.)</li>
  * <pre>
  *   Annotation → CustomOpenApiResolver → OpenApiUiUtils → x-ui Extensions
  * </pre>
+ *
+ * @since 1.0.0
  */
 public class OpenApiUiUtils {
 

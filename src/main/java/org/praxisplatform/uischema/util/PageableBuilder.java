@@ -9,6 +9,8 @@ import java.util.List;
 /**
  * Utility for building {@link Pageable} instances from primitive request
  * parameters while applying a fallback {@link Sort} when none is specified.
+ *
+ * @since 1.0.0
  */
 public final class PageableBuilder {
 

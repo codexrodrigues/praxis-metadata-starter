@@ -12,6 +12,8 @@ import java.util.Objects;
  * {@code "field,desc"}. When no sort parameters are provided the
  * supplied fallback is returned.
  * </p>
+ *
+ * @since 1.0.0
  */
 public final class SortBuilder {
 

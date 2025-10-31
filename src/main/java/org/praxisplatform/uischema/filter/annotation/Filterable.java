@@ -72,6 +72,7 @@ import java.lang.annotation.Target;
  *   <li><strong>Zero Specification manual</strong> — o builder converte DTOs anotados em Criteria com segurança.</li>
  * </ul>
  *
+ * @since 1.0.0
  * @see FilterOperation
  */
 @Retention(RetentionPolicy.RUNTIME)
@@ -102,7 +103,7 @@ public @interface Filterable {
          */
         EQUAL,
         /**
-         * Filtro de diferença (e.g., campo <> valor).
+         * Filtro de diferença (e.g., {@code campo <> valor}).
          */
         NOT_EQUAL,
         /**
@@ -122,19 +123,19 @@ public @interface Filterable {
          */
         ENDS_WITH,
         /**
-         * Filtro de maior que (e.g., campo > valor).
+         * Filtro de maior que (e.g., {@code campo > valor}).
          */
         GREATER_THAN,
         /**
-         * Filtro de maior ou igual (e.g., campo >= valor).
+         * Filtro de maior ou igual (e.g., {@code campo >= valor}).
          */
         GREATER_OR_EQUAL,
         /**
-         * Filtro de menor que (e.g., campo &lt; valor).
+         * Filtro de menor que (e.g., {@code campo < valor}).
          */
         LESS_THAN,
         /**
-         * Filtro de menor ou igual (e.g., campo <= valor).
+         * Filtro de menor ou igual (e.g., {@code campo <= valor}).
          */
         LESS_OR_EQUAL,
         /**
@@ -160,7 +161,7 @@ public @interface Filterable {
          */
         IS_NOT_NULL,
         /**
-         * Filtro estritamente entre (exclusivo): campo > a AND campo < b.
+         * Filtro estritamente entre (exclusivo): {@code campo > a AND campo < b}.
          */
         BETWEEN_EXCLUSIVE,
         /**
@@ -168,7 +169,7 @@ public @interface Filterable {
          */
         NOT_BETWEEN,
         /**
-         * Fora do intervalo (exclusivo): campo < min OR campo > max.
+         * Fora do intervalo (exclusivo): {@code campo < min OR campo > max}.
          */
         OUTSIDE_RANGE,
         /**

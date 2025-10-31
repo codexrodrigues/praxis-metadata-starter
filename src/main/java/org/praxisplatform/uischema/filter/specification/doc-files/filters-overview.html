@@ -6,8 +6,9 @@
   <style>
     /* Estilos mínimos para harmonizar com o Javadoc */
     table { border-collapse: collapse; }
-    th, td { border: 1px solid #ccc; padding: .4rem; }
-    th { background: #f2f2f2; }
+    th, td { border: 1px solid #ccc; padding: .4rem; color: inherit; }
+    /* Não force background aqui: deixe o tema do Javadoc decidir (claro/escuro) */
+    thead th { background: transparent !important; }
     code, pre { background: #f6f8fa; border-radius: 4px; }
     pre { padding: .6rem; overflow: auto; }
   </style>
@@ -219,9 +220,9 @@ Content-Type: application/json
   <ul>
     <li><a href="../GenericSpecificationsBuilder.html">GenericSpecificationsBuilder</a></li>
     <li><a href="../../filter/annotation/Filterable.html">@Filterable</a></li>
-    <li><a href="../../../../guides/FILTROS-E-PAGINACAO.html">Guia: Filtros &amp; Paginação</a></li>
-    <li><a href="../../../../examples/DTO-FILTROS-EXEMPLOS.html">DTO — todas as operações</a></li>
-    <li><a href="../../../../examples/FILTER-CHEATSHEET.html">Cheat Sheet — POST /filter</a></li>
+    <li><a href="../../../../../../../guides/FILTROS-E-PAGINACAO.html">Guia: Filtros &amp; Paginação</a></li>
+    <li><a href="../../../../../../../examples/DTO-FILTROS-EXEMPLOS.html">DTO — todas as operações</a></li>
+    <li><a href="../../../../../../../examples/FILTER-CHEATSHEET.html">Cheat Sheet — POST /filter</a></li>
   </ul>
 
   </div>

@@ -6,6 +6,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.mockito.Answers;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.context.annotation.Import;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,16 +17,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(value = AbstractCrudControllerGetByIdsTest.SimpleController.class, properties = "praxis.query.by-ids.max=3")
+@Import(AbstractCrudControllerGetByIdsTest.SimpleController.class)
 class AbstractCrudControllerGetByIdsTest {
 
     @Autowired
     MockMvc mockMvc;
 
-    @MockBean(answer = Answers.CALLS_REAL_METHODS)
+    @MockBean
     SimpleService service;
 
     @Test
     void getByIdsReturnsOrderedList() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
         when(service.findAllById(List.of(1L, 3L, 2L)))
                 .thenReturn(List.of(new SimpleEntity(3L), new SimpleEntity(1L), new SimpleEntity(2L)));
 
@@ -41,6 +44,7 @@ class AbstractCrudControllerGetByIdsTest {
 
     @Test
     void getByIdsReturnsEmptyListWhenNoIds() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
         mockMvc.perform(get("/simple/by-ids"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Data-Version", "1"))
@@ -51,6 +55,7 @@ class AbstractCrudControllerGetByIdsTest {
 
     @Test
     void getByIdsReturns422WhenExceedsLimit() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
         mockMvc.perform(get("/simple/by-ids").param("ids", "1", "2", "3", "4"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(status().reason(containsString("Limite máximo de IDs excedido: 3")));
@@ -75,8 +80,8 @@ class AbstractCrudControllerGetByIdsTest {
         private Long id;
         SimpleDto() {}
         SimpleDto(Long id) { this.id = id; }
-        Long getId() { return id; }
-        void setId(Long id) { this.id = id; }
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
     }
 
     static class SimpleFilterDTO implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {}

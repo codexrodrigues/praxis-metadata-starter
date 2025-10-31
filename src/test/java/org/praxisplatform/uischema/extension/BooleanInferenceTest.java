@@ -7,6 +7,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
+import java.lang.annotation.Annotation;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -19,7 +20,8 @@ class BooleanInferenceTest {
     void booleanWithoutEnumShouldBeCheckbox() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
         BooleanSchema property = new BooleanSchema();
-        resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
+        Annotation[] anns = new Annotation[]{ TestUISchemaDefaults.instance() };
+        resolver.applyBeanValidatorAnnotations(property, anns, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.CHECKBOX.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
     }
@@ -29,7 +31,8 @@ class BooleanInferenceTest {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
         StringSchema property = new StringSchema();
         property.setEnum(Arrays.asList("Sim","Não"));
-        resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
+        Annotation[] anns = new Annotation[]{ TestUISchemaDefaults.instance() };
+        resolver.applyBeanValidatorAnnotations(property, anns, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.RADIO.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
     }

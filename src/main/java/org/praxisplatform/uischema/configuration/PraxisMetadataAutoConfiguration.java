@@ -88,6 +88,7 @@ import java.math.BigDecimal;
  *   <li><strong>4º:</strong> Validação (executada via @EventListener após startup completo)</li>
  * </ol>
  * 
+ * @since 1.0.0
  * @see org.praxisplatform.uischema.configuration.OpenApiUiSchemaAutoConfiguration
  * @see org.praxisplatform.uischema.configuration.DynamicSwaggerConfig
  * @see org.praxisplatform.uischema.service.base.BaseCrudService

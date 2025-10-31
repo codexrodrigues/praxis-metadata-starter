@@ -7,6 +7,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
+import java.lang.annotation.Annotation;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -22,7 +23,8 @@ class ArrayEnumInferenceTest {
         StringSchema items = new StringSchema();
         items.setEnum(Arrays.asList("A","B","C"));
         property.setItems(items);
-        resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
+        Annotation[] anns = new Annotation[]{ TestUISchemaDefaults.instance() };
+        resolver.applyBeanValidatorAnnotations(property, anns, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.CHIP_INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
     }
@@ -36,7 +38,8 @@ class ArrayEnumInferenceTest {
         for (int i=0;i<50;i++) values.add("V"+i);
         items.setEnum(values);
         property.setItems(items);
-        resolver.applyBeanValidatorAnnotations(property, new java.lang.annotation.Annotation[]{}, null, false);
+        Annotation[] anns = new Annotation[]{ TestUISchemaDefaults.instance() };
+        resolver.applyBeanValidatorAnnotations(property, anns, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.MULTI_SELECT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
         assertEquals("multiColumnComboBox", xui.get(FieldConfigProperties.FILTER_CONTROL_TYPE.getValue()));

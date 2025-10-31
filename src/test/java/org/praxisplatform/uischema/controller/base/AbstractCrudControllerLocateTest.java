@@ -7,6 +7,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.context.annotation.Import;
 
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -21,17 +22,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.praxisplatform.uischema.service.base.BaseCrudService;
 
 @WebMvcTest(AbstractCrudControllerLocateTest.SimpleController.class)
+@Import(AbstractCrudControllerLocateTest.SimpleController.class)
 class AbstractCrudControllerLocateTest {
 
     @Autowired
     MockMvc mockMvc;
 
-    @MockBean(answer = Answers.CALLS_REAL_METHODS)
+    @MockBean
     SimpleService service;
 
     @Test
     void returnsPositionAndPage() throws Exception {
         when(service.locate(any(), any(), eq(5L))).thenReturn(OptionalLong.of(17));
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
 
         mockMvc.perform(post("/simple/locate")
                         .param("id", "5")
