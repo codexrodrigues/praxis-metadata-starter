@@ -20,6 +20,7 @@ Pacotes principais:
 - Controllers e Endpoints
   - [`org.praxisplatform.uischema.controller.base`](../apidocs/org/praxisplatform/uischema/controller/base/package-summary.html)
   - [`org.praxisplatform.uischema.controller.docs`](../apidocs/org/praxisplatform/uischema/controller/docs/package-summary.html)
+  - Visão geral: [`Endpoints Overview`](../apidocs/org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html)
 
 - Filtros e Especificações
   - [`org.praxisplatform.uischema.filter.dto`](../apidocs/org/praxisplatform/uischema/filter/dto/package-summary.html)
