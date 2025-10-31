@@ -35,7 +35,7 @@
     <tbody>
       <tr>
         <td>GET</td>
-        <td><code>/{id}</code></td>
+        <td><a id="get-id"></a><code>/{id}</code></td>
         <td>Recuperar um registro específico</td>
         <td><code>id</code> (path)</td>
         <td><code>RestApiResponse&lt;D&gt;</code></td>
@@ -43,7 +43,7 @@
       </tr>
       <tr>
         <td>GET</td>
-        <td><code>/all</code></td>
+        <td><a id="get-all"></a><code>/all</code></td>
         <td>Listar todos com ordenação padrão</td>
         <td>—</td>
         <td><code>RestApiResponse&lt;List&lt;EntityModel&lt;D&gt;&gt;&gt;</code></td>
@@ -51,7 +51,7 @@
       </tr>
       <tr>
         <td>GET</td>
-        <td><code>/by-ids</code></td>
+        <td><a id="get-by-ids"></a><code>/by-ids</code></td>
         <td>Pré-carregar registros por IDs preservando ordem</td>
         <td><code>ids</code> (query, repetido)</td>
         <td><code>List&lt;D&gt;</code></td>
@@ -59,7 +59,7 @@
       </tr>
       <tr>
         <td>POST</td>
-        <td><code>/filter</code></td>
+        <td><a id="post-filter"></a><code>/filter</code></td>
         <td>Listar com filtros e paginação</td>
         <td><code>page</code>, <code>size</code>, <code>sort</code>, <code>includeIds</code> e body = <code>FD</code></td>
         <td><code>RestApiResponse&lt;Page&lt;EntityModel&lt;D&gt;&gt;&gt;</code></td>
@@ -67,7 +67,7 @@
       </tr>
       <tr>
         <td>POST</td>
-        <td><code>/filter/cursor</code></td>
+        <td><a id="post-filter-cursor"></a><code>/filter/cursor</code></td>
         <td>Paginação por cursor (keyset)</td>
         <td><code>after</code>, <code>before</code>, <code>size</code>, <code>sort</code> e body = <code>FD</code></td>
         <td><code>RestApiResponse&lt;CursorPage&lt;EntityModel&lt;D&gt;&gt;&gt;</code></td>
@@ -75,7 +75,7 @@
       </tr>
       <tr>
         <td>POST</td>
-        <td><code>/locate</code></td>
+        <td><a id="post-locate"></a><code>/locate</code></td>
         <td>Localizar posição absoluta (índice) e página do ID</td>
         <td><code>id</code>, <code>size</code>, <code>sort</code> e body = <code>FD</code></td>
         <td><code>LocateResponse (position, page)</code></td>
@@ -100,7 +100,7 @@
     <tbody>
       <tr>
         <td>POST</td>
-        <td><code>/options/filter</code></td>
+        <td><a id="post-options-filter"></a><code>/options/filter</code></td>
         <td>Prover opções paginadas (id/label) a partir de filtros</td>
         <td><code>page</code>, <code>size</code>, <code>sort</code> e body = <code>FD</code></td>
         <td><code>Page&lt;OptionDTO&lt;ID&gt;&gt;</code></td>
@@ -108,7 +108,7 @@
       </tr>
       <tr>
         <td>GET</td>
-        <td><code>/options/by-ids</code></td>
+        <td><a id="get-options-by-ids"></a><code>/options/by-ids</code></td>
         <td>Mapear IDs para labels, preservando ordem</td>
         <td><code>ids</code> (query, repetido)</td>
         <td><code>List&lt;OptionDTO&lt;ID&gt;&gt;</code></td>
@@ -131,7 +131,7 @@
     <tbody>
       <tr>
         <td>POST</td>
-        <td><code>/</code></td>
+        <td><a id="post-create"></a><code>/</code></td>
         <td>Criar novo registro</td>
         <td>body = <code>D</code></td>
         <td><code>201 Created</code> + <code>RestApiResponse&lt;D&gt;</code></td>
@@ -139,7 +139,7 @@
       </tr>
       <tr>
         <td>PUT</td>
-        <td><code>/{id}</code></td>
+        <td><a id="put-id"></a><code>/{id}</code></td>
         <td>Atualizar registro</td>
         <td><code>id</code> e body = <code>D</code></td>
         <td><code>RestApiResponse&lt;D&gt;</code></td>
@@ -147,7 +147,7 @@
       </tr>
       <tr>
         <td>DELETE</td>
-        <td><code>/{id}</code></td>
+        <td><a id="delete-id"></a><code>/{id}</code></td>
         <td>Remover registro</td>
         <td><code>id</code></td>
         <td><code>204 No Content</code></td>
@@ -155,7 +155,7 @@
       </tr>
       <tr>
         <td>DELETE</td>
-        <td><code>/batch</code></td>
+        <td><a id="delete-batch"></a><code>/batch</code></td>
         <td>Remover múltiplos registros por IDs</td>
         <td>body = <code>List&lt;ID&gt;</code></td>
         <td><code>204 No Content</code></td>
@@ -178,7 +178,7 @@
     <tbody>
       <tr>
         <td>GET</td>
-        <td><code>/schemas</code></td>
+        <td><a id="get-schemas"></a><code>/schemas</code></td>
         <td>Obter/derivar esquema do recurso atual</td>
         <td>—</td>
         <td><code>302</code> para <code>/schemas/filtered</code></td>
