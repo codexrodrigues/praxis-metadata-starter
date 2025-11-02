@@ -50,6 +50,9 @@
         <li><a href="#validation-xui">Como Bean Validation vira x-ui.validation? Posso sobrescrever?</a></li>
         <li><a href="#bigdecimal">Por que BigDecimal aparece como number/decimal no OpenAPI?</a></li>
         <li><a href="#readonly-405">Meu controller read-only retorna 405 — é esperado?</a></li>
+        <li><a href="#views-readonly">Como expor uma view do banco como recurso read‑only?</a></li>
+        <li><a href="#views-features">Views suportam filtros, paginação por cursor e options?</a></li>
+        <li><a href="#views-sort">Como definir ordenação padrão para views?</a></li>
         <li><a href="#endpoints-prontos">Quais endpoints prontos existem?</a></li>
         <li><a href="#filtros">Como modelar filtros com @Filterable?</a></li>
         <li><a href="#operacoes-filtro">Quais operações de filtro são suportadas?</a></li>
@@ -72,9 +75,13 @@
         <li><a href="#preciso-uischema">Preciso mesmo do @UISchema?</a></li>
         <li><a href="#anotacoes">O que significa @UISchema e quais anotações existem no starter?</a></li>
         <li><a href="#acoes-dominio">Como incluir novos endpoints de ação de domínio/comandos de negócio?</a></li>
+        <li><a href="#comandos-negocio">Como estruturar comandos de negócio (/commands) e status?</a></li>
         <li><a href="#metadados-custom">Como incluir metadados que não estão presentes na lib?</a></li>
         <li><a href="#o-que-e-xui">O que é x‑ui e qual seu vocabulário?</a></li>
         <li><a href="#precedencia">Qual a ordem de precedência dos metadados?</a></li>
+        <li><a href="#conceito-self-describing">O que significa APIs self‑describing no Praxis?</a></li>
+        <li><a href="#conceito-ui-vs-data">UI schema vs data schema: qual a diferença?</a></li>
+        <li><a href="#conceito-config-driven">O que é desenvolvimento guiado por configuração?</a></li>
         <li><a href="#idfield">Como o idField é resolvido e validado?</a></li>
         <li><a href="#include-internal">O que faz o includeInternalSchemas?</a></li>
         <li><a href="#capabilities-readonly">Como são calculadas capabilities e o readOnly?</a></li>
@@ -95,6 +102,7 @@
         <li><a href="#ia-dtos-filtro">Como orientar a IA a modelar DTO x FilterDTO?</a></li>
         <li><a href="#ia-prompts">Dicas de prompt para manter padrões (paths, grupos, pacotes)</a></li>
         <li><a href="#ia-validacao">Como validar o que a IA gerou?</a></li>
+        <li><a href="#ui-render-vs-ia">Quais as vantagens de renderizar o frontend a partir do contrato (x‑ui) em vez de gerar código com IA?</a></li>
         <li><a href="#host-config">Quais propriedades devo configurar no projeto host?</a></li>
         <li><a href="#host-paginacao-byids">Como ajustar os limites de paginação e by-ids?</a></li>
         <li><a href="#host-hateoas">Como habilitar/desabilitar HATEOAS no host?</a></li>
@@ -103,6 +111,9 @@
         <li><a href="#host-contextpath">Como o server.servlet.contextPath afeta os links?</a></li>
         <li><a href="#grupos-listar">Como listar os grupos disponíveis do OpenAPI?</a></li>
         <li><a href="#host-cors">Como configurar CORS na aplicação host?</a></li>
+        <li><a href="#seguranca-escopo">Este starter implementa segurança (auth/authz)?</a></li>
+        <li><a href="#seguranca-config">Como proteger /api/** com Spring Security (exemplo)?</a></li>
+        <li><a href="#seguranca-cors-tenant">CORS, CSRF e multi‑tenant: o que considerar?</a></li>
         <li><a href="#host-db-dev">Como configurar banco e H2 para desenvolvimento?</a></li>
         <li><a href="#cache-schemas">Buscar metadados toda vez é lento? Como o cache funciona?</a></li>
         <li><a href="#cache-clear">Como limpar o cache de documentos OpenAPI durante desenvolvimento?</a></li>
@@ -124,14 +135,7 @@
         <li><a href="#ui-quickstart-existe">Existe um exemplo pronto de UI Angular consumindo x‑ui?</a></li>
         <li><a href="#ui-quickstart-consumo">Como o UI Quickstart consome /schemas/filtered e renderiza telas?</a></li>
         <li><a href="#ui-quickstart-rodar">Como rodar o UI Quickstart e apontar para meu backend?</a></li>
-        <li><a href="#files-starter">Existe um starter para upload/arquivos?</a></li>
-        <li><a href="#files-defaults">Quais são os comportamentos padrão (segurança, limites, rate‑limit)?</a></li>
-        <li><a href="#files-config-endpoint">Como ler a configuração efetiva do servidor?</a></li>
-        <li><a href="#files-props">Quais as principais propriedades de configuração?</a></li>
-        <li><a href="#files-quota">Como habilitar e configurar quotas por tenant/usuário?</a></li>
-        <li><a href="#files-antivirus">Como habilitar varredura de vírus (ClamAV)?</a></li>
-        <li><a href="#files-presign">O starter suporta uploads pré‑assinados (S3/GCS)?</a></li>
-        <li><a href="#files-headless">Posso usar em modo headless (sem HTTP/Swagger)?</a></li>
+        <li><a href="#files-separacao">Este starter trata uploads/arquivos?</a></li>
       </ul>
     </div>
 
@@ -235,6 +239,38 @@ curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoa
     <p>
       Sim. Em recursos baseados em <code>AbstractReadOnlyController</code>, endpoints de escrita (<code>POST /</code>, <code>PUT /{id}</code>, <code>DELETE</code>) respondem <code>405 Method Not Allowed</code> por design. Consulte <a href="../org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.html">AbstractReadOnlyController</a>.
     </p>
+
+    <a id="views-readonly"></a>
+    <h2>Como expor uma view do banco como recurso read‑only?</h2>
+    <p>
+      Modele a entidade como <code>@Immutable</code> (ou acesse a view física), crie um <code>Repository</code>, um <code>Service</code> que estenda <code>AbstractReadOnlyService</code> e um <code>Controller</code> que estenda <code>AbstractReadOnlyController</code>. Os endpoints de leitura, filtros e options são herdados automaticamente.
+    </p>
+    <pre><code>// Entidade
+@Immutable @Entity
+class VendaResumo { /* campos */ }
+
+// Service
+class VendaResumoService extends AbstractReadOnlyService&lt;E,D,ID,FD&gt; { /* ... */ }
+
+// Controller
+@ApiResource("/api/relatorios/vendas-resumo")
+class VendaResumoController extends AbstractReadOnlyController&lt;E,D,ID,FD&gt; { /* ... */ }
+</code></pre>
+    <p>Guia: <a href="../../guides/READ-ONLY-VIEWS.md">READ-ONLY-VIEWS.md</a>. Javadoc: <a href="../org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.html">AbstractReadOnlyController</a>.</p>
+
+    <a id="views-features"></a>
+    <h2>Views suportam filtros, paginação por cursor e options?</h2>
+    <p>
+      Sim. Views/read‑only herdam os mesmos recursos: <code>POST /filter</code> (pageable), <code>POST /filter/cursor</code> (keyset), <code>POST /locate</code>, <code>GET /by-ids</code>, <code>POST /options/filter</code> e <code>GET /options/by-ids</code>. Basta um <em>FilterDTO</em> com <code>@Filterable</code>.
+    </p>
+    <p>Referências: <a href="../org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html">Endpoints — Guia Conceitual</a>, <a href="../org/praxisplatform/uischema/filter/specification/doc-files/filters-overview.html">Filtros</a>.</p>
+
+    <a id="views-sort"></a>
+    <h2>Como definir ordenação padrão para views?</h2>
+    <p>
+      Use <code>@DefaultSortColumn</code> na entidade para definir colunas/direções padrão quando a requisição não enviar <code>sort</code>. Funciona igualmente para recursos read‑only.
+    </p>
+    <p>Javadoc: <a href="../org/praxisplatform/uischema/service/base/annotation/DefaultSortColumn.html">@DefaultSortColumn</a>.</p>
 
     <a id="endpoints-prontos"></a>
     <h2>Quais endpoints prontos existem?</h2>
@@ -380,16 +416,102 @@ curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoa
     <a id="acoes-dominio"></a>
     <h2>Como incluir novos endpoints de ação de domínio/comandos de negócio?</h2>
     <p>
-      Adicione métodos ao seu controller anotado com <code>@ApiResource</code> usando <code>@PostMapping</code>/<code>@PutMapping</code>/<code>@PatchMapping</code>/<code>@GetMapping</code> para ações como <em>aprovar</em>, <em>cancelar</em> ou <em>reprocessar</em>. Esses métodos entram no mesmo grupo OpenAPI.
+      Crie métodos no seu controller anotado com <code>@ApiResource</code> para ações como <em>aprovar</em>, <em>cancelar</em> ou <em>reprocessar</em>. Essas operações ficam no <strong>mesmo grupo OpenAPI</strong> do recurso e podem ser documentadas com <code>@Operation</code>.
     </p>
     <pre><code>@PostMapping("/{id}/aprovar")
+@Operation(summary = "Aprova a entidade", description = "Transição de estado para 'APROVADO' se permitido")
 public ResponseEntity&lt;RestApiResponse&lt;D&gt;&gt; aprovar(@PathVariable ID id) {
-  D dto = service.aprovar(id);
-  return ResponseEntity.ok(RestApiResponse.success(dto, Links.NONE));
+  D dto = service.aprovar(id); // valida pré-condições/regra de negócio
+  var body = RestApiResponse.success(dto, org.springframework.hateoas.Links.NONE);
+  // Opcional: propagar versão de dados no header
+  var builder = ResponseEntity.ok();
+  getService().getDatasetVersion().ifPresent(v -&gt; builder.header("X-Data-Version", v));
+  return builder.body(body);
 }</code></pre>
     <p>
-      Para padronizar comandos, considere um recurso lógico <code>/commands</code> com DTOs específicos ou usar verbos de domínio em subpaths. Documente com <code>@Operation</code> quando necessário.
+      Recomendações práticas:
     </p>
+    <ul>
+      <li><strong>HTTP e idempotência:</strong> ações que mudam estado costumam ser <code>POST</code> em subpath (ex.: <code>/{id}/aprovar</code>). Se o comando for idempotente e representar uma atualização parcial, <code>PUT</code>/<code>PATCH</code> podem ser usados.</li>
+      <li><strong>Status:</strong> <code>200</code>/<code>204</code> para sucesso; <code>400</code> (regra inválida), <code>404</code> (não encontrado), <code>409</code> (conflito de estado) ou <code>422</code> (payload inválido). O <a href="../org/praxisplatform/uischema/rest/exceptionhandler/GlobalExceptionHandler.html">GlobalExceptionHandler</a> já padroniza falhas comuns.</li>
+      <li><strong>HATEOAS:</strong> se desejar incluir links para ações nos itens, sobrescreva <code>toEntityModel(D)</code> e adicione <code>Link</code> com <em>rel</em> semântico (ex.: <code>aprovar</code>, <code>cancelar</code>).</li>
+      <li><strong>Documentação:</strong> use <code>@Operation(summary, description)</code> e, quando útil, descreva pré‑condições e respostas.</li>
+    </ul>
+
+    <h3>Exemplo com @PreAuthorize (método protegido por permissão)</h3>
+    <p>
+      Habilite segurança por método e aplique <code>@PreAuthorize</code> na ação de domínio para exigir uma permissão/authority específica.
+    </p>
+    <pre><code>// Habilite segurança por método
+@org.springframework.context.annotation.Configuration
+@org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
+class MethodSecurityConfig { }
+
+// Controller
+@org.springframework.security.access.prepost.PreAuthorize("hasAuthority('pedido:aprovar')")
+@PostMapping("/{id}/aprovar")
+public ResponseEntity&lt;RestApiResponse&lt;D&gt;&gt; aprovar(@PathVariable ID id) {
+  D dto = service.aprovar(id);
+  var body = RestApiResponse.success(dto, org.springframework.hateoas.Links.NONE);
+  return ResponseEntity.ok(body);
+}</code></pre>
+    <p>
+      Dicas:
+    </p>
+    <ul>
+      <li>Prefira <code>hasAuthority('recurso:acao')</code> ou escopos OIDC (<code>hasAuthority('SCOPE_recurso.acao')</code>), conforme seu provedor.</li>
+      <li>Combine com regras de negócio no service para validar pré‑condições (estado atual, ownership, limites).</li>
+    </ul>
+    <p>
+      Exemplo de link customizado no item (HATEOAS):
+    </p>
+    <pre><code>@Override
+protected EntityModel&lt;D&gt; toEntityModel(D dto){
+  var model = super.toEntityModel(dto);
+  var id = getDtoId(dto);
+  var link = org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo(
+      org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn(getControllerClass())
+        .aprovar(id)
+  ).withRel("aprovar");
+  model.add(link);
+  return model;
+}</code></pre>
+    <p>
+      Dica: é possível adicionar metadados de UI por <strong>operação</strong> no OpenAPI (chave <code>x-ui</code> em <code>paths.{path}.{operation}</code>); o <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a> copia essas chaves para o <code>x-ui</code> do payload (consumo via <code>/schemas/filtered</code>).
+    </p>
+
+    <a id="comandos-negocio"></a>
+    <h2>Como estruturar comandos de negócio (/commands) e status?</h2>
+    <p>
+      Para padronizar, você pode expor um <strong>endpoint lógico de comandos</strong> no recurso. Útil quando há muitas ações ou quando não dependem de <code>{id}</code> único.
+    </p>
+    <pre><code>@PostMapping("/commands/aprovar")
+@Operation(summary = "Aprovar em massa")
+public ResponseEntity&lt;RestApiResponse&lt;List&lt;D&gt;&gt;&gt; aprovarEmLote(@RequestBody AprovarCommand cmd){
+  List&lt;D&gt; out = service.aprovarEmLote(cmd.ids(), cmd.motivo());
+  var body = RestApiResponse.success(out, org.springframework.hateoas.Links.NONE);
+  var builder = ResponseEntity.ok();
+  getService().getDatasetVersion().ifPresent(v -&gt; builder.header("X-Data-Version", v));
+  return builder.body(body);
+}
+
+public record AprovarCommand(List&lt;ID&gt; ids, String motivo) { }</code></pre>
+    <p>
+      Boas práticas para comandos:
+    </p>
+    <ul>
+      <li><strong>Contrato enxuto:</strong> use DTOs de comando específicos (sem poluir o DTO principal).</li>
+      <li><strong>Validação:</strong> valide pré‑condições no service e retorne erros padronizados (400/409/422).</li>
+      <li><strong>Assíncrono:</strong> quando a ação for demorada, considere <code>202 Accepted</code> com um <em>tracking id</em> (e endpoint de consulta).</li>
+      <li><strong>Observabilidade:</strong> registre transições relevantes e resultados (sucesso/falha parcial em lote).</li>
+    </ul>
+    <p>
+      Exemplo de chamada:
+    </p>
+    <pre><code>curl -X POST \
+  -H "Content-Type: application/json" \
+  http://localhost:8080/api/pedidos/commands/aprovar \
+  -d '{"ids":[1,2,3],"motivo":"fim de SLA"}'</code></pre>
 
     <a id="metadados-custom"></a>
     <h2>Como incluir metadados que não estão presentes na lib?</h2>
@@ -467,6 +589,27 @@ OpenApiCustomizer uiOperationMeta() {
       <li><strong>extraProperties</strong> (precedência máxima)</li>
     </ol>
     <p>Referência: <a href="../org/praxisplatform/uischema/extension/CustomOpenApiResolver.html">CustomOpenApiResolver</a>.</p>
+
+    <a id="conceito-self-describing"></a>
+    <h2>O que significa APIs self‑describing no Praxis?</h2>
+    <p>
+      Significa que o <strong>contrato</strong> expõe as informações necessárias para UI/SDKs sem acoplamento: OpenAPI com <code>x‑ui</code> (campos, controles, validações), <code>/schemas/filtered</code> por operação (com ETag), HATEOAS opcional e cabeçalho <code>X-Data-Version</code>. Assim, frontends podem <em>descobrir</em> telas, ações e validações em tempo de execução, com cache eficiente.
+    </p>
+    <p>Leia mais: <a href="../../concepts/self-describing-apis.md">concepts/self-describing-apis.md</a>, <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>.</p>
+
+    <a id="conceito-ui-vs-data"></a>
+    <h2>UI schema vs data schema: qual a diferença?</h2>
+    <p>
+      O <strong>data schema</strong> (OpenAPI type/format/enum) modela o dado. O <strong>UI schema</strong> (<code>x‑ui</code>) descreve <em>como</em> exibir/editar: <code>controlType</code>, <code>label</code>, <code>group</code>, <code>options</code>, <code>x‑ui.validation</code>, etc. O UI schema é uma <em>camada de apresentação</em> que não altera o contrato dos dados e segue precedência definida pelo resolver.
+    </p>
+    <p>Referências: <a href="../../concepts/ui-schema-vs-data-schema.md">concepts/ui-schema-vs-data-schema.md</a>, <a href="../org/praxisplatform/uischema/FieldConfigProperties.html">FieldConfigProperties</a>, <a href="../org/praxisplatform/uischema/ValidationProperties.html">ValidationProperties</a>.</p>
+
+    <a id="conceito-config-driven"></a>
+    <h2>O que é desenvolvimento guiado por configuração?</h2>
+    <p>
+      É a prática de dirigir telas e comportamentos por metadados e configurações (globais/tenant), minimizando código duplicado. No backend, use <code>x‑ui</code> e chaves por operação (ex.: <code>displayColumns</code> em <code>x‑ui</code>) para orientar a UI; no frontend, aplique camadas de configuração para skins, colunas e políticas. Ideal para ambientes multi‑tenant e <em>product‑line</em>.
+    </p>
+    <p>Leia mais: <a href="../../concepts/configuration-driven-development.md">concepts/configuration-driven-development.md</a>, <a href="../org/praxisplatform/uischema/OperationProperties.html">OperationProperties</a>.</p>
 
     <a id="idfield"></a>
     <h2>Como o idField é resolvido e validado?</h2>
@@ -621,6 +764,18 @@ controller/{Nome}BulkController.java</code></pre>
       <li><code>/schemas/filtered</code> respondendo com <code>x-ui</code> e ETag estáveis</li>
     </ul>
 
+    <a id="ui-render-vs-ia"></a>
+    <h2>Quais as vantagens de renderizar o frontend a partir do contrato (x‑ui) em vez de gerar código com IA?</h2>
+    <ul>
+      <li><strong>Fonte única da verdade:</strong> o contrato OpenAPI + <code>x‑ui</code> descreve dados e apresentação; mudanças em anotações/validações refletem direto na UI, sem <em>codegen drift</em>.</li>
+      <li><strong>Evolução rápida e segura:</strong> ajuste labels, componentes e regras via <code>@UISchema</code>/<code>x‑ui.validation</code> e reaproveite; sem reescrever tela por tela.</li>
+      <li><strong>Cache eficiente:</strong> <code>/schemas/filtered</code> retorna <code>ETag</code> forte; UIs usam revalidação condicional (<code>304</code>) e memoização por <code>schemaId</code>.</li>
+      <li><strong>Multi‑tenant e i18n nativos:</strong> <code>X‑Tenant</code> e <code>Accept‑Language</code> compõem o <code>schemaId</code> (ETag varia por tenant/idioma) — perfeito para configurações por cliente.</li>
+      <li><strong>Menos divergência:</strong> validação única (Jakarta → <code>x‑ui.validation</code>) e tratamento de erros padronizado; reduz bugs introduzidos por código gerado/duplicado.</li>
+      <li><strong>IA no lugar certo:</strong> use IA para <em>scaffolding</em> e componentes específicos; a UI continua <em>dirigida pelo contrato</em>, evitando re‑gerações a cada ajuste.</li>
+    </ul>
+    <p>Leia mais: <a href="../../concepts/configuration-driven-development.md">configuration‑driven‑development.md</a>, <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>, <a href="../../FRONTEND-SCHEMA-CACHE-PLAN.md">FRONTEND‑SCHEMA‑CACHE‑PLAN.md</a> e o <a href="https://github.com/codexrodrigues/praxis-ui-quickstart" target="_blank" rel="noopener noreferrer">UI Quickstart</a>.</p>
+
     <a id="host-config"></a>
     <h2>Quais propriedades devo configurar no projeto host?</h2>
     <p>
@@ -692,6 +847,49 @@ server.servlet.contextPath=/minha-app
     <p>
       No <code>WebConfig</code>, leia a propriedade e registre mapeamentos CORS para <code>/api/**</code> e Swagger em DEV. Isso facilita integração com front‑ends locais.
     </p>
+
+    <a id="seguranca-escopo"></a>
+    <h2>Este starter implementa segurança (auth/authz)?</h2>
+    <p>
+      Não. O <strong>Praxis Metadata Starter</strong> não implementa autenticação/autorização; foca em contrato (OpenAPI + <code>x‑ui</code>), controllers base e documentação filtrada. A camada de segurança deve ser planejada e implementada <strong>separadamente</strong> na aplicação host (ex.: Spring Security, OAuth2/OIDC, JWT, gateways).
+    </p>
+    <p>Leitura relacionada: <a href="../../concepts/self-describing-apis.md#seguran%C3%A7a-e-escopo-rls-chap%C3%A9us">Segurança e escopo</a>.</p>
+
+    <a id="seguranca-config"></a>
+    <h2>Como proteger /api/** com Spring Security (exemplo)?</h2>
+    <p>
+      Exemplo mínimo de <em>resource server</em> (JWT) liberando Swagger/saúde em DEV e protegendo <code>/api/**</code>:
+    </p>
+    <pre><code>@Bean
+SecurityFilterChain http(HttpSecurity hs) throws Exception {
+  hs.csrf(csrf -> csrf.disable()) // APIs stateless com JWT geralmente desabilitam CSRF
+    .authorizeHttpRequests(auth -> auth
+      .requestMatchers("/actuator/health", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
+      .requestMatchers(HttpMethod.GET, "/schemas/filtered").permitAll() // opcional em DEV
+      .requestMatchers("/api/**").authenticated()
+    )
+    .oauth2ResourceServer(oauth -> oauth.jwt());
+  return hs.build();
+}
+    </code></pre>
+    <p>
+      Dicas:
+    </p>
+    <ul>
+      <li>Ative segurança por perfil (ex.: DEV permite docs públicos; PROD restringe conforme política).</li>
+      <li>Use <code>@PreAuthorize</code> nos controllers/serviços para regras finas (<code>hasAuthority('pedido:aprovar')</code>).</li>
+      <li>Se necessário, injete o <em>tenant</em> a partir do token (claim) em vez de confiar no cabeçalho do cliente.</li>
+    </ul>
+
+    <a id="seguranca-cors-tenant"></a>
+    <h2>CORS, CSRF e multi‑tenant: o que considerar?</h2>
+    <ul>
+      <li><strong>CORS:</strong> configure origens e headers expostos; <code>/schemas/filtered</code> já expõe <code>ETag</code> e <code>X‑Schema‑Hash</code> via <code>Access-Control-Expose-Headers</code>.</li>
+      <li><strong>CSRF:</strong> para APIs stateless com JWT, normalmente desabilitar; para sessões/browser, configure <em>CSRF tokens</em>.</li>
+      <li><strong>Multi‑tenant:</strong> derive o tenant do usuário/token (claim) ou valide rigorosamente o cabeçalho <code>X‑Tenant</code>; não confie cegamente em input do cliente.</li>
+      <li><strong>Cache/ETag:</strong> contratos podem ser públicos; dados protegidos exigem políticas de <code>Cache-Control</code> adequadas (ex.: <code>no-store</code> para dados sensíveis).</li>
+    </ul>
+    <p>Conceitos: <a href="../../concepts/self-describing-apis.md#seguran%C3%A7a-e-escopo-rls-chap%C3%A9us">Self‑describing APIs — Segurança</a>.</p>
 
     <a id="host-db-dev"></a>
     <h2>Como configurar banco e H2 para desenvolvimento?</h2>
@@ -867,87 +1065,10 @@ npm start   # ou ng serve
       Garanta que o backend esteja com <code>springdoc.api-docs.enabled=true</code> e expondo <code>/schemas/filtered</code>. Ajuste CORS em desenvolvimento conforme necessário.
     </p>
 
-    <a id="files-starter"></a>
-    <h2>Existe um starter para upload/arquivos?</h2>
+    <a id="files-separacao"></a>
+    <h2>Este starter trata uploads/arquivos?</h2>
     <p>
-      Sim. Use o starter Spring: <a href="https://github.com/codexrodrigues/praxis-file-management" target="_blank" rel="noopener noreferrer">praxis-file-management</a>.
-    </p>
-    <pre><code>&lt;dependency&gt;
-  &lt;groupId&gt;br.com.praxis&lt;/groupId&gt;
-  &lt;artifactId&gt;praxis-files-starter&lt;/artifactId&gt;
-&lt;/dependency&gt;</code></pre>
-
-    <a id="files-defaults"></a>
-    <h2>Quais são os comportamentos padrão (segurança, limites, rate‑limit)?</h2>
-    <ul>
-      <li><strong>Magic number validation</strong> habilitada (confere assinatura binária x MIME).</li>
-      <li><strong>Antivírus</strong> desabilitado por padrão (habilite com ClamAV disponível).</li>
-      <li><strong>Tamanho máximo</strong> padrão: 10 MB por arquivo.</li>
-      <li><strong>Rate limiting básico</strong>: 10 uploads/min e 100/hora.</li>
-      <li><strong>Quotas</strong> desabilitadas por padrão (habilite via <code>file.management.quota</code>).</li>
-    </ul>
-
-    <a id="files-config-endpoint"></a>
-    <h2>Como ler a configuração efetiva do servidor?</h2>
-    <p>
-      Consulte <code>GET /api/files/config</code> para obter um envelope com <em>options</em>, <em>bulk</em>, <em>rateLimit</em>, <em>quotas</em>, <em>messages</em> e <em>metadata</em> — útil para a UI mostrar limites e mensagens amigáveis.
-    </p>
-    <pre><code>curl http://localhost:8080/api/files/config
-{
-  "success": true,
-  "data": {
-    "options": { "nameConflictPolicy": "RENAME" },
-    "rateLimit": { "enabled": true },
-    "quotas": { "enabled": false },
-    "messages": { "FILE_TOO_LARGE": "Arquivo muito grande." }
-  }
-}
-    </code></pre>
-
-    <a id="files-props"></a>
-    <h2>Quais as principais propriedades de configuração?</h2>
-    <p>
-      Todas começam com <code>file.management.</code>. Destaques:
-    </p>
-    <ul>
-      <li><code>file.management.max-file-size-bytes</code> (padrão 10MB)</li>
-      <li><code>file.management.rate-limit.*</code> (minuto/hora/concorrência; por IP)</li>
-      <li><code>file.management.security.magic-number-validation=true</code></li>
-      <li><code>file.management.security.allowed-mime-types</code> / <code>blocked-mime-types</code></li>
-      <li><code>file.management.default-conflict-policy</code> (ex.: MAKE_UNIQUE/RENAME)</li>
-      <li><code>file.management.upload-dir</code> / <code>upload-temp-dir</code></li>
-    </ul>
-    <p>
-      Consulte o README do projeto para a lista completa (auditoria, monitoring, quotas, antivírus, CORS/CSRF).
-    </p>
-
-    <a id="files-quota"></a>
-    <h2>Como habilitar e configurar quotas por tenant/usuário?</h2>
-    <pre><code>file.management.quota.enabled=true
-file.management.quota.tenant.acme=1
-    </code></pre>
-    <p>O exemplo acima limita o tenant <code>acme</code> a um único upload. Há outras formas de segmentar quotas; veja a documentação do starter.</p>
-
-    <a id="files-antivirus"></a>
-    <h2>Como habilitar varredura de vírus (ClamAV)?</h2>
-    <pre><code>file.management.virus-scanning.enabled=true
-file.management.virus-scanning.clamav-host=localhost
-file.management.virus-scanning.clamav-port=3310
-    </code></pre>
-    <p>
-      Recomenda-se habilitar em produção. É possível definir políticas como <code>fail-on-scanner-unavailable</code> e <code>quarantine-enabled</code>.
-    </p>
-
-    <a id="files-presign"></a>
-    <h2>O starter suporta uploads pré‑assinados (S3/GCS)?</h2>
-    <p>
-      Sim, há um endpoint de prova de conceito que gera URLs pré‑assinadas para upload direto: <code>POST /api/files/upload/presign?filename=teste.txt</code>. A resposta inclui uma URL temporária que aceita <code>PUT</code> com o conteúdo do arquivo.
-    </p>
-
-    <a id="files-headless"></a>
-    <h2>Posso usar em modo headless (sem HTTP/Swagger)?</h2>
-    <p>
-      Sim. Defina <code>praxis.files.web.enabled=false</code> e rode com perfil <code>headless</code> (ex.: <code>spring.main.web-application-type=none</code>). O exemplo de app no repositório inclui um <code>application-headless.properties</code>.
+      Não. Este starter cuida de metadados de UI (x‑ui), documentação filtrada e controllers base. Uploads/gestão de arquivos pertencem ao projeto separado <a href="https://github.com/codexrodrigues/praxis-file-management" target="_blank" rel="noopener noreferrer">praxis-file-management</a>. Consulte também <a href="ecosystem.html#ecosystem">Ecossistema</a>.
     </p>
 
     <div class="card">
