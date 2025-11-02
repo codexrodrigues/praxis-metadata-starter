@@ -14,6 +14,16 @@
     code,pre{background:#1b1f28;color:#e8eaed;padding:.25rem .5rem;border-radius:6px}
     a{color:var(--accent);text-decoration:none}
     ul{margin:.4rem 0 .8rem 1.2rem}
+
+    /* Accordion (FAQ) */
+    .qa-summary{display:flex;align-items:center;justify-content:space-between;gap:.5rem;cursor:pointer;background:var(--card);border:1px solid rgba(148,163,184,.25);border-radius:10px;padding:.6rem .8rem;margin:.6rem 0}
+    .qa-summary:hover{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent),transparent 80%) inset}
+    .qa-summary .text{font-weight:600}
+    .qa-summary .chev{transition:transform .18s ease;opacity:.9}
+    .qa-summary[aria-expanded="true"] .chev{transform:rotate(90deg)}
+    .qa-body{display:none;border-left:2px solid color-mix(in srgb,var(--accent),#000 80%);padding:.6rem .8rem;margin:.2rem 0 .8rem}
+    .qa-open+.qa-body{display:block}
+    @media (prefers-reduced-motion: reduce){ .qa-summary .chev{transition:none} }
   </style>
 </head>
 <body>
@@ -69,6 +79,9 @@
         <li><a href="#include-internal">O que faz o includeInternalSchemas?</a></li>
         <li><a href="#capabilities-readonly">Como são calculadas capabilities e o readOnly?</a></li>
         <li><a href="#schema-id-hash">Como o SchemaId e o ETag são gerados?</a></li>
+        <li><a href="#i18n-locale">Como a API trata i18n/locale (Accept-Language)?</a></li>
+        <li><a href="#multi-tenant">Como indicar o tenant (X-Tenant) e como afeta ETag/cache?</a></li>
+        <li><a href="#x-data-version">O que é o cabeçalho X-Data-Version e quando é enviado?</a></li>
         <li><a href="#optionlabel">Como funciona @OptionLabel e heurísticas de label?</a></li>
         <li><a href="#detecao-controle">Como a detecção de controlType decide o componente?</a></li>
         <li><a href="#ia-visao">Agentes de IA: quando usar e como ajudam?</a></li>
@@ -88,9 +101,22 @@
         <li><a href="#host-validacao-apiresource">Como configurar a validação de uso de @ApiResource?</a></li>
         <li><a href="#host-openapi-paths">Como configurar os paths do OpenAPI/Swagger UI?</a></li>
         <li><a href="#host-contextpath">Como o server.servlet.contextPath afeta os links?</a></li>
+        <li><a href="#grupos-listar">Como listar os grupos disponíveis do OpenAPI?</a></li>
         <li><a href="#host-cors">Como configurar CORS na aplicação host?</a></li>
         <li><a href="#host-db-dev">Como configurar banco e H2 para desenvolvimento?</a></li>
         <li><a href="#cache-schemas">Buscar metadados toda vez é lento? Como o cache funciona?</a></li>
+        <li><a href="#cache-clear">Como limpar o cache de documentos OpenAPI durante desenvolvimento?</a></li>
+        <li><a href="#schemas-headers">Quais cabeçalhos o /schemas/filtered retorna (cache/CORS)?</a></li>
+        <li><a href="#docs-completos">Como alternar entre documento completo e por grupo?</a></li>
+        <li><a href="#grupo-inexistente">E se o grupo não existir? Há fallback?</a></li>
+        <li><a href="#schemas-path-encoding">Preciso codificar o parâmetro path em /schemas/filtered?</a></li>
+        <li><a href="#schemas-force-readonly">Posso forçar o readOnly no schema retornado?</a></li>
+        <li><a href="#schemas-troubleshooting">/schemas/filtered retornou erro — como depurar?</a></li>
+        <li><a href="#endpoints-404">Recebo 404 em /api/... — como depurar?</a></li>
+        <li><a href="#parametros-invalidos">Parâmetro inválido (400) — o que significa?</a></li>
+        <li><a href="#etag-quotes">Preciso manter as aspas do ETag ao reenviar If-None-Match?</a></li>
+        <li><a href="#etag-locale">Mudei o Accept-Language e o ETag mudou — é esperado?</a></li>
+        <li><a href="#javadoc-doclint">Build do Javadoc falha (doclint/encoding) — como resolver?</a></li>
         <li><a href="#node-existe">Existe suporte/projeto para Node.js?</a></li>
         <li><a href="#node-uso">Como usar o projeto Node.js no ecossistema Praxis?</a></li>
         <li><a href="#generator-openapi-xui">Como converter Swagger/OpenAPI em JSON x‑ui?</a></li>
@@ -466,6 +492,32 @@ OpenApiCustomizer uiOperationMeta() {
       O <code>SchemaId</code> combina <code>path</code>, <code>operation</code>, <code>schemaType</code>, <code>includeInternalSchemas</code>, <code>tenant</code> e <code>locale</code>. O payload resultante é <em>canonicalizado</em> (ordenação de chaves/arrays e normalização numérica) e então é calculado um SHA‑256. Esse hash vira o ETag <strong>forte</strong> (cotejado com <code>If-None-Match</code>). Veja <a href="../org/praxisplatform/uischema/id/SchemaIdBuilder.html">SchemaIdBuilder</a>, <a href="../org/praxisplatform/uischema/hash/SchemaCanonicalizer.html">SchemaCanonicalizer</a> e <a href="../org/praxisplatform/uischema/hash/SchemaHashUtil.html">SchemaHashUtil</a>.
     </p>
 
+    <a id="i18n-locale"></a>
+    <h2>Como a API trata i18n/locale (Accept-Language)?</h2>
+    <p>
+      O <code>locale</code> é resolvido do cabeçalho <code>Accept-Language</code> e participa do <code>schemaId</code>. Assim, contratos e ETags podem variar por idioma. Para revalidação (<code>304</code>), mantenha o mesmo idioma entre as requisições.
+    </p>
+    <pre><code>curl -i \
+  -H "Accept-Language: pt-BR" \
+  "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/all&amp;operation=get&amp;schemaType=response"</code></pre>
+    <p>Referências: <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>, <a href="../org/praxisplatform/uischema/id/SchemaIdBuilder.html">SchemaIdBuilder</a>.</p>
+
+    <a id="multi-tenant"></a>
+    <h2>Como indicar o tenant (X-Tenant) e como afeta ETag/cache?</h2>
+    <p>
+      Informe o cabeçalho <code>X-Tenant</code>. O valor compõe o <code>schemaId</code> e altera o <code>ETag</code>, permitindo caches segregados por tenant.
+    </p>
+    <pre><code>curl -i \
+  -H "X-Tenant: acme" \
+  "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/all&amp;operation=get&amp;schemaType=response"</code></pre>
+    <p>Detalhes: <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>, <a href="../org/praxisplatform/uischema/id/SchemaIdBuilder.html">SchemaIdBuilder</a>.</p>
+
+    <a id="x-data-version"></a>
+    <h2>O que é o cabeçalho X-Data-Version e quando é enviado?</h2>
+    <p>
+      Algumas respostas incluem <code>X-Data-Version</code> quando o service expõe <code>getDatasetVersion()</code>. A UI pode usar esse valor para invalidar caches de dados (independente do ETag dos contratos). Veja <a href="../org/praxisplatform/uischema/controller/base/AbstractCrudController.html">AbstractCrudController</a> e o guia de endpoints.
+    </p>
+
     <a id="optionlabel"></a>
     <h2>Como funciona @OptionLabel e heurísticas de label?</h2>
     <p>
@@ -616,6 +668,14 @@ server.servlet.contextPath=/minha-app
       Use <code>springdoc.api-docs.path</code> para alterar o endpoint base dos documentos (padrão <code>/v3/api-docs</code>) — o <code>ApiDocsController</code> usa esse valor. Configure <code>springdoc.swagger-ui.path</code> para posicionar o Swagger UI (ex.: <code>/swagger-ui.html</code>). Habilite <code>springdoc.api-docs.groups.enabled=true</code> para visualizar grupos individuais e agregados.
     </p>
 
+    <a id="grupos-listar"></a>
+    <h2>Como listar os grupos disponíveis do OpenAPI?</h2>
+    <p>
+      Habilite <code>springdoc.api-docs.groups.enabled=true</code> e consulte <code>GET /v3/api-docs/groups</code> para obter os nomes dos grupos (individuais e agregados). Útil para depurar a resolução de grupo.
+    </p>
+    <pre><code>curl -s http://localhost:8080/v3/api-docs/groups</code></pre>
+    <p>Referência: <a href="../org/praxisplatform/uischema/configuration/DynamicSwaggerConfig.html">DynamicSwaggerConfig</a>.</p>
+
     <a id="host-contextpath"></a>
     <h2>Como o server.servlet.contextPath afeta os links?</h2>
     <p>
@@ -659,6 +719,93 @@ springdoc.api-docs.enabled=true
     <p>
       No frontend, use <strong>revalidação condicional</strong> (envie <code>If-None-Match</code> com o hash vigente) para receber 304 e reutilizar o cache local. Recomenda-se também cache por <code>schemaId</code> e memoização de requisições, conforme o plano: <a href="../../FRONTEND-SCHEMA-CACHE-PLAN.md">FRONTEND-SCHEMA-CACHE-PLAN.md</a>.
     </p>
+
+    <a id="schemas-headers"></a>
+    <h2>Quais cabeçalhos o /schemas/filtered retorna (cache/CORS)?</h2>
+    <p>
+      <code>ETag</code> e <code>X-Schema-Hash</code> (expostos via <code>Access-Control-Expose-Headers: ETag,X-Schema-Hash</code>), além de <code>Cache-Control: public, max-age=0, must-revalidate</code> e <code>Vary: Accept-Encoding</code>. Use <code>If-None-Match</code> para <code>304</code>.
+    </p>
+    <p>Implementação: <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>.</p>
+
+    <a id="docs-completos"></a>
+    <h2>Como alternar entre documento completo e por grupo?</h2>
+    <p>
+      Consulte <code>/v3/api-docs</code> para o documento completo da aplicação (~500KB) ou <code>/v3/api-docs/{grupo}</code> (~14KB) para o documento específico. O controller prioriza o específico para performance.
+    </p>
+
+    <a id="grupo-inexistente"></a>
+    <h2>E se o grupo não existir? Há fallback?</h2>
+    <p>
+      Sim. O <em>getDocumentForGroup()</em> tenta primeiro <code>/v3/api-docs/{grupo}</code>. Se falhar, faz fallback para o documento completo <code>/v3/api-docs</code> e segue o processamento normalmente.
+    </p>
+
+    <a id="cache-clear"></a>
+    <h2>Como limpar o cache de documentos OpenAPI durante desenvolvimento?</h2>
+    <p>
+      Reinicie a aplicação ou exponha um endpoint/admin interno que invoque <code>ApiDocsController#clearDocumentCache()</code>. Isso força novo fetch de <code>/v3/api-docs/{grupo}</code> (com fallback para <code>/v3/api-docs</code>).
+    </p>
+    <p>Implementação: <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>.</p>
+
+    <a id="schemas-path-encoding"></a>
+    <h2>Preciso codificar o parâmetro path em /schemas/filtered?</h2>
+    <p>
+      Sim. Use percent‑encoding de URL quando houver caracteres especiais. O controller decodifica usando UTF‑8 antes de localizar o schema.
+    </p>
+    <pre><code>curl -i "http://localhost:8080/schemas/filtered?path=%2Fapi%2Fhuman-resources%2Fpessoas%2Fall&amp;operation=get&amp;schemaType=response"</code></pre>
+    <p>Referência: <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>.</p>
+
+    <a id="schemas-force-readonly"></a>
+    <h2>Posso forçar o readOnly no schema retornado?</h2>
+    <p>
+      Sim. Envie <code>?readOnly=true</code> em <code>/schemas/filtered</code>. Quando omitido, o valor é inferido pelas <em>capabilities</em> detectadas no grupo.
+    </p>
+    <pre><code>curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/all&amp;operation=get&amp;schemaType=response&amp;readOnly=true"</code></pre>
+
+    <a id="schemas-troubleshooting"></a>
+    <h2>/schemas/filtered retornou erro — como depurar?</h2>
+    <ul>
+      <li>Confirme <code>path</code> e <code>operation</code> exatamente como documentados.</li>
+      <li>Valide <code>schemaType</code> (<code>response</code> ou <code>request</code>).</li>
+      <li>Liste grupos com <code>/v3/api-docs/groups</code> (se habilitado) ou valide no <code>/v3/api-docs</code>.</li>
+      <li>Revise <code>server.servlet.contextPath</code> e CORS em DEV.</li>
+    </ul>
+    <p>Logs e detalhes: <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>.</p>
+
+    <a id="endpoints-404"></a>
+    <h2>Recebo 404 em /api/... — como depurar?</h2>
+    <ul>
+      <li>Confirme o <code>@ApiResource</code> do controller e o <code>contextPath</code>.</li>
+      <li>Cheque <code>/v3/api-docs</code> para garantir que o endpoint foi documentado.</li>
+      <li>No Seed/Quickstart, valide mapeamentos Web (CORS) e perfis ativos.</li>
+    </ul>
+    <p>Tratamento de erros: <a href="../org/praxisplatform/uischema/rest/exceptionhandler/GlobalExceptionHandler.html">GlobalExceptionHandler</a>.</p>
+
+    <a id="parametros-invalidos"></a>
+    <h2>Parâmetro inválido (400) — o que significa?</h2>
+    <p>
+      A camada REST padroniza respostas de erro com <code>CustomProblemDetail</code> e status <code>400</code> para validações e <code>404</code> para recursos inexistentes. Veja <a href="../org/praxisplatform/uischema/rest/exceptionhandler/GlobalExceptionHandler.html">GlobalExceptionHandler</a>.
+    </p>
+
+    <a id="etag-quotes"></a>
+    <h2>Preciso manter as aspas do ETag ao reenviar If-None-Match?</h2>
+    <p>
+      Sim. O ETag forte é retornado entre aspas (ex.: <code>"a1b2c3"</code>) e deve ser reenviado exatamente igual em <code>If-None-Match</code> para habilitar o <code>304 Not Modified</code>.
+    </p>
+    <p>Detalhes: <a href="../org/praxisplatform/uischema/http/IfNoneMatchUtils.html">IfNoneMatchUtils</a>.</p>
+
+    <a id="etag-locale"></a>
+    <h2>Mudei o Accept-Language e o ETag mudou — é esperado?</h2>
+    <p>
+      Sim. O <code>locale</code> compõe o <code>schemaId</code> e, portanto, o <code>ETag</code>. Idiomas diferentes geram ETags diferentes para permitir caches segregados por idioma.
+    </p>
+    <p>Referência: <a href="../org/praxisplatform/uischema/id/SchemaIdBuilder.html">SchemaIdBuilder</a>.</p>
+
+    <a id="javadoc-doclint"></a>
+    <h2>Build do Javadoc falha (doclint/encoding) — como resolver?</h2>
+    <p>
+      O POM já configura <code>maven-javadoc-plugin</code> com <code>doclint=none</code> e <code>UTF‑8</code>. Rode: <code>./mvnw -DskipTests package javadoc:javadoc</code> (use <code>-o</code> para offline). Edite <code>src/main/javadoc/overview.html</code> e <code>doc-files</code> conforme necessário.
+    </p>
+    <p>Configuração: <code>pom.xml</code> → maven-javadoc-plugin.</p>
 
     <a id="node-existe"></a>
     <h2>Existe suporte/projeto para Node.js?</h2>
@@ -814,5 +961,75 @@ file.management.virus-scanning.clamav-port=3310
       </ul>
     </div>
   </div>
+  <script>
+  (function(){
+    var container = document.querySelector('.flex-content');
+    if(!container) return;
+    // Seleciona todos h2 que NÃO estão dentro de .card (índice/ver também)
+    var h2s = Array.prototype.filter.call(container.querySelectorAll('h2'), function(h){ return !h.closest('.card'); });
+    h2s.forEach(function(h2){
+      // já convertido? pule
+      if(h2.classList.contains('qa-summary')) return;
+      // cria cabeçalho clicável preservando o texto
+      var titleText = h2.textContent || '';
+      var summary = document.createElement('div');
+      summary.className = 'qa-summary';
+      summary.setAttribute('role','button');
+      summary.setAttribute('tabindex','0');
+      summary.setAttribute('aria-expanded','false');
+      var t = document.createElement('div'); t.className='text'; t.textContent = titleText; summary.appendChild(t);
+      var c = document.createElement('span'); c.className='chev'; c.textContent='▸'; summary.appendChild(c);
+      // insere summary antes do h2 e remove h2
+      h2.parentNode.insertBefore(summary, h2);
+      h2.remove();
+
+      // agrupa nós seguintes até o próximo h2/summary ou até encontrar âncora de próxima seção
+      var body = document.createElement('div');
+      body.className = 'qa-body';
+      var cursor = summary.nextSibling;
+      while(cursor){
+        // parar se próximo for um qa-summary (ou h2 residual) ou card
+        if(cursor.nodeType === 1){
+          var tag = cursor.tagName;
+          if(tag === 'H2' || cursor.classList.contains('qa-summary') || cursor.classList.contains('card')) break;
+          if(tag === 'A' && cursor.hasAttribute('id')){
+            // se a âncora for seguida por um H2 (ou já convertida), pare e não capture a âncora
+            var nextEl = cursor.nextElementSibling;
+            if(nextEl && (nextEl.tagName === 'H2' || nextEl.classList.contains('qa-summary'))) break;
+          }
+        }
+        var next = cursor.nextSibling;
+        body.appendChild(cursor);
+        cursor = next;
+      }
+      summary.parentNode.insertBefore(body, summary.nextSibling);
+
+      function toggle(open){
+        var isOpen = open != null ? !!open : !summary.classList.contains('qa-open');
+        if(isOpen){ summary.classList.add('qa-open'); summary.setAttribute('aria-expanded','true'); }
+        else { summary.classList.remove('qa-open'); summary.setAttribute('aria-expanded','false'); }
+      }
+      summary.addEventListener('click', function(){ toggle(); });
+      summary.addEventListener('keydown', function(ev){ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); toggle(); }});
+    });
+
+    function openFromHash(){
+      if(!location.hash) return;
+      var a = container.querySelector('a'+CSS.escape(location.hash));
+      if(!a) return;
+      // o summary relevante é o elemento seguinte h2 convertido em qa-summary
+      var target = a.nextElementSibling;
+      if(target && target.classList.contains('qa-summary')){
+        target.classList.add('qa-open');
+        target.setAttribute('aria-expanded','true');
+        // opcional: rolar o summary para foco
+        target.scrollIntoView({behavior:'smooth', block:'start'});
+      }
+    }
+    window.addEventListener('hashchange', openFromHash);
+    // abre seção se veio com hash na URL
+    openFromHash();
+  })();
+  </script>
 </body>
 </html>

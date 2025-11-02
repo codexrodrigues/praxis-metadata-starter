@@ -246,7 +246,11 @@ href="../apidocs/org/praxisplatform/uischema/filter/specification/GenericSpecifi
 <li>Javadoc: <a
 href="../apidocs/org/praxisplatform/uischema/util/PageableBuilder.html"><code>PageableBuilder</code></a></li>
 </ul>
-<h2 id="estrutura-básica">Estrutura básica</h2>
+<a id="estrutura-basica"></a>
+<details>
+<summary>
+<strong>Estrutura básica</strong>
+</summary>
 <ol type="1">
 <li>Defina um DTO de filtro que implemente
 <code>GenericFilterDTO</code></li>
@@ -277,7 +281,12 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="
 Content-Type: application/json
 
 { &quot;nome&quot;: &quot;ana&quot;, &quot;departamento&quot;: &quot;RH&quot; }</code></pre>
-<h2 id="ordenação-com-filtros">Ordenação com filtros</h2>
+</details>
+<a id="ordenacao-com-filtros"></a>
+<details>
+<summary>
+<strong>Ordenação com filtros</strong>
+</summary>
 <ul>
 <li>Se o parâmetro <code>sort</code> não for informado, aplica-se a
 ordenação padrão definida pela entidade
@@ -285,7 +294,12 @@ ordenação padrão definida pela entidade
 <li>Para ordenar explicitamente:
 <code>?sort=nome,asc&amp;sort=departamento,desc</code>.</li>
 </ul>
-<h2 id="boas-práticas">Boas práticas</h2>
+</details>
+<a id="boas-praticas"></a>
+<details>
+<summary>
+<strong>Boas práticas</strong>
+</summary>
 <ul>
 <li>Mantenha os tipos do DTO de filtro coerentes com os campos da
 entidade/DTO</li>
@@ -293,10 +307,14 @@ entidade/DTO</li>
 previsíveis</li>
 <li>Limite o <code>size</code> conforme sua política de performance</li>
 </ul>
+</details>
 <hr />
-<h2
-id="por-que-este-filtro-é-diferente-zero-boilerplate-pronto-pra-produção">Por
-que este filtro é diferente (zero boilerplate, pronto pra produção)</h2>
+<a id="porque-diferente"></a>
+<details>
+<summary>
+<strong>Por que este filtro é diferente (zero boilerplate, pronto pra
+produção)</strong>
+</summary>
 <ul>
 <li>Expressivo e seguro: você declara no DTO e o Starter gera a
 Specification JPA correta.</li>
@@ -329,8 +347,12 @@ enum” e a UI renderiza multi‑select automaticamente.</li>
 catálogos dinâmicos/relacionais (<code>id/label</code>), não para
 <code>enum</code> estático.</li>
 </ul>
-<h2 id="operações-de-filtro-suportadas">Operações de Filtro
-Suportadas</h2>
+</details>
+<a id="operacoes-suportadas"></a>
+<details>
+<summary>
+<strong>Operações de Filtro Suportadas</strong>
+</summary>
 <table>
 <colgroup>
 <col style="width: 18%" />
@@ -526,8 +548,12 @@ modelar no DTO como <code>Boolean campoIsNull</code>; quando
 predicado é aplicado quando o campo do DTO está presente (não nulo).
 Recomenda‑se enviar <code>true</code> para indicar que o predicado deve
 ser considerado.</p>
-<h2 id="exemplos-práticos-dto-chamadas">Exemplos práticos (DTO +
-chamadas)</h2>
+</details>
+<a id="exemplos-praticos"></a>
+<details>
+<summary>
+<strong>Exemplos práticos (DTO + chamadas)</strong>
+</summary>
 <h3 id="dto-de-filtro-vendas">DTO de filtro (vendas)</h3>
 <div class="sourceCode" id="cb4"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">filter</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Filterable</span><span class="op">;</span></span>
@@ -569,8 +595,12 @@ Content-Type: application/json
   &quot;pago&quot;: true
 }</code></pre>
 <hr />
-<h2 id="vantagem-competitiva-por-números">Vantagem competitiva (por
-números)</h2>
+</details>
+<a id="vantagem-competitiva"></a>
+<details>
+<summary>
+<strong>Vantagem competitiva (por números)</strong>
+</summary>
 <ul>
 <li>26 operações prontas de filtro — sem escrever Specifications na
 mão</li>
@@ -584,8 +614,12 @@ cache inteligente</li>
 consistentes — alinhadas com as melhores práticas do ecossistema Spring
 + OpenAPI.</p>
 </blockquote>
-<h2 id="exemplos-no-quickstart-praxis-api-quickstart">Exemplos no
-Quickstart (praxis-api-quickstart)</h2>
+</details>
+<a id="exemplos-quickstart"></a>
+<details>
+<summary>
+<strong>Exemplos no Quickstart (praxis-api-quickstart)</strong>
+</summary>
 <p>Links para DTOs reais usando as operações avançadas, no repositório
 de exemplo:</p>
 <ul>
@@ -610,8 +644,12 @@ https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/
 e
 https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeMembroFilterDTO.java</li>
 </ul>
-<h3 id="exemplos-rápidos-payloads-reais">Exemplos rápidos (payloads
-reais)</h3>
+</details>
+<a id="exemplos-rapidos"></a>
+<details>
+<summary>
+<strong>Exemplos rápidos (payloads reais)</strong>
+</summary>
 <ul>
 <li>IN (lista de enums):</li>
 </ul>
@@ -640,7 +678,12 @@ Content-Type: application/json
 Content-Type: application/json
 
 { &quot;abertoEmLastDays&quot;: 7 }</code></pre>
-<h2 id="referências">Referências</h2>
+</details>
+<a id="referencias"></a>
+<details>
+<summary>
+<strong>Referências</strong>
+</summary>
 <ul>
 <li><a
 href="../apidocs/org/praxisplatform/uischema/filter/annotation/Filterable.html"><code>@Filterable</code></a></li>
@@ -650,5 +693,6 @@ href="../apidocs/org/praxisplatform/uischema/filter/specification/GenericSpecifi
 href="../apidocs/org/praxisplatform/uischema/util/PageableBuilder.html"><code>PageableBuilder</code></a></li>
 <li><a href="ORDEM-PADRAO.md">Ordenação Padrão</a></li>
 </ul>
+</details>
 </body>
 </html>

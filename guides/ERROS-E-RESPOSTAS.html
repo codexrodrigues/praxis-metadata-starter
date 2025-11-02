@@ -245,7 +245,11 @@ href="../apidocs/org/praxisplatform/uischema/rest/exceptionhandler/GlobalExcepti
 <li>Javadoc: <a
 href="../apidocs/org/praxisplatform/uischema/rest/exceptionhandler/ErrorCategory.html"><code>ErrorCategory</code></a></li>
 </ul>
-<h2 id="estrutura-de-sucesso">Estrutura de sucesso</h2>
+<a id="estrutura-de-sucesso"></a>
+<details>
+<summary>
+<strong>Estrutura de sucesso</strong>
+</summary>
 <p>Use o helper <code>RestApiResponse.success(data, links)</code> nos
 controllers base.</p>
 <div class="sourceCode" id="cb1"><pre
@@ -256,7 +260,12 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;links&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="er">/*</span> <span class="er">HATEOAS</span> <span class="er">(quando</span> <span class="er">habilitado)</span> <span class="er">*/</span> <span class="fu">},</span></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;timestamp&quot;</span><span class="fu">:</span> <span class="st">&quot;2024-01-01T10:00:00&quot;</span></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
-<h2 id="estrutura-de-falha">Estrutura de falha</h2>
+</details>
+<a id="estrutura-de-falha"></a>
+<details>
+<summary>
+<strong>Estrutura de falha</strong>
+</summary>
 <p>Erros são padronizados com <code>CustomProblemDetail</code> e
 categorias (<code>ErrorCategory</code>).</p>
 <div class="sourceCode" id="cb2"><pre
@@ -275,8 +284,12 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="
 <span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
 <span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;timestamp&quot;</span><span class="fu">:</span> <span class="st">&quot;2024-01-01T10:00:00&quot;</span></span>
 <span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
-<h2 id="tratamento-global-de-exceções">Tratamento global de
-exceções</h2>
+</details>
+<a id="tratamento-global-de-excecoes"></a>
+<details>
+<summary>
+<strong>Tratamento global de exceções</strong>
+</summary>
 <p><code>GlobalExceptionHandler</code> converte exceções comuns
 (validação, not found, regra de negócio, etc.) em respostas
 padronizadas.</p>
@@ -288,7 +301,12 @@ padronizadas.</p>
 <li><code>EntityNotFoundException</code> → 404</li>
 <li><code>Exception</code> → 500</li>
 </ul>
-<h2 id="boas-práticas">Boas práticas</h2>
+</details>
+<a id="boas-praticas"></a>
+<details>
+<summary>
+<strong>Boas práticas</strong>
+</summary>
 <ul>
 <li>Preencha mensagens claras nos <code>ProblemDetail</code> para
 facilitar a UX</li>
@@ -296,7 +314,12 @@ facilitar a UX</li>
 <li>Padronize os links <code>type</code> para catálogos internos de
 erros</li>
 </ul>
-<h2 id="referências">Referências</h2>
+</details>
+<a id="referencias"></a>
+<details>
+<summary>
+<strong>Referências</strong>
+</summary>
 <ul>
 <li><a
 href="../apidocs/org/praxisplatform/uischema/rest/response/RestApiResponse.html"><code>RestApiResponse</code></a></li>
@@ -305,5 +328,6 @@ href="../apidocs/org/praxisplatform/uischema/rest/exceptionhandler/GlobalExcepti
 <li><a
 href="../apidocs/org/praxisplatform/uischema/rest/response/CustomProblemDetail.html"><code>CustomProblemDetail</code></a></li>
 </ul>
+</details>
 </body>
 </html>

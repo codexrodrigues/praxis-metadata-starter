@@ -244,8 +244,11 @@ documentação.</li>
 <li>Segurança por padrão: operações de escrita (POST/PUT/DELETE)
 respondem <code>405 Method Not Allowed</code>.</li>
 </ul>
-<h2 id="endpoints-disponíveis-readonly">Endpoints disponíveis
-(read‑only)</h2>
+<a id="endpoints-readonly"></a>
+<details>
+<summary>
+<strong>Endpoints disponíveis (read‑only)</strong>
+</summary>
 <ul>
 <li><code>GET /{id}</code> — busca registro por ID</li>
 <li><code>GET /all</code> — lista completa (aplica ordenação padrão se
@@ -270,7 +273,12 @@ preservada)</li>
 <code>DELETE /{id}</code>, <code>DELETE /batch</code> →
 <code>405</code>.</p>
 </blockquote>
-<h2 id="como-usar">Como usar</h2>
+</details>
+<a id="como-usar"></a>
+<details>
+<summary>
+<strong>Como usar</strong>
+</summary>
 <h3 id="entidade-viewimmutable">1) Entidade (View/<span class="citation"
 data-cites="Immutable">@Immutable</span>)</h3>
 <div class="sourceCode" id="cb1"><pre
@@ -310,8 +318,12 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="
 <li>Defina <code>@DefaultSortColumn</code> na entidade para ordenação
 padrão</li>
 </ul>
-<h2 id="benefícios-prontos-para-produção">Benefícios (prontos para
-produção)</h2>
+</details>
+<a id="beneficios"></a>
+<details>
+<summary>
+<strong>Benefícios (prontos para produção)</strong>
+</summary>
 <ul>
 <li>Sem riscos de escrita: 405 para operações mutáveis.</li>
 <li>9+ endpoints de leitura prontos e documentados (Swagger/OpenAPI) com
@@ -322,7 +334,12 @@ read‑only.</li>
 <li>Consistência corporativa: respostas padronizadas
 (<code>RestApiResponse</code>) e HATEOAS opcional.</li>
 </ul>
-<h2 id="referências">Referências</h2>
+</details>
+<a id="referencias"></a>
+<details>
+<summary>
+<strong>Referências</strong>
+</summary>
 <ul>
 <li><a
 href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.html"><code>AbstractReadOnlyController</code></a></li>
@@ -332,5 +349,6 @@ href="../apidocs/org/praxisplatform/uischema/service/base/AbstractReadOnlyServic
 href="../apidocs/org/praxisplatform/uischema/filter/annotation/Filterable.html"><code>@Filterable</code></a></li>
 <li><a href="FILTROS-E-PAGINACAO.md">Filtros e Paginação</a></li>
 </ul>
+</details>
 </body>
 </html>

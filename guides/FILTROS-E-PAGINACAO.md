@@ -7,7 +7,9 @@ Como implementar filtros e paginação usando `@Filterable`, `GenericFilterDTO` 
 - Javadoc: [`GenericSpecification`](../apidocs/org/praxisplatform/uischema/filter/specification/GenericSpecification.html)
 - Javadoc: [`PageableBuilder`](../apidocs/org/praxisplatform/uischema/util/PageableBuilder.html)
 
-## Estrutura básica
+<a id="estrutura-basica"></a>
+<details>
+<summary><strong>Estrutura básica</strong></summary>
 
 1) Defina um DTO de filtro que implemente `GenericFilterDTO`
 
@@ -42,20 +44,32 @@ Content-Type: application/json
 { "nome": "ana", "departamento": "RH" }
 ```
 
-## Ordenação com filtros
+</details>
+
+<a id="ordenacao-com-filtros"></a>
+<details>
+<summary><strong>Ordenação com filtros</strong></summary>
 
 - Se o parâmetro `sort` não for informado, aplica-se a ordenação padrão definida pela entidade (`@DefaultSortColumn`).
 - Para ordenar explicitamente: `?sort=nome,asc&sort=departamento,desc`.
 
-## Boas práticas
+</details>
+
+<a id="boas-praticas"></a>
+<details>
+<summary><strong>Boas práticas</strong></summary>
 
 - Mantenha os tipos do DTO de filtro coerentes com os campos da entidade/DTO
 - Prefira operações específicas (EQUAL, LIKE, BETWEEN) para resultados previsíveis
 - Limite o `size` conforme sua política de performance
 
+</details>
+
 ---
 
-## Por que este filtro é diferente (zero boilerplate, pronto pra produção)
+<a id="porque-diferente"></a>
+<details>
+<summary><strong>Por que este filtro é diferente (zero boilerplate, pronto pra produção)</strong></summary>
 
 - Expressivo e seguro: você declara no DTO e o Starter gera a Specification JPA correta.
 - Cobertura completa (26 operações): de LIKE/IN/BETWEEN a datas relativas (últimos/próximos N dias) e tamanho de coleções.
@@ -72,7 +86,11 @@ Content-Type: application/json
 - Para `array` de `enum`, o schema é “array de enum” e a UI renderiza multi‑select automaticamente.
 - Use `endpoint` (`/options/filter`) apenas para catálogos dinâmicos/relacionais (`id/label`), não para `enum` estático.
 
-## Operações de Filtro Suportadas
+</details>
+
+<a id="operacoes-suportadas"></a>
+<details>
+<summary><strong>Operações de Filtro Suportadas</strong></summary>
 
 | Operação           | Descrição                                | Exemplo DTO                               |
 |--------------------|-------------------------------------------|-------------------------------------------|
@@ -126,7 +144,11 @@ Notas:
 - Para IS_NULL/IS_NOT_NULL, sugere-se modelar no DTO como `Boolean campoIsNull`; quando `true`, o predicado é aplicado.
 - Para IS_TRUE/IS_FALSE, o predicado é aplicado quando o campo do DTO está presente (não nulo). Recomenda‑se enviar `true` para indicar que o predicado deve ser considerado.
 
-## Exemplos práticos (DTO + chamadas)
+</details>
+
+<a id="exemplos-praticos"></a>
+<details>
+<summary><strong>Exemplos práticos (DTO + chamadas)</strong></summary>
 
 ### DTO de filtro (vendas)
 
@@ -176,7 +198,11 @@ Content-Type: application/json
 
 ---
 
-## Vantagem competitiva (por números)
+</details>
+
+<a id="vantagem-competitiva"></a>
+<details>
+<summary><strong>Vantagem competitiva (por números)</strong></summary>
 
 - 26 operações prontas de filtro — sem escrever Specifications na mão
 - Até 13 endpoints por recurso — CRUD, filtros, paginação por cursor, options id/label e schemas
@@ -184,7 +210,11 @@ Content-Type: application/json
 
 > Resultado: menos boilerplate, tempo de entrega menor e APIs/UX mais consistentes — alinhadas com as melhores práticas do ecossistema Spring + OpenAPI.
 
-## Exemplos no Quickstart (praxis-api-quickstart)
+</details>
+
+<a id="exemplos-quickstart"></a>
+<details>
+<summary><strong>Exemplos no Quickstart (praxis-api-quickstart)</strong></summary>
 
 Links para DTOs reais usando as operações avançadas, no repositório de exemplo:
 
@@ -198,7 +228,11 @@ Links para DTOs reais usando as operações avançadas, no repositório de exemp
 - Veículos — IN/NOT_IN (Tipo/Status): https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoFilterDTO.java
 - Equipe/EquipeMembro — IN/NOT_IN (Status/Papel), ON_DATE: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeFilterDTO.java e https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeMembroFilterDTO.java
 
-### Exemplos rápidos (payloads reais)
+</details>
+
+<a id="exemplos-rapidos"></a>
+<details>
+<summary><strong>Exemplos rápidos (payloads reais)</strong></summary>
 
 - IN (lista de enums):
 
@@ -236,9 +270,15 @@ Content-Type: application/json
 { "abertoEmLastDays": 7 }
 ```
 
-## Referências
+</details>
+
+<a id="referencias"></a>
+<details>
+<summary><strong>Referências</strong></summary>
 
 - [`@Filterable`](../apidocs/org/praxisplatform/uischema/filter/annotation/Filterable.html)
 - [`GenericSpecificationsBuilder`](../apidocs/org/praxisplatform/uischema/filter/specification/GenericSpecificationsBuilder.html)
 - [`PageableBuilder`](../apidocs/org/praxisplatform/uischema/util/PageableBuilder.html)
 - [Ordenação Padrão](ORDEM-PADRAO.md)
+
+</details>
