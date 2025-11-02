@@ -317,6 +317,18 @@ resolver sugere
 <code>radio</code>/<code>chipInput</code>; médios <code>select</code>;
 grandes <code>autoComplete</code>/<code>multiSelect</code>.</li>
 </ul>
+<h4 id="enums-em-selects-sem-endpoint">Enums em SELECTs (sem
+endpoint)</h4>
+<ul>
+<li>Campos <code>enum</code> não precisam de <code>endpoint</code>: as
+opções são derivadas diretamente do schema OpenAPI (o array
+<code>enum</code>).</li>
+<li>Para <code>array</code> de <code>enum</code>, o schema é “array de
+enum” e a UI renderiza multi‑select automaticamente.</li>
+<li>Use <code>endpoint</code> (<code>/options/filter</code>) apenas para
+catálogos dinâmicos/relacionais (<code>id/label</code>), não para
+<code>enum</code> estático.</li>
+</ul>
 <h2 id="operações-de-filtro-suportadas">Operações de Filtro
 Suportadas</h2>
 <table>
@@ -572,6 +584,62 @@ cache inteligente</li>
 consistentes — alinhadas com as melhores práticas do ecossistema Spring
 + OpenAPI.</p>
 </blockquote>
+<h2 id="exemplos-no-quickstart-praxis-api-quickstart">Exemplos no
+Quickstart (praxis-api-quickstart)</h2>
+<p>Links para DTOs reais usando as operações avançadas, no repositório
+de exemplo:</p>
+<ul>
+<li>Missões — IN/NOT_IN, ON_DATE/IN_LAST_DAYS:
+https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MissaoFilterDTO.java</li>
+<li>Incidentes — IN, ON_DATE/IN_LAST_DAYS:
+https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/IncidenteFilterDTO.java</li>
+<li>Sinais de Socorro — IN/NOT_IN, ON_DATE/IN_LAST_DAYS:
+https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/SinaisSocorroFilterDTO.java</li>
+<li>Menções na Mídia — IN, ON_DATE/IN_LAST_DAYS:
+https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MencoesMidiaFilterDTO.java</li>
+<li>Veículo em Missão — ON_DATE/IN_LAST_DAYS (partida/chegada):
+https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoMissaoUsoFilterDTO.java</li>
+<li>Reputação — ON_DATE/IN_LAST_DAYS:
+https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/ReputacaoFilterDTO.java</li>
+<li>Resumo de Missões (view) — ON_DATE/IN_LAST_DAYS:
+https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VwResumoMissoeFilterDTO.java</li>
+<li>Veículos — IN/NOT_IN (Tipo/Status):
+https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoFilterDTO.java</li>
+<li>Equipe/EquipeMembro — IN/NOT_IN (Status/Papel), ON_DATE:
+https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeFilterDTO.java
+e
+https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeMembroFilterDTO.java</li>
+</ul>
+<h3 id="exemplos-rápidos-payloads-reais">Exemplos rápidos (payloads
+reais)</h3>
+<ul>
+<li>IN (lista de enums):</li>
+</ul>
+<pre class="http"><code>POST /api/human-resources/missoes/filter
+Content-Type: application/json
+
+{ &quot;statusIn&quot;: [&quot;ABERTA&quot;, &quot;EM_ANDAMENTO&quot;] }</code></pre>
+<ul>
+<li>NOT_IN (excluir enums):</li>
+</ul>
+<pre class="http"><code>POST /api/human-resources/veiculos/filter
+Content-Type: application/json
+
+{ &quot;statusNotIn&quot;: [&quot;INATIVO&quot;] }</code></pre>
+<ul>
+<li>ON_DATE (comparação por data, campo OffsetDateTime no backend):</li>
+</ul>
+<pre class="http"><code>POST /api/human-resources/incidentes/filter
+Content-Type: application/json
+
+{ &quot;ocorridoEmOn&quot;: &quot;2025-03-01&quot; }</code></pre>
+<ul>
+<li>IN_LAST_DAYS (datas relativas):</li>
+</ul>
+<pre class="http"><code>POST /api/human-resources/sinais-socorro/filter
+Content-Type: application/json
+
+{ &quot;abertoEmLastDays&quot;: 7 }</code></pre>
 <h2 id="referências">Referências</h2>
 <ul>
 <li><a

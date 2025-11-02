@@ -12,6 +12,34 @@ O usuário deve fornecer:
 3. **Módulos desejados** (ex: `produtos`, `clientes`, `vendas`)
 4. **Porta do servidor** (opcional, padrão: 8080)
 
+## 💬 Prompts de Exemplo (copiar/colar)
+
+Use estes prompts diretamente no agente (Claude/LLM). Ajuste os placeholders entre chaves.
+
+```
+Você é um gerador de projetos Spring Boot alinhado ao Praxis Platform.
+Crie uma aplicação do zero com as seguintes entradas:
+- Nome da aplicação: {nome-aplicacao}
+- Domínio base: {dominio-base}
+- Módulos: {modulos-separados-por-virgula}
+- Porta: {porta}
+
+Requisitos:
+- Estrutura de pacotes e arquivos conforme o guia (classe principal, ApiPaths, config, seed, properties, Flyway)
+- Integrar Praxis Metadata Starter (dependências padrão)
+- Habilitar Swagger UI (/swagger-ui.html) e /v3/api-docs (grupos)
+- Adotar convenções de pastas entity/dto/mapper/repository/service/controller por módulo
+- Entregar arquivos prontos para compilar (mvn clean package)
+```
+
+```
+Ajuste a aplicação criada para adicionar um novo módulo:
+- Novo módulo: {nome-modulo}
+- Paths e ApiPaths para o módulo
+- Estrutura de pacotes padrão
+Mantenha compatibilidade com Praxis Platform, propriedades e Swagger.
+```
+
 ## 🏗️ Estrutura Completa da Aplicação
 
 ```

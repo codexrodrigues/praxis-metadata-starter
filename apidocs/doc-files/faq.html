@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>FAQ — Praxis Metadata Starter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#ffffff; --fg:#111827; --muted:#6b7280; --card:#f9fafb; --accent:#0ea5e9; }
+    @media (prefers-color-scheme: dark){ :root{ --bg:#0f1115; --fg:#e5e7eb; --muted:#9ca3af; --card:#11151b; --accent:#60a5fa; } }
+    body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,sans-serif;margin:0;padding:24px;background:var(--bg);color:var(--fg);} 
+    h1,h2,h3{margin:.2rem 0 .6rem}
+    .muted{color:var(--muted)}
+    .card{background:var(--card);padding:16px;border-radius:10px;border:1px solid rgba(148,163,184,.2);margin:12px 0}
+    code,pre{background:#1b1f28;color:#e8eaed;padding:.25rem .5rem;border-radius:6px}
+    a{color:var(--accent);text-decoration:none}
+    ul{margin:.4rem 0 .8rem 1.2rem}
+  </style>
+</head>
+<body>
+  <div class="flex-content">
+    <a id="faq"></a>
+    <h1>FAQ — Perguntas Frequentes</h1>
+    <p class="muted">Dúvidas comuns sobre endpoints, grupos OpenAPI, HATEOAS, ETag, options, paginação por cursor e validações.</p>
+
+    <div class="card">
+      <h2>Índice</h2>
+      <ul>
+        <li><a href="#intro">O que é o Praxis Metadata Starter e quando usar?</a></li>
+        <li><a href="#requisitos">Quais os requisitos de versão?</a></li>
+        <li><a href="#instalacao">Como instalar e começar?</a></li>
+        <li><a href="#grupos-openapi">Como os grupos OpenAPI são criados (individuais x agregados x fallback)?</a></li>
+        <li><a href="#best-match">Como funciona o algoritmo “best match” do OpenApiGroupResolver?</a></li>
+        <li><a href="#schemas-filtered">Como usar /schemas/filtered?</a></li>
+        <li><a href="#grupo-application">Por que meu endpoint caiu no grupo “application”?</a></li>
+        <li><a href="#hateoas">Como habilitar/desabilitar HATEOAS?</a></li>
+        <li><a href="#limites">Limites de /by-ids e paginação (size)</a></li>
+        <li><a href="#etag">Enviei If-None-Match e não recebi 304 — e agora?</a></li>
+        <li><a href="#options">Quando usar /options/filter vs /options/by-ids?</a></li>
+        <li><a href="#cursor">Como usar cursor pagination e o /locate?</a></li>
+        <li><a href="#validation-xui">Como Bean Validation vira x-ui.validation? Posso sobrescrever?</a></li>
+        <li><a href="#bigdecimal">Por que BigDecimal aparece como number/decimal no OpenAPI?</a></li>
+        <li><a href="#readonly-405">Meu controller read-only retorna 405 — é esperado?</a></li>
+        <li><a href="#endpoints-prontos">Quais endpoints prontos existem?</a></li>
+        <li><a href="#filtros">Como modelar filtros com @Filterable?</a></li>
+        <li><a href="#operacoes-filtro">Quais operações de filtro são suportadas?</a></li>
+        <li><a href="#armadilhas-filtros">Armadilhas comuns ao filtrar</a></li>
+        <li><a href="#locate">Como localizar a página de um ID?</a></li>
+        <li><a href="#options-reidratar">Como reidratar labels por IDs?</a></li>
+        <li><a href="#default-sort">Como definir ordenação padrão?</a></li>
+        <li><a href="#controltype">Como o controlType é escolhido?</a></li>
+        <li><a href="#arquivos">Como configurar uploads/arquivos?</a></li>
+        <li><a href="#numericos">Como configurar campos numéricos?</a></li>
+        <li><a href="#servicos-repos">Como estender serviços/repositórios?</a></li>
+        <li><a href="#beans-custom">Como sobrescrever beans?</a></li>
+        <li><a href="#javadoc-custom">Como personalizar o Javadoc?</a></li>
+        <li><a href="#swagger-ui-grupos">Como visualizar e usar grupos no Swagger UI?</a></li>
+        <li><a href="#dto-filtro">O que são DTOs de filtros?</a></li>
+        <li><a href="#dois-dtos">Por que preciso de dois DTOs (DTO e FilterDTO)?</a></li>
+        <li><a href="#generics-abstract">O que significam os genéricos ao estender AbstractCrudController?</a></li>
+        <li><a href="#por-que-tantos-endpoints">De onde vieram tantos endpoints?</a></li>
+        <li><a href="#tabelas-formularios">Como as tabelas e formulários são gerados?</a></li>
+        <li><a href="#preciso-uischema">Preciso mesmo do @UISchema?</a></li>
+        <li><a href="#anotacoes">O que significa @UISchema e quais anotações existem no starter?</a></li>
+        <li><a href="#acoes-dominio">Como incluir novos endpoints de ação de domínio/comandos de negócio?</a></li>
+        <li><a href="#metadados-custom">Como incluir metadados que não estão presentes na lib?</a></li>
+        <li><a href="#o-que-e-xui">O que é x‑ui e qual seu vocabulário?</a></li>
+        <li><a href="#precedencia">Qual a ordem de precedência dos metadados?</a></li>
+        <li><a href="#idfield">Como o idField é resolvido e validado?</a></li>
+        <li><a href="#include-internal">O que faz o includeInternalSchemas?</a></li>
+        <li><a href="#capabilities-readonly">Como são calculadas capabilities e o readOnly?</a></li>
+        <li><a href="#schema-id-hash">Como o SchemaId e o ETag são gerados?</a></li>
+        <li><a href="#optionlabel">Como funciona @OptionLabel e heurísticas de label?</a></li>
+        <li><a href="#detecao-controle">Como a detecção de controlType decide o componente?</a></li>
+        <li><a href="#ia-visao">Agentes de IA: quando usar e como ajudam?</a></li>
+        <li><a href="#ia-app-nova">Como instruir a IA para criar uma aplicação nova (do zero)?</a></li>
+        <li><a href="#ia-entrada-app">Qual entrada mínima devo fornecer para criar app?</a></li>
+        <li><a href="#ia-crud-bulk">Como pedir para gerar CRUD + Bulk para uma entidade?</a></li>
+        <li><a href="#ia-8-arquivos">Quais arquivos o agente deve gerar por entidade (padrão 8 arquivos)?</a></li>
+        <li><a href="#ia-enums-corretos">Quais enums/valores o agente deve usar para evitar erros?</a></li>
+        <li><a href="#ia-mapstruct-ou-manual">Quando usar MapStruct x mapeamento manual?</a></li>
+        <li><a href="#ia-relacionamentos">Como mapear relacionamentos no MapStruct (IDs ↔ entidades)?</a></li>
+        <li><a href="#ia-dtos-filtro">Como orientar a IA a modelar DTO x FilterDTO?</a></li>
+        <li><a href="#ia-prompts">Dicas de prompt para manter padrões (paths, grupos, pacotes)</a></li>
+        <li><a href="#ia-validacao">Como validar o que a IA gerou?</a></li>
+        <li><a href="#host-config">Quais propriedades devo configurar no projeto host?</a></li>
+        <li><a href="#host-paginacao-byids">Como ajustar os limites de paginação e by-ids?</a></li>
+        <li><a href="#host-hateoas">Como habilitar/desabilitar HATEOAS no host?</a></li>
+        <li><a href="#host-validacao-apiresource">Como configurar a validação de uso de @ApiResource?</a></li>
+        <li><a href="#host-openapi-paths">Como configurar os paths do OpenAPI/Swagger UI?</a></li>
+        <li><a href="#host-contextpath">Como o server.servlet.contextPath afeta os links?</a></li>
+        <li><a href="#host-cors">Como configurar CORS na aplicação host?</a></li>
+        <li><a href="#host-db-dev">Como configurar banco e H2 para desenvolvimento?</a></li>
+        <li><a href="#cache-schemas">Buscar metadados toda vez é lento? Como o cache funciona?</a></li>
+        <li><a href="#node-existe">Existe suporte/projeto para Node.js?</a></li>
+        <li><a href="#node-uso">Como usar o projeto Node.js no ecossistema Praxis?</a></li>
+        <li><a href="#generator-openapi-xui">Como converter Swagger/OpenAPI em JSON x‑ui?</a></li>
+        <li><a href="#seed-backend">Existe um projeto seed de backend para começar rápido?</a></li>
+        <li><a href="#ui-quickstart-existe">Existe um exemplo pronto de UI Angular consumindo x‑ui?</a></li>
+        <li><a href="#ui-quickstart-consumo">Como o UI Quickstart consome /schemas/filtered e renderiza telas?</a></li>
+        <li><a href="#ui-quickstart-rodar">Como rodar o UI Quickstart e apontar para meu backend?</a></li>
+        <li><a href="#files-starter">Existe um starter para upload/arquivos?</a></li>
+        <li><a href="#files-defaults">Quais são os comportamentos padrão (segurança, limites, rate‑limit)?</a></li>
+        <li><a href="#files-config-endpoint">Como ler a configuração efetiva do servidor?</a></li>
+        <li><a href="#files-props">Quais as principais propriedades de configuração?</a></li>
+        <li><a href="#files-quota">Como habilitar e configurar quotas por tenant/usuário?</a></li>
+        <li><a href="#files-antivirus">Como habilitar varredura de vírus (ClamAV)?</a></li>
+        <li><a href="#files-presign">O starter suporta uploads pré‑assinados (S3/GCS)?</a></li>
+        <li><a href="#files-headless">Posso usar em modo headless (sem HTTP/Swagger)?</a></li>
+      </ul>
+    </div>
+
+    <a id="intro"></a>
+    <h2>O que é o Praxis Metadata Starter e quando usar?</h2>
+    <p>
+      É um starter Spring Boot que torna suas APIs <em>self‑describing</em>: anotações Java e Bean Validation viram metadados de UI (<code>x-ui</code>) no OpenAPI. Use quando quiser UIs dirigidas por contrato (forms, tabelas e filtros) com documentação enxuta por recurso e alta consistência entre back e front.
+    </p>
+
+    <a id="requisitos"></a>
+    <h2>Quais os requisitos de versão?</h2>
+    <p>
+      Java 21+, Spring Boot 3.2+ e SpringDoc OpenAPI. O projeto publica JAR de fontes e Javadoc no Maven Central; veja as badges no README.
+    </p>
+
+    <a id="instalacao"></a>
+    <h2>Como instalar e começar?</h2>
+    <p>
+      Adicione a dependência no <code>pom.xml</code>, anote seus controllers com <code>@ApiResource</code> (e opcional <code>@ApiGroup</code>), modele DTOs com <code>@UISchema</code> e exponha endpoints herdando os controllers base. A documentação e os schemas já ficam disponíveis sem configuração manual.
+    </p>
+
+    <a id="grupos-openapi"></a>
+    <h2>Como os grupos OpenAPI são criados (individuais x agregados x fallback)?</h2>
+    <p>
+      A configuração dinâmica cria: (1) grupos individuais por recurso para subclasses de <code>AbstractCrudController</code> (documentos ~3–5KB), (2) grupos agregados por contexto definidos via <code>@ApiGroup</code> e (3) fallback <em>application</em> para endpoints sem categorização explícita. Veja <a href="../org/praxisplatform/uischema/configuration/DynamicSwaggerConfig.html">DynamicSwaggerConfig</a>.
+    </p>
+
+    <a id="best-match"></a>
+    <h2>Como funciona o algoritmo “best match” do OpenApiGroupResolver?</h2>
+    <p>
+      Ele normaliza padrões (remove <code>/**</code> e <code>/*</code>) e escolhe o grupo cujo padrão é o prefixo mais longo do <code>path</code> da requisição — priorizando especificidade sobre genérico. Integra-se automaticamente ao <code>ApiDocsController</code>. Veja <a href="../org/praxisplatform/uischema/util/OpenApiGroupResolver.html">OpenApiGroupResolver</a>.
+    </p>
+
+    <a id="schemas-filtered"></a>
+    <h2>Como usar /schemas/filtered?</h2>
+    <p>
+      Use <code>GET /schemas/filtered</code> com <code>path</code> e <code>operation</code>; escolha o <code>schemaType</code> (<code>response</code> ou <code>request</code>). Parâmetros opcionais úteis: <code>idField</code>, <code>includeInternalSchemas</code> (expande $ref) e <code>readOnly</code>.
+    </p>
+    <pre><code># Schema de grid (response)
+curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/all&amp;operation=get&amp;schemaType=response"
+
+# Schema de filtro (request)
+curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/filter&amp;operation=post&amp;schemaType=request"</code></pre>
+    <p>Se enviar <code>schemaType</code> inválido, o serviço responde com <em>“schemaType deve ser 'response' ou 'request'”</em>. Veja o <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">Javadoc do ApiDocsController</a>.</p>
+
+    <a id="grupo-application"></a>
+    <h2>Por que meu endpoint caiu no grupo “application”?</h2>
+    <p>
+      Esse é o fallback genérico. Para documentação por recurso, use <code>@ApiResource</code> no controller (ou <code>@RequestMapping</code>) e, se quiser um agrupamento específico, adicione <code>@ApiGroup</code>. A resolução e criação de grupos é feita dinamicamente (ver <a href="../org/praxisplatform/uischema/configuration/DynamicSwaggerConfig.html">DynamicSwaggerConfig</a>).
+    </p>
+
+    <a id="hateoas"></a>
+    <h2>Como habilitar/desabilitar HATEOAS?</h2>
+    <p>
+      Controlado por propriedade (<code>praxis.hateoas.enabled</code>). Quando habilitado, respostas incluem links úteis (<code>self</code>, <code>create</code>, <code>update</code>, <code>delete</code> em recursos CRUD). Veja a visão geral de endpoints: <a href="../org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html">Endpoints — Guia Conceitual</a>.
+    </p>
+
+    <a id="limites"></a>
+    <h2>Limites de /by-ids e paginação (size)</h2>
+    <ul>
+      <li><code>GET /{resource}/by-ids</code>: limite por <code>praxis.query.by-ids.max</code>.</li>
+      <li><code>POST /filter</code> e <code>POST /options/filter</code>: tamanho ≤ <code>praxis.pagination.max-size</code>.</li>
+    </ul>
+    <p>Estes limites ajudam a manter performance e previsibilidade em APIs corporativas.</p>
+
+    <a id="etag"></a>
+    <h2>Enviei If-None-Match e não recebi 304 — e agora?</h2>
+    <p>
+      O starter usa comparação <strong>forte</strong> de ETag (sem o prefixo fraco <code>W/</code>). Garanta que está reutilizando exatamente o ETag retornado anteriormente. Implementação de referência: <a href="../org/praxisplatform/uischema/http/IfNoneMatchUtils.html">IfNoneMatchUtils</a>.
+    </p>
+
+    <a id="options"></a>
+    <h2>Quando usar /options/filter vs /options/by-ids?</h2>
+    <ul>
+      <li><code>POST /options/filter</code>: para popular combos/autocomplete com paginação e filtros. Payload leve: <code>OptionDTO</code>.</li>
+      <li><code>GET /options/by-ids</code>: para reidratar valores salvos, preservando a ordem dos IDs.</li>
+    </ul>
+    <p>Endpoints e exemplos em <a href="../org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html#get-options-by-ids">Endpoints — Options</a>. Tipos: <a href="../org/praxisplatform/uischema/dto/OptionDTO.html">OptionDTO</a>, <a href="../org/praxisplatform/uischema/mapper/base/OptionMapper.html">OptionMapper</a>.</p>
+
+    <a id="cursor"></a>
+    <h2>Como usar cursor pagination e o /locate?</h2>
+    <p>
+      Use <code>POST /filter/cursor</code> com cursores <code>after</code>/<code>before</code> para paginação estável (keyset). O <code>POST /locate</code> retorna posição absoluta e página para um <code>id</code> específico.
+    </p>
+    <p>Veja tabelas e exemplos em <a href="../org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html#post-filter-cursor">Endpoints — Cursor</a> e <a href="../org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html#post-locate">Locate</a>.</p>
+
+    <a id="validation-xui"></a>
+    <h2>Como Bean Validation vira x-ui.validation? Posso sobrescrever?</h2>
+    <p>
+      O <code>CustomOpenApiResolver</code> mapeia anotações Jakarta (ex.: <code>@NotNull</code>, <code>@Size</code>) para chaves em <code>x-ui.validation</code> conforme <a href="../org/praxisplatform/uischema/ValidationProperties.html">ValidationProperties</a>. Você pode sobrescrever com <code>extraProperties</code> em <a href="../org/praxisplatform/uischema/extension/annotation/UISchema.html">@UISchema</a>.
+    </p>
+
+    <a id="bigdecimal"></a>
+    <h2>Por que BigDecimal aparece como number/decimal no OpenAPI?</h2>
+    <p>
+      A auto-configuração aplica um <em>OpenApiCustomizer</em> que mapeia <code>BigDecimal</code> para <code>type: number</code>, <code>format: decimal</code> (consistência para frontends). Veja <a href="../org/praxisplatform/uischema/configuration/PraxisMetadataAutoConfiguration.html">PraxisMetadataAutoConfiguration</a>.
+    </p>
+
+    <a id="readonly-405"></a>
+    <h2>Meu controller read-only retorna 405 — é esperado?</h2>
+    <p>
+      Sim. Em recursos baseados em <code>AbstractReadOnlyController</code>, endpoints de escrita (<code>POST /</code>, <code>PUT /{id}</code>, <code>DELETE</code>) respondem <code>405 Method Not Allowed</code> por design. Consulte <a href="../org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.html">AbstractReadOnlyController</a>.
+    </p>
+
+    <a id="endpoints-prontos"></a>
+    <h2>Quais endpoints prontos existem?</h2>
+    <p>
+      O controller base expõe até 13 endpoints por recurso (CRUD completo, filtros, paginação por cursor, options e schemas). A lista completa com parâmetros, retornos e exemplos está em <a href="../org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html">Endpoints — Guia Conceitual</a>.
+    </p>
+
+    <a id="filtros"></a>
+    <h2>Como modelar filtros com @Filterable?</h2>
+    <p>
+      Crie um DTO que implemente <code>GenericFilterDTO</code> e anote campos com <code>@Filterable</code> informando <code>operation</code> e, quando necessário, <code>relation</code> (<code>"a.b.campo"</code>). O builder converte o DTO em <em>Specifications</em> JPA. Veja <a href="../org/praxisplatform/uischema/filter/specification/doc-files/filters-overview.html">Visão Geral de Filtros</a>.
+    </p>
+
+    <a id="operacoes-filtro"></a>
+    <h2>Quais operações de filtro são suportadas?</h2>
+    <p>
+      Igualdade, texto (LIKE/STARTS/ENDS), comparações, listas (IN/NOT_IN), intervalos (BETWEEN/EXCLUSIVE/OUTSIDE), datas (ON_DATE/IN_LAST/NEXT_DAYS), cardinalidade de coleções (SIZE_*), boolean/nulidade (IS_*). Tabela didática com exemplos em <a href="../org/praxisplatform/uischema/filter/specification/doc-files/filters-overview.html">Filtros</a>.
+    </p>
+
+    <a id="armadilhas-filtros"></a>
+    <h2>Armadilhas comuns ao filtrar</h2>
+    <ul>
+      <li>Evite listas vazias em IN/NOT_IN (omita o campo).</li>
+      <li>NOT_IN muito grande pode degradar; prefira flags ou critérios combinados.</li>
+      <li>Relações profundas podem causar N+1; use índices e <code>distinct</code> quando necessário.</li>
+    </ul>
+
+    <a id="locate"></a>
+    <h2>Como localizar a página de um ID?</h2>
+    <p>
+      Use <code>POST /locate</code> com <code>id</code>, <code>size</code> e <code>sort</code> (mais filtro, se aplicável). A resposta <a href="../org/praxisplatform/uischema/dto/LocateResponse.html">LocateResponse</a> informa posição absoluta e página para navegação direta.
+    </p>
+
+    <a id="options-reidratar"></a>
+    <h2>Como reidratar labels por IDs?</h2>
+    <p>
+      Chame <code>GET /options/by-ids?ids=...</code>. A ordem dos IDs é preservada na resposta. Para combos dinâmicos com paginação, prefira <code>POST /options/filter</code>.
+    </p>
+
+    <a id="default-sort"></a>
+    <h2>Como definir ordenação padrão?</h2>
+    <p>
+      Anote campos da entidade com <code>@DefaultSortColumn</code> (prioridade e direção). A ordenação é aplicada quando a requisição não envia <code>sort</code>. Exemplos em <a href="../org/praxisplatform/uischema/controller/base/AbstractCrudController.html">AbstractCrudController</a>.
+    </p>
+
+    <a id="controltype"></a>
+    <h2>Como o controlType é escolhido?</h2>
+    <p>
+      Por padrão, <code>@UISchema.controlType=AUTO</code> e o resolver escolhe com base em <em>type/format/enum</em> do OpenAPI e heurísticas de nome. Se você informar um controlType explícito, ele tem precedência. Veja <a href="../org/praxisplatform/uischema/extension/annotation/UISchema.html">@UISchema</a> e <a href="../org/praxisplatform/uischema/util/OpenApiUiUtils.html">OpenApiUiUtils</a>.
+    </p>
+
+    <a id="arquivos"></a>
+    <h2>Como configurar uploads/arquivos?</h2>
+    <p>
+      Use <code>AllowedFileTypes</code> (ex.: <code>IMAGES</code>, <code>PDF</code>), <code>maxFileSize</code> e mensagens em <code>x-ui.validation</code>. Exemplo: <code>@UISchema(controlType=FILE_UPLOAD, allowedFileTypes=PDF)</code>. Tipos suportados em <a href="../org/praxisplatform/uischema/AllowedFileTypes.html">AllowedFileTypes</a>.
+    </p>
+
+    <a id="numericos"></a>
+    <h2>Como configurar campos numéricos?</h2>
+    <p>
+      Defina <code>numericFormat</code> (<code>CURRENCY</code>, <code>PERCENT</code>, etc.), <code>numericStep</code>, <code>numericMin</code>, <code>numericMax</code>, <code>numericMaxLength</code>. Consulte <a href="../org/praxisplatform/uischema/NumericFormat.html">NumericFormat</a> e <a href="../org/praxisplatform/uischema/numeric/NumberFormatStyle.html">NumberFormatStyle</a>.
+    </p>
+
+    <a id="servicos-repos"></a>
+    <h2>Como estender serviços/repositórios?</h2>
+    <p>
+      Implemente <code>BaseCrudService</code> herdando <code>AbstractBaseCrudService</code> e use <code>BaseCrudRepository</code> (JPA + Specifications). Para DTO↔entidade, utilize MapStruct com <code>CorporateMapperConfig</code>. Tipos em <a href="../org/praxisplatform/uischema/service/base/package-summary.html">service.base</a> e <a href="../org/praxisplatform/uischema/repository/base/package-summary.html">repository.base</a>.
+    </p>
+
+    <a id="beans-custom"></a>
+    <h2>Como sobrescrever beans?</h2>
+    <p>
+      As auto-configurações respeitam <code>@ConditionalOnMissingBean</code>. Você pode fornecer <code>@Primary</code> para <code>ObjectMapper</code>, <code>RestTemplate</code> ou registrar o seu <code>OpenApiCustomizer</code> e <code>GroupedOpenApi</code>. Veja <a href="../org/praxisplatform/uischema/configuration/OpenApiUiSchemaAutoConfiguration.html">OpenApiUiSchemaAutoConfiguration</a> e <a href="../org/praxisplatform/uischema/configuration/PraxisMetadataAutoConfiguration.html">PraxisMetadataAutoConfiguration</a>.
+    </p>
+
+    <a id="javadoc-custom"></a>
+    <h2>Como personalizar o Javadoc?</h2>
+    <p>
+      Edite <code>src/main/javadoc/overview.html</code>, adicione doc-files e estilos em <code>src/main/javadoc/dark.css</code>. O build inclui um passo que copia doc-files e publica em <code>docs/apidocs</code> via GitHub Pages. Workflow: <code>.github/workflows/docs.yml</code>.
+    </p>
+
+    <a id="swagger-ui-grupos"></a>
+    <h2>Como visualizar e usar grupos no Swagger UI?</h2>
+    <p>
+      O SpringDoc expõe cada grupo em <code>/v3/api-docs/{grupo}</code> e no Swagger UI. Os grupos individuais (por recurso) ficam leves e focados; os agregados (<code>@ApiGroup</code>) mostram um contexto maior. O <code>ApiDocsController</code> resolve o grupo automaticamente a partir do <code>path</code>.
+    </p>
+
+    <a id="dto-filtro"></a>
+    <h2>O que são DTOs de filtros?</h2>
+    <p>
+      São objetos simples que representam critérios de busca enviados aos endpoints de listagem (<code>POST /filter</code>, <code>/filter/cursor</code>, <code>/options/filter</code>). Eles implementam <code>GenericFilterDTO</code> e têm campos anotados com <code>@Filterable</code> para informar operação e, se necessário, <code>relation</code>.
+    </p>
+
+    <a id="dois-dtos"></a>
+    <h2>Por que preciso de dois DTOs (DTO e FilterDTO)?</h2>
+    <p>
+      O <strong>DTO</strong> descreve os dados de entrada/saída do recurso (usado em CRUD e respostas), enquanto o <strong>FilterDTO</strong> modela critérios de busca (operadores, ranges, relações). Separar responsabilidades evita acoplamento entre forma de exibição/edição e a semântica de consulta, além de gerar schemas distintos no OpenAPI.
+    </p>
+
+    <a id="generics-abstract"></a>
+    <h2>O que significam os genéricos ao estender AbstractCrudController?</h2>
+    <p>
+      A assinatura é <code>AbstractCrudController&lt;E, D, ID, FD extends GenericFilterDTO&gt;</code>:
+    </p>
+    <ul>
+      <li><code>E</code>: Entidade JPA (modelo de persistência)</li>
+      <li><code>D</code>: DTO exposto pela API (request/response)</li>
+      <li><code>ID</code>: Tipo do identificador (ex.: <code>Long</code>, <code>UUID</code>)</li>
+      <li><code>FD</code>: Filter DTO (deve implementar <code>GenericFilterDTO</code>)</li>
+    </ul>
+
+    <a id="por-que-tantos-endpoints"></a>
+    <h2>De onde vieram tantos endpoints?</h2>
+    <p>
+      Eles são herdados do controller base (<code>AbstractCrudController</code> ou <code>AbstractReadOnlyController</code>). Ao anotar o controller com <code>@ApiResource</code>, você ganha automaticamente a superfície de leitura/escrita, filtros, paginação por cursor, options e schemas — prontos para uso.
+    </p>
+
+    <a id="tabelas-formularios"></a>
+    <h2>Como as tabelas e formulários são gerados?</h2>
+    <p>
+      O backend <strong>não</strong> gera HTML. Ele publica metadados <code>x-ui</code> no OpenAPI (derivados de <code>@UISchema</code> e Bean Validation) que UIs consomem via <code>/schemas/filtered</code>. O frontend usa esses metadados para renderizar tabelas (colunas, ordenação) e formulários (labels, tipos, validações, componentes) de forma consistente.
+    </p>
+
+    <a id="preciso-uischema"></a>
+    <h2>Preciso mesmo do @UISchema?</h2>
+    <p>
+      Não é obrigatório: o resolver aplica detecção automática e Bean Validation já fornece validações. Mas <code>@UISchema</code> melhora rótulos, placeholders, tipos de controle, mensagens e integrações (options), reduzindo divergências e retrabalho na UI. Recomendado ao menos para campos visíveis.
+    </p>
+
+    <a id="anotacoes"></a>
+    <h2>O que significa @UISchema e quais anotações existem no starter?</h2>
+    <p>
+      <code>@UISchema</code> descreve metadados de UI por campo (label, tipo, controlType, opções, validações, ícones). Outras anotações importantes:
+    </p>
+    <ul>
+      <li><code>@ApiResource</code>: meta‑anotação (<code>@RestController</code> + <code>@RequestMapping</code>) que define o path do recurso</li>
+      <li><code>@ApiGroup</code>: organiza endpoints em grupos OpenAPI agregados</li>
+      <li><code>@Filterable</code>: marca campos do FilterDTO e define operação/relação</li>
+      <li><code>@DefaultSortColumn</code>: ordenação padrão declarativa na entidade</li>
+      <li><code>@OptionLabel</code>: define qual propriedade vira label de <code>OptionDTO</code> (quando aplicável)</li>
+    </ul>
+
+    <a id="acoes-dominio"></a>
+    <h2>Como incluir novos endpoints de ação de domínio/comandos de negócio?</h2>
+    <p>
+      Adicione métodos ao seu controller anotado com <code>@ApiResource</code> usando <code>@PostMapping</code>/<code>@PutMapping</code>/<code>@PatchMapping</code>/<code>@GetMapping</code> para ações como <em>aprovar</em>, <em>cancelar</em> ou <em>reprocessar</em>. Esses métodos entram no mesmo grupo OpenAPI.
+    </p>
+    <pre><code>@PostMapping("/{id}/aprovar")
+public ResponseEntity&lt;RestApiResponse&lt;D&gt;&gt; aprovar(@PathVariable ID id) {
+  D dto = service.aprovar(id);
+  return ResponseEntity.ok(RestApiResponse.success(dto, Links.NONE));
+}</code></pre>
+    <p>
+      Para padronizar comandos, considere um recurso lógico <code>/commands</code> com DTOs específicos ou usar verbos de domínio em subpaths. Documente com <code>@Operation</code> quando necessário.
+    </p>
+
+    <a id="metadados-custom"></a>
+    <h2>Como incluir metadados que não estão presentes na lib?</h2>
+    <p>
+      Existem duas estratégias complementares, dependendo se o metadado é por <strong>campo</strong> (schema property) ou por <strong>operação</strong> (endpoint específico):
+    </p>
+    <h3>1) Por campo: <code>@UISchema.extraProperties</code> (precedência máxima)</h3>
+    <p>
+      No seu DTO, adicione pares chave/valor ao mapa <code>x-ui</code> do campo via <code>extraProperties</code>. Esses valores <em>sobrescrevem tudo</em>.
+    </p>
+    <pre><code>public class PessoaDTO {
+  @UISchema(
+    label = "Nome",
+    extraProperties = {
+      @ExtensionProperty(name = "custom.badge", value = "VIP"),
+      @ExtensionProperty(name = "displayOrientation", value = "horizontal")
+    }
+  )
+  private String nome;
+}</code></pre>
+    <p>
+      Observações:
+    </p>
+    <ul>
+      <li>As chaves entram diretamente em <code>x-ui</code> do campo (não use o prefixo <code>x-ui.</code> no <em>name</em>).</li>
+      <li>Os valores são tratados como <strong>strings</strong> no gerador atual — para objetos/arrays, serialize para string ou use a opção 2 abaixo.</li>
+      <li>Para <em>overrides</em> de chaves canônicas, reutilize os nomes de <a href="../org/praxisplatform/uischema/FieldConfigProperties.html">FieldConfigProperties</a> ou <a href="../org/praxisplatform/uischema/ValidationProperties.html">ValidationProperties</a>.</li>
+    </ul>
+    <h3>2) Por operação: <code>OpenApiCustomizer</code> (copia para o payload de /schemas/filtered)</h3>
+    <p>
+      Você pode adicionar metadados em <code>paths.{path}.{operation}.x-ui</code> programaticamente. O <code>ApiDocsController</code> copia esses valores para o <code>x-ui</code> do payload retornado.
+    </p>
+    <pre><code>@Bean
+OpenApiCustomizer uiOperationMeta() { 
+  return openApi -&gt; {
+    var paths = openApi.getPaths();
+    if (paths == null) return;
+    var item = paths.get("/api/human-resources/pessoas/all");
+    if (item != null &amp;&amp; item.getGet() != null) {
+      var op = item.getGet();
+      if (op.getExtensions() == null) op.setExtensions(new java.util.LinkedHashMap<>());
+      var xui = (java.util.Map)&op.getExtensions().computeIfAbsent("x-ui", k -&gt; new java.util.LinkedHashMap<>());
+      xui.put(org.praxisplatform.uischema.OperationProperties.DISPLAY_COLUMNS, java.util.List.of("id","nome","departamento"));
+      xui.put("custom.table.density", "compact");
+    }
+  };
+}</code></pre>
+    <p>
+      Dicas:
+    </p>
+    <ul>
+      <li>Essa abordagem permite inserir <strong>estruturas tipadas</strong> (listas, objetos) porque você manipula diretamente o modelo OpenAPI.</li>
+      <li>É ideal para metadados <strong>por endpoint</strong> (ex.: colunas padrão, campos de filtro, ações contextuais).</li>
+    </ul>
+    <p>
+      Se desejar uma extensão mais profunda (ex.: novas heurísticas de detecção), você pode fornecer um bean próprio de <code>CustomOpenApiResolver</code> substituindo o padrão.
+    </p>
+
+    <a id="o-que-e-xui"></a>
+    <h2>O que é x‑ui e qual seu vocabulário?</h2>
+    <p>
+      <strong>x‑ui</strong> é uma extensão OpenAPI (mapa <code>extensions</code>) usada para descrever como a UI deve renderizar campos/operações. O vocabulário é padronizado em <a href="../org/praxisplatform/uischema/FieldConfigProperties.html">FieldConfigProperties</a> (ex.: <code>label</code>, <code>controlType</code>, <code>group</code>, <code>filterable</code>) e em <a href="../org/praxisplatform/uischema/ValidationProperties.html">ValidationProperties</a> (ex.: <code>required</code>, <code>minLength</code>, <code>pattern</code>), além de chaves por operação (ver <a href="../org/praxisplatform/uischema/OperationProperties.html">OperationProperties</a>).
+    </p>
+
+    <a id="precedencia"></a>
+    <h2>Qual a ordem de precedência dos metadados?</h2>
+    <p>
+      O <code>CustomOpenApiResolver</code> aplica metadados em camadas, do menos para o mais específico:
+    </p>
+    <ol>
+      <li>Valores padrão de <code>@UISchema</code> (quando não explicitados)</li>
+      <li>Detecção automática (OpenAPI <em>type/format/enum</em>, heurísticas)</li>
+      <li>Valores <strong>explícitos</strong> de <code>@UISchema</code></li>
+      <li>Mensagens/validações derivadas de Bean Validation</li>
+      <li><strong>extraProperties</strong> (precedência máxima)</li>
+    </ol>
+    <p>Referência: <a href="../org/praxisplatform/uischema/extension/CustomOpenApiResolver.html">CustomOpenApiResolver</a>.</p>
+
+    <a id="idfield"></a>
+    <h2>Como o idField é resolvido e validado?</h2>
+    <p>
+      O endpoint <code>/schemas/filtered</code> aceita <code>idField</code>. Caso omitido, o backend tenta inferir com base no schema. O campo é validado contra as <code>properties</code> do schema; se não existir, uma mensagem é incluída em <code>x-ui.resource.idFieldMessage</code> e o log avisa. Veja <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>.
+    </p>
+
+    <a id="include-internal"></a>
+    <h2>O que faz o includeInternalSchemas?</h2>
+    <p>
+      Quando <code>true</code>, o backend substitui referências <code>$ref</code> por seus schemas efetivos (<em>inline</em>) no payload de <code>/schemas/filtered</code>. Útil para UIs que não querem resolver componentes por conta própria. Há trade‑off de tamanho do payload; use quando necessário.
+    </p>
+
+    <a id="capabilities-readonly"></a>
+    <h2>Como são calculadas capabilities e o readOnly?</h2>
+    <p>
+      O backend analisa a documentação do recurso (grupo) e infere se há endpoints de <em>create/update/delete</em>. Esses flags são expostos em <code>x-ui.resource.capabilities</code> e o <code>readOnly</code> é derivado (ou recebido via query param). Útil para UIs reusarem comportamentos por recurso.
+    </p>
+
+    <a id="schema-id-hash"></a>
+    <h2>Como o SchemaId e o ETag são gerados?</h2>
+    <p>
+      O <code>SchemaId</code> combina <code>path</code>, <code>operation</code>, <code>schemaType</code>, <code>includeInternalSchemas</code>, <code>tenant</code> e <code>locale</code>. O payload resultante é <em>canonicalizado</em> (ordenação de chaves/arrays e normalização numérica) e então é calculado um SHA‑256. Esse hash vira o ETag <strong>forte</strong> (cotejado com <code>If-None-Match</code>). Veja <a href="../org/praxisplatform/uischema/id/SchemaIdBuilder.html">SchemaIdBuilder</a>, <a href="../org/praxisplatform/uischema/hash/SchemaCanonicalizer.html">SchemaCanonicalizer</a> e <a href="../org/praxisplatform/uischema/hash/SchemaHashUtil.html">SchemaHashUtil</a>.
+    </p>
+
+    <a id="optionlabel"></a>
+    <h2>Como funciona @OptionLabel e heurísticas de label?</h2>
+    <p>
+      O serviço tenta primeiro um membro anotado com <code>@OptionLabel</code> (getter tem prioridade), senão aplica heurísticas comuns (<code>getLabel()</code>, <code>getNomeCompleto()</code>, <code>getNome()</code>, <code>getDescricao()</code>, <code>getTitle()</code>) e por fim usa <code>String.valueOf(id)</code>. Veja <a href="../org/praxisplatform/uischema/annotation/OptionLabel.html">@OptionLabel</a>.
+    </p>
+
+    <a id="detecao-controle"></a>
+    <h2>Como a detecção de controlType decide o componente?</h2>
+    <p>
+      A decisão considera <em>type</em>/<em>format</em> do OpenAPI e a presença de <em>enum</em>: strings longas → <code>TEXTAREA</code>, datas → <code>DATE/DATE_TIME/TIME_PICKER</code>, boolean → <code>CHECKBOX</code>, numéricos → <code>NUMERIC_TEXT_BOX</code>, <em>enum</em> → <code>SELECT/MULTI_SELECT</code>, arrays → <code>ARRAY_INPUT</code>, objetos → <code>EXPANSION_PANEL</code>. Um <code>controlType</code> explícito em <code>@UISchema</code> sempre tem precedência. Referência: <a href="../org/praxisplatform/uischema/util/OpenApiUiUtils.html">OpenApiUiUtils</a>.
+    </p>
+
+    <a id="ia-visao"></a>
+    <h2>Agentes de IA: quando usar e como ajudam?</h2>
+    <p>
+      Use agentes (Claude/LLMs) para acelerar <strong>scaffolding</strong> de aplicações e recursos padronizados. Os guias oficiais fornecem templates e restrições para o agente gerar código compatível com o Praxis, reduzindo retrabalho e inconsistências.
+      Leia: <a href="../../guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md">Aplicação Nova</a> e <a href="../../guides/GUIA-CLAUDE-AI-CRUD-BULK.md">CRUD+Bulk</a>.
+    </p>
+
+    <a id="ia-app-nova"></a>
+    <h2>Como instruir a IA para criar uma aplicação nova (do zero)?</h2>
+    <p>
+      Siga o guia “Aplicação Nova”: forneça <strong>nome da app</strong>, <strong>domínio base</strong>, <strong>módulos</strong> e (opcional) <strong>porta</strong>. O agente deve gerar <code>pom.xml</code>, classe principal, <code>ApiPaths</code>, estrutura de pacotes/módulos, properties e seed de dados.
+    </p>
+    <p>Referência: <a href="../../guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md">GUIA-CLAUDE-AI-APLICACAO-NOVA.md</a>.</p>
+
+    <a id="ia-entrada-app"></a>
+    <h2>Qual entrada mínima devo fornecer para criar app?</h2>
+    <ul>
+      <li>Nome da aplicação (ex.: <code>sistema-vendas</code>)</li>
+      <li>Domínio base (ex.: <code>com.empresa.vendas</code>)</li>
+      <li>Módulos (ex.: <code>produtos</code>, <code>clientes</code>, <code>vendas</code>)</li>
+      <li>Porta (opcional; padrão 8080)</li>
+    </ul>
+
+    <a id="ia-crud-bulk"></a>
+    <h2>Como pedir para gerar CRUD + Bulk para uma entidade?</h2>
+    <p>
+      Forneça: (1) Entidade JPA, (2) Path da API (ex.: <code>/api/pessoas</code>), (3) Grupo (ex.: <code>pessoas</code>), (4) Pacote base. O agente gera 8 arquivos (DTO, FilterDTO, Mapper, Repository, Service, BulkAdapter, Controller, BulkController) seguindo os templates do guia.
+      Referência: <a href="../../guides/GUIA-CLAUDE-AI-CRUD-BULK.md">GUIA-CLAUDE-AI-CRUD-BULK.md</a>.
+    </p>
+
+    <a id="ia-8-arquivos"></a>
+    <h2>Quais arquivos o agente deve gerar por entidade (padrão 8 arquivos)?</h2>
+    <p>
+      Em <code>src/main/java/{pacote-base}/</code>:
+    </p>
+    <pre><code>dto/{Nome}DTO.java
+dto/{Nome}FilterDTO.java
+mapper/{Nome}Mapper.java
+repository/{Nome}Repository.java
+service/{Nome}Service.java
+service/{Nome}BulkFilterAdapter.java
+controller/{Nome}Controller.java
+controller/{Nome}BulkController.java</code></pre>
+
+    <a id="ia-enums-corretos"></a>
+    <h2>Quais enums/valores o agente deve usar para evitar erros?</h2>
+    <ul>
+      <li><strong>FilterOperation:</strong> use <code>EQUAL</code> (não <code>EQUALS</code>)</li>
+      <li><strong>FieldControlType:</strong> use <code>TOGGLE</code> (não <code>TOGGLE_SWITCH</code>)</li>
+      <li>Para selects dinâmicos: <code>endpoint={ApiPaths... + "/filter"}</code>, <code>valueField=id</code>, <code>displayField=nome</code></li>
+    </ul>
+
+    <a id="ia-mapstruct-ou-manual"></a>
+    <h2>Quando usar MapStruct x mapeamento manual?</h2>
+    <p>
+      Use <strong>manual</strong> para entidades simples (sem relações). Use <strong>MapStruct</strong> quando houver <code>@ManyToOne/@OneToOne</code> ou estruturas complexas. O guia traz uma matriz de decisão validada e exemplos reais.
+    </p>
+
+    <a id="ia-relacionamentos"></a>
+    <h2>Como mapear relacionamentos no MapStruct (IDs ↔ entidades)?</h2>
+    <p>
+      No mapping <em>DTO → Entity</em>, converta IDs em entidades via métodos <code>@Named</code> e <code>qualifiedByName</code>. No <em>Entity → DTO</em>, exponha <code>{relacionamento}Id</code> com <code>@Mapping(source="relacao.id", target="relacaoId")</code>. Vide templates no guia CRUD+Bulk.
+    </p>
+
+    <a id="ia-dtos-filtro"></a>
+    <h2>Como orientar a IA a modelar DTO x FilterDTO?</h2>
+    <p>
+      O <strong>DTO</strong> reflete o recurso para CRUD. O <strong>FilterDTO</strong> reflete critérios de busca, com <code>@Filterable</code> por campo (incluindo <code>relation</code>). Diga explicitamente para usar endpoints <code>/filter</code> em selects de relacionamento e a operação adequada (ex.: <code>BETWEEN</code> para ranges).
+    </p>
+
+    <a id="ia-prompts"></a>
+    <h2>Dicas de prompt para manter padrões (paths, grupos, pacotes)</h2>
+    <ul>
+      <li>Exija paths centralizados em <code>ApiPaths</code> e uso de <code>@ApiResource(ApiPaths...)</code></li>
+      <li>Peça para criar <code>@ApiGroup</code> consistente (nome do domínio/módulo)</li>
+      <li>Solicite organização por pacotes: <code>entity/dto/mapper/repository/service/controller</code></li>
+      <li>Exija uso de <code>@UISchema</code> nos campos visíveis e de <code>@Filterable</code> no FilterDTO</li>
+      <li>Inclua testes básicos de compilação e execução local</li>
+    </ul>
+    <p>Veja prompts prontos nos guias: <a href="../../guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md">Aplicação Nova</a> e <a href="../../guides/GUIA-CLAUDE-AI-CRUD-BULK.md">CRUD+Bulk</a>. Após gerar, valide com o <a href="../../guides/CHECKLIST-VALIDACAO-IA.md">Checklist de Validação</a>.</p>
+
+    <a id="ia-validacao"></a>
+    <h2>Como validar o que a IA gerou?</h2>
+    <ul>
+      <li>Build do projeto (Maven) e execução local</li>
+      <li>Swagger UI carregando grupos corretos (individuais e agregados)</li>
+      <li>Endpoints CRUD respondendo, filtros funcionando</li>
+      <li>Options (<code>/options/filter</code> e <code>/options/by-ids</code>) retornando corretamente</li>
+      <li><code>/schemas/filtered</code> respondendo com <code>x-ui</code> e ETag estáveis</li>
+    </ul>
+
+    <a id="host-config"></a>
+    <h2>Quais propriedades devo configurar no projeto host?</h2>
+    <p>
+      Mínimo recomendado para documentação e comportamento dos endpoints:
+    </p>
+    <pre><code># OpenAPI/Swagger
+springdoc.api-docs.enabled=true
+springdoc.api-docs.groups.enabled=true
+springdoc.api-docs.path=/v3/api-docs
+springdoc.swagger-ui.path=/swagger-ui.html
+
+# Praxis (policy + limites + HATEOAS)
+praxis.openapi.validation.api-resource-required=WARN   # DEV: WARN | PROD: FAIL sugerido
+praxis.pagination.max-size=200                         # limite por página
+praxis.query.by-ids.max=200                            # limite de IDs em /by-ids
+praxis.hateoas.enabled=true                            # inclui links nas respostas
+
+# (Opcional) Context path
+server.servlet.contextPath=/minha-app
+</code></pre>
+    <p>Esses valores cobrem documentação por grupos, limites seguros e links HATEOAS. Ajuste por ambiente.</p>
+
+    <a id="host-paginacao-byids"></a>
+    <h2>Como ajustar os limites de paginação e by-ids?</h2>
+    <p>
+      Use <code>praxis.pagination.max-size</code> (para <code>POST /filter</code> e <code>/options/filter</code>) e <code>praxis.query.by-ids.max</code> (para <code>GET /by-ids</code>). Em ambientes com alto volume, reduza para proteger o backend; em intranet controlada, aumente conforme necessidade.
+    </p>
+
+    <a id="host-hateoas"></a>
+    <h2>Como habilitar/desabilitar HATEOAS no host?</h2>
+    <p>
+      Defina <code>praxis.hateoas.enabled=true|false</code>. Quando habilitado, respostas incluem links como <code>self</code>, <code>create</code>, <code>update</code>, <code>delete</code> e, em agregados, links para <code>all</code>, <code>filter</code>, <code>filter-cursor</code>, <code>schema</code>.
+    </p>
+
+    <a id="host-validacao-apiresource"></a>
+    <h2>Como configurar a validação de uso de @ApiResource?</h2>
+    <p>
+      A política é controlada por <code>praxis.openapi.validation.api-resource-required</code> com valores <code>WARN</code>, <code>FAIL</code> ou <code>IGNORE</code>. Recomendação: <strong>DEV= WARN</strong>, <strong>PROD= FAIL</strong>. Assim, controladores que estendem <code>AbstractCrudController</code> mas não usam <code>@ApiResource</code> serão alertados (DEV) ou bloquearão startup (PROD).
+      Referência: <a href="../../technical/VALIDACAO-API-RESOURCE.md">VALIDACAO-API-RESOURCE.md</a>.
+    </p>
+
+    <a id="host-openapi-paths"></a>
+    <h2>Como configurar os paths do OpenAPI/Swagger UI?</h2>
+    <p>
+      Use <code>springdoc.api-docs.path</code> para alterar o endpoint base dos documentos (padrão <code>/v3/api-docs</code>) — o <code>ApiDocsController</code> usa esse valor. Configure <code>springdoc.swagger-ui.path</code> para posicionar o Swagger UI (ex.: <code>/swagger-ui.html</code>). Habilite <code>springdoc.api-docs.groups.enabled=true</code> para visualizar grupos individuais e agregados.
+    </p>
+
+    <a id="host-contextpath"></a>
+    <h2>Como o server.servlet.contextPath afeta os links?</h2>
+    <p>
+      Se definido (ex.: <code>/minha-app</code>), o context path é incorporado na construção de links HATEOAS e redirecionamentos. Garanta que seu reverse proxy (Nginx/Ingress) respeite o mesmo prefixo para evitar inconsistências de URL.
+    </p>
+
+    <a id="host-cors"></a>
+    <h2>Como configurar CORS na aplicação host?</h2>
+    <p>
+      Siga o WebConfig do guia de aplicação nova. Exemplo de propriedade usada no guia:
+    </p>
+    <pre><code>app.cors.allowed-origins=http://localhost:4200,http://localhost:3000
+</code></pre>
+    <p>
+      No <code>WebConfig</code>, leia a propriedade e registre mapeamentos CORS para <code>/api/**</code> e Swagger em DEV. Isso facilita integração com front‑ends locais.
+    </p>
+
+    <a id="host-db-dev"></a>
+    <h2>Como configurar banco e H2 para desenvolvimento?</h2>
+    <p>
+      Use H2 em memória e habilite Flyway em DEV:
+    </p>
+    <pre><code>spring.datasource.url=jdbc:h2:mem:demo;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+spring.datasource.driverClassName=org.h2.Driver
+spring.jpa.hibernate.ddl-auto=validate
+spring.flyway.enabled=true
+spring.flyway.locations=classpath:db/migration/common,classpath:db/migration/h2
+springdoc.api-docs.enabled=true
+</code></pre>
+    <p>Ative o H2 Console se desejar (<code>spring.h2.console.enabled=true</code>) e exponha Actuator conforme sua política de observabilidade.</p>
+
+    <a id="cache-schemas"></a>
+    <h2>Buscar metadados toda vez é lento? Como o cache funciona?</h2>
+    <p>
+      Não. O backend usa duas camadas de otimização:
+    </p>
+    <ul>
+      <li><strong>Cache de documentos OpenAPI por grupo:</strong> a primeira chamada carrega <code>/v3/api-docs/{grupo}</code> (~14KB) e cacheia em memória; chamadas seguintes usam cache (fallback para <code>/v3/api-docs</code> ~500KB só em caso de erro do grupo). Veja <em>getDocumentForGroup()</em> no <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>.</li>
+      <li><strong>ETag forte por <em>schemaId</em>:</strong> o payload final é canonicalizado e hasheado (SHA‑256). O endpoint retorna <code>ETag</code> e aceita <code>If-None-Match</code>. Quando nada mudou, responde <code>304 Not Modified</code> sem corpo. Cabeçalhos <code>ETag</code> e <code>X-Schema-Hash</code> são expostos (<code>Access-Control-Expose-Headers</code>).</li>
+    </ul>
+    <p>
+      No frontend, use <strong>revalidação condicional</strong> (envie <code>If-None-Match</code> com o hash vigente) para receber 304 e reutilizar o cache local. Recomenda-se também cache por <code>schemaId</code> e memoização de requisições, conforme o plano: <a href="../../FRONTEND-SCHEMA-CACHE-PLAN.md">FRONTEND-SCHEMA-CACHE-PLAN.md</a>.
+    </p>
+
+    <a id="node-existe"></a>
+    <h2>Existe suporte/projeto para Node.js?</h2>
+    <p>
+      Sim. Há um projeto complementar para o ecossistema em Node.js/TypeScript: <a href="https://github.com/codexrodrigues/praxis-node" target="_blank" rel="noopener noreferrer">codexrodrigues/praxis-node</a>. Ele visa integrar aplicações Node ao padrão de contratos e metadados do Praxis.
+    </p>
+
+    <a id="node-uso"></a>
+    <h2>Como usar o projeto Node.js no ecossistema Praxis?</h2>
+    <p>
+      Consulte o README do repositório <a href="https://github.com/codexrodrigues/praxis-node" target="_blank" rel="noopener noreferrer">praxis-node</a> para instalação, APIs e exemplos. A integração típica envolve consumir contratos OpenAPI/x‑ui gerados pelo starter Java e/ou pelo gerador de x‑ui para construir UIs e serviços em Node.
+    </p>
+
+    <a id="generator-openapi-xui"></a>
+    <h2>Como converter Swagger/OpenAPI em JSON x‑ui?</h2>
+    <p>
+      Use o gerador dedicado: <a href="https://github.com/codexrodrigues/praxis-openapi-ui-schema-generator" target="_blank" rel="noopener noreferrer">praxis-openapi-ui-schema-generator</a>. É uma ferramenta que lê um documento OpenAPI/Swagger e produz artefatos JSON no vocabulário <code>x‑ui</code>, úteis para UIs e pipelines.
+    </p>
+    <p>
+      Dica: aponte para seu endpoint <code>/v3/api-docs</code> (ou um arquivo local) e verifique no README as opções de linha de comando/integração de biblioteca.
+    </p>
+
+    <a id="seed-backend"></a>
+    <h2>Existe um projeto seed de backend para começar rápido?</h2>
+    <p>
+      Sim. Recomendamos o seed: <a href="https://github.com/codexrodrigues/praxis-backend-seed-app" target="_blank" rel="noopener noreferrer">praxis-backend-seed-app</a>. Ele traz estrutura base (Spring Boot + Praxis), exemplos iniciais e configurações padrão para acelerar o start.
+    </p>
+
+    <a id="ui-quickstart-existe"></a>
+    <h2>Existe um exemplo pronto de UI Angular consumindo x‑ui?</h2>
+    <p>
+      Sim. O repositório <a href="https://github.com/codexrodrigues/praxis-ui-quickstart" target="_blank" rel="noopener noreferrer">praxis-ui-quickstart</a> demonstra como consumir <code>/schemas/filtered</code> e renderizar formulários e tabelas dinamicamente a partir do vocabulário <code>x‑ui</code>.
+    </p>
+
+    <a id="ui-quickstart-consumo"></a>
+    <h2>Como o UI Quickstart consome /schemas/filtered e renderiza telas?</h2>
+    <p>
+      A UI chama <code>/schemas/filtered</code> com os parâmetros (<code>path</code>, <code>operation</code>, <code>schemaType</code>) para obter o schema de request/response enriquecido com <code>x‑ui</code>. Em seguida, usa essas informações (labels, controlType, validações, colunas) para construir componentes Angular (formulários, grids) em tempo de execução.
+    </p>
+    <p>
+      Recomenda-se aplicar revalidação condicional com <code>If-None-Match</code> para 304 e cache local por <code>schemaId</code>, conforme o plano: <a href="../../FRONTEND-SCHEMA-CACHE-PLAN.md">FRONTEND-SCHEMA-CACHE-PLAN.md</a>.
+    </p>
+
+    <a id="ui-quickstart-rodar"></a>
+    <h2>Como rodar o UI Quickstart e apontar para meu backend?</h2>
+    <p>
+      Passos gerais (confira o README do repositório para detalhes):
+    </p>
+    <pre><code>git clone https://github.com/codexrodrigues/praxis-ui-quickstart
+cd praxis-ui-quickstart
+npm install
+
+# Configure a URL do seu backend (ex.: environment.ts ou variável de ambiente)
+# API_BASE_URL=http://localhost:8080
+
+npm start   # ou ng serve
+    </code></pre>
+    <p>
+      Garanta que o backend esteja com <code>springdoc.api-docs.enabled=true</code> e expondo <code>/schemas/filtered</code>. Ajuste CORS em desenvolvimento conforme necessário.
+    </p>
+
+    <a id="files-starter"></a>
+    <h2>Existe um starter para upload/arquivos?</h2>
+    <p>
+      Sim. Use o starter Spring: <a href="https://github.com/codexrodrigues/praxis-file-management" target="_blank" rel="noopener noreferrer">praxis-file-management</a>.
+    </p>
+    <pre><code>&lt;dependency&gt;
+  &lt;groupId&gt;br.com.praxis&lt;/groupId&gt;
+  &lt;artifactId&gt;praxis-files-starter&lt;/artifactId&gt;
+&lt;/dependency&gt;</code></pre>
+
+    <a id="files-defaults"></a>
+    <h2>Quais são os comportamentos padrão (segurança, limites, rate‑limit)?</h2>
+    <ul>
+      <li><strong>Magic number validation</strong> habilitada (confere assinatura binária x MIME).</li>
+      <li><strong>Antivírus</strong> desabilitado por padrão (habilite com ClamAV disponível).</li>
+      <li><strong>Tamanho máximo</strong> padrão: 10 MB por arquivo.</li>
+      <li><strong>Rate limiting básico</strong>: 10 uploads/min e 100/hora.</li>
+      <li><strong>Quotas</strong> desabilitadas por padrão (habilite via <code>file.management.quota</code>).</li>
+    </ul>
+
+    <a id="files-config-endpoint"></a>
+    <h2>Como ler a configuração efetiva do servidor?</h2>
+    <p>
+      Consulte <code>GET /api/files/config</code> para obter um envelope com <em>options</em>, <em>bulk</em>, <em>rateLimit</em>, <em>quotas</em>, <em>messages</em> e <em>metadata</em> — útil para a UI mostrar limites e mensagens amigáveis.
+    </p>
+    <pre><code>curl http://localhost:8080/api/files/config
+{
+  "success": true,
+  "data": {
+    "options": { "nameConflictPolicy": "RENAME" },
+    "rateLimit": { "enabled": true },
+    "quotas": { "enabled": false },
+    "messages": { "FILE_TOO_LARGE": "Arquivo muito grande." }
+  }
+}
+    </code></pre>
+
+    <a id="files-props"></a>
+    <h2>Quais as principais propriedades de configuração?</h2>
+    <p>
+      Todas começam com <code>file.management.</code>. Destaques:
+    </p>
+    <ul>
+      <li><code>file.management.max-file-size-bytes</code> (padrão 10MB)</li>
+      <li><code>file.management.rate-limit.*</code> (minuto/hora/concorrência; por IP)</li>
+      <li><code>file.management.security.magic-number-validation=true</code></li>
+      <li><code>file.management.security.allowed-mime-types</code> / <code>blocked-mime-types</code></li>
+      <li><code>file.management.default-conflict-policy</code> (ex.: MAKE_UNIQUE/RENAME)</li>
+      <li><code>file.management.upload-dir</code> / <code>upload-temp-dir</code></li>
+    </ul>
+    <p>
+      Consulte o README do projeto para a lista completa (auditoria, monitoring, quotas, antivírus, CORS/CSRF).
+    </p>
+
+    <a id="files-quota"></a>
+    <h2>Como habilitar e configurar quotas por tenant/usuário?</h2>
+    <pre><code>file.management.quota.enabled=true
+file.management.quota.tenant.acme=1
+    </code></pre>
+    <p>O exemplo acima limita o tenant <code>acme</code> a um único upload. Há outras formas de segmentar quotas; veja a documentação do starter.</p>
+
+    <a id="files-antivirus"></a>
+    <h2>Como habilitar varredura de vírus (ClamAV)?</h2>
+    <pre><code>file.management.virus-scanning.enabled=true
+file.management.virus-scanning.clamav-host=localhost
+file.management.virus-scanning.clamav-port=3310
+    </code></pre>
+    <p>
+      Recomenda-se habilitar em produção. É possível definir políticas como <code>fail-on-scanner-unavailable</code> e <code>quarantine-enabled</code>.
+    </p>
+
+    <a id="files-presign"></a>
+    <h2>O starter suporta uploads pré‑assinados (S3/GCS)?</h2>
+    <p>
+      Sim, há um endpoint de prova de conceito que gera URLs pré‑assinadas para upload direto: <code>POST /api/files/upload/presign?filename=teste.txt</code>. A resposta inclui uma URL temporária que aceita <code>PUT</code> com o conteúdo do arquivo.
+    </p>
+
+    <a id="files-headless"></a>
+    <h2>Posso usar em modo headless (sem HTTP/Swagger)?</h2>
+    <p>
+      Sim. Defina <code>praxis.files.web.enabled=false</code> e rode com perfil <code>headless</code> (ex.: <code>spring.main.web-application-type=none</code>). O exemplo de app no repositório inclui um <code>application-headless.properties</code>.
+    </p>
+
+    <div class="card">
+      <h2>Ver também</h2>
+      <ul>
+        <li><a href="exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">Modelando DTO com @UISchema</a></li>
+        <li><a href="exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading">Expondo controller com @ApiResource</a></li>
+        <li><a href="exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">Consumindo o contrato (/schemas/filtered)</a></li>
+        <li><a href="../org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html">Endpoints — Guia Conceitual</a></li>
+        <li><a href="../org/praxisplatform/uischema/filter/specification/doc-files/filters-overview.html">Visão Geral de Filtros</a></li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

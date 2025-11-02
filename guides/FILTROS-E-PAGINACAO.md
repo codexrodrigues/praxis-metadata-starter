@@ -67,6 +67,11 @@ Content-Type: application/json
 - `array` de `enum` com muitas opções: o resolver sugere `filterControlType = multiColumnComboBox`.
 - Enums pequenos (≤5) tendem a usar `radio`/`chipInput`; médios `select`; grandes `autoComplete`/`multiSelect`.
 
+#### Enums em SELECTs (sem endpoint)
+- Campos `enum` não precisam de `endpoint`: as opções são derivadas diretamente do schema OpenAPI (o array `enum`).
+- Para `array` de `enum`, o schema é “array de enum” e a UI renderiza multi‑select automaticamente.
+- Use `endpoint` (`/options/filter`) apenas para catálogos dinâmicos/relacionais (`id/label`), não para `enum` estático.
+
 ## Operações de Filtro Suportadas
 
 | Operação           | Descrição                                | Exemplo DTO                               |
@@ -178,6 +183,58 @@ Content-Type: application/json
 - Redução de ~97% no payload da documentação por grupo OpenAPI — com cache inteligente
 
 > Resultado: menos boilerplate, tempo de entrega menor e APIs/UX mais consistentes — alinhadas com as melhores práticas do ecossistema Spring + OpenAPI.
+
+## Exemplos no Quickstart (praxis-api-quickstart)
+
+Links para DTOs reais usando as operações avançadas, no repositório de exemplo:
+
+- Missões — IN/NOT_IN, ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MissaoFilterDTO.java
+- Incidentes — IN, ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/IncidenteFilterDTO.java
+- Sinais de Socorro — IN/NOT_IN, ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/SinaisSocorroFilterDTO.java
+- Menções na Mídia — IN, ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MencoesMidiaFilterDTO.java
+- Veículo em Missão — ON_DATE/IN_LAST_DAYS (partida/chegada): https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoMissaoUsoFilterDTO.java
+- Reputação — ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/ReputacaoFilterDTO.java
+- Resumo de Missões (view) — ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VwResumoMissoeFilterDTO.java
+- Veículos — IN/NOT_IN (Tipo/Status): https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoFilterDTO.java
+- Equipe/EquipeMembro — IN/NOT_IN (Status/Papel), ON_DATE: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeFilterDTO.java e https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeMembroFilterDTO.java
+
+### Exemplos rápidos (payloads reais)
+
+- IN (lista de enums):
+
+```http
+POST /api/human-resources/missoes/filter
+Content-Type: application/json
+
+{ "statusIn": ["ABERTA", "EM_ANDAMENTO"] }
+```
+
+- NOT_IN (excluir enums):
+
+```http
+POST /api/human-resources/veiculos/filter
+Content-Type: application/json
+
+{ "statusNotIn": ["INATIVO"] }
+```
+
+- ON_DATE (comparação por data, campo OffsetDateTime no backend):
+
+```http
+POST /api/human-resources/incidentes/filter
+Content-Type: application/json
+
+{ "ocorridoEmOn": "2025-03-01" }
+```
+
+- IN_LAST_DAYS (datas relativas):
+
+```http
+POST /api/human-resources/sinais-socorro/filter
+Content-Type: application/json
+
+{ "abertoEmLastDays": 7 }
+```
 
 ## Referências
 
