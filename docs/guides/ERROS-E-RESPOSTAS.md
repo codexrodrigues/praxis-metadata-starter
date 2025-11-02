@@ -7,7 +7,9 @@ Como lidar com respostas padronizadas e tratamento de erros.
 - Javadoc: [`GlobalExceptionHandler`](../apidocs/org/praxisplatform/uischema/rest/exceptionhandler/GlobalExceptionHandler.html)
 - Javadoc: [`ErrorCategory`](../apidocs/org/praxisplatform/uischema/rest/exceptionhandler/ErrorCategory.html)
 
-## Estrutura de sucesso
+<a id="estrutura-de-sucesso"></a>
+<details>
+<summary><strong>Estrutura de sucesso</strong></summary>
 
 Use o helper `RestApiResponse.success(data, links)` nos controllers base.
 
@@ -21,7 +23,11 @@ Use o helper `RestApiResponse.success(data, links)` nos controllers base.
 }
 ```
 
-## Estrutura de falha
+</details>
+
+<a id="estrutura-de-falha"></a>
+<details>
+<summary><strong>Estrutura de falha</strong></summary>
 
 Erros são padronizados com `CustomProblemDetail` e categorias (`ErrorCategory`).
 
@@ -43,7 +49,11 @@ Erros são padronizados com `CustomProblemDetail` e categorias (`ErrorCategory`)
 }
 ```
 
-## Tratamento global de exceções
+</details>
+
+<a id="tratamento-global-de-excecoes"></a>
+<details>
+<summary><strong>Tratamento global de exceções</strong></summary>
 
 `GlobalExceptionHandler` converte exceções comuns (validação, not found, regra de negócio, etc.) em respostas padronizadas.
 
@@ -52,14 +62,24 @@ Erros são padronizados com `CustomProblemDetail` e categorias (`ErrorCategory`)
 - `EntityNotFoundException` → 404
 - `Exception` → 500
 
-## Boas práticas
+</details>
+
+<a id="boas-praticas"></a>
+<details>
+<summary><strong>Boas práticas</strong></summary>
 
 - Preencha mensagens claras nos `ProblemDetail` para facilitar a UX
 - Categorize adequadamente para telemetria/observabilidade
 - Padronize os links `type` para catálogos internos de erros
 
-## Referências
+</details>
+
+<a id="referencias"></a>
+<details>
+<summary><strong>Referências</strong></summary>
 
 - [`RestApiResponse`](../apidocs/org/praxisplatform/uischema/rest/response/RestApiResponse.html)
 - [`GlobalExceptionHandler`](../apidocs/org/praxisplatform/uischema/rest/exceptionhandler/GlobalExceptionHandler.html)
 - [`CustomProblemDetail`](../apidocs/org/praxisplatform/uischema/rest/response/CustomProblemDetail.html)
+
+</details>

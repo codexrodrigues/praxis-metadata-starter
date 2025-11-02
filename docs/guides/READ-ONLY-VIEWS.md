@@ -5,7 +5,9 @@ Acelere telas baseadas em Views do banco (ou entidades marcadas como `@Immutable
 - Sem escrever endpoints: herde do controller/serviço read‑only e ganhe automaticamente filtros, paginação, opções id/label e documentação.
 - Segurança por padrão: operações de escrita (POST/PUT/DELETE) respondem `405 Method Not Allowed`.
 
-## Endpoints disponíveis (read‑only)
+<a id="endpoints-readonly"></a>
+<details>
+<summary><strong>Endpoints disponíveis (read‑only)</strong></summary>
 
 - `GET /{id}` — busca registro por ID
 - `GET /all` — lista completa (aplica ordenação padrão se configurada)
@@ -19,7 +21,11 @@ Acelere telas baseadas em Views do banco (ou entidades marcadas como `@Immutable
 
 > Bloqueadas: `POST /`, `PUT /{id}`, `DELETE /{id}`, `DELETE /batch` → `405`.
 
-## Como usar
+</details>
+
+<a id="como-usar"></a>
+<details>
+<summary><strong>Como usar</strong></summary>
 
 ### 1) Entidade (View/@Immutable)
 
@@ -65,15 +71,24 @@ public class VendaResumoController extends AbstractReadOnlyController<
 - Use `@Filterable` no DTO de filtro para Specifications (26 operações)
 - Defina `@DefaultSortColumn` na entidade para ordenação padrão
 
-## Benefícios (prontos para produção)
+</details>
+
+<a id="beneficios"></a>
+<details>
+<summary><strong>Benefícios (prontos para produção)</strong></summary>
 - Sem riscos de escrita: 405 para operações mutáveis.
 - 9+ endpoints de leitura prontos e documentados (Swagger/OpenAPI) com cache e grupos por path.
 - Integração com UI: `options` e `/schemas/filtered` aceleram formulários/tabelas read‑only.
 - Consistência corporativa: respostas padronizadas (`RestApiResponse`) e HATEOAS opcional.
 
-## Referências
+</details>
+
+<a id="referencias"></a>
+<details>
+<summary><strong>Referências</strong></summary>
 - [`AbstractReadOnlyController`](../apidocs/org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.html)
 - [`AbstractReadOnlyService`](../apidocs/org/praxisplatform/uischema/service/base/AbstractReadOnlyService.html)
 - [`@Filterable`](../apidocs/org/praxisplatform/uischema/filter/annotation/Filterable.html)
 - [Filtros e Paginação](FILTROS-E-PAGINACAO.md)
 
+</details>
