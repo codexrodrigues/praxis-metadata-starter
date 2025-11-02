@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://praxis.dev/spec/x-ui-field.schema.json",
+  "title": "x-ui (Field) — Draft",
+  "type": "object",
+  "additionalProperties": false,
+  "patternProperties": {
+    "^custom\.": {}
+  },
+  "properties": {
+    "label": { "type": "string" },
+    "name": { "type": "string" },
+    "type": { "type": "string" },
+    "group": { "type": "string" },
+    "placeholder": { "type": "string" },
+    "helpText": { "type": "string" },
+    "controlType": { "type": "string" },
+    "readOnly": { "type": "boolean" },
+    "hidden": { "type": "boolean" },
+    "editable": { "type": "boolean" },
+    "sortable": { "type": "boolean" },
+    "filterable": { "type": "boolean" },
+    "defaultValue": {},
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": {},
+          "label": { "type": "string" }
+        },
+        "required": ["value", "label"]
+      }
+    },
+    "numericFormat": { "type": "string" },
+    "numericStep": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
+    "numericMin": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
+    "numericMax": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
+    "numericMaxLength": { "type": "integer", "minimum": 0 },
+    "validation": {
+      "$ref": "#/definitions/validation"
+    }
+  },
+  "definitions": {
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "boolean" },
+        "minLength": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 0 },
+        "min": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
+        "max": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
+        "pattern": { "type": "string" },
+        "patternMessage": { "type": "string" },
+        "rangeMessage": { "type": "string" }
+      }
+    }
+  }
+}
+
