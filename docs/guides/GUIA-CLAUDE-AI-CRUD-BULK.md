@@ -24,6 +24,34 @@ O usuário deve fornecer:
 3. **Grupo da API** (ex: `pessoas`)
 4. **Pacote base** (ex: `com.example.ananke.pessoa`)
 
+## 💬 Prompts de Exemplo (copiar/colar)
+
+```
+Gere CRUD + Bulk completos para a entidade abaixo, alinhado ao Praxis Platform.
+
+ENTRADA
+- Entidade JPA: {classe-entity-anotada-com-@Entity}
+- Path da API: {path} (ex.: /api/pessoas)
+- Grupo da API: {grupo} (ex.: pessoas)
+- Pacote base: {pacote-base} (ex.: com.example.ananke.pessoa)
+
+REQUISITOS
+- Gerar os 8 arquivos padrão (DTO, FilterDTO, Mapper, Repository, Service, BulkFilterAdapter, Controller, BulkController)
+- Usar @ApiResource(ApiPaths...) e @ApiGroup
+- Usar @UISchema no DTO, @Filterable no FilterDTO
+- MapStruct quando houver relacionamentos (@ManyToOne/@OneToOne); manual se simples
+- Enums corretos: FilterOperation.EQUAL, FieldControlType.TOGGLE, etc.
+- Endpoints de options usando /filter, valueField=id, displayField=nome
+- Código que compila (mvn clean package)
+```
+
+```
+Inclua no mapeamento MapStruct as conversões ID ↔ entidade para os relacionamentos:
+- Gere @Named {relacao}FromId(Long id) e use qualifiedByName
+- Exponha {relacao}Id no DTO
+- Gere mappings entity→dto (source="relacao.id", target="relacaoId") e dto→entity (source="relacaoId", target="relacao")
+```
+
 ## 📁 Estrutura de Arquivos a Gerar
 
 Para cada entidade, você deve criar **exatamente 8 arquivos** seguindo este padrão:

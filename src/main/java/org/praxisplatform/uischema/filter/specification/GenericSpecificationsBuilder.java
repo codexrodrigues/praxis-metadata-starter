@@ -28,6 +28,12 @@ import java.util.Optional;
  *   <li>Construir predicados (restrições de consulta) baseados nas operações especificadas em {@link Filterable}.</li>
  * </ul>
  *
+ * <p><b>Exemplos no Quickstart:</b> veja DTOs reais usando {@code IN}, {@code NOT_IN}, {@code ON_DATE} e {@code IN_LAST_DAYS}
+ * no repositório de exemplo (praxis-api-quickstart), por exemplo:
+ * <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MissaoFilterDTO.java">MissaoFilterDTO</a>,
+ * <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/IncidenteFilterDTO.java">IncidenteFilterDTO</a>
+ * e demais links listados no Javadoc de {@link Filterable}.</p>
+ *
  * @param <E> Tipo da entidade alvo da consulta.
  */
 public class GenericSpecificationsBuilder<E> {

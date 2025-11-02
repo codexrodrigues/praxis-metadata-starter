@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Ecossistema — Projetos Relacionados</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#ffffff; --fg:#111827; --muted:#6b7280; --card:#f9fafb; --accent:#0ea5e9; }
+    @media (prefers-color-scheme: dark){ :root{ --bg:#0f1115; --fg:#e5e7eb; --muted:#9ca3af; --card:#11151b; --accent:#60a5fa; } }
+    body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,sans-serif;margin:0;padding:24px;background:var(--bg);color:var(--fg);} 
+    h1,h2,h3{margin:.2rem 0 .6rem}
+    .muted{color:var(--muted)}
+    .card{background:var(--card);padding:16px;border-radius:10px;border:1px solid rgba(148,163,184,.2);margin:12px 0}
+    a{color:var(--accent);text-decoration:none}
+    ul{margin:.4rem 0 .8rem 1.2rem}
+    code,pre{background:#1b1f28;color:#e8eaed;padding:.25rem .5rem;border-radius:6px}
+  </style>
+</head>
+<body>
+  <div class="flex-content">
+    <a id="ecosystem"></a>
+    <h1>Ecossistema — Projetos Relacionados</h1>
+    <p class="muted">SDK Node, gerador x‑ui a partir de OpenAPI e seed de backend para acelerar integrações.</p>
+
+    <div class="card">
+      <h2>Node.js / TypeScript</h2>
+      <p>
+        Repositório: <a href="https://github.com/codexrodrigues/praxis-node" target="_blank" rel="noopener noreferrer">codexrodrigues/praxis-node</a>
+      </p>
+      <p>SDK/ferramentas para integrar aplicações Node ao padrão de contratos e metadados do Praxis (OpenAPI + x‑ui).</p>
+    </div>
+
+    <div class="card">
+      <h2>Gerador x‑ui a partir de OpenAPI</h2>
+      <p>
+        Repositório: <a href="https://github.com/codexrodrigues/praxis-openapi-ui-schema-generator" target="_blank" rel="noopener noreferrer">praxis-openapi-ui-schema-generator</a>
+      </p>
+      <p>Converte um documento Swagger/OpenAPI em artefatos JSON no vocabulário x‑ui, úteis para UIs e pipelines.</p>
+      <p class="muted">Dica: aponte para seu <code>/v3/api-docs</code> ou para um arquivo <code>.json/.yaml</code> local.</p>
+    </div>
+
+  <div class="card">
+    <h2>Seed de Backend</h2>
+      <p>
+        Repositório: <a href="https://github.com/codexrodrigues/praxis-backend-seed-app" target="_blank" rel="noopener noreferrer">praxis-backend-seed-app</a>
+      </p>
+      <p>Projeto inicial (Spring Boot + Praxis) com estrutura, configs e exemplos para começar rapidamente.</p>
+    </div>
+
+    <div class="card">
+      <h2>Ver também</h2>
+      <ul>
+        <li><a href="faq.html#node-existe">FAQ — suporte para Node.js</a></li>
+        <li><a href="faq.html#generator-openapi-xui">FAQ — gerar JSON x‑ui</a></li>
+        <li><a href="faq.html#seed-backend">FAQ — projeto seed</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Upload/Files Starter (Spring)</h2>
+    <p>
+      Repositório: <a href="https://github.com/codexrodrigues/praxis-file-management" target="_blank" rel="noopener noreferrer">praxis-file-management</a>
+    </p>
+    <p>Starter de gestão de arquivos com validações de segurança (magic number), limites, rate‑limit, antivírus opcional (ClamAV) e quotas.</p>
+    <pre><code>&lt;dependency&gt;
+  &lt;groupId&gt;br.com.praxis&lt;/groupId&gt;
+  &lt;artifactId&gt;praxis-files-starter&lt;/artifactId&gt;
+&lt;/dependency&gt;</code></pre>
+    <p>Endpoint de configuração efetiva: <code>GET /api/files/config</code>.</p>
+  </div>
+</body>
+</html>

@@ -74,6 +74,31 @@ import java.lang.annotation.Target;
  *
  * @since 1.0.0
  * @see FilterOperation
+ *
+ * <h2>Exemplos no Quickstart (praxis-api-quickstart)</h2>
+ * <ul>
+ *   <li>Missões — IN/NOT_IN, ON_DATE/IN_LAST_DAYS:
+ *     <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MissaoFilterDTO.java">MissaoFilterDTO</a></li>
+ *   <li>Incidentes — IN, ON_DATE/IN_LAST_DAYS:
+ *     <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/IncidenteFilterDTO.java">IncidenteFilterDTO</a></li>
+ *   <li>Sinais de Socorro — IN/NOT_IN, ON_DATE/IN_LAST_DAYS:
+ *     <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/SinaisSocorroFilterDTO.java">SinaisSocorroFilterDTO</a></li>
+ *   <li>Menções na Mídia — IN, ON_DATE/IN_LAST_DAYS:
+ *     <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MencoesMidiaFilterDTO.java">MencoesMidiaFilterDTO</a></li>
+ *   <li>Veículo em Missão — ON_DATE/IN_LAST_DAYS:
+ *     <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoMissaoUsoFilterDTO.java">VeiculoMissaoUsoFilterDTO</a></li>
+ *   <li>Reputação — ON_DATE/IN_LAST_DAYS:
+ *     <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/ReputacaoFilterDTO.java">ReputacaoFilterDTO</a></li>
+ *   <li>Resumo de Missões (view) — ON_DATE/IN_LAST_DAYS:
+ *     <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VwResumoMissoeFilterDTO.java">VwResumoMissoeFilterDTO</a></li>
+ *   <li>Veículos — IN/NOT_IN (Tipo/Status):
+ *     <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoFilterDTO.java">VeiculoFilterDTO</a></li>
+ *   <li>Equipe/EquipeMembro — IN/NOT_IN (Status/Papel), ON_DATE:
+ *     <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeFilterDTO.java">EquipeFilterDTO</a>
+ *     e
+ *     <a href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeMembroFilterDTO.java">EquipeMembroFilterDTO</a>
+ *   </li>
+ * </ul>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)

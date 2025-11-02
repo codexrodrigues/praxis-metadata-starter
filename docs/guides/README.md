@@ -25,6 +25,9 @@ Esta seção contém guias completos e detalhados para implementar funcionalidad
 
 **Ideal para:** Inicializar novos projetos com Praxis Metadata Starter.
 
+### ✅ [Checklist de Validação (IA)](CHECKLIST-VALIDACAO-IA.md)
+Lista objetiva para validar builds, grupos OpenAPI, endpoints CRUD, options e schemas após geração por IA.
+
 ---
 
 ### 🧭 [CRUD com @ApiResource e @ApiGroup](CRUD-COM-APIRESOURCE.md)
@@ -51,6 +54,7 @@ Padronize respostas de erro e sucesso para melhor DX/UX.
 
 1. **Para primeira implementação:** Comece com a [Visão Geral](../overview/VISAO-GERAL.md) e depois o [Guia CRUD+Bulk](GUIA-CLAUDE-AI-CRUD-BULK.md)
 2. **Para novo projeto:** Use o [Guia de Aplicação Nova](GUIA-CLAUDE-AI-APLICACAO-NOVA.md)
+3. **Após geração por IA:** Valide com o [Checklist de Validação](CHECKLIST-VALIDACAO-IA.md)
 3. **Para exemplos práticos:** Consulte os [Examples](../examples/)
 4. **Para detalhes técnicos:** Veja a [Documentação Técnica](../technical/)
 

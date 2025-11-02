@@ -20,12 +20,26 @@ Documentação online (GitHub Pages):
   - Modelando DTO com @UISchema: https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading
   - Expondo controller com @ApiResource: https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading
   - Consumindo o contrato (/schemas/filtered): https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading
+- FAQ: https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/faq.html#faq
 
 ### Leituras recomendadas
 
 - [Visão arquitetural detalhada](docs/architecture-overview.md): camadas, fluxos e diagramas Mermaid.
 - [Visão dos pacotes Java](docs/packages-overview.md): responsabilidades e classes principais por módulo.
 - [Mapa de navegação](docs/sitemap.xml): otimiza indexação por mecanismos de busca e robôs de IA.
+
+### Guias para Agentes de IA
+
+- Guia: Criar aplicação nova com IA (Claude/LLMs) — docs/guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md
+- Guia: Gerar CRUD + Bulk com IA por entidade — docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md
+
+### Ecossistema (projetos relacionados)
+
+- Node.js/TypeScript: https://github.com/codexrodrigues/praxis-node
+- Gerador x‑ui a partir de OpenAPI: https://github.com/codexrodrigues/praxis-openapi-ui-schema-generator
+- Seed de backend (Spring Boot + Praxis): https://github.com/codexrodrigues/praxis-backend-seed-app
+- UI Angular Quickstart (consumindo x‑ui): https://github.com/codexrodrigues/praxis-ui-quickstart
+- Upload/Files starter (Spring): https://github.com/codexrodrigues/praxis-file-management
 
 ### Concept Usage
 
