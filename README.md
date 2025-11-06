@@ -113,13 +113,12 @@ Para usar o Praxis Metadata Starter, adicione a seguinte dependência ao seu `po
 
 ```xml
 <dependency>
-    <groupId>io.github.codexrodrigues</groupId>
-    <artifactId>praxis-metadata-starter</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-    <!-- Após publicar o RC: use 1.0.0-rc.1 -->
-    <!-- Após a versão final: use 1.0.0 -->
-    <!-- Confira a aba Releases para a última versão. -->
-  </dependency>
+  <groupId>io.github.codexrodrigues</groupId>
+  <artifactId>praxis-metadata-starter</artifactId>
+  <version>1.0.0-rc.6</version>
+  <!-- Após a versão final: use 1.0.0 -->
+  <!-- Confira a aba Releases para a última versão. -->
+</dependency>
 ```
 
 Exemplo completo (Quickstart):
@@ -128,7 +127,7 @@ Exemplo completo (Quickstart):
 
 ### Release Candidate (RC)
 
-- Para testar a build RC assim que publicada no Central, ajuste a versão no snippet acima para `1.0.0-rc.1`.
+- Para testar a build RC assim que publicada no Central, use `1.0.0-rc.6`.
 - Guia de publicação e processo de release: veja `RELEASING.md`.
 
 ## MapStruct Config (Fail‑Fast)

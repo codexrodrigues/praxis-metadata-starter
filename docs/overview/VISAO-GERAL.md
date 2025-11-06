@@ -43,7 +43,7 @@ curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoa
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>1.0.0-rc.1</version>
+  <version>1.0.0-rc.6</version>
   </dependency>
 ```
 2) Anote DTOs com `@UISchema` e exponha `@ApiResource` nos controllers.
@@ -68,4 +68,3 @@ curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoa
 - Estratégia de grupos OpenAPI: ../technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
 - Auto‑configuração: ../technical/AUTO-CONFIGURACAO.md
 - Validação @ApiResource: ../technical/VALIDACAO-API-RESOURCE.md
-

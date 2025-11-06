@@ -18,15 +18,15 @@ Este documento descreve como publicar um Release Candidate (RC) e versões finai
 ```
 2) Criar a tag do RC e enviar:
 ```
-git tag v1.0.0-rc.1
-git push origin v1.0.0-rc.1
+git tag v1.0.0-rc.6
+git push origin v1.0.0-rc.6
 ```
 3) Acompanhar o workflow “Release Java Starter (praxis-metadata-starter)”
-- O workflow resolve a versão a partir da tag (`v` é removido → `1.0.0-rc.1`).
+- O workflow resolve a versão a partir da tag (`v` é removido → `1.0.0-rc.6`).
 - Passos: importar GPG → `versions:set` → `clean verify` com perfil `release` (assina) → publicar via Central Plugin.
 
 4) Verificar artefatos assinados no job:
-- `target/praxis-metadata-starter-1.0.0-rc.1.jar(.asc)`
+- `target/praxis-metadata-starter-1.0.0-rc.6.jar(.asc)`
 - `*-sources.jar(.asc)` e `*-javadoc.jar(.asc)`
 
 5) Acompanhar aprovação no Sonatype Central Portal
@@ -52,4 +52,3 @@ git push origin v1.0.0
   - Verifique `CENTRAL_TOKEN_USER/PASS` e se o server `central` foi injetado pelo `actions/setup-java` (logs).
 - Assinaturas ausentes:
   - Confirme execução com `-P release -Dgpg.skip=false`; o job usa isso por padrão.
-

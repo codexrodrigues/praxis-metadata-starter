@@ -2,6 +2,16 @@
 
 All notable changes to this module will be documented in this file.
 
+## [1.0.0-rc.6] - 2025-11-06
+
+### Added/Changed
+- Resolver: serialização completa de x‑ui por propriedade, incluindo `tableHidden` e `formHidden` (visibilidade por contexto).
+- Suporte a propriedades avançadas de `@UISchema` em x‑ui (layout/ícones, condicionais, triggers, numéricos, validações e mensagens, arquivos).
+- Fallbacks do schema OpenAPI: `name`, `label` derivado, `placeholder`, `helpText`, validações básicas, `enum → options`.
+- Decisão temporária: `filterOptions` permanece `string`; registrada em `docs/spec/CONFORMANCE.md`. Follow‑up detalhado em `docs/follow-ups/filter-options-array.md` para migrar para `array` conforme a spec.
+- Operação (`x‑ui.operation`): chaves `displayColumns`/`displayFields` mantidas apenas na spec/exemplos (backend não gera/consome).
+- Testes: adicionados `VisibilityFlagsTest` e `ExplicitAdvancedPropsTest` cobrindo novas chaves/flags.
+
 ## [1.0.0-rc.1] - 2025-10-31
 
 ### Changed
