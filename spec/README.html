@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Especificação de Metadados (x‑ui) — Draft 1.0.0</title>
+  <title>Especificação de Metadados (x‑ui) — v1.0.0</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,42 +166,107 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Especificação de Metadados (x‑ui) — Draft 1.0.0</h1>
+<h1 class="title">Especificação de Metadados (x‑ui) — v1.0.0</h1>
 </header>
-<h1 id="especificação-de-metadados-xui-draft-1.0.0">Especificação de
-Metadados (x‑ui) — Draft 1.0.0</h1>
-<p>Escopo - Padronizar o vocabulário x‑ui emitido por backends e
-consumido pela UI. - Definir JSON Schemas para validação de: - x‑ui de
-campo (property) — <code>x-ui-field.schema.json</code> - x‑ui em nível
-de operação (endpoint) — <code>x-ui-operation.schema.json</code> -
-x‑ui.resource no payload de <code>/schemas/filtered</code> —
+<h1 id="especificação-de-metadados-xui-v1.0.0">Especificação de
+Metadados (x‑ui) — v1.0.0</h1>
+<p>Objetivo - Padronizar, de forma agnóstica de tecnologia, o contrato
+de metadados que a UI Praxis consome. - Permitir que qualquer backend
+produza JSON compatível e valide localmente contra os JSON Schemas desta
+pasta.</p>
+<p>Escopo de validação (JSON) - x‑ui de campo (por propriedade OpenAPI):
+<code>x-ui-field.schema.json</code> - x‑ui em nível de operação (por
+path+operation do OpenAPI): <code>x-ui-operation.schema.json</code> -
+x‑ui.resource no payload final consumido pela UI
+(<code>/schemas/filtered</code>):
 <code>x-ui-resource.schema.json</code></p>
-<p>Precedência (normativa) 1) Defaults de <span class="citation"
-data-cites="UISchema">@UISchema</span> (ou equivalentes no ecossistema)
-2) Detecção automática (OpenAPI type/format/enum + heurísticas) 3)
-Valores explícitos de <span class="citation"
-data-cites="UISchema">@UISchema</span> 4) Bean Validation (ex.:
-NotNull/Size/Pattern → x‑ui.validation) 5) extraProperties/custom.*
-(precedência máxima)</p>
-<p>Normas (MUST/SHOULD) - MUST: chaves canônicas definidas nesta spec
-devem respeitar tipo/semântica. - SHOULD: chaves personalizadas devem
-usar prefixo <code>custom.</code>. - MUST: <code>x-ui.validation</code>
-conter apenas chaves de validação; mensagens podem ser preenchidas por
-padrão e sobrescritas. - MUST: <code>x-ui.resource</code> incluir
-<code>idField</code> (string), <code>idFieldValid</code> (boolean),
-<code>readOnly</code> (boolean) e <code>capabilities</code> (mapa
-boolean). - SHOULD: Respostas de <code>/schemas/filtered</code> enviarem
-<code>ETag</code> forte e <code>X-Schema-Hash</code>; expor via
-<code>Access-Control-Expose-Headers</code>.</p>
-<p>Versionamento - <code>specVersion</code>: <code>1.0.0-draft</code>.
-Use SemVer; minor para adições backwards‑compatível; major para breaking
-changes.</p>
-<p>Conformidade - Validar payloads com os JSON Schemas desta pasta. -
-Rodar suíte de conformidade no CI (ex.: ajv/Node ou validador JSON
-Schema em Java/C#).</p>
-<p>Arquivos - <code>x-ui-field.schema.json</code> — chaves por campo -
-<code>x-ui-operation.schema.json</code> — chaves por operação -
-<code>x-ui-resource.schema.json</code> — chaves por recurso
-(/schemas/filtered)</p>
+<p>Vocabulário (resumo) - Campo (x‑ui por propriedade) -
+Identificação/Apresentação: <code>name</code>, <code>label</code>,
+<code>description</code>, <code>group</code>, <code>order</code>,
+<code>width</code> - Tipo/Componente: <code>type</code> (enum),
+<code>controlType</code> (enum), <code>placeholder</code>,
+<code>defaultValue</code> - Estado/Validação: <code>disabled</code>,
+<code>readOnly</code>, <code>editable</code>, <code>unique</code>,
+<code>mask</code>, <code>sortable</code>, <code>filterable</code> -
+Visibilidade: <code>hidden</code>, <code>tableHidden</code>,
+<code>formHidden</code> - Dependências/Condicionais:
+<code>conditionalDisplay</code>, <code>dependentField</code>,
+<code>resetOnDependentChange</code> - Layout/Ícone: <code>hint</code>,
+<code>helpText</code>, <code>tooltipOnHover</code>, <code>icon*</code> -
+Seleção/Opções: <code>options[]</code>, <code>endpoint</code>,
+<code>valueField</code>, <code>displayField</code>,
+<code>multiple</code>, <code>emptyOptionText</code> - Numérico:
+<code>numericFormat</code> (enum), <code>numericStep</code>,
+<code>numericMin</code>, <code>numericMax</code>,
+<code>numericMaxLength</code> - Validação (top‑level):
+<code>required</code>, <code>minLength</code>, <code>maxLength</code>,
+<code>min</code>, <code>max</code>, <code>pattern</code>,
+<code>range</code>, mensagens (<code>*Message</code>), além de
+<code>email</code>, <code>url</code>, <code>matchField</code>,
+<code>uniqueValidator</code>, <code>customValidator</code>,
+<code>asyncValidator</code>, <code>minWords</code>,
+<code>validationTrigger(s)</code>, <code>validationDebounce</code>,
+<code>showInlineErrors</code>, <code>errorPosition</code>. - Legado
+(opcional): bloco <code>validation{}</code> com chaves básicas (a UI
+atual lê chaves de validação no top‑level do <code>x-ui</code>). -
+Operação (x‑ui por operação) - <code>displayColumns</code> (string[]),
+<code>displayFields</code> (string[]), <code>filterFields</code>
+(string[]), <code>responseSchema</code> (string),
+<code>relatedEntitiesEndpoints</code> (string[]) - Recurso
+(x‑ui.resource) - <code>idField</code> (string),
+<code>idFieldValid</code> (boolean), <code>idFieldMessage?</code>
+(string, opcional) - <code>readOnly</code> (boolean) -
+<code>capabilities</code> (mapa boolean com chaves conhecidas:
+<code>create</code>, <code>update</code>, <code>delete</code>,
+<code>options</code>, <code>byId</code>, <code>all</code>,
+<code>filter</code>, <code>cursor</code>; valores adicionais MAY existir
+e DEVEM ser boolean)</p>
+<p>Tipos e Enums - <code>type</code> (FieldDataType):
+<code>text | number | email | date | password | file | url | boolean | json</code>
+- <code>controlType</code> (FieldControlType): ver enum completo no JSON
+Schema (lista espelhada do starter Java) - <code>numericFormat</code>
+(NumericFormat):
+<code>integer | decimal | currency | scientific | time | date | date-time | duration | number | fraction | percent</code></p>
+<p>Obrigatoriedade e Defaults - Campo (x‑ui): não há campos obrigatórios
+universais. A UI consegue inferir <code>type/controlType</code> por
+heurística, porém recomenda‑se prover ao menos <code>type</code> e
+<code>label</code>. - Operação (x‑ui): todos opcionais; sugerem
+preferências de renderização. - Recurso (x‑ui.resource): MUST conter
+<code>idField</code>, <code>idFieldValid</code>, <code>readOnly</code>,
+<code>capabilities</code>; <code>idFieldMessage</code> é opcional e
+presente quando <code>idFieldValid=false</code>.</p>
+<p>Precedência (normativa) 1) Defaults de <code>@UISchema</code> (ou
+equivalente no seu backend) 2) Detecção automática (OpenAPI
+type/format/enum + heurísticas por nome) 3) Valores explícitos de
+<code>@UISchema</code> 4) Bean Validation (ex.: NotBlank/Size/Pattern →
+chaves de validação no <code>x-ui</code>) 5)
+<code>extraProperties</code>/<code>custom.*</code> (precedência
+máxima)</p>
+<p>Normas (MUST/SHOULD/MAY) - MUST: chaves canônicas devem seguir
+tipos/semântica dos JSON Schemas. - SHOULD: extensões privadas usarem o
+prefixo <code>custom.</code> (evitar colisão com chaves canônicas). -
+MUST: <code>capabilities</code> conter apenas valores boolean; chaves
+adicionais são permitidas. - SHOULD: <code>/schemas/filtered</code>
+enviar <code>ETag</code> forte e <code>X-Schema-Hash</code> e expor via
+<code>Access-Control-Expose-Headers</code>. - MAY: incluir
+<code>specVersion</code> em um envelope/meta do payload para
+auditoria.</p>
+<p>Versionamento da Especificação - <code>specVersion</code>:
+<code>1.0.0</code>. SemVer: - <code>MAJOR</code>: alterações
+incompatíveis (ex.: remoção/renome de chaves, mudança de tipo) -
+<code>MINOR</code>: adições retrocompatíveis (novas chaves/enums, novos
+capabilities) - <code>PATCH</code>: correções editoriais e ajustes de
+descrição</p>
+<p>Arquivos (machine‑readable) - <code>x-ui-field.schema.json</code> —
+valida x‑ui de campo (por propriedade) -
+<code>x-ui-operation.schema.json</code> — valida x‑ui por operação -
+<code>x-ui-resource.schema.json</code> — valida x‑ui.resource no payload
+final</p>
+<p>Exemplos (fixtures) - Em <code>examples/</code>: válidos/ inválidos e
+um payload canônico que combina campo + operação + recurso.</p>
+<p>Observações - <code>schemaId</code>, <code>ETag</code> e
+<code>X-Schema-Hash</code> são práticas recomendadas para cache/304 e
+compõem a identidade de schema (tenant/locale inclusive), mas não fazem
+parte da validação JSON desta pasta.</p>
 </body>
 </html>

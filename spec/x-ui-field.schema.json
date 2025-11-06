@@ -1,48 +1,250 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://praxis.dev/spec/x-ui-field.schema.json",
-  "title": "x-ui (Field) — Draft",
+  "title": "x-ui (Field) — 1.0.0",
   "type": "object",
   "additionalProperties": false,
   "patternProperties": {
-    "^custom\.": {}
+    "^custom\\.": {}
   },
   "properties": {
     "label": { "type": "string" },
     "name": { "type": "string" },
-    "type": { "type": "string" },
+    "description": { "type": "string" },
+    "type": {
+      "type": "string",
+      "enum": [
+        "text", "number", "email", "date", "password", "file", "url", "boolean", "json"
+      ]
+    },
+    "controlType": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "aiPrompt",
+        "appBar",
+        "arcGauge",
+        "array",
+        "autoComplete",
+        "avatar",
+        "barcodeGenerator",
+        "bottomNavigation",
+        "breadcrumb",
+        "button",
+        "buttonGroup",
+        "calendar",
+        "card",
+        "checkbox",
+        "chipInput",
+        "chipList",
+        "circularGauge",
+        "colorGradient",
+        "colorPalette",
+        "colorPicker",
+        "contextMenu",
+        "conversationalUI",
+        "cronBuilder",
+        "currency",
+        "dateInput",
+        "date",
+        "dateRange",
+        "dateTime",
+        "dateTimeRange",
+        "dialog",
+        "drawer",
+        "dropDownTree",
+        "email",
+        "expansionPanel",
+        "fileSaver",
+        "fileSelect",
+        "upload",
+        "filter",
+        "floatingLabel",
+        "floatingActionButton",
+        "grid",
+        "gridLayout",
+        "input",
+        "linearGauge",
+        "listView",
+        "map",
+        "maskedTextBox",
+        "multiColumnComboBox",
+        "multiSelect",
+        "multiSelectTree",
+        "notification",
+        "numericTextBox",
+        "pager",
+        "paginator",
+        "password",
+        "pdfViewer",
+        "phone",
+        "cpfCnpjInput",
+        "pivotGrid",
+        "popup",
+        "progressBar",
+        "progressSpinner",
+        "qrCode",
+        "radio",
+        "radialGauge",
+        "rangeSlider",
+        "rating",
+        "richTextEditor",
+        "ripple",
+        "scrollView",
+        "search",
+        "select",
+        "signature",
+        "slider",
+        "sortable",
+        "sortableTable",
+        "splitter",
+        "spreadsheet",
+        "stackLayout",
+        "stepBar",
+        "stepper",
+        "svgIcon",
+        "tabs",
+        "textarea",
+        "time",
+        "timePicker",
+        "timeline",
+        "toggle",
+        "toolbar",
+        "tooltip",
+        "treeView",
+        "transferList",
+        "selectionList",
+        "treeSelect",
+        "timeRange",
+        "month",
+        "week",
+        "year",
+        "dateTimeLocal",
+        "color",
+        "buttonToggle",
+        "typography",
+        "url",
+        "window"
+      ]
+    },
     "group": { "type": "string" },
+    "order": { "type": "integer" },
+    "width": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "isFlex": { "type": "boolean" },
+    "displayOrientation": { "type": "string" },
+
     "placeholder": { "type": "string" },
-    "helpText": { "type": "string" },
-    "controlType": { "type": "string" },
+    "defaultValue": {},
+
+    "disabled": { "type": "boolean" },
     "readOnly": { "type": "boolean" },
-    "hidden": { "type": "boolean" },
+    "multiple": { "type": "boolean" },
     "editable": { "type": "boolean" },
+    "validationMode": { "type": "string" },
+    "unique": { "type": "boolean" },
+    "mask": { "type": "string" },
     "sortable": { "type": "boolean" },
     "filterable": { "type": "boolean" },
-    "defaultValue": {},
+
+    "hidden": { "type": "boolean" },
+    "tableHidden": { "type": "boolean" },
+    "formHidden": { "type": "boolean" },
+
+    "conditionalDisplay": { "oneOf": [ { "type": "boolean" }, { "type": "string" } ] },
+    "dependentField": { "type": "string" },
+    "resetOnDependentChange": { "type": "boolean" },
+
+    "inlineEditing": { "type": "boolean" },
+    "transformValueFunction": { "type": "string" },
+    "debounceTime": { "type": "number", "minimum": 0 },
+    "helpText": { "type": "string" },
+    "hint": { "type": "string" },
+    "tooltipOnHover": { "type": ["string", "boolean"] },
+
+    "icon": { "type": "string" },
+    "iconPosition": { "type": "string" },
+    "iconSize": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "iconColor": { "type": "string" },
+    "iconClass": { "type": "string" },
+    "iconStyle": { "type": "string" },
+    "iconFontSize": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+
+    "endpoint": { "type": "string" },
+    "valueField": { "type": "string" },
+    "displayField": { "type": "string" },
+    "emptyOptionText": { "type": "string" },
     "options": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "value": {},
-          "label": { "type": "string" }
-        },
-        "required": ["value", "label"]
-      }
+      "items": { "$ref": "#/definitions/optionItem" }
     },
-    "numericFormat": { "type": "string" },
+    "optionGroups": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/optionItem" }
+    },
+    "disabledOptions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "filter": { "oneOf": [ { "type": "string" }, { "type": "object" } ] },
+    "filterOptions": { "type": "array" },
+    "filterControlType": { "type": "string", "enum": [
+      "auto","aiPrompt","appBar","arcGauge","array","autoComplete","avatar","barcodeGenerator","bottomNavigation","breadcrumb","button","buttonGroup","calendar","card","checkbox","chipInput","chipList","circularGauge","colorGradient","colorPalette","colorPicker","contextMenu","conversationalUI","cronBuilder","currency","dateInput","date","dateRange","dateTime","dateTimeRange","dialog","drawer","dropDownTree","email","expansionPanel","fileSaver","fileSelect","upload","filter","floatingLabel","floatingActionButton","grid","gridLayout","input","linearGauge","listView","map","maskedTextBox","multiColumnComboBox","multiSelect","multiSelectTree","notification","numericTextBox","pager","paginator","password","pdfViewer","phone","cpfCnpjInput","pivotGrid","popup","progressBar","progressSpinner","qrCode","radio","radialGauge","rangeSlider","rating","richTextEditor","ripple","scrollView","search","select","signature","slider","sortable","sortableTable","splitter","spreadsheet","stackLayout","stepBar","stepper","svgIcon","tabs","textarea","time","timePicker","timeline","toggle","toolbar","tooltip","treeView","transferList","selectionList","treeSelect","timeRange","month","week","year","dateTimeLocal","color","buttonToggle","typography","url","window"
+    ] },
+
+    "numericFormat": {
+      "type": "string",
+      "enum": [
+        "integer", "decimal", "currency", "scientific", "time", "date", "date-time", "duration", "number", "fraction", "percent"
+      ]
+    },
     "numericStep": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
     "numericMin": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
     "numericMax": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
     "numericMaxLength": { "type": "integer", "minimum": 0 },
-    "validation": {
-      "$ref": "#/definitions/validation"
-    }
-  },
-  "definitions": {
+
+    "required": { "type": "boolean" },
+    "requiredMessage": { "type": "string" },
+    "minLength": { "type": "integer", "minimum": 0 },
+    "minLengthMessage": { "type": "string" },
+    "maxLength": { "type": "integer", "minimum": 0 },
+    "maxLengthMessage": { "type": "string" },
+    "min": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
+    "max": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
+    "minMessage": { "type": "string" },
+    "maxMessage": { "type": "string" },
+    "range": {
+      "oneOf": [
+        { "type": "array", "items": { "type": ["number", "string"] }, "minItems": 2 },
+        { "type": "object", "properties": { "min": {}, "max": {} }, "additionalProperties": true }
+      ]
+    },
+    "rangeMessage": { "type": "string" },
+    "pattern": { "type": "string" },
+    "patternMessage": { "type": "string" },
+    "regex": { "type": "string" },
+    "regexMessage": { "type": "string" },
+    "email": { "type": "boolean" },
+    "emailMessage": { "type": "string" },
+    "url": { "type": "boolean" },
+    "urlMessage": { "type": "string" },
+    "matchField": { "type": "string" },
+    "matchFieldMessage": { "type": "string" },
+    "uniqueMessage": { "type": "string" },
+    "uniqueValidator": { "type": "string" },
+    "conditionalValidation": { "type": "string" },
+    "requiredChecked": { "type": "boolean" },
+    "allowedFileTypes": { "type": ["array", "string"] },
+    "fileTypeMessage": { "type": "string" },
+    "maxFileSize": { "type": "number", "minimum": 0 },
+    "customValidator": { "type": "string" },
+    "asyncValidator": { "type": "string" },
+    "minWords": { "type": "integer", "minimum": 0 },
+    "validationTrigger": { "oneOf": [ { "type": "string" }, { "type": "array", "items": { "type": "string" } } ] },
+    "validationTriggers": { "type": "array", "items": { "type": "string" } },
+    "validationDebounce": { "type": "number", "minimum": 0 },
+    "showInlineErrors": { "type": "boolean" },
+    "errorPosition": { "type": "string" },
+
     "validation": {
       "type": "object",
       "additionalProperties": false,
@@ -56,6 +258,19 @@
         "patternMessage": { "type": "string" },
         "rangeMessage": { "type": "string" }
       }
+    }
+  },
+  "definitions": {
+    "optionItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": {},
+        "label": { "type": "string" },
+        "disabled": { "type": "boolean" },
+        "group": { "type": "string" }
+      },
+      "required": ["value", "label"]
     }
   }
 }

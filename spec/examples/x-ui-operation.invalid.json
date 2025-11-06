@@ -1,0 +1,6 @@
+{
+  "displayColumns": ["id", "", 123],
+  "relatedEntitiesEndpoints": ["/api/departments", 42],
+  "foo": "bar"
+}
+

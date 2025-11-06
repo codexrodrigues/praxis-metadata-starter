@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Guia de Conformidade — Especificação Praxis x‑ui v1.0.0</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Guia de Conformidade — Especificação Praxis x‑ui
+v1.0.0</h1>
+</header>
+<h1 id="guia-de-conformidade-especificação-praxis-xui-v1.0.0">Guia de
+Conformidade — Especificação Praxis x‑ui v1.0.0</h1>
+<p>Objetivo - Descrever como validar JSONs gerados por qualquer backend
+contra os JSON Schemas desta pasta. - Definir critérios mínimos (Core) e
+opcionais (Extended) de conformidade. - Mapear, de forma resumida, quais
+chaves a UI consome e onde.</p>
+<p>Como validar localmente (AJV CLI) - Pré‑requisitos: Node.js 18+ -
+Instalação local do ajv-cli (projeto host): - npm i -D ajv ajv-formats
+ajv-cli - Exemplos de execução: - Validar x‑ui de campo: - npx ajv -s
+./x-ui-field.schema.json -d ./examples/x-ui-field.valid.json -c
+ajv-formats - npx ajv -s ./x-ui-field.schema.json -d
+./examples/x-ui-field.invalid.json -c ajv-formats || echo “(esperado:
+inválido)” - Validar x‑ui de operação: - npx ajv -s
+./x-ui-operation.schema.json -d ./examples/x-ui-operation.valid.json -
+Validar x‑ui.resource: - npx ajv -s ./x-ui-resource.schema.json -d
+./examples/x-ui-resource.valid.json</p>
+<p>Critérios de Conformidade - Core (mínimo obrigatório) - x‑ui por
+campo segue o esquema e utiliza chaves canônicas para tipo, controle e
+validações básicas (ex.: <code>type</code>, <code>controlType</code>,
+<code>required</code>, <code>minLength</code>, <code>maxLength</code>,
+<code>pattern</code>). - x‑ui.resource presente no payload de
+<code>/schemas/filtered</code> contendo: <code>idField</code>,
+<code>idFieldValid</code>, <code>readOnly</code>,
+<code>capabilities</code> (valores boolean). <code>idFieldMessage</code>
+é opcional quando <code>idFieldValid=false</code>. - ETag forte no
+<code>/schemas/filtered</code> (header <code>ETag</code>) e hash
+determinístico em <code>X-Schema-Hash</code>. Ambos expostos via
+<code>Access-Control-Expose-Headers</code>. - <code>schemaId</code>
+estável conforme composição:
+<code>path|operation|schemaType|internal|tenant|locale</code>. -
+Extended (recomendado) - Preencher
+<code>displayColumns</code>/<code>displayFields</code> no x‑ui de
+operação (padrões de grid/forms). - Popular mensagens de validação
+(<code>*Message</code>) para melhor UX. - Incluir
+<code>capabilities.options|byId|all|filter|cursor</code> quando
+aplicável. - Adotar <code>custom.*</code> para extensões privadas do
+host (sem colisão com canônicas).</p>
+<p>Matriz — Chave da Spec → Consumo na UI - x‑ui por campo -
+<code>type</code>, <code>controlType</code> → Mapeadas por
+<code>SchemaNormalizerService</code> ao <code>FieldDefinition</code>
+(projetos/praxis-core/…/schema-normalizer.service.ts: normalizeSchema) -
+<code>label</code> → Cabeçalho/rotulagem de inputs e colunas -
+<code>placeholder</code>, <code>hint</code>, <code>helpText</code> →
+Renderização de formulário (<span class="citation"
+data-cites="praxisui/dynamic-fields">@praxisui/dynamic-fields</span>) -
+<code>readOnly</code>, <code>disabled</code> →
+<code>field-state.util.ts</code> e componentes; normalizador unifica
+<code>readOnly</code> → <code>readonly</code> - Validações
+(<code>required</code>, <code>minLength</code>, <code>maxLength</code>,
+<code>pattern</code>, <code>min</code>, <code>max</code>,
+<code>range</code>, <code>*Message</code>) →
+<code>validators.helper.ts</code> e parsers do normalizador - Seleção
+(<code>options</code>, <code>endpoint</code>, <code>valueField</code>,
+<code>displayField</code>, <code>multiple</code>,
+<code>emptyOptionText</code>) → componentes
+select/multiselect/autocomplete - Numérico (<code>numericFormat</code>,
+<code>numeric*</code>) → componentes numéricos - x‑ui por operação -
+<code>displayColumns</code> → Padrão de colunas iniciais (grid). Pode
+ser usado por reconciliadores/config inicial. - x‑ui.resource (no
+payload <code>/schemas/filtered</code>) - <code>idField</code> → Usado
+por <code>GenericCrudService</code> e <code>PraxisTable</code> para
+chave primária (projects/praxis-core/…/generic-crud.service.ts;
+projects/praxis-table/README.md) -
+<code>idFieldValid</code>/<code>idFieldMessage</code> →
+Diagnóstico/alertas em hosts e ferramentas - <code>readOnly</code> → UI
+pode bloquear edição (campos e ações) - <code>capabilities</code> →
+Habilita/desabilita ações de CRUD e utilitários
+(filter/cursor/options)</p>
+<p>Boas práticas e Notas - <code>custom.*</code>: prefixo reservado para
+extensões de fornecedores/hosts. Não colida com chaves canônicas. - O
+backend deve canonicalizar o payload antes de calcular o hash do schema
+(ETag forte ou <code>X-Schema-Hash</code>). - Locale/Tenant variam o
+<code>schemaId</code> e os headers de cache (ETag/hash). Enviar
+<code>Accept-Language</code> e <code>X-Tenant</code>.</p>
+<p>Compatibilidade (anotações temporárias) - <code>filterOptions</code>:
+a spec define <code>array</code>, porém o starter atualmente serializa
+como <code>string</code> (JSON bruto) quando configurado via
+<code>@UISchema(filterOptions="{...}")</code>. Mantido assim por
+compatibilidade com consumidores atuais. Planejado ajuste futuro para
+emitir <code>array</code> (parse de JSON/CSV → array) com teste
+dedicado.</p>
+<p>Suíte de Fixtures - Esta pasta traz exemplos válidos e inválidos para
+facilitar a automação no CI. - Use estes arquivos como base para gerar
+casos específicos do seu domínio.</p>
+</body>
+</html>

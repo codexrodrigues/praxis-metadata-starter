@@ -1,0 +1,8 @@
+{
+  "displayColumns": ["id", "name", "email"],
+  "displayFields": ["name", "email"],
+  "filterFields": ["status"],
+  "responseSchema": "EmployeeDTO",
+  "relatedEntitiesEndpoints": ["/api/departments"]
+}
+

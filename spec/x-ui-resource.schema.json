@@ -1,23 +1,28 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://praxis.dev/spec/x-ui-resource.schema.json",
-  "title": "x-ui.resource (/schemas/filtered payload) — Draft",
+  "title": "x-ui.resource (/schemas/filtered payload) — 1.0.0",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "idField": { "type": "string", "minLength": 1 },
     "idFieldValid": { "type": "boolean" },
+    "idFieldMessage": { "type": "string" },
     "readOnly": { "type": "boolean" },
     "capabilities": {
       "type": "object",
-      "additionalProperties": false,
+      "additionalProperties": { "type": "boolean" },
       "properties": {
         "create": { "type": "boolean" },
         "update": { "type": "boolean" },
-        "delete": { "type": "boolean" }
+        "delete": { "type": "boolean" },
+        "options": { "type": "boolean" },
+        "byId": { "type": "boolean" },
+        "all": { "type": "boolean" },
+        "filter": { "type": "boolean" },
+        "cursor": { "type": "boolean" }
       }
     }
   },
   "required": ["idField", "idFieldValid", "readOnly", "capabilities"]
 }
-
