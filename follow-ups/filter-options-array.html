@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>FilterOptions → array (Spec Compliance)</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">FilterOptions → array (Spec Compliance)</h1>
+</header>
+<h1 id="filteroptions-array-spec-compliance">FilterOptions → array (Spec
+Compliance)</h1>
+<p>Contexto - Hoje <code>@UISchema(filterOptions="...")</code> é
+serializado como <code>string</code> em <code>x-ui.filterOptions</code>.
+- A spec de campo exige <code>filterOptions: array</code>
+(docs/spec/x-ui-field.schema.json:189). - Decisão atual: manter
+<code>string</code> por compatibilidade e documentar. Este follow‑up
+detalha como migrar para <code>array</code> com coerção defensiva.</p>
+<p>Objetivo - Serializar <code>x-ui.filterOptions</code> sempre como
+<code>array</code> com comportamento previsível, mantendo a informação
+original quando não for possível parsear como estrutura.</p>
+<p>Escopo - Resolver <code>@UISchema.filterOptions</code> →
+<code>ArrayNode</code> no <code>x-ui</code>. - Não alterar outras chaves
+nem o contrato do endpoint <code>/schemas/filtered</code>.</p>
+<p>Referências de Código - Resolver (origem do put):
+<code>src/main/java/org/praxisplatform/uischema/extension/CustomOpenApiResolver.java:980</code>
+- Ponto atual do put como string:
+<code>src/main/java/org/praxisplatform/uischema/extension/CustomOpenApiResolver.java:1000</code>
+- Utilitários de options (modelo a seguir):
+<code>src/main/java/org/praxisplatform/uischema/util/OpenApiUiUtils.java:280</code>
+- Enum de chave:
+<code>src/main/java/org/praxisplatform/uischema/FieldConfigProperties.java:187</code>
+- Spec: <code>docs/spec/x-ui-field.schema.json:189</code></p>
+<p>Proposta Técnica - Implementar um utilitário novo em
+<code>OpenApiUiUtils</code> (similar a
+<code>populateUiOptionsFromString</code>): - Assinatura:
+<code>populateUiFilterOptionsFromString(Map&lt;String,Object&gt; xUiMap, String raw, ObjectMapper mapper)</code>
+- Regras de coerção (em ordem): 1. Se <code>raw</code> vazio ou
+<code>xUiMap</code> já contém <code>filterOptions</code> → return. 2.
+Tentar <code>mapper.readTree(raw)</code>: - Se array → usar diretamente
+em <code>x-ui.filterOptions</code>. - Se objeto → envolver em array com
+1 elemento. 3. Se falhar, tentar tratar <code>raw</code> como string
+JSON duplamente escapada (mesma estratégia de <code>options</code>). 4.
+Se contiver vírgula → <code>CSV</code>: split e criar array de strings.
+5. Fallback final → array com a string literal única
+(<code>[ raw ]</code>). - No <code>CustomOpenApiResolver</code>, trocar
+o <code>put</code> direto por chamada ao utilitário novo.</p>
+<p>Aceite / Testes - Atualizar teste existente para refletir array: -
+Arquivo:
+<code>src/test/java/org/praxisplatform/uischema/extension/ExplicitAdvancedPropsTest.java:1</code>
+- Validar que <code>x-ui.filterOptions</code> é um array e, quando
+<code>filterOptions</code> for JSON objeto, resulte em
+<code>[ { ... } ]</code>. - Adicionar testes novos (sugestão:
+<code>FilterOptionsCoercionTest</code>): - JSON array válido → mantém
+array de objetos. - JSON objeto válido → array de um objeto. - CSV
+simples (“a,b,c”) → array de strings <code>["a","b","c"]</code>. -
+String inválida (“foo”) → <code>["foo"]</code>. - Rodar:
+<code>./mvnw -DskipITs -Dtest=org.praxisplatform.uischema.extension.* test</code>.</p>
+<p>Compatibilidade - Mudança é forward‑compatible com a spec e
+resiliente: - Consumidores que esperavam string passarão a receber um
+array. Em casos de objeto JSON, o conteúdo passa a ser mais estruturado
+conforme esperado pela spec. - Em casos não parseáveis, a informação
+original é preservada como <code>string</code> dentro do array.</p>
+<p>Risco / Mitigações - UI que assume <code>string</code> pode precisar
+de ajuste; mitigado pelo fallback consistente e pela validação na spec.
+- Parsing de JSON duplamente escapado já está padronizado nos
+utilitários; replicar abordagem reduz regressões.</p>
+<p>Rollout Sugerido 1) Implementar utilitário + troca no resolver. 2)
+Atualizar/expandir testes conforme acima. 3) Remover a observação
+temporária em <code>docs/spec/CONFORMANCE.md</code> sobre exceção do
+tipo de <code>filterOptions</code>. 4) Comunicar hosts/consumidores:
+<code>filterOptions</code> passa a ser <code>array</code> conforme a
+spec.</p>
+<p>Observação - Não há alteração em <code>@UISchema</code> (continua
+<code>String filterOptions()</code>), apenas coerção na serialização do
+<code>x-ui</code>.</p>
+</body>
+</html>
