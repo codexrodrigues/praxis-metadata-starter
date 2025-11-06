@@ -1,0 +1,18 @@
+{
+  "label": "Nome",
+  "name": "name",
+  "type": "text",
+  "controlType": "input",
+  "placeholder": "Informe o nome",
+  "group": "principal",
+  "order": 1,
+  "filterable": true,
+  "sortable": true,
+  "required": true,
+  "minLength": 3,
+  "maxLength": 120,
+  "pattern": "^.{3,120}$",
+  "patternMessage": "Entre 3 e 120 caracteres",
+  "hint": "Nome completo do colaborador"
+}
+

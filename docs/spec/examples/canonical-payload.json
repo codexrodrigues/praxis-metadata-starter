@@ -1,0 +1,74 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer",
+      "x-ui": {
+        "label": "ID",
+        "name": "id",
+        "type": "number",
+        "controlType": "numericTextBox",
+        "sortable": true,
+        "filterable": true,
+        "readOnly": true
+      }
+    },
+    "name": {
+      "type": "string",
+      "x-ui": {
+        "label": "Nome",
+        "name": "name",
+        "type": "text",
+        "controlType": "input",
+        "placeholder": "Informe o nome",
+        "required": true,
+        "minLength": 3,
+        "maxLength": 120
+      }
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "x-ui": {
+        "label": "E-mail",
+        "name": "email",
+        "type": "email",
+        "controlType": "email",
+        "required": true
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ACTIVE", "INACTIVE"],
+      "x-ui": {
+        "label": "Status",
+        "name": "status",
+        "type": "text",
+        "controlType": "select",
+        "options": [
+          { "value": "ACTIVE", "label": "Ativo" },
+          { "value": "INACTIVE", "label": "Inativo" }
+        ],
+        "filterable": true
+      }
+    }
+  },
+  "x-ui": {
+    "displayColumns": ["id", "name", "email", "status"],
+    "displayFields": ["name", "email"],
+    "resource": {
+      "idField": "id",
+      "idFieldValid": true,
+      "readOnly": false,
+      "capabilities": {
+        "create": true,
+        "update": true,
+        "delete": true,
+        "byId": true,
+        "all": true,
+        "filter": true
+      }
+    }
+  }
+}
+

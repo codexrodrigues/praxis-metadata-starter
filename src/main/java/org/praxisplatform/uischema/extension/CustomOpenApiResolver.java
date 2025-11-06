@@ -108,7 +108,7 @@ public class CustomOpenApiResolver extends ModelResolver {
 
         // === ETAPA 3: Valores EXPLÍCITOS da anotação @UISchema ===
         // Sobrescreve detecção automática com valores explicitamente definidos
-        applyUISchemaExplicitValues(annotation, uiExtension);
+        applyUISchemaExplicitValues(property, annotation, uiExtension);
 
         // === ETAPA 4: Anotações Jakarta Validation ===
         // Adiciona validações baseadas em @NotNull, @Size, etc.
@@ -901,7 +901,7 @@ public class CustomOpenApiResolver extends ModelResolver {
      * ETAPA 3: Aplica valores EXPLÍCITOS da anotação @UISchema
      * (valores definidos explicitamente pelo desenvolvedor)
      */
-    private void applyUISchemaExplicitValues(UISchema annotation, Map<String, Object> uiExtension) {
+    private void applyUISchemaExplicitValues(Schema<?> property, UISchema annotation, Map<String, Object> uiExtension) {
         // Processar apenas valores NÃO padrão (explicitamente definidos)
         
         // ControlType explícito (diferente do padrão)
@@ -921,6 +921,14 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (!annotation.label().isEmpty()) {
             uiExtension.put(FieldConfigProperties.LABEL.getValue(), annotation.label());
         }
+        if (!annotation.description().isEmpty()) {
+            // Expõe também no x-ui, além do Schema description
+            uiExtension.put(FieldConfigProperties.DESCRIPTION.getValue(), annotation.description());
+            try { if (property.getDescription() == null || property.getDescription().isEmpty()) property.setDescription(annotation.description()); } catch (Exception ignored) {}
+        }
+        if (!annotation.example().isEmpty()) {
+            try { if (property.getExample() == null) property.setExample(annotation.example()); } catch (Exception ignored) {}
+        }
         if (!annotation.placeholder().isEmpty()) {
             uiExtension.put(FieldConfigProperties.PLACEHOLDER.getValue(), annotation.placeholder());
         }
@@ -933,11 +941,41 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (!annotation.width().isEmpty()) {
             uiExtension.put(FieldConfigProperties.WIDTH.getValue(), annotation.width());
         }
+        if (annotation.isFlex()) {
+            uiExtension.put(FieldConfigProperties.IS_FLEX.getValue(), true);
+        }
+        if (!annotation.displayOrientation().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.DISPLAY_ORIENTATION.getValue(), annotation.displayOrientation());
+        }
         if (!annotation.icon().isEmpty()) {
             uiExtension.put(FieldConfigProperties.ICON.getValue(), annotation.icon());
         }
+        if (!annotation.iconSize().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.ICON_SIZE.getValue(), annotation.iconSize());
+        }
+        if (!annotation.iconColor().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.ICON_COLOR.getValue(), annotation.iconColor());
+        }
+        if (!annotation.iconClass().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.ICON_CLASS.getValue(), annotation.iconClass());
+        }
+        if (!annotation.iconStyle().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.ICON_STYLE.getValue(), annotation.iconStyle());
+        }
+        if (!annotation.iconFontSize().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.ICON_FONT_SIZE.getValue(), annotation.iconFontSize());
+        }
         if (!annotation.helpText().isEmpty()) {
             uiExtension.put(FieldConfigProperties.HELP_TEXT.getValue(), annotation.helpText());
+        }
+        if (!annotation.hint().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.HINT.getValue(), annotation.hint());
+        }
+        if (!annotation.hiddenCondition().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.HIDDEN_CONDITION.getValue(), annotation.hiddenCondition());
+        }
+        if (!annotation.tooltipOnHover().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.TOOLTIP_ON_HOVER.getValue(), annotation.tooltipOnHover());
         }
         if (!annotation.valueField().isEmpty()) {
             uiExtension.put(FieldConfigProperties.VALUE_FIELD.getValue(), annotation.valueField());
@@ -954,10 +992,23 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (!annotation.options().isEmpty()) {
             OpenApiUiUtils.populateUiOptionsFromString(uiExtension, annotation.options(), this._mapper);
         }
+        if (!annotation.filter().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.FILTER.getValue(), annotation.filter());
+        }
+        if (!annotation.filterOptions().isEmpty()) {
+            // Sem parser dedicado, manter string bruta (frontend pode interpretar)
+            uiExtension.put(FieldConfigProperties.FILTER_OPTIONS.getValue(), annotation.filterOptions());
+        }
+        if (!annotation.filterControlType().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.FILTER_CONTROL_TYPE.getValue(), annotation.filterControlType());
+        }
         
         // Inteiros não zero
         if (annotation.order() != 0) {
             uiExtension.put(FieldConfigProperties.ORDER.getValue(), String.valueOf(annotation.order()));
+        }
+        if (annotation.debounceTime() != 0) {
+            uiExtension.put(FieldConfigProperties.DEBOUNCE_TIME.getValue(), String.valueOf(annotation.debounceTime()));
         }
         if (annotation.minLength() != 0) {
             uiExtension.put(ValidationProperties.MIN_LENGTH.getValue(), String.valueOf(annotation.minLength()));
@@ -976,6 +1027,13 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (annotation.hidden()) {
             uiExtension.put(FieldConfigProperties.HIDDEN.getValue(), true);
         }
+        // Context-specific visibility flags
+        if (annotation.tableHidden()) {
+            uiExtension.put(FieldConfigProperties.TABLE_HIDDEN.getValue(), true);
+        }
+        if (annotation.formHidden()) {
+            uiExtension.put(FieldConfigProperties.FORM_HIDDEN.getValue(), true);
+        }
         if (!annotation.editable()) { // padrão é true
             uiExtension.put(FieldConfigProperties.EDITABLE.getValue(), false);
         }
@@ -988,8 +1046,53 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (annotation.filterable()) { // padrão é false
             uiExtension.put(FieldConfigProperties.FILTERABLE.getValue(), true);
         }
+        if (annotation.inlineEditing()) {
+            uiExtension.put(FieldConfigProperties.INLINE_EDITING.getValue(), true);
+        }
+        if (!annotation.validationMode().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.VALIDATION_MODE.getValue(), annotation.validationMode());
+        }
+        if (annotation.unique()) {
+            uiExtension.put(FieldConfigProperties.UNIQUE.getValue(), true);
+        }
+        if (!annotation.mask().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.MASK.getValue(), annotation.mask());
+        }
+        if (!annotation.conditionalRequired().isEmpty()) {
+            // Grava nos dois espaços para compatibilidade (top-level e validation)
+            uiExtension.put(FieldConfigProperties.CONDITIONAL_REQUIRED.getValue(), annotation.conditionalRequired());
+            uiExtension.put(ValidationProperties.CONDITIONAL_REQUIRED.getValue(), annotation.conditionalRequired());
+        }
+        if (!annotation.viewOnlyStyle().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.VIEW_ONLY_STYLE.getValue(), annotation.viewOnlyStyle());
+        }
+        if (!annotation.validationTriggers().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.VALIDATION_TRIGGERS.getValue(), annotation.validationTriggers());
+        }
+        if (!annotation.conditionalDisplay().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.CONDITIONAL_DISPLAY.getValue(), annotation.conditionalDisplay());
+        }
+        if (!annotation.dependentField().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.DEPENDENT_FIELD.getValue(), annotation.dependentField());
+        }
+        if (annotation.resetOnDependentChange()) {
+            uiExtension.put(FieldConfigProperties.RESET_ON_DEPENDENT_CHANGE.getValue(), true);
+        }
+        if (!annotation.transformValueFunction().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.TRANSFORM_VALUE_FUNCTION.getValue(), annotation.transformValueFunction());
+        }
         if (annotation.required()) {
             uiExtension.put(ValidationProperties.REQUIRED.getValue(), true);
+        }
+        // Mensagens explícitas de validação (bloqueiam as default)
+        if (!annotation.requiredMessage().isEmpty()) {
+            uiExtension.put(ValidationProperties.REQUIRED_MESSAGE.getValue(), annotation.requiredMessage());
+        }
+        if (!annotation.minLengthMessage().isEmpty()) {
+            uiExtension.put(ValidationProperties.MIN_LENGTH_MESSAGE.getValue(), annotation.minLengthMessage());
+        }
+        if (!annotation.maxLengthMessage().isEmpty()) {
+            uiExtension.put(ValidationProperties.MAX_LENGTH_MESSAGE.getValue(), annotation.maxLengthMessage());
         }
         
         // Pattern explícito (diferente do padrão CUSTOM)
@@ -997,6 +1100,34 @@ public class CustomOpenApiResolver extends ModelResolver {
             String patternValue = annotation.pattern().getPattern();
             if (patternValue != null && !patternValue.isEmpty()) {
                 uiExtension.put(ValidationProperties.PATTERN.getValue(), patternValue);
+            }
+        }
+        if (!annotation.patternMessage().isEmpty()) {
+            uiExtension.put(ValidationProperties.PATTERN_MESSAGE.getValue(), annotation.patternMessage());
+        }
+        if (!annotation.rangeMessage().isEmpty()) {
+            uiExtension.put(ValidationProperties.RANGE_MESSAGE.getValue(), annotation.rangeMessage());
+        }
+        if (!annotation.customValidator().isEmpty()) {
+            uiExtension.put(ValidationProperties.CUSTOM_VALIDATOR.getValue(), annotation.customValidator());
+        }
+        if (!annotation.asyncValidator().isEmpty()) {
+            uiExtension.put(ValidationProperties.ASYNC_VALIDATOR.getValue(), annotation.asyncValidator());
+        }
+        if (annotation.minWords() > 0) {
+            uiExtension.put(ValidationProperties.MIN_WORDS.getValue(), String.valueOf(annotation.minWords()));
+        }
+        // min/max explícitos da anotação
+        if (!annotation.min().isEmpty()) {
+            uiExtension.put(ValidationProperties.MIN.getValue(), annotation.min());
+            if (!uiExtension.containsKey(FieldConfigProperties.NUMERIC_MIN.getValue())) {
+                uiExtension.put(FieldConfigProperties.NUMERIC_MIN.getValue(), annotation.min());
+            }
+        }
+        if (!annotation.max().isEmpty()) {
+            uiExtension.put(ValidationProperties.MAX.getValue(), annotation.max());
+            if (!uiExtension.containsKey(FieldConfigProperties.NUMERIC_MAX.getValue())) {
+                uiExtension.put(FieldConfigProperties.NUMERIC_MAX.getValue(), annotation.max());
             }
         }
         
@@ -1007,8 +1138,33 @@ public class CustomOpenApiResolver extends ModelResolver {
         
         // NumericFormat explícito (diferente do padrão INTEGER)
         if (annotation.numericFormat() != NumericFormat.INTEGER) {
-            // Assumindo que NumericFormat tem um getValue() method similar aos outros enums
-            // uiExtension.put(FieldConfigProperties.NUMERIC_FORMAT.getValue(), annotation.numericFormat().getValue());
+            uiExtension.put(FieldConfigProperties.NUMERIC_FORMAT.getValue(), annotation.numericFormat().getValue());
+        }
+        if (!annotation.numericStep().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.NUMERIC_STEP.getValue(), annotation.numericStep());
+        }
+        if (!annotation.numericMin().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.NUMERIC_MIN.getValue(), annotation.numericMin());
+        }
+        if (!annotation.numericMax().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.NUMERIC_MAX.getValue(), annotation.numericMax());
+        }
+        if (!annotation.numericMaxLength().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.NUMERIC_MAX_LENGTH.getValue(), annotation.numericMaxLength());
+        }
+
+        // Arquivos: tipos permitidos e tamanho máximo
+        if (annotation.allowedFileTypes() != null && annotation.allowedFileTypes() != AllowedFileTypes.ALL) {
+            uiExtension.put(ValidationProperties.ALLOWED_FILE_TYPES.getValue(), annotation.allowedFileTypes().getValue());
+        }
+        if (!annotation.maxFileSize().isEmpty()) {
+            // Tentar parsear para Long; se falhar, armazenar como string
+            try {
+                Long size = Long.parseLong(annotation.maxFileSize());
+                uiExtension.put(ValidationProperties.MAX_FILE_SIZE.getValue(), size);
+            } catch (NumberFormatException nfe) {
+                uiExtension.put(ValidationProperties.MAX_FILE_SIZE.getValue(), annotation.maxFileSize());
+            }
         }
     }
 

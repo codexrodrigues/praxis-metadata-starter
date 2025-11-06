@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://praxis.dev/spec/x-ui-operation.schema.json",
-  "title": "x-ui (Operation) — Draft",
+  "title": "x-ui (Operation) — 1.0.0",
   "type": "object",
   "additionalProperties": false,
   "patternProperties": {
-    "^custom\.": {}
+    "^custom\\.": {}
   },
   "properties": {
     "displayColumns": {
@@ -14,6 +14,15 @@
       "minItems": 1
     },
     "displayFields": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "filterFields": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "responseSchema": { "type": "string" },
+    "relatedEntitiesEndpoints": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
     }

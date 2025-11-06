@@ -1,0 +1,11 @@
+{
+  "label": "Campo Inválido",
+  "type": "text",
+  "controlType": "unknownControl",  
+  "numericFormat": "bogus",         
+  "unexpected": true,                
+  "validation": {
+    "unknownKey": 123               
+  }
+}
+

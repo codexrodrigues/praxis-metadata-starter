@@ -1,0 +1,16 @@
+{
+  "idField": "id",
+  "idFieldValid": true,
+  "readOnly": false,
+  "capabilities": {
+    "create": true,
+    "update": true,
+    "delete": true,
+    "options": true,
+    "byId": true,
+    "all": true,
+    "filter": true,
+    "cursor": false
+  }
+}
+
