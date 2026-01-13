@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.rest.exceptionhandler;
 
+import lombok.extern.slf4j.Slf4j;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.BusinessException;
 import org.praxisplatform.uischema.rest.response.CustomProblemDetail;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
@@ -28,6 +29,7 @@ import java.util.List;
  * @since 1.0.0
  */
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -98,6 +100,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<RestApiResponse<Object>> handleGenericException(Exception ex, WebRequest request) {
+        log.error("[GlobalExceptionHandler] Unhandled exception", ex);
 
         String errorMessage = "Erro interno. Por favor, tente novamente ou entre em contato com o suporte.";
 

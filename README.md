@@ -73,6 +73,7 @@ Documentação online (GitHub Pages):
 *   **🔗 HATEOAS + versão de dados:** links automáticos (configuráveis) e cabeçalho `X-Data-Version` opcional.
 *   **🧠 OpenAPI enriquecido (x‑ui):** `@UISchema` + Bean Validation → metadados de UI no contrato.
 *   **🎯 Grupos OpenAPI automáticos:** redução de ~97% no payload com documentos por grupo + cache inteligente.
+*   **📚 Catálogo para RAG:** `GET /schemas/catalog` gera um resumo enxuto dos endpoints OpenAPI.
 *   **📄 Views / Read‑only sem esforço:** herde de `AbstractReadOnlyController`/`Service` e ganhe filtros, paginação e opções id/label; escritas retornam 405.
 
 ## Por que times amam (parece mágica, é engenharia)

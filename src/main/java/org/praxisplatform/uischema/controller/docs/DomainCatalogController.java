@@ -19,9 +19,11 @@ import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Endpoint que exporta um catálogo enxuto de domínios/endpoints do OpenAPI,
@@ -32,6 +34,9 @@ import java.util.Map;
 public class DomainCatalogController {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DomainCatalogController.class);
+    private static final Set<String> HTTP_METHODS = Set.of(
+            "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"
+    );
 
     @Value("${springdoc.api-docs.path:/v3/api-docs}")
     private String openApiBasePath;
@@ -54,34 +59,57 @@ public class DomainCatalogController {
         JsonNode components = doc.path("components").path("schemas");
         List<EndpointSummary> endpoints = new ArrayList<>();
 
+        if (!pathsNode.isObject()) {
+            LOGGER.warn("OpenAPI document has no paths object; returning empty catalog");
+            return ResponseEntity.ok(new CatalogResponse(groupToUse, endpoints));
+        }
+
         Iterator<Map.Entry<String, JsonNode>> pathIt = pathsNode.fields();
         while (pathIt.hasNext()) {
             Map.Entry<String, JsonNode> pathEntry = pathIt.next();
             String path = pathEntry.getKey();
             JsonNode methodsNode = pathEntry.getValue();
 
+            if (methodsNode == null || !methodsNode.isObject()) {
+                continue;
+            }
+
             Iterator<Map.Entry<String, JsonNode>> methodIt = methodsNode.fields();
             while (methodIt.hasNext()) {
                 Map.Entry<String, JsonNode> methodEntry = methodIt.next();
-                String method = methodEntry.getKey();
+                String rawMethod = methodEntry.getKey();
+                String method = rawMethod == null ? "" : rawMethod.toUpperCase(Locale.ROOT);
                 JsonNode op = methodEntry.getValue();
 
-                SchemaRef request = extractRequestSchema(op, components);
-                SchemaRef response = extractResponseSchema(op, components);
+                if (!HTTP_METHODS.contains(method)) {
+                    continue;
+                }
 
-                EndpointSummary summary = new EndpointSummary(
-                        path,
-                        method.toUpperCase(),
-                        toStringList(op.path("tags")),
-                        op.path("summary").asText(null),
-                        op.path("description").asText(null),
-                        op.path("operationId").asText(null),
-                        request,
-                        response,
-                        extractParameters(op)
-                );
+                if (op == null || !op.isObject()) {
+                    LOGGER.debug("Skipping non-object operation: {} {}", method, path);
+                    continue;
+                }
 
-                endpoints.add(summary);
+                try {
+                    SchemaRef request = extractRequestSchema(op, components);
+                    SchemaRef response = extractResponseSchema(op, components);
+
+                    EndpointSummary summary = new EndpointSummary(
+                            path,
+                            method,
+                            toStringList(op.path("tags")),
+                            op.path("summary").asText(null),
+                            op.path("description").asText(null),
+                            op.path("operationId").asText(null),
+                            request,
+                            response,
+                            extractParameters(op)
+                    );
+
+                    endpoints.add(summary);
+                } catch (Exception ex) {
+                    LOGGER.warn("Skipping operation {} {} due to error: {}", method, path, ex.getMessage());
+                }
             }
         }
 
