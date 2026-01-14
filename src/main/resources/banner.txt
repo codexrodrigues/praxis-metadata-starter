@@ -1,9 +1,16 @@
-${AnsiColor.BRIGHT_BLUE}
-Praxis
+${AnsiColor.BRIGHT_CYAN}
+  _____                _
+ |  __ \              (_)
+ | |__) | __ __ ___  ___ ___
+ |  ___/ "__" _` \ \/ / / __|
+ | |   | | | (_| |>  <| \__ \
+ |_|   |_|  \__,_/_/\_\|___/
+${AnsiColor.DEFAULT}
+${AnsiColor.BRIGHT_WHITE}:: Praxis Platform ::${AnsiColor.DEFAULT}             ${AnsiColor.BRIGHT_BLACK}(v${application.version:unknown})${AnsiColor.DEFAULT}
+${AnsiColor.BRIGHT_WHITE}:: Spring Boot ::${AnsiColor.DEFAULT}                 ${AnsiColor.BRIGHT_BLACK}(v${spring-boot.version})${AnsiColor.DEFAULT}
 
-${AnsiStyle.NORMAL}${AnsiColor.DEFAULT}
-
-${AnsiStyle.BOLD}${AnsiColor.BRIGHT_MAGENTA}:: Praxis ::${AnsiStyle.NORMAL}${AnsiColor.DEFAULT} ${application.formatted-version} ${AnsiColor.BRIGHT_BLACK}(Boot ${spring-boot.version})${AnsiColor.DEFAULT}
-App: ${AnsiColor.BRIGHT_BLACK}${spring.application.name}${AnsiColor.DEFAULT}
-Java: ${java.version} | OS: ${os.name} ${os.version} | Profile(s): ${spring.profiles.active} | PID: ${PID}
-${AnsiColor.BRIGHT_BLACK}────────────────────────────────────────────────────────────────────────────────────${AnsiColor.DEFAULT}
+${AnsiColor.GRAY}Application :${AnsiColor.DEFAULT} ${application.title:${spring.application.name:Unknown App}}
+${AnsiColor.GRAY}Java Version:${AnsiColor.DEFAULT} ${java.version}
+${AnsiColor.GRAY}OS / Arch   :${AnsiColor.DEFAULT} ${os.name} / ${os.arch}
+${AnsiColor.GRAY}Profile(s)  :${AnsiColor.DEFAULT} ${spring.profiles.active:default}
+${AnsiColor.GRAY}PID         :${AnsiColor.DEFAULT} ${PID}
