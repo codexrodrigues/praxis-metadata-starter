@@ -5,6 +5,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
 import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
+import org.praxisplatform.uischema.filter.web.FilterRequestBodyAdvice;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -310,6 +311,12 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Bean
     public CustomOpenApiResolver modelResolver(ObjectMapper mapper) {
         return new CustomOpenApiResolver(mapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public FilterRequestBodyAdvice filterRequestBodyAdvice(ObjectMapper mapper) {
+        return new FilterRequestBodyAdvice(mapper);
     }
 
     /**

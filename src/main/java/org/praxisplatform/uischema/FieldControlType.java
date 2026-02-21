@@ -540,6 +540,14 @@ public enum FieldControlType {
     RANGE_SLIDER("rangeSlider"),
 
     /**
+     * Controle para seleção de faixa monetária com limites mínimo e máximo.
+     *
+     * Exemplo de uso: Campos como "Faixa salarial", "Faixa de preço" ou "Intervalo de custo".
+     * Na camada de apresentação, pode ser exibido como um componente de range de moeda.
+     */
+    PRICE_RANGE("priceRange"),
+
+    /**
      * Controle de avaliação para captura de classificações do usuário, geralmente em estrelas.
      *
      * Exemplo de uso: Campos como "Avaliação do Produto" ou "Classificação de Serviço".

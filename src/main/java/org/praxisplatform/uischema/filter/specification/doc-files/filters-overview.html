@@ -154,10 +154,22 @@
   <h2>Modelagem de DTO — boas práticas</h2>
   <ul>
     <li><strong>Ausente x Null x Vazio</strong>: Campo ausente → filtro ignorado. Em IN/NOT_IN, evite listas vazias.</li>
+    <li><strong>Range canônico</strong>: para operações de faixa, prefira objeto com aliases explícitos
+      (<code>minPrice/maxPrice</code>, <code>startDate/endDate</code>, <code>from/to</code>) ou lista.</li>
+    <li><strong>Range parcial</strong>: para apenas limite superior, a forma canônica é <code>[null, limite]</code>
+      (preserva semântica de <code>&lt;=</code>).</li>
+    <li><strong>Reordenação segura</strong>: quando ambos os limites são válidos e invertidos, o backend normaliza por swap.</li>
     <li><strong>IS_NULL/IS_NOT_NULL</strong>: use <code>Boolean</code>; envie <code>true</code> para ativar.</li>
     <li><strong>IS_TRUE/IS_FALSE</strong>: o predicado é aplicado quando o campo está presente (recomenda-se <code>true</code>).</li>
     <li><strong>SIZE_* (coleções)</strong>: aponte <code>relation</code> para o atributo de coleção (ex.: "itens").</li>
     <li><strong>Strings</strong>: LIKE/STARTS/ENDS normalizam via <code>lower()</code>; collation do DB pode afetar ordenação.</li>
+  </ul>
+
+  <h3>Semântica por operação de faixa</h3>
+  <ul>
+    <li><code>BETWEEN</code>: aceita parcial (<code>&gt;= lower</code> ou <code>&lt;= upper</code>) e completo.</li>
+    <li><code>BETWEEN_EXCLUSIVE</code>: exige ambos os limites.</li>
+    <li><code>NOT_BETWEEN</code>/<code>OUTSIDE_RANGE</code>: aceitam parcial e completo com semântica de negação adequada.</li>
   </ul>
 
   <h2>Ordenação e paginação</h2>

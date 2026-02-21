@@ -17,13 +17,16 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
+import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Endpoint que exporta um catálogo enxuto de domínios/endpoints do OpenAPI,
@@ -41,6 +44,11 @@ public class DomainCatalogController {
     @Value("${springdoc.api-docs.path:/v3/api-docs}")
     private String openApiBasePath;
 
+    @Value("${praxis.catalog.exclude-paths:/api/praxis/config/ui}")
+    private String excludedPathsRaw;
+
+    private Set<String> excludedPaths = Set.of();
+
     @Autowired
     private RestTemplate restTemplate;
 
@@ -49,6 +57,19 @@ public class DomainCatalogController {
 
     @Autowired(required = false)
     private OpenApiGroupResolver openApiGroupResolver;
+
+    @PostConstruct
+    void initExcludedPaths() {
+        if (!StringUtils.hasText(excludedPathsRaw)) {
+            excludedPaths = Set.of();
+            return;
+        }
+        excludedPaths = Arrays.stream(excludedPathsRaw.split(","))
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .map(this::normalizePath)
+                .collect(Collectors.toSet());
+    }
 
     @GetMapping
     public ResponseEntity<CatalogResponse> getCatalog(@RequestParam(name = "group", required = false) String group) {
@@ -69,6 +90,12 @@ public class DomainCatalogController {
             Map.Entry<String, JsonNode> pathEntry = pathIt.next();
             String path = pathEntry.getKey();
             JsonNode methodsNode = pathEntry.getValue();
+
+            String normalizedPath = normalizePath(path);
+            if (excludedPaths.contains(normalizedPath)) {
+                LOGGER.debug("Skipping excluded path from catalog: {}", path);
+                continue;
+            }
 
             if (methodsNode == null || !methodsNode.isObject()) {
                 continue;
@@ -93,20 +120,27 @@ public class DomainCatalogController {
                 try {
                     SchemaRef request = extractRequestSchema(op, components);
                     SchemaRef response = extractResponseSchema(op, components);
+                    String rawSummary = op.path("summary").asText(null);
+                    String rawDescription = op.path("description").asText(null);
+                    String resourceLabel = inferResourceLabel(path);
+                    String summary = firstNonBlank(rawSummary, rawDescription, buildFallbackSummary(method, path, resourceLabel));
+                    String description = StringUtils.hasText(rawDescription)
+                            ? rawDescription
+                            : buildFallbackDescription(summary, path, resourceLabel);
 
-                    EndpointSummary summary = new EndpointSummary(
+                    EndpointSummary endpointSummary = new EndpointSummary(
                             path,
                             method,
                             toStringList(op.path("tags")),
-                            op.path("summary").asText(null),
-                            op.path("description").asText(null),
+                            summary,
+                            description,
                             op.path("operationId").asText(null),
                             request,
                             response,
                             extractParameters(op)
                     );
 
-                    endpoints.add(summary);
+                    endpoints.add(endpointSummary);
                 } catch (Exception ex) {
                     LOGGER.warn("Skipping operation {} {} due to error: {}", method, path, ex.getMessage());
                 }
@@ -168,6 +202,82 @@ public class DomainCatalogController {
             node.forEach(n -> result.add(n.asText()));
         }
         return result;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String inferResourceLabel(String path) {
+        if (!StringUtils.hasText(path)) {
+            return "recurso";
+        }
+        String trimmed = normalizePath(path);
+        String[] parts = trimmed.split("/");
+        for (int i = parts.length - 1; i >= 0; i--) {
+            String part = parts[i];
+            if (!StringUtils.hasText(part)) {
+                continue;
+            }
+            if (part.startsWith("{") && part.endsWith("}")) {
+                continue;
+            }
+            String cleaned = part.replace('-', ' ').replace('_', ' ').trim();
+            if (!StringUtils.hasText(cleaned)) {
+                continue;
+            }
+            return cleaned.substring(0, 1).toUpperCase(Locale.ROOT) + cleaned.substring(1);
+        }
+        return "recurso";
+    }
+
+    private String normalizePath(String path) {
+        if (!StringUtils.hasText(path)) {
+            return "";
+        }
+        String trimmed = path.trim();
+        if (trimmed.length() > 1 && trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        return trimmed;
+    }
+
+    private String buildFallbackSummary(String method, String path, String resourceLabel) {
+        String action = resolveActionVerb(method, path);
+        return action + " " + resourceLabel;
+    }
+
+    private String buildFallbackDescription(String summary, String path, String resourceLabel) {
+        if (StringUtils.hasText(summary)) {
+            return "Endpoint para " + summary.toLowerCase(Locale.ROOT);
+        }
+        return "Endpoint do recurso " + resourceLabel.toLowerCase(Locale.ROOT);
+    }
+
+    private String resolveActionVerb(String method, String path) {
+        String normalizedMethod = method != null ? method.toUpperCase(Locale.ROOT) : "GET";
+        String normalizedPath = path != null ? path.toLowerCase(Locale.ROOT) : "";
+        if (normalizedPath.endsWith("/options/filter")) {
+            return "Listar opções de";
+        }
+        if (normalizedPath.endsWith("/filter")) {
+            return "Filtrar";
+        }
+        boolean isItemPath = normalizedPath.contains("/{");
+        return switch (normalizedMethod) {
+            case "POST" -> isItemPath ? "Criar" : "Criar";
+            case "PUT", "PATCH" -> "Atualizar";
+            case "DELETE" -> "Remover";
+            default -> isItemPath ? "Detalhar" : "Listar";
+        };
     }
 
     private SchemaRef extractRequestSchema(JsonNode op, JsonNode components) {

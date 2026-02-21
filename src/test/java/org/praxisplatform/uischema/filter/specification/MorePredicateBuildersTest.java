@@ -6,10 +6,11 @@ import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,6 +23,7 @@ class MorePredicateBuildersTest {
     Path<?> path = Mockito.mock(Path.class);
     Expression<Instant> instantExpr = Mockito.mock(Expression.class);
     Expression<? extends Comparable> compExpr = Mockito.mock(Expression.class);
+    Expression<Integer> intExpr = Mockito.mock(Expression.class);
     Expression<Integer> sizeExpr = Mockito.mock(Expression.class);
     Expression<Boolean> boolExpr = Mockito.mock(Expression.class);
     Predicate pred = Mockito.mock(Predicate.class);
@@ -41,24 +43,69 @@ class MorePredicateBuildersTest {
     @Test
     void notBetween() {
         when(path.as(Instant.class)).thenReturn(instantExpr);
-        when(cb.between(eq(instantExpr), any(Instant.class), any(Instant.class))).thenReturn(pred);
-        when(cb.not(pred)).thenReturn(pred);
+        when(cb.lessThan(eq(instantExpr), any(Instant.class))).thenReturn(pred);
+        when(cb.greaterThanOrEqualTo(eq(instantExpr), any(Instant.class))).thenReturn(pred);
+        when(cb.or(any(), any())).thenReturn(pred);
         var b = new NotBetweenPredicateBuilder();
         Predicate p = b.build(cb, path, List.of(LocalDate.now().minusDays(1), LocalDate.now().plusDays(1)));
         assertNotNull(p);
-        verify(cb).not(any(Predicate.class));
+        verify(cb).or(any(), any());
     }
 
     @Test
     void outsideRange() {
         when(path.as(Instant.class)).thenReturn(instantExpr);
         when(cb.lessThan(eq(instantExpr), any(Instant.class))).thenReturn(pred);
-        when(cb.greaterThan(eq(instantExpr), any(Instant.class))).thenReturn(pred);
+        when(cb.greaterThanOrEqualTo(eq(instantExpr), any(Instant.class))).thenReturn(pred);
         when(cb.or(any(), any())).thenReturn(pred);
         var b = new OutsideRangePredicateBuilder();
         Predicate p = b.build(cb, path, List.of(LocalDate.now().minusDays(1), LocalDate.now().plusDays(1)));
         assertNotNull(p);
         verify(cb).or(any(), any());
+    }
+
+    @Test
+    void betweenWithOnlyLowerBoundUsesGreaterOrEqual() {
+        when(path.as(Integer.class)).thenReturn(intExpr);
+        when(cb.greaterThanOrEqualTo(eq(intExpr), eq(10))).thenReturn(pred);
+        var b = new BetweenPredicateBuilder();
+
+        Predicate p = b.build(cb, path, List.of(10));
+        assertNotNull(p);
+        verify(cb).greaterThanOrEqualTo(eq(intExpr), eq(10));
+    }
+
+    @Test
+    void betweenWithOnlyUpperBoundUsesLessOrEqual() {
+        when(path.as(Integer.class)).thenReturn(intExpr);
+        when(cb.lessThanOrEqualTo(eq(intExpr), eq(20))).thenReturn(pred);
+        var b = new BetweenPredicateBuilder();
+
+        Predicate p = b.build(cb, path, Arrays.asList(null, 20));
+        assertNotNull(p);
+        verify(cb).lessThanOrEqualTo(eq(intExpr), eq(20));
+    }
+
+    @Test
+    void betweenShouldRejectListWithMoreThanTwoBounds() {
+        var b = new BetweenPredicateBuilder();
+
+        InvalidFilterPayloadException error = assertThrows(
+                InvalidFilterPayloadException.class,
+                () -> b.build(cb, path, List.of(1, 2, 3))
+        );
+        assertTrue(error.getMessage().contains("at most two bounds"));
+    }
+
+    @Test
+    void betweenShouldRejectSemanticallyEmptyBounds() {
+        var b = new BetweenPredicateBuilder();
+
+        InvalidFilterPayloadException error = assertThrows(
+                InvalidFilterPayloadException.class,
+                () -> b.build(cb, path, Arrays.asList(null, null))
+        );
+        assertTrue(error.getMessage().contains("at least one bound"));
     }
 
     @Test

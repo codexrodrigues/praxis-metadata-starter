@@ -76,6 +76,22 @@ Documentação online (GitHub Pages):
 *   **📚 Catálogo para RAG:** `GET /schemas/catalog` gera um resumo enxuto dos endpoints OpenAPI.
 *   **📄 Views / Read‑only sem esforço:** herde de `AbstractReadOnlyController`/`Service` e ganhe filtros, paginação e opções id/label; escritas retornam 405.
 
+#### Excluir endpoints do catálogo RAG
+
+Use a propriedade `praxis.catalog.exclude-paths` para impedir que paths específicos apareçam em `GET /schemas/catalog`.
+
+Formato:
+- Lista separada por vírgulas.
+- Paths são normalizados (ex.: `/api/x/` e `/api/x` são tratados como o mesmo).
+
+Exemplo:
+```
+praxis.catalog.exclude-paths=/api/praxis/config/ui,/api/internal/health
+```
+
+Observação:
+- Por padrão, o catálogo já exclui `/api/praxis/config/ui`.
+
 ## Por que times amam (parece mágica, é engenharia)
 
 - Entrega acelerada: telas nascem do contrato. Você foca no domínio; nós resolvemos o resto.
@@ -164,6 +180,7 @@ HTTP e tratamento de erros:
 - 400 Bad Request para violações de Bean Validation (estrutura/semântica do payload).
 - 422 Unprocessable Entity para regras de negócio/processo (ex.: limites de paginação já aplicados no `AbstractCrudController`).
 - O `GlobalExceptionHandler` transforma `MethodArgumentNotValidException` em `RestApiResponse` consistente (categoria VALIDATION).
+- `ResponseStatusException` preserva o status original (ex.: 403/404/409/410), evitando colapsar para 500 genérico.
 
 Integração com x‑ui:
 - O `CustomOpenApiResolver` e `OpenApiUiUtils` convertem Bean Validation em `x-ui.validation` automaticamente (required, min/max, pattern, etc.).

@@ -3,7 +3,10 @@ package org.praxisplatform.uischema.extension;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.core.jackson.ModelResolver;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
+import io.swagger.v3.oas.models.media.ArraySchema;
+import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.StringSchema;
 import org.praxisplatform.uischema.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.numeric.NumberFormatStyle;
@@ -13,8 +16,12 @@ import org.praxisplatform.uischema.filter.annotation.Filterable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -841,7 +848,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         // Extra detection based on @Filterable annotation for array fields
         Filterable filterable = ResolverUtils.getAnnotation(Filterable.class, annotations);
         if (filterable != null
-                && filterable.operation() == Filterable.FilterOperation.BETWEEN
+                && isRangeOperation(filterable.operation())
                 && "array".equals(openApiType)
                 && property.getItems() != null) {
             String itemType = property.getItems().getType();
@@ -852,7 +859,12 @@ public class CustomOpenApiResolver extends ModelResolver {
                 } else if ("date-time".equals(itemFormat)) {
                     detectedControlType = FieldControlType.DATE_TIME_RANGE.getValue();                    
                 }
+            } else if (isNumericItemType(itemType)) {
+                detectedControlType = isMonetaryRange(fieldName, itemFormat, annotations)
+                        ? FieldControlType.PRICE_RANGE.getValue()
+                        : FieldControlType.RANGE_SLIDER.getValue();
             }
+            applyRangeOneOfContract(property, fieldName, itemType, itemFormat, annotations, filterable.operation());
         }
         
         // Aplicar detecções (sobrescreve valores padrão)
@@ -895,6 +907,233 @@ public class CustomOpenApiResolver extends ModelResolver {
             }
             OpenApiUiUtils.applyPercentDefaults(uiExtension);
         }
+    }
+
+    private boolean isNumericItemType(String itemType) {
+        if (itemType == null) return false;
+        String normalized = itemType.toLowerCase(Locale.ROOT);
+        return "number".equals(normalized) || "integer".equals(normalized);
+    }
+
+    private void applyRangeOneOfContract(
+            Schema<?> property,
+            String fieldName,
+            String itemType,
+            String itemFormat,
+            Annotation[] annotations,
+            Filterable.FilterOperation operation
+    ) {
+        if (property == null || property.getItems() == null) {
+            return;
+        }
+        if (property.getOneOf() != null && !property.getOneOf().isEmpty()) {
+            return;
+        }
+
+        String normalizedItemType = itemType == null ? "" : itemType.toLowerCase(Locale.ROOT);
+        boolean isDateLike = "string".equals(normalizedItemType)
+                && ("date".equals(itemFormat) || "date-time".equals(itemFormat));
+        boolean isNumeric = isNumericItemType(normalizedItemType);
+        if (!isDateLike && !isNumeric) {
+            return;
+        }
+
+        boolean requireTwoBounds = operation == Filterable.FilterOperation.BETWEEN_EXCLUSIVE;
+
+        ArraySchema arrayVariant = new ArraySchema();
+        Schema<?> arrayItem = copyRangeItemSchema(property.getItems());
+        applyArrayRangeBoundContract(arrayVariant, arrayItem, requireTwoBounds);
+
+        ObjectSchema objectVariant = new ObjectSchema();
+        Map<String, Schema> properties = new LinkedHashMap<>();
+        Schema<?> lowerBoundSchema;
+        Schema<?> upperBoundSchema;
+        String lowerBoundName;
+        String upperBoundName;
+
+        if (isDateLike) {
+            StringSchema lower = new StringSchema();
+            lower.setFormat(itemFormat);
+            StringSchema upper = new StringSchema();
+            upper.setFormat(itemFormat);
+            markRangeBoundNullable(lower, !requireTwoBounds);
+            markRangeBoundNullable(upper, !requireTwoBounds);
+            lowerBoundName = "startDate";
+            upperBoundName = "endDate";
+            lowerBoundSchema = lower;
+            upperBoundSchema = upper;
+            properties.put(lowerBoundName, lower);
+            properties.put(upperBoundName, upper);
+        } else {
+            boolean monetary = isMonetaryRange(fieldName, itemFormat, annotations);
+            Schema<?> lower = copyRangeItemSchema(property.getItems());
+            Schema<?> upper = copyRangeItemSchema(property.getItems());
+            markRangeBoundNullable(lower, !requireTwoBounds);
+            markRangeBoundNullable(upper, !requireTwoBounds);
+            if (monetary) {
+                lowerBoundName = "minPrice";
+                upperBoundName = "maxPrice";
+                properties.put(lowerBoundName, lower);
+                properties.put(upperBoundName, upper);
+                properties.put("currency", new StringSchema());
+            } else {
+                lowerBoundName = "min";
+                upperBoundName = "max";
+                properties.put(lowerBoundName, lower);
+                properties.put(upperBoundName, upper);
+            }
+            lowerBoundSchema = lower;
+            upperBoundSchema = upper;
+        }
+
+        objectVariant.setProperties(properties);
+        applyObjectRangeBoundContract(
+                objectVariant,
+                lowerBoundName,
+                lowerBoundSchema,
+                upperBoundName,
+                upperBoundSchema,
+                requireTwoBounds
+        );
+
+        List<Schema> oneOf = new ArrayList<>(2);
+        oneOf.add(arrayVariant);
+        oneOf.add(objectVariant);
+        property.setOneOf(oneOf);
+        // Remove tipo base fixo para que o oneOf permita array e objeto no mesmo contrato.
+        property.setType(null);
+        property.setFormat(null);
+        property.setItems(null);
+    }
+
+    private Schema<?> copyRangeItemSchema(Schema<?> source) {
+        if (source == null) {
+            return new Schema<>();
+        }
+        Schema<?> copy = new Schema<>();
+        copy.setType(source.getType());
+        copy.setFormat(source.getFormat());
+        copy.setPattern(source.getPattern());
+        copy.setMinimum(source.getMinimum());
+        copy.setMaximum(source.getMaximum());
+        copy.setNullable(source.getNullable());
+        copy.setExample(source.getExample());
+        return copy;
+    }
+
+    private void markRangeBoundNullable(Schema<?> schema, boolean allowNull) {
+        if (schema == null) {
+            return;
+        }
+        schema.setNullable(allowNull);
+    }
+
+    private void applyArrayRangeBoundContract(
+            ArraySchema arrayVariant,
+            Schema<?> arrayItem,
+            boolean requireTwoBounds
+    ) {
+        if (arrayVariant == null || arrayItem == null) {
+            return;
+        }
+
+        if (requireTwoBounds) {
+            Schema<?> strictItem = copyRangeItemSchema(arrayItem);
+            markRangeBoundNullable(strictItem, false);
+            arrayVariant.setItems(strictItem);
+            arrayVariant.setMinItems(2);
+            arrayVariant.setMaxItems(2);
+            return;
+        }
+
+        Schema<?> nullableItem = copyRangeItemSchema(arrayItem);
+        markRangeBoundNullable(nullableItem, true);
+        arrayVariant.setItems(nullableItem);
+        arrayVariant.setMinItems(1);
+        arrayVariant.setMaxItems(2);
+
+        ArraySchema oneNonNullBound = new ArraySchema();
+        Schema<?> oneNonNullItem = copyRangeItemSchema(arrayItem);
+        markRangeBoundNullable(oneNonNullItem, false);
+        oneNonNullBound.setItems(oneNonNullItem);
+        oneNonNullBound.setMinItems(1);
+        oneNonNullBound.setMaxItems(1);
+
+        ArraySchema twoBounds = new ArraySchema();
+        Schema<?> twoBoundsItem = copyRangeItemSchema(arrayItem);
+        markRangeBoundNullable(twoBoundsItem, true);
+        twoBounds.setItems(twoBoundsItem);
+        twoBounds.setMinItems(2);
+        twoBounds.setMaxItems(2);
+
+        ArraySchema allNullTwoBounds = new ArraySchema();
+        Schema<?> allNullItem = copyRangeItemSchema(arrayItem);
+        markRangeBoundNullable(allNullItem, true);
+        allNullTwoBounds.setItems(allNullItem);
+        allNullTwoBounds.setMinItems(2);
+        allNullTwoBounds.setMaxItems(2);
+        allNullTwoBounds.setEnum(List.of(Arrays.asList((Object) null, null)));
+
+        arrayVariant.setAnyOf(List.of(oneNonNullBound, twoBounds));
+        arrayVariant.setNot(allNullTwoBounds);
+    }
+
+    private void applyObjectRangeBoundContract(
+            ObjectSchema objectVariant,
+            String lowerBoundName,
+            Schema<?> lowerBoundSchema,
+            String upperBoundName,
+            Schema<?> upperBoundSchema,
+            boolean requireTwoBounds
+    ) {
+        if (objectVariant == null) {
+            return;
+        }
+
+        if (requireTwoBounds) {
+            objectVariant.setRequired(List.of(lowerBoundName, upperBoundName));
+            objectVariant.setMinProperties(2);
+            return;
+        }
+
+        objectVariant.setMinProperties(1);
+
+        ObjectSchema requiresLower = new ObjectSchema();
+        Map<String, Schema> lowerProperties = new LinkedHashMap<>();
+        Schema<?> nonNullLower = copyRangeItemSchema(lowerBoundSchema);
+        markRangeBoundNullable(nonNullLower, false);
+        lowerProperties.put(lowerBoundName, nonNullLower);
+        requiresLower.setProperties(lowerProperties);
+        requiresLower.setRequired(List.of(lowerBoundName));
+
+        ObjectSchema requiresUpper = new ObjectSchema();
+        Map<String, Schema> upperProperties = new LinkedHashMap<>();
+        Schema<?> nonNullUpper = copyRangeItemSchema(upperBoundSchema);
+        markRangeBoundNullable(nonNullUpper, false);
+        upperProperties.put(upperBoundName, nonNullUpper);
+        requiresUpper.setProperties(upperProperties);
+        requiresUpper.setRequired(List.of(upperBoundName));
+
+        objectVariant.setAnyOf(List.of(requiresLower, requiresUpper));
+    }
+
+    private boolean isRangeOperation(Filterable.FilterOperation operation) {
+        return operation == Filterable.FilterOperation.BETWEEN
+                || operation == Filterable.FilterOperation.BETWEEN_EXCLUSIVE
+                || operation == Filterable.FilterOperation.NOT_BETWEEN
+                || operation == Filterable.FilterOperation.OUTSIDE_RANGE;
+    }
+
+    private boolean isMonetaryRange(String fieldName, String itemFormat, Annotation[] annotations) {
+        if ("currency".equalsIgnoreCase(itemFormat)) {
+            return true;
+        }
+        UISchema uiSchema = ResolverUtils.getAnnotation(UISchema.class, annotations);
+        if (uiSchema != null && uiSchema.numericFormat() == NumericFormat.CURRENCY) {
+            return true;
+        }
+        String smart = OpenApiUiUtils.determineSmartControlTypeByFieldName(fieldName);
+        return FieldControlType.CURRENCY_INPUT.getValue().equals(smart);
     }
 
     /**

@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.filter.specification;
 
 import org.praxisplatform.uischema.filter.annotation.Filterable;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -293,7 +294,7 @@ class LikePredicateBuilder implements PredicateBuilder {
                     "%" + ((String) value).toLowerCase() + "%"
             );
         }
-        throw new IllegalArgumentException("LIKE operation requires a String value.");
+        throw new InvalidFilterPayloadException("LIKE operation requires a String value.");
     }
 }
 
@@ -314,7 +315,7 @@ class NotLikePredicateBuilder implements PredicateBuilder {
                     )
             );
         }
-        throw new IllegalArgumentException("NOT_LIKE operation requires a String value.");
+        throw new InvalidFilterPayloadException("NOT_LIKE operation requires a String value.");
     }
 }
 
@@ -333,7 +334,7 @@ class StartsWithPredicateBuilder implements PredicateBuilder {
                     ((String) value).toLowerCase() + "%"
             );
         }
-        throw new IllegalArgumentException("STARTS_WITH operation requires a String value.");
+        throw new InvalidFilterPayloadException("STARTS_WITH operation requires a String value.");
     }
 }
 
@@ -352,7 +353,7 @@ class EndsWithPredicateBuilder implements PredicateBuilder {
                     "%" + ((String) value).toLowerCase()
             );
         }
-        throw new IllegalArgumentException("ENDS_WITH operation requires a String value.");
+        throw new InvalidFilterPayloadException("ENDS_WITH operation requires a String value.");
     }
 }
 
@@ -371,7 +372,7 @@ class GreaterThanPredicateBuilder implements PredicateBuilder {
                     (Comparable) value
             );
         }
-        throw new IllegalArgumentException("GREATER_THAN operation requires a Comparable value.");
+        throw new InvalidFilterPayloadException("GREATER_THAN operation requires a Comparable value.");
     }
 }
 
@@ -389,7 +390,7 @@ class GreaterOrEqualPredicateBuilder implements PredicateBuilder {
                     (Comparable) value
             );
         }
-        throw new IllegalArgumentException("GREATER_OR_EQUAL operation requires a Comparable value.");
+        throw new InvalidFilterPayloadException("GREATER_OR_EQUAL operation requires a Comparable value.");
     }
 }
 
@@ -407,7 +408,7 @@ class LessThanPredicateBuilder implements PredicateBuilder {
                     (Comparable) value
             );
         }
-        throw new IllegalArgumentException("LESS_THAN operation requires a Comparable value.");
+        throw new InvalidFilterPayloadException("LESS_THAN operation requires a Comparable value.");
     }
 }
 
@@ -425,7 +426,7 @@ class LessOrEqualPredicateBuilder implements PredicateBuilder {
                     (Comparable) value
             );
         }
-        throw new IllegalArgumentException("LESS_OR_EQUAL operation requires a Comparable value.");
+        throw new InvalidFilterPayloadException("LESS_OR_EQUAL operation requires a Comparable value.");
     }
 }
 
@@ -444,7 +445,7 @@ class InPredicateBuilder implements PredicateBuilder {
             }
             return inClause;
         }
-        throw new IllegalArgumentException("IN operation requires a List value.");
+        throw new InvalidFilterPayloadException("IN operation requires a List value.");
     }
 }
 
@@ -463,7 +464,7 @@ class NotInPredicateBuilder implements PredicateBuilder {
             }
             return criteriaBuilder.not(inClause);
         }
-        throw new IllegalArgumentException("NOT_IN operation requires a List value.");
+        throw new InvalidFilterPayloadException("NOT_IN operation requires a List value.");
     }
 }
 
@@ -478,22 +479,30 @@ class BetweenPredicateBuilder implements PredicateBuilder {
     @Override
     @SuppressWarnings("unchecked")
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
-        if (value instanceof List<?> values && values.size() == 2) {
-            Object start = values.get(0);
-            Object end = values.get(1);
-            jakarta.persistence.criteria.Expression<? extends Comparable> expression;
-            if (start instanceof LocalDate && end instanceof LocalDate) {
-                expression = path.as(Instant.class);
-                start = ((LocalDate) values.get(0)).atStartOfDay().toInstant(ZoneOffset.UTC);
-                end = ((LocalDate) values.get(1)).atStartOfDay().toInstant(ZoneOffset.UTC);
-            } else {
-                // Converte o caminho para o tipo correspondente ao valor inicial
-                expression = path.as((Class<Comparable>) start.getClass());
+        RangeBounds bounds = RangeBounds.fromList(value, "BETWEEN", false);
+        if (RangeBounds.isLocalDateRange(bounds)) {
+            jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
+            Instant start = bounds.lower() != null ? RangeBounds.toStartOfDay((LocalDate) bounds.lower()) : null;
+            Instant endExclusive = bounds.upper() != null ? RangeBounds.toStartOfNextDay((LocalDate) bounds.upper()) : null;
+            if (start != null && endExclusive != null) {
+                Predicate gte = criteriaBuilder.greaterThanOrEqualTo(expression, (Comparable) start);
+                Predicate lt = criteriaBuilder.lessThan(expression, (Comparable) endExclusive);
+                return criteriaBuilder.and(gte, lt);
             }
-            return criteriaBuilder.between(expression, (Comparable) start, (Comparable) end);
+            if (start != null) {
+                return criteriaBuilder.greaterThanOrEqualTo(expression, (Comparable) start);
+            }
+            return criteriaBuilder.lessThan(expression, (Comparable) endExclusive);
         }
 
-        throw new IllegalArgumentException("BETWEEN operation requires a list of exactly two values (start and end).");
+        jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as((Class<Comparable>) bounds.boundType());
+        if (bounds.hasLower() && bounds.hasUpper()) {
+            return criteriaBuilder.between(expression, (Comparable) bounds.lower(), (Comparable) bounds.upper());
+        }
+        if (bounds.hasLower()) {
+            return criteriaBuilder.greaterThanOrEqualTo(expression, (Comparable) bounds.lower());
+        }
+        return criteriaBuilder.lessThanOrEqualTo(expression, (Comparable) bounds.upper());
     }
 }
 
@@ -506,22 +515,22 @@ class BetweenExclusivePredicateBuilder implements PredicateBuilder {
     @Override
     @SuppressWarnings("unchecked")
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
-        if (value instanceof List<?> values && values.size() == 2) {
-            Object start = values.get(0);
-            Object end = values.get(1);
-            jakarta.persistence.criteria.Expression<? extends Comparable> expression;
-            if (start instanceof LocalDate && end instanceof LocalDate) {
-                expression = path.as(Instant.class);
-                start = ((LocalDate) start).atStartOfDay().toInstant(ZoneOffset.UTC);
-                end = ((LocalDate) end).atStartOfDay().toInstant(ZoneOffset.UTC);
-            } else {
-                expression = path.as((Class<Comparable>) start.getClass());
-            }
-            Predicate gt = criteriaBuilder.greaterThan(expression, (Comparable) start);
-            Predicate lt = criteriaBuilder.lessThan(expression, (Comparable) end);
-            return criteriaBuilder.and(gt, lt);
+        RangeBounds bounds = RangeBounds.fromList(value, "BETWEEN_EXCLUSIVE", true);
+        jakarta.persistence.criteria.Expression<? extends Comparable> expression;
+        Object start;
+        Object end;
+        if (RangeBounds.isLocalDateRange(bounds)) {
+            expression = path.as(Instant.class);
+            start = RangeBounds.toStartOfDay((LocalDate) bounds.lower());
+            end = RangeBounds.toStartOfDay((LocalDate) bounds.upper());
+        } else {
+            expression = path.as((Class<Comparable>) bounds.boundType());
+            start = bounds.lower();
+            end = bounds.upper();
         }
-        throw new IllegalArgumentException("BETWEEN_EXCLUSIVE requires a list of exactly two values.");
+        Predicate gt = criteriaBuilder.greaterThan(expression, (Comparable) start);
+        Predicate lt = criteriaBuilder.lessThan(expression, (Comparable) end);
+        return criteriaBuilder.and(gt, lt);
     }
 }
 
@@ -534,21 +543,31 @@ class NotBetweenPredicateBuilder implements PredicateBuilder {
     @Override
     @SuppressWarnings("unchecked")
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
-        if (value instanceof List<?> values && values.size() == 2) {
-            Object start = values.get(0);
-            Object end = values.get(1);
-            jakarta.persistence.criteria.Expression<? extends Comparable> expression;
-            if (start instanceof LocalDate && end instanceof LocalDate) {
-                expression = path.as(Instant.class);
-                start = ((LocalDate) start).atStartOfDay().toInstant(ZoneOffset.UTC);
-                end = ((LocalDate) end).atStartOfDay().toInstant(ZoneOffset.UTC);
-            } else {
-                expression = path.as((Class<Comparable>) start.getClass());
+        RangeBounds bounds = RangeBounds.fromList(value, "NOT_BETWEEN", false);
+        if (RangeBounds.isLocalDateRange(bounds)) {
+            jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
+            Instant start = bounds.lower() != null ? RangeBounds.toStartOfDay((LocalDate) bounds.lower()) : null;
+            Instant endExclusive = bounds.upper() != null ? RangeBounds.toStartOfNextDay((LocalDate) bounds.upper()) : null;
+            if (start != null && endExclusive != null) {
+                Predicate lt = criteriaBuilder.lessThan(expression, (Comparable) start);
+                Predicate gte = criteriaBuilder.greaterThanOrEqualTo(expression, (Comparable) endExclusive);
+                return criteriaBuilder.or(lt, gte);
             }
-            Predicate between = criteriaBuilder.between(expression, (Comparable) start, (Comparable) end);
+            if (start != null) {
+                return criteriaBuilder.lessThan(expression, (Comparable) start);
+            }
+            return criteriaBuilder.greaterThanOrEqualTo(expression, (Comparable) endExclusive);
+        }
+
+        jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as((Class<Comparable>) bounds.boundType());
+        if (bounds.hasLower() && bounds.hasUpper()) {
+            Predicate between = criteriaBuilder.between(expression, (Comparable) bounds.lower(), (Comparable) bounds.upper());
             return criteriaBuilder.not(between);
         }
-        throw new IllegalArgumentException("NOT_BETWEEN requires a list of exactly two values.");
+        if (bounds.hasLower()) {
+            return criteriaBuilder.lessThan(expression, (Comparable) bounds.lower());
+        }
+        return criteriaBuilder.greaterThan(expression, (Comparable) bounds.upper());
     }
 }
 
@@ -561,22 +580,113 @@ class OutsideRangePredicateBuilder implements PredicateBuilder {
     @Override
     @SuppressWarnings("unchecked")
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
-        if (value instanceof List<?> values && values.size() == 2) {
-            Object min = values.get(0);
-            Object max = values.get(1);
-            jakarta.persistence.criteria.Expression<? extends Comparable> expression;
-            if (min instanceof LocalDate && max instanceof LocalDate) {
-                expression = path.as(Instant.class);
-                min = ((LocalDate) min).atStartOfDay().toInstant(ZoneOffset.UTC);
-                max = ((LocalDate) max).atStartOfDay().toInstant(ZoneOffset.UTC);
-            } else {
-                expression = path.as((Class<Comparable>) min.getClass());
+        RangeBounds bounds = RangeBounds.fromList(value, "OUTSIDE_RANGE", false);
+        if (RangeBounds.isLocalDateRange(bounds)) {
+            jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
+            Instant start = bounds.lower() != null ? RangeBounds.toStartOfDay((LocalDate) bounds.lower()) : null;
+            Instant endExclusive = bounds.upper() != null ? RangeBounds.toStartOfNextDay((LocalDate) bounds.upper()) : null;
+            if (start != null && endExclusive != null) {
+                Predicate lt = criteriaBuilder.lessThan(expression, (Comparable) start);
+                Predicate gte = criteriaBuilder.greaterThanOrEqualTo(expression, (Comparable) endExclusive);
+                return criteriaBuilder.or(lt, gte);
             }
-            Predicate lt = criteriaBuilder.lessThan(expression, (Comparable) min);
-            Predicate gt = criteriaBuilder.greaterThan(expression, (Comparable) max);
+            if (start != null) {
+                return criteriaBuilder.lessThan(expression, (Comparable) start);
+            }
+            return criteriaBuilder.greaterThanOrEqualTo(expression, (Comparable) endExclusive);
+        }
+
+        jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as((Class<Comparable>) bounds.boundType());
+        if (bounds.hasLower() && bounds.hasUpper()) {
+            Predicate lt = criteriaBuilder.lessThan(expression, (Comparable) bounds.lower());
+            Predicate gt = criteriaBuilder.greaterThan(expression, (Comparable) bounds.upper());
             return criteriaBuilder.or(lt, gt);
         }
-        throw new IllegalArgumentException("OUTSIDE_RANGE requires a list of exactly two values.");
+        if (bounds.hasLower()) {
+            return criteriaBuilder.lessThan(expression, (Comparable) bounds.lower());
+        }
+        return criteriaBuilder.greaterThan(expression, (Comparable) bounds.upper());
+    }
+}
+
+final class RangeBounds {
+    private final Object lower;
+    private final Object upper;
+
+    private RangeBounds(Object lower, Object upper) {
+        this.lower = lower;
+        this.upper = upper;
+    }
+
+    static RangeBounds fromList(Object value, String operation, boolean requireTwoBounds) {
+        if (!(value instanceof List<?> values)) {
+            throw new InvalidFilterPayloadException(operation + " requires a list value.");
+        }
+        if (values.size() > 2) {
+            throw new InvalidFilterPayloadException(operation + " accepts at most two bounds.");
+        }
+
+        Object lower = values.size() > 0 ? values.get(0) : null;
+        Object upper = values.size() > 1 ? values.get(1) : null;
+        if (lower instanceof String s && s.isBlank()) lower = null;
+        if (upper instanceof String s && s.isBlank()) upper = null;
+
+        RangeBounds bounds = normalizeOrder(new RangeBounds(lower, upper));
+        if (!bounds.hasAny()) {
+            throw new InvalidFilterPayloadException(operation + " requires at least one bound.");
+        }
+        if (requireTwoBounds && (!bounds.hasLower() || !bounds.hasUpper())) {
+            throw new InvalidFilterPayloadException(operation + " requires a list of exactly two values.");
+        }
+        return bounds;
+    }
+
+    static boolean isLocalDateRange(RangeBounds bounds) {
+        return (bounds.lower == null || bounds.lower instanceof LocalDate)
+                && (bounds.upper == null || bounds.upper instanceof LocalDate)
+                && bounds.hasAny();
+    }
+
+    static Instant toStartOfDay(LocalDate date) {
+        return date.atStartOfDay().toInstant(ZoneOffset.UTC);
+    }
+
+    static Instant toStartOfNextDay(LocalDate date) {
+        return date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+    }
+
+    private static RangeBounds normalizeOrder(RangeBounds bounds) {
+        if (!bounds.hasLower() || !bounds.hasUpper()) {
+            return bounds;
+        }
+        Object l = bounds.lower;
+        Object u = bounds.upper;
+        if (l.getClass().isInstance(u) && l instanceof Comparable<?> comparable) {
+            @SuppressWarnings("unchecked")
+            Comparable<Object> left = (Comparable<Object>) comparable;
+            if (left.compareTo(u) > 0) {
+                return new RangeBounds(u, l);
+            }
+        }
+        return bounds;
+    }
+
+    Object lower() { return lower; }
+
+    Object upper() { return upper; }
+
+    boolean hasLower() { return lower != null; }
+
+    boolean hasUpper() { return upper != null; }
+
+    boolean hasAny() { return hasLower() || hasUpper(); }
+
+    Class<?> boundType() {
+        Object candidate = hasLower() ? lower : upper;
+        if (candidate == null) {
+            throw new IllegalStateException("Range bound type is undefined.");
+        }
+        return candidate.getClass();
     }
 }
 
@@ -594,7 +704,7 @@ class OnDatePredicateBuilder implements PredicateBuilder {
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
             return criteriaBuilder.between(expression, (Comparable) start, (Comparable) end);
         }
-        throw new IllegalArgumentException("ON_DATE requires a LocalDate value.");
+        throw new InvalidFilterPayloadException("ON_DATE requires a LocalDate value.");
     }
 }
 
@@ -613,7 +723,7 @@ class InLastDaysPredicateBuilder implements PredicateBuilder {
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
             return criteriaBuilder.between(expression, (Comparable) start, (Comparable) now);
         }
-        throw new IllegalArgumentException("IN_LAST_DAYS requires a numeric value (days).");
+        throw new InvalidFilterPayloadException("IN_LAST_DAYS requires a numeric value (days).");
     }
 }
 
@@ -632,7 +742,7 @@ class InNextDaysPredicateBuilder implements PredicateBuilder {
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
             return criteriaBuilder.between(expression, (Comparable) now, (Comparable) end);
         }
-        throw new IllegalArgumentException("IN_NEXT_DAYS requires a numeric value (days).");
+        throw new InvalidFilterPayloadException("IN_NEXT_DAYS requires a numeric value (days).");
     }
 }
 
@@ -653,7 +763,7 @@ class SizeEqPredicateBuilder implements PredicateBuilder {
             jakarta.persistence.criteria.Expression<Integer> sizeExpr = criteriaBuilder.size(collExpr);
             return criteriaBuilder.equal(sizeExpr, n.intValue());
         }
-        throw new IllegalArgumentException("SIZE_EQ requires an Integer value.");
+        throw new InvalidFilterPayloadException("SIZE_EQ requires an Integer value.");
     }
 }
 
@@ -674,7 +784,7 @@ class SizeGtPredicateBuilder implements PredicateBuilder {
             jakarta.persistence.criteria.Expression<Integer> sizeExpr = criteriaBuilder.size(collExpr);
             return criteriaBuilder.gt(sizeExpr, n.intValue());
         }
-        throw new IllegalArgumentException("SIZE_GT requires an Integer value.");
+        throw new InvalidFilterPayloadException("SIZE_GT requires an Integer value.");
     }
 }
 
@@ -695,7 +805,7 @@ class SizeLtPredicateBuilder implements PredicateBuilder {
             jakarta.persistence.criteria.Expression<Integer> sizeExpr = criteriaBuilder.size(collExpr);
             return criteriaBuilder.lt(sizeExpr, n.intValue());
         }
-        throw new IllegalArgumentException("SIZE_LT requires an Integer value.");
+        throw new InvalidFilterPayloadException("SIZE_LT requires an Integer value.");
     }
 }
 
