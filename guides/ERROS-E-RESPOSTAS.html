@@ -296,9 +296,15 @@ padronizadas.</p>
 <ul>
 <li><code>MethodArgumentNotValidException</code> → 400 com lista de
 <code>CustomProblemDetail</code></li>
+<li><code>ResponseStatusException</code> → preserva status original
+(ex.: 400/403/404/409/410/429/503), sem rebaixar para 500</li>
+<li><code>InvalidFilterPayloadException</code> → 400 (payload de filtro
+inválido)</li>
 <li><code>BusinessException</code> → 400 com categoria
 <code>BUSINESS_LOGIC</code></li>
 <li><code>EntityNotFoundException</code> → 404</li>
+<li><code>IllegalArgumentException</code> fora de validação explícita de
+schema → 500 (evita mascarar erro interno como erro do cliente)</li>
 <li><code>Exception</code> → 500</li>
 </ul>
 </details>

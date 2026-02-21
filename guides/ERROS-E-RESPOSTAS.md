@@ -58,8 +58,11 @@ Erros são padronizados com `CustomProblemDetail` e categorias (`ErrorCategory`)
 `GlobalExceptionHandler` converte exceções comuns (validação, not found, regra de negócio, etc.) em respostas padronizadas.
 
 - `MethodArgumentNotValidException` → 400 com lista de `CustomProblemDetail`
+- `ResponseStatusException` → preserva status original (ex.: 400/403/404/409/410/429/503), sem rebaixar para 500
+- `InvalidFilterPayloadException` → 400 (payload de filtro inválido)
 - `BusinessException` → 400 com categoria `BUSINESS_LOGIC`
 - `EntityNotFoundException` → 404
+- `IllegalArgumentException` fora de validação explícita de schema → 500 (evita mascarar erro interno como erro do cliente)
 - `Exception` → 500
 
 </details>

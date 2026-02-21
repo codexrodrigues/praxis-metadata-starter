@@ -9,7 +9,9 @@ org.praxisplatform.uischema.extension
 org.praxisplatform.uischema.extension.annotation
 org.praxisplatform.uischema.filter.annotation
 org.praxisplatform.uischema.filter.dto
+org.praxisplatform.uischema.filter.range
 org.praxisplatform.uischema.filter.specification
+org.praxisplatform.uischema.filter.web
 org.praxisplatform.uischema.hash
 org.praxisplatform.uischema.http
 org.praxisplatform.uischema.id
