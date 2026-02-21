@@ -6,13 +6,17 @@ import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilter
 import org.praxisplatform.uischema.rest.response.CustomProblemDetail;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseStatus;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.MDC;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -46,6 +50,11 @@ public class GlobalExceptionHandler {
     private static final String RESPONSE_STATUS_INTERNAL_TYPE = "https://example.com/probs/internal-server-error";
     private static final String ERROR_CODE_FILTER_PAYLOAD_INVALID = "FILTER_PAYLOAD_INVALID";
     private static final String ERROR_CODE_REQUEST_PAYLOAD_INVALID = "REQUEST_PAYLOAD_INVALID";
+    private static final String ERROR_CODE_INVALID_PARAMETER = "INVALID_PARAMETER";
+    private static final String ERROR_CODE_DATA_ACCESS_ERROR = "DATA_ACCESS_ERROR";
+    private static final String ERROR_CODE_INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR";
+    private static final String ERROR_CODE_BUSINESS_RULE_VIOLATION = "BUSINESS_RULE_VIOLATION";
+    private static final String ERROR_CODE_ENTITY_NOT_FOUND = "RESOURCE_NOT_FOUND";
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<RestApiResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException ex, WebRequest request) {
@@ -56,8 +65,9 @@ public class GlobalExceptionHandler {
                     customProblemDetail.setStatus(HttpStatus.BAD_REQUEST);
                     customProblemDetail.setTitle(error.getField());
                     customProblemDetail.setType(URI.create("https://example.com/probs/validation-error"));
-                    customProblemDetail.setInstance(URI.create(request.getDescription(false)));
+                    customProblemDetail.setInstance(instanceUri(request));
                     customProblemDetail.setCategory(ErrorCategory.VALIDATION);
+                    enrichErrorDetails(customProblemDetail, request, ERROR_CODE_INVALID_PARAMETER);
 
                     return customProblemDetail;
                 })
@@ -80,8 +90,9 @@ public class GlobalExceptionHandler {
         customProblemDetail.setStatus(HttpStatus.BAD_REQUEST);
         customProblemDetail.setTitle(ex.getMessage());
         customProblemDetail.setType(URI.create("https://example.com/probs/business-logic"));
-        customProblemDetail.setInstance(URI.create(request.getDescription(false)));
+        customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.BUSINESS_LOGIC);
+        enrichErrorDetails(customProblemDetail, request, ERROR_CODE_BUSINESS_RULE_VIOLATION);
 
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
@@ -100,8 +111,9 @@ public class GlobalExceptionHandler {
         customProblemDetail.setStatus(HttpStatus.NOT_FOUND);
         customProblemDetail.setTitle("Entity Not Found");
         customProblemDetail.setType(URI.create("https://example.com/probs/resource-not-found"));
-        customProblemDetail.setInstance(URI.create(request.getDescription(false)));
+        customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.BUSINESS_LOGIC);
+        enrichErrorDetails(customProblemDetail, request, ERROR_CODE_ENTITY_NOT_FOUND);
 
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
@@ -127,8 +139,9 @@ public class GlobalExceptionHandler {
         customProblemDetail.setStatus(status);
         customProblemDetail.setTitle(defaultProblemTitle(status));
         customProblemDetail.setType(URI.create(defaultProblemType(status)));
-        customProblemDetail.setInstance(URI.create(request.getDescription(false)));
+        customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(resolveCategory(status));
+        enrichErrorDetails(customProblemDetail, request, null);
 
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
@@ -147,7 +160,7 @@ public class GlobalExceptionHandler {
         if (isSchemaRequest(request)) {
             String reason = normalize(ex.getMessage());
             String detailMessage = reason != null ? reason : "Parâmetro inválido.";
-            return buildValidationErrorResponse(detailMessage, "Parâmetro inválido", request);
+            return buildValidationErrorResponse(detailMessage, "Parâmetro inválido", request, ERROR_CODE_INVALID_PARAMETER);
         }
 
         log.error("[GlobalExceptionHandler] IllegalArgumentException fora do fluxo de validação explícita", ex);
@@ -161,20 +174,38 @@ public class GlobalExceptionHandler {
     ) {
         String reason = normalize(ex.getMessage());
         String detailMessage = reason != null ? reason : "Parâmetro inválido.";
-        return buildValidationErrorResponse(detailMessage, "Parâmetro inválido", request);
+        return buildValidationErrorResponse(detailMessage, "Parâmetro inválido", request, ERROR_CODE_FILTER_PAYLOAD_INVALID);
+    }
+
+    @ExceptionHandler(InvalidDataAccessApiUsageException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleInvalidDataAccessApiUsageException(
+            InvalidDataAccessApiUsageException ex,
+            WebRequest request
+    ) {
+        Throwable root = rootCause(ex);
+        if (root instanceof InvalidFilterPayloadException invalidFilterPayloadException) {
+            String reason = normalize(invalidFilterPayloadException.getMessage());
+            String detailMessage = reason != null ? reason : "Payload de filtro inválido.";
+            return buildValidationErrorResponse(detailMessage, "Payload inválido", request, ERROR_CODE_FILTER_PAYLOAD_INVALID);
+        }
+
+        log.error("[GlobalExceptionHandler] InvalidDataAccessApiUsageException", ex);
+        return buildInternalServerErrorResponse(request, ERROR_CODE_DATA_ACCESS_ERROR);
     }
 
     private ResponseEntity<RestApiResponse<Object>> buildValidationErrorResponse(
             String detailMessage,
             String title,
-            WebRequest request
+            WebRequest request,
+            String errorCode
     ) {
         CustomProblemDetail customProblemDetail = new CustomProblemDetail(detailMessage);
         customProblemDetail.setStatus(HttpStatus.BAD_REQUEST);
         customProblemDetail.setTitle(title);
         customProblemDetail.setType(URI.create(RESPONSE_STATUS_VALIDATION_TYPE));
-        customProblemDetail.setInstance(URI.create(request.getDescription(false)));
+        customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.VALIDATION);
+        enrichErrorDetails(customProblemDetail, request, errorCode);
 
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
@@ -207,9 +238,9 @@ public class GlobalExceptionHandler {
         customProblemDetail.setStatus(HttpStatus.BAD_REQUEST);
         customProblemDetail.setTitle("Payload inválido");
         customProblemDetail.setType(URI.create(RESPONSE_STATUS_VALIDATION_TYPE));
-        customProblemDetail.setInstance(URI.create(request.getDescription(false)));
+        customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.VALIDATION);
-        customProblemDetail.setProperty("code", errorCode);
+        enrichErrorDetails(customProblemDetail, request, errorCode);
 
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
@@ -228,14 +259,22 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<RestApiResponse<Object>> buildInternalServerErrorResponse(WebRequest request) {
+        return buildInternalServerErrorResponse(request, ERROR_CODE_INTERNAL_SERVER_ERROR);
+    }
+
+    private ResponseEntity<RestApiResponse<Object>> buildInternalServerErrorResponse(
+            WebRequest request,
+            String errorCode
+    ) {
         String errorMessage = "Erro interno. Por favor, tente novamente ou entre em contato com o suporte.";
 
         CustomProblemDetail customProblemDetail = new CustomProblemDetail(errorMessage);
         customProblemDetail.setStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         customProblemDetail.setTitle("Erro interno no servidor");
         customProblemDetail.setType(URI.create(RESPONSE_STATUS_INTERNAL_TYPE));
-        customProblemDetail.setInstance(URI.create(request.getDescription(false)));
+        customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.SYSTEM);
+        enrichErrorDetails(customProblemDetail, request, errorCode);
 
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
@@ -256,8 +295,9 @@ public class GlobalExceptionHandler {
         customProblemDetail.setStatus(HttpStatus.NOT_FOUND);
         customProblemDetail.setTitle("Endpoint não encontrado");
         customProblemDetail.setType(URI.create("https://example.com/probs/resource-not-found"));
-        customProblemDetail.setInstance(URI.create(request.getDescription(false)));
+        customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.SYSTEM);
+        enrichErrorDetails(customProblemDetail, request, ERROR_CODE_ENTITY_NOT_FOUND);
 
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
@@ -279,8 +319,9 @@ public class GlobalExceptionHandler {
         customProblemDetail.setStatus(HttpStatus.BAD_REQUEST);
         customProblemDetail.setTitle("Parâmetro inválido");
         customProblemDetail.setType(URI.create("https://example.com/probs/invalid-parameter"));
-        customProblemDetail.setInstance(URI.create(request.getDescription(false)));
+        customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.VALIDATION);
+        enrichErrorDetails(customProblemDetail, request, ERROR_CODE_INVALID_PARAMETER);
 
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
@@ -386,6 +427,49 @@ public class GlobalExceptionHandler {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private URI instanceUri(WebRequest request) {
+        String uri = normalize(extractUri(request));
+        if (uri == null) {
+            uri = "/";
+        }
+        return URI.create(uri);
+    }
+
+    private void enrichErrorDetails(CustomProblemDetail customProblemDetail, WebRequest request, String errorCode) {
+        if (customProblemDetail == null) {
+            return;
+        }
+        String normalizedCode = normalize(errorCode);
+        if (normalizedCode != null) {
+            customProblemDetail.setProperty("code", normalizedCode);
+        }
+        String traceId = resolveTraceId(request);
+        if (traceId != null) {
+            customProblemDetail.setProperty("traceId", traceId);
+        }
+    }
+
+    private String resolveTraceId(WebRequest request) {
+        if (request instanceof ServletWebRequest servletWebRequest) {
+            HttpServletRequest servletRequest = servletWebRequest.getRequest();
+            if (servletRequest != null) {
+                String[] headerCandidates = {"X-Request-ID", "X-Correlation-ID", "X-Trace-ID", "traceparent"};
+                for (String header : headerCandidates) {
+                    String value = normalize(servletRequest.getHeader(header));
+                    if (value != null) {
+                        return value;
+                    }
+                }
+            }
+        }
+
+        String mdcTraceId = normalize(MDC.get("traceId"));
+        if (mdcTraceId != null) {
+            return mdcTraceId;
+        }
+        return normalize(MDC.get("X-B3-TraceId"));
     }
 
     private Throwable rootCause(Throwable throwable) {

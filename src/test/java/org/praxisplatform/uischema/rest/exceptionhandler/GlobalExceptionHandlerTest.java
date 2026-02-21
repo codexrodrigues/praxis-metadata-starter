@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -34,6 +35,7 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.BAD_REQUEST.value(), body.getErrors().get(0).getStatus());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
         assertEquals("Prompt vazio.", body.getErrors().get(0).getMessage());
+        assertEquals("/api/praxis/config/ai/patch/stream/start", body.getErrors().get(0).getInstance().toString());
     }
 
     @Test
@@ -64,6 +66,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Erro interno ao processar a requisição", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
+        assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getProperties().get("code"));
     }
 
     @Test
@@ -82,6 +85,8 @@ class GlobalExceptionHandlerTest {
         assertEquals("BETWEEN requires at least one bound.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
+        assertEquals("FILTER_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("/simple/filter", body.getErrors().get(0).getInstance().toString());
     }
 
     @Test
@@ -100,6 +105,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Erro interno ao processar a requisição", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
+        assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getProperties().get("code"));
     }
 
     @Test
@@ -118,6 +124,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("schema inválido", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
+        assertEquals("INVALID_PARAMETER", body.getErrors().get(0).getProperties().get("code"));
     }
 
     @Test
@@ -136,6 +143,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Payload JSON inválido ou incompatível com o contrato do filtro.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
+        assertEquals("REQUEST_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
     }
 
     @Test
@@ -160,6 +168,62 @@ class GlobalExceptionHandlerTest {
                 "FILTER_PAYLOAD_INVALID",
                 body.getErrors().get(0).getProperties().get("code")
         );
+        assertEquals("/simple/filter", body.getErrors().get(0).getInstance().toString());
+    }
+
+    @Test
+    void shouldMapInvalidDataAccessUsageWithFilterPayloadCauseToBadRequest() {
+        WebRequest request = webRequest("/simple/filter");
+        InvalidDataAccessApiUsageException exception = new InvalidDataAccessApiUsageException(
+                "wrapped",
+                new InvalidFilterPayloadException("BETWEEN requires at least one bound.")
+        );
+
+        var response = handler.handleInvalidDataAccessApiUsageException(exception, request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals("BETWEEN requires at least one bound.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
+        assertEquals("FILTER_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
+    }
+
+    @Test
+    void shouldMapInvalidDataAccessUsageWithoutFilterCauseToInternalServerError() {
+        WebRequest request = webRequest("/simple/filter");
+        InvalidDataAccessApiUsageException exception = new InvalidDataAccessApiUsageException("wrapped");
+
+        var response = handler.handleInvalidDataAccessApiUsageException(exception, request);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals("Erro interno ao processar a requisição", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
+        assertEquals("DATA_ACCESS_ERROR", body.getErrors().get(0).getProperties().get("code"));
+    }
+
+    @Test
+    void shouldPropagateRequestTraceIdWhenPresent() {
+        MockHttpServletRequest servletRequest = new MockHttpServletRequest("GET", "/simple/filter");
+        servletRequest.addHeader("X-Request-ID", "req-123");
+        WebRequest request = new ServletWebRequest(servletRequest);
+
+        var response = handler.handleInvalidFilterPayloadException(
+                new InvalidFilterPayloadException("BETWEEN requires at least one bound."),
+                request
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertNotNull(body.getErrors());
+        assertEquals("req-123", body.getErrors().get(0).getProperties().get("traceId"));
     }
 
     private WebRequest webRequest(String uri) {
