@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.praxisplatform.uischema.NumericFormat;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
@@ -25,11 +27,13 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Canonicaliza payloads de range para o formato de lista usado pelos FilterDTOs
@@ -37,25 +41,38 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class RangePayloadNormalizer {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(RangePayloadNormalizer.class);
     private static final Set<Filterable.FilterOperation> RANGE_OPERATIONS = EnumSet.of(
             Filterable.FilterOperation.BETWEEN,
             Filterable.FilterOperation.BETWEEN_EXCLUSIVE,
             Filterable.FilterOperation.NOT_BETWEEN,
             Filterable.FilterOperation.OUTSIDE_RANGE
     );
+    private static final String SCALAR_PAYLOAD_ERROR =
+            "Range payload escalar é inválido. Use [min], [null,max], [min,max] ou objeto canônico.";
+    private static final long LEGACY_LOG_SAMPLE_LIMIT = 5L;
 
-    private static final List<String> LOWER_DATE_KEYS = List.of("startDate", "fromDate", "start", "from");
-    private static final List<String> UPPER_DATE_KEYS = List.of("endDate", "toDate", "end", "to");
-    private static final List<String> LOWER_MONEY_KEYS = List.of("minPrice", "valorMin", "min", "from", "start");
-    private static final List<String> UPPER_MONEY_KEYS = List.of("maxPrice", "valorMax", "max", "to", "end");
-    private static final List<String> LOWER_GENERIC_KEYS = List.of(
-            "start", "from", "min", "lower", "fieldMin", "gte", "valorMin", "minPrice", "startDate"
-    );
-    private static final List<String> UPPER_GENERIC_KEYS = List.of(
-            "end", "to", "max", "upper", "fieldMax", "lte", "valorMax", "maxPrice", "endDate"
-    );
+    private static final List<String> LOWER_DATE_KEYS = RangeBoundAliasRegistry.lowerDateKeys();
+    private static final List<String> UPPER_DATE_KEYS = RangeBoundAliasRegistry.upperDateKeys();
+    private static final List<String> LOWER_MONEY_KEYS = RangeBoundAliasRegistry.lowerMoneyKeys();
+    private static final List<String> UPPER_MONEY_KEYS = RangeBoundAliasRegistry.upperMoneyKeys();
+    private static final List<String> LOWER_GENERIC_KEYS = RangeBoundAliasRegistry.lowerGenericKeys();
+    private static final List<String> UPPER_GENERIC_KEYS = RangeBoundAliasRegistry.upperGenericKeys();
 
+    private final boolean allowScalarPayload;
+    private final boolean logLegacyScalarPayload;
     private final Map<Class<?>, List<RangeFieldMetadata>> fieldCache = new ConcurrentHashMap<>();
+    private final AtomicLong legacyScalarPayloadTotal = new AtomicLong(0);
+    private final Map<RangeKind, AtomicLong> legacyScalarPayloadByKind = new ConcurrentHashMap<>();
+
+    public RangePayloadNormalizer() {
+        this(false, true);
+    }
+
+    public RangePayloadNormalizer(boolean allowScalarPayload, boolean logLegacyScalarPayload) {
+        this.allowScalarPayload = allowScalarPayload;
+        this.logLegacyScalarPayload = logLegacyScalarPayload;
+    }
 
     public boolean normalizeInPlace(ObjectNode payload, Class<?> filterClass) {
         if (payload == null || filterClass == null || !GenericFilterDTO.class.isAssignableFrom(filterClass)) {
@@ -64,17 +81,32 @@ public class RangePayloadNormalizer {
         boolean changed = false;
         List<RangeFieldMetadata> rangeFields = fieldCache.computeIfAbsent(filterClass, this::discoverRangeFields);
         for (RangeFieldMetadata metadata : rangeFields) {
-            JsonNode raw = payload.get(metadata.fieldName());
-            if (raw == null || raw.isNull()) {
+            RangeInputSource source = resolveInputSource(payload, metadata);
+            if (source == null) {
                 continue;
             }
-            ArrayNode normalized = normalizeRangeValue(raw, metadata.kind());
+            ArrayNode normalized = normalizeRangeValue(source.raw(), metadata.kind());
             if (normalized == null) {
+                if (hasExplicitContent(source.raw())) {
+                    throw new InvalidFilterPayloadException(
+                            "Range payload for field '" + metadata.fieldName() + "' does not provide recognized bounds."
+                    );
+                }
                 continue;
             }
-            if (!raw.equals(normalized)) {
+            JsonNode current = payload.get(metadata.fieldName());
+            if (current == null || !current.equals(normalized)) {
                 payload.set(metadata.fieldName(), normalized);
                 changed = true;
+            }
+            for (String consumedKey : source.consumedKeys()) {
+                if (consumedKey == null || consumedKey.equals(metadata.fieldName())) {
+                    continue;
+                }
+                if (payload.has(consumedKey)) {
+                    payload.remove(consumedKey);
+                    changed = true;
+                }
             }
         }
         return changed;
@@ -87,9 +119,159 @@ public class RangePayloadNormalizer {
             if (filterable == null || !RANGE_OPERATIONS.contains(filterable.operation())) {
                 continue;
             }
-            result.add(new RangeFieldMetadata(field.getName(), resolveKind(field)));
+            String fieldName = field.getName();
+            String relationAlias = resolveSimpleRelationAlias(filterable.relation());
+            String fieldAlias = resolveFieldAlias(fieldName);
+            RangeKind kind = resolveKind(field);
+            result.add(new RangeFieldMetadata(
+                    fieldName,
+                    relationAlias,
+                    fieldAlias,
+                    buildLegacySplitAliases(fieldAlias, relationAlias, kind, true),
+                    buildLegacySplitAliases(fieldAlias, relationAlias, kind, false),
+                    kind
+            ));
         }
         return result;
+    }
+
+    private RangeInputSource resolveInputSource(ObjectNode payload, RangeFieldMetadata metadata) {
+        List<RangeInputSource> candidates = new ArrayList<>();
+        Set<String> seenKeys = new LinkedHashSet<>();
+        addDirectSourceCandidate(payload, metadata.fieldName(), candidates, seenKeys);
+        addDirectSourceCandidate(payload, metadata.relationAlias(), candidates, seenKeys);
+        addDirectSourceCandidate(payload, metadata.fieldAlias(), candidates, seenKeys);
+
+        RangeInputSource splitAliasSource = buildSplitAliasSource(payload, metadata);
+        if (splitAliasSource != null) {
+            candidates.add(splitAliasSource);
+        }
+
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        RangeInputSource primary = candidates.get(0);
+        for (int i = 1; i < candidates.size(); i++) {
+            RangeInputSource candidate = candidates.get(i);
+            if (!primary.raw().equals(candidate.raw())) {
+                throw new InvalidFilterPayloadException(
+                        "Range payload for field '" + metadata.fieldName()
+                                + "' provides conflicting sources. Use only one source."
+                );
+            }
+        }
+        return primary;
+    }
+
+    private void addDirectSourceCandidate(
+            ObjectNode payload,
+            String key,
+            List<RangeInputSource> candidates,
+            Set<String> seenKeys
+    ) {
+        if (key == null || key.isBlank() || !seenKeys.add(key) || !payload.has(key)) {
+            return;
+        }
+        candidates.add(new RangeInputSource(payload.get(key), List.of(key)));
+    }
+
+    private RangeInputSource buildSplitAliasSource(ObjectNode payload, RangeFieldMetadata metadata) {
+        KeyValue lower = firstPresentSplitKey(payload, metadata.lowerSplitAliases());
+        KeyValue upper = firstPresentSplitKey(payload, metadata.upperSplitAliases());
+        if (lower == null && upper == null) {
+            return null;
+        }
+
+        ObjectNode merged = JsonNodeFactory.instance.objectNode();
+        List<String> consumed = new ArrayList<>(2);
+        if (lower != null) {
+            consumed.add(lower.key());
+            merged.set("minPrice", lower.value());
+        }
+        if (upper != null) {
+            consumed.add(upper.key());
+            merged.set("maxPrice", upper.value());
+        }
+        return new RangeInputSource(merged, consumed);
+    }
+
+    private KeyValue firstPresentSplitKey(ObjectNode payload, List<String> keys) {
+        if (keys == null || keys.isEmpty()) {
+            return null;
+        }
+        KeyValue selected = null;
+        for (String key : keys) {
+            if (key == null || key.isBlank() || !payload.has(key)) {
+                continue;
+            }
+            JsonNode value = payload.get(key);
+            if (selected == null) {
+                selected = new KeyValue(key, value);
+                continue;
+            }
+            if (!selected.value().equals(value)) {
+                throw new InvalidFilterPayloadException(
+                        "Range payload provides conflicting split bounds aliases ('"
+                                + selected.key() + "' and '" + key + "')."
+                );
+            }
+        }
+        return selected;
+    }
+
+    private boolean hasExplicitContent(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return false;
+        }
+        if (node.isTextual()) {
+            return !node.asText("").trim().isEmpty();
+        }
+        return true;
+    }
+
+    private String resolveSimpleRelationAlias(String relation) {
+        if (relation == null) {
+            return null;
+        }
+        String normalized = relation.trim();
+        if (normalized.isEmpty() || normalized.contains(".")) {
+            return null;
+        }
+        return normalized;
+    }
+
+    private String resolveFieldAlias(String fieldName) {
+        if (fieldName == null || fieldName.isBlank()) {
+            return null;
+        }
+        if (fieldName.endsWith("Between")) {
+            return fieldName.substring(0, fieldName.length() - "Between".length());
+        }
+        if (fieldName.endsWith("Range")) {
+            return fieldName.substring(0, fieldName.length() - "Range".length());
+        }
+        return null;
+    }
+
+    private List<String> buildLegacySplitAliases(
+            String fieldAlias,
+            String relationAlias,
+            RangeKind kind,
+            boolean lower
+    ) {
+        if (kind != RangeKind.MONETARY) {
+            return List.of();
+        }
+        LinkedHashSet<String> aliases = new LinkedHashSet<>();
+        String suffix = lower ? "Min" : "Max";
+        if (fieldAlias != null && !fieldAlias.isBlank()) {
+            aliases.add(fieldAlias + suffix);
+        }
+        if (relationAlias != null && !relationAlias.isBlank()) {
+            aliases.add(relationAlias + suffix);
+        }
+        return List.copyOf(aliases);
     }
 
     private List<Field> collectFields(Class<?> type) {
@@ -171,6 +353,10 @@ public class RangePayloadNormalizer {
             return normalizeFromObject((ObjectNode) raw, kind);
         }
         if (isMeaningful(raw)) {
+            if (!allowScalarPayload) {
+                throw new InvalidFilterPayloadException(SCALAR_PAYLOAD_ERROR);
+            }
+            trackLegacyScalarPayload(kind, raw);
             ArrayNode arr = factory.arrayNode();
             arr.add(raw);
             return arr;
@@ -232,16 +418,24 @@ public class RangePayloadNormalizer {
         JsonNodeFactory factory = JsonNodeFactory.instance;
         Map<String, JsonNode> lowerMap = lowercaseKeyMap(objectNode);
         JsonNode nestedBetween = lowerMap.get("between");
-        if (nestedBetween != null && (nestedBetween.isArray() || nestedBetween.isObject())) {
-            ArrayNode nested = normalizeRangeValue(nestedBetween, kind);
-            if (nested != null) {
-                return nested;
+        if (nestedBetween != null) {
+            if (nestedBetween.isArray() || nestedBetween.isObject() || isMeaningful(nestedBetween)) {
+                ArrayNode nested = normalizeRangeValue(nestedBetween, kind);
+                if (nested != null) {
+                    return nested;
+                }
             }
         }
 
         JsonNode lower = firstByKeys(lowerMap, lowerKeys(kind));
         JsonNode upper = firstByKeys(lowerMap, upperKeys(kind));
         if (!isMeaningful(lower) && !isMeaningful(upper)) {
+            if (hasRangeObjectSignal(lowerMap, kind)) {
+                ArrayNode invalid = factory.arrayNode();
+                // sentinela para preservar validação strict no builder (400 em runtime)
+                invalid.addNull();
+                return invalid;
+            }
             return null;
         }
 
@@ -264,6 +458,31 @@ public class RangePayloadNormalizer {
             arr.add(first);
         }
         return arr.size() == 0 ? null : arr;
+    }
+
+    private boolean hasRangeObjectSignal(Map<String, JsonNode> source, RangeKind kind) {
+        if (source == null || source.isEmpty()) {
+            return false;
+        }
+        if (source.containsKey("between")) {
+            return true;
+        }
+        if (containsAnyKey(source, lowerKeys(kind)) || containsAnyKey(source, upperKeys(kind))) {
+            return true;
+        }
+        return kind == RangeKind.MONETARY && source.containsKey("currency");
+    }
+
+    private boolean containsAnyKey(Map<String, JsonNode> source, List<String> keys) {
+        if (source == null || keys == null || keys.isEmpty()) {
+            return false;
+        }
+        for (String key : keys) {
+            if (key != null && source.containsKey(key.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private JsonNode sanitizeArrayBound(JsonNode node) {
@@ -387,32 +606,27 @@ public class RangePayloadNormalizer {
 
     private BigDecimal parseBigDecimal(JsonNode node) {
         if (node == null || node.isNull()) return null;
-        if (node.isNumber()) {
-            return new BigDecimal(node.asText());
-        }
-        String text = node.asText("").trim();
-        if (text.isEmpty()) return null;
+        if (node.isNumber()) return RangeNumberParser.parse(node.numberValue());
+        String text = node.asText("");
+        return text == null || text.trim().isEmpty() ? null : RangeNumberParser.parse(text);
+    }
 
-        String normalized = text.replace(" ", "");
-        if (normalized.contains(",") && normalized.contains(".")) {
-            int lastComma = normalized.lastIndexOf(',');
-            int lastDot = normalized.lastIndexOf('.');
-            if (lastComma > lastDot) {
-                normalized = normalized.replace(".", "").replace(',', '.');
-            } else {
-                normalized = normalized.replace(",", "");
-            }
-        } else if (normalized.contains(",")) {
-            normalized = normalized.replace(',', '.');
+    private void trackLegacyScalarPayload(RangeKind kind, JsonNode raw) {
+        long total = legacyScalarPayloadTotal.incrementAndGet();
+        long kindCount = legacyScalarPayloadByKind
+                .computeIfAbsent(kind, ignored -> new AtomicLong(0))
+                .incrementAndGet();
+
+        if (!logLegacyScalarPayload) {
+            return;
         }
-        normalized = normalized.replaceAll("[^0-9+\\-\\.]", "");
-        if (normalized.isEmpty() || ".".equals(normalized) || "-".equals(normalized) || "+".equals(normalized)) {
-            return null;
-        }
-        try {
-            return new BigDecimal(normalized);
-        } catch (NumberFormatException ignored) {
-            return null;
+        if (kindCount <= LEGACY_LOG_SAMPLE_LIMIT || kindCount % 100 == 0) {
+            LOGGER.warn(
+                    "[RangePayloadNormalizer] Payload range escalar legado normalizado (kind={}, kindCount={}, total={}, nodeType={}). " +
+                            "Recomendado migrar para array/objeto canônico. Para fallback legado, mantenha " +
+                            "praxis.filter.range.allow-scalar-payload=true.",
+                    kind, kindCount, total, raw != null ? raw.getNodeType() : null
+            );
         }
     }
 
@@ -424,6 +638,19 @@ public class RangePayloadNormalizer {
         UNKNOWN
     }
 
-    private record RangeFieldMetadata(String fieldName, RangeKind kind) {
+    private record RangeFieldMetadata(
+            String fieldName,
+            String relationAlias,
+            String fieldAlias,
+            List<String> lowerSplitAliases,
+            List<String> upperSplitAliases,
+            RangeKind kind
+    ) {
+    }
+
+    private record RangeInputSource(JsonNode raw, List<String> consumedKeys) {
+    }
+
+    private record KeyValue(String key, JsonNode value) {
     }
 }

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
@@ -28,10 +29,23 @@ import java.lang.reflect.Type;
 public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
 
     private final ObjectMapper objectMapper;
-    private final RangePayloadNormalizer rangePayloadNormalizer = new RangePayloadNormalizer();
+    private final RangePayloadNormalizer rangePayloadNormalizer;
 
+    @Autowired
     public FilterRequestBodyAdvice(ObjectMapper objectMapper) {
+        this(objectMapper, false, true);
+    }
+
+    public FilterRequestBodyAdvice(
+            ObjectMapper objectMapper,
+            boolean allowScalarRangePayload,
+            boolean logLegacyScalarRangePayload
+    ) {
         this.objectMapper = objectMapper;
+        this.rangePayloadNormalizer = new RangePayloadNormalizer(
+                allowScalarRangePayload,
+                logLegacyScalarRangePayload
+        );
     }
 
     @Override

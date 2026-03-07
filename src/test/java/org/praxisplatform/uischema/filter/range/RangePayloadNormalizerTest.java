@@ -40,6 +40,72 @@ class RangePayloadNormalizerTest {
     }
 
     @Test
+    void shouldNormalizeRelationAliasObjectToCanonicalFieldAndRemoveAlias() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("""
+                {
+                  "valor": { "minPrice": 6500, "maxPrice": 15000 }
+                }
+                """);
+
+        boolean changed = normalizer.normalizeInPlace(payload, RangeFilterDTO.class);
+
+        assertTrue(changed);
+        assertFalse(payload.has("valor"));
+        assertEquals(2, payload.path("valorBetween").size());
+        assertEquals("6500", payload.path("valorBetween").get(0).asText());
+        assertEquals("15000", payload.path("valorBetween").get(1).asText());
+    }
+
+    @Test
+    void shouldNormalizeLegacySplitAliasesAndRemoveOriginalKeys() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("""
+                {
+                  "valorMin": null,
+                  "valorMax": 1800
+                }
+                """);
+
+        boolean changed = normalizer.normalizeInPlace(payload, RangeFilterDTO.class);
+
+        assertTrue(changed);
+        assertFalse(payload.has("valorMin"));
+        assertFalse(payload.has("valorMax"));
+        assertEquals(2, payload.path("valorBetween").size());
+        assertTrue(payload.path("valorBetween").get(0).isNull());
+        assertEquals("1800", payload.path("valorBetween").get(1).asText());
+    }
+
+    @Test
+    void shouldRejectConflictingCanonicalAndAliasSources() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("""
+                {
+                  "valorBetween": [100, 200],
+                  "valor": { "minPrice": 300, "maxPrice": 400 }
+                }
+                """);
+
+        assertThrows(
+                InvalidFilterPayloadException.class,
+                () -> normalizer.normalizeInPlace(payload, RangeFilterDTO.class)
+        );
+    }
+
+    @Test
+    void shouldRejectMonetaryObjectWithoutBoundsEvenWhenCurrencyIsPresent() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("""
+                {
+                  "valor": { "currency": "BRL" }
+                }
+                """);
+
+        boolean changed = normalizer.normalizeInPlace(payload, RangeFilterDTO.class);
+
+        assertTrue(changed);
+        assertEquals(1, payload.path("valorBetween").size());
+        assertTrue(payload.path("valorBetween").get(0).isNull());
+    }
+
+    @Test
     void shouldNormalizeUpperOnlyDateObjectToNullThenUpper() throws Exception {
         ObjectNode payload = (ObjectNode) mapper.readTree("""
                 {
@@ -72,6 +138,36 @@ class RangePayloadNormalizerTest {
     }
 
     @Test
+    void shouldSwapNumericRangeWhenScientificNotationIsGreaterThanUpperBound() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("""
+                {
+                  "valorBetween": ["1e3", "500"]
+                }
+                """);
+
+        boolean changed = normalizer.normalizeInPlace(payload, RangeFilterDTO.class);
+
+        assertTrue(changed);
+        assertEquals("500", payload.path("valorBetween").get(0).asText());
+        assertEquals("1e3", payload.path("valorBetween").get(1).asText());
+    }
+
+    @Test
+    void shouldNotCorruptNumericTokenContainingAlphabeticCharacters() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("""
+                {
+                  "valorBetween": ["1abc3", "2"]
+                }
+                """);
+
+        boolean changed = normalizer.normalizeInPlace(payload, RangeFilterDTO.class);
+
+        assertFalse(changed);
+        assertEquals("1abc3", payload.path("valorBetween").get(0).asText());
+        assertEquals("2", payload.path("valorBetween").get(1).asText());
+    }
+
+    @Test
     void shouldRejectRangeArraysWithMoreThanTwoBounds() throws Exception {
         ObjectNode payload = (ObjectNode) mapper.readTree("""
                 {
@@ -83,6 +179,36 @@ class RangePayloadNormalizerTest {
                 InvalidFilterPayloadException.class,
                 () -> normalizer.normalizeInPlace(payload, RangeFilterDTO.class)
         );
+    }
+
+    @Test
+    void shouldRejectScalarRangePayloadInStrictMode() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("""
+                {
+                  "valorBetween": 1500
+                }
+                """);
+
+        assertThrows(
+                InvalidFilterPayloadException.class,
+                () -> normalizer.normalizeInPlace(payload, RangeFilterDTO.class)
+        );
+    }
+
+    @Test
+    void shouldNormalizeScalarRangePayloadWhenLegacyCompatibilityIsEnabled() throws Exception {
+        RangePayloadNormalizer compatibilityNormalizer = new RangePayloadNormalizer(true, false);
+        ObjectNode payload = (ObjectNode) mapper.readTree("""
+                {
+                  "valorBetween": 1500
+                }
+                """);
+
+        boolean changed = compatibilityNormalizer.normalizeInPlace(payload, RangeFilterDTO.class);
+
+        assertTrue(changed);
+        assertEquals(1, payload.path("valorBetween").size());
+        assertEquals("1500", payload.path("valorBetween").get(0).asText());
     }
 
     static class RangeFilterDTO implements GenericFilterDTO {

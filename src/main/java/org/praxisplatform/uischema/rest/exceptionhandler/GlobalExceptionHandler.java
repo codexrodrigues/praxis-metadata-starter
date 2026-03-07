@@ -224,8 +224,7 @@ public class GlobalExceptionHandler {
     ) {
         Throwable root = rootCause(ex);
         String rootMessage = normalize(root != null ? root.getMessage() : null);
-        boolean filterPayloadViolation = root instanceof InvalidFilterPayloadException
-                || root instanceof IllegalArgumentException;
+        boolean filterPayloadViolation = root instanceof InvalidFilterPayloadException;
 
         String detailMessage = filterPayloadViolation && rootMessage != null
                 ? rootMessage

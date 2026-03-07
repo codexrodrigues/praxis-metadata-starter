@@ -860,9 +860,22 @@ public class CustomOpenApiResolver extends ModelResolver {
                     detectedControlType = FieldControlType.DATE_TIME_RANGE.getValue();                    
                 }
             } else if (isNumericItemType(itemType)) {
-                detectedControlType = isMonetaryRange(fieldName, itemFormat, annotations)
+                boolean monetaryRange = isMonetaryRange(fieldName, itemFormat, annotations);
+                boolean percentRange = !monetaryRange && isPercentRange(itemFormat, annotations);
+                detectedControlType = monetaryRange
                         ? FieldControlType.PRICE_RANGE.getValue()
                         : FieldControlType.RANGE_SLIDER.getValue();
+                if (!monetaryRange) {
+                    // Numeric range filters should default to dual-thumb mode in consumers.
+                    uiExtension.putIfAbsent("mode", "range");
+                }
+                if (percentRange) {
+                    uiExtension.putIfAbsent(
+                            FieldConfigProperties.NUMERIC_FORMAT.getValue(),
+                            NumberFormatStyle.PERCENT.getValue()
+                    );
+                    OpenApiUiUtils.applyPercentDefaults(uiExtension);
+                }
             }
             applyRangeOneOfContract(property, fieldName, itemType, itemFormat, annotations, filterable.operation());
         }
@@ -1134,6 +1147,14 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
         String smart = OpenApiUiUtils.determineSmartControlTypeByFieldName(fieldName);
         return FieldControlType.CURRENCY_INPUT.getValue().equals(smart);
+    }
+
+    private boolean isPercentRange(String itemFormat, Annotation[] annotations) {
+        if ("percent".equalsIgnoreCase(itemFormat)) {
+            return true;
+        }
+        UISchema uiSchema = ResolverUtils.getAnnotation(UISchema.class, annotations);
+        return uiSchema != null && uiSchema.numericFormat() == NumericFormat.PERCENT;
     }
 
     /**

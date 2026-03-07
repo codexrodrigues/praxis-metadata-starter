@@ -10,6 +10,7 @@ import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestTemplate;
 import org.springdoc.core.models.GroupedOpenApi;
 
@@ -315,8 +316,16 @@ public class OpenApiUiSchemaAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public FilterRequestBodyAdvice filterRequestBodyAdvice(ObjectMapper mapper) {
-        return new FilterRequestBodyAdvice(mapper);
+    public FilterRequestBodyAdvice filterRequestBodyAdvice(
+            ObjectMapper mapper,
+            @Value("${praxis.filter.range.allow-scalar-payload:false}") boolean allowScalarRangePayload,
+            @Value("${praxis.filter.range.log-legacy-scalar-payload:true}") boolean logLegacyScalarRangePayload
+    ) {
+        return new FilterRequestBodyAdvice(
+                mapper,
+                allowScalarRangePayload,
+                logLegacyScalarRangePayload
+        );
     }
 
     /**

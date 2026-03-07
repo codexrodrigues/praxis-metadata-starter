@@ -43,7 +43,7 @@ curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoa
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>1.0.0-rc.6</version>
+  <version>1.0.0-rc.7</version>
   </dependency>
 ```
 2) Anote DTOs com `@UISchema` e exponha `@ApiResource` nos controllers.

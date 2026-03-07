@@ -172,6 +172,27 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void shouldKeepGenericIllegalArgumentInHttpMessageNotReadableAsRequestPayloadInvalid() {
+        WebRequest request = webRequest("/simple/filter");
+
+        HttpMessageNotReadableException ex = new HttpMessageNotReadableException(
+                "bad payload",
+                new IllegalArgumentException("invalid enum value")
+        );
+
+        var response = handler.handleHttpMessageNotReadable(ex, request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals("Payload JSON inválido ou incompatível com o contrato do filtro.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
+        assertEquals("REQUEST_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
+    }
+
+    @Test
     void shouldMapInvalidDataAccessUsageWithFilterPayloadCauseToBadRequest() {
         WebRequest request = webRequest("/simple/filter");
         InvalidDataAccessApiUsageException exception = new InvalidDataAccessApiUsageException(

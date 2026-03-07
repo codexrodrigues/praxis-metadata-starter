@@ -122,6 +122,55 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
     }
 
     @Test
+    void shouldNormalizeMonetaryRelationAliasToRangeField() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
+        when(service.filterWithIncludeIds(any(), any(Pageable.class), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        mockMvc.perform(post("/range/filter")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "valor": { "minPrice": 15000, "maxPrice": 6500 }
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<RangeFilterDTO> captor = ArgumentCaptor.forClass(RangeFilterDTO.class);
+        verify(service).filterWithIncludeIds(captor.capture(), any(Pageable.class), any());
+        RangeFilterDTO dto = captor.getValue();
+        assertNotNull(dto.getValorBetween());
+        assertEquals(2, dto.getValorBetween().size());
+        assertEquals(0, dto.getValorBetween().get(0).compareTo(new BigDecimal("6500")));
+        assertEquals(0, dto.getValorBetween().get(1).compareTo(new BigDecimal("15000")));
+    }
+
+    @Test
+    void shouldNormalizeMonetarySplitAliasesToRangeField() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
+        when(service.filterWithIncludeIds(any(), any(Pageable.class), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        mockMvc.perform(post("/range/filter")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "valorMin": null,
+                                  "valorMax": 7200
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<RangeFilterDTO> captor = ArgumentCaptor.forClass(RangeFilterDTO.class);
+        verify(service).filterWithIncludeIds(captor.capture(), any(Pageable.class), any());
+        RangeFilterDTO dto = captor.getValue();
+        assertNotNull(dto.getValorBetween());
+        assertEquals(2, dto.getValorBetween().size());
+        assertNull(dto.getValorBetween().get(0));
+        assertEquals(0, dto.getValorBetween().get(1).compareTo(new BigDecimal("7200")));
+    }
+
+    @Test
     void shouldPreserveUpperOnlyDateRangeAsNullThenUpper() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
         when(service.filterWithIncludeIds(any(), any(Pageable.class), any()))
@@ -157,6 +206,41 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value("failure"))
                 .andExpect(jsonPath("$.message").value("Range payload accepts at most two bounds."));
+
+        verify(service, never()).filterWithIncludeIds(any(), any(Pageable.class), any());
+    }
+
+    @Test
+    void shouldRejectConflictingRangeSourcesForSameField() throws Exception {
+        mockMvc.perform(post("/range/filter")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "valorBetween": [100, 200],
+                                  "valor": { "minPrice": 150, "maxPrice": 300 }
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value("failure"))
+                .andExpect(jsonPath("$.message").value(
+                        "Range payload for field 'valorBetween' provides conflicting sources. Use only one source."));
+
+        verify(service, never()).filterWithIncludeIds(any(), any(Pageable.class), any());
+    }
+
+    @Test
+    void shouldRejectScalarRangePayloadWhenStrictContractIsEnabled() throws Exception {
+        mockMvc.perform(post("/range/filter")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "valorBetween": 1500
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value("failure"))
+                .andExpect(jsonPath("$.message").value(
+                        "Range payload escalar é inválido. Use [min], [null,max], [min,max] ou objeto canônico."));
 
         verify(service, never()).filterWithIncludeIds(any(), any(Pageable.class), any());
     }

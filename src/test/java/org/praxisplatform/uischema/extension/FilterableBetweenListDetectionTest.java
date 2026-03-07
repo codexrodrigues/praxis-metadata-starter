@@ -162,6 +162,7 @@ class FilterableBetweenListDetectionTest {
                 .filter(candidate -> "object".equals(candidate.getType()))
                 .findFirst()
                 .orElseThrow();
+        assertEquals(1, objectVariant.getMinProperties());
         assertNotNull(objectVariant.getAnyOf());
         assertEquals(2, objectVariant.getAnyOf().size());
         assertNull(objectVariant.getRequired());
@@ -244,6 +245,26 @@ class FilterableBetweenListDetectionTest {
 
         Map<String, Object> xUi = applyAnnotations(schema, new Annotation[]{defaultUISchema(), betweenFilterable()});
         assertEquals(FieldControlType.RANGE_SLIDER.getValue(), xUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals("range", xUi.get("mode"));
+    }
+
+    @Test
+    void percentNumericListBetweenSetsRangeSliderAndPercentDefaults() {
+        Schema<?> schema = new Schema<>();
+        schema.setName("taxaRange");
+        schema.setType("array");
+        Schema<?> item = new Schema<>();
+        item.setType("number");
+        item.setFormat("percent");
+        schema.setItems(item);
+
+        Map<String, Object> xUi = applyAnnotations(schema, new Annotation[]{defaultUISchema(), betweenFilterable()});
+        assertEquals(FieldControlType.RANGE_SLIDER.getValue(), xUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals("range", xUi.get("mode"));
+        assertEquals("percent", xUi.get(FieldConfigProperties.NUMERIC_FORMAT.getValue()));
+        assertEquals("0.01", xUi.get(FieldConfigProperties.NUMERIC_STEP.getValue()));
+        assertEquals("0", String.valueOf(xUi.get(FieldConfigProperties.NUMERIC_MIN.getValue())));
+        assertEquals("100", String.valueOf(xUi.get(FieldConfigProperties.NUMERIC_MAX.getValue())));
     }
 
     @Test
@@ -290,6 +311,7 @@ class FilterableBetweenListDetectionTest {
                 filterable(Filterable.FilterOperation.NOT_BETWEEN)
         });
         assertEquals(FieldControlType.RANGE_SLIDER.getValue(), xUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals("range", xUi.get("mode"));
     }
 
     @Test
@@ -456,6 +478,7 @@ class FilterableBetweenListDetectionTest {
         assertNull(objectVariant.getAnyOf());
         assertNotNull(objectVariant.getRequired());
         assertTrue(objectVariant.getRequired().containsAll(List.of("minPrice", "maxPrice")));
+        assertEquals(2, objectVariant.getMinProperties());
 
         @SuppressWarnings("unchecked")
         Map<String, Schema> props = (Map<String, Schema>) objectVariant.getProperties();
@@ -493,6 +516,7 @@ class FilterableBetweenListDetectionTest {
                 .orElseThrow();
         assertNotNull(objectVariant.getRequired());
         assertTrue(objectVariant.getRequired().containsAll(List.of("startDate", "endDate")));
+        assertEquals(2, objectVariant.getMinProperties());
         @SuppressWarnings("unchecked")
         Map<String, Schema> props = (Map<String, Schema>) objectVariant.getProperties();
         assertEquals(Boolean.FALSE, props.get("startDate").getNullable());
