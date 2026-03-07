@@ -10,6 +10,8 @@ import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.server.ResponseStatusException;
@@ -144,6 +146,46 @@ class GlobalExceptionHandlerTest {
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
         assertEquals("REQUEST_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
+    }
+
+    @Test
+    void shouldMapMissingRequestHeaderToBadRequest() {
+        WebRequest request = webRequest("/api/praxis/config/ui");
+
+        var response = handler.handleMissingRequestHeader(
+                new MissingRequestHeaderException("X-Tenant-ID", null),
+                request
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals("Header obrigatório ausente: X-Tenant-ID.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
+        assertEquals("MISSING_REQUEST_HEADER", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("/api/praxis/config/ui", body.getErrors().get(0).getInstance().toString());
+    }
+
+    @Test
+    void shouldMapMissingRequestParameterToBadRequest() {
+        WebRequest request = webRequest("/api/praxis/config/ui");
+
+        var response = handler.handleMissingServletRequestParameter(
+                new MissingServletRequestParameterException("componentId", "String"),
+                request
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals("Parâmetro obrigatório ausente: componentId.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
+        assertEquals("MISSING_REQUEST_PARAMETER", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("/api/praxis/config/ui", body.getErrors().get(0).getInstance().toString());
     }
 
     @Test

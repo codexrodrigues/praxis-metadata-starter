@@ -13,6 +13,8 @@ import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -249,6 +251,34 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleMissingRequestHeader(
+            MissingRequestHeaderException ex,
+            WebRequest request
+    ) {
+        String detailMessage = "Header obrigatório ausente: " + ex.getHeaderName() + ".";
+        return buildValidationErrorResponse(
+                detailMessage,
+                "Header obrigatório ausente",
+                request,
+                "MISSING_REQUEST_HEADER"
+        );
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException ex,
+            WebRequest request
+    ) {
+        String detailMessage = "Parâmetro obrigatório ausente: " + ex.getParameterName() + ".";
+        return buildValidationErrorResponse(
+                detailMessage,
+                "Parâmetro obrigatório ausente",
+                request,
+                "MISSING_REQUEST_PARAMETER"
+        );
     }
 
     @ExceptionHandler(Exception.class)
