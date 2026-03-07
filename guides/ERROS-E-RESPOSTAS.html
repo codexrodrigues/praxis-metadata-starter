@@ -296,6 +296,10 @@ padronizadas.</p>
 <ul>
 <li><code>MethodArgumentNotValidException</code> → 400 com lista de
 <code>CustomProblemDetail</code></li>
+<li><code>MissingRequestHeaderException</code> → 400 (header obrigatório
+ausente)</li>
+<li><code>MissingServletRequestParameterException</code> → 400
+(parâmetro obrigatório ausente)</li>
 <li><code>ResponseStatusException</code> → preserva status original
 (ex.: 400/403/404/409/410/429/503), sem rebaixar para 500</li>
 <li><code>InvalidFilterPayloadException</code> → 400 (payload de filtro
