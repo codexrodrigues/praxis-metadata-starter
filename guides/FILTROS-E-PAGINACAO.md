@@ -65,6 +65,19 @@ Content-Type: application/json
 
 </details>
 
+<a id="modo-estrito-range"></a>
+<details>
+<summary><strong>Modo estrito para payload de range (recomendado enterprise)</strong></summary>
+
+- Propriedade `praxis.filter.range.allow-scalar-payload`:
+  - `false` (padrão): payload escalar de range é inválido e retorna `400`.
+  - `true`: fallback temporário para legado, convertendo escalar para lista.
+- Propriedade `praxis.filter.range.log-legacy-scalar-payload`:
+  - `true` (padrão): registra uso de payload escalar legado para plano de migração.
+- Erros de payload de filtro retornam `400` com `errors[].properties.code = FILTER_PAYLOAD_INVALID`.
+
+</details>
+
 ---
 
 <a id="porque-diferente"></a>
@@ -106,7 +119,7 @@ Content-Type: application/json
 | LESS_OR_EQUAL      | Menor ou igual                            | `@Filterable(LESS_OR_EQUAL)`              |
 | IN                 | Pertence a uma lista                      | `@Filterable(IN)`                         |
 | NOT_IN             | Não pertence a uma lista                  | `@Filterable(NOT_IN)`                     |
-| BETWEEN            | Entre (2 valores)                         | `@Filterable(BETWEEN)`                    |
+| BETWEEN            | Entre (parcial ou completo)               | `@Filterable(BETWEEN)`                    |
 | IS_NULL            | É nulo (usar Boolean TRUE no DTO)         | `@Filterable(IS_NULL)` + `Boolean campo`  |
 | IS_NOT_NULL        | Não é nulo (usar Boolean TRUE no DTO)     | `@Filterable(IS_NOT_NULL)` + `Boolean`    |
 

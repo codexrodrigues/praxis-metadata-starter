@@ -308,6 +308,30 @@ previsíveis</li>
 <li>Limite o <code>size</code> conforme sua política de performance</li>
 </ul>
 </details>
+<a id="modo-estrito-range"></a>
+<details>
+<summary>
+<strong>Modo estrito para payload de range (recomendado
+enterprise)</strong>
+</summary>
+<ul>
+<li>Propriedade <code>praxis.filter.range.allow-scalar-payload</code>:
+<ul>
+<li><code>false</code> (padrão): payload escalar de range é inválido e
+retorna <code>400</code>.</li>
+<li><code>true</code>: fallback temporário para legado, convertendo
+escalar para lista.</li>
+</ul></li>
+<li>Propriedade
+<code>praxis.filter.range.log-legacy-scalar-payload</code>:
+<ul>
+<li><code>true</code> (padrão): registra uso de payload escalar legado
+para plano de migração.</li>
+</ul></li>
+<li>Erros de payload de filtro retornam <code>400</code> com
+<code>errors[].properties.code = FILTER_PAYLOAD_INVALID</code>.</li>
+</ul>
+</details>
 <hr />
 <a id="porque-diferente"></a>
 <details>
@@ -429,7 +453,7 @@ catálogos dinâmicos/relacionais (<code>id/label</code>), não para
 </tr>
 <tr class="odd">
 <td>BETWEEN</td>
-<td>Entre (2 valores)</td>
+<td>Entre (parcial ou completo)</td>
 <td><code>@Filterable(BETWEEN)</code></td>
 </tr>
 <tr class="even">

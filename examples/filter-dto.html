@@ -365,6 +365,8 @@ semântica.</li>
 <code>[null,null]</code> ou objeto sem nenhum limite efetivo.</li>
 <li>payload com mais de dois limites é inválido: não envie listas como
 <code>[a,b,c]</code>.</li>
+<li>payload escalar é inválido no modo estrito: não envie
+<code>1500</code> diretamente, use lista ou objeto canônico.</li>
 <li>bounds enviados explicitamente como <code>null</code> sem
 contrapartida válida também são inválidos e devem retornar
 <code>400</code>.</li>
@@ -372,6 +374,10 @@ contrapartida válida também são inválidos e devem retornar
 preenchidos.</li>
 <li>quando <code>minPrice &gt; maxPrice</code>, normalizar (swap) e
 registrar aviso de validação.</li>
+<li>para ranges percentuais (<code>NumericFormat.PERCENT</code> ou
+<code>format: percent</code>), o metadata publica
+<code>rangeSlider</code> com <code>mode=range</code> e defaults
+<code>min=0</code>, <code>max=100</code>, <code>step=0.01</code>.</li>
 <li><code>currency</code> pode ser enviado como contexto de UX, mas o
 backend considera apenas os limites para construir o predicado.</li>
 <li>manter <code>between[]</code> apenas como compatibilidade com
@@ -379,6 +385,20 @@ legado.</li>
 <li>no frontend enterprise, prefira normalização metadata-driven: só
 campos com <code>controlType</code> de range no schema devem ser
 colapsados para formato canônico.</li>
+</ul>
+<p>Compatibilidade legada controlada por configuração:</p>
+<ul>
+<li>padrão do starter: <strong>estrito</strong>
+(<code>praxis.filter.range.allow-scalar-payload=false</code>), rejeita
+payload escalar (<code>400</code>).</li>
+<li>fallback legado (temporário):
+<code>praxis.filter.range.allow-scalar-payload=true</code> para aceitar
+escalar e normalizar para lista.</li>
+<li>observabilidade de legado:
+<code>praxis.filter.range.log-legacy-scalar-payload=true</code> (padrão)
+registra uso de payload escalar compatível.</li>
+<li>payload inválido de filtro retorna <code>400</code> com
+<code>errors[].properties.code = FILTER_PAYLOAD_INVALID</code>.</li>
 </ul>
 </body>
 </html>

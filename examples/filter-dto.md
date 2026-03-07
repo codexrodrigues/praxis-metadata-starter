@@ -105,9 +105,18 @@ Regras recomendadas:
 * quando houver somente limite superior, serialize como `[null, maxPrice]` no payload canônico para preservar semântica.
 * payload vazio é inválido no contrato: não envie `[null]`, `[null,null]` ou objeto sem nenhum limite efetivo.
 * payload com mais de dois limites é inválido: não envie listas como `[a,b,c]`.
+* payload escalar é inválido no modo estrito: não envie `1500` diretamente, use lista ou objeto canônico.
 * bounds enviados explicitamente como `null` sem contrapartida válida também são inválidos e devem retornar `400`.
 * `BETWEEN_EXCLUSIVE` é estrito: exige os dois limites preenchidos.
 * quando `minPrice > maxPrice`, normalizar (swap) e registrar aviso de validação.
+* para ranges percentuais (`NumericFormat.PERCENT` ou `format: percent`), o metadata publica `rangeSlider` com `mode=range` e defaults `min=0`, `max=100`, `step=0.01`.
 * `currency` pode ser enviado como contexto de UX, mas o backend considera apenas os limites para construir o predicado.
 * manter `between[]` apenas como compatibilidade com legado.
 * no frontend enterprise, prefira normalização metadata-driven: só campos com `controlType` de range no schema devem ser colapsados para formato canônico.
+
+Compatibilidade legada controlada por configuração:
+
+* padrão do starter: **estrito** (`praxis.filter.range.allow-scalar-payload=false`), rejeita payload escalar (`400`).
+* fallback legado (temporário): `praxis.filter.range.allow-scalar-payload=true` para aceitar escalar e normalizar para lista.
+* observabilidade de legado: `praxis.filter.range.log-legacy-scalar-payload=true` (padrão) registra uso de payload escalar compatível.
+* payload inválido de filtro retorna `400` com `errors[].properties.code = FILTER_PAYLOAD_INVALID`.
