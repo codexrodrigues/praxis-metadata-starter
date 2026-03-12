@@ -1,16 +1,6 @@
-${AnsiColor.BRIGHT_CYAN}
-  _____                _
- |  __ \              (_)
- | |__) | __ __ ___  ___ ___
- |  ___/ "__" _` \ \/ / / __|
- | |   | | | (_| |>  <| \__ \
- |_|   |_|  \__,_/_/\_\|___/
+${AnsiColor.BRIGHT_CYAN}██   ${AnsiColor.BRIGHT_CYAN}██████  ${AnsiColor.CYAN}██████   ${AnsiColor.BLUE} █████   ${AnsiColor.MAGENTA}██   ██ ${AnsiColor.BRIGHT_MAGENTA}██ ${AnsiColor.BRIGHT_RED} ██████
+${AnsiColor.BRIGHT_CYAN} ██  ${AnsiColor.BRIGHT_CYAN}██   ██ ${AnsiColor.CYAN}██   ██  ${AnsiColor.BLUE}██   ██  ${AnsiColor.MAGENTA} ██ ██  ${AnsiColor.BRIGHT_MAGENTA}██ ${AnsiColor.BRIGHT_RED}██
+${AnsiColor.BRIGHT_CYAN}  ██ ${AnsiColor.BRIGHT_CYAN}██████  ${AnsiColor.CYAN}██████   ${AnsiColor.BLUE}███████  ${AnsiColor.MAGENTA}  ███   ${AnsiColor.BRIGHT_MAGENTA}██ ${AnsiColor.BRIGHT_RED}███████
+${AnsiColor.BRIGHT_CYAN} ██  ${AnsiColor.BRIGHT_CYAN}██      ${AnsiColor.CYAN}██   ██  ${AnsiColor.BLUE}██   ██  ${AnsiColor.MAGENTA} ██ ██  ${AnsiColor.BRIGHT_MAGENTA}██ ${AnsiColor.BRIGHT_RED}     ██
+${AnsiColor.BRIGHT_CYAN}██   ${AnsiColor.BRIGHT_CYAN}██      ${AnsiColor.CYAN}██   ██  ${AnsiColor.BLUE}██   ██  ${AnsiColor.MAGENTA}██   ██ ${AnsiColor.BRIGHT_MAGENTA}██ ${AnsiColor.BRIGHT_RED}██████
 ${AnsiColor.DEFAULT}
-${AnsiColor.BRIGHT_WHITE}:: Praxis Platform ::${AnsiColor.DEFAULT}             ${AnsiColor.BRIGHT_BLACK}(v${application.version:unknown})${AnsiColor.DEFAULT}
-${AnsiColor.BRIGHT_WHITE}:: Spring Boot ::${AnsiColor.DEFAULT}                 ${AnsiColor.BRIGHT_BLACK}(v${spring-boot.version})${AnsiColor.DEFAULT}
-
-${AnsiColor.GRAY}Application :${AnsiColor.DEFAULT} ${application.title:${spring.application.name:Unknown App}}
-${AnsiColor.GRAY}Java Version:${AnsiColor.DEFAULT} ${java.version}
-${AnsiColor.GRAY}OS / Arch   :${AnsiColor.DEFAULT} ${os.name} / ${os.arch}
-${AnsiColor.GRAY}Profile(s)  :${AnsiColor.DEFAULT} ${spring.profiles.active:default}
-${AnsiColor.GRAY}PID         :${AnsiColor.DEFAULT} ${PID}
