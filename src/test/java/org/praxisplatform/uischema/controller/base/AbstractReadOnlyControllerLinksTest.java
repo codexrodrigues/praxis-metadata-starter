@@ -72,7 +72,7 @@ class AbstractReadOnlyControllerLinksTest {
 
     @Test
     void getAll_omitsWriteLinks() throws Exception {
-        when(service.findAll()).thenReturn(List.of(new SimpleEntity(1L)));
+        when(service.findAllMapped(any())).thenReturn(List.of(new SimpleDto(1L)));
 
         mockMvc.perform(get("/ro/all"))
                 .andExpect(status().isOk())
@@ -83,7 +83,7 @@ class AbstractReadOnlyControllerLinksTest {
 
     @Test
     void getById_omitsWriteLinks() throws Exception {
-        when(service.findById(1L)).thenReturn(new SimpleEntity(1L));
+        when(service.findByIdMapped(org.mockito.ArgumentMatchers.eq(1L), any())).thenReturn(new SimpleDto(1L));
 
         mockMvc.perform(get("/ro/1"))
                 .andExpect(status().isOk())

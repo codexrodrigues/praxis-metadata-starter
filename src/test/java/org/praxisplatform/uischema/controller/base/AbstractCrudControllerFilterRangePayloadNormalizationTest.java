@@ -52,7 +52,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
     @Test
     void shouldNormalizeMonetaryRangeObjectToList() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), any()))
+        when(service.filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         mockMvc.perform(post("/range/filter")
@@ -65,7 +65,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<RangeFilterDTO> captor = ArgumentCaptor.forClass(RangeFilterDTO.class);
-        verify(service).filterWithIncludeIds(captor.capture(), any(Pageable.class), any());
+        verify(service).filterMappedWithIncludeIds(captor.capture(), any(Pageable.class), any(), any());
         RangeFilterDTO dto = captor.getValue();
         assertNotNull(dto.getValorBetween());
         assertEquals(2, dto.getValorBetween().size());
@@ -76,7 +76,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
     @Test
     void shouldNormalizeDateRangeObjectToList() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), any()))
+        when(service.filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         mockMvc.perform(post("/range/filter")
@@ -89,7 +89,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<RangeFilterDTO> captor = ArgumentCaptor.forClass(RangeFilterDTO.class);
-        verify(service).filterWithIncludeIds(captor.capture(), any(Pageable.class), any());
+        verify(service).filterMappedWithIncludeIds(captor.capture(), any(Pageable.class), any(), any());
         RangeFilterDTO dto = captor.getValue();
         assertNotNull(dto.getPeriodo());
         assertEquals(2, dto.getPeriodo().size());
@@ -100,7 +100,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
     @Test
     void shouldPreserveUpperOnlyMonetaryRangeAsNullThenUpper() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), any()))
+        when(service.filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         mockMvc.perform(post("/range/filter")
@@ -113,7 +113,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<RangeFilterDTO> captor = ArgumentCaptor.forClass(RangeFilterDTO.class);
-        verify(service).filterWithIncludeIds(captor.capture(), any(Pageable.class), any());
+        verify(service).filterMappedWithIncludeIds(captor.capture(), any(Pageable.class), any(), any());
         RangeFilterDTO dto = captor.getValue();
         assertNotNull(dto.getValorBetween());
         assertEquals(2, dto.getValorBetween().size());
@@ -124,7 +124,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
     @Test
     void shouldNormalizeMonetaryRelationAliasToRangeField() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), any()))
+        when(service.filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         mockMvc.perform(post("/range/filter")
@@ -137,7 +137,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<RangeFilterDTO> captor = ArgumentCaptor.forClass(RangeFilterDTO.class);
-        verify(service).filterWithIncludeIds(captor.capture(), any(Pageable.class), any());
+        verify(service).filterMappedWithIncludeIds(captor.capture(), any(Pageable.class), any(), any());
         RangeFilterDTO dto = captor.getValue();
         assertNotNull(dto.getValorBetween());
         assertEquals(2, dto.getValorBetween().size());
@@ -148,7 +148,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
     @Test
     void shouldNormalizeMonetarySplitAliasesToRangeField() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), any()))
+        when(service.filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         mockMvc.perform(post("/range/filter")
@@ -162,7 +162,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<RangeFilterDTO> captor = ArgumentCaptor.forClass(RangeFilterDTO.class);
-        verify(service).filterWithIncludeIds(captor.capture(), any(Pageable.class), any());
+        verify(service).filterMappedWithIncludeIds(captor.capture(), any(Pageable.class), any(), any());
         RangeFilterDTO dto = captor.getValue();
         assertNotNull(dto.getValorBetween());
         assertEquals(2, dto.getValorBetween().size());
@@ -173,7 +173,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
     @Test
     void shouldPreserveUpperOnlyDateRangeAsNullThenUpper() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), any()))
+        when(service.filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         mockMvc.perform(post("/range/filter")
@@ -186,7 +186,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<RangeFilterDTO> captor = ArgumentCaptor.forClass(RangeFilterDTO.class);
-        verify(service).filterWithIncludeIds(captor.capture(), any(Pageable.class), any());
+        verify(service).filterMappedWithIncludeIds(captor.capture(), any(Pageable.class), any(), any());
         RangeFilterDTO dto = captor.getValue();
         assertNotNull(dto.getPeriodo());
         assertEquals(2, dto.getPeriodo().size());
@@ -207,7 +207,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(jsonPath("$.status").value("failure"))
                 .andExpect(jsonPath("$.message").value("Range payload accepts at most two bounds."));
 
-        verify(service, never()).filterWithIncludeIds(any(), any(Pageable.class), any());
+        verify(service, never()).filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any());
     }
 
     @Test
@@ -225,7 +225,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(jsonPath("$.message").value(
                         "Range payload for field 'valorBetween' provides conflicting sources. Use only one source."));
 
-        verify(service, never()).filterWithIncludeIds(any(), any(Pageable.class), any());
+        verify(service, never()).filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any());
     }
 
     @Test
@@ -242,7 +242,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(jsonPath("$.message").value(
                         "Range payload escalar é inválido. Use [min], [null,max], [min,max] ou objeto canônico."));
 
-        verify(service, never()).filterWithIncludeIds(any(), any(Pageable.class), any());
+        verify(service, never()).filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any());
     }
 
     interface RangeService extends org.praxisplatform.uischema.service.base.BaseCrudService<
