@@ -512,9 +512,8 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         // Avoid Spring's default comma-splitting when binding to collections
         List<String> sort = queryParams.get("sort");
         Pageable pageable = PageableBuilder.from(page, size, sort, getService().getDefaultSort());
-        Page<E> result = getService().filterWithIncludeIds(filterDTO, pageable, includeIds);
-
-        Page<EntityModel<D>> entityModels = result.map(entity -> toEntityModel(toDto(entity)));
+        Page<D> result = getService().filterMappedWithIncludeIds(filterDTO, pageable, includeIds, this::toDto);
+        Page<EntityModel<D>> entityModels = result.map(this::toEntityModel);
 
         Links links = Links.of(
                 linkToAll(),
@@ -539,7 +538,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
      * <ul>
      *   <li>Valida <code>size</code> ≤ <code>praxis.pagination.max-size</code>.</li>
      *   <li>Monta {@link Sort} com {@link org.praxisplatform.uischema.util.SortBuilder} e fallback do service.</li>
-     *   <li>Delegado para {@link BaseCrudService#filterByCursor(GenericFilterDTO, org.springframework.data.domain.Sort, String, String, int)}.</li>
+     *   <li>Delegado para {@link BaseCrudService#filterByCursorMapped(GenericFilterDTO, org.springframework.data.domain.Sort, String, String, int, java.util.function.Function)}.</li>
      *   <li>Mapeia conteúdo para <code>EntityModel&lt;D&gt;</code> e preserva <code>next</code>/<code>prev</code>/<code>size</code>.</li>
      * </ul>
      *
@@ -573,15 +572,15 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         }
         List<String> sort = queryParams.get("sort");
         Sort sortObj = SortBuilder.from(sort, getService().getDefaultSort());
-        CursorPage<E> result;
+        CursorPage<D> result;
         try {
-            result = getService().filterByCursor(filterDTO, sortObj, after, before, size);
+            result = getService().filterByCursorMapped(filterDTO, sortObj, after, before, size, this::toDto);
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "não implementado");
         }
 
         CursorPage<EntityModel<D>> mapped = new CursorPage<>(
-                result.content().stream().map(this::toDto).map(this::toEntityModel).toList(),
+                result.content().stream().map(this::toEntityModel).toList(),
                 result.next(),
                 result.prev(),
                 result.size()
@@ -660,12 +659,8 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     @GetMapping("/all")
     @Operation(summary = "Listar todos os registros", description = "Retorna todos os registros, aplicando @DefaultSortColumn quando nenhum sort é enviado.")
     public ResponseEntity<RestApiResponse<List<EntityModel<D>>>> getAll() {
-        List<E> entities = getService().findAll();
-
-        List<EntityModel<D>> entityModels = entities.stream()
-                .map(this::toDto)
-                .map(this::toEntityModel)
-                .toList();
+        List<D> dtos = getService().findAllMapped(this::toDto);
+        List<EntityModel<D>> entityModels = dtos.stream().map(this::toEntityModel).toList();
 
         Links links = Links.of(
                 linkToFilter(),
@@ -701,12 +696,11 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Limite máximo de IDs excedido: " + BY_IDS_MAX);
         }
-        List<E> list = getService().findAllById(ids);
-        var byId = list.stream().collect(Collectors.toMap(this::getEntityId, Function.identity()));
+        List<D> list = getService().findAllByIdMapped(ids, this::toDto);
+        var byId = list.stream().collect(Collectors.toMap(this::getDtoId, Function.identity()));
         List<D> ordered = ids.stream()
                 .map(byId::get)
                 .filter(Objects::nonNull)
-                .map(this::toDto)
                 .toList();
         return withVersion(ResponseEntity.ok(), ordered);
     }
@@ -846,8 +840,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
      */
     public ResponseEntity<RestApiResponse<D>> getById(@PathVariable ID id) {
         // Se não existir, o service pode lançar ResourceNotFoundException
-        E entity = getService().findById(id);
-        D dto = toDto(entity);
+        D dto = getService().findByIdMapped(id, this::toDto);
 
         java.util.List<Link> linkList = new java.util.ArrayList<>();
         linkList.add(linkToSelf(id));
@@ -868,14 +861,13 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     /**
      * Cria um novo registro a partir do DTO informado.
      * @param dto DTO de entrada validado
-     * @return 201 Created com Location e envelope de resposta contendo o DTO salvo
+     * @return 201 Created com Location derivado da entidade persistida e envelope de resposta contendo o DTO salvo
      */
     public ResponseEntity<RestApiResponse<D>> create(@jakarta.validation.Valid @RequestBody D dto) {
         E entityToSave = toEntity(dto);
-        E savedEntity = getService().save(entityToSave);
-        D savedDto = toDto(savedEntity);
-
-        ID newId = getEntityId(savedEntity);
+        BaseCrudService.SavedResult<ID, D> saved = getService().saveResultMapped(entityToSave, this::toDto);
+        ID newId = saved.id();
+        D savedDto = saved.body();
         Link selfLink = linkToSelf(newId);
 
         Links links = Links.of(
@@ -927,8 +919,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
      */
     public ResponseEntity<RestApiResponse<D>> update(@PathVariable ID id, @jakarta.validation.Valid @RequestBody D dto) {
         E entityToUpdate = toEntity(dto);
-        E updatedEntity = getService().update(id, entityToUpdate);
-        D updatedDto = toDto(updatedEntity);
+        D updatedDto = getService().updateMapped(id, entityToUpdate, this::toDto);
 
         Links links = Links.of(
                 linkToSelf(id),

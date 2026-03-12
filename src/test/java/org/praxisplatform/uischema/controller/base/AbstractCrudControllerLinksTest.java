@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -34,7 +35,7 @@ class AbstractCrudControllerLinksTest {
 
     @Test
     void getAllIncludesSchemaTypeResponse() throws Exception {
-        when(service.findAll()).thenReturn(List.of(new SimpleEntity(1L)));
+        when(service.findAllMapped(any())).thenReturn(List.of(new SimpleDto(1L)));
 
         mockMvc.perform(get("/simple/all"))
                 .andExpect(status().isOk());
@@ -42,8 +43,8 @@ class AbstractCrudControllerLinksTest {
 
     @Test
     void filterIncludesSchemaTypeRequestAndResponse() throws Exception {
-        Page<SimpleEntity> page = new PageImpl<>(Collections.emptyList());
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), any())).thenReturn(page);
+        Page<SimpleDto> page = new PageImpl<>(Collections.emptyList());
+        doReturn(page).when(service).filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any());
 
         mockMvc.perform(post("/simple/filter").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isOk());

@@ -34,6 +34,13 @@ import java.util.stream.Collectors;
 
 /**
  * Interface base para operações CRUD e paginação com filtragem.
+ * <p>
+ * Os endpoints genéricos do starter assumem que projeções {@code entity -> DTO}
+ * e {@code entity -> OptionDTO} ocorram dentro do service. Em projetos que usam JPA
+ * com associações {@code LAZY}, a forma suportada de garantir esse boundary é herdar
+ * de {@link AbstractBaseCrudService}, que aplica semântica transacional aos fluxos
+ * de leitura e escrita usados pelos controllers genéricos.
+ * </p>
  *
  * @param <E>  Tipo da entidade
  * @param <D>  Tipo do DTO
@@ -41,6 +48,15 @@ import java.util.stream.Collectors;
  * @param <FD> Tipo do DTO de filtro
  */
 public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
+
+    /**
+     * Resultado de uma operação de criação que precisa expor simultaneamente
+     * o identificador persistido e a projeção retornada ao cliente.
+     *
+     * @param <ID> tipo do identificador
+     * @param <R> tipo projetado
+     */
+    record SavedResult<ID, R>(ID id, R body) {}
 
     BaseCrudRepository<E, ID> getRepository();
     GenericSpecificationsBuilder<E> getSpecificationsBuilder();
@@ -79,10 +95,22 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
      *     return repository.maxUpdatedAt().map(Instant::toString);
      * }
      * }</pre>
-     *
+    *
      * @return versão do dataset, quando disponível
      */
     default Optional<String> getDatasetVersion() { return Optional.empty(); }
+
+    /**
+     * Recupera uma entidade pelo identificador e projeta o resultado dentro do contexto do service.
+     *
+     * @param id identificador da entidade
+     * @param mapper função de projeção
+     * @return resultado projetado
+     * @param <R> tipo projetado
+     */
+    default <R> R findByIdMapped(ID id, Function<E, R> mapper) {
+        return mapper.apply(findById(id));
+    }
     /**
      * <h3>📋 Lista Todas as Entidades com Ordenação Padrão</h3>
      * 
@@ -112,6 +140,17 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
     default List<E> findAll() { return getRepository().findAll(getDefaultSort()); }
 
     /**
+     * Lista todas as entidades e projeta o resultado dentro do contexto do service.
+     *
+     * @param mapper função de projeção
+     * @return lista projetada
+     * @param <R> tipo projetado
+     */
+    default <R> List<R> findAllMapped(Function<E, R> mapper) {
+        return findAll().stream().map(mapper).toList();
+    }
+
+    /**
      * Recupera uma entidade pelo identificador.
      * @param id identificador da entidade
      * @return entidade encontrada
@@ -134,6 +173,18 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
         return getRepository().findAllById(ids);
     }
 
+    /**
+     * Recupera múltiplas entidades pelos seus identificadores e projeta o resultado dentro do contexto do service.
+     *
+     * @param ids coleção de identificadores
+     * @param mapper função de projeção
+     * @return lista projetada
+     * @param <R> tipo projetado
+     */
+    default <R> List<R> findAllByIdMapped(Collection<ID> ids, Function<E, R> mapper) {
+        return findAllById(ids).stream().map(mapper).toList();
+    }
+
     @SuppressWarnings("unchecked")
     default ID extractId(E entity) {
         try {
@@ -149,6 +200,32 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
      * @return entidade salva (com ID)
      */
     default E save(E entity) { return getRepository().save(entity); }
+
+    /**
+     * Persiste uma entidade e projeta o resultado dentro do contexto do service.
+     *
+     * @param entity instância a ser salva
+     * @param mapper função de projeção
+     * @return resultado projetado
+     * @param <R> tipo projetado
+     */
+    default <R> R saveMapped(E entity, Function<E, R> mapper) {
+        return mapper.apply(save(entity));
+    }
+
+    /**
+     * Persiste uma entidade e retorna, no mesmo boundary do service, o ID persistido
+     * e a projeção correspondente.
+     *
+     * @param entity instância a ser salva
+     * @param mapper função de projeção
+     * @return resultado contendo o ID persistido e o corpo projetado
+     * @param <R> tipo projetado
+     */
+    default <R> SavedResult<ID, R> saveResultMapped(E entity, Function<E, R> mapper) {
+        E saved = save(entity);
+        return new SavedResult<>(extractId(saved), mapper.apply(saved));
+    }
     default E mergeUpdate(E existing, E update) {
         return existing;
     }
@@ -269,6 +346,19 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
     }
 
     /**
+     * Atualiza uma entidade e projeta o resultado dentro do contexto do service.
+     *
+     * @param id identificador da entidade a atualizar
+     * @param entity dados a serem mesclados e persistidos
+     * @param mapper função de projeção
+     * @return resultado projetado
+     * @param <R> tipo projetado
+     */
+    default <R> R updateMapped(ID id, E entity, Function<E, R> mapper) {
+        return mapper.apply(update(id, entity));
+    }
+
+    /**
      * Exclui uma entidade pelo identificador (ignora quando inexistente).
      * @param id identificador da entidade a excluir
      */
@@ -314,13 +404,12 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
      * 
      * <h4>🔗 Uso em Controllers:</h4>
      * <pre>{@code
-     * // Controller recebe Pageable do cliente:
+     * // O controller genérico delega a projeção ao service:
      * @GetMapping("/all")
-     * public ResponseEntity<Page<FuncionarioDTO>> getAll(Pageable pageable) {
-     *     Page<Funcionario> page = service.findAll(pageable); // Ordenação aplicada aqui
-     *     return ResponseEntity.ok(page.map(this::toDto));
+     * public ResponseEntity<List<FuncionarioDTO>> getAll() {
+     *     return ResponseEntity.ok(service.findAllMapped(this::toDto));
      * }
-     * 
+     *
      * // URLs suportadas:
      * GET /api/funcionarios/all?page=0&amp;size=10                    // Usa @DefaultSortColumn
      * GET /api/funcionarios/all?page=0&amp;size=10&amp;sort=nome,asc      // Usa ordenação específica
@@ -377,7 +466,7 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
      * // No Controller:
      * @PostMapping("/filter")
      * public Page<FuncionarioDTO> filter(@RequestBody FuncionarioFilterDTO filterDTO, Pageable pageable) {
-     *     return service.filter(filterDTO, pageable).map(this::toDto);
+     *     return service.filterMappedWithIncludeIds(filterDTO, pageable, null, this::toDto);
      * }
      * }</pre>
      * 
@@ -473,6 +562,20 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
     }
 
     /**
+     * Executa filtro com inclusão opcional de IDs e projeta o conteúdo dentro do contexto do service.
+     *
+     * @param filter critérios de filtro
+     * @param pageable informações de paginação
+     * @param includeIds IDs que devem aparecer no topo da primeira página
+     * @param mapper função de projeção
+     * @return página resultante projetada
+     * @param <R> tipo projetado
+     */
+    default <R> Page<R> filterMappedWithIncludeIds(FD filter, Pageable pageable, Collection<ID> includeIds, Function<E, R> mapper) {
+        return filterWithIncludeIds(filter, pageable, includeIds).map(mapper);
+    }
+
+    /**
      * Executa o filtro utilizando paginação por cursor.
      * <p>
      * Implementações devem aplicar uma ordenação estável e retornar
@@ -491,6 +594,23 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
      */
     default CursorPage<E> filterByCursor(FD filter, Sort sort, String after, String before, int size) {
         throw new UnsupportedOperationException("Cursor pagination not implemented");
+    }
+
+    /**
+     * Executa o filtro por cursor e projeta o conteúdo dentro do contexto do service.
+     *
+     * @param filter critérios de filtro
+     * @param sort ordenação aplicada
+     * @param after cursor para avançar
+     * @param before cursor para retroceder
+     * @param size tamanho da página
+     * @param mapper função de projeção
+     * @return página por cursor projetada
+     * @param <R> tipo projetado
+     */
+    default <R> CursorPage<R> filterByCursorMapped(FD filter, Sort sort, String after, String before, int size, Function<E, R> mapper) {
+        CursorPage<E> page = filterByCursor(filter, sort, after, before, size);
+        return new CursorPage<>(page.content().stream().map(mapper).toList(), page.next(), page.prev(), page.size());
     }
 
     /**
@@ -513,6 +633,11 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
     /**
      * Executa o filtro padrão e projeta cada entidade para {@link OptionDTO} usando
      * o {@link OptionMapper} configurado.
+     * <p>
+     * Em cenários com JPA e carregamento lazy, a expectativa é que a implementação
+     * concreta seja provida por {@link AbstractBaseCrudService}, para que a resolução
+     * do label ocorra dentro de transação.
+     * </p>
      *
      * @param filter   critérios de filtro
      * @param pageable informações de paginação
@@ -525,6 +650,11 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
     /**
      * Busca entidades pelos IDs fornecidos e as projeta para {@link OptionDTO},
      * preservando a ordem da coleção de entrada.
+     * <p>
+     * Em cenários com JPA e carregamento lazy, a expectativa é que a implementação
+     * concreta seja provida por {@link AbstractBaseCrudService}, para que a resolução
+     * do label ocorra dentro de transação.
+     * </p>
      *
      * @param ids identificadores a serem buscados
      * @return lista de opções na ordem solicitada

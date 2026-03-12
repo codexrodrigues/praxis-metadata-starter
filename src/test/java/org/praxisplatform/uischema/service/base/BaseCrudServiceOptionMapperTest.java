@@ -63,7 +63,7 @@ class BaseCrudServiceOptionMapperTest {
 
     static class MinimalFilter implements GenericFilterDTO {}
 
-    // ---- Minimal service stub avoiding repository usage ----
+    // ---- Minimal projection stub used only to test option label logic in isolation ----
     interface SimpleService<E> extends BaseCrudService<E, Object, Long, MinimalFilter> {
         @Override
         default Class<E> getEntityClass() { throw new UnsupportedOperationException(); }
@@ -162,7 +162,7 @@ class BaseCrudServiceOptionMapperTest {
     }
 
     @Test
-    void integrationFilterOptionsUsesDefaultMapper() {
+    void filterOptionsProjectsLabelsForNonJpaStub() {
         AnnGetterEntity e1 = new AnnGetterEntity(1L, "A");
         AnnGetterEntity e2 = new AnnGetterEntity(2L, "B");
 
@@ -184,7 +184,7 @@ class BaseCrudServiceOptionMapperTest {
     }
 
     @Test
-    void integrationByIdsOptionsPreservesOrder() {
+    void byIdsOptionsPreservesOrderForNonJpaStub() {
         HeuristicEntity e1 = new HeuristicEntity(1L).withNome("N1");
         HeuristicEntity e2 = new HeuristicEntity(2L).withNome("N2");
         HeuristicEntity e3 = new HeuristicEntity(3L).withNome("N3");

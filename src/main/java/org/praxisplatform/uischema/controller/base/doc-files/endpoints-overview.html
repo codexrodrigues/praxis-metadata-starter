@@ -22,7 +22,7 @@
   <ul>
     <li><strong>Controllers</strong>: estenda <code>AbstractCrudController</code> (CRUD completo) ou <code>AbstractReadOnlyController</code> (somente leitura).</li>
     <li><strong>Anotações</strong>: use <code>@ApiResource</code> para declarar o path e <code>@ApiGroup</code> para organização do OpenAPI.</li>
-    <li><strong>Service</strong>: forneça um <code>BaseCrudService</code> (ou subclasse de <code>AbstractBaseCrudService</code>).</li>
+    <li><strong>Service</strong>: para integrações JPA com relacionamentos <code>LAZY</code>, herde de <code>AbstractBaseCrudService</code>. Implementar apenas <code>BaseCrudService</code> deve ficar restrito a stubs, testes ou serviços sem dependência de contexto transacional.</li>
     <li><strong>HATEOAS (opt‑in)</strong>: controlado por <code>praxis.hateoas.enabled=true</code>. Itens trazem <code>self</code>, <code>create</code>, <code>update</code>, <code>delete</code> quando aplicável; respostas agregadas incluem links úteis (<code>all</code>, <code>filter</code>, <code>filter-cursor</code>, <code>schema</code>).</li>
     <li><strong>Versão de dados</strong>: algumas respostas incluem o cabeçalho <code>X-Data-Version</code> (via <code>getDatasetVersion()</code> no service) para suportar cache/ETag na UI.</li>
   </ul>

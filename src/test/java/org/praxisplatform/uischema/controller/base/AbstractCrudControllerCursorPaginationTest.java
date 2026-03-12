@@ -1,7 +1,6 @@
 package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Disabled;
 import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -23,7 +22,6 @@ import org.praxisplatform.uischema.util.CursorEncoder;
 import org.praxisplatform.uischema.service.base.BaseCrudService;
 import org.praxisplatform.uischema.dto.CursorPage;
 
-@Disabled("Pending Jackson serialization tune-up for EntityModel mapping in slice test")
 @WebMvcTest(value = AbstractCrudControllerCursorPaginationTest.CursorController.class,
         properties = "praxis.pagination.max-size=20")
 @Import(AbstractCrudControllerCursorPaginationTest.CursorController.class)
@@ -70,8 +68,9 @@ class AbstractCrudControllerCursorPaginationTest {
         );
 
         @Override
-        default CursorPage<CursorEntity> filterByCursor(SimpleFilterDTO filter, Sort sort,
-                                                        String after, String before, int size) {
+        default <R> CursorPage<R> filterByCursorMapped(SimpleFilterDTO filter, Sort sort,
+                                                       String after, String before, int size,
+                                                       java.util.function.Function<CursorEntity, R> mapper) {
             int start = 0;
             if (after != null) {
                 long id = Long.parseLong(CursorEncoder.BASE64_URL.decode(after));
@@ -84,7 +83,7 @@ class AbstractCrudControllerCursorPaginationTest {
             List<CursorEntity> slice = DATA.subList(start, end);
             String next = end < DATA.size() ? CursorEncoder.BASE64_URL.encode(DATA.get(end - 1).getId().toString()) : null;
             String prev = start > 0 ? CursorEncoder.BASE64_URL.encode(DATA.get(start - 1).getId().toString()) : null;
-            return new CursorPage<>(slice, next, prev, size);
+            return new CursorPage<>(slice.stream().map(mapper).toList(), next, prev, size);
         }
 
         private static int indexOf(long id) {

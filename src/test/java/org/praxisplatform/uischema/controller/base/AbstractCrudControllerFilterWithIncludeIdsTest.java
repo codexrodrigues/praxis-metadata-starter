@@ -36,8 +36,8 @@ class AbstractCrudControllerFilterWithIncludeIdsTest {
     @Test
     void includeIdsAppearAtTop() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), anyList()))
-                .thenReturn(new PageImpl<>(List.of(new SimpleEntity(4L), new SimpleEntity(1L), new SimpleEntity(2L), new SimpleEntity(3L)), PageRequest.of(0, 2), 4));
+        when(service.filterMappedWithIncludeIds(any(), any(Pageable.class), anyList(), any()))
+                .thenReturn(new PageImpl<>(List.of(new SimpleDto(4L), new SimpleDto(1L), new SimpleDto(2L), new SimpleDto(3L)), PageRequest.of(0, 2), 4));
 
         mockMvc.perform(post("/simple/filter")
                         .param("includeIds", "4", "1")
@@ -53,8 +53,8 @@ class AbstractCrudControllerFilterWithIncludeIdsTest {
     @Test
     void includeIdsAlreadyPresentArePrioritized() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), anyList()))
-                .thenReturn(new PageImpl<>(List.of(new SimpleEntity(4L), new SimpleEntity(1L), new SimpleEntity(5L)), PageRequest.of(0, 2), 3));
+        when(service.filterMappedWithIncludeIds(any(), any(Pageable.class), anyList(), any()))
+                .thenReturn(new PageImpl<>(List.of(new SimpleDto(4L), new SimpleDto(1L), new SimpleDto(5L)), PageRequest.of(0, 2), 3));
 
         mockMvc.perform(post("/simple/filter")
                         .param("includeIds", "4", "1")
@@ -72,8 +72,8 @@ class AbstractCrudControllerFilterWithIncludeIdsTest {
     @Test
     void includeIdsNotInjectedAfterFirstPage() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), any()))
-                .thenReturn(new PageImpl<>(List.of(new SimpleEntity(6L)), PageRequest.of(1, 2), 6));
+        when(service.filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(new SimpleDto(6L)), PageRequest.of(1, 2), 6));
 
         mockMvc.perform(post("/simple/filter")
                         .param("includeIds", "4", "1")
@@ -91,8 +91,8 @@ class AbstractCrudControllerFilterWithIncludeIdsTest {
     @Test
     void duplicateIncludeIdsAreIgnored() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.filterWithIncludeIds(any(), any(Pageable.class), anyList()))
-                .thenReturn(new PageImpl<>(List.of(new SimpleEntity(4L), new SimpleEntity(1L), new SimpleEntity(2L)), PageRequest.of(0, 2), 3));
+        when(service.filterMappedWithIncludeIds(any(), any(Pageable.class), anyList(), any()))
+                .thenReturn(new PageImpl<>(List.of(new SimpleDto(4L), new SimpleDto(1L), new SimpleDto(2L)), PageRequest.of(0, 2), 3));
 
         mockMvc.perform(post("/simple/filter")
                         .param("includeIds", "4", "4", "1")

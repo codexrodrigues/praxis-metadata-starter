@@ -47,6 +47,8 @@ class AbstractCrudControllerOptionsTest {
                 .andExpect(jsonPath("$.content[0].id").value(1))
                 .andExpect(jsonPath("$.content[0].label").value("L1"))
                 .andExpect(jsonPath("$.content[1].id").value(2));
+
+        verify(service).filterOptions(any(), any(Pageable.class));
     }
 
     @Test
@@ -62,7 +64,7 @@ class AbstractCrudControllerOptionsTest {
                 .andExpect(jsonPath("$[1].id").value(3))
                 .andExpect(jsonPath("$[2].id").value(2));
 
-        // Service internals are not verified here; focus on ordering
+        verify(service).byIdsOptions(List.of(1L, 3L, 2L));
     }
 
     @Test
@@ -73,7 +75,7 @@ class AbstractCrudControllerOptionsTest {
                 .andExpect(header().string("X-Data-Version", "1"))
                 .andExpect(content().string("[]"));
 
-        verify(service, never()).findAllById(any());
+        verify(service, never()).byIdsOptions(any());
     }
 
     @Test
@@ -93,7 +95,7 @@ class AbstractCrudControllerOptionsTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(status().reason(containsString("Limite máximo de registros por página excedido: 20")));
 
-        verify(service, never()).filter(any(), any(Pageable.class));
+        verify(service, never()).filterOptions(any(), any(Pageable.class));
     }
 
     interface SimpleService extends org.praxisplatform.uischema.service.base.BaseCrudService<SimpleEntity, SimpleDto, Long, SimpleFilterDTO> {

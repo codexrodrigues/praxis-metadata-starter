@@ -29,8 +29,8 @@ class AbstractCrudControllerGetByIdsTest {
     @Test
     void getByIdsReturnsOrderedList() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.findAllById(List.of(1L, 3L, 2L)))
-                .thenReturn(List.of(new SimpleEntity(3L), new SimpleEntity(1L), new SimpleEntity(2L)));
+        when(service.findAllByIdMapped(eq(List.of(1L, 3L, 2L)), any()))
+                .thenReturn(List.of(new SimpleDto(3L), new SimpleDto(1L), new SimpleDto(2L)));
 
         mockMvc.perform(get("/simple/by-ids").param("ids", "1", "3", "2"))
                 .andExpect(status().isOk())
@@ -39,7 +39,7 @@ class AbstractCrudControllerGetByIdsTest {
                 .andExpect(jsonPath("$[1].id").value(3))
                 .andExpect(jsonPath("$[2].id").value(2));
 
-        verify(service).findAllById(List.of(1L, 3L, 2L));
+        verify(service).findAllByIdMapped(eq(List.of(1L, 3L, 2L)), any());
     }
 
     @Test
@@ -50,7 +50,7 @@ class AbstractCrudControllerGetByIdsTest {
                 .andExpect(header().string("X-Data-Version", "1"))
                 .andExpect(content().string("[]"));
 
-        verify(service, never()).findAllById(any());
+        verify(service, never()).findAllByIdMapped(any(), any());
     }
 
     @Test
@@ -60,7 +60,7 @@ class AbstractCrudControllerGetByIdsTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(status().reason(containsString("Limite máximo de IDs excedido: 3")));
 
-        verify(service, never()).findAllById(any());
+        verify(service, never()).findAllByIdMapped(any(), any());
     }
 
     interface SimpleService extends org.praxisplatform.uischema.service.base.BaseCrudService<SimpleEntity, SimpleDto, Long, SimpleFilterDTO> {
