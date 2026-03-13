@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -71,6 +72,9 @@ public class ApiDocsController {
     // ------------------------------------------------------------------------
     @Value("${springdoc.api-docs.path:/v3/api-docs}")
     private String OPEN_API_BASE_PATH;
+
+    @Value("${app.openapi.internal-base-url:}")
+    private String openApiInternalBaseUrl;
 
     // Constantes para chaves do JSON
     private static final String PATHS = "paths";
@@ -853,10 +857,7 @@ public class ApiDocsController {
      */
     private JsonNode getDocumentForGroup(String groupName) {
         return documentCache.computeIfAbsent(groupName, group -> {
-            String baseUrl = ServletUriComponentsBuilder
-                .fromCurrentContextPath()
-                .build()
-                .toUriString();
+            String baseUrl = resolveOpenApiBaseUrl();
             
             // 🎯 TENTATIVA 1: Buscar documento específico do grupo
             String groupUrl = baseUrl + OPEN_API_BASE_PATH + "/" + group;
@@ -892,6 +893,16 @@ public class ApiDocsController {
                 throw new IllegalStateException("Não foi possível obter documento OpenAPI para grupo: " + group, fallbackError);
             }
         });
+    }
+
+    private String resolveOpenApiBaseUrl() {
+        if (StringUtils.hasText(openApiInternalBaseUrl)) {
+            return openApiInternalBaseUrl.replaceAll("/+$", "");
+        }
+        return ServletUriComponentsBuilder
+            .fromCurrentContextPath()
+            .build()
+            .toUriString();
     }
     
     /**

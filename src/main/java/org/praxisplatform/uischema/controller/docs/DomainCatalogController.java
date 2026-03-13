@@ -44,6 +44,9 @@ public class DomainCatalogController {
     @Value("${springdoc.api-docs.path:/v3/api-docs}")
     private String openApiBasePath;
 
+    @Value("${app.openapi.internal-base-url:}")
+    private String openApiInternalBaseUrl;
+
     @Value("${praxis.catalog.exclude-paths:/api/praxis/config/ui}")
     private String excludedPathsRaw;
 
@@ -167,10 +170,7 @@ public class DomainCatalogController {
     }
 
     private JsonNode fetchOpenApiDocument(String group) {
-        String base = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path(openApiBasePath)
-                .build()
-                .toUriString();
+        String base = resolveOpenApiBaseUrl() + openApiBasePath;
 
         // Constrói URL de grupo se informado; caso contrário usa a raiz (/v3/api-docs)
         String url = StringUtils.hasText(group)
@@ -194,6 +194,15 @@ public class DomainCatalogController {
             throw new IllegalStateException("OpenAPI document is null for group " + group + " and fallback " + base);
         }
         return fallback;
+    }
+
+    private String resolveOpenApiBaseUrl() {
+        if (StringUtils.hasText(openApiInternalBaseUrl)) {
+            return openApiInternalBaseUrl.replaceAll("/+$", "");
+        }
+        return ServletUriComponentsBuilder.fromCurrentContextPath()
+                .build()
+                .toUriString();
     }
 
     private List<String> toStringList(JsonNode node) {
