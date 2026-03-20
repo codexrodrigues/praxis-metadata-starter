@@ -161,8 +161,8 @@ public class GlobalExceptionHandler {
         // Validação de payload de filtro deve usar InvalidFilterPayloadException.
         if (isSchemaRequest(request)) {
             String reason = normalize(ex.getMessage());
-            String detailMessage = reason != null ? reason : "Parâmetro inválido.";
-            return buildValidationErrorResponse(detailMessage, "Parâmetro inválido", request, ERROR_CODE_INVALID_PARAMETER);
+            String detailMessage = reason != null ? reason : "Invalid parameter.";
+            return buildValidationErrorResponse(detailMessage, "Invalid parameter", request, ERROR_CODE_INVALID_PARAMETER);
         }
 
         log.error("[GlobalExceptionHandler] IllegalArgumentException fora do fluxo de validação explícita", ex);
@@ -175,8 +175,8 @@ public class GlobalExceptionHandler {
             WebRequest request
     ) {
         String reason = normalize(ex.getMessage());
-        String detailMessage = reason != null ? reason : "Parâmetro inválido.";
-        return buildValidationErrorResponse(detailMessage, "Parâmetro inválido", request, ERROR_CODE_FILTER_PAYLOAD_INVALID);
+        String detailMessage = reason != null ? reason : "Invalid parameter.";
+        return buildValidationErrorResponse(detailMessage, "Invalid parameter", request, ERROR_CODE_FILTER_PAYLOAD_INVALID);
     }
 
     @ExceptionHandler(InvalidDataAccessApiUsageException.class)
@@ -187,8 +187,8 @@ public class GlobalExceptionHandler {
         Throwable root = rootCause(ex);
         if (root instanceof InvalidFilterPayloadException invalidFilterPayloadException) {
             String reason = normalize(invalidFilterPayloadException.getMessage());
-            String detailMessage = reason != null ? reason : "Payload de filtro inválido.";
-            return buildValidationErrorResponse(detailMessage, "Payload inválido", request, ERROR_CODE_FILTER_PAYLOAD_INVALID);
+            String detailMessage = reason != null ? reason : "Invalid filter payload.";
+            return buildValidationErrorResponse(detailMessage, "Invalid payload", request, ERROR_CODE_FILTER_PAYLOAD_INVALID);
         }
 
         log.error("[GlobalExceptionHandler] InvalidDataAccessApiUsageException", ex);
@@ -230,14 +230,14 @@ public class GlobalExceptionHandler {
 
         String detailMessage = filterPayloadViolation && rootMessage != null
                 ? rootMessage
-                : "Payload JSON inválido ou incompatível com o contrato do filtro.";
+                : "Invalid JSON payload or payload incompatible with the filter contract.";
         String errorCode = filterPayloadViolation
                 ? ERROR_CODE_FILTER_PAYLOAD_INVALID
                 : ERROR_CODE_REQUEST_PAYLOAD_INVALID;
 
         CustomProblemDetail customProblemDetail = new CustomProblemDetail(detailMessage);
         customProblemDetail.setStatus(HttpStatus.BAD_REQUEST);
-        customProblemDetail.setTitle("Payload inválido");
+        customProblemDetail.setTitle("Invalid payload");
         customProblemDetail.setType(URI.create(RESPONSE_STATUS_VALIDATION_TYPE));
         customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.VALIDATION);
@@ -258,10 +258,10 @@ public class GlobalExceptionHandler {
             MissingRequestHeaderException ex,
             WebRequest request
     ) {
-        String detailMessage = "Header obrigatório ausente: " + ex.getHeaderName() + ".";
+        String detailMessage = "Required header is missing: " + ex.getHeaderName() + ".";
         return buildValidationErrorResponse(
                 detailMessage,
-                "Header obrigatório ausente",
+                "Missing required header",
                 request,
                 "MISSING_REQUEST_HEADER"
         );
@@ -272,10 +272,10 @@ public class GlobalExceptionHandler {
             MissingServletRequestParameterException ex,
             WebRequest request
     ) {
-        String detailMessage = "Parâmetro obrigatório ausente: " + ex.getParameterName() + ".";
+        String detailMessage = "Required parameter is missing: " + ex.getParameterName() + ".";
         return buildValidationErrorResponse(
                 detailMessage,
-                "Parâmetro obrigatório ausente",
+                "Missing required parameter",
                 request,
                 "MISSING_REQUEST_PARAMETER"
         );
@@ -295,11 +295,11 @@ public class GlobalExceptionHandler {
             WebRequest request,
             String errorCode
     ) {
-        String errorMessage = "Erro interno. Por favor, tente novamente ou entre em contato com o suporte.";
+        String errorMessage = "Internal server error. Please try again or contact support.";
 
         CustomProblemDetail customProblemDetail = new CustomProblemDetail(errorMessage);
         customProblemDetail.setStatus(HttpStatus.INTERNAL_SERVER_ERROR);
-        customProblemDetail.setTitle("Erro interno no servidor");
+        customProblemDetail.setTitle("Internal server error");
         customProblemDetail.setType(URI.create(RESPONSE_STATUS_INTERNAL_TYPE));
         customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.SYSTEM);
@@ -308,7 +308,7 @@ public class GlobalExceptionHandler {
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
                 .status(RestApiResponseStatus.FAILURE)
-                .message("Erro interno ao processar a requisição")
+                .message("Internal server error while processing the request.")
                 .errors(List.of(customProblemDetail))
                 .build();
 
@@ -318,11 +318,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NoHandlerFoundException.class)
     public ResponseEntity<RestApiResponse<Object>> handleNoHandlerFoundException(NoHandlerFoundException ex, WebRequest request) {
-        String errorMessage = String.format("O endpoint '%s' não existe ou não foi encontrado.", ex.getRequestURL());
+        String errorMessage = String.format("Endpoint '%s' does not exist or was not found.", ex.getRequestURL());
 
         CustomProblemDetail customProblemDetail = new CustomProblemDetail(errorMessage);
         customProblemDetail.setStatus(HttpStatus.NOT_FOUND);
-        customProblemDetail.setTitle("Endpoint não encontrado");
+        customProblemDetail.setTitle("Endpoint not found");
         customProblemDetail.setType(URI.create("https://example.com/probs/resource-not-found"));
         customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.SYSTEM);
@@ -331,7 +331,7 @@ public class GlobalExceptionHandler {
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
                 .status(RestApiResponseStatus.FAILURE)
-                .message("Endpoint não encontrado")
+                .message("Endpoint not found")
                 .errors(List.of(customProblemDetail))
                 .build();
 
@@ -340,13 +340,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<RestApiResponse<Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex, WebRequest request) {
-        String expectedType = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "desconhecido";
-        String errorMessage = String.format("O valor '%s' não é válido para o parâmetro '%s'. Esperado tipo: %s.",
+        String expectedType = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
+        String errorMessage = String.format("Value '%s' is invalid for parameter '%s'. Expected type: %s.",
                 ex.getValue(), ex.getName(), expectedType);
 
         CustomProblemDetail customProblemDetail = new CustomProblemDetail(errorMessage);
         customProblemDetail.setStatus(HttpStatus.BAD_REQUEST);
-        customProblemDetail.setTitle("Parâmetro inválido");
+        customProblemDetail.setTitle("Invalid parameter");
         customProblemDetail.setType(URI.create("https://example.com/probs/invalid-parameter"));
         customProblemDetail.setInstance(instanceUri(request));
         customProblemDetail.setCategory(ErrorCategory.VALIDATION);
@@ -355,7 +355,7 @@ public class GlobalExceptionHandler {
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
                 .status(RestApiResponseStatus.FAILURE)
-                .message("Erro de parâmetro inválido")
+                .message("Invalid parameter.")
                 .errors(List.of(customProblemDetail))
                 .build();
 
@@ -378,39 +378,39 @@ public class GlobalExceptionHandler {
 
     private String defaultResponseMessage(HttpStatus status) {
         if (status == null) {
-            return "Falha ao processar a requisição.";
+            return "Failed to process the request.";
         }
         return switch (status) {
-            case BAD_REQUEST -> "Erro de validação";
-            case UNAUTHORIZED -> "Autenticação necessária";
-            case FORBIDDEN -> "Acesso negado";
-            case NOT_FOUND -> "Recurso não encontrado";
-            case CONFLICT -> "Conflito na requisição";
-            case GONE -> "Recurso expirado";
-            case UNPROCESSABLE_ENTITY -> "Entidade inválida";
-            case TOO_MANY_REQUESTS -> "Limite de requisições excedido";
-            case SERVICE_UNAVAILABLE -> "Serviço temporariamente indisponível";
+            case BAD_REQUEST -> "Validation error.";
+            case UNAUTHORIZED -> "Authentication required.";
+            case FORBIDDEN -> "Access denied.";
+            case NOT_FOUND -> "Resource not found.";
+            case CONFLICT -> "Request conflict.";
+            case GONE -> "Resource is no longer available.";
+            case UNPROCESSABLE_ENTITY -> "Invalid entity.";
+            case TOO_MANY_REQUESTS -> "Too many requests.";
+            case SERVICE_UNAVAILABLE -> "Service temporarily unavailable.";
             default -> status.is5xxServerError()
-                    ? "Erro interno ao processar a requisição"
-                    : "Falha ao processar a requisição.";
+                    ? "Internal server error while processing the request."
+                    : "Failed to process the request.";
         };
     }
 
     private String defaultProblemTitle(HttpStatus status) {
         if (status == null) {
-            return "Erro na requisição";
+            return "Request error";
         }
         return switch (status) {
-            case BAD_REQUEST -> "Requisição inválida";
-            case UNAUTHORIZED -> "Não autenticado";
-            case FORBIDDEN -> "Acesso negado";
-            case NOT_FOUND -> "Recurso não encontrado";
-            case CONFLICT -> "Conflito";
-            case GONE -> "Recurso expirado";
-            case UNPROCESSABLE_ENTITY -> "Entidade inválida";
-            case TOO_MANY_REQUESTS -> "Muitas requisições";
-            case SERVICE_UNAVAILABLE -> "Serviço indisponível";
-            default -> status.is5xxServerError() ? "Erro interno no servidor" : "Erro na requisição";
+            case BAD_REQUEST -> "Invalid request";
+            case UNAUTHORIZED -> "Unauthenticated";
+            case FORBIDDEN -> "Access denied";
+            case NOT_FOUND -> "Resource not found";
+            case CONFLICT -> "Conflict";
+            case GONE -> "Resource is no longer available";
+            case UNPROCESSABLE_ENTITY -> "Invalid entity";
+            case TOO_MANY_REQUESTS -> "Too many requests";
+            case SERVICE_UNAVAILABLE -> "Service unavailable";
+            default -> status.is5xxServerError() ? "Internal server error" : "Request error";
         };
     }
 

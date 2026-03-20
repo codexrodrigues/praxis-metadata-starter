@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodPayloadNormalizer;
 import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.MethodParameter;
@@ -21,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.List;
 
 /**
  * Normaliza payloads de filtros de range antes da desserialização de DTOs.
@@ -29,7 +31,7 @@ import java.lang.reflect.Type;
 public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
 
     private final ObjectMapper objectMapper;
-    private final RangePayloadNormalizer rangePayloadNormalizer;
+    private final List<FilterPayloadNormalizer> payloadNormalizers;
 
     @Autowired
     public FilterRequestBodyAdvice(ObjectMapper objectMapper) {
@@ -38,13 +40,23 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
 
     public FilterRequestBodyAdvice(
             ObjectMapper objectMapper,
+            List<FilterPayloadNormalizer> payloadNormalizers
+    ) {
+        this.objectMapper = objectMapper;
+        this.payloadNormalizers = List.copyOf(payloadNormalizers);
+    }
+
+    public FilterRequestBodyAdvice(
+            ObjectMapper objectMapper,
             boolean allowScalarRangePayload,
             boolean logLegacyScalarRangePayload
     ) {
-        this.objectMapper = objectMapper;
-        this.rangePayloadNormalizer = new RangePayloadNormalizer(
-                allowScalarRangePayload,
-                logLegacyScalarRangePayload
+        this(
+                objectMapper,
+                List.of(
+                new RangePayloadNormalizer(allowScalarRangePayload, logLegacyScalarRangePayload),
+                new RelativePeriodPayloadNormalizer()
+                )
         );
     }
 
@@ -78,14 +90,17 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
         try {
             JsonNode tree = objectMapper.readTree(body);
             if (tree instanceof ObjectNode objectNode) {
-                boolean changed = rangePayloadNormalizer.normalizeInPlace(objectNode, targetClass);
+                boolean changed = false;
+                for (FilterPayloadNormalizer normalizer : payloadNormalizers) {
+                    changed = normalizer.normalizeInPlace(objectNode, targetClass) || changed;
+                }
                 if (changed) {
                     body = objectMapper.writeValueAsBytes(objectNode);
                 }
             }
             return new ByteArrayHttpInputMessage(body, inputMessage.getHeaders());
         } catch (IOException e) {
-            String msg = "Falha ao processar payload JSON de filtro.";
+            String msg = "Failed to process filter JSON payload.";
             throw new HttpMessageNotReadableException(msg, e, inputMessage);
         }
     }

@@ -4,12 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
 import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
+import org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodPayloadNormalizer;
+import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
+import org.praxisplatform.uischema.filter.web.FilterPayloadNormalizer;
 import org.praxisplatform.uischema.filter.web.FilterRequestBodyAdvice;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestTemplate;
 import org.springdoc.core.models.GroupedOpenApi;
@@ -315,17 +319,29 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    public FilterRequestBodyAdvice filterRequestBodyAdvice(
-            ObjectMapper mapper,
+    @ConditionalOnMissingBean(name = "rangePayloadNormalizer")
+    @Order(0)
+    public FilterPayloadNormalizer rangePayloadNormalizer(
             @Value("${praxis.filter.range.allow-scalar-payload:false}") boolean allowScalarRangePayload,
             @Value("${praxis.filter.range.log-legacy-scalar-payload:true}") boolean logLegacyScalarRangePayload
     ) {
-        return new FilterRequestBodyAdvice(
-                mapper,
-                allowScalarRangePayload,
-                logLegacyScalarRangePayload
-        );
+        return new RangePayloadNormalizer(allowScalarRangePayload, logLegacyScalarRangePayload);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "relativePeriodPayloadNormalizer")
+    @Order(100)
+    public FilterPayloadNormalizer relativePeriodPayloadNormalizer() {
+        return new RelativePeriodPayloadNormalizer();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public FilterRequestBodyAdvice filterRequestBodyAdvice(
+            ObjectMapper mapper,
+            List<FilterPayloadNormalizer> payloadNormalizers
+    ) {
+        return new FilterRequestBodyAdvice(mapper, payloadNormalizers);
     }
 
     /**

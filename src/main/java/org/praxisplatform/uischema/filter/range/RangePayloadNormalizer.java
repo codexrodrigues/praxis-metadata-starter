@@ -10,6 +10,7 @@ import org.praxisplatform.uischema.NumericFormat;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.filter.web.FilterPayloadNormalizer;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 
 import java.lang.reflect.Field;
@@ -39,7 +40,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Canonicaliza payloads de range para o formato de lista usado pelos FilterDTOs
  * tipados no backend.
  */
-public class RangePayloadNormalizer {
+public class RangePayloadNormalizer implements FilterPayloadNormalizer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RangePayloadNormalizer.class);
     private static final Set<Filterable.FilterOperation> RANGE_OPERATIONS = EnumSet.of(
@@ -49,7 +50,7 @@ public class RangePayloadNormalizer {
             Filterable.FilterOperation.OUTSIDE_RANGE
     );
     private static final String SCALAR_PAYLOAD_ERROR =
-            "Range payload escalar é inválido. Use [min], [null,max], [min,max] ou objeto canônico.";
+            "Scalar range payload is invalid. Use [min], [null,max], [min,max], or a canonical object.";
     private static final long LEGACY_LOG_SAMPLE_LIMIT = 5L;
 
     private static final List<String> LOWER_DATE_KEYS = RangeBoundAliasRegistry.lowerDateKeys();
@@ -622,8 +623,8 @@ public class RangePayloadNormalizer {
         }
         if (kindCount <= LEGACY_LOG_SAMPLE_LIMIT || kindCount % 100 == 0) {
             LOGGER.warn(
-                    "[RangePayloadNormalizer] Payload range escalar legado normalizado (kind={}, kindCount={}, total={}, nodeType={}). " +
-                            "Recomendado migrar para array/objeto canônico. Para fallback legado, mantenha " +
+                    "[RangePayloadNormalizer] Legacy scalar range payload normalized (kind={}, kindCount={}, total={}, nodeType={}). " +
+                            "Migration to array/canonical object is recommended. To keep legacy fallback, leave " +
                             "praxis.filter.range.allow-scalar-payload=true.",
                     kind, kindCount, total, raw != null ? raw.getNodeType() : null
             );

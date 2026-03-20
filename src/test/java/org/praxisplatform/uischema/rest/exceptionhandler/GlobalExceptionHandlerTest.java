@@ -65,7 +65,7 @@ class GlobalExceptionHandlerTest {
         RestApiResponse<Object> body = response.getBody();
         assertNotNull(body);
         assertEquals("failure", body.getStatus());
-        assertEquals("Erro interno ao processar a requisição", body.getMessage());
+        assertEquals("Internal server error while processing the request.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
         assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getProperties().get("code"));
@@ -104,7 +104,7 @@ class GlobalExceptionHandlerTest {
         RestApiResponse<Object> body = response.getBody();
         assertNotNull(body);
         assertEquals("failure", body.getStatus());
-        assertEquals("Erro interno ao processar a requisição", body.getMessage());
+        assertEquals("Internal server error while processing the request.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
         assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getProperties().get("code"));
@@ -142,7 +142,7 @@ class GlobalExceptionHandlerTest {
         RestApiResponse<Object> body = response.getBody();
         assertNotNull(body);
         assertEquals("failure", body.getStatus());
-        assertEquals("Payload JSON inválido ou incompatível com o contrato do filtro.", body.getMessage());
+        assertEquals("Invalid JSON payload or payload incompatible with the filter contract.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
         assertEquals("REQUEST_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
@@ -161,7 +161,7 @@ class GlobalExceptionHandlerTest {
         RestApiResponse<Object> body = response.getBody();
         assertNotNull(body);
         assertEquals("failure", body.getStatus());
-        assertEquals("Header obrigatório ausente: X-Tenant-ID.", body.getMessage());
+        assertEquals("Required header is missing: X-Tenant-ID.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
         assertEquals("MISSING_REQUEST_HEADER", body.getErrors().get(0).getProperties().get("code"));
@@ -181,7 +181,7 @@ class GlobalExceptionHandlerTest {
         RestApiResponse<Object> body = response.getBody();
         assertNotNull(body);
         assertEquals("failure", body.getStatus());
-        assertEquals("Parâmetro obrigatório ausente: componentId.", body.getMessage());
+        assertEquals("Required parameter is missing: componentId.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
         assertEquals("MISSING_REQUEST_PARAMETER", body.getErrors().get(0).getProperties().get("code"));
@@ -228,7 +228,7 @@ class GlobalExceptionHandlerTest {
         RestApiResponse<Object> body = response.getBody();
         assertNotNull(body);
         assertEquals("failure", body.getStatus());
-        assertEquals("Payload JSON inválido ou incompatível com o contrato do filtro.", body.getMessage());
+        assertEquals("Invalid JSON payload or payload incompatible with the filter contract.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
         assertEquals("REQUEST_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
@@ -265,7 +265,7 @@ class GlobalExceptionHandlerTest {
         RestApiResponse<Object> body = response.getBody();
         assertNotNull(body);
         assertEquals("failure", body.getStatus());
-        assertEquals("Erro interno ao processar a requisição", body.getMessage());
+        assertEquals("Internal server error while processing the request.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
         assertEquals("DATA_ACCESS_ERROR", body.getErrors().get(0).getProperties().get("code"));
