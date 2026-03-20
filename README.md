@@ -393,6 +393,7 @@ Mais detalhes: veja docs/concepts/CONTROLTYPE-HEURISTICA.md.
 - A heurística automática continua retornando controles base (`select`, `multiSelect`, `date`, `rangeSlider`); a família `INLINE_*` deve ser declarada explicitamente quando o contrato exigir a variante compacta.
 - O contrato canônico do starter foi reduzido aos `controlType` com paridade dinâmica suportada no Angular; a família `INLINE_*` continua sendo o caminho principal para experiências compactas embutidas.
 - Para seleção remota, o starter publica `endpoint`, `displayField`, `valueField` e `filter` no `x-ui`; a UI Praxis normaliza isso para `resourcePath`, `optionLabelKey`, `optionValueKey` e `filterCriteria` antes do runtime Angular.
+- Para `FieldControlType.INLINE_RELATIVE_PERIOD`, a semântica temporal é normalizada no starter antes da desserialização do DTO. O timezone de referência padrão é `UTC` e pode ser sobrescrito com `praxis.filter.relative-period.zone-id`.
 
 #### Controles promovidos por paridade dinâmica Angular
 

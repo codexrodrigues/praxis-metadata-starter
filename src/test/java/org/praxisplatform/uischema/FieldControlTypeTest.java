@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class FieldControlTypeTest {
 
@@ -24,6 +25,16 @@ class FieldControlTypeTest {
             assertEquals(type, FieldControlType.fromValue(type.getValue().toUpperCase()));
             assertEquals(type, FieldControlType.fromValue(type.getValue().toLowerCase()));
         }
+    }
+
+    @Test
+    void fromValueUsesEnglishErrorMessageForUnknownValue() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> FieldControlType.fromValue("unknown-control")
+        );
+
+        assertEquals("Unknown control type: unknown-control", exception.getMessage());
     }
 }
 

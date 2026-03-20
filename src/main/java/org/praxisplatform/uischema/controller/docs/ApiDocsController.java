@@ -144,7 +144,7 @@ public class ApiDocsController {
             java.util.Locale locale) {
 
         if (!"response".equalsIgnoreCase(schemaType) && !"request".equalsIgnoreCase(schemaType)) {
-            throw new IllegalArgumentException("schemaType deve ser 'response' ou 'request'");
+            throw new IllegalArgumentException("Parameter 'schemaType' must be 'response' or 'request'.");
         }
 
         // 1. Resolver grupo automaticamente baseado no path
@@ -155,7 +155,7 @@ public class ApiDocsController {
         JsonNode rootNode = getDocumentForGroup(groupName);
         
         if (rootNode == null) {
-            throw new IllegalStateException("Não foi possível obter documento OpenAPI para o grupo: " + groupName);
+            throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + groupName);
         }
 
         // Decodifica o path para tratar caracteres especiais especiais (por exemplo, '%2F')
@@ -165,7 +165,7 @@ public class ApiDocsController {
         JsonNode pathsNode = rootNode.path(PATHS).path(decodedPath).path(operation);
 
         if (pathsNode.isMissingNode()) {
-            throw new IllegalArgumentException("O caminho ou operação especificado não foi encontrado na documentação.");
+            throw new IllegalArgumentException("The specified path or operation was not found in the documentation.");
         }
 
         LOGGER.info("Path and operation node retrieved successfully");
@@ -196,7 +196,7 @@ public class ApiDocsController {
         }
 
         if ((schemaName == null || schemaName.isEmpty()) && (directSchemaNode == null)) {
-            throw new IllegalArgumentException("O schema solicitado não foi encontrado ou não está definido para o caminho e operação especificados.");
+            throw new IllegalArgumentException("The requested schema was not found or is not defined for the specified path and operation.");
         }
 
         LOGGER.info("Schema found: {}", schemaName != null ? schemaName : "<inline>");
@@ -211,7 +211,7 @@ public class ApiDocsController {
         } else {
             schemasNode = allSchemas.path(schemaName);
             if (schemasNode.isMissingNode()) {
-                throw new IllegalArgumentException("O esquema de componentes especificado não foi encontrado na documentação.");
+                throw new IllegalArgumentException("The specified component schema was not found in the documentation.");
             }
         }
 
@@ -885,12 +885,12 @@ public class ApiDocsController {
                         group, sizeKB);
                     return fallbackDoc;
                 } else {
-                    throw new IllegalStateException("Documento OpenAPI não encontrado na URL: " + fallbackUrl);
+                    throw new IllegalStateException("OpenAPI document not found at URL: " + fallbackUrl);
                 }
             } catch (Exception fallbackError) {
                 LOGGER.error("💥 Falha crítica ao buscar documento fallback para grupo '{}': {}", 
                     group, fallbackError.getMessage());
-                throw new IllegalStateException("Não foi possível obter documento OpenAPI para grupo: " + group, fallbackError);
+                throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + group, fallbackError);
             }
         });
     }

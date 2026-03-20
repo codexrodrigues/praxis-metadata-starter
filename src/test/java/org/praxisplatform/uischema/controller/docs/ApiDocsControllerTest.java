@@ -178,7 +178,11 @@ class ApiDocsControllerTest {
         req3.setServerName("localhost");
         req3.setServerPort(80);
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req3));
-        assertThrows(IllegalArgumentException.class,
-                () -> controller.getFilteredSchema("/users", "post", false, "unknown", null, null, java.util.Locale.ENGLISH));
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> controller.getFilteredSchema("/users", "post", false, "unknown", null, null, java.util.Locale.ENGLISH)
+        );
+
+        assertEquals("Parameter 'schemaType' must be 'response' or 'request'.", exception.getMessage());
     }
 }

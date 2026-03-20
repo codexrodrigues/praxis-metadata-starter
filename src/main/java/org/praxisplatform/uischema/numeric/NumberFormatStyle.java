@@ -70,6 +70,6 @@ public enum NumberFormatStyle {
                 return style;
             }
         }
-        throw new IllegalArgumentException("Estilo de formato numérico desconhecido: " + value);
+        throw new IllegalArgumentException("Unknown numeric format style: " + value);
     }
 }

@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.springframework.hateoas.Link;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -18,6 +19,9 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -48,6 +52,35 @@ class AbstractCrudControllerLinksTest {
 
         mockMvc.perform(post("/simple/filter").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void linkToUiSchemaUsesEnglishValidationMessages() {
+        SimpleController controller = new SimpleController();
+
+        IllegalArgumentException methodPathException = assertThrows(
+                IllegalArgumentException.class,
+                () -> controller.exposeLinkToUiSchema(null, "get", "response")
+        );
+        assertEquals("Parameter 'methodPath' must not be null or blank.", methodPathException.getMessage());
+
+        IllegalArgumentException operationException = assertThrows(
+                IllegalArgumentException.class,
+                () -> controller.exposeLinkToUiSchema("/all", "  ", "response")
+        );
+        assertEquals("Parameter 'operation' must not be null or blank.", operationException.getMessage());
+    }
+
+    @Test
+    void linkToUiSchemaBuildsExpectedSchemaLink() {
+        SimpleController controller = new SimpleController();
+
+        Link link = controller.exposeLinkToUiSchema("/filter", "post", "request");
+
+        assertTrue(link.getHref().endsWith(
+                "/schemas/filtered?path=/simple/filter&operation=post&schemaType=request&idField=id&readOnly=false"
+        ));
+        assertEquals("schema", link.getRel().value());
     }
 
     // --- Support classes for the test ---
@@ -89,5 +122,9 @@ class AbstractCrudControllerLinksTest {
         protected Long getDtoId(SimpleDto dto) { return dto.getId(); }
         @Override
         protected String getBasePath() { return "/simple"; }
+
+        Link exposeLinkToUiSchema(String methodPath, String operation, String schemaType) {
+            return linkToUiSchema(methodPath, operation, schemaType);
+        }
     }
 }

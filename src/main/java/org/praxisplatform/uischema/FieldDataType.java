@@ -77,6 +77,6 @@ public enum FieldDataType {
                 return type;
             }
         }
-        throw new IllegalArgumentException("Tipo de dado desconhecido: " + value);
+        throw new IllegalArgumentException("Unknown data type: " + value);
     }
 }

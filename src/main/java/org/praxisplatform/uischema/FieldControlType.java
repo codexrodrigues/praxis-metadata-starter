@@ -166,6 +166,6 @@ public enum FieldControlType {
                 return type;
             }
         }
-        throw new IllegalArgumentException("Tipo de controle desconhecido: " + value);
+        throw new IllegalArgumentException("Unknown control type: " + value);
     }
 }
