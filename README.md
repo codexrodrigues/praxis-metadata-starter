@@ -92,6 +92,42 @@ praxis.catalog.exclude-paths=/api/praxis/config/ui,/api/internal/health
 Observação:
 - Por padrão, o catálogo já exclui `/api/praxis/config/ui`.
 
+#### Base interna para leitura do OpenAPI
+
+Os endpoints internos do starter que consultam o SpringDoc, como `GET /schemas/filtered` e `GET /schemas/catalog`, resolvem a base do OpenAPI nesta ordem:
+
+1. `app.openapi.internal-base-url`, quando configurada
+2. contexto HTTP atual via `ServletUriComponentsBuilder`
+
+Isso é importante em produção quando a aplicação roda atrás de proxy, load balancer ou em plataformas onde a URL pública não coincide com a URL interna acessível pelo processo Java.
+
+Exemplo:
+
+```properties
+app.openapi.internal-base-url=http://localhost:4003
+```
+
+Via variável de ambiente:
+
+```bash
+APP_OPENAPI_INTERNAL_BASE_URL=http://localhost:4003
+```
+
+Quando usar:
+- Render, Docker, Kubernetes e ambientes com reverse proxy.
+- Casos em que os logs mostram tentativa de acesso a uma URL inferida incorreta para `/v3/api-docs`.
+- Situações em que o backend precisa consultar o próprio OpenAPI por uma origem interna estável.
+
+Observações:
+- O valor deve apontar para a origem que realmente serve `springdoc.api-docs.path`.
+- Barras finais são removidas automaticamente.
+- Se a propriedade não for informada, o comportamento padrão anterior é mantido.
+
+Troubleshooting rápido:
+- Sintoma: erro ao buscar `https://localhost:4003/v3/api-docs` ou outra origem incorreta.
+- Ação: configure `APP_OPENAPI_INTERNAL_BASE_URL` com a origem interna correta do serviço.
+- Validação: confirme que `GET {base}/v3/api-docs` responde dentro do ambiente da aplicação.
+
 ## Por que times amam (parece mágica, é engenharia)
 
 - Entrega acelerada: telas nascem do contrato. Você foca no domínio; nós resolvemos o resto.
@@ -308,7 +344,7 @@ graph TD
 | string       | uri/url           | `url-input`                | `url`                  |
 | string       | binary/byte       | `file-upload`              | `file`                 |
 | string       | phone             | `phone`                    | `text`                 |
-| string       | color             | `color-picker`             | `text`                 |
+| string       | color             | `color`                    | `text`                 |
 | string       | (maxLength > 300) | `textarea`                 | `text`                 |
 | number       | currency          | `currency-input`           | `number`               |
 | number       | percent           | `numeric-text-box`         | `number`               |
@@ -330,11 +366,54 @@ graph TD
 
 Mais detalhes: veja docs/concepts/CONTROLTYPE-HEURISTICA.md.
 
+#### Controles `INLINE_*` como contrato principal
+
+- Controles compactos e embutidos na superfície principal devem ser modelados diretamente em `controlType`.
+- Para variantes base com UX dedicada fora da superfície inline, o starter também expõe `FieldControlType.SEARCHABLE_SELECT` e `FieldControlType.ASYNC_SELECT`.
+- Exemplos:
+  - `FieldControlType.SEARCHABLE_SELECT`
+  - `FieldControlType.ASYNC_SELECT`
+  - `FieldControlType.INLINE_SELECT`
+  - `FieldControlType.INLINE_SEARCHABLE_SELECT`
+  - `FieldControlType.INLINE_MULTISELECT`
+  - `FieldControlType.INLINE_DATE`
+  - `FieldControlType.INLINE_RANGE`
+  - `FieldControlType.INLINE_RATING`
+  - `FieldControlType.INLINE_DISTANCE_RADIUS`
+  - `FieldControlType.INLINE_PIPELINE_STATUS`
+  - `FieldControlType.INLINE_SCORE_PRIORITY`
+  - `FieldControlType.INLINE_RELATIVE_PERIOD`
+  - `FieldControlType.INLINE_SENTIMENT`
+  - `FieldControlType.INLINE_COLOR_LABEL`
+- Isso evita acoplamento conceitual com “filtros” e permite reuso futuro em outras superfícies.
+- Regra prática:
+  - use `SEARCHABLE_SELECT` quando a UX exigir busca embutida no dropdown;
+  - use `ASYNC_SELECT` quando a fonte for remota/sob demanda;
+  - use `INLINE_*` quando o contrato pedir a variante compacta embutida na superfície principal.
+- A heurística automática continua retornando controles base (`select`, `multiSelect`, `date`, `rangeSlider`); a família `INLINE_*` deve ser declarada explicitamente quando o contrato exigir a variante compacta.
+- O contrato canônico do starter foi reduzido aos `controlType` com paridade dinâmica suportada no Angular; a família `INLINE_*` continua sendo o caminho principal para experiências compactas embutidas.
+- Para seleção remota, o starter publica `endpoint`, `displayField`, `valueField` e `filter` no `x-ui`; a UI Praxis normaliza isso para `resourcePath`, `optionLabelKey`, `optionValueKey` e `filterCriteria` antes do runtime Angular.
+
+#### Controles promovidos por paridade dinâmica Angular
+
+- `FieldControlType.COLOR_INPUT`
+  - Publica explicitamente o controle simples `color` quando o contrato quer um valor de cor direto, sem a UX rica de paleta/picker.
+  - Útil para metadados como `brandColor`, `statusColor`, `accentColor`.
+  - A heurística automática agora também usa `COLOR_INPUT` para `format=color` e nomes contendo `cor/color`.
+- `FieldControlType.BUTTON_TOGGLE`
+  - Publica o controle `buttonToggle` para escolha segmentada curta e sempre visível.
+  - Útil para estados curtos como `list|grid`, `light|dark`, `sim|não`.
+- `FieldControlType.SELECTION_LIST`
+  - Publica o controle `selectionList` para listas explícitas de opção visível, geralmente com múltipla seleção.
+  - Útil para permissões, canais, grupos, papéis e catálogos médios quando dropdown não é a UX desejada.
+  - Observação: no Angular atual o componente já é utilizável, mas ainda não cobre completamente toda a superfície declarada de metadata, especialmente `searchable` e `selectAll`.
+- Esses três controles existem no registry dinâmico Angular e, por isso, fazem parte do contrato canônico publicado pelo starter.
+
 #### Enums, Booleanos, Arrays e Percent
 
 - Enums (string): pequeno (≤5) → `radio`; médio (6–25) → `select`; grande (>25) → `autoComplete`.
 - Booleanos: padrão `checkbox` (ou `toggle`); enum textual binária ("Sim/Não") → `radio`.
-- Arrays de enums: pequeno → `chipInput`; médios/grandes → `multiSelect` e `filterControlType = multiColumnComboBox` para filtros.
+- Arrays de enums: pequeno → `chipInput`; médios/grandes → `multiSelect`.
 - Percent (`format=percent`): aplica `numericStep=0.01`, `placeholder="0–100%"`, `numericMin=0`, `numericMax=100` (apenas se ausentes).
 
 ## Options (OptionDTO)
@@ -610,9 +689,9 @@ private String textField;
 
 | Propriedade       | Tipo   | Padrão | Descrição                                             |
 |-------------------|--------|--------|---------------------------------------------------------|
-| `valueField`      | String | `""`   | O nome do campo de valor para as opções.                |
-| `displayField`    | String | `""`   | O nome do campo de exibição para as opções.             |
-| `endpoint`        | String | `""`   | O endpoint para buscar as opções.                       |
+| `valueField`      | String | `""`   | O nome do campo de valor para as opções. No Angular vira `optionValueKey`. |
+| `displayField`    | String | `""`   | O nome do campo de exibição para as opções. No Angular vira `optionLabelKey`. |
+| `endpoint`        | String | `""`   | O endpoint para buscar as opções. No Angular vira `resourcePath`. |
 | `emptyOptionText` | String | `""`   | O texto para a opção vazia.                             |
 | `options`         | String | `""`   | Uma string JSON de opções.                              |
 
@@ -627,6 +706,37 @@ private String textField;
 )
 private String status;
 ```
+
+Exemplos adicionais para controles promovidos por paridade Angular:
+
+```java
+@UISchema(
+    label = "Modo de visualização",
+    controlType = FieldControlType.BUTTON_TOGGLE,
+    options = "[{\"label\":\"Lista\",\"value\":\"LIST\"},{\"label\":\"Grade\",\"value\":\"GRID\"}]"
+)
+private String viewMode;
+
+@UISchema(
+    label = "Canais",
+    controlType = FieldControlType.SELECTION_LIST,
+    endpoint = "/api/notification/channels/options/filter",
+    valueField = "id",
+    displayField = "label",
+    multiple = true
+)
+private List<Long> channelIds;
+
+@UISchema(
+    label = "Cor da marca",
+    controlType = FieldControlType.COLOR_INPUT
+)
+private String brandColor;
+```
+
+Para filtros e selects remotos, prefira publicar `endpoint` apontando para `/{resource}/options/filter` com `valueField="id"` e `displayField="label"`. O contrato anotado no Java continua com esses nomes; a UI Praxis faz a normalização para o contrato canônico de runtime.
+
+Para cores, `FieldControlType.COLOR_INPUT` passou a ser a escolha padrão para `format=color` e nomes como `brandColor`. Use `FieldControlType.COLOR_PICKER` apenas quando o contrato realmente pedir uma UX rica com paleta/presets.
 
 ##### Propriedades de Entrada Numérica
 
@@ -696,13 +806,15 @@ private String description;
 ```java
 @UISchema(
     label = "Cor Favorita",
-    controlType = FieldControlType.COLOR_PICKER,
+    controlType = FieldControlType.COLOR_INPUT,
     extraProperties = {
         @ExtensionProperty(name = "x-color-theme", value = "corporate")
     }
 )
 private String favoriteColor;
 ```
+
+Quando a UX exigir presets, paleta expandida ou picker rico, prefira `FieldControlType.COLOR_PICKER`. Quando a necessidade for apenas um valor de cor direto, prefira `FieldControlType.COLOR_INPUT`.
 
 ### A Anotação `@Filterable`
 
