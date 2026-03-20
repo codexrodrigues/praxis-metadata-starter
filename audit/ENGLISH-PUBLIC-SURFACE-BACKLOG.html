@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>English Public Surface Backlog</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">English Public Surface Backlog</h1>
+</header>
+<h1 id="english-public-surface-backlog">English Public Surface
+Backlog</h1>
+<p>Objective: close the public surface of
+<code>praxis-metadata-starter</code> in English, starting with runtime
+HTTP contracts and moving later to documentation and internal
+comments.</p>
+<h2 id="scope">Scope</h2>
+<p>Public surface for this backlog means:</p>
+<ul>
+<li>HTTP response <code>message</code>, <code>title</code>,
+<code>detail</code>, <code>reason</code></li>
+<li>exception messages that can escape through public APIs or shared
+helpers</li>
+<li>public contract constants and enum/parser messages</li>
+<li>canonical starter documentation consumed across teams</li>
+</ul>
+<p>Out of scope for the first wave:</p>
+<ul>
+<li>internal comments</li>
+<li>test-only strings</li>
+<li>purely local developer notes</li>
+</ul>
+<h2 id="definition-of-done">Definition Of Done</h2>
+<p>The starter is considered English-complete for public surface
+when:</p>
+<ol type="1">
+<li>runtime HTTP messages and error titles are in English</li>
+<li><code>ResponseStatusException</code> reasons exposed by base
+controllers are in English</li>
+<li>public enum/parser/helper exceptions are in English</li>
+<li>canonical docs linked from starter entry points are in English, or
+explicitly marked as legacy/internal</li>
+<li>automated checks prevent regressions in <code>src/main/java</code>
+and public <code>docs/</code></li>
+</ol>
+<h2 id="priority-plan">Priority Plan</h2>
+<h3 id="p0-runtime-http-contract">P0: Runtime HTTP contract</h3>
+<p>These items should be fixed first because they cross service
+boundaries immediately.</p>
+<ul>
+<li><code>GlobalExceptionHandler</code>
+<ul>
+<li>replace Portuguese top-level
+<code>RestApiResponse.message(...)</code> values with English</li>
+<li>review remaining top-level response summaries for consistency across
+validation, business, not-found, request and server errors</li>
+<li>file:
+<code>src/main/java/org/praxisplatform/uischema/rest/exceptionhandler/GlobalExceptionHandler.java</code></li>
+<li>current hotspots:
+<ul>
+<li><code>Erro de validação</code></li>
+<li><code>Erro de regra de negócio</code></li>
+<li><code>Recurso não encontrado</code></li>
+</ul></li>
+</ul></li>
+<li><code>RestApiResponse</code>
+<ul>
+<li>replace default success message with English</li>
+<li>file:
+<code>src/main/java/org/praxisplatform/uischema/rest/response/RestApiResponse.java</code></li>
+<li>current hotspot:
+<ul>
+<li><code>Requisição realizada com sucesso</code></li>
+</ul></li>
+</ul></li>
+<li><code>AbstractReadOnlyController</code>
+<ul>
+<li>replace <code>ResponseStatusException</code> reasons with
+English</li>
+<li>file:
+<code>src/main/java/org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.java</code></li>
+<li>current hotspot:
+<ul>
+<li><code>recurso somente leitura</code></li>
+</ul></li>
+</ul></li>
+<li><code>AbstractCrudController</code>
+<ul>
+<li>replace <code>ResponseStatusException</code> reasons returned by
+cursor/locate/pagination guards with English</li>
+<li>file:
+<code>src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java</code></li>
+<li>current hotspots:
+<ul>
+<li><code>Limite máximo de registros por página excedido: ...</code></li>
+<li><code>não implementado</code></li>
+</ul></li>
+</ul></li>
+</ul>
+<h3 id="p1-public-helper-and-parser-exceptions">P1: Public helper and
+parser exceptions</h3>
+<p>These items are not always rendered as HTTP responses, but they are
+part of shared library behavior and leak into integrations and
+tests.</p>
+<ul>
+<li>enum/parser helpers
+<ul>
+<li>file:
+<code>src/main/java/org/praxisplatform/uischema/FieldDataType.java</code></li>
+<li>file:
+<code>src/main/java/org/praxisplatform/uischema/FieldControlType.java</code></li>
+<li>file:
+<code>src/main/java/org/praxisplatform/uischema/numeric/NumberFormatStyle.java</code></li>
+<li>current hotspots:
+<ul>
+<li><code>Tipo de dado desconhecido: ...</code></li>
+<li><code>Tipo de controle desconhecido: ...</code></li>
+<li><code>Estilo de formato numérico desconhecido: ...</code></li>
+</ul></li>
+</ul></li>
+<li><code>AbstractCrudController</code> helper exceptions
+<ul>
+<li>file:
+<code>src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java</code></li>
+<li>current hotspots:
+<ul>
+<li><code>O parâmetro 'methodPath' não pode ser nulo ou vazio.</code></li>
+<li><code>O parâmetro 'operation' não pode ser nulo ou vazio.</code></li>
+<li><code>Não foi possível construir o link para a documentação filtrada.</code></li>
+</ul></li>
+</ul></li>
+<li><code>ApiDocsController</code>
+<ul>
+<li>file:
+<code>src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java</code></li>
+<li>current hotspots:
+<ul>
+<li><code>schemaType deve ser 'response' ou 'request'</code></li>
+<li><code>Não foi possível obter documento OpenAPI para o grupo: ...</code></li>
+<li><code>O caminho ou operação especificado não foi encontrado na documentação.</code></li>
+<li><code>O schema solicitado não foi encontrado...</code></li>
+<li><code>O esquema de componentes especificado não foi encontrado...</code></li>
+<li><code>Documento OpenAPI não encontrado na URL: ...</code></li>
+</ul></li>
+</ul></li>
+</ul>
+<h3 id="p2-canonical-docs">P2: Canonical docs</h3>
+<p>These items should be translated after runtime and helper layers are
+stable.</p>
+<ul>
+<li>starter entry-point docs
+<ul>
+<li><code>docs/README.md</code></li>
+<li><code>docs/packages-overview.md</code></li>
+<li><code>docs/overview/VISAO-GERAL.md</code></li>
+</ul></li>
+<li>canonical usage guides
+<ul>
+<li><code>docs/guides/FILTROS-E-PAGINACAO.md</code></li>
+<li><code>docs/guides/READ-ONLY-VIEWS.md</code></li>
+<li><code>docs/technical/VALIDACAO-API-RESOURCE.md</code></li>
+</ul></li>
+</ul>
+<p>Recommendation:</p>
+<ul>
+<li>keep legacy Portuguese docs temporarily only if they are clearly
+marked as legacy/internal</li>
+<li>prefer one canonical English version instead of maintaining
+bilingual drift</li>
+</ul>
+<h3 id="p3-internal-comments-javadocs-and-tests">P3: Internal comments,
+Javadocs and tests</h3>
+<p>These items improve consistency but should not block closure of the
+public contract.</p>
+<ul>
+<li>package-info files</li>
+<li>internal Javadocs</li>
+<li>test descriptions and assertions</li>
+<li>dummy/sample fixtures</li>
+</ul>
+<h2 id="recommended-execution-order">Recommended Execution Order</h2>
+<ol type="1">
+<li>close <code>GlobalExceptionHandler</code> and
+<code>RestApiResponse</code></li>
+<li>close base controller <code>ResponseStatusException</code>
+reasons</li>
+<li>close public helper/parser exceptions</li>
+<li>add or update contract tests for English runtime messages</li>
+<li>translate canonical docs</li>
+<li>add CI guardrails</li>
+</ol>
+<h2 id="contract-test-backlog">Contract Test Backlog</h2>
+<p>Add focused tests for:</p>
+<ul>
+<li><code>GlobalExceptionHandlerTest</code>
+<ul>
+<li>assert English top-level messages for validation, business and
+not-found flows</li>
+</ul></li>
+<li>base controller tests
+<ul>
+<li>assert English <code>reason</code> for read-only and not-implemented
+flows</li>
+</ul></li>
+<li>parser/helper tests
+<ul>
+<li>assert English exceptions in enum <code>fromValue(...)</code>
+helpers</li>
+</ul></li>
+</ul>
+<h2 id="ci-guardrails">CI Guardrails</h2>
+<p>Recommended guardrails:</p>
+<ul>
+<li>a small regression check over <code>src/main/java</code> and public
+<code>docs/</code></li>
+<li>fail on Portuguese strings in public surface, with a short allowlist
+for accepted legacy cases</li>
+<li>keep internal comments/tests out of the first guardrail to avoid
+noisy adoption</li>
+</ul>
+<h2 id="notes">Notes</h2>
+<ul>
+<li><code>inlineRelativePeriod</code> is no longer the blocker in this
+area; the remaining work is mostly legacy public surface outside that
+capability</li>
+<li>do not solve this with local app translations; the correct platform
+fix is to normalize the starter public surface itself</li>
+</ul>
+</body>
+</html>
