@@ -208,8 +208,56 @@ tamanho (maxLength) e nome do campo.</p>
 <h3 id="arrays-de-enums">Arrays de enums</h3>
 <ul>
 <li>Itens enum pequenos (≤5) → <code>chipInput</code></li>
-<li>Itens médios/grandes → <code>multiSelect</code> e dica de filtro
-<code>filterControlType = multiColumnComboBox</code></li>
+<li>Itens médios/grandes → <code>multiSelect</code></li>
+</ul>
+<h3 id="família-inline_">Família <code>INLINE_*</code></h3>
+<ul>
+<li>A heurística automática não promove variantes <code>INLINE_*</code>
+por conta própria.</li>
+<li>Quando a superfície canônica exigir um controle compacto, declare
+explicitamente
+<code>@UISchema(controlType = FieldControlType.INLINE_...)</code>.</li>
+<li>As variantes base <code>SEARCHABLE_SELECT</code> e
+<code>ASYNC_SELECT</code> também devem ser declaradas explicitamente
+quando o backend precisar publicar esses componentes dedicados para o
+Angular.</li>
+<li><code>BUTTON_TOGGLE</code> e <code>SELECTION_LIST</code> devem ser
+declarados explicitamente; a heurística automática não deve inferi-los
+por convenção implícita.</li>
+<li>Quando esses controles consumirem catálogos remotos, o backend
+continua publicando <code>endpoint</code>, <code>displayField</code> e
+<code>valueField</code>; a UI Praxis normaliza esses campos para
+<code>resourcePath</code>, <code>optionLabelKey</code> e
+<code>optionValueKey</code>.</li>
+<li>Exemplos frequentes:
+<ul>
+<li><code>SEARCHABLE_SELECT</code></li>
+<li><code>ASYNC_SELECT</code></li>
+<li><code>BUTTON_TOGGLE</code></li>
+<li><code>SELECTION_LIST</code></li>
+<li><code>COLOR_INPUT</code></li>
+<li><code>INLINE_SELECT</code></li>
+<li><code>INLINE_SEARCHABLE_SELECT</code></li>
+<li><code>INLINE_MULTISELECT</code></li>
+<li><code>INLINE_DATE</code></li>
+<li><code>INLINE_DATE_RANGE</code></li>
+<li><code>INLINE_RATING</code></li>
+<li><code>INLINE_RELATIVE_PERIOD</code></li>
+</ul></li>
+<li>O contrato canônico do starter publica apenas
+<code>controlType</code> com paridade dinâmica no Angular; novas
+superfícies compactas devem usar o vocabulário
+<code>INLINE_*</code>.</li>
+<li><code>COLOR_INPUT</code> deve ser usado para captura direta de uma
+cor única; a heurística automática do starter também o infere para
+<code>format=color</code> e nomes contendo <code>cor/color</code>.</li>
+<li><code>COLOR_PICKER</code> permanece a opção rica quando o contrato
+exigir paleta, presets ou picker expandido, e deve ser declarado
+explicitamente nesses casos.</li>
+<li><code>SELECTION_LIST</code> já existe no runtime Angular, mas ainda
+tem maturidade parcial de superfície; use-o quando a lista visível for
+realmente a UX desejada e não depender de cobertura completa de
+<code>searchable</code>/<code>selectAll</code>.</li>
 </ul>
 <h3 id="percentnuméricos">Percent/Numéricos</h3>
 <ul>
@@ -248,8 +296,7 @@ sobrescritos pela heurística de nome.</p>
 <li><code>habilitado</code> boolean (sem enum) →
 <code>checkbox</code></li>
 <li><code>roles</code> como <code>array&lt;string enum[...]&gt;</code>
-com 50 valores → <code>multiSelect</code> e
-<code>filterControlType = multiColumnComboBox</code></li>
+com 50 valores → <code>multiSelect</code></li>
 </ul>
 <h2 id="referências">Referências</h2>
 <ul>

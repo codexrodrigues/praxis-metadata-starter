@@ -275,6 +275,13 @@ em ambientes corporativos.</td>
 (<code>/filter</code> e <code>/options/filter</code>). Evita requisições
 muito grandes que possam degradar o sistema.</td>
 </tr>
+<tr class="odd">
+<td><code>app.openapi.internal-base-url</code></td>
+<td>vazio</td>
+<td>Origem interna explícita para consultas server-side ao SpringDoc
+(<code>/v3/api-docs</code>). Útil quando a URL pública difere da URL
+acessível pelo processo da aplicação.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="duas-auto-configurações-complementares">🏗️ Duas
@@ -414,6 +421,15 @@ frontends</li>
 <li><strong>Uso</strong>: <code>/schemas/filtered</code> com resolução
 automática de grupos</li>
 </ul>
+<h3 id="domaincatalogcontroller">📚 DomainCatalogController</h3>
+<ul>
+<li><strong>Função</strong>: Exposição de um catálogo compacto para RAG
+e exploração de domínio</li>
+<li><strong>Características</strong>: Lê o OpenAPI por grupo e resume
+paths, métodos, parâmetros e schemas</li>
+<li><strong>Uso</strong>: <code>/schemas/catalog</code> com suporte à
+mesma resolução de base interna do ApiDocsController</li>
+</ul>
 <h2 id="fluxo-de-inicialização">🔄 Fluxo de Inicialização</h2>
 <pre class="mermaid"><code>graph TD
     A[Spring Boot Startup] --&gt; B[Detecta @AutoConfiguration]
@@ -495,37 +511,61 @@ configurações customizadas</li>
 <li>Permite sobrescrita com <code>@Primary</code> se necessário</li>
 </ul>
 <h2 id="customização-avançada">⚙️ Customização Avançada</h2>
-<h3 id="sobrescrever-objectmapper">Sobrescrever ObjectMapper</h3>
-<div class="sourceCode" id="cb5"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Configuration</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> MyCustomConfig <span class="op">{</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Bean</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Primary</span> <span class="co">// substitui o bean padrão</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> ObjectMapper <span class="fu">myObjectMapper</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        ObjectMapper mapper <span class="op">=</span> <span class="kw">new</span> <span class="fu">ObjectMapper</span><span class="op">();</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        mapper<span class="op">.</span><span class="fu">registerModule</span><span class="op">(</span><span class="kw">new</span> <span class="fu">JavaTimeModule</span><span class="op">());</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        mapper<span class="op">.</span><span class="fu">configure</span><span class="op">(</span>DeserializationFeature<span class="op">.</span><span class="fu">FAIL_ON_UNKNOWN_PROPERTIES</span><span class="op">,</span> <span class="kw">false</span><span class="op">);</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// suas customizações específicas...</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">;</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="sobrescrever-resttemplate">Sobrescrever RestTemplate</h3>
+<h3 id="definir-a-base-interna-do-openapi">Definir a base interna do
+OpenAPI</h3>
+<p>Por padrão, os controllers internos de documentação tentam inferir a
+base atual da aplicação com <code>ServletUriComponentsBuilder</code>.
+Isso funciona bem quando a origem externa e a origem interna são
+equivalentes, mas pode falhar em topologias com proxy reverso.</p>
+<p>Para eliminar ambiguidade, defina:</p>
+<pre class="properties"><code>app.openapi.internal-base-url=http://localhost:4003</code></pre>
+<p>Ou via ambiente:</p>
 <div class="sourceCode" id="cb6"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Bean</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Primary</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> RestTemplate <span class="fu">myRestTemplate</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    RestTemplate template <span class="op">=</span> <span class="kw">new</span> <span class="fu">RestTemplate</span><span class="op">();</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Configurar timeouts:</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    HttpComponentsClientHttpRequestFactory factory <span class="op">=</span> </span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">HttpComponentsClientHttpRequestFactory</span><span class="op">();</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    factory<span class="op">.</span><span class="fu">setConnectTimeout</span><span class="op">(</span><span class="dv">5000</span><span class="op">);</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    factory<span class="op">.</span><span class="fu">setReadTimeout</span><span class="op">(</span><span class="dv">10000</span><span class="op">);</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    template<span class="op">.</span><span class="fu">setRequestFactory</span><span class="op">(</span>factory<span class="op">);</span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> template<span class="op">;</span></span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="va">APP_OPENAPI_INTERNAL_BASE_URL</span><span class="op">=</span>http://localhost:4003</span></code></pre></div>
+<p>Fluxo de resolução: 1. Se <code>app.openapi.internal-base-url</code>
+estiver preenchida, ela é usada como base. 2. Caso contrário, a base é
+inferida do contexto HTTP atual. 3. Em seguida, o starter concatena
+<code>springdoc.api-docs.path</code> e, quando aplicável, o nome do
+grupo OpenAPI.</p>
+<p>Quando configurar explicitamente: - Render ou outras plataformas
+PaaS. - Docker Compose com porta pública diferente da porta interna. -
+Kubernetes com ingress/gateway. - Ambientes onde
+<code>X-Forwarded-Host</code> e a origem interna não representam o mesmo
+endpoint acessível pelo backend.</p>
+<p>Exemplo final de URL construída:</p>
+<pre class="text"><code>http://localhost:4003/v3/api-docs
+http://localhost:4003/v3/api-docs/api-human-resources-funcionarios</code></pre>
+<h3 id="sobrescrever-objectmapper">Sobrescrever ObjectMapper</h3>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Configuration</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> MyCustomConfig <span class="op">{</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Bean</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Primary</span> <span class="co">// substitui o bean padrão</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> ObjectMapper <span class="fu">myObjectMapper</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        ObjectMapper mapper <span class="op">=</span> <span class="kw">new</span> <span class="fu">ObjectMapper</span><span class="op">();</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        mapper<span class="op">.</span><span class="fu">registerModule</span><span class="op">(</span><span class="kw">new</span> <span class="fu">JavaTimeModule</span><span class="op">());</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        mapper<span class="op">.</span><span class="fu">configure</span><span class="op">(</span>DeserializationFeature<span class="op">.</span><span class="fu">FAIL_ON_UNKNOWN_PROPERTIES</span><span class="op">,</span> <span class="kw">false</span><span class="op">);</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// suas customizações específicas...</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">;</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="sobrescrever-resttemplate">Sobrescrever RestTemplate</h3>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Bean</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Primary</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> RestTemplate <span class="fu">myRestTemplate</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    RestTemplate template <span class="op">=</span> <span class="kw">new</span> <span class="fu">RestTemplate</span><span class="op">();</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Configurar timeouts:</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    HttpComponentsClientHttpRequestFactory factory <span class="op">=</span> </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">HttpComponentsClientHttpRequestFactory</span><span class="op">();</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    factory<span class="op">.</span><span class="fu">setConnectTimeout</span><span class="op">(</span><span class="dv">5000</span><span class="op">);</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    factory<span class="op">.</span><span class="fu">setReadTimeout</span><span class="op">(</span><span class="dv">10000</span><span class="op">);</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    template<span class="op">.</span><span class="fu">setRequestFactory</span><span class="op">(</span>factory<span class="op">);</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> template<span class="op">;</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h2 id="integração-com-spring-boot">🔗 Integração com Spring Boot</h2>
 <h3
 id="meta-infspringorg.springframework.boot.autoconfigure.autoconfiguration.imports">META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</h3>
@@ -561,23 +601,39 @@ demanda</li>
 </ul>
 <h2 id="troubleshooting">❓ Troubleshooting</h2>
 <h3 id="bean-não-está-sendo-injetado">Bean não está sendo injetado</h3>
-<div class="sourceCode" id="cb8"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Verificar se a auto-configuração está sendo detectada:</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ex">--debug</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Buscar logs:</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="ex">[INFO]</span> OpenApiUiSchemaAutoConfiguration matched:</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>   <span class="ex">-</span> @ConditionalOnMissingBean <span class="er">(</span><span class="ex">types:</span> org.springframework.web.client.RestTemplate<span class="kw">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Verificar se a auto-configuração está sendo detectada:</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="ex">--debug</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Buscar logs:</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="ex">[INFO]</span> OpenApiUiSchemaAutoConfiguration matched:</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>   <span class="ex">-</span> @ConditionalOnMissingBean <span class="er">(</span><span class="ex">types:</span> org.springframework.web.client.RestTemplate<span class="kw">)</span></span></code></pre></div>
 <h3 id="conflito-de-beans">Conflito de beans</h3>
-<div class="sourceCode" id="cb9"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Se houver conflito, usar @Qualifier:</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Autowired</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="at">@Qualifier</span><span class="op">(</span><span class="st">&quot;openApiUiSchemaRestTemplate&quot;</span><span class="op">)</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> RestTemplate restTemplate<span class="op">;</span></span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Se houver conflito, usar @Qualifier:</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Autowired</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="at">@Qualifier</span><span class="op">(</span><span class="st">&quot;openApiUiSchemaRestTemplate&quot;</span><span class="op">)</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> RestTemplate restTemplate<span class="op">;</span></span></code></pre></div>
 <h3 id="debug-de-grupos-criados">Debug de grupos criados</h3>
-<div class="sourceCode" id="cb10"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">// No DynamicSwaggerConfig, os logs mostrarão:</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="op">[</span>INFO<span class="op">]</span> Bean GroupedOpenApi registrado<span class="op">:</span> bean<span class="op">=</span>funcionarios_ApiGroup<span class="op">,</span> group<span class="op">=</span>funcionarios<span class="op">,</span> paths<span class="op">=/</span>api<span class="op">/</span>funcionarios<span class="co">/**</span></span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">// No DynamicSwaggerConfig, os logs mostrarão:</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="op">[</span>INFO<span class="op">]</span> Bean GroupedOpenApi registrado<span class="op">:</span> bean<span class="op">=</span>funcionarios_ApiGroup<span class="op">,</span> group<span class="op">=</span>funcionarios<span class="op">,</span> paths<span class="op">=/</span>api<span class="op">/</span>funcionarios<span class="co">/**</span></span></code></pre></div>
+<h3 id="falha-ao-buscar-v3api-docs">Falha ao buscar
+<code>/v3/api-docs</code></h3>
+<p>Sintomas comuns: - erro ao montar URL como
+<code>https://localhost:4003/v3/api-docs</code> - falhas intermitentes
+apenas em produção - <code>/schemas/filtered</code> ou
+<code>/schemas/catalog</code> funcionando localmente, mas quebrando
+atrás de proxy</p>
+<p>Causa típica: - a aplicação inferiu a base a partir da requisição
+externa, mas o processo Java precisa acessar outra origem
+internamente</p>
+<p>Correção: - configure <code>app.openapi.internal-base-url</code> para
+a origem interna real do serviço - mantenha
+<code>springdoc.api-docs.path</code> coerente com a rota publicada pelo
+SpringDoc</p>
+<p>Verificação: - a partir do ambiente da app, confirme que a URL final
+responde com o documento OpenAPI esperado</p>
 <h2 id="complementaridade-das-auto-configurações">🤝 Complementaridade
 das Auto-Configurações</h2>
 <h3
@@ -620,15 +676,15 @@ crítico)</li>
 componentes detectados</li>
 </ul>
 <h3 id="como-trabalham-juntas">Como Trabalham Juntas</h3>
-<div class="sourceCode" id="cb11"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. PraxisMetadataAutoConfiguration detecta via @ComponentScan:</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Configuration</span>  <span class="co">// ← Detectado pelo component scan</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> DynamicSwaggerConfig <span class="op">{</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. OpenApiUiSchemaAutoConfiguration fornece via DI:</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Autowired</span> </span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> OpenApiGroupResolver resolver<span class="op">;</span> <span class="co">// ← Injetado automaticamente</span></span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. PraxisMetadataAutoConfiguration detecta via @ComponentScan:</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Configuration</span>  <span class="co">// ← Detectado pelo component scan</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> DynamicSwaggerConfig <span class="op">{</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. OpenApiUiSchemaAutoConfiguration fornece via DI:</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Autowired</span> </span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> OpenApiGroupResolver resolver<span class="op">;</span> <span class="co">// ← Injetado automaticamente</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h3 id="resultado-final">Resultado Final</h3>
 <ul>
 <li><strong>Zero configuração manual</strong>: Desarrollador só adiciona

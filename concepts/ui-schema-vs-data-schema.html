@@ -270,6 +270,12 @@ Schema).</li>
 filtrado por operação (request/response).</li>
 <li>No front, alimente Tabela/Form com o resultado normalizado do
 schema; sobrescreva apenas o necessário via config.</li>
+<li>Para selects e filtros remotos, lembre que o backend publica
+<code>endpoint</code>, <code>displayField</code>,
+<code>valueField</code> e <code>filter</code>, enquanto o Angular
+normaliza isso para <code>resourcePath</code>,
+<code>optionLabelKey</code>, <code>optionValueKey</code> e
+<code>filterCriteria</code>.</li>
 </ol>
 <h2 id="exemplos-mínimos">Exemplos mínimos</h2>
 <ul>

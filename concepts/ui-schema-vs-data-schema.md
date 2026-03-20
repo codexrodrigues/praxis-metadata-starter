@@ -14,6 +14,7 @@ O Data Schema representa a estrutura e as regras de dados (OpenAPI). O UI Schema
 1) Modele DTOs com Bean Validation (Data Schema) e aplique `@UISchema` para enriquecer com `x-ui` (UI Schema).
 2) Use `/schemas/filtered` para obter o Data+UI Schema filtrado por operação (request/response).
 3) No front, alimente Tabela/Form com o resultado normalizado do schema; sobrescreva apenas o necessário via config.
+4) Para selects e filtros remotos, lembre que o backend publica `endpoint`, `displayField`, `valueField` e `filter`, enquanto o Angular normaliza isso para `resourcePath`, `optionLabelKey`, `optionValueKey` e `filterCriteria`.
 
 ## Exemplos mínimos
 - DTO anotado:
@@ -53,4 +54,3 @@ private String observacoes;
 - [Self‑describing APIs](./self-describing-apis.md)
 - [Schema‑driven UI](./schema-driven-ui.md)
 - [Declarative UI](./declarative-ui.md)
-

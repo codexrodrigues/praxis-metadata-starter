@@ -32,12 +32,33 @@ public class EmployeeFilterDTO implements GenericFilterDTO {
     @Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "department.id")
     @UISchema(
         label = "Departamento",
-        controlType = FieldControlType.AUTO_COMPLETE,
-        endpoint = "/api/human-resources/departamentos/options",
+        controlType = FieldControlType.SEARCHABLE_SELECT,
+        endpoint = "/api/human-resources/departamentos/options/filter",
+        valueField = "id",
         displayField = "label",
         order = 20
     )
     private Long departmentId;
+
+    @Filterable(operation = Filterable.FilterOperation.IN, relation = "communicationChannels.id")
+    @UISchema(
+        label = "Canais",
+        controlType = FieldControlType.SELECTION_LIST,
+        endpoint = "/api/human-resources/communication-channels/options/filter",
+        valueField = "id",
+        displayField = "label",
+        multiple = true,
+        order = 25
+    )
+    private java.util.List<Long> channelIds;
+
+    @UISchema(
+        label = "Visualização",
+        controlType = FieldControlType.BUTTON_TOGGLE,
+        options = "[{\"label\":\"Ativos\",\"value\":\"ACTIVE\"},{\"label\":\"Todos\",\"value\":\"ALL\"}]",
+        order = 27
+    )
+    private String viewMode;
 
     @Filterable(operation = Filterable.FilterOperation.GREATER_OR_EQUAL, relation = "admissionDate")
     @UISchema(
@@ -57,6 +78,13 @@ public class EmployeeFilterDTO implements GenericFilterDTO {
     )
     private BigDecimal salaryMin;
 
+    @UISchema(
+        label = "Cor da etiqueta",
+        controlType = FieldControlType.COLOR_INPUT,
+        order = 45
+    )
+    private String tagColor;
+
     // getters e setters omitidos
 }
 ```
@@ -69,11 +97,27 @@ Quando o `CustomOpenApiResolver` processa esse DTO:
 * as validações (por exemplo, `@NotNull`) seriam convertidas automaticamente em `x-ui.validation`;
 * o endpoint `/schemas/filtered?path=/api/human-resources/funcionarios/all` retornará apenas os campos relevantes.
 
+No Angular, o normalizador converte esse contrato para a forma canônica de runtime:
+
+* `endpoint` -> `resourcePath`
+* `displayField` -> `optionLabelKey`
+* `valueField` -> `optionValueKey`
+* `filter` -> `filterCriteria`
+
+Ou seja: no backend Java o contrato anotado continua sendo `endpoint`/`displayField`/`valueField`, mas a UI Praxis passa a operar internamente com `resourcePath` e chaves `option*Key`.
+
+Observações de maturidade do cenário atual:
+
+* `SELECTION_LIST` já tem runtime Angular utilizável, mas ainda não cobre totalmente toda a superfície declarada de metadata; para filtros enterprise que dependam fortemente de `searchable` ou `selectAll`, prefira validar o comportamento final antes de padronizar esse controle em larga escala.
+* `COLOR_INPUT` é a escolha padrão para cor simples: a heurística automática do starter já o infere para `format=color` e nomes contendo `cor/color`. Reserve `COLOR_PICKER` para contratos que precisem de paleta/presets ou picker rico.
+
 ## Boas práticas
 
 * Ordene os campos (`order`) para que o frontend mantenha a consistência visual.
-* Use `endpoint` para combos dinâmicos e exponha o endpoint correspondente via `AbstractCrudController`.
+* Use `endpoint` para publicar combos dinâmicos no `x-ui`, preferencialmente apontando para `/{resource}/options/filter`; no Angular esse campo será normalizado para `resourcePath`.
+* Declare `valueField` e `displayField` explicitamente para catálogos remotos; a UI Praxis os normaliza para `optionValueKey` e `optionLabelKey`.
 * Combine `Filterable.FilterOperation` com regras de domínio quando precisar de comportamentos além dos operadores padrão.
+* Quando o filtro precisar ocupar a superfície principal de forma compacta, prefira declarar `controlType` com a família canônica `INLINE_*` em vez de depender de convenções implícitas de filtro.
 
 ## Padrão recomendado para faixa monetária (enterprise)
 

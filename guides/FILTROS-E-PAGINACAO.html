@@ -353,8 +353,7 @@ por joins de forma legível.</li>
 filtros com enums grandes</h3>
 <ul>
 <li><code>array</code> de <code>enum</code> com muitas opções: o
-resolver sugere
-<code>filterControlType = multiColumnComboBox</code>.</li>
+resolver publica <code>multiSelect</code> como contrato principal.</li>
 <li>Enums pequenos (≤5) tendem a usar
 <code>radio</code>/<code>chipInput</code>; médios <code>select</code>;
 grandes <code>autoComplete</code>/<code>multiSelect</code>.</li>
@@ -370,6 +369,14 @@ enum” e a UI renderiza multi‑select automaticamente.</li>
 <li>Use <code>endpoint</code> (<code>/options/filter</code>) apenas para
 catálogos dinâmicos/relacionais (<code>id/label</code>), não para
 <code>enum</code> estático.</li>
+<li>No Angular, <code>endpoint</code> é normalizado para
+<code>resourcePath</code>, e
+<code>displayField</code>/<code>valueField</code> são normalizados para
+<code>optionLabelKey</code>/<code>optionValueKey</code>.</li>
+<li>Para catálogos remotos enterprise, prefira publicar
+<code>endpoint=/{resource}/options/filter</code>,
+<code>valueField="id"</code> e <code>displayField="label"</code> de
+forma explícita.</li>
 </ul>
 </details>
 <a id="operacoes-suportadas"></a>
@@ -554,10 +561,9 @@ Para <code>SIZE_*</code>, aplique apenas em atributos de coleção
 - Requisito de coleção em <code>SIZE_*</code>: defina
 <code>relation</code> para apontar explicitamente para o atributo de
 coleção na entidade. Se o caminho não for coleção, o builder lança erro
-informativo. - Dica de UI
-<code>filterControlType = multiColumnComboBox</code> para enums grandes
-é uma sugestão de componente; alinhe o valor com o catálogo do
-frontend.</p>
+informativo. - Para novos componentes compactos de superfície, prefira
+<code>controlType</code> canônico com a família
+<code>INLINE_*</code>.</p>
 <h3 id="notas-de-timezone">Notas de Timezone</h3>
 <ul>
 <li><code>ON_DATE</code>, <code>IN_LAST_DAYS</code> e
