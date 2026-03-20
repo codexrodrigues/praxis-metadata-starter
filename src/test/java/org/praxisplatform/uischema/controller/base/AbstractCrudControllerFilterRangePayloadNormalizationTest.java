@@ -240,7 +240,7 @@ class AbstractCrudControllerFilterRangePayloadNormalizationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value("failure"))
                 .andExpect(jsonPath("$.message").value(
-                        "Range payload escalar é inválido. Use [min], [null,max], [min,max] ou objeto canônico."));
+                        "Scalar range payload is invalid. Use [min], [null,max], [min,max], or a canonical object."));
 
         verify(service, never()).filterMappedWithIncludeIds(any(), any(Pageable.class), any(), any());
     }
