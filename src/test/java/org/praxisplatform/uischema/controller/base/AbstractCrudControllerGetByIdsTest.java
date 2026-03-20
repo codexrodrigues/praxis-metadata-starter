@@ -58,7 +58,7 @@ class AbstractCrudControllerGetByIdsTest {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
         mockMvc.perform(get("/simple/by-ids").param("ids", "1", "2", "3", "4"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason(containsString("Limite máximo de IDs excedido: 3")));
+                .andExpect(status().reason(containsString("Maximum number of IDs exceeded: 3")));
 
         verify(service, never()).findAllByIdMapped(any(), any());
     }

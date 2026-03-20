@@ -114,7 +114,7 @@ class AbstractCrudControllerFilterWithIncludeIdsTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason(containsString("Limite máximo de registros por página excedido: 20")));
+                .andExpect(status().reason(containsString("Maximum page size exceeded: 20")));
 
         verify(service, never()).filter(any(), any(Pageable.class));
     }

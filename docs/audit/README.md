@@ -6,6 +6,7 @@ Estrutura:
 
 - docs/audit/README.md (este índice)
 - docs/audit/CHECKLIST-GERAL.md (visão consolidada)
+- docs/audit/ENGLISH-PUBLIC-SURFACE-BACKLOG.md (backlog para fechar a superfície pública do starter em inglês)
 - docs/audit/fases/FASE-01-BUILD-E-DEPENDENCIAS.md
 - docs/audit/fases/FASE-02-CONTROLLERS-E-GRUPOS-OPENAPI.md
 - docs/audit/fases/FASE-03-DTOS-VALIDACAO-UISCHEMA.md
@@ -36,4 +37,3 @@ Referências úteis do starter neste módulo:
 - Filtros: src/main/java/org/praxisplatform/uischema/filter
 - Services base: src/main/java/org/praxisplatform/uischema/service/base
 - MapStruct config: src/main/java/org/praxisplatform/uischema/mapper/config/CorporateMapperConfig.java:1
-

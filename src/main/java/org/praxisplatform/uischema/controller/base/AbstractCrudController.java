@@ -507,7 +507,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     ) {
         if (size > PAGINATION_MAX_SIZE) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Limite máximo de registros por página excedido: " + PAGINATION_MAX_SIZE);
+                    "Maximum page size exceeded: " + PAGINATION_MAX_SIZE);
         }
         // Avoid Spring's default comma-splitting when binding to collections
         List<String> sort = queryParams.get("sort");
@@ -568,7 +568,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
             @RequestParam MultiValueMap<String, String> queryParams) {
         if (size > PAGINATION_MAX_SIZE) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Limite máximo de registros por página excedido: " + PAGINATION_MAX_SIZE);
+                    "Maximum page size exceeded: " + PAGINATION_MAX_SIZE);
         }
         List<String> sort = queryParams.get("sort");
         Sort sortObj = SortBuilder.from(sort, getService().getDefaultSort());
@@ -576,7 +576,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         try {
             result = getService().filterByCursorMapped(filterDTO, sortObj, after, before, size, this::toDto);
         } catch (UnsupportedOperationException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "não implementado");
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
         }
 
         CursorPage<EntityModel<D>> mapped = new CursorPage<>(
@@ -635,13 +635,13 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
             @RequestParam MultiValueMap<String, String> queryParams) {
         if (size > PAGINATION_MAX_SIZE) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Limite máximo de registros por página excedido: " + PAGINATION_MAX_SIZE);
+                    "Maximum page size exceeded: " + PAGINATION_MAX_SIZE);
         }
         List<String> sort = queryParams.get("sort");
         Sort sortObj = SortBuilder.from(sort, getService().getDefaultSort());
         var position = getService().locate(filterDTO, sortObj, id);
         if (position.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "não implementado");
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
         }
         long pos = position.getAsLong();
         long page = size > 0 ? pos / size : 0;
@@ -694,7 +694,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         }
         if (ids.size() > BY_IDS_MAX) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Limite máximo de IDs excedido: " + BY_IDS_MAX);
+                    "Maximum number of IDs exceeded: " + BY_IDS_MAX);
         }
         List<D> list = getService().findAllByIdMapped(ids, this::toDto);
         var byId = list.stream().collect(Collectors.toMap(this::getDtoId, Function.identity()));
@@ -762,7 +762,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
             @RequestParam MultiValueMap<String, String> queryParams) {
         if (size > PAGINATION_MAX_SIZE) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Limite máximo de registros por página excedido: " + PAGINATION_MAX_SIZE);
+                    "Maximum page size exceeded: " + PAGINATION_MAX_SIZE);
         }
         List<String> sort = queryParams.get("sort");
         Pageable pageable = PageableBuilder.from(page, size, sort, getService().getDefaultSort());
@@ -800,7 +800,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         }
         if (ids.size() > BY_IDS_MAX) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Limite máximo de IDs excedido: " + BY_IDS_MAX);
+                    "Maximum number of IDs exceeded: " + BY_IDS_MAX);
         }
         return withVersion(ResponseEntity.ok(), getService().byIdsOptions(ids));
     }
@@ -1177,10 +1177,10 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     protected Link linkToUiSchema(String methodPath, String operation, String schemaType) {
         // Validação básica dos parâmetros
         if (methodPath == null || methodPath.trim().isEmpty()) {
-            throw new IllegalArgumentException("O parâmetro 'methodPath' não pode ser nulo ou vazio.");
+            throw new IllegalArgumentException("Parameter 'methodPath' must not be null or blank.");
         }
         if (operation == null || operation.trim().isEmpty()) {
-            throw new IllegalArgumentException("O parâmetro 'operation' não pode ser nulo ou vazio.");
+            throw new IllegalArgumentException("Parameter 'operation' must not be null or blank.");
         }
         if (schemaType == null || schemaType.trim().isEmpty()) {
             schemaType = "response";
@@ -1208,7 +1208,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
             // Retorna o Link HATEOAS com rel definido como "schema"
             return Link.of(docsPath, "schema");
         } catch (Exception e) {
-            throw new IllegalStateException("Não foi possível construir o link para a documentação filtrada.", e);
+            throw new IllegalStateException("Failed to build the filtered schema link.", e);
         }
     }
 

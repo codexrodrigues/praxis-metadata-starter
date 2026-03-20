@@ -9,6 +9,8 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,5 +42,20 @@ class OpenApiUiSchemaAutoConfigurationFilterPayloadNormalizerTest {
             assertEquals(2, adviceNormalizers.size());
             assertIterableEquals(List.of(range, relativePeriod), adviceNormalizers);
         });
+    }
+
+    @Test
+    void shouldUseConfiguredZoneIdForRelativePeriodNormalizer() {
+        contextRunner
+                .withPropertyValues("praxis.filter.relative-period.zone-id=America/Sao_Paulo")
+                .run(context -> {
+                    RelativePeriodPayloadNormalizer normalizer =
+                            (RelativePeriodPayloadNormalizer) context.getBean("relativePeriodPayloadNormalizer");
+
+                    Clock clock = (Clock) ReflectionTestUtils.getField(normalizer, "clock");
+
+                    assertNotNull(clock);
+                    assertEquals(ZoneId.of("America/Sao_Paulo"), clock.getZone());
+                });
     }
 }

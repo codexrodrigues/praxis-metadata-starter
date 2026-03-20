@@ -82,7 +82,7 @@ class AbstractCrudControllerOptionsTest {
     void getOptionsByIdsReturns422WhenExceedsLimit() throws Exception {
         mockMvc.perform(get("/simple/options/by-ids").param("ids", "1", "2", "3", "4"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason(containsString("Limite máximo de IDs excedido: 3")));
+                .andExpect(status().reason(containsString("Maximum number of IDs exceeded: 3")));
         verify(service, never()).byIdsOptions(any());
     }
 
@@ -93,7 +93,7 @@ class AbstractCrudControllerOptionsTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason(containsString("Limite máximo de registros por página excedido: 20")));
+                .andExpect(status().reason(containsString("Maximum page size exceeded: 20")));
 
         verify(service, never()).filterOptions(any(), any(Pageable.class));
     }

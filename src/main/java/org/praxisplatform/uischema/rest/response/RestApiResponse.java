@@ -48,7 +48,7 @@ public class RestApiResponse<T> {
     public static <T> RestApiResponse<T> success(T data, Links links) {
         return RestApiResponse.<T>builder()
                 .status(RestApiResponseStatus.SUCCESS)
-                .message("Requisição realizada com sucesso")
+                .message("Request processed successfully.")
                 .data(data)
                 .links(links)
                 .timestamp(LocalDateTime.now())

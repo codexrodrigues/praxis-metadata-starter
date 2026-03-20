@@ -57,7 +57,7 @@ public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFil
      * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
      */
     public ResponseEntity<RestApiResponse<D>> create(@jakarta.validation.Valid @RequestBody D dto) {
-        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "recurso somente leitura");
+        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Read-only resource.");
     }
 
     @Override
@@ -68,7 +68,7 @@ public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFil
      * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
      */
     public ResponseEntity<RestApiResponse<D>> update(@PathVariable ID id, @jakarta.validation.Valid @RequestBody D dto) {
-        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "recurso somente leitura");
+        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Read-only resource.");
     }
 
     @Override
@@ -79,7 +79,7 @@ public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFil
      * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
      */
     public ResponseEntity<Void> delete(@PathVariable ID id) {
-        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "recurso somente leitura");
+        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Read-only resource.");
     }
 
     @Override
@@ -90,6 +90,6 @@ public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFil
      * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
      */
     public ResponseEntity<Void> deleteBatch(@RequestBody List<ID> ids) {
-        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "recurso somente leitura");
+        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Read-only resource.");
     }
 }

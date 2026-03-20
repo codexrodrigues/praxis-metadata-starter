@@ -52,6 +52,7 @@ Esta página documenta a heurística que determina `controlType` para campos `st
 - `COLOR_INPUT` deve ser usado para captura direta de uma cor única; a heurística automática do starter também o infere para `format=color` e nomes contendo `cor/color`.
 - `COLOR_PICKER` permanece a opção rica quando o contrato exigir paleta, presets ou picker expandido, e deve ser declarado explicitamente nesses casos.
 - `SELECTION_LIST` já existe no runtime Angular, mas ainda tem maturidade parcial de superfície; use-o quando a lista visível for realmente a UX desejada e não depender de cobertura completa de `searchable`/`selectAll`.
+- `INLINE_RELATIVE_PERIOD` é normalizado semanticamente no starter antes da desserialização do DTO. O timezone padrão é `UTC`, com override via `praxis.filter.relative-period.zone-id`.
 
 ### Percent/Numéricos
 

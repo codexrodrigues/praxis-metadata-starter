@@ -10,6 +10,9 @@ import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.request.ServletWebRequest;
@@ -53,6 +56,57 @@ class GlobalExceptionHandlerTest {
         assertEquals("Stream access denied.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SECURITY, body.getErrors().get(0).getCategory());
+    }
+
+    @Test
+    void shouldReturnEnglishTopLevelMessageForValidationException() {
+        WebRequest request = webRequest("/simple/filter");
+        BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "payload");
+        bindingResult.addError(new FieldError("payload", "name", "Name is required."));
+        MethodArgumentNotValidException exception = new MethodArgumentNotValidException(null, bindingResult);
+
+        var response = handler.handleValidationExceptions(exception, request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Validation error.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals("Name is required.", body.getErrors().get(0).getMessage());
+    }
+
+    @Test
+    void shouldReturnEnglishTopLevelMessageForBusinessException() {
+        WebRequest request = webRequest("/simple/filter");
+
+        var response = handler.handleBusinessException(
+                new org.praxisplatform.uischema.rest.exceptionhandler.exception.BusinessException("Rule violated."),
+                request
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Business rule violation.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals("Rule violated.", body.getErrors().get(0).getMessage());
+    }
+
+    @Test
+    void shouldReturnEnglishTopLevelMessageForEntityNotFound() {
+        WebRequest request = webRequest("/simple/filter");
+
+        var response = handler.handleEntityNotFoundException(
+                new jakarta.persistence.EntityNotFoundException("Entity 1 was not found."),
+                request
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Resource not found.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals("Entity 1 was not found.", body.getErrors().get(0).getMessage());
     }
 
     @Test

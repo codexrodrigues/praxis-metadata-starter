@@ -79,7 +79,7 @@ public class GlobalExceptionHandler {
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
                 .status(RestApiResponseStatus.FAILURE)
-                .message("Erro de validação")
+                .message("Validation error.")
                 .errors(customProblemDetails)
                 .build();
 
@@ -99,7 +99,7 @@ public class GlobalExceptionHandler {
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
                 .status(RestApiResponseStatus.FAILURE)
-                .message("Erro de regra de negócio")
+                .message("Business rule violation.")
                 .errors(List.of(customProblemDetail))
                 .build();
 
@@ -120,7 +120,7 @@ public class GlobalExceptionHandler {
         RestApiResponse<Object> response = RestApiResponse
                 .builder()
                 .status(RestApiResponseStatus.FAILURE)
-                .message("Recurso não encontrado")
+                .message("Resource not found.")
                 .errors(List.of(customProblemDetail))
                 .build();
 

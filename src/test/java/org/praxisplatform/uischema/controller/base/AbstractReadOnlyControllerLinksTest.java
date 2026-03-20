@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Import;
 import java.util.Collections;
 import java.util.List;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -96,18 +97,22 @@ class AbstractReadOnlyControllerLinksTest {
     void writeOperations_return405() throws Exception {
         // POST /
         mockMvc.perform(post("/ro").contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isMethodNotAllowed());
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(status().reason(containsString("Read-only resource.")));
 
         // PUT /{id}
         mockMvc.perform(put("/ro/1").contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isMethodNotAllowed());
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(status().reason(containsString("Read-only resource.")));
 
         // DELETE /{id}
         mockMvc.perform(delete("/ro/1"))
-                .andExpect(status().isMethodNotAllowed());
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(status().reason(containsString("Read-only resource.")));
 
         // DELETE /batch
         mockMvc.perform(delete("/ro/batch").contentType(MediaType.APPLICATION_JSON).content("[1,2]"))
-                .andExpect(status().isMethodNotAllowed());
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(status().reason(containsString("Read-only resource.")));
     }
 }

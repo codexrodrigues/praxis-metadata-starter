@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestTemplate;
 import org.springdoc.core.models.GroupedOpenApi;
 
+import java.time.Clock;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -331,8 +333,10 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "relativePeriodPayloadNormalizer")
     @Order(100)
-    public FilterPayloadNormalizer relativePeriodPayloadNormalizer() {
-        return new RelativePeriodPayloadNormalizer();
+    public FilterPayloadNormalizer relativePeriodPayloadNormalizer(
+            @Value("${praxis.filter.relative-period.zone-id:UTC}") String relativePeriodZoneId
+    ) {
+        return new RelativePeriodPayloadNormalizer(Clock.system(ZoneId.of(relativePeriodZoneId)));
     }
 
     @Bean

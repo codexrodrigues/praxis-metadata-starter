@@ -33,7 +33,7 @@ class AbstractCrudControllerCursorNotImplementedTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isNotImplemented())
-                .andExpect(status().reason(containsString("não implementado")));
+                .andExpect(status().reason(containsString("Not implemented.")));
     }
 
     interface SimpleService extends BaseCrudService<SimpleEntity, SimpleDto, Long, SimpleFilterDTO> {

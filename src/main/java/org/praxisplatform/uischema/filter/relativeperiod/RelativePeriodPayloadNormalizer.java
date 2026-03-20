@@ -18,6 +18,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -39,10 +40,10 @@ public class RelativePeriodPayloadNormalizer implements FilterPayloadNormalizer 
     private final Map<Class<?>, List<RelativePeriodFieldMetadata>> fieldCache = new ConcurrentHashMap<>();
 
     public RelativePeriodPayloadNormalizer() {
-        this(Clock.systemUTC());
+        this(Clock.system(ZoneId.of("UTC")));
     }
 
-    RelativePeriodPayloadNormalizer(Clock clock) {
+    public RelativePeriodPayloadNormalizer(Clock clock) {
         this.clock = clock;
     }
 
