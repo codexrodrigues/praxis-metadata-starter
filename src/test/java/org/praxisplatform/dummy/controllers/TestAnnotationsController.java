@@ -228,7 +228,7 @@ public static class TestDTO {
             name = "observacoes",
             label = "Observações",
             type = FieldDataType.TEXT,
-            controlType = FieldControlType.RICH_TEXT_EDITOR,
+            controlType = FieldControlType.TEXTAREA,
             maxLength = 1000
     )
     private String observacoes;

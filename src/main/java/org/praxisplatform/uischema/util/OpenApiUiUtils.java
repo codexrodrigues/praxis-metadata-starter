@@ -145,7 +145,7 @@ public class OpenApiUiUtils {
                         case "uri-reference": // Added from ApiDocsController
                             return FieldControlType.URL_INPUT.getValue();
                         case "color":
-                            return FieldControlType.COLOR_PICKER.getValue();
+                            return FieldControlType.COLOR_INPUT.getValue();
                         case "phone":
                             return FieldControlType.PHONE.getValue();
                         // case "json": // ApiDocsController maps this to FieldDataType.JSON, not a specific control type here.
@@ -184,13 +184,12 @@ public class OpenApiUiUtils {
                 if (isArrayItemsHaveEnum) {
                     return FieldControlType.MULTI_SELECT.getValue();
                 }
-                // Default for array if items don't have enum or specific handling
-                return FieldControlType.ARRAY_INPUT.getValue(); // From CustomOpenApiResolver
+                // Default for free-form arrays is a chip/tag surface with Angular parity.
+                return FieldControlType.CHIP_INPUT.getValue();
 
             case "object":
-                // Objects might be represented in various ways, EXPANSION_PANEL is one option.
-                // Or could be handled by custom components based on schema.
-                return FieldControlType.EXPANSION_PANEL.getValue(); // From CustomOpenApiResolver
+                // Object sub-structures no longer infer a visual control by default.
+                return null;
 
             default:
                 return null; // Or a very generic default if appropriate
@@ -607,7 +606,7 @@ public class OpenApiUiUtils {
             case "array":
             case "object":
                 // ApiDocsController does not set a specific FieldDataType for array/object.
-                // They are often handled by specific control types (MULTI_SELECT, EXPANSION_PANEL)
+                // They are often handled by specific control types (MULTI_SELECT, CHIP_INPUT)
                 // or custom components. Returning null means no specific FieldDataType is assigned here.
                 return null;
             default:
@@ -639,7 +638,7 @@ public class OpenApiUiUtils {
      *   <li>Nomes contendo "descricao", "observacao" &rarr; {@link FieldControlType#TEXTAREA}</li>
      *   <li>Nomes contendo "valor", "preco", "salario" &rarr; {@link FieldControlType#CURRENCY_INPUT}</li>
      *   <li>Nomes contendo "url", "link", "site" &rarr; {@link FieldControlType#URL_INPUT}</li>
-     *   <li>Nomes contendo "cor", "color" &rarr; {@link FieldControlType#COLOR_PICKER}</li>
+     *   <li>Nomes contendo "cor", "color" &rarr; {@link FieldControlType#COLOR_INPUT}</li>
      *   <li>Nomes contendo "senha", "password" &rarr; {@link FieldControlType#PASSWORD}</li>
      *   <li>Nomes contendo "imagem", "foto", "arquivo" &rarr; {@link FieldControlType#FILE_UPLOAD}</li>
      * </ul>
@@ -669,7 +668,7 @@ public class OpenApiUiUtils {
             // Note: This also implies FieldDataType.URL, which should be handled by populateUiDataType
             return FieldControlType.URL_INPUT.getValue();
         } else if (normalizedFieldName.contains("cor") || normalizedFieldName.contains("color")) {
-            return FieldControlType.COLOR_PICKER.getValue();
+            return FieldControlType.COLOR_INPUT.getValue();
         } else if (normalizedFieldName.contains("senha") || normalizedFieldName.contains("password")) {
             // Note: This also implies FieldDataType.PASSWORD
             return FieldControlType.PASSWORD.getValue();

@@ -91,13 +91,15 @@ Content-Type: application/json
 
 ### Dicas de UI para filtros com enums grandes
 
-- `array` de `enum` com muitas opções: o resolver sugere `filterControlType = multiColumnComboBox`.
+- `array` de `enum` com muitas opções: o resolver publica `multiSelect` como contrato principal.
 - Enums pequenos (≤5) tendem a usar `radio`/`chipInput`; médios `select`; grandes `autoComplete`/`multiSelect`.
 
 #### Enums em SELECTs (sem endpoint)
 - Campos `enum` não precisam de `endpoint`: as opções são derivadas diretamente do schema OpenAPI (o array `enum`).
 - Para `array` de `enum`, o schema é “array de enum” e a UI renderiza multi‑select automaticamente.
 - Use `endpoint` (`/options/filter`) apenas para catálogos dinâmicos/relacionais (`id/label`), não para `enum` estático.
+- No Angular, `endpoint` é normalizado para `resourcePath`, e `displayField`/`valueField` são normalizados para `optionLabelKey`/`optionValueKey`.
+- Para catálogos remotos enterprise, prefira publicar `endpoint=/{resource}/options/filter`, `valueField="id"` e `displayField="label"` de forma explícita.
 
 </details>
 
@@ -146,7 +148,7 @@ Notas:
 - Para `IN_LAST_DAYS/IN_NEXT_DAYS`, o valor é relativo ao horário atual (UTC) e converte para `Instant`.
 - Para `SIZE_*`, aplique apenas em atributos de coleção (OneToMany/ManyToMany); o builder usa `CriteriaBuilder.size`.
 - Requisito de coleção em `SIZE_*`: defina `relation` para apontar explicitamente para o atributo de coleção na entidade. Se o caminho não for coleção, o builder lança erro informativo.
-- Dica de UI `filterControlType = multiColumnComboBox` para enums grandes é uma sugestão de componente; alinhe o valor com o catálogo do frontend.
+- Para novos componentes compactos de superfície, prefira `controlType` canônico com a família `INLINE_*`.
 
 ### Notas de Timezone
 

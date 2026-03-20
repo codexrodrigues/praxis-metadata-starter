@@ -2,6 +2,23 @@
 
 All notable changes to this module will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- `ApiDocsController` e `DomainCatalogController` agora aceitam a propriedade `app.openapi.internal-base-url` para resolver explicitamente a base interna usada nas chamadas ao SpringDoc.
+- Quando `app.openapi.internal-base-url` não é informada, o comportamento anterior é preservado: a base continua sendo inferida a partir do contexto HTTP atual com `ServletUriComponentsBuilder`.
+- A família de controles compactos de superfície passou a ser promovida diretamente a `FieldControlType` via valores `INLINE_*`; o uso de `filterControlType` para esses casos deixa de ser recomendado.
+- O caminho residual de `filterControlType` foi removido do contrato principal para simplificar a plataforma antes de qualquer adoção em produção.
+
+### Fixed
+- Cenários com reverse proxy, host público diferente do host interno do container ou chamadas server-side sem contexto externo confiável deixaram de depender de inferência implícita da origem para buscar `/v3/api-docs`.
+- Evitado o acoplamento acidental a URLs inferidas incorretamente em ambientes como Render, Docker e topologias com `X-Forwarded-*`.
+
+### Documentation
+- README atualizado com a configuração recomendada de `APP_OPENAPI_INTERNAL_BASE_URL` para produção e troubleshooting.
+- Documentação técnica de auto-configuração atualizada com a nova propriedade e o fluxo de resolução da base OpenAPI.
+- Documentação de filtros e spec `x-ui` atualizadas para refletir `FieldControlType.INLINE_*` como contrato principal para controles compactos de superfície.
+
 ## [1.0.0-rc.6] - 2025-11-06
 
 ### Added/Changed

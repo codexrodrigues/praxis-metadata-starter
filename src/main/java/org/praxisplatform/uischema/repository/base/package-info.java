@@ -3,8 +3,8 @@
  * {@link org.springframework.data.jpa.domain.Specification}.
  *
  * <p>
- * Interfaces como {@link org.praxisplatform.uischema.repository.base.BaseRepository}
- * e {@link org.praxisplatform.uischema.repository.base.BaseReadOnlyRepository}
+ * Interfaces como {@link org.praxisplatform.uischema.repository.base.BaseCrudRepository}
+ * e os contratos de servico em {@code service.base}
  * são consumidas pelos serviços em {@code service.base}, permitindo que o
  * starter resolva filtros declarados com {@code @Filterable} e DTOs do pacote
  * {@code filter}.

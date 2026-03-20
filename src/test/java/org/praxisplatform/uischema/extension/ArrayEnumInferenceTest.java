@@ -30,7 +30,7 @@ class ArrayEnumInferenceTest {
     }
 
     @Test
-    void largeArrayEnumShouldUseMultiSelectAndFilterHint() {
+    void largeArrayEnumShouldUseMultiSelectWithoutLegacyFilterHintByDefault() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
         ArraySchema property = new ArraySchema();
         StringSchema items = new StringSchema();
@@ -42,7 +42,10 @@ class ArrayEnumInferenceTest {
         resolver.applyBeanValidatorAnnotations(property, anns, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.MULTI_SELECT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
-        assertEquals("multiColumnComboBox", xui.get(FieldConfigProperties.FILTER_CONTROL_TYPE.getValue()));
+        assertFalse(
+                xui.containsKey("filterControlType"),
+                "resolver nao deve emitir propriedades residuais de filtro por padrao"
+        );
     }
 
     @SuppressWarnings("unchecked")

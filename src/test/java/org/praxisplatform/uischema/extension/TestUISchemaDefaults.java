@@ -64,7 +64,6 @@ public final class TestUISchemaDefaults {
         @Override public String options() { return ""; }
         @Override public String filter() { return ""; }
         @Override public String filterOptions() { return ""; }
-        @Override public String filterControlType() { return ""; }
         @Override public NumericFormat numericFormat() { return NumericFormat.INTEGER; }
         @Override public String numericStep() { return ""; }
         @Override public String numericMin() { return ""; }
@@ -93,4 +92,3 @@ public final class TestUISchemaDefaults {
 
     public static UISchema instance() { return DEFAULT; }
 }
-

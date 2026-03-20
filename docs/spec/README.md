@@ -18,6 +18,7 @@ Vocabulário (resumo)
   - Dependências/Condicionais: `conditionalDisplay`, `dependentField`, `resetOnDependentChange`
   - Layout/Ícone: `hint`, `helpText`, `tooltipOnHover`, `icon*`
   - Seleção/Opções: `options[]`, `endpoint`, `valueField`, `displayField`, `multiple`, `emptyOptionText`
+    - No runtime Angular, a UI Praxis normaliza esses campos para `resourcePath`, `optionValueKey` e `optionLabelKey`.
   - Numérico: `numericFormat` (enum), `numericStep`, `numericMin`, `numericMax`, `numericMaxLength`
   - Validação (top‑level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), além de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`.
   - Legado (opcional): bloco `validation{}` com chaves básicas (a UI atual lê chaves de validação no top‑level do `x-ui`).

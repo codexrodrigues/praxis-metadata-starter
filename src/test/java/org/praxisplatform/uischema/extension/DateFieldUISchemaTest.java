@@ -94,7 +94,6 @@ class DateFieldUISchemaTest {
             @Override public String options() { return ""; }
             @Override public String filter() { return ""; }
             @Override public String filterOptions() { return ""; }
-            @Override public String filterControlType() { return ""; }
             @Override public org.praxisplatform.uischema.NumericFormat numericFormat() { return org.praxisplatform.uischema.NumericFormat.INTEGER; }
             @Override public String numericStep() { return ""; }
             @Override public String numericMin() { return ""; }

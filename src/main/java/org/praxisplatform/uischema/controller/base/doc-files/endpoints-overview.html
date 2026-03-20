@@ -432,8 +432,8 @@ async function fetchCursorPage(direction) {
   const params = new URLSearchParams();
   params.set('size', state.size);
   state.sort.forEach(s => params.append('sort', s));
-  if (direction === 'next' && state.after) params.set('after', state.after);
-  if (direction === 'prev' && state.before) params.set('before', state.before);
+  if (direction === 'next' &amp;&amp; state.after) params.set('after', state.after);
+  if (direction === 'prev' &amp;&amp; state.before) params.set('before', state.before);
 
   const res = await fetch(`/api/recurso/filter/cursor?${params.toString()}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ /* FD */ })
@@ -522,7 +522,7 @@ function MySelect({ initialIds = [] }) {
 // service.ts
 getOptionsByIds(ids: (number|string)[]) {
   const params = new HttpParams({ fromObject: ids.reduce((acc, id) => { (acc['ids'] ||= [] as any).push(String(id)); return acc; }, {} as any) });
-  return this.http.get<OptionDTO<any>[]>(`/api/recurso/options/by-ids`, { params });
+  return this.http.get&lt;OptionDTO&lt;any&gt;[]&gt;(`/api/recurso/options/by-ids`, { params });
 }
 
 // component.ts

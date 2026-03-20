@@ -295,7 +295,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                                     schemaBasedDataType = FieldDataType.FILE.getValue();
                                     break;
                                 case "color":
-                                    schemaBasedControlType = FieldControlType.COLOR_PICKER.getValue();
+                                    schemaBasedControlType = FieldControlType.COLOR_INPUT.getValue();
                                     break;
                                 case "phone":
                                     schemaBasedControlType = FieldControlType.PHONE.getValue();
@@ -341,12 +341,12 @@ public class CustomOpenApiResolver extends ModelResolver {
                             !property.getItems().getEnum().isEmpty()) {
                             schemaBasedControlType = FieldControlType.MULTI_SELECT.getValue();
                         } else {
-                            schemaBasedControlType = FieldControlType.ARRAY_INPUT.getValue();
+                            schemaBasedControlType = FieldControlType.CHIP_INPUT.getValue();
                         }
                         break;
                         
                     case "object":
-                        schemaBasedControlType = FieldControlType.EXPANSION_PANEL.getValue();
+                        schemaBasedControlType = null;
                         break;
                 }
                 
@@ -784,7 +784,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                             detectedDataType = FieldDataType.FILE.getValue();
                             break;
                         case "color":
-                            detectedControlType = FieldControlType.COLOR_PICKER.getValue();
+                            detectedControlType = FieldControlType.COLOR_INPUT.getValue();
                             break;
                         case "phone":
                             detectedControlType = FieldControlType.PHONE.getValue();
@@ -831,17 +831,13 @@ public class CustomOpenApiResolver extends ModelResolver {
                     !property.getItems().getEnum().isEmpty()) {
                     int c = property.getItems().getEnum().size();
                     detectedControlType = OpenApiUiUtils.determineArrayEnumControlBySize(c);
-                    if (c > 5) {
-                        // Em listas maiores, indicar controle adequado para filtros
-                        uiExtension.putIfAbsent(FieldConfigProperties.FILTER_CONTROL_TYPE.getValue(), "multiColumnComboBox");
-                    }
                 } else {
-                    detectedControlType = FieldControlType.ARRAY_INPUT.getValue();
+                    detectedControlType = FieldControlType.CHIP_INPUT.getValue();
                 }
                 break;
                 
             case "object":
-                detectedControlType = FieldControlType.EXPANSION_PANEL.getValue();
+                detectedControlType = null;
                 break;
         }
 
@@ -1259,10 +1255,6 @@ public class CustomOpenApiResolver extends ModelResolver {
             // Sem parser dedicado, manter string bruta (frontend pode interpretar)
             uiExtension.put(FieldConfigProperties.FILTER_OPTIONS.getValue(), annotation.filterOptions());
         }
-        if (!annotation.filterControlType().isEmpty()) {
-            uiExtension.put(FieldConfigProperties.FILTER_CONTROL_TYPE.getValue(), annotation.filterControlType());
-        }
-        
         // Inteiros não zero
         if (annotation.order() != 0) {
             uiExtension.put(FieldConfigProperties.ORDER.getValue(), String.valueOf(annotation.order()));

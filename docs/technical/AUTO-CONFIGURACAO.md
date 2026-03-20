@@ -17,6 +17,7 @@ O `OpenApiUiSchemaAutoConfiguration` é o **"bootstrap"** de todo o sistema Prax
 |-------------|--------|-----------|
 | `praxis.query.by-ids.max` | `200` | Limite de IDs aceitos pelo endpoint `GET /{resource}/by-ids`. Ajuda a evitar consultas excessivas em ambientes corporativos. |
 | `praxis.pagination.max-size` | `200` | Tamanho máximo de página aceito pelos endpoints paginados (`/filter` e `/options/filter`). Evita requisições muito grandes que possam degradar o sistema. |
+| `app.openapi.internal-base-url` | vazio | Origem interna explícita para consultas server-side ao SpringDoc (`/v3/api-docs`). Útil quando a URL pública difere da URL acessível pelo processo da aplicação. |
 
 ## 🏗️ Duas Auto-Configurações Complementares
 
@@ -81,6 +82,11 @@ O sistema Praxis possui **duas auto-configurações** que trabalham em conjunto:
 - **Função**: Exposição de endpoints de documentação filtrada
 - **Características**: API RESTful para consumo por frontends
 - **Uso**: `/schemas/filtered` com resolução automática de grupos
+
+### 📚 DomainCatalogController
+- **Função**: Exposição de um catálogo compacto para RAG e exploração de domínio
+- **Características**: Lê o OpenAPI por grupo e resume paths, métodos, parâmetros e schemas
+- **Uso**: `/schemas/catalog` com suporte à mesma resolução de base interna do ApiDocsController
 
 ## 🔄 Fluxo de Inicialização
 
@@ -173,6 +179,40 @@ public class FuncionarioController extends AbstractCrudController<...> {
 
 ## ⚙️ Customização Avançada
 
+### Definir a base interna do OpenAPI
+
+Por padrão, os controllers internos de documentação tentam inferir a base atual da aplicação com `ServletUriComponentsBuilder`. Isso funciona bem quando a origem externa e a origem interna são equivalentes, mas pode falhar em topologias com proxy reverso.
+
+Para eliminar ambiguidade, defina:
+
+```properties
+app.openapi.internal-base-url=http://localhost:4003
+```
+
+Ou via ambiente:
+
+```bash
+APP_OPENAPI_INTERNAL_BASE_URL=http://localhost:4003
+```
+
+Fluxo de resolução:
+1. Se `app.openapi.internal-base-url` estiver preenchida, ela é usada como base.
+2. Caso contrário, a base é inferida do contexto HTTP atual.
+3. Em seguida, o starter concatena `springdoc.api-docs.path` e, quando aplicável, o nome do grupo OpenAPI.
+
+Quando configurar explicitamente:
+- Render ou outras plataformas PaaS.
+- Docker Compose com porta pública diferente da porta interna.
+- Kubernetes com ingress/gateway.
+- Ambientes onde `X-Forwarded-Host` e a origem interna não representam o mesmo endpoint acessível pelo backend.
+
+Exemplo final de URL construída:
+
+```text
+http://localhost:4003/v3/api-docs
+http://localhost:4003/v3/api-docs/api-human-resources-funcionarios
+```
+
 ### Sobrescrever ObjectMapper
 ```java
 @Configuration
@@ -260,6 +300,23 @@ private RestTemplate restTemplate;
 // No DynamicSwaggerConfig, os logs mostrarão:
 [INFO] Bean GroupedOpenApi registrado: bean=funcionarios_ApiGroup, group=funcionarios, paths=/api/funcionarios/**
 ```
+
+### Falha ao buscar `/v3/api-docs`
+
+Sintomas comuns:
+- erro ao montar URL como `https://localhost:4003/v3/api-docs`
+- falhas intermitentes apenas em produção
+- `/schemas/filtered` ou `/schemas/catalog` funcionando localmente, mas quebrando atrás de proxy
+
+Causa típica:
+- a aplicação inferiu a base a partir da requisição externa, mas o processo Java precisa acessar outra origem internamente
+
+Correção:
+- configure `app.openapi.internal-base-url` para a origem interna real do serviço
+- mantenha `springdoc.api-docs.path` coerente com a rota publicada pelo SpringDoc
+
+Verificação:
+- a partir do ambiente da app, confirme que a URL final responde com o documento OpenAPI esperado
 
 ## 🤝 Complementaridade das Auto-Configurações
 

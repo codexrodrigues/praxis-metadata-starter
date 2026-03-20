@@ -185,14 +185,6 @@ public enum FieldConfigProperties {
     FILTER("filter"),
     /** Define as opções disponíveis para filtros, quando aplicável */
     FILTER_OPTIONS("filterOptions"),
-    /**
-     * Define o tipo de controle a ser utilizado no contexto de filtros.
-     * Por exemplo, pode ser configurado como "multiColumnComboBox" para utilizar o componente
-     * Kendo UI for Angular MultiColumnComboBox, mesmo que o controle padrão (CONTROL_TYPE)
-     * seja "select" ou "combobox" para formulários de inclusão/alteração.
-     */
-    FILTER_CONTROL_TYPE("filterControlType"),
-
     // ----------------------------------------------------------
     // 11. Propriedades Específicas para Input Numérico
     // ----------------------------------------------------------

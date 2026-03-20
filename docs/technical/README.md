@@ -8,7 +8,8 @@ Esta seção contém documentação técnica detalhada sobre os recursos avança
 **Sistema de configuração automática do Praxis Metadata Starter**
 
 - Configuração automática de componentes Spring
-- Propriedades de configuração disponíveis  
+- Propriedades de configuração disponíveis
+- Resolução explícita da base interna do OpenAPI via `app.openapi.internal-base-url`
 - Personalização e extensões
 - Bean registration automático
 

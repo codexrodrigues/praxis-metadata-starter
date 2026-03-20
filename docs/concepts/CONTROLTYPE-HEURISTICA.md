@@ -26,7 +26,32 @@ Esta página documenta a heurística que determina `controlType` para campos `st
 ### Arrays de enums
 
 - Itens enum pequenos (≤5) → `chipInput`
-- Itens médios/grandes → `multiSelect` e dica de filtro `filterControlType = multiColumnComboBox`
+- Itens médios/grandes → `multiSelect`
+
+### Família `INLINE_*`
+
+- A heurística automática não promove variantes `INLINE_*` por conta própria.
+- Quando a superfície canônica exigir um controle compacto, declare explicitamente `@UISchema(controlType = FieldControlType.INLINE_...)`.
+- As variantes base `SEARCHABLE_SELECT` e `ASYNC_SELECT` também devem ser declaradas explicitamente quando o backend precisar publicar esses componentes dedicados para o Angular.
+- `BUTTON_TOGGLE` e `SELECTION_LIST` devem ser declarados explicitamente; a heurística automática não deve inferi-los por convenção implícita.
+- Quando esses controles consumirem catálogos remotos, o backend continua publicando `endpoint`, `displayField` e `valueField`; a UI Praxis normaliza esses campos para `resourcePath`, `optionLabelKey` e `optionValueKey`.
+- Exemplos frequentes:
+  - `SEARCHABLE_SELECT`
+  - `ASYNC_SELECT`
+  - `BUTTON_TOGGLE`
+  - `SELECTION_LIST`
+  - `COLOR_INPUT`
+  - `INLINE_SELECT`
+  - `INLINE_SEARCHABLE_SELECT`
+  - `INLINE_MULTISELECT`
+  - `INLINE_DATE`
+  - `INLINE_DATE_RANGE`
+  - `INLINE_RATING`
+  - `INLINE_RELATIVE_PERIOD`
+- O contrato canônico do starter publica apenas `controlType` com paridade dinâmica no Angular; novas superfícies compactas devem usar o vocabulário `INLINE_*`.
+- `COLOR_INPUT` deve ser usado para captura direta de uma cor única; a heurística automática do starter também o infere para `format=color` e nomes contendo `cor/color`.
+- `COLOR_PICKER` permanece a opção rica quando o contrato exigir paleta, presets ou picker expandido, e deve ser declarado explicitamente nesses casos.
+- `SELECTION_LIST` já existe no runtime Angular, mas ainda tem maturidade parcial de superfície; use-o quando a lista visível for realmente a UX desejada e não depender de cobertura completa de `searchable`/`selectAll`.
 
 ### Percent/Numéricos
 
@@ -51,7 +76,7 @@ Esta página documenta a heurística que determina `controlType` para campos `st
 - `pais` com 10 valores → `select`
 - `cidade` com 100 valores → `autoComplete`
 - `habilitado` boolean (sem enum) → `checkbox`
-- `roles` como `array<string enum[...]>` com 50 valores → `multiSelect` e `filterControlType = multiColumnComboBox`
+- `roles` como `array<string enum[...]>` com 50 valores → `multiSelect`
 
 ## Referências
 

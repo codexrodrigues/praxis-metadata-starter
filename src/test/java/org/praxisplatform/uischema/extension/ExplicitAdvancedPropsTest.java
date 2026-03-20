@@ -38,9 +38,9 @@ class ExplicitAdvancedPropsTest {
                 iconClass = "cssClass",
                 iconStyle = "styleX",
                 iconFontSize = "12px",
+                controlType = FieldControlType.INLINE_SEARCHABLE_SELECT,
                 filter = "contains",
                 filterOptions = "{\"mode\":\"contains\"}",
-                filterControlType = "multiColumnComboBox",
                 numericFormat = NumericFormat.DECIMAL,
                 numericStep = "0.01",
                 numericMin = "0",
@@ -107,7 +107,7 @@ class ExplicitAdvancedPropsTest {
         // Filtros
         assertEquals("contains", xui.get(FieldConfigProperties.FILTER.getValue()));
         assertEquals("{\"mode\":\"contains\"}", xui.get(FieldConfigProperties.FILTER_OPTIONS.getValue()));
-        assertEquals("multiColumnComboBox", xui.get(FieldConfigProperties.FILTER_CONTROL_TYPE.getValue()));
+        assertEquals(FieldControlType.INLINE_SEARCHABLE_SELECT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
 
         // Numéricos
         assertEquals(NumericFormat.DECIMAL.getValue(), xui.get(FieldConfigProperties.NUMERIC_FORMAT.getValue()));
@@ -144,4 +144,3 @@ class ExplicitAdvancedPropsTest {
         return (Map<String, Object>) xui;
     }
 }
-

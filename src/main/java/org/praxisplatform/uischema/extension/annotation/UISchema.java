@@ -155,7 +155,6 @@ public @interface UISchema {
     // 10. Propriedades Específicas para Filtros
     String filter() default "";
     String filterOptions() default "";
-    String filterControlType() default "";
 
     // 11. Propriedades Específicas para Input Numérico
     NumericFormat numericFormat() default NumericFormat.INTEGER;
