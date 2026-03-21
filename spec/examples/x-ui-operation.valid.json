@@ -14,6 +14,10 @@
             "operation": "COUNT"
           }
         }
+      },
+      "linkedContract": {
+        "summary": "Contrato externo do request",
+        "externalValue": "https://example.org/examples/group-by-request.json"
       }
     },
     "response": {

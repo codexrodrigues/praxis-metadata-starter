@@ -184,6 +184,12 @@ investiguei e como funciona hoje</h2>
 (FieldDefinition[] com <code>x-ui</code>).</li>
 <li>Usado para montar colunas de grid, formulários e filtros.</li>
 </ul></li>
+<li>JSON de catálogo/documentação
+<ul>
+<li>É a resposta do <code>GET /schemas/catalog</code>.</li>
+<li>Usado para exploração, RAG, playgrounds e discovery de exemplos sem
+contaminar o contrato estrutural.</li>
+</ul></li>
 <li>JSON de layout (customizações de UI no front)
 <ul>
 <li>É persistido no storage do front (LocalStorage via
@@ -249,8 +255,17 @@ genérica).</li>
 <li>Propagação de exemplos operacionais do OpenAPI para
 <code>x-ui.operationExamples.&lt;schemaType&gt;</code> no payload final
 de <code>/schemas/filtered</code>.</li>
-<li><code>operationExamples</code> não participa do hash estrutural
-usado por <code>ETag</code>/<code>X-Schema-Hash</code>.</li>
+<li>Recursos podem sobrescrever ou complementar esses exemplos
+publicando <code>x-ui.operationExamples</code> explicitamente na
+operação OpenAPI.</li>
+<li>O hash/ETag passa a ser calculado sobre um payload estrutural
+separado, com exclusão centralizada de metadados documentais como
+<code>operationExamples</code>.</li>
+<li><code>/schemas/catalog</code> agora expõe explicitamente exemplos
+operacionais e links diretos para
+<code>request</code>/<code>response</code> schema em
+<code>/schemas/filtered</code>, reforçando a separação entre catálogo e
+contrato estrutural.</li>
 </ul></li>
 <li>Frontend
 <ul>
@@ -404,7 +419,11 @@ multi-tenant/locale, inclua <code>X-Tenant</code> e
 <code>Accept-Language</code>. - Quando a operação OpenAPI publicar
 <code>examples</code> ou <code>example</code>, o payload final também
 poderá trazer <code>x-ui.operationExamples.&lt;schemaType&gt;</code>
-para o lado solicitado.</p>
+para o lado solicitado. - <code>operationExamples</code> aceita tanto
+<code>value</code> inline quanto <code>externalValue</code> quando o
+host preferir referenciar exemplos externos. - Para UX documental,
+prefira consumir <code>/schemas/catalog</code>; para renderização de UI
+e sync por hash, prefira <code>/schemas/filtered</code>.</p>
 <hr />
 <h1 id="exemplo-de-tableconfigv2-pósreconciliação">Exemplo de
 TableConfigV2 pós‑reconciliação</h1>

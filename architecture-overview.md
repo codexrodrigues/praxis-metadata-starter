@@ -20,7 +20,7 @@ graph TD
 * **Auto-configurações** (`configuration`): ativadas pelo Spring Boot, ligam processadores, resolvers e registram beans obrigatórios.
 * **Processadores de Anotação** (`annotation`, `extension`): interpretam `@UISchema`, `@Filterable`, `@ApiResource` e geram metadados.
 * **Serviços Base** (`service.base`): definem contratos CRUD, mapeamento de opções e integração com repositórios e filtros.
-* **Controladores** (`controller.docs`): expõem endpoints como `/schemas/filtered`, resolvendo automaticamente grupos OpenAPI.
+* **Controladores** (`controller.docs`): expõem endpoints como `/schemas/filtered` e `/schemas/catalog`, resolvendo automaticamente grupos OpenAPI.
 * **Metadados x-ui** (`FieldConfigProperties`, `ValidationProperties`): padronizam chaves para consumo dos frontends Praxis.
 
 ## Fluxo de Enriquecimento x-ui
@@ -42,7 +42,8 @@ sequenceDiagram
 
 1. **Entrada**: DTOs anotados com `@UISchema` e validações Jakarta.
 2. **Processamento**: `CustomOpenApiResolver` aplica heurísticas e gera `x-ui` coerente.
-3. **Entrega**: `ApiDocsController` filtra o documento, injeta traduções, resolve `$ref` e devolve apenas o necessário ao frontend.
+3. **Entrega estrutural**: `ApiDocsController` filtra o documento, injeta traduções, resolve `$ref` e devolve apenas o necessário ao frontend.
+4. **Entrega documental**: `DomainCatalogController` resume endpoints, exemplos e links para os schemas estruturais.
 
 ## Principais Componentes Técnicos
 
@@ -51,7 +52,8 @@ sequenceDiagram
 | `OpenApiUiSchemaAutoConfiguration` | `configuration` | Ativa resolvers, registradores e endpoints de documentação | Override quando precisar desligar peças automáticas em aplicações multi-módulo |
 | `@UISchema` | `extension.annotation` | Declara propriedades visuais e comportamentais de campos | Estenda atributos via `extraProperties` ou metaprogramação |
 | `CustomOpenApiResolver` | `extension` | Aplica precedência de metadados e Bean Validation | Substitua para alterar heurísticas globais |
-| `ApiDocsController` | `controller.docs` | Exponde `/schemas/filtered` com cache e filtro | Habilite filtros customizados ou headers adicionais |
+| `ApiDocsController` | `controller.docs` | Expõe `/schemas/filtered` como contrato estrutural com cache e filtro | Habilite filtros customizados ou headers adicionais |
+| `DomainCatalogController` | `controller.docs` | Expõe `/schemas/catalog` como superfície documental para exploração e RAG | Use quando precisar de exemplos operacionais, resumos e links para request/response schema |
 | `Filterable` & Filtros | `filter.annotation`, `filter.dto`, `filter.specification` | Convertem DTOs em Specifications dinamicamente | Crie DTOs específicos por contexto e reutilize adaptadores |
 | `BaseCrudService` | `service.base` | Implementa CRUD padrão com mapeamento de opções | Substitua métodos para lógica de negócio específica |
 
@@ -63,6 +65,10 @@ sequenceDiagram
    - Resolução automática de grupo (`OpenApiGroupResolver`).
    - Substituição opcional de `$ref` por objetos expandidos.
    - Conversão de mensagens de validação em `x-ui.validation`.
+4. `DomainCatalogController` usa o mesmo documento OpenAPI para expor um catálogo mais documental:
+   - Resumos e descrições das operações.
+   - Exemplos request/response.
+   - Links diretos para os schemas estruturais em `/schemas/filtered`.
 
 ## Observabilidade e Cache
 

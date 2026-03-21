@@ -199,8 +199,9 @@ metadados.</li>
 contratos CRUD, mapeamento de opções e integração com repositórios e
 filtros.</li>
 <li><strong>Controladores</strong> (<code>controller.docs</code>):
-expõem endpoints como <code>/schemas/filtered</code>, resolvendo
-automaticamente grupos OpenAPI.</li>
+expõem endpoints como <code>/schemas/filtered</code> e
+<code>/schemas/catalog</code>, resolvendo automaticamente grupos
+OpenAPI.</li>
 <li><strong>Metadados x-ui</strong> (<code>FieldConfigProperties</code>,
 <code>ValidationProperties</code>): padronizam chaves para consumo dos
 frontends Praxis.</li>
@@ -223,9 +224,12 @@ frontends Praxis.</li>
 validações Jakarta.</li>
 <li><strong>Processamento</strong>: <code>CustomOpenApiResolver</code>
 aplica heurísticas e gera <code>x-ui</code> coerente.</li>
-<li><strong>Entrega</strong>: <code>ApiDocsController</code> filtra o
-documento, injeta traduções, resolve <code>$ref</code> e devolve apenas
-o necessário ao frontend.</li>
+<li><strong>Entrega estrutural</strong>: <code>ApiDocsController</code>
+filtra o documento, injeta traduções, resolve <code>$ref</code> e
+devolve apenas o necessário ao frontend.</li>
+<li><strong>Entrega documental</strong>:
+<code>DomainCatalogController</code> resume endpoints, exemplos e links
+para os schemas estruturais.</li>
 </ol>
 <h2 id="principais-componentes-técnicos">Principais Componentes
 Técnicos</h2>
@@ -268,17 +272,26 @@ metaprogramação</td>
 <tr class="even">
 <td><code>ApiDocsController</code></td>
 <td><code>controller.docs</code></td>
-<td>Exponde <code>/schemas/filtered</code> com cache e filtro</td>
+<td>Expõe <code>/schemas/filtered</code> como contrato estrutural com
+cache e filtro</td>
 <td>Habilite filtros customizados ou headers adicionais</td>
 </tr>
 <tr class="odd">
+<td><code>DomainCatalogController</code></td>
+<td><code>controller.docs</code></td>
+<td>Expõe <code>/schemas/catalog</code> como superfície documental para
+exploração e RAG</td>
+<td>Use quando precisar de exemplos operacionais, resumos e links para
+request/response schema</td>
+</tr>
+<tr class="even">
 <td><code>Filterable</code> &amp; Filtros</td>
 <td><code>filter.annotation</code>, <code>filter.dto</code>,
 <code>filter.specification</code></td>
 <td>Convertem DTOs em Specifications dinamicamente</td>
 <td>Crie DTOs específicos por contexto e reutilize adaptadores</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>BaseCrudService</code></td>
 <td><code>service.base</code></td>
 <td>Implementa CRUD padrão com mapeamento de opções</td>
@@ -302,6 +315,14 @@ aplica filtros específicos:
 expandidos.</li>
 <li>Conversão de mensagens de validação em
 <code>x-ui.validation</code>.</li>
+</ul></li>
+<li><code>DomainCatalogController</code> usa o mesmo documento OpenAPI
+para expor um catálogo mais documental:
+<ul>
+<li>Resumos e descrições das operações.</li>
+<li>Exemplos request/response.</li>
+<li>Links diretos para os schemas estruturais em
+<code>/schemas/filtered</code>.</li>
 </ul></li>
 </ol>
 <h2 id="observabilidade-e-cache">Observabilidade e Cache</h2>
