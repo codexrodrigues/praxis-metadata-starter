@@ -51,6 +51,8 @@ Documentação online (GitHub Pages):
 - Técnico
   - [Estratégia de grupos OpenAPI](docs/technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md)
   - [Auto-configuração](docs/technical/AUTO-CONFIGURACAO.md)
+  - [Plano de cursor pagination / keyset](docs/technical/CURSOR-PAGINATION-KEYSET-PLAN.md)
+  - [Backlog executável de cursor pagination / keyset](docs/technical/CURSOR-PAGINATION-KEYSET-BACKLOG.md)
   - [Validação @ApiResource](docs/technical/VALIDACAO-API-RESOURCE.md)
   - [Guia CRUD + Bulk](docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md)
 

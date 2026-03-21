@@ -25,7 +25,29 @@
     "relatedEntitiesEndpoints": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
+    },
+    "operationExamples": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request": { "$ref": "#/$defs/exampleCollection" },
+        "response": { "$ref": "#/$defs/exampleCollection" }
+      }
+    }
+  },
+  "$defs": {
+    "exampleCollection": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "summary": { "type": "string" },
+          "description": { "type": "string" },
+          "value": {}
+        },
+        "required": ["value"]
+      }
     }
   }
 }
-

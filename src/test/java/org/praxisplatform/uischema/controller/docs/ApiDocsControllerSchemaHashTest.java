@@ -128,5 +128,53 @@ public class ApiDocsControllerSchemaHashTest {
         assertEquals(304, r2.getStatusCodeValue());
         assertNull(r2.getBody());
     }
-}
 
+    @Test
+    void schemaHashIgnoresOperationExamples() throws Exception {
+        String path = "/api/human-resources/funcionarios/all";
+
+        ResponseEntity<Map<String, Object>> before = controller.getFilteredSchema(
+                path,
+                "get",
+                true,
+                "response",
+                null,
+                null,
+                Locale.ENGLISH
+        );
+        String originalEtag = before.getHeaders().getETag();
+        assertNotNull(originalEtag);
+
+        Field dc = ApiDocsController.class.getDeclaredField("documentCache");
+        dc.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<String, JsonNode> docCache = (Map<String, JsonNode>) dc.get(controller);
+        ObjectNode cachedDoc = (ObjectNode) docCache.get("api-human-resources-funcionarios");
+        ObjectNode getNode = (ObjectNode) cachedDoc.path("paths").path(path).path("get");
+        getNode.putObject("responses")
+                .putObject("200")
+                .putObject("content")
+                .putObject("application/json")
+                .putObject("examples")
+                .putObject("newExample")
+                .put("value", "{\"data\":[]}");
+
+        Field shc = ApiDocsController.class.getDeclaredField("schemaHashCache");
+        shc.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<String, String> schemaHashCache = (Map<String, String>) shc.get(controller);
+        schemaHashCache.clear();
+
+        ResponseEntity<Map<String, Object>> after = controller.getFilteredSchema(
+                path,
+                "get",
+                true,
+                "response",
+                null,
+                null,
+                Locale.ENGLISH
+        );
+
+        assertEquals(originalEtag, after.getHeaders().getETag());
+    }
+}

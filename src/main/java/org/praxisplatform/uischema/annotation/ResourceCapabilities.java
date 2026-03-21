@@ -21,5 +21,7 @@ public @interface ResourceCapabilities {
     boolean all() default true;
     boolean filter() default true;
     boolean cursor() default true;
+    boolean statsGroupBy() default true;
+    boolean statsTimeSeries() default true;
+    boolean statsDistribution() default true;
 }
-

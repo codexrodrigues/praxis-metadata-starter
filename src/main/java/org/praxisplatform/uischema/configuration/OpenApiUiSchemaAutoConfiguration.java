@@ -9,6 +9,11 @@ import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
 import org.praxisplatform.uischema.filter.web.FilterPayloadNormalizer;
 import org.praxisplatform.uischema.filter.web.FilterRequestBodyAdvice;
+import org.praxisplatform.uischema.stats.StatsEligibility;
+import org.praxisplatform.uischema.stats.StatsProperties;
+import org.praxisplatform.uischema.stats.StatsSupportMode;
+import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
+import org.praxisplatform.uischema.stats.service.jpa.JpaStatsQueryExecutor;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -434,6 +439,29 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Bean(name = "openApiUiSchemaSpecificationsBuilder")
     public <E> GenericSpecificationsBuilder<E> genericSpecificationsBuilder() {
         return new GenericSpecificationsBuilder<>();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public StatsEligibility statsEligibility() {
+        return new StatsEligibility();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public StatsQueryExecutor statsQueryExecutor() {
+        return new JpaStatsQueryExecutor();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public StatsProperties statsProperties(
+            @Value("${praxis.stats.enabled:false}") boolean enabled,
+            @Value("${praxis.stats.max-buckets:20}") int maxBuckets,
+            @Value("${praxis.stats.max-series-points:100}") int maxSeriesPoints,
+            @Value("${praxis.stats.default-mode:DISABLED}") StatsSupportMode defaultMode
+    ) {
+        return new StatsProperties(enabled, maxBuckets, maxSeriesPoints, defaultMode);
     }
 
     /**

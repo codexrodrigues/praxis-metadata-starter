@@ -175,11 +175,9 @@ public class ApiDocsController {
         JsonNode directSchemaNode = null;
         if ("request".equalsIgnoreCase(schemaType)) {
             // Tenta localizar schema do corpo de requisição
-            JsonNode bodySchema = pathsNode
-                    .path("requestBody")
-                    .path("content")
-                    .path("application/json")
-                    .path("schema");
+            JsonNode bodySchema = selectPreferredContentNode(
+                    pathsNode.path("requestBody").path("content")
+            ).path("schema");
 
             if (!bodySchema.isMissingNode()) {
                 if (bodySchema.has(REF)) {
@@ -231,6 +229,10 @@ public class ApiDocsController {
         if (xUiMap == null) {
             xUiMap = new java.util.HashMap<>();
         }
+        Map<String, Object> operationExamples = extractOperationExamples(pathsNode, schemaType);
+        if (!operationExamples.isEmpty()) {
+            xUiMap.put("operationExamples", operationExamples);
+        }
 
         // Anotar x-ui.resource.idField para o frontend
         String resolvedIdField = resolveIdField(idField, schemaMap);
@@ -275,7 +277,7 @@ public class ApiDocsController {
 
         String schemaHash = schemaHashCache.get(schemaId);
         if (schemaHash == null) {
-            com.fasterxml.jackson.databind.JsonNode payloadNode = objectMapper.valueToTree(schemaMap);
+            com.fasterxml.jackson.databind.JsonNode payloadNode = objectMapper.valueToTree(removeOperationExamplesForHash(schemaMap));
             org.praxisplatform.uischema.hash.SchemaCanonicalizer canonicalizer = new org.praxisplatform.uischema.hash.SchemaCanonicalizer();
             com.fasterxml.jackson.databind.JsonNode canonical = canonicalizer.canonicalize(payloadNode);
             schemaHash = org.praxisplatform.uischema.hash.SchemaHashUtil.sha256Hex(canonical);
@@ -361,6 +363,9 @@ public class ApiDocsController {
         if (p.endsWith("/") && p.length() > 1) p = p.substring(0, p.length() - 1);
 
         String[] suffixes = new String[]{
+                "/stats/distribution",
+                "/stats/timeseries",
+                "/stats/group-by",
                 "/options/by-ids",
                 "/options/filter",
                 "/filter/cursor",
@@ -400,6 +405,9 @@ public class ApiDocsController {
         caps.put("all", hasOp.apply(p + "/all", "get"));
         caps.put("filter", hasOp.apply(p + "/filter", "post"));
         caps.put("cursor", hasOp.apply(p + "/filter/cursor", "post"));
+        caps.put("statsGroupBy", hasOp.apply(p + "/stats/group-by", "post"));
+        caps.put("statsTimeSeries", hasOp.apply(p + "/stats/timeseries", "post"));
+        caps.put("statsDistribution", hasOp.apply(p + "/stats/distribution", "post"));
         return caps;
     }
 
@@ -412,6 +420,96 @@ public class ApiDocsController {
         Object propsObj = schemaMap.get("properties");
         if (!(propsObj instanceof Map)) return false;
         return ((Map<String, Object>) propsObj).containsKey(prop);
+    }
+
+    private Map<String, Object> extractOperationExamples(JsonNode operationNode, String schemaType) {
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        if ("request".equalsIgnoreCase(schemaType)) {
+            Map<String, Object> requestExamples = extractExamplesFromContentNode(
+                    selectPreferredContentNode(operationNode.path("requestBody").path("content"))
+            );
+            if (!requestExamples.isEmpty()) {
+                result.put("request", requestExamples);
+            }
+        }
+
+        if ("response".equalsIgnoreCase(schemaType)) {
+            Map<String, Object> responseExamples = extractExamplesFromContentNode(
+                    selectPreferredContentNode(operationNode.path("responses").path("200").path("content"))
+            );
+            if (!responseExamples.isEmpty()) {
+                result.put("response", responseExamples);
+            }
+        }
+
+        return result;
+    }
+
+    private JsonNode selectPreferredContentNode(JsonNode contentRoot) {
+        if (contentRoot == null || contentRoot.isMissingNode()) {
+            return contentRoot;
+        }
+        JsonNode applicationJson = contentRoot.path("application/json");
+        if (!applicationJson.isMissingNode()) {
+            return applicationJson;
+        }
+        JsonNode any = contentRoot.path("*/*");
+        if (!any.isMissingNode()) {
+            return any;
+        }
+        Iterator<JsonNode> values = contentRoot.elements();
+        return values.hasNext() ? values.next() : contentRoot;
+    }
+
+    private Map<String, Object> extractExamplesFromContentNode(JsonNode contentNode) {
+        Map<String, Object> examples = new LinkedHashMap<>();
+        if (contentNode == null || contentNode.isMissingNode()) {
+            return examples;
+        }
+
+        JsonNode examplesNode = contentNode.path("examples");
+        if (!examplesNode.isMissingNode() && examplesNode.isObject()) {
+            Iterator<Entry<String, JsonNode>> fields = examplesNode.fields();
+            while (fields.hasNext()) {
+                Entry<String, JsonNode> entry = fields.next();
+                Map<String, Object> exampleMeta = new LinkedHashMap<>();
+                JsonNode exampleNode = entry.getValue();
+                if (exampleNode.has("summary")) {
+                    exampleMeta.put("summary", exampleNode.path("summary").asText());
+                }
+                if (exampleNode.has("description")) {
+                    exampleMeta.put("description", exampleNode.path("description").asText());
+                }
+                if (exampleNode.has("value")) {
+                    exampleMeta.put("value", objectMapper.convertValue(exampleNode.path("value"), Object.class));
+                }
+                if (!exampleMeta.isEmpty()) {
+                    examples.put(entry.getKey(), exampleMeta);
+                }
+            }
+        }
+
+        JsonNode singleExampleNode = contentNode.path("example");
+        if (!singleExampleNode.isMissingNode()) {
+            Map<String, Object> defaultExample = new LinkedHashMap<>();
+            defaultExample.put("value", objectMapper.convertValue(singleExampleNode, Object.class));
+            examples.putIfAbsent("default", defaultExample);
+        }
+
+        return examples;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> removeOperationExamplesForHash(Map<String, Object> schemaMap) {
+        Map<String, Object> structuralPayload = new LinkedHashMap<>(schemaMap);
+        Object xUiObj = structuralPayload.get(X_UI);
+        if (xUiObj instanceof Map<?, ?> xUiMap) {
+            Map<String, Object> xUiCopy = new LinkedHashMap<>((Map<String, Object>) xUiMap);
+            xUiCopy.remove("operationExamples");
+            structuralPayload.put(X_UI, xUiCopy);
+        }
+        return structuralPayload;
     }
 
     /**

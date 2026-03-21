@@ -31,6 +31,8 @@ docs/
 │   └── ui-schema.md
 ├── technical/               # Documentação técnica detalhada
 │   ├── AUTO-CONFIGURACAO.md
+│   ├── CURSOR-PAGINATION-KEYSET-BACKLOG.md
+│   ├── CURSOR-PAGINATION-KEYSET-PLAN.md
 │   ├── ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
 │   └── VALIDACAO-API-RESOURCE.md
 └── api/                    # Documentação de API (para futuras adições)
@@ -124,6 +126,26 @@ docs/
 - Detecção de controllers sem anotação
 - Sistema de testes automatizados
 
+### 🔁 [Plano de Cursor Pagination / Keyset](technical/CURSOR-PAGINATION-KEYSET-PLAN.md)
+**Desenho de plataforma para suportar `/filter/cursor` com keyset pagination real**
+
+- Uso de `Window<T>` e `ScrollPosition` do Spring Data Commons
+- Fragmentos de repositório para infraestrutura compartilhada
+- Sort estável com tie-break por ID
+- Capability explícita por recurso
+- Rollout seguro do v1 sem generalização excessiva
+
+### 🧱 [Backlog Executável de Cursor Pagination / Keyset](technical/CURSOR-PAGINATION-KEYSET-BACKLOG.md)
+**Backlog do v1 de keyset pagination, arquivo por arquivo**
+
+- tipos internos
+- codec de cursor
+- fragmento de repositório
+- integração no service base
+- controller base
+- auto-configuração
+- testes e validação consumidora
+
 ---
 
 ## 🧭 **Como Navegar pela Documentação**
@@ -137,6 +159,8 @@ docs/
 1. 🔧 Estude a [Estratégia de Grupos OpenAPI](technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md)
 2. ⚙️ Entenda a [Auto-configuração](technical/AUTO-CONFIGURACAO.md) 
 3. ✅ Configure a [Validação @ApiResource](technical/VALIDACAO-API-RESOURCE.md)
+4. 🔁 Revise o [Plano de Cursor Pagination / Keyset](technical/CURSOR-PAGINATION-KEYSET-PLAN.md) antes de evoluir `/filter/cursor`
+5. 🧱 Execute o [Backlog de Cursor Pagination / Keyset](technical/CURSOR-PAGINATION-KEYSET-BACKLOG.md) para implementar o v1
 
 ### **Integração de Schema (Backend ↔ Frontend)**
 - 🔒 Planos de hash/ETag, identidade de campos, diffs e persistência de versões/overrides:

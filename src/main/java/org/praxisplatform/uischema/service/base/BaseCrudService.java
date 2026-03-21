@@ -8,6 +8,14 @@ import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBui
 import org.praxisplatform.uischema.mapper.base.OptionMapper;
 import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
 import org.praxisplatform.uischema.service.base.annotation.DefaultSortColumn;
+import org.praxisplatform.uischema.stats.StatsFieldRegistry;
+import org.praxisplatform.uischema.stats.StatsSupportMode;
+import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
+import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
+import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
+import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
+import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
+import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -99,6 +107,22 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
      * @return versão do dataset, quando disponível
      */
     default Optional<String> getDatasetVersion() { return Optional.empty(); }
+
+    default StatsSupportMode getGroupByStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
+
+    default StatsSupportMode getTimeSeriesStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
+
+    default StatsSupportMode getDistributionStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
+
+    default StatsFieldRegistry getStatsFieldRegistry() {
+        return StatsFieldRegistry.empty();
+    }
 
     /**
      * Recupera uma entidade pelo identificador e projeta o resultado dentro do contexto do service.
@@ -611,6 +635,39 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
     default <R> CursorPage<R> filterByCursorMapped(FD filter, Sort sort, String after, String before, int size, Function<E, R> mapper) {
         CursorPage<E> page = filterByCursor(filter, sort, after, before, size);
         return new CursorPage<>(page.content().stream().map(mapper).toList(), page.next(), page.prev(), page.size());
+    }
+
+    /**
+     * Executes a canonical group-by aggregate over the filtered dataset.
+     *
+     * @param request stats request
+     * @return group-by stats response
+     * @throws UnsupportedOperationException when the resource does not support stats
+     */
+    default GroupByStatsResponse groupByStats(GroupByStatsRequest<FD> request) {
+        throw new UnsupportedOperationException("Group-by stats not implemented");
+    }
+
+    /**
+     * Executes a canonical time-series aggregate over the filtered dataset.
+     *
+     * @param request stats request
+     * @return time-series stats response
+     * @throws UnsupportedOperationException when the resource does not support stats
+     */
+    default TimeSeriesStatsResponse timeSeriesStats(TimeSeriesStatsRequest<FD> request) {
+        throw new UnsupportedOperationException("Time-series stats not implemented");
+    }
+
+    /**
+     * Executes a canonical distribution aggregate over the filtered dataset.
+     *
+     * @param request stats request
+     * @return distribution stats response
+     * @throws UnsupportedOperationException when the resource does not support stats
+     */
+    default DistributionStatsResponse distributionStats(DistributionStatsRequest<FD> request) {
+        throw new UnsupportedOperationException("Distribution stats not implemented");
     }
 
     /**

@@ -6,6 +6,18 @@ import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
 import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
 import org.praxisplatform.uischema.dto.CursorPage;
+import org.praxisplatform.uischema.stats.StatsEligibility;
+import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
+import org.praxisplatform.uischema.stats.StatsProperties;
+import org.praxisplatform.uischema.stats.StatsSupportMode;
+import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
+import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
+import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
+import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
+import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
+import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
+import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +40,15 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    @Autowired(required = false)
+    private StatsQueryExecutor statsQueryExecutor;
+
+    @Autowired(required = false)
+    private StatsEligibility statsEligibility;
+
+    @Autowired(required = false)
+    private StatsProperties statsProperties;
 
     private final BaseCrudRepository<E, ID> repository;
     private final GenericSpecificationsBuilder<E> specificationsBuilder;
@@ -134,6 +155,112 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
     @Transactional(readOnly = true)
     public <R> CursorPage<R> filterByCursorMapped(FD filter, org.springframework.data.domain.Sort sort, String after, String before, int size, Function<E, R> mapper) {
         return BaseCrudService.super.filterByCursorMapped(filter, sort, after, before, size, mapper);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GroupByStatsResponse groupByStats(GroupByStatsRequest<FD> request) {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        if (!properties.enabled()) {
+            throw new UnsupportedOperationException("Group-by stats not implemented");
+        }
+        if (getGroupByStatsSupportMode() == StatsSupportMode.DISABLED) {
+            throw new UnsupportedOperationException("Group-by stats not implemented");
+        }
+        if (statsQueryExecutor == null || statsEligibility == null) {
+            throw new UnsupportedOperationException("Group-by stats not implemented");
+        }
+
+        StatsFieldDescriptor descriptor = statsEligibility.validateGroupBy(
+                request,
+                getStatsFieldRegistry(),
+                properties.maxBuckets()
+        );
+        StatsFieldDescriptor metricDescriptor = statsEligibility.resolveMetricField(
+                request.metric(),
+                getStatsFieldRegistry(),
+                "group-by"
+        );
+        var specification = getSpecificationsBuilder().buildSpecification(request.filter(), Pageable.unpaged());
+        return statsQueryExecutor.executeGroupBy(
+                entityManager,
+                entityClass,
+                specification.spec(),
+                descriptor,
+                metricDescriptor,
+                request,
+                properties.maxBuckets()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TimeSeriesStatsResponse timeSeriesStats(TimeSeriesStatsRequest<FD> request) {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        if (!properties.enabled()) {
+            throw new UnsupportedOperationException("Time-series stats not implemented");
+        }
+        if (getTimeSeriesStatsSupportMode() == StatsSupportMode.DISABLED) {
+            throw new UnsupportedOperationException("Time-series stats not implemented");
+        }
+        if (statsQueryExecutor == null || statsEligibility == null) {
+            throw new UnsupportedOperationException("Time-series stats not implemented");
+        }
+
+        StatsFieldDescriptor descriptor = statsEligibility.validateTimeSeries(
+                request,
+                getStatsFieldRegistry(),
+                properties.maxSeriesPoints()
+        );
+        StatsFieldDescriptor metricDescriptor = statsEligibility.resolveMetricField(
+                request.metric(),
+                getStatsFieldRegistry(),
+                "time-series"
+        );
+        var specification = getSpecificationsBuilder().buildSpecification(request.filter(), Pageable.unpaged());
+        return statsQueryExecutor.executeTimeSeries(
+                entityManager,
+                entityClass,
+                specification.spec(),
+                descriptor,
+                metricDescriptor,
+                request,
+                properties.maxSeriesPoints()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DistributionStatsResponse distributionStats(DistributionStatsRequest<FD> request) {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        if (!properties.enabled()) {
+            throw new UnsupportedOperationException("Distribution stats not implemented");
+        }
+        if (getDistributionStatsSupportMode() == StatsSupportMode.DISABLED) {
+            throw new UnsupportedOperationException("Distribution stats not implemented");
+        }
+        if (statsQueryExecutor == null || statsEligibility == null) {
+            throw new UnsupportedOperationException("Distribution stats not implemented");
+        }
+
+        StatsFieldDescriptor descriptor = statsEligibility.validateDistribution(
+                request,
+                getStatsFieldRegistry(),
+                properties.maxBuckets()
+        );
+        StatsFieldDescriptor metricDescriptor = request.mode() == org.praxisplatform.uischema.stats.DistributionMode.TERMS
+                ? statsEligibility.resolveMetricField(request.metric(), getStatsFieldRegistry(), "distribution")
+                : null;
+        var specification = getSpecificationsBuilder().buildSpecification(request.filter(), Pageable.unpaged());
+        return statsQueryExecutor.executeDistribution(
+                entityManager,
+                entityClass,
+                specification.spec(),
+                descriptor,
+                metricDescriptor,
+                request,
+                properties.maxBuckets()
+        );
     }
 
     @Override

@@ -185,4 +185,145 @@ class ApiDocsControllerTest {
 
         assertEquals("Parameter 'schemaType' must be 'response' or 'request'.", exception.getMessage());
     }
+
+    @Test
+    void getFilteredSchemaIncludesOperationExamplesForRequestedSchemaType() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/stats\": {\n" +
+                "      \"post\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"application/json\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/StatsRequest\"},\n" +
+                "              \"examples\": {\n" +
+                "                \"timeseries\": {\n" +
+                "                  \"summary\": \"Time-series\",\n" +
+                "                  \"value\": {\"field\": \"createdOn\", \"granularity\": \"DAY\"}\n" +
+                "                }\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        },\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/StatsResponse\"},\n" +
+                "                \"examples\": {\n" +
+                "                  \"timeseriesResult\": {\n" +
+                "                    \"summary\": \"Result\",\n" +
+                "                    \"value\": {\"data\": {\"points\": []}}\n" +
+                "                  }\n" +
+                "                }\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"StatsRequest\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\"field\": {\"type\": \"string\"}}\n" +
+                "      },\n" +
+                "      \"StatsResponse\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\"data\": {\"type\": \"object\"}}\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/stats"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema("/stats", "post", false, "response", null, null, java.util.Locale.ENGLISH);
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        assertNotNull(xUi);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> operationExamples = (Map<String, Object>) xUi.get("operationExamples");
+        assertNotNull(operationExamples);
+        assertTrue(operationExamples.containsKey("response"));
+        assertFalse(operationExamples.containsKey("request"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseExamples = (Map<String, Object>) operationExamples.get("response");
+        assertTrue(responseExamples.containsKey("timeseriesResult"));
+    }
+
+    @Test
+    void getFilteredSchemaIncludesRequestExamplesWithFallbackMediaType() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/stats\": {\n" +
+                "      \"post\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"*/*\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/StatsRequest\"},\n" +
+                "              \"examples\": {\n" +
+                "                \"requestExample\": {\n" +
+                "                  \"summary\": \"Fallback request\",\n" +
+                "                  \"value\": {\"field\": \"createdOn\"}\n" +
+                "                }\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"StatsRequest\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\"field\": {\"type\": \"string\"}}\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/stats"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema("/stats", "post", false, "request", null, null, java.util.Locale.ENGLISH);
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        assertNotNull(xUi);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> operationExamples = (Map<String, Object>) xUi.get("operationExamples");
+        assertNotNull(operationExamples);
+        assertTrue(operationExamples.containsKey("request"));
+        assertFalse(operationExamples.containsKey("response"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> requestExamples = (Map<String, Object>) operationExamples.get("request");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> requestExample = (Map<String, Object>) requestExamples.get("requestExample");
+        assertEquals("Fallback request", requestExample.get("summary"));
+    }
 }

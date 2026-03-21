@@ -7,9 +7,16 @@ import org.praxisplatform.uischema.dto.LocateResponse;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.service.base.BaseCrudService;
+import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
+import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
+import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
+import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
+import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
+import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.annotation.PostConstruct;
@@ -188,6 +195,139 @@ import org.praxisplatform.uischema.util.SortBuilder;
  * @see org.praxisplatform.uischema.controller.docs.ApiDocsController
  */
 public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterDTO> {
+
+    private static final String GROUP_BY_STATS_REQUEST_EXAMPLE = """
+            {
+              "filter": {},
+              "field": "<groupableField>",
+              "metric": {
+                "operation": "COUNT"
+              },
+              "limit": 10,
+              "orderBy": "VALUE_DESC"
+            }
+            """;
+
+    private static final String GROUP_BY_STATS_RESPONSE_EXAMPLE = """
+            {
+              "success": true,
+              "data": {
+                "field": "<groupableField>",
+                "metric": {
+                  "operation": "COUNT",
+                  "field": null
+                },
+                "buckets": [
+                  {
+                    "key": "<bucket-1>",
+                    "label": "<bucket-1>",
+                    "value": 12,
+                    "count": 12
+                  },
+                  {
+                    "key": "<bucket-2>",
+                    "label": "<bucket-2>",
+                    "value": 4,
+                    "count": 4
+                  }
+                ]
+              },
+              "links": null
+            }
+            """;
+
+    private static final String TIME_SERIES_STATS_REQUEST_EXAMPLE = """
+            {
+              "filter": {},
+              "field": "<timeField>",
+              "granularity": "DAY",
+              "metric": {
+                "operation": "SUM",
+                "field": "<numericMetricField>"
+              },
+              "from": "2026-03-01",
+              "to": "2026-03-03",
+              "fillGaps": true
+            }
+            """;
+
+    private static final String TIME_SERIES_STATS_RESPONSE_EXAMPLE = """
+            {
+              "success": true,
+              "data": {
+                "field": "<timeField>",
+                "granularity": "DAY",
+                "metric": {
+                  "operation": "SUM",
+                  "field": "<numericMetricField>"
+                },
+                "points": [
+                  {
+                    "start": "2026-03-01",
+                    "end": "2026-03-01",
+                    "label": "2026-03-01",
+                    "value": 25.0,
+                    "count": 2
+                  },
+                  {
+                    "start": "2026-03-02",
+                    "end": "2026-03-02",
+                    "label": "2026-03-02",
+                    "value": 0.0,
+                    "count": 0
+                  }
+                ]
+              },
+              "links": null
+            }
+            """;
+
+    private static final String DISTRIBUTION_STATS_REQUEST_EXAMPLE = """
+            {
+              "filter": {},
+              "field": "<distributionField>",
+              "mode": "HISTOGRAM",
+              "metric": {
+                "operation": "COUNT"
+              },
+              "bucketSize": 1000,
+              "bucketCount": 5,
+              "limit": 5
+            }
+            """;
+
+    private static final String DISTRIBUTION_STATS_RESPONSE_EXAMPLE = """
+            {
+              "success": true,
+              "data": {
+                "field": "<distributionField>",
+                "mode": "HISTOGRAM",
+                "metric": {
+                  "operation": "COUNT",
+                  "field": null
+                },
+                "buckets": [
+                  {
+                    "from": 0.0,
+                    "to": 1000.0,
+                    "key": 0.0,
+                    "label": "0 - 1000",
+                    "value": 3,
+                    "count": 3
+                  },
+                  {
+                    "from": 1000.0,
+                    "to": 2000.0,
+                    "key": 1000.0,
+                    "label": "1000 - 2000",
+                    "value": 2,
+                    "count": 2
+                  }
+                ]
+              },
+              "links": null
+            }
+            """;
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractCrudController.class);
 
@@ -646,6 +786,153 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         long pos = position.getAsLong();
         long page = size > 0 ? pos / size : 0;
         return withVersion(ResponseEntity.ok(), new LocateResponse(pos, page));
+    }
+
+    @PostMapping("/stats/group-by")
+    @Operation(summary = "Group-by stats sobre o conjunto filtrado",
+            description = "Retorna buckets agregados canônicos sobre o conjunto filtrado do recurso.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    name = "groupByCount",
+                                    summary = "Agrupamento por status com COUNT",
+                                    value = GROUP_BY_STATS_REQUEST_EXAMPLE
+                            )
+                    )
+            ),
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Group-by calculado com sucesso",
+                            content = @Content(
+                                    examples = @ExampleObject(
+                                            name = "groupByCountResponse",
+                                            summary = "Buckets agregados por status",
+                                            value = GROUP_BY_STATS_RESPONSE_EXAMPLE
+                                    )
+                            )
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Request de stats inválido"),
+                    @ApiResponse(responseCode = "501", description = "Stats não suportado pelo recurso")
+            })
+    public ResponseEntity<RestApiResponse<GroupByStatsResponse>> groupByStats(
+            @RequestBody GroupByStatsRequest<FD> request) {
+        GroupByStatsResponse result;
+        try {
+            result = getService().groupByStats(request);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        } catch (UnsupportedOperationException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+        }
+
+        Links links = Links.of(
+                linkToFilter(),
+                linkToUiSchema("/stats/group-by", "post", "request"),
+                linkToUiSchema("/stats/group-by", "post", "response")
+        );
+
+        var response = RestApiResponse.success(result, isHateoasEnabled() ? links : null);
+        return withVersion(ResponseEntity.ok(), response);
+    }
+
+    @PostMapping("/stats/timeseries")
+    @Operation(summary = "Time-series stats sobre o conjunto filtrado",
+            description = "Retorna série temporal canônica agregada sobre o conjunto filtrado do recurso.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    name = "timeSeriesSum",
+                                    summary = "Série diária com SUM e fillGaps",
+                                    value = TIME_SERIES_STATS_REQUEST_EXAMPLE
+                            )
+                    )
+            ),
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Série temporal calculada com sucesso",
+                            content = @Content(
+                                    examples = @ExampleObject(
+                                            name = "timeSeriesSumResponse",
+                                            summary = "Pontos de série temporal com datas ISO",
+                                            value = TIME_SERIES_STATS_RESPONSE_EXAMPLE
+                                    )
+                            )
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Request de stats inválido"),
+                    @ApiResponse(responseCode = "501", description = "Stats não suportado pelo recurso")
+            })
+    public ResponseEntity<RestApiResponse<TimeSeriesStatsResponse>> timeSeriesStats(
+            @RequestBody TimeSeriesStatsRequest<FD> request) {
+        TimeSeriesStatsResponse result;
+        try {
+            result = getService().timeSeriesStats(request);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        } catch (UnsupportedOperationException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+        }
+
+        Links links = Links.of(
+                linkToFilter(),
+                linkToUiSchema("/stats/timeseries", "post", "request"),
+                linkToUiSchema("/stats/timeseries", "post", "response")
+        );
+
+        var response = RestApiResponse.success(result, isHateoasEnabled() ? links : null);
+        return withVersion(ResponseEntity.ok(), response);
+    }
+
+    @PostMapping("/stats/distribution")
+    @Operation(summary = "Distribution stats sobre o conjunto filtrado",
+            description = "Retorna distribuicoes canonicas sobre o conjunto filtrado do recurso.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    name = "distributionHistogram",
+                                    summary = "Distribuição por histograma com COUNT",
+                                    value = DISTRIBUTION_STATS_REQUEST_EXAMPLE
+                            )
+                    )
+            ),
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Distribuição calculada com sucesso",
+                            content = @Content(
+                                    examples = @ExampleObject(
+                                            name = "distributionHistogramResponse",
+                                            summary = "Buckets de histograma canônicos",
+                                            value = DISTRIBUTION_STATS_RESPONSE_EXAMPLE
+                                    )
+                            )
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Request de stats inválido"),
+                    @ApiResponse(responseCode = "501", description = "Stats não suportado pelo recurso")
+            })
+    public ResponseEntity<RestApiResponse<DistributionStatsResponse>> distributionStats(
+            @RequestBody DistributionStatsRequest<FD> request) {
+        DistributionStatsResponse result;
+        try {
+            result = getService().distributionStats(request);
+        } catch (UnsupportedOperationException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        }
+
+        Links links = Links.of(
+                linkToAll(),
+                linkToUiSchema("/stats/distribution", "post", "request"),
+                linkToUiSchema("/stats/distribution", "post", "response")
+        );
+
+        var response = RestApiResponse.success(result, isHateoasEnabled() ? links : null);
+        return withVersion(ResponseEntity.ok(), response);
     }
 
     // -------------------------------------------------------------------------

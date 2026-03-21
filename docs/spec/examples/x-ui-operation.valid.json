@@ -3,6 +3,28 @@
   "displayFields": ["name", "email"],
   "filterFields": ["status"],
   "responseSchema": "EmployeeDTO",
-  "relatedEntitiesEndpoints": ["/api/departments"]
+  "relatedEntitiesEndpoints": ["/api/departments"],
+  "operationExamples": {
+    "request": {
+      "groupByCount": {
+        "summary": "Group-by por status",
+        "value": {
+          "field": "status",
+          "metric": {
+            "operation": "COUNT"
+          }
+        }
+      }
+    },
+    "response": {
+      "groupByCountResponse": {
+        "summary": "Buckets agregados",
+        "value": {
+          "data": {
+            "buckets": []
+          }
+        }
+      }
+    }
+  }
 }
-
