@@ -203,6 +203,8 @@ Documentação</strong></h2>
 │   └── ui-schema.md
 ├── technical/               # Documentação técnica detalhada
 │   ├── AUTO-CONFIGURACAO.md
+│   ├── CURSOR-PAGINATION-KEYSET-BACKLOG.md
+│   ├── CURSOR-PAGINATION-KEYSET-PLAN.md
 │   ├── ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
 │   └── VALIDACAO-API-RESOURCE.md
 └── api/                    # Documentação de API (para futuras adições)</code></pre>
@@ -335,6 +337,33 @@ data-cites="ApiResource">@ApiResource</span></li>
 <li>Detecção de controllers sem anotação</li>
 <li>Sistema de testes automatizados</li>
 </ul>
+<h3 id="plano-de-cursor-pagination-keyset">🔁 <a
+href="technical/CURSOR-PAGINATION-KEYSET-PLAN.md">Plano de Cursor
+Pagination / Keyset</a></h3>
+<p><strong>Desenho de plataforma para suportar
+<code>/filter/cursor</code> com keyset pagination real</strong></p>
+<ul>
+<li>Uso de <code>Window&lt;T&gt;</code> e <code>ScrollPosition</code> do
+Spring Data Commons</li>
+<li>Fragmentos de repositório para infraestrutura compartilhada</li>
+<li>Sort estável com tie-break por ID</li>
+<li>Capability explícita por recurso</li>
+<li>Rollout seguro do v1 sem generalização excessiva</li>
+</ul>
+<h3 id="backlog-executável-de-cursor-pagination-keyset">🧱 <a
+href="technical/CURSOR-PAGINATION-KEYSET-BACKLOG.md">Backlog Executável
+de Cursor Pagination / Keyset</a></h3>
+<p><strong>Backlog do v1 de keyset pagination, arquivo por
+arquivo</strong></p>
+<ul>
+<li>tipos internos</li>
+<li>codec de cursor</li>
+<li>fragmento de repositório</li>
+<li>integração no service base</li>
+<li>controller base</li>
+<li>auto-configuração</li>
+<li>testes e validação consumidora</li>
+</ul>
 <hr />
 <h2 id="como-navegar-pela-documentação">🧭 <strong>Como Navegar pela
 Documentação</strong></h2>
@@ -358,6 +387,13 @@ href="technical/AUTO-CONFIGURACAO.md">Auto-configuração</a></li>
 <li>✅ Configure a <a
 href="technical/VALIDACAO-API-RESOURCE.md">Validação <span
 class="citation" data-cites="ApiResource">@ApiResource</span></a></li>
+<li>🔁 Revise o <a
+href="technical/CURSOR-PAGINATION-KEYSET-PLAN.md">Plano de Cursor
+Pagination / Keyset</a> antes de evoluir
+<code>/filter/cursor</code></li>
+<li>🧱 Execute o <a
+href="technical/CURSOR-PAGINATION-KEYSET-BACKLOG.md">Backlog de Cursor
+Pagination / Keyset</a> para implementar o v1</li>
 </ol>
 <h3 id="integração-de-schema-backend-frontend"><strong>Integração de
 Schema (Backend ↔︎ Frontend)</strong></h3>

@@ -47,6 +47,8 @@ Referências de código principais:
   - `X-Schema-Hash` como header auxiliar.
   - `Access-Control-Expose-Headers: ETag, X-Schema-Hash` (CORS).
   - Expansão de `$ref` ampliada (top-level, properties, items, allOf/oneOf/anyOf, additionalProperties, varredura genérica).
+  - Propagação de exemplos operacionais do OpenAPI para `x-ui.operationExamples.<schemaType>` no payload final de `/schemas/filtered`.
+  - `operationExamples` não participa do hash estrutural usado por `ETag`/`X-Schema-Hash`.
 - Frontend
   - `GenericCrudService`
     - `getSchema()` e `getFilteredSchema()` com ETag/If-None-Match, 304 reaproveitando cache, 200 atualizando `{ schema, schemaHash }` por `schemaId`.
@@ -146,8 +148,8 @@ Access-Control-Expose-Headers: ETag,X-Schema-Hash
 Notas:
 - O backend sempre ecoa `ETag` e `X-Schema-Hash`. O frontend prefere `X-Schema-Hash` quando presente.
 - Para perfis multi-tenant/locale, inclua `X-Tenant` e `Accept-Language`.
+- Quando a operação OpenAPI publicar `examples` ou `example`, o payload final também poderá trazer `x-ui.operationExamples.<schemaType>` para o lado solicitado.
 
 ---
 
 # Exemplo de TableConfigV2 pós‑reconciliação
-

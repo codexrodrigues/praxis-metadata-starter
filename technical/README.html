@@ -222,6 +222,51 @@ data-cites="ApiResource">@ApiResource</span></li>
 </ul>
 <p><strong>Ideal para:</strong> Garantir que todos os controllers sigam
 os padrões estabelecidos.</p>
+<h3 id="plano-de-cursor-pagination-keyset">🔁 <a
+href="CURSOR-PAGINATION-KEYSET-PLAN.md">Plano de Cursor Pagination /
+Keyset</a></h3>
+<p><strong>Desenho canônico para suportar <code>/filter/cursor</code> no
+starter</strong></p>
+<ul>
+<li>Uso de <code>Window&lt;T&gt;</code> e <code>ScrollPosition</code> do
+Spring Data Commons</li>
+<li>Fragmentos de repositório para encapsular keyset pagination</li>
+<li>Regras de elegibilidade por recurso</li>
+<li>Sort estável com tie-break por ID</li>
+<li>Estratégia de rollout segura para o v1</li>
+</ul>
+<p><strong>Ideal para:</strong> Planejar a implementação correta de
+paginação por cursor no nível de plataforma.</p>
+<h3 id="backlog-executável-de-cursor-pagination-keyset">🧱 <a
+href="CURSOR-PAGINATION-KEYSET-BACKLOG.md">Backlog Executável de Cursor
+Pagination / Keyset</a></h3>
+<p><strong>Decomposição técnica do v1, arquivo por arquivo</strong></p>
+<ul>
+<li>backlog por camada e pacote</li>
+<li>arquivos a criar e arquivos a alterar</li>
+<li>critérios de aceite por etapa</li>
+<li>ordem recomendada de execução</li>
+<li>definition of done do v1</li>
+</ul>
+<p><strong>Ideal para:</strong> Sair do plano arquitetural e entrar na
+implementação do v1.</p>
+<h3 id="plano-de-filtered-stats">📊 <a
+href="FILTERED-STATS-PLAN.md">Plano de Filtered Stats</a></h3>
+<p><strong>Desenho canônico para KPIs e agregações sobre o conjunto
+filtrado</strong></p>
+<ul>
+<li>endpoints <code>/stats/group-by</code>,
+<code>/stats/timeseries</code> e <code>/stats/distribution</code></li>
+<li>status atual do v1 e matriz de suporte por operação</li>
+<li>contrato JSON estabilizado de <code>timeseries</code> para
+<code>start/end</code> em <code>yyyy-MM-dd</code></li>
+<li>capability explícita por recurso</li>
+<li>governança de campos e métricas agregáveis</li>
+<li>reuso de <code>FilterDTO -&gt; Specification</code></li>
+<li>backlog arquivo por arquivo para implementação</li>
+</ul>
+<p><strong>Ideal para:</strong> Planejar analytics filtrados no nível de
+plataforma sem criar endpoints ad hoc por app.</p>
 <hr />
 <h2 id="para-quem-é-esta-seção">🎯 <strong>Para Quem é Esta
 Seção</strong></h2>
@@ -319,6 +364,11 @@ Relacionadas</strong></h2>
 ControlType</a></li>
 <li>🧩 <a href="FILTROS-ROADMAP.md">Roadmap de Filtros (Lote 2 e
 3)</a></li>
+<li>🔁 <a href="CURSOR-PAGINATION-KEYSET-PLAN.md">Plano de Cursor
+Pagination / Keyset</a></li>
+<li>🧱 <a href="CURSOR-PAGINATION-KEYSET-BACKLOG.md">Backlog Executável
+de Cursor Pagination / Keyset</a></li>
+<li>📊 <a href="FILTERED-STATS-PLAN.md">Plano de Filtered Stats</a></li>
 <li>🔎 Javadoc: <a href="../apidocs/index.html">Visão geral</a>, <a
 href="../apidocs/allpackages-index.html">Pacotes</a></li>
 </ul>

@@ -56,6 +56,24 @@
   "x-ui": {
     "displayColumns": ["id", "name", "email", "status"],
     "displayFields": ["name", "email"],
+    "operationExamples": {
+      "request": {
+        "filterRequest": {
+          "summary": "Filtro simples",
+          "value": {
+            "status": "ACTIVE"
+          }
+        }
+      },
+      "response": {
+        "filterResponse": {
+          "summary": "Resposta filtrada",
+          "value": {
+            "data": []
+          }
+        }
+      }
+    },
     "resource": {
       "idField": "id",
       "idFieldValid": true,
@@ -71,4 +89,3 @@
     }
   }
 }
-

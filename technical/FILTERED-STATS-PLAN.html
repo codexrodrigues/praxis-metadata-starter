@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Filtered Stats Plan</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Filtered Stats Plan</h1>
+</header>
+<h1 id="filtered-stats-plan">Filtered Stats Plan</h1>
+<h2 id="contexto">Contexto</h2>
+<p>O <code>praxis-metadata-starter</code> já centraliza a superfície
+canônica de leitura para recursos genéricos:</p>
+<ul>
+<li><code>POST /filter</code></li>
+<li><code>POST /filter/cursor</code></li>
+<li><code>POST /locate</code></li>
+<li><code>POST /options/filter</code></li>
+</ul>
+<p>Essas operações resolvem listagem, paginação, locate e projeções
+leves, mas a plataforma ainda não oferece uma forma canônica de
+consultar KPIs e agregações sobre o mesmo conjunto filtrado.</p>
+<p>Na prática, isso empurra apps consumidores para uma das alternativas
+erradas:</p>
+<ul>
+<li>criar endpoints ad hoc por recurso</li>
+<li>duplicar a tradução de
+<code>FilterDTO -&gt; Specification</code></li>
+<li>expor contratos arbitrários e inconsistentes de analytics</li>
+<li>misturar necessidades simples de dashboard com consultas específicas
+demais</li>
+</ul>
+<h2 id="direção-de-plataforma">Direção de Plataforma</h2>
+<p>A solução correta de plataforma é incorporar uma família canônica de
+estatísticas filtradas no <code>praxis-metadata-starter</code>,
+reaproveitando a mesma semântica de filtro já usada em
+<code>/filter</code>.</p>
+<p>O objetivo não é criar uma DSL analítica universal. O objetivo é
+suportar o caso canônico de produto:</p>
+<ul>
+<li>KPIs por agrupamento</li>
+<li>séries temporais simples</li>
+<li>distribuições simples</li>
+</ul>
+<p>com:</p>
+<ul>
+<li>contrato HTTP estável</li>
+<li>capability explícita por recurso</li>
+<li>governança de campos e métricas</li>
+<li>reutilização da <code>Specification&lt;E&gt;</code> já gerada pelo
+starter</li>
+</ul>
+<h2 id="estado-atual-do-v1">Estado Atual do V1</h2>
+<p>O plano abaixo já está parcialmente implementado no starter.</p>
+<p>Status atual da superfície:</p>
+<ul>
+<li><code>POST /stats/group-by</code>
+<ul>
+<li>suportado</li>
+<li>métricas: <code>COUNT</code>, <code>SUM</code>, <code>AVG</code>,
+<code>MIN</code>, <code>MAX</code></li>
+</ul></li>
+<li><code>POST /stats/timeseries</code>
+<ul>
+<li>suportado</li>
+<li>granularidades: <code>DAY</code>, <code>WEEK</code>,
+<code>MONTH</code></li>
+<li>métricas: <code>COUNT</code>, <code>SUM</code>, <code>AVG</code>,
+<code>MIN</code>, <code>MAX</code></li>
+</ul></li>
+<li><code>POST /stats/distribution</code>
+<ul>
+<li>suportado</li>
+<li><code>mode=TERMS</code>: <code>COUNT</code>, <code>SUM</code>,
+<code>AVG</code>, <code>MIN</code>, <code>MAX</code></li>
+<li><code>mode=HISTOGRAM</code>: <code>COUNT</code></li>
+</ul></li>
+</ul>
+<p>Governança atual:</p>
+<ul>
+<li>capability explícita por recurso</li>
+<li><code>StatsFieldRegistry</code> e <code>StatsFieldDescriptor</code>
+com elegibilidade por papel</li>
+<li><code>metric.field</code> como fonte canônica para métricas
+numéricas</li>
+</ul>
+<p>Restrições deliberadas ainda vigentes:</p>
+<ul>
+<li><code>HISTOGRAM</code> continua restrito a <code>COUNT</code></li>
+<li>não há suporte a múltiplas dimensões</li>
+<li>não há percentis, pivôs ou fórmulas arbitrárias</li>
+</ul>
+<h2 id="superfície-canônica-proposta">Superfície Canônica Proposta</h2>
+<h3 id="endpoints">Endpoints</h3>
+<ul>
+<li><code>POST /stats/group-by</code></li>
+<li><code>POST /stats/timeseries</code></li>
+<li><code>POST /stats/distribution</code></li>
+</ul>
+<p>Todos devem operar sobre o mesmo universo filtrado pelo
+<code>FD extends GenericFilterDTO</code>.</p>
+<h3 id="regra-de-design">Regra de Design</h3>
+<p>O frontend não deve mandar uma consulta analítica arbitrária no
+estilo SQL ou Elasticsearch. O starter deve aceitar apenas requests
+tipados, pequenos e governados.</p>
+<h2 id="escopo-seguro-do-v1">Escopo Seguro do V1</h2>
+<h3 id="incluído">Incluído</h3>
+<ul>
+<li>reutilização do <code>FD</code> já existente por recurso</li>
+<li><code>count</code> como métrica obrigatória</li>
+<li><code>sum</code>, <code>avg</code>, <code>min</code>,
+<code>max</code> como métricas opcionais para campos elegíveis</li>
+<li><code>group-by</code> unidimensional</li>
+<li><code>timeseries</code> simples por campo temporal elegível</li>
+<li><code>distribution</code> em modo <code>terms</code> e
+<code>histogram</code> básico</li>
+<li>capability explícita por recurso</li>
+<li>governança de campos agregáveis</li>
+</ul>
+<h3 id="excluído">Excluído</h3>
+<ul>
+<li>múltiplas dimensões no mesmo request</li>
+<li>pivôs</li>
+<li>percentis</li>
+<li>fórmulas arbitrárias</li>
+<li>joins complexos para agregação</li>
+<li>métricas derivadas compostas</li>
+<li>nested aggregations</li>
+<li>contrato analítico universal para qualquer recurso/campo</li>
+</ul>
+<h2 id="contratos-canônicos">Contratos Canônicos</h2>
+<p>Além do contrato HTTP dos endpoints, o starter agora também consegue
+refletir exemplos operacionais no catálogo derivado de
+<code>/schemas/filtered</code>:</p>
+<ul>
+<li><code>x-ui.operationExamples.request</code></li>
+<li><code>x-ui.operationExamples.response</code></li>
+</ul>
+<p>Esse bloco é derivado dos <code>examples</code>/<code>example</code>
+publicados no OpenAPI da operação e serve para catálogos, playgrounds e
+frontends metadata-driven que precisem exibir exemplos prontos de uso
+sem manter documentação paralela.</p>
+<p>Observações de contrato:</p>
+<ul>
+<li>o catálogo publica apenas o lado coerente com o
+<code>schemaType</code> solicitado</li>
+<li>esse bloco é documental e não participa do hash estrutural de
+<code>/schemas/filtered</code></li>
+</ul>
+<h3 id="group-by">1. Group By</h3>
+<p>Endpoint:</p>
+<ul>
+<li><code>POST /stats/group-by</code></li>
+</ul>
+<p>Request canônico:</p>
+<ul>
+<li><code>filter</code></li>
+<li><code>field</code></li>
+<li><code>metric</code></li>
+<li><code>limit</code></li>
+<li><code>orderBy</code></li>
+</ul>
+<p>Semântica mínima:</p>
+<ul>
+<li>agrupa por um campo elegível</li>
+<li>calcula uma métrica por bucket</li>
+<li>permite limitar buckets e ordenar por chave ou valor</li>
+</ul>
+<p>Exemplo conceitual:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;filter&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;ATIVO&quot;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;departamentoId&quot;</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;metric&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;operation&quot;</span><span class="fu">:</span> <span class="st">&quot;count&quot;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;limit&quot;</span><span class="fu">:</span> <span class="dv">10</span><span class="fu">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;orderBy&quot;</span><span class="fu">:</span> <span class="st">&quot;value_desc&quot;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="timeseries">2. Timeseries</h3>
+<p>Endpoint:</p>
+<ul>
+<li><code>POST /stats/timeseries</code></li>
+</ul>
+<p>Request canônico:</p>
+<ul>
+<li><code>filter</code></li>
+<li><code>field</code></li>
+<li><code>granularity</code></li>
+<li><code>metric</code></li>
+<li><code>from</code></li>
+<li><code>to</code></li>
+<li><code>fillGaps</code></li>
+</ul>
+<p>Semântica mínima:</p>
+<ul>
+<li>agrega por um campo temporal elegível</li>
+<li>suporta granularidade controlada (<code>day</code>,
+<code>week</code>, <code>month</code>)</li>
+<li>pode preencher lacunas quando aplicável</li>
+</ul>
+<h3 id="distribution">3. Distribution</h3>
+<p>Endpoint:</p>
+<ul>
+<li><code>POST /stats/distribution</code></li>
+</ul>
+<p>Request canônico:</p>
+<ul>
+<li><code>filter</code></li>
+<li><code>field</code></li>
+<li><code>mode</code></li>
+<li><code>metric</code></li>
+<li><code>bucketSize</code></li>
+<li><code>bucketCount</code></li>
+<li><code>limit</code></li>
+</ul>
+<p>Semântica mínima:</p>
+<ul>
+<li><code>terms</code> para enum/texto canônico elegível</li>
+<li><code>histogram</code> para número/data em cenários simples</li>
+</ul>
+<h2 id="respostas-canônicas">Respostas Canônicas</h2>
+<p>O v1 deve ter DTOs explícitos para evitar payloads ambíguos.</p>
+<h3 id="groupbyresponse">GroupByResponse</h3>
+<ul>
+<li><code>metric</code></li>
+<li><code>field</code></li>
+<li><code>buckets</code></li>
+</ul>
+<p>Cada bucket:</p>
+<ul>
+<li><code>key</code></li>
+<li><code>label</code></li>
+<li><code>value</code></li>
+<li><code>count</code></li>
+</ul>
+<h3 id="timeseriesresponse">TimeSeriesResponse</h3>
+<ul>
+<li><code>metric</code></li>
+<li><code>field</code></li>
+<li><code>granularity</code></li>
+<li><code>points</code></li>
+</ul>
+<p>Cada ponto:</p>
+<ul>
+<li><code>start</code></li>
+<li><code>end</code></li>
+<li><code>label</code></li>
+<li><code>value</code></li>
+<li><code>count</code></li>
+</ul>
+<p>Contrato JSON estabilizado:</p>
+<ul>
+<li><code>start</code> e <code>end</code> são serializados como string
+ISO <code>yyyy-MM-dd</code></li>
+<li><code>label</code> é a representação textual estável do bucket</li>
+<li><code>value</code> representa a métrica solicitada</li>
+<li><code>count</code> permanece presente mesmo quando
+<code>value</code> vem de métrica numérica</li>
+</ul>
+<p>Exemplo:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;createdOn&quot;</span><span class="fu">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;granularity&quot;</span><span class="fu">:</span> <span class="st">&quot;DAY&quot;</span><span class="fu">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;metric&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;operation&quot;</span><span class="fu">:</span> <span class="st">&quot;SUM&quot;</span><span class="fu">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;salary&quot;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;points&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;start&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-03-01&quot;</span><span class="fu">,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;end&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-03-01&quot;</span><span class="fu">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-03-01&quot;</span><span class="fu">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="fl">25.0</span><span class="fu">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;count&quot;</span><span class="fu">:</span> <span class="dv">2</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="distributionresponse">DistributionResponse</h3>
+<ul>
+<li><code>metric</code></li>
+<li><code>field</code></li>
+<li><code>mode</code></li>
+<li><code>buckets</code></li>
+</ul>
+<p>Cada bucket:</p>
+<ul>
+<li><code>from</code></li>
+<li><code>to</code></li>
+<li><code>key</code></li>
+<li><code>label</code></li>
+<li><code>value</code></li>
+<li><code>count</code></li>
+</ul>
+<h2 id="governança-de-capability">Governança de Capability</h2>
+<p>Stats não devem ser implicitamente suportadas por todo recurso.</p>
+<p>O starter já possui <code>ResourceCapabilities</code>. O caminho
+correto é estender essa família com capacidades específicas para stats,
+por exemplo:</p>
+<ul>
+<li><code>statsGroupBy</code></li>
+<li><code>statsTimeSeries</code></li>
+<li><code>statsDistribution</code></li>
+</ul>
+<p>No nível do service, a capability precisa distinguir pelo menos:</p>
+<ul>
+<li>recurso globalmente desabilitado</li>
+<li>recurso sem suporte a stats</li>
+<li>recurso com suporte parcial</li>
+<li>recurso com suporte operacional</li>
+</ul>
+<h2 id="governança-de-campos-e-métricas">Governança de Campos e
+Métricas</h2>
+<p>O ponto mais importante do desenho é impedir agregação
+arbitrária.</p>
+<p>O v1 precisa de uma camada canônica para declarar:</p>
+<ul>
+<li>quais campos podem ser usados em <code>group-by</code></li>
+<li>quais campos temporais podem ser usados em
+<code>timeseries</code></li>
+<li>quais campos podem ser usados em <code>distribution</code></li>
+<li>quais métricas cada campo suporta</li>
+</ul>
+<p>Isso pode ser modelado com um registry explícito por recurso, por
+exemplo:</p>
+<ul>
+<li><code>StatsFieldRegistry</code></li>
+<li><code>StatsFieldDescriptor</code></li>
+<li><code>StatsMetric</code></li>
+<li><code>StatsOperationType</code></li>
+</ul>
+<p>Exemplos de regras:</p>
+<ul>
+<li><code>departamentoId</code> suporta <code>group-by</code> +
+<code>count</code></li>
+<li><code>dataAdmissao</code> suporta <code>timeseries</code> +
+<code>count</code></li>
+<li><code>salario</code> suporta <code>distribution(histogram)</code> +
+<code>avg</code> + <code>min</code> + <code>max</code></li>
+</ul>
+<h2 id="reuso-da-infraestrutura-atual">Reuso da Infraestrutura
+Atual</h2>
+<p>O starter já tem a peça mais valiosa: a tradução de
+<code>FD -&gt; Specification&lt;E&gt;</code>.</p>
+<p>O fluxo recomendado do v1 é:</p>
+<ol type="1">
+<li>receber request tipado de stats</li>
+<li>gerar <code>Specification&lt;E&gt;</code> a partir do
+<code>filter</code></li>
+<li>resolver o campo canônico para property path JPA governado</li>
+<li>montar a agregação com Criteria API</li>
+<li>adaptar o resultado para DTO canônico</li>
+</ol>
+<p>Isso evita:</p>
+<ul>
+<li>duplicar lógica de filtro</li>
+<li>drift entre <code>/filter</code> e <code>/stats/*</code></li>
+<li>controllers específicos por app consumidor</li>
+</ul>
+<h2 id="papel-de-cada-camada">Papel de Cada Camada</h2>
+<h3 id="dtos">DTOs</h3>
+<ul>
+<li>request/response estáveis para cada operação</li>
+<li>enums de métrica, granularidade e modo</li>
+</ul>
+<h3 id="service-base">Service Base</h3>
+<ul>
+<li>aplica capability</li>
+<li>valida elegibilidade do campo/métrica</li>
+<li>constrói a <code>Specification</code></li>
+<li>delega execução ao executor analítico</li>
+</ul>
+<h3 id="executor-analítico">Executor Analítico</h3>
+<ul>
+<li>traduz requests tipados em Criteria API</li>
+<li>resolve <code>group by</code>, truncamento temporal e histogramas
+simples</li>
+<li>devolve linhas agregadas neutras para adaptação</li>
+</ul>
+<h3 id="controller-base">Controller Base</h3>
+<ul>
+<li>publica <code>/stats/group-by</code>,
+<code>/stats/timeseries</code>, <code>/stats/distribution</code></li>
+<li>aplica limites</li>
+<li>converte <code>UnsupportedOperationException</code> em
+<code>501</code> quando necessário</li>
+</ul>
+<h3 id="documentação-catálogo">Documentação / Catálogo</h3>
+<ul>
+<li>expõe capabilities novas no <code>ApiDocsController</code></li>
+<li>documenta a superfície de stats por recurso</li>
+</ul>
+<h2 id="arquitetura-recomendada-do-v1">Arquitetura Recomendada do
+V1</h2>
+<h3 id="começar-por-count">1. Começar por <code>count</code></h3>
+<p>O primeiro ganho de produto vem de:</p>
+<ul>
+<li><code>group-by + count</code></li>
+<li><code>timeseries + count</code></li>
+<li><code>distribution + count</code></li>
+</ul>
+<p>Métricas numéricas adicionais entram apenas se o campo estiver
+explicitamente governado.</p>
+<p>Status:</p>
+<ul>
+<li>concluído para <code>group-by</code></li>
+<li>concluído para <code>timeseries</code></li>
+<li>concluído para <code>distribution</code> em <code>TERMS</code></li>
+<li>ainda restrito a <code>COUNT</code> em
+<code>distribution/HISTOGRAM</code></li>
+</ul>
+<h3 id="reutilizar-criteria-api">2. Reutilizar Criteria API</h3>
+<p>Não abrir uma camada de query arbitrária. Para o v1, o executor pode
+operar com:</p>
+<ul>
+<li><code>CriteriaBuilder</code></li>
+<li><code>CriteriaQuery&lt;Tuple&gt;</code></li>
+<li><code>groupBy</code></li>
+<li>funções temporais simples por dialeto, quando necessário</li>
+</ul>
+<h3 id="restringir-o-problema-temporal">3. Restringir o problema
+temporal</h3>
+<p><code>timeseries</code> só deve aceitar campos temporais
+explicitamente elegíveis e um conjunto pequeno de granularidades.</p>
+<h3 id="fazer-distribution-em-dois-modos">4. Fazer
+<code>distribution</code> em dois modos</h3>
+<ul>
+<li><code>terms</code>: enum/texto controlado</li>
+<li><code>histogram</code>: campo numérico elegível com buckets
+simples</li>
+</ul>
+<h2 id="backlog-arquivo-por-arquivo">Backlog Arquivo por Arquivo</h2>
+<h3 id="contrato-e-tipos-canônicos">1. Contrato e tipos canônicos</h3>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsstatsmetric.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/StatsMetric.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>definir o conjunto canônico de métricas do v1</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>criar enum inicial com:
+<ul>
+<li><code>COUNT</code></li>
+<li><code>SUM</code></li>
+<li><code>AVG</code></li>
+<li><code>MIN</code></li>
+<li><code>MAX</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>as métricas suportadas deixam de ser strings soltas no contrato
+HTTP</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatstimeseriesgranularity.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/TimeSeriesGranularity.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>definir granularidade canônica do v1</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>criar enum inicial com:
+<ul>
+<li><code>DAY</code></li>
+<li><code>WEEK</code></li>
+<li><code>MONTH</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li><code>timeseries</code> opera com granularidade explícita e
+governada</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsdistributionmode.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/DistributionMode.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>definir os modos de distribuição do v1</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>criar enum inicial com:
+<ul>
+<li><code>TERMS</code></li>
+<li><code>HISTOGRAM</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>o endpoint de distribuição tem semântica controlada e estável</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsdtostatsmetricrequest.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/dto/StatsMetricRequest.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>modelar a métrica solicitada pelo cliente</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>suportar pelo menos:
+<ul>
+<li><code>operation</code></li>
+<li><code>field</code> opcional para métricas numéricas</li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>o contrato de métrica fica reutilizável entre <code>group-by</code>,
+<code>timeseries</code> e <code>distribution</code></li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsdtogroupbystatsrequest.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/dto/GroupByStatsRequest.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>definir request canônico de <code>/stats/group-by</code></li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>incluir:
+<ul>
+<li><code>filter</code></li>
+<li><code>field</code></li>
+<li><code>metric</code></li>
+<li><code>limit</code></li>
+<li><code>orderBy</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li><code>group-by</code> possui request estável e tipado</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsdtotimeseriesstatsrequest.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/dto/TimeSeriesStatsRequest.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>definir request canônico de <code>/stats/timeseries</code></li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>incluir:
+<ul>
+<li><code>filter</code></li>
+<li><code>field</code></li>
+<li><code>granularity</code></li>
+<li><code>metric</code></li>
+<li><code>from</code></li>
+<li><code>to</code></li>
+<li><code>fillGaps</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li><code>timeseries</code> possui request estável e tipado</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsdtodistributionstatsrequest.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/dto/DistributionStatsRequest.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>definir request canônico de <code>/stats/distribution</code></li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>incluir:
+<ul>
+<li><code>filter</code></li>
+<li><code>field</code></li>
+<li><code>mode</code></li>
+<li><code>metric</code></li>
+<li><code>bucketSize</code></li>
+<li><code>bucketCount</code></li>
+<li><code>limit</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li><code>distribution</code> possui request estável e tipado</li>
+</ul>
+<h4
+id="novos-arquivos-em-srcmainjavaorgpraxisplatformuischemastatsdtoresponse...">Novos
+arquivos em
+<code>src/main/java/org/praxisplatform/uischema/stats/dto/response/...</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>definir responses canônicas do v1</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>criar:
+<ul>
+<li><code>GroupByStatsResponse</code></li>
+<li><code>TimeSeriesStatsResponse</code></li>
+<li><code>DistributionStatsResponse</code></li>
+<li>DTOs auxiliares de bucket/ponto</li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>cada endpoint retorna payload estável e semanticamente claro</li>
+</ul>
+<h3 id="capability-e-governança">2. Capability e governança</h3>
+<h4
+id="srcmainjavaorgpraxisplatformuischemaannotationresourcecapabilities.java"><code>src/main/java/org/praxisplatform/uischema/annotation/ResourceCapabilities.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>expor suporte a stats no catálogo da plataforma</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>adicionar:
+<ul>
+<li><code>statsGroupBy</code></li>
+<li><code>statsTimeSeries</code></li>
+<li><code>statsDistribution</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>a plataforma consegue documentar suporte de stats por recurso</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsstatssupportmode.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/StatsSupportMode.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>definir capability explícita de stats</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>criar enum inicial com:
+<ul>
+<li><code>AUTO</code></li>
+<li><code>DISABLED</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>o service possui contrato claro para expor suporte a stats</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsstatsfielddescriptor.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/StatsFieldDescriptor.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>descrever um campo elegível para stats</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>modelar:
+<ul>
+<li>nome canônico do campo</li>
+<li>property path JPA</li>
+<li>operações permitidas</li>
+<li>métricas permitidas</li>
+<li>tipo semântico do campo</li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>governança de stats fica centralizada e explícita</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsstatsfieldregistry.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/StatsFieldRegistry.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>expor o conjunto de campos elegíveis por recurso</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>definir API de leitura/registro dos campos governados</li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li><code>group-by</code>, <code>timeseries</code> e
+<code>distribution</code> não dependem de campos arbitrários</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsstatseligibility.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/StatsEligibility.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>validar se request, campo e métrica são compatíveis com o v1</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>validar:
+<ul>
+<li>operação permitida</li>
+<li>métrica permitida</li>
+<li>tipo de campo compatível</li>
+<li>restrições de <code>histogram</code> e <code>timeseries</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>requests inválidos são rejeitados antes da execução JPA</li>
+</ul>
+<h3 id="execução-analítica">3. Execução analítica</h3>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsservicestatsqueryexecutor.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/service/StatsQueryExecutor.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>definir contrato interno de execução analítica</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>declarar operações para:
+<ul>
+<li><code>groupBy</code></li>
+<li><code>timeSeries</code></li>
+<li><code>distribution</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>o service base delega a execução a uma infraestrutura explícita</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsservicejpajpastatsqueryexecutor.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/service/jpa/JpaStatsQueryExecutor.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>implementar o executor analítico com JPA Criteria</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>receber:
+<ul>
+<li><code>Specification&lt;E&gt;</code></li>
+<li>descritor do campo</li>
+<li>request tipado</li>
+</ul></li>
+<li>implementar:
+<ul>
+<li>agregação por bucket</li>
+<li>agrupamento temporal simples</li>
+<li>distribuição <code>terms</code></li>
+<li>distribuição <code>histogram</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>o starter consegue executar stats filtrados reais sem SQL
+arbitrário</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsservicejpastatscriteriasupport.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/service/jpa/StatsCriteriaSupport.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>encapsular helpers de Criteria API</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>resolver path JPA governado</li>
+<li>aplicar função agregadora</li>
+<li>encapsular montagem de tuplas</li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>a execução JPA fica reaproveitável e legível</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsservicejpatimeseriesbucketexpressionfactory.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/service/jpa/TimeSeriesBucketExpressionFactory.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>isolar a criação da expressão temporal por granularidade</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>suportar ao menos:
+<ul>
+<li>dia</li>
+<li>semana</li>
+<li>mês</li>
+</ul></li>
+<li>documentar limites de portabilidade entre dialetos</li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>a complexidade de <code>timeseries</code> não vaza para o restante
+da infraestrutura</li>
+</ul>
+<h3 id="integração-no-service-base">4. Integração no service base</h3>
+<h4
+id="srcmainjavaorgpraxisplatformuischemaservicebasebasecrudservice.java"><code>src/main/java/org/praxisplatform/uischema/service/base/BaseCrudService.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>adicionar APIs canônicas de stats ao service base</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>adicionar defaults para:
+<ul>
+<li><code>groupByStats(...)</code></li>
+<li><code>timeSeriesStats(...)</code></li>
+<li><code>distributionStats(...)</code></li>
+</ul></li>
+<li>adicionar consultas de capability quando necessário</li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>stats passam a ser capacidade formal do service base</li>
+</ul>
+<h4
+id="srcmainjavaorgpraxisplatformuischemaservicebaseabstractbasecrudservice.java"><code>src/main/java/org/praxisplatform/uischema/service/base/AbstractBaseCrudService.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>fornecer implementação padrão reutilizável</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>reaproveitar <code>GenericSpecificationsBuilder</code></li>
+<li>validar capability e elegibilidade</li>
+<li>delegar ao <code>StatsQueryExecutor</code></li>
+<li>adaptar resultado para DTO canônico</li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>recursos elegíveis suportam stats sem código duplicado por app</li>
+</ul>
+<h4
+id="srcmainjavaorgpraxisplatformuischemaservicebaseabstractreadonlyservice.java"><code>src/main/java/org/praxisplatform/uischema/service/base/AbstractReadOnlyService.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>herdar a implementação padrão de stats</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>validar que recursos read-only elegíveis entram no fluxo sem
+duplicação</li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>read-only e CRUD compartilham a mesma infraestrutura de stats</li>
+</ul>
+<h3 id="controller-e-exposição-rest">5. Controller e exposição REST</h3>
+<h4
+id="srcmainjavaorgpraxisplatformuischemacontrollerbaseabstractcrudcontroller.java"><code>src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>publicar a superfície canônica de stats</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>adicionar:
+<ul>
+<li><code>POST /stats/group-by</code></li>
+<li><code>POST /stats/timeseries</code></li>
+<li><code>POST /stats/distribution</code></li>
+</ul></li>
+<li>aplicar limites e validações de request</li>
+<li>converter <code>UnsupportedOperationException</code> em
+<code>501</code></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>a plataforma expõe endpoints de stats consistentes entre
+recursos</li>
+</ul>
+<h4
+id="srcmainjavaorgpraxisplatformuischemacontrollerbaseabstractreadonlycontroller.java"><code>src/main/java/org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>garantir semântica idêntica em recursos read-only</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>validar herança e documentação dos endpoints de stats</li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>recursos read-only elegíveis compartilham a mesma surface REST</li>
+</ul>
+<h3 id="auto-configuração">6. Auto-configuração</h3>
+<h4
+id="srcmainjavaorgpraxisplatformuischemaconfigurationopenapiuischemaautoconfiguration.java"><code>src/main/java/org/praxisplatform/uischema/configuration/OpenApiUiSchemaAutoConfiguration.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>registrar a infraestrutura de stats no starter</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>registrar:
+<ul>
+<li><code>StatsQueryExecutor</code></li>
+<li>serviços auxiliares</li>
+<li>propriedades quando aplicável</li>
+</ul></li>
+<li>usar <code>@ConditionalOnMissingBean</code> quando fizer
+sentido</li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>apps consumidores recebem suporte a stats sem wiring manual</li>
+</ul>
+<h4
+id="novo-arquivo-srcmainjavaorgpraxisplatformuischemastatsstatsproperties.java">Novo
+arquivo:
+<code>src/main/java/org/praxisplatform/uischema/stats/StatsProperties.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>centralizar governança configurável do v1</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>modelar propriedades como:
+<ul>
+<li><code>enabled</code></li>
+<li><code>maxBuckets</code></li>
+<li><code>maxSeriesPoints</code></li>
+<li><code>defaultMode</code></li>
+</ul></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>limites operacionais de stats ficam governados por configuração</li>
+</ul>
+<h3 id="catálogo-e-documentação-automática">7. Catálogo e documentação
+automática</h3>
+<h4
+id="srcmainjavaorgpraxisplatformuischemacontrollerdocsapidocscontroller.java"><code>src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>refletir os novos endpoints e capabilities no catálogo</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>incluir suffixes:
+<ul>
+<li><code>/stats/group-by</code></li>
+<li><code>/stats/timeseries</code></li>
+<li><code>/stats/distribution</code></li>
+</ul></li>
+<li>computar capabilities de stats</li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>o schema/catalog consegue informar suporte a stats por recurso</li>
+</ul>
+<h4
+id="srcmainjavaorgpraxisplatformuischemacontrollerbasedoc-filesendpoints-overview.html"><code>src/main/java/org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>documentar a nova família de endpoints</li>
+</ul>
+<p>Tarefas:</p>
+<ul>
+<li>incluir exemplos e limites de <code>group-by</code>,
+<code>timeseries</code> e <code>distribution</code></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>a documentação pública da classe base cobre stats filtrados</li>
+</ul>
+<h4
+id="docstechnicalreadme.md"><code>docs/technical/README.md</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>indexar o novo documento técnico</li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>a navegação técnica do starter aponta para o plano de stats</li>
+</ul>
+<h3 id="testes-no-starter">8. Testes no starter</h3>
+<h4
+id="novo-arquivo-srctestjavaorgpraxisplatformuischemastatsstatseligibilitytest.java">Novo
+arquivo:
+<code>src/test/java/org/praxisplatform/uischema/stats/StatsEligibilityTest.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>cobrir governança de campos, operações e métricas</li>
+</ul>
+<h4
+id="novo-arquivo-srctestjavaorgpraxisplatformuischemastatsservicejpajpastatsqueryexecutortest.java">Novo
+arquivo:
+<code>src/test/java/org/praxisplatform/uischema/stats/service/jpa/JpaStatsQueryExecutorTest.java</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>validar agregações reais com JPA/H2</li>
+</ul>
+<p>Cenários mínimos:</p>
+<ul>
+<li><code>group-by + count</code></li>
+<li><code>timeseries + count</code></li>
+<li><code>distribution terms + count</code></li>
+<li><code>distribution histogram + count</code></li>
+<li>filtro combinado via <code>Specification</code></li>
+</ul>
+<h4
+id="srctestjavaorgpraxisplatformuischemacontrollerbase..."><code>src/test/java/org/praxisplatform/uischema/controller/base/...</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>validar <code>501</code> para recurso sem suporte</li>
+<li>validar <code>200</code> para recurso elegível real</li>
+</ul>
+<h3 id="validação-consumidora">9. Validação consumidora</h3>
+<h4
+id="praxis-api-quickstartsrctestjava..."><code>praxis-api-quickstart/src/test/java/...</code></h4>
+<p>Objetivo:</p>
+<ul>
+<li>provar integração real sem mocks</li>
+</ul>
+<p>Recursos candidatos iniciais:</p>
+<ul>
+<li>um CRUD simples com campo categórico claro para
+<code>group-by</code></li>
+<li>um CRUD ou read-only com campo temporal claro para
+<code>timeseries</code></li>
+<li>um recurso com campo numérico simples para
+<code>distribution</code></li>
+</ul>
+<p>Critério de aceite:</p>
+<ul>
+<li>pelo menos um fluxo real de cada endpoint passa no consumidor</li>
+</ul>
+<h2 id="ordem-recomendada-de-execução">Ordem Recomendada de
+Execução</h2>
+<ol type="1">
+<li>enums e DTOs canônicos</li>
+<li>capability e registry de campos</li>
+<li>eligibility de stats</li>
+<li>executor JPA de <code>group-by + count</code></li>
+<li>integração no service base</li>
+<li>endpoints no controller base</li>
+<li>catálogo/documentação automática</li>
+<li><code>timeseries + count</code></li>
+<li><code>distribution terms + count</code></li>
+<li><code>distribution histogram</code> para campos numéricos
+elegíveis</li>
+<li>testes consumidores no quickstart</li>
+<li>documentação operacional final</li>
+</ol>
+<h2 id="definition-of-done-do-v1">Definition of Done do V1</h2>
+<p>O v1 só deve ser considerado pronto quando:</p>
+<ul>
+<li><code>group-by</code>, <code>timeseries</code> e
+<code>distribution</code> existirem como endpoints canônicos</li>
+<li>todos os endpoints reutilizarem o mesmo <code>FD</code> do
+recurso</li>
+<li>houver capability explícita por recurso</li>
+<li>o starter impedir agregações arbitrárias por campo/métrica</li>
+<li>pelo menos um recurso CRUD e um read-only validarem stats reais</li>
+<li>houver testes cobrindo a execução JPA e a governança do
+contrato</li>
+<li>a documentação pública explicar claramente as restrições do v1</li>
+</ul>
+<h2 id="riscos-a-monitorar">Riscos a Monitorar</h2>
+<ul>
+<li>transformar stats em DSL analítica genérica cedo demais</li>
+<li>permitir qualquer campo do DTO sem governança</li>
+<li>drift entre <code>/filter</code> e <code>/stats/*</code></li>
+<li>alta dependência de dialeto em <code>timeseries</code></li>
+<li>histogramas frágeis para tipos não numéricos</li>
+<li>payloads de resposta sem semântica estável</li>
+</ul>
+<h2 id="próxima-ação-recomendada">Próxima Ação Recomendada</h2>
+<p>Começar pelo menor corte de plataforma com valor real:</p>
+<ul>
+<li><code>GroupByStatsRequest</code></li>
+<li><code>GroupByStatsResponse</code></li>
+<li><code>StatsMetric</code></li>
+<li><code>StatsFieldRegistry</code></li>
+<li><code>StatsEligibility</code></li>
+<li><code>JpaStatsQueryExecutor</code> com
+<code>group-by + count</code></li>
+</ul>
+<p>Depois disso:</p>
+<ul>
+<li>integrar em <code>AbstractBaseCrudService</code></li>
+<li>expor <code>POST /stats/group-by</code></li>
+<li>validar no quickstart</li>
+</ul>
+<p>Só então ampliar para <code>timeseries</code> e
+<code>distribution</code>.</p>
+</body>
+</html>

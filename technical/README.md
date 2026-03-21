@@ -36,6 +36,41 @@ Esta seção contém documentação técnica detalhada sobre os recursos avança
 
 **Ideal para:** Garantir que todos os controllers sigam os padrões estabelecidos.
 
+### 🔁 [Plano de Cursor Pagination / Keyset](CURSOR-PAGINATION-KEYSET-PLAN.md)
+**Desenho canônico para suportar `/filter/cursor` no starter**
+
+- Uso de `Window<T>` e `ScrollPosition` do Spring Data Commons
+- Fragmentos de repositório para encapsular keyset pagination
+- Regras de elegibilidade por recurso
+- Sort estável com tie-break por ID
+- Estratégia de rollout segura para o v1
+
+**Ideal para:** Planejar a implementação correta de paginação por cursor no nível de plataforma.
+
+### 🧱 [Backlog Executável de Cursor Pagination / Keyset](CURSOR-PAGINATION-KEYSET-BACKLOG.md)
+**Decomposição técnica do v1, arquivo por arquivo**
+
+- backlog por camada e pacote
+- arquivos a criar e arquivos a alterar
+- critérios de aceite por etapa
+- ordem recomendada de execução
+- definition of done do v1
+
+**Ideal para:** Sair do plano arquitetural e entrar na implementação do v1.
+
+### 📊 [Plano de Filtered Stats](FILTERED-STATS-PLAN.md)
+**Desenho canônico para KPIs e agregações sobre o conjunto filtrado**
+
+- endpoints `/stats/group-by`, `/stats/timeseries` e `/stats/distribution`
+- status atual do v1 e matriz de suporte por operação
+- contrato JSON estabilizado de `timeseries` para `start/end` em `yyyy-MM-dd`
+- capability explícita por recurso
+- governança de campos e métricas agregáveis
+- reuso de `FilterDTO -> Specification`
+- backlog arquivo por arquivo para implementação
+
+**Ideal para:** Planejar analytics filtrados no nível de plataforma sem criar endpoints ad hoc por app.
+
 ---
 
 ## 🎯 **Para Quem é Esta Seção**
@@ -112,6 +147,9 @@ Esta seção contém documentação técnica detalhada sobre os recursos avança
 - 🏠 [Índice Principal](../README.md)
 - 🧭 [Heurística de ControlType](../concepts/CONTROLTYPE-HEURISTICA.md)
  - 🧩 [Roadmap de Filtros (Lote 2 e 3)](FILTROS-ROADMAP.md)
+ - 🔁 [Plano de Cursor Pagination / Keyset](CURSOR-PAGINATION-KEYSET-PLAN.md)
+ - 🧱 [Backlog Executável de Cursor Pagination / Keyset](CURSOR-PAGINATION-KEYSET-BACKLOG.md)
+ - 📊 [Plano de Filtered Stats](FILTERED-STATS-PLAN.md)
  - 🔎 Javadoc: [Visão geral](../apidocs/index.html), [Pacotes](../apidocs/allpackages-index.html)
 
 ---

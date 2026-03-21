@@ -201,7 +201,11 @@ estável conforme composição:
 <code>path|operation|schemaType|internal|tenant|locale</code>. -
 Extended (recomendado) - Preencher
 <code>displayColumns</code>/<code>displayFields</code> no x‑ui de
-operação (padrões de grid/forms). - Popular mensagens de validação
+operação (padrões de grid/forms). - Preencher
+<code>x-ui.operationExamples.&lt;schemaType&gt;</code> quando o OpenAPI
+da operação publicar <code>examples</code> ou <code>example</code>,
+preservando <code>summary</code>, <code>description</code> e
+<code>value</code>. - Popular mensagens de validação
 (<code>*Message</code>) para melhor UX. - Incluir
 <code>capabilities.options|byId|all|filter|cursor</code> quando
 aplicável. - Adotar <code>custom.*</code> para extensões privadas do
@@ -227,10 +231,14 @@ data-cites="praxisui/dynamic-fields">@praxisui/dynamic-fields</span>) -
 select/multiselect/autocomplete - Numérico (<code>numericFormat</code>,
 <code>numeric*</code>) → componentes numéricos - x‑ui por operação -
 <code>displayColumns</code> → Padrão de colunas iniciais (grid). Pode
-ser usado por reconciliadores/config inicial. - x‑ui.resource (no
-payload <code>/schemas/filtered</code>) - <code>idField</code> → Usado
-por <code>GenericCrudService</code> e <code>PraxisTable</code> para
-chave primária (projects/praxis-core/…/generic-crud.service.ts;
+ser usado por reconciliadores/config inicial. -
+<code>operationExamples.&lt;schemaType&gt;</code> → Exemplos
+operacionais derivados do OpenAPI da operação para o lado solicitado
+(<code>request</code> ou <code>response</code>), úteis para catálogo,
+playgrounds e documentação contextual. - x‑ui.resource (no payload
+<code>/schemas/filtered</code>) - <code>idField</code> → Usado por
+<code>GenericCrudService</code> e <code>PraxisTable</code> para chave
+primária (projects/praxis-core/…/generic-crud.service.ts;
 projects/praxis-table/README.md) -
 <code>idFieldValid</code>/<code>idFieldMessage</code> →
 Diagnóstico/alertas em hosts e ferramentas - <code>readOnly</code> → UI
@@ -240,7 +248,10 @@ Habilita/desabilita ações de CRUD e utilitários
 <p>Boas práticas e Notas - <code>custom.*</code>: prefixo reservado para
 extensões de fornecedores/hosts. Não colida com chaves canônicas. - O
 backend deve canonicalizar o payload antes de calcular o hash do schema
-(ETag forte ou <code>X-Schema-Hash</code>). - Locale/Tenant variam o
+(ETag forte ou <code>X-Schema-Hash</code>). -
+<code>x-ui.operationExamples</code> é documentação contextual e não deve
+influenciar o hash estrutural usado por
+<code>ETag</code>/<code>X-Schema-Hash</code>. - Locale/Tenant variam o
 <code>schemaId</code> e os headers de cache (ETag/hash). Enviar
 <code>Accept-Language</code> e <code>X-Tenant</code>.</p>
 <p>Compatibilidade (anotações temporárias) - <code>filterOptions</code>:

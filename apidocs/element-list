@@ -25,4 +25,8 @@ org.praxisplatform.uischema.rest.exceptionhandler.exception
 org.praxisplatform.uischema.rest.response
 org.praxisplatform.uischema.service.base
 org.praxisplatform.uischema.service.base.annotation
+org.praxisplatform.uischema.stats
+org.praxisplatform.uischema.stats.dto
+org.praxisplatform.uischema.stats.service
+org.praxisplatform.uischema.stats.service.jpa
 org.praxisplatform.uischema.util

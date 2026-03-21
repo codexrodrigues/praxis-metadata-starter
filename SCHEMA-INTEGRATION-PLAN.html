@@ -246,6 +246,11 @@ Implementadas)</h2>
 <li>Expansão de <code>$ref</code> ampliada (top-level, properties,
 items, allOf/oneOf/anyOf, additionalProperties, varredura
 genérica).</li>
+<li>Propagação de exemplos operacionais do OpenAPI para
+<code>x-ui.operationExamples.&lt;schemaType&gt;</code> no payload final
+de <code>/schemas/filtered</code>.</li>
+<li><code>operationExamples</code> não participa do hash estrutural
+usado por <code>ETag</code>/<code>X-Schema-Hash</code>.</li>
 </ul></li>
 <li>Frontend
 <ul>
@@ -396,7 +401,10 @@ Access-Control-Expose-Headers: ETag,X-Schema-Hash</code></pre>
 <code>X-Schema-Hash</code>. O frontend prefere
 <code>X-Schema-Hash</code> quando presente. - Para perfis
 multi-tenant/locale, inclua <code>X-Tenant</code> e
-<code>Accept-Language</code>.</p>
+<code>Accept-Language</code>. - Quando a operação OpenAPI publicar
+<code>examples</code> ou <code>example</code>, o payload final também
+poderá trazer <code>x-ui.operationExamples.&lt;schemaType&gt;</code>
+para o lado solicitado.</p>
 <hr />
 <h1 id="exemplo-de-tableconfigv2-pósreconciliação">Exemplo de
 TableConfigV2 pós‑reconciliação</h1>

@@ -82,6 +82,7 @@ O sistema Praxis possui **duas auto-configurações** que trabalham em conjunto:
 - **Função**: Exposição de endpoints de documentação filtrada
 - **Características**: API RESTful para consumo por frontends
 - **Uso**: `/schemas/filtered` com resolução automática de grupos
+- **Payload derivado**: além do schema e de `x-ui.resource`, também pode publicar `x-ui.operationExamples.<schemaType>` quando a operação OpenAPI tiver exemplos declarados
 
 ### 📚 DomainCatalogController
 - **Função**: Exposição de um catálogo compacto para RAG e exploração de domínio

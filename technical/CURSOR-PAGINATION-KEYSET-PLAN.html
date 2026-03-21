@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Cursor Pagination / Keyset Plan</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Cursor Pagination / Keyset Plan</h1>
+</header>
+<h1 id="cursor-pagination-keyset-plan">Cursor Pagination / Keyset
+Plan</h1>
+<h2 id="contexto">Contexto</h2>
+<p>O <code>praxis-metadata-starter</code> hoje publica o endpoint
+<code>POST /filter/cursor</code> no <code>AbstractCrudController</code>,
+mas a implementação padrão do service ainda não materializa keyset
+pagination.</p>
+<p>Na prática:</p>
+<ul>
+<li>o controller expõe a rota e delega para
+<code>BaseCrudService#filterByCursorMapped(...)</code></li>
+<li>o <code>BaseCrudService</code> ainda fornece um default que lança
+<code>UnsupportedOperationException("Cursor pagination not implemented")</code></li>
+<li>o <code>AbstractCrudController</code> converte esse caso em
+<code>501 Not Implemented</code></li>
+</ul>
+<p>Isso explica por que apps consumidores, como o
+<code>praxis-api-quickstart</code>, respondem <code>501</code> no Render
+mesmo quando os demais filtros funcionam.</p>
+<h2 id="direção-de-plataforma">Direção de Plataforma</h2>
+<p>A solução correta de plataforma é implementar keyset pagination
+canônica no <code>praxis-metadata-starter</code>, e não deixar cada app
+consumidor reinventar a estratégia por recurso.</p>
+<p>O starter já centraliza:</p>
+<ul>
+<li>contrato de filtro</li>
+<li>normalização de payload</li>
+<li>paginação tradicional</li>
+<li><code>locate</code></li>
+<li><code>options/filter</code></li>
+</ul>
+<p><code>/filter/cursor</code> deve seguir a mesma lógica: contrato e
+infraestrutura centralizados, com capacidade explícita e governada.</p>
+<h2 id="o-que-o-spring-já-oferece">O Que o Spring Já Oferece</h2>
+<p>O ecossistema Spring já fornece primitives importantes para uma
+implementação sólida:</p>
+<h3 id="spring-data-commons">Spring Data Commons</h3>
+<ul>
+<li><code>ScrollPosition</code></li>
+<li><code>KeysetScrollPosition</code></li>
+<li><code>Window&lt;T&gt;</code></li>
+<li><code>WindowIterator</code></li>
+</ul>
+<p>Essas abstrações são a base mais adequada para scroll/keyset no nível
+do starter. O contrato público do Praxis pode continuar usando
+<code>CursorPage</code>, mas a implementação interna deve se apoiar
+nessas primitives.</p>
+<h3 id="jpaspecificationexecutor-scroll">JpaSpecificationExecutor +
+Scroll</h3>
+<p>Na stack atual do starter, o primeiro caminho a testar deve ser o que
+o Spring Data JPA já expõe via
+<code>JpaSpecificationExecutor#findBy(..., q -&gt; q.scroll(...))</code>
+com <code>Specification</code>.</p>
+<p>Isso reduz a chance de criar infraestrutura redundante no v1.</p>
+<h3 id="repository-fragments">Repository Fragments</h3>
+<p>Fragments customizados continuam sendo uma opção válida, mas devem
+entrar só se a prova de conceito com
+<code>JpaSpecificationExecutor</code> mostrar limitação real para o caso
+canônico do v1.</p>
+<h3 id="spring-boot-autoconfiguration">Spring Boot
+AutoConfiguration</h3>
+<p>O starter já usa auto-configuração para outros recursos. Cursor
+pagination deve seguir o mesmo padrão, com propriedades de governança e
+beans internos configuráveis.</p>
+<h2 id="escopo-seguro-do-v1">Escopo Seguro do V1</h2>
+<p>O sucesso da implementação depende de restringir o v1 ao caso
+canônico da plataforma.</p>
+<h3 id="requisitos-do-v1">Requisitos do v1</h3>
+<ul>
+<li>entidades com ID simples</li>
+<li>sort estável</li>
+<li>campos de ordenação escalares</li>
+<li>campos de ordenação acessíveis sem sort arbitrário por coleção</li>
+<li>cursor opaco transportado por <code>after</code> e
+<code>before</code></li>
+<li>anexar o ID como tie-breaker sempre</li>
+</ul>
+<h3 id="restrições-deliberadas">Restrições deliberadas</h3>
+<p>Não tentar no v1:</p>
+<ul>
+<li>qualquer sort arbitrário enviado pela UI sem governança</li>
+<li>joins complexos como chave de cursor</li>
+<li>campos calculados como chave de ordenação</li>
+<li>coleções/nested sorts</li>
+<li>contrato universal para recursos inelegíveis</li>
+</ul>
+<h2 id="arquitetura-recomendada">Arquitetura Recomendada</h2>
+<h3 id="manter-cursorpage-como-dto-externo">1. Manter
+<code>CursorPage</code> como DTO externo</h3>
+<p>O contrato HTTP do Praxis já usa <code>CursorPage</code>. Isso pode
+ser preservado.</p>
+<p>Internamente, o starter deve converter entre:</p>
+<ul>
+<li><code>Window&lt;E&gt;</code> / <code>ScrollPosition</code></li>
+<li><code>CursorPage&lt;E&gt;</code></li>
+</ul>
+<h3 id="executar-keyset-com-a-menor-camada-possível">2. Executar keyset
+com a menor camada possível</h3>
+<p>Prioridade do v1:</p>
+<ul>
+<li>usar
+<code>JpaSpecificationExecutor#findBy(..., q -&gt; q.sortBy(...).scroll(...))</code></li>
+<li>reaproveitar <code>Specification&lt;E&gt;</code> já gerada pelo
+starter</li>
+<li>encapsular a adaptação em <code>AbstractBaseCrudService</code></li>
+</ul>
+<p>Se essa via não bastar, aí sim criar algo como:</p>
+<ul>
+<li><code>CursorScrollableRepository&lt;E&gt;</code></li>
+<li><code>CursorScrollableRepositoryImpl&lt;E&gt;</code></li>
+</ul>
+<h3 id="normalizar-o-sort-para-um-sort-estável">3. Normalizar o sort
+para um sort estável</h3>
+<p>O starter deve forçar ordenação determinística:</p>
+<ul>
+<li>usar sort explícito somente quando ele for cursor-safe</li>
+<li>senão usar o default sort do recurso</li>
+<li>sempre anexar o ID ao final como critério de desempate</li>
+</ul>
+<p>Exemplo:</p>
+<pre class="text"><code>ORDER BY publicadoEm DESC, id DESC</code></pre>
+<h3 id="cursor-opaco">4. Cursor opaco</h3>
+<p>O Angular não deve conhecer a estrutura interna do cursor.</p>
+<p>O starter deve serializar um payload opaco contendo, no mínimo:</p>
+<ul>
+<li>direção</li>
+<li>campos de sort usados</li>
+<li>valores da última linha</li>
+</ul>
+<p>Formato sugerido:</p>
+<ul>
+<li>JSON interno</li>
+<li>codificado em base64url</li>
+</ul>
+<p>Assinatura/HMAC pode entrar depois, se houver necessidade de
+blindagem adicional.</p>
+<h3 id="capability-explícita">5. Capability explícita</h3>
+<p>Nem todo recurso deve expor suporte real a cursor pagination.</p>
+<p>Precisamos de um mecanismo canônico, por exemplo:</p>
+<ul>
+<li><code>supportsCursorPagination()</code></li>
+<li>ou <code>CursorSupportMode</code></li>
+</ul>
+<p>Valores possíveis:</p>
+<ul>
+<li><code>AUTO</code></li>
+<li><code>DISABLED</code></li>
+</ul>
+<p>No v1, <code>AUTO</code> só habilita quando o recurso for compatível
+com o contrato seguro.</p>
+<h2 id="papel-de-cada-camada">Papel de Cada Camada</h2>
+<h3 id="repository-fragment">Repository Fragment</h3>
+<ul>
+<li>constrói a query keyset</li>
+<li>aplica <code>Specification</code></li>
+<li>resolve <code>after</code> / <code>before</code></li>
+<li>devolve <code>Window</code></li>
+</ul>
+<h3 id="service-base">Service Base</h3>
+<ul>
+<li>aplica governança de sort cursor-safe</li>
+<li>adapta <code>Window&lt;E&gt;</code> para
+<code>CursorPage&lt;E&gt;</code></li>
+<li>expõe implementação padrão reutilizável</li>
+</ul>
+<h3 id="controller-base">Controller Base</h3>
+<ul>
+<li>continua aceitando <code>after</code>, <code>before</code> e
+<code>size</code></li>
+<li>deixa de depender de override manual do app consumidor</li>
+<li>no v1, pode continuar publicado, mas deve responder de forma
+governada e documentada quando o recurso estiver desabilitado ou
+inelegível</li>
+</ul>
+<h2 id="governança-de-contrato">Governança de Contrato</h2>
+<p>O v1 deve formalizar:</p>
+<ul>
+<li>tamanho máximo (<code>praxis.cursor.max-size</code>)</li>
+<li>política global de enable/disable</li>
+<li>regra de estabilidade do sort</li>
+<li>regra para tie-break por ID</li>
+<li>recursos/colunas cursor-safe</li>
+</ul>
+<p>Exemplos de propriedades:</p>
+<pre class="properties"><code>praxis.cursor.enabled=true
+praxis.cursor.max-size=100
+praxis.cursor.default-mode=auto</code></pre>
+<h2 id="estratégia-de-implementação">Estratégia de Implementação</h2>
+<h3 id="fase-1">Fase 1</h3>
+<ul>
+<li>implementar governança de sort + codec + capability</li>
+<li>provar a execução keyset com
+<code>JpaSpecificationExecutor</code></li>
+<li>implementar adaptação <code>Window</code> -&gt;
+<code>CursorPage</code></li>
+<li>suportar apenas sort canônico + ID</li>
+<li>habilitar em recursos simples do quickstart</li>
+</ul>
+<h3 id="fase-2">Fase 2</h3>
+<ul>
+<li>validar no <code>praxis-api-quickstart</code></li>
+<li>validar no Render</li>
+<li>ampliar para mais recursos elegíveis</li>
+</ul>
+<h3 id="fase-3">Fase 3</h3>
+<ul>
+<li>reavaliar se vale esconder/despublicar <code>/filter/cursor</code>
+para recursos inelegíveis depois que a capability estiver madura</li>
+<li>ampliar governança de sort</li>
+<li>considerar assinatura do cursor e observabilidade</li>
+</ul>
+<h2 id="testes-necessários">Testes Necessários</h2>
+<h3 id="starter">Starter</h3>
+<ul>
+<li>codificação/decodificação do cursor</li>
+<li>normalização de sort estável</li>
+<li><code>after</code></li>
+<li><code>before</code></li>
+<li>empate por ID</li>
+<li>asc/desc</li>
+<li>filtros combinados com <code>Specification</code></li>
+<li>comportamento com campos nulos</li>
+<li>recurso inelegível retornando <code>501</code></li>
+</ul>
+<h3 id="consumidor">Consumidor</h3>
+<ul>
+<li>teste real sem mock de service</li>
+<li><code>/filter/cursor</code> com <code>after</code></li>
+<li><code>/filter/cursor</code> com <code>before</code></li>
+<li>comparação entre page tradicional e cursor em recursos
+elegíveis</li>
+</ul>
+<h2 id="recomendação-final">Recomendação Final</h2>
+<p>Sim, implementar keyset canônico no
+<code>praxis-metadata-starter</code> é uma estratégia sólida, desde que
+o rollout seja deliberadamente restrito.</p>
+<p>A taxa de sucesso é alta se o starter:</p>
+<ul>
+<li>começar pelo caso canônico</li>
+<li>usar primitives do Spring Data Commons para scroll/keyset</li>
+<li>provar primeiro a via nativa do Spring Data JPA antes de criar
+camadas extras</li>
+<li>governar explicitamente a elegibilidade por recurso</li>
+</ul>
+<p>O erro seria tentar resolver no v1 “qualquer sort, qualquer join,
+qualquer projection”. O caminho robusto é um v1 pequeno, determinístico
+e plataformizado.</p>
+</body>
+</html>
