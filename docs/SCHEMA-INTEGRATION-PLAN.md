@@ -9,6 +9,9 @@ Dois “tipos” de JSON convivem no frontend:
 - JSON de estrutura (schema base, vindo do servidor)
   - É a resposta do `GET /schemas/filtered` (FieldDefinition[] com `x-ui`).
   - Usado para montar colunas de grid, formulários e filtros.
+- JSON de catálogo/documentação
+  - É a resposta do `GET /schemas/catalog`.
+  - Usado para exploração, RAG, playgrounds e discovery de exemplos sem contaminar o contrato estrutural.
 - JSON de layout (customizações de UI no front)
   - É persistido no storage do front (LocalStorage via `ConfigStorage`).
   - Representa o layout, regras e preferências salvas pelo usuário/editor visual (arranjo de sections/rows, behaviors, mensagens, regras, etc.).
@@ -48,7 +51,9 @@ Referências de código principais:
   - `Access-Control-Expose-Headers: ETag, X-Schema-Hash` (CORS).
   - Expansão de `$ref` ampliada (top-level, properties, items, allOf/oneOf/anyOf, additionalProperties, varredura genérica).
   - Propagação de exemplos operacionais do OpenAPI para `x-ui.operationExamples.<schemaType>` no payload final de `/schemas/filtered`.
-  - `operationExamples` não participa do hash estrutural usado por `ETag`/`X-Schema-Hash`.
+  - Recursos podem sobrescrever ou complementar esses exemplos publicando `x-ui.operationExamples` explicitamente na operação OpenAPI.
+  - O hash/ETag passa a ser calculado sobre um payload estrutural separado, com exclusão centralizada de metadados documentais como `operationExamples`.
+  - `/schemas/catalog` agora expõe explicitamente exemplos operacionais e links diretos para `request`/`response` schema em `/schemas/filtered`, reforçando a separação entre catálogo e contrato estrutural.
 - Frontend
   - `GenericCrudService`
     - `getSchema()` e `getFilteredSchema()` com ETag/If-None-Match, 304 reaproveitando cache, 200 atualizando `{ schema, schemaHash }` por `schemaId`.
@@ -148,7 +153,9 @@ Access-Control-Expose-Headers: ETag,X-Schema-Hash
 Notas:
 - O backend sempre ecoa `ETag` e `X-Schema-Hash`. O frontend prefere `X-Schema-Hash` quando presente.
 - Para perfis multi-tenant/locale, inclua `X-Tenant` e `Accept-Language`.
-- Quando a operação OpenAPI publicar `examples` ou `example`, o payload final também poderá trazer `x-ui.operationExamples.<schemaType>` para o lado solicitado.
+  - Quando a operação OpenAPI publicar `examples` ou `example`, o payload final também poderá trazer `x-ui.operationExamples.<schemaType>` para o lado solicitado.
+  - `operationExamples` aceita tanto `value` inline quanto `externalValue` quando o host preferir referenciar exemplos externos.
+  - Para UX documental, prefira consumir `/schemas/catalog`; para renderização de UI e sync por hash, prefira `/schemas/filtered`.
 
 ---
 

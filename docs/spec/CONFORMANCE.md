@@ -26,7 +26,8 @@ Critérios de Conformidade
   - `schemaId` estável conforme composição: `path|operation|schemaType|internal|tenant|locale`.
 - Extended (recomendado)
   - Preencher `displayColumns`/`displayFields` no x‑ui de operação (padrões de grid/forms).
-  - Preencher `x-ui.operationExamples.<schemaType>` quando o OpenAPI da operação publicar `examples` ou `example`, preservando `summary`, `description` e `value`.
+  - Preencher `x-ui.operationExamples.<schemaType>` quando o OpenAPI da operação publicar `examples` ou `example`, preservando `summary`, `description`, `value` e `externalValue` quando existir.
+  - Quando um recurso precisar de exemplos mais úteis do que o fallback genérico do starter, publicar `x-ui.operationExamples` explicitamente no nível da operação; esse bloco tem precedência sobre os exemplos derivados automaticamente.
   - Popular mensagens de validação (`*Message`) para melhor UX.
   - Incluir `capabilities.options|byId|all|filter|cursor` quando aplicável.
   - Adotar `custom.*` para extensões privadas do host (sem colisão com canônicas).
@@ -42,7 +43,7 @@ Matriz — Chave da Spec → Consumo na UI
   - Numérico (`numericFormat`, `numeric*`) → componentes numéricos
 - x‑ui por operação
   - `displayColumns` → Padrão de colunas iniciais (grid). Pode ser usado por reconciliadores/config inicial.
-  - `operationExamples.<schemaType>` → Exemplos operacionais derivados do OpenAPI da operação para o lado solicitado (`request` ou `response`), úteis para catálogo, playgrounds e documentação contextual.
+  - `operationExamples.<schemaType>` → Exemplos operacionais do lado solicitado (`request` ou `response`), úteis para catálogo, playgrounds e documentação contextual. Quando coexistirem exemplos derivados do OpenAPI e exemplos explícitos em `x-ui`, os exemplos explícitos prevalecem por nome e completam o conjunto final.
 - x‑ui.resource (no payload `/schemas/filtered`)
   - `idField` → Usado por `GenericCrudService` e `PraxisTable` para chave primária (projects/praxis-core/.../generic-crud.service.ts; projects/praxis-table/README.md)
   - `idFieldValid`/`idFieldMessage` → Diagnóstico/alertas em hosts e ferramentas
@@ -52,7 +53,7 @@ Matriz — Chave da Spec → Consumo na UI
 Boas práticas e Notas
 - `custom.*`: prefixo reservado para extensões de fornecedores/hosts. Não colida com chaves canônicas.
 - O backend deve canonicalizar o payload antes de calcular o hash do schema (ETag forte ou `X-Schema-Hash`).
-- `x-ui.operationExamples` é documentação contextual e não deve influenciar o hash estrutural usado por `ETag`/`X-Schema-Hash`.
+- O backend deve separar explicitamente payload estrutural e payload documental antes de calcular o hash. Hoje `x-ui.operationExamples` é documentação contextual e não deve influenciar o hash estrutural usado por `ETag`/`X-Schema-Hash`.
 - Locale/Tenant variam o `schemaId` e os headers de cache (ETag/hash). Enviar `Accept-Language` e `X-Tenant`.
 
 Compatibilidade (anotações temporárias)

@@ -4,20 +4,28 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.0-rc.8] - 2026-03-21
+
+### Added
+- Novo endpoint `GET /schemas/catalog` como superfície canônica de discovery, exemplos operacionais e navegação para `request`/`response` schema.
+- Arquivo físico `LICENSE` (Apache 2.0) adicionado ao root do módulo para alinhar repositório, artefato e distribuição pública.
+
 ### Changed
-- `ApiDocsController` e `DomainCatalogController` agora aceitam a propriedade `app.openapi.internal-base-url` para resolver explicitamente a base interna usada nas chamadas ao SpringDoc.
-- Quando `app.openapi.internal-base-url` não é informada, o comportamento anterior é preservado: a base continua sendo inferida a partir do contexto HTTP atual com `ServletUriComponentsBuilder`.
-- A família de controles compactos de superfície passou a ser promovida diretamente a `FieldControlType` via valores `INLINE_*`; o uso de `filterControlType` para esses casos deixa de ser recomendado.
-- O caminho residual de `filterControlType` foi removido do contrato principal para simplificar a plataforma antes de qualquer adoção em produção.
+- `ApiDocsController` agora separa payload estrutural de payload documental no cálculo de `ETag` e `X-Schema-Hash`, evitando invalidar cache por mudanças apenas em exemplos/documentação.
+- `x-ui.operationExamples` passou a respeitar `schemaType=request|response` no payload de `/schemas/filtered`.
+- Exemplos derivados do OpenAPI podem ser complementados ou sobrescritos por `x-ui.operationExamples` explícito na própria operação.
+- Extração de examples passou a preservar `externalValue` além de `summary`, `description` e `value`.
+- `DomainCatalogController` agora publica `schemaLinks.request` e `schemaLinks.response` apontando diretamente para `/schemas/filtered`.
 
 ### Fixed
-- Cenários com reverse proxy, host público diferente do host interno do container ou chamadas server-side sem contexto externo confiável deixaram de depender de inferência implícita da origem para buscar `/v3/api-docs`.
-- Evitado o acoplamento acidental a URLs inferidas incorretamente em ambientes como Render, Docker e topologias com `X-Forwarded-*`.
+- Corrigido o acoplamento indevido entre metadados documentais e hash estrutural do contrato retornado por `/schemas/filtered`.
+- Melhorada a codificação de links do catálogo para paths com `/`, espaço e outros caracteres reservados.
+- Tornado mais robusto o merge de exemplos operacionais entre OpenAPI derivado e overrides explícitos por recurso.
 
 ### Documentation
-- README atualizado com a configuração recomendada de `APP_OPENAPI_INTERNAL_BASE_URL` para produção e troubleshooting.
-- Documentação técnica de auto-configuração atualizada com a nova propriedade e o fluxo de resolução da base OpenAPI.
-- Documentação de filtros e spec `x-ui` atualizadas para refletir `FieldControlType.INLINE_*` como contrato principal para controles compactos de superfície.
+- `SCHEMA-INTEGRATION-PLAN.md` atualizado para refletir a separação formal entre contrato estrutural (`/schemas/filtered`) e catálogo/documentação (`/schemas/catalog`).
+- `CONFORMANCE.md` e a spec `x-ui-operation.schema.json` atualizadas para documentar `operationExamples`, incluindo `externalValue`.
+- `README.md` e `docs/overview/VISAO-GERAL.md` alinhados para a nova RC.
 
 ## [1.0.0-rc.6] - 2025-11-06
 

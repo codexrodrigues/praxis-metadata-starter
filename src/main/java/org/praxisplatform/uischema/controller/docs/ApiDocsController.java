@@ -85,6 +85,8 @@ public class ApiDocsController {
     private static final String PROPERTIES = "properties";
     private static final String REF = "$ref";
     private static final String ITEMS = "items";
+    private static final String OPERATION_EXAMPLES = "operationExamples";
+    private static final Set<String> DOCUMENTATION_X_UI_KEYS = Set.of(OPERATION_EXAMPLES);
 
     // Constantes para valores padrão
     private static final String DEFAULT_OPERATION = "get";
@@ -229,9 +231,9 @@ public class ApiDocsController {
         if (xUiMap == null) {
             xUiMap = new java.util.HashMap<>();
         }
-        Map<String, Object> operationExamples = extractOperationExamples(pathsNode, schemaType);
+        Map<String, Object> operationExamples = resolveOperationExamples(pathsNode, xUiMap, schemaType);
         if (!operationExamples.isEmpty()) {
-            xUiMap.put("operationExamples", operationExamples);
+            xUiMap.put(OPERATION_EXAMPLES, operationExamples);
         }
 
         // Anotar x-ui.resource.idField para o frontend
@@ -277,7 +279,7 @@ public class ApiDocsController {
 
         String schemaHash = schemaHashCache.get(schemaId);
         if (schemaHash == null) {
-            com.fasterxml.jackson.databind.JsonNode payloadNode = objectMapper.valueToTree(removeOperationExamplesForHash(schemaMap));
+            com.fasterxml.jackson.databind.JsonNode payloadNode = objectMapper.valueToTree(buildStructuralSchemaPayload(schemaMap));
             org.praxisplatform.uischema.hash.SchemaCanonicalizer canonicalizer = new org.praxisplatform.uischema.hash.SchemaCanonicalizer();
             com.fasterxml.jackson.databind.JsonNode canonical = canonicalizer.canonicalize(payloadNode);
             schemaHash = org.praxisplatform.uischema.hash.SchemaHashUtil.sha256Hex(canonical);
@@ -422,6 +424,45 @@ public class ApiDocsController {
         return ((Map<String, Object>) propsObj).containsKey(prop);
     }
 
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> resolveOperationExamples(JsonNode operationNode, Map<String, Object> xUiMap, String schemaType) {
+        Map<String, Object> derivedExamples = extractOperationExamples(operationNode, schemaType);
+        Object explicitExamplesObj = xUiMap.get(OPERATION_EXAMPLES);
+        if (!(explicitExamplesObj instanceof Map<?, ?> explicitExamplesMap)) {
+            return derivedExamples;
+        }
+
+        Map<String, Object> explicitExamples = filterOperationExamplesBySchemaType((Map<String, Object>) explicitExamplesMap, schemaType);
+        if (explicitExamples.isEmpty()) {
+            return derivedExamples;
+        }
+
+        Map<String, Object> merged = new LinkedHashMap<>(derivedExamples);
+        explicitExamples.forEach((side, value) -> {
+            if (value instanceof Map<?, ?> explicitCollection) {
+                Map<String, Object> mergedCollection = new LinkedHashMap<>();
+                Object derivedCollectionObj = derivedExamples.get(side);
+                if (derivedCollectionObj instanceof Map<?, ?> derivedCollection) {
+                    mergedCollection.putAll((Map<String, Object>) derivedCollection);
+                }
+                mergedCollection.putAll((Map<String, Object>) explicitCollection);
+                merged.put(side, mergedCollection);
+            }
+        });
+        return merged;
+    }
+
+    private Map<String, Object> filterOperationExamplesBySchemaType(Map<String, Object> operationExamples, String schemaType) {
+        Map<String, Object> filtered = new LinkedHashMap<>();
+        if ("request".equalsIgnoreCase(schemaType) && operationExamples.containsKey("request")) {
+            filtered.put("request", operationExamples.get("request"));
+        }
+        if ("response".equalsIgnoreCase(schemaType) && operationExamples.containsKey("response")) {
+            filtered.put("response", operationExamples.get("response"));
+        }
+        return filtered;
+    }
+
     private Map<String, Object> extractOperationExamples(JsonNode operationNode, String schemaType) {
         Map<String, Object> result = new LinkedHashMap<>();
 
@@ -484,6 +525,9 @@ public class ApiDocsController {
                 if (exampleNode.has("value")) {
                     exampleMeta.put("value", objectMapper.convertValue(exampleNode.path("value"), Object.class));
                 }
+                if (exampleNode.has("externalValue")) {
+                    exampleMeta.put("externalValue", exampleNode.path("externalValue").asText());
+                }
                 if (!exampleMeta.isEmpty()) {
                     examples.put(entry.getKey(), exampleMeta);
                 }
@@ -501,12 +545,12 @@ public class ApiDocsController {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> removeOperationExamplesForHash(Map<String, Object> schemaMap) {
+    private Map<String, Object> buildStructuralSchemaPayload(Map<String, Object> schemaMap) {
         Map<String, Object> structuralPayload = new LinkedHashMap<>(schemaMap);
         Object xUiObj = structuralPayload.get(X_UI);
         if (xUiObj instanceof Map<?, ?> xUiMap) {
             Map<String, Object> xUiCopy = new LinkedHashMap<>((Map<String, Object>) xUiMap);
-            xUiCopy.remove("operationExamples");
+            DOCUMENTATION_X_UI_KEYS.forEach(xUiCopy::remove);
             structuralPayload.put(X_UI, xUiCopy);
         }
         return structuralPayload;

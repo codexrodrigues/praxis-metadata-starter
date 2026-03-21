@@ -326,4 +326,136 @@ class ApiDocsControllerTest {
         Map<String, Object> requestExample = (Map<String, Object>) requestExamples.get("requestExample");
         assertEquals("Fallback request", requestExample.get("summary"));
     }
+
+    @Test
+    void getFilteredSchemaPrefersExplicitOperationExamplesFromXUi() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/stats\": {\n" +
+                "      \"post\": {\n" +
+                "        \"x-ui\": {\n" +
+                "          \"responseSchema\": \"StatsResponse\",\n" +
+                "          \"operationExamples\": {\n" +
+                "            \"response\": {\n" +
+                "              \"canonical\": {\n" +
+                "                \"summary\": \"Resource specific\",\n" +
+                "                \"value\": {\"data\": {\"buckets\": [{\"label\": \"gold\"}]}}\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        },\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/StatsResponse\"},\n" +
+                "                \"examples\": {\n" +
+                "                  \"derived\": {\n" +
+                "                    \"summary\": \"Derived\",\n" +
+                "                    \"value\": {\"data\": {\"buckets\": []}}\n" +
+                "                  }\n" +
+                "                }\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"StatsResponse\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\"data\": {\"type\": \"object\"}}\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/stats"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema("/stats", "post", false, "response", null, null, java.util.Locale.ENGLISH);
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> operationExamples = (Map<String, Object>) xUi.get("operationExamples");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseExamples = (Map<String, Object>) operationExamples.get("response");
+
+        assertTrue(responseExamples.containsKey("canonical"));
+        assertTrue(responseExamples.containsKey("derived"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> canonical = (Map<String, Object>) responseExamples.get("canonical");
+        assertEquals("Resource specific", canonical.get("summary"));
+    }
+
+    @Test
+    void getFilteredSchemaPreservesExternalValueExamples() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/stats\": {\n" +
+                "      \"post\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"application/json\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/StatsRequest\"},\n" +
+                "              \"examples\": {\n" +
+                "                \"linked\": {\n" +
+                "                  \"summary\": \"Arquivo externo\",\n" +
+                "                  \"externalValue\": \"https://example.org/examples/stats-request.json\"\n" +
+                "                }\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"StatsRequest\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\"field\": {\"type\": \"string\"}}\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/stats"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema("/stats", "post", false, "request", null, null, java.util.Locale.ENGLISH);
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> operationExamples = (Map<String, Object>) xUi.get("operationExamples");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> requestExamples = (Map<String, Object>) operationExamples.get("request");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> linkedExample = (Map<String, Object>) requestExamples.get("linked");
+
+        assertEquals("Arquivo externo", linkedExample.get("summary"));
+        assertEquals("https://example.org/examples/stats-request.json", linkedExample.get("externalValue"));
+        assertFalse(linkedExample.containsKey("value"));
+    }
 }

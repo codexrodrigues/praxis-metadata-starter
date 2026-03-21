@@ -44,9 +44,16 @@
         "properties": {
           "summary": { "type": "string" },
           "description": { "type": "string" },
-          "value": {}
+          "value": {},
+          "externalValue": {
+            "type": "string",
+            "format": "uri"
+          }
         },
-        "required": ["value"]
+        "anyOf": [
+          { "required": ["value"] },
+          { "required": ["externalValue"] }
+        ]
       }
     }
   }

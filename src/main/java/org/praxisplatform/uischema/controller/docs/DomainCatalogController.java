@@ -19,8 +19,10 @@ import org.springframework.web.util.UriUtils;
 
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Iterator;
 import java.util.List;
@@ -75,7 +77,9 @@ public class DomainCatalogController {
     }
 
     @GetMapping
-    public ResponseEntity<CatalogResponse> getCatalog(@RequestParam(name = "group", required = false) String group) {
+    public ResponseEntity<CatalogResponse> getCatalog(@RequestParam(name = "group", required = false) String group,
+                                                      @RequestParam(name = "path", required = false) String pathFilter,
+                                                      @RequestParam(name = "operation", required = false) String operationFilter) {
         String groupToUse = resolveGroup(group);
         JsonNode doc = fetchOpenApiDocument(groupToUse);
 
@@ -99,6 +103,9 @@ public class DomainCatalogController {
                 LOGGER.debug("Skipping excluded path from catalog: {}", path);
                 continue;
             }
+            if (StringUtils.hasText(pathFilter) && !normalizedPath.equals(normalizePath(pathFilter))) {
+                continue;
+            }
 
             if (methodsNode == null || !methodsNode.isObject()) {
                 continue;
@@ -112,6 +119,10 @@ public class DomainCatalogController {
                 JsonNode op = methodEntry.getValue();
 
                 if (!HTTP_METHODS.contains(method)) {
+                    continue;
+                }
+                if (StringUtils.hasText(operationFilter)
+                        && !method.equalsIgnoreCase(operationFilter)) {
                     continue;
                 }
 
@@ -140,7 +151,9 @@ public class DomainCatalogController {
                             op.path("operationId").asText(null),
                             request,
                             response,
-                            extractParameters(op)
+                            extractParameters(op),
+                            extractOperationExamples(op),
+                            buildSchemaLinks(path, rawMethod)
                     );
 
                     endpoints.add(endpointSummary);
@@ -211,6 +224,104 @@ public class DomainCatalogController {
             node.forEach(n -> result.add(n.asText()));
         }
         return result;
+    }
+
+    private Map<String, Map<String, Object>> extractOperationExamples(JsonNode operationNode) {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+
+        Map<String, Object> requestExamples = extractExamplesFromContentNode(
+                selectPreferredContentNode(operationNode.path("requestBody").path("content"))
+        );
+        if (!requestExamples.isEmpty()) {
+            result.put("request", requestExamples);
+        }
+
+        JsonNode responses = operationNode.path("responses");
+        JsonNode responseContent = responses.path("200").path("content");
+        if (responseContent.isMissingNode()) {
+            responseContent = responses.path("201").path("content");
+        }
+        Map<String, Object> responseExamples = extractExamplesFromContentNode(
+                selectPreferredContentNode(responseContent)
+        );
+        if (!responseExamples.isEmpty()) {
+            result.put("response", responseExamples);
+        }
+
+        return result;
+    }
+
+    private JsonNode selectPreferredContentNode(JsonNode contentRoot) {
+        if (contentRoot == null || contentRoot.isMissingNode()) {
+            return contentRoot;
+        }
+        JsonNode applicationJson = contentRoot.path("application/json");
+        if (!applicationJson.isMissingNode()) {
+            return applicationJson;
+        }
+        JsonNode any = contentRoot.path("*/*");
+        if (!any.isMissingNode()) {
+            return any;
+        }
+        Iterator<JsonNode> values = contentRoot.elements();
+        return values.hasNext() ? values.next() : contentRoot;
+    }
+
+    private Map<String, Object> extractExamplesFromContentNode(JsonNode contentNode) {
+        Map<String, Object> examples = new LinkedHashMap<>();
+        if (contentNode == null || contentNode.isMissingNode()) {
+            return examples;
+        }
+
+        JsonNode examplesNode = contentNode.path("examples");
+        if (!examplesNode.isMissingNode() && examplesNode.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> fields = examplesNode.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> entry = fields.next();
+                JsonNode exampleNode = entry.getValue();
+                Map<String, Object> exampleMeta = new LinkedHashMap<>();
+                if (exampleNode.has("summary")) {
+                    exampleMeta.put("summary", exampleNode.path("summary").asText());
+                }
+                if (exampleNode.has("description")) {
+                    exampleMeta.put("description", exampleNode.path("description").asText());
+                }
+                if (exampleNode.has("value")) {
+                    exampleMeta.put("value", objectMapper.convertValue(exampleNode.path("value"), Object.class));
+                }
+                if (exampleNode.has("externalValue")) {
+                    exampleMeta.put("externalValue", exampleNode.path("externalValue").asText());
+                }
+                if (!exampleMeta.isEmpty()) {
+                    examples.put(entry.getKey(), exampleMeta);
+                }
+            }
+        }
+
+        JsonNode singleExampleNode = contentNode.path("example");
+        if (!singleExampleNode.isMissingNode()) {
+            Map<String, Object> defaultExample = new LinkedHashMap<>();
+            defaultExample.put("value", objectMapper.convertValue(singleExampleNode, Object.class));
+            examples.putIfAbsent("default", defaultExample);
+        }
+
+        return examples;
+    }
+
+    private SchemaLinks buildSchemaLinks(String path, String operation) {
+        String normalizedOperation = operation == null ? "get" : operation.toLowerCase(Locale.ROOT);
+        return new SchemaLinks(
+                buildFilteredSchemaLink(path, normalizedOperation, "request"),
+                buildFilteredSchemaLink(path, normalizedOperation, "response")
+        );
+    }
+
+    private String buildFilteredSchemaLink(String path, String operation, String schemaType) {
+        String normalizedPath = path == null ? "" : path;
+        String encodedPath = URLEncoder.encode(normalizedPath, StandardCharsets.UTF_8).replace("+", "%20");
+        return "/schemas/filtered?path=" + encodedPath
+                + "&operation=" + UriUtils.encodeQueryParam(operation, StandardCharsets.UTF_8)
+                + "&schemaType=" + UriUtils.encodeQueryParam(schemaType, StandardCharsets.UTF_8);
     }
 
     private String firstNonBlank(String... values) {
@@ -553,10 +664,14 @@ public class DomainCatalogController {
         private final SchemaRef requestSchema;
         private final SchemaRef responseSchema;
         private final List<ParameterSummary> parameters;
+        private final Map<String, Map<String, Object>> operationExamples;
+        private final SchemaLinks schemaLinks;
 
         public EndpointSummary(String path, String method, List<String> tags, String summary, String description,
                                String operationId, SchemaRef requestSchema, SchemaRef responseSchema,
-                               List<ParameterSummary> parameters) {
+                               List<ParameterSummary> parameters,
+                               Map<String, Map<String, Object>> operationExamples,
+                               SchemaLinks schemaLinks) {
             this.path = path;
             this.method = method;
             this.tags = tags;
@@ -566,6 +681,8 @@ public class DomainCatalogController {
             this.requestSchema = requestSchema;
             this.responseSchema = responseSchema;
             this.parameters = parameters;
+            this.operationExamples = operationExamples;
+            this.schemaLinks = schemaLinks;
         }
 
         public String getPath() {
@@ -602,6 +719,32 @@ public class DomainCatalogController {
 
         public List<ParameterSummary> getParameters() {
             return parameters;
+        }
+
+        public Map<String, Map<String, Object>> getOperationExamples() {
+            return operationExamples;
+        }
+
+        public SchemaLinks getSchemaLinks() {
+            return schemaLinks;
+        }
+    }
+
+    public static class SchemaLinks {
+        private final String request;
+        private final String response;
+
+        public SchemaLinks(String request, String response) {
+            this.request = request;
+            this.response = response;
+        }
+
+        public String getRequest() {
+            return request;
+        }
+
+        public String getResponse() {
+            return response;
         }
     }
 
