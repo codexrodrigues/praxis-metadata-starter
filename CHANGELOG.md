@@ -4,7 +4,7 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased]
 
-## [1.0.0-rc.8] - 2026-03-21
+## [2.0.0-rc.7] - 2026-03-21
 
 ### Added
 - Novo endpoint `GET /schemas/catalog` como superfície canônica de discovery, exemplos operacionais e navegação para `request`/`response` schema.

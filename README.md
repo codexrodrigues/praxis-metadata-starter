@@ -1,6 +1,6 @@
 # Praxis Metadata Starter
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue&cacheSeconds=600&t=1.0.0-rc.8)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue&cacheSeconds=600&t=2.0.0-rc.7)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
 [![Java](https://img.shields.io/badge/Java-21-007396?logo=openjdk)](https://adoptium.net)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2%2B-6DB33F?logo=spring-boot)](https://spring.io/projects/spring-boot)
 [![Last Commit](https://img.shields.io/github/last-commit/codexrodrigues/praxis-metadata-starter?logo=github)](https://github.com/codexrodrigues/praxis-metadata-starter/commits)
@@ -170,7 +170,7 @@ Para usar o Praxis Metadata Starter, adicione a seguinte dependência ao seu `po
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>1.0.0-rc.8</version>
+  <version>2.0.0-rc.7</version>
   <!-- Após a versão final: use 1.0.0 -->
   <!-- Confira a aba Releases para a última versão. -->
 </dependency>
@@ -182,7 +182,7 @@ Exemplo completo (Quickstart):
 
 ### Release Candidate (RC)
 
-- Para testar a build RC assim que publicada no Central, use `1.0.0-rc.8`.
+- Para testar a build RC assim que publicada no Central, use `2.0.0-rc.7`.
 - Guia de publicação e processo de release: veja `RELEASING.md`.
 
 ## MapStruct Config (Fail‑Fast)
