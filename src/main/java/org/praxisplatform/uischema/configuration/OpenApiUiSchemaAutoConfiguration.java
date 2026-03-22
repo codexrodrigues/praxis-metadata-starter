@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.configuration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
+import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
 import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
 import org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodPayloadNormalizer;
 import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
@@ -547,6 +548,12 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Bean
     public OpenApiGroupResolver openApiGroupResolver(List<GroupedOpenApi> groupedOpenApis) {
         return new OpenApiGroupResolver(groupedOpenApis);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OpenApiDocsSupport openApiDocsSupport() {
+        return new OpenApiDocsSupport();
     }
 
     /**

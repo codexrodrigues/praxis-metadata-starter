@@ -22,6 +22,9 @@ public class ApiDocsControllerAllOfTest {
         Field om = ApiDocsController.class.getDeclaredField("objectMapper");
         om.setAccessible(true);
         om.set(controller, mapper);
+        Field support = ApiDocsController.class.getDeclaredField("openApiDocsSupport");
+        support.setAccessible(true);
+        support.set(controller, new OpenApiDocsSupport());
 
         Field dc = ApiDocsController.class.getDeclaredField("documentCache");
         dc.setAccessible(true);
@@ -107,4 +110,3 @@ public class ApiDocsControllerAllOfTest {
         assertFalse(first.containsKey("$ref"));
     }
 }
-

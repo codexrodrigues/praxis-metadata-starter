@@ -3,7 +3,6 @@ package org.praxisplatform.uischema.controller.docs;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
@@ -22,13 +21,12 @@ class ApiDocsControllerPathResolutionTest {
     @Mock
     private OpenApiGroupResolver openApiGroupResolver;
 
-    @InjectMocks
-    private ApiDocsController apiDocsController;
+    private OpenApiDocsSupport openApiDocsSupport;
 
     @BeforeEach
     void setUp() {
-        // Injetar o mock via reflection no campo privado
-        ReflectionTestUtils.setField(apiDocsController, "openApiGroupResolver", openApiGroupResolver);
+        openApiDocsSupport = new OpenApiDocsSupport();
+        ReflectionTestUtils.setField(openApiDocsSupport, "openApiGroupResolver", openApiGroupResolver);
     }
 
     @Test
@@ -134,10 +132,6 @@ class ApiDocsControllerPathResolutionTest {
      * Invoca o método privado resolveGroupFromPath via reflection para testes.
      */
     private String invokeResolveGroupFromPath(String path) {
-        try {
-            return (String) ReflectionTestUtils.invokeMethod(apiDocsController, "resolveGroupFromPath", path);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao invocar método privado", e);
-        }
+        return openApiDocsSupport.resolveGroupFromPath(path);
     }
 }

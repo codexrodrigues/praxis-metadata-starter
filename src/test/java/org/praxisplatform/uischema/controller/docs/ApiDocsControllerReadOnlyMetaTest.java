@@ -26,6 +26,9 @@ class ApiDocsControllerReadOnlyMetaTest {
         Field om = ApiDocsController.class.getDeclaredField("objectMapper");
         om.setAccessible(true);
         om.set(controller, mapper);
+        Field support = ApiDocsController.class.getDeclaredField("openApiDocsSupport");
+        support.setAccessible(true);
+        support.set(controller, new OpenApiDocsSupport());
 
         // Preload a minimal OpenAPI doc into the private documentCache
         Field dc = ApiDocsController.class.getDeclaredField("documentCache");
