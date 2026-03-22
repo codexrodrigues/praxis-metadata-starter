@@ -40,9 +40,11 @@ class ApiDocsControllerTest {
         restTemplate = new RestTemplate();
         server = MockRestServiceServer.createServer(restTemplate);
         controller = new ApiDocsController();
+        OpenApiDocsSupport openApiDocsSupport = new OpenApiDocsSupport();
+        ReflectionTestUtils.setField(openApiDocsSupport, "openApiGroupResolver", openApiGroupResolver);
         ReflectionTestUtils.setField(controller, "restTemplate", restTemplate);
         ReflectionTestUtils.setField(controller, "objectMapper", mapper);
-        ReflectionTestUtils.setField(controller, "openApiGroupResolver", openApiGroupResolver);
+        ReflectionTestUtils.setField(controller, "openApiDocsSupport", openApiDocsSupport);
         ReflectionTestUtils.setField(controller, "OPEN_API_BASE_PATH", "/v3/api-docs");
         openApiDoc = "{\n" +
                 "  \"paths\": {\n" +
@@ -263,6 +265,145 @@ class ApiDocsControllerTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> responseExamples = (Map<String, Object>) operationExamples.get("response");
         assertTrue(responseExamples.containsKey("timeseriesResult"));
+    }
+
+    @Test
+    void getFilteredSchemaResolvesStatsResponseFromRestApiResponseWrapper() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/stats/group-by\": {\n" +
+                "      \"post\": {\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/RestApiResponseGroupByStatsResponse\"},\n" +
+                "                \"examples\": {\n" +
+                "                  \"groupByCountResponse\": {\n" +
+                "                    \"summary\": \"Buckets\",\n" +
+                "                    \"value\": {\"status\": \"success\", \"data\": {\"field\": \"status\", \"buckets\": []}}\n" +
+                "                  }\n" +
+                "                }\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"RestApiResponseGroupByStatsResponse\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"status\": {\"type\": \"string\"},\n" +
+                "          \"data\": {\"$ref\": \"#/components/schemas/GroupByStatsResponse\"}\n" +
+                "        }\n" +
+                "      },\n" +
+                "      \"GroupByStatsResponse\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"field\": {\"type\": \"string\"},\n" +
+                "          \"buckets\": {\n" +
+                "            \"type\": \"array\",\n" +
+                "            \"items\": {\"$ref\": \"#/components/schemas/GroupByStatsBucket\"}\n" +
+                "          }\n" +
+                "        }\n" +
+                "      },\n" +
+                "      \"GroupByStatsBucket\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"label\": {\"type\": \"string\"},\n" +
+                "          \"value\": {\"type\": \"number\"}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/stats"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema("/stats/group-by", "post", false, "response", null, null, java.util.Locale.ENGLISH);
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+        assertTrue(((Map<?, ?>) schema.get("properties")).containsKey("field"));
+        assertTrue(((Map<?, ?>) schema.get("properties")).containsKey("buckets"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        assertNotNull(xUi);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> operationExamples = (Map<String, Object>) xUi.get("operationExamples");
+        assertNotNull(operationExamples);
+        assertTrue(operationExamples.containsKey("response"));
+    }
+
+    @Test
+    void getFilteredSchemaResolvesDistributionResponseFromRestApiResponseWrapper() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("stats");
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/stats/distribution\": {\n" +
+                "      \"post\": {\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/RestApiResponseDistributionStatsResponse\"},\n" +
+                "                \"examples\": {\n" +
+                "                  \"distributionResponse\": {\n" +
+                "                    \"summary\": \"Distribution\",\n" +
+                "                    \"value\": {\"status\": \"success\", \"data\": {\"field\": \"salario\", \"buckets\": []}}\n" +
+                "                  }\n" +
+                "                }\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"RestApiResponseDistributionStatsResponse\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"status\": {\"type\": \"string\"},\n" +
+                "          \"data\": {\"$ref\": \"#/components/schemas/DistributionStatsResponse\"}\n" +
+                "        }\n" +
+                "      },\n" +
+                "      \"DistributionStatsResponse\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"field\": {\"type\": \"string\"},\n" +
+                "          \"buckets\": {\"type\": \"array\", \"items\": {\"type\": \"object\"}}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/stats"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema("/stats/distribution", "post", false, "response", null, null, java.util.Locale.ENGLISH);
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+        assertTrue(((Map<?, ?>) schema.get("properties")).containsKey("field"));
+        assertTrue(((Map<?, ?>) schema.get("properties")).containsKey("buckets"));
     }
 
     @Test

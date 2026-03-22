@@ -2,7 +2,6 @@ package org.praxisplatform.uischema.controller.docs;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,12 +13,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 import jakarta.annotation.PostConstruct;
-import java.nio.charset.StandardCharsets;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -46,9 +44,6 @@ public class DomainCatalogController {
     @Value("${springdoc.api-docs.path:/v3/api-docs}")
     private String openApiBasePath;
 
-    @Value("${app.openapi.internal-base-url:}")
-    private String openApiInternalBaseUrl;
-
     @Value("${praxis.catalog.exclude-paths:/api/praxis/config/ui}")
     private String excludedPathsRaw;
 
@@ -60,8 +55,8 @@ public class DomainCatalogController {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired(required = false)
-    private OpenApiGroupResolver openApiGroupResolver;
+    @Autowired
+    private OpenApiDocsSupport openApiDocsSupport;
 
     @PostConstruct
     void initExcludedPaths() {
@@ -80,7 +75,7 @@ public class DomainCatalogController {
     public ResponseEntity<CatalogResponse> getCatalog(@RequestParam(name = "group", required = false) String group,
                                                       @RequestParam(name = "path", required = false) String pathFilter,
                                                       @RequestParam(name = "operation", required = false) String operationFilter) {
-        String groupToUse = resolveGroup(group);
+        String groupToUse = resolveGroup(group, pathFilter);
         JsonNode doc = fetchOpenApiDocument(groupToUse);
 
         JsonNode pathsNode = doc.path("paths");
@@ -153,7 +148,7 @@ public class DomainCatalogController {
                             response,
                             extractParameters(op),
                             extractOperationExamples(op),
-                            buildSchemaLinks(path, rawMethod)
+                            buildSchemaLinks(path, rawMethod, request, response)
                     );
 
                     endpoints.add(endpointSummary);
@@ -168,54 +163,16 @@ public class DomainCatalogController {
         return ResponseEntity.ok(response);
     }
 
-    private String resolveGroup(String group) {
+    private String resolveGroup(String group, String pathFilter) {
         if (StringUtils.hasText(group)) {
             return group;
         }
-        // Tenta resolver dinamicamente com OpenApiGroupResolver, caindo para null (usa /v3/api-docs)
-        if (openApiGroupResolver != null) {
-            String resolved = openApiGroupResolver.resolveGroup("/api");
-            if (StringUtils.hasText(resolved)) {
-                return resolved;
-            }
-        }
-        return null;
+        return openApiDocsSupport.resolveGroupFromPath(StringUtils.hasText(pathFilter) ? pathFilter : "/api");
     }
 
     private JsonNode fetchOpenApiDocument(String group) {
-        String base = resolveOpenApiBaseUrl() + openApiBasePath;
-
-        // Constrói URL de grupo se informado; caso contrário usa a raiz (/v3/api-docs)
-        String url = StringUtils.hasText(group)
-                ? base + "/" + UriUtils.encodePathSegment(group, StandardCharsets.UTF_8)
-                : base;
-
-        LOGGER.info("Fetching OpenAPI doc from {}", url);
-        try {
-            JsonNode root = restTemplate.getForObject(url, JsonNode.class);
-            if (root != null) {
-                return root;
-            }
-        } catch (Exception ex) {
-            LOGGER.warn("Failed to fetch OpenAPI doc from {} (group={}), falling back to base {}. Error: {}",
-                    url, group, base, ex.getMessage());
-        }
-
-        // Fallback: tentar o /v3/api-docs raiz
-        JsonNode fallback = restTemplate.getForObject(base, JsonNode.class);
-        if (fallback == null) {
-            throw new IllegalStateException("OpenAPI document is null for group " + group + " and fallback " + base);
-        }
-        return fallback;
-    }
-
-    private String resolveOpenApiBaseUrl() {
-        if (StringUtils.hasText(openApiInternalBaseUrl)) {
-            return openApiInternalBaseUrl.replaceAll("/+$", "");
-        }
-        return ServletUriComponentsBuilder.fromCurrentContextPath()
-                .build()
-                .toUriString();
+        LOGGER.info("Fetching OpenAPI doc for group {}", group);
+        return openApiDocsSupport.fetchOpenApiDocument(restTemplate, openApiBasePath, group, LOGGER);
     }
 
     private List<String> toStringList(JsonNode node) {
@@ -230,7 +187,7 @@ public class DomainCatalogController {
         Map<String, Map<String, Object>> result = new LinkedHashMap<>();
 
         Map<String, Object> requestExamples = extractExamplesFromContentNode(
-                selectPreferredContentNode(operationNode.path("requestBody").path("content"))
+                openApiDocsSupport.selectPreferredContentNode(operationNode.path("requestBody").path("content"))
         );
         if (!requestExamples.isEmpty()) {
             result.put("request", requestExamples);
@@ -242,29 +199,13 @@ public class DomainCatalogController {
             responseContent = responses.path("201").path("content");
         }
         Map<String, Object> responseExamples = extractExamplesFromContentNode(
-                selectPreferredContentNode(responseContent)
+                openApiDocsSupport.selectPreferredContentNode(responseContent)
         );
         if (!responseExamples.isEmpty()) {
             result.put("response", responseExamples);
         }
 
         return result;
-    }
-
-    private JsonNode selectPreferredContentNode(JsonNode contentRoot) {
-        if (contentRoot == null || contentRoot.isMissingNode()) {
-            return contentRoot;
-        }
-        JsonNode applicationJson = contentRoot.path("application/json");
-        if (!applicationJson.isMissingNode()) {
-            return applicationJson;
-        }
-        JsonNode any = contentRoot.path("*/*");
-        if (!any.isMissingNode()) {
-            return any;
-        }
-        Iterator<JsonNode> values = contentRoot.elements();
-        return values.hasNext() ? values.next() : contentRoot;
     }
 
     private Map<String, Object> extractExamplesFromContentNode(JsonNode contentNode) {
@@ -308,11 +249,17 @@ public class DomainCatalogController {
         return examples;
     }
 
-    private SchemaLinks buildSchemaLinks(String path, String operation) {
+    private SchemaLinks buildSchemaLinks(String path, String operation, SchemaRef requestSchema, SchemaRef responseSchema) {
         String normalizedOperation = operation == null ? "get" : operation.toLowerCase(Locale.ROOT);
+        String requestLink = requestSchema != null
+                ? buildFilteredSchemaLink(path, normalizedOperation, "request")
+                : null;
+        String responseLink = responseSchema != null
+                ? buildFilteredSchemaLink(path, normalizedOperation, "response")
+                : null;
         return new SchemaLinks(
-                buildFilteredSchemaLink(path, normalizedOperation, "request"),
-                buildFilteredSchemaLink(path, normalizedOperation, "response")
+                requestLink,
+                responseLink
         );
     }
 
@@ -401,16 +348,15 @@ public class DomainCatalogController {
     }
 
     private SchemaRef extractRequestSchema(JsonNode op, JsonNode components) {
-        JsonNode schema = op.path("requestBody")
-                .path("content")
-                .path("application/json")
-                .path("schema");
+        JsonNode schema = openApiDocsSupport.selectPreferredContentNode(
+                op.path("requestBody").path("content")
+        ).path("schema");
         if (schema.isMissingNode()) return null;
         if (schema.has("$ref")) {
             String name = extractRefName(schema.path("$ref").asText());
-            return new SchemaRef(name, null, "application/json", extractFieldsFromRef(name, components), extractRelationsFromRef(name, components));
+            return new SchemaRef(name, null, openApiDocsSupport.inferMediaType(op.path("requestBody").path("content")), extractFieldsFromRef(name, components), extractRelationsFromRef(name, components));
         }
-        return new SchemaRef(null, schema, "application/json", extractFields(schema, components), extractRelations(schema, components));
+        return new SchemaRef(null, schema, openApiDocsSupport.inferMediaType(op.path("requestBody").path("content")), extractFields(schema, components), extractRelations(schema, components));
     }
 
     private SchemaRef extractResponseSchema(JsonNode op, JsonNode components) {
@@ -420,25 +366,27 @@ public class DomainCatalogController {
         for (String code : preferred) {
             JsonNode r = responses.path(code);
             if (!r.isMissingNode()) {
-                JsonNode schema = r.path("content").path("application/json").path("schema");
+                JsonNode content = r.path("content");
+                JsonNode schema = openApiDocsSupport.selectPreferredContentNode(content).path("schema");
                 if (schema.isMissingNode()) continue;
                 if (schema.has("$ref")) {
                     String name = extractRefName(schema.path("$ref").asText());
-                    return new SchemaRef(name, null, "application/json", extractFieldsFromRef(name, components), extractRelationsFromRef(name, components));
+                    return new SchemaRef(name, null, openApiDocsSupport.inferMediaType(content), extractFieldsFromRef(name, components), extractRelationsFromRef(name, components));
                 }
-                return new SchemaRef(null, schema, "application/json", extractFields(schema, components), extractRelations(schema, components));
+                return new SchemaRef(null, schema, openApiDocsSupport.inferMediaType(content), extractFields(schema, components), extractRelations(schema, components));
             }
         }
         Iterator<Map.Entry<String, JsonNode>> it = responses.fields();
         while (it.hasNext()) {
             JsonNode r = it.next().getValue();
-            JsonNode schema = r.path("content").path("application/json").path("schema");
+            JsonNode content = r.path("content");
+            JsonNode schema = openApiDocsSupport.selectPreferredContentNode(content).path("schema");
             if (schema.isMissingNode()) continue;
             if (schema.has("$ref")) {
                 String name = extractRefName(schema.path("$ref").asText());
-                return new SchemaRef(name, null, "application/json", extractFieldsFromRef(name, components), extractRelationsFromRef(name, components));
+                return new SchemaRef(name, null, openApiDocsSupport.inferMediaType(content), extractFieldsFromRef(name, components), extractRelationsFromRef(name, components));
             }
-            return new SchemaRef(null, schema, "application/json", extractFields(schema, components), extractRelations(schema, components));
+            return new SchemaRef(null, schema, openApiDocsSupport.inferMediaType(content), extractFields(schema, components), extractRelations(schema, components));
         }
         return null;
     }

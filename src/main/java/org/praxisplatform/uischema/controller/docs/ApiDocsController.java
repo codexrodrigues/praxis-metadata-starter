@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.uischema.FieldConfigProperties;
-import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -73,9 +71,6 @@ public class ApiDocsController {
     @Value("${springdoc.api-docs.path:/v3/api-docs}")
     private String OPEN_API_BASE_PATH;
 
-    @Value("${app.openapi.internal-base-url:}")
-    private String openApiInternalBaseUrl;
-
     // Constantes para chaves do JSON
     private static final String PATHS = "paths";
     private static final String COMPONENTS = "components";
@@ -97,8 +92,8 @@ public class ApiDocsController {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired(required = false)
-    private OpenApiGroupResolver openApiGroupResolver;
+    @Autowired
+    private OpenApiDocsSupport openApiDocsSupport;
     
     /**
      * Cache de documentos OpenAPI por grupo para otimização de performance.
@@ -150,7 +145,7 @@ public class ApiDocsController {
         }
 
         // 1. Resolver grupo automaticamente baseado no path
-        String groupName = resolveGroupFromPath(path);
+        String groupName = openApiDocsSupport.resolveGroupFromPath(path);
         LOGGER.info("Path '{}' → Grupo resolvido: '{}'", path, groupName);
         
         // 2. Obter documento específico do cache
@@ -177,7 +172,7 @@ public class ApiDocsController {
         JsonNode directSchemaNode = null;
         if ("request".equalsIgnoreCase(schemaType)) {
             // Tenta localizar schema do corpo de requisição
-            JsonNode bodySchema = selectPreferredContentNode(
+            JsonNode bodySchema = openApiDocsSupport.selectPreferredContentNode(
                     pathsNode.path("requestBody").path("content")
             ).path("schema");
 
@@ -468,7 +463,7 @@ public class ApiDocsController {
 
         if ("request".equalsIgnoreCase(schemaType)) {
             Map<String, Object> requestExamples = extractExamplesFromContentNode(
-                    selectPreferredContentNode(operationNode.path("requestBody").path("content"))
+                    openApiDocsSupport.selectPreferredContentNode(operationNode.path("requestBody").path("content"))
             );
             if (!requestExamples.isEmpty()) {
                 result.put("request", requestExamples);
@@ -477,7 +472,7 @@ public class ApiDocsController {
 
         if ("response".equalsIgnoreCase(schemaType)) {
             Map<String, Object> responseExamples = extractExamplesFromContentNode(
-                    selectPreferredContentNode(operationNode.path("responses").path("200").path("content"))
+                    openApiDocsSupport.selectPreferredContentNode(operationNode.path("responses").path("200").path("content"))
             );
             if (!responseExamples.isEmpty()) {
                 result.put("response", responseExamples);
@@ -485,22 +480,6 @@ public class ApiDocsController {
         }
 
         return result;
-    }
-
-    private JsonNode selectPreferredContentNode(JsonNode contentRoot) {
-        if (contentRoot == null || contentRoot.isMissingNode()) {
-            return contentRoot;
-        }
-        JsonNode applicationJson = contentRoot.path("application/json");
-        if (!applicationJson.isMissingNode()) {
-            return applicationJson;
-        }
-        JsonNode any = contentRoot.path("*/*");
-        if (!any.isMissingNode()) {
-            return any;
-        }
-        Iterator<JsonNode> values = contentRoot.elements();
-        return values.hasNext() ? values.next() : contentRoot;
     }
 
     private Map<String, Object> extractExamplesFromContentNode(JsonNode contentNode) {
@@ -749,10 +728,13 @@ public class ApiDocsController {
 
         // 2. Tenta extrair do schema de resposta 200 OK
         JsonNode responses = pathsNode.path("responses");
-        JsonNode okResponse = responses.path("200").path("content").path("*/*").path("schema");
+        JsonNode okResponse = openApiDocsSupport.selectPreferredContentNode(
+                responses.path("200").path("content")
+        ).path("schema");
         if (okResponse.isMissingNode()) {
-            // Tenta outros content types se não encontrou com */*
-            okResponse = responses.path("200").path("content").path("application/json").path("schema");
+            okResponse = openApiDocsSupport.selectPreferredContentNode(
+                    responses.path("201").path("content")
+            ).path("schema");
         }
 
         if (!okResponse.isMissingNode() && okResponse.has("$ref")) {
@@ -921,45 +903,6 @@ public class ApiDocsController {
      * @param path o path da requisição (ex: "/api/human-resources/funcionarios/all")
      * @return o nome do grupo resolvido para buscar documento OpenAPI ultra-otimizado
      */
-    private String resolveGroupFromPath(String path) {
-        if (path == null || path.trim().isEmpty()) {
-            return "application";
-        }
-        
-        // 🤖 ESTRATÉGIA 1: OpenApiGroupResolver (algoritmo inteligente "best match")
-        if (openApiGroupResolver != null) {
-            String resolved = openApiGroupResolver.resolveGroup(path);
-            if (resolved != null && !resolved.isEmpty()) {
-                LOGGER.debug("✅ Grupo resolvido via OpenApiGroupResolver: {} para path: {}", resolved, path);
-                return resolved;
-            }
-        }
-        
-        // 📐 ESTRATÉGIA 2: Derivação automática baseada no path
-        String[] segments = path.split("/");
-        if (segments.length >= 4) {
-            // 🎯 Remove primeiro elemento vazio e junta os próximos 3 segmentos
-            // Exemplo: ["", "api", "human-resources", "eventos-folha", "all"] 
-            //       → "api-human-resources-eventos-folha"
-            String derivedGroup = String.join("-", java.util.Arrays.copyOfRange(segments, 1, 4));
-            LOGGER.debug("📐 Grupo derivado do path: {} para path: {}", derivedGroup, path);
-            return derivedGroup;
-        }
-        
-        // 🎯 ESTRATÉGIA 3: Primeiro segmento significativo
-        if (segments.length >= 2) {
-            String firstSegment = segments[1]; // Pula o primeiro elemento vazio
-            if (!firstSegment.isEmpty()) {
-                LOGGER.debug("🎯 Grupo baseado no primeiro segmento: {} para path: {}", firstSegment, path);
-                return firstSegment;
-            }
-        }
-        
-        // 🛡️ ESTRATÉGIA 4: Fallback padrão
-        LOGGER.debug("🛡️ Usando grupo padrão 'application' para path: {}", path);
-        return "application";
-    }
-    
     /**
      * <h3>🗄️ Cache Inteligente de Documentos OpenAPI</h3>
      * <p>Implementa cache otimizado com estratégia de fallback para garantir alta performance
@@ -999,52 +942,21 @@ public class ApiDocsController {
      */
     private JsonNode getDocumentForGroup(String groupName) {
         return documentCache.computeIfAbsent(groupName, group -> {
-            String baseUrl = resolveOpenApiBaseUrl();
-            
-            // 🎯 TENTATIVA 1: Buscar documento específico do grupo
-            String groupUrl = baseUrl + OPEN_API_BASE_PATH + "/" + group;
-            
             try {
-                JsonNode groupDoc = restTemplate.getForObject(groupUrl, JsonNode.class);
+                JsonNode groupDoc = openApiDocsSupport.fetchOpenApiDocument(restTemplate, OPEN_API_BASE_PATH, group, LOGGER);
                 if (groupDoc != null) {
                     long sizeKB = estimateJsonSize(groupDoc) / 1024;
                     LOGGER.info("📄 Documento OpenAPI específico cacheado para grupo '{}' (~{}KB)", 
                         group, sizeKB);
                     return groupDoc;
                 }
+                throw new IllegalStateException("OpenAPI document helper returned null for group: " + group);
             } catch (Exception e) {
-                LOGGER.warn("⚠️ Falha ao buscar documento específico para grupo '{}': {}. Usando fallback...", 
+                LOGGER.error("💥 Falha crítica ao buscar documento OpenAPI para grupo '{}': {}",
                     group, e.getMessage());
-            }
-            
-            // 🛡️ TENTATIVA 2: Fallback para documento completo da aplicação
-            String fallbackUrl = baseUrl + OPEN_API_BASE_PATH;
-            try {
-                JsonNode fallbackDoc = restTemplate.getForObject(fallbackUrl, JsonNode.class);
-                if (fallbackDoc != null) {
-                    long sizeKB = estimateJsonSize(fallbackDoc) / 1024;
-                    LOGGER.info("🔄 Documento completo usado como fallback para grupo '{}' (~{}KB)", 
-                        group, sizeKB);
-                    return fallbackDoc;
-                } else {
-                    throw new IllegalStateException("OpenAPI document not found at URL: " + fallbackUrl);
-                }
-            } catch (Exception fallbackError) {
-                LOGGER.error("💥 Falha crítica ao buscar documento fallback para grupo '{}': {}", 
-                    group, fallbackError.getMessage());
-                throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + group, fallbackError);
+                throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + group, e);
             }
         });
-    }
-
-    private String resolveOpenApiBaseUrl() {
-        if (StringUtils.hasText(openApiInternalBaseUrl)) {
-            return openApiInternalBaseUrl.replaceAll("/+$", "");
-        }
-        return ServletUriComponentsBuilder
-            .fromCurrentContextPath()
-            .build()
-            .toUriString();
     }
     
     /**

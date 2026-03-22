@@ -6,6 +6,9 @@ import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.LocateResponse;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseDistributionStatsResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseGroupByStatsResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseTimeSeriesStatsResponse;
 import org.praxisplatform.uischema.service.base.BaseCrudService;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
@@ -806,6 +809,8 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                             responseCode = "200",
                             description = "Group-by calculado com sucesso",
                             content = @Content(
+                                    mediaType = "application/json",
+                                    schema = @Schema(implementation = RestApiResponseGroupByStatsResponse.class),
                                     examples = @ExampleObject(
                                             name = "groupByCountResponse",
                                             summary = "Buckets agregados por status",
@@ -855,6 +860,8 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                             responseCode = "200",
                             description = "Série temporal calculada com sucesso",
                             content = @Content(
+                                    mediaType = "application/json",
+                                    schema = @Schema(implementation = RestApiResponseTimeSeriesStatsResponse.class),
                                     examples = @ExampleObject(
                                             name = "timeSeriesSumResponse",
                                             summary = "Pontos de série temporal com datas ISO",
@@ -904,6 +911,8 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                             responseCode = "200",
                             description = "Distribuição calculada com sucesso",
                             content = @Content(
+                                    mediaType = "application/json",
+                                    schema = @Schema(implementation = RestApiResponseDistributionStatsResponse.class),
                                     examples = @ExampleObject(
                                             name = "distributionHistogramResponse",
                                             summary = "Buckets de histograma canônicos",
