@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Checklist de Publicacao - `x-ui.chart` draft `0.1.0`</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Checklist de Publicacao - `x-ui.chart` draft
+`0.1.0`</h1>
+</header>
+<h1 id="checklist-de-publicacao---x-ui.chart-draft-0.1.0">Checklist de
+Publicacao - <code>x-ui.chart</code> draft <code>0.1.0</code></h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Consolidar os gates minimos para publicar uma nova versao do
+<code>praxis-metadata-starter</code> contendo o draft canonico de
+<code>x-ui.chart</code> sem gerar drift imediato entre:</p>
+<ul>
+<li>schema canonico no starter</li>
+<li>host operacional <code>praxis-api-quickstart</code></li>
+<li>runtime oficial <code>@praxisui/charts</code></li>
+</ul>
+<h2 id="gates-minimos-antes-da-publicacao">Gates Minimos Antes da
+Publicacao</h2>
+<h3 id="integridade-do-contrato-canonico">1. Integridade do contrato
+canonico</h3>
+<ul>
+<li><code>docs/spec/x-ui-chart.schema.json</code> valida sintaxe
+JSON</li>
+<li><code>docs/spec/examples/x-ui-chart.valid.json</code> valida sintaxe
+JSON</li>
+<li>o exemplo valido continua aceito pelo schema</li>
+<li>o schema exige <code>source.resource</code> e
+<code>source.operation</code> quando
+<code>source.kind = "praxis.stats"</code></li>
+<li><code>timeseries</code> exige
+<code>source.options.granularity</code></li>
+<li><code>refresh.strategy = "interval"</code> exige
+<code>intervalMs</code></li>
+</ul>
+<h3 id="compatibilidade-operacional-com-stats">2. Compatibilidade
+operacional com stats</h3>
+<ul>
+<li>o contrato aponta explicitamente para a familia institucional
+<code>praxis.stats</code></li>
+<li>as operacoes cobertas nesta fase sao:
+<ul>
+<li><code>group-by</code></li>
+<li><code>timeseries</code></li>
+<li><code>distribution</code></li>
+</ul></li>
+<li>o host operacional <code>praxis-api-quickstart</code> aceita
+payloads nesse shape sem adaptadores ad hoc</li>
+<li><code>/schemas/filtered</code> resolve request/response schema para
+essas operacoes</li>
+</ul>
+<h3 id="compatibilidade-com-o-runtime-angular-oficial">3.
+Compatibilidade com o runtime Angular oficial</h3>
+<p>O draft canonico pode ser mais amplo que o runtime atual, mas isso
+precisa estar documentado explicitamente.</p>
+<p>Suportado hoje em <code>@praxisui/charts</code>:</p>
+<ul>
+<li><code>source.kind = "praxis.stats"</code></li>
+<li><code>kind</code>: <code>bar</code>, <code>line</code>,
+<code>pie</code>, <code>donut</code>, <code>area</code>,
+<code>stacked-bar</code></li>
+<li>uma metrica por chart quando a origem e
+<code>praxis.stats</code></li>
+<li><code>pointClick</code> e <code>drillDown</code> no fluxo atual</li>
+</ul>
+<p>Ainda nao suportado no runtime Angular atual:</p>
+<ul>
+<li><code>source.kind = "derived"</code></li>
+<li><code>aggregation = "distinct-count"</code></li>
+<li><code>events.selectionChange</code></li>
+<li><code>events.crossFilter</code></li>
+<li><code>theme.variant</code></li>
+<li><code>theme.palette</code> como token semantico string</li>
+<li>pie/donut com multiplas metricas</li>
+</ul>
+<p>Consequencia:</p>
+<ul>
+<li>a publicacao do starter pode incluir essas capacidades no draft
+canonico</li>
+<li>mas a release deve deixar claro que parte delas ainda esta fora da
+superficie executavel atual do Angular</li>
+</ul>
+<h3 id="validacao-de-host-operacional">4. Validacao de host
+operacional</h3>
+<p>Antes da publicacao, recomenda-se validar no
+<code>praxis-api-quickstart</code>:</p>
+<ul>
+<li>schema request/response para <code>group-by</code>,
+<code>timeseries</code> e <code>distribution</code></li>
+<li>smoke HTTP de requests no shape que o Angular materializa</li>
+</ul>
+<p>Comando focal recomendado:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="va">PRAXIS_EXTERNAL_SMOKE_TESTS</span><span class="op">=</span>true <span class="ex">./mvnw</span> <span class="at">-Dtest</span><span class="op">=</span>StatsSchemaSmokeHttpTest,VwStatsSmokeHttpTest test</span></code></pre></div>
+<h2 id="riscos-conhecidos-na-publicacao-desta-fase">Riscos Conhecidos na
+Publicacao desta Fase</h2>
+<h3 id="contrato-mais-amplo-que-o-runtime">1. Contrato mais amplo que o
+runtime</h3>
+<p>O starter pode publicar semantica que o Angular oficial ainda nao
+executa completamente. Isso e aceitavel apenas se a limitacao estiver
+documentada como compatibilidade parcial de consumidor.</p>
+<h3
+id="nao-ha-ainda-integracao-canonica-automatica-em-schemasfiltered">2.
+Nao ha ainda integracao canonica automatica em
+<code>/schemas/filtered</code></h3>
+<p>Nesta fase, o schema e a documentacao canonica existem no starter,
+mas a projecao automatica de <code>x-ui.chart</code> para payloads
+finais continua dependendo do rollout dos produtores/hosts.</p>
+<h3 id="o-contrato-continua-em-estado-draft">3. O contrato continua em
+estado <code>draft</code></h3>
+<p>Mesmo com schema validavel, o bloco segue como draft
+<code>0.1.0</code>. A release nao deve comunicar estabilidade de longo
+prazo equivalente ao core <code>x-ui</code> v1.</p>
+<h2 id="texto-recomendado-para-release-notes">Texto Recomendado para
+Release Notes</h2>
+<div class="sourceCode" id="cb2"><pre class="sourceCode md"><code class="sourceCode markdown"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>adiciona o draft canonico <span class="in">`x-ui.chart`</span> (<span class="in">`0.1.0`</span>) em <span class="in">`docs/spec`</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>alinha a origem analitica inicial ao namespace institucional <span class="in">`praxis.stats`</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>publica exemplo valido e guia de conformidade para charts metadata-driven</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>documenta limites de compatibilidade atuais do runtime Angular oficial <span class="in">`@praxisui/charts`</span></span></code></pre></div>
+<h2 id="onde-retomar-depois-da-publicacao">Onde Retomar Depois da
+Publicacao</h2>
+<ul>
+<li>ligar o <code>praxis-api-quickstart</code> na versao publicada nova
+do starter</li>
+<li>publicar o host operacional no ambiente remoto</li>
+<li>apontar o <code>praxis-ui-angular</code> para a API publicada e
+validar <code>/charts-showcase</code> contra backend real</li>
+</ul>
+</body>
+</html>

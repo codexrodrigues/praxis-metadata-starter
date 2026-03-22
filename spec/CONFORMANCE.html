@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Guia de Conformidade — Especificação Praxis x‑ui v1.0.0</title>
+  <title>Guia de Conformidade - Especificacao Praxis x-ui v1.0.0</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,110 +166,196 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Guia de Conformidade — Especificação Praxis x‑ui
+<h1 class="title">Guia de Conformidade - Especificacao Praxis x-ui
 v1.0.0</h1>
 </header>
-<h1 id="guia-de-conformidade-especificação-praxis-xui-v1.0.0">Guia de
-Conformidade — Especificação Praxis x‑ui v1.0.0</h1>
-<p>Objetivo - Descrever como validar JSONs gerados por qualquer backend
-contra os JSON Schemas desta pasta. - Definir critérios mínimos (Core) e
-opcionais (Extended) de conformidade. - Mapear, de forma resumida, quais
-chaves a UI consome e onde.</p>
-<p>Como validar localmente (AJV CLI) - Pré‑requisitos: Node.js 18+ -
-Instalação local do ajv-cli (projeto host): - npm i -D ajv ajv-formats
-ajv-cli - Exemplos de execução: - Validar x‑ui de campo: - npx ajv -s
-./x-ui-field.schema.json -d ./examples/x-ui-field.valid.json -c
-ajv-formats - npx ajv -s ./x-ui-field.schema.json -d
-./examples/x-ui-field.invalid.json -c ajv-formats || echo “(esperado:
-inválido)” - Validar x‑ui de operação: - npx ajv -s
-./x-ui-operation.schema.json -d ./examples/x-ui-operation.valid.json -
-Validar x‑ui.resource: - npx ajv -s ./x-ui-resource.schema.json -d
-./examples/x-ui-resource.valid.json</p>
-<p>Critérios de Conformidade - Core (mínimo obrigatório) - x‑ui por
-campo segue o esquema e utiliza chaves canônicas para tipo, controle e
-validações básicas (ex.: <code>type</code>, <code>controlType</code>,
-<code>required</code>, <code>minLength</code>, <code>maxLength</code>,
-<code>pattern</code>). - x‑ui.resource presente no payload de
-<code>/schemas/filtered</code> contendo: <code>idField</code>,
-<code>idFieldValid</code>, <code>readOnly</code>,
-<code>capabilities</code> (valores boolean). <code>idFieldMessage</code>
-é opcional quando <code>idFieldValid=false</code>. - ETag forte no
-<code>/schemas/filtered</code> (header <code>ETag</code>) e hash
-determinístico em <code>X-Schema-Hash</code>. Ambos expostos via
-<code>Access-Control-Expose-Headers</code>. - <code>schemaId</code>
-estável conforme composição:
-<code>path|operation|schemaType|internal|tenant|locale</code>. -
-Extended (recomendado) - Preencher
-<code>displayColumns</code>/<code>displayFields</code> no x‑ui de
-operação (padrões de grid/forms). - Preencher
-<code>x-ui.operationExamples.&lt;schemaType&gt;</code> quando o OpenAPI
-da operação publicar <code>examples</code> ou <code>example</code>,
-preservando <code>summary</code>, <code>description</code>,
-<code>value</code> e <code>externalValue</code> quando existir. - Quando
-um recurso precisar de exemplos mais úteis do que o fallback genérico do
-starter, publicar <code>x-ui.operationExamples</code> explicitamente no
-nível da operação; esse bloco tem precedência sobre os exemplos
-derivados automaticamente. - Popular mensagens de validação
-(<code>*Message</code>) para melhor UX. - Incluir
-<code>capabilities.options|byId|all|filter|cursor</code> quando
-aplicável. - Adotar <code>custom.*</code> para extensões privadas do
-host (sem colisão com canônicas).</p>
-<p>Matriz — Chave da Spec → Consumo na UI - x‑ui por campo -
-<code>type</code>, <code>controlType</code> → Mapeadas por
-<code>SchemaNormalizerService</code> ao <code>FieldDefinition</code>
-(projetos/praxis-core/…/schema-normalizer.service.ts: normalizeSchema) -
-<code>label</code> → Cabeçalho/rotulagem de inputs e colunas -
-<code>placeholder</code>, <code>hint</code>, <code>helpText</code> →
-Renderização de formulário (<span class="citation"
-data-cites="praxisui/dynamic-fields">@praxisui/dynamic-fields</span>) -
-<code>readOnly</code>, <code>disabled</code> →
-<code>field-state.util.ts</code> e componentes; normalizador unifica
-<code>readOnly</code> → <code>readonly</code> - Validações
-(<code>required</code>, <code>minLength</code>, <code>maxLength</code>,
-<code>pattern</code>, <code>min</code>, <code>max</code>,
-<code>range</code>, <code>*Message</code>) →
-<code>validators.helper.ts</code> e parsers do normalizador - Seleção
-(<code>options</code>, <code>endpoint</code>, <code>valueField</code>,
-<code>displayField</code>, <code>multiple</code>,
-<code>emptyOptionText</code>) → componentes
-select/multiselect/autocomplete - Numérico (<code>numericFormat</code>,
-<code>numeric*</code>) → componentes numéricos - x‑ui por operação -
-<code>displayColumns</code> → Padrão de colunas iniciais (grid). Pode
-ser usado por reconciliadores/config inicial. -
-<code>operationExamples.&lt;schemaType&gt;</code> → Exemplos
-operacionais do lado solicitado (<code>request</code> ou
-<code>response</code>), úteis para catálogo, playgrounds e documentação
-contextual. Quando coexistirem exemplos derivados do OpenAPI e exemplos
-explícitos em <code>x-ui</code>, os exemplos explícitos prevalecem por
-nome e completam o conjunto final. - x‑ui.resource (no payload
-<code>/schemas/filtered</code>) - <code>idField</code> → Usado por
-<code>GenericCrudService</code> e <code>PraxisTable</code> para chave
-primária (projects/praxis-core/…/generic-crud.service.ts;
-projects/praxis-table/README.md) -
-<code>idFieldValid</code>/<code>idFieldMessage</code> →
-Diagnóstico/alertas em hosts e ferramentas - <code>readOnly</code> → UI
-pode bloquear edição (campos e ações) - <code>capabilities</code> →
-Habilita/desabilita ações de CRUD e utilitários
-(filter/cursor/options)</p>
-<p>Boas práticas e Notas - <code>custom.*</code>: prefixo reservado para
-extensões de fornecedores/hosts. Não colida com chaves canônicas. - O
-backend deve canonicalizar o payload antes de calcular o hash do schema
-(ETag forte ou <code>X-Schema-Hash</code>). - O backend deve separar
-explicitamente payload estrutural e payload documental antes de calcular
-o hash. Hoje <code>x-ui.operationExamples</code> é documentação
-contextual e não deve influenciar o hash estrutural usado por
-<code>ETag</code>/<code>X-Schema-Hash</code>. - Locale/Tenant variam o
-<code>schemaId</code> e os headers de cache (ETag/hash). Enviar
-<code>Accept-Language</code> e <code>X-Tenant</code>.</p>
-<p>Compatibilidade (anotações temporárias) - <code>filterOptions</code>:
-a spec define <code>array</code>, porém o starter atualmente serializa
-como <code>string</code> (JSON bruto) quando configurado via
-<code>@UISchema(filterOptions="{...}")</code>. Mantido assim por
-compatibilidade com consumidores atuais. Planejado ajuste futuro para
-emitir <code>array</code> (parse de JSON/CSV → array) com teste
-dedicado.</p>
-<p>Suíte de Fixtures - Esta pasta traz exemplos válidos e inválidos para
-facilitar a automação no CI. - Use estes arquivos como base para gerar
-casos específicos do seu domínio.</p>
+<h1 id="guia-de-conformidade---especificacao-praxis-x-ui-v1.0.0">Guia de
+Conformidade - Especificacao Praxis x-ui v1.0.0</h1>
+<h2 id="objetivo">Objetivo</h2>
+<ul>
+<li>Descrever como validar JSONs gerados por qualquer backend contra os
+JSON Schemas desta pasta.</li>
+<li>Definir criterios minimos (Core) e opcionais (Extended) de
+conformidade.</li>
+<li>Mapear, de forma resumida, quais chaves a UI consome e onde.</li>
+</ul>
+<h2 id="como-validar-localmente-ajv-cli">Como validar localmente (AJV
+CLI)</h2>
+<ul>
+<li>Pre-requisitos: Node.js 18+</li>
+<li>Instalacao local do ajv-cli (projeto host):
+<ul>
+<li><code>npm i -D ajv ajv-formats ajv-cli</code></li>
+</ul></li>
+<li>Exemplos de execucao:
+<ul>
+<li>Validar x-ui de campo:
+<ul>
+<li><code>npx ajv -s ./x-ui-field.schema.json -d ./examples/x-ui-field.valid.json -c ajv-formats</code></li>
+<li><code>npx ajv -s ./x-ui-field.schema.json -d ./examples/x-ui-field.invalid.json -c ajv-formats || echo "(esperado: invalido)"</code></li>
+</ul></li>
+<li>Validar x-ui de operacao:
+<ul>
+<li><code>npx ajv -s ./x-ui-operation.schema.json -d ./examples/x-ui-operation.valid.json</code></li>
+</ul></li>
+<li>Validar x-ui.resource:
+<ul>
+<li><code>npx ajv -s ./x-ui-resource.schema.json -d ./examples/x-ui-resource.valid.json</code></li>
+</ul></li>
+<li>Validar x-ui.chart:
+<ul>
+<li><code>npx ajv -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.valid.json</code></li>
+<li><code>npx ajv -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.invalid.json || echo "(esperado: invalido)"</code></li>
+</ul></li>
+<li>Antes de publicar uma versao nova do starter com charts:
+<ul>
+<li>revisar <code>./x-ui-chart-publication-checklist.md</code></li>
+</ul></li>
+</ul></li>
+</ul>
+<h2 id="criterios-de-conformidade">Criterios de Conformidade</h2>
+<ul>
+<li>Core (minimo obrigatorio)
+<ul>
+<li>x-ui por campo segue o schema e utiliza chaves canonicas para tipo,
+controle e validacoes basicas</li>
+<li>x-ui.resource presente no payload de <code>/schemas/filtered</code>
+contendo <code>idField</code>, <code>idFieldValid</code>,
+<code>readOnly</code>, <code>capabilities</code></li>
+<li>ETag forte no <code>/schemas/filtered</code> e hash deterministico
+em <code>X-Schema-Hash</code></li>
+<li><code>schemaId</code> estavel conforme composicao
+<code>path|operation|schemaType|internal|tenant|locale</code></li>
+<li>quando <code>x-ui.chart.source.kind = "praxis.stats"</code>, o
+contrato publicado exige <code>source.resource</code> e
+<code>source.operation</code></li>
+</ul></li>
+<li>Extended (recomendado)
+<ul>
+<li>preencher <code>displayColumns</code>/<code>displayFields</code> no
+x-ui de operacao</li>
+<li>publicar <code>x-ui.chart</code> com <code>version</code>,
+<code>kind</code>, <code>source</code>, semantica analitica e eventos
+declarativos, mantendo o contrato agnostico de engine</li>
+<li>quando <code>source.kind = "praxis.stats"</code>, manter coerencia
+com os produtores reais da familia <code>/stats/*</code>, em especial
+<code>group-by</code>, <code>timeseries</code> e
+<code>distribution</code></li>
+<li>preencher <code>x-ui.operationExamples.&lt;schemaType&gt;</code>
+quando o OpenAPI publicar exemplos uteis</li>
+<li>popular mensagens de validacao (<code>*Message</code>) para melhor
+UX</li>
+<li>incluir <code>capabilities.options|byId|all|filter|cursor</code>
+quando aplicavel</li>
+<li>adotar <code>custom.*</code> para extensoes privadas do host</li>
+</ul></li>
+</ul>
+<h2 id="matriz---chave-da-spec---consumo-na-ui">Matriz - Chave da Spec
+-&gt; Consumo na UI</h2>
+<ul>
+<li>x-ui por campo
+<ul>
+<li><code>type</code>, <code>controlType</code> -&gt;
+<code>SchemaNormalizerService</code> / <code>FieldDefinition</code></li>
+<li><code>label</code> -&gt; rotulagem de inputs e colunas</li>
+<li><code>placeholder</code>, <code>hint</code>, <code>helpText</code>
+-&gt; renderizacao de formulario</li>
+<li><code>readOnly</code>, <code>disabled</code> -&gt;
+<code>field-state.util.ts</code> e componentes</li>
+<li>validacoes (<code>required</code>, <code>minLength</code>,
+<code>maxLength</code>, <code>pattern</code>, <code>min</code>,
+<code>max</code>, <code>range</code>, <code>*Message</code>) -&gt;
+helpers de validacao</li>
+<li>selecao (<code>options</code>, <code>endpoint</code>,
+<code>valueField</code>, <code>displayField</code>,
+<code>multiple</code>, <code>emptyOptionText</code>) -&gt; componentes
+de selecao</li>
+<li>numerico (<code>numericFormat</code>, <code>numeric*</code>) -&gt;
+componentes numericos</li>
+</ul></li>
+<li>x-ui por operacao
+<ul>
+<li><code>displayColumns</code> -&gt; padrao de colunas iniciais</li>
+<li><code>operationExamples.&lt;schemaType&gt;</code> -&gt; exemplos
+operacionais para catalogo, playgrounds e documentacao contextual</li>
+</ul></li>
+<li>x-ui.chart
+<ul>
+<li><code>version</code>, <code>kind</code>, <code>source</code> -&gt;
+identidade minima do contrato analitico metadata-driven</li>
+<li><code>dimensions</code>, <code>metrics</code>,
+<code>aggregations</code>, <code>filters</code>, <code>sort</code> -&gt;
+semantica analitica canonica</li>
+<li><code>state</code>, <code>events</code> -&gt; estados e interacoes
+declarativas de plataforma</li>
+</ul></li>
+<li>x-ui.resource
+<ul>
+<li><code>idField</code> -&gt; chave primaria no fluxo de CRUD/UI</li>
+<li><code>idFieldValid</code>/<code>idFieldMessage</code> -&gt;
+diagnostico e alertas</li>
+<li><code>readOnly</code> -&gt; bloqueio de edicao</li>
+<li><code>capabilities</code> -&gt; habilitacao de acoes e
+utilitarios</li>
+</ul></li>
+</ul>
+<h2 id="compatibilidade-de-consumidor---praxisuicharts">Compatibilidade
+de consumidor - <code>@praxisui/charts</code></h2>
+<p>O draft canonico pode ser mais amplo que o runtime Angular atual.</p>
+<p>Suportado hoje no runtime oficial:</p>
+<ul>
+<li><code>source.kind = "praxis.stats"</code></li>
+<li><code>kind</code>: <code>bar</code>, <code>line</code>,
+<code>pie</code>, <code>donut</code>, <code>area</code>,
+<code>stacked-bar</code></li>
+<li>uma metrica por chart quando a origem e
+<code>praxis.stats</code></li>
+<li><code>pointClick</code> e <code>drillDown</code> no fluxo atual</li>
+</ul>
+<p>Ainda nao suportado no runtime Angular atual:</p>
+<ul>
+<li><code>source.kind = "derived"</code></li>
+<li><code>aggregation = "distinct-count"</code></li>
+<li><code>events.selectionChange</code></li>
+<li><code>events.crossFilter</code></li>
+<li><code>theme.variant</code></li>
+<li><code>theme.palette</code> como token string</li>
+<li>pie/donut com multiplas metricas</li>
+</ul>
+<p>Publicacoes do starter devem deixar essa assimetria explicita ate que
+os consumidores sejam endurecidos no mesmo nivel.</p>
+<h2 id="boas-praticas-e-notas">Boas praticas e notas</h2>
+<ul>
+<li><code>custom.*</code>: prefixo reservado para extensoes de
+fornecedores/hosts</li>
+<li>o backend deve canonicalizar o payload antes de calcular o hash do
+schema</li>
+<li>o backend deve separar payload estrutural e payload documental antes
+de calcular o hash</li>
+<li>locale/tenant variam <code>schemaId</code> e os headers de
+cache</li>
+</ul>
+<h2 id="compatibilidade-anotacoes-temporarias">Compatibilidade
+(anotacoes temporarias)</h2>
+<ul>
+<li><code>filterOptions</code>: a spec define <code>array</code>, porem
+o starter atualmente serializa como <code>string</code> em alguns
+caminhos legados. Mantido assim por compatibilidade com consumidores
+atuais.</li>
+</ul>
+<h2 id="suite-de-fixtures">Suite de fixtures</h2>
+<ul>
+<li>Esta pasta traz exemplos validos e invalidos para facilitar a
+automacao no CI.</li>
+<li>Os arquivos <code>*.valid.json</code> e <code>*.invalid.json</code>
+devem ser tratados como fixtures de validacao, nao como catalogo
+exaustivo de exemplos publicos.</li>
+<li><code>canonical-payload.json</code> e
+<code>x-ui-chart.valid.json</code> tambem cumprem papel documental e
+podem ser referenciados em guias, desde que permanecam coerentes com os
+schemas publicados.</li>
+<li>Use estes arquivos como base para gerar casos especificos do seu
+dominio.</li>
+</ul>
 </body>
 </html>

@@ -1,0 +1,33 @@
+{
+  "version": "0.1.0",
+  "kind": "line",
+  "source": {
+    "kind": "praxis.stats",
+    "operation": "timeseries",
+    "options": {
+      "orderBy": "value-desc"
+    }
+  },
+  "dimensions": [
+    {
+      "field": "createdAt",
+      "role": "time"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "count",
+      "aggregation": "count"
+    }
+  ],
+  "filters": [
+    {
+      "field": "status",
+      "operator": "eq",
+      "value": "OPEN",
+      "values": [
+        "OPEN"
+      ]
+    }
+  ]
+}

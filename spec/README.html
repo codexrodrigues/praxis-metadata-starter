@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Especificação de Metadados (x‑ui) — v1.0.0</title>
+  <title>Especificacao de Metadados (x-ui) - v1.0.0</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,110 +166,243 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Especificação de Metadados (x‑ui) — v1.0.0</h1>
+<h1 class="title">Especificacao de Metadados (x-ui) - v1.0.0</h1>
 </header>
-<h1 id="especificação-de-metadados-xui-v1.0.0">Especificação de
-Metadados (x‑ui) — v1.0.0</h1>
-<p>Objetivo - Padronizar, de forma agnóstica de tecnologia, o contrato
-de metadados que a UI Praxis consome. - Permitir que qualquer backend
-produza JSON compatível e valide localmente contra os JSON Schemas desta
-pasta.</p>
-<p>Escopo de validação (JSON) - x‑ui de campo (por propriedade OpenAPI):
-<code>x-ui-field.schema.json</code> - x‑ui em nível de operação (por
-path+operation do OpenAPI): <code>x-ui-operation.schema.json</code> -
-x‑ui.resource no payload final consumido pela UI
+<h1 id="especificacao-de-metadados-x-ui---v1.0.0">Especificacao de
+Metadados (x-ui) - v1.0.0</h1>
+<h2 id="objetivo">Objetivo</h2>
+<ul>
+<li>Padronizar, de forma agnostica de tecnologia, o contrato de
+metadados que a UI Praxis consome.</li>
+<li>Permitir que qualquer backend produza JSON compativel e valide
+localmente contra os JSON Schemas desta pasta.</li>
+</ul>
+<h2 id="escopo-de-validacao-json">Escopo de validacao (JSON)</h2>
+<ul>
+<li>x-ui de campo (por propriedade OpenAPI):
+<code>x-ui-field.schema.json</code></li>
+<li>x-ui em nivel de operacao (por path+operation do OpenAPI):
+<code>x-ui-operation.schema.json</code></li>
+<li>x-ui.resource no payload final consumido pela UI
 (<code>/schemas/filtered</code>):
-<code>x-ui-resource.schema.json</code></p>
-<p>Vocabulário (resumo) - Campo (x‑ui por propriedade) -
-Identificação/Apresentação: <code>name</code>, <code>label</code>,
+<code>x-ui-resource.schema.json</code></li>
+<li>x-ui.chart como draft validavel:
+<code>x-ui-chart.schema.json</code></li>
+<li>checklist de publicacao do draft:
+<code>x-ui-chart-publication-checklist.md</code></li>
+</ul>
+<h2 id="drafts-canonicos-em-andamento">Drafts canonicos em
+andamento</h2>
+<ul>
+<li>Charts metadata-driven: <code>x-ui-chart-rfc.md</code>
+<ul>
+<li>define a direcao canonica de <code>x-ui.chart</code> como extensao
+governada da plataforma</li>
+<li>complementado por <code>x-ui-chart.schema.json</code> como draft
+validavel inicial</li>
+<li>publicacao assistida por
+<code>x-ui-chart-publication-checklist.md</code>, com gates minimos de
+contrato, host operacional e compatibilidade de consumidor</li>
+</ul></li>
+</ul>
+<h2 id="vocabulario-resumo">Vocabulario (resumo)</h2>
+<ul>
+<li>Campo (x-ui por propriedade)
+<ul>
+<li>Identificacao/Apresentacao: <code>name</code>, <code>label</code>,
 <code>description</code>, <code>group</code>, <code>order</code>,
-<code>width</code> - Tipo/Componente: <code>type</code> (enum),
-<code>controlType</code> (enum), <code>placeholder</code>,
-<code>defaultValue</code> - Estado/Validação: <code>disabled</code>,
-<code>readOnly</code>, <code>editable</code>, <code>unique</code>,
-<code>mask</code>, <code>sortable</code>, <code>filterable</code> -
-Visibilidade: <code>hidden</code>, <code>tableHidden</code>,
-<code>formHidden</code> - Dependências/Condicionais:
-<code>conditionalDisplay</code>, <code>dependentField</code>,
-<code>resetOnDependentChange</code> - Layout/Ícone: <code>hint</code>,
-<code>helpText</code>, <code>tooltipOnHover</code>, <code>icon*</code> -
-Seleção/Opções: <code>options[]</code>, <code>endpoint</code>,
+<code>width</code></li>
+<li>Tipo/Componente: <code>type</code> (enum), <code>controlType</code>
+(enum), <code>placeholder</code>, <code>defaultValue</code></li>
+<li>Estado/Validacao: <code>disabled</code>, <code>readOnly</code>,
+<code>editable</code>, <code>unique</code>, <code>mask</code>,
+<code>sortable</code>, <code>filterable</code></li>
+<li>Visibilidade: <code>hidden</code>, <code>tableHidden</code>,
+<code>formHidden</code></li>
+<li>Dependencias/Condicionais: <code>conditionalDisplay</code>,
+<code>dependentField</code>, <code>resetOnDependentChange</code></li>
+<li>Layout/Icone: <code>hint</code>, <code>helpText</code>,
+<code>tooltipOnHover</code>, <code>icon*</code></li>
+<li>Selecao/Opcaoes: <code>options[]</code>, <code>endpoint</code>,
 <code>valueField</code>, <code>displayField</code>,
-<code>multiple</code>, <code>emptyOptionText</code> - No runtime
-Angular, a UI Praxis normaliza esses campos para
+<code>multiple</code>, <code>emptyOptionText</code>
+<ul>
+<li>No runtime Angular, a UI Praxis normaliza esses campos para
 <code>resourcePath</code>, <code>optionValueKey</code> e
-<code>optionLabelKey</code>. - Numérico: <code>numericFormat</code>
-(enum), <code>numericStep</code>, <code>numericMin</code>,
-<code>numericMax</code>, <code>numericMaxLength</code> - Validação
-(top‑level): <code>required</code>, <code>minLength</code>,
-<code>maxLength</code>, <code>min</code>, <code>max</code>,
-<code>pattern</code>, <code>range</code>, mensagens
-(<code>*Message</code>), além de <code>email</code>, <code>url</code>,
+<code>optionLabelKey</code>.</li>
+</ul></li>
+<li>Numerico: <code>numericFormat</code> (enum),
+<code>numericStep</code>, <code>numericMin</code>,
+<code>numericMax</code>, <code>numericMaxLength</code></li>
+<li>Validacao (top-level): <code>required</code>,
+<code>minLength</code>, <code>maxLength</code>, <code>min</code>,
+<code>max</code>, <code>pattern</code>, <code>range</code>, mensagens
+(<code>*Message</code>), alem de <code>email</code>, <code>url</code>,
 <code>matchField</code>, <code>uniqueValidator</code>,
 <code>customValidator</code>, <code>asyncValidator</code>,
 <code>minWords</code>, <code>validationTrigger(s)</code>,
 <code>validationDebounce</code>, <code>showInlineErrors</code>,
-<code>errorPosition</code>. - Legado (opcional): bloco
-<code>validation{}</code> com chaves básicas (a UI atual lê chaves de
-validação no top‑level do <code>x-ui</code>). - Operação (x‑ui por
-operação) - <code>displayColumns</code> (string[]),
-<code>displayFields</code> (string[]), <code>filterFields</code>
-(string[]), <code>responseSchema</code> (string),
-<code>relatedEntitiesEndpoints</code> (string[]) - Recurso
-(x‑ui.resource) - <code>idField</code> (string),
-<code>idFieldValid</code> (boolean), <code>idFieldMessage?</code>
-(string, opcional) - <code>readOnly</code> (boolean) -
-<code>capabilities</code> (mapa boolean com chaves conhecidas:
+<code>errorPosition</code></li>
+<li>Legado (opcional): bloco <code>validation{}</code> com chaves
+basicas</li>
+</ul></li>
+<li>Operacao (x-ui por operacao)
+<ul>
+<li><code>displayColumns</code> (string[]), <code>displayFields</code>
+(string[]), <code>filterFields</code> (string[]),
+<code>responseSchema</code> (string),
+<code>relatedEntitiesEndpoints</code> (string[])</li>
+</ul></li>
+<li>Recurso (x-ui.resource)
+<ul>
+<li><code>idField</code> (string), <code>idFieldValid</code> (boolean),
+<code>idFieldMessage?</code> (string, opcional)</li>
+<li><code>readOnly</code> (boolean)</li>
+<li><code>capabilities</code> (mapa boolean com chaves conhecidas:
 <code>create</code>, <code>update</code>, <code>delete</code>,
 <code>options</code>, <code>byId</code>, <code>all</code>,
 <code>filter</code>, <code>cursor</code>; valores adicionais MAY existir
-e DEVEM ser boolean)</p>
-<p>Tipos e Enums - <code>type</code> (FieldDataType):
-<code>text | number | email | date | password | file | url | boolean | json</code>
-- <code>controlType</code> (FieldControlType): ver enum completo no JSON
-Schema (lista espelhada do starter Java) - <code>numericFormat</code>
-(NumericFormat):
-<code>integer | decimal | currency | scientific | time | date | date-time | duration | number | fraction | percent</code></p>
-<p>Obrigatoriedade e Defaults - Campo (x‑ui): não há campos obrigatórios
-universais. A UI consegue inferir <code>type/controlType</code> por
-heurística, porém recomenda‑se prover ao menos <code>type</code> e
-<code>label</code>. - Operação (x‑ui): todos opcionais; sugerem
-preferências de renderização. - Recurso (x‑ui.resource): MUST conter
-<code>idField</code>, <code>idFieldValid</code>, <code>readOnly</code>,
-<code>capabilities</code>; <code>idFieldMessage</code> é opcional e
-presente quando <code>idFieldValid=false</code>.</p>
-<p>Precedência (normativa) 1) Defaults de <code>@UISchema</code> (ou
-equivalente no seu backend) 2) Detecção automática (OpenAPI
-type/format/enum + heurísticas por nome) 3) Valores explícitos de
-<code>@UISchema</code> 4) Bean Validation (ex.: NotBlank/Size/Pattern →
-chaves de validação no <code>x-ui</code>) 5)
-<code>extraProperties</code>/<code>custom.*</code> (precedência
-máxima)</p>
-<p>Normas (MUST/SHOULD/MAY) - MUST: chaves canônicas devem seguir
-tipos/semântica dos JSON Schemas. - SHOULD: extensões privadas usarem o
-prefixo <code>custom.</code> (evitar colisão com chaves canônicas). -
-MUST: <code>capabilities</code> conter apenas valores boolean; chaves
-adicionais são permitidas. - SHOULD: <code>/schemas/filtered</code>
-enviar <code>ETag</code> forte e <code>X-Schema-Hash</code> e expor via
-<code>Access-Control-Expose-Headers</code>. - MAY: incluir
-<code>specVersion</code> em um envelope/meta do payload para
-auditoria.</p>
-<p>Versionamento da Especificação - <code>specVersion</code>:
-<code>1.0.0</code>. SemVer: - <code>MAJOR</code>: alterações
-incompatíveis (ex.: remoção/renome de chaves, mudança de tipo) -
-<code>MINOR</code>: adições retrocompatíveis (novas chaves/enums, novos
-capabilities) - <code>PATCH</code>: correções editoriais e ajustes de
-descrição</p>
-<p>Arquivos (machine‑readable) - <code>x-ui-field.schema.json</code> —
-valida x‑ui de campo (por propriedade) -
-<code>x-ui-operation.schema.json</code> — valida x‑ui por operação -
-<code>x-ui-resource.schema.json</code> — valida x‑ui.resource no payload
-final</p>
-<p>Exemplos (fixtures) - Em <code>examples/</code>: válidos/ inválidos e
-um payload canônico que combina campo + operação + recurso.</p>
-<p>Observações - <code>schemaId</code>, <code>ETag</code> e
-<code>X-Schema-Hash</code> são práticas recomendadas para cache/304 e
-compõem a identidade de schema (tenant/locale inclusive), mas não fazem
-parte da validação JSON desta pasta.</p>
+e DEVEM ser boolean)</li>
+</ul></li>
+<li>Chart (x-ui.chart)
+<ul>
+<li><code>version</code>, <code>kind</code>, <code>preset</code>,
+<code>source</code></li>
+<li><code>dimensions</code>, <code>metrics</code>,
+<code>aggregations</code>, <code>filters</code>, <code>sort</code>,
+<code>limit</code></li>
+<li><code>state</code>, <code>events</code>, <code>legend</code>,
+<code>labels</code>, <code>tooltip</code>, <code>theme</code></li>
+</ul></li>
+</ul>
+<h2 id="tipos-e-enums">Tipos e Enums</h2>
+<ul>
+<li><code>type</code> (FieldDataType):
+<code>text | number | email | date | password | file | url | boolean | json</code></li>
+<li><code>controlType</code> (FieldControlType): ver enum completo no
+JSON Schema</li>
+<li><code>numericFormat</code> (NumericFormat):
+<code>integer | decimal | currency | scientific | time | date | date-time | duration | number | fraction | percent</code></li>
+<li><code>x-ui.chart.kind</code>:
+<code>bar | line | pie | donut | area | stacked-bar</code></li>
+<li><code>x-ui.chart.source.kind</code>:
+<code>praxis.stats | derived</code></li>
+</ul>
+<h2 id="obrigatoriedade-e-defaults">Obrigatoriedade e Defaults</h2>
+<ul>
+<li>Campo (x-ui): nao ha campos obrigatorios universais. A UI consegue
+inferir <code>type/controlType</code> por heuristica, mas recomenda-se
+prover ao menos <code>type</code> e <code>label</code>.</li>
+<li>Operacao (x-ui): todos opcionais; sugerem preferencias de
+renderizacao.</li>
+<li>Recurso (x-ui.resource): MUST conter <code>idField</code>,
+<code>idFieldValid</code>, <code>readOnly</code>,
+<code>capabilities</code>; <code>idFieldMessage</code> e opcional e
+presente quando <code>idFieldValid=false</code>.</li>
+<li>Chart (x-ui.chart):
+<ul>
+<li>MUST conter <code>version</code>, <code>kind</code> e
+<code>source</code></li>
+<li>quando <code>source.kind = "praxis.stats"</code>, MUST conter
+<code>source.resource</code> e <code>source.operation</code></li>
+<li>quando <code>source.operation = "timeseries"</code>, MUST conter
+<code>source.options.granularity</code></li>
+</ul></li>
+</ul>
+<h2 id="precedencia-normativa">Precedencia (normativa)</h2>
+<ol type="1">
+<li>Defaults de <code>@UISchema</code> (ou equivalente no backend)</li>
+<li>Deteccao automatica (OpenAPI type/format/enum + heuristicas por
+nome)</li>
+<li>Valores explicitos de <code>@UISchema</code></li>
+<li>Bean Validation (ex.: NotBlank/Size/Pattern -&gt; chaves de
+validacao no <code>x-ui</code>)</li>
+<li><code>extraProperties</code>/<code>custom.*</code> (precedencia
+maxima)</li>
+</ol>
+<h2 id="normas-mustshouldmay">Normas (MUST/SHOULD/MAY)</h2>
+<ul>
+<li>MUST: chaves canonicas devem seguir tipos/semantica dos JSON
+Schemas.</li>
+<li>SHOULD: extensoes privadas usarem o prefixo
+<code>custom.</code>.</li>
+<li>MUST: <code>capabilities</code> conter apenas valores boolean;
+chaves adicionais sao permitidas.</li>
+<li>SHOULD: <code>/schemas/filtered</code> enviar <code>ETag</code>
+forte e <code>X-Schema-Hash</code> e expor via
+<code>Access-Control-Expose-Headers</code>.</li>
+<li>SHOULD: publicacoes de <code>x-ui.chart</code> explicitar quando o
+contrato canonico ainda e mais amplo que o runtime consumidor
+atual.</li>
+<li>MAY: incluir <code>specVersion</code> em um envelope/meta do payload
+para auditoria.</li>
+</ul>
+<h2 id="versionamento-da-especificacao">Versionamento da
+especificacao</h2>
+<ul>
+<li><code>specVersion</code>: <code>1.0.0</code>. SemVer:
+<ul>
+<li><code>MAJOR</code>: alteracoes incompativeis</li>
+<li><code>MINOR</code>: adicoes retrocompativeis</li>
+<li><code>PATCH</code>: correcoes editoriais e ajustes de descricao</li>
+</ul></li>
+</ul>
+<h2 id="arquivos-machine-readable">Arquivos (machine-readable)</h2>
+<ul>
+<li><code>x-ui-field.schema.json</code> - valida x-ui de campo</li>
+<li><code>x-ui-operation.schema.json</code> - valida x-ui por
+operacao</li>
+<li><code>x-ui-resource.schema.json</code> - valida x-ui.resource no
+payload final</li>
+<li><code>x-ui-chart.schema.json</code> - valida o draft inicial de
+<code>x-ui.chart</code></li>
+</ul>
+<h2 id="drafts-e-rfcs">Drafts e RFCs</h2>
+<ul>
+<li><code>x-ui-chart-rfc.md</code> - proposta canonica para
+<code>x-ui.chart</code>, separando semantica de plataforma de runtime
+Angular e detalhes de engine</li>
+<li><code>x-ui-chart-publication-checklist.md</code> - gates minimos
+para publicar o draft <code>0.1.0</code> sem drift imediato entre
+starter, quickstart e <code>@praxisui/charts</code></li>
+</ul>
+<h2 id="exemplos-e-fixtures">Exemplos e Fixtures</h2>
+<ul>
+<li>Em <code>examples/</code> convivem dois tipos de artefato:
+<ul>
+<li>fixtures de validacao de schema, usados como base para CI e smoke
+local</li>
+<li>exemplos canonicos de documentacao, usados para explicar o contrato
+esperado</li>
+</ul></li>
+<li>Fixtures de validacao:
+<ul>
+<li><code>examples/x-ui-field.valid.json</code></li>
+<li><code>examples/x-ui-field.invalid.json</code></li>
+<li><code>examples/x-ui-operation.valid.json</code></li>
+<li><code>examples/x-ui-operation.invalid.json</code></li>
+<li><code>examples/x-ui-resource.valid.json</code></li>
+<li><code>examples/x-ui-resource.invalid.json</code></li>
+<li><code>examples/x-ui-chart.valid.json</code></li>
+<li><code>examples/x-ui-chart.invalid.json</code></li>
+</ul></li>
+<li>Exemplos canonicos de documentacao:
+<ul>
+<li><code>examples/canonical-payload.json</code> - payload ilustrativo
+combinando campo, operacao e recurso</li>
+<li><code>examples/x-ui-chart.valid.json</code> - exemplo valido do
+draft inicial de <code>x-ui.chart</code></li>
+</ul></li>
+</ul>
+<h2 id="observacoes">Observacoes</h2>
+<ul>
+<li><code>schemaId</code>, <code>ETag</code> e
+<code>X-Schema-Hash</code> sao praticas recomendadas para cache/304 e
+compoem a identidade de schema, mas nao fazem parte da validacao JSON
+desta pasta.</li>
+<li>O draft <code>x-ui.chart</code> esta pronto para publicacao
+controlada, mas continua em estado <code>draft</code> e deve ser tratado
+como contrato em evolucao.</li>
+</ul>
 </body>
 </html>
