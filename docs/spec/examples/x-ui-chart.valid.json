@@ -1,0 +1,102 @@
+{
+  "version": "0.1.0",
+  "kind": "bar",
+  "preset": "comparison",
+  "chartId": "monthly-revenue-chart",
+  "title": {
+    "key": "charts.revenue.title",
+    "fallback": "Receita mensal"
+  },
+  "subtitle": "Comparativo por mes",
+  "height": 360,
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/analytics/revenue/monthly",
+    "operation": "group-by",
+    "options": {
+      "orderBy": "value-desc",
+      "limit": 12
+    },
+    "refresh": {
+      "strategy": "manual",
+      "freshnessMs": 300000,
+      "cacheKey": "analytics.revenue.monthly"
+    }
+  },
+  "dimensions": [
+    {
+      "field": "month",
+      "label": "Mes",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "revenue",
+      "label": "Receita",
+      "aggregation": "sum",
+      "format": "currency"
+    }
+  ],
+  "aggregations": [
+    {
+      "field": "revenue",
+      "operation": "sum",
+      "as": "totalRevenue"
+    }
+  ],
+  "groupBy": ["month"],
+  "sort": [
+    {
+      "field": "month",
+      "direction": "asc"
+    }
+  ],
+  "filters": [
+    {
+      "field": "region",
+      "operator": "in",
+      "values": ["SOUTH", "SOUTHEAST"]
+    }
+  ],
+  "limit": 12,
+  "legend": {
+    "enabled": true
+  },
+  "labels": false,
+  "tooltip": {
+    "enabled": true
+  },
+  "theme": {
+    "palette": ["#1263b4", "#2b8a3e", "#f08c00"]
+  },
+  "state": {
+    "empty": {
+      "title": {
+        "key": "charts.empty.title",
+        "fallback": "Sem dados"
+      },
+      "description": "Nenhum dado retornado para os filtros atuais."
+    },
+    "loading": {
+      "title": "Carregando dados"
+    },
+    "error": {
+      "title": "Falha ao carregar grafico",
+      "description": "Nao foi possivel recuperar a analise no momento."
+    }
+  },
+  "events": {
+    "pointClick": {
+      "action": "filter-widget",
+      "target": "regional-details-table",
+      "mapping": {
+        "month": "filters.month"
+      }
+    },
+    "drillDown": {
+      "action": "navigate",
+      "target": "/analytics/revenue/month"
+    }
+  }
+}

@@ -1,0 +1,515 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://praxis.dev/spec/x-ui-chart.schema.json",
+  "title": "x-ui.chart — 0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "patternProperties": {
+    "^custom\\.": {}
+  },
+  "required": ["version", "kind", "source"],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "praxis.stats"
+              }
+            },
+            "required": ["kind"]
+          }
+        },
+        "required": ["source"]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "required": ["kind", "resource", "operation"]
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["bar", "line", "pie", "donut", "area", "stacked-bar"]
+    },
+    "preset": {
+      "type": "string",
+      "enum": [
+        "kpi-trend",
+        "comparison",
+        "distribution",
+        "ranking",
+        "composition",
+        "hierarchical-drill-down"
+      ]
+    },
+    "chartId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "$ref": "#/$defs/textValue"
+    },
+    "subtitle": {
+      "$ref": "#/$defs/textValue"
+    },
+    "height": {
+      "oneOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "type": "string",
+          "minLength": 1
+        }
+      ]
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/dimension"
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/metric"
+      }
+    },
+    "aggregations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/aggregation"
+      }
+    },
+    "groupBy": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "sort": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sort"
+      }
+    },
+    "filters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/filter"
+      }
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "legend": {
+      "$ref": "#/$defs/toggleableFeature"
+    },
+    "labels": {
+      "$ref": "#/$defs/toggleableFeature"
+    },
+    "tooltip": {
+      "$ref": "#/$defs/toggleableFeature"
+    },
+    "theme": {
+      "$ref": "#/$defs/theme"
+    },
+    "state": {
+      "$ref": "#/$defs/state"
+    },
+    "events": {
+      "$ref": "#/$defs/events"
+    }
+  },
+  "$defs": {
+    "textValue": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "fallback": {
+              "type": "string"
+            }
+          },
+          "required": ["key"]
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "praxis.stats"
+              },
+              "operation": {
+                "const": "timeseries"
+              }
+            },
+            "required": ["kind", "operation"]
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "type": "object",
+                "required": ["granularity"]
+              }
+            },
+            "required": ["options"]
+          }
+        }
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["praxis.stats", "derived"]
+        },
+        "resource": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "type": "string",
+          "enum": ["group-by", "timeseries", "distribution"]
+        },
+        "options": {
+          "$ref": "#/$defs/sourceOptions"
+        },
+        "refresh": {
+          "$ref": "#/$defs/refresh"
+        }
+      }
+    },
+    "sourceOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "granularity": {
+          "type": "string",
+          "enum": ["hour", "day", "week", "month", "quarter", "year"]
+        },
+        "fillGaps": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["terms", "histogram"]
+        },
+        "bucketSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "bucketCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "orderBy": {
+          "type": "string",
+          "enum": ["key-asc", "key-desc", "value-asc", "value-desc"]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "refresh": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "strategy": {
+                "const": "interval"
+              }
+            },
+            "required": ["strategy"]
+          },
+          "then": {
+            "required": ["intervalMs"]
+          }
+        }
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["manual", "interval", "on-context-change"]
+        },
+        "intervalMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "freshnessMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cacheKey": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "$ref": "#/$defs/textValue"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["category", "series", "segment", "time"]
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "$ref": "#/$defs/textValue"
+        },
+        "aggregation": {
+          "type": "string",
+          "enum": ["sum", "avg", "min", "max", "count", "distinct-count"]
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "aggregation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "operation"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "type": "string",
+          "enum": ["sum", "avg", "min", "max", "count", "distinct-count"]
+        },
+        "as": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "sort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "direction"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["asc", "desc"]
+        }
+      }
+    },
+    "filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "operator"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "between",
+            "in",
+            "contains"
+          ]
+        },
+        "value": {},
+        "values": {
+          "type": "array"
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["value"]
+        },
+        {
+          "required": ["values"]
+        }
+      ]
+    },
+    "toggleableFeature": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": ["enabled"]
+        }
+      ]
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "palette": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ]
+        },
+        "variant": {
+          "type": "string",
+          "enum": ["default", "compact", "executive"]
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "empty": {
+          "$ref": "#/$defs/stateDescriptor"
+        },
+        "loading": {
+          "$ref": "#/$defs/stateDescriptor"
+        },
+        "error": {
+          "$ref": "#/$defs/stateDescriptor"
+        }
+      }
+    },
+    "stateDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/textValue"
+        },
+        "description": {
+          "$ref": "#/$defs/textValue"
+        }
+      }
+    },
+    "events": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pointClick": {
+          "$ref": "#/$defs/eventAction"
+        },
+        "selectionChange": {
+          "$ref": "#/$defs/eventAction"
+        },
+        "drillDown": {
+          "$ref": "#/$defs/eventAction"
+        },
+        "crossFilter": {
+          "$ref": "#/$defs/eventAction"
+        }
+      }
+    },
+    "eventAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "filter-widget",
+            "open-detail",
+            "navigate",
+            "update-context",
+            "emit"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mapping": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
