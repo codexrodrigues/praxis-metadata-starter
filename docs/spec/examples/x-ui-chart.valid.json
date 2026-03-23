@@ -1,8 +1,9 @@
 {
   "version": "0.1.0",
-  "kind": "bar",
+  "kind": "horizontal-bar",
   "preset": "comparison",
   "chartId": "monthly-revenue-chart",
+  "orientation": "horizontal",
   "title": {
     "key": "charts.revenue.title",
     "fallback": "Receita mensal"
@@ -25,8 +26,8 @@
   },
   "dimensions": [
     {
-      "field": "month",
-      "label": "Mes",
+      "field": "department",
+      "label": "Departamento",
       "role": "category"
     }
   ],
@@ -45,11 +46,11 @@
       "as": "totalRevenue"
     }
   ],
-  "groupBy": ["month"],
+  "groupBy": ["department"],
   "sort": [
     {
-      "field": "month",
-      "direction": "asc"
+      "field": "revenue",
+      "direction": "desc"
     }
   ],
   "filters": [
@@ -91,7 +92,7 @@
       "action": "filter-widget",
       "target": "regional-details-table",
       "mapping": {
-        "month": "filters.month"
+        "department": "filters.department"
       }
     },
     "drillDown": {

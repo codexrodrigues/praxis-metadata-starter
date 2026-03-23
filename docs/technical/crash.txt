@@ -1,0 +1,441 @@
+
+• O plano detalhado está em praxis-metadata-starter/docs/technical/STATS-RESPONSE-SCHEMA-PLATFORM-FIX-PLAN.md.
+
+  Ele está estruturado para corrigir o problema na origem de plataforma, não no consumidor, e cobre:
+
+  - causa raiz no OpenAPI de stats/*
+  - inconsistência entre praxis-metadata-starter/src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java e praxis-metadata-starter/src/main/java/org/praxisplatform/uischema/controller/
+    docs/DomainCatalogController.java
+  - backlog por arquivo
+  - fases de implementação
+  - testes de consistência cruzada entre /schemas/catalog e /schemas/filtered
+  - validação downstream no quickstart
+  - riscos e definition of done
+
+  A ordem recomendada ficou:
+
+  1. escrever testes que reproduzem a falha atual;
+  2. corrigir as anotações OpenAPI de stats em praxis-metadata-starter/src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java;
+  3. endurecer ApiDocsController;
+  4. alinhar DomainCatalogController;
+  5. validar no quickstart.
+
+  Se quiser, o próximo passo já pode ser a PR1 do starter seguindo exatamente esse plano.
+
+
+› inicie a execução
+
+
+• Vou iniciar a PR1 no praxis-metadata-starter pela ordem correta: primeiro reproduzir a falha em testes, depois corrigir a publicação OpenAPI dos stats/* e por fim alinhar a resolução estrutural do /schemas/
+  filtered.
+
+• Explored
+  └ List praxis-metadata-starter
+    Read 2026-03-21.md
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Vou inspecionar os testes atuais do starter e editar só o necessário para montar um primeiro lote coerente: reprodutor da falha, correção das anotações de stats e endurecimento mínimo do resolver.
+
+• Explored
+  └ Read ApiDocsControllerTest.java, DomainCatalogControllerTest.java
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Plano da PR1:
+
+  1. adicionar testes que reproduzem stats response com wrapper RestApiResponse<...>;
+  2. corrigir AbstractCrudController para publicar schema explícito sem perder examples;
+  3. endurecer ApiDocsController no mínimo necessário e validar a suíte focal.
+
+• Updated Plan
+  └ Executando a PR1 do starter com foco em teste reprodutor + correção na origem do contrato + ajuste mínimo no resolver.
+    □ Adicionar testes reprodutores para stats response e consistência básica do catálogo
+    □ Corrigir publicação OpenAPI dos endpoints stats no AbstractCrudController
+    □ Ajustar ApiDocsController e validar a suíte focal
+
+• Antes de editar, vou verificar se o starter já usa useReturnTypeSchema ou algum padrão equivalente. Se existir, eu sigo a convenção local em vez de inventar wrapper auxiliar.
+
+• Explored
+  └ Search class RestApiResponse|record RestApiResponse in java
+    Search useReturnTypeSchema|@ApiResponse\(|schema = @Schema\(implementation = RestApiResponse|implementation = Object.class in java
+    Read RestApiResponse.java
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Achei o wrapper real em uischema/rest/response. Vou abrir esse tipo e também confirmar se useReturnTypeSchema resolve o problema com a biblioteca atual do projeto antes de tocar nas anotações.
+
+• Waited for background terminal
+
+• Waited for background terminal
+
+• Explored
+  └ Search class RestApiResponse|record RestApiResponse in java
+    Read RestApiResponse.java
+    Search springdoc-openapi|swagger-annotations|springdoc in pom.xml
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Vou editar primeiro os testes e as anotações dos três endpoints de stats. Se useReturnTypeSchema funcionar como esperado, eu evito criar wrappers artificiais e mantenho o contrato canônico derivado do tipo de
+  retorno real.
+
+• Edited praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/docs/ApiDocsControllerTest.java (+79 -0)
+    268      @Test
+    269 +    void getFilteredSchemaResolvesStatsResponseFromRestApiResponseWrapper() throws Exception {
+    270 +        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+    271 +        String doc = "{\n" +
+    272 +                "  \"paths\": {\n" +
+    273 +                "    \"/stats/group-by\": {\n" +
+    274 +                "      \"post\": {\n" +
+    275 +                "        \"responses\": {\n" +
+    276 +                "          \"200\": {\n" +
+    277 +                "            \"content\": {\n" +
+    278 +                "              \"application/json\": {\n" +
+    279 +                "                \"schema\": {\"$ref\": \"#/components/schemas/RestApiResponseGroupByStatsResponse\"},\n" +
+    280 +                "                \"examples\": {\n" +
+    281 +                "                  \"groupByCountResponse\": {\n" +
+    282 +                "                    \"summary\": \"Buckets\",\n" +
+    283 +                "                    \"value\": {\"status\": \"success\", \"data\": {\"field\": \"status\", \"buckets\": []}}\n" +
+    284 +                "                  }\n" +
+    285 +                "                }\n" +
+    286 +                "              }\n" +
+    287 +                "            }\n" +
+    288 +                "          }\n" +
+    289 +                "        }\n" +
+    290 +                "      }\n" +
+    291 +                "    }\n" +
+    292 +                "  },\n" +
+    293 +                "  \"components\": {\n" +
+    294 +                "    \"schemas\": {\n" +
+    295 +                "      \"RestApiResponseGroupByStatsResponse\": {\n" +
+    296 +                "        \"type\": \"object\",\n" +
+    297 +                "        \"properties\": {\n" +
+    298 +                "          \"status\": {\"type\": \"string\"},\n" +
+    299 +                "          \"data\": {\"$ref\": \"#/components/schemas/GroupByStatsResponse\"}\n" +
+    300 +                "        }\n" +
+    301 +                "      },\n" +
+    302 +                "      \"GroupByStatsResponse\": {\n" +
+    303 +                "        \"type\": \"object\",\n" +
+    304 +                "        \"properties\": {\n" +
+    305 +                "          \"field\": {\"type\": \"string\"},\n" +
+    306 +                "          \"buckets\": {\n" +
+    307 +                "            \"type\": \"array\",\n" +
+    308 +                "            \"items\": {\"$ref\": \"#/components/schemas/GroupByStatsBucket\"}\n" +
+    309 +                "          }\n" +
+    310 +                "        }\n" +
+    311 +                "      },\n" +
+    312 +                "      \"GroupByStatsBucket\": {\n" +
+    313 +                "        \"type\": \"object\",\n" +
+    314 +                "        \"properties\": {\n" +
+    315 +                "          \"label\": {\"type\": \"string\"},\n" +
+    316 +                "          \"value\": {\"type\": \"number\"}\n" +
+    317 +                "        }\n" +
+    318 +                "      }\n" +
+    319 +                "    }\n" +
+    320 +                "  }\n" +
+    321 +                "}";
+    322 +
+    324 +                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+    325 +        var req = new MockHttpServletRequest();
+    326 +        req.setScheme("http");
+    327 +        req.setServerName("localhost");
+    328 +        req.setServerPort(80);
+    329 +        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+    330 +
+    331 +        var response = controller.getFilteredSchema("/stats/group-by", "post", false, "response", null, null, java.util.Locale.ENGLISH);
+    332 +        Map<String, Object> schema = response.getBody();
+    333 +        assertNotNull(schema);
+    334 +        assertTrue(((Map<?, ?>) schema.get("properties")).containsKey("field"));
+    335 +        assertTrue(((Map<?, ?>) schema.get("properties")).containsKey("buckets"));
+    337 +        @SuppressWarnings("unchecked")
+    338 +        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+    339 +        assertNotNull(xUi);
+    341 +        @SuppressWarnings("unchecked")
+    342 +        Map<String, Object> operationExamples = (Map<String, Object>) xUi.get("operationExamples");
+    343 +        assertNotNull(operationExamples);
+    344 +        assertTrue(operationExamples.containsKey("response"));
+    345 +    }
+    346 +
+    347 +    @Test
+    348      void getFilteredSchemaIncludesRequestExamplesWithFallbackMediaType() throws Exception {
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• O teste reprodutor do wrapper de stats entrou. Agora vou corrigir as três operações em AbstractCrudController e ajustar o resolver para usar seleção consistente de content type no lado de response.
+
+• Edited praxis-metadata-starter/src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java (+6 -0)
+    807                              description = "Group-by calculado com sucesso",
+    808 +                            useReturnTypeSchema = true,
+    809                              content = @Content(
+    810 +                                    mediaType = "application/json",
+    811                                      examples = @ExampleObject(
+        ⋮
+    858                              description = "Série temporal calculada com sucesso",
+        ⋮
+    909                              description = "Distribuição calculada com sucesso",
+    910 +                            useReturnTypeSchema = true,
+    911                              content = @Content(
+    912 +                                    mediaType = "application/json",
+    750          // 2. Tenta extrair do schema de resposta 200 OK
+    751 -        JsonNode responses = pathsNode.path("responses");
+    752 -        JsonNode okResponse = responses.path("200").path("content").path("*/*").path("schema");
+    757 -
+    758 -        if (!okResponse.isMissingNode() && okResponse.has("$ref")) {
+    751 +        JsonNode responses = pathsNode.path("responses");
+    752 +        JsonNode okResponse = selectPreferredContentNode(
+    753 +                responses.path("200").path("content")
+    754 +        ).path("schema");
+    755 +        if (okResponse.isMissingNode()) {
+    756 +            okResponse = selectPreferredContentNode(
+    757 +                    responses.path("201").path("content")
+    758 +            ).path("schema");
+    759 +        }
+    760 +
+    761 +        if (!okResponse.isMissingNode() && okResponse.has("$ref")) {
+    762              String schemaRef = okResponse.path("$ref").asText();
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• As edições da PR1 estão aplicadas. Vou rodar a suíte focal do starter para validar se useReturnTypeSchema gera o contrato esperado e se o resolver continua navegando os wrappers de stats.
+
+• Os testes estão rodando agora. Se houver quebra, vou separar imediatamente se ela vem da anotação OpenAPI ou do comportamento do ApiDocsController.
+
+• Ran git -C praxis-metadata-starter status --short
+  └  M docs/architecture-overview.md
+    ?? docs/technical/STATS-RESPONSE-SCHEMA-PLATFORM-FIX-PLAN.md
+
+• Waited for background terminal · ./mvnw -q -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test
+
+• Waited for background terminal · git -C praxis-metadata-starter diff --stat
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• A execução do Maven andou; por enquanto só apareceu o ruído conhecido do wrapper shell (expr: Trailing backslash) e ausência de JAVA_HOME, sem falha de compilação ainda. Vou esperar o resultado final da suíte
+  focal.
+
+• Waited for background terminal · ./mvnw -q -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test
+
+• Os testes ainda estão em execução sem emitir novas linhas. Vou dar mais uma janela curta antes de assumir travamento e rerodar de forma mais diagnóstica.
+
+• Waited for background terminal · ./mvnw -q -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test
+
+• A suíte focal não devolveu saída adicional no modo -q. Vou abrir o estado do processo e, se necessário, rerodar sem -q para diagnóstico visível.
+
+• Ran ls -R praxis-metadata-starter/target/surefire-reports 2>/dev/null | tail -n 40
+  └ TEST-org.praxisplatform.uischema.controller.docs.ApiDocsControllerPathResolutionTest.xml
+    TEST-org.praxisplatform.uischema.controller.docs.ApiDocsControllerReadOnlyMetaTest.xml
+    … +36 lines
+    org.praxisplatform.uischema.util.PageableBuilderTest.txt
+
+• Ran ps -ef | rg 'mvn|surefire|java'
+  └ codex      29584     685 11 14:36 ?        00:00:05 /usr/bin/java -classpath /mnt/d/Developer/praxis-plataform/praxis-metadata-starter/.mvn/wrapper/maven-wrapper.jar -Dmaven.home=/mnt/d/Developer/
+    praxis-plataform -Dmaven.multiModuleProjectDirectory=/mnt/d/Developer/praxis-plataform/praxis-metadata-starter org.apache.maven.wrapper.MavenWrapperMain -q
+    -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test
+    codex      29943     685  0 14:37 ?        00:00:00 /bin/bash -lc ps -ef | rg 'mvn|surefire|java'
+    codex      29950   29943  0 14:37 ?        00:00:00 rg mvn|surefire|java
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+• Explored
+  └ Read org.praxisplatform.uischema.controller.docs.ApiDocsControllerTest.txt, org.praxisplatform.uischema.controller.docs.DomainCatalogControllerTest.txt, TEST-
+         org.praxisplatform.uischema.controller.docs.ApiDocsControllerTest.xml
+
+
+• A quebra atual não é do novo comportamento; é um problema pré-existente no teste getFilteredSchemaSelectsSchemas, que esperava duas chamadas HTTP apesar do controller cachear o documento por grupo. Vou ajustar
+  esse teste para a semântica real e conferir por que o novo caso ainda não entrou na contagem executada.
+• Explored
+  └ Read ApiDocsControllerTest.java
+
+• Ran wc -l praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/docs/ApiDocsControllerTest.java
+  └ 540 praxis-metadata-starter/src/test/java/org/praxisplatform/uischema/controller/docs/ApiDocsControllerTest.java
+
+• Explored
+  └ List surefire-reports
+    Search DomainCatalog
+
+───────────────────────
+
+• O relatório em surefire-reports está inconsistente com o arquivo atual de testes, então vou limpar a execução anterior e rerodar a suíte focal de forma diagnóstica.
+• Ran pkill -f 'praxis-metadata-starter.*surefire|org.apache.maven.surefire|mvnw' || true
+  └ (no output)
+
+  └ (no output)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+• Ran ls praxis-metadata-starter/target/surefire-reports 2>/dev/null | wc -l
+  └ 52
+
+• Ran ps -ef | rg 'mvnw|surefire|java'
+  └ codex      29584     685 15 14:36 ?        00:00:13 /usr/bin/java -classpath /mnt/d/Developer/praxis-plataform/praxis-metadata-starter/.mvn/wrapper/maven-wrapper.jar -Dmaven.home=/mnt/d/Developer/
+    praxis-plataform -Dmaven.multiModuleProjectDirectory=/mnt/d/Developer/praxis-plataform/praxis-metadata-starter org.apache.maven.wrapper.MavenWrapperMain -q
+    -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test
+    codex      30310     685  0 14:38 ?        00:00:00 /bin/bash -lc ps -ef | rg 'mvnw|surefire|java'
+    codex      30321   30310  0 14:38 ?        00:00:00 rg mvnw|surefire|java
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Encontrei um mvn -q anterior ainda vivo no PID 29584, que explica a instabilidade. Vou encerrar esse processo específico e rerodar a suíte focal com saída normal.
+
+• Ran kill 29584
+  └ (no output)
+
+• Ran ./mvnw -q -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test
+  └ expr: Trailing backslash
+    expr: Trailing backslash
+    Warning: JAVA_HOME environment variable is not set.
+
+• Ran git -C praxis-metadata-starter diff --stat
+  └  docs/architecture-overview.md                      | 140 +++++++--------
+     .../controller/base/AbstractCrudController.java    |   6 +
+    … +2 lines
+     .../compile/default-compile/inputFiles.lst         | 189 ++++++++++++---------
+     5 files changed, 276 insertions(+), 157 deletions(-)
+
+───────────────────────
+
+• O rerun limpo da suíte focal começou. Agora a saída deve refletir o estado real da PR1, sem interferência do processo pendurado anterior.
+• Waited for background terminal · ./mvnw -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test -Dsurefire.failIfNoSpecifiedTests=false
+
+• Ainda sem novas linhas após o start. Vou dar uma janela maior e, se necessário, ler direto o resultado gerado pelo Surefire como fonte de verdade.
+• Ran git -C praxis-metadata-starter diff --stat
+  └  docs/architecture-overview.md                      | 140 +++++++--------
+     .../controller/base/AbstractCrudController.java    |   6 +
+    … +2 lines
+     .../compile/default-compile/inputFiles.lst         | 189 ++++++++++++---------
+     5 files changed, 276 insertions(+), 157 deletions(-)
+
+• Waited for background terminal · ./mvnw -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test -Dsurefire.failIfNoSpecifiedTests=false
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• A compilação do starter entrou. Se houver quebra agora, ela deve apontar diretamente para a anotação useReturnTypeSchema ou para imports/contratos tocados.
+
+• Waited for background terminal · ./mvnw -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test -Dsurefire.failIfNoSpecifiedTests=false
+
+• A compilação segue sem erro até aqui. Estou aguardando o fim do javac para ver o comportamento real da suíte focal.
+
+
+• Waited for background terminal · ./mvnw -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test -Dsurefire.failIfNoSpecifiedTests=false
+
+• Passou da compilação principal; agora entrou na compilação de testes. O próximo ponto de falha, se existir, já é no código que eu alterei na suíte.
+
+• Waited for background terminal · ./mvnw -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test -Dsurefire.failIfNoSpecifiedTests=false
+
+• A suíte ainda está compilando os testes. Vou esperar o fechamento do testCompile antes de ler os resultados.
+
+• Waited for background terminal · ./mvnw -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test -Dsurefire.failIfNoSpecifiedTests=false
+
+• Ainda sem erro depois do testCompile; pode estar apenas atravessando o bootstrap do surefire. Vou esperar mais uma janela.
+
+• Waited for background terminal · ./mvnw -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test -Dsurefire.failIfNoSpecifiedTests=false
+
+• A execução voltou a ficar silenciosa no surefire. Vou ler os relatórios gerados agora em paralelo para não desperdiçar tempo esperando o processo encerrar sozinho.
+
+• Ran cat praxis-metadata-starter/target/surefire-reports/org.praxisplatform.uischema.controller.docs.DomainCatalogControllerTest.txt 2>/dev/null
+  └ (no output)
+
+• Ran cat praxis-metadata-starter/target/surefire-reports/org.praxisplatform.uischema.controller.docs.ApiDocsControllerTest.txt 2>/dev/null
+  └ -------------------------------------------------------------------------------
+    Test set: org.praxisplatform.uischema.controller.docs.ApiDocsControllerTest
+    … +12 lines
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+
+• Explored
+  └ List surefire-reports
+
+─ Worked for 9m 18s ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Os comandos de leitura também ficaram pendurados, o que sugere que o Maven continua segurando o módulo de forma estranha. Vou interromper essa execução e relançar só um teste por vez
+  para isolar a causa.
+
+• Ran ps -p 21834 -f || true
+  └ UID          PID    PPID  C STIME TTY          TIME CMD
+
+• Ran kill $(pgrep -f 'MavenWrapperMain .*ApiDocsControllerTest,DomainCatalogControllerTest')
+  └ (no output)
+
+• Ran ./mvnw -Dtest=ApiDocsControllerTest,DomainCatalogControllerTest test -Dsurefire.failIfNoSpecifiedTests=false
+  └ expr: Trailing backslash
+    expr: Trailing backslash
+    … +22 lines
+    [INFO] Changes detected - recompiling the module! :dependency
+    [INFO] Compiling 72 source files with javac [debug release 21] to target/test-classes
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Vou isolar o caso novo primeiro. Se esse teste passar sozinho, o restante da limpeza fica concentrado na suíte legada.
+
+• Waited for background terminal · ./mvnw -Dtest=ApiDocsControllerTest#getFilteredSchemaResolvesStatsResponseFromRestApiResponseWrapper test -Dsurefire.failIfNoSpecifiedTests=false
+
+• O teste isolado iniciou. Vou esperar o compile curto e ler o resultado final desse caso específico.
+
+• Waited for background terminal · ./mvnw -Dtest=ApiDocsControllerTest#getFilteredSchemaResolvesStatsResponseFromRestApiResponseWrapper test -Dsurefire.failIfNoSpecifiedTests=false
+
+• A execução isolada chegou no bootstrap normal do Maven. Ainda não há sinal de falha no caso novo.
+
+
+• Waiting for background terminal (38m 48s • esc to interrupt) · 1 background terminal running · /ps to view · /stop to close
+  └ ./mvnw -Dtest=ApiDocsControllerTest#getFilteredSchemaResolvesStatsResponseFromRestApiResponseWrapper test -Dsurefire.failIfNoSpecifiedTests=false
+
+
+› Explain this codebase
+
+  gpt-5.4 medium · 44% left · /mnt/d/Developer/praxis-plataform
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

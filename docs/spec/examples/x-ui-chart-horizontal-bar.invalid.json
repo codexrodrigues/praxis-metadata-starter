@@ -1,0 +1,22 @@
+{
+  "version": "0.1.0",
+  "kind": "horizontal-bar",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/human-resources/vw-analytics-folha-pagamento",
+    "operation": "group-by"
+  },
+  "dimensions": [
+    {
+      "field": "departamento",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "salarioLiquido",
+      "aggregation": "sum"
+    }
+  ],
+  "orientation": "vertical"
+}

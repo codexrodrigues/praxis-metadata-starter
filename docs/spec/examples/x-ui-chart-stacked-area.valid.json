@@ -1,0 +1,36 @@
+{
+  "version": "0.1.0",
+  "kind": "stacked-area",
+  "preset": "composition",
+  "chartId": "payroll-net-by-profile-over-time",
+  "title": "Composicao temporal da folha por perfil",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/human-resources/vw-analytics-folha-pagamento",
+    "operation": "timeseries",
+    "options": {
+      "granularity": "month",
+      "fillGaps": false
+    }
+  },
+  "dimensions": [
+    {
+      "field": "competencia",
+      "label": "Competencia",
+      "role": "time"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "salarioLiquido",
+      "label": "Massa liquida",
+      "aggregation": "sum"
+    }
+  ],
+  "legend": {
+    "enabled": true
+  },
+  "tooltip": {
+    "enabled": true
+  }
+}

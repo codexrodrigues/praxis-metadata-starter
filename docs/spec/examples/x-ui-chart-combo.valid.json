@@ -1,0 +1,48 @@
+{
+  "version": "0.1.0",
+  "kind": "combo",
+  "preset": "comparison",
+  "chartId": "payroll-combo-variance",
+  "title": {
+    "key": "charts.payroll.combo.title",
+    "fallback": "Folha liquida e desconto medio"
+  },
+  "subtitle": {
+    "key": "charts.payroll.combo.subtitle",
+    "fallback": "Barras para liquido e linha para desconto medio"
+  },
+  "source": {
+    "kind": "derived"
+  },
+  "dimensions": [
+    {
+      "field": "competencia",
+      "label": "Competencia",
+      "role": "time"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "massaLiquida",
+      "label": "Massa liquida",
+      "aggregation": "sum",
+      "seriesKind": "bar",
+      "axis": "primary",
+      "color": "#1263b4"
+    },
+    {
+      "field": "pctDesconto",
+      "label": "Desconto medio",
+      "aggregation": "avg",
+      "seriesKind": "line",
+      "axis": "secondary",
+      "color": "#c92a2a"
+    }
+  ],
+  "legend": {
+    "enabled": true
+  },
+  "tooltip": {
+    "enabled": true
+  }
+}

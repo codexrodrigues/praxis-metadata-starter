@@ -1,0 +1,33 @@
+{
+  "version": "0.1.0",
+  "kind": "scatter",
+  "preset": "comparison",
+  "chartId": "payroll-net-vs-discount",
+  "title": "Liquido x desconto medio",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/human-resources/vw-analytics-folha-pagamento",
+    "operation": "group-by",
+    "options": {
+      "orderBy": "key-asc",
+      "limit": 25
+    }
+  },
+  "dimensions": [
+    {
+      "field": "salarioLiquido",
+      "label": "Salario liquido",
+      "role": "value"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "pctDesconto",
+      "label": "Percentual medio de desconto",
+      "aggregation": "avg"
+    }
+  ],
+  "tooltip": {
+    "enabled": true
+  }
+}
