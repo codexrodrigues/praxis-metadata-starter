@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -72,6 +73,58 @@ class AbstractCrudControllerTimeSeriesStatsTest {
                 .andExpect(jsonPath("$.data.points[1].start").value("2026-03-02"))
                 .andExpect(jsonPath("$.data.points[1].end").value("2026-03-02"))
                 .andExpect(jsonPath("$.data.points[1].label").value("2026-03-02"));
+
+        verify(service).timeSeriesStats(any());
+    }
+
+    @Test
+    void returnsTimeSeriesStatsPayloadWithMetricsAndValues() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
+        when(service.timeSeriesStats(any())).thenReturn(new TimeSeriesStatsResponse(
+                "createdOn",
+                TimeSeriesGranularity.DAY,
+                new StatsMetricRequest(StatsMetric.COUNT, null, "total"),
+                List.of(
+                        new TimeSeriesPoint(
+                                LocalDate.parse("2026-03-01"),
+                                LocalDate.parse("2026-03-01"),
+                                "2026-03-01",
+                                2L,
+                                2L,
+                                Map.of("salary", 1500L, "total", 2L)
+                        )
+                ),
+                List.of(
+                        new StatsMetricRequest(StatsMetric.COUNT, null, "total"),
+                        new StatsMetricRequest(StatsMetric.SUM, "salary", "salary")
+                )
+        ));
+
+        mockMvc.perform(post("/simple/stats/timeseries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "filter": {},
+                                  "field": "createdOn",
+                                  "granularity": "DAY",
+                                  "metrics": [
+                                    {
+                                      "operation": "COUNT",
+                                      "alias": "total"
+                                    },
+                                    {
+                                      "operation": "SUM",
+                                      "field": "salary",
+                                      "alias": "salary"
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.metrics[0].alias").value("total"))
+                .andExpect(jsonPath("$.data.metrics[1].field").value("salary"))
+                .andExpect(jsonPath("$.data.points[0].values.total").value(2))
+                .andExpect(jsonPath("$.data.points[0].values.salary").value(1500));
 
         verify(service).timeSeriesStats(any());
     }

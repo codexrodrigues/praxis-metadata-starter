@@ -10,6 +10,20 @@ import org.praxisplatform.uischema.stats.StatsMetric;
  */
 public record StatsMetricRequest(
         StatsMetric operation,
-        String field
+        String field,
+        String alias
 ) {
+    public StatsMetricRequest(StatsMetric operation, String field) {
+        this(operation, field, null);
+    }
+
+    public String effectiveAlias() {
+        if (alias != null && !alias.isBlank()) {
+            return alias;
+        }
+        if (field != null && !field.isBlank()) {
+            return field;
+        }
+        return operation != null ? operation.name() : null;
+    }
 }

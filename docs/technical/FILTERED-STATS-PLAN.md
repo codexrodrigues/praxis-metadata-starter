@@ -1,5 +1,19 @@
 # Filtered Stats Plan
 
+## Additive Multi-Metric Extension
+
+The canonical `praxis.stats` contract is being expanded additively for
+`group-by` and `timeseries`.
+
+Current platform intent for this extension:
+
+- `metric` remains valid and backward compatible
+- `metrics[]` becomes an optional public request field for `group-by` and `timeseries`
+- responses may publish `metrics[]` and per-bucket/per-point `values`
+- `value` remains the compatibility field for the primary metric
+- `group-by` and `timeseries` are now executable with multi-metric payloads in the starter JPA runtime
+- `distribution` remains mono-metric in this phase until the JPA executor is expanded
+
 ## Contexto
 
 O `praxis-metadata-starter` já centraliza a superfície canônica de leitura para

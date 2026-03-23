@@ -6,6 +6,10 @@ import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.StatsMetricRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 /**
  * Validates whether a stats request is compatible with the governed contract.
  */
@@ -22,8 +26,11 @@ public class StatsEligibility {
         if (request.filter() == null) {
             throw new IllegalArgumentException("Stats filter is required.");
         }
-        StatsMetricRequest metric = request.metric();
-        if (metric == null || metric.operation() == null) {
+        List<StatsMetricRequest> metrics = requireMetrics(request.effectiveMetrics());
+        for (StatsMetricRequest metric : metrics) {
+            resolveMetricField(metric, registry, "group-by");
+        }
+        if (request.primaryMetric() == null || request.primaryMetric().operation() == null) {
             throw new IllegalArgumentException("Stats metric is required.");
         }
         StatsFieldDescriptor descriptor = registry.resolve(request.field())
@@ -54,9 +61,13 @@ public class StatsEligibility {
         if (request.granularity() == null) {
             throw new IllegalArgumentException("Time-series granularity is required.");
         }
-        StatsMetricRequest metric = request.metric();
-        if (metric == null || metric.operation() == null) {
+        List<StatsMetricRequest> metrics = requireMetrics(request.effectiveMetrics());
+        StatsMetricRequest primaryMetric = request.primaryMetric();
+        if (primaryMetric == null || primaryMetric.operation() == null) {
             throw new IllegalArgumentException("Stats metric is required.");
+        }
+        for (StatsMetricRequest metric : metrics) {
+            resolveMetricField(metric, registry, "time-series");
         }
         if (request.from() != null && request.to() != null && request.from().isAfter(request.to())) {
             throw new IllegalArgumentException("Time-series range is invalid: from must be on or before to.");
@@ -66,7 +77,7 @@ public class StatsEligibility {
         if (!descriptor.timeSeriesEligible()) {
             throw new IllegalArgumentException("Stats field is not eligible for time-series: " + request.field());
         }
-        if (metric.operation() == StatsMetric.COUNT && !descriptor.supports(metric.operation())) {
+        if (primaryMetric.operation() == StatsMetric.COUNT && !descriptor.supports(primaryMetric.operation())) {
             throw new IllegalArgumentException("Stats metric is not allowed for field: " + request.field());
         }
         if (request.from() != null && request.to() != null) {
@@ -160,6 +171,26 @@ public class StatsEligibility {
             throw new IllegalArgumentException("Stats metric is not allowed for field: " + metric.field());
         }
         return descriptor;
+    }
+
+    private List<StatsMetricRequest> requireMetrics(List<StatsMetricRequest> metrics) {
+        if (metrics == null || metrics.isEmpty()) {
+            throw new IllegalArgumentException("Stats metric is required.");
+        }
+        Set<String> aliases = new LinkedHashSet<>();
+        for (StatsMetricRequest metric : metrics) {
+            if (metric == null || metric.operation() == null) {
+                throw new IllegalArgumentException("Stats metric is required.");
+            }
+            String alias = metric.effectiveAlias();
+            if (alias == null || alias.isBlank()) {
+                throw new IllegalArgumentException("Stats metric alias could not be resolved.");
+            }
+            if (!aliases.add(alias)) {
+                throw new IllegalArgumentException("Duplicate stats metric alias is not allowed: " + alias);
+            }
+        }
+        return metrics;
     }
 
     private long estimatePoints(java.time.LocalDate from, java.time.LocalDate to, TimeSeriesGranularity granularity) {

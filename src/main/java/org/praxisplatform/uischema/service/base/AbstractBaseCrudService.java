@@ -14,8 +14,10 @@ import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
+import org.praxisplatform.uischema.stats.dto.StatsMetricRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
+import org.praxisplatform.uischema.stats.service.ResolvedStatsMetric;
 import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -176,9 +178,8 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
                 getStatsFieldRegistry(),
                 properties.maxBuckets()
         );
-        StatsFieldDescriptor metricDescriptor = statsEligibility.resolveMetricField(
-                request.metric(),
-                getStatsFieldRegistry(),
+        List<ResolvedStatsMetric> resolvedMetrics = resolveMetrics(
+                request.effectiveMetrics(),
                 "group-by"
         );
         var specification = getSpecificationsBuilder().buildSpecification(request.filter(), Pageable.unpaged());
@@ -187,7 +188,7 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
                 entityClass,
                 specification.spec(),
                 descriptor,
-                metricDescriptor,
+                resolvedMetrics,
                 request,
                 properties.maxBuckets()
         );
@@ -212,9 +213,8 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
                 getStatsFieldRegistry(),
                 properties.maxSeriesPoints()
         );
-        StatsFieldDescriptor metricDescriptor = statsEligibility.resolveMetricField(
-                request.metric(),
-                getStatsFieldRegistry(),
+        List<ResolvedStatsMetric> resolvedMetrics = resolveMetrics(
+                request.effectiveMetrics(),
                 "time-series"
         );
         var specification = getSpecificationsBuilder().buildSpecification(request.filter(), Pageable.unpaged());
@@ -223,7 +223,7 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
                 entityClass,
                 specification.spec(),
                 descriptor,
-                metricDescriptor,
+                resolvedMetrics,
                 request,
                 properties.maxSeriesPoints()
         );
@@ -280,5 +280,17 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
         E managed = entityManager.contains(entity) ? entity : entityManager.merge(entity);
         entityManager.refresh(managed);
         return managed;
+    }
+
+    private List<ResolvedStatsMetric> resolveMetrics(
+            List<StatsMetricRequest> metrics,
+            String operationName
+    ) {
+        return metrics.stream()
+                .map(metric -> new ResolvedStatsMetric(
+                        metric,
+                        statsEligibility.resolveMetricField(metric, getStatsFieldRegistry(), operationName)
+                ))
+                .toList();
     }
 }

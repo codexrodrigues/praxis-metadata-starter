@@ -10,6 +10,8 @@ import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.util.List;
+
 public interface StatsQueryExecutor {
 
     <E> GroupByStatsResponse executeGroupBy(
@@ -17,7 +19,7 @@ public interface StatsQueryExecutor {
             Class<E> entityClass,
             Specification<E> specification,
             StatsFieldDescriptor groupDescriptor,
-            StatsFieldDescriptor metricDescriptor,
+            List<ResolvedStatsMetric> resolvedMetrics,
             GroupByStatsRequest<?> request,
             int maxBuckets
     );
@@ -27,7 +29,7 @@ public interface StatsQueryExecutor {
             Class<E> entityClass,
             Specification<E> specification,
             StatsFieldDescriptor timeDescriptor,
-            StatsFieldDescriptor metricDescriptor,
+            List<ResolvedStatsMetric> resolvedMetrics,
             TimeSeriesStatsRequest<?> request,
             int maxPoints
     );

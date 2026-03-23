@@ -118,6 +118,45 @@ class AbstractCrudControllerGroupByStatsIntegrationTest {
                 .andExpect(jsonPath("$.data.buckets[1].count").value(1));
     }
 
+    @Test
+    void returnsMultiMetricBucketsForFilteredDataset() throws Exception {
+        mockMvc.perform(post("/groupby-employees/stats/group-by")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "filter": {
+                                    "team": "A"
+                                  },
+                                  "field": "status",
+                                  "metrics": [
+                                    {
+                                      "operation": "COUNT",
+                                      "alias": "total"
+                                    },
+                                    {
+                                      "operation": "SUM",
+                                      "field": "salary",
+                                      "alias": "salary"
+                                    }
+                                  ],
+                                  "orderBy": "VALUE_DESC"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.metric.operation").value("COUNT"))
+                .andExpect(jsonPath("$.data.metric.alias").value("total"))
+                .andExpect(jsonPath("$.data.metrics.length()").value(2))
+                .andExpect(jsonPath("$.data.metrics[1].field").value("salary"))
+                .andExpect(jsonPath("$.data.buckets.length()").value(2))
+                .andExpect(jsonPath("$.data.buckets[0].key").value("OPEN"))
+                .andExpect(jsonPath("$.data.buckets[0].value").value(2))
+                .andExpect(jsonPath("$.data.buckets[0].values.total").value(2))
+                .andExpect(jsonPath("$.data.buckets[0].values.salary").value(30.0))
+                .andExpect(jsonPath("$.data.buckets[1].key").value("CLOSED"))
+                .andExpect(jsonPath("$.data.buckets[1].values.total").value(1))
+                .andExpect(jsonPath("$.data.buckets[1].values.salary").value(5.0));
+    }
+
     private static GroupByEmployee newEmployee(String team, String status, Integer salary) {
         GroupByEmployee entity = new GroupByEmployee();
         entity.setTeam(team);

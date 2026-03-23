@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -64,6 +65,49 @@ class AbstractCrudControllerGroupByStatsTest {
                 .andExpect(jsonPath("$.data.buckets[0].key").value("OPEN"))
                 .andExpect(jsonPath("$.data.buckets[0].value").value(2))
                 .andExpect(jsonPath("$.data.buckets[1].key").value("CLOSED"));
+
+        verify(service).groupByStats(any());
+    }
+
+    @Test
+    void returnsGroupByStatsPayloadWithMetricsAndValues() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
+        when(service.groupByStats(any())).thenReturn(new GroupByStatsResponse(
+                "status",
+                new StatsMetricRequest(StatsMetric.COUNT, null, "total"),
+                List.of(
+                        new GroupByBucket("OPEN", "OPEN", 2L, 2L, Map.of("salary", 1500L, "total", 2L))
+                ),
+                List.of(
+                        new StatsMetricRequest(StatsMetric.COUNT, null, "total"),
+                        new StatsMetricRequest(StatsMetric.SUM, "salary", "salary")
+                )
+        ));
+
+        mockMvc.perform(post("/simple/stats/group-by")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "filter": {},
+                                  "field": "status",
+                                  "metrics": [
+                                    {
+                                      "operation": "COUNT",
+                                      "alias": "total"
+                                    },
+                                    {
+                                      "operation": "SUM",
+                                      "field": "salary",
+                                      "alias": "salary"
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.metrics[0].alias").value("total"))
+                .andExpect(jsonPath("$.data.metrics[1].field").value("salary"))
+                .andExpect(jsonPath("$.data.buckets[0].values.total").value(2))
+                .andExpect(jsonPath("$.data.buckets[0].values.salary").value(1500));
 
         verify(service).groupByStats(any());
     }

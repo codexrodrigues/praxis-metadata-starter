@@ -25,6 +25,7 @@ import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesPoint;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
+import org.praxisplatform.uischema.stats.service.ResolvedStatsMetric;
 import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -38,6 +39,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -51,7 +53,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             Class<E> entityClass,
             Specification<E> specification,
             StatsFieldDescriptor groupDescriptor,
-            StatsFieldDescriptor metricDescriptor,
+            List<ResolvedStatsMetric> resolvedMetrics,
             GroupByStatsRequest<?> request,
             int maxBuckets
     ) {
@@ -60,14 +62,23 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         Root<E> root = query.from(entityClass);
         Path<?> groupPath = resolvePath(root, groupDescriptor.propertyPath());
         Expression<Long> countExpression = cb.count(root);
-        Expression<? extends Number> valueExpression = resolveValueExpression(cb, root, request.metric(), metricDescriptor);
+        ResolvedStatsMetric primaryMetric = primaryMetric(request, resolvedMetrics);
+        Expression<? extends Number> valueExpression = resolveValueExpression(cb, root, primaryMetric);
 
         Predicate predicate = specification == null ? null : specification.toPredicate(root, query, cb);
         if (predicate != null) {
             query.where(predicate);
         }
 
-        query.multiselect(groupPath.alias("groupKey"), valueExpression.alias("groupValue"), countExpression.alias("groupCount"));
+        List<jakarta.persistence.criteria.Selection<?>> selections = new java.util.ArrayList<>();
+        selections.add(groupPath.alias("groupKey"));
+        selections.add(valueExpression.alias("groupValue"));
+        selections.add(countExpression.alias("groupCount"));
+        for (int index = 0; index < resolvedMetrics.size(); index++) {
+            ResolvedStatsMetric resolvedMetric = resolvedMetrics.get(index);
+            selections.add(resolveValueExpression(cb, root, resolvedMetric).alias(metricTupleAlias(index)));
+        }
+        query.multiselect(selections);
         query.groupBy(groupPath);
         query.orderBy(resolveOrder(cb, groupPath, valueExpression, request.orderBy()));
 
@@ -75,16 +86,28 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         int limit = request.limit() == null ? maxBuckets : Math.min(request.limit(), maxBuckets);
         typedQuery.setMaxResults(limit);
 
+        boolean exposeMultiMetricShape = exposesMultiMetricShape(request.metrics());
         List<GroupByBucket> buckets = typedQuery.getResultList().stream()
                 .map(tuple -> {
                     Object key = tuple.get("groupKey");
                     Number value = (Number) tuple.get("groupValue");
                     long count = ((Number) tuple.get("groupCount")).longValue();
-                    return new GroupByBucket(key, key == null ? "null" : String.valueOf(key), value, count);
+                    return new GroupByBucket(
+                            key,
+                            key == null ? "null" : String.valueOf(key),
+                            value,
+                            count,
+                            exposeMultiMetricShape ? extractMetricValues(tuple, resolvedMetrics) : null
+                    );
                 })
                 .toList();
 
-        return new GroupByStatsResponse(groupDescriptor.field(), request.metric(), buckets);
+        return new GroupByStatsResponse(
+                groupDescriptor.field(),
+                request.primaryMetric(),
+                buckets,
+                exposeMultiMetricShape ? request.effectiveMetrics() : null
+        );
     }
 
     @Override
@@ -93,7 +116,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             Class<E> entityClass,
             Specification<E> specification,
             StatsFieldDescriptor timeDescriptor,
-            StatsFieldDescriptor metricDescriptor,
+            List<ResolvedStatsMetric> resolvedMetrics,
             TimeSeriesStatsRequest<?> request,
             int maxPoints
     ) {
@@ -101,20 +124,24 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<E> root = query.from(entityClass);
         Path<?> timePath = resolvePath(root, timeDescriptor.propertyPath());
-        Path<?> metricPath = metricDescriptor == null ? null : resolvePath(root, metricDescriptor.propertyPath());
 
         Predicate predicate = specification == null ? null : specification.toPredicate(root, query, cb);
         if (predicate != null) {
             query.where(predicate);
         }
-        if (metricPath == null) {
-            query.multiselect(timePath.alias("timeValue"));
-        } else {
-            query.multiselect(timePath.alias("timeValue"), metricPath.alias("metricValue"));
+        List<jakarta.persistence.criteria.Selection<?>> selections = new java.util.ArrayList<>();
+        selections.add(timePath.alias("timeValue"));
+        for (int index = 0; index < resolvedMetrics.size(); index++) {
+            ResolvedStatsMetric resolvedMetric = resolvedMetrics.get(index);
+            if (resolvedMetric.descriptor() == null) {
+                continue;
+            }
+            selections.add(resolvePath(root, resolvedMetric.descriptor().propertyPath()).alias(metricTupleAlias(index)));
         }
+        query.multiselect(selections);
 
         List<Tuple> values = entityManager.createQuery(query).getResultList();
-        Map<LocalDate, AggregateValue> buckets = new LinkedHashMap<>();
+        Map<LocalDate, TimeSeriesBucketAggregate> buckets = new LinkedHashMap<>();
         for (Tuple tuple : values) {
             LocalDate bucketStart = toBucketStart(tuple.get("timeValue"), request.granularity());
             if (bucketStart == null) {
@@ -126,15 +153,18 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             if (request.to() != null && bucketStart.isAfter(normalizeStart(request.to(), request.granularity()))) {
                 continue;
             }
-            Number metricValue = metricPath == null ? null : (Number) tuple.get("metricValue");
-            buckets.computeIfAbsent(bucketStart, ignored -> AggregateValue.empty())
-                    .accumulate(request.metric().operation(), metricValue);
+            TimeSeriesBucketAggregate aggregate = buckets.computeIfAbsent(
+                    bucketStart,
+                    ignored -> TimeSeriesBucketAggregate.empty(resolvedMetrics)
+            );
+            aggregate.accumulate(tuple, resolvedMetrics);
         }
 
         if (Boolean.TRUE.equals(request.fillGaps())) {
-            fillGaps(buckets, request, maxPoints);
+            fillGaps(buckets, request, maxPoints, resolvedMetrics);
         }
 
+        boolean exposeMultiMetricShape = exposesMultiMetricShape(request.metrics());
         List<TimeSeriesPoint> points = buckets.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .limit(maxPoints)
@@ -142,12 +172,19 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                         entry.getKey(),
                         bucketEnd(entry.getKey(), request.granularity()),
                         entry.getKey().toString(),
-                        entry.getValue().value(request.metric().operation()),
-                        entry.getValue().count()
+                        entry.getValue().primaryValue(request.primaryMetric()),
+                        entry.getValue().count(),
+                        exposeMultiMetricShape ? entry.getValue().values() : null
                 ))
                 .toList();
 
-        return new TimeSeriesStatsResponse(timeDescriptor.field(), request.granularity(), request.metric(), points);
+        return new TimeSeriesStatsResponse(
+                timeDescriptor.field(),
+                request.granularity(),
+                request.primaryMetric(),
+                points,
+                exposeMultiMetricShape ? request.effectiveMetrics() : null
+        );
     }
 
     @Override
@@ -273,13 +310,13 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
     private Expression<? extends Number> resolveValueExpression(
             CriteriaBuilder cb,
             Root<?> root,
-            org.praxisplatform.uischema.stats.dto.StatsMetricRequest metric,
-            StatsFieldDescriptor metricDescriptor
+            ResolvedStatsMetric resolvedMetric
     ) {
+        org.praxisplatform.uischema.stats.dto.StatsMetricRequest metric = resolvedMetric.metric();
         if (metric.operation() == org.praxisplatform.uischema.stats.StatsMetric.COUNT) {
             return cb.count(root);
         }
-        Path<Number> metricPath = resolveNumericPath(root, metricDescriptor.propertyPath());
+        Path<Number> metricPath = resolveNumericPath(root, Objects.requireNonNull(resolvedMetric.descriptor()).propertyPath());
         if (metric.operation() == org.praxisplatform.uischema.stats.StatsMetric.SUM) {
             return cb.sum(metricPath);
         }
@@ -290,6 +327,15 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             return cb.min(metricPath);
         }
         return cb.max(metricPath);
+    }
+
+    private Expression<? extends Number> resolveValueExpression(
+            CriteriaBuilder cb,
+            Root<?> root,
+            org.praxisplatform.uischema.stats.dto.StatsMetricRequest metric,
+            StatsFieldDescriptor metricDescriptor
+    ) {
+        return resolveValueExpression(cb, root, new ResolvedStatsMetric(metric, metricDescriptor));
     }
 
     private Comparator<Map.Entry<Double, Long>> resolveHistogramOrder(StatsBucketOrder order) {
@@ -307,7 +353,12 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         return Map.Entry.comparingByKey();
     }
 
-    private void fillGaps(Map<LocalDate, AggregateValue> buckets, TimeSeriesStatsRequest<?> request, int maxPoints) {
+    private void fillGaps(
+            Map<LocalDate, TimeSeriesBucketAggregate> buckets,
+            TimeSeriesStatsRequest<?> request,
+            int maxPoints,
+            List<ResolvedStatsMetric> resolvedMetrics
+    ) {
         LocalDate start = request.from() != null ? normalizeStart(request.from(), request.granularity()) : buckets.keySet().stream().min(LocalDate::compareTo).orElse(null);
         LocalDate end = request.to() != null ? normalizeStart(request.to(), request.granularity()) : buckets.keySet().stream().max(LocalDate::compareTo).orElse(null);
         if (start == null || end == null) {
@@ -326,9 +377,36 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         }
         LocalDate cursor = start;
         while (!cursor.isAfter(end)) {
-            buckets.putIfAbsent(cursor, AggregateValue.empty());
+            buckets.putIfAbsent(cursor, TimeSeriesBucketAggregate.empty(resolvedMetrics));
             cursor = nextBucket(cursor, request.granularity());
         }
+    }
+
+    private ResolvedStatsMetric primaryMetric(
+            GroupByStatsRequest<?> request,
+            List<ResolvedStatsMetric> resolvedMetrics
+    ) {
+        String primaryAlias = request.primaryMetric().effectiveAlias();
+        return resolvedMetrics.stream()
+                .filter(metric -> primaryAlias.equals(metric.alias()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Primary stats metric could not be resolved."));
+    }
+
+    private boolean exposesMultiMetricShape(List<org.praxisplatform.uischema.stats.dto.StatsMetricRequest> metrics) {
+        return metrics != null && !metrics.isEmpty();
+    }
+
+    private static String metricTupleAlias(int index) {
+        return "metricValue" + index;
+    }
+
+    private Map<String, Number> extractMetricValues(Tuple tuple, List<ResolvedStatsMetric> resolvedMetrics) {
+        Map<String, Number> values = new LinkedHashMap<>();
+        for (int index = 0; index < resolvedMetrics.size(); index++) {
+            values.put(resolvedMetrics.get(index).alias(), (Number) tuple.get(metricTupleAlias(index)));
+        }
+        return values;
     }
 
     private LocalDate toBucketStart(Object value, TimeSeriesGranularity granularity) {
@@ -489,6 +567,50 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 return min == null ? 0d : min;
             }
             return max == null ? 0d : max;
+        }
+
+        long count() {
+            return count;
+        }
+    }
+
+    private static final class TimeSeriesBucketAggregate {
+        private long count;
+        private final List<ResolvedStatsMetric> metrics;
+        private final Map<String, AggregateValue> aggregates;
+
+        private TimeSeriesBucketAggregate(List<ResolvedStatsMetric> metrics, Map<String, AggregateValue> aggregates) {
+            this.metrics = metrics;
+            this.aggregates = aggregates;
+        }
+
+        static TimeSeriesBucketAggregate empty(List<ResolvedStatsMetric> metrics) {
+            Map<String, AggregateValue> aggregates = new LinkedHashMap<>();
+            for (ResolvedStatsMetric metric : metrics) {
+                aggregates.put(metric.alias(), AggregateValue.empty());
+            }
+            return new TimeSeriesBucketAggregate(List.copyOf(metrics), aggregates);
+        }
+
+        void accumulate(Tuple tuple, List<ResolvedStatsMetric> metrics) {
+            count++;
+            for (int index = 0; index < metrics.size(); index++) {
+                ResolvedStatsMetric metric = metrics.get(index);
+                Number value = metric.descriptor() == null ? null : (Number) tuple.get(metricTupleAlias(index));
+                aggregates.get(metric.alias()).accumulate(metric.metric().operation(), value);
+            }
+        }
+
+        Number primaryValue(org.praxisplatform.uischema.stats.dto.StatsMetricRequest primaryMetric) {
+            return aggregates.get(primaryMetric.effectiveAlias()).value(primaryMetric.operation());
+        }
+
+        Map<String, Number> values() {
+            Map<String, Number> values = new LinkedHashMap<>();
+            for (ResolvedStatsMetric metric : metrics) {
+                values.put(metric.alias(), aggregates.get(metric.alias()).value(metric.metric().operation()));
+            }
+            return values;
         }
 
         long count() {

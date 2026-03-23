@@ -142,6 +142,49 @@ class AbstractCrudControllerTimeSeriesStatsIntegrationTest {
                 .andExpect(jsonPath("$.data.points[2].count").value(1));
     }
 
+    @Test
+    void returnsDailyMultiMetricBucketsForFilteredDataset() throws Exception {
+        mockMvc.perform(post("/timeseries-employees/stats/timeseries")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "filter": {
+                                    "team": "A"
+                                  },
+                                  "field": "createdOn",
+                                  "granularity": "DAY",
+                                  "metrics": [
+                                    {
+                                      "operation": "COUNT",
+                                      "alias": "total"
+                                    },
+                                    {
+                                      "operation": "SUM",
+                                      "field": "salary",
+                                      "alias": "salary"
+                                    }
+                                  ],
+                                  "from": "2026-03-01",
+                                  "to": "2026-03-03",
+                                  "fillGaps": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.metric.operation").value("COUNT"))
+                .andExpect(jsonPath("$.data.metric.alias").value("total"))
+                .andExpect(jsonPath("$.data.metrics.length()").value(2))
+                .andExpect(jsonPath("$.data.points.length()").value(3))
+                .andExpect(jsonPath("$.data.points[0].value").value(2))
+                .andExpect(jsonPath("$.data.points[0].values.total").value(2))
+                .andExpect(jsonPath("$.data.points[0].values.salary").value(25.0))
+                .andExpect(jsonPath("$.data.points[1].value").value(0))
+                .andExpect(jsonPath("$.data.points[1].values.total").value(0))
+                .andExpect(jsonPath("$.data.points[1].values.salary").value(0.0))
+                .andExpect(jsonPath("$.data.points[2].value").value(1))
+                .andExpect(jsonPath("$.data.points[2].values.total").value(1))
+                .andExpect(jsonPath("$.data.points[2].values.salary").value(7.0));
+    }
+
     private static TimeSeriesEmployee newEmployee(String team, LocalDate createdOn, Integer salary) {
         TimeSeriesEmployee entity = new TimeSeriesEmployee();
         entity.setTeam(team);
