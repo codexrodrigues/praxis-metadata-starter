@@ -94,9 +94,12 @@ Um contrato `x-ui.chart` precisa cobrir pelo menos os seguintes blocos.
 
 - `version`
 - `kind`
-  - exemplo: `bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`
+  - exemplo: `bar`, `combo`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`
 - `preset`
   - exemplo: `kpi-trend`, `comparison`, `distribution`, `ranking`, `composition`
+- `orientation`
+  - `vertical`, `horizontal`
+  - util para charts cartesianos quando a plataforma quiser separar orientacao sem depender apenas do nome do tipo
 
 ### 2. Datasource
 
@@ -126,6 +129,26 @@ Observacao:
 - `sort[]`
 - `filters[]`
 - `limit`
+
+Observacoes para a primeira onda de expansao:
+
+- `horizontal-bar`
+  - continua semanticamente proximo de `bar`, mas exige orientacao explicita no contrato
+- `stacked-area`
+  - exige semantica de composicao empilhada no nivel canonico, nao apenas um detalhe do renderer
+- `scatter`
+  - exige leitura bidimensional minima
+  - nesta fase inicial pode ser modelado como uma primeira dimensao para eixo `x` e uma primeira metrica para eixo `y`, desde que o contrato deixe essa regra explicita
+
+Observacoes para a segunda onda:
+
+- `combo`
+  - exige serie heterogenea por metrica
+  - o contrato deve permitir declarar por metrica pelo menos:
+    - `seriesKind`
+    - `axis`
+    - `color`
+  - isso preserva a semantica no nivel canonico e evita codificar combinacoes apenas no adapter ECharts
 
 Aqui a preocupacao nao e a forma final exata do JSON, e sim garantir que o contrato expresse negocio e analise, nao apenas apresentacao.
 
@@ -196,6 +219,22 @@ Separacao recomendada:
 - `x-ui.chart`
   - representa como uma capacidade analitica deve ser composta, apresentada e integrada no ecossistema UI
 
+Compatibilidade da primeira onda com `praxis.stats`:
+
+- `horizontal-bar`
+  - deve nascer sobre `group-by`
+- `stacked-area`
+  - deve nascer preferencialmente sobre `timeseries`
+- `scatter`
+  - pode nascer inicialmente sobre `group-by` quando o recurso permitir usar uma dimensao numerica ou temporal no eixo `x` e uma metrica agregada no eixo `y`
+  - isso nao elimina uma evolucao futura para `source.kind = "derived"` ou envelopes analiticos mais ricos
+
+Compatibilidade inicial da segunda onda:
+
+- `combo`
+  - deve nascer primeiro com `source.kind = "derived"` ou dados locais fornecidos pelo host/widget
+  - o suporte remoto canonico sobre `praxis.stats` depende de evolucao posterior do envelope analitico para mais de uma metrica por consulta
+
 ## Versionamento
 
 Antes de publicar schema definitivo, `x-ui.chart` deve nascer com versionamento explicito.
@@ -220,6 +259,12 @@ Define:
 - eventos
 - estados
 - presets
+
+Na primeira onda, o contrato canonico passa a cobrir:
+
+- orientacao cartesiana
+- composicao temporal empilhada
+- dispersao bidimensional minima
 
 ### Runtime Angular
 

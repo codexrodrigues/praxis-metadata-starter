@@ -1,0 +1,35 @@
+{
+  "version": "0.1.0",
+  "kind": "horizontal-bar",
+  "preset": "ranking",
+  "chartId": "payroll-department-ranking",
+  "orientation": "horizontal",
+  "title": "Massa salarial por departamento",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/human-resources/vw-analytics-folha-pagamento",
+    "operation": "group-by",
+    "options": {
+      "orderBy": "value-desc",
+      "limit": 8
+    }
+  },
+  "dimensions": [
+    {
+      "field": "departamento",
+      "label": "Departamento",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "salarioLiquido",
+      "label": "Massa liquida",
+      "aggregation": "sum"
+    }
+  ],
+  "legend": false,
+  "tooltip": {
+    "enabled": true
+  }
+}

@@ -285,14 +285,22 @@ seguintes blocos.</p>
 <li><code>version</code></li>
 <li><code>kind</code>
 <ul>
-<li>exemplo: <code>bar</code>, <code>line</code>, <code>pie</code>,
-<code>donut</code>, <code>area</code>, <code>stacked-bar</code></li>
+<li>exemplo: <code>bar</code>, <code>combo</code>,
+<code>horizontal-bar</code>, <code>line</code>, <code>pie</code>,
+<code>donut</code>, <code>area</code>, <code>stacked-bar</code>,
+<code>stacked-area</code>, <code>scatter</code></li>
 </ul></li>
 <li><code>preset</code>
 <ul>
 <li>exemplo: <code>kpi-trend</code>, <code>comparison</code>,
 <code>distribution</code>, <code>ranking</code>,
 <code>composition</code></li>
+</ul></li>
+<li><code>orientation</code>
+<ul>
+<li><code>vertical</code>, <code>horizontal</code></li>
+<li>util para charts cartesianos quando a plataforma quiser separar
+orientacao sem depender apenas do nome do tipo</li>
 </ul></li>
 </ul>
 <h3 id="datasource">2. Datasource</h3>
@@ -338,6 +346,41 @@ para a familia analitica institucional ja publicada pelo starter</li>
 <li><code>sort[]</code></li>
 <li><code>filters[]</code></li>
 <li><code>limit</code></li>
+</ul>
+<p>Observacoes para a primeira onda de expansao:</p>
+<ul>
+<li><code>horizontal-bar</code>
+<ul>
+<li>continua semanticamente proximo de <code>bar</code>, mas exige
+orientacao explicita no contrato</li>
+</ul></li>
+<li><code>stacked-area</code>
+<ul>
+<li>exige semantica de composicao empilhada no nivel canonico, nao
+apenas um detalhe do renderer</li>
+</ul></li>
+<li><code>scatter</code>
+<ul>
+<li>exige leitura bidimensional minima</li>
+<li>nesta fase inicial pode ser modelado como uma primeira dimensao para
+eixo <code>x</code> e uma primeira metrica para eixo <code>y</code>,
+desde que o contrato deixe essa regra explicita</li>
+</ul></li>
+</ul>
+<p>Observacoes para a segunda onda:</p>
+<ul>
+<li><code>combo</code>
+<ul>
+<li>exige serie heterogenea por metrica</li>
+<li>o contrato deve permitir declarar por metrica pelo menos:
+<ul>
+<li><code>seriesKind</code></li>
+<li><code>axis</code></li>
+<li><code>color</code></li>
+</ul></li>
+<li>isso preserva a semantica no nivel canonico e evita codificar
+combinacoes apenas no adapter ECharts</li>
+</ul></li>
 </ul>
 <p>Aqui a preocupacao nao e a forma final exata do JSON, e sim garantir
 que o contrato expresse negocio e analise, nao apenas apresentacao.</p>
@@ -418,6 +461,37 @@ o contrato editorial do chart.</p>
 apresentada e integrada no ecossistema UI</li>
 </ul></li>
 </ul>
+<p>Compatibilidade da primeira onda com <code>praxis.stats</code>:</p>
+<ul>
+<li><code>horizontal-bar</code>
+<ul>
+<li>deve nascer sobre <code>group-by</code></li>
+</ul></li>
+<li><code>stacked-area</code>
+<ul>
+<li>deve nascer preferencialmente sobre <code>timeseries</code></li>
+</ul></li>
+<li><code>scatter</code>
+<ul>
+<li>pode nascer inicialmente sobre <code>group-by</code> quando o
+recurso permitir usar uma dimensao numerica ou temporal no eixo
+<code>x</code> e uma metrica agregada no eixo <code>y</code></li>
+<li>isso nao elimina uma evolucao futura para
+<code>source.kind = "derived"</code> ou envelopes analiticos mais
+ricos</li>
+</ul></li>
+</ul>
+<p>Compatibilidade inicial da segunda onda:</p>
+<ul>
+<li><code>combo</code>
+<ul>
+<li>deve nascer primeiro com <code>source.kind = "derived"</code> ou
+dados locais fornecidos pelo host/widget</li>
+<li>o suporte remoto canonico sobre <code>praxis.stats</code> depende de
+evolucao posterior do envelope analitico para mais de uma metrica por
+consulta</li>
+</ul></li>
+</ul>
 <h2 id="versionamento">Versionamento</h2>
 <p>Antes de publicar schema definitivo, <code>x-ui.chart</code> deve
 nascer com versionamento explicito.</p>
@@ -439,6 +513,12 @@ quebrar em cadeia.</p>
 <li>eventos</li>
 <li>estados</li>
 <li>presets</li>
+</ul>
+<p>Na primeira onda, o contrato canonico passa a cobrir:</p>
+<ul>
+<li>orientacao cartesiana</li>
+<li>composicao temporal empilhada</li>
+<li>dispersao bidimensional minima</li>
 </ul>
 <h3 id="runtime-angular">Runtime Angular</h3>
 <p>Define:</p>

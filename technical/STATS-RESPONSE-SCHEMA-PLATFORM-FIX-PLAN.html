@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Stats Response Schema Platform Fix Plan</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Stats Response Schema Platform Fix Plan</h1>
+</header>
+<h1 id="stats-response-schema-platform-fix-plan">Stats Response Schema
+Platform Fix Plan</h1>
+<h2 id="status-em-2026-03-21">Status em 2026-03-21</h2>
+<ul>
+<li>Fase 1 concluída: <code>AbstractCrudController</code> publica
+<code>response schema</code> explícito para <code>group-by</code>,
+<code>timeseries</code> e <code>distribution</code>.</li>
+<li>Fase 2 concluída: <code>ApiDocsController</code> foi endurecido para
+seleção consistente de <code>content</code> e resolução de wrappers de
+stats.</li>
+<li>Fase 3 concluída: <code>ApiDocsController</code> e
+<code>DomainCatalogController</code> passaram a compartilhar a política
+de resolução via <code>OpenApiDocsSupport</code>.</li>
+<li>Fase 5 concluída: o starter ganhou cobertura cruzada entre
+<code>catalog</code> e <code>/schemas/filtered</code>.</li>
+<li>Fase 6 concluída: o <code>quickstart</code> foi validado com
+<code>StatsSchemaSmokeHttpTest</code>, confirmando
+<code>BUILD SUCCESS</code> para request/response schema e coerência de
+<code>schemaLinks</code>.</li>
+<li>Fase 7 auditada: não foi encontrado consumidor ativo no monorepo
+degradando <code>response schema</code> estrutural de
+<code>/schemas/filtered</code> para <code>responseSchema</code> de
+<code>/schemas/catalog</code>; o fluxo correto segue sendo
+<code>catalog</code> para discovery e <code>filtered</code> para
+estrutura.</li>
+<li>Endurecimento adicional no consumidor backend de AI:
+<code>SchemaRetrievalService</code> permanece acoplado apenas a
+<code>/schemas/filtered</code>, e a documentação do
+<code>praxis-config-starter</code> agora explicita que
+<code>/schemas/catalog</code> não substitui resolução estrutural.</li>
+</ul>
+<h2 id="objetivo">Objetivo</h2>
+<p>Corrigir em nível de plataforma a inconsistência entre:</p>
+<ul>
+<li>o contrato OpenAPI publicado para
+<code>POST /stats/group-by</code></li>
+<li>o contrato OpenAPI publicado para
+<code>POST /stats/timeseries</code></li>
+<li>o contrato OpenAPI publicado para
+<code>POST /stats/distribution</code></li>
+<li>o comportamento de <code>/schemas/filtered</code></li>
+<li>o comportamento de <code>/schemas/catalog</code></li>
+</ul>
+<p>A meta não é apenas fazer o frontend funcionar. A meta é restaurar um
+contrato canônico, verificável e consistente entre a documentação
+OpenAPI, os schemas derivados e os consumidores metadata-driven.</p>
+<h2 id="diagnóstico-consolidado">Diagnóstico Consolidado</h2>
+<h3 id="fato-1-os-dtos-canônicos-já-existem">Fato 1: os DTOs canônicos
+já existem</h3>
+<p>O starter já possui DTOs explícitos e padronizados para stats:</p>
+<ul>
+<li><code>GroupByStatsResponse</code></li>
+<li><code>TimeSeriesStatsResponse</code></li>
+<li><code>DistributionStatsResponse</code></li>
+</ul>
+<p>Também já existe o wrapper canônico
+<code>RestApiResponse&lt;T&gt;</code>.</p>
+<p>Ou seja, o problema não é falta de modelagem de domínio.</p>
+<h3
+id="fato-2-o-vínculo-da-operação-com-o-schema-de-resposta-está-incompleto">Fato
+2: o vínculo da operação com o schema de resposta está incompleto</h3>
+<p>Os endpoints de stats em <code>AbstractCrudController</code> publicam
+exemplos no <code>200</code>, mas não publicam explicitamente o
+<code>schema</code> da resposta no conteúdo OpenAPI.</p>
+<p>Na prática, isso permite que o OpenAPI final preserve:</p>
+<ul>
+<li><code>components.schemas.RestApiResponseGroupByStatsResponse</code></li>
+<li><code>components.schemas.GroupByStatsResponse</code></li>
+<li>exemplos operacionais de resposta</li>
+</ul>
+<p>mas perca o elo canônico:</p>
+<ul>
+<li><code>paths -&gt; ... -&gt; responses -&gt; 200 -&gt; content -&gt; application/json -&gt; schema</code></li>
+</ul>
+<p>Quando esse elo some, <code>/schemas/filtered</code> deixa de
+conseguir resolver <code>schemaType=response</code>.</p>
+<h3 id="fato-3-a-falha-é-sistêmica-na-família-stats">Fato 3: a falha é
+sistêmica na família <code>stats/*</code></h3>
+<p>A investigação mostrou que isso não afeta só
+<code>vw-perfil-heroi/group-by</code>. O padrão é repetido em toda a
+família <code>stats/*</code>.</p>
+<p>Na superfície pública verificada, os casos sem <code>schema</code> de
+resposta estavam concentrados exclusivamente em
+<code>stats/*</code>.</p>
+<h3
+id="fato-4-schemascatalog-e-schemasfiltered-não-estão-operando-com-a-mesma-garantia-contratual">Fato
+4: <code>/schemas/catalog</code> e <code>/schemas/filtered</code> não
+estão operando com a mesma garantia contratual</h3>
+<p>Hoje o catálogo:</p>
+<ul>
+<li>pode enxergar <code>responseSchema</code></li>
+<li>sempre publica <code>schemaLinks.response</code></li>
+</ul>
+<p>mas o filtered:</p>
+<ul>
+<li>exige que o schema seja resolvível no documento OpenAPI
+selecionado</li>
+<li>falha com <code>400</code> quando esse vínculo não existe</li>
+</ul>
+<p>Isso significa que o catálogo pode expor um link contratual que o
+endpoint estrutural não consegue honrar.</p>
+<h3
+id="fato-5-há-divergência-na-estratégia-de-resolução-do-documento-openapi">Fato
+5: há divergência na estratégia de resolução do documento OpenAPI</h3>
+<p>Os dois controladores não resolvem grupo/documento da mesma
+forma:</p>
+<ul>
+<li><code>ApiDocsController</code> resolve grupo a partir do path real
+solicitado</li>
+<li><code>DomainCatalogController</code> resolve grupo com uma
+estratégia mais ampla</li>
+</ul>
+<p>Mesmo que isso não fosse a causa raiz principal, isso já é um
+problema arquitetural porque permite inconsistência entre duas
+superfícies derivadas do mesmo contrato.</p>
+<h2 id="objetivos-da-correção">Objetivos da Correção</h2>
+<h3 id="objetivo-primário">Objetivo Primário</h3>
+<p>Garantir que todo endpoint <code>stats/*</code> publique um
+<code>response schema</code> OpenAPI explícito, estável e resolvível por
+<code>/schemas/filtered</code>.</p>
+<h3 id="objetivo-secundário">Objetivo Secundário</h3>
+<p>Garantir que <code>/schemas/catalog</code> e
+<code>/schemas/filtered</code> derivem suas respostas a partir de
+premissas compatíveis e testadas.</p>
+<h3 id="objetivo-de-plataforma">Objetivo de Plataforma</h3>
+<p>Garantir a seguinte propriedade:</p>
+<ul>
+<li>se <code>/schemas/catalog</code> expõe
+<code>schemaLinks.response</code> para uma operação</li>
+<li>então <code>/schemas/filtered</code> deve conseguir resolver esse
+<code>response schema</code></li>
+</ul>
+<p>Essa propriedade precisa virar contrato de plataforma, não convenção
+informal.</p>
+<h2 id="princípios-de-solução">Princípios de Solução</h2>
+<h3 id="corrigir-na-origem-do-contrato">1. Corrigir na origem do
+contrato</h3>
+<p>A solução correta começa na publicação OpenAPI dos endpoints de
+stats, não no frontend e não em fallbacks oportunistas do catálogo.</p>
+<h3 id="evitar-inferência-onde-o-contrato-pode-ser-explícito">2. Evitar
+inferência onde o contrato pode ser explícito</h3>
+<p><code>findResponseSchema(...)</code> pode ter heurísticas defensivas,
+mas stats não deve depender de inferência por nome ou estrutura parcial.
+O contrato deve ser explícito.</p>
+<h3 id="tornar-as-superfícies-derivadas-coerentes-entre-si">3. Tornar as
+superfícies derivadas coerentes entre si</h3>
+<p><code>/schemas/catalog</code> e <code>/schemas/filtered</code> podem
+ter finalidades diferentes, mas não podem divergir sobre a existência do
+schema estrutural da mesma operação.</p>
+<h3 id="proteger-a-correção-com-testes-de-consistência-cruzada">4.
+Proteger a correção com testes de consistência cruzada</h3>
+<p>Não basta testar cada endpoint isoladamente. É necessário testar a
+coerência entre:</p>
+<ul>
+<li>OpenAPI da operação</li>
+<li><code>/schemas/catalog</code></li>
+<li><code>/schemas/filtered</code></li>
+</ul>
+<h2 id="escopo-da-correção">Escopo da Correção</h2>
+<h3 id="incluído">Incluído</h3>
+<ul>
+<li>endpoints <code>stats/group-by</code>, <code>stats/timeseries</code>
+e <code>stats/distribution</code></li>
+<li>publicação OpenAPI desses endpoints no starter</li>
+<li>resolução de <code>response schema</code> em
+<code>/schemas/filtered</code></li>
+<li>coerência contratual em <code>/schemas/catalog</code></li>
+<li>testes unitários/integrados do starter</li>
+<li>validação downstream no quickstart</li>
+</ul>
+<h3 id="excluído-do-primeiro-lote">Excluído do primeiro lote</h3>
+<ul>
+<li>redesign dos payloads de stats</li>
+<li>mudança semântica dos DTOs de stats</li>
+<li>novos endpoints analíticos</li>
+<li>features de frontend além da remoção de workarounds temporários</li>
+</ul>
+<h2 id="plano-de-implementação">Plano de Implementação</h2>
+<h3 id="fase-0-congelar-o-contrato-desejado">Fase 0: Congelar o contrato
+desejado</h3>
+<p>Definir explicitamente o contrato-alvo para cada operação de
+stats:</p>
+<ul>
+<li><code>group-by</code> retorna
+<code>RestApiResponse&lt;GroupByStatsResponse&gt;</code></li>
+<li><code>timeseries</code> retorna
+<code>RestApiResponse&lt;TimeSeriesStatsResponse&gt;</code></li>
+<li><code>distribution</code> retorna
+<code>RestApiResponse&lt;DistributionStatsResponse&gt;</code></li>
+</ul>
+<p>Também registrar a expectativa de documentação:</p>
+<ul>
+<li><code>requestBody.content.application/json.schema</code>
+presente</li>
+<li><code>responses.200.content.application/json.schema</code>
+presente</li>
+<li><code>examples</code> preservados</li>
+<li>wrappers e DTOs presentes em <code>components.schemas</code></li>
+</ul>
+<p>Saída esperada da fase:</p>
+<ul>
+<li>lista de asserts canônicos a serem codificados nos testes</li>
+</ul>
+<h3 id="fase-1-corrigir-a-publicação-openapi-na-origem">Fase 1: Corrigir
+a publicação OpenAPI na origem</h3>
+<p>Ajustar <code>AbstractCrudController</code> para que cada
+<code>@ApiResponse(responseCode = "200")</code> de stats publique
+explicitamente o schema do wrapper correto.</p>
+<p>Direção recomendada:</p>
+<ul>
+<li>declarar <code>mediaType = "application/json"</code></li>
+<li>declarar <code>schema = @Schema(implementation = ...)</code></li>
+<li>preservar os <code>examples</code> já existentes no mesmo
+<code>@Content</code></li>
+</ul>
+<p>Ponto crítico:</p>
+<ul>
+<li>a anotação não deve degradar os exemplos operacionais já
+publicados</li>
+<li>a anotação não deve colapsar o tipo em
+<code>Object.class</code></li>
+<li>a anotação deve continuar gerando wrappers específicos e navegáveis
+em <code>components.schemas</code></li>
+</ul>
+<p>Arquivos-alvo:</p>
+<ul>
+<li><code>src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java</code></li>
+</ul>
+<h3
+id="fase-2-endurecer-a-resolução-de-response-schema-em-schemasfiltered">Fase
+2: Endurecer a resolução de <code>response schema</code> em
+<code>/schemas/filtered</code></h3>
+<p>Mesmo com a publicação corrigida, o <code>ApiDocsController</code>
+deve ficar mais robusto.</p>
+<p>Trabalho recomendado:</p>
+<ul>
+<li>revisar <code>findResponseSchema(...)</code></li>
+<li>preferir seleção de content type via helper equivalente ao usado no
+catálogo</li>
+<li>suportar de forma consistente <code>application/json</code>,
+<code>*/*</code> e primeiro content disponível quando seguro</li>
+<li>manter prioridade para <code>x-ui.responseSchema</code> quando
+explicitamente publicado</li>
+</ul>
+<p>Objetivo:</p>
+<ul>
+<li>reduzir fragilidade do endpoint derivado sem transformá-lo em
+resolvedor heurístico excessivo</li>
+</ul>
+<p>Arquivos-alvo:</p>
+<ul>
+<li><code>src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java</code></li>
+</ul>
+<h3
+id="fase-3-unificar-a-política-de-resolução-entre-catálogo-e-filtered">Fase
+3: Unificar a política de resolução entre catálogo e filtered</h3>
+<p>Hoje os dois controladores podem consultar documentos/grupos
+diferentes para a mesma operação.</p>
+<p>Direção recomendada:</p>
+<ul>
+<li>extrair uma política compartilhada de resolução de grupo/documento
+OpenAPI</li>
+<li>fazer <code>DomainCatalogController</code> usar a mesma lógica de
+path real quando <code>pathFilter</code> estiver presente</li>
+<li>reduzir o espaço para divergência entre grupo específico e fallback
+global</li>
+</ul>
+<p>Opção preferida:</p>
+<ul>
+<li>criar um componente compartilhado para:
+<ul>
+<li>resolver grupo a partir do path</li>
+<li>buscar documento OpenAPI com fallback</li>
+<li>selecionar content node preferido</li>
+</ul></li>
+</ul>
+<p>Arquivos-alvo:</p>
+<ul>
+<li><code>src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java</code></li>
+<li><code>src/main/java/org/praxisplatform/uischema/controller/docs/DomainCatalogController.java</code></li>
+<li>possivelmente um novo helper compartilhado em
+<code>controller/docs</code> ou <code>util</code></li>
+</ul>
+<h3 id="fase-4-endurecer-o-contrato-de-schemascatalog">Fase 4: Endurecer
+o contrato de <code>/schemas/catalog</code></h3>
+<p>O catálogo não deve publicar <code>schemaLinks.response</code>
+cegamente.</p>
+<p>Duas opções:</p>
+<ul>
+<li>opção preferida: só publicar o link quando o response schema for
+resolvível/consistente</li>
+<li>opção aceitável: publicar sempre, mas adicionar teste obrigatório de
+resolubilidade e falhar a build quando isso quebrar</li>
+</ul>
+<p>Recomendação:</p>
+<ul>
+<li>manter os links, mas fazer a suíte de testes garantir a
+consistência</li>
+<li>se durante a implementação isso ainda deixar janelas de falso
+positivo, condicionar a emissão do link à resolubilidade real</li>
+</ul>
+<p>Arquivos-alvo:</p>
+<ul>
+<li><code>src/main/java/org/praxisplatform/uischema/controller/docs/DomainCatalogController.java</code></li>
+</ul>
+<h3 id="fase-5-cobertura-de-testes">Fase 5: Cobertura de testes</h3>
+<h4 id="testes-de-apidocscontroller">5.1 Testes de
+<code>ApiDocsController</code></h4>
+<p>Adicionar cenários para:</p>
+<ul>
+<li><code>schemaType=response</code> com <code>group-by</code></li>
+<li><code>schemaType=response</code> com <code>timeseries</code></li>
+<li><code>schemaType=response</code> com <code>distribution</code></li>
+<li>response com <code>examples</code> e <code>schema</code>
+explícito</li>
+<li>content type alternativo quando aplicável</li>
+<li>fallback controlado para wrapper
+<code>RestApiResponse&lt;...&gt;</code></li>
+</ul>
+<p>Também adicionar um teste negativo:</p>
+<ul>
+<li>operação com examples, mas sem response schema explícito</li>
+<li>comportamento esperado documentado de forma clara</li>
+</ul>
+<h4 id="testes-de-domaincatalogcontroller">5.2 Testes de
+<code>DomainCatalogController</code></h4>
+<p>Adicionar cenários para:</p>
+<ul>
+<li>stats response schema publicado corretamente</li>
+<li><code>schemaLinks.response</code> consistente com a operação</li>
+<li>comportamento quando o documento não permite resolver response
+schema</li>
+</ul>
+<h4 id="teste-de-consistência-cruzada">5.3 Teste de consistência
+cruzada</h4>
+<p>Adicionar um teste de integração do starter com esta propriedade:</p>
+<ul>
+<li>para uma operação de stats no catálogo</li>
+<li>o <code>schemaLinks.response</code> emitido deve ser resolvido com
+sucesso por <code>/schemas/filtered</code></li>
+</ul>
+<p>Esse é o teste mais importante do lote porque fecha a regressão
+estrutural.</p>
+<p>Arquivos-alvo:</p>
+<ul>
+<li><code>src/test/java/org/praxisplatform/uischema/controller/docs/ApiDocsControllerTest.java</code></li>
+<li><code>src/test/java/org/praxisplatform/uischema/controller/docs/DomainCatalogControllerTest.java</code></li>
+<li>novo teste integrado, se necessário</li>
+</ul>
+<h3 id="fase-6-validação-downstream-no-quickstart">Fase 6: Validação
+downstream no quickstart</h3>
+<p>Depois da correção no starter:</p>
+<ul>
+<li>atualizar a dependência consumida pelo quickstart</li>
+<li>validar que os endpoints reais <code>stats/*</code> continuam
+operando</li>
+<li>validar que os docs OpenAPI reais agora publicam
+<code>response schema</code></li>
+<li>validar que <code>/schemas/catalog</code> e
+<code>/schemas/filtered</code> convergem nos casos
+<code>funcionarios</code>, <code>vw_perfil_heroi</code> e
+<code>vw_indicadores_incidentes</code></li>
+</ul>
+<p>Validações mínimas:</p>
+<ul>
+<li><code>GET /schemas/filtered?...schemaType=request</code> continua
+<code>200</code></li>
+<li><code>GET /schemas/filtered?...schemaType=response</code> passa a
+<code>200</code></li>
+<li><code>GET /schemas/catalog?...stats...</code> continua trazendo
+request/response/examples</li>
+<li>os links de schema do catálogo passam a ser efetivamente
+navegáveis</li>
+</ul>
+<p>Arquivos/superfícies-alvo:</p>
+<ul>
+<li><code>praxis-api-quickstart</code> consumindo a versão corrigida do
+starter</li>
+<li>OpenAPI público do quickstart</li>
+</ul>
+<h3 id="fase-7-remoção-de-contingências-em-consumidores">Fase 7: Remoção
+de contingências em consumidores</h3>
+<p>Se houver fallback temporário no frontend para usar
+<code>responseSchema</code> do catálogo quando
+<code>/schemas/filtered</code> falhar, esse fallback deve ser tratado
+como contingência transitória.</p>
+<p>Após a correção de plataforma:</p>
+<ul>
+<li>remover ou reduzir esse fallback</li>
+<li>voltar a tratar <code>/schemas/filtered</code> como fonte estrutural
+canônica</li>
+<li>manter <code>/schemas/catalog</code> como fonte
+documental/discovery</li>
+</ul>
+<p>Resultado da auditoria de 2026-03-21:</p>
+<ul>
+<li><code>praxis-ui-angular</code> na feature
+<code>stats-examples</code> já usa <code>/schemas/filtered</code> para
+<code>request/response</code> e <code>/schemas/catalog</code> apenas
+para discovery/exibição.</li>
+<li><code>praxis-config-starter</code> usa
+<code>SchemaRetrievalService</code> apontando somente para
+<code>/schemas/filtered</code>.</li>
+<li>Não foi identificado fallback estrutural ativo a remover neste lote;
+a ação correta foi endurecer o contrato e documentar explicitamente a
+separação de responsabilidades.</li>
+</ul>
+<h2 id="backlog-técnico-por-arquivo">Backlog Técnico por Arquivo</h2>
+<h3 id="starter">Starter</h3>
+<ul>
+<li><code>src/main/java/org/praxisplatform/uischema/controller/base/AbstractCrudController.java</code>
+<ul>
+<li>explicitar <code>schema</code> do <code>200</code> em
+<code>group-by</code>, <code>timeseries</code>,
+<code>distribution</code></li>
+<li>preservar <code>examples</code></li>
+</ul></li>
+<li><code>src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java</code>
+<ul>
+<li>endurecer <code>findResponseSchema(...)</code></li>
+<li>alinhar seleção de content type</li>
+<li>reduzir dependência de heurísticas frágeis</li>
+</ul></li>
+<li><code>src/main/java/org/praxisplatform/uischema/controller/docs/DomainCatalogController.java</code>
+<ul>
+<li>alinhar resolução de grupo/path</li>
+<li>revisar emissão de <code>schemaLinks.response</code></li>
+<li>manter coerência com resolubilidade real</li>
+</ul></li>
+<li><code>src/test/java/org/praxisplatform/uischema/controller/docs/ApiDocsControllerTest.java</code>
+<ul>
+<li>cobrir stats response reais</li>
+</ul></li>
+<li><code>src/test/java/org/praxisplatform/uischema/controller/docs/DomainCatalogControllerTest.java</code>
+<ul>
+<li>cobrir consistência de links e response schema para stats</li>
+</ul></li>
+<li><code>src/test/java/...</code>
+<ul>
+<li>incluir teste de consistência cruzada entre catálogo e filtered</li>
+</ul></li>
+</ul>
+<h3 id="quickstart">Quickstart</h3>
+<ul>
+<li>atualizar a versão do starter</li>
+<li>rerodar smoke de stats</li>
+<li>validar docs reais e endpoints derivados</li>
+</ul>
+<h2 id="ordem-recomendada-de-execução">Ordem Recomendada de
+Execução</h2>
+<ol type="1">
+<li>adicionar testes que reproduzem a falha atual</li>
+<li>corrigir a anotação OpenAPI em
+<code>AbstractCrudController</code></li>
+<li>corrigir/fortalecer <code>ApiDocsController</code></li>
+<li>alinhar <code>DomainCatalogController</code></li>
+<li>adicionar teste de consistência cruzada</li>
+<li>validar no quickstart</li>
+<li>só então ajustar consumidores se necessário</li>
+</ol>
+<p>Essa ordem é importante porque força a correção a nascer no contrato
+e não no consumidor.</p>
+<h2 id="critérios-de-aceite">Critérios de Aceite</h2>
+<h3 id="contrato-openapi">Contrato OpenAPI</h3>
+<ul>
+<li>cada endpoint <code>stats/*</code> publica
+<code>responses.200.content.application/json.schema</code></li>
+<li>os <code>examples</code> continuam presentes</li>
+<li>os wrappers específicos continuam em
+<code>components.schemas</code></li>
+</ul>
+<h3 id="schemasfiltered"><code>/schemas/filtered</code></h3>
+<ul>
+<li><code>schemaType=request</code> continua resolvendo</li>
+<li><code>schemaType=response</code> passa a resolver
+<code>group-by</code>, <code>timeseries</code> e
+<code>distribution</code></li>
+</ul>
+<h3 id="schemascatalog"><code>/schemas/catalog</code></h3>
+<ul>
+<li>continua expondo request schema, response schema e operation
+examples</li>
+<li><code>schemaLinks.response</code> não aponta mais para um endpoint
+estrutural quebrado</li>
+</ul>
+<h3 id="consistência">Consistência</h3>
+<ul>
+<li>existe teste garantindo que links de schema publicados pelo catálogo
+são resolvíveis</li>
+</ul>
+<h3 id="downstream">Downstream</h3>
+<ul>
+<li>quickstart validado com recursos reais</li>
+<li>consumidores de frontend deixam de depender de workaround para stats
+response</li>
+</ul>
+<h2 id="riscos">Riscos</h2>
+<h3 id="risco-1-springdoc-gerar-wrappers-inesperados">Risco 1: SpringDoc
+gerar wrappers inesperados</h3>
+<p>Ao explicitar <code>schema</code> no <code>@ApiResponse</code>, o
+SpringDoc pode gerar nomes de wrapper diferentes dos atuais.</p>
+<p>Mitigação:</p>
+<ul>
+<li>proteger por testes de snapshot/asserts estruturais</li>
+<li>validar nomes reais publicados em
+<code>components.schemas</code></li>
+</ul>
+<h3 id="risco-2-perda-involuntária-de-examples">Risco 2: perda
+involuntária de examples</h3>
+<p>Ao mexer em <code>@Content</code>, os exemplos podem desaparecer ou
+ser sobrescritos.</p>
+<p>Mitigação:</p>
+<ul>
+<li>asserts específicos para <code>operationExamples</code></li>
+<li>validação de catálogo e filtered após a mudança</li>
+</ul>
+<h3
+id="risco-3-resolver-divergência-entre-docs-públicos-e-internos">Risco
+3: resolver divergência entre docs públicos e internos</h3>
+<p>Se <code>app.openapi.internal-base-url</code> estiver apontando para
+uma superfície OpenAPI diferente da pública, a inconsistência pode
+continuar mascarada.</p>
+<p>Mitigação:</p>
+<ul>
+<li>validar explicitamente a origem usada server-side</li>
+<li>documentar essa dependência operacional</li>
+<li>garantir que os testes do starter não dependam de diferenças
+ambientais</li>
+</ul>
+<h2 id="definition-of-done">Definition of Done</h2>
+<ul>
+<li>a família <code>stats/*</code> publica response schema OpenAPI
+explícito</li>
+<li><code>/schemas/filtered</code> resolve request e response para
+stats</li>
+<li><code>/schemas/catalog</code> e <code>/schemas/filtered</code> ficam
+coerentes para stats</li>
+<li>existe teste de consistência cruzada cobrindo
+<code>schemaLinks.response</code></li>
+<li>quickstart validado com recursos reais</li>
+<li>workarounds temporários em consumidores ficam desnecessários ou
+claramente marcados para remoção</li>
+</ul>
+<h2 id="próxima-pr-recomendada">Próxima PR Recomendada</h2>
+<p>Escopo da primeira PR:</p>
+<ul>
+<li>testes reprodutores no starter</li>
+<li>correção de <code>AbstractCrudController</code></li>
+<li>ajuste mínimo de <code>ApiDocsController</code></li>
+<li>teste de consistência cruzada básico</li>
+</ul>
+<p>Escopo da segunda PR:</p>
+<ul>
+<li>refatoração compartilhada da resolução de documento/grupo</li>
+<li>endurecimento adicional do catálogo</li>
+<li>validação downstream no quickstart</li>
+</ul>
+</body>
+</html>

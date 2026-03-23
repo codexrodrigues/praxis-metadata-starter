@@ -267,10 +267,12 @@ e DEVEM ser boolean)</li>
 <li>Chart (x-ui.chart)
 <ul>
 <li><code>version</code>, <code>kind</code>, <code>preset</code>,
-<code>source</code></li>
+<code>source</code>, <code>orientation</code></li>
 <li><code>dimensions</code>, <code>metrics</code>,
 <code>aggregations</code>, <code>filters</code>, <code>sort</code>,
 <code>limit</code></li>
+<li><code>metrics[].seriesKind</code>, <code>metrics[].axis</code>,
+<code>metrics[].color</code></li>
 <li><code>state</code>, <code>events</code>, <code>legend</code>,
 <code>labels</code>, <code>tooltip</code>, <code>theme</code></li>
 </ul></li>
@@ -284,7 +286,7 @@ JSON Schema</li>
 <li><code>numericFormat</code> (NumericFormat):
 <code>integer | decimal | currency | scientific | time | date | date-time | duration | number | fraction | percent</code></li>
 <li><code>x-ui.chart.kind</code>:
-<code>bar | line | pie | donut | area | stacked-bar</code></li>
+<code>bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter</code></li>
 <li><code>x-ui.chart.source.kind</code>:
 <code>praxis.stats | derived</code></li>
 </ul>
@@ -403,6 +405,12 @@ desta pasta.</li>
 <li>O draft <code>x-ui.chart</code> esta pronto para publicacao
 controlada, mas continua em estado <code>draft</code> e deve ser tratado
 como contrato em evolucao.</li>
+<li>A primeira onda do draft amplia o contrato para
+<code>horizontal-bar</code>, <code>stacked-area</code> e
+<code>scatter</code>; a segunda onda introduz <code>combo</code> com
+semantica de serie por metrica.</li>
+<li>O runtime Angular oficial deve explicitar honestamente quando alguma
+parte do contrato ainda for mais ampla que a implementacao atual.</li>
 </ul>
 </body>
 </html>

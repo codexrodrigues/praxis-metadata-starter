@@ -31,6 +31,66 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "combo"
+          }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "metrics": {
+            "type": "array",
+            "minItems": 2
+          }
+        },
+        "required": ["dimensions", "metrics"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "horizontal-bar"
+          }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "orientation": {
+            "const": "horizontal"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "scatter"
+          }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "dimensions": {
+            "type": "array",
+            "minItems": 1
+          },
+          "metrics": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1
+          }
+        },
+        "required": ["dimensions", "metrics"]
+      }
     }
   ],
   "properties": {
@@ -40,7 +100,7 @@
     },
     "kind": {
       "type": "string",
-      "enum": ["bar", "line", "pie", "donut", "area", "stacked-bar"]
+      "enum": ["bar", "combo", "horizontal-bar", "line", "pie", "donut", "area", "stacked-bar", "stacked-area", "scatter"]
     },
     "preset": {
       "type": "string",
@@ -74,6 +134,10 @@
           "minLength": 1
         }
       ]
+    },
+    "orientation": {
+      "type": "string",
+      "enum": ["vertical", "horizontal"]
     },
     "source": {
       "$ref": "#/$defs/source"
@@ -295,7 +359,7 @@
         },
         "role": {
           "type": "string",
-          "enum": ["category", "series", "segment", "time"]
+          "enum": ["category", "series", "segment", "time", "value"]
         },
         "format": {
           "type": "string",
@@ -318,6 +382,18 @@
         "aggregation": {
           "type": "string",
           "enum": ["sum", "avg", "min", "max", "count", "distinct-count"]
+        },
+        "seriesKind": {
+          "type": "string",
+          "enum": ["bar", "line", "area"]
+        },
+        "axis": {
+          "type": "string",
+          "enum": ["primary", "secondary"]
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1
         },
         "format": {
           "type": "string",

@@ -41,8 +41,9 @@
   - `readOnly` (boolean)
   - `capabilities` (mapa boolean com chaves conhecidas: `create`, `update`, `delete`, `options`, `byId`, `all`, `filter`, `cursor`; valores adicionais MAY existir e DEVEM ser boolean)
 - Chart (x-ui.chart)
-  - `version`, `kind`, `preset`, `source`
+  - `version`, `kind`, `preset`, `source`, `orientation`
   - `dimensions`, `metrics`, `aggregations`, `filters`, `sort`, `limit`
+  - `metrics[].seriesKind`, `metrics[].axis`, `metrics[].color`
   - `state`, `events`, `legend`, `labels`, `tooltip`, `theme`
 
 ## Tipos e Enums
@@ -50,7 +51,7 @@
 - `type` (FieldDataType): `text | number | email | date | password | file | url | boolean | json`
 - `controlType` (FieldControlType): ver enum completo no JSON Schema
 - `numericFormat` (NumericFormat): `integer | decimal | currency | scientific | time | date | date-time | duration | number | fraction | percent`
-- `x-ui.chart.kind`: `bar | line | pie | donut | area | stacked-bar`
+- `x-ui.chart.kind`: `bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter`
 - `x-ui.chart.source.kind`: `praxis.stats | derived`
 
 ## Obrigatoriedade e Defaults
@@ -121,3 +122,5 @@
 
 - `schemaId`, `ETag` e `X-Schema-Hash` sao praticas recomendadas para cache/304 e compoem a identidade de schema, mas nao fazem parte da validacao JSON desta pasta.
 - O draft `x-ui.chart` esta pronto para publicacao controlada, mas continua em estado `draft` e deve ser tratado como contrato em evolucao.
+- A primeira onda do draft amplia o contrato para `horizontal-bar`, `stacked-area` e `scatter`; a segunda onda introduz `combo` com semantica de serie por metrica.
+- O runtime Angular oficial deve explicitar honestamente quando alguma parte do contrato ainda for mais ampla que a implementacao atual.

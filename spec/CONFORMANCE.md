@@ -56,9 +56,10 @@
   - `displayColumns` -> padrao de colunas iniciais
   - `operationExamples.<schemaType>` -> exemplos operacionais para catalogo, playgrounds e documentacao contextual
 - x-ui.chart
-  - `version`, `kind`, `source` -> identidade minima do contrato analitico metadata-driven
-  - `dimensions`, `metrics`, `aggregations`, `filters`, `sort` -> semantica analitica canonica
-  - `state`, `events` -> estados e interacoes declarativas de plataforma
+- `version`, `kind`, `source` -> identidade minima do contrato analitico metadata-driven
+- `dimensions`, `metrics`, `aggregations`, `filters`, `sort` -> semantica analitica canonica
+- `metrics[].seriesKind`, `metrics[].axis` -> serie heterogenea e eixo primario/secundario para charts combinados
+- `state`, `events` -> estados e interacoes declarativas de plataforma
 - x-ui.resource
   - `idField` -> chave primaria no fluxo de CRUD/UI
   - `idFieldValid`/`idFieldMessage` -> diagnostico e alertas
@@ -72,13 +73,17 @@ O draft canonico pode ser mais amplo que o runtime Angular atual.
 Suportado hoje no runtime oficial:
 
 - `source.kind = "praxis.stats"`
-- `kind`: `bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`
+- `kind`: `bar`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`
+- `kind`: `combo` com dados locais/derivados e series heterogeneas por metrica
 - uma metrica por chart quando a origem e `praxis.stats`
 - `pointClick` e `drillDown` no fluxo atual
+- `orientation = "horizontal"` para `horizontal-bar`
+- `scatter` com leitura bidimensional minima: primeira dimensao no eixo `x` e primeira metrica no eixo `y`
 
 Ainda nao suportado no runtime Angular atual:
 
 - `source.kind = "derived"`
+- `kind = "combo"` sobre `source.kind = "praxis.stats"` com multiplas metricas publicadas pelo backend
 - `aggregation = "distinct-count"`
 - `events.selectionChange`
 - `events.crossFilter`

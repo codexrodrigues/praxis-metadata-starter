@@ -233,6 +233,24 @@
 <h1 class="title">Filtered Stats Plan</h1>
 </header>
 <h1 id="filtered-stats-plan">Filtered Stats Plan</h1>
+<h2 id="additive-multi-metric-extension">Additive Multi-Metric
+Extension</h2>
+<p>The canonical <code>praxis.stats</code> contract is being expanded
+additively for <code>group-by</code> and <code>timeseries</code>.</p>
+<p>Current platform intent for this extension:</p>
+<ul>
+<li><code>metric</code> remains valid and backward compatible</li>
+<li><code>metrics[]</code> becomes an optional public request field for
+<code>group-by</code> and <code>timeseries</code></li>
+<li>responses may publish <code>metrics[]</code> and
+per-bucket/per-point <code>values</code></li>
+<li><code>value</code> remains the compatibility field for the primary
+metric</li>
+<li><code>group-by</code> and <code>timeseries</code> are now executable
+with multi-metric payloads in the starter JPA runtime</li>
+<li><code>distribution</code> remains mono-metric in this phase until
+the JPA executor is expanded</li>
+</ul>
 <h2 id="contexto">Contexto</h2>
 <p>O <code>praxis-metadata-starter</code> já centraliza a superfície
 canônica de leitura para recursos genéricos:</p>
