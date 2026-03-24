@@ -154,6 +154,10 @@
       "type": "string",
       "description": "Option label field name published by the backend. The Angular runtime normalizes this field to optionLabelKey."
     },
+    "optionSource": {
+      "$ref": "#/definitions/optionSource",
+      "description": "Draft canonical contract for derived option sources. This block may coexist with legacy endpoint/valueField/displayField during rollout."
+    },
     "emptyOptionText": { "type": "string" },
     "options": {
       "type": "array",
@@ -253,6 +257,54 @@
         "group": { "type": "string" }
       },
       "required": ["value", "label"]
+    },
+    "optionSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "RESOURCE_ENTITY",
+            "DISTINCT_DIMENSION",
+            "CATEGORICAL_BUCKET",
+            "LIGHT_LOOKUP",
+            "STATIC_CANONICAL"
+          ]
+        },
+        "resourcePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "filterField": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "excludeSelfField": { "type": "boolean" },
+        "searchMode": {
+          "type": "string",
+          "enum": ["none", "starts-with", "contains", "exact"]
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "includeIds": { "type": "boolean" },
+        "cachePolicy": {
+          "type": "string",
+          "enum": ["none", "request-scope", "session-scope", "etag-aware"]
+        }
+      },
+      "required": ["key", "type", "resourcePath"]
     }
   }
 }
