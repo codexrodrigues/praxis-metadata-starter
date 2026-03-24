@@ -46,8 +46,8 @@ Documentação online (GitHub Pages):
 
 ### Trilha principal para LLM
 
-- Guia: Criar aplicação nova com IA (Claude/LLMs) — docs/guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md
-- Guia: Gerar CRUD + Bulk com IA por entidade — docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md
+- Guia: Backend - Aplicacao Nova — docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md
+- Guia: Backend - CRUD Metadata-Driven — docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md
 
 ### Ecossistema (projetos relacionados)
 
@@ -70,7 +70,7 @@ Documentação online (GitHub Pages):
   - [Plano de cursor pagination / keyset](docs/technical/CURSOR-PAGINATION-KEYSET-PLAN.md)
   - [Backlog executável de cursor pagination / keyset](docs/technical/CURSOR-PAGINATION-KEYSET-BACKLOG.md)
   - [Validação @ApiResource](docs/technical/VALIDACAO-API-RESOURCE.md)
-  - [Guia CRUD + Bulk](docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md)
+  - [Guia 02 - Backend - CRUD Metadata-Driven](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md)
 
 ### Apresentação (artigo)
 
