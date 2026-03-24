@@ -61,10 +61,10 @@ curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoa
 - Rules & Specifications: ../concepts/rules-engines-and-specifications.md
 
 ## Exemplo completo
-- Repositório de exemplo (Quickstart): https://github.com/codexrodrigues/praxis-api-quickstart
+- A trilha principal para LLMs fica em `docs/guides/README.md`
 
 ## Guias e técnica
-- Guia de CRUD metadata-driven: ../guides/GUIA-CLAUDE-AI-CRUD-BULK.md
+- Guia de CRUD metadata-driven: ../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md
 - Estratégia de grupos OpenAPI: ../technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
 - Auto‑configuração: ../technical/AUTO-CONFIGURACAO.md
 - Validação @ApiResource: ../technical/VALIDACAO-API-RESOURCE.md

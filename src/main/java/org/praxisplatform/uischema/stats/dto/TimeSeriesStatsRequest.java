@@ -7,9 +7,15 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Canonical request contract for time-series stats.
+ * Contrato canonico de request para series temporais agregadas.
  *
- * @param <FD> filter DTO type
+ * <p>
+ * O request define o campo temporal, a granularidade, o intervalo de datas e a metrica agregada,
+ * sempre combinado ao filtro principal do recurso. Assim, dashboards e componentes derivados podem
+ * operar sobre uma superficie estatistica consistente entre modulos da plataforma.
+ * </p>
+ *
+ * @param <FD> tipo do filtro do recurso
  */
 public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
         FD filter,
@@ -21,6 +27,9 @@ public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
         Boolean fillGaps,
         List<StatsMetricRequest> metrics
 ) {
+    /**
+     * Construtor de compatibilidade para o modo de metrica unica.
+     */
     public TimeSeriesStatsRequest(
             FD filter,
             String field,
@@ -33,6 +42,11 @@ public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
         this(filter, field, granularity, metric, from, to, fillGaps, null);
     }
 
+    /**
+     * Retorna a lista efetiva de metricas solicitadas.
+     *
+     * @return lista efetiva de metricas; usa {@code metrics} quando presente, com fallback para {@code metric}
+     */
     public List<StatsMetricRequest> effectiveMetrics() {
         if (metrics != null && !metrics.isEmpty()) {
             return List.copyOf(metrics);
@@ -40,6 +54,11 @@ public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
         return metric != null ? List.of(metric) : List.of();
     }
 
+    /**
+     * Retorna a metrica primaria para consumidores legados ou fluxos de metrica unica.
+     *
+     * @return primeira metrica efetiva ou {@code null}
+     */
     public StatsMetricRequest primaryMetric() {
         List<StatsMetricRequest> effective = effectiveMetrics();
         return effective.isEmpty() ? null : effective.get(0);

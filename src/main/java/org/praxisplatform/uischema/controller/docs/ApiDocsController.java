@@ -26,36 +26,35 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map.Entry;
 
 /**
- * Controlador REST que expõe o endpoint {@code /schemas/filtered} e integra o
- * fluxo de enriquecimento OpenAPI descrito na documentação arquitetural.
+ * Controlador REST que expõe o endpoint canônico {@code /schemas/filtered}.
  *
  * <p>
- * Responsabilidades principais:
+ * Esta e uma das superficies centrais do modelo metadata-driven do starter. Em vez de obrigar
+ * cada consumidor a interpretar o documento OpenAPI completo, o controller resolve o grupo correto,
+ * localiza a operacao desejada e devolve apenas o fragmento de schema relevante, enriquecido com
+ * metadados {@code x-ui} e informacoes auxiliares para frontend, playgrounds e integradores.
  * </p>
+ *
+ * <h3>Responsabilidades principais</h3>
  * <ul>
  *   <li>Resolver automaticamente o grupo OpenAPI adequado via
- *   {@link org.praxisplatform.uischema.util.OpenApiGroupResolver}</li>
- *   <li>Aplicar cache em memória e validar {@code If-None-Match} gerando ETag
- *   estável com utilitários do pacote {@code hash}</li>
- *   <li>Filtrar o schema solicitado e retornar apenas as propriedades relevantes
- *   com metadados {@code x-ui}</li>
+ *   {@link org.praxisplatform.uischema.util.OpenApiGroupResolver}.</li>
+ *   <li>Aplicar cache em memoria e suporte a {@code ETag}/{@code If-None-Match}.</li>
+ *   <li>Selecionar schema de {@code request} ou {@code response} da operacao desejada.</li>
+ *   <li>Enriquecer a resposta com {@code x-ui.resource}, capacidades, exemplos e metadados de option-sources.</li>
  * </ul>
  *
- * <p>
- * Requisições típicas seguem o padrão
- * {@code GET /schemas/filtered?path=/api/module/resource/all} e retornam um
- * fragmento OpenAPI com campos enriquecidos pelo
- * {@link org.praxisplatform.uischema.extension.CustomOpenApiResolver}. O fluxo
- * completo é descrito em {@code docs/architecture-overview.md}.
- * </p>
- *
- * <p><strong>Exemplo:</strong></p>
+ * <h3>Uso tipico</h3>
  * <pre>{@code
- * GET /schemas/filtered?path=/api/human-resources/funcionarios/all
- * → resolve grupo "api-human-resources-funcionarios"
- * → aplica cache + ETag baseado no hash do schema filtrado
- * → devolve JSON com components.schemas.EmployeeDTO.x-ui
+ * GET /schemas/filtered?path=/api/human-resources/funcionarios/all&operation=get&schemaType=response
+ * GET /schemas/filtered?path=/api/human-resources/funcionarios/filter&operation=post&schemaType=request
  * }</pre>
+ *
+ * <p>
+ * O resultado e um fragmento OpenAPI filtrado, adequado para formularios, grids, consumo por IA,
+ * validadores documentais e outras superficies derivadas que nao devem reconstruir manualmente a
+ * semantica do contrato a partir do OpenAPI bruto.
+ * </p>
  *
  * @see org.praxisplatform.uischema.util.OpenApiGroupResolver
  * @see org.praxisplatform.uischema.extension.CustomOpenApiResolver
@@ -110,28 +109,40 @@ public class ApiDocsController {
     
 
     /**
-     * Recupera e filtra a documentação OpenAPI para o caminho, operação e documento especificados.
-     * <p>
-     * O método busca um documento OpenAPI em <code>/v3/api-docs/{document}</code> e, a partir dele,
-     * filtra o esquema correspondente ao <code>path</code> e <code>operation</code> fornecidos. Caso
-     * o parâmetro <code>includeInternalSchemas</code> seja verdadeiro, substitui referências internas
-     * (<code>$ref</code>) pelos esquemas correspondentes.
+     * Recupera e filtra o schema OpenAPI de uma operacao especifica.
      *
-     * @param path                   O caminho específico dentro da documentação OpenAPI (por exemplo, "/dados-pessoa-fisica/all").
-     *                               Se contiver barras ou caracteres especiais, deve estar devidamente codificado em URL.
-     * @param operation              (Opcional) A operação HTTP para o caminho especificado (por exemplo, "get", "post").
-     *                               Caso não seja fornecido, o valor padrão é <code>"get"</code>.
-     * @param includeInternalSchemas (Opcional) Define se referências internas (<code>$ref</code>) devem ser substituídas
-     *                               pelas propriedades reais. Se <code>true</code>, faz a substituição recursiva; caso contrário,
-     *                               mantém as referências originais. O valor padrão é <code>false</code>.
-     * @param schemaType            (Opcional) Define se o schema retornado deve ser o de <code>response</code> (padrão)
-     *                              ou o schema do corpo de <code>request</code>.
-     * @return Um mapa (<code>Map&lt;String, Object&gt;</code>) representando o esquema filtrado do OpenAPI, incluindo
-     * os metadados do <code>x-ui</code> e, se solicitado, as substituições de referências internas.
-     * @throws IllegalStateException    Se não for possível recuperar a documentação OpenAPI do endpoint.
-     * @throws IllegalArgumentException Se o <code>path</code> ou <code>operation</code> não existirem na documentação,
-     *                                  se o schema solicitado não estiver definido ou se o esquema em
-     *                                  <code>components -> schemas</code> não for encontrado.
+     * <p>
+     * O fluxo parte do {@code path} do recurso, resolve o grupo OpenAPI correspondente e carrega
+     * o documento fonte. Em seguida, seleciona a operacao HTTP desejada e retorna o schema de
+     * {@code response} ou {@code request}, opcionalmente expandindo referencias internas e
+     * enriquecendo o payload com metadados auxiliares para consumidores metadata-driven.
+     * </p>
+     *
+     * <h3>Parametros mais relevantes</h3>
+     * <ul>
+     *   <li>{@code path}: endpoint real do recurso cuja operacao servira de ancora canonica.</li>
+     *   <li>{@code operation}: verbo HTTP em minusculo, como {@code get} ou {@code post}.</li>
+     *   <li>{@code schemaType}: escolhe entre schema do corpo de {@code request} ou de {@code response}.</li>
+     *   <li>{@code includeInternalSchemas}: quando {@code true}, expande refs internas para facilitar consumo direto.</li>
+     * </ul>
+     *
+     * <p>
+     * Alem do schema em si, a resposta pode incluir enriquecimentos como {@code x-ui.resource.idField},
+     * flags de capacidade CRUD, exemplos de operacao e metadados de option-sources quando aplicavel.
+     * </p>
+     *
+     * @param path caminho OpenAPI do recurso, por exemplo {@code /api/human-resources/funcionarios/all}
+     * @param operation operacao HTTP; padrao {@code get}
+     * @param includeInternalSchemas define se referencias internas devem ser expandidas recursivamente
+     * @param schemaType define se o schema alvo e de {@code response} ou {@code request}
+     * @param idField permite sobrescrever o campo de identificacao informado ao frontend
+     * @param readOnly permite sinalizar explicitamente o estado de somente leitura quando necessario
+     * @param ifNoneMatch ETag previamente recebida pelo cliente para validacao condicional
+     * @param tenant cabecalho opcional de tenant para ambientes multitenant
+     * @param locale locale da requisicao para resolucoes sensiveis a idioma
+     * @return resposta HTTP contendo o schema filtrado e enriquecido
+     * @throws IllegalStateException quando nao for possivel recuperar o documento OpenAPI do grupo resolvido
+     * @throws IllegalArgumentException quando {@code path}, {@code operation} ou o schema solicitado nao existirem
      */
     @GetMapping
     public org.springframework.http.ResponseEntity<Map<String, Object>> getFilteredSchema(

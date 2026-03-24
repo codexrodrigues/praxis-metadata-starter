@@ -44,28 +44,46 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Interface base para operações CRUD e paginação com filtragem.
+ * Interface base para operacoes CRUD, filtro, options e stats do starter.
+ *
  * <p>
- * Os endpoints genéricos do starter assumem que projeções {@code entity -> DTO}
- * e {@code entity -> OptionDTO} ocorram dentro do service. Em projetos que usam JPA
- * com associações {@code LAZY}, a forma suportada de garantir esse boundary é herdar
- * de {@link AbstractBaseCrudService}, que aplica semântica transacional aos fluxos
- * de leitura e escrita usados pelos controllers genéricos.
+ * Esta interface define o boundary canônico entre controllers genericos e implementacoes de dominio.
+ * Os controllers base assumem que conversoes {@code entity -> DTO}, resolucao de ordenacao padrao,
+ * options e capacidades estatisticas sejam fornecidas neste nivel, e nao espalhadas em adapters
+ * locais de frontend ou em controllers customizados.
  * </p>
  *
- * @param <E>  Tipo da entidade
- * @param <D>  Tipo do DTO
- * @param <ID> Tipo do identificador
- * @param <FD> Tipo do DTO de filtro
+ * <p>
+ * Em projetos com JPA e associacoes {@code LAZY}, a forma suportada de manter esse boundary e herdar
+ * de {@link AbstractBaseCrudService}, que aplica semantica transacional adequada aos fluxos usados
+ * pelos controllers publicos da plataforma.
+ * </p>
+ *
+ * <h3>Capacidades cobertas</h3>
+ * <ul>
+ *   <li>CRUD e listagem com ordenacao padrao.</li>
+ *   <li>Filtragem paginada e por cursor.</li>
+ *   <li>Projecoes leves para {@link OptionDTO}.</li>
+ *   <li>Option-sources e surfaces estatisticas canonicas.</li>
+ * </ul>
+ *
+ * @param <E> tipo da entidade
+ * @param <D> tipo do DTO
+ * @param <ID> tipo do identificador
+ * @param <FD> tipo do DTO de filtro
  */
 public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
 
     /**
-     * Resultado de uma operação de criação que precisa expor simultaneamente
-     * o identificador persistido e a projeção retornada ao cliente.
+     * Resultado de criacao que carrega simultaneamente o identificador persistido e o corpo projetado.
+     *
+     * <p>
+     * Esse record existe para evitar que o controller precise extrair o ID e projetar o DTO em
+     * dois passos diferentes, preservando o boundary transacional no service.
+     * </p>
      *
      * @param <ID> tipo do identificador
-     * @param <R> tipo projetado
+     * @param <R> tipo projetado devolvido ao cliente
      */
     record SavedResult<ID, R>(ID id, R body) {}
 
@@ -111,30 +129,68 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
      */
     default Optional<String> getDatasetVersion() { return Optional.empty(); }
 
+    /**
+     * Informa se o recurso suporta a superficie canonica de {@code group-by stats}.
+     *
+     * @return modo de suporte; por padrao {@link StatsSupportMode#DISABLED}
+     */
     default StatsSupportMode getGroupByStatsSupportMode() {
         return StatsSupportMode.DISABLED;
     }
 
+    /**
+     * Informa se o recurso suporta a superficie canonica de {@code time-series stats}.
+     *
+     * @return modo de suporte; por padrao {@link StatsSupportMode#DISABLED}
+     */
     default StatsSupportMode getTimeSeriesStatsSupportMode() {
         return StatsSupportMode.DISABLED;
     }
 
+    /**
+     * Informa se o recurso suporta a superficie canonica de {@code distribution stats}.
+     *
+     * @return modo de suporte; por padrao {@link StatsSupportMode#DISABLED}
+     */
     default StatsSupportMode getDistributionStatsSupportMode() {
         return StatsSupportMode.DISABLED;
     }
 
+    /**
+     * Retorna o registro canonico de campos elegiveis para stats.
+     *
+     * @return registro de campos suportados pelo recurso
+     */
     default StatsFieldRegistry getStatsFieldRegistry() {
         return StatsFieldRegistry.empty();
     }
 
+    /**
+     * Retorna o registro de option-sources disponiveis para a entidade do recurso.
+     *
+     * @return registro de fontes derivadas; por padrao vazio
+     */
     default OptionSourceRegistry getOptionSourceRegistry() {
         return OptionSourceRegistry.empty();
     }
 
+    /**
+     * Verifica se existe uma option-source registrada para a entidade do recurso.
+     *
+     * @param sourceKey chave da fonte derivada
+     * @return {@code true} quando a fonte existe para a entidade atual
+     */
     default boolean hasOptionSource(String sourceKey) {
         return getOptionSourceRegistry().contains(getEntityClass(), sourceKey);
     }
 
+    /**
+     * Resolve o descritor de uma option-source registrada para a entidade do recurso.
+     *
+     * @param sourceKey chave da fonte derivada
+     * @return descritor canonico da fonte
+     * @throws UnknownOptionSourceException quando a chave nao estiver registrada
+     */
     default OptionSourceDescriptor resolveOptionSource(String sourceKey) {
         return getOptionSourceRegistry()
                 .resolve(getEntityClass(), sourceKey)
@@ -267,6 +323,18 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
         E saved = save(entity);
         return new SavedResult<>(extractId(saved), mapper.apply(saved));
     }
+    /**
+     * Permite combinar o estado atual com o payload de atualizacao antes da persistencia.
+     *
+     * <p>
+     * O comportamento padrao devolve {@code existing}, mas implementacoes podem sobrescrever
+     * para copiar campos mutaveis, preservar relacionamentos ou aplicar regras de merge de dominio.
+     * </p>
+     *
+     * @param existing entidade atual carregada do repositório
+     * @param update entidade derivada do DTO de entrada
+     * @return entidade efetivamente usada no fluxo de update
+     */
     default E mergeUpdate(E existing, E update) {
         return existing;
     }

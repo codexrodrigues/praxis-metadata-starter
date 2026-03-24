@@ -5,7 +5,12 @@ import org.praxisplatform.uischema.stats.DistributionMode;
 import java.util.List;
 
 /**
- * Canonical response contract for distribution stats.
+ * Contrato canonico de resposta para distribuicoes agregadas.
+ *
+ * <p>
+ * A resposta informa o campo analisado, o modo de distribuicao aplicado e a colecao de buckets
+ * resultante, pronta para histogramas, tabelas analiticas e cards de distribuicao.
+ * </p>
  */
 public record DistributionStatsResponse(
         String field,

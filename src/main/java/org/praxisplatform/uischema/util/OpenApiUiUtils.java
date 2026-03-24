@@ -15,24 +15,24 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * <h2> Utilitários Centrais para Transformação OpenAPI → UI Metadata</h2>
+ * <h2>Utilitarios centrais para transformacao OpenAPI → UI metadata</h2>
  *
- * <p>Classe utilitária que concentra toda a lógica de transformação entre
- * esquemas OpenAPI e metadados de UI (extensões x-ui) no framework Praxis.</p>
+ * <p>
+ * Classe utilitaria que concentra regras de traducao entre schemas OpenAPI e extensoes
+ * metadata-driven {@code x-ui}. Ela e uma peca central do pipeline que sai das anotacoes
+ * backend, passa pelo resolver OpenAPI e chega ao contrato consumido por frontends dinamicos.
+ * </p>
  *
- * <h3> Principais Responsabilidades:</h3>
+ * <h3>Responsabilidades</h3>
  * <ul>
- *   <li><strong>Detecção Automática:</strong> Determina tipos de controle baseados em
-schemas</li>
- *   <li><strong>População Consistente:</strong> Métodos padronizados para metadados x-ui</li>
- *   <li><strong>Formatação:</strong> Transformação de dados para UI (labels, tamanhos,
-etc.)</li>
- *   <li><strong>Validação:</strong> Geração automática de mensagens de erro</li>
+ *   <li>Inferir labels e control types a partir de tipos, formatos e heuristicas.</li>
+ *   <li>Preencher mapas {@code x-ui} de forma consistente e defensiva.</li>
+ *   <li>Aplicar defaults de UX sem sobrescrever configuracoes explicitas vindas do dominio.</li>
  * </ul>
  *
- * <h3> Fluxo de Uso na Arquitetura:</h3>
+ * <h3>Fluxo arquitetural</h3>
  * <pre>
- *   Annotation → CustomOpenApiResolver → OpenApiUiUtils → x-ui Extensions
+ * Annotation -> CustomOpenApiResolver -> OpenApiUiUtils -> x-ui
  * </pre>
  *
  * @since 1.0.0

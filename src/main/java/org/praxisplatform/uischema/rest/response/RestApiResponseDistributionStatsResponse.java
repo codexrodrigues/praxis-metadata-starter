@@ -5,7 +5,12 @@ import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
 import java.time.LocalDateTime;
 
 /**
- * Concrete OpenAPI wrapper for stats distribution responses.
+ * Envelope concreto de OpenAPI para respostas de {@code distribution stats}.
+ *
+ * <p>
+ * A classe materializa o tipo generico {@code RestApiResponse<DistributionStatsResponse>} para
+ * publicacao correta da superficie de distribuicoes agregadas no OpenAPI.
+ * </p>
  */
 public class RestApiResponseDistributionStatsResponse extends RestApiResponse<DistributionStatsResponse> {
 

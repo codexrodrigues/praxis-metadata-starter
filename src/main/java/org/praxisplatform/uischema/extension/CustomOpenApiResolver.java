@@ -25,33 +25,18 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Resolve modelos OpenAPI enriquecendo-os com a extensão {@code x-ui} usada
- * pelos frontends Praxis.
+ * Resolver OpenAPI que enriquece schemas com a extensao {@code x-ui}.
  *
  * <p>
- * A ordem de precedência aplicada segue o fluxo descrito em
- * {@code docs/architecture-overview.md}: valores padrão de
- * {@link org.praxisplatform.uischema.extension.annotation.UISchema},
- * detecção heurística baseada no schema, overrides explícitos, validações
- * Jakarta e, por fim, {@code extraProperties}. As chaves utilizadas são
- * definidas em {@link org.praxisplatform.uischema.FieldConfigProperties} e
- * {@link org.praxisplatform.uischema.ValidationProperties}.
+ * Esta e uma das classes mais centrais do starter: ela transforma anotacoes Java, tipos OpenAPI,
+ * validacoes Jakarta e heuristicas de renderizacao em metadados estruturados que alimentam o
+ * contrato metadata-driven consumido por {@code /schemas/filtered} e pelos frontends Praxis.
  * </p>
  *
- * <h3>Exemplo</h3>
- * <pre>{@code
- * public class PessoaDTO {
- *     @UISchema(label = "Nome", placeholder = "Informe o nome")
- *     @Size(min = 3, max = 100)
- *     private String nome;
- * }
- * }</pre>
- *
  * <p>
- * O resultado é uma documentação OpenAPI com dicas ricas de renderização
- * (placeholders, controlType, mensagens de validação) consumidas pelo endpoint
- * {@code /schemas/filtered} controlado por
- * {@link org.praxisplatform.uischema.controller.docs.ApiDocsController}.
+ * A precedencia aplicada segue a semantica canônica da plataforma: defaults da anotacao
+ * {@link org.praxisplatform.uischema.extension.annotation.UISchema}, deteccao heuristica baseada
+ * no schema, overrides explicitos da anotacao, validacoes Jakarta e por fim {@code extraProperties}.
  * </p>
  *
  * @since 1.0.0

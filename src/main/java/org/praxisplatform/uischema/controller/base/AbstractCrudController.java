@@ -793,6 +793,21 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         return withVersion(ResponseEntity.ok(), new LocateResponse(pos, page));
     }
 
+    /**
+     * Calcula agregacoes de group-by sobre o conjunto filtrado do recurso.
+     *
+     * <p>
+     * Este endpoint e a superficie canonica para contagens e metricas agregadas por buckets,
+     * sem exigir que cada aplicacao exponha rotas ad hoc para analytics basicos. Ele reaproveita
+     * o mesmo vocabulário de filtro do recurso principal e retorna buckets normalizados para consumo
+     * por tabelas analiticas, cards de resumo e graficos.
+     * </p>
+     *
+     * @param request request canonico contendo filtro, campo de agrupamento e metrica agregada
+     * @return envelope com {@link GroupByStatsResponse}
+     * @throws org.springframework.web.server.ResponseStatusException {@code 400} quando o request
+     * e invalido ou {@code 501} quando o recurso nao suporta stats
+     */
     @PostMapping("/stats/group-by")
     @Operation(summary = "Group-by stats sobre o conjunto filtrado",
             description = "Retorna buckets agregados canônicos sobre o conjunto filtrado do recurso.",
@@ -844,6 +859,20 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         return withVersion(ResponseEntity.ok(), response);
     }
 
+    /**
+     * Calcula serie temporal agregada sobre o conjunto filtrado.
+     *
+     * <p>
+     * A resposta segue a superficie canonica de time-series da plataforma, permitindo dashboards
+     * e componentes metadata-driven sem reimplementar contratos por dominio. O filtro principal do
+     * recurso continua valendo, e a agregacao e controlada por granularidade, campo temporal e metrica.
+     * </p>
+     *
+     * @param request request canonico com filtro, campo temporal, granularidade e metrica
+     * @return envelope com {@link TimeSeriesStatsResponse}
+     * @throws org.springframework.web.server.ResponseStatusException {@code 400} quando o request
+     * e invalido ou {@code 501} quando o recurso nao suporta stats
+     */
     @PostMapping("/stats/timeseries")
     @Operation(summary = "Time-series stats sobre o conjunto filtrado",
             description = "Retorna série temporal canônica agregada sobre o conjunto filtrado do recurso.",
@@ -895,6 +924,20 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         return withVersion(ResponseEntity.ok(), response);
     }
 
+    /**
+     * Calcula distribuicoes agregadas sobre o conjunto filtrado do recurso.
+     *
+     * <p>
+     * Esta operacao cobre cenarios como histogramas, faixas e distribuicoes quantitativas usando
+     * o contrato estatistico canonico da plataforma. Ela evita proliferacao de endpoints customizados
+     * e mantém a mesma semantica de filtro do restante da superficie do recurso.
+     * </p>
+     *
+     * @param request request canonico com filtro, campo numerico e definicao da distribuicao
+     * @return envelope com {@link DistributionStatsResponse}
+     * @throws org.springframework.web.server.ResponseStatusException {@code 400} quando o request
+     * e invalido ou {@code 501} quando o recurso nao suporta stats
+     */
     @PostMapping("/stats/distribution")
     @Operation(summary = "Distribution stats sobre o conjunto filtrado",
             description = "Retorna distribuicoes canonicas sobre o conjunto filtrado do recurso.",
@@ -1068,6 +1111,32 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
       return withVersion(ResponseEntity.ok(), result);
   }
 
+  /**
+   * Retorna opcoes paginadas a partir de uma fonte canonica registrada em {@code option-sources}.
+   *
+   * <p>
+   * Diferentemente de {@link #filterOptions(GenericFilterDTO, int, int, MultiValueMap)}, aqui a
+   * origem das opcoes nao precisa coincidir com a entidade principal do recurso. Isso permite
+   * compor combos e seletores derivados sem quebrar a semantica canonica da plataforma.
+   * </p>
+   *
+   * <p>
+   * A consulta suporta filtro do recurso atual, busca textual opcional, inclusao de IDs
+   * previamente selecionados e ordenacao paginada.
+   * </p>
+   *
+   * @param sourceKey chave da fonte canonica registrada
+   * @param filterDTO filtro principal do recurso
+   * @param search busca textual opcional aplicada pela implementacao da fonte
+   * @param includeIds IDs que devem ser preservados no resultado para reidratacao de selecao
+   * @param page pagina atual
+   * @param size tamanho da pagina
+   * @param queryParams parametros adicionais, como {@code sort}
+   * @return pagina de {@link OptionDTO}
+   * @throws org.springframework.web.server.ResponseStatusException {@code 404} quando a fonte
+   * nao existe, {@code 422} quando o tamanho excede o limite ou {@code 501} quando a capacidade
+   * nao e suportada
+   */
   @PostMapping("/option-sources/{sourceKey}/options/filter")
   @Operation(summary = "Listar opções filtradas por fonte derivada",
           description = "Retorna projeções id/label para uma fonte canônica registrada em option-sources.")
@@ -1136,6 +1205,22 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
       return withVersion(ResponseEntity.ok(), getService().byIdsOptions(ids));
   }
 
+  /**
+   * Reidrata opcoes por IDs a partir de uma fonte canonica registrada em {@code option-sources}.
+   *
+   * <p>
+   * O endpoint e voltado principalmente para carregamento inicial de selects e multiselects
+   * quando a UI possui apenas os IDs persistidos e precisa recuperar os pares {@code id/label}
+   * na mesma ordem da selecao original.
+   * </p>
+   *
+   * @param sourceKey chave da fonte canonica registrada
+   * @param ids identificadores a reidratar
+   * @return lista de {@link OptionDTO} na ordem solicitada
+   * @throws org.springframework.web.server.ResponseStatusException {@code 404} quando a fonte
+   * nao existe, {@code 422} quando a quantidade de IDs excede o limite ou {@code 501} quando
+   * a capacidade nao e suportada
+   */
   @GetMapping("/option-sources/{sourceKey}/options/by-ids")
   @Operation(summary = "Buscar opções por IDs em fonte derivada",
           description = "Retorna projeções id/label para uma fonte canônica registrada em option-sources, preservando a ordem solicitada.")
@@ -1158,6 +1243,20 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
       }
   }
 
+    /**
+     * Recupera um registro pelo seu identificador.
+     *
+     * <p>
+     * Alem do payload principal, o endpoint pode anexar links HATEOAS para navegacao entre
+     * leitura, filtros, atualizacao e exclusao, de acordo com as capacidades habilitadas
+     * pelo recurso. Isso torna a resposta adequada tanto para integradores HTTP quanto para
+     * consumidores metadata-driven.
+     * </p>
+     *
+     * @param id identificador do registro
+     * @return envelope de resposta com o DTO e links relevantes
+     * @throws jakarta.persistence.EntityNotFoundException quando o registro nao e encontrado
+     */
     @GetMapping("/{id}")
     @Operation(
             summary = "Buscar registro por ID",
@@ -1185,12 +1284,6 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                     )
             }
     )
-    /**
-     * Recupera um registro pelo seu identificador.
-     * @param id identificador do registro
-     * @return envelope de resposta com o DTO
-     * @throws jakarta.persistence.EntityNotFoundException quando o registro não é encontrado
-     */
     public ResponseEntity<RestApiResponse<D>> getById(@PathVariable ID id) {
         // Se não existir, o service pode lançar ResourceNotFoundException
         D dto = getService().findByIdMapped(id, this::toDto);
@@ -1209,13 +1302,20 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         return withVersion(ResponseEntity.ok(), response);
     }
 
-    @PostMapping
-    @Operation(summary = "Criar novo registro", description = "Cria um novo registro. Retorna 201 + Location + envelope padronizado.")
     /**
      * Cria um novo registro a partir do DTO informado.
+     *
+     * <p>
+     * O fluxo converte o DTO em entidade, delega a persistencia ao service e retorna
+     * {@code 201 Created} com header {@code Location} apontando para o recurso criado.
+     * O corpo segue o envelope canonico {@link RestApiResponse}, alinhado ao restante da API.
+     * </p>
+     *
      * @param dto DTO de entrada validado
-     * @return 201 Created com Location derivado da entidade persistida e envelope de resposta contendo o DTO salvo
+     * @return {@code 201 Created} com {@code Location} derivado da entidade persistida e envelope de resposta contendo o DTO salvo
      */
+    @PostMapping
+    @Operation(summary = "Criar novo registro", description = "Cria um novo registro. Retorna 201 + Location + envelope padronizado.")
     public ResponseEntity<RestApiResponse<D>> create(@jakarta.validation.Valid @RequestBody D dto) {
         E entityToSave = toEntity(dto);
         BaseCrudService.SavedResult<ID, D> saved = getService().saveResultMapped(entityToSave, this::toDto);
@@ -1236,6 +1336,20 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         return withVersion(ResponseEntity.created(selfLink.toUri()), response);
     }
 
+    /**
+     * Atualiza um registro existente.
+     *
+     * <p>
+     * O endpoint reutiliza o mesmo mapeamento DTO → entidade do fluxo de criacao, mas delega a
+     * persistencia ao service com o identificador explicito do recurso. Em respostas bem-sucedidas,
+     * o cliente recebe o DTO atualizado dentro do envelope padronizado da plataforma.
+     * </p>
+     *
+     * @param id identificador do registro a atualizar
+     * @param dto DTO com os novos dados, sujeito a validacao
+     * @return envelope de resposta com o DTO atualizado
+     * @throws jakarta.persistence.EntityNotFoundException quando o registro nao e encontrado
+     */
     @PutMapping("/{id}")
     @Operation(
             summary = "Atualizar registro existente",
@@ -1263,13 +1377,6 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                     )
             }
     )
-    /**
-     * Atualiza um registro existente.
-     * @param id  identificador do registro a atualizar
-     * @param dto DTO com os novos dados (validado)
-     * @return envelope de resposta com o DTO atualizado
-     * @throws jakarta.persistence.EntityNotFoundException quando o registro não é encontrado
-     */
     public ResponseEntity<RestApiResponse<D>> update(@PathVariable ID id, @jakarta.validation.Valid @RequestBody D dto) {
         E entityToUpdate = toEntity(dto);
         D updatedDto = getService().updateMapped(id, entityToUpdate, this::toDto);
@@ -1288,6 +1395,18 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         return withVersion(ResponseEntity.ok(), response);
     }
 
+    /**
+     * Exclui um registro pelo seu identificador.
+     *
+     * <p>
+     * A semantica segue o padrao REST classico da plataforma: em caso de sucesso retorna
+     * {@code 204 No Content}; em caso de ausencia do recurso, a implementacao do service pode
+     * sinalizar o erro apropriado para a camada HTTP.
+     * </p>
+     *
+     * @param id identificador do registro a excluir
+     * @return {@code 204 No Content}
+     */
     @DeleteMapping("/{id}")
     @Operation(
             summary = "Excluir registro",
@@ -1311,16 +1430,23 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                     )
             }
     )
-    /**
-     * Exclui um registro pelo seu identificador.
-     * @param id identificador do registro a excluir
-     * @return 204 No Content
-     */
     public ResponseEntity<Void> delete(@PathVariable ID id) {
         getService().deleteById(id);
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Exclui multiplos registros pelos seus identificadores.
+     *
+     * <p>
+     * O endpoint e util para operacoes de selecao em massa vindas de grids e listas administrativas.
+     * A lista de IDs deve ser enviada no corpo da requisicao; quando nula ou vazia, a resposta e
+     * {@code 400 Bad Request} para evitar sucesso silencioso de uma operacao vazia.
+     * </p>
+     *
+     * @param ids lista de IDs a excluir
+     * @return {@code 204 No Content} quando a exclusao em lote e aceita
+     */
     @DeleteMapping("/batch")
     @Operation(
             summary = "Excluir registros em lote",
@@ -1336,11 +1462,6 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                     )
             }
     )
-    /**
-     * Exclui múltiplos registros pelos seus identificadores.
-     * @param ids lista de IDs a excluir; retorna 400 quando nula ou vazia
-     * @return 204 No Content quando bem-sucedido
-     */
     public ResponseEntity<Void> deleteBatch(@RequestBody List<ID> ids) {
         if (ids == null || ids.isEmpty()) {
             return ResponseEntity.badRequest().build();
@@ -1350,6 +1471,22 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Redireciona para o endpoint de schemas filtrados do recurso atual.
+     *
+     * <p>
+     * Em vez de duplicar a logica de resolucao de schema em cada controller, esta operacao
+     * calcula a URL correta para {@code /schemas/filtered} com base no path e na operacao
+     * representativa do recurso, preservando a semantica metadata-driven canonica da plataforma.
+     * </p>
+     *
+     * <p>
+     * Isso permite que consumidores descubram o contrato x-ui do recurso diretamente a partir da
+     * superficie do proprio controller, sem precisar reconstruir manualmente query parameters.
+     * </p>
+     *
+     * @return resposta {@code 302 Found} com {@code Location} apontando para o schema do recurso
+     */
     @GetMapping(SCHEMAS_PATH)
     @Operation(
             summary = "Obter esquema da entidade para configuração dinâmica",
@@ -1376,10 +1513,6 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                     )
             }
     )
-    /**
-     * Redireciona para o endpoint de schemas filtrados do recurso atual.
-     * @return resposta 302 com Location para o schema do recurso
-     */
     public ResponseEntity<Void> getSchema() {
         // Constrói o link para o endpoint de metadados
         Link metadataLink = linkToUiSchema("/all", "get", "response");

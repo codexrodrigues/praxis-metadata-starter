@@ -5,7 +5,12 @@ import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import java.time.LocalDateTime;
 
 /**
- * Concrete OpenAPI wrapper for stats time-series responses.
+ * Envelope concreto de OpenAPI para respostas de {@code time-series stats}.
+ *
+ * <p>
+ * A classe materializa o tipo generico {@code RestApiResponse<TimeSeriesStatsResponse>} para que
+ * as ferramentas de documentacao publiquem corretamente essa superficie estatistica.
+ * </p>
  */
 public class RestApiResponseTimeSeriesStatsResponse extends RestApiResponse<TimeSeriesStatsResponse> {
 

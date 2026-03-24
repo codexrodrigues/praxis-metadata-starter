@@ -1,9 +1,15 @@
 package org.praxisplatform.uischema.dto;
 
 /**
- * Representa a posição de um registro em uma lista paginada.
+ * Resposta canonica do endpoint de localizacao de registros.
  *
- * @param position índice absoluto (zero-based) do registro
- * @param page     página correspondente considerando o tamanho informado
+ * <p>
+ * Esse contrato informa em qual indice absoluto um registro aparece dentro de um conjunto filtrado
+ * e em qual pagina ele cairia para um determinado tamanho de pagina. Ele e especialmente util para
+ * grids que precisam navegar diretamente ate o item alvo.
+ * </p>
+ *
+ * @param position indice absoluto zero-based do registro
+ * @param page pagina correspondente considerando o tamanho usado na consulta
  */
 public record LocateResponse(long position, long page) {}

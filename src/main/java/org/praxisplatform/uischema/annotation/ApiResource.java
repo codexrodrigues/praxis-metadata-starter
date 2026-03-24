@@ -10,36 +10,54 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Meta-anotação que combina @RestController e @RequestMapping para simplificar
- * a declaração de controllers de recursos REST.
- * 
- * <h3>Exemplo de uso:</h3>
+ * Meta-anotacao que combina {@link RestController} e {@link RequestMapping} para declarar
+ * recursos REST da plataforma de forma canonica.
+ *
+ * <p>
+ * No ecossistema do starter, esta e a forma recomendada de expor controllers que herdam
+ * {@code AbstractCrudController} ou {@code AbstractReadOnlyController}. Ela centraliza o
+ * base path do recurso, reduz boilerplate e permite que a infraestrutura de documentacao,
+ * HATEOAS e resolucao de schemas trabalhe sobre uma mesma fonte de verdade.
+ * </p>
+ *
+ * <h3>O que ela entrega</h3>
+ * <ul>
+ *   <li>Registra o controller como bean REST sem exigir {@code @RestController} separado.</li>
+ *   <li>Define o base path do recurso para endpoints CRUD, options, stats e schemas.</li>
+ *   <li>Permite autodeteccao consistente do path pela infraestrutura OpenAPI do starter.</li>
+ * </ul>
+ *
+ * <h3>Exemplo recomendado</h3>
  * <pre>{@code
- * // Recomenda-se definir constantes no projeto da aplicação:
+ * // Recomenda-se definir constantes no projeto da aplicacao:
  * public final class ApiPaths {
  *     public static final class HumanResources {
  *         public static final String FUNCIONARIOS = "/api/human-resources/funcionarios";
  *     }
  * }
- * 
- * // Usar a constante no controller:
+ *
  * @ApiResource(ApiPaths.HumanResources.FUNCIONARIOS)
  * @ApiGroup("human-resources")
  * public class FuncionarioController extends AbstractCrudController<...> {
- *     // implementação do controller
- * }
- * 
- * // Ou usar path direto:
- * @ApiResource("/api/human-resources/funcionarios")
- * public class FuncionarioController extends AbstractCrudController<...> {
- *     // implementação do controller
+ *     // apenas heranca e wiring do service
  * }
  * }</pre>
- * 
- * <p>Esta anotação elimina a necessidade de declarar múltiplas anotações
- * e promove o uso de constantes para os paths da API.</p>
- * 
+ *
+ * <h3>Forma alternativa</h3>
+ * <pre>{@code
+ * @ApiResource("/api/human-resources/funcionarios")
+ * public class FuncionarioController extends AbstractCrudController<...> {
+ * }
+ * }</pre>
+ *
+ * <p>
+ * Nao e necessario combinar {@code @ApiResource} com {@code @RestController}; a meta-anotacao
+ * ja incorpora esse papel. Quando houver necessidade de organizacao documental explicita, combine
+ * com {@link ApiGroup}.
+ * </p>
+ *
  * @see org.praxisplatform.uischema.constants.ApiPaths
+ * @see org.praxisplatform.uischema.annotation.ApiGroup
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)

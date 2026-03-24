@@ -10,17 +10,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Envelope padrão para respostas da API, com timestamp, status e suporte a
- * links HATEOAS e lista de erros.
+ * Envelope padrao de resposta da API Praxis.
  *
- * <h3>Exemplo</h3>
- * <pre>{@code
- * // Sucesso
- * return RestApiResponse.success(dto, links);
+ * <p>
+ * Este tipo unifica a forma de expor sucesso, falha, links HATEOAS e erros estruturados na
+ * superficie HTTP da plataforma. Controllers base e endpoints documentais o usam como contrato
+ * padrao para evitar formatos heterogeneos entre modulos e recursos.
+ * </p>
  *
- * // Falha
- * return RestApiResponse.failure("Erro de validação", errors);
- * }</pre>
+ * <p>
+ * Em respostas bem-sucedidas, o campo {@code data} carrega o payload principal. Em respostas de
+ * falha, o envelope pode trazer mensagem resumida e uma lista de {@link CustomProblemDetail}.
+ * </p>
  *
  * @param <T> tipo do payload da resposta
  * @since 1.0.0
@@ -41,9 +42,11 @@ public class RestApiResponse<T> {
     private LocalDateTime timestamp = LocalDateTime.now();
 
     /**
-     * Cria uma resposta de sucesso com payload e links.
+     * Cria um envelope de sucesso.
+     *
      * @param data corpo da resposta
-     * @param links links HATEOAS (pode ser {@code null})
+     * @param links links HATEOAS, quando aplicavel
+     * @return envelope de sucesso preenchido
      */
     public static <T> RestApiResponse<T> success(T data, Links links) {
         return RestApiResponse.<T>builder()
@@ -56,9 +59,11 @@ public class RestApiResponse<T> {
     }
 
     /**
-     * Cria uma resposta de falha com mensagem e detalhes de erro.
+     * Cria um envelope de falha com mensagem e detalhes estruturados.
+     *
      * @param message mensagem resumida de erro
-     * @param errors lista de detalhes de problemas
+     * @param errors lista de detalhes de problema
+     * @return envelope de falha preenchido
      */
     public static <T> RestApiResponse<T> failure(String message, List<CustomProblemDetail> errors) {
         return RestApiResponse.<T>builder()

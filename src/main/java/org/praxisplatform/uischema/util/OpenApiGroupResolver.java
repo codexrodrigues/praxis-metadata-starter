@@ -6,47 +6,23 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * <h2>🎯 Resolvedor Inteligente de Grupos OpenAPI com Algoritmo "Best Match"</h2>
- * 
- * <h3>🎯 Problema Resolvido</h3>
- * <p>Antes desta implementação, a resolução de grupos retornava o primeiro match encontrado,
- * frequentemente resultando em "default" ou "application" em vez do grupo específico correto.
- * O algoritmo "best match" prioriza padrões mais específicos (mais longos).</p>
- * 
- * <h3>🧠 Algoritmo "Best Match"</h3>
- * <p>Em vez de retornar o primeiro padrão que faz match, este resolvedor:</p>
- * <ol>
- *   <li><strong>Avalia todos os padrões:</strong> Não para no primeiro match</li>
- *   <li><strong>Normaliza padrões:</strong> Remove wildcards (/** e /*) para comparação</li>
- *   <li><strong>Prioriza especificidade:</strong> Padrões mais longos têm prioridade</li>
- *   <li><strong>Retorna melhor match:</strong> Grupo com padrão mais específico</li>
- * </ol>
- * 
- * <h3>📊 Exemplo de Funcionamento</h3>
- * <pre>
- * Path de entrada: "/api/human-resources/eventos-folha/all"
- * 
- * Grupos registrados:
- * - Group: "application", Pattern: "/**"           → Normalizado: ""            (length: 0)
- * - Group: "api-hr-eventos", Pattern: "/api/human-resources/eventos-folha/**" 
- *                                                  → Normalizado: "/api/human-resources/eventos-folha" (length: 35)
- * 
- * Resultado: "api-hr-eventos" (melhor match com maior especificidade)
- * </pre>
- * 
- * <h3>⚡ Performance</h3>
- * <ul>
- *   <li><strong>O(n*m):</strong> n grupos × m padrões por grupo</li>
- *   <li><strong>Típico:</strong> 5-10 grupos com 1-2 padrões cada = ~10-20 operações</li>
- *   <li><strong>Cache upstream:</strong> ApiDocsController cacheia resultados</li>
- * </ul>
- * 
- * <h3>🔗 Integração</h3>
- * <p>Usado automaticamente pelo ApiDocsController para resolver grupos baseados
- * no path da requisição, eliminando necessidade de parâmetro 'document' manual.</p>
- * 
+ * Resolvedor de grupos OpenAPI com estrategia de {@code best match}.
+ *
+ * <p>
+ * Esta classe decide qual grupo OpenAPI melhor representa um determinado path HTTP. Em vez de
+ * retornar o primeiro match encontrado, ela percorre todos os grupos registrados e prioriza o
+ * padrao mais especifico, o que evita cair em grupos genericos como {@code application} quando
+ * existe um grupo mais aderente ao recurso.
+ * </p>
+ *
+ * <p>
+ * Esse comportamento e central para a superficie documental do starter, especialmente para
+ * {@code /schemas/filtered} e {@code /schemas/catalog}, que dependem de uma resolucao confiavel
+ * do documento OpenAPI fonte.
+ * </p>
+ *
  * @since 1.0.0
- * @see org.praxisplatform.uischema.controller.docs.ApiDocsController#resolveGroupFromPath(String)
+ * @see org.praxisplatform.uischema.controller.docs.ApiDocsController
  * @see org.praxisplatform.uischema.configuration.DynamicSwaggerConfig
  */
 public class OpenApiGroupResolver {
@@ -58,38 +34,16 @@ public class OpenApiGroupResolver {
     }
 
     /**
-     * <h3>🎯 Método Principal - Algoritmo "Best Match"</h3>
-     * <p>Este é o coração da resolução inteligente de grupos. Implementa o algoritmo
-     * "best match" que prioriza padrões mais específicos sobre genéricos.</p>
-     * 
-     * <h4>🔄 Fluxo do Algoritmo:</h4>
-     * <ol>
-     *   <li><strong>Iteração:</strong> Percorre todos os GroupedOpenApi registrados</li>
-     *   <li><strong>Extração:</strong> Obtém pathsToMatch de cada grupo</li>
-     *   <li><strong>Normalização:</strong> Remove wildcards (/** e /*) dos padrões</li>
-     *   <li><strong>Matching:</strong> Verifica se requestPath.startsWith(normalizedPattern)</li>
-     *   <li><strong>Comparação:</strong> Prioriza padrões com maior length (mais específicos)</li>
-     *   <li><strong>Resultado:</strong> Retorna grupo com padrão mais específico ou null</li>
-     * </ol>
-     * 
-     * <h4>🏆 Vantagem do "Best Match":</h4>
-     * <p>Resolve o problema clássico onde padrões genéricos como "/**" sempre faziam match primeiro,
-     * mascarando padrões específicos como "/api/human-resources/eventos-folha/**".</p>
-     * 
-     * <h4>📊 Cenário Típico:</h4>
-     * <pre>
-     * requestPath: "/api/human-resources/eventos-folha/all"
-     * 
-     * Padrões disponíveis:
-     * 1. "/**"                                    → normalized: ""                          (length: 0)
-     * 2. "/api/human-resources/**"                → normalized: "/api/human-resources"     (length: 21) 
-     * 3. "/api/human-resources/eventos-folha/**" → normalized: "/api/human-resources/eventos-folha" (length: 35)
-     * 
-     * Todos fazem match, mas o padrão 3 tem maior especificidade → grupo correspondente retornado
-     * </pre>
+     * Resolve o grupo OpenAPI mais especifico para o path informado.
      *
-     * @param requestPath path da requisição HTTP (ex: "/api/human-resources/eventos-folha/all")
-     * @return nome do grupo com melhor match ou {@code null} se nenhum padrão fizer match
+     * <p>
+     * O algoritmo percorre todos os {@link GroupedOpenApi} registrados, normaliza os
+     * {@code pathsToMatch} removendo wildcards e escolhe o match de maior comprimento.
+     * Assim, paths especificos vencem pads genericos.
+     * </p>
+     *
+     * @param requestPath path da requisicao HTTP
+     * @return nome do grupo com melhor match ou {@code null} quando nenhum padrao se aplicar
      */
     public String resolveGroup(String requestPath) {
         if (requestPath == null) {
@@ -125,24 +79,10 @@ public class OpenApiGroupResolver {
     }
 
     /**
-     * <h3>🧹 Normalização de Padrões</h3>
-     * <p>Remove wildcards dos padrões de path para permitir comparação precisa de especificidade.</p>
-     * 
-     * <h4>🔄 Transformações:</h4>
-     * <ul>
-     *   <li><strong>"/**"</strong> → <strong>""</strong> (padrão mais genérico)</li>
-     *   <li><strong>"/*"</strong> → <strong>""</strong> (padrão genérico)</li>
-     *   <li><strong>"/api/human-resources/**"</strong> → <strong>"/api/human-resources"</strong></li>
-     *   <li><strong>"/api/human-resources/eventos-folha/**"</strong> → <strong>"/api/human-resources/eventos-folha"</strong></li>
-     * </ul>
-     * 
-     * <h4>🎯 Importância:</h4>
-     * <p>A normalização permite comparar a especificidade real dos padrões baseada no
-     * comprimento do path efetivo, não nos wildcards. Isso é crucial para o algoritmo
-     * "best match" funcionar corretamente.</p>
-     * 
-     * @param pattern padrão original com wildcards (ex: "/api/human-resources/**")
-     * @return padrão normalizado sem wildcards (ex: "/api/human-resources")
+     * Normaliza um padrao removendo wildcards finais para comparacao de especificidade.
+     *
+     * @param pattern padrao original com wildcards
+     * @return padrao normalizado
      */
     private String normalize(String pattern) {
         if (pattern == null) {

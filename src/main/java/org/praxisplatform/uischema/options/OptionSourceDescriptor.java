@@ -5,7 +5,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Canonical description of a metadata-driven option source.
+ * Descricao canonica de uma option-source metadata-driven.
+ *
+ * <p>
+ * O descritor informa como uma fonte derivada de opcoes deve ser exposta e consumida pela
+ * plataforma: qual recurso a ancora, qual chave a identifica, quais dependencias de filtro ela
+ * possui e quais politicas operacionais devem ser aplicadas.
+ * </p>
  */
 public record OptionSourceDescriptor(
         String key,
@@ -18,6 +24,9 @@ public record OptionSourceDescriptor(
         List<String> dependsOn,
         OptionSourcePolicy policy
 ) {
+    /**
+     * Valida e normaliza o descritor no momento da criacao.
+     */
     public OptionSourceDescriptor {
         if (key == null || key.isBlank()) {
             throw new IllegalArgumentException("Option source key is required.");
@@ -36,10 +45,20 @@ public record OptionSourceDescriptor(
         valuePropertyPath = normalize(valuePropertyPath);
     }
 
+    /**
+     * Retorna o campo efetivo de filtro associado a esta fonte.
+     *
+     * @return {@code filterField} quando informado; caso contrario, a propria {@code key}
+     */
     public String effectiveFilterField() {
         return filterField != null ? filterField : key;
     }
 
+    /**
+     * Converte o descritor para um mapa de metadados apropriado para exposicao documental.
+     *
+     * @return mapa serializavel com os metadados essenciais da fonte
+     */
     public Map<String, Object> toMetadataMap() {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("key", key);
@@ -59,6 +78,9 @@ public record OptionSourceDescriptor(
         return metadata;
     }
 
+    /**
+     * Normaliza strings opcionais, convertendo valores vazios em {@code null}.
+     */
     private static String normalize(String value) {
         return value == null || value.isBlank() ? null : value;
     }

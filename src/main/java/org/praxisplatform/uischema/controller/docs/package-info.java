@@ -1,20 +1,11 @@
 /**
- * Endpoints responsáveis por publicar documentação OpenAPI enriquecida com
- * metadados {@code x-ui}.
+ * Endpoints e componentes que publicam documentacao OpenAPI enriquecida.
  *
  * <p>
- * O {@link org.praxisplatform.uischema.controller.docs.ApiDocsController}
- * resolve automaticamente o grupo correto via
- * {@link org.praxisplatform.uischema.util.OpenApiGroupResolver}, aplica cache
- * com ETag e filtra schemas conforme descrito na "Visão Arquitetural" do
- * projeto. Esses controladores são habilitados pela auto-configuração do
- * pacote {@code configuration}.
- * </p>
- *
- * <p><strong>Veja exemplos:</strong>
- * <ul>
- *   <li><a href="../../../../../doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">Consumindo o contrato (/schemas/filtered)</a></li>
- * </ul>
+ * Este pacote abriga as superficies documentais canônicas do starter, como
+ * {@link org.praxisplatform.uischema.controller.docs.ApiDocsController} e
+ * {@link org.praxisplatform.uischema.controller.docs.DomainCatalogController}, alem dos utilitarios
+ * que resolvem grupos, carregam documentos OpenAPI e filtram schemas para consumo operacional.
  * </p>
  *
  * @since 1.0.0

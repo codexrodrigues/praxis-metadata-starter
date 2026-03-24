@@ -29,8 +29,19 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Endpoint que exporta um catálogo enxuto de domínios/endpoints do OpenAPI,
- * pensado para RAG. Inclui campos principais do schema de request/response.
+ * Endpoint que exporta um catalogo enxuto de dominios e endpoints do OpenAPI.
+ *
+ * <p>
+ * Esta superficie foi desenhada para consumo operacional e semantico por clientes que nao precisam
+ * do documento OpenAPI completo, como pipelines de RAG, superfícies LLM, indexadores documentais e
+ * ferramentas de descoberta. Em vez de devolver toda a arvore OpenAPI, o controller resume operacoes,
+ * tags, parametros, exemplos e links para schemas filtrados.
+ * </p>
+ *
+ * <p>
+ * O catalogo respeita a resolucao de grupos da plataforma e pode ser filtrado por grupo, path ou
+ * operacao, servindo como uma camada derivada e mais amigavel para busca e indexacao.
+ * </p>
  */
 @RestController
 @RequestMapping("/schemas/catalog")
@@ -71,6 +82,20 @@ public class DomainCatalogController {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * Gera um catalogo resumido das operacoes publicadas em um grupo OpenAPI.
+     *
+     * <p>
+     * Cada item do catalogo inclui path, metodo HTTP, resumo, descricao, operationId, parametros,
+     * exemplos e links diretos para os schemas filtrados de request/response quando existirem.
+     * Isso reduz o custo de consumo para cenarios de busca semantica e descoberta incremental.
+     * </p>
+     *
+     * @param group grupo OpenAPI explicito; quando ausente, sera derivado a partir de {@code path}
+     * @param pathFilter restringe o catalogo a um path especifico
+     * @param operationFilter restringe o catalogo a um metodo HTTP especifico
+     * @return catalogo resumido do grupo resolvido
+     */
     @GetMapping
     public ResponseEntity<CatalogResponse> getCatalog(@RequestParam(name = "group", required = false) String group,
                                                       @RequestParam(name = "path", required = false) String pathFilter,

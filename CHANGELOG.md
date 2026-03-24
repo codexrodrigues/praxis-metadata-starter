@@ -6,6 +6,13 @@ All notable changes to this module will be documented in this file.
 
 ## [2.0.0-rc.7] - 2026-03-21
 
+## [5.0.0-rc.2] - 2026-03-24
+
+### Fixed
+
+- Corrige a resolução de `x-ui.resource.idField` em `/schemas/filtered` para que request schemas com campos relacionais `...Id` não publiquem uma FK como identificador canônico do recurso quando chamados diretamente.
+- Endurece a cobertura de regressão no starter e no quickstart para o cenário de request schema com relações.
+
 ### Added
 - Novo endpoint `GET /schemas/catalog` como superfície canônica de discovery, exemplos operacionais e navegação para `request`/`response` schema.
 - Arquivo físico `LICENSE` (Apache 2.0) adicionado ao root do módulo para alinhar repositório, artefato e distribuição pública.

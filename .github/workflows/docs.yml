@@ -36,7 +36,6 @@ jobs:
 
       - name: Include root doc-files (custom examples)
         run: |
-          # Copy src/main/javadoc/doc-files -> target/site/apidocs/doc-files
           if [ -d src/main/javadoc/doc-files ]; then
             mkdir -p target/site/apidocs/doc-files
             cp -r src/main/javadoc/doc-files/. target/site/apidocs/doc-files/
@@ -48,16 +47,18 @@ jobs:
           mkdir -p docs/apidocs
           cp -r target/site/apidocs/. docs/apidocs/
 
-      - name: Create root index.html redirect
+      - name: Create root index.html redirect only when no landing exists
         run: |
           mkdir -p docs
-          cat > docs/index.html <<'HTML'
-          <!doctype html>
-          <meta charset="utf-8">
-          <meta http-equiv="refresh" content="0; url=apidocs/">
-          <title>Praxis Metadata Starter docs</title>
-          <a href="apidocs/">Ir para a documentação</a>
-          HTML
+          if [ ! -f docs/index.md ] && [ ! -f docs/index.html ]; then
+            cat > docs/index.html <<'HTML'
+            <!doctype html>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=apidocs/">
+            <title>Praxis Metadata Starter docs</title>
+            <a href="apidocs/">Ir para a documentacao</a>
+            HTML
+          fi
 
       - name: Check local Markdown links
         run: |
@@ -77,7 +78,11 @@ jobs:
               if [ -z "$full" ]; then
                 continue
               fi
-              if [ ! -e "$full" ]; then
+              alt=""
+              if [[ "$full" == *.html ]]; then
+                alt="${full%.html}.md"
+              fi
+              if [ ! -e "$full" ] && { [ -z "$alt" ] || [ ! -e "$alt" ]; }; then
                 echo "MISSING: $file -> $path (resolved: $full)"
                 missing=$((missing+1))
               fi
@@ -97,6 +102,35 @@ jobs:
             if [ -z "$title" ]; then title=$(basename "$md" .md); fi
             pandoc "$md" -o "${md%.md}.html" --standalone --metadata title="$title"
           done < <(find docs -name '*.md' -print0)
+
+      - name: Generate sitemap.xml from published HTML pages
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          base_url = "https://codexrodrigues.github.io/praxis-metadata-starter"
+          docs_dir = Path("docs")
+          excluded = {"404.html"}
+          urls = ["/"]
+
+          for html in sorted(docs_dir.rglob("*.html")):
+            rel = html.relative_to(docs_dir).as_posix()
+            if rel in excluded:
+              continue
+            urls.append(f"/{rel}")
+
+          sitemap = [
+              '<?xml version="1.0" encoding="UTF-8"?>',
+              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+          ]
+          for path in urls:
+            sitemap.append("  <url>")
+            sitemap.append(f"    <loc>{base_url}{path}</loc>")
+            sitemap.append("  </url>")
+          sitemap.append("</urlset>")
+
+          (docs_dir / "sitemap.xml").write_text("\n".join(sitemap) + "\n", encoding="utf-8")
+          PY
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

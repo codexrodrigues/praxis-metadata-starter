@@ -5,7 +5,13 @@ import org.praxisplatform.uischema.stats.TimeSeriesGranularity;
 import java.util.List;
 
 /**
- * Canonical response contract for time-series stats.
+ * Contrato canonico de resposta para series temporais agregadas.
+ *
+ * <p>
+ * A resposta devolve o campo temporal de referencia, a granularidade aplicada e a serie de pontos
+ * resultante. Em cenarios multi-metrica, a lista {@code metrics} expõe as metricas efetivamente
+ * processadas, mantendo compatibilidade com o campo principal {@code metric}.
+ * </p>
  */
 public record TimeSeriesStatsResponse(
         String field,
@@ -14,6 +20,9 @@ public record TimeSeriesStatsResponse(
         List<TimeSeriesPoint> points,
         List<StatsMetricRequest> metrics
 ) {
+    /**
+     * Construtor de compatibilidade para respostas de metrica unica.
+     */
     public TimeSeriesStatsResponse(
             String field,
             TimeSeriesGranularity granularity,
@@ -23,6 +32,11 @@ public record TimeSeriesStatsResponse(
         this(field, granularity, metric, points, null);
     }
 
+    /**
+     * Retorna a lista efetiva de metricas presentes na resposta.
+     *
+     * @return lista efetiva de metricas, com fallback para {@code metric}
+     */
     public List<StatsMetricRequest> effectiveMetrics() {
         if (metrics != null && !metrics.isEmpty()) {
             return List.copyOf(metrics);

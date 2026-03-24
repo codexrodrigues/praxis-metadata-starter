@@ -1,6 +1,22 @@
 # Praxis Metadata Starter
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue&cacheSeconds=600&t=2.0.0-rc.7)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
+## Public Documentation
+
+Use these public entry points first:
+
+- Documentation home: [docs/index.md](docs/index.md)
+- Guides hub: [docs/guides/index.md](docs/guides/index.md)
+- Guide 01 - Backend - Application Setup: [docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
+- Guide 02 - Backend - Metadata-Driven CRUD: [docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md)
+- Guide 03 - Frontend - Angular CRUD: [docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md](docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
+- Validation checklist: [docs/guides/CHECKLIST-VALIDACAO-IA.md](docs/guides/CHECKLIST-VALIDACAO-IA.md)
+- Proof protocol: [docs/guides/ai-proof/PROTOCOLO-DE-PROVA.md](docs/guides/ai-proof/PROTOCOLO-DE-PROVA.md)
+- GitHub Pages site: [https://codexrodrigues.github.io/praxis-metadata-starter/](https://codexrodrigues.github.io/praxis-metadata-starter/)
+- Public Javadoc: [https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
+
+The canonical reading order for LLMs is Guide 01 -> Guide 02 -> Guide 03 -> Validation checklist.
+
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue&cacheSeconds=600&t=5.0.0-rc.2)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
 [![Java](https://img.shields.io/badge/Java-21-007396?logo=openjdk)](https://adoptium.net)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2%2B-6DB33F?logo=spring-boot)](https://spring.io/projects/spring-boot)
 [![Last Commit](https://img.shields.io/github/last-commit/codexrodrigues/praxis-metadata-starter?logo=github)](https://github.com/codexrodrigues/praxis-metadata-starter/commits)
@@ -28,7 +44,7 @@ Documentação online (GitHub Pages):
 - [Visão dos pacotes Java](docs/packages-overview.md): responsabilidades e classes principais por módulo.
 - [Mapa de navegação](docs/sitemap.xml): otimiza indexação por mecanismos de busca e robôs de IA.
 
-### Guias para Agentes de IA
+### Trilha principal para LLM
 
 - Guia: Criar aplicação nova com IA (Claude/LLMs) — docs/guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md
 - Guia: Gerar CRUD + Bulk com IA por entidade — docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md
@@ -170,7 +186,7 @@ Para usar o Praxis Metadata Starter, adicione a seguinte dependência ao seu `po
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>2.0.0-rc.7</version>
+  <version>5.0.0-rc.2</version>
   <!-- Após a versão final: use 1.0.0 -->
   <!-- Confira a aba Releases para a última versão. -->
 </dependency>
@@ -182,7 +198,7 @@ Exemplo completo (Quickstart):
 
 ### Release Candidate (RC)
 
-- Para testar a build RC assim que publicada no Central, use `2.0.0-rc.7`.
+- Para testar a build RC assim que publicada no Central, use `5.0.0-rc.2`.
 - Guia de publicação e processo de release: veja `RELEASING.md`.
 
 ## MapStruct Config (Fail‑Fast)

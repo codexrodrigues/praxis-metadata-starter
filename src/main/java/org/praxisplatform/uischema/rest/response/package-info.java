@@ -1,9 +1,9 @@
 /**
- * Modelos de resposta REST, incluindo estrutura de erros e padrão de
- * envelope de resultado.
+ * Modelos canonicos de resposta REST da plataforma.
+ *
  * <p>
- * Ver {@link org.praxisplatform.uischema.rest.response.RestApiResponse} e
- * {@link org.praxisplatform.uischema.rest.response.CustomProblemDetail}.
+ * O pacote concentra o envelope padrao de sucesso/falha, detalhes estruturados de erro e wrappers
+ * concretos usados para materializar tipos genericos na documentacao OpenAPI.
  * </p>
  *
  * @since 1.0.0-beta.1

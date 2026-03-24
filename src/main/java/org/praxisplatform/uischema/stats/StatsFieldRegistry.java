@@ -6,7 +6,13 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Registry of fields that are eligible for filtered stats in a resource.
+ * Registro canônico de campos elegiveis para stats filtrados em um recurso.
+ *
+ * <p>
+ * O registro centraliza quais campos podem ser usados como buckets, eixos temporais ou metricas
+ * agregadas nos endpoints estatisticos da plataforma. Em vez de espalhar essas regras em cada
+ * controller ou query ad hoc, o recurso publica explicitamente sua elegibilidade neste registry.
+ * </p>
  */
 public final class StatsFieldRegistry {
 
@@ -18,10 +24,21 @@ public final class StatsFieldRegistry {
         this.fields = fields;
     }
 
+    /**
+     * Retorna um registro vazio.
+     *
+     * @return registry vazio
+     */
     public static StatsFieldRegistry empty() {
         return EMPTY;
     }
 
+    /**
+     * Cria um registro imutavel a partir de uma colecao de descritores.
+     *
+     * @param descriptors descritores de campos elegiveis
+     * @return registry resultante
+     */
     public static StatsFieldRegistry of(Collection<StatsFieldDescriptor> descriptors) {
         if (descriptors == null || descriptors.isEmpty()) {
             return empty();
@@ -36,10 +53,21 @@ public final class StatsFieldRegistry {
         return new StatsFieldRegistry(Map.copyOf(map));
     }
 
+    /**
+     * Cria um builder para montagem fluente do registro.
+     *
+     * @return builder do registry
+     */
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Resolve o descritor canonico de um campo elegivel.
+     *
+     * @param field nome canonico do campo exposto pela API
+     * @return descritor do campo, quando existir
+     */
     public Optional<StatsFieldDescriptor> resolve(String field) {
         if (field == null || field.isBlank()) {
             return Optional.empty();
@@ -47,6 +75,11 @@ public final class StatsFieldRegistry {
         return Optional.ofNullable(fields.get(field));
     }
 
+    /**
+     * Indica se o registry nao possui campos elegiveis.
+     *
+     * @return {@code true} quando vazio
+     */
     public boolean isEmpty() {
         return fields.isEmpty();
     }
@@ -55,6 +88,12 @@ public final class StatsFieldRegistry {
 
         private final Map<String, StatsFieldDescriptor> descriptors = new LinkedHashMap<>();
 
+        /**
+         * Adiciona um descritor arbitrario ao builder.
+         *
+         * @param descriptor descritor do campo
+         * @return o proprio builder
+         */
         public Builder add(StatsFieldDescriptor descriptor) {
             if (descriptor == null || descriptor.field() == null || descriptor.field().isBlank()) {
                 return this;
@@ -99,6 +138,11 @@ public final class StatsFieldRegistry {
             return add(StatsFieldDescriptor.histogramField(field, propertyPath, metrics));
         }
 
+        /**
+         * Materializa o registry imutavel com os descritores acumulados.
+         *
+         * @return registry construido
+         */
         public StatsFieldRegistry build() {
             return StatsFieldRegistry.of(descriptors.values());
         }

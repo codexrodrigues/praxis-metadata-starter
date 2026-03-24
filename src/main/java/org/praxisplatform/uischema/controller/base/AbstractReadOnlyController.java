@@ -44,6 +44,20 @@ import java.util.List;
  * </div>
  * <p><strong>Escrita segura:</strong> {@code POST /}, {@code PUT /{id}}, {@code DELETE /{id}}, {@code DELETE /batch} → {@code 405 Method Not Allowed}</p>
  * <p><strong>Filtros (26 operações)</strong> + paginação tradicional e por cursor; <strong>Options id/label</strong> e schema x‑ui.</p>
+ *
+ * <h3>Quando escolher esta base</h3>
+ * <ul>
+ *   <li>Views materializadas, visoes SQL ou entidades anotadas com {@code @Immutable}.</li>
+ *   <li>Recursos analiticos ou de consulta em que a escrita nao deve ser exposta pela API.</li>
+ *   <li>Superficies em que a UI ainda precisa de filtros, options e schema metadata-driven.</li>
+ * </ul>
+ *
+ * <p>
+ * Esta classe preserva a mesma superficie de leitura do CRUD base e apenas sobrescreve as
+ * operacoes mutantes para responder com {@code 405 Method Not Allowed}. Assim, a API continua
+ * coerente para consumidores de schema, filtros e componentes dinâmicos, sem sugerir capacidades
+ * de escrita inexistentes.
+ * </p>
  */
 public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFilterDTO>
         extends AbstractCrudController<E, D, ID, FD> {
@@ -51,46 +65,65 @@ public abstract class AbstractReadOnlyController<E, D, ID, FD extends GenericFil
     @Override
     protected boolean isReadOnlyResource() { return true; }
 
+    /**
+     * Bloqueia criacao de registros em recursos somente leitura.
+     *
+     * <p>
+     * A operacao e mantida no controller apenas para preservar a simetria contratual com a base
+     * CRUD. Na pratica, qualquer tentativa de {@code POST /} falha com {@code 405}, deixando claro
+     * para clientes HTTP e para integradores que o recurso nao aceita escrita.
+     * </p>
+     *
+     * @param dto payload recebido; ignorado porque a operacao e proibida
+     * @return nunca retorna normalmente
+     * @throws org.springframework.web.server.ResponseStatusException sempre com {@code 405 Method Not Allowed}
+     */
     @Override
     @PostMapping
     @Operation(summary = "Recurso somente leitura", hidden = true)
-    /**
-     * Operação não permitida em recurso somente leitura.
-     * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
-     */
     public ResponseEntity<RestApiResponse<D>> create(@jakarta.validation.Valid @RequestBody D dto) {
         throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Read-only resource.");
     }
 
+    /**
+     * Bloqueia atualizacao de registros em recursos somente leitura.
+     *
+     * @param id identificador do recurso alvo
+     * @param dto payload recebido; ignorado porque a operacao e proibida
+     * @return nunca retorna normalmente
+     * @throws org.springframework.web.server.ResponseStatusException sempre com {@code 405 Method Not Allowed}
+     */
     @Override
     @PutMapping("/{id}")
     @Operation(summary = "Recurso somente leitura", hidden = true)
-    /**
-     * Operação não permitida em recurso somente leitura.
-     * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
-     */
     public ResponseEntity<RestApiResponse<D>> update(@PathVariable ID id, @jakarta.validation.Valid @RequestBody D dto) {
         throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Read-only resource.");
     }
 
+    /**
+     * Bloqueia exclusao individual de registros em recursos somente leitura.
+     *
+     * @param id identificador do recurso alvo
+     * @return nunca retorna normalmente
+     * @throws org.springframework.web.server.ResponseStatusException sempre com {@code 405 Method Not Allowed}
+     */
     @Override
     @DeleteMapping("/{id}")
     @Operation(summary = "Recurso somente leitura", hidden = true)
-    /**
-     * Operação não permitida em recurso somente leitura.
-     * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
-     */
     public ResponseEntity<Void> delete(@PathVariable ID id) {
         throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Read-only resource.");
     }
 
+    /**
+     * Bloqueia exclusao em lote de registros em recursos somente leitura.
+     *
+     * @param ids identificadores recebidos; ignorados porque a operacao e proibida
+     * @return nunca retorna normalmente
+     * @throws org.springframework.web.server.ResponseStatusException sempre com {@code 405 Method Not Allowed}
+     */
     @Override
     @DeleteMapping("/batch")
     @Operation(summary = "Recurso somente leitura", hidden = true)
-    /**
-     * Operação não permitida em recurso somente leitura.
-     * @throws org.springframework.web.server.ResponseStatusException 405 Method Not Allowed
-     */
     public ResponseEntity<Void> deleteBatch(@RequestBody List<ID> ids) {
         throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Read-only resource.");
     }

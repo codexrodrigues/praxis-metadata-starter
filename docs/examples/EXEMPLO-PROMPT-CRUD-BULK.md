@@ -1,14 +1,14 @@
 # Exemplo de Prompt para Solicitar Recurso CRUD Metadata-Driven
 
-Este arquivo mostra um prompt recomendado para agentes de IA gerarem um recurso alinhado ao `GUIA-CLAUDE-AI-CRUD-BULK.md`.
+Este arquivo mostra um prompt recomendado para agentes de IA gerarem um recurso
+alinhado ao [Guia 02](/D:/Developer/praxis-plataform/praxis-metadata-starter/docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md).
 
 ## Template recomendado
 
 ```text
 Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
 
-Siga o guia GUIA-CLAUDE-AI-CRUD-BULK.md.
-Use praxis-api-quickstart como host operacional de referencia.
+Siga o guia GUIA-02-AI-BACKEND-CRUD-METADATA.md.
 Garanta compatibilidade de consumo com praxis-ui-angular.
 
 Entrada:
@@ -17,7 +17,7 @@ Entrada:
 - Api group: [grupo-openapi]
 - Pacote base: [pacote-java]
 
-Saída esperada:
+Saida esperada:
 - DTO com @UISchema e Bean Validation
 - FilterDTO com @Filterable
 - Mapper
@@ -29,22 +29,21 @@ Nao trate bulk como obrigatorio.
 So adicione trilha bulk se eu pedir explicitamente.
 ```
 
-## Exemplo real alinhado ao quickstart
+## Exemplo autocontido
 
 ```text
 Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
 
-Siga o guia GUIA-CLAUDE-AI-CRUD-BULK.md.
-Use praxis-api-quickstart como host operacional de referencia.
+Siga o guia GUIA-02-AI-BACKEND-CRUD-METADATA.md.
 Garanta compatibilidade de consumo com praxis-ui-angular.
 
 Entrada:
-- Entidade: src/main/java/com/example/praxis/apiquickstart/hr/entity/Funcionario.java
+- Entidade: src/main/java/com/example/demo/hr/entity/Funcionario.java
 - Resource path: /api/human-resources/funcionarios
 - Api group: human-resources
-- Pacote base: com.example.praxis.apiquickstart.hr
+- Pacote base: com.example.demo.hr
 
-Saída esperada:
+Saida esperada:
 - DTO com @UISchema e Bean Validation
 - FilterDTO com @Filterable
 - Mapper com CorporateMapperConfig
@@ -55,7 +54,7 @@ Saída esperada:
 Nao trate bulk como obrigatorio.
 ```
 
-## Variante para nova entidade de catálogo simples
+## Variante para entidade de catalogo simples
 
 ```text
 Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
@@ -67,33 +66,32 @@ Entrada:
 - Pacote base: com.example.demo.catalog
 
 Regras adicionais:
-- Seletor remoto deve usar /options/filter com displayField=label quando consumir OptionDTO
-- Se usar MapStruct, adote CorporateMapperConfig
-- O recurso precisa ser consumivel por GenericCrudService sem adaptacao local
+- seletor remoto deve usar /options/filter com displayField=label quando consumir OptionDTO
+- se usar MapStruct, adote CorporateMapperConfig
+- o recurso precisa ser consumivel por GenericCrudService sem adaptacao local
 ```
 
 ## O que o prompt deve evitar
 
-Nao peça ao agente para assumir automaticamente:
+Nao peca ao agente para assumir automaticamente:
 
 - `BulkFilterAdapter`
 - `BulkController`
 - dependencias `org.praxisplatform.bulk.*`
-- exemplos herdados de `ms-pessoa-ananke`
+- exemplos herdados de stacks externas
 
 ## Resposta esperada do agente
 
 Uma resposta boa tende a:
 
 1. classificar a entidade e os relacionamentos
-2. gerar os arquivos mínimos do recurso
+2. gerar os arquivos minimos do recurso
 3. justificar selects remotos com `/options/filter`
 4. usar `displayField=label` quando o endpoint retorna `OptionDTO`
 5. citar a compatibilidade com `/schemas/filtered` e `GenericCrudService`
 
-## Referências
+## Referencias publicas
 
-- `docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md`
-- `praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/hr/controller/FuncionarioController.java`
-- `praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/hr/dto/FuncionarioDTO.java`
-- `praxis-ui-angular/projects/praxis-core/src/lib/services/generic-crud.service.ts`
+- `docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md`
+- repositório público do runtime Angular: `https://github.com/codexrodrigues/praxis-ui-angular`
+- pacote publicado de consumo de contrato: `@praxisui/core`

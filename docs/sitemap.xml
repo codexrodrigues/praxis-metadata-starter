@@ -4,21 +4,45 @@
     <loc>https://codexrodrigues.github.io/praxis-metadata-starter/</loc>
   </url>
   <url>
-    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html</loc>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/index.html</loc>
   </url>
   <url>
-    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/packages-overview.html</loc>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html</loc>
   </url>
   <url>
-    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/concepts/ui-schema.html</loc>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html</loc>
   </url>
   <url>
-    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/examples/filter-dto.html</loc>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html</loc>
   </url>
   <url>
-    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/examples/spring-integration.html</loc>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html</loc>
   </url>
   <url>
-    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/docs/index.html</loc>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/guides/CHECKLIST-VALIDACAO-IA.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/guides/ai-proof/index.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/guides/ai-proof/PROTOCOLO-DE-PROVA.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/api/index.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/index.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/concepts/index.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/examples/index.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/technical/index.html</loc>
+  </url>
+  <url>
+    <loc>https://codexrodrigues.github.io/praxis-metadata-starter/overview/VISAO-GERAL.html</loc>
   </url>
 </urlset>

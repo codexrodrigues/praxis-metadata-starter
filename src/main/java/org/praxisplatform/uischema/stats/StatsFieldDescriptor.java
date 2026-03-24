@@ -3,16 +3,22 @@ package org.praxisplatform.uischema.stats;
 import java.util.Set;
 
 /**
- * Describes a field that is eligible for filtered stats.
+ * Descreve um campo elegivel para stats filtrados.
  *
- * @param field canonical API field
- * @param propertyPath JPA property path used in aggregation
- * @param metrics allowed aggregate metrics
- * @param groupByEligible whether the field can be used as a group-by bucket
- * @param timeSeriesEligible whether the field can be used in time-series
- * @param distributionTermsEligible whether the field can be used in terms distribution
- * @param distributionHistogramEligible whether the field can be used in histogram distribution
- * @param metricFieldEligible whether the field can be used as metric.field
+ * <p>
+ * O descritor conecta o nome canonico exposto na API ao {@code propertyPath} usado internamente
+ * nas agregacoes, e declara em quais superficies estatisticas o campo pode aparecer: buckets,
+ * eixo temporal, distribuicao ou campo de metrica.
+ * </p>
+ *
+ * @param field campo canonico exposto pela API
+ * @param propertyPath caminho de propriedade usado nas agregacoes internas
+ * @param metrics metricas agregadas permitidas para o campo
+ * @param groupByEligible indica se o campo pode ser usado como bucket de group-by
+ * @param timeSeriesEligible indica se o campo pode ser usado como eixo temporal
+ * @param distributionTermsEligible indica se o campo pode ser usado em distribuicao por termos
+ * @param distributionHistogramEligible indica se o campo pode ser usado em distribuicao por histograma
+ * @param metricFieldEligible indica se o campo pode ser usado como {@code metric.field}
  */
 public record StatsFieldDescriptor(
         String field,
@@ -24,6 +30,9 @@ public record StatsFieldDescriptor(
         boolean distributionHistogramEligible,
         boolean metricFieldEligible
 ) {
+    /**
+     * Normaliza a colecao de metricas para um conjunto imutavel.
+     */
     public StatsFieldDescriptor {
         metrics = metrics == null ? Set.of() : Set.copyOf(metrics);
     }
@@ -110,6 +119,12 @@ public record StatsFieldDescriptor(
         return histogramField(field, propertyPath, Set.of(StatsMetric.COUNT, StatsMetric.SUM, StatsMetric.AVG, StatsMetric.MIN, StatsMetric.MAX));
     }
 
+    /**
+     * Verifica se o campo suporta a metrica agregada informada.
+     *
+     * @param metric metrica desejada
+     * @return {@code true} quando a metrica estiver habilitada no descritor
+     */
     public boolean supports(StatsMetric metric) {
         return metric != null && metrics.contains(metric);
     }

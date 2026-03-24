@@ -5,11 +5,25 @@ import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.springframework.stereotype.Component;
 
 /**
- * Validates and normalizes option source descriptors before execution.
+ * Valida e normaliza option-sources antes da execucao.
+ *
+ * <p>
+ * Esta classe garante que fontes derivadas que dependem de elegibilidade estatistica, como
+ * dimensoes distintas e buckets categoricos, so avancem quando o recurso realmente publicou
+ * os campos necessarios no {@link StatsFieldRegistry}. Isso impede divergencias entre a
+ * superficie documental e a superficie executavel.
+ * </p>
  */
 @Component
 public class OptionSourceEligibility {
 
+    /**
+     * Resolve o descritor efetivo de uma option-source considerando o registry de stats.
+     *
+     * @param descriptor descritor declarado
+     * @param statsFieldRegistry registry de campos elegiveis para stats
+     * @return descritor normalizado e pronto para execucao
+     */
     public OptionSourceDescriptor resolveEffectiveDescriptor(
             OptionSourceDescriptor descriptor,
             StatsFieldRegistry statsFieldRegistry
