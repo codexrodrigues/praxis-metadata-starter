@@ -15,9 +15,10 @@ Escopo de Compatibilidade (mínimo)
 - i18n/tenant: `Accept-Language` e `X-Tenant` compõem o `schemaId` (ETag varia por idioma/tenant).
 - Segurança fora do starter (configurar no host; JWT/OIDC, CORS, CSRF conforme política).
 
-Repositórios locais (referência)
+Referências públicas
 - Starter Java (referência): `praxis-metadata-starter/`
-- UI Angular: `praxis/frontend-libs/praxis-ui-workspace/` e `praxis-ui-quickstart/`
+- UI Angular pública: `https://github.com/codexrodrigues/praxis-ui-angular`
+- Pacotes publicados relevantes: `@praxisui/core`, `@praxisui/table`, `@praxisui/dynamic-form`, `@praxisui/crud`
 - Complementares: `praxis-backend-seed-app/`, `praxis-openapi-ui-schema-generator/`, `praxis-node/`
 
 Especificação (machine‑readable)
@@ -38,14 +39,13 @@ PoC .NET (esperada)
 - Expansão `$ref` quando `includeInternalSchemas=true`.
 
 Critérios de Aceitação
-- UI Quickstart consome o backend .NET mudando apenas `baseUrl`.
+- O host Angular baseado nos pacotes públicos `@praxisui/*` consome o backend .NET mudando apenas `baseUrl`.
 - Renderização dinâmica de tabela/form a partir do contrato (x‑ui), com `displayColumns`, validações e options.
 - ETag/304 operativo; schemaId/headers corretos; `x-ui.resource` completo.
 
 Fases do Plano (sugestão)
-1) Inventário detalhado (starter + UI workspace)
+1) Inventário detalhado (starter + runtime Angular público)
 2) Fechar JSON Schemas + README (SemVer, precedência)
 3) Design técnico .NET + POCs de cada requisito
 4) Implementação PoC .NET + suíte de conformidade
 5) Documentação e guia de adoção para backends compatíveis
-

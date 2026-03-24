@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Guia para Agentes de IA - Gerar CRUD Metadata-Driven por Entidade</title>
+  <title>Guia 02 - IA Backend - CRUD Metadata-Driven por Entidade</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,77 +230,54 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Guia para Agentes de IA - Gerar CRUD Metadata-Driven
-por Entidade</h1>
+<h1 class="title">Guia 02 - IA Backend - CRUD Metadata-Driven por
+Entidade</h1>
 </header>
-<h1
-id="guia-para-agentes-de-ia---gerar-crud-metadata-driven-por-entidade">Guia
-para Agentes de IA - Gerar CRUD Metadata-Driven por Entidade</h1>
-<blockquote>
-<p>Nota de escopo: apesar do nome do arquivo mencionar
-<code>CRUD-BULK</code>, este guia documenta o baseline canônico de CRUD
-metadata-driven. Bulk continua opcional e externo a este fluxo
-minimo.</p>
-</blockquote>
+<h1 id="guia-02---ia-backend---crud-metadata-driven-por-entidade">Guia
+02 - IA Backend - CRUD Metadata-Driven por Entidade</h1>
 <h2 id="objetivo">Objetivo</h2>
-<p>Este guia orienta um agente de IA a gerar uma feature CRUD alinhada
-ao contrato canônico do <code>praxis-metadata-starter</code>.</p>
+<p>Este guia orienta uma LLM a gerar uma feature CRUD alinhada ao
+contrato canonico do <code>praxis-metadata-starter</code>.</p>
 <p>O objetivo nao e gerar “qualquer CRUD que compile”. O objetivo e
 gerar:</p>
 <ul>
-<li>DTOs com <code>@UISchema</code> e Bean Validation coerentes com o
-contrato publicado em <code>/schemas/filtered</code></li>
-<li><code>FilterDTO</code> com <code>@Filterable</code> coerente com os
-endpoints base do starter</li>
+<li>DTO com <code>@UISchema</code> e Bean Validation coerentes com
+<code>/schemas/filtered</code></li>
+<li><code>FilterDTO</code> com <code>@Filterable</code></li>
 <li><code>Mapper</code>, <code>Service</code>, <code>Repository</code> e
-<code>Controller</code> compatíveis com
+<code>Controller</code> compativeis com
 <code>AbstractCrudController</code> e
 <code>AbstractBaseCrudService</code></li>
-<li>endpoints e metadata que possam ser consumidos sem ajuste local por
-<code>praxis-api-quickstart</code> e <code>praxis-ui-angular</code></li>
+<li>endpoints e metadata consumiveis por <code>praxis-ui-angular</code>
+sem ajuste local</li>
 </ul>
-<h2 id="fontes-canonicas">Fontes canonicas</h2>
-<p>Antes de gerar codigo, o agente deve se orientar por esta
-hierarquia:</p>
+<h2 id="ordem-de-leitura-para-a-llm">Ordem de leitura para a LLM</h2>
+<p>Use este guia depois de
+<code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code>.</p>
+<p>Ordem recomendada:</p>
 <ol type="1">
-<li><code>praxis-metadata-starter</code>
-<ul>
-<li>fonte canonica de <code>@ApiResource</code>, <code>@ApiGroup</code>,
-<code>@UISchema</code>, <code>Filterable</code>,
-<code>AbstractCrudController</code>,
-<code>AbstractBaseCrudService</code>, <code>/schemas/filtered</code> e
-endpoints de options</li>
-</ul></li>
-<li><code>praxis-api-quickstart</code>
-<ul>
-<li>host operacional de referencia para uso real e publicado</li>
-</ul></li>
-<li><code>praxis-ui-angular</code>
-<ul>
-<li>consumidor final de runtime, especialmente
-<code>GenericCrudService</code></li>
-</ul></li>
+<li><code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li>este guia</li>
+<li><code>CHECKLIST-VALIDACAO-IA.md</code></li>
 </ol>
 <h2 id="escopo-correto-deste-guia">Escopo correto deste guia</h2>
-<p>Este guia cobre o padrao canônico de um recurso CRUD
+<p>Este guia cobre o baseline canonico de um recurso CRUD
 metadata-driven.</p>
 <p>Este guia nao deve tratar como obrigatorio:</p>
 <ul>
 <li><code>BulkFilterAdapter</code></li>
 <li><code>BulkController</code></li>
 <li><code>org.praxisplatform.bulk.*</code></li>
-<li>receitas herdadas de projetos externos como
-<code>ms-pessoa-ananke</code></li>
+<li>receitas herdadas de projetos externos</li>
 </ul>
-<p>Se a feature precisar de bulk, isso deve ser tratado como trilha
-opcional e externa ao contrato minimo deste starter.</p>
-<h2 id="o-que-o-agente-deve-receber-como-entrada">O que o agente deve
-receber como entrada</h2>
-<p>O agente deve receber, no minimo:</p>
+<p>Se a feature precisar de bulk, isso e trilha opcional e separada.</p>
+<h2 id="o-que-a-llm-deve-receber-como-entrada">O que a LLM deve receber
+como entrada</h2>
+<p>No minimo:</p>
 <ol type="1">
-<li>caminho ou codigo da entidade JPA</li>
-<li>path canônico do recurso</li>
-<li>grupo OpenAPI desejado</li>
+<li>entidade JPA ou sua estrutura</li>
+<li><code>resourcePath</code> canonico</li>
+<li>grupo OpenAPI</li>
 <li>pacote base do modulo</li>
 </ol>
 <p>Exemplo:</p>
@@ -311,25 +288,22 @@ Entrada:
 - Resource path: /api/human-resources/funcionarios
 - Api group: human-resources
 - Pacote base: com.example.hr</code></pre>
-<h2 id="arquivos-minimos-a-gerar">Arquivos minimos a gerar</h2>
-<p>Para um recurso CRUD padrão, o conjunto minimo canônico e:</p>
+<h2 id="arquivos-minimos">Arquivos minimos</h2>
 <pre class="text"><code>src/main/java/{pacote-base}/
-├── dto/
-│   ├── {Nome}DTO.java
-│   └── filter/
-│       └── {Nome}FilterDTO.java
-├── mapper/
-│   └── {Nome}Mapper.java
-├── repository/
-│   └── {Nome}Repository.java
-├── service/
-│   └── {Nome}Service.java
-└── controller/
-    └── {Nome}Controller.java</code></pre>
-<p><code>BulkController</code> e <code>BulkFilterAdapter</code> nao
-fazem parte do baseline do starter.</p>
-<h2 id="padrao-canônico-do-controller">Padrao canônico do
-Controller</h2>
+|-- dto/
+|   |-- {Nome}DTO.java
+|   `-- filter/
+|       `-- {Nome}FilterDTO.java
+|-- mapper/
+|   `-- {Nome}Mapper.java
+|-- repository/
+|   `-- {Nome}Repository.java
+|-- service/
+|   `-- {Nome}Service.java
+`-- controller/
+    `-- {Nome}Controller.java</code></pre>
+<h2 id="padrao-canonico-do-controller">Padrao canonico do
+controller</h2>
 <p>O controller deve estender
 <code>AbstractCrudController&lt;E, D, ID, FD&gt;</code> e
 implementar:</p>
@@ -380,17 +354,16 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="
 <span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
 <span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
 <span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Observacoes:</p>
+<p>Regras:</p>
 <ul>
-<li><code>@ApiResource</code> e a superficie canônica</li>
-<li><code>ApiPaths</code> deve vir do projeto host, nao do starter</li>
-<li>o host pode sobrescrever metodos do controller apenas para
-enriquecer OpenAPI ou descricoes, como faz o quickstart</li>
+<li><code>@ApiResource</code> e a superficie canonica</li>
+<li><code>ApiPaths</code> deve vir do projeto host</li>
+<li>o host so deve sobrescrever metodos quando precisar enriquecer
+OpenAPI</li>
 </ul>
-<h2 id="padrao-canônico-do-service">Padrao canônico do Service</h2>
-<p>O service padrão deve estender
+<h2 id="padrao-canonico-do-service">Padrao canonico do service</h2>
+<p>O service padrao deve estender
 <code>AbstractBaseCrudService&lt;E, D, ID, FD&gt;</code>.</p>
-<p>Template minimo:</p>
 <div class="sourceCode" id="cb4"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioService <span class="kw">extends</span> AbstractBaseCrudService<span class="op">&lt;</span>Funcionario<span class="op">,</span> FuncionarioDTO<span class="op">,</span> <span class="bu">Integer</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
@@ -408,13 +381,11 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="
 <span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> existing<span class="op">;</span></span>
 <span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
 <span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Quando houver relacionamentos <code>@ManyToOne</code> ou
-<code>@OneToOne</code>, <code>mergeUpdate(...)</code> deve preservar a
-semantica do relacionamento no aggregate persistido.</p>
-<h2 id="padrao-canônico-do-mapper">Padrao canônico do Mapper</h2>
-<p>O padrao preferencial publicado hoje e MapStruct com
+<p>Quando houver relacoes, <code>mergeUpdate(...)</code> deve preservar
+a semantica do aggregate persistido.</p>
+<h2 id="padrao-canonico-do-mapper">Padrao canonico do mapper</h2>
+<p>Padrao preferencial: MapStruct com
 <code>CorporateMapperConfig</code>.</p>
-<p>Template:</p>
 <div class="sourceCode" id="cb5"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Mapper</span><span class="op">(</span>componentModel <span class="op">=</span> <span class="st">&quot;spring&quot;</span><span class="op">,</span> config <span class="op">=</span> CorporateMapperConfig<span class="op">.</span><span class="fu">class</span><span class="op">)</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> FuncionarioMapper <span class="op">{</span></span>
@@ -434,26 +405,25 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="
 <span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>Regras:</p>
 <ul>
-<li>prefira <code>CorporateMapperConfig</code> quando o projeto usar
-MapStruct, porque esse e o padrao operacional mais consistente no
-ecossistema atual</li>
-<li>use mapper manual apenas quando isso for realmente mais simples e o
-projeto local adotar esse estilo</li>
-<li>ao mapear relacoes por ID, produza <code>relacaoId</code> no DTO e
-reconstrua a referencia por ID na volta</li>
+<li>prefira <code>CorporateMapperConfig</code> quando houver
+MapStruct</li>
+<li>use mapper manual apenas se o projeto realmente adotar esse
+estilo</li>
+<li>ao mapear relacoes por ID, exponha <code>relacaoId</code> no
+DTO</li>
 </ul>
-<h2 id="dto-canônico">DTO canônico</h2>
+<h2 id="dto-canonico">DTO canonico</h2>
 <p>O DTO deve refletir o contrato que a UI vai consumir via
 <code>/schemas/filtered</code>.</p>
 <p>Regras obrigatorias:</p>
 <ul>
 <li>campos visiveis na UI devem usar <code>@UISchema</code></li>
 <li>validacoes estruturais devem usar Bean Validation</li>
-<li>relacoes para selects devem usar <code>endpoint</code>,
+<li>selects remotos devem usar <code>endpoint</code>,
 <code>valueField</code> e <code>displayField</code> coerentes com o
 endpoint real</li>
 </ul>
-<p>Exemplo alinhado ao quickstart:</p>
+<p>Exemplo:</p>
 <div class="sourceCode" id="cb6"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="at">@NotNull</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
@@ -472,9 +442,9 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="
 <li>se o endpoint for <code>.../filter</code> retornando DTO completo,
 use o campo textual do DTO, como <code>nome</code></li>
 </ul>
-<h2 id="filterdto-canônico">FilterDTO canônico</h2>
+<h2 id="filterdto-canonico">FilterDTO canonico</h2>
 <p>O <code>FilterDTO</code> deve implementar
-<code>GenericFilterDTO</code> e modelar criterios de busca reais.</p>
+<code>GenericFilterDTO</code>.</p>
 <p>Regras praticas:</p>
 <ul>
 <li>texto: <code>LIKE</code></li>
@@ -505,13 +475,12 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="
 <p>Enums corretos:</p>
 <ul>
 <li><code>FilterOperation.EQUAL</code>, nao <code>EQUALS</code></li>
-<li><code>FieldControlType.TOGGLE</code> existe, mas no quickstart
-varios booleanos usam <code>CHECKBOX</code></li>
+<li><code>FieldControlType.CHECKBOX</code> e um baseline seguro para
+booleanos simples</li>
 <li><code>FieldControlType.TOGGLE_SWITCH</code> nao e canonico</li>
 </ul>
-<h2 id="endpoints-reais-que-a-ui-espera">Endpoints reais que a UI
-espera</h2>
-<p>O contrato minimo do recurso deve ser compatível com:</p>
+<h2 id="endpoints-que-a-ui-espera">Endpoints que a UI espera</h2>
+<p>O contrato minimo do recurso deve ser compativel com:</p>
 <ul>
 <li><code>GET /{resource}/schemas</code></li>
 <li><code>GET /schemas/filtered?path={resource}/all&amp;operation=get&amp;schemaType=response</code></li>
@@ -523,44 +492,41 @@ espera</h2>
 <li><code>GET /{resource}/options/by-ids</code></li>
 <li>CRUD basico</li>
 </ul>
-<h2 id="como-o-angular-realmente-consome-isso">Como o Angular realmente
-consome isso</h2>
+<h2 id="como-o-angular-consome-isso">Como o Angular consome isso</h2>
 <p><code>praxis-ui-angular</code> usa <code>GenericCrudService</code>
 para:</p>
 <ul>
-<li>chamar <code>getSchema()</code> no recurso e, a partir disso,
-resolver o grid schema estrutural via
-<code>/schemas/filtered</code></li>
-<li>chamar <code>getFilteredSchema()</code> para o
-<code>FilterDTO</code></li>
+<li>chamar <code>getSchema()</code></li>
+<li>resolver grid schema via <code>/schemas/filtered</code></li>
+<li>resolver schema do filtro</li>
 <li>revalidar com <code>If-None-Match</code></li>
 <li>ler <code>ETag</code>, <code>X-Schema-Hash</code> e
 <code>x-ui.resource.idField</code></li>
 </ul>
-<p>Implicacoes para o codigo gerado:</p>
+<p>Implicacoes:</p>
 <ul>
 <li>o schema precisa expor <code>x-ui</code> coerente</li>
 <li>o DTO precisa manter <code>idField</code> inferivel ou sobrescrito
-no controller</li>
+corretamente</li>
 <li>endpoints de select precisam ser compativeis com
 <code>OptionDTO{id,label}</code></li>
 </ul>
-<h2 id="uso-real-de-referencia">Uso real de referencia</h2>
-<p>O recurso <code>Funcionario</code> do
-<code>praxis-api-quickstart</code> e a melhor referencia operacional
-atual para um CRUD completo:</p>
+<h2 id="resultado-que-este-guia-precisa-produzir">Resultado que este
+guia precisa produzir</h2>
+<p>Ao terminar este guia, o recurso precisa estar pronto para:</p>
 <ul>
-<li>controller sobre <code>AbstractCrudController</code></li>
-<li><code>options/filter</code> retornando <code>OptionDTO</code></li>
-<li>DTO com <code>displayField = "label"</code> para selects
-remotos</li>
-<li>mapper com <code>CorporateMapperConfig</code></li>
+<li>CRUD baseline</li>
+<li><code>/schemas/filtered</code> de request e response</li>
+<li><code>POST /filter</code></li>
+<li><code>POST /options/filter</code> quando houver select remoto</li>
+<li><code>GET /options/by-ids</code> quando houver select remoto</li>
+<li>consumo por <code>GenericCrudService</code> sem adaptacao local</li>
 </ul>
 <h2 id="prompt-recomendado-para-ia">Prompt recomendado para IA</h2>
 <pre class="text"><code>Voce esta gerando uma feature CRUD metadata-driven para o ecossistema Praxis.
 
-Siga o contrato canônico do praxis-metadata-starter.
-Use praxis-api-quickstart como host operacional de referencia e praxis-ui-angular como consumidor final do contrato.
+Siga o contrato canonico do praxis-metadata-starter.
+Considere praxis-ui-angular como consumidor final do contrato.
 
 Gere:
 - DTO com @UISchema e Bean Validation
@@ -578,35 +544,27 @@ Entrada:
 - Resource path: {resource-path}
 - Api group: {api-group}
 - Pacote base: {base-package}</code></pre>
-<h2 id="checklist-minimo-de-saida">Checklist minimo de saida</h2>
-<p>Antes de concluir, o agente deve conferir:</p>
+<h2 id="checklist-minimo">Checklist minimo</h2>
+<p>Antes de concluir:</p>
 <ul>
 <li>o controller usa <code>@ApiResource</code> e
 <code>@ApiGroup</code></li>
 <li>o mapper usa <code>CorporateMapperConfig</code> quando
 aplicavel</li>
-<li><code>FilterOperation</code> usa enums canônicos</li>
+<li><code>FilterOperation</code> usa enums canonicos</li>
 <li>selects remotos apontam para <code>/options/filter</code> com
-<code>displayField = "label"</code> quando consumirem
-<code>OptionDTO</code></li>
+<code>displayField = "label"</code></li>
 <li>o recurso pode ser consumido por <code>GenericCrudService</code> sem
 adaptacao local</li>
 </ul>
-<h2 id="fora-de-escopo">Fora de escopo</h2>
-<p>Este guia nao institucionaliza:</p>
-<ul>
-<li>templates antigos baseados em <code>ms-pessoa-ananke</code></li>
-<li>suposicao de que toda entidade precisa de bulk</li>
-<li>dependencia obrigatoria em modulos externos nao publicados neste
-starter</li>
-</ul>
-<h2 id="referencias-cruzadas">Referencias cruzadas</h2>
+<h2 id="referencias-publicas">Referencias publicas</h2>
 <ul>
 <li><code>praxis-metadata-starter/README.md</code></li>
-<li><code>praxis-api-quickstart/README.md</code></li>
-<li><code>praxis-ui-angular/projects/praxis-core/src/lib/services/generic-crud.service.ts</code></li>
-<li><code>praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/hr/controller/FuncionarioController.java</code></li>
-<li><code>praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/hr/dto/FuncionarioDTO.java</code></li>
+<li>repositório público do runtime Angular:
+<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
+<li>pacote publicado de consumo de contrato:
+<code>@praxisui/core</code></li>
+<li><code>praxis-metadata-starter/docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
 </ul>
 </body>
 </html>

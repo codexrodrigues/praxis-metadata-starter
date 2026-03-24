@@ -1,33 +1,23 @@
 # Dynamic Component Rendering
 
-## Definição curta
-Renderização dinâmica de componentes baseada em metadados (schema + `x-ui`) e configuração, com registro/descoberta de componentes por tipo de controle e injeção de dependências.
+## Definicao curta
+
+Renderizacao dinamica de componentes baseada em metadados de schema e tipo de
+controle.
 
 ## Onde aparece no Praxis
-- Frontend: `frontend-libs/praxis-ui-workspace/projects/praxis-dynamic-fields` — registro e resolução de componentes por `FieldControlType`.
-- Frontend: `frontend-libs/praxis-ui-workspace/projects/praxis-table` — colunas e células geradas dinamicamente a partir do contrato.
-- Backend: `backend-libs/praxis-metadata-starter/README.md` — metadados que mapeiam tipos e controles.
 
-## Como aplicar (passo a passo)
-1) Defina o contrato de campos (`FieldDefinition`) e tipos (`FieldControlType`).
-2) Mantenha um registro (`ComponentRegistry`) que mapeia `FieldControlType` → componente.
-3) Em runtime, resolva o componente pelo tipo e crie dinamicamente, passando metadados e contexto.
+- Frontend: `@praxisui/dynamic-fields`
+- Frontend: `@praxisui/table`
+- Backend: `praxis-metadata-starter`
 
-Exemplo (pseudo‑código):
-```ts
-const compType = registry.resolve(field.controlType);
-viewContainerRef.createComponent(compType, { inputs: { field, value } });
-```
+## Como aplicar
 
-## Anti‑padrões
-- Branching manual longo por tipo de campo (ex.: `switch(controlType)` em todo lugar).
-- Tipos/nomes de controle inconsistentes entre contrato e registro de componentes.
+1. defina `FieldControlType` e metadados de campo
+2. mantenha um registro que mapeia tipo para componente
+3. resolva o componente em runtime a partir do contrato
 
-## Referências internas
-- frontend-libs/praxis-ui-workspace/projects/praxis-dynamic-fields/src/lib/registry/field-component.registry.ts
-- frontend-libs/praxis-ui-workspace/projects/praxis-core/src/lib/models/field-definition.model.ts
+## Referencias publicas
 
-## Veja também
-- [Headless UI & Design Systems](./headless-ui-and-design-systems.md)
-- [Schema‑driven UI](./schema-driven-ui.md)
-
+- repositório público: `https://github.com/codexrodrigues/praxis-ui-angular`
+- pacotes: `@praxisui/core`, `@praxisui/dynamic-fields`, `@praxisui/table`

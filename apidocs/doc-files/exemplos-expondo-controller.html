@@ -31,19 +31,21 @@
   <div class="flex-content">
     <a id="expondo-controller-com-apiresource-heading"></a>
     <h1>Expondo controller com @ApiResource</h1>
-    <p class="muted">Ganhe até <strong>13 endpoints</strong> por recurso ao estender as bases do starter. Read‑only também é suportado.</p>
+    <p class="muted">Ganhe até <strong>18 endpoints</strong> por recurso ao estender as bases do starter. Read-only tambem e suportado.</p>
 
     <div class="card">
-      <h2>Exemplo de CRUD completo</h2>
-      <pre><code>import org.praxisplatform.uischema.annotation.ApiResource;
-import org.springframework.web.bind.annotation.RestController;
+      <h2>Exemplo recomendado</h2>
+      <pre><code>import org.praxisplatform.uischema.annotation.ApiGroup;
+import org.praxisplatform.uischema.annotation.ApiResource;
 
-@RestController
-@ApiResource("/api/human-resources/pessoas")
+@ApiResource(ApiPaths.HumanResources.PESSOAS)
+@ApiGroup("human-resources")
 public class PessoaController extends AbstractCrudController&lt;Pessoa, PessoaDTO, Long, PessoaFilterDTO&gt; {
-  // injete serviços (service/repository) conforme sua arquitetura
+  // injete service/repository conforme a arquitetura da aplicacao
 }
       </code></pre>
+      <p><code>@ApiResource</code> ja incorpora <code>@RestController</code> e <code>@RequestMapping</code>; nao e necessario declarar <code>@RestController</code> separadamente.</p>
+      <p>Prefira constantes de path no projeto da aplicacao e use <code>@ApiGroup</code> para organizar a documentacao OpenAPI por contexto.</p>
     </div>
 
     <h2>Endpoints prontos</h2>
@@ -53,9 +55,14 @@ public class PessoaController extends AbstractCrudController&lt;Pessoa, PessoaDT
       <div class="ep"><span class="badge method post">POST</span> <code>/filter</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/filter/cursor</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/locate</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/stats/group-by</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/stats/timeseries</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/stats/distribution</code></div>
       <div class="ep"><span class="badge method get">GET</span> <code>/by-ids</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/options/filter</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/option-sources/{sourceKey}/options/filter</code></div>
       <div class="ep"><span class="badge method get">GET</span> <code>/options/by-ids</code></div>
+      <div class="ep"><span class="badge method get">GET</span> <code>/option-sources/{sourceKey}/options/by-ids</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/</code></div>
       <div class="ep"><span class="badge method put">PUT</span> <code>/{id}</code></div>
       <div class="ep"><span class="badge method del">DELETE</span> <code>/{id}</code></div>
@@ -64,18 +71,30 @@ public class PessoaController extends AbstractCrudController&lt;Pessoa, PessoaDT
     </div>
 
     <div class="card">
-      <h3>Read‑only (Views/@Immutable)</h3>
-      <p>Use a base read‑only para manter os endpoints de leitura e bloquear escrita com <code>405</code>.</p>
+      <h3>O que o contrato atual entrega</h3>
+      <ul>
+        <li>CRUD completo com deteccao automatica do base path via <code>@ApiResource</code>/<code>@RequestMapping</code>.</li>
+        <li>Endpoints de options padrao e tambem <code>option-sources</code> para fontes canonicas registradas.</li>
+        <li>Endpoints estatisticos para <code>group-by</code>, <code>timeseries</code> e <code>distribution</code>.</li>
+        <li>Superficie de schema x-ui em <code>/schemas</code> integrada ao <code>/schemas/filtered</code>.</li>
+      </ul>
+    </div>
+
+    <h2>Read-only (Views/@Immutable)</h2>
+    <div class="card">
+      <p>Use <code>AbstractReadOnlyController</code> para manter os endpoints de leitura e responder <code>405 Method Not Allowed</code> nas operacoes de escrita.</p>
+      <p>O recurso continua com leitura, filtros, options, option-sources e schema x-ui, sem precisar duplicar controller.</p>
     </div>
 
     <h2>Ver também</h2>
     <ul>
       <li><a href="../org/praxisplatform/uischema/annotation/ApiResource.html">Javadoc: @ApiResource</a></li>
+      <li><a href="../org/praxisplatform/uischema/annotation/ApiGroup.html">Javadoc: @ApiGroup</a></li>
       <li><a href="../org/praxisplatform/uischema/controller/base/AbstractCrudController.html">Javadoc: AbstractCrudController</a></li>
+      <li><a href="../org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.html">Javadoc: AbstractReadOnlyController</a></li>
       <li><a href="exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">Modelando DTO com @UISchema</a></li>
       <li><a href="exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">Consumindo o contrato</a></li>
     </ul>
   </div>
 </body>
 </html>
-

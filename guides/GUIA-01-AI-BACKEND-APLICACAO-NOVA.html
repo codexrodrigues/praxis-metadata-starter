@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Guia para Agentes de IA - Criar Nova Aplicacao Spring Boot com Praxis Metadata Starter</title>
+  <title>Guia 01 - IA Backend - Aplicacao Nova com Praxis Metadata Starter</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,70 +230,61 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Guia para Agentes de IA - Criar Nova Aplicacao Spring
-Boot com Praxis Metadata Starter</h1>
+<h1 class="title">Guia 01 - IA Backend - Aplicacao Nova com Praxis
+Metadata Starter</h1>
 </header>
 <h1
-id="guia-para-agentes-de-ia---criar-nova-aplicacao-spring-boot-com-praxis-metadata-starter">Guia
-para Agentes de IA - Criar Nova Aplicacao Spring Boot com Praxis
-Metadata Starter</h1>
+id="guia-01---ia-backend---aplicacao-nova-com-praxis-metadata-starter">Guia
+01 - IA Backend - Aplicacao Nova com Praxis Metadata Starter</h1>
 <h2 id="objetivo">Objetivo</h2>
-<p>Este guia orienta um agente de IA a criar uma nova aplicacao Spring
-Boot que use o <code>praxis-metadata-starter</code> como fonte canônica
-de contrato metadata-driven.</p>
-<p>O objetivo nao e gerar um monolito cheio de dependencias opcionais. O
-objetivo e criar uma base minima, coerente e evolutiva que:</p>
+<p>Este guia orienta uma LLM a criar uma nova aplicacao Spring Boot que
+use o <code>praxis-metadata-starter</code> como fonte canonica do
+contrato metadata-driven.</p>
+<p>O objetivo nao e gerar um projeto “parecido com os apps do time”. O
+objetivo e gerar uma base minima que:</p>
 <ul>
 <li>publique <code>OpenAPI + x-ui</code></li>
+<li>exponha <code>GET /{resource}/schemas</code></li>
 <li>exponha <code>/schemas/filtered</code></li>
 <li>use <code>@ApiResource</code>, <code>@ApiGroup</code>,
 <code>@UISchema</code>, <code>AbstractCrudController</code> e
 <code>AbstractBaseCrudService</code></li>
-<li>possa ser consumida diretamente por
-<code>praxis-ui-angular</code></li>
+<li>possa ser consumida por <code>praxis-ui-angular</code> sem ajuste
+local de contrato</li>
 </ul>
-<h2 id="hierarquia-canônica">Hierarquia canônica</h2>
-<p>O agente deve seguir esta ordem:</p>
+<h2 id="ordem-de-leitura-para-a-llm">Ordem de leitura para a LLM</h2>
+<p>Use esta ordem:</p>
 <ol type="1">
-<li><code>praxis-metadata-starter</code>
-<ul>
-<li>define o contrato canônico</li>
-</ul></li>
-<li><code>praxis-api-quickstart</code>
-<ul>
-<li>mostra a aplicacao operacional de referencia</li>
-</ul></li>
-<li><code>praxis-ui-angular</code>
-<ul>
-<li>mostra como o contrato e consumido em runtime</li>
-</ul></li>
+<li>este guia</li>
+<li><code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>CHECKLIST-VALIDACAO-IA.md</code></li>
 </ol>
+<p>Este guia precisa ser suficiente por si so. Nao dependa de nenhum app
+externo como fonte necessaria.</p>
 <h2 id="o-que-este-guia-deve-gerar">O que este guia deve gerar</h2>
 <p>A base minima de uma nova aplicacao deve conter:</p>
 <ul>
 <li><code>pom.xml</code></li>
 <li>classe <code>@SpringBootApplication</code></li>
 <li><code>ApiPaths</code> local da aplicacao</li>
-<li>configuracao basica de <code>application.properties</code></li>
+<li><code>application.properties</code> ou perfis equivalentes</li>
 <li>ao menos um modulo com DTO, FilterDTO, mapper, repository, service e
 controller</li>
 </ul>
-<h2 id="o-que-este-guia-nao-deve-assumir-como-baseline">O que este guia
-nao deve assumir como baseline</h2>
+<h2 id="o-que-nao-faz-parte-do-baseline">O que nao faz parte do
+baseline</h2>
 <p>Nao trate como obrigatorio por padrao:</p>
 <ul>
 <li><code>praxis-bulk-starter</code></li>
 <li><code>praxis-bulk-web</code></li>
 <li><code>praxis-files-starter</code></li>
 <li><code>praxis-config-starter</code></li>
-<li>scans manuais de pacotes externos de bulk</li>
+<li>scans manuais de pacotes externos</li>
 </ul>
-<p>Esses modulos podem existir na plataforma, mas nao fazem parte do
-baseline canônico deste starter.</p>
+<p>Esses modulos sao opcionais. So entram se o pedido exigir
+explicitamente.</p>
 <h2 id="dependencia-minima-recomendada">Dependencia minima
 recomendada</h2>
-<p>O baseline do projeto deve partir da dependencia publicada do
-starter:</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode xml"><code class="sourceCode xml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">dependency</span>&gt;</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">groupId</span>&gt;io.github.codexrodrigues&lt;/<span class="kw">groupId</span>&gt;</span>
@@ -311,21 +302,18 @@ class="sourceCode xml"><code class="sourceCode xml"><span id="cb2-1"><a href="#c
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">groupId</span>&gt;org.flywaydb&lt;/<span class="kw">groupId</span>&gt;</span>
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">artifactId</span>&gt;flyway-core&lt;/<span class="kw">artifactId</span>&gt;</span>
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">dependency</span>&gt;</span></code></pre></div>
-<p>Se o projeto usar MapStruct explicitamente para os mappers, adicione
-a dependencia e o processor correspondentes.</p>
+<p>Se o projeto usar MapStruct, adicione <code>mapstruct</code> e o
+annotation processor.</p>
 <p>Importante:</p>
 <ul>
-<li>o starter ja traz o baseline web/JPA/OpenAPI necessario para o
-contrato metadata-driven</li>
-<li>a aplicacao host ainda precisa declarar o driver de banco que
-realmente vai usar</li>
-<li>para build executavel, o host deve declarar o
+<li>o starter ja traz o baseline web/JPA/OpenAPI necessario</li>
+<li>a aplicacao host ainda precisa declarar o driver real do banco</li>
+<li>para build executavel, o host deve declarar
 <code>spring-boot-maven-plugin</code></li>
-<li>para MapStruct funcionar de forma reproduzivel em CI e IDE, o host
-deve declarar <code>maven-compiler-plugin</code> com annotation
-processor</li>
+<li>para MapStruct funcionar em CI e IDE, o host deve declarar
+<code>maven-compiler-plugin</code> com processor</li>
 </ul>
-<h2 id="template-de-pom.xml">Template de pom.xml</h2>
+<h2 id="template-de-pom.xml">Template de <code>pom.xml</code></h2>
 <div class="sourceCode" id="cb3"><pre
 class="sourceCode xml"><code class="sourceCode xml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">project</span><span class="ot"> xmlns=</span><span class="st">&quot;http://maven.apache.org/POM/4.0.0&quot;</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ot">         xmlns:xsi=</span><span class="st">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span></span>
@@ -366,50 +354,43 @@ class="sourceCode xml"><code class="sourceCode xml"><span id="cb3-1"><a href="#c
 <span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">artifactId</span>&gt;flyway-core&lt;/<span class="kw">artifactId</span>&gt;</span>
 <span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependency</span>&gt;</span>
 <span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    <span class="co">&lt;!-- Escolha um driver real para a aplicacao host --&gt;</span></span>
-<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">groupId</span>&gt;org.postgresql&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">artifactId</span>&gt;postgresql&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">scope</span>&gt;runtime&lt;/<span class="kw">scope</span>&gt;</span>
-<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>    <span class="co">&lt;!-- Se o projeto usar MapStruct --&gt;</span></span>
-<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">groupId</span>&gt;org.mapstruct&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">artifactId</span>&gt;mapstruct&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">version</span>&gt;${org.mapstruct.version}&lt;/<span class="kw">version</span>&gt;</span>
-<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  &lt;/<span class="kw">dependencies</span>&gt;</span>
-<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">build</span>&gt;</span>
-<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">plugins</span>&gt;</span>
-<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">plugin</span>&gt;</span>
-<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">artifactId</span>&gt;spring-boot-maven-plugin&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>      &lt;/<span class="kw">plugin</span>&gt;</span>
-<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">plugin</span>&gt;</span>
-<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">artifactId</span>&gt;maven-compiler-plugin&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">configuration</span>&gt;</span>
-<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>          &lt;<span class="kw">annotationProcessorPaths</span>&gt;</span>
-<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">path</span>&gt;</span>
-<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>              &lt;<span class="kw">groupId</span>&gt;org.mapstruct&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>              &lt;<span class="kw">artifactId</span>&gt;mapstruct-processor&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>              &lt;<span class="kw">version</span>&gt;${org.mapstruct.version}&lt;/<span class="kw">version</span>&gt;</span>
-<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">path</span>&gt;</span>
-<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>          &lt;/<span class="kw">annotationProcessorPaths</span>&gt;</span>
-<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">configuration</span>&gt;</span>
-<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a>      &lt;/<span class="kw">plugin</span>&gt;</span>
-<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">plugins</span>&gt;</span>
-<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a>  &lt;/<span class="kw">build</span>&gt;</span>
-<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">project</span>&gt;</span></code></pre></div>
-<p>Se a aplicacao nao usar MapStruct, remova <code>mapstruct</code> e o
-bloco <code>annotationProcessorPaths</code>.</p>
-<p>Se o host usar H2 apenas para bootstrap local, troque o driver acima
-por <code>com.h2database:h2</code> em <code>runtime</code>.</p>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">groupId</span>&gt;org.postgresql&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">artifactId</span>&gt;postgresql&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">scope</span>&gt;runtime&lt;/<span class="kw">scope</span>&gt;</span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">groupId</span>&gt;org.mapstruct&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">artifactId</span>&gt;mapstruct&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">version</span>&gt;${org.mapstruct.version}&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>  &lt;/<span class="kw">dependencies</span>&gt;</span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">build</span>&gt;</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">plugins</span>&gt;</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">plugin</span>&gt;</span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">artifactId</span>&gt;spring-boot-maven-plugin&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>      &lt;/<span class="kw">plugin</span>&gt;</span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">plugin</span>&gt;</span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">artifactId</span>&gt;maven-compiler-plugin&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">configuration</span>&gt;</span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>          &lt;<span class="kw">annotationProcessorPaths</span>&gt;</span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">path</span>&gt;</span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>              &lt;<span class="kw">groupId</span>&gt;org.mapstruct&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a>              &lt;<span class="kw">artifactId</span>&gt;mapstruct-processor&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>              &lt;<span class="kw">version</span>&gt;${org.mapstruct.version}&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">path</span>&gt;</span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>          &lt;/<span class="kw">annotationProcessorPaths</span>&gt;</span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">configuration</span>&gt;</span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>      &lt;/<span class="kw">plugin</span>&gt;</span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">plugins</span>&gt;</span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a>  &lt;/<span class="kw">build</span>&gt;</span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">project</span>&gt;</span></code></pre></div>
+<p>Se a aplicacao nao usar MapStruct, remova o bloco correspondente.</p>
 <h2 id="classe-principal">Classe principal</h2>
-<p>Na maior parte dos casos, o starter deve ser descoberto pela
-auto-configuração normal do Spring Boot.</p>
 <p>Template simples:</p>
 <div class="sourceCode" id="cb4"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@SpringBootApplication</span></span>
@@ -418,25 +399,24 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        SpringApplication<span class="op">.</span><span class="fu">run</span><span class="op">(</span>DemoApplication<span class="op">.</span><span class="fu">class</span><span class="op">,</span> args<span class="op">);</span></span>
 <span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
 <span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Nao adicione <code>scanBasePackages</code> para pacotes externos
-arbitrarios sem necessidade comprovada.</p>
+<p>Nao adicione <code>scanBasePackages</code> arbitrario sem necessidade
+comprovada.</p>
 <h2 id="estrutura-recomendada">Estrutura recomendada</h2>
 <pre class="text"><code>src/main/java/{base-package}/
-├── {App}Application.java
-├── constants/
-│   └── ApiPaths.java
-└── {modulo}/
-    ├── controller/
-    ├── dto/
-    │   └── filter/
-    ├── entity/
-    ├── mapper/
-    ├── repository/
-    └── service/</code></pre>
-<h2 id="apipaths-local">ApiPaths local</h2>
+|-- {App}Application.java
+|-- constants/
+|   `-- ApiPaths.java
+`-- {modulo}/
+    |-- controller/
+    |-- dto/
+    |   `-- filter/
+    |-- entity/
+    |-- mapper/
+    |-- repository/
+    `-- service/</code></pre>
+<h2 id="apipaths-local"><code>ApiPaths</code> local</h2>
 <p>Cada aplicacao deve definir sua propria classe
 <code>ApiPaths</code>.</p>
-<p>Exemplo:</p>
 <div class="sourceCode" id="cb6"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="dt">final</span> <span class="kw">class</span> ApiPaths <span class="op">{</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> BASE <span class="op">=</span> <span class="st">&quot;/api&quot;</span><span class="op">;</span></span>
@@ -449,7 +429,7 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="
 <span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="fu">ApiPaths</span><span class="op">()</span> <span class="op">{}</span></span>
 <span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h2 id="properties-minimas">Properties minimas</h2>
+<h2 id="propriedades-minimas">Propriedades minimas</h2>
 <p>Exemplo de <code>application.properties</code>:</p>
 <pre class="properties"><code>spring.application.name={app-name}
 server.port=8080
@@ -462,102 +442,82 @@ springdoc.swagger-ui.enabled=true
 spring.jpa.open-in-view=false
 spring.flyway.enabled=true
 
-# Ajuste para o banco escolhido no host
 spring.datasource.url=jdbc:postgresql://localhost:5432/{db-name}
 spring.datasource.username={db-user}
 spring.datasource.password={db-password}
 
-# Recomendado quando a URL publica e a URL interna divergem
+# Opcional quando URL publica e interna divergem
 # app.openapi.internal-base-url=http://localhost:8080</code></pre>
 <p>Observacoes:</p>
 <ul>
 <li><code>springdoc.swagger-ui.path=/swagger-ui.html</code> nao e
-obrigatorio; o quickstart publicado usa
-<code>/swagger-ui/index.html</code></li>
-<li>se houver proxy, Render ou balanceador, documente
+obrigatorio</li>
+<li>se houver proxy ou balanceador, documente
 <code>app.openapi.internal-base-url</code></li>
-<li>se o host usar H2 local, troque as propriedades de datasource de
-acordo com o perfil real</li>
-<li>nao deixe o guia implicar que Flyway sozinho resolve bootstrap; sem
-datasource compativel a aplicacao nao sobe</li>
+<li>se o host usar H2 local, troque o datasource de acordo com o perfil
+real</li>
+<li>Flyway sem datasource compativel nao resolve bootstrap sozinho</li>
 </ul>
-<h2 id="bootstrap-inicial-do-banco-local">Bootstrap inicial do banco
-local</h2>
-<p>Se a aplicacao nova precisar persistir de verdade no primeiro CRUD, o
-guia deve mandar a LLM escolher explicitamente uma destas trilhas:</p>
-<p>Trilha preferencial de plataforma:</p>
+<h2 id="bootstrap-inicial-do-banco">Bootstrap inicial do banco</h2>
+<p>Trilha preferencial:</p>
 <ul>
 <li>manter <code>spring.flyway.enabled=true</code></li>
-<li>criar a migration inicial do modulo, por exemplo
-<code>src/main/resources/db/migration/V1__init.sql</code></li>
-<li>garantir que a tabela da primeira entidade exista antes do primeiro
-<code>POST</code> ou <code>POST /filter</code></li>
+<li>criar a migration inicial, por exemplo
+<code>V1__init.sql</code></li>
+<li>garantir que a primeira tabela exista antes do primeiro
+<code>POST</code> ou <code>/filter</code></li>
 </ul>
-<p>Trilha temporaria apenas para sandbox/prova local:</p>
+<p>Trilha temporaria apenas para sandbox:</p>
 <ul>
 <li>usar <code>spring.jpa.hibernate.ddl-auto=update</code> ou
 <code>create-drop</code> em perfil local</li>
-<li>documentar que isso nao substitui a migration canônica</li>
+<li>documentar que isso e contingencia</li>
 <li>remover a dependencia de <code>ddl-auto</code> assim que a migration
-inicial for criada</li>
+existir</li>
 </ul>
 <p>Regra:</p>
 <ul>
-<li>para aplicacao real ou exemplo de plataforma, prefira migration</li>
-<li>para prova local guiada por LLM, <code>ddl-auto</code> pode ser
-aceito apenas como contingencia explicita quando o objetivo imediato for
-validar o fluxo end-to-end</li>
+<li>para aplicacao real, prefira migration</li>
+<li>para prova local guiada por LLM, <code>ddl-auto</code> so entra como
+contingencia explicita</li>
 </ul>
 <h2 id="primeiro-recurso-da-aplicacao">Primeiro recurso da
 aplicacao</h2>
-<p>A aplicacao nova deve nascer com pelo menos um recurso que demonstre
-o fluxo completo:</p>
+<p>A aplicacao nova deve nascer com pelo menos um recurso que
+demonstre:</p>
 <ul>
 <li>DTO com <code>@UISchema</code></li>
 <li><code>FilterDTO</code> com <code>@Filterable</code></li>
 <li>controller sobre <code>AbstractCrudController</code></li>
 <li><code>/schemas/filtered</code> retornando contrato consumivel</li>
 </ul>
-<h2 id="como-a-aplicacao-sera-consumida-pelo-angular">Como a aplicacao
-sera consumida pelo Angular</h2>
-<p>O <code>GenericCrudService</code> do <code>praxis-ui-angular</code>
-espera:</p>
+<p>Os detalhes do recurso ficam no
+<code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code>.</p>
+<h2 id="como-o-frontend-vai-consumir-este-backend">Como o frontend vai
+consumir este backend</h2>
+<p>O <code>GenericCrudService</code> espera:</p>
 <ul>
-<li><code>GET {resource}/schemas</code> como endpoint de
-descoberta/compatibilidade do recurso</li>
+<li><code>GET {resource}/schemas</code></li>
 <li><code>/schemas/filtered?path={resource}/all&amp;operation=get&amp;schemaType=response</code></li>
 <li><code>/schemas/filtered?path={resource}/filter&amp;operation=post&amp;schemaType=request</code></li>
-<li><code>ETag</code> e <code>X-Schema-Hash</code></li>
+<li><code>ETag</code></li>
+<li><code>X-Schema-Hash</code></li>
 <li><code>x-ui.resource.idField</code></li>
 </ul>
 <p>Implicacoes:</p>
 <ul>
-<li>a aplicacao deve publicar um contrato estável, nao apenas CRUD
+<li>a aplicacao deve publicar contrato estavel, nao apenas CRUD
 funcional</li>
-<li>o runtime do Angular efetivamente resolve o payload estrutural via
+<li>o runtime Angular resolve a estrutura via
 <code>/schemas/filtered</code></li>
-<li>o <code>resourcePath</code> consumido pelo Angular deve apontar para
-o recurso base, sem repetir <code>/api</code> quando o host ja tiver
-<code>baseUrl='/api'</code></li>
-</ul>
-<h2 id="uso-real-de-referencia">Uso real de referencia</h2>
-<p>Ao gerar uma nova aplicacao, o agente deve se espelhar em padroes do
-<code>praxis-api-quickstart</code>:</p>
-<ul>
-<li>README publica a superficie operacional e o deploy no Render</li>
-<li>recursos usam <code>@ApiResource</code> +
-<code>@ApiGroup</code></li>
-<li>selects remotos usam <code>/options/filter</code> e
-<code>displayField = "label"</code></li>
-<li>a cadeia <code>/schemas/filtered</code> funciona em producao e e
-consumida pelo Angular</li>
+<li>o <code>resourcePath</code> consumido no frontend deve apontar para
+o recurso base</li>
 </ul>
 <h2 id="prompt-recomendado-para-ia">Prompt recomendado para IA</h2>
 <pre class="text"><code>Voce esta criando uma nova aplicacao Spring Boot com praxis-metadata-starter.
 
-Siga o contrato canônico do starter.
-Use praxis-api-quickstart como host operacional de referencia.
-Use praxis-ui-angular como consumidor final esperado do contrato.
+Siga apenas o contrato canonico publicado neste guia e no guia de CRUD.
+Considere praxis-ui-angular como consumidor final esperado do contrato.
 
 Gere:
 - pom.xml minimo e coerente
@@ -577,32 +537,33 @@ Entrada:
 - Resource path inicial: {resource-path}
 - Api group inicial: {api-group}</code></pre>
 <h2 id="checklist-minimo">Checklist minimo</h2>
-<p>Antes de concluir, o agente deve validar:</p>
+<p>Antes de concluir:</p>
 <ul>
 <li><code>mvn clean package</code></li>
-<li><code>/v3/api-docs</code></li>
+<li><code>GET /v3/api-docs</code></li>
 <li>Swagger UI</li>
-<li><code>/schemas/filtered</code></li>
+<li><code>GET /schemas/filtered</code></li>
 <li>um schema <code>request</code> e um <code>response</code></li>
-<li>um endpoint <code>options/filter</code> quando houver relacao
-remota</li>
+<li><code>options/filter</code> quando houver relacao remota</li>
 </ul>
-<p>Se o projeto usar MapStruct, valide tambem que os fontes gerados
-foram produzidos no build e que nao ha erro de annotation processor.</p>
-<p>Se houver persistencia real no fluxo validado, confirme tambem:</p>
+<p>Se houver persistencia real:</p>
 <ul>
 <li><code>POST /{resource}</code> sem erro de tabela inexistente</li>
-<li><code>POST /{resource}/filter</code> sem erro de schema/tabela
+<li><code>POST /{resource}/filter</code> sem erro de schema ou tabela
 inexistente</li>
-<li>existencia explicita de migration inicial ou de
-<code>ddl-auto</code> temporario no perfil local</li>
+<li>migration inicial ou <code>ddl-auto</code> temporario explicitamente
+documentado</li>
 </ul>
-<h2 id="referencias-cruzadas">Referencias cruzadas</h2>
+<h2 id="referencias-publicas">Referencias publicas</h2>
 <ul>
-<li><code>praxis-metadata-starter/README.md</code></li>
-<li><code>praxis-api-quickstart/README.md</code></li>
-<li><code>praxis-ui-angular/projects/praxis-core/src/lib/services/generic-crud.service.ts</code></li>
-<li><code>praxis-metadata-starter/docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md</code></li>
+<li>starter canonico:
+<code>praxis-metadata-starter/README.md</code></li>
+<li>repositório público do runtime Angular:
+<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
+<li>pacote publicado de consumo de contrato:
+<code>@praxisui/core</code></li>
+<li>guia relacionado:
+<code>praxis-metadata-starter/docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
 </ul>
 </body>
 </html>

@@ -234,75 +234,50 @@
 </header>
 <h1 id="options-idlabel-e-option-sources">Options (id/label) e
 option-sources</h1>
-<p>Guia canônico para publicar selects metadata-driven no
+<p>Guia canonico para publicar selects metadata-driven no
 <code>praxis-metadata-starter</code>.</p>
-<p>Este documento cobre duas superfícies públicas diferentes:</p>
-<ul>
-<li><code>/{resource}/options/*</code> para quando o próprio recurso é a
-fonte de opções</li>
-<li><code>/{resource}/option-sources/{sourceKey}/options/*</code> para
-quando a fonte é derivada e registrada no service</li>
-</ul>
-<p>Referências:</p>
-<ul>
-<li>Javadoc: <a
-href="../apidocs/org/praxisplatform/uischema/annotation/OptionLabel.html"><code>@OptionLabel</code></a></li>
-<li>Javadoc: <a
-href="../apidocs/org/praxisplatform/uischema/mapper/base/OptionMapper.html"><code>OptionMapper</code></a></li>
-<li>Javadoc: <a
-href="../apidocs/org/praxisplatform/uischema/service/base/BaseCrudService.html"><code>BaseCrudService#filterOptions</code></a></li>
-<li>Javadoc: <a
-href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html"><code>AbstractCrudController</code></a></li>
-</ul>
-<h2 id="contrato-público">Contrato público</h2>
-<p>Endpoints canônicos:</p>
+<h2 id="contrato-publico">Contrato publico</h2>
+<p>Endpoints canonicos:</p>
 <ul>
 <li><code>POST /{resource}/options/filter</code></li>
 <li><code>GET /{resource}/options/by-ids?ids=1&amp;ids=2</code></li>
 <li><code>POST /{resource}/option-sources/{sourceKey}/options/filter</code></li>
 <li><code>GET /{resource}/option-sources/{sourceKey}/options/by-ids?ids=a&amp;ids=b</code></li>
 </ul>
-<p>Forma pública de retorno:</p>
+<p>Forma publica de retorno:</p>
 <ul>
 <li><code>options/filter</code> retorna
 <code>Page&lt;OptionDTO&lt;...&gt;&gt;</code></li>
 <li><code>options/by-ids</code> retorna
 <code>List&lt;OptionDTO&lt;...&gt;&gt;</code></li>
-<li><code>option-sources/*</code> preserva exatamente a mesma forma
-pública de <code>OptionDTO{id,label,extra?}</code></li>
+<li><code>option-sources/*</code> preserva a mesma forma publica de
+<code>OptionDTO{id,label,extra?}</code></li>
 </ul>
-<p>O starter não publica um contrato público diferente só porque a
-implementação interna reutiliza stats, distinct values ou projeções
-derivadas.</p>
-<h2 id="quando-usar-cada-superfície">Quando usar cada superfície</h2>
+<h2 id="quando-usar-cada-superficie">Quando usar cada superficie</h2>
 <ul>
 <li><code>/{resource}/options/*</code>
 <ul>
-<li>use quando existe um recurso próprio para a seleção</li>
+<li>use quando existe um recurso proprio para a selecao</li>
 <li>exemplos: <code>funcionarios</code>, <code>cargos</code>,
 <code>departamentos</code></li>
 </ul></li>
 <li><code>/{resource}/option-sources/{sourceKey}/options/*</code>
 <ul>
-<li>use quando a opção é derivada do próprio recurso atual e não possui
-CRUD próprio</li>
-<li>exemplos reais no quickstart: <code>universo</code>,
-<code>payrollProfile</code>, <code>composicaoFolha</code>,
-<code>faixaPctDesconto</code></li>
+<li>use quando a fonte e derivada do proprio recurso atual e nao possui
+CRUD proprio</li>
+<li>exemplos tipicos: buckets categóricos, distinct values governados,
+dimensoes derivadas</li>
 </ul></li>
 </ul>
-<p>Regra prática:</p>
+<p>Regra pratica:</p>
 <ul>
-<li>se existe um catálogo próprio e estável, prefira
+<li>se existe um catalogo proprio e estavel, prefira
 <code>/{resource}/options/*</code></li>
-<li>se a opção nasce de uma dimensão derivada, bucket categórico ou
-lookup governado pelo recurso base, prefira
+<li>se a opcao nasce de dimensao derivada, prefira
 <code>option-sources</code></li>
 </ul>
-<h2 id="definindo-o-label-de-options-do-próprio-recurso">Definindo o
-label de options do próprio recurso</h2>
-<p>Anote o campo ou getter que fornece o label com
-<code>@OptionLabel</code>.</p>
+<h2 id="definindo-o-label-de-options-do-proprio-recurso">Definindo o
+label de options do proprio recurso</h2>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> Funcionario <span class="op">{</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Id</span></span>
@@ -311,15 +286,13 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">@OptionLabel</span></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">String</span> nomeCompleto<span class="op">;</span></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Se não houver anotação, o framework aplica heurísticas como
+<p>Se nao houver anotacao, o framework aplica heuristicas como
 <code>getLabel</code>, <code>getNomeCompleto</code> e
 <code>getNome</code>.</p>
 <h2 id="registrando-option-sources-no-service">Registrando
 option-sources no service</h2>
-<p><code>option-sources</code> não nasce de anotação direta no DTO. O
-contrato canônico vem do <code>OptionSourceRegistry</code> exposto pelo
-service.</p>
-<p>Exemplo alinhado ao quickstart:</p>
+<p><code>option-sources</code> vem do <code>OptionSourceRegistry</code>
+exposto pelo service.</p>
 <div class="sourceCode" id="cb2"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> OptionSourceRegistry OPTION_SOURCES <span class="op">=</span> OptionSourceRegistry<span class="op">.</span><span class="fu">builder</span><span class="op">()</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">add</span><span class="op">(</span>VwAnalyticsFolhaPagamento<span class="op">.</span><span class="fu">class</span><span class="op">,</span> <span class="kw">new</span> <span class="fu">OptionSourceDescriptor</span><span class="op">(</span></span>
@@ -339,142 +312,69 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="
 <span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> OptionSourceRegistry <span class="fu">getOptionSourceRegistry</span><span class="op">()</span> <span class="op">{</span></span>
 <span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> OPTION_SOURCES<span class="op">;</span></span>
 <span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Sem <code>OptionSourceRegistry</code>, o controller até publica as
-rotas se a implementação existir, mas o enriquecimento metadata-driven
-em <code>/schemas/filtered</code> não terá a semântica canônica da fonte
-derivada.</p>
 <h2 id="o-que-vai-para-o-schema-em-schemasfiltered">O que vai para o
 schema em <code>/schemas/filtered</code></h2>
 <p>Quando o <code>ApiDocsController</code> encontra um campo cujo nome
 coincide com a source registrada para o <code>resourcePath</code>, ele
 enriquece o schema com <code>x-ui.optionSource</code>.</p>
-<p>Exemplo publicado:</p>
-<div class="sourceCode" id="cb3"><pre
-class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;x-ui&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;controlType&quot;</span><span class="fu">:</span> <span class="st">&quot;async-select&quot;</span><span class="fu">,</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;optionSource&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;payrollProfile&quot;</span><span class="fu">,</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;DISTINCT_DIMENSION&quot;</span><span class="fu">,</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/human-resources/vw-analytics-folha-pagamento&quot;</span><span class="fu">,</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;filterField&quot;</span><span class="fu">:</span> <span class="st">&quot;payrollProfile&quot;</span><span class="fu">,</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dependsOn&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;universo&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;excludeSelfField&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;searchMode&quot;</span><span class="fu">:</span> <span class="st">&quot;contains&quot;</span><span class="fu">,</span></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;pageSize&quot;</span><span class="fu">:</span> <span class="dv">25</span><span class="fu">,</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;includeIds&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;cachePolicy&quot;</span><span class="fu">:</span> <span class="st">&quot;request-scope&quot;</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>Importante:</p>
 <ul>
-<li><code>x-ui.optionSource.resourcePath</code> é o path base do
-recurso, não o endpoint completo de <code>options/filter</code></li>
-<li>o runtime Angular compõe
-<code>.../option-sources/{key}/options/filter</code> e
-<code>.../by-ids</code> a partir desse <code>resourcePath</code></li>
-<li>quando <code>optionSource</code> existe, ele é mais canônico do que
-um <code>endpoint</code> legado hardcoded</li>
+<li><code>x-ui.optionSource.resourcePath</code> e o path base do
+recurso</li>
+<li>o runtime Angular compoe
+<code>.../option-sources/{key}/options/filter</code></li>
+<li>quando <code>optionSource</code> existe, ele e mais canonico do que
+um <code>endpoint</code> legado</li>
 </ul>
 <h2 id="como-o-angular-consome-isso">Como o Angular consome isso</h2>
-<p>O <code>praxis-ui-angular</code> já tem consumo explícito para
+<p>O <code>praxis-ui-angular</code> ja tem consumo explicito para
 <code>option-sources</code>.</p>
 <p>Fluxo real:</p>
 <ul>
-<li>o normalizador lê <code>x-ui.optionSource</code></li>
-<li><code>field-definition-mapper</code> normaliza
-<code>optionSource.resourcePath</code></li>
-<li><code>material-async-select</code> e <code>simple-base-select</code>
-passam a chamar:
+<li>o normalizador le <code>x-ui.optionSource</code></li>
+<li>o mapper normaliza <code>optionSource.resourcePath</code></li>
+<li>o select remoto passa a chamar:
 <ul>
 <li><code>filterOptionSourceOptions(sourceKey, ...)</code></li>
 <li><code>getOptionSourceOptionsByIds(sourceKey, ids)</code></li>
 </ul></li>
 </ul>
-<p>Consequência prática:</p>
-<ul>
-<li>não publique <code>resourcePath</code> já apontando para
-<code>/option-sources/.../options/filter</code></li>
-<li>publique o <code>resourcePath</code> base do recurso e deixe o
-runtime montar a rota derivada</li>
-</ul>
-<h2 id="respostas-esperadas">Respostas esperadas</h2>
-<p>Exemplo de
-<code>POST /api/human-resources/funcionarios/options/filter?page=0&amp;size=20</code>:</p>
-<div class="sourceCode" id="cb4"><pre
-class="sourceCode json"><code class="sourceCode json"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;content&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Ana Silva&quot;</span> <span class="fu">}</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;pageable&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;pageNumber&quot;</span><span class="fu">:</span> <span class="dv">0</span><span class="fu">,</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;pageSize&quot;</span><span class="fu">:</span> <span class="dv">20</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;totalElements&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;totalPages&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;size&quot;</span><span class="fu">:</span> <span class="dv">20</span><span class="fu">,</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;number&quot;</span><span class="fu">:</span> <span class="dv">0</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
-<p>Exemplo de fonte derivada:</p>
-<pre class="http"><code>POST /api/human-resources/vw-analytics-folha-pagamento/option-sources/payrollProfile/options/filter?page=0&amp;size=20&amp;search=exec
-Content-Type: application/json
-
-{
-  &quot;competenciaBetween&quot;: [&quot;2026-01-01&quot;, &quot;2026-03-31&quot;],
-  &quot;universo&quot;: &quot;Marvel&quot;
-}</code></pre>
-<p>Exemplo de reidratação:</p>
-<pre class="http"><code>GET /api/human-resources/vw-analytics-folha-pagamento/option-sources/payrollProfile/options/by-ids?ids=OPER&amp;ids=EXEC</code></pre>
 <h2 id="suporte-atual-e-limites">Suporte atual e limites</h2>
 <p>Cobertura confirmada hoje:</p>
 <ul>
-<li>o starter expõe os endpoints em <code>AbstractCrudController</code>
-e <code>AbstractReadOnlyController</code></li>
+<li>o starter expoe os endpoints em controllers base</li>
 <li>o <code>ApiDocsController</code> publica
-<code>resource.capabilities.optionSources</code> e enriquece
-<code>x-ui.optionSource</code></li>
-<li>o runtime Angular já consome <code>optionSource</code></li>
-<li>o quickstart já registra e usa
-<code>OptionSourceRegistry</code></li>
+<code>resource.capabilities.optionSources</code></li>
+<li>o runtime Angular ja consome <code>optionSource</code></li>
 </ul>
-<p>Execução atualmente implementada no starter:</p>
+<p>Execucao atualmente implementada no starter:</p>
 <ul>
 <li><code>DISTINCT_DIMENSION</code></li>
 <li><code>CATEGORICAL_BUCKET</code></li>
 </ul>
-<p>Tipos ainda não implementados de ponta a ponta no executor JPA:</p>
+<p>Tipos ainda nao implementados de ponta a ponta no executor JPA:</p>
 <ul>
 <li><code>RESOURCE_ENTITY</code></li>
 <li><code>LIGHT_LOOKUP</code></li>
 <li><code>STATIC_CANONICAL</code></li>
 </ul>
-<p>Observação importante:</p>
+<h2 id="boas-praticas">Boas praticas</h2>
 <ul>
-<li>a execução concreta atual depende do executor JPA do starter</li>
-<li>se o host não oferecer implementação compatível, chamadas de
-<code>option-sources</code> podem retornar
-<code>501 Not Implemented</code></li>
-</ul>
-<h2 id="boas-práticas">Boas práticas</h2>
-<ul>
-<li>use <code>option-sources</code> para dimensões derivadas, não para
-substituir catálogos CRUD normais</li>
-<li>mantenha <code>filterField</code> explícito quando o nome do campo
-no DTO não coincidir com a source registrada</li>
-<li>use <code>dependsOn</code> para declarar dependências de cascata que
-o frontend precisa respeitar</li>
-<li>use <code>excludeSelfField=true</code> quando a própria source não
-deve se autofiltrar</li>
-<li>para selects remotos de <code>OptionDTO</code>, mantenha
+<li>use <code>option-sources</code> para dimensoes derivadas</li>
+<li>mantenha <code>filterField</code> explicito quando necessario</li>
+<li>use <code>dependsOn</code> para cascata</li>
+<li>use <code>excludeSelfField=true</code> quando a source nao deve se
+autofiltrar</li>
+<li>para <code>OptionDTO</code>, mantenha
 <code>optionLabelKey=label</code> e <code>optionValueKey=id</code></li>
 </ul>
-<h2 id="referências-operacionais">Referências operacionais</h2>
+<h2 id="referencias-publicas">Referencias publicas</h2>
 <ul>
-<li>starter canônico: <code>praxis-metadata-starter</code></li>
-<li>host de referência: <code>praxis-api-quickstart</code></li>
-<li>consumidor final: <code>praxis-ui-angular</code></li>
+<li>starter canonico: <code>praxis-metadata-starter</code></li>
+<li>repositÃ³rio Git do runtime Angular:
+<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
+<li>pacotes npm relevantes para consumo: <code>@praxisui/core</code>,
+<code>@praxisui/dynamic-form</code></li>
 </ul>
 </body>
 </html>

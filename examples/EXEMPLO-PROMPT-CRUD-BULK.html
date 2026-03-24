@@ -173,12 +173,12 @@ Metadata-Driven</h1>
 id="exemplo-de-prompt-para-solicitar-recurso-crud-metadata-driven">Exemplo
 de Prompt para Solicitar Recurso CRUD Metadata-Driven</h1>
 <p>Este arquivo mostra um prompt recomendado para agentes de IA gerarem
-um recurso alinhado ao <code>GUIA-CLAUDE-AI-CRUD-BULK.md</code>.</p>
+um recurso alinhado ao <a
+href="../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md">Guia 02</a>.</p>
 <h2 id="template-recomendado">Template recomendado</h2>
 <pre class="text"><code>Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
 
-Siga o guia GUIA-CLAUDE-AI-CRUD-BULK.md.
-Use praxis-api-quickstart como host operacional de referencia.
+Siga o guia GUIA-02-AI-BACKEND-CRUD-METADATA.md.
 Garanta compatibilidade de consumo com praxis-ui-angular.
 
 Entrada:
@@ -187,7 +187,7 @@ Entrada:
 - Api group: [grupo-openapi]
 - Pacote base: [pacote-java]
 
-Saída esperada:
+Saida esperada:
 - DTO com @UISchema e Bean Validation
 - FilterDTO com @Filterable
 - Mapper
@@ -197,21 +197,19 @@ Saída esperada:
 
 Nao trate bulk como obrigatorio.
 So adicione trilha bulk se eu pedir explicitamente.</code></pre>
-<h2 id="exemplo-real-alinhado-ao-quickstart">Exemplo real alinhado ao
-quickstart</h2>
+<h2 id="exemplo-autocontido">Exemplo autocontido</h2>
 <pre class="text"><code>Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
 
-Siga o guia GUIA-CLAUDE-AI-CRUD-BULK.md.
-Use praxis-api-quickstart como host operacional de referencia.
+Siga o guia GUIA-02-AI-BACKEND-CRUD-METADATA.md.
 Garanta compatibilidade de consumo com praxis-ui-angular.
 
 Entrada:
-- Entidade: src/main/java/com/example/praxis/apiquickstart/hr/entity/Funcionario.java
+- Entidade: src/main/java/com/example/demo/hr/entity/Funcionario.java
 - Resource path: /api/human-resources/funcionarios
 - Api group: human-resources
-- Pacote base: com.example.praxis.apiquickstart.hr
+- Pacote base: com.example.demo.hr
 
-Saída esperada:
+Saida esperada:
 - DTO com @UISchema e Bean Validation
 - FilterDTO com @Filterable
 - Mapper com CorporateMapperConfig
@@ -220,8 +218,8 @@ Saída esperada:
 - Controller
 
 Nao trate bulk como obrigatorio.</code></pre>
-<h2 id="variante-para-nova-entidade-de-catálogo-simples">Variante para
-nova entidade de catálogo simples</h2>
+<h2 id="variante-para-entidade-de-catalogo-simples">Variante para
+entidade de catalogo simples</h2>
 <pre class="text"><code>Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
 
 Entrada:
@@ -231,34 +229,35 @@ Entrada:
 - Pacote base: com.example.demo.catalog
 
 Regras adicionais:
-- Seletor remoto deve usar /options/filter com displayField=label quando consumir OptionDTO
-- Se usar MapStruct, adote CorporateMapperConfig
-- O recurso precisa ser consumivel por GenericCrudService sem adaptacao local</code></pre>
+- seletor remoto deve usar /options/filter com displayField=label quando consumir OptionDTO
+- se usar MapStruct, adote CorporateMapperConfig
+- o recurso precisa ser consumivel por GenericCrudService sem adaptacao local</code></pre>
 <h2 id="o-que-o-prompt-deve-evitar">O que o prompt deve evitar</h2>
-<p>Nao peça ao agente para assumir automaticamente:</p>
+<p>Nao peca ao agente para assumir automaticamente:</p>
 <ul>
 <li><code>BulkFilterAdapter</code></li>
 <li><code>BulkController</code></li>
 <li>dependencias <code>org.praxisplatform.bulk.*</code></li>
-<li>exemplos herdados de <code>ms-pessoa-ananke</code></li>
+<li>exemplos herdados de stacks externas</li>
 </ul>
 <h2 id="resposta-esperada-do-agente">Resposta esperada do agente</h2>
 <p>Uma resposta boa tende a:</p>
 <ol type="1">
 <li>classificar a entidade e os relacionamentos</li>
-<li>gerar os arquivos mínimos do recurso</li>
+<li>gerar os arquivos minimos do recurso</li>
 <li>justificar selects remotos com <code>/options/filter</code></li>
 <li>usar <code>displayField=label</code> quando o endpoint retorna
 <code>OptionDTO</code></li>
 <li>citar a compatibilidade com <code>/schemas/filtered</code> e
 <code>GenericCrudService</code></li>
 </ol>
-<h2 id="referências">Referências</h2>
+<h2 id="referencias-publicas">Referencias publicas</h2>
 <ul>
-<li><code>docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md</code></li>
-<li><code>praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/hr/controller/FuncionarioController.java</code></li>
-<li><code>praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/hr/dto/FuncionarioDTO.java</code></li>
-<li><code>praxis-ui-angular/projects/praxis-core/src/lib/services/generic-crud.service.ts</code></li>
+<li><code>docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li>repositório público do runtime Angular:
+<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
+<li>pacote publicado de consumo de contrato:
+<code>@praxisui/core</code></li>
 </ul>
 </body>
 </html>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>📖 Guias de Implementação</title>
+  <title>Guias de Implementacao</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,136 +166,71 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">📖 Guias de Implementação</h1>
+<h1 class="title">Guias de Implementacao</h1>
 </header>
-<h1 id="guias-de-implementação">📖 Guias de Implementação</h1>
-<p>Esta seção reúne os guias operacionais do
-<code>praxis-metadata-starter</code>.</p>
-<p>Eles foram reorganizados para seguir a hierarquia correta da
-plataforma:</p>
+<h1 id="guias-de-implementacao">Guias de Implementacao</h1>
+<p>Esta pasta reune os guias operacionais do
+<code>praxis-metadata-starter</code> para uso por pessoas e por
+LLMs.</p>
+<h2 id="trilha-principal-para-llm">Trilha principal para LLM</h2>
+<p>Use os guias nesta ordem:</p>
 <ol type="1">
-<li>o starter define o contrato canônico</li>
-<li>o <code>praxis-api-quickstart</code> mostra o uso operacional de
-referência</li>
-<li>o <code>praxis-ui-angular</code> representa a ponta final de
-consumo</li>
+<li><a href="GUIA-01-AI-BACKEND-APLICACAO-NOVA.md">Guia 01 - Backend -
+Aplicacao Nova</a></li>
+<li><a href="GUIA-02-AI-BACKEND-CRUD-METADATA.md">Guia 02 - Backend -
+CRUD Metadata-Driven</a></li>
+<li><a href="GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md">Guia 03 - Frontend -
+Angular CRUD Completo</a></li>
+<li><a href="CHECKLIST-VALIDACAO-IA.md">Checklist de Validacao</a></li>
 </ol>
-<h2 id="guias-disponíveis">📋 Guias Disponíveis</h2>
-<h3 id="guia-de-crud-metadata-driven-por-entidade">🤖 <a
-href="GUIA-CLAUDE-AI-CRUD-BULK.md">Guia de CRUD Metadata-Driven por
-Entidade</a></h3>
-<p>Guia principal para agentes de IA gerarem recursos CRUD alinhados ao
-contrato real do starter.</p>
+<p>Essa trilha foi organizada para que a LLM consiga percorrer os passos
+sem depender de app externo nem de conhecimento oral do time.</p>
+<p>Se o objetivo for prova operacional repetivel, siga depois para
+<code>ai-proof/README.md</code>.</p>
+<h2 id="quando-usar-cada-guia">Quando usar cada guia</h2>
+<h3 id="guia-01">Guia 01</h3>
+<p>Use para criar uma nova aplicacao Spring Boot minima e correta sobre
+o starter.</p>
+<h3 id="guia-02">Guia 02</h3>
+<p>Use para gerar um recurso CRUD metadata-driven dentro da aplicacao
+criada no Guia 01.</p>
+<h3 id="guia-03">Guia 03</h3>
+<p>Use apenas quando o backend ja publicar corretamente o contrato
+metadata-driven e a tarefa for gerar o host Angular canonico.</p>
+<h3 id="checklist">Checklist</h3>
+<p>Use depois da geracao para validar build, endpoints, schemas e
+consumo.</p>
+<h2 id="guias-complementares">Guias complementares</h2>
 <ul>
-<li>cobre DTO, FilterDTO, mapper, repository, service e controller</li>
-<li>ancora exemplos no <code>praxis-api-quickstart</code></li>
-<li>considera o consumo real do <code>GenericCrudService</code> no
-Angular</li>
-<li>nao institucionaliza bulk como baseline</li>
-</ul>
-<p><strong>Ideal para:</strong> gerar um recurso CRUD que publique
-<code>x-ui</code>, <code>/schemas/filtered</code>, options e endpoints
-base consumíveis pela UI.</p>
-<h3 id="guia-para-aplicações-novas">🚀 <a
-href="GUIA-CLAUDE-AI-APLICACAO-NOVA.md">Guia para Aplicações
-Novas</a></h3>
-<p>Guia para criar uma nova aplicação Spring Boot mínima e correta sobre
-o <code>praxis-metadata-starter</code>.</p>
-<ul>
-<li>define o baseline mínimo de dependências</li>
-<li>evita prescrever módulos opcionais como obrigatórios</li>
-<li>alinha a aplicação nova com o host de referência e o consumo
-Angular</li>
-</ul>
-<p><strong>Ideal para:</strong> inicializar um projeto novo com OpenAPI
-enriquecido, schemas filtrados e primeiro recurso metadata-driven.</p>
-<h3 id="checklist-de-validação-ia">✅ <a
-href="CHECKLIST-VALIDACAO-IA.md">Checklist de Validação (IA)</a></h3>
-<p>Lista objetiva para validar builds, grupos OpenAPI, endpoints CRUD,
-options e schemas após geração por IA.</p>
-<h3 id="prova-operacional-dos-guias-de-ia">🧪 <a
-href="ai-proof/README.md">Prova Operacional dos Guias de IA</a></h3>
-<p>Pacote para executar rodadas cegas com LLM, registrar falhas reais e
-iterar os guias até fechar o protocolo.</p>
-<hr />
-<h3 id="crud-com-apiresource-e-apigroup">🧭 <a
-href="CRUD-COM-APIRESOURCE.md">CRUD com <span class="citation"
+<li><a href="CRUD-COM-APIRESOURCE.md">CRUD com <span class="citation"
 data-cites="ApiResource">@ApiResource</span> e <span class="citation"
-data-cites="ApiGroup">@ApiGroup</span></a></h3>
-<p>Exponha recursos REST e organize a documentação em grupos
-OpenAPI.</p>
-<h3 id="filtros-e-paginação">🔎 <a href="FILTROS-E-PAGINACAO.md">Filtros
-e Paginação</a></h3>
-<p>Implemente filtros com <code>@Filterable</code> + Specifications e
-paginação consistente.</p>
-<h3 id="ordenação-padrão">🔢 <a href="ORDEM-PADRAO.md">Ordenação
-Padrão</a></h3>
-<p>Defina <code>@DefaultSortColumn</code> e tenha ordenação
-determinística por padrão.</p>
-<h3 id="options-idlabel">✅ <a href="OPTIONS-ENDPOINT.md">Options
-(id/label)</a></h3>
-<p>Exponha endpoints de opções id/label usando <code>@OptionLabel</code>
-e <code>OptionMapper</code>.</p>
-<h3 id="views-somente-leitura">📄 <a href="READ-ONLY-VIEWS.md">Views /
-Somente Leitura</a></h3>
-<p>Aproveite o modo read‑only para entidades de views
-(<code>@Immutable</code>): filtros, paginação e opções prontos, com
-bloqueio de escrita (405).</p>
-<h3 id="erros-e-envelope-de-respostas">❗ <a
-href="ERROS-E-RESPOSTAS.md">Erros e Envelope de Respostas</a></h3>
-<p>Padronize respostas de erro e sucesso para melhor DX/UX.</p>
-<hr />
-<h2 id="como-usar-os-guias">🎯 <strong>Como Usar os Guias</strong></h2>
-<ol type="1">
-<li><strong>Para primeira implementação:</strong> Comece com a <a
-href="../overview/VISAO-GERAL.md">Visão Geral</a> e depois o <a
-href="GUIA-CLAUDE-AI-CRUD-BULK.md">Guia de CRUD Metadata-Driven</a></li>
-<li><strong>Para novo projeto:</strong> Use o <a
-href="GUIA-CLAUDE-AI-APLICACAO-NOVA.md">Guia de Aplicação Nova</a></li>
-<li><strong>Após geração por IA:</strong> Valide com o <a
-href="CHECKLIST-VALIDACAO-IA.md">Checklist de Validação</a></li>
-<li><strong>Para prova operacional dos guias:</strong> Use o pacote <a
-href="ai-proof/README.md">Prova Operacional dos Guias de IA</a></li>
-<li><strong>Para exemplos práticos:</strong> Consulte os <a
-href="../examples/">Examples</a></li>
-<li><strong>Para detalhes técnicos:</strong> Veja a <a
-href="../technical/">Documentação Técnica</a></li>
-</ol>
-<hr />
-<h2 id="critério-de-qualidade">🏆 Critério de Qualidade</h2>
-<p>Os guias desta seção devem permanecer aderentes a:</p>
-<ul>
-<li>código canônico do <code>praxis-metadata-starter</code></li>
-<li>uso real no <code>praxis-api-quickstart</code></li>
-<li>consumo final no <code>praxis-ui-angular</code></li>
+data-cites="ApiGroup">@ApiGroup</span></a></li>
+<li><a href="FILTROS-E-PAGINACAO.md">Filtros e Paginacao</a></li>
+<li><a href="ORDEM-PADRAO.md">Ordenacao Padrao</a></li>
+<li><a href="OPTIONS-ENDPOINT.md">Options (id/label)</a></li>
+<li><a href="READ-ONLY-VIEWS.md">Views / Somente Leitura</a></li>
+<li><a href="ERROS-E-RESPOSTAS.md">Erros e Respostas</a></li>
+<li><a href="ai-proof/README.md">Prova Operacional dos Guias de
+IA</a></li>
 </ul>
-<p>Quando houver divergência entre um guia e esses três pontos, o guia
-deve ser corrigido.</p>
-<hr />
-<p><strong>📌 Nota:</strong> Para uma visão geral de toda a
-documentação, volte ao <a href="../README.md">índice principal</a>.</p>
-<hr />
-<h2 id="referências-de-api">🔎 Referências de API</h2>
+<h2 id="papel-desta-pasta">Papel desta pasta</h2>
 <ul>
-<li>Javadoc (publicado no GitHub Pages): <a
-href="../apidocs/index.html">Visão geral</a></li>
-<li>API por pacote: <a
-href="../apidocs/allpackages-index.html">allpackages-index</a></li>
+<li><code>docs/README.md</code> e o hub geral da documentacao</li>
+<li>este arquivo organiza a trilha de leitura dos guias</li>
+<li><code>ai-proof/README.md</code> organiza apenas a trilha de
+prova</li>
+<li>o Javadoc publico do starter e referencia tecnica complementar:
+<code>https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/</code></li>
 </ul>
-<h2 id="prérequisitos">✅ Pré‑requisitos</h2>
+<h2 id="criterio-de-qualidade">Criterio de qualidade</h2>
+<p>Os guias desta pasta devem permanecer aderentes a:</p>
 <ul>
-<li>Java 21</li>
-<li>Spring Boot 3.2+</li>
-<li>SpringDoc OpenAPI (starter já incluso como dependência)</li>
-<li>Maven (para build e publicação)</li>
+<li>codigo canonico do <code>praxis-metadata-starter</code></li>
+<li>contrato realmente consumido pelo runtime Angular oficial da
+plataforma</li>
+<li>protocolo de prova documentado em <code>ai-proof/</code></li>
 </ul>
-<h2 id="exemplo-completo-quickstart">🚀 Exemplo completo
-(Quickstart)</h2>
-<ul>
-<li>Repositório de exemplo:
-https://github.com/codexrodrigues/praxis-api-quickstart</li>
-<li>Superfície publicada de referência:
-https://praxis-api-quickstart.onrender.com/</li>
-</ul>
+<p>Quando houver divergencia entre guia, codigo canonicamente publicado
+e prova operacional, o guia deve ser corrigido.</p>
 </body>
 </html>

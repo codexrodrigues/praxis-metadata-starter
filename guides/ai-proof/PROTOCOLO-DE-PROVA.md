@@ -2,37 +2,30 @@
 
 ## Objetivo
 
-Medir se uma LLM consegue, partindo apenas dos guias oficiais, produzir uma aplicacao Spring Boot funcional e um CRUD metadata-driven aderente ao contrato da plataforma.
+Medir se uma LLM consegue, partindo apenas dos guias oficiais, produzir:
 
-## Classificacao da prova
-
-Esta prova e `docs-apenas` no starter, mas valida comportamento de superficies canonicas de alto risco:
-
-- `x-ui`
-- `/schemas/filtered`
-- `GET /{resource}/schemas`
-- `@ApiResource`
-- `@ApiGroup`
-- `GenericFilterDTO`
-- `OptionDTO{id,label}`
-- `ETag` e `X-Schema-Hash`
+- uma aplicacao Spring Boot funcional
+- um CRUD metadata-driven aderente ao contrato da plataforma
+- um frontend Angular capaz de consumir esse contrato
 
 ## Regras da rodada
 
 - a LLM deve receber apenas o material explicitamente permitido
-- a rodada deve começar em workspace limpo para o projeto sandbox
-- nenhuma correcao humana de codigo e permitida antes do veredito da rodada
-- falhas de build, runtime, contrato ou consumo contam como reprovação
-- toda rodada deve gerar um relatorio preenchido a partir de `TEMPLATE-RELATORIO-DE-RODADA.md`
+- a rodada deve comecar em workspace limpo para o sandbox
+- nenhuma correcao humana de codigo e permitida antes do veredito
+- falhas de build, runtime, contrato ou consumo contam como reprova
+- toda rodada deve gerar um relatorio a partir de
+  `TEMPLATE-RELATORIO-DE-RODADA.md`
 
 ## Material permitido para a LLM
 
 Material minimo:
 
-- `docs/guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md`
-- `docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md`
+- `docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`
+- `docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md`
+- `docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md`
 - `docs/guides/CHECKLIST-VALIDACAO-IA.md`
-- o prompt da rodada em `PROMPTS-DE-EXECUCAO.md`
+- `docs/guides/ai-proof/PROMPTS-DE-EXECUCAO.md`
 
 Material adicional opcional:
 
@@ -42,87 +35,75 @@ Material adicional opcional:
 
 Nao liberar como baseline:
 
-- snippets copiados do `praxis-api-quickstart`
-- correcoes manuais de POM ou properties fora do que o guia ja disser
-- respostas do tipo "siga o padrao do quickstart" sem o guia ter detalhado o necessario
+- snippets copiados de app externo
+- respostas do tipo "siga o app de referencia"
+- correcoes manuais de contrato fora do que o guia ja publicar
 
 ## Rodadas canonicas
 
-### Rodada 1: H2 simples
+### Rodada 1
 
-Objetivo:
+- backend H2 simples
 
-- criar aplicacao nova
-- criar entidade simples sem relacao
-- provar build, subida, persistencia e schemas
+### Rodada 2
 
-Entidade recomendada:
+- backend H2 com relacao
 
-- `Categoria`
-- campos: `id`, `nome`, `ativo`
+### Rodada 3
 
-### Rodada 2: H2 com relacao
+- backend H2 com MapStruct
 
-Objetivo:
+### Rodada 4
 
-- manter banco local simples
-- introduzir relacao e select remoto
+- backend H2 com filtros ricos
 
-Entidades recomendadas:
+### Rodada 5
 
-- `Categoria`
-- `Produto`
-- `Produto.categoria`
+- consumo Angular
 
-### Rodada 3: PostgreSQL simples
+### Rodada 6
 
-Objetivo:
+- frontend Angular completo
 
-- validar que o guia nao esta acidentalmente acoplado a H2
-- provar datasource real, Flyway e bootstrap funcional
+### Rodada 7
 
-### Rodada 4: PostgreSQL com relacao
+- app Angular novo do zero
 
-Objetivo:
+## Criterio de aprovacao
 
-- fechar o fluxo minimo de CRUD com relacao, options e schemas sob banco real
+Uma rodada so e aprovada se o que ela prometeu provar foi validado sem
+intervencao humana no codigo gerado.
 
-### Rodada 5: Consumo Angular
-
-Objetivo:
-
-- validar que o recurso gerado e consumivel por `GenericCrudService`
-- esta rodada e complementar; nao substitui as quatro rodadas anteriores
-
-## Criterio de aprovacao por rodada
-
-A rodada so e aprovada se todos os itens abaixo passarem sem intervencao humana no codigo gerado:
+Para backend:
 
 - `mvn clean package`
 - aplicacao sobe
 - `GET /v3/api-docs`
-- Swagger UI
 - `GET /{resource}/schemas`
-- `GET /schemas/filtered?path={resource}/all&operation=get&schemaType=response`
-- `GET /schemas/filtered?path={resource}/filter&operation=post&schemaType=request`
+- schemas filtrados de request e response
 - `POST /{resource}`
 - `POST /{resource}/filter`
-- `POST /{resource}/options/filter` quando houver select remoto
-- `GET /{resource}/options/by-ids` quando houver select remoto
-- persistencia real no banco escolhido
-- `ETag` e `X-Schema-Hash` presentes nos schemas filtrados
+- options quando houver select remoto
+- `ETag` e `X-Schema-Hash` nos schemas filtrados
 
-## Taxonomia obrigatoria de falhas
+Para frontend:
 
-Cada falha deve ser classificada como uma das categorias abaixo:
+- host Angular compilavel
+- `praxis-crud` como shell principal quando o caso for CRUD completo
+- `resource.path` coerente com `table.resourcePath`
+- `crudContext.resourcePath` e `crudContext.idField` coerentes
+- consumo de schema sem workaround local fora do contrato
 
-- `guia-incompleto`
-- `guia-ambiguo`
-- `contrato-nao-explicito`
-- `dependencia-implicita`
-- `prompt-fraco`
-- `erro-da-llm`
-- `problema-real-do-starter`
+Para a rodada 7:
+
+- `npm install` concluido com o baseline documentado
+- `ng build` do app novo aprovado
+- `ng serve` respondendo `200` na rota principal
+- proxy oficial do Angular ativo para `/api` e `/schemas`
+- `POST /{resource}/filter` respondendo `200` no mesmo origin do host
+
+O smoke browser-level completo pode ser registrado em trilha propria quando o
+harness ainda nao for canonico e estavel.
 
 ## Politica de iteracao
 
@@ -131,28 +112,14 @@ Corrija nesta ordem:
 1. guia
 2. checklist
 3. prompt da rodada
-4. somente depois, codigo canônico, se a prova revelou um problema real do starter
+4. codigo canonico, se a prova revelar um problema real da plataforma
 
-Nao normalize workaround local em prompt se a causa correta for falha do guia ou do contrato.
+## Definicao de 100%
 
-## Validacao minima recomendada
+`100%` significa:
 
-Para cada rodada, registrar:
-
-- comando de build executado
-- comando de subida executado
-- evidencias HTTP minimas
-- erro bruto quando houver falha
-- interpretacao da causa
-- ajuste documental proposto
-
-## Definicao de "100%"
-
-Para este protocolo, `100%` significa:
-
-- quatro rodadas principais aprovadas
+- rodadas principais aprovadas dentro do protocolo finito
 - nenhuma correcao manual de codigo entre prompt e aceite
-- nenhum requisito critico do contrato ficando dependente de conhecimento oral ou memoria do quickstart
+- nenhum requisito critico do contrato dependendo de conhecimento oral do time
 
-Isso nao significa `100% para qualquer LLM e qualquer prompt`.
-Significa `100% dentro do protocolo finito desta prova`.
+Isso nao significa sucesso para qualquer LLM ou qualquer prompt.

@@ -173,11 +173,12 @@ Critérios</h1>
 Backend Compatível (.NET) — Plano e Critérios</h1>
 <p>Objetivo - Implementar uma PoC .NET compatível com a UI do Praxis e
 formalizar uma Specification validável (x‑ui + /schemas/filtered).</p>
-<p>Milestones 1) Levantamento do contrato (starter + UI workspace) 2)
-Spec JSON Schemas + README (SemVer, precedência) 3) Design técnico
-(.NET) + protótipos de ETag/304 e grupos OpenAPI 4) Implementação PoC
-(.NET) 5) Suíte de conformidade (validação contra JSON Schemas +
-ETag/304 + filtros/paginação) 6) Documentação e guia de adoção</p>
+<p>Milestones 1) Levantamento do contrato (starter + runtime Angular
+público) 2) Spec JSON Schemas + README (SemVer, precedência) 3) Design
+técnico (.NET) + protótipos de ETag/304 e grupos OpenAPI 4)
+Implementação PoC (.NET) 5) Suíte de conformidade (validação contra JSON
+Schemas + ETag/304 + filtros/paginação) 6) Documentação e guia de
+adoção</p>
 <p>Critérios de Aceitação - <code>/schemas/filtered</code>: parâmetros,
 ETag forte,
 <code>Access-Control-Expose-Headers: ETag,X-Schema-Hash</code>. -
@@ -190,11 +191,13 @@ permitido. - <code>x-ui.resource</code>: <code>idField</code>,
 <code>POST /locate</code>, <code>POST /options/filter</code>,
 <code>GET /options/by-ids</code>, <code>GET /all</code>,
 <code>GET /{id}</code>. - <code>schemaId</code> varia por tenant/locale;
-304 operando conforme <code>If-None-Match</code>. - UI Quickstart
-renderiza tabela/form sem mudanças além de <code>baseUrl</code>.</p>
+304 operando conforme <code>If-None-Match</code>. - O host Angular
+baseado nos pacotes públicos <code>@praxisui/*</code> renderiza
+tabela/form sem mudanças além de <code>baseUrl</code>.</p>
 <p>Referências - docs/spec/ (este diretório) -
 praxis-metadata-starter/src/main/javadoc/doc-files/faq.html -
-praxis/frontend-libs/praxis-ui-workspace/README.md,
-docs/HOST-INTEGRATION-GUIDE.md</p>
+https://github.com/codexrodrigues/praxis-ui-angular - pacotes
+publicados: <code>@praxisui/core</code>, <code>@praxisui/table</code>,
+<code>@praxisui/dynamic-form</code>, <code>@praxisui/crud</code></p>
 </body>
 </html>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>📚 Documentação Praxis Metadata Starter</title>
+  <title>Documentacao Praxis Metadata Starter</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,293 +166,57 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">📚 Documentação Praxis Metadata Starter</h1>
+<h1 class="title">Documentacao Praxis Metadata Starter</h1>
 </header>
-<h1 id="documentação-praxis-metadata-starter">📚 Documentação Praxis
+<h1 id="documentacao-praxis-metadata-starter">Documentacao Praxis
 Metadata Starter</h1>
-<p>Este diretório contém a documentação completa do <strong>Praxis
-Metadata Starter</strong>, organizadas seguindo as melhores práticas de
-documentação de projetos.</p>
-<p>Site da documentação (GitHub Pages): -
-https://codexrodrigues.github.io/praxis-metadata-starter/</p>
-<p>Exemplos no Javadoc (GitHub Pages): - Modelando DTO com <span
-class="citation" data-cites="UISchema">@UISchema</span>:
-https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading
-- Expondo controller com <span class="citation"
-data-cites="ApiResource">@ApiResource</span>:
-https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading
-- Consumindo o contrato (/schemas/filtered):
-https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading</p>
-<h2 id="estrutura-da-documentação">🗂️ <strong>Estrutura da
-Documentação</strong></h2>
-<pre><code>docs/
-├── README.md                 # Este arquivo - índice principal
-├── architecture-overview.md  # Visão arquitetural com diagramas
-├── packages-overview.md      # Mapa dos pacotes Java
-├── sitemap.xml               # Navegação para motores de busca
-├── overview/                 # Visão geral para novos usuários
-│   └── VISAO-GERAL.md
-├── guides/                   # Guias completos de implementação
-│   ├── GUIA-CLAUDE-AI-CRUD-BULK.md
-│   └── GUIA-CLAUDE-AI-APLICACAO-NOVA.md
-├── examples/                 # Exemplos práticos e templates
-│   ├── EXEMPLO-PROMPT-CRUD-BULK.md
-│   ├── filter-dto.md
-│   └── spring-integration.md
-├── concepts/               # Conceitos fundamentais (Self-describing, UI vs Data Schema, etc.)
-│   └── ui-schema.md
-├── technical/               # Documentação técnica detalhada
-│   ├── AUTO-CONFIGURACAO.md
-│   ├── CURSOR-PAGINATION-KEYSET-BACKLOG.md
-│   ├── CURSOR-PAGINATION-KEYSET-PLAN.md
-│   ├── ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
-│   └── VALIDACAO-API-RESOURCE.md
-└── api/                    # Documentação de API (para futuras adições)</code></pre>
-<hr />
-<h2 id="guias-de-implementação-guides">📖 <strong>Guias de
-Implementação</strong> (<code>/guides/</code>)</h2>
-<h2 id="visão-geral-overview">📘 <strong>Visão Geral</strong>
-(<code>/overview/</code>)</h2>
+<p>Este diretorio contem a documentacao principal do
+<code>praxis-metadata-starter</code>.</p>
+<h2 id="estrutura-resumida">Estrutura resumida</h2>
 <ul>
-<li>Leitura rápida (problema/abordagem/benefícios) e como começar:
-<ul>
-<li><a href="overview/VISAO-GERAL.md">VISAO-GERAL.md</a></li>
-</ul></li>
+<li><code>guides/</code> - trilha principal para LLMs e implementacao
+passo a passo</li>
+<li><code>overview/</code> - visao geral funcional para novos
+usuarios</li>
+<li><code>concepts/</code> - conceitos e semantica do contrato
+metadata-driven</li>
+<li><code>examples/</code> - exemplos complementares</li>
+<li><code>technical/</code> - referencia tecnica adicional</li>
 </ul>
-<h2 id="arquitetura-e-mapa-de-pacotes">🏛️ <strong>Arquitetura e Mapa de
-Pacotes</strong></h2>
+<h2 id="ponto-de-entrada-por-objetivo">Ponto de entrada por
+objetivo</h2>
 <ul>
-<li><a href="architecture-overview.md">Visão Arquitetural</a>: diagramas
-Mermaid, fluxo de enriquecimento x-ui e principais componentes.</li>
-<li><a href="packages-overview.md">Visão dos Pacotes</a>:
-responsabilidades de cada pacote Java e quando estender contratos.</li>
-<li><a href="sitemap.xml">Sitemap</a>: referência para indexadores
-(Google, IA) e navegação cruzada entre tópicos.</li>
+<li>trilha principal para LLM: <a
+href="guides/README.md">guides/README.md</a></li>
+<li>visao geral funcional: <a
+href="overview/VISAO-GERAL.md">overview/VISAO-GERAL.md</a></li>
+<li>prova operacional dos guias: <a
+href="guides/ai-proof/README.md">guides/ai-proof/README.md</a></li>
+<li>exemplos complementares: <a
+href="examples/README.md">examples/README.md</a></li>
+<li>referencia tecnica publica complementar: <a
+href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">GitHub
+Pages / apidocs</a></li>
 </ul>
-<h3 id="guia-de-crud-metadata-driven-por-entidade">🤖 <a
-href="guides/GUIA-CLAUDE-AI-CRUD-BULK.md">Guia de CRUD Metadata-Driven
-por Entidade</a></h3>
-<p><strong>O guia principal para geração automatizada de recursos CRUD
-alinhados ao contrato real do starter</strong></p>
+<h2 id="hierarquia-canonica">Hierarquia canonica</h2>
 <ul>
-<li>✅ ancorado no código canônico do starter</li>
-<li>✅ referenciado no uso real do
-<code>praxis-api-quickstart</code></li>
-<li>✅ compatível com o consumo do <code>GenericCrudService</code> no
-<code>praxis-ui-angular</code></li>
-<li>✅ corrige a regra de options para
-<code>OptionDTO{id,label}</code></li>
+<li><code>guides/</code> define a trilha principal de leitura para
+execucao por LLM</li>
+<li><code>guides/ai-proof/</code> define como provar que os guias sao
+suficientes</li>
+<li><code>apidocs/</code> e apoio tecnico fino, nao a trilha
+principal</li>
+<li><code>examples/</code>, <code>concepts/</code> e
+<code>technical/</code> aprofundam temas especificos</li>
 </ul>
-<p><strong>Quando usar:</strong> Para criar um recurso CRUD
-metadata-driven de forma padronizada e consumível pela UI Praxis.</p>
-<h3 id="guia-para-aplicações-novas">🚀 <a
-href="guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md">Guia para Aplicações
-Novas</a></h3>
-<p><strong>Guia para criar uma aplicação Spring Boot mínima e correta
-sobre o starter</strong></p>
+<h2 id="criterio-de-qualidade">Criterio de qualidade</h2>
+<p>Esta documentacao deve permanecer aderente a:</p>
 <ul>
-<li>baseline mínimo de dependências</li>
-<li>estrutura inicial de projeto</li>
-<li>primeiro recurso metadata-driven</li>
-<li>alinhamento com quickstart e Angular</li>
+<li>codigo canonico do <code>praxis-metadata-starter</code></li>
+<li>contrato realmente consumido pelo runtime Angular oficial da
+plataforma</li>
+<li>protocolo de prova publicado em
+<code>docs/guides/ai-proof/</code></li>
 </ul>
-<p><strong>Quando usar:</strong> Ao criar uma nova aplicação Spring Boot
-com Praxis Metadata Starter.</p>
-<hr />
-<h2 id="exemplos-práticos-examples">💡 <strong>Exemplos
-Práticos</strong> (<code>/examples/</code>)</h2>
-<h3 id="template-de-prompt-para-recurso-crud-metadata-driven">📝 <a
-href="examples/EXEMPLO-PROMPT-CRUD-BULK.md">Template de Prompt para
-Recurso CRUD Metadata-Driven</a></h3>
-<p><strong>Formato recomendado de prompt para solicitar um recurso
-alinhado ao starter</strong></p>
-<ul>
-<li>🎯 template padronizado com entradas mínimas</li>
-<li>🔗 referência explícita ao quickstart e ao Angular</li>
-<li>🛠️ regras para evitar bulk obrigatório e exemplos legados</li>
-</ul>
-<p><strong>Quando usar:</strong> Como referência para solicitar geração
-assistida de um recurso CRUD metadata-driven.</p>
-<h3 id="filter-dto-com-metadados-x-ui">🧾 <a
-href="examples/filter-dto.md">Filter DTO com Metadados x-ui</a></h3>
-<p><strong>Mostra um filtro completo com <code>@Filterable</code> +
-<code>@UISchema</code></strong></p>
-<ul>
-<li>🔍 Mapeamento para Specifications com operadores
-personalizados.</li>
-<li>🧭 Ordem e agrupamento pensados para formulários avançados.</li>
-<li>🔗 Links diretos para endpoints <code>/options</code> e
-<code>/schemas/filtered</code>.</li>
-</ul>
-<h3 id="integração-spring-boot-ponta-a-ponta">🔌 <a
-href="examples/spring-integration.md">Integração Spring Boot ponta a
-ponta</a></h3>
-<p><strong>Guia rápido para subir uma aplicação consumindo o
-starter</strong></p>
-<ul>
-<li>⚙️ Configuração mínima com <code>@SpringBootApplication</code>.</li>
-<li>🧱 Controller CRUD que reutiliza
-<code>AbstractCrudController</code>.</li>
-<li>📄 Resposta real do endpoint <code>/schemas/filtered</code>.</li>
-</ul>
-<hr />
-<h2 id="documentação-técnica-technical">🔧 <strong>Documentação
-Técnica</strong> (<code>/technical/</code>)</h2>
-<h3 id="auto-configuração">⚙️ <a
-href="technical/AUTO-CONFIGURACAO.md">Auto-configuração</a></h3>
-<p><strong>Documentação técnica sobre o sistema de
-auto-configuração</strong></p>
-<ul>
-<li>Configuração automática de componentes</li>
-<li>Propriedades disponíveis</li>
-<li>Personalização e extensões</li>
-</ul>
-<h3 id="estratégia-dupla-de-grupos-openapi">🏷️ <a
-href="technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md">Estratégia Dupla de
-Grupos OpenAPI</a></h3>
-<p><strong>Sistema avançado de resolução de grupos OpenAPI</strong></p>
-<ul>
-<li>✅ <strong><span class="citation"
-data-cites="ApiResource">@ApiResource</span> + <span class="citation"
-data-cites="ApiGroup">@ApiGroup</span></strong> - Sistema duplo de
-anotações</li>
-<li>✅ <strong>Resolução automática</strong> via
-OpenApiGroupResolver</li>
-<li>✅ <strong>Documentação técnica completa</strong> com exemplos</li>
-<li>✅ <strong>Testes de validação</strong> incluídos</li>
-</ul>
-<h3 id="validação-apiresource">✅ <a
-href="technical/VALIDACAO-API-RESOURCE.md">Validação <span
-class="citation" data-cites="ApiResource">@ApiResource</span></a></h3>
-<p><strong>Sistema de validação obrigatória de anotações</strong></p>
-<ul>
-<li>Validação automática de <span class="citation"
-data-cites="ApiResource">@ApiResource</span></li>
-<li>Detecção de controllers sem anotação</li>
-<li>Sistema de testes automatizados</li>
-</ul>
-<h3 id="plano-de-cursor-pagination-keyset">🔁 <a
-href="technical/CURSOR-PAGINATION-KEYSET-PLAN.md">Plano de Cursor
-Pagination / Keyset</a></h3>
-<p><strong>Desenho de plataforma para suportar
-<code>/filter/cursor</code> com keyset pagination real</strong></p>
-<ul>
-<li>Uso de <code>Window&lt;T&gt;</code> e <code>ScrollPosition</code> do
-Spring Data Commons</li>
-<li>Fragmentos de repositório para infraestrutura compartilhada</li>
-<li>Sort estável com tie-break por ID</li>
-<li>Capability explícita por recurso</li>
-<li>Rollout seguro do v1 sem generalização excessiva</li>
-</ul>
-<h3 id="backlog-executável-de-cursor-pagination-keyset">🧱 <a
-href="technical/CURSOR-PAGINATION-KEYSET-BACKLOG.md">Backlog Executável
-de Cursor Pagination / Keyset</a></h3>
-<p><strong>Backlog do v1 de keyset pagination, arquivo por
-arquivo</strong></p>
-<ul>
-<li>tipos internos</li>
-<li>codec de cursor</li>
-<li>fragmento de repositório</li>
-<li>integração no service base</li>
-<li>controller base</li>
-<li>auto-configuração</li>
-<li>testes e validação consumidora</li>
-</ul>
-<hr />
-<h2 id="como-navegar-pela-documentação">🧭 <strong>Como Navegar pela
-Documentação</strong></h2>
-<h3 id="para-desenvolvedores---primeira-implementação"><strong>Para
-Desenvolvedores - Primeira Implementação:</strong></h3>
-<ol type="1">
-<li>📖 Leia o <a href="guides/GUIA-CLAUDE-AI-CRUD-BULK.md">Guia de CRUD
-Metadata-Driven</a> completo</li>
-<li>📝 Use o <a href="examples/EXEMPLO-PROMPT-CRUD-BULK.md">Template de
-Prompt</a> como referência</li>
-<li>🔧 Consulte a documentação técnica conforme necessário</li>
-</ol>
-<h3 id="para-mantenedores---aprofundamento-técnico"><strong>Para
-Mantenedores - Aprofundamento Técnico:</strong></h3>
-<ol type="1">
-<li>🔧 Estude a <a
-href="technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md">Estratégia de Grupos
-OpenAPI</a></li>
-<li>⚙️ Entenda a <a
-href="technical/AUTO-CONFIGURACAO.md">Auto-configuração</a></li>
-<li>✅ Configure a <a
-href="technical/VALIDACAO-API-RESOURCE.md">Validação <span
-class="citation" data-cites="ApiResource">@ApiResource</span></a></li>
-<li>🔁 Revise o <a
-href="technical/CURSOR-PAGINATION-KEYSET-PLAN.md">Plano de Cursor
-Pagination / Keyset</a> antes de evoluir
-<code>/filter/cursor</code></li>
-<li>🧱 Execute o <a
-href="technical/CURSOR-PAGINATION-KEYSET-BACKLOG.md">Backlog de Cursor
-Pagination / Keyset</a> para implementar o v1</li>
-</ol>
-<h3 id="integração-de-schema-backend-frontend"><strong>Integração de
-Schema (Backend ↔︎ Frontend)</strong></h3>
-<ul>
-<li>🔒 Planos de hash/ETag, identidade de campos, diffs e persistência
-de versões/overrides:
-<ul>
-<li><a href="SCHEMA-HASH-PLAN.md">SCHEMA-HASH-PLAN.md</a></li>
-<li><a
-href="SCHEMA-INTEGRATION-PLAN.md">SCHEMA-INTEGRATION-PLAN.md</a></li>
-</ul></li>
-<li>🔁 Controle explícito de ETag/If-None-Match no front e trilha para
-persistência no servidor:
-<ul>
-<li><a
-href="FRONTEND-SCHEMA-CACHE-PLAN.md">FRONTEND-SCHEMA-CACHE-PLAN.md</a></li>
-<li><a href="RESUMO-EXECUTIVO.md">RESUMO-EXECUTIVO.md</a></li>
-</ul></li>
-</ul>
-<h3 id="para-usuários---uso-rápido"><strong>Para Usuários - Uso
-Rápido:</strong></h3>
-<ol type="1">
-<li>📝 Vá direto ao <a
-href="examples/EXEMPLO-PROMPT-CRUD-BULK.md">Template de Prompt</a></li>
-<li>💡 Siga os exemplos práticos por módulo</li>
-<li>🚀 Solicite suas funcionalidades seguindo o formato</li>
-</ol>
-<hr />
-<h2 id="critério-de-qualidade">🏆 Critério de Qualidade</h2>
-<p>Esta documentação deve permanecer aderente a:</p>
-<ul>
-<li>código canônico do <code>praxis-metadata-starter</code></li>
-<li>uso real e publicado do <code>praxis-api-quickstart</code></li>
-<li>consumo final em <code>praxis-ui-angular</code></li>
-</ul>
-<hr />
-<h2 id="histórico-de-melhorias">📈 <strong>Histórico de
-Melhorias</strong></h2>
-<h3 id="v2.1-atual---equiparado-ao-código-fonte"><strong>v2.1 (Atual) -
-Equiparado ao código fonte</strong></h3>
-<ul>
-<li>✅ guias reancorados no starter canônico</li>
-<li>✅ exemplos alinhados ao quickstart real</li>
-<li>✅ consumo Angular refletido na documentação</li>
-<li>✅ claims não canônicas de bulk removidas do baseline</li>
-</ul>
-<h3 id="v1.0---versão-inicial"><strong>v1.0 - Versão
-Inicial</strong></h3>
-<ul>
-<li>Templates básicos</li>
-<li>Documentação teórica</li>
-<li>Alguns enums incorretos (já corrigidos)</li>
-</ul>
-<hr />
-<h2 id="como-contribuir">🤝 <strong>Como Contribuir</strong></h2>
-<ol type="1">
-<li><strong>Encontrou um erro?</strong> Reporte através de issues</li>
-<li><strong>Quer melhorar?</strong> Teste os templates e documente
-melhorias</li>
-<li><strong>Nova funcionalidade?</strong> Siga os padrões estabelecidos
-na documentação</li>
-</ol>
-<hr />
-<p><strong>💡 Dica:</strong> Marque esta página nos seus favoritos - é
-seu ponto de partida para qualquer tarefa relacionada ao Praxis Metadata
-Starter!</p>
 </body>
 </html>

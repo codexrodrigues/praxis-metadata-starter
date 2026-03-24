@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Rules Engines &amp; Specifications</title>
+  <title>Rules Engines and Specifications</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,77 +166,27 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Rules Engines &amp; Specifications</h1>
+<h1 class="title">Rules Engines and Specifications</h1>
 </header>
-<h1 id="rules-engines-specifications">Rules Engines &amp;
+<h1 id="rules-engines-and-specifications">Rules Engines and
 Specifications</h1>
-<h2 id="definição-curta">Definição curta</h2>
-<p>Regras declarativas de negócio/visual expressas como especificações
-avaliáveis (Specification Pattern) e/ou mini‑DSL, com ferramentas
-visuais para construir, serializar e avaliar condições em tempo de
-execução.</p>
+<h2 id="definicao-curta">Definicao curta</h2>
+<p>Usar regras e specifications para expressar comportamento,
+visibilidade, validacao e efeitos visuais sem espalhar logica
+imperativa.</p>
 <h2 id="onde-aparece-no-praxis">Onde aparece no Praxis</h2>
 <ul>
-<li>Frontend:
-<code>frontend-libs/praxis-ui-workspace/projects/praxis-visual-builder/README.md:1</code>
-— Visual Builder, mini‑DSL, Context Variables, SpecificationBridge.</li>
-<li>Frontend:
-<code>frontend-libs/praxis-ui-workspace/projects/praxis-specification-core/src/lib/specification/specification.ts:3</code>
-— núcleo de Specifications.</li>
-<li>Frontend:
-<code>frontend-libs/praxis-ui-workspace/projects/praxis-table/src/lib/praxis-table.ts:259</code>
-— cache e uso de SpecificationBridge para regras visuais.</li>
-<li>Frontend:
-<code>frontend-libs/praxis-ui-workspace/projects/praxis-core/src/lib/models/form/form-layout.model.ts:154</code>
-— condições de visibilidade/hidden via string/Specification.</li>
+<li>Frontend: <code>@praxisui/specification</code></li>
+<li>Frontend: <code>@praxisui/table</code></li>
+<li>Frontend: <code>@praxisui/visual-builder</code></li>
+<li>Backend: specifications no ecossistema Spring Data</li>
 </ul>
-<h2 id="como-aplicar-passo-a-passo">Como aplicar (passo a passo)</h2>
-<ol type="1">
-<li>Modele regras no Visual Builder ou via mini‑DSL; converta para
-Specification com o <code>SpecificationBridgeService</code>.</li>
-<li>Associe a Specification ao contexto (dados/estado) e avalie no ponto
-de decisão (ex.: visibilidade de coluna, estado de campo).</li>
-<li>Para backend, converta filtros para Specifications JPA
-(<code>GenericSpecificationsBuilder</code>).</li>
-</ol>
-<h2 id="exemplos-mínimos">Exemplos mínimos</h2>
+<h2 id="referencias-publicas">Referencias publicas</h2>
 <ul>
-<li>Tabela usando regras visuais:
-<ul>
-<li><code>frontend-libs/praxis-ui-workspace/projects/praxis-table/src/lib/praxis-table.ts:599</code></li>
-</ul></li>
-<li>Mini‑DSL + bridge:
-<ul>
-<li><code>frontend-libs/praxis-ui-workspace/projects/praxis-visual-builder/README.md:416</code></li>
-</ul></li>
-</ul>
-<h2 id="antipadrões">Anti‑padrões</h2>
-<ul>
-<li>Codificar regras dispersas no componente sem
-centralizar/serializar.</li>
-<li>Não prover contexto consistente para avaliação (variáveis de
-contexto inconsistentes).</li>
-</ul>
-<h2 id="referências-internas">Referências internas</h2>
-<ul>
-<li>frontend-libs/praxis-ui-workspace/INTEGRATION-PLAN.md:163</li>
-<li>frontend-libs/praxis-ui-workspace/README.md:518</li>
-<li>frontend-libs/praxis-ui-workspace/projects/praxis-table/README.md:524</li>
-</ul>
-<h2 id="security-hooks-e-escopo">Security hooks e escopo</h2>
-<ul>
-<li>Modele regras de visibilidade/escopo como Specifications; avalie com
-variáveis de contexto (role, tenant, attributes) no Visual Builder.</li>
-<li>Policy‑as‑code: serialize, versionar e auditar regras; aplique tanto
-em UI (condições de exibição) quanto no backend (Specifications
-JPA).</li>
-</ul>
-<h2 id="veja-também">Veja também</h2>
-<ul>
-<li><a href="./configuration-driven-development.md">Configuration‑driven
-development</a></li>
-<li><a href="./self-describing-apis.md">Self‑describing APIs</a></li>
-<li><a href="./declarative-ui.md">Declarative UI</a></li>
+<li>repositório público:
+<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
+<li>pacotes: <code>@praxisui/specification</code>,
+<code>@praxisui/table</code>, <code>@praxisui/visual-builder</code></li>
 </ul>
 </body>
 </html>

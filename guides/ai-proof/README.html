@@ -170,56 +170,62 @@
 </header>
 <h1 id="prova-operacional-dos-guias-de-ia">Prova Operacional dos Guias
 de IA</h1>
-<p>Este pacote transforma os guias de IA do
+<p>Este pacote transforma os guias do
 <code>praxis-metadata-starter</code> em um processo repetivel de prova
 operacional.</p>
-<p>Objetivo:</p>
+<h2 id="objetivo">Objetivo</h2>
 <ul>
-<li>verificar se uma LLM, seguindo apenas os guias, consegue criar uma
-aplicacao nova e um CRUD metadata-driven sem intervencao humana
-corretiva</li>
+<li>verificar se uma LLM, seguindo apenas os guias oficiais, consegue
+criar uma aplicacao nova e um CRUD metadata-driven sem intervencao
+humana corretiva</li>
 <li>coletar falhas reais de execucao</li>
-<li>retroalimentar os guias ate fechar o protocolo sem erros</li>
+<li>retroalimentar os guias ate fechar o protocolo sem depender de
+conhecimento implicito do time</li>
 </ul>
-<p>Escopo:</p>
+<h2 id="escopo">Escopo</h2>
 <ul>
-<li><code>GUIA-CLAUDE-AI-APLICACAO-NOVA.md</code></li>
-<li><code>GUIA-CLAUDE-AI-CRUD-BULK.md</code></li>
-<li>contrato real do <code>praxis-metadata-starter</code></li>
-<li>uso operacional de referencia no
-<code>praxis-api-quickstart</code></li>
-<li>consumo final esperado no <code>praxis-ui-angular</code></li>
+<li><code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md</code></li>
+<li><code>CHECKLIST-VALIDACAO-IA.md</code></li>
 </ul>
-<p>Arquivos deste pacote:</p>
+<h2 id="arquivos-deste-pacote">Arquivos deste pacote</h2>
 <ul>
 <li><code>PROTOCOLO-DE-PROVA.md</code></li>
 <li><code>PROMPTS-DE-EXECUCAO.md</code></li>
 <li><code>SANDBOX-RECOMENDADO.md</code></li>
 <li><code>TEMPLATE-RELATORIO-DE-RODADA.md</code></li>
 </ul>
-<p>Regra de execucao:</p>
+<h2 id="regra-de-execucao">Regra de execucao</h2>
 <ol type="1">
 <li>rode uma rodada limpa</li>
 <li>registre todas as falhas no relatorio</li>
 <li>classifique cada falha</li>
-<li>corrija primeiro o guia, nao o prompt, quando a causa for
-ambiguidade documental</li>
+<li>corrija primeiro o guia</li>
 <li>repita a mesma rodada do zero</li>
 </ol>
 <p>Nao considere uma rodada aprovada se houve:</p>
 <ul>
 <li>correcao manual de codigo no meio da execucao</li>
-<li>consulta a exemplos fora do material permitido</li>
-<li>ajuste ad hoc de dependencias, paths ou contratos nao previstos no
-guia</li>
+<li>consulta a app externo como fonte necessaria de implementacao</li>
+<li>ajuste ad hoc de dependencias, paths ou contratos fora do que o guia
+publica</li>
 </ul>
-<p>Resultado esperado:</p>
+<h2 id="resultado-esperado">Resultado esperado</h2>
 <ul>
-<li>aprovacao em <code>H2 simples</code></li>
-<li>aprovacao em <code>H2 com relacao</code></li>
-<li>aprovacao em <code>PostgreSQL simples</code></li>
-<li>aprovacao em <code>PostgreSQL com relacao</code></li>
-<li>depois disso, validacao opcional de consumo pelo Angular</li>
+<li>aprovacao em backend H2 simples</li>
+<li>aprovacao em backend H2 com relacao</li>
+<li>aprovacao em backend H2 com MapStruct</li>
+<li>aprovacao em backend H2 com filtros ricos</li>
+<li>aprovacao em consumo pelo runtime Angular oficial</li>
+<li>aprovacao em frontend Angular completo</li>
+</ul>
+<p>Extensao recomendada:</p>
+<ul>
+<li>prova material de app Angular novo do zero com pacotes
+publicados</li>
+<li>smoke browser-level em trilha propria, separado da aprovacao
+material</li>
 </ul>
 </body>
 </html>

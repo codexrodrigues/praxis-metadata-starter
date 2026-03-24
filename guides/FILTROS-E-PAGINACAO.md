@@ -227,21 +227,24 @@ Content-Type: application/json
 
 </details>
 
-<a id="exemplos-quickstart"></a>
+<a id="exemplos-autocontidos"></a>
 <details>
-<summary><strong>Exemplos no Quickstart (praxis-api-quickstart)</strong></summary>
+<summary><strong>Exemplos autocontidos de modelagem</strong></summary>
 
-Links para DTOs reais usando as operações avançadas, no repositório de exemplo:
+Sugestoes de combinacao para `FilterDTO` sem depender de app externo:
 
-- Missões — IN/NOT_IN, ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MissaoFilterDTO.java
-- Incidentes — IN, ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/IncidenteFilterDTO.java
-- Sinais de Socorro — IN/NOT_IN, ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/SinaisSocorroFilterDTO.java
-- Menções na Mídia — IN, ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MencoesMidiaFilterDTO.java
-- Veículo em Missão — ON_DATE/IN_LAST_DAYS (partida/chegada): https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoMissaoUsoFilterDTO.java
-- Reputação — ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/ReputacaoFilterDTO.java
-- Resumo de Missões (view) — ON_DATE/IN_LAST_DAYS: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VwResumoMissoeFilterDTO.java
-- Veículos — IN/NOT_IN (Tipo/Status): https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoFilterDTO.java
-- Equipe/EquipeMembro — IN/NOT_IN (Status/Papel), ON_DATE: https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeFilterDTO.java e https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeMembroFilterDTO.java
+- use `IN` e `NOT_IN` para listas de enums ou status
+- use `ON_DATE` e `IN_LAST_DAYS` para datas operacionais
+- use `relation = "relacao.id"` para filtros sobre relacionamento
+- use `BETWEEN` para ranges numericos e datas
+
+Exemplos tipicos:
+
+- `statusIn` com `IN`
+- `statusNotIn` com `NOT_IN`
+- `dataEventoOnDate` com `ON_DATE`
+- `dataEventoInLastDays` com `IN_LAST_DAYS`
+- `categoriaId` com `EQUAL` e `relation = "categoria.id"`
 
 </details>
 

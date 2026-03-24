@@ -645,34 +645,30 @@ consistentes — alinhadas com as melhores práticas do ecossistema Spring
 + OpenAPI.</p>
 </blockquote>
 </details>
-<a id="exemplos-quickstart"></a>
+<a id="exemplos-autocontidos"></a>
 <details>
 <summary>
-<strong>Exemplos no Quickstart (praxis-api-quickstart)</strong>
+<strong>Exemplos autocontidos de modelagem</strong>
 </summary>
-<p>Links para DTOs reais usando as operações avançadas, no repositório
-de exemplo:</p>
+<p>Sugestoes de combinacao para <code>FilterDTO</code> sem depender de
+app externo:</p>
 <ul>
-<li>Missões — IN/NOT_IN, ON_DATE/IN_LAST_DAYS:
-https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MissaoFilterDTO.java</li>
-<li>Incidentes — IN, ON_DATE/IN_LAST_DAYS:
-https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/IncidenteFilterDTO.java</li>
-<li>Sinais de Socorro — IN/NOT_IN, ON_DATE/IN_LAST_DAYS:
-https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/SinaisSocorroFilterDTO.java</li>
-<li>Menções na Mídia — IN, ON_DATE/IN_LAST_DAYS:
-https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/MencoesMidiaFilterDTO.java</li>
-<li>Veículo em Missão — ON_DATE/IN_LAST_DAYS (partida/chegada):
-https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoMissaoUsoFilterDTO.java</li>
-<li>Reputação — ON_DATE/IN_LAST_DAYS:
-https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/ReputacaoFilterDTO.java</li>
-<li>Resumo de Missões (view) — ON_DATE/IN_LAST_DAYS:
-https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VwResumoMissoeFilterDTO.java</li>
-<li>Veículos — IN/NOT_IN (Tipo/Status):
-https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/VeiculoFilterDTO.java</li>
-<li>Equipe/EquipeMembro — IN/NOT_IN (Status/Papel), ON_DATE:
-https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeFilterDTO.java
-e
-https://github.com/codexrodrigues/praxis-api-quickstart/blob/main/src/main/java/com/example/praxis/apiquickstart/hr/dto/filter/EquipeMembroFilterDTO.java</li>
+<li>use <code>IN</code> e <code>NOT_IN</code> para listas de enums ou
+status</li>
+<li>use <code>ON_DATE</code> e <code>IN_LAST_DAYS</code> para datas
+operacionais</li>
+<li>use <code>relation = "relacao.id"</code> para filtros sobre
+relacionamento</li>
+<li>use <code>BETWEEN</code> para ranges numericos e datas</li>
+</ul>
+<p>Exemplos tipicos:</p>
+<ul>
+<li><code>statusIn</code> com <code>IN</code></li>
+<li><code>statusNotIn</code> com <code>NOT_IN</code></li>
+<li><code>dataEventoOnDate</code> com <code>ON_DATE</code></li>
+<li><code>dataEventoInLastDays</code> com <code>IN_LAST_DAYS</code></li>
+<li><code>categoriaId</code> com <code>EQUAL</code> e
+<code>relation = "categoria.id"</code></li>
 </ul>
 </details>
 <a id="exemplos-rapidos"></a>

@@ -1,100 +1,68 @@
-# 📖 Guias de Implementação
+# Guias de Implementacao
 
-Esta seção reúne os guias operacionais do `praxis-metadata-starter`.
+Esta pasta reune os guias operacionais do `praxis-metadata-starter` para uso
+por pessoas e por LLMs.
 
-Eles foram reorganizados para seguir a hierarquia correta da plataforma:
+## Trilha principal para LLM
 
-1. o starter define o contrato canônico
-2. o `praxis-api-quickstart` mostra o uso operacional de referência
-3. o `praxis-ui-angular` representa a ponta final de consumo
+Use os guias nesta ordem:
 
-## 📋 Guias Disponíveis
+1. [Guia 01 - Backend - Aplicacao Nova](GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
+2. [Guia 02 - Backend - CRUD Metadata-Driven](GUIA-02-AI-BACKEND-CRUD-METADATA.md)
+3. [Guia 03 - Frontend - Angular CRUD Completo](GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
+4. [Checklist de Validacao](CHECKLIST-VALIDACAO-IA.md)
 
-### 🤖 [Guia de CRUD Metadata-Driven por Entidade](GUIA-CLAUDE-AI-CRUD-BULK.md)
-Guia principal para agentes de IA gerarem recursos CRUD alinhados ao contrato real do starter.
+Essa trilha foi organizada para que a LLM consiga percorrer os passos sem
+depender de app externo nem de conhecimento oral do time.
 
-- cobre DTO, FilterDTO, mapper, repository, service e controller
-- ancora exemplos no `praxis-api-quickstart`
-- considera o consumo real do `GenericCrudService` no Angular
-- nao institucionaliza bulk como baseline
+Se o objetivo for prova operacional repetivel, siga depois para
+`ai-proof/README.md`.
 
-**Ideal para:** gerar um recurso CRUD que publique `x-ui`, `/schemas/filtered`, options e endpoints base consumíveis pela UI.
+## Quando usar cada guia
 
-### 🚀 [Guia para Aplicações Novas](GUIA-CLAUDE-AI-APLICACAO-NOVA.md)
-Guia para criar uma nova aplicação Spring Boot mínima e correta sobre o `praxis-metadata-starter`.
+### Guia 01
 
-- define o baseline mínimo de dependências
-- evita prescrever módulos opcionais como obrigatórios
-- alinha a aplicação nova com o host de referência e o consumo Angular
+Use para criar uma nova aplicacao Spring Boot minima e correta sobre o starter.
 
-**Ideal para:** inicializar um projeto novo com OpenAPI enriquecido, schemas filtrados e primeiro recurso metadata-driven.
+### Guia 02
 
-### ✅ [Checklist de Validação (IA)](CHECKLIST-VALIDACAO-IA.md)
-Lista objetiva para validar builds, grupos OpenAPI, endpoints CRUD, options e schemas após geração por IA.
+Use para gerar um recurso CRUD metadata-driven dentro da aplicacao criada no
+Guia 01.
 
-### 🧪 [Prova Operacional dos Guias de IA](ai-proof/README.md)
-Pacote para executar rodadas cegas com LLM, registrar falhas reais e iterar os guias até fechar o protocolo.
+### Guia 03
 
----
+Use apenas quando o backend ja publicar corretamente o contrato metadata-driven
+e a tarefa for gerar o host Angular canonico.
 
-### 🧭 [CRUD com @ApiResource e @ApiGroup](CRUD-COM-APIRESOURCE.md)
-Exponha recursos REST e organize a documentação em grupos OpenAPI.
+### Checklist
 
-### 🔎 [Filtros e Paginação](FILTROS-E-PAGINACAO.md)
-Implemente filtros com `@Filterable` + Specifications e paginação consistente.
+Use depois da geracao para validar build, endpoints, schemas e consumo.
 
-### 🔢 [Ordenação Padrão](ORDEM-PADRAO.md)
-Defina `@DefaultSortColumn` e tenha ordenação determinística por padrão.
+## Guias complementares
 
-### ✅ [Options (id/label)](OPTIONS-ENDPOINT.md)
-Exponha endpoints de opções id/label usando `@OptionLabel` e `OptionMapper`.
+- [CRUD com @ApiResource e @ApiGroup](CRUD-COM-APIRESOURCE.md)
+- [Filtros e Paginacao](FILTROS-E-PAGINACAO.md)
+- [Ordenacao Padrao](ORDEM-PADRAO.md)
+- [Options (id/label)](OPTIONS-ENDPOINT.md)
+- [Views / Somente Leitura](READ-ONLY-VIEWS.md)
+- [Erros e Respostas](ERROS-E-RESPOSTAS.md)
+- [Prova Operacional dos Guias de IA](ai-proof/README.md)
 
-### 📄 [Views / Somente Leitura](READ-ONLY-VIEWS.md)
-Aproveite o modo read‑only para entidades de views (`@Immutable`): filtros, paginação e opções prontos, com bloqueio de escrita (405).
+## Papel desta pasta
 
-### ❗ [Erros e Envelope de Respostas](ERROS-E-RESPOSTAS.md)
-Padronize respostas de erro e sucesso para melhor DX/UX.
+- `docs/README.md` e o hub geral da documentacao
+- este arquivo organiza a trilha de leitura dos guias
+- `ai-proof/README.md` organiza apenas a trilha de prova
+- o Javadoc publico do starter e referencia tecnica complementar:
+  `https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/`
 
----
+## Criterio de qualidade
 
-## 🎯 **Como Usar os Guias**
+Os guias desta pasta devem permanecer aderentes a:
 
-1. **Para primeira implementação:** Comece com a [Visão Geral](../overview/VISAO-GERAL.md) e depois o [Guia de CRUD Metadata-Driven](GUIA-CLAUDE-AI-CRUD-BULK.md)
-2. **Para novo projeto:** Use o [Guia de Aplicação Nova](GUIA-CLAUDE-AI-APLICACAO-NOVA.md)
-3. **Após geração por IA:** Valide com o [Checklist de Validação](CHECKLIST-VALIDACAO-IA.md)
-4. **Para prova operacional dos guias:** Use o pacote [Prova Operacional dos Guias de IA](ai-proof/README.md)
-5. **Para exemplos práticos:** Consulte os [Examples](../examples/)
-6. **Para detalhes técnicos:** Veja a [Documentação Técnica](../technical/)
+- codigo canonico do `praxis-metadata-starter`
+- contrato realmente consumido pelo runtime Angular oficial da plataforma
+- protocolo de prova documentado em `ai-proof/`
 
----
-
-## 🏆 Critério de Qualidade
-
-Os guias desta seção devem permanecer aderentes a:
-
-- código canônico do `praxis-metadata-starter`
-- uso real no `praxis-api-quickstart`
-- consumo final no `praxis-ui-angular`
-
-Quando houver divergência entre um guia e esses três pontos, o guia deve ser corrigido.
-
----
-
-**📌 Nota:** Para uma visão geral de toda a documentação, volte ao [índice principal](../README.md).
-
----
-
-## 🔎 Referências de API
-
-- Javadoc (publicado no GitHub Pages): [Visão geral](../apidocs/index.html)
-- API por pacote: [allpackages-index](../apidocs/allpackages-index.html)
-
-## ✅ Pré‑requisitos
-- Java 21
-- Spring Boot 3.2+
-- SpringDoc OpenAPI (starter já incluso como dependência)
-- Maven (para build e publicação)
-
-## 🚀 Exemplo completo (Quickstart)
-- Repositório de exemplo: https://github.com/codexrodrigues/praxis-api-quickstart
-- Superfície publicada de referência: https://praxis-api-quickstart.onrender.com/
+Quando houver divergencia entre guia, codigo canonicamente publicado e prova
+operacional, o guia deve ser corrigido.

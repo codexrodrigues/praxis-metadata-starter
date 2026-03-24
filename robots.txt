@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://codexrodrigues.github.io/praxis-metadata-starter/sitemap.xml

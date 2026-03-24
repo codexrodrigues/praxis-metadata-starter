@@ -172,40 +172,31 @@
 de IA</h1>
 <h2 id="objetivo">Objetivo</h2>
 <p>Medir se uma LLM consegue, partindo apenas dos guias oficiais,
-produzir uma aplicacao Spring Boot funcional e um CRUD metadata-driven
-aderente ao contrato da plataforma.</p>
-<h2 id="classificacao-da-prova">Classificacao da prova</h2>
-<p>Esta prova e <code>docs-apenas</code> no starter, mas valida
-comportamento de superficies canonicas de alto risco:</p>
+produzir:</p>
 <ul>
-<li><code>x-ui</code></li>
-<li><code>/schemas/filtered</code></li>
-<li><code>GET /{resource}/schemas</code></li>
-<li><code>@ApiResource</code></li>
-<li><code>@ApiGroup</code></li>
-<li><code>GenericFilterDTO</code></li>
-<li><code>OptionDTO{id,label}</code></li>
-<li><code>ETag</code> e <code>X-Schema-Hash</code></li>
+<li>uma aplicacao Spring Boot funcional</li>
+<li>um CRUD metadata-driven aderente ao contrato da plataforma</li>
+<li>um frontend Angular capaz de consumir esse contrato</li>
 </ul>
 <h2 id="regras-da-rodada">Regras da rodada</h2>
 <ul>
 <li>a LLM deve receber apenas o material explicitamente permitido</li>
-<li>a rodada deve começar em workspace limpo para o projeto sandbox</li>
-<li>nenhuma correcao humana de codigo e permitida antes do veredito da
-rodada</li>
+<li>a rodada deve comecar em workspace limpo para o sandbox</li>
+<li>nenhuma correcao humana de codigo e permitida antes do veredito</li>
 <li>falhas de build, runtime, contrato ou consumo contam como
-reprovação</li>
-<li>toda rodada deve gerar um relatorio preenchido a partir de
+reprova</li>
+<li>toda rodada deve gerar um relatorio a partir de
 <code>TEMPLATE-RELATORIO-DE-RODADA.md</code></li>
 </ul>
 <h2 id="material-permitido-para-a-llm">Material permitido para a
 LLM</h2>
 <p>Material minimo:</p>
 <ul>
-<li><code>docs/guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md</code></li>
-<li><code>docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md</code></li>
+<li><code>docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md</code></li>
 <li><code>docs/guides/CHECKLIST-VALIDACAO-IA.md</code></li>
-<li>o prompt da rodada em <code>PROMPTS-DE-EXECUCAO.md</code></li>
+<li><code>docs/guides/ai-proof/PROMPTS-DE-EXECUCAO.md</code></li>
 </ul>
 <p>Material adicional opcional:</p>
 <ul>
@@ -215,123 +206,96 @@ LLM</h2>
 </ul>
 <p>Nao liberar como baseline:</p>
 <ul>
-<li>snippets copiados do <code>praxis-api-quickstart</code></li>
-<li>correcoes manuais de POM ou properties fora do que o guia ja
-disser</li>
-<li>respostas do tipo “siga o padrao do quickstart” sem o guia ter
-detalhado o necessario</li>
+<li>snippets copiados de app externo</li>
+<li>respostas do tipo “siga o app de referencia”</li>
+<li>correcoes manuais de contrato fora do que o guia ja publicar</li>
 </ul>
 <h2 id="rodadas-canonicas">Rodadas canonicas</h2>
-<h3 id="rodada-1-h2-simples">Rodada 1: H2 simples</h3>
-<p>Objetivo:</p>
+<h3 id="rodada-1">Rodada 1</h3>
 <ul>
-<li>criar aplicacao nova</li>
-<li>criar entidade simples sem relacao</li>
-<li>provar build, subida, persistencia e schemas</li>
+<li>backend H2 simples</li>
 </ul>
-<p>Entidade recomendada:</p>
+<h3 id="rodada-2">Rodada 2</h3>
 <ul>
-<li><code>Categoria</code></li>
-<li>campos: <code>id</code>, <code>nome</code>, <code>ativo</code></li>
+<li>backend H2 com relacao</li>
 </ul>
-<h3 id="rodada-2-h2-com-relacao">Rodada 2: H2 com relacao</h3>
-<p>Objetivo:</p>
+<h3 id="rodada-3">Rodada 3</h3>
 <ul>
-<li>manter banco local simples</li>
-<li>introduzir relacao e select remoto</li>
+<li>backend H2 com MapStruct</li>
 </ul>
-<p>Entidades recomendadas:</p>
+<h3 id="rodada-4">Rodada 4</h3>
 <ul>
-<li><code>Categoria</code></li>
-<li><code>Produto</code></li>
-<li><code>Produto.categoria</code></li>
+<li>backend H2 com filtros ricos</li>
 </ul>
-<h3 id="rodada-3-postgresql-simples">Rodada 3: PostgreSQL simples</h3>
-<p>Objetivo:</p>
+<h3 id="rodada-5">Rodada 5</h3>
 <ul>
-<li>validar que o guia nao esta acidentalmente acoplado a H2</li>
-<li>provar datasource real, Flyway e bootstrap funcional</li>
+<li>consumo Angular</li>
 </ul>
-<h3 id="rodada-4-postgresql-com-relacao">Rodada 4: PostgreSQL com
-relacao</h3>
-<p>Objetivo:</p>
+<h3 id="rodada-6">Rodada 6</h3>
 <ul>
-<li>fechar o fluxo minimo de CRUD com relacao, options e schemas sob
-banco real</li>
+<li>frontend Angular completo</li>
 </ul>
-<h3 id="rodada-5-consumo-angular">Rodada 5: Consumo Angular</h3>
-<p>Objetivo:</p>
+<h3 id="rodada-7">Rodada 7</h3>
 <ul>
-<li>validar que o recurso gerado e consumivel por
-<code>GenericCrudService</code></li>
-<li>esta rodada e complementar; nao substitui as quatro rodadas
-anteriores</li>
+<li>app Angular novo do zero</li>
 </ul>
-<h2 id="criterio-de-aprovacao-por-rodada">Criterio de aprovacao por
-rodada</h2>
-<p>A rodada so e aprovada se todos os itens abaixo passarem sem
-intervencao humana no codigo gerado:</p>
+<h2 id="criterio-de-aprovacao">Criterio de aprovacao</h2>
+<p>Uma rodada so e aprovada se o que ela prometeu provar foi validado
+sem intervencao humana no codigo gerado.</p>
+<p>Para backend:</p>
 <ul>
 <li><code>mvn clean package</code></li>
 <li>aplicacao sobe</li>
 <li><code>GET /v3/api-docs</code></li>
-<li>Swagger UI</li>
 <li><code>GET /{resource}/schemas</code></li>
-<li><code>GET /schemas/filtered?path={resource}/all&amp;operation=get&amp;schemaType=response</code></li>
-<li><code>GET /schemas/filtered?path={resource}/filter&amp;operation=post&amp;schemaType=request</code></li>
+<li>schemas filtrados de request e response</li>
 <li><code>POST /{resource}</code></li>
 <li><code>POST /{resource}/filter</code></li>
-<li><code>POST /{resource}/options/filter</code> quando houver select
-remoto</li>
-<li><code>GET /{resource}/options/by-ids</code> quando houver select
-remoto</li>
-<li>persistencia real no banco escolhido</li>
-<li><code>ETag</code> e <code>X-Schema-Hash</code> presentes nos schemas
+<li>options quando houver select remoto</li>
+<li><code>ETag</code> e <code>X-Schema-Hash</code> nos schemas
 filtrados</li>
 </ul>
-<h2 id="taxonomia-obrigatoria-de-falhas">Taxonomia obrigatoria de
-falhas</h2>
-<p>Cada falha deve ser classificada como uma das categorias abaixo:</p>
+<p>Para frontend:</p>
 <ul>
-<li><code>guia-incompleto</code></li>
-<li><code>guia-ambiguo</code></li>
-<li><code>contrato-nao-explicito</code></li>
-<li><code>dependencia-implicita</code></li>
-<li><code>prompt-fraco</code></li>
-<li><code>erro-da-llm</code></li>
-<li><code>problema-real-do-starter</code></li>
+<li>host Angular compilavel</li>
+<li><code>praxis-crud</code> como shell principal quando o caso for CRUD
+completo</li>
+<li><code>resource.path</code> coerente com
+<code>table.resourcePath</code></li>
+<li><code>crudContext.resourcePath</code> e
+<code>crudContext.idField</code> coerentes</li>
+<li>consumo de schema sem workaround local fora do contrato</li>
 </ul>
+<p>Para a rodada 7:</p>
+<ul>
+<li><code>npm install</code> concluido com o baseline documentado</li>
+<li><code>ng build</code> do app novo aprovado</li>
+<li><code>ng serve</code> respondendo <code>200</code> na rota
+principal</li>
+<li>proxy oficial do Angular ativo para <code>/api</code> e
+<code>/schemas</code></li>
+<li><code>POST /{resource}/filter</code> respondendo <code>200</code> no
+mesmo origin do host</li>
+</ul>
+<p>O smoke browser-level completo pode ser registrado em trilha propria
+quando o harness ainda nao for canonico e estavel.</p>
 <h2 id="politica-de-iteracao">Politica de iteracao</h2>
 <p>Corrija nesta ordem:</p>
 <ol type="1">
 <li>guia</li>
 <li>checklist</li>
 <li>prompt da rodada</li>
-<li>somente depois, codigo canônico, se a prova revelou um problema real
-do starter</li>
+<li>codigo canonico, se a prova revelar um problema real da
+plataforma</li>
 </ol>
-<p>Nao normalize workaround local em prompt se a causa correta for falha
-do guia ou do contrato.</p>
-<h2 id="validacao-minima-recomendada">Validacao minima recomendada</h2>
-<p>Para cada rodada, registrar:</p>
+<h2 id="definicao-de-100">Definicao de 100%</h2>
+<p><code>100%</code> significa:</p>
 <ul>
-<li>comando de build executado</li>
-<li>comando de subida executado</li>
-<li>evidencias HTTP minimas</li>
-<li>erro bruto quando houver falha</li>
-<li>interpretacao da causa</li>
-<li>ajuste documental proposto</li>
-</ul>
-<h2 id="definicao-de-100">Definicao de “100%”</h2>
-<p>Para este protocolo, <code>100%</code> significa:</p>
-<ul>
-<li>quatro rodadas principais aprovadas</li>
+<li>rodadas principais aprovadas dentro do protocolo finito</li>
 <li>nenhuma correcao manual de codigo entre prompt e aceite</li>
-<li>nenhum requisito critico do contrato ficando dependente de
-conhecimento oral ou memoria do quickstart</li>
+<li>nenhum requisito critico do contrato dependendo de conhecimento oral
+do time</li>
 </ul>
-<p>Isso nao significa
-<code>100% para qualquer LLM e qualquer prompt</code>. Significa
-<code>100% dentro do protocolo finito desta prova</code>.</p>
+<p>Isso nao significa sucesso para qualquer LLM ou qualquer prompt.</p>
 </body>
 </html>

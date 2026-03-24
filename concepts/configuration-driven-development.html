@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Configuration‑driven development</title>
+  <title>Configuration-driven development</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,78 +166,37 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Configuration‑driven development</h1>
+<h1 class="title">Configuration-driven development</h1>
 </header>
-<h1 id="configurationdriven-development">Configuration‑driven
+<h1 id="configuration-driven-development">Configuration-driven
 development</h1>
-<h2 id="definição-curta">Definição curta</h2>
-<p>Evoluir funcionalidades através de configuração e metadados
-(contratos, <code>GlobalConfig</code>, <code>SettingsPanel</code>) ao
-invés de escrever novo código para cada variação. Permite customização
-segura e auditável em runtime.</p>
+<h2 id="definicao-curta">Definicao curta</h2>
+<p>Evoluir funcionalidades atraves de configuracao e metadados, em vez
+de escrever novo codigo para cada variacao.</p>
 <h2 id="onde-aparece-no-praxis">Onde aparece no Praxis</h2>
 <ul>
-<li>Frontend:
-<code>frontend-libs/praxis-ui-workspace/README.md:44</code> — providers
-para <code>GlobalConfig</code> (seed/remoto/tenant).</li>
-<li>Frontend:
-<code>frontend-libs/praxis-ui-workspace/projects/praxis-settings-panel</code>
-— painel genérico com contrato <code>onSave()</code> para editores.</li>
-<li>Frontend:
-<code>frontend-libs/praxis-ui-workspace/projects/praxis-table/README.md:120</code>
-— edição visual de colunas/toolbar/comportamentos.</li>
-<li>Backend:
-<code>backend-libs/praxis-metadata-starter/README.md:66</code> — regras
-de validação e hints de UI injetados como <code>x-ui</code>.</li>
+<li>Frontend: <code>@praxisui/core</code> para defaults e configuracoes
+globais</li>
+<li>Frontend: <code>@praxisui/settings-panel</code> para editores e
+persistencia de ajustes</li>
+<li>Frontend: <code>@praxisui/table</code> para comportamentos de tabela
+configuraveis</li>
+<li>Backend: <code>praxis-metadata-starter</code> para <code>x-ui</code>
+e contrato declarativo</li>
 </ul>
-<h2 id="como-aplicar-passo-a-passo">Como aplicar (passo a passo)</h2>
+<h2 id="como-aplicar">Como aplicar</h2>
 <ol type="1">
-<li>Defina defaults em <code>GlobalConfig</code> e permita overrides por
-tela via Settings Panel.</li>
-<li>Modele contratos <code>x-ui</code> para que componentes leiam
-preferências de interação/visual.</li>
-<li>Registre editores que implementam <code>onSave()</code> para
-persistir configurações.</li>
+<li>defina defaults em configuracao global</li>
+<li>publique contratos <code>x-ui</code> ricos no backend</li>
+<li>use editores e painéis de configuracao em vez de forks de
+componente</li>
 </ol>
-<h2 id="exemplos-mínimos">Exemplos mínimos</h2>
+<h2 id="referencias-publicas">Referencias publicas</h2>
 <ul>
-<li>Abrir Settings Panel:
-<ul>
-<li><code>frontend-libs/praxis-ui-workspace/README.md:59</code></li>
-</ul></li>
-<li>Tabela em modo de edição:
-<ul>
-<li><code>frontend-libs/praxis-ui-workspace/projects/praxis-table/README.md:108</code></li>
-</ul></li>
-</ul>
-<h2 id="antipadrões">Anti‑padrões</h2>
-<ul>
-<li>Forkar componente para alterar preferências de renderização que são
-configuráveis.</li>
-<li>Persistir configs ad‑hoc sem integração com os serviços do
-workspace.</li>
-</ul>
-<h2 id="referências-internas">Referências internas</h2>
-<ul>
-<li>frontend-libs/praxis-ui-workspace/docs/metadata-editors-architecture.praxis.md</li>
-<li>frontend-libs/praxis-ui-workspace/projects/praxis-core/src/lib/services/global-config.service.ts:43</li>
-<li>frontend-libs/praxis-ui-workspace/projects/praxis-list/src/lib/editors/list-config-editor.component.ts:877
-## Governança (quem pode mudar o quê)</li>
-<li>Hierarquia de overrides:
-<code>defaults → produto → tenant → usuário</code>.</li>
-<li>Operações seguras via Settings Panel: editores implementam
-<code>onSave()</code> com persistência em <code>ConfigStorage</code> ou
-backend.</li>
-<li>Multi‑tenant: isole <code>GlobalConfig</code> por
-<code>tenant</code> (ex.:
-<code>provideGlobalConfigTenant('tenant-acme')</code>).</li>
-</ul>
-<h2 id="veja-também">Veja também</h2>
-<ul>
-<li><a href="./schema-driven-ui.md">Schema‑driven UI</a></li>
-<li><a href="./declarative-ui.md">Declarative UI</a></li>
-<li><a href="./rules-engines-and-specifications.md">Rules Engines &amp;
-Specifications</a></li>
+<li>repositório público:
+<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
+<li>pacotes: <code>@praxisui/core</code>,
+<code>@praxisui/settings-panel</code>, <code>@praxisui/table</code></li>
 </ul>
 </body>
 </html>

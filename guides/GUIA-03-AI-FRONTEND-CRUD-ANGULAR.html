@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Guia 03 - IA Frontend - Angular CRUD Completo</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Guia 03 - IA Frontend - Angular CRUD Completo</h1>
+</header>
+<h1 id="guia-03---ia-frontend---angular-crud-completo">Guia 03 - IA
+Frontend - Angular CRUD Completo</h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este guia orienta uma LLM a gerar o frontend Angular canonico para um
+recurso CRUD que ja publica corretamente o contrato metadata-driven do
+<code>praxis-metadata-starter</code>.</p>
+<p>O objetivo nao e montar “qualquer tela Angular que compile”. O
+objetivo e gerar um host alinhado ao runtime oficial da plataforma:</p>
+<ul>
+<li><code>@praxisui/crud</code> como shell canonico de CRUD</li>
+<li><code>@praxisui/table</code> como superficie canonica de listagem e
+filtro</li>
+<li><code>@praxisui/dynamic-form</code> como superficie canonica de
+formulario</li>
+<li><code>GenericCrudService</code> consumindo
+<code>GET {resource}/schemas</code> e
+<code>/schemas/filtered</code></li>
+<li><code>resourcePath</code>, <code>idField</code>, <code>ETag</code> e
+<code>X-Schema-Hash</code> usados de forma coerente</li>
+</ul>
+<h2 id="ordem-de-leitura-para-a-llm">Ordem de leitura para a LLM</h2>
+<p>Este guia so deve ser usado depois que o backend ja publicar
+corretamente o contrato metadata-driven.</p>
+<p>Use esta ordem:</p>
+<ol type="1">
+<li><code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li>este guia</li>
+<li><code>CHECKLIST-VALIDACAO-IA.md</code></li>
+</ol>
+<p>Nenhum passo deste guia depende de consultar app externo.</p>
+<h2 id="hierarquia-canonica">Hierarquia canonica</h2>
+<ol type="1">
+<li><code>praxis-metadata-starter</code>
+<ul>
+<li>define <code>x-ui</code>, <code>/schemas/filtered</code>,
+<code>idField</code> e o contrato metadata-driven</li>
+</ul></li>
+<li><code>praxis-ui-angular</code>
+<ul>
+<li>define o runtime oficial: <code>@praxisui/core</code>,
+<code>@praxisui/table</code>, <code>@praxisui/dynamic-form</code> e
+<code>@praxisui/crud</code></li>
+</ul></li>
+</ol>
+<p>O starter nao redefine semantica de frontend. Ele orienta o consumo
+correto do runtime oficial Angular.</p>
+<h2 id="quando-usar-este-guia">Quando usar este guia</h2>
+<p>Use este guia quando a LLM precisar gerar a parte frontend de um
+recurso CRUD ja exposto pelo backend Praxis.</p>
+<p>Este guia cobre:</p>
+<ul>
+<li>lista com <code>praxis-table</code></li>
+<li>filtro remoto metadata-driven</li>
+<li>formulario metadata-driven</li>
+<li>acoes <code>create</code>, <code>view</code>, <code>edit</code> e
+<code>delete</code></li>
+<li>host unificado com <code>praxis-crud</code></li>
+</ul>
+<h2 id="quando-nao-usar-este-guia">Quando nao usar este guia</h2>
+<p>Este guia nao e o lugar correto para:</p>
+<ul>
+<li>page builder</li>
+<li>editor visual de metadados</li>
+<li>regras corporativas avancadas de drawer</li>
+<li>UX fora do fluxo CRUD canonico</li>
+</ul>
+<p>Se o pedido for apenas uma lista remota simples,
+<code>praxis-table</code> pode bastar. Se o pedido for um CRUD completo,
+prefira <code>praxis-crud</code>.</p>
+<h2 id="o-que-a-llm-deve-receber-como-entrada">O que a LLM deve receber
+como entrada</h2>
+<p>No minimo:</p>
+<ol type="1">
+<li>nome do recurso frontend</li>
+<li><code>resourcePath</code> canonico do backend</li>
+<li><code>idField</code></li>
+<li>estrategia de abertura: <code>modal</code>, <code>route</code> ou
+<code>drawer</code></li>
+<li>rota Angular desejada</li>
+<li><code>endpointKey</code> quando houver mais de uma API
+configurada</li>
+</ol>
+<p>Exemplo:</p>
+<pre class="text"><code>Gere o frontend Angular de CRUD completo para o recurso abaixo.
+
+Entrada:
+- Recurso: Funcionarios
+- resourcePath: api/human-resources/funcionarios
+- idField: id
+- endpointKey: HumanResources
+- rota da lista: /funcionarios
+- rota de visualizacao: /funcionarios/view/:id
+- openMode padrao: modal</code></pre>
+<h2 id="dependencias-frontend-minimas">Dependencias frontend
+minimas</h2>
+<p>Para um CRUD completo:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> i @angular/animations @angular/cdk @angular/material</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> i @praxisui/core @praxisui/table @praxisui/dynamic-form @praxisui/crud</span></code></pre></div>
+<p>Para um app Angular novo, a prova operacional desta rodada mostrou
+que o baseline real tambem precisa incluir:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> i @praxisui/ai @google/generative-ai</span></code></pre></div>
+<p>Motivo:</p>
+<ul>
+<li>as libs publicadas em <code>@praxisui 3.0.0-beta.3</code> ainda
+puxam <code>@praxisui/ai</code> no grafo de bundle de algumas libs</li>
+<li><code>@praxisui/ai</code> referencia
+<code>@google/generative-ai</code></li>
+</ul>
+<p>Nao assumir que as quatro libs principais bastam sozinhas em um app
+Angular novo.</p>
+<p>Referencia operacional validada nesta rodada:</p>
+<ul>
+<li><code>praxis-metadata-starter 5.0.0-rc.2</code></li>
+<li><code>@praxisui 3.0.0-beta.3</code></li>
+</ul>
+<h2 id="contratos-canonicos-de-runtime">Contratos canonicos de
+runtime</h2>
+<h3 id="resourcepath">1. <code>resourcePath</code></h3>
+<p>No runtime Angular atual, o <code>resourcePath</code> segue o
+formato:</p>
+<pre class="text"><code>api/human-resources/funcionarios</code></pre>
+<p>Nao remova o prefixo <code>api/</code> por conta propria.</p>
+<h3 id="api_url">2. <code>API_URL</code></h3>
+<p>O app host precisa fornecer o token <code>API_URL</code>.</p>
+<p>Exemplo minimo:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { ApplicationConfig } <span class="im">from</span> <span class="st">&#39;@angular/core&#39;</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { API_URL<span class="op">,</span> <span class="kw">type</span> ApiUrlConfig } <span class="im">from</span> <span class="st">&#39;@praxisui/core&#39;</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">const</span> appConfig<span class="op">:</span> ApplicationConfig <span class="op">=</span> {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  providers<span class="op">:</span> [</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>      provide<span class="op">:</span> API_URL<span class="op">,</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>      useFactory<span class="op">:</span> ()<span class="op">:</span> ApiUrlConfig <span class="kw">=&gt;</span> {</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> origin <span class="op">=</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>          <span class="kw">typeof</span> <span class="bu">window</span> <span class="op">!==</span> <span class="st">&#39;undefined&#39;</span> <span class="op">&amp;&amp;</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>            <span class="op">?</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span><span class="op">.</span><span class="at">origin</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>            <span class="op">:</span> <span class="st">&#39;http://127.0.0.1:4200&#39;</span><span class="op">;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>          <span class="cf">default</span><span class="op">:</span> { baseUrl<span class="op">:</span> origin<span class="op">,</span> path<span class="op">:</span> <span class="st">&#39;/api&#39;</span><span class="op">,</span> version<span class="op">:</span> <span class="st">&#39;&#39;</span> }<span class="op">,</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        } <span class="im">as</span> ApiUrlConfig<span class="op">;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>      }<span class="op">,</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">,</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>Se houver endpoint dedicado por dominio:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  provide<span class="op">:</span> API_URL<span class="op">,</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  useFactory<span class="op">:</span> ()<span class="op">:</span> ApiUrlConfig <span class="kw">=&gt;</span> {</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> origin <span class="op">=</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>      <span class="kw">typeof</span> <span class="bu">window</span> <span class="op">!==</span> <span class="st">&#39;undefined&#39;</span> <span class="op">&amp;&amp;</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">?</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span><span class="op">.</span><span class="at">origin</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> <span class="st">&#39;http://127.0.0.1:4200&#39;</span><span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>      <span class="cf">default</span><span class="op">:</span> { baseUrl<span class="op">:</span> origin<span class="op">,</span> path<span class="op">:</span> <span class="st">&#39;/api&#39;</span><span class="op">,</span> version<span class="op">:</span> <span class="st">&#39;&#39;</span> }<span class="op">,</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>      humanResources<span class="op">:</span> { baseUrl<span class="op">:</span> origin<span class="op">,</span> path<span class="op">:</span> <span class="st">&#39;/api&#39;</span><span class="op">,</span> version<span class="op">:</span> <span class="st">&#39;&#39;</span> }<span class="op">,</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    } <span class="im">as</span> ApiUrlConfig<span class="op">;</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Para app Angular novo fora do workspace oficial, prefira
+<code>baseUrl = window.location.origin</code>.</p>
+<p>Para app novo, o bootstrap tambem deve prover:</p>
+<ul>
+<li><code>provideHttpClient()</code></li>
+<li><code>provideAnimationsAsync()</code> ou equivalente</li>
+</ul>
+<h3 id="providepraxisglobalconfigbootstrap">3.
+<code>providePraxisGlobalConfigBootstrap()</code></h3>
+<p>Nao faz parte do baseline minimo de um host CRUD novo.</p>
+<p>So use esse bootstrap quando o host realmente integrar
+<code>praxis-config-starter</code> e precisar de config remota em
+<code>/api/praxis/config/**</code>.</p>
+<h3 id="genericcrudservice">4. <code>GenericCrudService</code></h3>
+<p>Regras canonicas:</p>
+<ul>
+<li><code>praxis-table</code> e self-hosted para
+<code>GenericCrudService</code></li>
+<li><code>praxis-dynamic-form</code> e host-driven para
+<code>GenericCrudService</code></li>
+<li><code>praxis-crud</code> e o shell recomendado para CRUD
+completo</li>
+</ul>
+<h2 id="fluxo-de-schema">Fluxo de schema</h2>
+<p>O frontend oficial consome:</p>
+<ul>
+<li><code>GET {resource}/schemas</code></li>
+<li><code>/schemas/filtered?path=.../all&amp;operation=get&amp;schemaType=response</code></li>
+<li><code>/schemas/filtered?path=.../filter&amp;operation=post&amp;schemaType=request</code></li>
+</ul>
+<p>Tambem usa:</p>
+<ul>
+<li><code>If-None-Match</code></li>
+<li><code>ETag</code></li>
+<li><code>X-Schema-Hash</code></li>
+<li><code>x-ui.resource.idField</code></li>
+</ul>
+<h2 id="padrao-canonico-para-crud-completo">Padrao canonico para CRUD
+completo</h2>
+<pre class="text"><code>lista + acoes:
+  praxis-crud
+    -&gt; praxis-table
+    -&gt; crudContext estavel
+    -&gt; create/view/edit/delete
+
+formulario:
+  praxis-dynamic-form
+    -&gt; schema-driven
+    -&gt; usa GenericCrudService quando depende de resourcePath/resourceId</code></pre>
+<h2 id="arquivos-minimos-do-frontend">Arquivos minimos do frontend</h2>
+<p>Para um app Angular novo, gere no minimo:</p>
+<ul>
+<li><code>src/app/app.config.ts</code></li>
+<li><code>src/app/app.routes.ts</code></li>
+<li>componente host da lista com <code>praxis-crud</code></li>
+<li>componente de view/edit roteado com
+<code>praxis-dynamic-form</code>, quando houver rota</li>
+<li><code>src/styles.scss</code> com tema Material</li>
+<li><code>proxy.conf.js</code></li>
+<li><code>angular.json</code> com
+<code>serve.options.proxyConfig</code></li>
+</ul>
+<h2 id="prompt-recomendado-para-ia">Prompt recomendado para IA</h2>
+<pre class="text"><code>Voce esta gerando o frontend Angular canonico para um recurso CRUD Praxis.
+
+Use apenas o contrato metadata-driven ja publicado pelo backend.
+Considere praxis-ui-angular como runtime canonico.
+
+Gere:
+- host com praxis-crud para a lista principal
+- praxis-dynamic-form para view/edit quando houver rota
+- API_URL coerente
+- resource.path e idField corretos
+- create/view/edit/delete conectados ao fluxo canonico
+
+Nao invente wrappers locais nem duplicacoes de contrato.
+
+Entrada:
+- resourcePath: {resource-path}
+- idField: {id-field}
+- endpointKey: {endpoint-key}
+- rota da lista: {list-route}
+- rota de view: {view-route}
+- openMode padrao: {open-mode}</code></pre>
+<h2 id="checklist-minimo">Checklist minimo</h2>
+<p>Antes de concluir:</p>
+<ul>
+<li>existe um host <code>praxis-crud</code> para a lista principal</li>
+<li><code>resource.path</code> e <code>idField</code> estao corretos no
+metadata</li>
+<li><code>GenericCrudService</code> foi provido ou configurado no host
+correto</li>
+<li>o formulario roteado usa <code>praxis-dynamic-form</code> quando o
+fluxo exigir <code>route</code></li>
+<li>o recurso remoto carrega schema sem ajuste local de contrato</li>
+<li><code>create</code>, <code>view</code>, <code>edit</code> e
+<code>delete</code> estao conectados ao fluxo correto</li>
+</ul>
+<h2 id="validacao-minima-recomendada">Validacao minima recomendada</h2>
+<p>Quando o workspace Angular tiver <code>node_modules</code> de
+Windows, prefira executar via <code>cmd.exe /c</code>.</p>
+<p>Quando a prova usar um app Angular novo fora do workspace oficial, a
+validacao minima deve incluir:</p>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> run build</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> start <span class="at">--</span> <span class="at">--host</span> 127.0.0.1 <span class="at">--port</span> 4305</span></code></pre></div>
+<p>Evidencias esperadas:</p>
+<ul>
+<li>build fecha sem erro de bundle ou peer dependency</li>
+<li><code>/funcionarios</code> responde <code>200</code></li>
+<li>o host sobe com proxy ativo para <code>/api</code> e
+<code>/schemas</code></li>
+<li><code>POST /api/.../filter?page=0&amp;size=10</code> responde
+<code>200</code> no mesmo origin do host</li>
+</ul>
+<p>Se houver trilha browser-level complementar, trate-a como validacao
+separada do baseline material acima.</p>
+<h2 id="referencias-publicas">Referencias publicas</h2>
+<ul>
+<li>repositório público do runtime Angular:
+<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
+<li>pacotes publicados: <code>@praxisui/core</code>,
+<code>@praxisui/table</code>, <code>@praxisui/dynamic-form</code>,
+<code>@praxisui/crud</code></li>
+<li><code>praxis-metadata-starter/docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>praxis-metadata-starter/docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+</ul>
+</body>
+</html>

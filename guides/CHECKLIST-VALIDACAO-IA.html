@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>✅ Checklist de Validação — Código Gerado por IA (Praxis Platform)</title>
+  <title>Checklist de Validacao - Codigo Gerado por IA</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,107 +166,106 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">✅ Checklist de Validação — Código Gerado por IA
-(Praxis Platform)</h1>
+<h1 class="title">Checklist de Validacao - Codigo Gerado por IA</h1>
 </header>
-<h1 id="checklist-de-validação-código-gerado-por-ia-praxis-platform">✅
-Checklist de Validação — Código Gerado por IA (Praxis Platform)</h1>
-<p>Use esta lista após o agente gerar código para uma aplicação nova ou
-para um recurso CRUD metadata-driven.</p>
-<h2 id="build-e-execução">1) Build e Execução</h2>
+<h1 id="checklist-de-validacao---codigo-gerado-por-ia">Checklist de
+Validacao - Codigo Gerado por IA</h1>
+<p>Use esta lista apos o agente gerar codigo para uma aplicacao nova, um
+recurso CRUD metadata-driven ou um frontend Angular.</p>
+<h2 id="build-e-execucao">1. Build e execucao</h2>
 <ul>
-<li>mvn clean package executa sem erros</li>
-<li>Aplicação sobe (Spring Boot) na porta esperada</li>
-<li>Swagger UI disponível em /swagger-ui.html</li>
-<li>API Docs em /v3/api-docs e grupos habilitados</li>
+<li><code>mvn clean package</code> executa sem erros no backend</li>
+<li>aplicacao Spring Boot sobe na porta esperada</li>
+<li><code>npm run build</code> executa sem erros no frontend, quando
+aplicavel</li>
+<li>host Angular sobe sem erro de bootstrap, quando aplicavel</li>
 </ul>
-<h2 id="grupos-openapi">2) Grupos OpenAPI</h2>
+<h2 id="openapi-e-grupos">2. OpenAPI e grupos</h2>
 <ul>
-<li>Grupos individuais por recurso existem (ex.:
-api-{modulo}-{recurso})</li>
-<li>Grupos agregados via <span class="citation"
-data-cites="ApiGroup">@ApiGroup</span> existem (ex.: {modulo})</li>
-<li>Endpoints não categorizados aparecem apenas no fallback
-“application”</li>
+<li><code>GET /v3/api-docs</code> responde</li>
+<li>grupos OpenAPI esperados existem</li>
+<li>Swagger UI esta disponivel</li>
 </ul>
-<h2 id="endpoints-crud-e-read-only">3) Endpoints CRUD e Read-only</h2>
+<h2 id="endpoints-crud">3. Endpoints CRUD</h2>
 <ul>
-<li>GET /{id}, GET /all, POST /filter, POST /filter/cursor, POST
-/locate, GET /by-ids</li>
-<li>POST /, PUT /{id}, DELETE /{id}, DELETE /batch (ou 405 se
-read-only)</li>
+<li><code>GET /{id}</code>, <code>GET /all</code>,
+<code>POST /filter</code>, <code>POST /filter/cursor</code>,
+<code>POST /locate</code>, <code>GET /by-ids</code></li>
+<li><code>POST /</code>, <code>PUT /{id}</code>,
+<code>DELETE /{id}</code>, <code>DELETE /batch</code> ou
+<code>405</code> quando read-only</li>
 </ul>
-<h2 id="options-idlabel">4) Options (id/label)</h2>
+<h2 id="options">4. Options</h2>
 <ul>
-<li>POST /options/filter retorna OptionDTO paginado</li>
-<li>GET /options/by-ids reidrata labels preservando ordem</li>
-<li><span class="citation" data-cites="OptionLabel">@OptionLabel</span>
-presente ou heurísticas de label funcionam</li>
-<li>Campos <code>@UISchema(endpoint=".../options/filter")</code> usam
+<li><code>POST /options/filter</code> retorna <code>OptionDTO</code>
+paginado quando houver select remoto</li>
+<li><code>GET /options/by-ids</code> reidrata labels preservando
+ordem</li>
+<li>campos com <code>endpoint=".../options/filter"</code> usam
 <code>valueField=id</code> e <code>displayField=label</code></li>
-<li><code>displayField=nome</code> só aparece quando a UI consome
-<code>/{resource}/filter</code> com DTO completo</li>
 </ul>
-<h2 id="filtros-e-paginação">5) Filtros e Paginação</h2>
+<h2 id="filtros-e-paginacao">5. Filtros e paginacao</h2>
 <ul>
-<li>FilterDTO usa <span class="citation"
-data-cites="Filterable">@Filterable</span> corretamente (operation,
-relation)</li>
-<li>/filter e /filter/cursor respeitam sort e limites (size ≤
-praxis.pagination.max-size)</li>
-<li>/locate retorna LocateResponse coerente</li>
+<li><code>FilterDTO</code> usa <code>@Filterable</code>
+corretamente</li>
+<li><code>/filter</code> e <code>/filter/cursor</code> respeitam sort e
+limites</li>
+<li><code>/locate</code> retorna resposta coerente</li>
 </ul>
-<h2 id="schemas-e-x-ui">6) Schemas e x-ui</h2>
+<h2 id="schemas-e-x-ui">6. Schemas e x-ui</h2>
 <ul>
-<li>GET /schemas/filtered responde com x-ui enriquecido</li>
-<li>ETag presente; If-None-Match retorna 304 quando schema não muda</li>
-<li>idField resolvido/anotado (x-ui.resource.idField) ou mensagem de
-validação presente</li>
-<li>includeInternalSchemas=true retorna payload com $ref expandidos
-(quando desejado)</li>
+<li><code>GET /schemas/filtered</code> responde com
+<code>x-ui</code></li>
+<li><code>ETag</code> esta presente</li>
+<li><code>If-None-Match</code> retorna <code>304</code> quando o schema
+nao muda</li>
+<li><code>x-ui.resource.idField</code> esta resolvido corretamente</li>
 </ul>
-<h2 id="dtos-mapstruct-e-mapeamentos">7) DTOs, MapStruct e
-Mapeamentos</h2>
+<h2 id="dtos-mapeamentos-e-service">7. DTOs, mapeamentos e service</h2>
 <ul>
-<li>DTO reflete campos do recurso (com <span class="citation"
-data-cites="UISchema">@UISchema</span> nos campos visíveis)</li>
-<li>FilterDTO modela critérios de busca (incluindo ranges e
-relações)</li>
-<li>Quando houver MapStruct, usar
-<code>CorporateMapperConfig</code></li>
-<li>Métodos/helper de ID ↔︎ Entidade quando aplicável</li>
+<li>DTO reflete os campos visiveis do recurso</li>
+<li><code>FilterDTO</code> modela criterios reais de busca</li>
+<li><code>CorporateMapperConfig</code> e usado quando houver
+MapStruct</li>
+<li><code>mergeUpdate(...)</code> preserva a semantica do aggregate</li>
 </ul>
-<h2 id="propriedades-e-infra">8) Propriedades e Infra</h2>
+<h2 id="infra-e-organizacao">8. Infra e organizacao</h2>
 <ul>
-<li>ApiPaths centraliza os paths</li>
-<li>Propriedades SpringDoc ativas (api-docs, grupos e Swagger UI)</li>
-<li><code>app.openapi.internal-base-url</code> configurado quando houver
-proxy/origem interna distinta</li>
-<li>Perfis dev/prod configurados; H2 em dev se aplicável</li>
+<li><code>ApiPaths</code> centraliza os paths</li>
+<li>propriedades SpringDoc estao ativas</li>
+<li><code>app.openapi.internal-base-url</code> esta configurado quando
+necessario</li>
+<li>pacotes seguem a organizacao por modulo</li>
 </ul>
-<h2 id="convenções-e-organização">9) Convenções e Organização</h2>
+<h2 id="frontend-angular">9. Frontend Angular</h2>
 <ul>
-<li>Pacotes por módulo: entity, dto, mapper, repository, service,
-controller</li>
-<li><span class="citation"
-data-cites="ApiResource">@ApiResource</span>(ApiPaths…) presente; <span
-class="citation" data-cites="ApiGroup">@ApiGroup</span> coerente</li>
-<li>Nomes de classes, paths e grupos consistentes</li>
-<li>Nenhuma dependência opcional de bulk/files/config tratada como
-obrigatória sem pedido explícito</li>
+<li>existe um host <code>praxis-crud</code> para CRUD completo</li>
+<li><code>resource.path</code> e <code>idField</code> estao
+corretos</li>
+<li><code>API_URL</code> esta coerente</li>
+<li>o recurso remoto carrega schema sem ajuste local de contrato</li>
+<li><code>POST /api/.../filter?page=0&amp;size=10</code> responde
+<code>200</code> no mesmo origin do host</li>
 </ul>
-<h2 id="testes-manuais-rápidos">10) Testes manuais rápidos</h2>
+<h2 id="testes-manuais-rapidos">10. Testes manuais rapidos</h2>
 <ul>
-<li>Cadastrar/editar/remover registro (ou 405 para read-only)</li>
-<li>Filtrar por texto, número (between), data (between), boolean,
-IN/NOT_IN</li>
-<li>Paginar por cursor (after/before)</li>
-<li>Reidratar opções por IDs</li>
-<li>Consumir /schemas/filtered e verificar x-ui</li>
+<li>cadastrar, editar e remover registro quando o recurso nao for
+read-only</li>
+<li>filtrar por texto, numero, data, boolean e listas</li>
+<li>consumir <code>/schemas/filtered</code> e verificar
+<code>x-ui</code></li>
+<li>testar options quando houver relacao remota</li>
 </ul>
-<hr />
-<p>Referências úteis: - Guia Aplicação Nova:
-GUIA-CLAUDE-AI-APLICACAO-NOVA.md - Guia de CRUD metadata-driven:
-GUIA-CLAUDE-AI-CRUD-BULK.md</p>
+<h2 id="referencias-publicas">Referencias publicas</h2>
+<ul>
+<li>guias principais: <code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code>,
+<code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code>,
+<code>GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md</code></li>
+<li>repositÃ³rio Git do runtime Angular:
+<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
+<li>pacotes npm relevantes: <code>@praxisui/core</code>,
+<code>@praxisui/table</code>, <code>@praxisui/dynamic-form</code>,
+<code>@praxisui/crud</code></li>
+</ul>
 </body>
 </html>

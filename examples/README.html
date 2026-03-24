@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>💡 Exemplos Práticos</title>
+  <title>Examples</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,93 +166,24 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">💡 Exemplos Práticos</h1>
+<h1 class="title">Examples</h1>
 </header>
-<h1 id="exemplos-práticos">💡 Exemplos Práticos</h1>
-<p>Esta seção contém exemplos práticos, templates e casos de uso reais
-para facilitar a implementação com Praxis Metadata Starter.</p>
-<h2 id="exemplos-disponíveis">📋 <strong>Exemplos
-Disponíveis</strong></h2>
-<h3 id="template-de-prompt-para-recurso-crud-metadata-driven">📝 <a
-href="EXEMPLO-PROMPT-CRUD-BULK.md">Template de Prompt para Recurso CRUD
-Metadata-Driven</a></h3>
-<p><strong>Formato recomendado para solicitar um recurso alinhado ao
-contrato real do starter</strong></p>
+<h1 id="examples">Examples</h1>
+<p>Esta pasta reune exemplos complementares para acelerar leitura humana
+e construcao de prompts.</p>
+<h2 id="como-usar-junto-com-os-guias">Como usar junto com os guias</h2>
 <ul>
-<li>🎯 template padronizado com entradas mínimas</li>
-<li>🔗 referência ao quickstart e ao Angular</li>
-<li>🛠️ regras para evitar desvios como bulk obrigatório</li>
+<li>primeiro siga a trilha principal em <code>docs/guides/</code></li>
+<li>depois use os exemplos desta pasta apenas como reforco local</li>
 </ul>
-<p><strong>Como usar:</strong></p>
-<pre><code>Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
-
-**Entidade:** [caminho-para-arquivo-da-entidade]
-**Resource path:** [caminho-da-api]
-**Api group:** [nome-do-grupo]
-**Pacote base:** [pacote-base-java]</code></pre>
-<hr />
-<h2 id="exemplos-por-contexto">🎨 <strong>Exemplos por
-Contexto</strong></h2>
-<h3 id="human-resources"><strong>Human Resources</strong></h3>
-<pre><code>**Path da API:** /api/human-resources/funcionarios
-**Grupo da API:** human-resources
-**Pacote base:** com.example.empresa.rh</code></pre>
-<h3 id="financeiro"><strong>Financeiro</strong></h3>
-<pre><code>**Path da API:** /api/financeiro/contas-receber
-**Grupo da API:** financeiro
-**Pacote base:** com.example.empresa.financeiro</code></pre>
-<h3 id="estoque"><strong>Estoque</strong></h3>
-<pre><code>**Path da API:** /api/estoque/produtos
-**Grupo da API:** estoque
-**Pacote base:** com.example.empresa.estoque</code></pre>
-<h3 id="vendas"><strong>Vendas</strong></h3>
-<pre><code>**Path da API:** /api/vendas/pedidos
-**Grupo da API:** vendas
-**Pacote base:** com.example.empresa.vendas</code></pre>
-<hr />
-<h2 id="como-usar-os-exemplos">🚀 <strong>Como Usar os
-Exemplos</strong></h2>
-<ol type="1">
-<li><strong>📝 Copie o template</strong> do exemplo mais próximo ao seu
-caso</li>
-<li><strong>🔧 Adapte as informações</strong> para sua entidade
-específica</li>
-<li><strong>✅ Valide o formato</strong> seguindo as convenções
-documentadas</li>
-<li><strong>🎯 Execute</strong> usando o guia metadata-driven
-correspondente</li>
-</ol>
-<hr />
-<h2 id="convenções-importantes">⚠️ <strong>Convenções
-Importantes</strong></h2>
+<h2 id="arquivos-principais">Arquivos principais</h2>
 <ul>
-<li><strong>Path da API:</strong> Sempre
-<code>/api/{módulo}/{entidade}</code> no plural</li>
-<li><strong>Grupo da API:</strong> Nome do módulo/contexto (ex:
-<code>human-resources</code>, <code>financeiro</code>)</li>
-<li><strong>Pacote base:</strong> Convenção Java
-(<code>com.empresa.módulo</code>)</li>
+<li><code>EXEMPLO-PROMPT-CRUD-BULK.md</code></li>
+<li><code>filter-dto.md</code></li>
+<li><code>spring-integration.md</code></li>
 </ul>
-<hr />
-<h2 id="referências-relacionadas">📚 <strong>Referências
-Relacionadas</strong></h2>
-<ul>
-<li>📖 <a href="../guides/GUIA-CLAUDE-AI-CRUD-BULK.md">Guia de CRUD
-Metadata-Driven</a></li>
-<li>🔧 <a href="../technical/">Documentação Técnica</a></li>
-<li>🏠 <a href="../README.md">Índice Principal</a></li>
-</ul>
-<hr />
-<h2 id="exemplos-de-filtros-novos">🔎 Exemplos de Filtros (novos)</h2>
-<ul>
-<li>DTO demonstrando todas as operações: <a
-href="DTO-FILTROS-EXEMPLOS.md">DTO-FILTROS-EXEMPLOS.md</a></li>
-<li>Cheat Sheet de payloads <code>POST /{resource}/filter</code>: <a
-href="FILTER-CHEATSHEET.md">FILTER-CHEATSHEET.md</a></li>
-</ul>
-<hr />
-<p><strong>🎯 Dica:</strong> Use estes exemplos como referência rápida
-para manter aderência ao starter, ao quickstart e ao consumo
-Angular.</p>
+<h2 id="regra-de-uso-para-llm">Regra de uso para LLM</h2>
+<p>Os exemplos desta pasta nao devem substituir os guias principais nem
+exigir consulta a app externo para fechar o fluxo.</p>
 </body>
 </html>

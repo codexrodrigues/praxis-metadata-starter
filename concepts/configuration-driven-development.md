@@ -1,40 +1,24 @@
-# Configuration‑driven development
+# Configuration-driven development
 
-## Definição curta
-Evoluir funcionalidades através de configuração e metadados (contratos, `GlobalConfig`, `SettingsPanel`) ao invés de escrever novo código para cada variação. Permite customização segura e auditável em runtime.
+## Definicao curta
+
+Evoluir funcionalidades atraves de configuracao e metadados, em vez de escrever
+novo codigo para cada variacao.
 
 ## Onde aparece no Praxis
-- Frontend: `frontend-libs/praxis-ui-workspace/README.md:44` — providers para `GlobalConfig` (seed/remoto/tenant).
-- Frontend: `frontend-libs/praxis-ui-workspace/projects/praxis-settings-panel` — painel genérico com contrato `onSave()` para editores.
-- Frontend: `frontend-libs/praxis-ui-workspace/projects/praxis-table/README.md:120` — edição visual de colunas/toolbar/comportamentos.
-- Backend: `backend-libs/praxis-metadata-starter/README.md:66` — regras de validação e hints de UI injetados como `x-ui`.
 
-## Como aplicar (passo a passo)
-1) Defina defaults em `GlobalConfig` e permita overrides por tela via Settings Panel.
-2) Modele contratos `x-ui` para que componentes leiam preferências de interação/visual.
-3) Registre editores que implementam `onSave()` para persistir configurações.
+- Frontend: `@praxisui/core` para defaults e configuracoes globais
+- Frontend: `@praxisui/settings-panel` para editores e persistencia de ajustes
+- Frontend: `@praxisui/table` para comportamentos de tabela configuraveis
+- Backend: `praxis-metadata-starter` para `x-ui` e contrato declarativo
 
-## Exemplos mínimos
-- Abrir Settings Panel:
-  - `frontend-libs/praxis-ui-workspace/README.md:59`
-- Tabela em modo de edição:
-  - `frontend-libs/praxis-ui-workspace/projects/praxis-table/README.md:108`
+## Como aplicar
 
-## Anti‑padrões
-- Forkar componente para alterar preferências de renderização que são configuráveis.
-- Persistir configs ad‑hoc sem integração com os serviços do workspace.
+1. defina defaults em configuracao global
+2. publique contratos `x-ui` ricos no backend
+3. use editores e painéis de configuracao em vez de forks de componente
 
-## Referências internas
-- frontend-libs/praxis-ui-workspace/docs/metadata-editors-architecture.praxis.md
-- frontend-libs/praxis-ui-workspace/projects/praxis-core/src/lib/services/global-config.service.ts:43
-- frontend-libs/praxis-ui-workspace/projects/praxis-list/src/lib/editors/list-config-editor.component.ts:877
-## Governança (quem pode mudar o quê)
-- Hierarquia de overrides: `defaults → produto → tenant → usuário`.
-- Operações seguras via Settings Panel: editores implementam `onSave()` com persistência em `ConfigStorage` ou backend.
-- Multi‑tenant: isole `GlobalConfig` por `tenant` (ex.: `provideGlobalConfigTenant('tenant-acme')`).
+## Referencias publicas
 
-## Veja também
-- [Schema‑driven UI](./schema-driven-ui.md)
-- [Declarative UI](./declarative-ui.md)
-- [Rules Engines & Specifications](./rules-engines-and-specifications.md)
-
+- repositório público: `https://github.com/codexrodrigues/praxis-ui-angular`
+- pacotes: `@praxisui/core`, `@praxisui/settings-panel`, `@praxisui/table`
