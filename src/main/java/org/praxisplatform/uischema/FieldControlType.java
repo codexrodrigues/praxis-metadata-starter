@@ -3,21 +3,19 @@ package org.praxisplatform.uischema;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
- * Enum que define os tipos de controle (`CONTROL_TYPE`) disponíveis para a apresentação dos campos de formulário.
+ * Enum canônico dos controles publicados em {@code x-ui.controlType}.
  *
- * O `CONTROL_TYPE` especifica o tipo de elemento de UI (User Interface) que será usado para capturar ou exibir dados do campo.
- * Essa configuração permite que a camada de apresentação saiba como renderizar o campo e oferecer a interação adequada ao usuário.
+ * <p>
+ * O {@code controlType} informa qual componente visual deve ser usado para capturar ou exibir um
+ * campo. O conjunto publicado aqui define a superficie oficial suportada pelo runtime dinâmico da
+ * plataforma e serve de contrato entre backend, documentação OpenAPI enriquecida e frontend.
+ * </p>
  *
- * Observação sobre valor sentinela:
- * - O valor {@link #AUTO} é um sentinela utilizado como "não especificado explicitamente" na anotação {@code @UISchema}.
- *   Quando {@code AUTO} é usado (default), o resolver aplica a detecção baseada em OpenAPI e heurísticas por nome do campo.
- *   Quando um valor diferente de {@code AUTO} é usado na anotação (por exemplo, {@code INPUT}), ele é tratado como explícito
- *   e tem precedência sobre a detecção automática.
- *
- * Em casos onde o `CONTROL_TYPE` não é especificado (ou seja, permanece como {@code AUTO}), a camada de apresentação pode
- * usar o valor de `TYPE` (definido em `FieldDataType`) e as extensões `x-ui` já populadas pelo resolver.
- *
- * A enumeração canônica do starter deve publicar apenas controles com paridade dinâmica suportada no Angular.
+ * <p>
+ * O valor {@link #AUTO} funciona como sentinela: quando presente, o resolver decide o controle
+ * final com base em schema OpenAPI, formato e heurísticas. Valores diferentes de {@code AUTO}
+ * representam escolha explícita do domínio.
+ * </p>
  */
 public enum FieldControlType {
 

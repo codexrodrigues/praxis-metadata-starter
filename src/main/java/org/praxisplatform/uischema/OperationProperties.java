@@ -1,15 +1,15 @@
 package org.praxisplatform.uischema;
 
 /**
- * Propriedades canônicas da extensão {@code x-ui} em nível de operação (endpoint).
+ * Chaves canonicas de {@code x-ui} em nivel de operacao HTTP.
+ *
  * <p>
- * As chaves aqui definidas são usadas por páginas e clientes para apontar schema
- * de resposta, colunas/títulos padrão e campos de filtro sugeridos, mantendo a
- * consistência com o vocabulário de {@link org.praxisplatform.uischema.FieldConfigProperties}.
+ * Essas propriedades descrevem metadados ligados ao endpoint como um todo, e nao apenas a campos
+ * individuais. Elas ajudam consumidores a descobrir schema de resposta, colunas de exibicao,
+ * campos de filtro sugeridos e endpoints correlatos a partir do OpenAPI enriquecido.
  * </p>
  *
  * @since 1.0.0
- * @see org.praxisplatform.uischema.FieldConfigProperties
  * @see org.praxisplatform.uischema.controller.docs.ApiDocsController
  */
 public interface OperationProperties {

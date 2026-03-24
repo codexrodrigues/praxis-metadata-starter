@@ -1,7 +1,13 @@
 package org.praxisplatform.uischema;
 
 /**
- * Enum que define os tipos de dados (`TYPE`) disponíveis para configuração dos campos de formulário.
+ * Enum canônico dos tipos de dado publicados em {@code x-ui.type}.
+ *
+ * <p>
+ * O valor de {@code type} descreve a semântica do dado, enquanto {@code controlType} descreve a
+ * representação visual. A combinação dos dois permite que frontends metadata-driven escolham
+ * renderização, validação e formatação adequadas sem depender de convenções locais.
+ * </p>
  */
 public enum FieldDataType {
     /**

@@ -28,11 +28,14 @@ import java.net.URI;
 import java.util.List;
 
 /**
- * Tratamento global e consistente de exceções REST.
+ * Tratamento global e consistente de excecoes REST.
+ *
  * <p>
- * Converte exceções comuns em {@link org.springframework.http.ResponseEntity}
- * com {@link org.praxisplatform.uischema.rest.response.CustomProblemDetail},
- * padronizando status, mensagem e categoria ({@link ErrorCategory}).
+ * Este advice converte excecoes tecnicas e de negocio em respostas HTTP padronizadas, usando
+ * {@link org.praxisplatform.uischema.rest.response.RestApiResponse} e
+ * {@link org.praxisplatform.uischema.rest.response.CustomProblemDetail}. Com isso, a plataforma
+ * mantem semantica uniforme para validacao, nao encontrado, conflito, erro interno e outros casos
+ * relevantes ao consumo metadata-driven e operacional.
  * </p>
  *
  * @since 1.0.0

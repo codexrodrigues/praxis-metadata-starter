@@ -1,14 +1,9 @@
 /**
- * Implementações que estendem o pipeline do SpringDoc para gerar documentos
- * OpenAPI enriquecidos com {@code x-ui}.
+ * Extensoes do pipeline OpenAPI/SpringDoc para gerar contratos enriquecidos com {@code x-ui}.
  *
  * <p>
- * Inclui o {@link org.praxisplatform.uischema.extension.CustomOpenApiResolver},
- * responsável por aplicar a precedência de metadados descrita na
- * documentação arquitetural, e utilitários de apoio como
- * {@link org.praxisplatform.uischema.extension.ResolverUtils}. A anotação
- * {@link org.praxisplatform.uischema.extension.annotation.UISchema}
- * reside em subpacote dedicado para reduzir dependências transitivas.
+ * O pacote abriga o resolver central de metadata-driven e utilitarios que traduzem anotacoes
+ * e schemas Java em metadados consumiveis por frontends dinâmicos.
  * </p>
  *
  * @since 1.0.0

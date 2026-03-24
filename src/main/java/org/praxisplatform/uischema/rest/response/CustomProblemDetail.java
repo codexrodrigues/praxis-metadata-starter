@@ -6,8 +6,13 @@ import lombok.Setter;
 import org.springframework.http.ProblemDetail;
 
 /**
- * Extensão de {@link ProblemDetail} com campos adicionais padronizados
- * para mensagens e categorização de erros.
+ * Extensao padronizada de {@link ProblemDetail} usada pela plataforma.
+ *
+ * <p>
+ * Alem dos campos RFC 7807, este tipo carrega uma mensagem resumida e uma
+ * {@link ErrorCategory} padronizada, permitindo tratamento mais previsivel em UI,
+ * observabilidade e integrações clientes.
+ * </p>
  *
  * @since 1.0.0
  */
@@ -23,6 +28,7 @@ public class CustomProblemDetail extends ProblemDetail {
 
     /**
      * Constrói o detalhe de problema com a mensagem informada.
+     *
      * @param message detalhe textual do problema
      */
     public CustomProblemDetail(String message) {

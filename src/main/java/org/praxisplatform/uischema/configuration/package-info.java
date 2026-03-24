@@ -1,16 +1,11 @@
 /**
- * Auto-configurações Spring Boot que conectam anotações, resolvers e
- * endpoints de documentação.
+ * Auto-configuracoes Spring Boot do starter.
  *
  * <p>
- * Classes como {@link org.praxisplatform.uischema.configuration.OpenApiUiSchemaAutoConfiguration}
- * registram {@link org.praxisplatform.uischema.extension.CustomOpenApiResolver},
- * {@link org.praxisplatform.uischema.controller.docs.ApiDocsController} e
- * integradores adicionais com SpringDoc. Consulte a "Visão Arquitetural" para
- * entender a ordem de inicialização e dependências geradas.
+ * Este pacote conecta anotacoes, resolvers OpenAPI, controllers documentais e integracoes com
+ * SpringDoc para ativar a superficie metadata-driven sem boilerplate manual no host.
  * </p>
  *
  * @since 1.0.0
  */
 package org.praxisplatform.uischema.configuration;
-

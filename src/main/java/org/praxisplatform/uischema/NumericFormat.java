@@ -2,10 +2,11 @@ package org.praxisplatform.uischema;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
- * Formatos numéricos e temporais para orientação da camada de UI.
+ * Formatos semanticos para orientacao de renderizacao numerica e temporal.
+ *
  * <p>
- * Útil para renderizadores que precisam aplicar máscaras, localizações ou
- * componentes específicos (ex.: currency, percent, date-time).
+ * O formato complementa {@code type} e {@code controlType}, indicando como um valor deve ser
+ * apresentado ou interpretado pela UI, por exemplo como moeda, percentual, data ou duracao.
  * </p>
  *
  * @since 1.0.0

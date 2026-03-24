@@ -2,12 +2,13 @@ package org.praxisplatform.uischema;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
- * Conjunto padronizado de regex para validação de campos comuns (nacionais e
- * internacionais). Os padrões são serializados via {@link #getPattern()} para
- * consumo por validadores de UI.
+ * Catalogo padronizado de regex para validacao sintatica.
  *
- * <p>Observação: os padrões fornecem validação sintática básica, não
- * substituem validações de negócio.</p>
+ * <p>
+ * Esses padroes podem ser publicados no contrato {@code x-ui.validation.pattern} para que
+ * frontends metadata-driven apliquem restricoes consistentes em campos comuns, nacionais ou
+ * internacionais. Eles complementam, mas nao substituem, validacoes de negocio.
+ * </p>
  *
  * @since 1.0.0
  */

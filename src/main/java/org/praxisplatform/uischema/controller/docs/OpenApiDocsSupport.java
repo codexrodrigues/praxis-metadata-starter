@@ -122,7 +122,7 @@ public class OpenApiDocsSupport {
      * Seleciona o content node preferencial dentro de um bloco OpenAPI {@code content}.
      *
      * <p>
-     * A precedencia e {@code application/json}, depois {@code */*}, e por fim o primeiro media type
+     * A precedencia e {@code application/json}, depois o media type curinga, e por fim o primeiro media type
      * disponivel. Isso padroniza a leitura de request/response bodies em documentos heterogeneos.
      * </p>
      *
