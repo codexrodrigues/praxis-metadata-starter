@@ -239,7 +239,7 @@ public class ApiDocsController {
         }
 
         // Anotar x-ui.resource.idField para o frontend
-        String resolvedIdField = resolveIdField(idField, schemaMap);
+        String resolvedIdField = resolveIdField(idField, schemaMap, rootNode, basePath, schemaType);
         if (resolvedIdField != null && !resolvedIdField.isBlank()) {
             @SuppressWarnings("unchecked")
             Map<String, Object> resourceMeta = (Map<String, Object>) xUiMap.get("resource");
@@ -330,21 +330,30 @@ public class ApiDocsController {
      * - Property named 'id' in the schema
      * - Fallback: 'id'
      */
-    private String resolveIdField(String requestedIdField, Map<String, Object> schemaMap) {
+    private String resolveIdField(String requestedIdField,
+                                  Map<String, Object> schemaMap,
+                                  JsonNode rootNode,
+                                  String basePath,
+                                  String schemaType) {
         try {
             if (requestedIdField != null && !requestedIdField.isBlank()) {
                 return requestedIdField;
             }
+            String canonicalIdField = resolveCanonicalIdFieldFromResourceResponse(rootNode, basePath);
+            if (canonicalIdField != null && !canonicalIdField.isBlank()) {
+                return canonicalIdField;
+            }
             if (hasSchemaProperty(schemaMap, "id")) {
                 return "id";
             }
-            // Heurística simples: primeira propriedade terminando com "Id"
-            @SuppressWarnings("unchecked")
-            Map<String, Object> props = (Map<String, Object>) schemaMap.get("properties");
-            if (props != null) {
-                for (String key : props.keySet()) {
-                    if (key != null && key.endsWith("Id")) {
-                        return key;
+            if ("response".equalsIgnoreCase(schemaType)) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> props = (Map<String, Object>) schemaMap.get("properties");
+                if (props != null) {
+                    for (String key : props.keySet()) {
+                        if (key != null && key.endsWith("Id")) {
+                            return key;
+                        }
                     }
                 }
             }
@@ -354,6 +363,63 @@ public class ApiDocsController {
             LOGGER.debug("Falha ao resolver idField: {}", e.getMessage());
             return "id";
         }
+    }
+
+    private String resolveCanonicalIdFieldFromResourceResponse(JsonNode rootNode, String basePath) {
+        if (rootNode == null || basePath == null || basePath.isBlank()) {
+            return null;
+        }
+
+        JsonNode resourceSchema = findResourceResponseSchema(rootNode, basePath + "/{id}", "get");
+        if (resourceSchema == null || resourceSchema.isMissingNode()) {
+            resourceSchema = findResourceResponseSchema(rootNode, basePath + "/all", "get");
+        }
+        if (resourceSchema == null || resourceSchema.isMissingNode()) {
+            resourceSchema = findResourceResponseSchema(rootNode, basePath, "post");
+        }
+        if (resourceSchema == null || resourceSchema.isMissingNode()) {
+            resourceSchema = findResourceResponseSchema(rootNode, basePath + "/filter", "post");
+        }
+        if (resourceSchema == null || resourceSchema.isMissingNode()) {
+            return null;
+        }
+
+        Map<String, Object> resourceSchemaMap = objectMapper.convertValue(
+                resourceSchema,
+                new TypeReference<Map<String, Object>>() { });
+        if (hasSchemaProperty(resourceSchemaMap, "id")) {
+            return "id";
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> props = (Map<String, Object>) resourceSchemaMap.get(PROPERTIES);
+        if (props != null) {
+            for (String key : props.keySet()) {
+                if (key != null && key.endsWith("Id")) {
+                    return key;
+                }
+            }
+        }
+        return null;
+    }
+
+    private JsonNode findResourceResponseSchema(JsonNode rootNode, String path, String operation) {
+        if (rootNode == null || path == null || path.isBlank()) {
+            return null;
+        }
+
+        JsonNode operationNode = rootNode.path(PATHS).path(path).path(operation);
+        if (operationNode == null || operationNode.isMissingNode()) {
+            return null;
+        }
+
+        String schemaName = findResponseSchema(operationNode, rootNode, operation, path);
+        if (!StringUtils.hasText(schemaName)) {
+            return null;
+        }
+
+        JsonNode schemaNode = rootNode.path(COMPONENTS).path(SCHEMAS).path(schemaName);
+        return (schemaNode == null || schemaNode.isMissingNode()) ? null : schemaNode;
     }
 
     /**
