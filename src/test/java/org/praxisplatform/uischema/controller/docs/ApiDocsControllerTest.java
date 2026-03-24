@@ -599,4 +599,87 @@ class ApiDocsControllerTest {
         assertEquals("https://example.org/examples/stats-request.json", linkedExample.get("externalValue"));
         assertFalse(linkedExample.containsKey("value"));
     }
+
+    @Test
+    void getFilteredSchemaResolvesIdFieldFromCanonicalResourceResponseForRequestSchema() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/api/catalog/produtos/filter\": {\n" +
+                "      \"post\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"application/json\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/ProdutoFilterDTO\"}\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    },\n" +
+                "    \"/api/catalog/produtos/{id}\": {\n" +
+                "      \"get\": {\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/ProdutoDTO\"}\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"ProdutoFilterDTO\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"categoriaId\": {\"type\": \"integer\"},\n" +
+                "          \"nome\": {\"type\": \"string\"}\n" +
+                "        }\n" +
+                "      },\n" +
+                "      \"ProdutoDTO\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"id\": {\"type\": \"integer\"},\n" +
+                "          \"categoriaId\": {\"type\": \"integer\"},\n" +
+                "          \"nome\": {\"type\": \"string\"}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/api-catalog-produtos"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema(
+                "/api/catalog/produtos/filter",
+                "post",
+                false,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH);
+
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        assertNotNull(xUi);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> resource = (Map<String, Object>) xUi.get("resource");
+        assertNotNull(resource);
+        assertEquals("id", resource.get("idField"));
+        assertEquals(Boolean.FALSE, resource.get("idFieldValid"));
+        assertEquals("idField not found in schema properties", resource.get("idFieldMessage"));
+    }
 }
