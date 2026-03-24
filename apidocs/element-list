@@ -19,6 +19,9 @@ org.praxisplatform.uischema.id
 org.praxisplatform.uischema.mapper.base
 org.praxisplatform.uischema.mapper.config
 org.praxisplatform.uischema.numeric
+org.praxisplatform.uischema.options
+org.praxisplatform.uischema.options.service
+org.praxisplatform.uischema.options.service.jpa
 org.praxisplatform.uischema.repository.base
 org.praxisplatform.uischema.rest.exceptionhandler
 org.praxisplatform.uischema.rest.exceptionhandler.exception

@@ -19,6 +19,11 @@
   - define a direcao canonica de `x-ui.chart` como extensao governada da plataforma
   - complementado por `x-ui-chart.schema.json` como draft validavel inicial
   - publicacao assistida por `x-ui-chart-publication-checklist.md`, com gates minimos de contrato, host operacional e compatibilidade de consumidor
+- Option sources metadata-driven: `x-ui-option-source-rfc.md`
+  - define a direcao canonica para fontes de opcoes derivadas em filtros metadata-driven
+  - cobre a lacuna entre recursos CRUD com `/options/filter`, dimensoes categoricas derivadas e buckets governados
+  - prepara a publicacao futura de `x-ui.optionSource` em `/schemas/filtered`
+  - permanece em estado `draft`; a RFC nao implica implementacao automatica no starter ou no runtime Angular
 
 ## Vocabulario (resumo)
 
@@ -31,6 +36,7 @@
   - Layout/Icone: `hint`, `helpText`, `tooltipOnHover`, `icon*`
   - Selecao/Opcaoes: `options[]`, `endpoint`, `valueField`, `displayField`, `multiple`, `emptyOptionText`
     - No runtime Angular, a UI Praxis normaliza esses campos para `resourcePath`, `optionValueKey` e `optionLabelKey`.
+    - Quando publicado, `optionSource` passa a ser a forma canonica de descrever fontes derivadas de options; `endpoint` permanece como contrato legado/compativel.
   - Numerico: `numericFormat` (enum), `numericStep`, `numericMin`, `numericMax`, `numericMaxLength`
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`
   - Legado (opcional): bloco `validation{}` com chaves basicas
@@ -53,6 +59,7 @@
 - `numericFormat` (NumericFormat): `integer | decimal | currency | scientific | time | date | date-time | duration | number | fraction | percent`
 - `x-ui.chart.kind`: `bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter`
 - `x-ui.chart.source.kind`: `praxis.stats | derived`
+- `x-ui.optionSource.type`: `RESOURCE_ENTITY | DISTINCT_DIMENSION | CATEGORICAL_BUCKET | LIGHT_LOOKUP | STATIC_CANONICAL`
 
 ## Obrigatoriedade e Defaults
 
@@ -99,6 +106,8 @@
 
 - `x-ui-chart-rfc.md` - proposta canonica para `x-ui.chart`, separando semantica de plataforma de runtime Angular e detalhes de engine
 - `x-ui-chart-publication-checklist.md` - gates minimos para publicar o draft `0.1.0` sem drift imediato entre starter, quickstart e `@praxisui/charts`
+- `x-ui-option-source-rfc.md` - proposta canonica para `x-ui.optionSource`, separando recursos CRUD, fontes derivadas de options e backend interno de stats/distinct values
+- `x-ui-field.schema.json` - ja aceita o bloco draft `optionSource` para validacao documental inicial, sem pressupor rollout completo no runtime
 
 ## Exemplos e Fixtures
 
@@ -108,6 +117,9 @@
 - Fixtures de validacao:
   - `examples/x-ui-field.valid.json`
   - `examples/x-ui-field.invalid.json`
+  - `examples/x-ui-field-option-source-resource.valid.json`
+  - `examples/x-ui-field-option-source-distinct.valid.json`
+  - `examples/x-ui-field-option-source.invalid.json`
   - `examples/x-ui-operation.valid.json`
   - `examples/x-ui-operation.invalid.json`
   - `examples/x-ui-resource.valid.json`

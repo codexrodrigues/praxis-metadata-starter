@@ -204,6 +204,18 @@ validavel inicial</li>
 <code>x-ui-chart-publication-checklist.md</code>, com gates minimos de
 contrato, host operacional e compatibilidade de consumidor</li>
 </ul></li>
+<li>Option sources metadata-driven:
+<code>x-ui-option-source-rfc.md</code>
+<ul>
+<li>define a direcao canonica para fontes de opcoes derivadas em filtros
+metadata-driven</li>
+<li>cobre a lacuna entre recursos CRUD com <code>/options/filter</code>,
+dimensoes categoricas derivadas e buckets governados</li>
+<li>prepara a publicacao futura de <code>x-ui.optionSource</code> em
+<code>/schemas/filtered</code></li>
+<li>permanece em estado <code>draft</code>; a RFC nao implica
+implementacao automatica no starter ou no runtime Angular</li>
+</ul></li>
 </ul>
 <h2 id="vocabulario-resumo">Vocabulario (resumo)</h2>
 <ul>
@@ -230,6 +242,9 @@ contrato, host operacional e compatibilidade de consumidor</li>
 <li>No runtime Angular, a UI Praxis normaliza esses campos para
 <code>resourcePath</code>, <code>optionValueKey</code> e
 <code>optionLabelKey</code>.</li>
+<li>Quando publicado, <code>optionSource</code> passa a ser a forma
+canonica de descrever fontes derivadas de options; <code>endpoint</code>
+permanece como contrato legado/compativel.</li>
 </ul></li>
 <li>Numerico: <code>numericFormat</code> (enum),
 <code>numericStep</code>, <code>numericMin</code>,
@@ -289,6 +304,8 @@ JSON Schema</li>
 <code>bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter</code></li>
 <li><code>x-ui.chart.source.kind</code>:
 <code>praxis.stats | derived</code></li>
+<li><code>x-ui.optionSource.type</code>:
+<code>RESOURCE_ENTITY | DISTINCT_DIMENSION | CATEGORICAL_BUCKET | LIGHT_LOOKUP | STATIC_CANONICAL</code></li>
 </ul>
 <h2 id="obrigatoriedade-e-defaults">Obrigatoriedade e Defaults</h2>
 <ul>
@@ -367,6 +384,12 @@ Angular e detalhes de engine</li>
 <li><code>x-ui-chart-publication-checklist.md</code> - gates minimos
 para publicar o draft <code>0.1.0</code> sem drift imediato entre
 starter, quickstart e <code>@praxisui/charts</code></li>
+<li><code>x-ui-option-source-rfc.md</code> - proposta canonica para
+<code>x-ui.optionSource</code>, separando recursos CRUD, fontes
+derivadas de options e backend interno de stats/distinct values</li>
+<li><code>x-ui-field.schema.json</code> - ja aceita o bloco draft
+<code>optionSource</code> para validacao documental inicial, sem
+pressupor rollout completo no runtime</li>
 </ul>
 <h2 id="exemplos-e-fixtures">Exemplos e Fixtures</h2>
 <ul>
@@ -381,6 +404,9 @@ esperado</li>
 <ul>
 <li><code>examples/x-ui-field.valid.json</code></li>
 <li><code>examples/x-ui-field.invalid.json</code></li>
+<li><code>examples/x-ui-field-option-source-resource.valid.json</code></li>
+<li><code>examples/x-ui-field-option-source-distinct.valid.json</code></li>
+<li><code>examples/x-ui-field-option-source.invalid.json</code></li>
 <li><code>examples/x-ui-operation.valid.json</code></li>
 <li><code>examples/x-ui-operation.invalid.json</code></li>
 <li><code>examples/x-ui-resource.valid.json</code></li>

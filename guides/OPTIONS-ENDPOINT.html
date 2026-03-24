@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Options (id/label) com @OptionLabel e OptionMapper</title>
+  <title>Options (id/label) com @OptionLabel, OptionMapper e option-sources</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,14 +230,16 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Options (id/label) com @OptionLabel e
-OptionMapper</h1>
+<h1 class="title">Options (id/label) com @OptionLabel, OptionMapper e
+option-sources</h1>
 </header>
-<h1 id="options-idlabel-com-optionlabel-e-optionmapper">Options
+<h1
+id="options-idlabel-com-optionlabel-optionmapper-e-option-sources">Options
 (id/label) com <span class="citation"
-data-cites="OptionLabel">@OptionLabel</span> e OptionMapper</h1>
-<p>Como retornar opções id/label para selects com endpoints prontos e
-mapeamento configurável.</p>
+data-cites="OptionLabel">@OptionLabel</span>, OptionMapper e
+option-sources</h1>
+<p>Como retornar opcoes id/label para selects com endpoints prontos,
+mapeamento configuravel e fontes derivadas governadas.</p>
 <ul>
 <li>Javadoc: <a
 href="../apidocs/org/praxisplatform/uischema/annotation/OptionLabel.html"><code>@OptionLabel</code></a></li>
@@ -247,7 +249,8 @@ href="../apidocs/org/praxisplatform/uischema/mapper/base/OptionMapper.html"><cod
 href="../apidocs/org/praxisplatform/uischema/service/base/BaseCrudService.html"><code>BaseCrudService#filterOptions</code></a></li>
 <li>Javadoc: <a
 href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html"><code>AbstractCrudController</code>
-(endpoints <code>/options</code>)</a></li>
+(endpoints <code>/options</code> e
+<code>/option-sources</code>)</a></li>
 </ul>
 <h2 id="definindo-o-label">Definindo o label</h2>
 <p>Anote o campo ou getter que fornece o label com
@@ -259,15 +262,48 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">@OptionLabel</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">String</span> nomeCompleto<span class="op">;</span></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Se não houver anotação, o framework aplica heurísticas
+<p>Se nao houver anotacao, o framework aplica heuristicas
 (<code>getLabel</code>, <code>getNomeCompleto</code>,
 <code>getNome</code>, etc.).</p>
-<h2 id="endpoints-disponíveis">Endpoints disponíveis</h2>
+<h2 id="endpoints-disponiveis">Endpoints disponiveis</h2>
 <ul>
-<li><code>POST /{resource}/options/filter</code> — opções paginadas a
-partir do filtro padrão</li>
-<li><code>GET  /{resource}/options/by-ids?ids=1&amp;ids=2</code> —
-opções por IDs informados (ordem preservada)</li>
+<li><code>POST /{resource}/options/filter</code> - opcoes paginadas a
+partir do filtro padrao</li>
+<li><code>GET /{resource}/options/by-ids?ids=1&amp;ids=2</code> - opcoes
+por IDs informados, com ordem preservada</li>
+<li><code>POST /{resource}/option-sources/{sourceKey}/options/filter</code>
+- opcoes paginadas para uma fonte derivada registrada</li>
+<li><code>GET /{resource}/option-sources/{sourceKey}/options/by-ids?ids=a&amp;ids=b</code>
+- reidratacao de opcoes para uma fonte derivada registrada</li>
+</ul>
+<h2 id="quando-usar-cada-superficie">Quando usar cada superficie</h2>
+<ul>
+<li><code>/{resource}/options/*</code>
+<ul>
+<li>use quando o proprio recurso e a fonte de opcoes</li>
+<li>exemplos: funcionario, cargo, departamento, equipe</li>
+</ul></li>
+<li><code>/{resource}/option-sources/{sourceKey}/options/*</code>
+<ul>
+<li>use quando a fonte e derivada e governada pelo recurso atual</li>
+<li>exemplos: <code>payrollProfile</code>, <code>universo</code>,
+<code>composicaoFolha</code>, <code>faixaPctDesconto</code></li>
+</ul></li>
+</ul>
+<p>Importante:</p>
+<ul>
+<li><code>option-sources/*</code> preserva o payload publico
+<code>OptionDTO</code></li>
+<li>a semantica publica continua sendo de options para UX de filtro</li>
+<li>a implementacao interna pode reaproveitar stats/distinct values, mas
+isso nao vira contrato publico</li>
+<li>hoje a execucao real cobre <code>DISTINCT_DIMENSION</code> e
+<code>CATEGORICAL_BUCKET</code></li>
+<li><code>LIGHT_LOOKUP</code>, <code>RESOURCE_ENTITY</code> e
+<code>STATIC_CANONICAL</code> continuam previstos, mas nao completos
+nesta rodada</li>
+<li>quando o campo do filtro nao tiver o mesmo nome da source
+registrada, publique <code>x-ui.optionSource.filterField</code></li>
 </ul>
 <p>Exemplo:</p>
 <pre class="http"><code>POST /api/human-resources/funcionarios/options/filter?page=0&amp;size=20
@@ -279,22 +315,27 @@ Content-Type: application/json
 class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;success&quot;</span><span class="fu">,</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;content&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="fu">{</span><span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Ana Silva&quot;</span><span class="fu">}</span> <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;content&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="fu">{</span> <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Ana Silva&quot;</span> <span class="fu">}</span> <span class="ot">]</span><span class="fu">,</span></span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;totalElements&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;size&quot;</span><span class="fu">:</span> <span class="dv">20</span><span class="fu">,</span></span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;number&quot;</span><span class="fu">:</span> <span class="dv">0</span></span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;timestamp&quot;</span><span class="fu">:</span> <span class="st">&quot;2024-01-01T10:00:00&quot;</span></span>
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Exemplo de fonte derivada:</p>
+<pre class="http"><code>POST /api/human-resources/vw-analytics-folha-pagamento/option-sources/payrollProfile/options/filter?page=0&amp;size=20&amp;search=exec
+Content-Type: application/json
+
+{ &quot;competenciaBetween&quot;: [&quot;2026-01-01&quot;, &quot;2026-03-31&quot;] }</code></pre>
 <h2 id="personalizando-o-mapeamento">Personalizando o mapeamento</h2>
 <p>Sobrescreva <code>getOptionMapper()</code> no service para incluir
 <code>extra</code> ou transformar labels.</p>
-<div class="sourceCode" id="cb4"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> OptionMapper<span class="op">&lt;</span>Funcionario<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="fu">getOptionMapper</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> entity <span class="op">-&gt;</span> <span class="kw">new</span> OptionDTO<span class="op">&lt;&gt;(</span><span class="fu">extractId</span><span class="op">(</span>entity<span class="op">),</span> entity<span class="op">.</span><span class="fu">getNomeCompleto</span><span class="op">(),</span> entity<span class="op">.</span><span class="fu">getDepartamento</span><span class="op">());</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h2 id="referências">Referências</h2>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> OptionMapper<span class="op">&lt;</span>Funcionario<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="fu">getOptionMapper</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> entity <span class="op">-&gt;</span> <span class="kw">new</span> OptionDTO<span class="op">&lt;&gt;(</span><span class="fu">extractId</span><span class="op">(</span>entity<span class="op">),</span> entity<span class="op">.</span><span class="fu">getNomeCompleto</span><span class="op">(),</span> entity<span class="op">.</span><span class="fu">getDepartamento</span><span class="op">());</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="referencias">Referencias</h2>
 <ul>
 <li><a
 href="../apidocs/org/praxisplatform/uischema/annotation/OptionLabel.html"><code>@OptionLabel</code></a></li>

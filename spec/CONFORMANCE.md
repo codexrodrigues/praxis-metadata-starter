@@ -33,6 +33,7 @@
   - ETag forte no `/schemas/filtered` e hash deterministico em `X-Schema-Hash`
   - `schemaId` estavel conforme composicao `path|operation|schemaType|internal|tenant|locale`
   - quando `x-ui.chart.source.kind = "praxis.stats"`, o contrato publicado exige `source.resource` e `source.operation`
+  - quando um campo publicar `x-ui.optionSource`, o bloco deve obedecer o schema draft e manter convivio aditivo com o legado
 - Extended (recomendado)
   - preencher `displayColumns`/`displayFields` no x-ui de operacao
   - publicar `x-ui.chart` com `version`, `kind`, `source`, semantica analitica e eventos declarativos, mantendo o contrato agnostico de engine
@@ -41,6 +42,7 @@
   - popular mensagens de validacao (`*Message`) para melhor UX
   - incluir `capabilities.options|byId|all|filter|cursor` quando aplicavel
   - adotar `custom.*` para extensoes privadas do host
+  - publicar `x-ui.optionSource` para fontes derivadas governadas, evitando promover `INPUT` em campos com semantica corporativa clara
 
 ## Matriz - Chave da Spec -> Consumo na UI
 
@@ -60,6 +62,10 @@
 - `dimensions`, `metrics`, `aggregations`, `filters`, `sort` -> semantica analitica canonica
 - `metrics[].seriesKind`, `metrics[].axis` -> serie heterogenea e eixo primario/secundario para charts combinados
 - `state`, `events` -> estados e interacoes declarativas de plataforma
+- x-ui.optionSource
+  - `key`, `type`, `resourcePath` -> identidade minima da fonte derivada
+  - `dependsOn`, `excludeSelfField` -> cascata e remocao do proprio predicado
+  - `searchMode`, `pageSize`, `includeIds`, `cachePolicy` -> politica publica minima de consumo
 - x-ui.resource
   - `idField` -> chave primaria no fluxo de CRUD/UI
   - `idFieldValid`/`idFieldMessage` -> diagnostico e alertas
@@ -93,6 +99,24 @@ Ainda nao suportado no runtime Angular atual:
 
 Publicacoes do starter devem deixar essa assimetria explicita ate que os consumidores sejam endurecidos no mesmo nivel.
 
+## Compatibilidade de consumidor - `x-ui.optionSource`
+
+O draft canonico de `x-ui.optionSource` ainda pode ser mais amplo que o rollout implementado em cada consumidor.
+
+Estado esperado por fase:
+
+- documentado na RFC: `x-ui-option-source-rfc.md`
+- validado no schema de campo: `x-ui-field.schema.json`
+- ainda nao obrigatoriamente publicado/executado em todos os hosts
+- ainda nao obrigatoriamente consumido pelo runtime Angular oficial
+
+Diretriz de rollout:
+
+- `x-ui.optionSource` deve entrar de forma aditiva
+- `endpoint`, `valueField` e `displayField` permanecem validos durante a transicao
+- um host pode publicar ambos os modelos para o mesmo campo quando isso reduzir risco de migracao
+- consumidores nao devem inferir `optionSource` a partir de heuristicas locais se o backend ainda nao o publicar
+
 ## Boas praticas e notas
 
 - `custom.*`: prefixo reservado para extensoes de fornecedores/hosts
@@ -103,10 +127,12 @@ Publicacoes do starter devem deixar essa assimetria explicita ate que os consumi
 ## Compatibilidade (anotacoes temporarias)
 
 - `filterOptions`: a spec define `array`, porem o starter atualmente serializa como `string` em alguns caminhos legados. Mantido assim por compatibilidade com consumidores atuais.
+- `optionSource`: o schema draft ja valida o bloco, mas a publicacao em `/schemas/filtered` e o consumo runtime oficial dependem das PRs de rollout de backend/host/UI.
 
 ## Suite de fixtures
 
 - Esta pasta traz exemplos validos e invalidos para facilitar a automacao no CI.
 - Os arquivos `*.valid.json` e `*.invalid.json` devem ser tratados como fixtures de validacao, nao como catalogo exaustivo de exemplos publicos.
 - `canonical-payload.json` e `x-ui-chart.valid.json` tambem cumprem papel documental e podem ser referenciados em guias, desde que permanecam coerentes com os schemas publicados.
+- os fixtures `x-ui-field-option-source-*.json` cobrem apenas o draft contratual inicial e nao implicam rollout completo da feature.
 - Use estes arquivos como base para gerar casos especificos do seu dominio.
