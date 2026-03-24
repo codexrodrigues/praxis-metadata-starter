@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Options (id/label) com @OptionLabel, OptionMapper e option-sources</title>
+  <title>Options (id/label) e option-sources</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,16 +230,20 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Options (id/label) com @OptionLabel, OptionMapper e
-option-sources</h1>
+<h1 class="title">Options (id/label) e option-sources</h1>
 </header>
-<h1
-id="options-idlabel-com-optionlabel-optionmapper-e-option-sources">Options
-(id/label) com <span class="citation"
-data-cites="OptionLabel">@OptionLabel</span>, OptionMapper e
+<h1 id="options-idlabel-e-option-sources">Options (id/label) e
 option-sources</h1>
-<p>Como retornar opcoes id/label para selects com endpoints prontos,
-mapeamento configuravel e fontes derivadas governadas.</p>
+<p>Guia canônico para publicar selects metadata-driven no
+<code>praxis-metadata-starter</code>.</p>
+<p>Este documento cobre duas superfícies públicas diferentes:</p>
+<ul>
+<li><code>/{resource}/options/*</code> para quando o próprio recurso é a
+fonte de opções</li>
+<li><code>/{resource}/option-sources/{sourceKey}/options/*</code> para
+quando a fonte é derivada e registrada no service</li>
+</ul>
+<p>Referências:</p>
 <ul>
 <li>Javadoc: <a
 href="../apidocs/org/praxisplatform/uischema/annotation/OptionLabel.html"><code>@OptionLabel</code></a></li>
@@ -248,101 +252,229 @@ href="../apidocs/org/praxisplatform/uischema/mapper/base/OptionMapper.html"><cod
 <li>Javadoc: <a
 href="../apidocs/org/praxisplatform/uischema/service/base/BaseCrudService.html"><code>BaseCrudService#filterOptions</code></a></li>
 <li>Javadoc: <a
-href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html"><code>AbstractCrudController</code>
-(endpoints <code>/options</code> e
-<code>/option-sources</code>)</a></li>
+href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html"><code>AbstractCrudController</code></a></li>
 </ul>
-<h2 id="definindo-o-label">Definindo o label</h2>
+<h2 id="contrato-público">Contrato público</h2>
+<p>Endpoints canônicos:</p>
+<ul>
+<li><code>POST /{resource}/options/filter</code></li>
+<li><code>GET /{resource}/options/by-ids?ids=1&amp;ids=2</code></li>
+<li><code>POST /{resource}/option-sources/{sourceKey}/options/filter</code></li>
+<li><code>GET /{resource}/option-sources/{sourceKey}/options/by-ids?ids=a&amp;ids=b</code></li>
+</ul>
+<p>Forma pública de retorno:</p>
+<ul>
+<li><code>options/filter</code> retorna
+<code>Page&lt;OptionDTO&lt;...&gt;&gt;</code></li>
+<li><code>options/by-ids</code> retorna
+<code>List&lt;OptionDTO&lt;...&gt;&gt;</code></li>
+<li><code>option-sources/*</code> preserva exatamente a mesma forma
+pública de <code>OptionDTO{id,label,extra?}</code></li>
+</ul>
+<p>O starter não publica um contrato público diferente só porque a
+implementação interna reutiliza stats, distinct values ou projeções
+derivadas.</p>
+<h2 id="quando-usar-cada-superfície">Quando usar cada superfície</h2>
+<ul>
+<li><code>/{resource}/options/*</code>
+<ul>
+<li>use quando existe um recurso próprio para a seleção</li>
+<li>exemplos: <code>funcionarios</code>, <code>cargos</code>,
+<code>departamentos</code></li>
+</ul></li>
+<li><code>/{resource}/option-sources/{sourceKey}/options/*</code>
+<ul>
+<li>use quando a opção é derivada do próprio recurso atual e não possui
+CRUD próprio</li>
+<li>exemplos reais no quickstart: <code>universo</code>,
+<code>payrollProfile</code>, <code>composicaoFolha</code>,
+<code>faixaPctDesconto</code></li>
+</ul></li>
+</ul>
+<p>Regra prática:</p>
+<ul>
+<li>se existe um catálogo próprio e estável, prefira
+<code>/{resource}/options/*</code></li>
+<li>se a opção nasce de uma dimensão derivada, bucket categórico ou
+lookup governado pelo recurso base, prefira
+<code>option-sources</code></li>
+</ul>
+<h2 id="definindo-o-label-de-options-do-próprio-recurso">Definindo o
+label de options do próprio recurso</h2>
 <p>Anote o campo ou getter que fornece o label com
 <code>@OptionLabel</code>.</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> Funcionario <span class="op">{</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Id</span> <span class="kw">private</span> <span class="bu">Long</span> id<span class="op">;</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">@OptionLabel</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">String</span> nomeCompleto<span class="op">;</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Se nao houver anotacao, o framework aplica heuristicas
-(<code>getLabel</code>, <code>getNomeCompleto</code>,
-<code>getNome</code>, etc.).</p>
-<h2 id="endpoints-disponiveis">Endpoints disponiveis</h2>
-<ul>
-<li><code>POST /{resource}/options/filter</code> - opcoes paginadas a
-partir do filtro padrao</li>
-<li><code>GET /{resource}/options/by-ids?ids=1&amp;ids=2</code> - opcoes
-por IDs informados, com ordem preservada</li>
-<li><code>POST /{resource}/option-sources/{sourceKey}/options/filter</code>
-- opcoes paginadas para uma fonte derivada registrada</li>
-<li><code>GET /{resource}/option-sources/{sourceKey}/options/by-ids?ids=a&amp;ids=b</code>
-- reidratacao de opcoes para uma fonte derivada registrada</li>
-</ul>
-<h2 id="quando-usar-cada-superficie">Quando usar cada superficie</h2>
-<ul>
-<li><code>/{resource}/options/*</code>
-<ul>
-<li>use quando o proprio recurso e a fonte de opcoes</li>
-<li>exemplos: funcionario, cargo, departamento, equipe</li>
-</ul></li>
-<li><code>/{resource}/option-sources/{sourceKey}/options/*</code>
-<ul>
-<li>use quando a fonte e derivada e governada pelo recurso atual</li>
-<li>exemplos: <code>payrollProfile</code>, <code>universo</code>,
-<code>composicaoFolha</code>, <code>faixaPctDesconto</code></li>
-</ul></li>
-</ul>
-<p>Importante:</p>
-<ul>
-<li><code>option-sources/*</code> preserva o payload publico
-<code>OptionDTO</code></li>
-<li>a semantica publica continua sendo de options para UX de filtro</li>
-<li>a implementacao interna pode reaproveitar stats/distinct values, mas
-isso nao vira contrato publico</li>
-<li>hoje a execucao real cobre <code>DISTINCT_DIMENSION</code> e
-<code>CATEGORICAL_BUCKET</code></li>
-<li><code>LIGHT_LOOKUP</code>, <code>RESOURCE_ENTITY</code> e
-<code>STATIC_CANONICAL</code> continuam previstos, mas nao completos
-nesta rodada</li>
-<li>quando o campo do filtro nao tiver o mesmo nome da source
-registrada, publique <code>x-ui.optionSource.filterField</code></li>
-</ul>
-<p>Exemplo:</p>
-<pre class="http"><code>POST /api/human-resources/funcionarios/options/filter?page=0&amp;size=20
-Content-Type: application/json
-
-{ &quot;nome&quot;: &quot;ana&quot; }</code></pre>
-<p>Resposta (exemplo):</p>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Id</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">Long</span> id<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">@OptionLabel</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">String</span> nomeCompleto<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Se não houver anotação, o framework aplica heurísticas como
+<code>getLabel</code>, <code>getNomeCompleto</code> e
+<code>getNome</code>.</p>
+<h2 id="registrando-option-sources-no-service">Registrando
+option-sources no service</h2>
+<p><code>option-sources</code> não nasce de anotação direta no DTO. O
+contrato canônico vem do <code>OptionSourceRegistry</code> exposto pelo
+service.</p>
+<p>Exemplo alinhado ao quickstart:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> OptionSourceRegistry OPTION_SOURCES <span class="op">=</span> OptionSourceRegistry<span class="op">.</span><span class="fu">builder</span><span class="op">()</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">add</span><span class="op">(</span>VwAnalyticsFolhaPagamento<span class="op">.</span><span class="fu">class</span><span class="op">,</span> <span class="kw">new</span> <span class="fu">OptionSourceDescriptor</span><span class="op">(</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;payrollProfile&quot;</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        OptionSourceType<span class="op">.</span><span class="fu">DISTINCT_DIMENSION</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">VW_ANALYTICS_FOLHA_PAGAMENTO</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;payrollProfile&quot;</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;payrollProfile&quot;</span><span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;payrollProfile&quot;</span><span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;payrollProfile&quot;</span><span class="op">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;competenciaBetween&quot;</span><span class="op">,</span> <span class="st">&quot;universo&quot;</span><span class="op">),</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">OptionSourcePolicy</span><span class="op">(</span><span class="kw">true</span><span class="op">,</span> <span class="kw">true</span><span class="op">,</span> <span class="st">&quot;contains&quot;</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">25</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="kw">true</span><span class="op">,</span> <span class="kw">false</span><span class="op">,</span> <span class="st">&quot;label&quot;</span><span class="op">)</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">))</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">build</span><span class="op">();</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> OptionSourceRegistry <span class="fu">getOptionSourceRegistry</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> OPTION_SOURCES<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Sem <code>OptionSourceRegistry</code>, o controller até publica as
+rotas se a implementação existir, mas o enriquecimento metadata-driven
+em <code>/schemas/filtered</code> não terá a semântica canônica da fonte
+derivada.</p>
+<h2 id="o-que-vai-para-o-schema-em-schemasfiltered">O que vai para o
+schema em <code>/schemas/filtered</code></h2>
+<p>Quando o <code>ApiDocsController</code> encontra um campo cujo nome
+coincide com a source registrada para o <code>resourcePath</code>, ele
+enriquece o schema com <code>x-ui.optionSource</code>.</p>
+<p>Exemplo publicado:</p>
 <div class="sourceCode" id="cb3"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;success&quot;</span><span class="fu">,</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;content&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="fu">{</span> <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Ana Silva&quot;</span> <span class="fu">}</span> <span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;totalElements&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;size&quot;</span><span class="fu">:</span> <span class="dv">20</span><span class="fu">,</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;number&quot;</span><span class="fu">:</span> <span class="dv">0</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;timestamp&quot;</span><span class="fu">:</span> <span class="st">&quot;2024-01-01T10:00:00&quot;</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;string&quot;</span><span class="fu">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;x-ui&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;controlType&quot;</span><span class="fu">:</span> <span class="st">&quot;async-select&quot;</span><span class="fu">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;optionSource&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;payrollProfile&quot;</span><span class="fu">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;DISTINCT_DIMENSION&quot;</span><span class="fu">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/human-resources/vw-analytics-folha-pagamento&quot;</span><span class="fu">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;filterField&quot;</span><span class="fu">:</span> <span class="st">&quot;payrollProfile&quot;</span><span class="fu">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dependsOn&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;universo&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;excludeSelfField&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;searchMode&quot;</span><span class="fu">:</span> <span class="st">&quot;contains&quot;</span><span class="fu">,</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;pageSize&quot;</span><span class="fu">:</span> <span class="dv">25</span><span class="fu">,</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;includeIds&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;cachePolicy&quot;</span><span class="fu">:</span> <span class="st">&quot;request-scope&quot;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Importante:</p>
+<ul>
+<li><code>x-ui.optionSource.resourcePath</code> é o path base do
+recurso, não o endpoint completo de <code>options/filter</code></li>
+<li>o runtime Angular compõe
+<code>.../option-sources/{key}/options/filter</code> e
+<code>.../by-ids</code> a partir desse <code>resourcePath</code></li>
+<li>quando <code>optionSource</code> existe, ele é mais canônico do que
+um <code>endpoint</code> legado hardcoded</li>
+</ul>
+<h2 id="como-o-angular-consome-isso">Como o Angular consome isso</h2>
+<p>O <code>praxis-ui-angular</code> já tem consumo explícito para
+<code>option-sources</code>.</p>
+<p>Fluxo real:</p>
+<ul>
+<li>o normalizador lê <code>x-ui.optionSource</code></li>
+<li><code>field-definition-mapper</code> normaliza
+<code>optionSource.resourcePath</code></li>
+<li><code>material-async-select</code> e <code>simple-base-select</code>
+passam a chamar:
+<ul>
+<li><code>filterOptionSourceOptions(sourceKey, ...)</code></li>
+<li><code>getOptionSourceOptionsByIds(sourceKey, ids)</code></li>
+</ul></li>
+</ul>
+<p>Consequência prática:</p>
+<ul>
+<li>não publique <code>resourcePath</code> já apontando para
+<code>/option-sources/.../options/filter</code></li>
+<li>publique o <code>resourcePath</code> base do recurso e deixe o
+runtime montar a rota derivada</li>
+</ul>
+<h2 id="respostas-esperadas">Respostas esperadas</h2>
+<p>Exemplo de
+<code>POST /api/human-resources/funcionarios/options/filter?page=0&amp;size=20</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;content&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span> <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Ana Silva&quot;</span> <span class="fu">}</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;pageable&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;pageNumber&quot;</span><span class="fu">:</span> <span class="dv">0</span><span class="fu">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;pageSize&quot;</span><span class="fu">:</span> <span class="dv">20</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;totalElements&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;totalPages&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;size&quot;</span><span class="fu">:</span> <span class="dv">20</span><span class="fu">,</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;number&quot;</span><span class="fu">:</span> <span class="dv">0</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>Exemplo de fonte derivada:</p>
 <pre class="http"><code>POST /api/human-resources/vw-analytics-folha-pagamento/option-sources/payrollProfile/options/filter?page=0&amp;size=20&amp;search=exec
 Content-Type: application/json
 
-{ &quot;competenciaBetween&quot;: [&quot;2026-01-01&quot;, &quot;2026-03-31&quot;] }</code></pre>
-<h2 id="personalizando-o-mapeamento">Personalizando o mapeamento</h2>
-<p>Sobrescreva <code>getOptionMapper()</code> no service para incluir
-<code>extra</code> ou transformar labels.</p>
-<div class="sourceCode" id="cb5"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> OptionMapper<span class="op">&lt;</span>Funcionario<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="fu">getOptionMapper</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> entity <span class="op">-&gt;</span> <span class="kw">new</span> OptionDTO<span class="op">&lt;&gt;(</span><span class="fu">extractId</span><span class="op">(</span>entity<span class="op">),</span> entity<span class="op">.</span><span class="fu">getNomeCompleto</span><span class="op">(),</span> entity<span class="op">.</span><span class="fu">getDepartamento</span><span class="op">());</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h2 id="referencias">Referencias</h2>
+{
+  &quot;competenciaBetween&quot;: [&quot;2026-01-01&quot;, &quot;2026-03-31&quot;],
+  &quot;universo&quot;: &quot;Marvel&quot;
+}</code></pre>
+<p>Exemplo de reidratação:</p>
+<pre class="http"><code>GET /api/human-resources/vw-analytics-folha-pagamento/option-sources/payrollProfile/options/by-ids?ids=OPER&amp;ids=EXEC</code></pre>
+<h2 id="suporte-atual-e-limites">Suporte atual e limites</h2>
+<p>Cobertura confirmada hoje:</p>
 <ul>
-<li><a
-href="../apidocs/org/praxisplatform/uischema/annotation/OptionLabel.html"><code>@OptionLabel</code></a></li>
-<li><a
-href="../apidocs/org/praxisplatform/uischema/mapper/base/OptionMapper.html"><code>OptionMapper</code></a></li>
-<li><a
-href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html"><code>AbstractCrudController</code></a></li>
+<li>o starter expõe os endpoints em <code>AbstractCrudController</code>
+e <code>AbstractReadOnlyController</code></li>
+<li>o <code>ApiDocsController</code> publica
+<code>resource.capabilities.optionSources</code> e enriquece
+<code>x-ui.optionSource</code></li>
+<li>o runtime Angular já consome <code>optionSource</code></li>
+<li>o quickstart já registra e usa
+<code>OptionSourceRegistry</code></li>
+</ul>
+<p>Execução atualmente implementada no starter:</p>
+<ul>
+<li><code>DISTINCT_DIMENSION</code></li>
+<li><code>CATEGORICAL_BUCKET</code></li>
+</ul>
+<p>Tipos ainda não implementados de ponta a ponta no executor JPA:</p>
+<ul>
+<li><code>RESOURCE_ENTITY</code></li>
+<li><code>LIGHT_LOOKUP</code></li>
+<li><code>STATIC_CANONICAL</code></li>
+</ul>
+<p>Observação importante:</p>
+<ul>
+<li>a execução concreta atual depende do executor JPA do starter</li>
+<li>se o host não oferecer implementação compatível, chamadas de
+<code>option-sources</code> podem retornar
+<code>501 Not Implemented</code></li>
+</ul>
+<h2 id="boas-práticas">Boas práticas</h2>
+<ul>
+<li>use <code>option-sources</code> para dimensões derivadas, não para
+substituir catálogos CRUD normais</li>
+<li>mantenha <code>filterField</code> explícito quando o nome do campo
+no DTO não coincidir com a source registrada</li>
+<li>use <code>dependsOn</code> para declarar dependências de cascata que
+o frontend precisa respeitar</li>
+<li>use <code>excludeSelfField=true</code> quando a própria source não
+deve se autofiltrar</li>
+<li>para selects remotos de <code>OptionDTO</code>, mantenha
+<code>optionLabelKey=label</code> e <code>optionValueKey=id</code></li>
+</ul>
+<h2 id="referências-operacionais">Referências operacionais</h2>
+<ul>
+<li>starter canônico: <code>praxis-metadata-starter</code></li>
+<li>host de referência: <code>praxis-api-quickstart</code></li>
+<li>consumidor final: <code>praxis-ui-angular</code></li>
 </ul>
 </body>
 </html>

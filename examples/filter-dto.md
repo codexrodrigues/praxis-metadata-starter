@@ -95,16 +95,17 @@ Quando o `CustomOpenApiResolver` processa esse DTO:
 
 * cada campo gera `components.schemas.EmployeeFilterDTO.properties.<campo>.x-ui` com as configurações acima;
 * as validações (por exemplo, `@NotNull`) seriam convertidas automaticamente em `x-ui.validation`;
-* o endpoint `/schemas/filtered?path=/api/human-resources/funcionarios/all` retornará apenas os campos relevantes.
+* o endpoint `GET /schemas/filtered?path=/api/human-resources/funcionarios/filter&operation=post&schemaType=request` retornará o schema de request do filtro;
+* o endpoint `GET /schemas/filtered?path=/api/human-resources/funcionarios/all&operation=get&schemaType=response` retornará o schema de response da listagem.
 
-No Angular, o normalizador converte esse contrato para a forma canônica de runtime:
+No Angular, o `GenericCrudService` normaliza esse contrato para a forma canônica de runtime:
 
 * `endpoint` -> `resourcePath`
 * `displayField` -> `optionLabelKey`
 * `valueField` -> `optionValueKey`
 * `filter` -> `filterCriteria`
 
-Ou seja: no backend Java o contrato anotado continua sendo `endpoint`/`displayField`/`valueField`, mas a UI Praxis passa a operar internamente com `resourcePath` e chaves `option*Key`.
+Ou seja: no backend Java o contrato anotado continua sendo `endpoint`/`displayField`/`valueField`, mas a UI Praxis passa a operar internamente com `resourcePath` e chaves `option*Key`, revalidando o schema com `If-None-Match` e consumindo `ETag` e `X-Schema-Hash`.
 
 Observações de maturidade do cenário atual:
 

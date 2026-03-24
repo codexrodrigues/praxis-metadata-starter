@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Prompts de Execucao da Prova</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Prompts de Execucao da Prova</h1>
+</header>
+<h1 id="prompts-de-execucao-da-prova">Prompts de Execucao da Prova</h1>
+<p>Use estes prompts sem acrescentar instrucoes corretivas fora do que
+os guias oficiais ja publicam.</p>
+<h2 id="prompt-base">Prompt Base</h2>
+<pre class="text"><code>Voce vai executar uma prova operacional dos guias de IA do praxis-metadata-starter.
+
+Use apenas estes materiais como fonte principal:
+- docs/guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md
+- docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md
+- docs/guides/CHECKLIST-VALIDACAO-IA.md
+
+Objetivo:
+- criar a aplicacao
+- implementar o CRUD pedido
+- compilar
+- subir
+- validar os endpoints e schemas exigidos
+
+Regras:
+- nao use bulk como baseline
+- nao copie codigo manualmente do praxis-api-quickstart
+- nao invente contratos fora do starter
+- se usar MapStruct, configure-o de forma compilavel
+- siga o contrato metadata-driven consumivel por praxis-ui-angular
+
+Ao final, entregue:
+- lista dos arquivos criados
+- comandos executados
+- resultado de build
+- evidencias dos endpoints validados
+- falhas encontradas</code></pre>
+<h2 id="rodada-1-h2-simples">Rodada 1: H2 simples</h2>
+<pre class="text"><code>Execute a prova operacional usando H2 local.
+
+Cenário:
+- Nome da aplicacao: ai-guide-proof-h2-simple
+- GroupId: com.example.proof
+- ArtifactId: ai-guide-proof-h2-simple
+- Pacote base: com.example.proof.catalog
+- Resource path: /api/catalog/categorias
+- Api group: catalog
+
+Entidade inicial:
+- Categoria
+- Campos:
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+
+Exigencias:
+- usar banco H2 local
+- incluir persistencia real
+- incluir bootstrap fisico do schema para a entidade inicial
+- preferir migration inicial; usar `ddl-auto` apenas se deixar isso explicito como contingencia de sandbox local
+- expor CRUD baseline
+- gerar DTO com @UISchema
+- gerar FilterDTO com @Filterable
+- publicar /schemas/filtered
+- validar request schema e response schema
+
+Nao adicione relacoes nesta rodada.</code></pre>
+<h2 id="rodada-2-h2-com-relacao">Rodada 2: H2 com relacao</h2>
+<pre class="text"><code>Execute a prova operacional usando H2 local com relacao simples.
+
+Cenário:
+- Nome da aplicacao: ai-guide-proof-h2-relation
+- GroupId: com.example.proof
+- ArtifactId: ai-guide-proof-h2-relation
+- Pacote base: com.example.proof.catalog
+- Recursos:
+  - /api/catalog/categorias
+  - /api/catalog/produtos
+- Api group: catalog
+
+Entidades:
+- Categoria:
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+- Produto:
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+  - categoria: ManyToOne para Categoria
+
+Exigencias:
+- o DTO de Produto deve expor categoriaId
+- selects remotos devem usar /options/filter
+- quando o endpoint retornar OptionDTO, use displayField=label
+- validar schema request/response e endpoints de options</code></pre>
+<h2 id="rodada-3-postgresql-simples">Rodada 3: PostgreSQL simples</h2>
+<pre class="text"><code>Execute a prova operacional usando PostgreSQL local.
+
+Cenário:
+- Nome da aplicacao: ai-guide-proof-pg-simple
+- GroupId: com.example.proof
+- ArtifactId: ai-guide-proof-pg-simple
+- Pacote base: com.example.proof.catalog
+- Resource path: /api/catalog/categorias
+- Api group: catalog
+
+Entidade inicial:
+- Categoria
+- Campos:
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+
+Exigencias:
+- configurar datasource PostgreSQL real
+- incluir Flyway
+- compilar, subir e persistir no banco
+- validar os schemas e endpoints do contrato</code></pre>
+<h2 id="rodada-4-postgresql-com-relacao">Rodada 4: PostgreSQL com
+relacao</h2>
+<pre class="text"><code>Execute a prova operacional usando PostgreSQL local com relacao simples.
+
+Cenário:
+- Nome da aplicacao: ai-guide-proof-pg-relation
+- GroupId: com.example.proof
+- ArtifactId: ai-guide-proof-pg-relation
+- Pacote base: com.example.proof.catalog
+- Recursos:
+  - /api/catalog/categorias
+  - /api/catalog/produtos
+- Api group: catalog
+
+Entidades:
+- Categoria:
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+- Produto:
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+  - categoria: ManyToOne para Categoria
+
+Exigencias:
+- Flyway funcional
+- options/filter funcional para Categoria
+- Produto consumivel por UI metadata-driven sem adaptacao local
+- validar request schema, response schema, ETag e X-Schema-Hash</code></pre>
+<h2 id="rodada-5-consumo-angular">Rodada 5: Consumo Angular</h2>
+<pre class="text"><code>Use o backend gerado e valide o consumo pelo GenericCrudService do praxis-ui-angular.
+
+Objetivo:
+- resolver getSchema()
+- resolver /schemas/filtered para grid e filtro
+- verificar idField
+- verificar revalidacao com If-None-Match
+
+Nao altere o contrato do backend apenas para acomodar workaround local de frontend.
+Se houver falha, registre se a causa e do backend gerado, do guia ou do runtime consumidor.</code></pre>
+</body>
+</html>

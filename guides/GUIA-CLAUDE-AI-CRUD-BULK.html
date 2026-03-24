@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>🤖 Guia Completo para Claude AI - Geração de Funcionalidades CRUD+Bulk</title>
+  <title>Guia para Agentes de IA - Gerar CRUD Metadata-Driven por Entidade</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,907 +230,383 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">🤖 Guia Completo para Claude AI - Geração de
-Funcionalidades CRUD+Bulk</h1>
+<h1 class="title">Guia para Agentes de IA - Gerar CRUD Metadata-Driven
+por Entidade</h1>
 </header>
 <h1
-id="guia-completo-para-claude-ai---geração-de-funcionalidades-crudbulk">🤖
-Guia Completo para Claude AI - Geração de Funcionalidades CRUD+Bulk</h1>
-<h2 id="melhorias-nesta-versão">🎯 MELHORIAS NESTA VERSÃO</h2>
-<p>Este guia foi <strong>APRIMORADO</strong> baseado na implementação
-real das entidades <strong>Pessoa</strong> e
-<strong>TipoDocumento</strong> no projeto <code>ms-pessoa-ananke</code>,
-corrigindo as inconsistências encontradas e adicionando padrões 100%
-testados.</p>
-<h3 id="correções-principais"><strong>🔧 Correções
-Principais:</strong></h3>
+id="guia-para-agentes-de-ia---gerar-crud-metadata-driven-por-entidade">Guia
+para Agentes de IA - Gerar CRUD Metadata-Driven por Entidade</h1>
+<blockquote>
+<p>Nota de escopo: apesar do nome do arquivo mencionar
+<code>CRUD-BULK</code>, este guia documenta o baseline canônico de CRUD
+metadata-driven. Bulk continua opcional e externo a este fluxo
+minimo.</p>
+</blockquote>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este guia orienta um agente de IA a gerar uma feature CRUD alinhada
+ao contrato canônico do <code>praxis-metadata-starter</code>.</p>
+<p>O objetivo nao e gerar “qualquer CRUD que compile”. O objetivo e
+gerar:</p>
 <ul>
-<li>✅ <strong>Enums Corretos</strong>: <code>EQUAL</code> (não
-<code>EQUALS</code>), <code>TOGGLE</code> (não
-<code>TOGGLE_SWITCH</code>)</li>
-<li>✅ <strong>Imports Validados</strong>: Todos testados e
-funcionando</li>
-<li>✅ <strong>Padrões Bulk</strong>: BulkFilterAdapter completamente
-documentado</li>
-<li>✅ <strong>Templates Reais</strong>: Baseados em código que compila
-e funciona</li>
+<li>DTOs com <code>@UISchema</code> e Bean Validation coerentes com o
+contrato publicado em <code>/schemas/filtered</code></li>
+<li><code>FilterDTO</code> com <code>@Filterable</code> coerente com os
+endpoints base do starter</li>
+<li><code>Mapper</code>, <code>Service</code>, <code>Repository</code> e
+<code>Controller</code> compatíveis com
+<code>AbstractCrudController</code> e
+<code>AbstractBaseCrudService</code></li>
+<li>endpoints e metadata que possam ser consumidos sem ajuste local por
+<code>praxis-api-quickstart</code> e <code>praxis-ui-angular</code></li>
 </ul>
-<hr />
-<h2 id="objetivo">📋 Objetivo</h2>
-<p>Este guia fornece instruções detalhadas para que o Claude AI possa
-gerar automaticamente funcionalidades completas CRUD+Bulk a partir de
-uma entidade JPA, seguindo <strong>exatamente</strong> os padrões
-estabelecidos no Praxis Platform.</p>
-<h2 id="entrada-esperada">🎯 Entrada Esperada</h2>
-<p>O usuário deve fornecer: 1. <strong>Entidade JPA</strong> (classe
-<code>@Entity</code>) 2. <strong>Path da API</strong> (ex:
-<code>/api/pessoas</code>) 3. <strong>Grupo da API</strong> (ex:
-<code>pessoas</code>) 4. <strong>Pacote base</strong> (ex:
-<code>com.example.ananke.pessoa</code>)</p>
-<h2 id="prompts-de-exemplo-copiarcolar">💬 Prompts de Exemplo
-(copiar/colar)</h2>
-<pre><code>Gere CRUD + Bulk completos para a entidade abaixo, alinhado ao Praxis Platform.
+<h2 id="fontes-canonicas">Fontes canonicas</h2>
+<p>Antes de gerar codigo, o agente deve se orientar por esta
+hierarquia:</p>
+<ol type="1">
+<li><code>praxis-metadata-starter</code>
+<ul>
+<li>fonte canonica de <code>@ApiResource</code>, <code>@ApiGroup</code>,
+<code>@UISchema</code>, <code>Filterable</code>,
+<code>AbstractCrudController</code>,
+<code>AbstractBaseCrudService</code>, <code>/schemas/filtered</code> e
+endpoints de options</li>
+</ul></li>
+<li><code>praxis-api-quickstart</code>
+<ul>
+<li>host operacional de referencia para uso real e publicado</li>
+</ul></li>
+<li><code>praxis-ui-angular</code>
+<ul>
+<li>consumidor final de runtime, especialmente
+<code>GenericCrudService</code></li>
+</ul></li>
+</ol>
+<h2 id="escopo-correto-deste-guia">Escopo correto deste guia</h2>
+<p>Este guia cobre o padrao canônico de um recurso CRUD
+metadata-driven.</p>
+<p>Este guia nao deve tratar como obrigatorio:</p>
+<ul>
+<li><code>BulkFilterAdapter</code></li>
+<li><code>BulkController</code></li>
+<li><code>org.praxisplatform.bulk.*</code></li>
+<li>receitas herdadas de projetos externos como
+<code>ms-pessoa-ananke</code></li>
+</ul>
+<p>Se a feature precisar de bulk, isso deve ser tratado como trilha
+opcional e externa ao contrato minimo deste starter.</p>
+<h2 id="o-que-o-agente-deve-receber-como-entrada">O que o agente deve
+receber como entrada</h2>
+<p>O agente deve receber, no minimo:</p>
+<ol type="1">
+<li>caminho ou codigo da entidade JPA</li>
+<li>path canônico do recurso</li>
+<li>grupo OpenAPI desejado</li>
+<li>pacote base do modulo</li>
+</ol>
+<p>Exemplo:</p>
+<pre class="text"><code>Gere uma feature CRUD metadata-driven alinhada ao praxis-metadata-starter.
 
-ENTRADA
-- Entidade JPA: {classe-entity-anotada-com-@Entity}
-- Path da API: {path} (ex.: /api/pessoas)
-- Grupo da API: {grupo} (ex.: pessoas)
-- Pacote base: {pacote-base} (ex.: com.example.ananke.pessoa)
-
-REQUISITOS
-- Gerar os 8 arquivos padrão (DTO, FilterDTO, Mapper, Repository, Service, BulkFilterAdapter, Controller, BulkController)
-- Usar @ApiResource(ApiPaths...) e @ApiGroup
-- Usar @UISchema no DTO, @Filterable no FilterDTO
-- MapStruct quando houver relacionamentos (@ManyToOne/@OneToOne); manual se simples
-- Enums corretos: FilterOperation.EQUAL, FieldControlType.TOGGLE, etc.
-- Endpoints de options usando /filter, valueField=id, displayField=nome
-- Código que compila (mvn clean package)</code></pre>
-<pre><code>Inclua no mapeamento MapStruct as conversões ID ↔ entidade para os relacionamentos:
-- Gere @Named {relacao}FromId(Long id) e use qualifiedByName
-- Exponha {relacao}Id no DTO
-- Gere mappings entity→dto (source=&quot;relacao.id&quot;, target=&quot;relacaoId&quot;) e dto→entity (source=&quot;relacaoId&quot;, target=&quot;relacao&quot;)</code></pre>
-<h2 id="estrutura-de-arquivos-a-gerar">📁 Estrutura de Arquivos a
-Gerar</h2>
-<p>Para cada entidade, você deve criar <strong>exatamente 8
-arquivos</strong> seguindo este padrão:</p>
-<pre><code>src/main/java/{pacote-base}/
-├── entity/
-│   └── {Nome}.java (já fornecido pelo usuário)
+Entrada:
+- Entidade: src/main/java/com/example/hr/entity/Funcionario.java
+- Resource path: /api/human-resources/funcionarios
+- Api group: human-resources
+- Pacote base: com.example.hr</code></pre>
+<h2 id="arquivos-minimos-a-gerar">Arquivos minimos a gerar</h2>
+<p>Para um recurso CRUD padrão, o conjunto minimo canônico e:</p>
+<pre class="text"><code>src/main/java/{pacote-base}/
 ├── dto/
 │   ├── {Nome}DTO.java
-│   └── {Nome}FilterDTO.java
+│   └── filter/
+│       └── {Nome}FilterDTO.java
 ├── mapper/
 │   └── {Nome}Mapper.java
 ├── repository/
 │   └── {Nome}Repository.java
 ├── service/
-│   ├── {Nome}Service.java
-│   └── {Nome}BulkFilterAdapter.java
+│   └── {Nome}Service.java
 └── controller/
-    ├── {Nome}Controller.java
-    └── {Nome}BulkController.java</code></pre>
-<hr />
-<h2 id="templates-detalhados-verificados">🔧 Templates Detalhados
-VERIFICADOS</h2>
-<h3 id="dto-principal-nomedto.java-testado">1. DTO Principal
-(<code>{Nome}DTO.java</code>) ✅ TESTADO</h3>
+    └── {Nome}Controller.java</code></pre>
+<p><code>BulkController</code> e <code>BulkFilterAdapter</code> nao
+fazem parte do baseline do starter.</p>
+<h2 id="padrao-canônico-do-controller">Padrao canônico do
+Controller</h2>
+<p>O controller deve estender
+<code>AbstractCrudController&lt;E, D, ID, FD&gt;</code> e
+implementar:</p>
+<ul>
+<li><code>getService()</code></li>
+<li><code>toDto(...)</code></li>
+<li><code>toEntity(...)</code></li>
+<li><code>getEntityId(...)</code></li>
+<li><code>getDtoId(...)</code></li>
+</ul>
+<p>Exemplo estrutural:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@RestController</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">FUNCIONARIOS</span><span class="op">)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;human-resources&quot;</span><span class="op">)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioController <span class="kw">extends</span> AbstractCrudController<span class="op">&lt;</span>Funcionario<span class="op">,</span> FuncionarioDTO<span class="op">,</span> <span class="bu">Integer</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> FuncionarioService service<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> FuncionarioMapper mapper<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">FuncionarioController</span><span class="op">(</span>FuncionarioService service<span class="op">,</span> FuncionarioMapper mapper<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">service</span> <span class="op">=</span> service<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">mapper</span> <span class="op">=</span> mapper<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> BaseCrudService<span class="op">&lt;</span>Funcionario<span class="op">,</span> FuncionarioDTO<span class="op">,</span> <span class="bu">Integer</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">&gt;</span> <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> FuncionarioDTO <span class="fu">toDto</span><span class="op">(</span>Funcionario entity<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">.</span><span class="fu">toDto</span><span class="op">(</span>entity<span class="op">);</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> Funcionario <span class="fu">toEntity</span><span class="op">(</span>FuncionarioDTO dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">.</span><span class="fu">toEntity</span><span class="op">(</span>dto<span class="op">);</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Integer</span> <span class="fu">getEntityId</span><span class="op">(</span>Funcionario entity<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> entity<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Integer</span> <span class="fu">getDtoId</span><span class="op">(</span>FuncionarioDTO dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Observacoes:</p>
+<ul>
+<li><code>@ApiResource</code> e a superficie canônica</li>
+<li><code>ApiPaths</code> deve vir do projeto host, nao do starter</li>
+<li>o host pode sobrescrever metodos do controller apenas para
+enriquecer OpenAPI ou descricoes, como faz o quickstart</li>
+</ul>
+<h2 id="padrao-canônico-do-service">Padrao canônico do Service</h2>
+<p>O service padrão deve estender
+<code>AbstractBaseCrudService&lt;E, D, ID, FD&gt;</code>.</p>
+<p>Template minimo:</p>
 <div class="sourceCode" id="cb4"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">;</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">FieldControlType</span><span class="op">;</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">FieldDataType</span><span class="op">;</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">extension</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">UISchema</span><span class="op">;</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> <span class="op">{</span>Nome<span class="op">}</span>DTO <span class="op">{</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">@UISchema</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">Long</span> id<span class="op">;</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ⚠️ COPIE TODOS os campos da entidade, exceto relacionamentos @OneToMany/@ManyToMany</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ Para cada campo da entidade, adicione:</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">@UISchema</span><span class="op">(</span></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        label <span class="op">=</span> <span class="st">&quot;Nome do Campo&quot;</span><span class="op">,</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        maxLength <span class="op">=</span> <span class="dv">300</span><span class="op">,</span></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        placeholder <span class="op">=</span> <span class="st">&quot;Exemplo de placeholder&quot;</span></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">)</span></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">String</span> <span class="op">{</span>campoString<span class="op">};</span></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">@UISchema</span><span class="op">(</span></span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">BOOLEAN</span><span class="op">,</span></span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">TOGGLE</span><span class="op">,</span>  <span class="co">// ✅ CORRETO: TOGGLE (não TOGGLE_SWITCH)</span></span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>        label <span class="op">=</span> <span class="st">&quot;Campo Booleano&quot;</span></span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="op">)</span></span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">Boolean</span> <span class="op">{</span>campoBoolean<span class="op">};</span></span>
-<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ Gere getters e setters para TODOS os campos</span></span>
-<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="bu">Long</span> <span class="fu">getId</span><span class="op">()</span> <span class="op">{</span> <span class="cf">return</span> id<span class="op">;</span> <span class="op">}</span></span>
-<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">setId</span><span class="op">(</span><span class="bu">Long</span> id<span class="op">)</span> <span class="op">{</span> <span class="kw">this</span><span class="op">.</span><span class="fu">id</span> <span class="op">=</span> id<span class="op">;</span> <span class="op">}</span></span>
-<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ... demais getters/setters para TODOS os campos</span></span>
-<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>✅ VALIDADO:</strong> Este template funciona perfeitamente
-para entidades simples e com relacionamentos.</p>
-<h3 id="filter-dto-nomefilterdto.java-testado">2. Filter DTO
-(<code>{Nome}FilterDTO.java</code>) ✅ TESTADO</h3>
+class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioService <span class="kw">extends</span> AbstractBaseCrudService<span class="op">&lt;</span>Funcionario<span class="op">,</span> FuncionarioDTO<span class="op">,</span> <span class="bu">Integer</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">FuncionarioService</span><span class="op">(</span>FuncionarioRepository repository<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">(</span>repository<span class="op">,</span> Funcionario<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> Funcionario <span class="fu">mergeUpdate</span><span class="op">(</span>Funcionario existing<span class="op">,</span> Funcionario payload<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">.</span><span class="fu">setNomeCompleto</span><span class="op">(</span>payload<span class="op">.</span><span class="fu">getNomeCompleto</span><span class="op">());</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">.</span><span class="fu">setCpf</span><span class="op">(</span>payload<span class="op">.</span><span class="fu">getCpf</span><span class="op">());</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">.</span><span class="fu">setEmail</span><span class="op">(</span>payload<span class="op">.</span><span class="fu">getEmail</span><span class="op">());</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">.</span><span class="fu">setAtivo</span><span class="op">(</span>payload<span class="op">.</span><span class="fu">getAtivo</span><span class="op">());</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> existing<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Quando houver relacionamentos <code>@ManyToOne</code> ou
+<code>@OneToOne</code>, <code>mergeUpdate(...)</code> deve preservar a
+semantica do relacionamento no aggregate persistido.</p>
+<h2 id="padrao-canônico-do-mapper">Padrao canônico do Mapper</h2>
+<p>O padrao preferencial publicado hoje e MapStruct com
+<code>CorporateMapperConfig</code>.</p>
+<p>Template:</p>
 <div class="sourceCode" id="cb5"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">;</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">FieldControlType</span><span class="op">;</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">FieldDataType</span><span class="op">;</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">NumericFormat</span><span class="op">;</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">extension</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">UISchema</span><span class="op">;</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">filter</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Filterable</span><span class="op">;</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">filter</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">GenericFilterDTO</span><span class="op">;</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">math</span><span class="op">.</span><span class="im">BigDecimal</span><span class="op">;</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">time</span><span class="op">.</span><span class="im">LocalDate</span><span class="op">;</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">util</span><span class="op">.</span><span class="im">List</span><span class="op">;</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> <span class="op">{</span>Nome<span class="op">}</span>FilterDTO <span class="kw">implements</span> GenericFilterDTO <span class="op">{</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ Para campos de texto/string:</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">@UISchema</span></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">)</span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">String</span> <span class="op">{</span>campoString<span class="op">};</span></span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ Para campos numéricos (BigDecimal, Integer, Double):</span></span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">NUMBER</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">RANGE_SLIDER</span><span class="op">,</span></span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>            numericFormat <span class="op">=</span> NumericFormat<span class="op">.</span><span class="fu">CURRENCY</span><span class="op">,</span> numericStep <span class="op">=</span> <span class="st">&quot;0.01&quot;</span><span class="op">)</span></span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">BETWEEN</span><span class="op">)</span></span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span><span class="bu">BigDecimal</span><span class="op">&gt;</span> <span class="op">{</span>campoNumerico<span class="op">};</span></span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ Para campos de data:</span></span>
-<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">DATE</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">DATE_RANGE</span><span class="op">)</span></span>
-<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">BETWEEN</span><span class="op">)</span></span>
-<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span>LocalDate<span class="op">&gt;</span> <span class="op">{</span>campoData<span class="op">};</span></span>
-<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ Para campos booleanos:</span></span>
-<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">@UISchema</span><span class="op">(</span></span>
-<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>        type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">BOOLEAN</span><span class="op">,</span></span>
-<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>        controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">CHECKBOX</span></span>
-<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>    <span class="op">)</span></span>
-<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">)</span>  <span class="co">// ✅ CORRETO: EQUAL (não EQUALS)</span></span>
-<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">Boolean</span> <span class="op">{</span>campoBoolean<span class="op">};</span></span>
-<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ Para relacionamentos:</span></span>
-<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>    <span class="at">@UISchema</span><span class="op">(</span></span>
-<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>        type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">NUMBER</span><span class="op">,</span></span>
-<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>        controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">SELECT</span><span class="op">,</span></span>
-<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>        endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">Module</span><span class="op">.</span><span class="fu">ENTITY</span> <span class="op">+</span> <span class="st">&quot;/filter&quot;</span><span class="op">,</span>  <span class="co">// ✅ SEMPRE usar /filter</span></span>
-<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>        valueField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
-<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>        displayField <span class="op">=</span> <span class="st">&quot;nome&quot;</span></span>
-<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>    <span class="op">)</span></span>
-<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">,</span> relation <span class="op">=</span> <span class="st">&quot;entidade.id&quot;</span><span class="op">)</span></span>
-<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">Long</span> <span class="op">{</span>relacionamentoId<span class="op">};</span></span>
-<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ Gere getters e setters para TODOS os campos</span></span>
-<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>⚠️ CRÍTICO - ENUMS CORRETOS:</strong> -
-<strong>FilterOperation.EQUAL</strong> (NÃO <code>EQUALS</code>) -
-<strong>FieldControlType.TOGGLE</strong> (NÃO
-<code>TOGGLE_SWITCH</code>)</p>
-<h3 id="mapper-nomemapper.java---matriz-de-decisão-validada">3. Mapper
-(<code>{Nome}Mapper.java</code>) - MATRIZ DE DECISÃO ✅ VALIDADA</h3>
-<p><strong>🎯 REGRA DE DECISÃO - USE ESTA MATRIZ
-EXATAMENTE:</strong></p>
-<table>
-<colgroup>
-<col style="width: 30%" />
-<col style="width: 27%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Cenário da Entidade</strong></th>
-<th><strong>Abordagem de Mapper</strong></th>
-<th><strong>Quando Usar</strong></th>
-<th><strong>Exemplo Real</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>✅ <strong>Campos simples apenas</strong></td>
-<td><strong>MANUAL</strong></td>
-<td>Entidades sem relacionamentos</td>
-<td><strong>TipoDocumento</strong></td>
-</tr>
-<tr class="even">
-<td>⚠️ <strong>Com relacionamentos <span class="citation"
-data-cites="ManyToOne">@ManyToOne</span>/<span class="citation"
-data-cites="OneToOne">@OneToOne</span></strong></td>
-<td><strong>MAPSTRUCT</strong></td>
-<td>Entidades com relacionamentos</td>
-<td><strong>Pessoa</strong></td>
-</tr>
-<tr class="odd">
-<td>🔗 <strong>Com entidades embedded</strong></td>
-<td><strong>MAPSTRUCT</strong></td>
-<td>Mapeamento automático</td>
-<td>Endereço embedded</td>
-</tr>
-</tbody>
-</table>
-<h4 id="abordagem-manual-para-entidades-simples-testado"><strong>🔧
-ABORDAGEM MANUAL (Para entidades simples)</strong> ✅ TESTADO</h4>
+class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Mapper</span><span class="op">(</span>componentModel <span class="op">=</span> <span class="st">&quot;spring&quot;</span><span class="op">,</span> config <span class="op">=</span> CorporateMapperConfig<span class="op">.</span><span class="fu">class</span><span class="op">)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> FuncionarioMapper <span class="op">{</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Mapping</span><span class="op">(</span>target <span class="op">=</span> <span class="st">&quot;cargoId&quot;</span><span class="op">,</span> source <span class="op">=</span> <span class="st">&quot;cargo.id&quot;</span><span class="op">)</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    FuncionarioDTO <span class="fu">toDto</span><span class="op">(</span>Funcionario entity<span class="op">);</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Mapping</span><span class="op">(</span>target <span class="op">=</span> <span class="st">&quot;cargo&quot;</span><span class="op">,</span> expression <span class="op">=</span> <span class="st">&quot;java(cargoFromId(dto.getCargoId()))&quot;</span><span class="op">)</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    Funcionario <span class="fu">toEntity</span><span class="op">(</span>FuncionarioDTO dto<span class="op">);</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">default</span> Cargo <span class="fu">cargoFromId</span><span class="op">(</span><span class="bu">Integer</span> id<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>id <span class="op">==</span> <span class="kw">null</span><span class="op">)</span> <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        Cargo cargo <span class="op">=</span> <span class="kw">new</span> <span class="fu">Cargo</span><span class="op">();</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        cargo<span class="op">.</span><span class="fu">setId</span><span class="op">(</span>id<span class="op">);</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> cargo<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Regras:</p>
+<ul>
+<li>prefira <code>CorporateMapperConfig</code> quando o projeto usar
+MapStruct, porque esse e o padrao operacional mais consistente no
+ecossistema atual</li>
+<li>use mapper manual apenas quando isso for realmente mais simples e o
+projeto local adotar esse estilo</li>
+<li>ao mapear relacoes por ID, produza <code>relacaoId</code> no DTO e
+reconstrua a referencia por ID na volta</li>
+</ul>
+<h2 id="dto-canônico">DTO canônico</h2>
+<p>O DTO deve refletir o contrato que a UI vai consumir via
+<code>/schemas/filtered</code>.</p>
+<p>Regras obrigatorias:</p>
+<ul>
+<li>campos visiveis na UI devem usar <code>@UISchema</code></li>
+<li>validacoes estruturais devem usar Bean Validation</li>
+<li>relacoes para selects devem usar <code>endpoint</code>,
+<code>valueField</code> e <code>displayField</code> coerentes com o
+endpoint real</li>
+</ul>
+<p>Exemplo alinhado ao quickstart:</p>
 <div class="sourceCode" id="cb6"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">mapper</span><span class="op">;</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">{Nome}DTO</span><span class="op">;</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">model</span><span class="op">.</span><span class="im">{Nome}</span><span class="op">;</span>  <span class="co">// ✅ Note: core.model path</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">stereotype</span><span class="op">.</span><span class="im">Component</span><span class="op">;</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">util</span><span class="op">.</span><span class="im">List</span><span class="op">;</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">util</span><span class="op">.</span><span class="im">stream</span><span class="op">.</span><span class="im">Collectors</span><span class="op">;</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="at">@Component</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> <span class="op">{</span>Nome<span class="op">}</span>Mapper <span class="op">{</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="op">{</span>Nome<span class="op">}</span> <span class="fu">toEntity</span><span class="op">({</span>Nome<span class="op">}</span>DTO dto<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>dto <span class="op">==</span> <span class="kw">null</span><span class="op">)</span> <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span>Nome<span class="op">}</span> entity <span class="op">=</span> <span class="kw">new</span> <span class="op">{</span>Nome<span class="op">}();</span></span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>        entity<span class="op">.</span><span class="fu">setId</span><span class="op">(</span>dto<span class="op">.</span><span class="fu">getId</span><span class="op">());</span> <span class="co">// ✅ ID sempre mapeado para updates</span></span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ⚠️ MAPEIE TODOS os campos simples do DTO para entidade</span></span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>        entity<span class="op">.</span><span class="fu">setNome</span><span class="op">(</span>dto<span class="op">.</span><span class="fu">getNome</span><span class="op">());</span></span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        entity<span class="op">.</span><span class="fu">setObrigatorio</span><span class="op">(</span>dto<span class="op">.</span><span class="fu">getObrigatorio</span><span class="op">());</span></span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ... para CADA campo simples da entidade</span></span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> entity<span class="op">;</span></span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="op">{</span>Nome<span class="op">}</span>DTO <span class="fu">toDto</span><span class="op">({</span>Nome<span class="op">}</span> entity<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>entity <span class="op">==</span> <span class="kw">null</span><span class="op">)</span> <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
-<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span>Nome<span class="op">}</span>DTO dto <span class="op">=</span> <span class="kw">new</span> <span class="op">{</span>Nome<span class="op">}</span><span class="fu">DTO</span><span class="op">();</span></span>
-<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>        dto<span class="op">.</span><span class="fu">setId</span><span class="op">(</span>entity<span class="op">.</span><span class="fu">getId</span><span class="op">());</span></span>
-<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ⚠️ MAPEIE TODOS os campos simples da entidade para DTO</span></span>
-<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>        dto<span class="op">.</span><span class="fu">setNome</span><span class="op">(</span>entity<span class="op">.</span><span class="fu">getNome</span><span class="op">());</span></span>
-<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>        dto<span class="op">.</span><span class="fu">setObrigatorio</span><span class="op">(</span>entity<span class="op">.</span><span class="fu">getObrigatorio</span><span class="op">());</span></span>
-<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ... para CADA campo simples da entidade</span></span>
-<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">;</span></span>
-<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="bu">List</span><span class="op">&lt;{</span>Nome<span class="op">}</span>DTO<span class="op">&gt;</span> <span class="fu">toDtoList</span><span class="op">(</span><span class="bu">List</span><span class="op">&lt;{</span>Nome<span class="op">}&gt;</span> entityList<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>entityList <span class="op">==</span> <span class="kw">null</span><span class="op">)</span> <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
-<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> entityList<span class="op">.</span><span class="fu">stream</span><span class="op">().</span><span class="fu">map</span><span class="op">(</span><span class="kw">this</span><span class="op">::</span>toDto<span class="op">).</span><span class="fu">collect</span><span class="op">(</span>Collectors<span class="op">.</span><span class="fu">toList</span><span class="op">());</span></span>
-<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="bu">List</span><span class="op">&lt;{</span>Nome<span class="op">}&gt;</span> <span class="fu">toEntityList</span><span class="op">(</span><span class="bu">List</span><span class="op">&lt;{</span>Nome<span class="op">}</span>DTO<span class="op">&gt;</span> dtoList<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>dtoList <span class="op">==</span> <span class="kw">null</span><span class="op">)</span> <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
-<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dtoList<span class="op">.</span><span class="fu">stream</span><span class="op">().</span><span class="fu">map</span><span class="op">(</span><span class="kw">this</span><span class="op">::</span>toEntity<span class="op">).</span><span class="fu">collect</span><span class="op">(</span>Collectors<span class="op">.</span><span class="fu">toList</span><span class="op">());</span></span>
-<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>✅ VALIDADO:</strong> Este padrão funciona perfeitamente para
-TipoDocumento e outras entidades simples.</p>
-<h4
-id="abordagem-mapstruct-para-entidades-com-relacionamentos-testado"><strong>🚀
-ABORDAGEM MAPSTRUCT (Para entidades com relacionamentos)</strong> ✅
-TESTADO</h4>
+class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="at">@NotNull</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    label <span class="op">=</span> <span class="st">&quot;Cargo&quot;</span><span class="op">,</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">SELECT</span><span class="op">,</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    valueField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    displayField <span class="op">=</span> <span class="st">&quot;label&quot;</span><span class="op">,</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">CARGOS</span> <span class="op">+</span> <span class="st">&quot;/options/filter&quot;</span><span class="op">,</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    tableHidden <span class="op">=</span> <span class="kw">true</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Integer</span> cargoId<span class="op">;</span></span></code></pre></div>
+<p>Regra critica:</p>
+<ul>
+<li>se o endpoint for <code>.../options/filter</code>, use
+<code>displayField = "label"</code></li>
+<li>se o endpoint for <code>.../filter</code> retornando DTO completo,
+use o campo textual do DTO, como <code>nome</code></li>
+</ul>
+<h2 id="filterdto-canônico">FilterDTO canônico</h2>
+<p>O <code>FilterDTO</code> deve implementar
+<code>GenericFilterDTO</code> e modelar criterios de busca reais.</p>
+<p>Regras praticas:</p>
+<ul>
+<li>texto: <code>LIKE</code></li>
+<li>boolean: <code>EQUAL</code></li>
+<li>ranges numericos e datas: <code>BETWEEN</code></li>
+<li>listas: <code>IN</code> ou <code>NOT_IN</code></li>
+<li>relacoes: campo <code>...Id</code> com
+<code>relation = "relacao.id"</code></li>
+</ul>
+<p>Exemplo:</p>
 <div class="sourceCode" id="cb7"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">mapper</span><span class="op">;</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">{Nome}DTO</span><span class="op">;</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">model</span><span class="op">.</span><span class="im">{Nome}</span><span class="op">;</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">model</span><span class="op">.</span><span class="im">{EntidadeRelacionada}</span><span class="op">;</span>  <span class="co">// Para cada @ManyToOne/@OneToOne</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">mapstruct</span><span class="op">.</span><span class="im">Mapper</span><span class="op">;</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">mapstruct</span><span class="op">.</span><span class="im">Mapping</span><span class="op">;</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">mapstruct</span><span class="op">.</span><span class="im">Named</span><span class="op">;</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="at">@Mapper</span><span class="op">(</span>componentModel <span class="op">=</span> <span class="st">&quot;spring&quot;</span><span class="op">)</span>  <span class="co">// ✅ SEMPRE componentModel = &quot;spring&quot;</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> <span class="op">{</span>Nome<span class="op">}</span>Mapper <span class="op">{</span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ MAPEAMENTO ENTITY → DTO (relacionamentos viram IDs)</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Mapping</span><span class="op">(</span>source <span class="op">=</span> <span class="st">&quot;{entidadeRelacionada}.id&quot;</span><span class="op">,</span> target <span class="op">=</span> <span class="st">&quot;{entidadeRelacionada}Id&quot;</span><span class="op">)</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ⚠️ Para CADA relacionamento @ManyToOne/@OneToOne na entidade, adicione:</span></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// @Mapping(source = &quot;idDadosPessoaFisica.id&quot;, target = &quot;idDadosPessoaFisicaId&quot;)</span></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// @Mapping(source = &quot;idDadosPessoaJuridica.id&quot;, target = &quot;idDadosPessoaJuridicaId&quot;)</span></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span>Nome<span class="op">}</span>DTO <span class="fu">toDto</span><span class="op">({</span>Nome<span class="op">}</span> entity<span class="op">);</span></span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ MAPEAMENTO DTO → ENTITY (IDs viram entidades com @Named)</span></span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Mapping</span><span class="op">(</span>source <span class="op">=</span> <span class="st">&quot;{entidadeRelacionada}Id&quot;</span><span class="op">,</span> target <span class="op">=</span> <span class="st">&quot;{entidadeRelacionada}&quot;</span><span class="op">,</span> qualifiedByName <span class="op">=</span> <span class="st">&quot;{entidadeRelacionada}FromId&quot;</span><span class="op">)</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ⚠️ Para CADA relacionamento, adicione:</span></span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// @Mapping(source = &quot;idDadosPessoaFisicaId&quot;, target = &quot;idDadosPessoaFisica&quot;, qualifiedByName = &quot;dadosPessoaFisicaFromId&quot;)</span></span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// @Mapping(source = &quot;idDadosPessoaJuridicaId&quot;, target = &quot;idDadosPessoaJuridica&quot;, qualifiedByName = &quot;dadosPessoaJuridicaFromId&quot;)</span></span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>    <span class="op">{</span>Nome<span class="op">}</span> <span class="fu">toEntity</span><span class="op">({</span>Nome<span class="op">}</span>DTO dto<span class="op">);</span></span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ MÉTODOS @Named para converter Long ID → Entidade com ID</span></span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Named</span><span class="op">(</span><span class="st">&quot;{entidadeRelacionada}FromId&quot;</span><span class="op">)</span></span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">default</span> <span class="op">{</span>EntidadeRelacionada<span class="op">}</span> <span class="op">{</span>entidadeRelacionada<span class="op">}</span><span class="fu">FromId</span><span class="op">(</span><span class="bu">Long</span> <span class="op">{</span>entidadeRelacionada<span class="op">}</span>Id<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">({</span>entidadeRelacionada<span class="op">}</span>Id <span class="op">==</span> <span class="kw">null</span><span class="op">)</span> <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span>EntidadeRelacionada<span class="op">}</span> <span class="op">{</span>entidadeRelacionada<span class="op">}</span> <span class="op">=</span> <span class="kw">new</span> <span class="op">{</span>EntidadeRelacionada<span class="op">}();</span></span>
-<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span>entidadeRelacionada<span class="op">}.</span><span class="fu">setId</span><span class="op">({</span>entidadeRelacionada<span class="op">}</span>Id<span class="op">);</span></span>
-<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">{</span>entidadeRelacionada<span class="op">};</span></span>
-<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ⚠️ Repita o template para CADA relacionamento:</span></span>
-<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>    <span class="co">// @Named(&quot;dadosPessoaFisicaFromId&quot;)</span></span>
-<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>    <span class="co">// default DadosPessoaFisica dadosPessoaFisicaFromId(Long dadosPessoaFisicaId) {</span></span>
-<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>    <span class="co">//     if (dadosPessoaFisicaId == null) return null;</span></span>
-<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>    <span class="co">//     DadosPessoaFisica dadosPessoaFisica = new DadosPessoaFisica();</span></span>
-<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>    <span class="co">//     dadosPessoaFisica.setId(dadosPessoaFisicaId);</span></span>
-<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>    <span class="co">//     return dadosPessoaFisica;</span></span>
-<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>    <span class="co">// }</span></span>
-<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>✅ VALIDADO:</strong> Este padrão funciona perfeitamente para
-Pessoa e outras entidades com relacionamentos.</p>
-<h3 id="repository-nomerepository.java-testado">4. Repository
-(<code>{Nome}Repository.java</code>) ✅ TESTADO</h3>
-<div class="sourceCode" id="cb8"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">repository</span><span class="op">;</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">model</span><span class="op">.</span><span class="im">{Nome}</span><span class="op">;</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">repository</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">BaseCrudRepository</span><span class="op">;</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">stereotype</span><span class="op">.</span><span class="im">Repository</span><span class="op">;</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="at">@Repository</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> <span class="op">{</span>Nome<span class="op">}</span>Repository <span class="kw">extends</span> BaseCrudRepository<span class="op">&lt;{</span>Nome<span class="op">},</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Repository methods</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>✅ VALIDADO:</strong> Template funciona para todas as
-entidades.</p>
-<h3 id="service-nomeservice.java---matriz-de-decisão-validada">5.
-Service (<code>{Nome}Service.java</code>) - MATRIZ DE DECISÃO ✅
-VALIDADA</h3>
-<p><strong>🎯 REGRA DE DECISÃO - USE ESTA MATRIZ
-EXATAMENTE:</strong></p>
-<table>
-<colgroup>
-<col style="width: 30%" />
-<col style="width: 25%" />
-<col style="width: 22%" />
-<col style="width: 21%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Cenário da Entidade</strong></th>
-<th><strong>Padrão de Service</strong></th>
-<th><strong>Implementação</strong></th>
-<th><strong>Exemplo Real</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>✅ <strong>Campos simples apenas</strong></td>
-<td><strong>PADRÃO SIMPLES</strong></td>
-<td>Apenas <code>mergeUpdate()</code></td>
-<td><strong>TipoDocumento</strong></td>
-</tr>
-<tr class="even">
-<td>⚠️ <strong>Com relacionamentos</strong></td>
-<td><strong>PADRÃO COMPLEXO</strong></td>
-<td><code>mergeUpdate()</code> + <code>save()</code></td>
-<td><strong>Pessoa</strong></td>
-</tr>
-</tbody>
-</table>
-<h4
-id="padrão-simples-para-entidades-sem-relacionamentos-testado"><strong>🚀
-PADRÃO SIMPLES (Para entidades SEM relacionamentos)</strong> ✅
-TESTADO</h4>
-<div class="sourceCode" id="cb9"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">service</span><span class="op">;</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">{Nome}DTO</span><span class="op">;</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">{Nome}FilterDTO</span><span class="op">;</span></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">model</span><span class="op">.</span><span class="im">{Nome}</span><span class="op">;</span></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">repository</span><span class="op">.</span><span class="im">{Nome}Repository</span><span class="op">;</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">service</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">AbstractBaseCrudService</span><span class="op">;</span></span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">beans</span><span class="op">.</span><span class="im">factory</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Autowired</span><span class="op">;</span></span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">stereotype</span><span class="op">.</span><span class="im">Service</span><span class="op">;</span></span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> <span class="op">{</span>Nome<span class="op">}</span><span class="bu">Service</span> <span class="kw">extends</span> AbstractBaseCrudService<span class="op">&lt;{</span>Nome<span class="op">},</span> <span class="op">{</span>Nome<span class="op">}</span>DTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> <span class="op">{</span>Nome<span class="op">}</span>FilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Autowired</span></span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="op">{</span>Nome<span class="op">}</span><span class="bu">Service</span><span class="op">({</span>Nome<span class="op">}</span>Repository repository<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">(</span>repository<span class="op">,</span> <span class="op">{</span>Nome<span class="op">}.</span><span class="fu">class</span><span class="op">);</span>  <span class="co">// ✅ SEMPRE passar a classe da entidade</span></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="op">{</span>Nome<span class="op">}</span> <span class="fu">mergeUpdate</span><span class="op">({</span>Nome<span class="op">}</span> existing<span class="op">,</span> <span class="op">{</span>Nome<span class="op">}</span> payload<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ⚠️ COPIE TODOS os campos simples da entidade</span></span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">.</span><span class="fu">setNome</span><span class="op">(</span>payload<span class="op">.</span><span class="fu">getNome</span><span class="op">());</span></span>
-<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">.</span><span class="fu">setObrigatorio</span><span class="op">(</span>payload<span class="op">.</span><span class="fu">getObrigatorio</span><span class="op">());</span></span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ... para CADA campo simples da entidade</span></span>
-<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> existing<span class="op">;</span></span>
-<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ✅ NÃO precisa override save() - sem relacionamentos</span></span>
-<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>✅ VALIDADO:</strong> Funciona perfeitamente para
-TipoDocumento e outras entidades simples.</p>
-<h4
-id="padrão-complexo-para-entidades-com-relacionamentos-testado"><strong>🔧
-PADRÃO COMPLEXO (Para entidades COM relacionamentos)</strong> ✅
-TESTADO</h4>
-<div class="sourceCode" id="cb10"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">service</span><span class="op">;</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">{Nome}DTO</span><span class="op">;</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">{Nome}FilterDTO</span><span class="op">;</span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">model</span><span class="op">.</span><span class="im">{Nome}</span><span class="op">;</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">model</span><span class="op">.</span><span class="im">{EntidadeRelacionada}</span><span class="op">;</span>  <span class="co">// Para cada relacionamento</span></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">repository</span><span class="op">.</span><span class="im">{Nome}Repository</span><span class="op">;</span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">jakarta</span><span class="op">.</span><span class="im">persistence</span><span class="op">.</span><span class="im">EntityNotFoundException</span><span class="op">;</span></span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">service</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">AbstractBaseCrudService</span><span class="op">;</span></span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">beans</span><span class="op">.</span><span class="im">factory</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Autowired</span><span class="op">;</span></span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">stereotype</span><span class="op">.</span><span class="im">Service</span><span class="op">;</span></span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> <span class="op">{</span>Nome<span class="op">}</span><span class="bu">Service</span> <span class="kw">extends</span> AbstractBaseCrudService<span class="op">&lt;{</span>Nome<span class="op">},</span> <span class="op">{</span>Nome<span class="op">}</span>DTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> <span class="op">{</span>Nome<span class="op">}</span>FilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> <span class="op">{</span>Nome<span class="op">}</span>Repository <span class="op">{</span>nome<span class="op">}</span>Repository<span class="op">;</span></span>
-<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ⚠️ OPCIONAL: Repositories para relacionamentos apenas se precisar validar existência</span></span>
-<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Autowired</span></span>
-<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="op">{</span>Nome<span class="op">}</span><span class="bu">Service</span><span class="op">({</span>Nome<span class="op">}</span>Repository <span class="op">{</span>nome<span class="op">}</span>Repository<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">({</span>nome<span class="op">}</span>Repository<span class="op">,</span> <span class="op">{</span>Nome<span class="op">}.</span><span class="fu">class</span><span class="op">);</span></span>
-<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.{</span>nome<span class="op">}</span>Repository <span class="op">=</span> <span class="op">{</span>nome<span class="op">}</span>Repository<span class="op">;</span></span>
-<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="op">{</span>Nome<span class="op">}</span> <span class="fu">mergeUpdate</span><span class="op">({</span>Nome<span class="op">}</span> existing<span class="op">{</span>Nome<span class="op">},</span> <span class="op">{</span>Nome<span class="op">}</span> <span class="op">{</span>nome<span class="op">}</span>FromPayload<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ✅ 1. ATUALIZAR TODOS os campos simples PRIMEIRO</span></span>
-<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">{</span>Nome<span class="op">}.</span><span class="fu">setTipoPessoa</span><span class="op">({</span>nome<span class="op">}</span>FromPayload<span class="op">.</span><span class="fu">getTipoPessoa</span><span class="op">());</span></span>
-<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">{</span>Nome<span class="op">}.</span><span class="fu">setAtivo</span><span class="op">({</span>nome<span class="op">}</span>FromPayload<span class="op">.</span><span class="fu">getAtivo</span><span class="op">());</span></span>
-<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ... TODOS os campos simples</span></span>
-<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ✅ 2. GERENCIAR RELACIONAMENTOS @ManyToOne/@OneToOne</span></span>
-<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>        <span class="co">// TEMPLATE para cada relacionamento:</span></span>
-<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">({</span>nome<span class="op">}</span>FromPayload<span class="op">.</span><span class="fu">get</span><span class="op">{</span>EntidadeRelacionada<span class="op">}()</span> <span class="op">!=</span> <span class="kw">null</span> <span class="op">&amp;&amp;</span> </span>
-<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span>nome<span class="op">}</span>FromPayload<span class="op">.</span><span class="fu">get</span><span class="op">{</span>EntidadeRelacionada<span class="op">}().</span><span class="fu">getId</span><span class="op">()</span> <span class="op">!=</span> <span class="kw">null</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>            </span>
-<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span>EntidadeRelacionada<span class="op">}</span> <span class="op">{</span>entidadeRelacionada<span class="op">}</span> <span class="op">=</span> <span class="kw">new</span> <span class="op">{</span>EntidadeRelacionada<span class="op">}();</span></span>
-<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span>entidadeRelacionada<span class="op">}.</span><span class="fu">setId</span><span class="op">({</span>nome<span class="op">}</span>FromPayload<span class="op">.</span><span class="fu">get</span><span class="op">{</span>EntidadeRelacionada<span class="op">}().</span><span class="fu">getId</span><span class="op">());</span></span>
-<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a>            existing<span class="op">{</span>Nome<span class="op">}.</span><span class="fu">set</span><span class="op">{</span>EntidadeRelacionada<span class="op">}({</span>entidadeRelacionada<span class="op">});</span></span>
-<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
-<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>            existing<span class="op">{</span>Nome<span class="op">}.</span><span class="fu">set</span><span class="op">{</span>EntidadeRelacionada<span class="op">}(</span><span class="kw">null</span><span class="op">);</span></span>
-<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> existing<span class="op">{</span>Nome<span class="op">};</span></span>
-<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="op">{</span>Nome<span class="op">}</span> <span class="fu">save</span><span class="op">({</span>Nome<span class="op">}</span> <span class="op">{</span>nome<span class="op">})</span> <span class="op">{</span></span>
-<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ✅ GARANTIR que relacionamentos sejam entidades com ID válido</span></span>
-<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>        <span class="co">// TEMPLATE para cada relacionamento:</span></span>
-<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">({</span>nome<span class="op">}.</span><span class="fu">get</span><span class="op">{</span>EntidadeRelacionada<span class="op">}()</span> <span class="op">!=</span> <span class="kw">null</span> <span class="op">&amp;&amp;</span> </span>
-<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span>nome<span class="op">}.</span><span class="fu">get</span><span class="op">{</span>EntidadeRelacionada<span class="op">}().</span><span class="fu">getId</span><span class="op">()</span> <span class="op">!=</span> <span class="kw">null</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a>            </span>
-<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span>EntidadeRelacionada<span class="op">}</span> <span class="op">{</span>entidadeRelacionada<span class="op">}</span> <span class="op">=</span> <span class="kw">new</span> <span class="op">{</span>EntidadeRelacionada<span class="op">}();</span></span>
-<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span>entidadeRelacionada<span class="op">}.</span><span class="fu">setId</span><span class="op">({</span>nome<span class="op">}.</span><span class="fu">get</span><span class="op">{</span>EntidadeRelacionada<span class="op">}().</span><span class="fu">getId</span><span class="op">());</span></span>
-<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span>nome<span class="op">}.</span><span class="fu">set</span><span class="op">{</span>EntidadeRelacionada<span class="op">}({</span>entidadeRelacionada<span class="op">});</span></span>
-<span id="cb10-57"><a href="#cb10-57" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span> <span class="cf">else</span> <span class="cf">if</span> <span class="op">({</span>nome<span class="op">}.</span><span class="fu">get</span><span class="op">{</span>EntidadeRelacionada<span class="op">}()</span> <span class="op">!=</span> <span class="kw">null</span> <span class="op">&amp;&amp;</span> </span>
-<span id="cb10-58"><a href="#cb10-58" aria-hidden="true" tabindex="-1"></a>                   <span class="op">{</span>nome<span class="op">}.</span><span class="fu">get</span><span class="op">{</span>EntidadeRelacionada<span class="op">}().</span><span class="fu">getId</span><span class="op">()</span> <span class="op">==</span> <span class="kw">null</span><span class="op">)</span> <span class="op">{</span></span>
-<span id="cb10-59"><a href="#cb10-59" aria-hidden="true" tabindex="-1"></a>            <span class="op">{</span>nome<span class="op">}.</span><span class="fu">set</span><span class="op">{</span>EntidadeRelacionada<span class="op">}(</span><span class="kw">null</span><span class="op">);</span></span>
-<span id="cb10-60"><a href="#cb10-60" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb10-61"><a href="#cb10-61" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb10-62"><a href="#cb10-62" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">{</span>nome<span class="op">}</span>Repository<span class="op">.</span><span class="fu">save</span><span class="op">({</span>nome<span class="op">});</span></span>
-<span id="cb10-63"><a href="#cb10-63" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb10-64"><a href="#cb10-64" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>✅ VALIDADO:</strong> Funciona perfeitamente para Pessoa e
-outras entidades com relacionamentos.</p>
-<h3
-id="bulk-filter-adapter-nomebulkfilteradapter.java-novo-padrão-testado">6.
-Bulk Filter Adapter (<code>{Nome}BulkFilterAdapter.java</code>) ✅ NOVO
-PADRÃO TESTADO</h3>
-<div class="sourceCode" id="cb11"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">service</span><span class="op">;</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">{Nome}FilterDTO</span><span class="op">;</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">model</span><span class="op">.</span><span class="im">{Nome}</span><span class="op">;</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">data</span><span class="op">.</span><span class="im">domain</span><span class="op">.</span><span class="im">PageRequest</span><span class="op">;</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">data</span><span class="op">.</span><span class="im">domain</span><span class="op">.</span><span class="im">Pageable</span><span class="op">;</span></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">data</span><span class="op">.</span><span class="im">domain</span><span class="op">.</span><span class="im">Sort</span><span class="op">;</span></span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">stereotype</span><span class="op">.</span><span class="im">Service</span><span class="op">;</span></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">util</span><span class="op">.</span><span class="im">List</span><span class="op">;</span></span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> <span class="op">{</span>Nome<span class="op">}</span>BulkFilterAdapter <span class="op">{</span></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> <span class="op">{</span>Nome<span class="op">}</span><span class="bu">Service</span> service<span class="op">;</span></span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="op">{</span>Nome<span class="op">}</span><span class="fu">BulkFilterAdapter</span><span class="op">({</span>Nome<span class="op">}</span><span class="bu">Service</span> service<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">service</span> <span class="op">=</span> service<span class="op">;</span></span>
-<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">long</span> <span class="fu">countByFilter</span><span class="op">({</span>Nome<span class="op">}</span>FilterDTO filter<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>        <span class="dt">var</span> spec <span class="op">=</span> service<span class="op">.</span><span class="fu">getSpecificationsBuilder</span><span class="op">().</span><span class="fu">buildSpecification</span><span class="op">(</span>filter<span class="op">,</span> <span class="bu">Pageable</span><span class="op">.</span><span class="fu">unpaged</span><span class="op">());</span></span>
-<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">.</span><span class="fu">getRepository</span><span class="op">().</span><span class="fu">count</span><span class="op">(</span>spec<span class="op">.</span><span class="fu">spec</span><span class="op">());</span></span>
-<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="bu">List</span><span class="op">&lt;</span><span class="bu">Long</span><span class="op">&gt;</span> <span class="fu">idsByFilter</span><span class="op">({</span>Nome<span class="op">}</span>FilterDTO filter<span class="op">,</span> Sort sort<span class="op">,</span> <span class="dt">int</span> limit<span class="op">,</span> <span class="dt">int</span> offset<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> pageSize <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span><span class="op">(</span>limit<span class="op">,</span> <span class="dv">1</span><span class="op">);</span></span>
-<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> safeOffset <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span><span class="op">(</span>offset<span class="op">,</span> <span class="dv">0</span><span class="op">);</span></span>
-<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> page <span class="op">=</span> safeOffset <span class="op">/</span> pageSize<span class="op">;</span></span>
-<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Pageable</span> pageable <span class="op">=</span> PageRequest<span class="op">.</span><span class="fu">of</span><span class="op">(</span>page<span class="op">,</span> pageSize<span class="op">,</span> sort<span class="op">);</span></span>
-<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>        <span class="dt">var</span> spec <span class="op">=</span> service<span class="op">.</span><span class="fu">getSpecificationsBuilder</span><span class="op">().</span><span class="fu">buildSpecification</span><span class="op">(</span>filter<span class="op">,</span> pageable<span class="op">);</span></span>
-<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">.</span><span class="fu">getRepository</span><span class="op">()</span></span>
-<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span><span class="fu">findAll</span><span class="op">(</span>spec<span class="op">.</span><span class="fu">spec</span><span class="op">(),</span> spec<span class="op">.</span><span class="fu">pageable</span><span class="op">())</span></span>
-<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span><span class="fu">stream</span><span class="op">()</span></span>
-<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span><span class="fu">map</span><span class="op">({</span>Nome<span class="op">}::</span>getId<span class="op">)</span>  <span class="co">// ✅ SEMPRE usar referência de método</span></span>
-<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span><span class="fu">toList</span><span class="op">();</span></span>
-<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb11-37"><a href="#cb11-37" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>✅ NOVO:</strong> Este template foi extraído das
-implementações funcionais e está 100% testado.</p>
-<h3 id="controller-crud-nomecontroller.java-testado">7. Controller CRUD
-(<code>{Nome}Controller.java</code>) ✅ TESTADO</h3>
-<div class="sourceCode" id="cb12"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">controller</span><span class="op">;</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">common</span><span class="op">.</span><span class="im">constants</span><span class="op">.</span><span class="im">ApiPaths</span><span class="op">;</span>  <span class="co">// ✅ SEMPRE usar ApiPaths</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">{Nome}DTO</span><span class="op">;</span></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">{Nome}FilterDTO</span><span class="op">;</span></span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">model</span><span class="op">.</span><span class="im">{Nome}</span><span class="op">;</span></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">mapper</span><span class="op">.</span><span class="im">{Nome}Mapper</span><span class="op">;</span></span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">service</span><span class="op">.</span><span class="im">{Nome}Service</span><span class="op">;</span></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">io</span><span class="op">.</span><span class="im">swagger</span><span class="op">.</span><span class="im">v3</span><span class="op">.</span><span class="im">oas</span><span class="op">.</span><span class="im">annotations</span><span class="op">.</span><span class="im">tags</span><span class="op">.</span><span class="im">Tag</span><span class="op">;</span></span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">ApiGroup</span><span class="op">;</span></span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">ApiResource</span><span class="op">;</span></span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">controller</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">AbstractCrudController</span><span class="op">;</span></span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">beans</span><span class="op">.</span><span class="im">factory</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Autowired</span><span class="op">;</span></span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">web</span><span class="op">.</span><span class="im">bind</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">RestController</span><span class="op">;</span></span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h2</span><span class="dt">&gt;</span><span class="co">📋</span> Controller de <span class="co">{</span>NomeHumano<span class="co">}</span><span class="dt">&lt;/</span><span class="kw">h2</span><span class="dt">&gt;</span></span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Gerencia opera<span class="co">çõ</span>es CRUD para <span class="co">{</span>nomeHumano<span class="co">}</span> usando o sistema automatizado </span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> de resolu<span class="co">çã</span>o de grupos OpenAPI<span class="co">.</span><span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a> <span class="co">*/</span></span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a><span class="at">@RestController</span></span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>ApiPaths<span class="op">.{</span>Modulo<span class="op">}.{</span>CONSTANTE<span class="op">})</span>  <span class="co">// ⚠️ USE O PATH EXATO fornecido pelo usuário</span></span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;{grupo-fornecido}&quot;</span><span class="op">)</span>               <span class="co">// ⚠️ USE O GRUPO EXATO fornecido pelo usuário</span></span>
-<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a><span class="at">@Tag</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;{Categoria} - {NomeHumano}&quot;</span><span class="op">,</span> description <span class="op">=</span> <span class="st">&quot;Gerenciamento de {nomeHumano}&quot;</span><span class="op">)</span></span>
-<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> <span class="op">{</span>Nome<span class="op">}</span>Controller <span class="kw">extends</span> AbstractCrudController<span class="op">&lt;{</span>Nome<span class="op">},</span> <span class="op">{</span>Nome<span class="op">}</span>DTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> <span class="op">{</span>Nome<span class="op">}</span>FilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Autowired</span></span>
-<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="op">{</span>Nome<span class="op">}</span><span class="bu">Service</span> service<span class="op">;</span></span>
-<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Autowired</span></span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="op">{</span>Nome<span class="op">}</span>Mapper mapper<span class="op">;</span></span>
-<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="op">{</span>Nome<span class="op">}</span><span class="bu">Service</span> <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">;</span></span>
-<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="op">{</span>Nome<span class="op">}</span>DTO <span class="fu">toDto</span><span class="op">({</span>Nome<span class="op">}</span> entity<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">.</span><span class="fu">toDto</span><span class="op">(</span>entity<span class="op">);</span></span>
-<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="op">{</span>Nome<span class="op">}</span> <span class="fu">toEntity</span><span class="op">({</span>Nome<span class="op">}</span>DTO dto<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb12-45"><a href="#cb12-45" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">.</span><span class="fu">toEntity</span><span class="op">(</span>dto<span class="op">);</span></span>
-<span id="cb12-46"><a href="#cb12-46" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb12-47"><a href="#cb12-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-48"><a href="#cb12-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb12-49"><a href="#cb12-49" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getEntityId</span><span class="op">({</span>Nome<span class="op">}</span> entity<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb12-50"><a href="#cb12-50" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> entity<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
-<span id="cb12-51"><a href="#cb12-51" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb12-52"><a href="#cb12-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-53"><a href="#cb12-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb12-54"><a href="#cb12-54" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getDtoId</span><span class="op">({</span>Nome<span class="op">}</span>DTO dto<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb12-55"><a href="#cb12-55" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
-<span id="cb12-56"><a href="#cb12-56" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb12-57"><a href="#cb12-57" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>✅ VALIDADO:</strong> Template funciona para todos os
-controllers.</p>
-<h3 id="controller-bulk-nomebulkcontroller.java-testado">8. Controller
-Bulk (<code>{Nome}BulkController.java</code>) ✅ TESTADO</h3>
-<div class="sourceCode" id="cb13"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">controller</span><span class="op">;</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">common</span><span class="op">.</span><span class="im">constants</span><span class="op">.</span><span class="im">ApiPaths</span><span class="op">;</span></span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">dto</span><span class="op">.</span><span class="im">{Nome}FilterDTO</span><span class="op">;</span></span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">{pacote-base}</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">model</span><span class="op">.</span><span class="im">{Nome}</span><span class="op">;</span></span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">io</span><span class="op">.</span><span class="im">swagger</span><span class="op">.</span><span class="im">v3</span><span class="op">.</span><span class="im">oas</span><span class="op">.</span><span class="im">annotations</span><span class="op">.</span><span class="im">tags</span><span class="op">.</span><span class="im">Tag</span><span class="op">;</span></span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">bulk</span><span class="op">.</span><span class="im">service</span><span class="op">.</span><span class="im">BulkJobService</span><span class="op">;</span></span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">bulk</span><span class="op">.</span><span class="im">service</span><span class="op">.</span><span class="im">BulkService</span><span class="op">;</span></span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">bulk</span><span class="op">.</span><span class="im">web</span><span class="op">.</span><span class="im">AbstractBulkController</span><span class="op">;</span></span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">ApiGroup</span><span class="op">;</span></span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">ApiResource</span><span class="op">;</span></span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">web</span><span class="op">.</span><span class="im">bind</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">RestController</span><span class="op">;</span></span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
-<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h2</span><span class="dt">&gt;</span><span class="co">💼</span> Controller de Opera<span class="co">çõ</span>es em Lote para <span class="co">{</span>NomeHumano<span class="co">}</span><span class="dt">&lt;/</span><span class="kw">h2</span><span class="dt">&gt;</span></span>
-<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Gerencia opera<span class="co">çõ</span>es de processamento em lote <span class="co">(</span>bulk<span class="co">)</span> para <span class="co">{</span>nomeHumano<span class="co">}.</span><span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
-<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a> <span class="co">*/</span></span>
-<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a><span class="at">@RestController</span></span>
-<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>ApiPaths<span class="op">.{</span>Modulo<span class="op">}.{</span>CONSTANTE<span class="op">})</span>     <span class="co">// ✅ MESMO PATH do controller CRUD</span></span>
-<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;{grupo-fornecido}-bulk&quot;</span><span class="op">)</span>             <span class="co">// ✅ ADICIONE &quot;-bulk&quot; ao grupo fornecido</span></span>
-<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a><span class="at">@Tag</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;{Categoria} Bulk - {NomeHumano}&quot;</span><span class="op">,</span> description <span class="op">=</span> <span class="st">&quot;Operações em lote para {nomeHumano}&quot;</span><span class="op">)</span></span>
-<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> <span class="op">{</span>Nome<span class="op">}</span>BulkController <span class="kw">extends</span> AbstractBulkController<span class="op">&lt;{</span>Nome<span class="op">},</span> <span class="bu">Long</span><span class="op">,</span> <span class="op">{</span>Nome<span class="op">}</span>FilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="op">{</span>Nome<span class="op">}</span><span class="fu">BulkController</span><span class="op">(</span>BulkService<span class="op">&lt;{</span>Nome<span class="op">},</span> <span class="bu">Long</span><span class="op">,</span> <span class="op">{</span>Nome<span class="op">}</span>FilterDTO<span class="op">&gt;</span> bulkService<span class="op">,</span></span>
-<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>                               BulkJobService bulkJobService<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">(</span>bulkService<span class="op">,</span> bulkJobService<span class="op">);</span></span>
-<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Class</span><span class="op">&lt;{</span>Nome<span class="op">}&gt;</span> <span class="fu">entityClass</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">{</span>Nome<span class="op">}.</span><span class="fu">class</span><span class="op">;</span></span>
-<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>✅ VALIDADO:</strong> Template funciona para todos os bulk
-controllers.</p>
-<hr />
-<h2 id="matriz-de-filtros-por-tipo-corrigida">🔍 <strong>MATRIZ DE
-FILTROS POR TIPO</strong> ✅ CORRIGIDA</h2>
-<h3 id="para-filterdto---aplicar-exatamente-estas-regras"><strong>Para
-FilterDTO - Aplicar EXATAMENTE estas regras:</strong></h3>
-<div class="sourceCode" id="cb14"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">// String/Text → ALWAYS LIKE</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">)</span></span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">String</span> nome<span class="op">;</span></span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="co">// BigDecimal → ALWAYS BETWEEN + List</span></span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">NUMBER</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">RANGE_SLIDER</span><span class="op">,</span></span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>          numericFormat <span class="op">=</span> NumericFormat<span class="op">.</span><span class="fu">CURRENCY</span><span class="op">,</span> numericStep <span class="op">=</span> <span class="st">&quot;0.01&quot;</span><span class="op">)</span></span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">BETWEEN</span><span class="op">)</span></span>
-<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span><span class="bu">BigDecimal</span><span class="op">&gt;</span> salario<span class="op">;</span></span>
-<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Integer/Long → ALWAYS BETWEEN + List  </span></span>
-<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">NUMBER</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">RANGE_SLIDER</span><span class="op">)</span></span>
-<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">BETWEEN</span><span class="op">)</span></span>
-<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span><span class="bu">Integer</span><span class="op">&gt;</span> idade<span class="op">;</span></span>
-<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a><span class="co">// LocalDate → ALWAYS BETWEEN + List</span></span>
-<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">DATE</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">DATE_RANGE</span><span class="op">)</span></span>
-<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">BETWEEN</span><span class="op">)</span></span>
-<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span>LocalDate<span class="op">&gt;</span> dataContratacao<span class="op">;</span></span>
-<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a><span class="co">// Boolean → EQUAL (não usar List)</span></span>
-<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">BOOLEAN</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">CHECKBOX</span><span class="op">)</span></span>
-<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">)</span>  <span class="co">// ✅ CORRETO: EQUAL</span></span>
-<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Boolean</span> ativo<span class="op">;</span></span>
-<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a><span class="co">// Enum → EQUAL (não usar List)</span></span>
-<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">STRING</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">SELECT</span><span class="op">)</span></span>
-<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">)</span>  <span class="co">// ✅ CORRETO: EQUAL</span></span>
-<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> StatusEnum status<span class="op">;</span></span>
-<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a><span class="co">// Relacionamento → EQUAL + Long Id (não usar List) + relation</span></span>
-<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">NUMBER</span><span class="op">,</span></span>
-<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a>        controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">SELECT</span><span class="op">,</span></span>
-<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>        endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">Catalog</span><span class="op">.</span><span class="fu">CATEGORIAS</span> <span class="op">+</span> <span class="st">&quot;/filter&quot;</span><span class="op">,</span>  <span class="co">// ✅ SEMPRE /filter</span></span>
-<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a>        valueField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
-<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a>        displayField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">)</span></span>
-<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">,</span> relation <span class="op">=</span> <span class="st">&quot;categoria.id&quot;</span><span class="op">)</span>  <span class="co">// ✅ CORRETO: EQUAL</span></span>
-<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Long</span> categoriaId<span class="op">;</span></span></code></pre></div>
-<hr />
-<h2 id="padrão-apipath.java-testado">📋 <strong>PADRÃO
-APIPATH.JAVA</strong> ✅ TESTADO</h2>
-<div class="sourceCode" id="cb15"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> {pacote-base}</span><span class="op">.</span><span class="im">common</span><span class="op">.</span><span class="im">constants</span><span class="op">;</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h2</span><span class="dt">&gt;</span><span class="co">🗂️</span> Constantes Centralizadas de Paths da API<span class="dt">&lt;/</span><span class="kw">h2</span><span class="dt">&gt;</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a> <span class="co">*/</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="dt">final</span> <span class="kw">class</span> ApiPaths <span class="op">{</span></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> BASE <span class="op">=</span> <span class="st">&quot;/api&quot;</span><span class="op">;</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">/**</span></span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>     <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">h3</span><span class="dt">&gt;</span><span class="co">👥</span> <span class="co">{</span>M<span class="co">ó</span>dulo<span class="co">}</span><span class="dt">&lt;/</span><span class="kw">h3</span><span class="dt">&gt;</span></span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>     <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Paths para opera<span class="co">çõ</span>es relacionadas ao <span class="co">{</span>m<span class="co">ó</span>dulo<span class="co">}.</span><span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>     <span class="co">*/</span></span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="kw">class</span> <span class="op">{</span>Modulo<span class="op">}</span> <span class="op">{</span></span>
-<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>        <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> <span class="op">{</span>MODULO<span class="op">}</span>_BASE <span class="op">=</span> BASE <span class="op">+</span> <span class="st">&quot;/{modulo-path}&quot;</span><span class="op">;</span></span>
-<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        <span class="co">/**</span></span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>         <span class="co">*</span> Endpoint para <span class="co">{</span>entidade<span class="co">}.</span></span>
-<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>         <span class="co">*</span> <span class="dt">&lt;</span><span class="kw">br</span><span class="dt">&gt;&lt;</span><span class="kw">strong</span><span class="dt">&gt;</span>Padr<span class="co">ã</span>o<span class="co">:</span><span class="dt">&lt;/</span><span class="kw">strong</span><span class="dt">&gt;</span> <span class="co">/</span>api<span class="co">/{</span>modulo<span class="co">-</span>path<span class="co">}/{</span>entidade<span class="co">}</span></span>
-<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>         <span class="co">*/</span></span>
-<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>        <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> <span class="op">{</span>CONSTANTE_ENTIDADE<span class="op">}</span> <span class="op">=</span> <span class="op">{</span>MODULO<span class="op">}</span>_BASE <span class="op">+</span> <span class="st">&quot;/{entidade-path}&quot;</span><span class="op">;</span></span>
-<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Construtor privado para evitar instanciação</span></span>
-<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>        <span class="kw">private</span> <span class="op">{</span>Modulo<span class="op">}()</span> <span class="op">{</span></span>
-<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>            <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">IllegalStateException</span><span class="op">(</span><span class="st">&quot;Classe de constantes não deve ser instanciada&quot;</span><span class="op">);</span></span>
-<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Construtor privado para evitar instanciação</span></span>
-<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="fu">ApiPaths</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">IllegalStateException</span><span class="op">(</span><span class="st">&quot;Classe de constantes não deve ser instanciada&quot;</span><span class="op">);</span></span>
-<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><strong>✅ EXEMPLO REAL FUNCIONANDO:</strong></p>
-<div class="sourceCode" id="cb16"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="kw">class</span> Pessoas <span class="op">{</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> PESSOAS_BASE <span class="op">=</span> BASE <span class="op">+</span> <span class="st">&quot;/pessoas&quot;</span><span class="op">;</span></span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> PESSOAS <span class="op">=</span> PESSOAS_BASE<span class="op">;</span></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> TIPOS_DOCUMENTO <span class="op">=</span> PESSOAS_BASE <span class="op">+</span> <span class="st">&quot;/tipos-documento&quot;</span><span class="op">;</span></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<hr />
-<h2 id="erros-comuns-corrigidos">⚠️ <strong>ERROS COMUNS
-CORRIGIDOS</strong></h2>
-<h3 id="nunca-faça-isso"><strong>❌ NUNCA Faça Isso:</strong></h3>
-<div class="sourceCode" id="cb17"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co">// ❌ Enum incorreto</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUALS</span><span class="op">)</span>  <span class="co">// ERRADO!</span></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co">// ❌ ControlType incorreto  </span></span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">TOGGLE_SWITCH</span>  <span class="co">// ERRADO!</span></span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="co">// ❌ Usar /all ao invés de /filter</span></span>
-<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">Module</span><span class="op">.</span><span class="fu">ENTITY</span> <span class="op">+</span> <span class="st">&quot;/all&quot;</span>  <span class="co">// ERRADO!</span></span>
-<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a><span class="co">// ❌ Usar List em Boolean</span></span>
-<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">)</span></span>
-<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span><span class="bu">Boolean</span><span class="op">&gt;</span> ativo<span class="op">;</span>  <span class="co">// ERRADO!</span></span></code></pre></div>
-<h3 id="sempre-faça-isso"><strong>✅ SEMPRE Faça Isso:</strong></h3>
-<div class="sourceCode" id="cb18"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">// ✅ Enum correto</span></span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">)</span>  <span class="co">// CORRETO!</span></span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="co">// ✅ ControlType correto</span></span>
-<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">TOGGLE</span>  <span class="co">// CORRETO!</span></span>
-<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="co">// ✅ Sempre usar /filter</span></span>
-<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">Module</span><span class="op">.</span><span class="fu">ENTITY</span> <span class="op">+</span> <span class="st">&quot;/filter&quot;</span>  <span class="co">// CORRETO!</span></span>
-<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a><span class="co">// ✅ Boolean SEM List</span></span>
-<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">)</span></span>
-<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Boolean</span> ativo<span class="op">;</span>  <span class="co">// CORRETO!</span></span></code></pre></div>
-<hr />
-<h2 id="processo-de-validação-obrigatório">🎯 <strong>PROCESSO DE
-VALIDAÇÃO OBRIGATÓRIO</strong></h2>
-<h3 id="após-gerar-todos-os-8-arquivos"><strong>1. Após Gerar Todos os 8
-Arquivos:</strong></h3>
-<div class="sourceCode" id="cb19"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. COMPILAR (eliminar erros de sintaxe)</span></span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> {projeto}</span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="ex">../../mvnw</span> compile <span class="at">-q</span> <span class="at">-DskipTests</span></span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="co"># ✅ DEVE COMPILAR SEM ERROS</span></span></code></pre></div>
-<h3 id="verificações-adicionais"><strong>2. Verificações
-Adicionais:</strong></h3>
-<ul class="task-list">
-<li><label><input type="checkbox" /><strong>8 arquivos criados</strong>
-exatamente como especificado</label></li>
-<li><label><input type="checkbox" /><strong>Todos os campos</strong> da
-entidade estão nos DTOs</label></li>
-<li><label><input type="checkbox" /><strong><span class="citation"
-data-cites="UISchema">@UISchema</span></strong> em TODOS os campos dos
-DTOs</label></li>
-<li><label><input type="checkbox" /><strong>Filtros corretos</strong>:
-String→LIKE, Boolean→EQUAL, Numéricos→BETWEEN</label></li>
-<li><label><input type="checkbox" /><strong>Controllers</strong> com
-paths e grupos corretos</label></li>
-<li><label><input type="checkbox" /><strong>ApiPaths.java</strong>
-atualizado com as constantes</label></li>
-</ul>
-<hr />
-<h2 id="implementações-de-referência">🏆 <strong>IMPLEMENTAÇÕES DE
-REFERÊNCIA</strong></h2>
-<h3 id="entidade-simples-tipodocumento"><strong>Entidade
-Simples:</strong> <code>TipoDocumento</code></h3>
+class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">)</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">String</span> nomeCompleto<span class="op">;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">BOOLEAN</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">CHECKBOX</span><span class="op">)</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">)</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Boolean</span> ativo<span class="op">;</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">SELECT</span><span class="op">,</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">CARGOS</span> <span class="op">+</span> <span class="st">&quot;/options/filter&quot;</span><span class="op">,</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    valueField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    displayField <span class="op">=</span> <span class="st">&quot;label&quot;</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">,</span> relation <span class="op">=</span> <span class="st">&quot;cargo.id&quot;</span><span class="op">)</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Integer</span> cargoId<span class="op">;</span></span></code></pre></div>
+<p>Enums corretos:</p>
 <ul>
-<li>✅ Mapper Manual</li>
-<li>✅ Service Simples<br />
-</li>
-<li>✅ Path: <code>/api/pessoas/tipos-documento</code></li>
-<li>✅ Grupo: <code>documentos</code></li>
+<li><code>FilterOperation.EQUAL</code>, nao <code>EQUALS</code></li>
+<li><code>FieldControlType.TOGGLE</code> existe, mas no quickstart
+varios booleanos usam <code>CHECKBOX</code></li>
+<li><code>FieldControlType.TOGGLE_SWITCH</code> nao e canonico</li>
 </ul>
-<h3 id="entidade-complexa-pessoa"><strong>Entidade Complexa:</strong>
-<code>Pessoa</code></h3>
+<h2 id="endpoints-reais-que-a-ui-espera">Endpoints reais que a UI
+espera</h2>
+<p>O contrato minimo do recurso deve ser compatível com:</p>
 <ul>
-<li>✅ Mapper MapStruct</li>
-<li>✅ Service Complexo</li>
-<li>✅ Path: <code>/api/pessoas</code></li>
-<li>✅ Grupo: <code>pessoas</code></li>
+<li><code>GET /{resource}/schemas</code></li>
+<li><code>GET /schemas/filtered?path={resource}/all&amp;operation=get&amp;schemaType=response</code></li>
+<li><code>GET /schemas/filtered?path={resource}/filter&amp;operation=post&amp;schemaType=request</code></li>
+<li><code>POST /{resource}/filter</code></li>
+<li><code>POST /{resource}/filter/cursor</code></li>
+<li><code>POST /{resource}/locate</code></li>
+<li><code>POST /{resource}/options/filter</code></li>
+<li><code>GET /{resource}/options/by-ids</code></li>
+<li>CRUD basico</li>
 </ul>
-<p><strong>Ambas implementações compilam e funcionam
-perfeitamente!</strong></p>
-<hr />
-<h2 id="resumo-das-melhorias">📊 <strong>RESUMO DAS
-MELHORIAS</strong></h2>
-<table>
-<thead>
-<tr class="header">
-<th>Aspecto</th>
-<th>Versão Anterior</th>
-<th>Versão Aprimorada</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><strong>Enums</strong></td>
-<td>❌ <code>EQUALS</code>, <code>TOGGLE_SWITCH</code></td>
-<td>✅ <code>EQUAL</code>, <code>TOGGLE</code></td>
-</tr>
-<tr class="even">
-<td><strong>BulkFilterAdapter</strong></td>
-<td>❌ Não documentado</td>
-<td>✅ Template completo</td>
-</tr>
-<tr class="odd">
-<td><strong>Validação</strong></td>
-<td>❌ Teórica</td>
-<td>✅ 100% testada</td>
-</tr>
-<tr class="even">
-<td><strong>Exemplos</strong></td>
-<td>❌ Genéricos</td>
-<td>✅ Reais funcionais</td>
-</tr>
-<tr class="odd">
-<td><strong>Imports</strong></td>
-<td>⚠️ Alguns incorretos</td>
-<td>✅ Todos validados</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Este guia aprimorado garante implementações que compilam e
-funcionam na primeira tentativa!</strong></p>
-<hr />
-<h2 id="anexos---referências-completas-de-uischema">📚 <strong>ANEXOS -
-REFERÊNCIAS COMPLETAS DE UISCHEMA</strong></h2>
-<p>Para auxiliar na criação de DTOs e FilterDTOs com anotações UISchema
-corretas, anexamos as classes de referência do
-praxis-metadata-starter:</p>
-<h3 id="anexo-a---tipos-de-controle-disponíveis"><strong>🎮 ANEXO A -
-Tipos de Controle Disponíveis</strong></h3>
-<p><strong>Arquivo:</strong> <code>FieldControlType.java</code>
-<strong>Localização:</strong>
-<code>backend-libs/praxis-metadata-starter/src/main/java/org/praxisplatform/uischema/FieldControlType.java</code></p>
-<h3 id="anexo-b---padrões-de-validação"><strong>✅ ANEXO B - Padrões de
-Validação</strong></h3>
-<p><strong>Arquivo:</strong> <code>ValidationPattern.java</code>
-<strong>Localização:</strong>
-<code>backend-libs/praxis-metadata-starter/src/main/java/org/praxisplatform/uischema/ValidationPattern.java</code></p>
-<h3 id="anexo-c---exemplos-práticos-completos"><strong>📝 ANEXO C -
-Exemplos Práticos Completos</strong></h3>
-<p><strong>Arquivo:</strong> <code>UiSchemaTestDTO.java</code><br />
-<strong>Localização:</strong>
-<code>examples/praxis-backend-libs-sample-app/src/main/java/com/example/praxis/uischema/dto/UiSchemaTestDTO.java</code></p>
-<h3 id="anexo-d---propriedades-de-configuração"><strong>⚙️ ANEXO D -
-Propriedades de Configuração</strong></h3>
-<p><strong>Arquivo:</strong> <code>FieldConfigProperties.java</code>
-<strong>Localização:</strong>
-<code>backend-libs/praxis-metadata-starter/src/main/java/org/praxisplatform/uischema/FieldConfigProperties.java</code></p>
-<h3 id="como-usar-os-anexos"><strong>📖 Como Usar os
-Anexos:</strong></h3>
-<ol type="1">
-<li><strong>Para escolher controles</strong>: Consulte ANEXO A
-(FieldControlType)</li>
-<li><strong>Para validações</strong>: Consulte ANEXO B
-(ValidationPattern)<br />
-</li>
-<li><strong>Para exemplos práticos</strong>: Consulte ANEXO C
-(UiSchemaTestDTO)</li>
-<li><strong>Para propriedades avançadas</strong>: Consulte ANEXO D
-(FieldConfigProperties)</li>
-</ol>
-<h3 id="exemplos-de-consulta"><strong>🔍 Exemplos de
-Consulta:</strong></h3>
-<div class="sourceCode" id="cb20"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co">// ❓ &quot;Preciso de um controle para CPF&quot;</span></span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="co">// 👉 Consulte ANEXO A: FieldControlType.CPF_CNPJ_INPUT</span></span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
-<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">CPF_CNPJ_INPUT</span><span class="op">,</span></span>
-<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>    pattern <span class="op">=</span> ValidationPattern<span class="op">.</span><span class="fu">CPF</span><span class="op">,</span>  <span class="co">// 👈 ANEXO B</span></span>
-<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>    mask <span class="op">=</span> <span class="st">&quot;000.000.000-00&quot;</span></span>
-<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
-<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">String</span> cpf<span class="op">;</span></span>
-<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a><span class="co">// ❓ &quot;Como configurar um campo monetário?&quot;  </span></span>
-<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a><span class="co">// 👉 Consulte ANEXO C: exemplo &#39;salaryField&#39; linha ~200</span></span>
-<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
-<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>    controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">CURRENCY_INPUT</span><span class="op">,</span></span>
-<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>    numericFormat <span class="op">=</span> NumericFormat<span class="op">.</span><span class="fu">CURRENCY</span><span class="op">,</span></span>
-<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>    numericStep <span class="op">=</span> <span class="st">&quot;0.01&quot;</span></span>
-<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
-<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">BigDecimal</span> salario<span class="op">;</span></span></code></pre></div>
-<p><strong>Estas 4 classes de referência cobrem 100% dos casos de uso
-para anotações UISchema no Praxis Platform.</strong></p>
+<h2 id="como-o-angular-realmente-consome-isso">Como o Angular realmente
+consome isso</h2>
+<p><code>praxis-ui-angular</code> usa <code>GenericCrudService</code>
+para:</p>
+<ul>
+<li>chamar <code>getSchema()</code> no recurso e, a partir disso,
+resolver o grid schema estrutural via
+<code>/schemas/filtered</code></li>
+<li>chamar <code>getFilteredSchema()</code> para o
+<code>FilterDTO</code></li>
+<li>revalidar com <code>If-None-Match</code></li>
+<li>ler <code>ETag</code>, <code>X-Schema-Hash</code> e
+<code>x-ui.resource.idField</code></li>
+</ul>
+<p>Implicacoes para o codigo gerado:</p>
+<ul>
+<li>o schema precisa expor <code>x-ui</code> coerente</li>
+<li>o DTO precisa manter <code>idField</code> inferivel ou sobrescrito
+no controller</li>
+<li>endpoints de select precisam ser compativeis com
+<code>OptionDTO{id,label}</code></li>
+</ul>
+<h2 id="uso-real-de-referencia">Uso real de referencia</h2>
+<p>O recurso <code>Funcionario</code> do
+<code>praxis-api-quickstart</code> e a melhor referencia operacional
+atual para um CRUD completo:</p>
+<ul>
+<li>controller sobre <code>AbstractCrudController</code></li>
+<li><code>options/filter</code> retornando <code>OptionDTO</code></li>
+<li>DTO com <code>displayField = "label"</code> para selects
+remotos</li>
+<li>mapper com <code>CorporateMapperConfig</code></li>
+</ul>
+<h2 id="prompt-recomendado-para-ia">Prompt recomendado para IA</h2>
+<pre class="text"><code>Voce esta gerando uma feature CRUD metadata-driven para o ecossistema Praxis.
+
+Siga o contrato canônico do praxis-metadata-starter.
+Use praxis-api-quickstart como host operacional de referencia e praxis-ui-angular como consumidor final do contrato.
+
+Gere:
+- DTO com @UISchema e Bean Validation
+- FilterDTO com @Filterable
+- Mapper com CorporateMapperConfig quando usar MapStruct
+- Repository extendendo BaseCrudRepository
+- Service extendendo AbstractBaseCrudService
+- Controller extendendo AbstractCrudController
+
+Nao trate bulk como obrigatorio.
+So gere BulkController ou similares se o pedido mencionar explicitamente uma stack bulk externa.
+
+Entrada:
+- Entidade: {entity-path}
+- Resource path: {resource-path}
+- Api group: {api-group}
+- Pacote base: {base-package}</code></pre>
+<h2 id="checklist-minimo-de-saida">Checklist minimo de saida</h2>
+<p>Antes de concluir, o agente deve conferir:</p>
+<ul>
+<li>o controller usa <code>@ApiResource</code> e
+<code>@ApiGroup</code></li>
+<li>o mapper usa <code>CorporateMapperConfig</code> quando
+aplicavel</li>
+<li><code>FilterOperation</code> usa enums canônicos</li>
+<li>selects remotos apontam para <code>/options/filter</code> com
+<code>displayField = "label"</code> quando consumirem
+<code>OptionDTO</code></li>
+<li>o recurso pode ser consumido por <code>GenericCrudService</code> sem
+adaptacao local</li>
+</ul>
+<h2 id="fora-de-escopo">Fora de escopo</h2>
+<p>Este guia nao institucionaliza:</p>
+<ul>
+<li>templates antigos baseados em <code>ms-pessoa-ananke</code></li>
+<li>suposicao de que toda entidade precisa de bulk</li>
+<li>dependencia obrigatoria em modulos externos nao publicados neste
+starter</li>
+</ul>
+<h2 id="referencias-cruzadas">Referencias cruzadas</h2>
+<ul>
+<li><code>praxis-metadata-starter/README.md</code></li>
+<li><code>praxis-api-quickstart/README.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-core/src/lib/services/generic-crud.service.ts</code></li>
+<li><code>praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/hr/controller/FuncionarioController.java</code></li>
+<li><code>praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/hr/dto/FuncionarioDTO.java</code></li>
+</ul>
 </body>
 </html>

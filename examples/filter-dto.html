@@ -334,11 +334,14 @@ com as configurações acima;</li>
 <li>as validações (por exemplo, <code>@NotNull</code>) seriam
 convertidas automaticamente em <code>x-ui.validation</code>;</li>
 <li>o endpoint
-<code>/schemas/filtered?path=/api/human-resources/funcionarios/all</code>
-retornará apenas os campos relevantes.</li>
+<code>GET /schemas/filtered?path=/api/human-resources/funcionarios/filter&amp;operation=post&amp;schemaType=request</code>
+retornará o schema de request do filtro;</li>
+<li>o endpoint
+<code>GET /schemas/filtered?path=/api/human-resources/funcionarios/all&amp;operation=get&amp;schemaType=response</code>
+retornará o schema de response da listagem.</li>
 </ul>
-<p>No Angular, o normalizador converte esse contrato para a forma
-canônica de runtime:</p>
+<p>No Angular, o <code>GenericCrudService</code> normaliza esse contrato
+para a forma canônica de runtime:</p>
 <ul>
 <li><code>endpoint</code> -&gt; <code>resourcePath</code></li>
 <li><code>displayField</code> -&gt; <code>optionLabelKey</code></li>
@@ -348,7 +351,9 @@ canônica de runtime:</p>
 <p>Ou seja: no backend Java o contrato anotado continua sendo
 <code>endpoint</code>/<code>displayField</code>/<code>valueField</code>,
 mas a UI Praxis passa a operar internamente com
-<code>resourcePath</code> e chaves <code>option*Key</code>.</p>
+<code>resourcePath</code> e chaves <code>option*Key</code>, revalidando
+o schema com <code>If-None-Match</code> e consumindo <code>ETag</code> e
+<code>X-Schema-Hash</code>.</p>
 <p>Observações de maturidade do cenário atual:</p>
 <ul>
 <li><code>SELECTION_LIST</code> já tem runtime Angular utilizável, mas

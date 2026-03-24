@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Protocolo de Prova dos Guias de IA</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Protocolo de Prova dos Guias de IA</h1>
+</header>
+<h1 id="protocolo-de-prova-dos-guias-de-ia">Protocolo de Prova dos Guias
+de IA</h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Medir se uma LLM consegue, partindo apenas dos guias oficiais,
+produzir uma aplicacao Spring Boot funcional e um CRUD metadata-driven
+aderente ao contrato da plataforma.</p>
+<h2 id="classificacao-da-prova">Classificacao da prova</h2>
+<p>Esta prova e <code>docs-apenas</code> no starter, mas valida
+comportamento de superficies canonicas de alto risco:</p>
+<ul>
+<li><code>x-ui</code></li>
+<li><code>/schemas/filtered</code></li>
+<li><code>GET /{resource}/schemas</code></li>
+<li><code>@ApiResource</code></li>
+<li><code>@ApiGroup</code></li>
+<li><code>GenericFilterDTO</code></li>
+<li><code>OptionDTO{id,label}</code></li>
+<li><code>ETag</code> e <code>X-Schema-Hash</code></li>
+</ul>
+<h2 id="regras-da-rodada">Regras da rodada</h2>
+<ul>
+<li>a LLM deve receber apenas o material explicitamente permitido</li>
+<li>a rodada deve começar em workspace limpo para o projeto sandbox</li>
+<li>nenhuma correcao humana de codigo e permitida antes do veredito da
+rodada</li>
+<li>falhas de build, runtime, contrato ou consumo contam como
+reprovação</li>
+<li>toda rodada deve gerar um relatorio preenchido a partir de
+<code>TEMPLATE-RELATORIO-DE-RODADA.md</code></li>
+</ul>
+<h2 id="material-permitido-para-a-llm">Material permitido para a
+LLM</h2>
+<p>Material minimo:</p>
+<ul>
+<li><code>docs/guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md</code></li>
+<li><code>docs/guides/GUIA-CLAUDE-AI-CRUD-BULK.md</code></li>
+<li><code>docs/guides/CHECKLIST-VALIDACAO-IA.md</code></li>
+<li>o prompt da rodada em <code>PROMPTS-DE-EXECUCAO.md</code></li>
+</ul>
+<p>Material adicional opcional:</p>
+<ul>
+<li><code>docs/guides/OPTIONS-ENDPOINT.md</code></li>
+<li><code>docs/guides/FILTROS-E-PAGINACAO.md</code></li>
+<li><code>docs/guides/CRUD-COM-APIRESOURCE.md</code></li>
+</ul>
+<p>Nao liberar como baseline:</p>
+<ul>
+<li>snippets copiados do <code>praxis-api-quickstart</code></li>
+<li>correcoes manuais de POM ou properties fora do que o guia ja
+disser</li>
+<li>respostas do tipo “siga o padrao do quickstart” sem o guia ter
+detalhado o necessario</li>
+</ul>
+<h2 id="rodadas-canonicas">Rodadas canonicas</h2>
+<h3 id="rodada-1-h2-simples">Rodada 1: H2 simples</h3>
+<p>Objetivo:</p>
+<ul>
+<li>criar aplicacao nova</li>
+<li>criar entidade simples sem relacao</li>
+<li>provar build, subida, persistencia e schemas</li>
+</ul>
+<p>Entidade recomendada:</p>
+<ul>
+<li><code>Categoria</code></li>
+<li>campos: <code>id</code>, <code>nome</code>, <code>ativo</code></li>
+</ul>
+<h3 id="rodada-2-h2-com-relacao">Rodada 2: H2 com relacao</h3>
+<p>Objetivo:</p>
+<ul>
+<li>manter banco local simples</li>
+<li>introduzir relacao e select remoto</li>
+</ul>
+<p>Entidades recomendadas:</p>
+<ul>
+<li><code>Categoria</code></li>
+<li><code>Produto</code></li>
+<li><code>Produto.categoria</code></li>
+</ul>
+<h3 id="rodada-3-postgresql-simples">Rodada 3: PostgreSQL simples</h3>
+<p>Objetivo:</p>
+<ul>
+<li>validar que o guia nao esta acidentalmente acoplado a H2</li>
+<li>provar datasource real, Flyway e bootstrap funcional</li>
+</ul>
+<h3 id="rodada-4-postgresql-com-relacao">Rodada 4: PostgreSQL com
+relacao</h3>
+<p>Objetivo:</p>
+<ul>
+<li>fechar o fluxo minimo de CRUD com relacao, options e schemas sob
+banco real</li>
+</ul>
+<h3 id="rodada-5-consumo-angular">Rodada 5: Consumo Angular</h3>
+<p>Objetivo:</p>
+<ul>
+<li>validar que o recurso gerado e consumivel por
+<code>GenericCrudService</code></li>
+<li>esta rodada e complementar; nao substitui as quatro rodadas
+anteriores</li>
+</ul>
+<h2 id="criterio-de-aprovacao-por-rodada">Criterio de aprovacao por
+rodada</h2>
+<p>A rodada so e aprovada se todos os itens abaixo passarem sem
+intervencao humana no codigo gerado:</p>
+<ul>
+<li><code>mvn clean package</code></li>
+<li>aplicacao sobe</li>
+<li><code>GET /v3/api-docs</code></li>
+<li>Swagger UI</li>
+<li><code>GET /{resource}/schemas</code></li>
+<li><code>GET /schemas/filtered?path={resource}/all&amp;operation=get&amp;schemaType=response</code></li>
+<li><code>GET /schemas/filtered?path={resource}/filter&amp;operation=post&amp;schemaType=request</code></li>
+<li><code>POST /{resource}</code></li>
+<li><code>POST /{resource}/filter</code></li>
+<li><code>POST /{resource}/options/filter</code> quando houver select
+remoto</li>
+<li><code>GET /{resource}/options/by-ids</code> quando houver select
+remoto</li>
+<li>persistencia real no banco escolhido</li>
+<li><code>ETag</code> e <code>X-Schema-Hash</code> presentes nos schemas
+filtrados</li>
+</ul>
+<h2 id="taxonomia-obrigatoria-de-falhas">Taxonomia obrigatoria de
+falhas</h2>
+<p>Cada falha deve ser classificada como uma das categorias abaixo:</p>
+<ul>
+<li><code>guia-incompleto</code></li>
+<li><code>guia-ambiguo</code></li>
+<li><code>contrato-nao-explicito</code></li>
+<li><code>dependencia-implicita</code></li>
+<li><code>prompt-fraco</code></li>
+<li><code>erro-da-llm</code></li>
+<li><code>problema-real-do-starter</code></li>
+</ul>
+<h2 id="politica-de-iteracao">Politica de iteracao</h2>
+<p>Corrija nesta ordem:</p>
+<ol type="1">
+<li>guia</li>
+<li>checklist</li>
+<li>prompt da rodada</li>
+<li>somente depois, codigo canônico, se a prova revelou um problema real
+do starter</li>
+</ol>
+<p>Nao normalize workaround local em prompt se a causa correta for falha
+do guia ou do contrato.</p>
+<h2 id="validacao-minima-recomendada">Validacao minima recomendada</h2>
+<p>Para cada rodada, registrar:</p>
+<ul>
+<li>comando de build executado</li>
+<li>comando de subida executado</li>
+<li>evidencias HTTP minimas</li>
+<li>erro bruto quando houver falha</li>
+<li>interpretacao da causa</li>
+<li>ajuste documental proposto</li>
+</ul>
+<h2 id="definicao-de-100">Definicao de “100%”</h2>
+<p>Para este protocolo, <code>100%</code> significa:</p>
+<ul>
+<li>quatro rodadas principais aprovadas</li>
+<li>nenhuma correcao manual de codigo entre prompt e aceite</li>
+<li>nenhum requisito critico do contrato ficando dependente de
+conhecimento oral ou memoria do quickstart</li>
+</ul>
+<p>Isso nao significa
+<code>100% para qualquer LLM e qualquer prompt</code>. Significa
+<code>100% dentro do protocolo finito desta prova</code>.</p>
+</body>
+</html>

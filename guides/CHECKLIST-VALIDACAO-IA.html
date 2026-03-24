@@ -171,8 +171,8 @@
 </header>
 <h1 id="checklist-de-validação-código-gerado-por-ia-praxis-platform">✅
 Checklist de Validação — Código Gerado por IA (Praxis Platform)</h1>
-<p>Use esta lista após o agente (Claude/LLM) gerar código para sua
-aplicação ou recurso CRUD+Bulk.</p>
+<p>Use esta lista após o agente gerar código para uma aplicação nova ou
+para um recurso CRUD metadata-driven.</p>
 <h2 id="build-e-execução">1) Build e Execução</h2>
 <ul>
 <li>mvn clean package executa sem erros</li>
@@ -202,6 +202,10 @@ read-only)</li>
 <li>GET /options/by-ids reidrata labels preservando ordem</li>
 <li><span class="citation" data-cites="OptionLabel">@OptionLabel</span>
 presente ou heurísticas de label funcionam</li>
+<li>Campos <code>@UISchema(endpoint=".../options/filter")</code> usam
+<code>valueField=id</code> e <code>displayField=label</code></li>
+<li><code>displayField=nome</code> só aparece quando a UI consome
+<code>/{resource}/filter</code> com DTO completo</li>
 </ul>
 <h2 id="filtros-e-paginação">5) Filtros e Paginação</h2>
 <ul>
@@ -228,15 +232,16 @@ Mapeamentos</h2>
 data-cites="UISchema">@UISchema</span> nos campos visíveis)</li>
 <li>FilterDTO modela critérios de busca (incluindo ranges e
 relações)</li>
-<li>Mapeador manual para entidades simples; MapStruct para
-relacionamentos</li>
-<li>Métodos <span class="citation" data-cites="Named">@Named</span> para
-ID ↔︎ Entidade quando aplicável</li>
+<li>Quando houver MapStruct, usar
+<code>CorporateMapperConfig</code></li>
+<li>Métodos/helper de ID ↔︎ Entidade quando aplicável</li>
 </ul>
 <h2 id="propriedades-e-infra">8) Propriedades e Infra</h2>
 <ul>
 <li>ApiPaths centraliza os paths</li>
 <li>Propriedades SpringDoc ativas (api-docs, grupos e Swagger UI)</li>
+<li><code>app.openapi.internal-base-url</code> configurado quando houver
+proxy/origem interna distinta</li>
 <li>Perfis dev/prod configurados; H2 em dev se aplicável</li>
 </ul>
 <h2 id="convenções-e-organização">9) Convenções e Organização</h2>
@@ -247,6 +252,8 @@ controller</li>
 data-cites="ApiResource">@ApiResource</span>(ApiPaths…) presente; <span
 class="citation" data-cites="ApiGroup">@ApiGroup</span> coerente</li>
 <li>Nomes de classes, paths e grupos consistentes</li>
+<li>Nenhuma dependência opcional de bulk/files/config tratada como
+obrigatória sem pedido explícito</li>
 </ul>
 <h2 id="testes-manuais-rápidos">10) Testes manuais rápidos</h2>
 <ul>
@@ -259,7 +266,7 @@ IN/NOT_IN</li>
 </ul>
 <hr />
 <p>Referências úteis: - Guia Aplicação Nova:
-GUIA-CLAUDE-AI-APLICACAO-NOVA.md - Guia CRUD+Bulk:
+GUIA-CLAUDE-AI-APLICACAO-NOVA.md - Guia de CRUD metadata-driven:
 GUIA-CLAUDE-AI-CRUD-BULK.md</p>
 </body>
 </html>

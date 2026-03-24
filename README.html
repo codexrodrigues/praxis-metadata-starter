@@ -229,56 +229,50 @@ responsabilidades de cada pacote Java e quando estender contratos.</li>
 <li><a href="sitemap.xml">Sitemap</a>: referência para indexadores
 (Google, IA) e navegação cruzada entre tópicos.</li>
 </ul>
-<h3 id="guia-crudbulk-automatizado">🤖 <a
-href="guides/GUIA-CLAUDE-AI-CRUD-BULK.md">Guia CRUD+Bulk
-Automatizado</a></h3>
-<p><strong>O guia principal para geração automatizada de funcionalidades
-CRUD+Bulk</strong></p>
+<h3 id="guia-de-crud-metadata-driven-por-entidade">🤖 <a
+href="guides/GUIA-CLAUDE-AI-CRUD-BULK.md">Guia de CRUD Metadata-Driven
+por Entidade</a></h3>
+<p><strong>O guia principal para geração automatizada de recursos CRUD
+alinhados ao contrato real do starter</strong></p>
 <ul>
-<li>✅ <strong>Templates 100% testados</strong> com entidades Pessoa e
-TipoDocumento<br />
-</li>
-<li>✅ <strong>Enums corretos</strong> (<code>EQUAL</code>,
-<code>TOGGLE</code>) baseados em implementações reais</li>
-<li>✅ <strong>Padrões validados</strong> para Mappers (Manual vs
-MapStruct) e Services (Simples vs Complexo)</li>
-<li>✅ <strong>BulkFilterAdapter completo</strong> com templates
-funcionais</li>
-<li>✅ <strong>4 Anexos de referência</strong> UISchema para
-consulta</li>
+<li>✅ ancorado no código canônico do starter</li>
+<li>✅ referenciado no uso real do
+<code>praxis-api-quickstart</code></li>
+<li>✅ compatível com o consumo do <code>GenericCrudService</code> no
+<code>praxis-ui-angular</code></li>
+<li>✅ corrige a regra de options para
+<code>OptionDTO{id,label}</code></li>
 </ul>
-<p><strong>Quando usar:</strong> Para criar novas funcionalidades
-CRUD+Bulk de forma automatizada e padronizada.</p>
+<p><strong>Quando usar:</strong> Para criar um recurso CRUD
+metadata-driven de forma padronizada e consumível pela UI Praxis.</p>
 <h3 id="guia-para-aplicações-novas">🚀 <a
 href="guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md">Guia para Aplicações
 Novas</a></h3>
-<p><strong>Guia para setup completo de novas aplicações</strong></p>
+<p><strong>Guia para criar uma aplicação Spring Boot mínima e correta
+sobre o starter</strong></p>
 <ul>
-<li>Configuração inicial do projeto</li>
-<li>Estrutura de módulos e pacotes</li>
-<li>Integração com Praxis Platform</li>
+<li>baseline mínimo de dependências</li>
+<li>estrutura inicial de projeto</li>
+<li>primeiro recurso metadata-driven</li>
+<li>alinhamento com quickstart e Angular</li>
 </ul>
 <p><strong>Quando usar:</strong> Ao criar uma nova aplicação Spring Boot
 com Praxis Metadata Starter.</p>
 <hr />
 <h2 id="exemplos-práticos-examples">💡 <strong>Exemplos
 Práticos</strong> (<code>/examples/</code>)</h2>
-<h3 id="template-de-prompt-para-crudbulk">📝 <a
+<h3 id="template-de-prompt-para-recurso-crud-metadata-driven">📝 <a
 href="examples/EXEMPLO-PROMPT-CRUD-BULK.md">Template de Prompt para
-CRUD+Bulk</a></h3>
-<p><strong>Formato exato de prompt para solicitar novas
-funcionalidades</strong></p>
+Recurso CRUD Metadata-Driven</a></h3>
+<p><strong>Formato recomendado de prompt para solicitar um recurso
+alinhado ao starter</strong></p>
 <ul>
-<li>🎯 <strong>Template padronizado</strong> com 4 informações
-obrigatórias</li>
-<li>🎨 <strong>Exemplos por módulo</strong> (RH, Financeiro, Estoque,
-Vendas)</li>
-<li>🛠️ <strong>Troubleshooting</strong> para erros comuns</li>
-<li>🏆 <strong>Garantia de 100% de sucesso</strong> baseada no guia
-aprimorado</li>
+<li>🎯 template padronizado com entradas mínimas</li>
+<li>🔗 referência explícita ao quickstart e ao Angular</li>
+<li>🛠️ regras para evitar bulk obrigatório e exemplos legados</li>
 </ul>
-<p><strong>Quando usar:</strong> Como referência ao solicitar criação de
-novas funcionalidades CRUD+Bulk.</p>
+<p><strong>Quando usar:</strong> Como referência para solicitar geração
+assistida de um recurso CRUD metadata-driven.</p>
 <h3 id="filter-dto-com-metadados-x-ui">🧾 <a
 href="examples/filter-dto.md">Filter DTO com Metadados x-ui</a></h3>
 <p><strong>Mostra um filtro completo com <code>@Filterable</code> +
@@ -370,8 +364,8 @@ Documentação</strong></h2>
 <h3 id="para-desenvolvedores---primeira-implementação"><strong>Para
 Desenvolvedores - Primeira Implementação:</strong></h3>
 <ol type="1">
-<li>📖 Leia o <a href="guides/GUIA-CLAUDE-AI-CRUD-BULK.md">Guia
-CRUD+Bulk</a> completo</li>
+<li>📖 Leia o <a href="guides/GUIA-CLAUDE-AI-CRUD-BULK.md">Guia de CRUD
+Metadata-Driven</a> completo</li>
 <li>📝 Use o <a href="examples/EXEMPLO-PROMPT-CRUD-BULK.md">Template de
 Prompt</a> como referência</li>
 <li>🔧 Consulte a documentação técnica conforme necessário</li>
@@ -422,31 +416,23 @@ href="examples/EXEMPLO-PROMPT-CRUD-BULK.md">Template de Prompt</a></li>
 <li>🚀 Solicite suas funcionalidades seguindo o formato</li>
 </ol>
 <hr />
-<h2 id="garantias-de-qualidade">🏆 <strong>Garantias de
-Qualidade</strong></h2>
-<p>Esta documentação foi <strong>validada através de implementações
-reais</strong>:</p>
+<h2 id="critério-de-qualidade">🏆 Critério de Qualidade</h2>
+<p>Esta documentação deve permanecer aderente a:</p>
 <ul>
-<li>✅ <strong>Entidade Pessoa</strong> (complexa, com relacionamentos)
-- 8 arquivos gerados ✅</li>
-<li>✅ <strong>Entidade TipoDocumento</strong> (simples, sem
-relacionamentos) - 8 arquivos gerados ✅</li>
-<li>✅ <strong>100% de compilação</strong> sem erros na primeira
-tentativa</li>
-<li>✅ <strong>Padrões consistentes</strong> em todo o código
-gerado</li>
+<li>código canônico do <code>praxis-metadata-starter</code></li>
+<li>uso real e publicado do <code>praxis-api-quickstart</code></li>
+<li>consumo final em <code>praxis-ui-angular</code></li>
 </ul>
 <hr />
 <h2 id="histórico-de-melhorias">📈 <strong>Histórico de
 Melhorias</strong></h2>
-<h3 id="v2.0-atual---validado-e-aprimorado"><strong>v2.0 (Atual) -
-Validado e Aprimorado</strong></h3>
+<h3 id="v2.1-atual---equiparado-ao-código-fonte"><strong>v2.1 (Atual) -
+Equiparado ao código fonte</strong></h3>
 <ul>
-<li>✅ Enums corretos baseados em implementações reais</li>
-<li>✅ BulkFilterAdapter completamente documentado</li>
-<li>✅ Anexos UISchema de referência adicionados</li>
-<li>✅ Matrizes de decisão para Mappers e Services</li>
-<li>✅ Templates 100% testados e funcionais</li>
+<li>✅ guias reancorados no starter canônico</li>
+<li>✅ exemplos alinhados ao quickstart real</li>
+<li>✅ consumo Angular refletido na documentação</li>
+<li>✅ claims não canônicas de bulk removidas do baseline</li>
 </ul>
 <h3 id="v1.0---versão-inicial"><strong>v1.0 - Versão
 Inicial</strong></h3>

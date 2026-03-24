@@ -1,6 +1,6 @@
 # ✅ Checklist de Validação — Código Gerado por IA (Praxis Platform)
 
-Use esta lista após o agente (Claude/LLM) gerar código para sua aplicação ou recurso CRUD+Bulk.
+Use esta lista após o agente gerar código para uma aplicação nova ou para um recurso CRUD metadata-driven.
 
 ## 1) Build e Execução
 - mvn clean package executa sem erros
@@ -21,6 +21,8 @@ Use esta lista após o agente (Claude/LLM) gerar código para sua aplicação ou
 - POST /options/filter retorna OptionDTO paginado
 - GET /options/by-ids reidrata labels preservando ordem
 - @OptionLabel presente ou heurísticas de label funcionam
+- Campos `@UISchema(endpoint=".../options/filter")` usam `valueField=id` e `displayField=label`
+- `displayField=nome` só aparece quando a UI consome `/{resource}/filter` com DTO completo
 
 ## 5) Filtros e Paginação
 - FilterDTO usa @Filterable corretamente (operation, relation)
@@ -36,18 +38,20 @@ Use esta lista após o agente (Claude/LLM) gerar código para sua aplicação ou
 ## 7) DTOs, MapStruct e Mapeamentos
 - DTO reflete campos do recurso (com @UISchema nos campos visíveis)
 - FilterDTO modela critérios de busca (incluindo ranges e relações)
-- Mapeador manual para entidades simples; MapStruct para relacionamentos
-- Métodos @Named para ID ↔ Entidade quando aplicável
+- Quando houver MapStruct, usar `CorporateMapperConfig`
+- Métodos/helper de ID ↔ Entidade quando aplicável
 
 ## 8) Propriedades e Infra
 - ApiPaths centraliza os paths
 - Propriedades SpringDoc ativas (api-docs, grupos e Swagger UI)
+- `app.openapi.internal-base-url` configurado quando houver proxy/origem interna distinta
 - Perfis dev/prod configurados; H2 em dev se aplicável
 
 ## 9) Convenções e Organização
 - Pacotes por módulo: entity, dto, mapper, repository, service, controller
 - @ApiResource(ApiPaths...) presente; @ApiGroup coerente
 - Nomes de classes, paths e grupos consistentes
+- Nenhuma dependência opcional de bulk/files/config tratada como obrigatória sem pedido explícito
 
 ## 10) Testes manuais rápidos
 - Cadastrar/editar/remover registro (ou 405 para read-only)
@@ -60,4 +64,4 @@ Use esta lista após o agente (Claude/LLM) gerar código para sua aplicação ou
 
 Referências úteis:
 - Guia Aplicação Nova: GUIA-CLAUDE-AI-APLICACAO-NOVA.md
-- Guia CRUD+Bulk: GUIA-CLAUDE-AI-CRUD-BULK.md
+- Guia de CRUD metadata-driven: GUIA-CLAUDE-AI-CRUD-BULK.md

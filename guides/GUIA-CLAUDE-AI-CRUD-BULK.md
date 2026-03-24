@@ -1,822 +1,357 @@
-# 🤖 Guia Completo para Claude AI - Geração de Funcionalidades CRUD+Bulk
+# Guia para Agentes de IA - Gerar CRUD Metadata-Driven por Entidade
 
-## 🎯 MELHORIAS NESTA VERSÃO
+> Nota de escopo: apesar do nome do arquivo mencionar `CRUD-BULK`, este guia documenta o baseline canônico de CRUD metadata-driven. Bulk continua opcional e externo a este fluxo minimo.
 
-Este guia foi **APRIMORADO** baseado na implementação real das entidades **Pessoa** e **TipoDocumento** no projeto `ms-pessoa-ananke`, corrigindo as inconsistências encontradas e adicionando padrões 100% testados.
+## Objetivo
 
-### **🔧 Correções Principais:**
-- ✅ **Enums Corretos**: `EQUAL` (não `EQUALS`), `TOGGLE` (não `TOGGLE_SWITCH`)
-- ✅ **Imports Validados**: Todos testados e funcionando
-- ✅ **Padrões Bulk**: BulkFilterAdapter completamente documentado
-- ✅ **Templates Reais**: Baseados em código que compila e funciona
+Este guia orienta um agente de IA a gerar uma feature CRUD alinhada ao contrato canônico do `praxis-metadata-starter`.
 
----
+O objetivo nao e gerar "qualquer CRUD que compile". O objetivo e gerar:
 
-## 📋 Objetivo
+- DTOs com `@UISchema` e Bean Validation coerentes com o contrato publicado em `/schemas/filtered`
+- `FilterDTO` com `@Filterable` coerente com os endpoints base do starter
+- `Mapper`, `Service`, `Repository` e `Controller` compatíveis com `AbstractCrudController` e `AbstractBaseCrudService`
+- endpoints e metadata que possam ser consumidos sem ajuste local por `praxis-api-quickstart` e `praxis-ui-angular`
 
-Este guia fornece instruções detalhadas para que o Claude AI possa gerar automaticamente funcionalidades completas CRUD+Bulk a partir de uma entidade JPA, seguindo **exatamente** os padrões estabelecidos no Praxis Platform.
+## Fontes canonicas
 
-## 🎯 Entrada Esperada
+Antes de gerar codigo, o agente deve se orientar por esta hierarquia:
 
-O usuário deve fornecer:
-1. **Entidade JPA** (classe `@Entity`)
-2. **Path da API** (ex: `/api/pessoas`)
-3. **Grupo da API** (ex: `pessoas`)
-4. **Pacote base** (ex: `com.example.ananke.pessoa`)
+1. `praxis-metadata-starter`
+   - fonte canonica de `@ApiResource`, `@ApiGroup`, `@UISchema`, `Filterable`, `AbstractCrudController`, `AbstractBaseCrudService`, `/schemas/filtered` e endpoints de options
+2. `praxis-api-quickstart`
+   - host operacional de referencia para uso real e publicado
+3. `praxis-ui-angular`
+   - consumidor final de runtime, especialmente `GenericCrudService`
 
-## 💬 Prompts de Exemplo (copiar/colar)
+## Escopo correto deste guia
 
+Este guia cobre o padrao canônico de um recurso CRUD metadata-driven.
+
+Este guia nao deve tratar como obrigatorio:
+
+- `BulkFilterAdapter`
+- `BulkController`
+- `org.praxisplatform.bulk.*`
+- receitas herdadas de projetos externos como `ms-pessoa-ananke`
+
+Se a feature precisar de bulk, isso deve ser tratado como trilha opcional e externa ao contrato minimo deste starter.
+
+## O que o agente deve receber como entrada
+
+O agente deve receber, no minimo:
+
+1. caminho ou codigo da entidade JPA
+2. path canônico do recurso
+3. grupo OpenAPI desejado
+4. pacote base do modulo
+
+Exemplo:
+
+```text
+Gere uma feature CRUD metadata-driven alinhada ao praxis-metadata-starter.
+
+Entrada:
+- Entidade: src/main/java/com/example/hr/entity/Funcionario.java
+- Resource path: /api/human-resources/funcionarios
+- Api group: human-resources
+- Pacote base: com.example.hr
 ```
-Gere CRUD + Bulk completos para a entidade abaixo, alinhado ao Praxis Platform.
 
-ENTRADA
-- Entidade JPA: {classe-entity-anotada-com-@Entity}
-- Path da API: {path} (ex.: /api/pessoas)
-- Grupo da API: {grupo} (ex.: pessoas)
-- Pacote base: {pacote-base} (ex.: com.example.ananke.pessoa)
+## Arquivos minimos a gerar
 
-REQUISITOS
-- Gerar os 8 arquivos padrão (DTO, FilterDTO, Mapper, Repository, Service, BulkFilterAdapter, Controller, BulkController)
-- Usar @ApiResource(ApiPaths...) e @ApiGroup
-- Usar @UISchema no DTO, @Filterable no FilterDTO
-- MapStruct quando houver relacionamentos (@ManyToOne/@OneToOne); manual se simples
-- Enums corretos: FilterOperation.EQUAL, FieldControlType.TOGGLE, etc.
-- Endpoints de options usando /filter, valueField=id, displayField=nome
-- Código que compila (mvn clean package)
-```
+Para um recurso CRUD padrão, o conjunto minimo canônico e:
 
-```
-Inclua no mapeamento MapStruct as conversões ID ↔ entidade para os relacionamentos:
-- Gere @Named {relacao}FromId(Long id) e use qualifiedByName
-- Exponha {relacao}Id no DTO
-- Gere mappings entity→dto (source="relacao.id", target="relacaoId") e dto→entity (source="relacaoId", target="relacao")
-```
-
-## 📁 Estrutura de Arquivos a Gerar
-
-Para cada entidade, você deve criar **exatamente 8 arquivos** seguindo este padrão:
-
-```
+```text
 src/main/java/{pacote-base}/
-├── entity/
-│   └── {Nome}.java (já fornecido pelo usuário)
 ├── dto/
 │   ├── {Nome}DTO.java
-│   └── {Nome}FilterDTO.java
+│   └── filter/
+│       └── {Nome}FilterDTO.java
 ├── mapper/
 │   └── {Nome}Mapper.java
 ├── repository/
 │   └── {Nome}Repository.java
 ├── service/
-│   ├── {Nome}Service.java
-│   └── {Nome}BulkFilterAdapter.java
+│   └── {Nome}Service.java
 └── controller/
-    ├── {Nome}Controller.java
-    └── {Nome}BulkController.java
+    └── {Nome}Controller.java
 ```
 
----
+`BulkController` e `BulkFilterAdapter` nao fazem parte do baseline do starter.
 
-## 🔧 Templates Detalhados VERIFICADOS
+## Padrao canônico do Controller
 
-### 1. DTO Principal (`{Nome}DTO.java`) ✅ TESTADO
+O controller deve estender `AbstractCrudController<E, D, ID, FD>` e implementar:
 
-```java
-package {pacote-base}.dto;
+- `getService()`
+- `toDto(...)`
+- `toEntity(...)`
+- `getEntityId(...)`
+- `getDtoId(...)`
 
-import org.praxisplatform.uischema.FieldControlType;
-import org.praxisplatform.uischema.FieldDataType;
-import org.praxisplatform.uischema.extension.annotation.UISchema;
-
-public class {Nome}DTO {
-
-    @UISchema
-    private Long id;
-    
-    // ⚠️ COPIE TODOS os campos da entidade, exceto relacionamentos @OneToMany/@ManyToMany
-    // ✅ Para cada campo da entidade, adicione:
-    @UISchema(
-        label = "Nome do Campo",
-        maxLength = 300,
-        placeholder = "Exemplo de placeholder"
-    )
-    private String {campoString};
-    
-    @UISchema(
-        type = FieldDataType.BOOLEAN,
-        controlType = FieldControlType.TOGGLE,  // ✅ CORRETO: TOGGLE (não TOGGLE_SWITCH)
-        label = "Campo Booleano"
-    )
-    private Boolean {campoBoolean};
-
-    // ✅ Gere getters e setters para TODOS os campos
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    
-    // ... demais getters/setters para TODOS os campos
-}
-```
-
-**✅ VALIDADO:** Este template funciona perfeitamente para entidades simples e com relacionamentos.
-
-### 2. Filter DTO (`{Nome}FilterDTO.java`) ✅ TESTADO
+Exemplo estrutural:
 
 ```java
-package {pacote-base}.dto;
-
-import org.praxisplatform.uischema.FieldControlType;
-import org.praxisplatform.uischema.FieldDataType;
-import org.praxisplatform.uischema.NumericFormat;
-import org.praxisplatform.uischema.extension.annotation.UISchema;
-import org.praxisplatform.uischema.filter.annotation.Filterable;
-import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-
-public class {Nome}FilterDTO implements GenericFilterDTO {
-
-    // ✅ Para campos de texto/string:
-    @UISchema
-    @Filterable(operation = Filterable.FilterOperation.LIKE)
-    private String {campoString};
-    
-    // ✅ Para campos numéricos (BigDecimal, Integer, Double):
-    @UISchema(type = FieldDataType.NUMBER, controlType = FieldControlType.RANGE_SLIDER,
-            numericFormat = NumericFormat.CURRENCY, numericStep = "0.01")
-    @Filterable(operation = Filterable.FilterOperation.BETWEEN)
-    private List<BigDecimal> {campoNumerico};
-    
-    // ✅ Para campos de data:
-    @UISchema(type = FieldDataType.DATE, controlType = FieldControlType.DATE_RANGE)
-    @Filterable(operation = Filterable.FilterOperation.BETWEEN)
-    private List<LocalDate> {campoData};
-    
-    // ✅ Para campos booleanos:
-    @UISchema(
-        type = FieldDataType.BOOLEAN,
-        controlType = FieldControlType.CHECKBOX
-    )
-    @Filterable(operation = Filterable.FilterOperation.EQUAL)  // ✅ CORRETO: EQUAL (não EQUALS)
-    private Boolean {campoBoolean};
-    
-    // ✅ Para relacionamentos:
-    @UISchema(
-        type = FieldDataType.NUMBER,
-        controlType = FieldControlType.SELECT,
-        endpoint = ApiPaths.Module.ENTITY + "/filter",  // ✅ SEMPRE usar /filter
-        valueField = "id",
-        displayField = "nome"
-    )
-    @Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "entidade.id")
-    private Long {relacionamentoId};
-
-    // ✅ Gere getters e setters para TODOS os campos
-}
-```
-
-**⚠️ CRÍTICO - ENUMS CORRETOS:**
-- **FilterOperation.EQUAL** (NÃO `EQUALS`)
-- **FieldControlType.TOGGLE** (NÃO `TOGGLE_SWITCH`)
-
-### 3. Mapper (`{Nome}Mapper.java`) - MATRIZ DE DECISÃO ✅ VALIDADA
-
-**🎯 REGRA DE DECISÃO - USE ESTA MATRIZ EXATAMENTE:**
-
-| **Cenário da Entidade** | **Abordagem de Mapper** | **Quando Usar** | **Exemplo Real** |
-|--------------------------|------------------------|------------------|------------------|
-| ✅ **Campos simples apenas** | **MANUAL** | Entidades sem relacionamentos | **TipoDocumento** |
-| ⚠️ **Com relacionamentos @ManyToOne/@OneToOne** | **MAPSTRUCT** | Entidades com relacionamentos | **Pessoa** |
-| 🔗 **Com entidades embedded** | **MAPSTRUCT** | Mapeamento automático | Endereço embedded |
-
-#### **🔧 ABORDAGEM MANUAL (Para entidades simples)** ✅ TESTADO
-
-```java
-package {pacote-base}.mapper;
-
-import {pacote-base}.dto.{Nome}DTO;
-import {pacote-base}.core.model.{Nome};  // ✅ Note: core.model path
-import org.springframework.stereotype.Component;
-import java.util.List;
-import java.util.stream.Collectors;
-
-@Component
-public class {Nome}Mapper {
-
-    public {Nome} toEntity({Nome}DTO dto) {
-        if (dto == null) return null;
-        
-        {Nome} entity = new {Nome}();
-        entity.setId(dto.getId()); // ✅ ID sempre mapeado para updates
-        
-        // ⚠️ MAPEIE TODOS os campos simples do DTO para entidade
-        entity.setNome(dto.getNome());
-        entity.setObrigatorio(dto.getObrigatorio());
-        // ... para CADA campo simples da entidade
-        
-        return entity;
-    }
-
-    public {Nome}DTO toDto({Nome} entity) {
-        if (entity == null) return null;
-        
-        {Nome}DTO dto = new {Nome}DTO();
-        dto.setId(entity.getId());
-        
-        // ⚠️ MAPEIE TODOS os campos simples da entidade para DTO
-        dto.setNome(entity.getNome());
-        dto.setObrigatorio(entity.getObrigatorio());
-        // ... para CADA campo simples da entidade
-        
-        return dto;
-    }
-
-    public List<{Nome}DTO> toDtoList(List<{Nome}> entityList) {
-        if (entityList == null) return null;
-        return entityList.stream().map(this::toDto).collect(Collectors.toList());
-    }
-
-    public List<{Nome}> toEntityList(List<{Nome}DTO> dtoList) {
-        if (dtoList == null) return null;
-        return dtoList.stream().map(this::toEntity).collect(Collectors.toList());
-    }
-}
-```
-
-**✅ VALIDADO:** Este padrão funciona perfeitamente para TipoDocumento e outras entidades simples.
-
-#### **🚀 ABORDAGEM MAPSTRUCT (Para entidades com relacionamentos)** ✅ TESTADO
-
-```java
-package {pacote-base}.mapper;
-
-import {pacote-base}.dto.{Nome}DTO;
-import {pacote-base}.core.model.{Nome};
-import {pacote-base}.core.model.{EntidadeRelacionada};  // Para cada @ManyToOne/@OneToOne
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.Named;
-
-@Mapper(componentModel = "spring")  // ✅ SEMPRE componentModel = "spring"
-public interface {Nome}Mapper {
-
-    // ✅ MAPEAMENTO ENTITY → DTO (relacionamentos viram IDs)
-    @Mapping(source = "{entidadeRelacionada}.id", target = "{entidadeRelacionada}Id")
-    // ⚠️ Para CADA relacionamento @ManyToOne/@OneToOne na entidade, adicione:
-    // @Mapping(source = "idDadosPessoaFisica.id", target = "idDadosPessoaFisicaId")
-    // @Mapping(source = "idDadosPessoaJuridica.id", target = "idDadosPessoaJuridicaId")
-    {Nome}DTO toDto({Nome} entity);
-
-    // ✅ MAPEAMENTO DTO → ENTITY (IDs viram entidades com @Named)
-    @Mapping(source = "{entidadeRelacionada}Id", target = "{entidadeRelacionada}", qualifiedByName = "{entidadeRelacionada}FromId")
-    // ⚠️ Para CADA relacionamento, adicione:
-    // @Mapping(source = "idDadosPessoaFisicaId", target = "idDadosPessoaFisica", qualifiedByName = "dadosPessoaFisicaFromId")
-    // @Mapping(source = "idDadosPessoaJuridicaId", target = "idDadosPessoaJuridica", qualifiedByName = "dadosPessoaJuridicaFromId")
-    {Nome} toEntity({Nome}DTO dto);
-
-    // ✅ MÉTODOS @Named para converter Long ID → Entidade com ID
-    @Named("{entidadeRelacionada}FromId")
-    default {EntidadeRelacionada} {entidadeRelacionada}FromId(Long {entidadeRelacionada}Id) {
-        if ({entidadeRelacionada}Id == null) return null;
-        
-        {EntidadeRelacionada} {entidadeRelacionada} = new {EntidadeRelacionada}();
-        {entidadeRelacionada}.setId({entidadeRelacionada}Id);
-        return {entidadeRelacionada};
-    }
-    
-    // ⚠️ Repita o template para CADA relacionamento:
-    // @Named("dadosPessoaFisicaFromId")
-    // default DadosPessoaFisica dadosPessoaFisicaFromId(Long dadosPessoaFisicaId) {
-    //     if (dadosPessoaFisicaId == null) return null;
-    //     DadosPessoaFisica dadosPessoaFisica = new DadosPessoaFisica();
-    //     dadosPessoaFisica.setId(dadosPessoaFisicaId);
-    //     return dadosPessoaFisica;
-    // }
-}
-```
-
-**✅ VALIDADO:** Este padrão funciona perfeitamente para Pessoa e outras entidades com relacionamentos.
-
-### 4. Repository (`{Nome}Repository.java`) ✅ TESTADO
-
-```java
-package {pacote-base}.repository;
-
-import {pacote-base}.core.model.{Nome};
-import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
-import org.springframework.stereotype.Repository;
-
-@Repository
-public interface {Nome}Repository extends BaseCrudRepository<{Nome}, Long> {
-    // Repository methods
-}
-```
-
-**✅ VALIDADO:** Template funciona para todas as entidades.
-
-### 5. Service (`{Nome}Service.java`) - MATRIZ DE DECISÃO ✅ VALIDADA
-
-**🎯 REGRA DE DECISÃO - USE ESTA MATRIZ EXATAMENTE:**
-
-| **Cenário da Entidade** | **Padrão de Service** | **Implementação** | **Exemplo Real** |
-|--------------------------|----------------------|-------------------|------------------|
-| ✅ **Campos simples apenas** | **PADRÃO SIMPLES** | Apenas `mergeUpdate()` | **TipoDocumento** |
-| ⚠️ **Com relacionamentos** | **PADRÃO COMPLEXO** | `mergeUpdate()` + `save()` | **Pessoa** |
-
-#### **🚀 PADRÃO SIMPLES (Para entidades SEM relacionamentos)** ✅ TESTADO
-
-```java
-package {pacote-base}.service;
-
-import {pacote-base}.dto.{Nome}DTO;
-import {pacote-base}.dto.{Nome}FilterDTO;
-import {pacote-base}.core.model.{Nome};
-import {pacote-base}.repository.{Nome}Repository;
-import org.praxisplatform.uischema.service.base.AbstractBaseCrudService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-@Service
-public class {Nome}Service extends AbstractBaseCrudService<{Nome}, {Nome}DTO, Long, {Nome}FilterDTO> {
-
-    @Autowired
-    public {Nome}Service({Nome}Repository repository) {
-        super(repository, {Nome}.class);  // ✅ SEMPRE passar a classe da entidade
-    }
-
-    @Override
-    public {Nome} mergeUpdate({Nome} existing, {Nome} payload) {
-        // ⚠️ COPIE TODOS os campos simples da entidade
-        existing.setNome(payload.getNome());
-        existing.setObrigatorio(payload.getObrigatorio());
-        // ... para CADA campo simples da entidade
-        
-        return existing;
-    }
-    
-    // ✅ NÃO precisa override save() - sem relacionamentos
-}
-```
-
-**✅ VALIDADO:** Funciona perfeitamente para TipoDocumento e outras entidades simples.
-
-#### **🔧 PADRÃO COMPLEXO (Para entidades COM relacionamentos)** ✅ TESTADO
-
-```java
-package {pacote-base}.service;
-
-import {pacote-base}.dto.{Nome}DTO;
-import {pacote-base}.dto.{Nome}FilterDTO;
-import {pacote-base}.core.model.{Nome};
-import {pacote-base}.core.model.{EntidadeRelacionada};  // Para cada relacionamento
-import {pacote-base}.repository.{Nome}Repository;
-import jakarta.persistence.EntityNotFoundException;
-import org.praxisplatform.uischema.service.base.AbstractBaseCrudService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-@Service
-public class {Nome}Service extends AbstractBaseCrudService<{Nome}, {Nome}DTO, Long, {Nome}FilterDTO> {
-
-    private final {Nome}Repository {nome}Repository;
-    // ⚠️ OPCIONAL: Repositories para relacionamentos apenas se precisar validar existência
-
-    @Autowired
-    public {Nome}Service({Nome}Repository {nome}Repository) {
-        super({nome}Repository, {Nome}.class);
-        this.{nome}Repository = {nome}Repository;
-    }
-
-    @Override
-    public {Nome} mergeUpdate({Nome} existing{Nome}, {Nome} {nome}FromPayload) {
-        // ✅ 1. ATUALIZAR TODOS os campos simples PRIMEIRO
-        existing{Nome}.setTipoPessoa({nome}FromPayload.getTipoPessoa());
-        existing{Nome}.setAtivo({nome}FromPayload.getAtivo());
-        // ... TODOS os campos simples
-        
-        // ✅ 2. GERENCIAR RELACIONAMENTOS @ManyToOne/@OneToOne
-        // TEMPLATE para cada relacionamento:
-        if ({nome}FromPayload.get{EntidadeRelacionada}() != null && 
-            {nome}FromPayload.get{EntidadeRelacionada}().getId() != null) {
-            
-            {EntidadeRelacionada} {entidadeRelacionada} = new {EntidadeRelacionada}();
-            {entidadeRelacionada}.setId({nome}FromPayload.get{EntidadeRelacionada}().getId());
-            existing{Nome}.set{EntidadeRelacionada}({entidadeRelacionada});
-        } else {
-            existing{Nome}.set{EntidadeRelacionada}(null);
-        }
-
-        return existing{Nome};
-    }
-
-    @Override
-    public {Nome} save({Nome} {nome}) {
-        // ✅ GARANTIR que relacionamentos sejam entidades com ID válido
-        // TEMPLATE para cada relacionamento:
-        if ({nome}.get{EntidadeRelacionada}() != null && 
-            {nome}.get{EntidadeRelacionada}().getId() != null) {
-            
-            {EntidadeRelacionada} {entidadeRelacionada} = new {EntidadeRelacionada}();
-            {entidadeRelacionada}.setId({nome}.get{EntidadeRelacionada}().getId());
-            {nome}.set{EntidadeRelacionada}({entidadeRelacionada});
-        } else if ({nome}.get{EntidadeRelacionada}() != null && 
-                   {nome}.get{EntidadeRelacionada}().getId() == null) {
-            {nome}.set{EntidadeRelacionada}(null);
-        }
-        
-        return {nome}Repository.save({nome});
-    }
-}
-```
-
-**✅ VALIDADO:** Funciona perfeitamente para Pessoa e outras entidades com relacionamentos.
-
-### 6. Bulk Filter Adapter (`{Nome}BulkFilterAdapter.java`) ✅ NOVO PADRÃO TESTADO
-
-```java
-package {pacote-base}.service;
-
-import {pacote-base}.dto.{Nome}FilterDTO;
-import {pacote-base}.core.model.{Nome};
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
-import java.util.List;
-
-@Service
-public class {Nome}BulkFilterAdapter {
-
-    private final {Nome}Service service;
-
-    public {Nome}BulkFilterAdapter({Nome}Service service) {
-        this.service = service;
-    }
-
-    public long countByFilter({Nome}FilterDTO filter) {
-        var spec = service.getSpecificationsBuilder().buildSpecification(filter, Pageable.unpaged());
-        return service.getRepository().count(spec.spec());
-    }
-
-    public List<Long> idsByFilter({Nome}FilterDTO filter, Sort sort, int limit, int offset) {
-        int pageSize = Math.max(limit, 1);
-        int safeOffset = Math.max(offset, 0);
-        int page = safeOffset / pageSize;
-        Pageable pageable = PageRequest.of(page, pageSize, sort);
-        var spec = service.getSpecificationsBuilder().buildSpecification(filter, pageable);
-        return service.getRepository()
-                .findAll(spec.spec(), spec.pageable())
-                .stream()
-                .map({Nome}::getId)  // ✅ SEMPRE usar referência de método
-                .toList();
-    }
-}
-```
-
-**✅ NOVO:** Este template foi extraído das implementações funcionais e está 100% testado.
-
-### 7. Controller CRUD (`{Nome}Controller.java`) ✅ TESTADO
-
-```java
-package {pacote-base}.controller;
-
-import {pacote-base}.common.constants.ApiPaths;  // ✅ SEMPRE usar ApiPaths
-import {pacote-base}.dto.{Nome}DTO;
-import {pacote-base}.dto.{Nome}FilterDTO;
-import {pacote-base}.core.model.{Nome};
-import {pacote-base}.mapper.{Nome}Mapper;
-import {pacote-base}.service.{Nome}Service;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.praxisplatform.uischema.annotation.ApiGroup;
-import org.praxisplatform.uischema.annotation.ApiResource;
-import org.praxisplatform.uischema.controller.base.AbstractCrudController;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RestController;
-
-/**
- * <h2>📋 Controller de {NomeHumano}</h2>
- * <p>Gerencia operações CRUD para {nomeHumano} usando o sistema automatizado 
- * de resolução de grupos OpenAPI.</p>
- */
 @RestController
-@ApiResource(ApiPaths.{Modulo}.{CONSTANTE})  // ⚠️ USE O PATH EXATO fornecido pelo usuário
-@ApiGroup("{grupo-fornecido}")               // ⚠️ USE O GRUPO EXATO fornecido pelo usuário
-@Tag(name = "{Categoria} - {NomeHumano}", description = "Gerenciamento de {nomeHumano}")
-public class {Nome}Controller extends AbstractCrudController<{Nome}, {Nome}DTO, Long, {Nome}FilterDTO> {
+@ApiResource(ApiPaths.HumanResources.FUNCIONARIOS)
+@ApiGroup("human-resources")
+public class FuncionarioController extends AbstractCrudController<Funcionario, FuncionarioDTO, Integer, FuncionarioFilterDTO> {
 
-    @Autowired
-    private {Nome}Service service;
+    private final FuncionarioService service;
+    private final FuncionarioMapper mapper;
 
-    @Autowired
-    private {Nome}Mapper mapper;
+    public FuncionarioController(FuncionarioService service, FuncionarioMapper mapper) {
+        this.service = service;
+        this.mapper = mapper;
+    }
 
     @Override
-    protected {Nome}Service getService() {
+    protected BaseCrudService<Funcionario, FuncionarioDTO, Integer, FuncionarioFilterDTO> getService() {
         return service;
     }
 
     @Override
-    protected {Nome}DTO toDto({Nome} entity) {
+    protected FuncionarioDTO toDto(Funcionario entity) {
         return mapper.toDto(entity);
     }
 
     @Override
-    protected {Nome} toEntity({Nome}DTO dto) {
+    protected Funcionario toEntity(FuncionarioDTO dto) {
         return mapper.toEntity(dto);
     }
 
     @Override
-    protected Long getEntityId({Nome} entity) {
+    protected Integer getEntityId(Funcionario entity) {
         return entity.getId();
     }
 
     @Override
-    protected Long getDtoId({Nome}DTO dto) {
+    protected Integer getDtoId(FuncionarioDTO dto) {
         return dto.getId();
     }
 }
 ```
 
-**✅ VALIDADO:** Template funciona para todos os controllers.
+Observacoes:
 
-### 8. Controller Bulk (`{Nome}BulkController.java`) ✅ TESTADO
+- `@ApiResource` e a superficie canônica
+- `ApiPaths` deve vir do projeto host, nao do starter
+- o host pode sobrescrever metodos do controller apenas para enriquecer OpenAPI ou descricoes, como faz o quickstart
+
+## Padrao canônico do Service
+
+O service padrão deve estender `AbstractBaseCrudService<E, D, ID, FD>`.
+
+Template minimo:
 
 ```java
-package {pacote-base}.controller;
+@Service
+public class FuncionarioService extends AbstractBaseCrudService<Funcionario, FuncionarioDTO, Integer, FuncionarioFilterDTO> {
 
-import {pacote-base}.common.constants.ApiPaths;
-import {pacote-base}.dto.{Nome}FilterDTO;
-import {pacote-base}.core.model.{Nome};
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.praxisplatform.bulk.service.BulkJobService;
-import org.praxisplatform.bulk.service.BulkService;
-import org.praxisplatform.bulk.web.AbstractBulkController;
-import org.praxisplatform.uischema.annotation.ApiGroup;
-import org.praxisplatform.uischema.annotation.ApiResource;
-import org.springframework.web.bind.annotation.RestController;
-
-/**
- * <h2>💼 Controller de Operações em Lote para {NomeHumano}</h2>
- * <p>Gerencia operações de processamento em lote (bulk) para {nomeHumano}.</p>
- */
-@RestController
-@ApiResource(ApiPaths.{Modulo}.{CONSTANTE})     // ✅ MESMO PATH do controller CRUD
-@ApiGroup("{grupo-fornecido}-bulk")             // ✅ ADICIONE "-bulk" ao grupo fornecido
-@Tag(name = "{Categoria} Bulk - {NomeHumano}", description = "Operações em lote para {nomeHumano}")
-public class {Nome}BulkController extends AbstractBulkController<{Nome}, Long, {Nome}FilterDTO> {
-
-    public {Nome}BulkController(BulkService<{Nome}, Long, {Nome}FilterDTO> bulkService,
-                               BulkJobService bulkJobService) {
-        super(bulkService, bulkJobService);
+    public FuncionarioService(FuncionarioRepository repository) {
+        super(repository, Funcionario.class);
     }
 
     @Override
-    protected Class<{Nome}> entityClass() {
-        return {Nome}.class;
+    public Funcionario mergeUpdate(Funcionario existing, Funcionario payload) {
+        existing.setNomeCompleto(payload.getNomeCompleto());
+        existing.setCpf(payload.getCpf());
+        existing.setEmail(payload.getEmail());
+        existing.setAtivo(payload.getAtivo());
+        return existing;
     }
 }
 ```
 
-**✅ VALIDADO:** Template funciona para todos os bulk controllers.
+Quando houver relacionamentos `@ManyToOne` ou `@OneToOne`, `mergeUpdate(...)` deve preservar a semantica do relacionamento no aggregate persistido.
 
----
+## Padrao canônico do Mapper
 
-## 🔍 **MATRIZ DE FILTROS POR TIPO** ✅ CORRIGIDA
+O padrao preferencial publicado hoje e MapStruct com `CorporateMapperConfig`.
 
-### **Para FilterDTO - Aplicar EXATAMENTE estas regras:**
+Template:
 
 ```java
-// String/Text → ALWAYS LIKE
+@Mapper(componentModel = "spring", config = CorporateMapperConfig.class)
+public interface FuncionarioMapper {
+
+    @Mapping(target = "cargoId", source = "cargo.id")
+    FuncionarioDTO toDto(Funcionario entity);
+
+    @Mapping(target = "cargo", expression = "java(cargoFromId(dto.getCargoId()))")
+    Funcionario toEntity(FuncionarioDTO dto);
+
+    default Cargo cargoFromId(Integer id) {
+        if (id == null) return null;
+        Cargo cargo = new Cargo();
+        cargo.setId(id);
+        return cargo;
+    }
+}
+```
+
+Regras:
+
+- prefira `CorporateMapperConfig` quando o projeto usar MapStruct, porque esse e o padrao operacional mais consistente no ecossistema atual
+- use mapper manual apenas quando isso for realmente mais simples e o projeto local adotar esse estilo
+- ao mapear relacoes por ID, produza `relacaoId` no DTO e reconstrua a referencia por ID na volta
+
+## DTO canônico
+
+O DTO deve refletir o contrato que a UI vai consumir via `/schemas/filtered`.
+
+Regras obrigatorias:
+
+- campos visiveis na UI devem usar `@UISchema`
+- validacoes estruturais devem usar Bean Validation
+- relacoes para selects devem usar `endpoint`, `valueField` e `displayField` coerentes com o endpoint real
+
+Exemplo alinhado ao quickstart:
+
+```java
+@NotNull
+@UISchema(
+    label = "Cargo",
+    controlType = FieldControlType.SELECT,
+    valueField = "id",
+    displayField = "label",
+    endpoint = ApiPaths.HumanResources.CARGOS + "/options/filter",
+    tableHidden = true
+)
+private Integer cargoId;
+```
+
+Regra critica:
+
+- se o endpoint for `.../options/filter`, use `displayField = "label"`
+- se o endpoint for `.../filter` retornando DTO completo, use o campo textual do DTO, como `nome`
+
+## FilterDTO canônico
+
+O `FilterDTO` deve implementar `GenericFilterDTO` e modelar criterios de busca reais.
+
+Regras praticas:
+
+- texto: `LIKE`
+- boolean: `EQUAL`
+- ranges numericos e datas: `BETWEEN`
+- listas: `IN` ou `NOT_IN`
+- relacoes: campo `...Id` com `relation = "relacao.id"`
+
+Exemplo:
+
+```java
 @UISchema
 @Filterable(operation = Filterable.FilterOperation.LIKE)
-private String nome;
+private String nomeCompleto;
 
-// BigDecimal → ALWAYS BETWEEN + List
-@UISchema(type = FieldDataType.NUMBER, controlType = FieldControlType.RANGE_SLIDER,
-          numericFormat = NumericFormat.CURRENCY, numericStep = "0.01")
-@Filterable(operation = Filterable.FilterOperation.BETWEEN)
-private List<BigDecimal> salario;
-
-// Integer/Long → ALWAYS BETWEEN + List  
-@UISchema(type = FieldDataType.NUMBER, controlType = FieldControlType.RANGE_SLIDER)
-@Filterable(operation = Filterable.FilterOperation.BETWEEN)
-private List<Integer> idade;
-
-// LocalDate → ALWAYS BETWEEN + List
-@UISchema(type = FieldDataType.DATE, controlType = FieldControlType.DATE_RANGE)
-@Filterable(operation = Filterable.FilterOperation.BETWEEN)
-private List<LocalDate> dataContratacao;
-
-// Boolean → EQUAL (não usar List)
 @UISchema(type = FieldDataType.BOOLEAN, controlType = FieldControlType.CHECKBOX)
-@Filterable(operation = Filterable.FilterOperation.EQUAL)  // ✅ CORRETO: EQUAL
+@Filterable(operation = Filterable.FilterOperation.EQUAL)
 private Boolean ativo;
 
-// Enum → EQUAL (não usar List)
-@UISchema(type = FieldDataType.STRING, controlType = FieldControlType.SELECT)
-@Filterable(operation = Filterable.FilterOperation.EQUAL)  // ✅ CORRETO: EQUAL
-private StatusEnum status;
-
-// Relacionamento → EQUAL + Long Id (não usar List) + relation
-@UISchema(type = FieldDataType.NUMBER,
-        controlType = FieldControlType.SELECT,
-        endpoint = ApiPaths.Catalog.CATEGORIAS + "/filter",  // ✅ SEMPRE /filter
-        valueField = "id",
-        displayField = "nome")
-@Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "categoria.id")  // ✅ CORRETO: EQUAL
-private Long categoriaId;
-```
-
----
-
-## 📋 **PADRÃO APIPATH.JAVA** ✅ TESTADO
-
-```java
-package {pacote-base}.common.constants;
-
-/**
- * <h2>🗂️ Constantes Centralizadas de Paths da API</h2>
- */
-public final class ApiPaths {
-    
-    public static final String BASE = "/api";
-    
-    /**
-     * <h3>👥 {Módulo}</h3>
-     * <p>Paths para operações relacionadas ao {módulo}.</p>
-     */
-    public static final class {Modulo} {
-        private static final String {MODULO}_BASE = BASE + "/{modulo-path}";
-        
-        /**
-         * Endpoint para {entidade}.
-         * <br><strong>Padrão:</strong> /api/{modulo-path}/{entidade}
-         */
-        public static final String {CONSTANTE_ENTIDADE} = {MODULO}_BASE + "/{entidade-path}";
-        
-        // Construtor privado para evitar instanciação
-        private {Modulo}() {
-            throw new IllegalStateException("Classe de constantes não deve ser instanciada");
-        }
-    }
-    
-    // Construtor privado para evitar instanciação
-    private ApiPaths() {
-        throw new IllegalStateException("Classe de constantes não deve ser instanciada");
-    }
-}
-```
-
-**✅ EXEMPLO REAL FUNCIONANDO:**
-```java
-public static final class Pessoas {
-    private static final String PESSOAS_BASE = BASE + "/pessoas";
-    public static final String PESSOAS = PESSOAS_BASE;
-    public static final String TIPOS_DOCUMENTO = PESSOAS_BASE + "/tipos-documento";
-}
-```
-
----
-
-## ⚠️ **ERROS COMUNS CORRIGIDOS**
-
-### **❌ NUNCA Faça Isso:**
-```java
-// ❌ Enum incorreto
-@Filterable(operation = Filterable.FilterOperation.EQUALS)  // ERRADO!
-
-// ❌ ControlType incorreto  
-controlType = FieldControlType.TOGGLE_SWITCH  // ERRADO!
-
-// ❌ Usar /all ao invés de /filter
-endpoint = ApiPaths.Module.ENTITY + "/all"  // ERRADO!
-
-// ❌ Usar List em Boolean
-@Filterable(operation = Filterable.FilterOperation.EQUAL)
-private List<Boolean> ativo;  // ERRADO!
-```
-
-### **✅ SEMPRE Faça Isso:**
-```java
-// ✅ Enum correto
-@Filterable(operation = Filterable.FilterOperation.EQUAL)  // CORRETO!
-
-// ✅ ControlType correto
-controlType = FieldControlType.TOGGLE  // CORRETO!
-
-// ✅ Sempre usar /filter
-endpoint = ApiPaths.Module.ENTITY + "/filter"  // CORRETO!
-
-// ✅ Boolean SEM List
-@Filterable(operation = Filterable.FilterOperation.EQUAL)
-private Boolean ativo;  // CORRETO!
-```
-
----
-
-## 🎯 **PROCESSO DE VALIDAÇÃO OBRIGATÓRIO**
-
-### **1. Após Gerar Todos os 8 Arquivos:**
-
-```bash
-# 1. COMPILAR (eliminar erros de sintaxe)
-cd {projeto}
-../../mvnw compile -q -DskipTests
-
-# ✅ DEVE COMPILAR SEM ERROS
-```
-
-### **2. Verificações Adicionais:**
-- [ ] **8 arquivos criados** exatamente como especificado
-- [ ] **Todos os campos** da entidade estão nos DTOs
-- [ ] **@UISchema** em TODOS os campos dos DTOs
-- [ ] **Filtros corretos**: String→LIKE, Boolean→EQUAL, Numéricos→BETWEEN
-- [ ] **Controllers** com paths e grupos corretos
-- [ ] **ApiPaths.java** atualizado com as constantes
-
----
-
-## 🏆 **IMPLEMENTAÇÕES DE REFERÊNCIA**
-
-### **Entidade Simples:** `TipoDocumento`
-- ✅ Mapper Manual
-- ✅ Service Simples  
-- ✅ Path: `/api/pessoas/tipos-documento`
-- ✅ Grupo: `documentos`
-
-### **Entidade Complexa:** `Pessoa`
-- ✅ Mapper MapStruct
-- ✅ Service Complexo
-- ✅ Path: `/api/pessoas`
-- ✅ Grupo: `pessoas`
-
-**Ambas implementações compilam e funcionam perfeitamente!**
-
----
-
-## 📊 **RESUMO DAS MELHORIAS**
-
-| Aspecto | Versão Anterior | Versão Aprimorada |
-|---------|----------------|------------------|
-| **Enums** | ❌ `EQUALS`, `TOGGLE_SWITCH` | ✅ `EQUAL`, `TOGGLE` |
-| **BulkFilterAdapter** | ❌ Não documentado | ✅ Template completo |
-| **Validação** | ❌ Teórica | ✅ 100% testada |
-| **Exemplos** | ❌ Genéricos | ✅ Reais funcionais |
-| **Imports** | ⚠️ Alguns incorretos | ✅ Todos validados |
-
-**Este guia aprimorado garante implementações que compilam e funcionam na primeira tentativa!**
-
----
-
-## 📚 **ANEXOS - REFERÊNCIAS COMPLETAS DE UISCHEMA**
-
-Para auxiliar na criação de DTOs e FilterDTOs com anotações UISchema corretas, anexamos as classes de referência do praxis-metadata-starter:
-
-### **🎮 ANEXO A - Tipos de Controle Disponíveis**
-**Arquivo:** `FieldControlType.java`
-**Localização:** `backend-libs/praxis-metadata-starter/src/main/java/org/praxisplatform/uischema/FieldControlType.java`
-
-### **✅ ANEXO B - Padrões de Validação**  
-**Arquivo:** `ValidationPattern.java`
-**Localização:** `backend-libs/praxis-metadata-starter/src/main/java/org/praxisplatform/uischema/ValidationPattern.java`
-
-### **📝 ANEXO C - Exemplos Práticos Completos**
-**Arquivo:** `UiSchemaTestDTO.java`  
-**Localização:** `examples/praxis-backend-libs-sample-app/src/main/java/com/example/praxis/uischema/dto/UiSchemaTestDTO.java`
-
-### **⚙️ ANEXO D - Propriedades de Configuração**
-**Arquivo:** `FieldConfigProperties.java`
-**Localização:** `backend-libs/praxis-metadata-starter/src/main/java/org/praxisplatform/uischema/FieldConfigProperties.java`
-
-### **📖 Como Usar os Anexos:**
-
-1. **Para escolher controles**: Consulte ANEXO A (FieldControlType)
-2. **Para validações**: Consulte ANEXO B (ValidationPattern)  
-3. **Para exemplos práticos**: Consulte ANEXO C (UiSchemaTestDTO)
-4. **Para propriedades avançadas**: Consulte ANEXO D (FieldConfigProperties)
-
-### **🔍 Exemplos de Consulta:**
-
-```java
-// ❓ "Preciso de um controle para CPF"
-// 👉 Consulte ANEXO A: FieldControlType.CPF_CNPJ_INPUT
-
 @UISchema(
-    controlType = FieldControlType.CPF_CNPJ_INPUT,
-    pattern = ValidationPattern.CPF,  // 👈 ANEXO B
-    mask = "000.000.000-00"
+    controlType = FieldControlType.SELECT,
+    endpoint = ApiPaths.HumanResources.CARGOS + "/options/filter",
+    valueField = "id",
+    displayField = "label"
 )
-private String cpf;
-
-// ❓ "Como configurar um campo monetário?"  
-// 👉 Consulte ANEXO C: exemplo 'salaryField' linha ~200
-
-@UISchema(
-    controlType = FieldControlType.CURRENCY_INPUT,
-    numericFormat = NumericFormat.CURRENCY,
-    numericStep = "0.01"
-)
-private BigDecimal salario;
+@Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "cargo.id")
+private Integer cargoId;
 ```
 
-**Estas 4 classes de referência cobrem 100% dos casos de uso para anotações UISchema no Praxis Platform.**
+Enums corretos:
+
+- `FilterOperation.EQUAL`, nao `EQUALS`
+- `FieldControlType.TOGGLE` existe, mas no quickstart varios booleanos usam `CHECKBOX`
+- `FieldControlType.TOGGLE_SWITCH` nao e canonico
+
+## Endpoints reais que a UI espera
+
+O contrato minimo do recurso deve ser compatível com:
+
+- `GET /{resource}/schemas`
+- `GET /schemas/filtered?path={resource}/all&operation=get&schemaType=response`
+- `GET /schemas/filtered?path={resource}/filter&operation=post&schemaType=request`
+- `POST /{resource}/filter`
+- `POST /{resource}/filter/cursor`
+- `POST /{resource}/locate`
+- `POST /{resource}/options/filter`
+- `GET /{resource}/options/by-ids`
+- CRUD basico
+
+## Como o Angular realmente consome isso
+
+`praxis-ui-angular` usa `GenericCrudService` para:
+
+- chamar `getSchema()` no recurso e, a partir disso, resolver o grid schema estrutural via `/schemas/filtered`
+- chamar `getFilteredSchema()` para o `FilterDTO`
+- revalidar com `If-None-Match`
+- ler `ETag`, `X-Schema-Hash` e `x-ui.resource.idField`
+
+Implicacoes para o codigo gerado:
+
+- o schema precisa expor `x-ui` coerente
+- o DTO precisa manter `idField` inferivel ou sobrescrito no controller
+- endpoints de select precisam ser compativeis com `OptionDTO{id,label}`
+
+## Uso real de referencia
+
+O recurso `Funcionario` do `praxis-api-quickstart` e a melhor referencia operacional atual para um CRUD completo:
+
+- controller sobre `AbstractCrudController`
+- `options/filter` retornando `OptionDTO`
+- DTO com `displayField = "label"` para selects remotos
+- mapper com `CorporateMapperConfig`
+
+## Prompt recomendado para IA
+
+```text
+Voce esta gerando uma feature CRUD metadata-driven para o ecossistema Praxis.
+
+Siga o contrato canônico do praxis-metadata-starter.
+Use praxis-api-quickstart como host operacional de referencia e praxis-ui-angular como consumidor final do contrato.
+
+Gere:
+- DTO com @UISchema e Bean Validation
+- FilterDTO com @Filterable
+- Mapper com CorporateMapperConfig quando usar MapStruct
+- Repository extendendo BaseCrudRepository
+- Service extendendo AbstractBaseCrudService
+- Controller extendendo AbstractCrudController
+
+Nao trate bulk como obrigatorio.
+So gere BulkController ou similares se o pedido mencionar explicitamente uma stack bulk externa.
+
+Entrada:
+- Entidade: {entity-path}
+- Resource path: {resource-path}
+- Api group: {api-group}
+- Pacote base: {base-package}
+```
+
+## Checklist minimo de saida
+
+Antes de concluir, o agente deve conferir:
+
+- o controller usa `@ApiResource` e `@ApiGroup`
+- o mapper usa `CorporateMapperConfig` quando aplicavel
+- `FilterOperation` usa enums canônicos
+- selects remotos apontam para `/options/filter` com `displayField = "label"` quando consumirem `OptionDTO`
+- o recurso pode ser consumido por `GenericCrudService` sem adaptacao local
+
+## Fora de escopo
+
+Este guia nao institucionaliza:
+
+- templates antigos baseados em `ms-pessoa-ananke`
+- suposicao de que toda entidade precisa de bulk
+- dependencia obrigatoria em modulos externos nao publicados neste starter
+
+## Referencias cruzadas
+
+- `praxis-metadata-starter/README.md`
+- `praxis-api-quickstart/README.md`
+- `praxis-ui-angular/projects/praxis-core/src/lib/services/generic-crud.service.ts`
+- `praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/hr/controller/FuncionarioController.java`
+- `praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/hr/dto/FuncionarioDTO.java`

@@ -169,39 +169,54 @@
 <h1 class="title">📖 Guias de Implementação</h1>
 </header>
 <h1 id="guias-de-implementação">📖 Guias de Implementação</h1>
-<p>Esta seção contém guias completos e detalhados para implementar
-funcionalidades usando o Praxis Metadata Starter.</p>
-<h2 id="guias-disponíveis">📋 <strong>Guias Disponíveis</strong></h2>
-<h3 id="guia-crudbulk-automatizado">🤖 <a
-href="GUIA-CLAUDE-AI-CRUD-BULK.md">Guia CRUD+Bulk Automatizado</a></h3>
-<p><strong>Guia principal para geração automatizada de funcionalidades
-CRUD+Bulk</strong></p>
+<p>Esta seção reúne os guias operacionais do
+<code>praxis-metadata-starter</code>.</p>
+<p>Eles foram reorganizados para seguir a hierarquia correta da
+plataforma:</p>
+<ol type="1">
+<li>o starter define o contrato canônico</li>
+<li>o <code>praxis-api-quickstart</code> mostra o uso operacional de
+referência</li>
+<li>o <code>praxis-ui-angular</code> representa a ponta final de
+consumo</li>
+</ol>
+<h2 id="guias-disponíveis">📋 Guias Disponíveis</h2>
+<h3 id="guia-de-crud-metadata-driven-por-entidade">🤖 <a
+href="GUIA-CLAUDE-AI-CRUD-BULK.md">Guia de CRUD Metadata-Driven por
+Entidade</a></h3>
+<p>Guia principal para agentes de IA gerarem recursos CRUD alinhados ao
+contrato real do starter.</p>
 <ul>
-<li>✅ Templates 100% testados com implementações reais</li>
-<li>✅ Enums corretos baseados em código funcional<br />
-</li>
-<li>✅ Matrizes de decisão para Mappers e Services</li>
-<li>✅ BulkFilterAdapter completamente documentado</li>
-<li>✅ 4 Anexos UISchema para referência completa</li>
+<li>cobre DTO, FilterDTO, mapper, repository, service e controller</li>
+<li>ancora exemplos no <code>praxis-api-quickstart</code></li>
+<li>considera o consumo real do <code>GenericCrudService</code> no
+Angular</li>
+<li>nao institucionaliza bulk como baseline</li>
 </ul>
-<p><strong>Ideal para:</strong> Criar funcionalidades CRUD+Bulk de forma
-padronizada e automatizada.</p>
+<p><strong>Ideal para:</strong> gerar um recurso CRUD que publique
+<code>x-ui</code>, <code>/schemas/filtered</code>, options e endpoints
+base consumíveis pela UI.</p>
 <h3 id="guia-para-aplicações-novas">🚀 <a
 href="GUIA-CLAUDE-AI-APLICACAO-NOVA.md">Guia para Aplicações
 Novas</a></h3>
-<p><strong>Setup completo para novas aplicações Spring Boot</strong></p>
+<p>Guia para criar uma nova aplicação Spring Boot mínima e correta sobre
+o <code>praxis-metadata-starter</code>.</p>
 <ul>
-<li>Configuração inicial do projeto</li>
-<li>Estrutura de módulos e pacotes</li>
-<li>Integração com Praxis Platform</li>
-<li>Boas práticas organizacionais</li>
+<li>define o baseline mínimo de dependências</li>
+<li>evita prescrever módulos opcionais como obrigatórios</li>
+<li>alinha a aplicação nova com o host de referência e o consumo
+Angular</li>
 </ul>
-<p><strong>Ideal para:</strong> Inicializar novos projetos com Praxis
-Metadata Starter.</p>
+<p><strong>Ideal para:</strong> inicializar um projeto novo com OpenAPI
+enriquecido, schemas filtrados e primeiro recurso metadata-driven.</p>
 <h3 id="checklist-de-validação-ia">✅ <a
 href="CHECKLIST-VALIDACAO-IA.md">Checklist de Validação (IA)</a></h3>
 <p>Lista objetiva para validar builds, grupos OpenAPI, endpoints CRUD,
 options e schemas após geração por IA.</p>
+<h3 id="prova-operacional-dos-guias-de-ia">🧪 <a
+href="ai-proof/README.md">Prova Operacional dos Guias de IA</a></h3>
+<p>Pacote para executar rodadas cegas com LLM, registrar falhas reais e
+iterar os guias até fechar o protocolo.</p>
 <hr />
 <h3 id="crud-com-apiresource-e-apigroup">🧭 <a
 href="CRUD-COM-APIRESOURCE.md">CRUD com <span class="citation"
@@ -234,30 +249,28 @@ href="ERROS-E-RESPOSTAS.md">Erros e Envelope de Respostas</a></h3>
 <ol type="1">
 <li><strong>Para primeira implementação:</strong> Comece com a <a
 href="../overview/VISAO-GERAL.md">Visão Geral</a> e depois o <a
-href="GUIA-CLAUDE-AI-CRUD-BULK.md">Guia CRUD+Bulk</a></li>
+href="GUIA-CLAUDE-AI-CRUD-BULK.md">Guia de CRUD Metadata-Driven</a></li>
 <li><strong>Para novo projeto:</strong> Use o <a
 href="GUIA-CLAUDE-AI-APLICACAO-NOVA.md">Guia de Aplicação Nova</a></li>
 <li><strong>Após geração por IA:</strong> Valide com o <a
 href="CHECKLIST-VALIDACAO-IA.md">Checklist de Validação</a></li>
+<li><strong>Para prova operacional dos guias:</strong> Use o pacote <a
+href="ai-proof/README.md">Prova Operacional dos Guias de IA</a></li>
 <li><strong>Para exemplos práticos:</strong> Consulte os <a
 href="../examples/">Examples</a></li>
 <li><strong>Para detalhes técnicos:</strong> Veja a <a
 href="../technical/">Documentação Técnica</a></li>
 </ol>
 <hr />
-<h2 id="garantia-de-qualidade">🏆 <strong>Garantia de
-Qualidade</strong></h2>
-<p>Todos os guias nesta seção foram <strong>validados através de
-implementações reais</strong>:</p>
+<h2 id="critério-de-qualidade">🏆 Critério de Qualidade</h2>
+<p>Os guias desta seção devem permanecer aderentes a:</p>
 <ul>
-<li>✅ <strong>Entidade Pessoa</strong> (complexa) - 8 arquivos gerados
-e funcionando</li>
-<li>✅ <strong>Entidade TipoDocumento</strong> (simples) - 8 arquivos
-gerados e funcionando<br />
-</li>
-<li>✅ <strong>100% de compilação</strong> sem erros</li>
-<li>✅ <strong>Templates testados</strong> em ambiente real</li>
+<li>código canônico do <code>praxis-metadata-starter</code></li>
+<li>uso real no <code>praxis-api-quickstart</code></li>
+<li>consumo final no <code>praxis-ui-angular</code></li>
 </ul>
+<p>Quando houver divergência entre um guia e esses três pontos, o guia
+deve ser corrigido.</p>
 <hr />
 <p><strong>📌 Nota:</strong> Para uma visão geral de toda a
 documentação, volte ao <a href="../README.md">índice principal</a>.</p>
@@ -281,6 +294,8 @@ href="../apidocs/allpackages-index.html">allpackages-index</a></li>
 <ul>
 <li>Repositório de exemplo:
 https://github.com/codexrodrigues/praxis-api-quickstart</li>
+<li>Superfície publicada de referência:
+https://praxis-api-quickstart.onrender.com/</li>
 </ul>
 </body>
 </html>
