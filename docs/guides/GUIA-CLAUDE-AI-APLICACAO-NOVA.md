@@ -250,6 +250,27 @@ Observacoes:
 - se o host usar H2 local, troque as propriedades de datasource de acordo com o perfil real
 - nao deixe o guia implicar que Flyway sozinho resolve bootstrap; sem datasource compativel a aplicacao nao sobe
 
+## Bootstrap inicial do banco local
+
+Se a aplicacao nova precisar persistir de verdade no primeiro CRUD, o guia deve mandar a LLM escolher explicitamente uma destas trilhas:
+
+Trilha preferencial de plataforma:
+
+- manter `spring.flyway.enabled=true`
+- criar a migration inicial do modulo, por exemplo `src/main/resources/db/migration/V1__init.sql`
+- garantir que a tabela da primeira entidade exista antes do primeiro `POST` ou `POST /filter`
+
+Trilha temporaria apenas para sandbox/prova local:
+
+- usar `spring.jpa.hibernate.ddl-auto=update` ou `create-drop` em perfil local
+- documentar que isso nao substitui a migration canônica
+- remover a dependencia de `ddl-auto` assim que a migration inicial for criada
+
+Regra:
+
+- para aplicacao real ou exemplo de plataforma, prefira migration
+- para prova local guiada por LLM, `ddl-auto` pode ser aceito apenas como contingencia explicita quando o objetivo imediato for validar o fluxo end-to-end
+
 ## Primeiro recurso da aplicacao
 
 A aplicacao nova deve nascer com pelo menos um recurso que demonstre o fluxo completo:
@@ -324,6 +345,12 @@ Antes de concluir, o agente deve validar:
 - um endpoint `options/filter` quando houver relacao remota
 
 Se o projeto usar MapStruct, valide tambem que os fontes gerados foram produzidos no build e que nao ha erro de annotation processor.
+
+Se houver persistencia real no fluxo validado, confirme tambem:
+
+- `POST /{resource}` sem erro de tabela inexistente
+- `POST /{resource}/filter` sem erro de schema/tabela inexistente
+- existencia explicita de migration inicial ou de `ddl-auto` temporario no perfil local
 
 ## Referencias cruzadas
 

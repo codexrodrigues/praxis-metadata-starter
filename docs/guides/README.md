@@ -62,8 +62,9 @@ Padronize respostas de erro e sucesso para melhor DX/UX.
 1. **Para primeira implementação:** Comece com a [Visão Geral](../overview/VISAO-GERAL.md) e depois o [Guia de CRUD Metadata-Driven](GUIA-CLAUDE-AI-CRUD-BULK.md)
 2. **Para novo projeto:** Use o [Guia de Aplicação Nova](GUIA-CLAUDE-AI-APLICACAO-NOVA.md)
 3. **Após geração por IA:** Valide com o [Checklist de Validação](CHECKLIST-VALIDACAO-IA.md)
-3. **Para exemplos práticos:** Consulte os [Examples](../examples/)
-4. **Para detalhes técnicos:** Veja a [Documentação Técnica](../technical/)
+4. **Para prova operacional dos guias:** Use o pacote [Prova Operacional dos Guias de IA](ai-proof/README.md)
+5. **Para exemplos práticos:** Consulte os [Examples](../examples/)
+6. **Para detalhes técnicos:** Veja a [Documentação Técnica](../technical/)
 
 ---
 
