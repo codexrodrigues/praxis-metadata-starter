@@ -6,6 +6,9 @@ import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.specification.GenericSpecification;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
 import org.praxisplatform.uischema.mapper.base.OptionMapper;
+import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourceRegistry;
+import org.praxisplatform.uischema.options.UnknownOptionSourceException;
 import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
 import org.praxisplatform.uischema.service.base.annotation.DefaultSortColumn;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
@@ -122,6 +125,20 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
 
     default StatsFieldRegistry getStatsFieldRegistry() {
         return StatsFieldRegistry.empty();
+    }
+
+    default OptionSourceRegistry getOptionSourceRegistry() {
+        return OptionSourceRegistry.empty();
+    }
+
+    default boolean hasOptionSource(String sourceKey) {
+        return getOptionSourceRegistry().contains(getEntityClass(), sourceKey);
+    }
+
+    default OptionSourceDescriptor resolveOptionSource(String sourceKey) {
+        return getOptionSourceRegistry()
+                .resolve(getEntityClass(), sourceKey)
+                .orElseThrow(() -> new UnknownOptionSourceException(getEntityClass(), sourceKey));
     }
 
     /**
@@ -724,6 +741,22 @@ public interface BaseCrudService<E, D, ID, FD extends GenericFilterDTO> {
         Map<ID, OptionDTO<ID>> byId = list.stream()
                 .collect(Collectors.toMap(OptionDTO::id, Function.identity()));
         return ids.stream().map(byId::get).filter(Objects::nonNull).toList();
+    }
+
+    default Page<OptionDTO<Object>> filterOptionSourceOptions(
+            String sourceKey,
+            FD filter,
+            String search,
+            Pageable pageable,
+            Collection<Object> includeIds
+    ) {
+        resolveOptionSource(sourceKey);
+        throw new UnsupportedOperationException("Option source options not implemented: " + sourceKey);
+    }
+
+    default List<OptionDTO<Object>> byIdsOptionSourceOptions(String sourceKey, Collection<Object> ids) {
+        resolveOptionSource(sourceKey);
+        throw new UnsupportedOperationException("Option source by-ids not implemented: " + sourceKey);
     }
 
     /**

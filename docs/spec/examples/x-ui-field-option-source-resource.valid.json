@@ -1,0 +1,18 @@
+{
+  "label": "Departamento",
+  "name": "departamentoId",
+  "type": "text",
+  "controlType": "inlineAsyncSelect",
+  "endpoint": "/api/human-resources/departamentos/options/filter",
+  "valueField": "id",
+  "displayField": "nome",
+  "optionSource": {
+    "key": "departamento",
+    "type": "RESOURCE_ENTITY",
+    "resourcePath": "/api/human-resources/departamentos",
+    "searchMode": "contains",
+    "pageSize": 20,
+    "includeIds": true,
+    "cachePolicy": "request-scope"
+  }
+}

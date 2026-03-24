@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.uischema.FieldConfigProperties;
+import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,6 +96,9 @@ public class ApiDocsController {
 
     @Autowired
     private OpenApiDocsSupport openApiDocsSupport;
+
+    @Autowired(required = false)
+    private OptionSourceRegistry optionSourceRegistry;
     
     /**
      * Cache de documentos OpenAPI por grupo para otimização de performance.
@@ -220,6 +225,8 @@ public class ApiDocsController {
         // Converte o esquema para um Map
         Map<String, Object> schemaMap = objectMapper.convertValue(schemasNode, new TypeReference<Map<String, Object>>() { });
 
+        String basePath = deriveBasePathFrom(path);
+
         // Copia os valores de xUiNode para o "x-ui" do objeto retornado
         JsonNode xUiNode = pathsNode.path(X_UI);
         Map<String, Object> xUiMap = objectMapper.convertValue(xUiNode, new TypeReference<Map<String, Object>>() { });
@@ -250,7 +257,6 @@ public class ApiDocsController {
             }
 
             // Enriquecer com readOnly e capabilities
-            String basePath = deriveBasePathFrom(path);
             Map<String, Boolean> caps = computeCapabilities(rootNode, basePath);
             boolean computedReadOnly = (readOnly != null) ? readOnly.booleanValue() :
                     !(Boolean.TRUE.equals(caps.getOrDefault("create", false))
@@ -260,6 +266,7 @@ public class ApiDocsController {
             resourceMeta.put("capabilities", caps);
         }
 
+        enrichPropertyOptionSources(schemaMap, basePath);
         schemaMap.put(X_UI, xUiMap);
 
         // 4) Canonicalize and hash the final payload (com cache por schemaId)
@@ -398,6 +405,8 @@ public class ApiDocsController {
         caps.put("update", hasOp.apply(p + "/{id}", "put"));
         caps.put("delete", hasOp.apply(p + "/{id}", "delete") || hasOp.apply(p + "/batch", "delete"));
         caps.put("options", hasOp.apply(p + "/options/filter", "post") || hasOp.apply(p + "/options/by-ids", "get"));
+        caps.put("optionSources", hasOp.apply(p + "/option-sources/{sourceKey}/options/filter", "post")
+                || hasOp.apply(p + "/option-sources/{sourceKey}/options/by-ids", "get"));
         caps.put("byId", hasOp.apply(p + "/{id}", "get"));
         caps.put("all", hasOp.apply(p + "/all", "get"));
         caps.put("filter", hasOp.apply(p + "/filter", "post"));
@@ -406,6 +415,43 @@ public class ApiDocsController {
         caps.put("statsTimeSeries", hasOp.apply(p + "/stats/timeseries", "post"));
         caps.put("statsDistribution", hasOp.apply(p + "/stats/distribution", "post"));
         return caps;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichPropertyOptionSources(Map<String, Object> schemaMap, String basePath) {
+        if (optionSourceRegistry == null || basePath == null || basePath.isBlank()) {
+            return;
+        }
+        Object rawProperties = schemaMap.get(PROPERTIES);
+        if (!(rawProperties instanceof Map<?, ?> properties)) {
+            return;
+        }
+        for (Map.Entry<?, ?> entry : properties.entrySet()) {
+            if (!(entry.getKey() instanceof String fieldName) || !(entry.getValue() instanceof Map<?, ?> rawFieldSchema)) {
+                continue;
+            }
+            OptionSourceDescriptor descriptor = optionSourceRegistry
+                    .resolveByResourcePathAndField(basePath, fieldName)
+                    .orElse(null);
+            if (descriptor == null) {
+                continue;
+            }
+            Map<String, Object> fieldSchema = (Map<String, Object>) rawFieldSchema;
+            Map<String, Object> fieldXUi = ensureNestedMap(fieldSchema, X_UI);
+            Map<String, Object> optionSourceMeta = ensureNestedMap(fieldXUi, "optionSource");
+            descriptor.toMetadataMap().forEach(optionSourceMeta::putIfAbsent);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> ensureNestedMap(Map<String, Object> parent, String key) {
+        Object existing = parent.get(key);
+        if (existing instanceof Map<?, ?> existingMap) {
+            return (Map<String, Object>) existingMap;
+        }
+        Map<String, Object> created = new LinkedHashMap<>();
+        parent.put(key, created);
+        return created;
     }
 
     /**

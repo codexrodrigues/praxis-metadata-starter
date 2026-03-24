@@ -5,9 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourcePolicy;
+import org.praxisplatform.uischema.options.OptionSourceRegistry;
+import org.praxisplatform.uischema.options.OptionSourceType;
 import org.springframework.http.ResponseEntity;
 
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -29,6 +34,21 @@ class ApiDocsControllerReadOnlyMetaTest {
         Field support = ApiDocsController.class.getDeclaredField("openApiDocsSupport");
         support.setAccessible(true);
         support.set(controller, new OpenApiDocsSupport());
+        Field optionSourceRegistry = ApiDocsController.class.getDeclaredField("optionSourceRegistry");
+        optionSourceRegistry.setAccessible(true);
+        optionSourceRegistry.set(controller, OptionSourceRegistry.builder()
+                .add(ReadOnlyDemoEntity.class, new OptionSourceDescriptor(
+                        "payrollProfile",
+                        OptionSourceType.DISTINCT_DIMENSION,
+                        "/api/ro-demo",
+                        null,
+                        null,
+                        "payrollProfileLabel",
+                        "payrollProfileCode",
+                        List.of("universo"),
+                        new OptionSourcePolicy(true, true, "contains", 1, 25, 100, true, false, "label")
+                ))
+                .build());
 
         // Preload a minimal OpenAPI doc into the private documentCache
         Field dc = ApiDocsController.class.getDeclaredField("documentCache");
@@ -47,6 +67,8 @@ class ApiDocsControllerReadOnlyMetaTest {
         ObjectNode paths = root.putObject("paths");
         // GET byId and all, POST filter, POST filter/cursor -> Read-only shape
         paths.putObject("/api/ro-demo/{id}").putObject("get").putObject("x-ui");
+        paths.putObject("/api/ro-demo/option-sources/{sourceKey}/options/by-ids").putObject("get").putObject("x-ui");
+        paths.putObject("/api/ro-demo/option-sources/{sourceKey}/options/filter").putObject("post").putObject("x-ui");
         ObjectNode allGet = paths.putObject("/api/ro-demo/all").putObject("get");
         ObjectNode xui = allGet.putObject("x-ui");
         xui.put("responseSchema", "DemoDTO");
@@ -61,6 +83,7 @@ class ApiDocsControllerReadOnlyMetaTest {
         ObjectNode props = demo.putObject("properties");
         props.putObject("demoId").put("type", "integer");
         props.putObject("name").put("type", "string");
+        props.putObject("payrollProfile").put("type", "string");
 
         return root;
     }
@@ -102,5 +125,33 @@ class ApiDocsControllerReadOnlyMetaTest {
         assertEquals(Boolean.TRUE, caps.get("all"));
         assertEquals(Boolean.TRUE, caps.get("filter"));
         assertEquals(Boolean.TRUE, caps.get("cursor"));
+        assertEquals(Boolean.TRUE, caps.get("optionSources"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) body.get("properties");
+        assertNotNull(properties);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payrollProfile = (Map<String, Object>) properties.get("payrollProfile");
+        assertNotNull(payrollProfile);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> fieldXUi = (Map<String, Object>) payrollProfile.get("x-ui");
+        assertNotNull(fieldXUi);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> optionSource = (Map<String, Object>) fieldXUi.get("optionSource");
+        assertNotNull(optionSource);
+        assertEquals("payrollProfile", optionSource.get("key"));
+        assertEquals("DISTINCT_DIMENSION", optionSource.get("type"));
+        assertEquals(Boolean.TRUE, optionSource.get("excludeSelfField"));
+        assertEquals(java.util.List.of("universo"), optionSource.get("dependsOn"));
+        assertEquals("/api/ro-demo", optionSource.get("resourcePath"));
+        assertEquals("contains", optionSource.get("searchMode"));
+        assertEquals(25, optionSource.get("pageSize"));
+        assertEquals(Boolean.TRUE, optionSource.get("includeIds"));
+    }
+
+    static final class ReadOnlyDemoEntity {
     }
 }

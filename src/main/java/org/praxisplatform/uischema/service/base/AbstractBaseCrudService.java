@@ -3,7 +3,11 @@ package org.praxisplatform.uischema.service.base;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.options.OptionSourceRegistry;
+import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourceEligibility;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
+import org.praxisplatform.uischema.options.service.OptionSourceQueryExecutor;
 import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.stats.StatsEligibility;
@@ -25,7 +29,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.List;
+import java.lang.reflect.Field;
 import java.util.function.Function;
 
 /**
@@ -51,6 +57,15 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
 
     @Autowired(required = false)
     private StatsProperties statsProperties;
+
+    @Autowired(required = false)
+    private OptionSourceRegistry optionSourceRegistry;
+
+    @Autowired(required = false)
+    private OptionSourceQueryExecutor optionSourceQueryExecutor;
+
+    @Autowired(required = false)
+    private OptionSourceEligibility optionSourceEligibility;
 
     private final BaseCrudRepository<E, ID> repository;
     private final GenericSpecificationsBuilder<E> specificationsBuilder;
@@ -82,6 +97,11 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
     @Override
     public Class<E> getEntityClass() {
         return entityClass;
+    }
+
+    @Override
+    public OptionSourceRegistry getOptionSourceRegistry() {
+        return optionSourceRegistry != null ? optionSourceRegistry : BaseCrudService.super.getOptionSourceRegistry();
     }
 
     @Override
@@ -275,6 +295,45 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
         return BaseCrudService.super.byIdsOptions(ids);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<org.praxisplatform.uischema.dto.OptionDTO<Object>> filterOptionSourceOptions(
+            String sourceKey,
+            FD filter,
+            String search,
+            org.springframework.data.domain.Pageable pageable,
+            Collection<Object> includeIds
+    ) {
+        if (optionSourceQueryExecutor == null) {
+            return BaseCrudService.super.filterOptionSourceOptions(sourceKey, filter, search, pageable, includeIds);
+        }
+        OptionSourceDescriptor descriptor = resolveEffectiveOptionSource(sourceKey);
+        FD effectiveFilter = sanitizeFilter(filter, descriptor);
+        var specification = getSpecificationsBuilder().buildSpecification(effectiveFilter, pageable);
+        return optionSourceQueryExecutor.filterOptions(
+                entityManager,
+                entityClass,
+                specification.spec(),
+                descriptor,
+                search,
+                pageable,
+                includeIds
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<org.praxisplatform.uischema.dto.OptionDTO<Object>> byIdsOptionSourceOptions(
+            String sourceKey,
+            Collection<Object> ids
+    ) {
+        if (optionSourceQueryExecutor == null) {
+            return BaseCrudService.super.byIdsOptionSourceOptions(sourceKey, ids);
+        }
+        OptionSourceDescriptor descriptor = resolveEffectiveOptionSource(sourceKey);
+        return optionSourceQueryExecutor.byIdsOptions(entityManager, entityClass, descriptor, ids);
+    }
+
     private E refreshManaged(E entity) {
         entityManager.flush();
         E managed = entityManager.contains(entity) ? entity : entityManager.merge(entity);
@@ -292,5 +351,48 @@ public abstract class AbstractBaseCrudService<E, D, ID, FD extends GenericFilter
                         statsEligibility.resolveMetricField(metric, getStatsFieldRegistry(), operationName)
                 ))
                 .toList();
+    }
+
+    private OptionSourceDescriptor resolveEffectiveOptionSource(String sourceKey) {
+        OptionSourceDescriptor descriptor = resolveOptionSource(sourceKey);
+        if (optionSourceEligibility == null) {
+            return descriptor;
+        }
+        return optionSourceEligibility.resolveEffectiveDescriptor(descriptor, getStatsFieldRegistry());
+    }
+
+    private FD sanitizeFilter(FD filter, OptionSourceDescriptor descriptor) {
+        if (filter == null || descriptor == null || !descriptor.policy().excludeSelfField()) {
+            return filter;
+        }
+        try {
+            var constructor = filter.getClass().getDeclaredConstructor();
+            constructor.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            FD copy = (FD) constructor.newInstance();
+            for (Field field : allFields(filter.getClass())) {
+                field.setAccessible(true);
+                Object value = field.get(filter);
+                if (field.getName().equals(descriptor.effectiveFilterField())) {
+                    value = null;
+                }
+                field.set(copy, value);
+            }
+            return copy;
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalArgumentException("Option source filter could not be sanitized: " + descriptor.key(), ex);
+        }
+    }
+
+    private List<Field> allFields(Class<?> type) {
+        List<Field> fields = new ArrayList<>();
+        Class<?> current = type;
+        while (current != null && current != Object.class) {
+            for (Field field : current.getDeclaredFields()) {
+                fields.add(field);
+            }
+            current = current.getSuperclass();
+        }
+        return fields;
     }
 }

@@ -1503,9 +1503,75 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (annotation.extraProperties() != null && annotation.extraProperties().length > 0) {
             for (ExtensionProperty p : annotation.extraProperties()) {
                 // extraProperties sobrescreve TUDO (precedência máxima)
+                if (p.name() != null && p.name().contains(".")) {
+                    putNestedExtraProperty(uiExtension, p.name(), parseNestedExtraPropertyValue(p.value()));
+                    continue;
+                }
                 uiExtension.put(p.name(), p.value());
             }
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private void putNestedExtraProperty(Map<String, Object> target, String dottedName, Object value) {
+        String[] parts = dottedName.split("\\.");
+        Map<String, Object> current = target;
+        for (int i = 0; i < parts.length - 1; i++) {
+            String part = parts[i];
+            Object existing = current.get(part);
+            if (!(existing instanceof Map<?, ?> existingMap)) {
+                Map<String, Object> nested = new LinkedHashMap<>();
+                current.put(part, nested);
+                current = nested;
+                continue;
+            }
+            current = (Map<String, Object>) existingMap;
+        }
+        current.put(parts[parts.length - 1], value);
+    }
+
+    private Object parseNestedExtraPropertyValue(String rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+        String trimmed = rawValue.trim();
+        if (trimmed.isEmpty()) {
+            return trimmed;
+        }
+        if (looksLikeStructuredLiteral(trimmed)) {
+            try {
+                return _mapper.readValue(trimmed, Object.class);
+            } catch (Exception ignored) {
+                // Fallback to the raw string when the literal is not valid JSON.
+            }
+        }
+        if ("true".equalsIgnoreCase(trimmed) || "false".equalsIgnoreCase(trimmed)) {
+            return Boolean.parseBoolean(trimmed);
+        }
+        if (trimmed.matches("-?\\d+")) {
+            try {
+                return Integer.valueOf(trimmed);
+            } catch (NumberFormatException ignored) {
+                try {
+                    return Long.valueOf(trimmed);
+                } catch (NumberFormatException ignoredAgain) {
+                    // Fallback to raw string below.
+                }
+            }
+        }
+        if (trimmed.matches("-?\\d+\\.\\d+")) {
+            try {
+                return Double.valueOf(trimmed);
+            } catch (NumberFormatException ignored) {
+                // Fallback to raw string below.
+            }
+        }
+        return trimmed;
+    }
+
+    private boolean looksLikeStructuredLiteral(String value) {
+        return (value.startsWith("{") && value.endsWith("}"))
+                || (value.startsWith("[") && value.endsWith("]"))
+                || (value.startsWith("\"") && value.endsWith("\""));
+    }
 }

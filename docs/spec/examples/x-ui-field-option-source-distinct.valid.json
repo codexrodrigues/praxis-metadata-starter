@@ -1,0 +1,17 @@
+{
+  "label": "Perfil de folha",
+  "name": "payrollProfile",
+  "type": "text",
+  "controlType": "inlineAsyncSelect",
+  "optionSource": {
+    "key": "payrollProfile",
+    "type": "DISTINCT_DIMENSION",
+    "resourcePath": "/api/human-resources/vw-analytics-folha-pagamento",
+    "dependsOn": ["competenciaBetween", "universo"],
+    "excludeSelfField": true,
+    "searchMode": "contains",
+    "pageSize": 25,
+    "includeIds": true,
+    "cachePolicy": "request-scope"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "label": "Faixa de desconto",
+  "name": "faixaPctDesconto",
+  "type": "text",
+  "controlType": "inlineAsyncSelect",
+  "optionSource": {
+    "type": "CATEGORICAL_BUCKET",
+    "resourcePath": "/api/human-resources/vw-analytics-folha-pagamento",
+    "pageSize": 0,
+    "excludeSelfField": "yes"
+  }
+}

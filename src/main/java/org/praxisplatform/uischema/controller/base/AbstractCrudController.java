@@ -62,6 +62,8 @@ import org.praxisplatform.uischema.util.SortBuilder;
  *   <div class="ep"><span class="badge method get">GET</span> <code>/by-ids</code></div>
  *   <div class="ep"><span class="badge method post">POST</span> <code>/options/filter</code></div>
  *   <div class="ep"><span class="badge method get">GET</span> <code>/options/by-ids</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/option-sources/{sourceKey}/options/filter</code></div>
+ *   <div class="ep"><span class="badge method get">GET</span> <code>/option-sources/{sourceKey}/options/by-ids</code></div>
  *   <div class="ep"><span class="badge method post">POST</span> <code>/</code></div>
  *   <div class="ep"><span class="badge method put">PUT</span> <code>/{id}</code></div>
  *   <div class="ep"><span class="badge method del">DELETE</span> <code>/{id}</code></div>
@@ -1049,10 +1051,10 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
      * @return página de {@link OptionDTO}
      * @throws org.springframework.web.server.ResponseStatusException quando <code>size</code> excede o limite (422)
      */
-    @PostMapping("/options/filter")
-    @Operation(summary = "Listar opções filtradas", description = "Retorna projeções id/label para selects.")
-    public ResponseEntity<Page<OptionDTO<ID>>> filterOptions(
-            @RequestBody FD filterDTO,
+  @PostMapping("/options/filter")
+  @Operation(summary = "Listar opções filtradas", description = "Retorna projeções id/label para selects.")
+  public ResponseEntity<Page<OptionDTO<ID>>> filterOptions(
+          @RequestBody FD filterDTO,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "20") int size,
             @RequestParam MultiValueMap<String, String> queryParams) {
@@ -1062,9 +1064,42 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         }
         List<String> sort = queryParams.get("sort");
         Pageable pageable = PageableBuilder.from(page, size, sort, getService().getDefaultSort());
-        Page<OptionDTO<ID>> result = getService().filterOptions(filterDTO, pageable);
-        return withVersion(ResponseEntity.ok(), result);
-    }
+      Page<OptionDTO<ID>> result = getService().filterOptions(filterDTO, pageable);
+      return withVersion(ResponseEntity.ok(), result);
+  }
+
+  @PostMapping("/option-sources/{sourceKey}/options/filter")
+  @Operation(summary = "Listar opções filtradas por fonte derivada",
+          description = "Retorna projeções id/label para uma fonte canônica registrada em option-sources.")
+  public ResponseEntity<Page<OptionDTO<Object>>> filterOptionSourceOptions(
+          @PathVariable String sourceKey,
+          @RequestBody FD filterDTO,
+          @RequestParam(name = "search", required = false) String search,
+          @RequestParam(name = "includeIds", required = false) List<String> includeIds,
+          @RequestParam(name = "page", defaultValue = "0") int page,
+          @RequestParam(name = "size", defaultValue = "20") int size,
+          @RequestParam MultiValueMap<String, String> queryParams) {
+      if (size > PAGINATION_MAX_SIZE) {
+          throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                  "Maximum page size exceeded: " + PAGINATION_MAX_SIZE);
+      }
+      List<String> sort = queryParams.get("sort");
+      Pageable pageable = PageableBuilder.from(page, size, sort, getService().getDefaultSort());
+      try {
+          Page<OptionDTO<Object>> result = getService().filterOptionSourceOptions(
+                  sourceKey,
+                  filterDTO,
+                  search,
+                  pageable,
+                  includeIds == null ? List.of() : List.copyOf(includeIds)
+          );
+          return withVersion(ResponseEntity.ok(), result);
+      } catch (IllegalArgumentException ex) {
+          throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+      } catch (UnsupportedOperationException ex) {
+          throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), ex);
+      }
+  }
 
     /**
      * Retorna opções (id/label) para uma coleção de IDs, preservando a ordem solicitada.
@@ -1087,19 +1122,41 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
      * @return lista de {@link OptionDTO} na mesma ordem dos IDs
      * @throws org.springframework.web.server.ResponseStatusException quando a quantidade de IDs excede o limite configurado (422)
      */
-    @GetMapping("/options/by-ids")
-    @Operation(summary = "Buscar opções por IDs", description = "Retorna projeções id/label na ordem solicitada. Limite configurável por 'praxis.query.by-ids.max'.")
-    public ResponseEntity<List<OptionDTO<ID>>> getOptionsByIds(
-            @RequestParam(name = "ids", required = false) List<ID> ids) {
+  @GetMapping("/options/by-ids")
+  @Operation(summary = "Buscar opções por IDs", description = "Retorna projeções id/label na ordem solicitada. Limite configurável por 'praxis.query.by-ids.max'.")
+  public ResponseEntity<List<OptionDTO<ID>>> getOptionsByIds(
+          @RequestParam(name = "ids", required = false) List<ID> ids) {
         if (ids == null || ids.isEmpty()) {
             return withVersion(ResponseEntity.ok(), List.of());
         }
         if (ids.size() > BY_IDS_MAX) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Maximum number of IDs exceeded: " + BY_IDS_MAX);
-        }
-        return withVersion(ResponseEntity.ok(), getService().byIdsOptions(ids));
-    }
+      }
+      return withVersion(ResponseEntity.ok(), getService().byIdsOptions(ids));
+  }
+
+  @GetMapping("/option-sources/{sourceKey}/options/by-ids")
+  @Operation(summary = "Buscar opções por IDs em fonte derivada",
+          description = "Retorna projeções id/label para uma fonte canônica registrada em option-sources, preservando a ordem solicitada.")
+  public ResponseEntity<List<OptionDTO<Object>>> getOptionSourceOptionsByIds(
+          @PathVariable String sourceKey,
+          @RequestParam(name = "ids", required = false) List<String> ids) {
+      if (ids == null || ids.isEmpty()) {
+          return withVersion(ResponseEntity.ok(), List.of());
+      }
+      if (ids.size() > BY_IDS_MAX) {
+          throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                  "Maximum number of IDs exceeded: " + BY_IDS_MAX);
+      }
+      try {
+          return withVersion(ResponseEntity.ok(), getService().byIdsOptionSourceOptions(sourceKey, List.copyOf(ids)));
+      } catch (IllegalArgumentException ex) {
+          throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+      } catch (UnsupportedOperationException ex) {
+          throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), ex);
+      }
+  }
 
     @GetMapping("/{id}")
     @Operation(

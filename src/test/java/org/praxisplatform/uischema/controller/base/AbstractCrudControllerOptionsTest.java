@@ -98,6 +98,113 @@ class AbstractCrudControllerOptionsTest {
         verify(service, never()).filterOptions(any(), any(Pageable.class));
     }
 
+    @Test
+    void filterOptionSourceOptionsDelegatesToService() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
+        when(service.filterOptionSourceOptions(any(), any(), any(), any(Pageable.class), any()))
+                .thenReturn(new PageImpl<>(List.of(
+                        new OptionDTO<>("perfil-a", "Perfil A", null),
+                        new OptionDTO<>("perfil-b", "Perfil B", null)
+                ), PageRequest.of(0, 2), 2));
+
+        mockMvc.perform(post("/simple/option-sources/payrollProfile/options/filter")
+                        .param("search", "perf")
+                        .param("includeIds", "perfil-a", "perfil-b")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Data-Version", "1"))
+                .andExpect(jsonPath("$.content[0].id").value("perfil-a"))
+                .andExpect(jsonPath("$.content[1].id").value("perfil-b"));
+
+        verify(service).filterOptionSourceOptions(eq("payrollProfile"), any(), eq("perf"), any(Pageable.class), eq(List.of("perfil-a", "perfil-b")));
+    }
+
+    @Test
+    void filterOptionSourceOptionsReturns404WhenUnknownSource() throws Exception {
+        when(service.filterOptionSourceOptions(any(), any(), any(), any(Pageable.class), any()))
+                .thenThrow(new IllegalArgumentException("Option source is not registered for resource SimpleEntity: payrollProfile"));
+
+        mockMvc.perform(post("/simple/option-sources/payrollProfile/options/filter")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isNotFound())
+                .andExpect(status().reason(containsString("Option source is not registered")));
+    }
+
+    @Test
+    void filterOptionSourceOptionsReturns501WhenNotImplemented() throws Exception {
+        when(service.filterOptionSourceOptions(any(), any(), any(), any(Pageable.class), any()))
+                .thenThrow(new UnsupportedOperationException("Option source options not implemented: payrollProfile"));
+
+        mockMvc.perform(post("/simple/option-sources/payrollProfile/options/filter")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isNotImplemented())
+                .andExpect(status().reason(containsString("Option source options not implemented")));
+    }
+
+    @Test
+    void filterOptionSourceOptionsReturns422WhenPageSizeExceedsLimit() throws Exception {
+        mockMvc.perform(post("/simple/option-sources/payrollProfile/options/filter")
+                        .param("size", "21")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().reason(containsString("Maximum page size exceeded: 20")));
+
+        verify(service, never()).filterOptionSourceOptions(any(), any(), any(), any(Pageable.class), any());
+    }
+
+    @Test
+    void getOptionSourceOptionsByIdsReturnsOrderedList() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
+        when(service.byIdsOptionSourceOptions("payrollProfile", List.of("a", "c", "b")))
+                .thenReturn(List.of(
+                        new OptionDTO<>("a", "A", null),
+                        new OptionDTO<>("c", "C", null),
+                        new OptionDTO<>("b", "B", null)
+                ));
+
+        mockMvc.perform(get("/simple/option-sources/payrollProfile/options/by-ids").param("ids", "a", "c", "b"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Data-Version", "1"))
+                .andExpect(jsonPath("$[0].id").value("a"))
+                .andExpect(jsonPath("$[1].id").value("c"))
+                .andExpect(jsonPath("$[2].id").value("b"));
+
+        verify(service).byIdsOptionSourceOptions("payrollProfile", List.of("a", "c", "b"));
+    }
+
+    @Test
+    void getOptionSourceOptionsByIdsReturns404WhenUnknownSource() throws Exception {
+        when(service.byIdsOptionSourceOptions("payrollProfile", List.of("a")))
+                .thenThrow(new IllegalArgumentException("Option source is not registered for resource SimpleEntity: payrollProfile"));
+
+        mockMvc.perform(get("/simple/option-sources/payrollProfile/options/by-ids").param("ids", "a"))
+                .andExpect(status().isNotFound())
+                .andExpect(status().reason(containsString("Option source is not registered")));
+    }
+
+    @Test
+    void getOptionSourceOptionsByIdsReturns501WhenNotImplemented() throws Exception {
+        when(service.byIdsOptionSourceOptions("payrollProfile", List.of("a")))
+                .thenThrow(new UnsupportedOperationException("Option source by-ids not implemented: payrollProfile"));
+
+        mockMvc.perform(get("/simple/option-sources/payrollProfile/options/by-ids").param("ids", "a"))
+                .andExpect(status().isNotImplemented())
+                .andExpect(status().reason(containsString("Option source by-ids not implemented")));
+    }
+
+    @Test
+    void getOptionSourceOptionsByIdsReturns422WhenExceedsLimit() throws Exception {
+        mockMvc.perform(get("/simple/option-sources/payrollProfile/options/by-ids").param("ids", "a", "b", "c", "d"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().reason(containsString("Maximum number of IDs exceeded: 3")));
+
+        verify(service, never()).byIdsOptionSourceOptions(any(), any());
+    }
+
     interface SimpleService extends org.praxisplatform.uischema.service.base.BaseCrudService<SimpleEntity, SimpleDto, Long, SimpleFilterDTO> {
         @Override
         default Optional<String> getDatasetVersion() { return Optional.of("1"); }
