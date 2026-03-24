@@ -1058,7 +1058,7 @@ Bean GroupedOpenApi registrado: bean=api_human_resources_funcionarios_ApiGroup, 
 
 Para informações detalhadas sobre implementação, consulte nossa **[documentação organizada](docs/README.md)**:
 
-- 📖 **[Guias de Implementação](docs/guides/)** - Guias completos para CRUD+Bulk e novas aplicações
+- 📖 **[Guias de Implementação](docs/guides/)** - Guias para recursos CRUD metadata-driven e novas aplicações
 - 💡 **[Exemplos Práticos](docs/examples/)** - Templates de prompt e casos de uso reais  
 - 🔧 **[Documentação Técnica](docs/technical/)** - Detalhes sobre auto-configuração e OpenAPI
 

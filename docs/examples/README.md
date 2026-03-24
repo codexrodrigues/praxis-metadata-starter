@@ -4,21 +4,20 @@ Esta seção contém exemplos práticos, templates e casos de uso reais para fac
 
 ## 📋 **Exemplos Disponíveis**
 
-### 📝 [Template de Prompt CRUD+Bulk](EXEMPLO-PROMPT-CRUD-BULK.md)
-**Formato exato para solicitar novas funcionalidades automatizadas**
+### 📝 [Template de Prompt para Recurso CRUD Metadata-Driven](EXEMPLO-PROMPT-CRUD-BULK.md)
+**Formato recomendado para solicitar um recurso alinhado ao contrato real do starter**
 
-- 🎯 **Template padronizado** com 4 informações obrigatórias
-- 🎨 **Exemplos por módulo** (Recursos Humanos, Financeiro, Estoque, Vendas)
-- 🛠️ **Troubleshooting** para erros comuns
-- 🏆 **100% de garantia** de sucesso na primeira tentativa
+- 🎯 template padronizado com entradas mínimas
+- 🔗 referência ao quickstart e ao Angular
+- 🛠️ regras para evitar desvios como bulk obrigatório
 
 **Como usar:**
 ```
-Crie uma funcionalidade CRUD+Bulk completa para a seguinte entidade usando o guia GUIA-CLAUDE-AI-CRUD-BULK.md:
+Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
 
 **Entidade:** [caminho-para-arquivo-da-entidade]
-**Path da API:** [caminho-da-api]
-**Grupo da API:** [nome-do-grupo]
+**Resource path:** [caminho-da-api]
+**Api group:** [nome-do-grupo]
 **Pacote base:** [pacote-base-java]
 ```
 
@@ -61,7 +60,7 @@ Crie uma funcionalidade CRUD+Bulk completa para a seguinte entidade usando o gui
 1. **📝 Copie o template** do exemplo mais próximo ao seu caso
 2. **🔧 Adapte as informações** para sua entidade específica
 3. **✅ Valide o formato** seguindo as convenções documentadas
-4. **🎯 Execute** usando o guia CRUD+Bulk correspondente
+4. **🎯 Execute** usando o guia metadata-driven correspondente
 
 ---
 
@@ -75,7 +74,7 @@ Crie uma funcionalidade CRUD+Bulk completa para a seguinte entidade usando o gui
 
 ## 📚 **Referências Relacionadas**
 
-- 📖 [Guia CRUD+Bulk Completo](../guides/GUIA-CLAUDE-AI-CRUD-BULK.md)
+- 📖 [Guia de CRUD Metadata-Driven](../guides/GUIA-CLAUDE-AI-CRUD-BULK.md)
 - 🔧 [Documentação Técnica](../technical/)
 - 🏠 [Índice Principal](../README.md)
 
@@ -88,4 +87,4 @@ Crie uma funcionalidade CRUD+Bulk completa para a seguinte entidade usando o gui
 
 ---
 
-**🎯 Dica:** Use estes exemplos como referência rápida - eles foram testados e garantem 100% de sucesso!
+**🎯 Dica:** Use estes exemplos como referência rápida para manter aderência ao starter, ao quickstart e ao consumo Angular.

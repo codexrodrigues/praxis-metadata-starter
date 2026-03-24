@@ -1,32 +1,39 @@
 # 📖 Guias de Implementação
 
-Esta seção contém guias completos e detalhados para implementar funcionalidades usando o Praxis Metadata Starter.
+Esta seção reúne os guias operacionais do `praxis-metadata-starter`.
 
-## 📋 **Guias Disponíveis**
+Eles foram reorganizados para seguir a hierarquia correta da plataforma:
 
-### 🤖 [Guia CRUD+Bulk Automatizado](GUIA-CLAUDE-AI-CRUD-BULK.md)
-**Guia principal para geração automatizada de funcionalidades CRUD+Bulk**
+1. o starter define o contrato canônico
+2. o `praxis-api-quickstart` mostra o uso operacional de referência
+3. o `praxis-ui-angular` representa a ponta final de consumo
 
-- ✅ Templates 100% testados com implementações reais
-- ✅ Enums corretos baseados em código funcional  
-- ✅ Matrizes de decisão para Mappers e Services
-- ✅ BulkFilterAdapter completamente documentado
-- ✅ 4 Anexos UISchema para referência completa
+## 📋 Guias Disponíveis
 
-**Ideal para:** Criar funcionalidades CRUD+Bulk de forma padronizada e automatizada.
+### 🤖 [Guia de CRUD Metadata-Driven por Entidade](GUIA-CLAUDE-AI-CRUD-BULK.md)
+Guia principal para agentes de IA gerarem recursos CRUD alinhados ao contrato real do starter.
+
+- cobre DTO, FilterDTO, mapper, repository, service e controller
+- ancora exemplos no `praxis-api-quickstart`
+- considera o consumo real do `GenericCrudService` no Angular
+- nao institucionaliza bulk como baseline
+
+**Ideal para:** gerar um recurso CRUD que publique `x-ui`, `/schemas/filtered`, options e endpoints base consumíveis pela UI.
 
 ### 🚀 [Guia para Aplicações Novas](GUIA-CLAUDE-AI-APLICACAO-NOVA.md)
-**Setup completo para novas aplicações Spring Boot**
+Guia para criar uma nova aplicação Spring Boot mínima e correta sobre o `praxis-metadata-starter`.
 
-- Configuração inicial do projeto
-- Estrutura de módulos e pacotes
-- Integração com Praxis Platform
-- Boas práticas organizacionais
+- define o baseline mínimo de dependências
+- evita prescrever módulos opcionais como obrigatórios
+- alinha a aplicação nova com o host de referência e o consumo Angular
 
-**Ideal para:** Inicializar novos projetos com Praxis Metadata Starter.
+**Ideal para:** inicializar um projeto novo com OpenAPI enriquecido, schemas filtrados e primeiro recurso metadata-driven.
 
 ### ✅ [Checklist de Validação (IA)](CHECKLIST-VALIDACAO-IA.md)
 Lista objetiva para validar builds, grupos OpenAPI, endpoints CRUD, options e schemas após geração por IA.
+
+### 🧪 [Prova Operacional dos Guias de IA](ai-proof/README.md)
+Pacote para executar rodadas cegas com LLM, registrar falhas reais e iterar os guias até fechar o protocolo.
 
 ---
 
@@ -52,7 +59,7 @@ Padronize respostas de erro e sucesso para melhor DX/UX.
 
 ## 🎯 **Como Usar os Guias**
 
-1. **Para primeira implementação:** Comece com a [Visão Geral](../overview/VISAO-GERAL.md) e depois o [Guia CRUD+Bulk](GUIA-CLAUDE-AI-CRUD-BULK.md)
+1. **Para primeira implementação:** Comece com a [Visão Geral](../overview/VISAO-GERAL.md) e depois o [Guia de CRUD Metadata-Driven](GUIA-CLAUDE-AI-CRUD-BULK.md)
 2. **Para novo projeto:** Use o [Guia de Aplicação Nova](GUIA-CLAUDE-AI-APLICACAO-NOVA.md)
 3. **Após geração por IA:** Valide com o [Checklist de Validação](CHECKLIST-VALIDACAO-IA.md)
 3. **Para exemplos práticos:** Consulte os [Examples](../examples/)
@@ -60,14 +67,15 @@ Padronize respostas de erro e sucesso para melhor DX/UX.
 
 ---
 
-## 🏆 **Garantia de Qualidade**
+## 🏆 Critério de Qualidade
 
-Todos os guias nesta seção foram **validados através de implementações reais**:
+Os guias desta seção devem permanecer aderentes a:
 
-- ✅ **Entidade Pessoa** (complexa) - 8 arquivos gerados e funcionando
-- ✅ **Entidade TipoDocumento** (simples) - 8 arquivos gerados e funcionando  
-- ✅ **100% de compilação** sem erros
-- ✅ **Templates testados** em ambiente real
+- código canônico do `praxis-metadata-starter`
+- uso real no `praxis-api-quickstart`
+- consumo final no `praxis-ui-angular`
+
+Quando houver divergência entre um guia e esses três pontos, o guia deve ser corrigido.
 
 ---
 
@@ -88,3 +96,4 @@ Todos os guias nesta seção foram **validados através de implementações reai
 
 ## 🚀 Exemplo completo (Quickstart)
 - Repositório de exemplo: https://github.com/codexrodrigues/praxis-api-quickstart
+- Superfície publicada de referência: https://praxis-api-quickstart.onrender.com/

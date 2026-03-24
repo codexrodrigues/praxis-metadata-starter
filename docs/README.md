@@ -52,23 +52,23 @@ docs/
 - [Visão dos Pacotes](packages-overview.md): responsabilidades de cada pacote Java e quando estender contratos.
 - [Sitemap](sitemap.xml): referência para indexadores (Google, IA) e navegação cruzada entre tópicos.
 
-### 🤖 [Guia CRUD+Bulk Automatizado](guides/GUIA-CLAUDE-AI-CRUD-BULK.md)
-**O guia principal para geração automatizada de funcionalidades CRUD+Bulk**
+### 🤖 [Guia de CRUD Metadata-Driven por Entidade](guides/GUIA-CLAUDE-AI-CRUD-BULK.md)
+**O guia principal para geração automatizada de recursos CRUD alinhados ao contrato real do starter**
 
-- ✅ **Templates 100% testados** com entidades Pessoa e TipoDocumento  
-- ✅ **Enums corretos** (`EQUAL`, `TOGGLE`) baseados em implementações reais
-- ✅ **Padrões validados** para Mappers (Manual vs MapStruct) e Services (Simples vs Complexo)
-- ✅ **BulkFilterAdapter completo** com templates funcionais
-- ✅ **4 Anexos de referência** UISchema para consulta
+- ✅ ancorado no código canônico do starter
+- ✅ referenciado no uso real do `praxis-api-quickstart`
+- ✅ compatível com o consumo do `GenericCrudService` no `praxis-ui-angular`
+- ✅ corrige a regra de options para `OptionDTO{id,label}`
 
-**Quando usar:** Para criar novas funcionalidades CRUD+Bulk de forma automatizada e padronizada.
+**Quando usar:** Para criar um recurso CRUD metadata-driven de forma padronizada e consumível pela UI Praxis.
 
 ### 🚀 [Guia para Aplicações Novas](guides/GUIA-CLAUDE-AI-APLICACAO-NOVA.md) 
-**Guia para setup completo de novas aplicações**
+**Guia para criar uma aplicação Spring Boot mínima e correta sobre o starter**
 
-- Configuração inicial do projeto
-- Estrutura de módulos e pacotes
-- Integração com Praxis Platform
+- baseline mínimo de dependências
+- estrutura inicial de projeto
+- primeiro recurso metadata-driven
+- alinhamento com quickstart e Angular
 
 **Quando usar:** Ao criar uma nova aplicação Spring Boot com Praxis Metadata Starter.
 
@@ -76,15 +76,14 @@ docs/
 
 ## 💡 **Exemplos Práticos** (`/examples/`)
 
-### 📝 [Template de Prompt para CRUD+Bulk](examples/EXEMPLO-PROMPT-CRUD-BULK.md)
-**Formato exato de prompt para solicitar novas funcionalidades**
+### 📝 [Template de Prompt para Recurso CRUD Metadata-Driven](examples/EXEMPLO-PROMPT-CRUD-BULK.md)
+**Formato recomendado de prompt para solicitar um recurso alinhado ao starter**
 
-- 🎯 **Template padronizado** com 4 informações obrigatórias
-- 🎨 **Exemplos por módulo** (RH, Financeiro, Estoque, Vendas)
-- 🛠️ **Troubleshooting** para erros comuns
-- 🏆 **Garantia de 100% de sucesso** baseada no guia aprimorado
+- 🎯 template padronizado com entradas mínimas
+- 🔗 referência explícita ao quickstart e ao Angular
+- 🛠️ regras para evitar bulk obrigatório e exemplos legados
 
-**Quando usar:** Como referência ao solicitar criação de novas funcionalidades CRUD+Bulk.
+**Quando usar:** Como referência para solicitar geração assistida de um recurso CRUD metadata-driven.
 
 ### 🧾 [Filter DTO com Metadados x-ui](examples/filter-dto.md)
 **Mostra um filtro completo com `@Filterable` + `@UISchema`**
@@ -151,7 +150,7 @@ docs/
 ## 🧭 **Como Navegar pela Documentação**
 
 ### **Para Desenvolvedores - Primeira Implementação:**
-1. 📖 Leia o [Guia CRUD+Bulk](guides/GUIA-CLAUDE-AI-CRUD-BULK.md) completo
+1. 📖 Leia o [Guia de CRUD Metadata-Driven](guides/GUIA-CLAUDE-AI-CRUD-BULK.md) completo
 2. 📝 Use o [Template de Prompt](examples/EXEMPLO-PROMPT-CRUD-BULK.md) como referência
 3. 🔧 Consulte a documentação técnica conforme necessário
 
@@ -177,25 +176,23 @@ docs/
 
 ---
 
-## 🏆 **Garantias de Qualidade**
+## 🏆 Critério de Qualidade
 
-Esta documentação foi **validada através de implementações reais**:
+Esta documentação deve permanecer aderente a:
 
-- ✅ **Entidade Pessoa** (complexa, com relacionamentos) - 8 arquivos gerados ✅
-- ✅ **Entidade TipoDocumento** (simples, sem relacionamentos) - 8 arquivos gerados ✅
-- ✅ **100% de compilação** sem erros na primeira tentativa
-- ✅ **Padrões consistentes** em todo o código gerado
+- código canônico do `praxis-metadata-starter`
+- uso real e publicado do `praxis-api-quickstart`
+- consumo final em `praxis-ui-angular`
 
 ---
 
 ## 📈 **Histórico de Melhorias**
 
-### **v2.0 (Atual) - Validado e Aprimorado**
-- ✅ Enums corretos baseados em implementações reais
-- ✅ BulkFilterAdapter completamente documentado
-- ✅ Anexos UISchema de referência adicionados
-- ✅ Matrizes de decisão para Mappers e Services
-- ✅ Templates 100% testados e funcionais
+### **v2.1 (Atual) - Equiparado ao código fonte**
+- ✅ guias reancorados no starter canônico
+- ✅ exemplos alinhados ao quickstart real
+- ✅ consumo Angular refletido na documentação
+- ✅ claims não canônicas de bulk removidas do baseline
 
 ### **v1.0 - Versão Inicial**
 - Templates básicos

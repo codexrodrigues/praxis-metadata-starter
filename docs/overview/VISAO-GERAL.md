@@ -64,7 +64,7 @@ curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoa
 - Repositório de exemplo (Quickstart): https://github.com/codexrodrigues/praxis-api-quickstart
 
 ## Guias e técnica
-- Guia CRUD+Bulk: ../guides/GUIA-CLAUDE-AI-CRUD-BULK.md
+- Guia de CRUD metadata-driven: ../guides/GUIA-CLAUDE-AI-CRUD-BULK.md
 - Estratégia de grupos OpenAPI: ../technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
 - Auto‑configuração: ../technical/AUTO-CONFIGURACAO.md
 - Validação @ApiResource: ../technical/VALIDACAO-API-RESOURCE.md
