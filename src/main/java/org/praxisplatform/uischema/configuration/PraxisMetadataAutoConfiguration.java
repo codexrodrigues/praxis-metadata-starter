@@ -183,9 +183,8 @@ public class PraxisMetadataAutoConfiguration {
      * <h4>📡 Endpoints Incluídos:</h4>
      * <ul>
      *   <li><strong>/schemas/filtered:</strong> Resolução automática de schemas por path</li>
-     *   <li><strong>/schemas/{groupName}:</strong> Documentação completa de grupos específicos</li>
-     *   <li><strong>/schemas/metadata:</strong> Metadados de UI Schema (se implementado)</li>
-     *   <li><strong>Futuros endpoints /schemas/*:</strong> Expansões da funcionalidade</li>
+     *   <li><strong>/schemas/catalog:</strong> Catálogo resumido de domínios e superfícies publicadas</li>
+     *   <li><strong>Outros endpoints futuros em /schemas/*:</strong> somente quando realmente implementados pelo starter</li>
      * </ul>
      * 
      * <h4>🔄 Padrão de Matching:</h4>
@@ -194,9 +193,7 @@ public class PraxisMetadataAutoConfiguration {
      * 
      * ✅ Incluídos:
      * /schemas/filtered?path=/api/funcionarios
-     * /schemas/funcionarios  
-     * /schemas/metadata/forms
-     * /schemas/ui-config
+     * /schemas/catalog
      * 
      * ❌ Excluídos:
      * /api/funcionarios (aplicação)

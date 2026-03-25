@@ -40,10 +40,13 @@ import java.util.List;
  *   <div class="ep"><span class="badge method get">GET</span> <code>/options/by-ids</code></div>
  *   <div class="ep"><span class="badge method post">POST</span> <code>/option-sources/{sourceKey}/options/filter</code></div>
  *   <div class="ep"><span class="badge method get">GET</span> <code>/option-sources/{sourceKey}/options/by-ids</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/stats/group-by</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/stats/timeseries</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/stats/distribution</code></div>
  *   <div class="ep"><span class="badge method misc">GET</span> <code>/schemas</code> → <code>/schemas/filtered</code></div>
  * </div>
  * <p><strong>Escrita segura:</strong> {@code POST /}, {@code PUT /{id}}, {@code DELETE /{id}}, {@code DELETE /batch} → {@code 405 Method Not Allowed}</p>
- * <p><strong>Filtros (26 operações)</strong> + paginação tradicional e por cursor; <strong>Options id/label</strong> e schema x‑ui.</p>
+ * <p><strong>Filtros (26 operações)</strong> + paginação tradicional e por cursor; <strong>options id/label</strong>, <strong>option-sources</strong>, <strong>stats</strong> e schema x-ui.</p>
  *
  * <h3>Quando escolher esta base</h3>
  * <ul>

@@ -64,6 +64,9 @@ import org.praxisplatform.uischema.util.SortBuilder;
  *   <div class="ep"><span class="badge method get">GET</span> <code>/options/by-ids</code></div>
  *   <div class="ep"><span class="badge method post">POST</span> <code>/option-sources/{sourceKey}/options/filter</code></div>
  *   <div class="ep"><span class="badge method get">GET</span> <code>/option-sources/{sourceKey}/options/by-ids</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/stats/group-by</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/stats/timeseries</code></div>
+ *   <div class="ep"><span class="badge method post">POST</span> <code>/stats/distribution</code></div>
  *   <div class="ep"><span class="badge method post">POST</span> <code>/</code></div>
  *   <div class="ep"><span class="badge method put">PUT</span> <code>/{id}</code></div>
  *   <div class="ep"><span class="badge method del">DELETE</span> <code>/{id}</code></div>
@@ -84,7 +87,7 @@ import org.praxisplatform.uischema.util.SortBuilder;
  * 1. @PostConstruct initializeBasePath() é executado após construção do bean
  * 2. AnnotationUtils.findAnnotation() detecta @RequestMapping/@ApiResource
  * 3. Extrai path das anotações (value[] ou path[])
- * 4. Fallback para naming convention se não encontrar
+ * 4. Se não encontrar anotações, emite warning e marca a configuração como pendente
  * 5. Base path disponível para HATEOAS links e documentação
  * </pre>
  * 
@@ -184,9 +187,9 @@ import org.praxisplatform.uischema.util.SortBuilder;
  * 
  * <h3>🔍 Estratégias de Detecção</h3>
  * <ol>
- *   <li><strong>@RequestMapping.value[]:</strong> Primeira prioridade</li>
- *   <li><strong>@RequestMapping.path[]:</strong> Segunda prioridade</li>
- *   <li><strong>Configuração obrigatória:</strong> Emite warning se não encontrar anotações</li>
+ *   <li><strong>@ApiResource.value[] / path[]:</strong> primeira prioridade</li>
+ *   <li><strong>@RequestMapping.value[] / path[]:</strong> segunda prioridade</li>
+ *   <li><strong>Configuração obrigatória:</strong> emite warning se não encontrar anotações e marca o path como pendente</li>
  * </ol>
  *
  * @param <E>  Tipo da Entidade JPA
@@ -378,9 +381,9 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
      * 
      * <h4>🎯 Estratégias de Detecção (ordem de prioridade):</h4>
      * <ol>
-     *   <li><strong>🎯 @RequestMapping.value[]:</strong> Extrai primeiro valor do array</li>
-     *   <li><strong>📋 @RequestMapping.path[]:</strong> Extrai primeiro path do array</li>
-     *   <li><strong>⚠️ Configuração obrigatória:</strong> Emite warning se não encontrar</li>
+     *   <li><strong>🎯 @ApiResource.value[] / path[]:</strong> Extrai o primeiro path declarado na meta-anotação</li>
+     *   <li><strong>📋 @RequestMapping.value[] / path[]:</strong> Extrai o primeiro path declarado no controller</li>
+     *   <li><strong>⚠️ Configuração obrigatória:</strong> Emite warning se não encontrar e usa um placeholder explícito</li>
      * </ol>
      * 
      * <h4>🔄 Exemplos de Detecção:</h4>
@@ -548,9 +551,9 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
      *
      * <p><strong>Detecção automática:</strong></p>
      * <ul>
-     *   <li>Prioridade 1: valor da anotação @RequestMapping</li>
-     *   <li>Prioridade 2: path da anotação @RequestMapping</li>
-     *   <li>Fallback: deriva do nome da classe</li>
+     *   <li>Prioridade 1: valor/path da anotação {@code @ApiResource}</li>
+     *   <li>Prioridade 2: valor/path da anotação {@code @RequestMapping}</li>
+     *   <li>Sem fallback implícito por naming convention; ausência de anotação gera warning e placeholder explícito</li>
      * </ul>
      *
      * @return o base path do controller

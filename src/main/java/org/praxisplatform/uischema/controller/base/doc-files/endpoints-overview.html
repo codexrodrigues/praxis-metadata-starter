@@ -123,6 +123,37 @@
     <li><strong>/options/by-ids</strong>: reidratar valores salvos (ids) com labels corretos, na mesma ordem.</li>
   </ul>
 
+  <h2>Option Sources (metadados de fontes remotas)</h2>
+  <table>
+    <thead>
+      <tr><th>Método</th><th>Path</th><th>Quando usar</th><th>Parâmetros</th><th>Retorno</th><th>Notas</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GET</td>
+        <td><a id="get-option-sources"></a><code>/option-sources</code></td>
+        <td>Listar fontes declaradas para campos remotos do recurso</td>
+        <td>—</td>
+        <td><code>RestApiResponse&lt;List&lt;OptionSourceDescriptor&gt;&gt;</code></td>
+        <td>Útil para hosts que descobrem contratos de select/autocomplete dinamicamente</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td><a id="post-option-sources-filter"></a><code>/option-sources/filter</code></td>
+        <td>Filtrar fontes declaradas por critérios do cliente</td>
+        <td>body = <code>OptionSourceFilterDTO</code></td>
+        <td><code>RestApiResponse&lt;List&lt;OptionSourceDescriptor&gt;&gt;</code></td>
+        <td>Reduz payload quando o host precisa apenas de um subconjunto das fontes</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Problemas que resolve (option-sources)</h3>
+  <ul>
+    <li><strong>/option-sources</strong>: expõe de forma canônica quais fontes remotas alimentam selects/autocompletes do recurso.</li>
+    <li><strong>/option-sources/filter</strong>: evita parsing e descoberta manual no cliente quando só parte do mapa é necessária.</li>
+  </ul>
+
   <h2>CRUD (escrita)</h2>
   <table>
     <thead>
@@ -190,6 +221,46 @@
   <h3>Problemas que resolve (schemas)</h3>
   <ul>
     <li>Integra UIs dinâmicas: a UI consome schemas filtrados/rotas corretas por recurso.</li>
+  </ul>
+
+  <h2>Stats (agregações e séries)</h2>
+  <table>
+    <thead>
+      <tr><th>Método</th><th>Path</th><th>Quando usar</th><th>Parâmetros</th><th>Retorno</th><th>Notas</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>POST</td>
+        <td><a id="post-stats-group-by"></a><code>/stats/group-by</code></td>
+        <td>Agregações por dimensão categórica</td>
+        <td>body = <code>GroupByRequestDTO</code></td>
+        <td><code>RestApiResponse&lt;List&lt;GroupByResultDTO&gt;&gt;</code></td>
+        <td>Ideal para dashboards por status, categoria ou segmento</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td><a id="post-stats-timeseries"></a><code>/stats/timeseries</code></td>
+        <td>Séries temporais por janela/intervalo</td>
+        <td>body = <code>TimeSeriesRequestDTO</code></td>
+        <td><code>RestApiResponse&lt;List&lt;TimeSeriesPointDTO&gt;&gt;</code></td>
+        <td>Combina filtros do recurso com agregação temporal</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td><a id="post-stats-distribution"></a><code>/stats/distribution</code></td>
+        <td>Distribuição por faixas numéricas</td>
+        <td>body = <code>DistributionRequestDTO</code></td>
+        <td><code>RestApiResponse&lt;List&lt;DistributionBucketDTO&gt;&gt;</code></td>
+        <td>Útil para histogramas e análise de concentração</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Problemas que resolve (stats)</h3>
+  <ul>
+    <li><strong>/stats/group-by</strong>: evita endpoints ad hoc para contagens por categoria.</li>
+    <li><strong>/stats/timeseries</strong>: entrega série temporal pronta para dashboards e tendências.</li>
+    <li><strong>/stats/distribution</strong>: centraliza a lógica de buckets no backend canônico.</li>
   </ul>
 
   <h2>Parâmetros e Retornos (copiar/colar)</h2>
@@ -260,6 +331,54 @@ Content-Type: application/json
   </code></pre>
   <ul>
     <li><strong>Retorno</strong>: <code>List&lt;OptionDTO&lt;ID&gt;&gt;</code> na ordem solicitada. Limite segue <code>by-ids</code>.</li>
+  </ul>
+
+  <h3>GET /option-sources</h3>
+  <pre><code>GET {base}/option-sources
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: descritores das fontes remotas de opções do recurso atual.</li>
+    <li><strong>Uso típico</strong>: bootstrap de hosts metadata-driven que montam selects/autocomplete sem mapeamento hardcoded.</li>
+  </ul>
+
+  <h3>POST /option-sources/filter</h3>
+  <pre><code>POST {base}/option-sources/filter
+Content-Type: application/json
+
+{ /* filtros para subconjunto de fontes */ }
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: subconjunto filtrado das fontes declaradas.</li>
+  </ul>
+
+  <h3>POST /stats/group-by</h3>
+  <pre><code>POST {base}/stats/group-by
+Content-Type: application/json
+
+{ "field": "status", "filters": { /* FD */ } }
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: agregação por chave/categoria com contagens e métricas derivadas.</li>
+  </ul>
+
+  <h3>POST /stats/timeseries</h3>
+  <pre><code>POST {base}/stats/timeseries
+Content-Type: application/json
+
+{ "field": "createdAt", "interval": "DAY", "filters": { /* FD */ } }
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: pontos ordenados por tempo para dashboards e tendências.</li>
+  </ul>
+
+  <h3>POST /stats/distribution</h3>
+  <pre><code>POST {base}/stats/distribution
+Content-Type: application/json
+
+{ "field": "valorTotal", "buckets": 10, "filters": { /* FD */ } }
+  </code></pre>
+  <ul>
+    <li><strong>Retorno</strong>: buckets de distribuição com contagens por faixa.</li>
   </ul>
 
   <h3>GET /{id}</h3>

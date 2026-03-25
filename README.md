@@ -16,7 +16,7 @@ Use these public entry points first:
 
 The canonical reading order for LLMs is Guide 01 -> Guide 02 -> Guide 03 -> Validation checklist.
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue&cacheSeconds=600&t=5.0.0-rc.2)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue&cacheSeconds=600)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
 [![Java](https://img.shields.io/badge/Java-21-007396?logo=openjdk)](https://adoptium.net)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2%2B-6DB33F?logo=spring-boot)](https://spring.io/projects/spring-boot)
 [![Last Commit](https://img.shields.io/github/last-commit/codexrodrigues/praxis-metadata-starter?logo=github)](https://github.com/codexrodrigues/praxis-metadata-starter/commits)
@@ -54,7 +54,7 @@ Documentação online (GitHub Pages):
 - Node.js/TypeScript: https://github.com/codexrodrigues/praxis-node
 - Gerador x‑ui a partir de OpenAPI: https://github.com/codexrodrigues/praxis-openapi-ui-schema-generator
 - Seed de backend (Spring Boot + Praxis): https://github.com/codexrodrigues/praxis-backend-seed-app
-- UI Angular Quickstart (consumindo x‑ui): https://github.com/codexrodrigues/praxis-ui-quickstart
+- Runtime Angular oficial (`@praxisui/*`): https://github.com/codexrodrigues/praxis-ui-angular
 - Upload/Files starter (Spring): https://github.com/codexrodrigues/praxis-file-management
 
 ### Concept Usage
@@ -80,10 +80,11 @@ Documentação online (GitHub Pages):
 
 ### Principais Recursos
 
-*   **🚀 Endpoints prontos (até 13 por recurso):**
+*   **🚀 Operações públicas prontas (até 18 por recurso no controller CRUD completo):**
     `GET /{id}`, `GET /all`, `POST /filter`, `POST /filter/cursor`, `POST /locate`, `GET /by-ids`,
-    `POST /options/filter`, `GET /options/by-ids`, `POST /`, `PUT /{id}`, `DELETE /{id}`, `DELETE /batch`,
-    `GET /schemas` (redirect para `/schemas/filtered`).
+    `POST /options/filter`, `GET /options/by-ids`, `GET /option-sources`, `POST /option-sources/filter`,
+    `POST /stats/group-by`, `POST /stats/timeseries`, `POST /stats/distribution`,
+    `POST /`, `PUT /{id}`, `DELETE /{id}`, `DELETE /batch`, `GET /schemas` (redirect para `/schemas/filtered`).
 *   **🔎 Filtros com Specifications JPA:** 26 operações embutidas (igual, diferente, like/not like, starts/ends with, >, >=, <, <=, in/not in, between, between exclusive, not between, outside range, on date, in last/next days, size eq/gt/lt, is true/false/null/not null) e suporte a relacionamentos (`relation="a.b.campo"`).
 *   **🔢 Ordenação padrão declarativa:** `@DefaultSortColumn` define a ordem quando `sort` não é enviado.
 *   **📊 Paginação moderna:** `pageable` tradicional e keyset pagination por cursores (`after/before`).
@@ -149,7 +150,7 @@ Troubleshooting rápido:
 ## Por que times amam (parece mágica, é engenharia)
 
 - Entrega acelerada: telas nascem do contrato. Você foca no domínio; nós resolvemos o resto.
-- Zero boilerplate crítico: 13 endpoints por recurso, 26 operações de filtro e paginação moderna — prontos.
+- Zero boilerplate crítico: até 18 operações públicas por recurso, 26 operações de filtro e paginação moderna — prontas.
 - Documentação viva: OpenAPI enxuto por grupo, com cache + ETag e metadados de UI “prontos para a tela”.
 - Consistência premium: respostas padronizadas, HATEOAS opcional, ordenação determinística, options id/label nativos.
 - Enterprise‑ready: read‑only para views com 405 seguro, cabeçalho X‑Data‑Version e joins de filtro declarativos.
@@ -164,7 +165,7 @@ Troubleshooting rápido:
 
 ## Por números (o que vem de graça)
 
-- 13 endpoints por recurso (CRUD, filtros, cursor, options, schemas)
+- Até 18 operações públicas por recurso (CRUD, filtros, cursor, options, option-sources, stats e schemas)
 - 26 operações de filtro (texto, intervalos, datas relativas, listas, coleções, nulidade, booleanos)
 - ~97% de redução no payload da documentação por grupo (vs doc completa)
 - 0 linhas de Specification manual e 0 wiring de endpoints repetitivos
@@ -174,9 +175,9 @@ Troubleshooting rápido:
 1) Adicione a dependência (última versão em Maven Central)
 2) Anote DTOs com `@UISchema` e exponha `@ApiResource` nos controllers
 3) (Views) Use `AbstractReadOnlyController`/`Service` para read‑only “à prova de sustos”
-4) Abra o Quickstart e veja as telas nascerem do contrato (x‑ui)
+4) Siga o Guia 03 e conecte um host Angular novo ao contrato publicado (x-ui)
 
-[Quickstart (API)](https://github.com/codexrodrigues/praxis-api-quickstart) · [Docs](https://codexrodrigues.github.io/praxis-metadata-starter/) · [Javadoc](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
+[Guia 01](https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html) · [Docs](https://codexrodrigues.github.io/praxis-metadata-starter/) · [Javadoc](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
 
 ## Primeiros Passos
 
@@ -186,19 +187,19 @@ Para usar o Praxis Metadata Starter, adicione a seguinte dependência ao seu `po
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>5.0.0-rc.2</version>
-  <!-- Após a versão final: use 1.0.0 -->
-  <!-- Confira a aba Releases para a última versão. -->
+  <version>ULTIMA_VERSAO_DISPONIVEL</version>
 </dependency>
 ```
 
-Exemplo completo (Quickstart):
-- Repositório de exemplo usando o starter em uma aplicação Spring Boot real:
-  - https://github.com/codexrodrigues/praxis-api-quickstart
+Substitua `ULTIMA_VERSAO_DISPONIVEL` pela última versão publicada no Maven Central antes de instalar.
+
+Fluxo recomendado:
+- siga os guias publicados em `docs/guides/`
+- use `praxis-backend-seed-app` como seed de backend quando precisar de ponto de partida estrutural
 
 ### Release Candidate (RC)
 
-- Para testar a build RC assim que publicada no Central, use `5.0.0-rc.2`.
+- Para testar uma build RC, consulte primeiro a última RC publicada no Maven Central e use exatamente essa versão.
 - Guia de publicação e processo de release: veja `RELEASING.md`.
 
 ## MapStruct Config (Fail‑Fast)
