@@ -220,7 +220,7 @@ Content-Type: application/json
 <summary><strong>Vantagem competitiva (por números)</strong></summary>
 
 - 26 operações prontas de filtro — sem escrever Specifications na mão
-- Até 13 endpoints por recurso — CRUD, filtros, paginação por cursor, options id/label e schemas
+- Até 18 operações públicas por recurso — CRUD, filtros, paginação por cursor, options id/label, option-sources, stats e schemas
 - Redução de ~97% no payload da documentação por grupo OpenAPI — com cache inteligente
 
 > Resultado: menos boilerplate, tempo de entrega menor e APIs/UX mais consistentes — alinhadas com as melhores práticas do ecossistema Spring + OpenAPI.
