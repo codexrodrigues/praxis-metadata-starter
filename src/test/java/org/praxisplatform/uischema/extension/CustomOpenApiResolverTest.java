@@ -5,6 +5,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
+import org.praxisplatform.uischema.NumericFormat;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 
 import java.lang.annotation.Annotation;
@@ -17,6 +18,21 @@ class CustomOpenApiResolverTest {
     private static class Dummy {
         @UISchema(controlType = org.praxisplatform.uischema.FieldControlType.INPUT)
         String descricao;
+    }
+
+    private static class PercentDummy {
+        @UISchema(numericFormat = NumericFormat.PERCENT)
+        Double taxaDesconto;
+    }
+
+    private static class OverrideDummy {
+        @UISchema(extraProperties = {
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                        name = "valuePresentation.type",
+                        value = "currency"
+                )
+        })
+        String competencia;
     }
 
     @Test
@@ -57,6 +73,99 @@ class CustomOpenApiResolverTest {
 
         Map<String, Object> xui = getXui(property);
         assertEquals(FieldControlType.INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+    }
+
+    @Test
+    void resolverShouldPublishDateValuePresentationFromOpenApiFormat() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string").format("date");
+        property.setName("dataNascimento");
+
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals(Map.of(FieldConfigProperties.TYPE.getValue(), "date"), xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
+    }
+
+    @Test
+    void resolverShouldPublishPercentageValuePresentationFromNumericFormat() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<Object> property = new Schema<>().type("number");
+        property.setName("taxaDesconto");
+
+        Annotation uiSchema = PercentDummy.class.getDeclaredField("taxaDesconto").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema, TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals(Map.of(FieldConfigProperties.TYPE.getValue(), "percentage"), xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
+    }
+
+    @Test
+    void extraPropertiesShouldOverrideNestedValuePresentation() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string").format("date");
+        property.setName("competencia");
+
+        Annotation uiSchema = OverrideDummy.class.getDeclaredField("competencia").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema, TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals(Map.of(FieldConfigProperties.TYPE.getValue(), "currency"), xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
+    }
+
+    @Test
+    void resolverShouldSkipValuePresentationForRangeControls() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("array");
+        property.setName("periodo");
+        property.addExtension(
+                "x-ui",
+                new java.util.LinkedHashMap<String, Object>(Map.of(
+                        FieldConfigProperties.CONTROL_TYPE.getValue(),
+                        FieldControlType.DATE_RANGE.getValue()
+                ))
+        );
+
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertNull(xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
+    }
+
+    @Test
+    void resolverShouldSkipValuePresentationForSelectionControls() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<Object> property = new Schema<>().type("number");
+        property.setName("statusId");
+        java.util.List<Object> options = new java.util.ArrayList<>();
+        options.add(1L);
+        options.add(2L);
+        property.setEnum(options);
+
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals(FieldControlType.SELECT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertNull(xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
+    }
+
+    @Test
+    void resolverShouldSkipValuePresentationForInlineSelectionControls() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("departamentoId");
+        property.addExtension(
+                "x-ui",
+                new java.util.LinkedHashMap<String, Object>(Map.of(
+                        FieldConfigProperties.CONTROL_TYPE.getValue(),
+                        FieldControlType.INLINE_SELECT.getValue()
+                ))
+        );
+
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertNull(xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
     }
 
     @SuppressWarnings("unchecked")
