@@ -106,6 +106,10 @@ public class CustomOpenApiResolver extends ModelResolver {
         // Adiciona validações baseadas em @NotNull, @Size, etc.
         processJakartaValidationAnnotations(property, annotations, uiExtension);
 
+        // === ETAPA 4.5: Semântica canônica de apresentação de valor ===
+        // Publica `x-ui.valuePresentation` a partir do contrato efetivo resolvido.
+        applyValuePresentation(property, annotation, uiExtension);
+
         // === ETAPA 5: extraProperties (precedência MÁXIMA) ===
         // Sobrescreve tudo com propriedades customizadas
         applyExtraProperties(annotation, uiExtension);
@@ -1477,8 +1481,178 @@ public class CustomOpenApiResolver extends ModelResolver {
                 case "Digits":
                     processDigitsAnnotation(annotation, uiExtension);
                     break;
-            }
+                }
         }
+    }
+
+    private void applyValuePresentation(
+            Schema<?> property,
+            UISchema annotation,
+            Map<String, Object> uiExtension
+    ) {
+        if (uiExtension.containsKey(FieldConfigProperties.VALUE_PRESENTATION.getValue())) {
+            return;
+        }
+
+        String resolvedType = inferValuePresentationType(property, annotation, uiExtension);
+        if (resolvedType == null || resolvedType.isBlank()) {
+            return;
+        }
+
+        Map<String, Object> valuePresentation = new LinkedHashMap<>();
+        valuePresentation.put(FieldConfigProperties.TYPE.getValue(), resolvedType);
+        uiExtension.put(FieldConfigProperties.VALUE_PRESENTATION.getValue(), valuePresentation);
+    }
+
+    private String inferValuePresentationType(
+            Schema<?> property,
+            UISchema annotation,
+            Map<String, Object> uiExtension
+    ) {
+        String controlType = asTrimmedString(uiExtension.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        if (controlType != null && !isScalarPresentationControlType(controlType)) {
+            return null;
+        }
+
+        String openApiType = property != null ? asTrimmedString(property.getType()) : null;
+        if ("array".equalsIgnoreCase(openApiType) || "object".equalsIgnoreCase(openApiType)) {
+            return null;
+        }
+
+        String numericFormat = asTrimmedString(uiExtension.get(FieldConfigProperties.NUMERIC_FORMAT.getValue()));
+        if ("percent".equalsIgnoreCase(numericFormat)) {
+            return "percentage";
+        }
+        if ("currency".equalsIgnoreCase(numericFormat)) {
+            return "currency";
+        }
+
+        if (isCurrencyControlType(controlType)) {
+            return "currency";
+        }
+        if (isDateTimeControlType(controlType)) {
+            return "datetime";
+        }
+        if (isDateControlType(controlType)) {
+            return "date";
+        }
+        if (isTimeControlType(controlType)) {
+            return "time";
+        }
+
+        String openApiFormat = property != null ? asTrimmedString(property.getFormat()) : null;
+        if ("date-time".equalsIgnoreCase(openApiFormat)) {
+            return "datetime";
+        }
+        if ("date".equalsIgnoreCase(openApiFormat)) {
+            return "date";
+        }
+        if ("time".equalsIgnoreCase(openApiFormat)) {
+            return "time";
+        }
+        if ("currency".equalsIgnoreCase(openApiFormat)) {
+            return "currency";
+        }
+        if ("percent".equalsIgnoreCase(openApiFormat)) {
+            return "percentage";
+        }
+
+        String dataType = asTrimmedString(uiExtension.get(FieldConfigProperties.TYPE.getValue()));
+        if ("boolean".equalsIgnoreCase(dataType)) {
+            return "boolean";
+        }
+        if ("number".equalsIgnoreCase(dataType)) {
+            return "number";
+        }
+        if ("date".equalsIgnoreCase(dataType)) {
+            return "date";
+        }
+
+        if ("boolean".equalsIgnoreCase(openApiType)) {
+            return "boolean";
+        }
+        if ("number".equalsIgnoreCase(openApiType) || "integer".equalsIgnoreCase(openApiType)) {
+            return "number";
+        }
+
+        if (annotation != null && annotation.numericFormat() == NumericFormat.PERCENT) {
+            return "percentage";
+        }
+        if (annotation != null && annotation.numericFormat() == NumericFormat.CURRENCY) {
+            return "currency";
+        }
+
+        return null;
+    }
+
+    private String asTrimmedString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String token = String.valueOf(value).trim();
+        return token.isEmpty() ? null : token;
+    }
+
+    private boolean isCurrencyControlType(String controlType) {
+        return FieldControlType.CURRENCY_INPUT.getValue().equals(controlType)
+                || FieldControlType.PRICE_RANGE.getValue().equals(controlType);
+    }
+
+    private boolean isDateControlType(String controlType) {
+        return FieldControlType.DATE_PICKER.getValue().equals(controlType)
+                || "dateInput".equals(controlType)
+                || "date".equals(controlType)
+                || FieldControlType.DATE_RANGE.getValue().equals(controlType)
+                || "month".equals(controlType)
+                || "week".equals(controlType)
+                || "year".equals(controlType);
+    }
+
+    private boolean isDateTimeControlType(String controlType) {
+        return FieldControlType.DATE_TIME_PICKER.getValue().equals(controlType)
+                || "dateTime".equals(controlType)
+                || "dateTimeLocal".equals(controlType)
+                || FieldControlType.DATE_TIME_RANGE.getValue().equals(controlType);
+    }
+
+    private boolean isTimeControlType(String controlType) {
+        return FieldControlType.TIME_PICKER.getValue().equals(controlType)
+                || "time".equals(controlType)
+                || "timeRange".equals(controlType);
+    }
+
+    private boolean isScalarPresentationControlType(String controlType) {
+        if (controlType == null) {
+            return true;
+        }
+
+        return FieldControlType.INPUT.getValue().equals(controlType)
+                || FieldControlType.TEXTAREA.getValue().equals(controlType)
+                || FieldControlType.NUMERIC_TEXT_BOX.getValue().equals(controlType)
+                || FieldControlType.CURRENCY_INPUT.getValue().equals(controlType)
+                || FieldControlType.DATE_INPUT.getValue().equals(controlType)
+                || FieldControlType.DATE_PICKER.getValue().equals(controlType)
+                || FieldControlType.DATE_TIME_PICKER.getValue().equals(controlType)
+                || FieldControlType.DATETIME_LOCAL_INPUT.getValue().equals(controlType)
+                || FieldControlType.TIME_PICKER.getValue().equals(controlType)
+                || FieldControlType.MONTH_INPUT.getValue().equals(controlType)
+                || FieldControlType.WEEK_INPUT.getValue().equals(controlType)
+                || FieldControlType.YEAR_INPUT.getValue().equals(controlType)
+                || FieldControlType.EMAIL_INPUT.getValue().equals(controlType)
+                || FieldControlType.URL_INPUT.getValue().equals(controlType)
+                || FieldControlType.PASSWORD.getValue().equals(controlType)
+                || FieldControlType.PHONE.getValue().equals(controlType)
+                || FieldControlType.CPF_CNPJ_INPUT.getValue().equals(controlType)
+                || FieldControlType.COLOR_INPUT.getValue().equals(controlType)
+                || FieldControlType.COLOR_PICKER.getValue().equals(controlType)
+                || FieldControlType.CHECKBOX.getValue().equals(controlType)
+                || FieldControlType.TOGGLE.getValue().equals(controlType)
+                || FieldControlType.INLINE_INPUT.getValue().equals(controlType)
+                || FieldControlType.INLINE_NUMBER.getValue().equals(controlType)
+                || FieldControlType.INLINE_CURRENCY.getValue().equals(controlType)
+                || FieldControlType.INLINE_DATE.getValue().equals(controlType)
+                || FieldControlType.INLINE_TIME.getValue().equals(controlType)
+                || FieldControlType.INLINE_TOGGLE.getValue().equals(controlType);
     }
 
     /**

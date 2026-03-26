@@ -177,6 +177,8 @@ public enum FieldConfigProperties {
     EMPTY_OPTION_TEXT("emptyOptionText"),
     /** Lista de opções disponíveis para o campo, usado em campos de listas como combobox */
     OPTIONS("options"),
+    /** Contrato canônico de apresentação de valor para display/read-only */
+    VALUE_PRESENTATION("valuePresentation"),
 
     // ----------------------------------------------------------
     // 10. Propriedades Específicas para Filtros
