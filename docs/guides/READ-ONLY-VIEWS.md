@@ -71,6 +71,19 @@ public class VendaResumoController extends AbstractReadOnlyController<
 - Use `@Filterable` no DTO de filtro para Specifications (26 operações)
 - Defina `@DefaultSortColumn` na entidade para ordenação padrão
 
+### 6) Semantica de display/read-only
+
+Recursos read-only tambem participam do contrato canonico de apresentacao de valor.
+
+Diretrizes:
+
+- para valores escalares, o starter publica `x-ui.valuePresentation` quando a intencao de exibicao for inferivel
+- isso vale especialmente para `currency`, `percentage`, `date`, `datetime`, `time`, `number` e `boolean`
+- `valuePresentation` nao deve ser usado como contrato automatico para ranges, selecoes ou IDs semanticos
+- quando houver necessidade excepcional de override, use `extraProperties` aninhado no `@UISchema`
+
+Isso garante que superficies read-only e metadata-driven consumam a mesma semantica horizontal de exibicao, sem depender apenas de heuristicas locais do frontend.
+
 </details>
 
 <a id="beneficios"></a>
