@@ -183,6 +183,26 @@
         "integer", "decimal", "currency", "scientific", "time", "date", "date-time", "duration", "number", "fraction", "percent"
       ]
     },
+    "valuePresentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "string", "number", "currency", "percentage", "date", "datetime", "time", "boolean"
+          ]
+        },
+        "style": {
+          "type": "string",
+          "enum": ["default", "short", "medium", "long", "full", "compact"]
+        },
+        "format": { "type": "string" },
+        "currency": { "type": "object", "additionalProperties": true },
+        "number": { "type": "object", "additionalProperties": true }
+      },
+      "required": ["type"]
+    },
     "numericStep": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
     "numericMin": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
     "numericMax": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },

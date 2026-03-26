@@ -38,6 +38,7 @@
     - No runtime Angular, a UI Praxis normaliza esses campos para `resourcePath`, `optionValueKey` e `optionLabelKey`.
     - Quando publicado, `optionSource` passa a ser a forma canonica de descrever fontes derivadas de options; `endpoint` permanece como contrato legado/compativel.
   - Numerico: `numericFormat` (enum), `numericStep`, `numericMin`, `numericMax`, `numericMaxLength`
+  - Apresentacao de valor: `valuePresentation{ type, style?, format?, currency?, number? }` como contrato canonico de display/read-only para valores escalares
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`
   - Legado (opcional): bloco `validation{}` com chaves basicas
 - Operacao (x-ui por operacao)
@@ -79,11 +80,15 @@
 4. Bean Validation (ex.: NotBlank/Size/Pattern -> chaves de validacao no `x-ui`)
 5. `extraProperties`/`custom.*` (precedencia maxima)
 
+- Para display/read-only, `valuePresentation` define a intencao canonica de exibicao; `format` permanece como override explicito quando presente no consumidor.
+
 ## Normas (MUST/SHOULD/MAY)
 
 - MUST: chaves canonicas devem seguir tipos/semantica dos JSON Schemas.
 - SHOULD: extensoes privadas usarem o prefixo `custom.`.
 - MUST: `capabilities` conter apenas valores boolean; chaves adicionais sao permitidas.
+- SHOULD: publicar `x-ui.valuePresentation` para campos escalares de exibicao quando a intencao semantica estiver clara.
+- MUST NOT: publicar `x-ui.valuePresentation` automatico para ranges, selecoes, arrays, objects ou IDs semanticos sem override explicito.
 - SHOULD: `/schemas/filtered` enviar `ETag` forte e `X-Schema-Hash` e expor via `Access-Control-Expose-Headers`.
 - SHOULD: publicacoes de `x-ui.chart` explicitar quando o contrato canonico ainda e mais amplo que o runtime consumidor atual.
 - MAY: incluir `specVersion` em um envelope/meta do payload para auditoria.
