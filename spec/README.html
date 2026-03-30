@@ -249,6 +249,9 @@ permanece como contrato legado/compativel.</li>
 <li>Numerico: <code>numericFormat</code> (enum),
 <code>numericStep</code>, <code>numericMin</code>,
 <code>numericMax</code>, <code>numericMaxLength</code></li>
+<li>Apresentacao de valor:
+<code>valuePresentation{ type, style?, format?, currency?, number? }</code>
+como contrato canonico de display/read-only para valores escalares</li>
 <li>Validacao (top-level): <code>required</code>,
 <code>minLength</code>, <code>maxLength</code>, <code>min</code>,
 <code>max</code>, <code>pattern</code>, <code>range</code>, mensagens
@@ -339,6 +342,11 @@ validacao no <code>x-ui</code>)</li>
 <li><code>extraProperties</code>/<code>custom.*</code> (precedencia
 maxima)</li>
 </ol>
+<ul>
+<li>Para display/read-only, <code>valuePresentation</code> define a
+intencao canonica de exibicao; <code>format</code> permanece como
+override explicito quando presente no consumidor.</li>
+</ul>
 <h2 id="normas-mustshouldmay">Normas (MUST/SHOULD/MAY)</h2>
 <ul>
 <li>MUST: chaves canonicas devem seguir tipos/semantica dos JSON
@@ -347,6 +355,11 @@ Schemas.</li>
 <code>custom.</code>.</li>
 <li>MUST: <code>capabilities</code> conter apenas valores boolean;
 chaves adicionais sao permitidas.</li>
+<li>SHOULD: publicar <code>x-ui.valuePresentation</code> para campos
+escalares de exibicao quando a intencao semantica estiver clara.</li>
+<li>MUST NOT: publicar <code>x-ui.valuePresentation</code> automatico
+para ranges, selecoes, arrays, objects ou IDs semanticos sem override
+explicito.</li>
 <li>SHOULD: <code>/schemas/filtered</code> enviar <code>ETag</code>
 forte e <code>X-Schema-Hash</code> e expor via
 <code>Access-Control-Expose-Headers</code>.</li>

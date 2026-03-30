@@ -303,6 +303,14 @@ contexto.</li>
 <li><strong>Mensagens</strong>: personalize
 <code>requiredMessage</code>, <code>rangeMessage</code> via
 <code>ValidationProperties</code> quando necessário.</li>
+<li><strong>Apresentação de valor
+(<code>valuePresentation</code>)</strong>: trate este bloco como o
+contrato canônico de display/read-only. O starter publica
+<code>x-ui.valuePresentation</code> automaticamente a partir de
+<code>type</code>, <code>format</code>, <code>controlType</code> e
+<code>numericFormat</code>; quando precisar sobrescrever, prefira
+<code>extraProperties</code> com chaves aninhadas, como
+<code>valuePresentation.type</code>.</li>
 </ul>
 <h2 id="validations-validationproperties">Validations &amp;
 <code>ValidationProperties</code></h2>

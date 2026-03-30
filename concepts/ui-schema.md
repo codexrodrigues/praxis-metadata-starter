@@ -42,6 +42,7 @@ public @interface UISchema {
 * **Agrupamento (`group`)**: organize campos em blocos semânticos (por exemplo, `dadosPessoais`, `endereco`).
 * **Visibilidade**: utilize `formHidden`, `tableHidden`, `filterable` para controlar cada contexto.
 * **Mensagens**: personalize `requiredMessage`, `rangeMessage` via `ValidationProperties` quando necessário.
+* **Apresentação de valor (`valuePresentation`)**: trate este bloco como o contrato canônico de display/read-only. O starter publica `x-ui.valuePresentation` automaticamente a partir de `type`, `format`, `controlType` e `numericFormat`; quando precisar sobrescrever, prefira `extraProperties` com chaves aninhadas, como `valuePresentation.type`.
 
 ## Validations & `ValidationProperties`
 

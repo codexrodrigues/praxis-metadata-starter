@@ -423,6 +423,40 @@ DTO</li>
 <code>valueField</code> e <code>displayField</code> coerentes com o
 endpoint real</li>
 </ul>
+<h2 id="apresentacao-de-valor-canonica">Apresentacao de valor
+canonica</h2>
+<p>Para campos escalares exibidos em modos table/list/read-only, o
+starter pode publicar <code>x-ui.valuePresentation</code>
+automaticamente.</p>
+<p>Regra pratica:</p>
+<ul>
+<li><code>valuePresentation</code> expressa a intencao semantica
+(<code>currency</code>, <code>number</code>, <code>percentage</code>,
+<code>date</code>, <code>datetime</code>, <code>time</code>,
+<code>boolean</code>)</li>
+<li><code>format</code> nao substitui essa semantica; ele deve ser
+tratado como override explicito no consumidor</li>
+<li>para overrides raros, prefira <code>extraProperties</code> com
+chaves aninhadas, por exemplo <code>valuePresentation.type</code></li>
+</ul>
+<p>Publicacao automatica esperada:</p>
+<ul>
+<li><code>numericFormat = CURRENCY</code> -&gt;
+<code>valuePresentation.type = currency</code></li>
+<li><code>numericFormat = PERCENT</code> -&gt;
+<code>valuePresentation.type = percentage</code></li>
+<li><code>format = date|date-time|time|currency|percent</code> -&gt;
+tipo correspondente</li>
+<li><code>controlType</code> escalar compativel -&gt; tipo
+correspondente</li>
+</ul>
+<p>Nao trate como <code>valuePresentation</code> automatico:</p>
+<ul>
+<li>selects e variantes inline de selecao</li>
+<li>ranges (<code>dateRange</code>, <code>dateTimeRange</code>,
+<code>priceRange</code>, etc.)</li>
+<li>arrays, objects e IDs tecnicos</li>
+</ul>
 <p>Exemplo:</p>
 <div class="sourceCode" id="cb6"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="at">@NotNull</span></span>
@@ -435,6 +469,16 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="
 <span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    tableHidden <span class="op">=</span> <span class="kw">true</span></span>
 <span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
 <span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Integer</span> cargoId<span class="op">;</span></span></code></pre></div>
+<p>Exemplo de override via <code>extraProperties</code>:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    label <span class="op">=</span> <span class="st">&quot;Salario&quot;</span><span class="op">,</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    numericFormat <span class="op">=</span> NumericFormat<span class="op">.</span><span class="fu">CURRENCY</span><span class="op">,</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    extraProperties <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;valuePresentation.style&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;short&quot;</span><span class="op">)</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">BigDecimal</span> salario<span class="op">;</span></span></code></pre></div>
 <p>Regra critica:</p>
 <ul>
 <li>se o endpoint for <code>.../options/filter</code>, use
@@ -455,23 +499,23 @@ use o campo textual do DTO, como <code>nome</code></li>
 <code>relation = "relacao.id"</code></li>
 </ul>
 <p>Exemplo:</p>
-<div class="sourceCode" id="cb7"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">)</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">String</span> nomeCompleto<span class="op">;</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">BOOLEAN</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">CHECKBOX</span><span class="op">)</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">)</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Boolean</span> ativo<span class="op">;</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">SELECT</span><span class="op">,</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">CARGOS</span> <span class="op">+</span> <span class="st">&quot;/options/filter&quot;</span><span class="op">,</span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    valueField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    displayField <span class="op">=</span> <span class="st">&quot;label&quot;</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">,</span> relation <span class="op">=</span> <span class="st">&quot;cargo.id&quot;</span><span class="op">)</span></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Integer</span> cargoId<span class="op">;</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">)</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">String</span> nomeCompleto<span class="op">;</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">BOOLEAN</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">CHECKBOX</span><span class="op">)</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">)</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Boolean</span> ativo<span class="op">;</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">SELECT</span><span class="op">,</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">CARGOS</span> <span class="op">+</span> <span class="st">&quot;/options/filter&quot;</span><span class="op">,</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    valueField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    displayField <span class="op">=</span> <span class="st">&quot;label&quot;</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">,</span> relation <span class="op">=</span> <span class="st">&quot;cargo.id&quot;</span><span class="op">)</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Integer</span> cargoId<span class="op">;</span></span></code></pre></div>
 <p>Enums corretos:</p>
 <ul>
 <li><code>FilterOperation.EQUAL</code>, nao <code>EQUALS</code></li>

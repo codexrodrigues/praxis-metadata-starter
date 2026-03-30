@@ -318,6 +318,26 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="
 <li>Defina <code>@DefaultSortColumn</code> na entidade para ordenação
 padrão</li>
 </ul>
+<h3 id="semantica-de-displayread-only">6) Semantica de
+display/read-only</h3>
+<p>Recursos read-only tambem participam do contrato canonico de
+apresentacao de valor.</p>
+<p>Diretrizes:</p>
+<ul>
+<li>para valores escalares, o starter publica
+<code>x-ui.valuePresentation</code> quando a intencao de exibicao for
+inferivel</li>
+<li>isso vale especialmente para <code>currency</code>,
+<code>percentage</code>, <code>date</code>, <code>datetime</code>,
+<code>time</code>, <code>number</code> e <code>boolean</code></li>
+<li><code>valuePresentation</code> nao deve ser usado como contrato
+automatico para ranges, selecoes ou IDs semanticos</li>
+<li>quando houver necessidade excepcional de override, use
+<code>extraProperties</code> aninhado no <code>@UISchema</code></li>
+</ul>
+<p>Isso garante que superficies read-only e metadata-driven consumam a
+mesma semantica horizontal de exibicao, sem depender apenas de
+heuristicas locais do frontend.</p>
 </details>
 <a id="beneficios"></a>
 <details>

@@ -202,6 +202,29 @@ Regras obrigatorias:
 - selects remotos devem usar `endpoint`, `valueField` e `displayField`
   coerentes com o endpoint real
 
+## Apresentacao de valor canonica
+
+Para campos escalares exibidos em modos table/list/read-only, o starter pode publicar `x-ui.valuePresentation` automaticamente.
+
+Regra pratica:
+
+- `valuePresentation` expressa a intencao semantica (`currency`, `number`, `percentage`, `date`, `datetime`, `time`, `boolean`)
+- `format` nao substitui essa semantica; ele deve ser tratado como override explicito no consumidor
+- para overrides raros, prefira `extraProperties` com chaves aninhadas, por exemplo `valuePresentation.type`
+
+Publicacao automatica esperada:
+
+- `numericFormat = CURRENCY` -> `valuePresentation.type = currency`
+- `numericFormat = PERCENT` -> `valuePresentation.type = percentage`
+- `format = date|date-time|time|currency|percent` -> tipo correspondente
+- `controlType` escalar compativel -> tipo correspondente
+
+Nao trate como `valuePresentation` automatico:
+
+- selects e variantes inline de selecao
+- ranges (`dateRange`, `dateTimeRange`, `priceRange`, etc.)
+- arrays, objects e IDs tecnicos
+
 Exemplo:
 
 ```java
@@ -215,6 +238,19 @@ Exemplo:
     tableHidden = true
 )
 private Integer cargoId;
+```
+
+Exemplo de override via `extraProperties`:
+
+```java
+@UISchema(
+    label = "Salario",
+    numericFormat = NumericFormat.CURRENCY,
+    extraProperties = {
+        @ExtensionProperty(name = "valuePresentation.style", value = "short")
+    }
+)
+private BigDecimal salario;
 ```
 
 Regra critica:

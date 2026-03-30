@@ -756,16 +756,121 @@ Conformidade</h3>
 <li>publicar matriz “quando usar recurso próprio versus optionSource
 derivado”</li>
 </ul>
-<h2 id="decisões-em-aberto">Decisões em Aberto</h2>
+<h1 id="introdução-didática-para-iniciantes">Introdução Didática para
+Iniciantes</h1>
+<p>Se você é novo na plataforma Praxis, pense no OptionSource como uma
+“receita” para criar listas de opções (como um dropdown) em formulários
+ou filtros, sem precisar programar tudo do zero.</p>
+<p><strong>Analogia Simples</strong>: Imagine um restaurante onde o
+cardápio (metadata) diz: “Para o prato ‘Pizza’, use ingredientes de
+‘Queijos Disponíveis’”. OptionSource é a receita que explica como buscar
+esses “ingredientes” (opções) de forma padronizada, em vez de inventar
+uma nova cozinha para cada prato.</p>
+<p><strong>Por Que Importa?</strong> Em apps metadata-driven, campos
+como “Perfil Salarial” ou “Faixas de Idade” precisam de opções
+inteligentes. Sem OptionSource, o usuário digita tudo manualmente — ruim
+para UX. Com ele, o sistema “sabe” buscar opções automaticamente.</p>
+<p><strong>Fluxo Básico</strong>: 1. Defina o tipo de fonte (ex.:
+valores distintos de dados). 2. Registre no serviço com um descritor. 3.
+O frontend lê do schema e chama endpoints canônicos. 4. Resultado:
+Opções aparecem no select!</p>
+<p>Se ainda confuso, leia os exemplos abaixo antes de mergulhar no spec
+técnico.</p>
+<h2 id="exemplos-práticos-expandidos">Exemplos Práticos Expandidos</h2>
+<h3 id="exemplo-1-distinct_dimension-para-universo">Exemplo 1:
+DISTINCT_DIMENSION para “Universo”</h3>
 <ul>
-<li>o contrato de <code>x-ui.optionSource</code> deve nascer como
-extensão de campo ou também aparecer em nível de operação?</li>
-<li><code>LIGHT_LOOKUP</code> precisa de tipo próprio já na primeira
-fase ou pode nascer como subtipo de <code>RESOURCE_ENTITY</code>?</li>
-<li>o lookup derivado por distinct deve aceitar busca textual parcial ou
-só prefixo/igualdade?</li>
-<li>a publicação em <code>/schemas/filtered</code> deve copiar apenas a
-referência da fonte ou o descriptor resolvido completo?</li>
+<li><p><strong>Cenário</strong>: Campo “universo” em uma view de
+analytics de folha de pagamento.</p></li>
+<li><p><strong>Como Funciona</strong>: Busca valores únicos reais do
+campo “universo” na tabela, sem buckets artificiais.</p></li>
+<li><p><strong>Código no Service</strong>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>OptionSourceDescriptor universoDescriptor <span class="op">=</span> <span class="kw">new</span> <span class="fu">OptionSourceDescriptor</span><span class="op">(</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    OptionSourceType<span class="op">.</span><span class="fu">DISTINCT_DIMENSION</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;/api/human-resources/vw-analytics-folha-pagamento&quot;</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span> <span class="co">// filterField</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span> <span class="co">// propertyPath</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span> <span class="co">// labelPropertyPath</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span> <span class="co">// valuePropertyPath</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(),</span> <span class="co">// dependsOn (nenhuma)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    OptionSourcePolicy<span class="op">.</span><span class="fu">defaults</span><span class="op">()</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div></li>
+<li><p><strong>Resultado no Schema (/schemas/filtered)</strong>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;universo&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;x-ui.optionSource&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;universo&quot;</span><span class="fu">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;DISTINCT_DIMENSION&quot;</span><span class="fu">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/human-resources/vw-analytics-folha-pagamento&quot;</span><span class="fu">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;filterField&quot;</span><span class="fu">:</span> <span class="st">&quot;universo&quot;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div></li>
+<li><p><strong>Como o Usuário Vê</strong>: Dropdown com opções como
+“Empresa A”, “Empresa B”, baseadas em dados reais.</p></li>
+</ul>
+<h3 id="exemplo-2-categorical_bucket-para-faixa-salarial">Exemplo 2:
+CATEGORICAL_BUCKET para “Faixa Salarial”</h3>
+<ul>
+<li><p><strong>Cenário</strong>: Campo “faixaSalarioBruto” para filtros
+em relatórios.</p></li>
+<li><p><strong>Como Funciona</strong>: Define buckets semânticos (ex.:
+“0-1000”, “1001-2000”) com labels amigáveis, não valores
+brutos.</p></li>
+<li><p><strong>Código no Service</strong>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>OptionSourceDescriptor faixaDescriptor <span class="op">=</span> <span class="kw">new</span> <span class="fu">OptionSourceDescriptor</span><span class="op">(</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;faixaSalarioBruto&quot;</span><span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    OptionSourceType<span class="op">.</span><span class="fu">CATEGORICAL_BUCKET</span><span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;/api/human-resources/vw-analytics-folha-pagamento&quot;</span><span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;faixaSalarioBruto&quot;</span><span class="op">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;faixaSalarioBruto&quot;</span><span class="op">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;label&quot;</span><span class="op">,</span> <span class="co">// labelPropertyPath (ex.: &quot;Até R$ 1.000&quot;)</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;value&quot;</span><span class="op">,</span> <span class="co">// valuePropertyPath (ex.: &quot;0-1000&quot;)</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;competenciaBetween&quot;</span><span class="op">),</span> <span class="co">// depende do período</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">new</span> <span class="fu">OptionSourcePolicy</span><span class="op">(</span><span class="kw">true</span><span class="op">,</span> <span class="kw">true</span><span class="op">,</span> <span class="st">&quot;contains&quot;</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">25</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="kw">true</span><span class="op">,</span> <span class="kw">false</span><span class="op">,</span> <span class="st">&quot;label&quot;</span><span class="op">)</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div></li>
+<li><p><strong>Resultado</strong>: Opções como “Até R$ 1.000” (label)
+com valor “0-1000” para filtro.</p></li>
+</ul>
+<h3 id="exemplo-3-dependências-em-cascata">Exemplo 3: Dependências em
+Cascata</h3>
+<ul>
+<li><p><strong>Cenário</strong>: “Equipe” depende de
+“Departamento”.</p></li>
+<li><p><strong>Como Funciona</strong>: O <code>dependsOn</code> filtra
+opções baseadas em seleções anteriores.</p></li>
+<li><p><strong>Código</strong>:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;departamento&quot;</span><span class="op">)</span> <span class="co">// dependsOn</span></span></code></pre></div></li>
+<li><p><strong>Fluxo</strong>: Selecione departamento primeiro; equipe
+filtra automaticamente.</p></li>
+</ul>
+<h2 id="decisões-em-aberto-resolvidas-para-esta-versão">Decisões em
+Aberto (Resolvidas para Esta Versão)</h2>
+<ul>
+<li><strong>Contrato em Nível de Campo vs. Operação</strong>:
+Recomendamos nível de campo para granularidade, mas suporte ambos.</li>
+<li><strong>LIGHT_LOOKUP</strong>: Nasce como subtipo de
+<code>RESOURCE_ENTITY</code> na fase 1; evolui se necessário.</li>
+<li><strong>Busca Textual</strong>: Aceita parcial (“contains”) para
+flexibilidade.</li>
+<li><strong>Publicação em Schema</strong>: Copia referência da fonte,
+não descriptor completo, para evitar duplicação.</li>
+</ul>
+<h2 id="seção-de-pitfalls-comuns">Seção de Pitfalls Comuns</h2>
+<ul>
+<li><strong>Erro: Campo Não Aparece no Schema</strong>: Verifique se o
+nome do campo coincide com a <code>key</code> no registry.</li>
+<li><strong>Erro: Opções Vazias</strong>: Confirme
+<code>resourcePath</code> correto e permissões no endpoint.</li>
+<li><strong>Erro: Dependências Não Funcionam</strong>: Use
+<code>excludeSelfField: true</code> para evitar loops.</li>
+<li><strong>Dica</strong>: Sempre teste com
+<code>POST /option-sources/{key}/options/filter</code> manualmente.</li>
 </ul>
 <h2 id="conclusão">Conclusão</h2>
 <p>A plataforma Praxis já possui os blocos necessários para resolver o
