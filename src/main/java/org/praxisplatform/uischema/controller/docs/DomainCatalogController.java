@@ -2,6 +2,9 @@ package org.praxisplatform.uischema.controller.docs;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
+import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,12 +15,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriUtils;
 
 import jakarta.annotation.PostConstruct;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -52,22 +51,25 @@ public class DomainCatalogController {
             "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"
     );
 
-    @Value("${springdoc.api-docs.path:/v3/api-docs}")
-    private String openApiBasePath;
-
     @Value("${praxis.catalog.exclude-paths:/api/praxis/config/ui}")
     private String excludedPathsRaw;
 
     private Set<String> excludedPaths = Set.of();
 
     @Autowired
-    private RestTemplate restTemplate;
-
-    @Autowired
     private ObjectMapper objectMapper;
 
     @Autowired
     private OpenApiDocsSupport openApiDocsSupport;
+
+    @Autowired
+    private OpenApiDocumentService openApiDocumentService;
+
+    @Autowired
+    private CanonicalOperationResolver canonicalOperationResolver;
+
+    @Autowired
+    private SchemaReferenceResolver schemaReferenceResolver;
 
     @PostConstruct
     void initExcludedPaths() {
@@ -192,12 +194,12 @@ public class DomainCatalogController {
         if (StringUtils.hasText(group)) {
             return group;
         }
-        return openApiDocsSupport.resolveGroupFromPath(StringUtils.hasText(pathFilter) ? pathFilter : "/api");
+        return openApiDocumentService.resolveGroupFromPath(StringUtils.hasText(pathFilter) ? pathFilter : "/api");
     }
 
     private JsonNode fetchOpenApiDocument(String group) {
         LOGGER.info("Fetching OpenAPI doc for group {}", group);
-        return openApiDocsSupport.fetchOpenApiDocument(restTemplate, openApiBasePath, group, LOGGER);
+        return openApiDocumentService.getDocumentForGroup(group);
     }
 
     private List<String> toStringList(JsonNode node) {
@@ -275,25 +277,17 @@ public class DomainCatalogController {
     }
 
     private SchemaLinks buildSchemaLinks(String path, String operation, SchemaRef requestSchema, SchemaRef responseSchema) {
-        String normalizedOperation = operation == null ? "get" : operation.toLowerCase(Locale.ROOT);
+        var operationRef = canonicalOperationResolver.resolve(path, operation);
         String requestLink = requestSchema != null
-                ? buildFilteredSchemaLink(path, normalizedOperation, "request")
+                ? schemaReferenceResolver.requestSchema(operationRef).url()
                 : null;
         String responseLink = responseSchema != null
-                ? buildFilteredSchemaLink(path, normalizedOperation, "response")
+                ? schemaReferenceResolver.responseSchema(operationRef).url()
                 : null;
         return new SchemaLinks(
                 requestLink,
                 responseLink
         );
-    }
-
-    private String buildFilteredSchemaLink(String path, String operation, String schemaType) {
-        String normalizedPath = path == null ? "" : path;
-        String encodedPath = URLEncoder.encode(normalizedPath, StandardCharsets.UTF_8).replace("+", "%20");
-        return "/schemas/filtered?path=" + encodedPath
-                + "&operation=" + UriUtils.encodeQueryParam(operation, StandardCharsets.UTF_8)
-                + "&schemaType=" + UriUtils.encodeQueryParam(schemaType, StandardCharsets.UTF_8);
     }
 
     private String firstNonBlank(String... values) {

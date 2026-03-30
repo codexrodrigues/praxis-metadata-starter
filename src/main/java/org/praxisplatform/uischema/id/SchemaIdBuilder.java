@@ -1,7 +1,5 @@
 package org.praxisplatform.uischema.id;
 
-import java.util.Locale;
-
 /**
  * Builds a deterministic schemaId string for caching/indexing on backend and frontend.
  */
@@ -13,18 +11,18 @@ public final class SchemaIdBuilder {
                                String operation,
                                String schemaType,
                                boolean includeInternalSchemas,
-                               String tenant,
-                               Locale locale) {
+                               String idField,
+                               Boolean readOnly) {
         StringBuilder sb = new StringBuilder();
         sb.append(normalizePath(decodedPath))
           .append('|').append(operation)
           .append('|').append(schemaType)
           .append("|internal:").append(includeInternalSchemas);
-        if (tenant != null && !tenant.isBlank()) {
-            sb.append("|tenant:").append(tenant);
+        if (idField != null && !idField.isBlank()) {
+            sb.append("|idField:").append(idField);
         }
-        if (locale != null) {
-            sb.append("|locale:").append(locale.toLanguageTag());
+        if (readOnly != null) {
+            sb.append("|readOnly:").append(readOnly);
         }
         return sb.toString();
     }
@@ -39,4 +37,3 @@ public final class SchemaIdBuilder {
         return out;
     }
 }
-

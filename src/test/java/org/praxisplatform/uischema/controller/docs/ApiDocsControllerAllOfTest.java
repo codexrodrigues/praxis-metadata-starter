@@ -4,8 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
+import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 
-import java.lang.reflect.Field;
 import java.util.Locale;
 import java.util.Map;
 
@@ -15,25 +16,30 @@ public class ApiDocsControllerAllOfTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private ApiDocsController controller;
+    private TestOpenApiDocumentService openApiDocumentService;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         controller = new ApiDocsController();
-        Field om = ApiDocsController.class.getDeclaredField("objectMapper");
-        om.setAccessible(true);
-        om.set(controller, mapper);
-        Field support = ApiDocsController.class.getDeclaredField("openApiDocsSupport");
-        support.setAccessible(true);
-        support.set(controller, new OpenApiDocsSupport());
-
-        Field dc = ApiDocsController.class.getDeclaredField("documentCache");
-        dc.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Map<String, JsonNode> docCache = (Map<String, JsonNode>) dc.get(controller);
+        OpenApiDocsSupport openApiDocsSupport = new OpenApiDocsSupport();
+        openApiDocumentService = new TestOpenApiDocumentService(openApiDocsSupport);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "objectMapper", mapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "openApiDocsSupport", openApiDocsSupport);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "openApiDocumentService", openApiDocumentService);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                controller,
+                "canonicalOperationResolver",
+                new OpenApiCanonicalOperationResolver(openApiDocumentService, null)
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                controller,
+                "schemaReferenceResolver",
+                new FilteredSchemaReferenceResolver()
+        );
 
         String group = "api-ui-test-wrappers";
         JsonNode doc = buildDocWithAllOf();
-        docCache.put(group, doc);
+        openApiDocumentService.putDocument(group, doc);
     }
 
     private JsonNode buildDocWithAllOf() {

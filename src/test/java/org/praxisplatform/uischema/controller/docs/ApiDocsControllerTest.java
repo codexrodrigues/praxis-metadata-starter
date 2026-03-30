@@ -6,7 +6,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
+import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
+import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -42,10 +45,14 @@ class ApiDocsControllerTest {
         controller = new ApiDocsController();
         OpenApiDocsSupport openApiDocsSupport = new OpenApiDocsSupport();
         ReflectionTestUtils.setField(openApiDocsSupport, "openApiGroupResolver", openApiGroupResolver);
-        ReflectionTestUtils.setField(controller, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(openApiDocsSupport, "openApiInternalBaseUrl", "http://localhost");
+        CachedOpenApiDocumentService openApiDocumentService = new CachedOpenApiDocumentService(restTemplate, mapper, openApiDocsSupport);
+        ReflectionTestUtils.setField(openApiDocumentService, "openApiBasePath", "/v3/api-docs");
         ReflectionTestUtils.setField(controller, "objectMapper", mapper);
         ReflectionTestUtils.setField(controller, "openApiDocsSupport", openApiDocsSupport);
-        ReflectionTestUtils.setField(controller, "OPEN_API_BASE_PATH", "/v3/api-docs");
+        ReflectionTestUtils.setField(controller, "openApiDocumentService", openApiDocumentService);
+        ReflectionTestUtils.setField(controller, "canonicalOperationResolver", new OpenApiCanonicalOperationResolver(openApiDocumentService, null));
+        ReflectionTestUtils.setField(controller, "schemaReferenceResolver", new FilteredSchemaReferenceResolver());
         openApiDoc = "{\n" +
                 "  \"paths\": {\n" +
                 "    \"/users\": {\n" +

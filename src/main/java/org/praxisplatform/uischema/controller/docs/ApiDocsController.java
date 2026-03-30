@@ -5,28 +5,30 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.uischema.FieldConfigProperties;
+import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
+import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
+import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
+import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map.Entry;
 
 /**
- * Controlador REST que expõe o endpoint canônico {@code /schemas/filtered}.
+ * Controlador REST que expÃµe o endpoint canÃ´nico {@code /schemas/filtered}.
  *
  * <p>
  * Esta e uma das superficies centrais do modelo metadata-driven do starter. Em vez de obrigar
@@ -69,9 +71,6 @@ public class ApiDocsController {
     // ------------------------------------------------------------------------
     // Base Path do OpenAPI
     // ------------------------------------------------------------------------
-    @Value("${springdoc.api-docs.path:/v3/api-docs}")
-    private String OPEN_API_BASE_PATH;
-
     // Constantes para chaves do JSON
     private static final String PATHS = "paths";
     private static final String COMPONENTS = "components";
@@ -84,11 +83,8 @@ public class ApiDocsController {
     private static final String OPERATION_EXAMPLES = "operationExamples";
     private static final Set<String> DOCUMENTATION_X_UI_KEYS = Set.of(OPERATION_EXAMPLES);
 
-    // Constantes para valores padrão
+    // Constantes para valores padrÃ£o
     private static final String DEFAULT_OPERATION = "get";
-
-    @Autowired
-    private RestTemplate restTemplate;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -96,17 +92,17 @@ public class ApiDocsController {
     @Autowired
     private OpenApiDocsSupport openApiDocsSupport;
 
+    @Autowired
+    private OpenApiDocumentService openApiDocumentService;
+
+    @Autowired
+    private CanonicalOperationResolver canonicalOperationResolver;
+
+    @Autowired
+    private SchemaReferenceResolver schemaReferenceResolver;
+
     @Autowired(required = false)
     private OptionSourceRegistry optionSourceRegistry;
-    
-    /**
-     * Cache de documentos OpenAPI por grupo para otimização de performance.
-     * Chave: nome do grupo, Valor: documento JSON do OpenAPI
-     */
-    private final Map<String, JsonNode> documentCache = new ConcurrentHashMap<>();
-    // Cache leve do hash por schemaId (limpo junto com documentCache)
-    private final Map<String, String> schemaHashCache = new ConcurrentHashMap<>();
-    
 
     /**
      * Recupera e filtra o schema OpenAPI de uma operacao especifica.
@@ -161,11 +157,13 @@ public class ApiDocsController {
         }
 
         // 1. Resolver grupo automaticamente baseado no path
-        String groupName = openApiDocsSupport.resolveGroupFromPath(path);
-        LOGGER.info("Path '{}' → Grupo resolvido: '{}'", path, groupName);
+        CanonicalOperationRef operationRef = canonicalOperationResolver.resolve(path, operation);
+        String normalizedOperation = operationRef.method().toLowerCase(Locale.ROOT);
+        String groupName = operationRef.group();
+        LOGGER.info("Path '{}' â†’ Grupo resolvido: '{}'", path, groupName);
         
-        // 2. Obter documento específico do cache
-        JsonNode rootNode = getDocumentForGroup(groupName);
+        // 2. Obter documento especÃ­fico do cache
+        JsonNode rootNode = openApiDocumentService.getDocumentForGroup(groupName);
         
         if (rootNode == null) {
             throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + groupName);
@@ -175,7 +173,7 @@ public class ApiDocsController {
         String decodedPath = UriUtils.decode(path, StandardCharsets.UTF_8);
 
         // Procura o caminho especificado no JSON
-        JsonNode pathsNode = rootNode.path(PATHS).path(decodedPath).path(operation);
+        JsonNode pathsNode = rootNode.path(PATHS).path(decodedPath).path(normalizedOperation);
 
         if (pathsNode.isMissingNode()) {
             throw new IllegalArgumentException("The specified path or operation was not found in the documentation.");
@@ -187,7 +185,7 @@ public class ApiDocsController {
         String schemaName = null;
         JsonNode directSchemaNode = null;
         if ("request".equalsIgnoreCase(schemaType)) {
-            // Tenta localizar schema do corpo de requisição
+            // Tenta localizar schema do corpo de requisiÃ§Ã£o
             JsonNode bodySchema = openApiDocsSupport.selectPreferredContentNode(
                     pathsNode.path("requestBody").path("content")
             ).path("schema");
@@ -203,7 +201,7 @@ public class ApiDocsController {
                 }
             }
         } else {
-            schemaName = findResponseSchema(pathsNode, rootNode, operation, decodedPath);
+            schemaName = findResponseSchema(pathsNode, rootNode, operationRef.method(), decodedPath);
         }
 
         if ((schemaName == null || schemaName.isEmpty()) && (directSchemaNode == null)) {
@@ -212,11 +210,11 @@ public class ApiDocsController {
 
         LOGGER.info("Schema found: {}", schemaName != null ? schemaName : "<inline>");
 
-        // Recupera o nó do schema: de components/schemas quando há nome; ou o nó inline quando aplicável
+        // Recupera o nÃ³ do schema: de components/schemas quando hÃ¡ nome; ou o nÃ³ inline quando aplicÃ¡vel
         JsonNode schemasNode;
         JsonNode allSchemas = rootNode.path(COMPONENTS).path(SCHEMAS);
         if (directSchemaNode != null) {
-            // Heurística: quando o corpo é um objeto com propriedades (ex.: filterDTO, pageable), tentar extrair o schema do filtro
+            // HeurÃ­stica: quando o corpo Ã© um objeto com propriedades (ex.: filterDTO, pageable), tentar extrair o schema do filtro
             JsonNode extracted = tryExtractFilterSchemaFromInline(directSchemaNode, allSchemas);
             schemasNode = extracted != null ? extracted : directSchemaNode;
         } else {
@@ -251,6 +249,11 @@ public class ApiDocsController {
 
         // Anotar x-ui.resource.idField para o frontend
         String resolvedIdField = resolveIdField(idField, schemaMap, rootNode, basePath, schemaType);
+        Map<String, Boolean> caps = computeCapabilities(rootNode, basePath);
+        boolean computedReadOnly = (readOnly != null) ? readOnly.booleanValue() :
+                !(Boolean.TRUE.equals(caps.getOrDefault("create", false))
+                        || Boolean.TRUE.equals(caps.getOrDefault("update", false))
+                        || Boolean.TRUE.equals(caps.getOrDefault("delete", false)));
         if (resolvedIdField != null && !resolvedIdField.isBlank()) {
             @SuppressWarnings("unchecked")
             Map<String, Object> resourceMeta = (Map<String, Object>) xUiMap.get("resource");
@@ -264,15 +267,9 @@ public class ApiDocsController {
             resourceMeta.put("idFieldValid", valid);
             if (!valid) {
                 resourceMeta.put("idFieldMessage", "idField not found in schema properties");
-                LOGGER.warn("x-ui.resource.idField='{}' não encontrado nas propriedades do schema '{}'", resolvedIdField, schemaName);
+                LOGGER.warn("x-ui.resource.idField='{}' nÃ£o encontrado nas propriedades do schema '{}'", resolvedIdField, schemaName);
             }
 
-            // Enriquecer com readOnly e capabilities
-            Map<String, Boolean> caps = computeCapabilities(rootNode, basePath);
-            boolean computedReadOnly = (readOnly != null) ? readOnly.booleanValue() :
-                    !(Boolean.TRUE.equals(caps.getOrDefault("create", false))
-                            || Boolean.TRUE.equals(caps.getOrDefault("update", false))
-                            || Boolean.TRUE.equals(caps.getOrDefault("delete", false)));
             resourceMeta.put("readOnly", computedReadOnly);
             resourceMeta.put("capabilities", caps);
         }
@@ -281,23 +278,21 @@ public class ApiDocsController {
         schemaMap.put(X_UI, xUiMap);
 
         // 4) Canonicalize and hash the final payload (com cache por schemaId)
-        String schemaId = org.praxisplatform.uischema.id.SchemaIdBuilder.build(
+        CanonicalSchemaRef schemaRef = schemaReferenceResolver.resolve(
                 decodedPath,
-                operation,
+                normalizedOperation,
                 schemaType,
                 includeInternalSchemas,
                 tenant,
-                locale
+                locale,
+                resolvedIdField,
+                computedReadOnly
         );
 
-        String schemaHash = schemaHashCache.get(schemaId);
-        if (schemaHash == null) {
-            com.fasterxml.jackson.databind.JsonNode payloadNode = objectMapper.valueToTree(buildStructuralSchemaPayload(schemaMap));
-            org.praxisplatform.uischema.hash.SchemaCanonicalizer canonicalizer = new org.praxisplatform.uischema.hash.SchemaCanonicalizer();
-            com.fasterxml.jackson.databind.JsonNode canonical = canonicalizer.canonicalize(payloadNode);
-            schemaHash = org.praxisplatform.uischema.hash.SchemaHashUtil.sha256Hex(canonical);
-            schemaHashCache.put(schemaId, schemaHash);
-        }
+        String schemaHash = openApiDocumentService.getOrComputeSchemaHash(
+                schemaRef.schemaId(),
+                () -> objectMapper.valueToTree(buildStructuralSchemaPayload(schemaMap))
+        );
         String eTag = "\"" + schemaHash + "\""; // strong ETag
 
         // 5) Conditional request handling (If-None-Match)
@@ -434,7 +429,7 @@ public class ApiDocsController {
     }
 
     /**
-     * Deriva o basePath a partir de um caminho completo de método (ex.: /api/foo/all → /api/foo).
+     * Deriva o basePath a partir de um caminho completo de mÃ©todo (ex.: /api/foo/all â†’ /api/foo).
      */
     private String deriveBasePathFrom(String fullPath) {
         if (fullPath == null || fullPath.isBlank()) return fullPath;
@@ -464,11 +459,11 @@ public class ApiDocsController {
                 return p.substring(0, p.length() - s.length());
             }
         }
-        return p; // já é base
+        return p; // jÃ¡ Ã© base
     }
 
     /**
-     * Calcula capacidades do recurso verificando a presença de operações nos paths do documento OpenAPI.
+     * Calcula capacidades do recurso verificando a presenÃ§a de operaÃ§Ãµes nos paths do documento OpenAPI.
      */
     private Map<String, Boolean> computeCapabilities(JsonNode rootNode, String basePath) {
         Map<String, Boolean> caps = new java.util.HashMap<>();
@@ -662,17 +657,17 @@ public class ApiDocsController {
      * Tenta extrair o schema do FilterDTO a partir de um schema inline de request que encapsula propriedades como
      * { filterDTO: { $ref: ... }, pageable: { ... } }.
      *
-     * Estratégia:
+     * EstratÃ©gia:
      * - Se houver propriedade chamada 'filterDTO' com $ref, resolve esse schema.
-     * - Caso contrário, procura a primeira propriedade com $ref cujo nome do schema termine com 'FilterDTO'.
-     * - Em último caso, retorna null para manter o inline original.
+     * - Caso contrÃ¡rio, procura a primeira propriedade com $ref cujo nome do schema termine com 'FilterDTO'.
+     * - Em Ãºltimo caso, retorna null para manter o inline original.
      */
     private JsonNode tryExtractFilterSchemaFromInline(JsonNode inlineSchema, JsonNode allSchemas) {
         if (inlineSchema == null || inlineSchema.isMissingNode()) return null;
         JsonNode props = inlineSchema.path(PROPERTIES);
         if (props.isMissingNode() || !props.fieldNames().hasNext()) return null;
 
-        // 1) Preferência por propriedade explicitamente chamada 'filterDTO'
+        // 1) PreferÃªncia por propriedade explicitamente chamada 'filterDTO'
         JsonNode filterDtoNode = props.path("filterDTO");
         if (!filterDtoNode.isMissingNode()) {
             JsonNode refNode = filterDtoNode.path(REF);
@@ -680,13 +675,13 @@ public class ApiDocsController {
                 String refName = extractSchemaNameFromRef(refNode.asText());
                 JsonNode resolved = allSchemas.path(refName);
                 if (!resolved.isMissingNode()) {
-                    LOGGER.info("Extraído FilterDTO via propriedade 'filterDTO': {}", refName);
+                    LOGGER.info("ExtraÃ­do FilterDTO via propriedade 'filterDTO': {}", refName);
                     return resolved;
                 }
             }
         }
 
-        // 2) Caso não exista 'filterDTO', procurar qualquer propriedade com $ref que termine com 'FilterDTO'
+        // 2) Caso nÃ£o exista 'filterDTO', procurar qualquer propriedade com $ref que termine com 'FilterDTO'
         Iterator<Entry<String, JsonNode>> it = props.fields();
         while (it.hasNext()) {
             Entry<String, JsonNode> entry = it.next();
@@ -697,23 +692,23 @@ public class ApiDocsController {
                 if (refName != null && refName.endsWith("FilterDTO")) {
                     JsonNode resolved = allSchemas.path(refName);
                     if (!resolved.isMissingNode()) {
-                        LOGGER.info("Extraído FilterDTO via heurística de sufixo: {}", refName);
+                        LOGGER.info("ExtraÃ­do FilterDTO via heurÃ­stica de sufixo: {}", refName);
                         return resolved;
                     }
                 }
             }
         }
 
-        // 3) Não foi possível extrair um FilterDTO específico
+        // 3) NÃ£o foi possÃ­vel extrair um FilterDTO especÃ­fico
         return null;
     }
 
     /**
-     * Substitui referências internas (<code>$ref</code>) em um schema JSON por suas propriedades reais,
-     * de forma recursiva, caso seja necessário.
+     * Substitui referÃªncias internas (<code>$ref</code>) em um schema JSON por suas propriedades reais,
+     * de forma recursiva, caso seja necessÃ¡rio.
      *
-     * @param schemaNode Nó (schema) em que serão buscadas as referências para substituição.
-     * @param allSchemas Nó contendo todos os schemas para referência, geralmente em <code>components -> schemas</code>.
+     * @param schemaNode NÃ³ (schema) em que serÃ£o buscadas as referÃªncias para substituiÃ§Ã£o.
+     * @param allSchemas NÃ³ contendo todos os schemas para referÃªncia, geralmente em <code>components -> schemas</code>.
      */
     private void replaceInternalSchemas(ObjectNode schemaNode, JsonNode allSchemas) {
         // 0) Top-level $ref
@@ -820,7 +815,7 @@ public class ApiDocsController {
     // and OpenApiUiUtils.determineSmartControlTypeByFieldName
 
     /**
-     * Localiza o schema do corpo de requisição para a operação informada.
+     * Localiza o schema do corpo de requisiÃ§Ã£o para a operaÃ§Ã£o informada.
      * <p>
      * Caminho esperado no JSON: {@code requestBody -> content -> application/json -> schema -> $ref}
      */
@@ -838,10 +833,10 @@ public class ApiDocsController {
     }
 
     /**
-     * Localiza o responseSchema na documentação OpenAPI, tentando várias estratégias
+     * Localiza o responseSchema na documentaÃ§Ã£o OpenAPI, tentando vÃ¡rias estratÃ©gias
      */
     private String findResponseSchema(JsonNode pathsNode, JsonNode rootNode, String operation, String decodedPath) {
-        // 1. Primeiro tenta encontrar no nó x-ui (abordagem atual)
+        // 1. Primeiro tenta encontrar no nÃ³ x-ui (abordagem atual)
         JsonNode xUiNode = pathsNode.path(X_UI);
         if (!xUiNode.isMissingNode() && !xUiNode.path(RESPONSE_SCHEMA).isMissingNode()) {
             String responseSchema = xUiNode.path(RESPONSE_SCHEMA).asText();
@@ -869,12 +864,12 @@ public class ApiDocsController {
             JsonNode wrapperSchema = rootNode.path(COMPONENTS).path(SCHEMAS).path(wrapperSchemaName);
 
             if (!wrapperSchema.isMissingNode()) {
-                // Verificar se é RestApiResponseTestDTO ou RestApiResponseListTestDTO
+                // Verificar se Ã© RestApiResponseTestDTO ou RestApiResponseListTestDTO
                 if (wrapperSchemaName.startsWith("RestApiResponse")) {
-                    // Encontrar o tipo genérico dentro do RestApiResponse
+                    // Encontrar o tipo genÃ©rico dentro do RestApiResponse
                     String realTypeName = extractRealTypeFromRestApiResponse(wrapperSchema, wrapperSchemaName);
                     if (realTypeName != null) {
-                        LOGGER.info("Tipo real extraído de {}: {}", wrapperSchemaName, realTypeName);
+                        LOGGER.info("Tipo real extraÃ­do de {}: {}", wrapperSchemaName, realTypeName);
                         return realTypeName;
                     }
                 } else {
@@ -888,8 +883,8 @@ public class ApiDocsController {
         String[] pathParts = decodedPath.split("/");
         if (pathParts.length > 0) {
             String lastSegment = pathParts[pathParts.length - 1];
-            // Se o último segmento do path for "list", podemos inferir que o retorno é uma lista
-            // de algum tipo, provavelmente relacionado ao penúltimo segmento
+            // Se o Ãºltimo segmento do path for "list", podemos inferir que o retorno Ã© uma lista
+            // de algum tipo, provavelmente relacionado ao penÃºltimo segmento
             if ("list".equals(lastSegment) && pathParts.length > 1) {
                 String entityName = pathParts[pathParts.length - 2];
                 String capitalizedName = entityName.substring(0, 1).toUpperCase() + entityName.substring(1);
@@ -906,19 +901,19 @@ public class ApiDocsController {
             }
         }
 
-        LOGGER.warn("Não foi possível encontrar um responseSchema para {}", decodedPath);
+        LOGGER.warn("NÃ£o foi possÃ­vel encontrar um responseSchema para {}", decodedPath);
         return null;
     }
 
     /**
-     * Extrai o tipo real contido dentro de um RestApiResponse ou coleção
+     * Extrai o tipo real contido dentro de um RestApiResponse ou coleÃ§Ã£o
      */
     private String extractRealTypeFromRestApiResponse(JsonNode wrapperSchema, String wrapperSchemaName) {
-        // Análise do nome para casos comuns como "RestApiResponseTestDTO" ou "RestApiResponseListTestDTO"
+        // AnÃ¡lise do nome para casos comuns como "RestApiResponseTestDTO" ou "RestApiResponseListTestDTO"
         if (wrapperSchemaName.startsWith("RestApiResponse")) {
             String remaining = wrapperSchemaName.substring("RestApiResponse".length());
 
-            // Verifica se é uma lista (RestApiResponseListXXX)
+            // Verifica se Ã© uma lista (RestApiResponseListXXX)
             if (remaining.startsWith("List")) {
                 String typeName = remaining.substring("List".length());
                 return typeName; // Retorna o tipo contido na lista (ex: "TestDTO")
@@ -927,16 +922,16 @@ public class ApiDocsController {
             }
         }
 
-        // Se a análise pelo nome não funcionar, tenta analisar a estrutura do schema
+        // Se a anÃ¡lise pelo nome nÃ£o funcionar, tenta analisar a estrutura do schema
         // Especificamente, buscamos a propriedade "data" do RestApiResponse
         JsonNode dataSchema = wrapperSchema.path("properties").path("data").path("schema");
 
-        // Verifica se data é um array
+        // Verifica se data Ã© um array
         if (dataSchema.has("type") && "array".equals(dataSchema.path("type").asText()) && dataSchema.has("items") && dataSchema.path("items").has("$ref")) {
-            // É um array, extrai o tipo dos items
+            // Ã‰ um array, extrai o tipo dos items
             return extractSchemaNameFromRef(dataSchema.path("items").path("$ref").asText());
         }
-        // Se data tem referência direta
+        // Se data tem referÃªncia direta
         else if (dataSchema.has("$ref")) {
             return extractSchemaNameFromRef(dataSchema.path("$ref").asText());
         }
@@ -946,175 +941,134 @@ public class ApiDocsController {
         if (!properties.isMissingNode()) {
             JsonNode dataProperty = properties.path("data");
 
-            // Verifica se data é um objeto ou array
+            // Verifica se data Ã© um objeto ou array
             if (!dataProperty.isMissingNode()) {
-                // Se data é um array
+                // Se data Ã© um array
                 if (dataProperty.has("type") && "array".equals(dataProperty.path("type").asText())) {
-                    // Verifica se o array tem referência para o tipo dos itens
+                    // Verifica se o array tem referÃªncia para o tipo dos itens
                     if (dataProperty.has("items") && dataProperty.path("items").has("$ref")) {
                         String itemRef = dataProperty.path("items").path("$ref").asText();
                         return extractSchemaNameFromRef(itemRef);
                     }
                 }
-                // Se data tem referência direta
+                // Se data tem referÃªncia direta
                 else if (dataProperty.has("$ref")) {
                     return extractSchemaNameFromRef(dataProperty.path("$ref").asText());
                 }
             }
         }
 
-        // Não conseguiu extrair o tipo
+        // NÃ£o conseguiu extrair o tipo
         return null;
     }
 
     /**
-     * Extrai o nome do schema de uma referência ($ref)
+     * Extrai o nome do schema de uma referÃªncia ($ref)
      */
     private String extractSchemaNameFromRef(String ref) {
         return ref.substring(ref.lastIndexOf('/') + 1);
     }
 
     // ------------------------------------------------------------------------
-    // Métodos de resolução automática de grupos e cache
+    // MÃ©todos de resoluÃ§Ã£o automÃ¡tica de grupos e cache
     // ------------------------------------------------------------------------
     
     /**
-     * <h3>🎯 Método Chave - Resolução Automática via Estratégia Dupla</h3>
-     * <p>Este é o coração da funcionalidade de resolução automática. Elimina a necessidade 
-     * do parâmetro 'document' manual, detectando automaticamente qual grupo OpenAPI usar 
-     * baseado na estratégia dupla implementada pelo DynamicSwaggerConfig.</p>
+     * <h3>ðŸŽ¯ MÃ©todo Chave - ResoluÃ§Ã£o AutomÃ¡tica via EstratÃ©gia Dupla</h3>
+     * <p>Este Ã© o coraÃ§Ã£o da funcionalidade de resoluÃ§Ã£o automÃ¡tica. Elimina a necessidade 
+     * do parÃ¢metro 'document' manual, detectando automaticamente qual grupo OpenAPI usar 
+     * baseado na estratÃ©gia dupla implementada pelo DynamicSwaggerConfig.</p>
      * 
-     * <h4>🔍 Estratégias de Resolução (ordem de prioridade):</h4>
+     * <h4>ðŸ” EstratÃ©gias de ResoluÃ§Ã£o (ordem de prioridade):</h4>
      * <ol>
-     *   <li><strong>🤖 OpenApiGroupResolver:</strong> Usa algoritmo "best match" com grupos da estratégia dupla</li>
-     *   <li><strong>📐 Derivação do Path:</strong> Extrai padrão para gerar nome do grupo individual</li>
-     *   <li><strong>🎯 Primeiro Segmento:</strong> Usa primeiro segmento significativo se disponível</li>
-     *   <li><strong>🛡️ Fallback:</strong> "application" como último recurso</li>
+     *   <li><strong>ðŸ¤– OpenApiGroupResolver:</strong> Usa algoritmo "best match" com grupos da estratÃ©gia dupla</li>
+     *   <li><strong>ðŸ“ DerivaÃ§Ã£o do Path:</strong> Extrai padrÃ£o para gerar nome do grupo individual</li>
+     *   <li><strong>ðŸŽ¯ Primeiro Segmento:</strong> Usa primeiro segmento significativo se disponÃ­vel</li>
+     *   <li><strong>ðŸ›¡ï¸ Fallback:</strong> "application" como Ãºltimo recurso</li>
      * </ol>
      * 
-     * <h4>📊 Exemplos de Resolução com Estratégia Dupla:</h4>
+     * <h4>ðŸ“Š Exemplos de ResoluÃ§Ã£o com EstratÃ©gia Dupla:</h4>
      * <pre>
-     * // ✅ Grupos Individuais Ultra-Específicos (CRUDs)
-     * "/api/human-resources/eventos-folha/all"     → "api-human-resources-eventos-folha" (~3KB)
-     * "/api/human-resources/funcionarios/123"     → "api-human-resources-funcionarios" (~3KB)  
-     * "/api/human-resources/departamentos/filter" → "api-human-resources-departamentos" (~3KB)
+     * // âœ… Grupos Individuais Ultra-EspecÃ­ficos (CRUDs)
+     * "/api/human-resources/eventos-folha/all"     â†’ "api-human-resources-eventos-folha" (~3KB)
+     * "/api/human-resources/funcionarios/123"     â†’ "api-human-resources-funcionarios" (~3KB)  
+     * "/api/human-resources/departamentos/filter" â†’ "api-human-resources-departamentos" (~3KB)
      * 
-     * // 🏷️ Grupos Agregados por Contexto (@ApiGroup)
-     * "/api/human-resources/bulk/funcionarios"    → "recursos-humanos-bulk" (~50KB)
-     * "/api/custom/reports/summary"               → "relatorios" (~30KB)
+     * // ðŸ·ï¸ Grupos Agregados por Contexto (@ApiGroup)
+     * "/api/human-resources/bulk/funcionarios"    â†’ "recursos-humanos-bulk" (~50KB)
+     * "/api/custom/reports/summary"               â†’ "relatorios" (~30KB)
      * 
-     * // 🛡️ Fallbacks
-     * "/funcionarios"                             → "funcionarios" (derivação)
-     * ""                                          → "application" (último recurso)
+     * // ðŸ›¡ï¸ Fallbacks
+     * "/funcionarios"                             â†’ "funcionarios" (derivaÃ§Ã£o)
+     * ""                                          â†’ "application" (Ãºltimo recurso)
      * </pre>
      * 
-     * <h4>🔗 Integração Perfeita com DynamicSwaggerConfig:</h4>
+     * <h4>ðŸ”— IntegraÃ§Ã£o Perfeita com DynamicSwaggerConfig:</h4>
      * <p>Os nomes resolvidos aqui correspondem exatamente aos grupos registrados 
-     * pela estratégia dupla do DynamicSwaggerConfig:</p>
+     * pela estratÃ©gia dupla do DynamicSwaggerConfig:</p>
      * <ul>
      *   <li><strong>Grupos Individuais:</strong> Nomes baseados em paths completos de AbstractCrudController</li>
      *   <li><strong>Grupos Agregados:</strong> Nomes customizados via @ApiGroup de qualquer controller</li>
      * </ul>
      * 
-     * <h4>🚀 Performance Resultante:</h4>
+     * <h4>ðŸš€ Performance Resultante:</h4>
      * <ul>
-     *   <li><strong>Máxima otimização:</strong> Sempre resolve para o grupo mais específico disponível</li>
-     *   <li><strong>Cache eficiente:</strong> Documentos pequenos são cacheados mais rapidamente</li>
-     *   <li><strong>Flexibilidade total:</strong> Funciona com ambas as estratégias automaticamente</li>
+     *   <li><strong>MÃ¡xima otimizaÃ§Ã£o:</strong> Sempre resolve para o grupo mais especÃ­fico disponÃ­vel</li>
+     *   <li><strong>Cache eficiente:</strong> Documentos pequenos sÃ£o cacheados mais rapidamente</li>
+     *   <li><strong>Flexibilidade total:</strong> Funciona com ambas as estratÃ©gias automaticamente</li>
      * </ul>
      * 
-     * @param path o path da requisição (ex: "/api/human-resources/funcionarios/all")
+     * @param path o path da requisiÃ§Ã£o (ex: "/api/human-resources/funcionarios/all")
      * @return o nome do grupo resolvido para buscar documento OpenAPI ultra-otimizado
      */
     /**
-     * <h3>🗄️ Cache Inteligente de Documentos OpenAPI</h3>
-     * <p>Implementa cache otimizado com estratégia de fallback para garantir alta performance
+     * <h3>ðŸ—„ï¸ Cache Inteligente de Documentos OpenAPI</h3>
+     * <p>Implementa cache otimizado com estratÃ©gia de fallback para garantir alta performance
      * e disponibilidade dos documentos OpenAPI.</p>
      * 
-     * <h4>🎯 Estratégia de Busca (ordem de prioridade):</h4>
+     * <h4>ðŸŽ¯ EstratÃ©gia de Busca (ordem de prioridade):</h4>
      * <ol>
-     *   <li><strong>💾 Cache Hit:</strong> Retorna documento cacheado instantaneamente</li>
-     *   <li><strong>🎯 Grupo Específico:</strong> Busca /v3/api-docs/{grupo} (~14KB)</li>
-     *   <li><strong>🛡️ Fallback Completo:</strong> Busca /v3/api-docs (~500KB) se grupo falhar</li>
+     *   <li><strong>ðŸ’¾ Cache Hit:</strong> Retorna documento cacheado instantaneamente</li>
+     *   <li><strong>ðŸŽ¯ Grupo EspecÃ­fico:</strong> Busca /v3/api-docs/{grupo} (~14KB)</li>
+     *   <li><strong>ðŸ›¡ï¸ Fallback Completo:</strong> Busca /v3/api-docs (~500KB) se grupo falhar</li>
      * </ol>
      * 
-     * <h4>📊 Otimização de Performance:</h4>
+     * <h4>ðŸ“Š OtimizaÃ§Ã£o de Performance:</h4>
      * <ul>
-     *   <li><strong>97% menor:</strong> Documento específico vs completo</li>
+     *   <li><strong>97% menor:</strong> Documento especÃ­fico vs completo</li>
      *   <li><strong>Cache persistente:</strong> ConcurrentHashMap thread-safe</li>
-     *   <li><strong>Computação lazy:</strong> computeIfAbsent() para threading otimizada</li>
+     *   <li><strong>ComputaÃ§Ã£o lazy:</strong> computeIfAbsent() para threading otimizada</li>
      * </ul>
      * 
-     * <h4>🔄 Exemplo de Execução:</h4>
+     * <h4>ðŸ”„ Exemplo de ExecuÃ§Ã£o:</h4>
      * <pre>
-     * 1ª chamada: groupName="api-human-resources-eventos-folha"
-     *   → Cache miss → Busca /v3/api-docs/api-human-resources-eventos-folha 
-     *   → Sucesso: 14KB cacheado
+     * 1Âª chamada: groupName="api-human-resources-eventos-folha"
+     *   â†’ Cache miss â†’ Busca /v3/api-docs/api-human-resources-eventos-folha 
+     *   â†’ Sucesso: 14KB cacheado
      * 
-     * 2ª chamada: mesmo groupName
-     *   → Cache hit → Retorna 14KB instantaneamente
+     * 2Âª chamada: mesmo groupName
+     *   â†’ Cache hit â†’ Retorna 14KB instantaneamente
      * 
-     * 3ª chamada: groupName="grupo-inexistente"  
-     *   → Cache miss → Tentativa /v3/api-docs/grupo-inexistente
-     *   → Falha → Fallback /v3/api-docs → 500KB cacheado
+     * 3Âª chamada: groupName="grupo-inexistente"  
+     *   â†’ Cache miss â†’ Tentativa /v3/api-docs/grupo-inexistente
+     *   â†’ Falha â†’ Fallback /v3/api-docs â†’ 500KB cacheado
      * </pre>
      * 
      * @param groupName o nome do grupo para buscar o documento (ex: "api-human-resources-funcionarios")
-     * @return o documento JSON do OpenAPI específico do grupo
-     * @throws IllegalStateException se não conseguir obter nenhum documento (cenário extremo)
+     * @return o documento JSON do OpenAPI especÃ­fico do grupo
+     * @throws IllegalStateException se nÃ£o conseguir obter nenhum documento (cenÃ¡rio extremo)
      */
     private JsonNode getDocumentForGroup(String groupName) {
-        return documentCache.computeIfAbsent(groupName, group -> {
-            try {
-                JsonNode groupDoc = openApiDocsSupport.fetchOpenApiDocument(restTemplate, OPEN_API_BASE_PATH, group, LOGGER);
-                if (groupDoc != null) {
-                    long sizeKB = estimateJsonSize(groupDoc) / 1024;
-                    LOGGER.info("📄 Documento OpenAPI específico cacheado para grupo '{}' (~{}KB)", 
-                        group, sizeKB);
-                    return groupDoc;
-                }
-                throw new IllegalStateException("OpenAPI document helper returned null for group: " + group);
-            } catch (Exception e) {
-                LOGGER.error("💥 Falha crítica ao buscar documento OpenAPI para grupo '{}': {}",
-                    group, e.getMessage());
-                throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + group, e);
-            }
-        });
+        return openApiDocumentService.getDocumentForGroup(groupName);
     }
-    
+
     /**
-     * Estima o tamanho em bytes de um JsonNode para logging.
-     */
-    private long estimateJsonSize(JsonNode jsonNode) {
-        try {
-            return objectMapper.writeValueAsString(jsonNode).length();
-        } catch (Exception e) {
-            return 0; // Em caso de erro, retorna 0 para não quebrar o log
-        }
-    }
-    
-    /**
-     * <h3>🧹 Limpeza Manual do Cache</h3>
-     * <p>Método utilitário para limpar o cache de documentos OpenAPI. 
-     * Útil durante desenvolvimento ou quando documentos são atualizados dinamicamente.</p>
-     * 
-     * <h4>📋 Casos de Uso:</h4>
-     * <ul>
-     *   <li><strong>Desenvolvimento:</strong> Forçar reload após mudanças no código</li>
-     *   <li><strong>Deployment:</strong> Garantir documentos atualizados</li>
-     *   <li><strong>Troubleshooting:</strong> Resolver problemas de cache stale</li>
-     * </ul>
-     * 
-     * <h4>🔄 Comportamento:</h4>
-     * <p>Após limpeza, próximas requisições irão recarregar documentos específicos
-     * dos endpoints /v3/api-docs/{grupo}, otimizando novamente o cache.</p>
+     * <h3>Limpeza Manual do Cache</h3>
+     * <p>Metodo utilitario para limpar os caches estruturais de documentos e hashes.</p>
      */
     public void clearDocumentCache() {
-        int cacheSize = documentCache.size();
-        documentCache.clear();
-        int schemaCacheSize = schemaHashCache.size();
-        schemaHashCache.clear();
-        LOGGER.info("🧹 Cache de documentos OpenAPI limpo. {} entradas removidas. Cache de schemaHash limpo. {} entradas removidas.", cacheSize, schemaCacheSize);
+        openApiDocumentService.clearCaches();
     }
 
 }
+

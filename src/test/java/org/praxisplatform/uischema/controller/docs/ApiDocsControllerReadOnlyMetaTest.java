@@ -5,13 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourcePolicy;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.OptionSourceType;
+import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.springframework.http.ResponseEntity;
 
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -22,21 +23,28 @@ class ApiDocsControllerReadOnlyMetaTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private ApiDocsController controller;
+    private TestOpenApiDocumentService openApiDocumentService;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         controller = new ApiDocsController();
+        OpenApiDocsSupport openApiDocsSupport = new OpenApiDocsSupport();
+        openApiDocumentService = new TestOpenApiDocumentService(openApiDocsSupport);
 
-        // Inject ObjectMapper
-        Field om = ApiDocsController.class.getDeclaredField("objectMapper");
-        om.setAccessible(true);
-        om.set(controller, mapper);
-        Field support = ApiDocsController.class.getDeclaredField("openApiDocsSupport");
-        support.setAccessible(true);
-        support.set(controller, new OpenApiDocsSupport());
-        Field optionSourceRegistry = ApiDocsController.class.getDeclaredField("optionSourceRegistry");
-        optionSourceRegistry.setAccessible(true);
-        optionSourceRegistry.set(controller, OptionSourceRegistry.builder()
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "objectMapper", mapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "openApiDocsSupport", openApiDocsSupport);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "openApiDocumentService", openApiDocumentService);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                controller,
+                "canonicalOperationResolver",
+                new OpenApiCanonicalOperationResolver(openApiDocumentService, null)
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                controller,
+                "schemaReferenceResolver",
+                new FilteredSchemaReferenceResolver()
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "optionSourceRegistry", OptionSourceRegistry.builder()
                 .add(ReadOnlyDemoEntity.class, new OptionSourceDescriptor(
                         "payrollProfile",
                         OptionSourceType.DISTINCT_DIMENSION,
@@ -50,15 +58,9 @@ class ApiDocsControllerReadOnlyMetaTest {
                 ))
                 .build());
 
-        // Preload a minimal OpenAPI doc into the private documentCache
-        Field dc = ApiDocsController.class.getDeclaredField("documentCache");
-        dc.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Map<String, JsonNode> docCache = (Map<String, JsonNode>) dc.get(controller);
-
         String group = "api-ro-demo-all"; // derived from path below
         JsonNode doc = buildReadOnlyOpenApiDocument();
-        docCache.put(group, doc);
+        openApiDocumentService.putDocument(group, doc);
     }
 
     private JsonNode buildReadOnlyOpenApiDocument() {

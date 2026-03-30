@@ -10,6 +10,12 @@ import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
 import org.praxisplatform.uischema.filter.web.FilterPayloadNormalizer;
 import org.praxisplatform.uischema.filter.web.FilterRequestBodyAdvice;
+import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
+import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
+import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
+import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
+import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.praxisplatform.uischema.stats.StatsEligibility;
 import org.praxisplatform.uischema.stats.StatsProperties;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
@@ -22,6 +28,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springdoc.core.models.GroupedOpenApi;
 
 import java.time.Clock;
@@ -556,6 +563,32 @@ public class OpenApiUiSchemaAutoConfiguration {
         return new OpenApiDocsSupport();
     }
 
+    @Bean
+    @ConditionalOnMissingBean
+    public OpenApiDocumentService openApiDocumentService(
+            RestTemplate restTemplate,
+            ObjectMapper objectMapper,
+            OpenApiDocsSupport openApiDocsSupport
+    ) {
+        return new CachedOpenApiDocumentService(restTemplate, objectMapper, openApiDocsSupport);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public CanonicalOperationResolver canonicalOperationResolver(
+            OpenApiDocumentService openApiDocumentService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            RequestMappingHandlerMapping requestMappingHandlerMapping
+    ) {
+        return new OpenApiCanonicalOperationResolver(openApiDocumentService, requestMappingHandlerMapping);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SchemaReferenceResolver schemaReferenceResolver() {
+        return new FilteredSchemaReferenceResolver();
+    }
+
     /**
      * <h3>🌐 Bean ApiDocsController para Endpoints de Documentação</h3>
      * 
@@ -566,14 +599,14 @@ public class OpenApiUiSchemaAutoConfiguration {
      * <h4>🎯 Uso Principal:</h4>
      * <ul>
      *   <li><strong>Filtered Documentation:</strong> Serve documentação específica por path</li>
-     *   <li><strong>Automatic Group Resolution:</strong> Usa OpenApiGroupResolver para resolver grupos</li>
-     *   <li><strong>Schema Caching:</strong> Implementa cache para performance</li>
+     *   <li><strong>Canonical Resolution:</strong> Consome {@code CanonicalOperationResolver} e {@code SchemaReferenceResolver}</li>
+     *   <li><strong>OpenAPI Document Service:</strong> Delega resolução de grupo, fetch/cache e hash estrutural a {@code OpenApiDocumentService}</li>
      *   <li><strong>Frontend Integration:</strong> Endpoints RESTful para consumo por UIs</li>
      * </ul>
      * 
      * <h4>⚙️ Características:</h4>
      * <ul>
-     *   <li><strong>Dependency Injection:</strong> Recebe automaticamente OpenApiGroupResolver</li>
+     *   <li><strong>Dependency Injection:</strong> Recebe automaticamente os serviços canônicos de documento, operação e schema</li>
      *   <li><strong>RESTful Endpoints:</strong> Exposição de endpoints HTTP padrão</li>
      *   <li><strong>Error Handling:</strong> Tratamento de erros para grupos não encontrados</li>
      *   <li><strong>Content Negotiation:</strong> Suporte a diferentes formatos de resposta</li>
@@ -597,11 +630,9 @@ public class OpenApiUiSchemaAutoConfiguration {
      *          ↓
      * ApiDocsController.getFilteredSchema()
      *          ↓
-     * OpenApiGroupResolver.resolveGroup(path)
-     *          ↓ 
-     * "api-funcionarios" group resolved
+     * CanonicalOperationResolver.resolve(path, method)
      *          ↓
-     * Fetch OpenAPI document for group
+     * OpenApiDocumentService.getDocumentForGroup(group)
      *          ↓
      * Return filtered schema (~14KB)
      * </pre>
@@ -650,15 +681,15 @@ public class OpenApiUiSchemaAutoConfiguration {
      * <h4>🔗 Dependências Injetadas:</h4>
      * <p>O Spring injeta automaticamente:</p>
      * <ul>
-     *   <li><strong>OpenApiGroupResolver:</strong> Para resolução de grupos</li>
-     *   <li><strong>RestTemplate:</strong> Para chamadas internas ao SpringDoc</li>
+     *   <li><strong>OpenApiDocumentService:</strong> Para resolução de grupo, fetch/cache de OpenAPI e hash estrutural</li>
+     *   <li><strong>CanonicalOperationResolver:</strong> Para a fronteira canônica de path+método+grupo</li>
+     *   <li><strong>SchemaReferenceResolver:</strong> Para `schemaId` e `schemaUrl` canônicos</li>
      *   <li><strong>ObjectMapper:</strong> Para processamento JSON</li>
      * </ul>
      * 
      * <h4>⚡ Performance:</h4>
-     * <p>O controller implementa cache interno para evitar reprocessar a mesma documentação 
-     * repetidamente, resultando em redução de 97% no tamanho dos documentos e 
-     * melhoria significativa na velocidade de resposta.</p>
+     * <p>O controller reutiliza os caches estruturais do {@code OpenApiDocumentService},
+     * evitando duplicar responsabilidades de fetch, hash e invalidação na camada HTTP.</p>
      * 
      * @return ApiDocsController configurado com todas as dependências
      */

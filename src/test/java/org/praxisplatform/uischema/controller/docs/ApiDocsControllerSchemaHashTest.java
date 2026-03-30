@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
+import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.springframework.http.ResponseEntity;
 
-import java.lang.reflect.Field;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
 
@@ -18,28 +18,31 @@ public class ApiDocsControllerSchemaHashTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private ApiDocsController controller;
+    private TestOpenApiDocumentService openApiDocumentService;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         controller = new ApiDocsController();
+        OpenApiDocsSupport openApiDocsSupport = new OpenApiDocsSupport();
+        openApiDocumentService = new TestOpenApiDocumentService(openApiDocsSupport);
 
-        // Inject ObjectMapper
-        Field om = ApiDocsController.class.getDeclaredField("objectMapper");
-        om.setAccessible(true);
-        om.set(controller, mapper);
-        Field support = ApiDocsController.class.getDeclaredField("openApiDocsSupport");
-        support.setAccessible(true);
-        support.set(controller, new OpenApiDocsSupport());
-
-        // Preload a minimal OpenAPI doc into the private documentCache
-        Field dc = ApiDocsController.class.getDeclaredField("documentCache");
-        dc.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Map<String, JsonNode> docCache = (Map<String, JsonNode>) dc.get(controller);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "objectMapper", mapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "openApiDocsSupport", openApiDocsSupport);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "openApiDocumentService", openApiDocumentService);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                controller,
+                "canonicalOperationResolver",
+                new OpenApiCanonicalOperationResolver(openApiDocumentService, null)
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                controller,
+                "schemaReferenceResolver",
+                new FilteredSchemaReferenceResolver()
+        );
 
         String group = "api-human-resources-funcionarios"; // derived from path below
         JsonNode doc = buildMinimalOpenApiDocument();
-        docCache.put(group, doc);
+        openApiDocumentService.putDocument(group, doc);
     }
 
     private JsonNode buildMinimalOpenApiDocument() {
@@ -133,7 +136,7 @@ public class ApiDocsControllerSchemaHashTest {
     }
 
     @Test
-    void schemaHashIgnoresOperationExamples() throws Exception {
+    void schemaHashIgnoresOperationExamples() {
         String path = "/api/human-resources/funcionarios/all";
 
         ResponseEntity<Map<String, Object>> before = controller.getFilteredSchema(
@@ -148,11 +151,7 @@ public class ApiDocsControllerSchemaHashTest {
         String originalEtag = before.getHeaders().getETag();
         assertNotNull(originalEtag);
 
-        Field dc = ApiDocsController.class.getDeclaredField("documentCache");
-        dc.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Map<String, JsonNode> docCache = (Map<String, JsonNode>) dc.get(controller);
-        ObjectNode cachedDoc = (ObjectNode) docCache.get("api-human-resources-funcionarios");
+        ObjectNode cachedDoc = (ObjectNode) openApiDocumentService.getCachedDocument("api-human-resources-funcionarios");
         ObjectNode getNode = (ObjectNode) cachedDoc.path("paths").path(path).path("get");
         getNode.putObject("responses")
                 .putObject("200")
@@ -162,11 +161,7 @@ public class ApiDocsControllerSchemaHashTest {
                 .putObject("newExample")
                 .put("value", "{\"data\":[]}");
 
-        Field shc = ApiDocsController.class.getDeclaredField("schemaHashCache");
-        shc.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Map<String, String> schemaHashCache = (Map<String, String>) shc.get(controller);
-        schemaHashCache.clear();
+        openApiDocumentService.clearSchemaHashes();
 
         ResponseEntity<Map<String, Object>> after = controller.getFilteredSchema(
                 path,
@@ -179,5 +174,39 @@ public class ApiDocsControllerSchemaHashTest {
         );
 
         assertEquals(originalEtag, after.getHeaders().getETag());
+    }
+
+    @Test
+    void etagVariesWhenSchemaVariantOverridesChange() {
+        String path = "/api/human-resources/funcionarios/all";
+
+        ResponseEntity<Map<String, Object>> first = controller.getFilteredSchema(
+                path,
+                "get",
+                true,
+                "response",
+                "employeeId",
+                true,
+                null,
+                null,
+                Locale.ENGLISH
+        );
+        String firstEtag = first.getHeaders().getETag();
+        assertNotNull(firstEtag);
+
+        ResponseEntity<Map<String, Object>> second = controller.getFilteredSchema(
+                path,
+                "get",
+                true,
+                "response",
+                "personId",
+                false,
+                firstEtag,
+                null,
+                Locale.ENGLISH
+        );
+
+        assertEquals(200, second.getStatusCodeValue());
+        assertNotEquals(firstEtag, second.getHeaders().getETag());
     }
 }

@@ -5,6 +5,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
+import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
+import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -42,10 +45,14 @@ class DomainCatalogControllerTest {
         controller = new DomainCatalogController();
         OpenApiDocsSupport openApiDocsSupport = new OpenApiDocsSupport();
         ReflectionTestUtils.setField(openApiDocsSupport, "openApiGroupResolver", openApiGroupResolver);
-        ReflectionTestUtils.setField(controller, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(openApiDocsSupport, "openApiInternalBaseUrl", "http://localhost");
+        CachedOpenApiDocumentService openApiDocumentService = new CachedOpenApiDocumentService(restTemplate, new ObjectMapper(), openApiDocsSupport);
+        ReflectionTestUtils.setField(openApiDocumentService, "openApiBasePath", "/v3/api-docs");
         ReflectionTestUtils.setField(controller, "objectMapper", new ObjectMapper());
         ReflectionTestUtils.setField(controller, "openApiDocsSupport", openApiDocsSupport);
-        ReflectionTestUtils.setField(controller, "openApiBasePath", "/v3/api-docs");
+        ReflectionTestUtils.setField(controller, "openApiDocumentService", openApiDocumentService);
+        ReflectionTestUtils.setField(controller, "canonicalOperationResolver", new OpenApiCanonicalOperationResolver(openApiDocumentService, null));
+        ReflectionTestUtils.setField(controller, "schemaReferenceResolver", new FilteredSchemaReferenceResolver());
         ReflectionTestUtils.setField(controller, "excludedPathsRaw", "");
         controller.initExcludedPaths();
     }
@@ -325,10 +332,15 @@ class DomainCatalogControllerTest {
         ApiDocsController apiDocsController = new ApiDocsController();
         OpenApiDocsSupport openApiDocsSupport = new OpenApiDocsSupport();
         ReflectionTestUtils.setField(openApiDocsSupport, "openApiGroupResolver", openApiGroupResolver);
-        ReflectionTestUtils.setField(apiDocsController, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(openApiDocsSupport, "openApiInternalBaseUrl", "http://localhost");
+        CachedOpenApiDocumentService openApiDocumentService =
+                new CachedOpenApiDocumentService(restTemplate, new ObjectMapper(), openApiDocsSupport);
+        ReflectionTestUtils.setField(openApiDocumentService, "openApiBasePath", "/v3/api-docs");
         ReflectionTestUtils.setField(apiDocsController, "objectMapper", new ObjectMapper());
         ReflectionTestUtils.setField(apiDocsController, "openApiDocsSupport", openApiDocsSupport);
-        ReflectionTestUtils.setField(apiDocsController, "OPEN_API_BASE_PATH", "/v3/api-docs");
+        ReflectionTestUtils.setField(apiDocsController, "openApiDocumentService", openApiDocumentService);
+        ReflectionTestUtils.setField(apiDocsController, "canonicalOperationResolver", new OpenApiCanonicalOperationResolver(openApiDocumentService, null));
+        ReflectionTestUtils.setField(apiDocsController, "schemaReferenceResolver", new FilteredSchemaReferenceResolver());
 
         Map<String, Object> filteredSchema = apiDocsController
                 .getFilteredSchema("/stats/group-by", "post", false, "response", null, null, java.util.Locale.ENGLISH)
