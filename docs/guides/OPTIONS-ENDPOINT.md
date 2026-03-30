@@ -122,8 +122,104 @@ Tipos ainda nao implementados de ponta a ponta no executor JPA:
 - use `excludeSelfField=true` quando a source nao deve se autofiltrar
 - para `OptionDTO`, mantenha `optionLabelKey=label` e `optionValueKey=id`
 
-## Referencias publicas
+## Troubleshooting e Debugging
 
-- starter canonico: `praxis-metadata-starter`
-- repositÃ³rio Git do runtime Angular: `https://github.com/codexrodrigues/praxis-ui-angular`
-- pacotes npm relevantes para consumo: `@praxisui/core`, `@praxisui/dynamic-form`
+### Problemas Comuns e Soluções
+
+- **Endpoint Retorna 404**: Verifique se o controller herda de `AbstractCrudController` ou `AbstractReadOnlyController` e se o `OptionSourceRegistry` está registrado no service.
+- **Opções Não Aparecem no Frontend**: Confirme que o campo no `@UISchema` tem nome idêntico à `key` do descriptor. Use o browser dev tools para inspecionar `/schemas/filtered` e ver se `x-ui.optionSource` está presente.
+- **Busca Não Funciona**: Certifique-se de que `allowSearch: true` na `OptionSourcePolicy` e que o `searchMode` (ex.: "contains") é suportado pelo executor.
+- **Paginação Quebrada**: Verifique `defaultPageSize` e `maxPageSize` na policy; o frontend deve enviar `page` e `size` no request.
+- **Dependências em Cascata Não Filtram**: Garanta que `dependsOn` lista campos corretos e que o filtro aplicado inclui esses valores. Teste manualmente com `POST /option-sources/{key}/options/filter` incluindo filtros dependentes.
+- **Performance Lenta**: Habilite `cacheable: true` se apropriado, ou otimize queries no service (ex.: use índices no banco para distinct values).
+- **Erro de Validação**: Leia logs do servidor; descriptors inválidos (ex.: `key` nula) lançam `IllegalArgumentException` na criação.
+
+### Como Testar Manualmente
+
+Use ferramentas como Postman ou curl para testar endpoints:
+
+- **Filtro de Opções**:
+  ```bash
+  curl -X POST "http://localhost:8080/api/resource/option-sources/universo/options/filter" \
+    -H "Content-Type: application/json" \
+    -d '{"search": "Empresa", "page": 0, "size": 10}'
+  ```
+  Esperado: `Page<OptionDTO>` com `id`, `label`.
+
+- **Reidratação por IDs**:
+  ```bash
+  curl "http://localhost:8080/api/resource/option-sources/universo/options/by-ids?ids=1&ids=2"
+  ```
+  Esperado: `List<OptionDTO>` para IDs específicos.
+
+- **Verificar Schema**:
+  ```bash
+  curl "http://localhost:8080/schemas/filtered"
+  ```
+  Procure por `x-ui.optionSource` nos campos.
+
+### Logs Úteis
+
+- Ative logs em `org.praxisplatform.uischema` para ver resolução de descriptors.
+- No frontend, use console logs do Angular para erros de normalização.
+
+## Exemplos Avançados
+
+### Integrando com StatsFieldRegistry
+
+Para `DISTINCT_DIMENSION`, o executor pode usar `StatsFieldRegistry` como backend:
+
+```java
+// No service, registre no StatsFieldRegistry primeiro
+statsFieldRegistry.register(VwAnalyticsFolhaPagamento.class, "universo");
+
+// Depois, no OptionSourceRegistry
+OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
+    "universo",
+    OptionSourceType.DISTINCT_DIMENSION,
+    // ... outros campos
+);
+```
+
+Isso permite reaproveitar lógica de stats para options.
+
+### Customizando OptionDTO com Extra
+
+Para adicionar metadados (ex.: count de ocorrências):
+
+```java
+// No service, sobrescreva filterOptionSourceOptions
+@Override
+public Page<OptionDTO> filterOptionSourceOptions(String sourceKey, GenericFilterDTO filter, Pageable pageable) {
+    // Lógica customizada
+    return options.map(option -> option.withExtra(Map.of("count", 42)));
+}
+```
+
+### Migrando de Endpoint Legado
+
+Campo antigo:
+```json
+{
+  "campo": {
+    "endpoint": "/options/filter",
+    "valueField": "id",
+    "displayField": "label"
+  }
+}
+```
+
+Novo com OptionSource:
+```json
+{
+  "campo": {
+    "x-ui.optionSource": {
+      "key": "campo",
+      "type": "RESOURCE_ENTITY",
+      "resourcePath": "/api/campo"
+    }
+  }
+}
+```
+
+Durante transição, publique ambos para compatibilidade.

@@ -484,12 +484,95 @@ Recomendação:
 - atualizar guias de filtros/options
 - publicar matriz “quando usar recurso próprio versus optionSource derivado”
 
-## Decisões em Aberto
+# Introdução Didática para Iniciantes
 
-- o contrato de `x-ui.optionSource` deve nascer como extensão de campo ou também aparecer em nível de operação?
-- `LIGHT_LOOKUP` precisa de tipo próprio já na primeira fase ou pode nascer como subtipo de `RESOURCE_ENTITY`?
-- o lookup derivado por distinct deve aceitar busca textual parcial ou só prefixo/igualdade?
-- a publicação em `/schemas/filtered` deve copiar apenas a referência da fonte ou o descriptor resolvido completo?
+Se você é novo na plataforma Praxis, pense no OptionSource como uma "receita" para criar listas de opções (como um dropdown) em formulários ou filtros, sem precisar programar tudo do zero. 
+
+**Analogia Simples**: Imagine um restaurante onde o cardápio (metadata) diz: "Para o prato 'Pizza', use ingredientes de 'Queijos Disponíveis'". OptionSource é a receita que explica como buscar esses "ingredientes" (opções) de forma padronizada, em vez de inventar uma nova cozinha para cada prato.
+
+**Por Que Importa?** Em apps metadata-driven, campos como "Perfil Salarial" ou "Faixas de Idade" precisam de opções inteligentes. Sem OptionSource, o usuário digita tudo manualmente — ruim para UX. Com ele, o sistema "sabe" buscar opções automaticamente.
+
+**Fluxo Básico**:
+1. Defina o tipo de fonte (ex.: valores distintos de dados).
+2. Registre no serviço com um descritor.
+3. O frontend lê do schema e chama endpoints canônicos.
+4. Resultado: Opções aparecem no select!
+
+Se ainda confuso, leia os exemplos abaixo antes de mergulhar no spec técnico.
+
+## Exemplos Práticos Expandidos
+
+### Exemplo 1: DISTINCT_DIMENSION para "Universo"
+- **Cenário**: Campo "universo" em uma view de analytics de folha de pagamento.
+- **Como Funciona**: Busca valores únicos reais do campo "universo" na tabela, sem buckets artificiais.
+- **Código no Service**:
+  ```java
+  OptionSourceDescriptor universoDescriptor = new OptionSourceDescriptor(
+      "universo",
+      OptionSourceType.DISTINCT_DIMENSION,
+      "/api/human-resources/vw-analytics-folha-pagamento",
+      "universo", // filterField
+      "universo", // propertyPath
+      "universo", // labelPropertyPath
+      "universo", // valuePropertyPath
+      List.of(), // dependsOn (nenhuma)
+      OptionSourcePolicy.defaults()
+  );
+  ```
+- **Resultado no Schema (/schemas/filtered)**:
+  ```json
+  {
+    "universo": {
+      "x-ui.optionSource": {
+        "key": "universo",
+        "type": "DISTINCT_DIMENSION",
+        "resourcePath": "/api/human-resources/vw-analytics-folha-pagamento",
+        "filterField": "universo"
+      }
+    }
+  }
+  ```
+- **Como o Usuário Vê**: Dropdown com opções como "Empresa A", "Empresa B", baseadas em dados reais.
+
+### Exemplo 2: CATEGORICAL_BUCKET para "Faixa Salarial"
+- **Cenário**: Campo "faixaSalarioBruto" para filtros em relatórios.
+- **Como Funciona**: Define buckets semânticos (ex.: "0-1000", "1001-2000") com labels amigáveis, não valores brutos.
+- **Código no Service**:
+  ```java
+  OptionSourceDescriptor faixaDescriptor = new OptionSourceDescriptor(
+      "faixaSalarioBruto",
+      OptionSourceType.CATEGORICAL_BUCKET,
+      "/api/human-resources/vw-analytics-folha-pagamento",
+      "faixaSalarioBruto",
+      "faixaSalarioBruto",
+      "label", // labelPropertyPath (ex.: "Até R$ 1.000")
+      "value", // valuePropertyPath (ex.: "0-1000")
+      List.of("competenciaBetween"), // depende do período
+      new OptionSourcePolicy(true, true, "contains", 0, 25, 100, true, false, "label")
+  );
+  ```
+- **Resultado**: Opções como "Até R$ 1.000" (label) com valor "0-1000" para filtro.
+
+### Exemplo 3: Dependências em Cascata
+- **Cenário**: "Equipe" depende de "Departamento".
+- **Como Funciona**: O `dependsOn` filtra opções baseadas em seleções anteriores.
+- **Código**:
+  ```java
+  List.of("departamento") // dependsOn
+  ```
+- **Fluxo**: Selecione departamento primeiro; equipe filtra automaticamente.
+
+## Decisões em Aberto (Resolvidas para Esta Versão)
+- **Contrato em Nível de Campo vs. Operação**: Recomendamos nível de campo para granularidade, mas suporte ambos.
+- **LIGHT_LOOKUP**: Nasce como subtipo de `RESOURCE_ENTITY` na fase 1; evolui se necessário.
+- **Busca Textual**: Aceita parcial ("contains") para flexibilidade.
+- **Publicação em Schema**: Copia referência da fonte, não descriptor completo, para evitar duplicação.
+
+## Seção de Pitfalls Comuns
+- **Erro: Campo Não Aparece no Schema**: Verifique se o nome do campo coincide com a `key` no registry.
+- **Erro: Opções Vazias**: Confirme `resourcePath` correto e permissões no endpoint.
+- **Erro: Dependências Não Funcionam**: Use `excludeSelfField: true` para evitar loops.
+- **Dica**: Sempre teste com `POST /option-sources/{key}/options/filter` manualmente.
 
 ## Conclusão
 
