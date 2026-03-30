@@ -12,6 +12,19 @@ import java.util.Locale;
 
 /**
  * Implementacao canonica para gerar referencias a {@code /schemas/filtered}.
+ *
+ * <p>
+ * Esta classe e a implementacao padrao usada pelo starter para manter
+ * {@code schemaId}/{@code schemaUrl} sincronizados com a variante estrutural solicitada.
+ * Variacoes atualmente refletidas nas duas saidas incluem {@code includeInternalSchemas},
+ * {@code idField} e {@code readOnly}.
+ * </p>
+ *
+ * <p>
+ * Os parametros {@code tenant} e {@code locale} seguem neutros para o payload estrutural nesta
+ * lane. Eles sao aceitos para preservar a fronteira canonica e devem permanecer fora do ID/URL ate
+ * que alguma evolucao futura os torne estruturalmente relevantes.
+ * </p>
  */
 @Component
 public class FilteredSchemaReferenceResolver implements SchemaReferenceResolver {

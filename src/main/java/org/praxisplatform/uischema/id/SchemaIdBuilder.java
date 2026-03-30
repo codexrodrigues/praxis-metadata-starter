@@ -1,12 +1,23 @@
 package org.praxisplatform.uischema.id;
 
 /**
- * Builds a deterministic schemaId string for caching/indexing on backend and frontend.
+ * Constroi um {@code schemaId} deterministico para cache, indexacao e comparacao estrutural.
+ *
+ * <p>
+ * O ID produzido aqui deve refletir apenas dimensoes que alteram o payload estrutural efetivo do
+ * schema filtrado. Na lane atual, isso inclui path, metodo, tipo de schema,
+ * {@code includeInternalSchemas}, {@code idField} e {@code readOnly}. Parametros neutros para a
+ * estrutura, como {@code tenant} e {@code locale}, nao devem entrar neste calculo ate que passem a
+ * influenciar o payload retornado.
+ * </p>
  */
 public final class SchemaIdBuilder {
 
     private SchemaIdBuilder() {}
 
+    /**
+     * Gera o ID estrutural canonico para a variante de schema informada.
+     */
     public static String build(String decodedPath,
                                String operation,
                                String schemaType,

@@ -11,6 +11,22 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Implementacao padrao de {@link CanonicalOperationResolver} baseada no registro de handlers do
+ * Spring MVC.
+ *
+ * <p>
+ * No fluxo {@code path + method}, a classe apenas normaliza a rota e resolve o grupo associado.
+ * No fluxo {@code HandlerMethod + RequestMappingInfo}, ela escolhe o menor path declarado no
+ * mapping, usa o primeiro metodo HTTP disponivel e define o {@code operationId} a partir de
+ * {@link Operation#operationId()} ou, na falta dele, do nome do metodo Java.
+ * </p>
+ *
+ * <p>
+ * A busca por {@code operationId} percorre os handlers registrados no
+ * {@link RequestMappingHandlerMapping} e devolve a primeira correspondencia exata.
+ * </p>
+ */
 public class OpenApiCanonicalOperationResolver implements CanonicalOperationResolver {
 
     private final OpenApiDocumentService openApiDocumentService;

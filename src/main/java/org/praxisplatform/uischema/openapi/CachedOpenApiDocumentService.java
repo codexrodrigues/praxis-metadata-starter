@@ -14,6 +14,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
+/**
+ * Implementacao padrao de {@link OpenApiDocumentService} com cache em memoria.
+ *
+ * <p>
+ * Mantem cache separado para documentos OpenAPI por grupo e para hashes estruturais por
+ * {@code schemaId}. O fetch do documento continua delegando a {@link OpenApiDocsSupport}; esta
+ * classe apenas concentra a politica de memoizacao e a traducao de falhas em excecoes estruturais
+ * adequadas para os controllers canonicamente expostos.
+ * </p>
+ */
 public class CachedOpenApiDocumentService implements OpenApiDocumentService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CachedOpenApiDocumentService.class);

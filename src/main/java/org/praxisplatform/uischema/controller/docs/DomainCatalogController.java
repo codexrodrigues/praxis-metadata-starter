@@ -28,18 +28,19 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Endpoint que exporta um catalogo enxuto de dominios e endpoints do OpenAPI.
+ * Exporta um catalogo enxuto de dominios e endpoints do OpenAPI.
  *
  * <p>
  * Esta superficie foi desenhada para consumo operacional e semantico por clientes que nao precisam
- * do documento OpenAPI completo, como pipelines de RAG, superfícies LLM, indexadores documentais e
- * ferramentas de descoberta. Em vez de devolver toda a arvore OpenAPI, o controller resume operacoes,
- * tags, parametros, exemplos e links para schemas filtrados.
+ * do documento OpenAPI completo, como pipelines de RAG, indexadores documentais e discovery
+ * incremental. O controller resume operacoes, tags, parametros, exemplos e links para os schemas
+ * filtrados correspondentes.
  * </p>
  *
  * <p>
- * O catalogo respeita a resolucao de grupos da plataforma e pode ser filtrado por grupo, path ou
- * operacao, servindo como uma camada derivada e mais amigavel para busca e indexacao.
+ * A resolucao de grupo, documento OpenAPI e schema links canonicos e delegada a
+ * {@link OpenApiDocumentService}, {@link CanonicalOperationResolver} e
+ * {@link SchemaReferenceResolver}.
  * </p>
  */
 @RestController
@@ -88,15 +89,11 @@ public class DomainCatalogController {
      * Gera um catalogo resumido das operacoes publicadas em um grupo OpenAPI.
      *
      * <p>
-     * Cada item do catalogo inclui path, metodo HTTP, resumo, descricao, operationId, parametros,
-     * exemplos e links diretos para os schemas filtrados de request/response quando existirem.
-     * Isso reduz o custo de consumo para cenarios de busca semantica e descoberta incremental.
+     * Cada item do catalogo inclui path, metodo HTTP, resumo, descricao, {@code operationId},
+     * parametros, exemplos e {@code schemaLinks} canonicos de request/response quando existirem.
+     * Esses links passam pelo {@link SchemaReferenceResolver} e ficam alinhados ao mesmo contrato
+     * estrutural usado por {@code /schemas/filtered}.
      * </p>
-     *
-     * @param group grupo OpenAPI explicito; quando ausente, sera derivado a partir de {@code path}
-     * @param pathFilter restringe o catalogo a um path especifico
-     * @param operationFilter restringe o catalogo a um metodo HTTP especifico
-     * @return catalogo resumido do grupo resolvido
      */
     @GetMapping
     public ResponseEntity<CatalogResponse> getCatalog(@RequestParam(name = "group", required = false) String group,
@@ -352,7 +349,7 @@ public class DomainCatalogController {
         String normalizedMethod = method != null ? method.toUpperCase(Locale.ROOT) : "GET";
         String normalizedPath = path != null ? path.toLowerCase(Locale.ROOT) : "";
         if (normalizedPath.endsWith("/options/filter")) {
-            return "Listar opções de";
+            return "Listar opcoes de";
         }
         if (normalizedPath.endsWith("/filter")) {
             return "Filtrar";
@@ -503,13 +500,13 @@ public class DomainCatalogController {
             }
         }
 
-        // Caso 1: referência explícita
+        // Caso 1: referencia explicita
         if (targetNode != null && targetNode.has("$ref")) {
             String target = extractRefName(targetNode.path("$ref").asText());
             return new RelationSummary(fieldName, target, isArray ? "one-to-many" : "many-to-one");
         }
 
-        // Caso 2: heurística *_id ou *_ref com tipo string/integer → assume FK
+        // Caso 2: heuristica *_id ou *_ref com tipo string/integer -> assume FK
         if (fieldName != null && (fieldName.endsWith("_id") || fieldName.endsWith("Id") || fieldName.endsWith("_ref") || fieldName.endsWith("Ref"))) {
             String target = guessTargetFromField(fieldName);
             String cardinality = isArray ? "one-to-many" : "many-to-one";
@@ -542,7 +539,7 @@ public class DomainCatalogController {
 
     private String cleanSchemaName(String raw) {
         if (raw == null || raw.isBlank()) return null;
-        // se for path ou id composto, pegar última parte após "/" ou "."
+        // se for path ou id composto, pegar ultima parte apos "/" ou "."
         String cleaned = raw;
         if (cleaned.contains("/")) {
             cleaned = cleaned.substring(cleaned.lastIndexOf('/') + 1);
