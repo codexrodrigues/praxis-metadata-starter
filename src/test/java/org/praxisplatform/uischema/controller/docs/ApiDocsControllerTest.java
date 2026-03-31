@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
@@ -54,6 +55,7 @@ class ApiDocsControllerTest {
         ReflectionTestUtils.setField(controller, "openApiDocumentService", openApiDocumentService);
         ReflectionTestUtils.setField(controller, "canonicalOperationResolver", new OpenApiCanonicalOperationResolver(openApiDocumentService, null));
         ReflectionTestUtils.setField(controller, "schemaReferenceResolver", new FilteredSchemaReferenceResolver());
+        ReflectionTestUtils.setField(controller, "canonicalCapabilityResolver", new OpenApiCanonicalCapabilityResolver(openApiDocumentService));
         openApiDoc = "{\n" +
                 "  \"paths\": {\n" +
                 "    \"/users\": {\n" +

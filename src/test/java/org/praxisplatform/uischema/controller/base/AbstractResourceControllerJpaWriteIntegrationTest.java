@@ -377,6 +377,48 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
         assertTrue(detail.path("availability").path("metadata").path("contextual").asBoolean());
     }
 
+    @Test
+    void collectionCapabilitiesAggregateCanonicalOperationsAndCollectionSurfaces() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                URI.create("http://localhost:" + port + "/integration-employees/capabilities"),
+                String.class
+        );
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("it", response.getHeaders().getFirst("X-Data-Version"));
+
+        JsonNode snapshot = objectMapper.readTree(response.getBody());
+        assertEquals("integration.employees", snapshot.path("resourceKey").asText());
+        assertEquals("/integration-employees", snapshot.path("resourcePath").asText());
+        assertEquals("integration-employees", snapshot.path("group").asText());
+        assertTrue(snapshot.path("resourceId").isNull());
+        assertEquals(Boolean.TRUE, snapshot.path("canonicalOperations").path("create").asBoolean());
+        assertEquals(Boolean.TRUE, snapshot.path("canonicalOperations").path("update").asBoolean());
+        assertEquals(Boolean.TRUE, snapshot.path("canonicalOperations").path("delete").asBoolean());
+        assertNotNull(findSurface(snapshot.path("surfaces"), "create"));
+        assertNotNull(findSurface(snapshot.path("surfaces"), "list"));
+        assertEquals(null, findSurface(snapshot.path("surfaces"), "detail"));
+        assertEquals(0, snapshot.path("actions").size());
+    }
+
+    @Test
+    void itemCapabilitiesAggregateItemSurfacesAndKeepActionsEmptyWhenNotPublished() throws Exception {
+        Long employeeId = createEmployee("Alice", hrId).getId();
+
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                URI.create("http://localhost:" + port + "/integration-employees/" + employeeId + "/capabilities"),
+                String.class
+        );
+
+        assertEquals(200, response.getStatusCode().value());
+        JsonNode snapshot = objectMapper.readTree(response.getBody());
+        assertEquals(employeeId.longValue(), snapshot.path("resourceId").asLong());
+        assertNotNull(findSurface(snapshot.path("surfaces"), "detail"));
+        assertNotNull(findSurface(snapshot.path("surfaces"), "edit"));
+        assertNotNull(findSurface(snapshot.path("surfaces"), "profile"));
+        assertEquals(0, snapshot.path("actions").size());
+    }
+
     private Employee createEmployee(String nome, Long departmentId) {
         Employee employee = new Employee();
         employee.setNome(nome);
