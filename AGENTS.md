@@ -11,7 +11,9 @@ Praxis Metadata Starter is a Spring Boot library that enables metadata-driven ba
 - **Annotations**: `@UISchema` on DTOs defines UI properties; `@ApiResource` and `@ApiGroup` on controllers manage OpenAPI grouping.
 - **Resolvers**: `CustomOpenApiResolver` converts annotations and Bean Validation into `x-ui` metadata.
 - **Controllers**: `ApiDocsController` exposes `/schemas/filtered` (runtime contract) and `DomainCatalogController` exposes `/schemas/catalog` (documentation/RAG surface).
-- **Services**: `BaseCrudService` provides CRUD operations with filtering and pagination.
+- **Canonical OpenAPI boundary**: `OpenApiDocumentService`, `CanonicalOperationResolver` and `SchemaReferenceResolver` own the canonical resolution of groups, operations and filtered schema links.
+- **Services**: the canonical new core is `BaseResourceQueryService` + `BaseResourceCommandService` + `BaseResourceService`, implemented by `AbstractBaseResourceService` and `AbstractReadOnlyResourceService`.
+- **Legacy CRUD core**: `BaseCrudService`, `AbstractBaseCrudService` and `AbstractCrudController` still exist, but they are migration surface and should not receive new semantics.
 - **Filters**: Dynamic JPA Specifications from `FilterDTO` classes annotated with `@Filterable`.
 
 ### Data Flow
@@ -52,8 +54,9 @@ Praxis Metadata Starter is a Spring Boot library that enables metadata-driven ba
 ## Project-Specific Conventions
 
 ### Code Structure
-- Controllers extend `AbstractCrudController<E, D, ID, FD>` and implement mapping methods.
-- Services extend `AbstractBaseCrudService<E, D, ID>` for CRUD with options.
+- New canonical services should extend `AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>` and provide a `ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO>`.
+- Read-only services should extend `AbstractReadOnlyResourceService<E, ResponseDTO, ID, FilterDTO>`.
+- Controllers based on `AbstractCrudController` are legacy and should only be touched when the migration explicitly requires it.
 - Repositories extend `JpaRepository<E, ID>` and `JpaSpecificationExecutor<E>`.
 - DTOs use Lombok (`@Data`, `@Builder`) and Bean Validation.
 - Mappers use MapStruct with `CorporateMapperConfig`.
@@ -83,13 +86,30 @@ Praxis Metadata Starter is a Spring Boot library that enables metadata-driven ba
 
 ## Examples
 
-### Basic CRUD Controller
+### Legacy CRUD Controller
 ```java
 @RestController
 @ApiResource("/api/example/entities")
 @ApiGroup("example")
 public class EntityController extends AbstractCrudController<Entity, EntityDTO, Long, EntityFilterDTO> {
     // Implement getService(), toDto(), etc.
+}
+```
+
+### Canonical Resource Service
+```java
+public class EmployeeService extends AbstractBaseResourceService<
+        Employee,
+        EmployeeResponseDTO,
+        Long,
+        EmployeeFilterDTO,
+        CreateEmployeeDTO,
+        UpdateEmployeeDTO> {
+
+    @Override
+    protected ResourceMapper<Employee, EmployeeResponseDTO, CreateEmployeeDTO, UpdateEmployeeDTO> getResourceMapper() {
+        return mapper;
+    }
 }
 ```
 
@@ -114,5 +134,4 @@ public class EntityFilterDTO {
 }
 ```
 
-Reference: `docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md` and `docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md` for full setup.</content>
-<parameter name="filePath">D:\Developer\praxis-plataform\praxis-metadata-starter\AGENTS.md
+Reference: `docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md` and `docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md` for full setup.

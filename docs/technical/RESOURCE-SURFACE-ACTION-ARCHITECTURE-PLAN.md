@@ -158,13 +158,32 @@ public interface OpenApiDocumentService {
 ### Estado implementado na Lane 1
 
 - `ApiDocsController` calcula `schemaId` e `ETag` pela variante real do payload, incluindo `includeInternalSchemas`, `resolvedIdField` e `computedReadOnly`
-- `DomainCatalogController` monta links de `/schemas/filtered` a partir do resolver canônico
-- `OpenApiDocumentService` passou a ser o dono de resolução de grupo, fetch/cache de OpenAPI e cache de hash estrutural
-- `SchemaReferenceResolver` passou a devolver uma `schemaUrl` que reproduz a mesma variante canônica do schema
+- `DomainCatalogController` monta links de `/schemas/filtered` a partir do resolver canonico
+- `OpenApiDocumentService` passou a ser o dono de resolucao de grupo, fetch/cache de OpenAPI e cache de hash estrutural
+- `SchemaReferenceResolver` passou a devolver uma `schemaUrl` que reproduz a mesma variante canonica do schema
 
 ### Resultado esperado
 
 O repo ganha uma API interna unica para resolver operacao e schema canonicos, sem acoplamento ao controller documental.
+
+### Estado implementado no corte A da Fase 2
+
+- `ResourceMapper`
+- `BaseResourceQueryService`
+- `BaseResourceCommandService`
+- `BaseResourceService`
+- `AbstractBaseResourceService`
+- `AbstractReadOnlyResourceService`
+
+Este corte troca o boundary de service e mapeamento, separando `ResponseDTO`, `CreateDTO` e
+`UpdateDTO`, mas ainda nao remove os controllers legados nesta mesma rodada.
+
+O proximo corte da Fase 2 deve:
+
+- introduzir `AbstractResourceQueryController`
+- introduzir `AbstractResourceController`
+- introduzir `AbstractReadOnlyResourceController`
+- migrar os testes e exemplos do starter para o novo core
 
 ## Fase 2 - Reescrever o core resource-oriented
 
@@ -192,7 +211,7 @@ public interface ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO> {
 ```
 
 ```java
-public interface BaseResourceQueryService<E, ResponseDTO, ID, FilterDTO extends GenericFilterDTO> {
+public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends GenericFilterDTO> {
     ResponseDTO findById(ID id);
     Page<ResponseDTO> filter(FilterDTO filter, Pageable pageable, Collection<ID> includeIds);
     CursorPage<ResponseDTO> filterByCursor(FilterDTO filter, Sort sort, String after, String before, int size);
@@ -206,7 +225,7 @@ public interface BaseResourceQueryService<E, ResponseDTO, ID, FilterDTO extends 
 ```
 
 ```java
-public interface BaseResourceCommandService<E, ResponseDTO, ID, CreateDTO, UpdateDTO> {
+public interface BaseResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO> {
     SavedResult<ID, ResponseDTO> create(CreateDTO dto);
     ResponseDTO update(ID id, UpdateDTO dto);
     void deleteById(ID id);
@@ -216,14 +235,13 @@ public interface BaseResourceCommandService<E, ResponseDTO, ID, CreateDTO, Updat
 
 ```java
 public interface BaseResourceService<
-    E,
     ResponseDTO,
     ID,
     FilterDTO extends GenericFilterDTO,
     CreateDTO,
     UpdateDTO
-> extends BaseResourceQueryService<E, ResponseDTO, ID, FilterDTO>,
-        BaseResourceCommandService<E, ResponseDTO, ID, CreateDTO, UpdateDTO> {
+> extends BaseResourceQueryService<ResponseDTO, ID, FilterDTO>,
+        BaseResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO> {
 }
 ```
 
