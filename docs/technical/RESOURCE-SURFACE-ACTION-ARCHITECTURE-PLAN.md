@@ -215,11 +215,11 @@ org.praxisplatform.uischema.controller.base
 ### Classes novas
 
 ```java
-public interface ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO> {
+public interface ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID> {
     ResponseDTO toResponse(E entity);
     E newEntity(CreateDTO dto);
     void applyUpdate(E entity, UpdateDTO dto);
-    Object extractId(E entity);
+    ID extractId(E entity);
 }
 ```
 
@@ -317,11 +317,30 @@ public ResponseEntity<RestApiResponse<EmployeeResponseDTO>> updateProfile(
 
 Formularios parciais viram operacoes canonicamente resource-oriented, com DTO nomeado por intencao.
 
+### Estado atual no starter
+
+- a anotacao `org.praxisplatform.uischema.annotation.ResourceIntent` foi introduzida como vocabulario canonico minimo da fase
+- o piloto em `src/test/java/org/praxisplatform/uischema/controller/base/AbstractResourceControllerJpaWriteIntegrationTest.java` agora prova um `PATCH /integration-employees/{id}/profile`
+- o piloto valida o endpoint tipado, o DTO parcial `UpdateEmployeeProfileDto`, o OpenAPI do grupo individual e a resolucao canonica de `/schemas/filtered` para o `PATCH`
+- discovery/catalogo de intents ainda nao existe; nesta fase o objetivo continua sendo operacao real e tipada, nao dispatcher generico nem catalogo semantico
+
 ## Fase 4 - Catalogo de surfaces
 
 ### Objetivo
 
 Adicionar discovery semantico de formularios, views e projecoes, sempre por referencia a operacao canonica.
+
+### Estado atual da implementacao
+
+- `@ApiResource` agora exige `resourceKey` como identidade semantica estavel do recurso
+- `@UiSurface` foi introduzida para surfaces explicitas sobre operacoes HTTP reais
+- o pacote `surface/*` agora publica `SurfaceDefinition`, `SurfaceCatalogItem`, `SurfaceCatalogResponse`,
+  `SurfaceDefinitionRegistry`, `SurfaceCatalogService`, `SurfaceAvailabilityEvaluator` e `AnnotationDrivenSurfaceDefinitionRegistry`
+- `GET /schemas/surfaces?resource={resourceKey}` e `GET /schemas/surfaces?group={openApiGroup}` ja estao publicados
+- o primeiro corte cobre surfaces automaticas `create`, `list`, `detail`, `edit` e surfaces explicitas anotadas, como `profile`
+- o segundo corte acoplou `GET /{resource}/{id}/surfaces` ao `AbstractResourceQueryController`, com `resourceId` real no payload
+- o endpoint contextual devolve apenas `SurfaceScope.ITEM` e usa `SurfaceAvailabilityContext` com `resourceKey`, `resourcePath`, `resourceId`, `locale` e `principal`
+- o terceiro corte extraiu `SurfaceAvailabilityContextResolver`, passou a usar `X-Tenant` como sinal contextual canonico e tornou surfaces `ITEM` globalmente indisponiveis sem `resourceId`, com `reason=resource-context-required`
 
 ### Pacotes
 
@@ -354,6 +373,7 @@ public @interface UiSurface {
 - `SurfaceCatalogItem`
 - `SurfaceCatalogResponse`
 - `SurfaceDefinitionRegistry`
+- `SurfaceCatalogService`
 - `SurfaceAvailabilityEvaluator`
 - `SurfaceAvailabilityContext`
 - `AnnotationDrivenSurfaceDefinitionRegistry`
@@ -368,6 +388,10 @@ public @interface UiSurface {
 
 - o catalogo retorna `operationId`, `path`, `method`, `schemaId`, `schemaUrl`
 - o catalogo nao retorna fields, schema ou validacao inline
+- `FORM` e `PARTIAL_FORM` apontam para schema `request`
+- `VIEW` e `READ_PROJECTION` apontam para schema `response`
+- a Fase 4 nao surfaceia `delete`, `filter`, `cursor`, `locate`, `options`, `stats` nem workflow actions
+- no catalogo global, surfaces `ITEM` sao discovery semantico e devem refletir ausencia de contexto concreto em `availability`
 
 ## Fase 5 - Catalogo de actions de workflow
 
@@ -574,8 +598,15 @@ Escopo:
 Responsabilidade:
 
 - provar o novo core em um fluxo real
-- introduzir pelo menos um patch por intencao, como `PATCH /{id}/profile`
 - eliminar o uso do DTO unico no recurso piloto
+- consolidar um primeiro consumidor piloto dentro do proprio starter antes de abrir a frente de patch por intencao
+
+Estado atual no starter:
+
+- o piloto inicial foi consolidado em `src/test/java/org/praxisplatform/uischema/controller/base/AbstractResourceControllerJpaWriteIntegrationTest.java`
+- ele valida create, update, leitura individual, leitura de colecao, `by-ids`, exclusao, `datasetVersion`, OpenAPI do grupo individual e resolucao canonica de `/schemas/filtered`
+- a extensao inicial de patch por intencao ja foi provada no mesmo piloto com `PATCH /integration-employees/{id}/profile` e `UpdateEmployeeProfileDto`
+- antes de migrar consumidores externos, esse piloto deve permanecer verde e servir como guarda minima do core novo, incluindo o patch tipado por intencao
 
 ### Lane 4 - Discovery de surfaces
 

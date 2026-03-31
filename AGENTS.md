@@ -8,9 +8,10 @@ Praxis Metadata Starter is a Spring Boot library that enables metadata-driven ba
 
 ### Core Components
 - **Auto-configurations**: `PraxisMetadataAutoConfiguration` and `OpenApiUiSchemaAutoConfiguration` wire components via component scanning.
-- **Annotations**: `@UISchema` on DTOs defines UI properties; `@ApiResource` and `@ApiGroup` on controllers manage OpenAPI grouping.
+- **Annotations**: `@UISchema` on DTOs defines UI properties; `@ApiResource` and `@ApiGroup` on controllers manage OpenAPI grouping; `@UiSurface` marks explicit surfaces over real operations.
 - **Resolvers**: `CustomOpenApiResolver` converts annotations and Bean Validation into `x-ui` metadata.
-- **Controllers**: `ApiDocsController` exposes `/schemas/filtered` (runtime contract) and `DomainCatalogController` exposes `/schemas/catalog` (documentation/RAG surface).
+- **Controllers**: `ApiDocsController` exposes `/schemas/filtered` (runtime contract), `DomainCatalogController` exposes `/schemas/catalog` (documentation/RAG surface), `SurfaceCatalogController` exposes `/schemas/surfaces` (semantic discovery surface) and `AbstractResourceQueryController` publishes `GET /{id}/surfaces` for contextual item-level discovery.
+- **Surface availability**: `SurfaceAvailabilityContextResolver` resolves locale, principal and canonical `X-Tenant` signals; the default evaluator denies `ITEM` surfaces without `resourceId` in global catalogs and enriches contextual catalogs with metadata.
 - **Canonical OpenAPI boundary**: `OpenApiDocumentService`, `CanonicalOperationResolver` and `SchemaReferenceResolver` own the canonical resolution of groups, operations and filtered schema links.
 - **Services**: the canonical new core is `BaseResourceQueryService` + `BaseResourceCommandService` + `BaseResourceService`, implemented through `AbstractBaseQueryResourceService`, `AbstractBaseResourceService` and `AbstractReadOnlyResourceService`.
 - **Legacy CRUD core**: `BaseCrudService`, `AbstractBaseCrudService` and `AbstractCrudController` still exist, but they are migration surface and should not receive new semantics.
@@ -56,7 +57,7 @@ Praxis Metadata Starter is a Spring Boot library that enables metadata-driven ba
 ### Code Structure
 - New canonical mutable services should extend `AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>` and provide a `ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>`.
 - Read-only services should extend `AbstractReadOnlyResourceService<E, ResponseDTO, ID, FilterDTO>`, which is query-only and does not inherit command methods.
-- New canonical query controllers should extend `AbstractResourceQueryController<ResponseDTO, ID, FilterDTO>`.
+- New canonical query controllers should extend `AbstractResourceQueryController<ResponseDTO, ID, FilterDTO>`, which now also owns item-level surface discovery at `GET /{id}/surfaces`.
 - New canonical mutable controllers should extend `AbstractResourceController<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>`.
 - New canonical read-only controllers should extend `AbstractReadOnlyResourceController<ResponseDTO, ID, FilterDTO>`, which does not publish write endpoints.
 - Controllers based on `AbstractCrudController` are legacy and should only be touched when the migration explicitly requires it.
@@ -67,7 +68,9 @@ Praxis Metadata Starter is a Spring Boot library that enables metadata-driven ba
 ### Annotations Usage
 - `@UISchema` on DTO fields: e.g., `@UISchema(control = FieldControlType.SELECT, endpoint = "/api/options/departments")`.
 - `@Filterable` on FilterDTO fields for dynamic queries.
-- `@ApiResource("/api/path")` and `@ApiGroup("group-name")` on controllers.
+- `@ApiResource(value = "/api/path", resourceKey = "domain.resource")` and `@ApiGroup("group-name")` on controllers.
+- `@UiSurface(...)` on explicit partial forms, projections and read views that must appear in `/schemas/surfaces`.
+- In `/schemas/surfaces`, treat `availability` as contextual truth: `ITEM` surfaces in global catalogs are discovery-only and default to `allowed=false` until bound to a concrete `resourceId`.
 
 ### Naming Patterns
 - DTOs: `{Entity}DTO`
@@ -102,7 +105,7 @@ public class EntityController extends AbstractCrudController<Entity, EntityDTO, 
 ### Canonical Resource Controller
 ```java
 @RestController
-@ApiResource("/api/example/entities")
+@ApiResource(value = "/api/example/entities", resourceKey = "example.entities")
 @ApiGroup("example")
 public class EntityController extends AbstractResourceController<
         EntityResponseDTO,
@@ -120,6 +123,21 @@ public class EntityController extends AbstractResourceController<
     protected Long getResponseId(EntityResponseDTO dto) {
         return dto.getId();
     }
+}
+```
+
+### Explicit Surface
+```java
+@PatchMapping("/{id}/profile")
+@UiSurface(
+        id = "profile",
+        kind = SurfaceKind.PARTIAL_FORM,
+        scope = SurfaceScope.ITEM,
+        title = "Editar perfil",
+        intent = "profile"
+)
+public ResponseEntity<RestApiResponse<EntityResponseDTO>> updateProfile(...) {
+    ...
 }
 ```
 

@@ -31,7 +31,7 @@ class AbstractResourceControllerLinksTest {
     SimpleService service;
 
     @Test
-    void getAllIncludesSchemaTypeResponse() throws Exception {
+    void getAllReturnsOk() throws Exception {
         when(service.findAll()).thenReturn(List.of(new SimpleResponseDto(1L)));
 
         mockMvc.perform(get("/simple/all"))
@@ -65,6 +65,25 @@ class AbstractResourceControllerLinksTest {
                 "/schemas/filtered?path=/simple/filter&operation=post&schemaType=request&idField=id&readOnly=false"
         ));
         assertEquals("schema", link.getRel().value());
+    }
+
+    @Test
+    void linkToUiSchemaNormalizesCreateRootPathWithoutTrailingSlash() {
+        SimpleController controller = new SimpleController();
+
+        Link link = controller.exposeLinkToUiSchema("/", "post", "request");
+
+        assertTrue(link.getHref().endsWith(
+                "/schemas/filtered?path=/simple&operation=post&schemaType=request&idField=id&readOnly=false"
+        ));
+    }
+
+    @Test
+    void entityActionLinksOmitCreateAndCollectionCarriesCreate() {
+        SimpleController controller = new SimpleController();
+
+        assertEquals(List.of("update", "delete"), controller.exposeEntityActionRels(10L));
+        assertEquals(List.of("create"), controller.exposeCollectionActionRels());
     }
 
     interface SimpleService extends BaseResourceService<
@@ -122,6 +141,14 @@ class AbstractResourceControllerLinksTest {
 
         Link exposeLinkToUiSchema(String methodPath, String operation, String schemaType) {
             return linkToUiSchema(methodPath, operation, schemaType);
+        }
+
+        List<String> exposeEntityActionRels(Long id) {
+            return buildEntityActionLinks(id).stream().map(link -> link.getRel().value()).toList();
+        }
+
+        List<String> exposeCollectionActionRels() {
+            return buildCollectionActionLinks().stream().map(link -> link.getRel().value()).toList();
         }
     }
 }

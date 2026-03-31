@@ -59,7 +59,8 @@ public class OpenApiDocsSupport {
             }
         }
 
-        String[] segments = path.split("/");
+        String fallbackPath = truncateAtFirstPathVariable(path);
+        String[] segments = fallbackPath.split("/");
         if (segments.length >= 4) {
             return String.join("-", java.util.Arrays.copyOfRange(segments, 1, 4));
         }
@@ -163,6 +164,21 @@ public class OpenApiDocsSupport {
         }
         Iterator<String> fieldNames = contentRoot.fieldNames();
         return fieldNames.hasNext() ? fieldNames.next() : null;
+    }
+
+    private String truncateAtFirstPathVariable(String path) {
+        String[] segments = path.split("/");
+        StringBuilder builder = new StringBuilder();
+        for (String segment : segments) {
+            if (!StringUtils.hasText(segment)) {
+                continue;
+            }
+            if (segment.startsWith("{") && segment.endsWith("}")) {
+                break;
+            }
+            builder.append('/').append(segment);
+        }
+        return builder.length() == 0 ? "/" : builder.toString();
     }
 
     private String resolveOpenApiBaseUrl() {

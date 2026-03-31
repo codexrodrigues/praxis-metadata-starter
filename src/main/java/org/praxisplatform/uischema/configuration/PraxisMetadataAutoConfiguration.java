@@ -96,6 +96,7 @@ import java.math.BigDecimal;
 @AutoConfiguration
 @ComponentScan(basePackages = {
     "org.praxisplatform.uischema.controller.docs",
+    "org.praxisplatform.uischema.rest.exceptionhandler",
     "org.praxisplatform.uischema.service",
     "org.praxisplatform.uischema.filter",
     "org.praxisplatform.uischema.configuration"

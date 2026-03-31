@@ -110,9 +110,7 @@ class DomainCatalogControllerTest {
                 "  }\n" +
                 "}";
 
-        server.expect(requestTo("http://localhost/v3/api-docs/api"))
-                .andRespond(withStatus(HttpStatus.NOT_FOUND));
-        server.expect(requestTo("http://localhost/v3/api-docs"))
+        server.expect(requestTo("http://localhost/v3/api-docs/application"))
                 .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
 
         var req = new MockHttpServletRequest();
@@ -125,6 +123,7 @@ class DomainCatalogControllerTest {
         assertEquals(200, response.getStatusCodeValue());
         DomainCatalogController.CatalogResponse body = response.getBody();
         assertNotNull(body);
+        assertEquals("application", body.getGroup());
         assertEquals(1, body.getEndpoints().size());
 
         DomainCatalogController.EndpointSummary endpoint = body.getEndpoints().get(0);

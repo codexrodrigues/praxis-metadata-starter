@@ -16,11 +16,13 @@ import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -135,12 +137,16 @@ public class ApiDocsController {
 
         // Decodifica o path para tratar caracteres especiais especiais (por exemplo, '%2F')
         String decodedPath = UriUtils.decode(path, StandardCharsets.UTF_8);
+        String canonicalPath = resolveDocumentPath(rootNode.path(PATHS), decodedPath);
 
         // Procura o caminho especificado no JSON
-        JsonNode pathsNode = rootNode.path(PATHS).path(decodedPath).path(normalizedOperation);
+        JsonNode pathsNode = rootNode.path(PATHS).path(canonicalPath).path(normalizedOperation);
 
         if (pathsNode.isMissingNode()) {
-            throw new IllegalArgumentException("The specified path or operation was not found in the documentation.");
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "The specified path or operation was not found in the documentation."
+            );
         }
 
         LOGGER.info("Path and operation node retrieved successfully");
@@ -165,11 +171,14 @@ public class ApiDocsController {
                 }
             }
         } else {
-            schemaName = findResponseSchema(pathsNode, rootNode, operationRef.method(), decodedPath);
+            schemaName = findResponseSchema(pathsNode, rootNode, operationRef.method(), canonicalPath);
         }
 
         if ((schemaName == null || schemaName.isEmpty()) && (directSchemaNode == null)) {
-            throw new IllegalArgumentException("The requested schema was not found or is not defined for the specified path and operation.");
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "The requested schema was not found or is not defined for the specified path and operation."
+            );
         }
 
         LOGGER.info("Schema found: {}", schemaName != null ? schemaName : "<inline>");
@@ -184,21 +193,27 @@ public class ApiDocsController {
         } else {
             schemasNode = allSchemas.path(schemaName);
             if (schemasNode.isMissingNode()) {
-                throw new IllegalArgumentException("The specified component schema was not found in the documentation.");
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "The specified component schema was not found in the documentation."
+                );
             }
         }
 
         LOGGER.info("Schema node retrieved successfully");
 
-        // Se includeInternalSchemas for verdadeiro, substitui schemas internos
+        JsonNode schemaNodeForResponse = schemasNode;
+        // Se includeInternalSchemas for verdadeiro, substitui schemas internos em uma copia
+        // profunda para nao contaminar o documento OpenAPI compartilhado em cache.
         if (includeInternalSchemas && schemasNode.isObject()) {
-            replaceInternalSchemas((ObjectNode) schemasNode, allSchemas);
+            schemaNodeForResponse = schemasNode.deepCopy();
+            replaceInternalSchemas((ObjectNode) schemaNodeForResponse, allSchemas);
         }
 
         // Converte o esquema para um Map
-        Map<String, Object> schemaMap = objectMapper.convertValue(schemasNode, new TypeReference<Map<String, Object>>() { });
+        Map<String, Object> schemaMap = objectMapper.convertValue(schemaNodeForResponse, new TypeReference<Map<String, Object>>() { });
 
-        String basePath = deriveBasePathFrom(path);
+        String basePath = deriveBasePathFrom(canonicalPath);
 
         // Copia os valores de xUiNode para o "x-ui" do objeto retornado
         JsonNode xUiNode = pathsNode.path(X_UI);
@@ -243,7 +258,7 @@ public class ApiDocsController {
 
         // 4) Canonicalize and hash the final payload (com cache por schemaId)
         CanonicalSchemaRef schemaRef = schemaReferenceResolver.resolve(
-                decodedPath,
+                canonicalPath,
                 normalizedOperation,
                 schemaType,
                 includeInternalSchemas,
@@ -429,7 +444,53 @@ public class ApiDocsController {
                 return p.substring(0, p.length() - s.length());
             }
         }
+
+        int variableSegmentIndex = p.indexOf("/{");
+        if (variableSegmentIndex > 0) {
+            return p.substring(0, variableSegmentIndex);
+        }
+
         return p; // ja e base
+    }
+
+    private String resolveDocumentPath(JsonNode pathsNode, String requestedPath) {
+        if (pathsNode == null || pathsNode.isMissingNode()) {
+            return requestedPath;
+        }
+
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        candidates.add(requestedPath);
+
+        String normalized = normalizeOpenApiPath(requestedPath);
+        candidates.add(normalized);
+        if ("/".equals(normalized)) {
+            candidates.add("/");
+        } else {
+            candidates.add(normalized + "/");
+        }
+
+        for (String candidate : candidates) {
+            if (candidate != null && !candidate.isBlank() && !pathsNode.path(candidate).isMissingNode()) {
+                return candidate;
+            }
+        }
+
+        return normalized;
+    }
+
+    private String normalizeOpenApiPath(String path) {
+        if (!StringUtils.hasText(path)) {
+            return "/";
+        }
+
+        String normalized = path.trim().replaceAll("/+", "/");
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+        if (normalized.length() > 1 && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     /**
@@ -438,6 +499,10 @@ public class ApiDocsController {
      * <p>
      * O resultado alimenta {@code x-ui.resource.capabilities} e resume se o recurso expoe
      * operacoes como create, update, delete, filter, options e stats.
+     *
+     * <p>
+     * {@code update} considera tanto {@code PUT/PATCH /{id}} quanto operacoes item-level de
+     * manutencao parcial orientadas a recurso, por exemplo {@code PATCH /{id}/profile}.
      * </p>
      */
     private Map<String, Boolean> computeCapabilities(JsonNode rootNode, String basePath) {
@@ -449,7 +514,9 @@ public class ApiDocsController {
 
         String p = basePath;
         caps.put("create", hasOp.apply(p, "post"));
-        caps.put("update", hasOp.apply(p + "/{id}", "put"));
+        caps.put("update", hasOp.apply(p + "/{id}", "put")
+                || hasOp.apply(p + "/{id}", "patch")
+                || hasItemLevelWriteOperation(rootNode, p, "put", "patch"));
         caps.put("delete", hasOp.apply(p + "/{id}", "delete") || hasOp.apply(p + "/batch", "delete"));
         caps.put("options", hasOp.apply(p + "/options/filter", "post") || hasOp.apply(p + "/options/by-ids", "get"));
         caps.put("optionSources", hasOp.apply(p + "/option-sources/{sourceKey}/options/filter", "post")
@@ -462,6 +529,36 @@ public class ApiDocsController {
         caps.put("statsTimeSeries", hasOp.apply(p + "/stats/timeseries", "post"));
         caps.put("statsDistribution", hasOp.apply(p + "/stats/distribution", "post"));
         return caps;
+    }
+
+    private boolean hasItemLevelWriteOperation(JsonNode rootNode, String basePath, String... methods) {
+        if (rootNode == null || basePath == null || basePath.isBlank() || methods == null || methods.length == 0) {
+            return false;
+        }
+
+        JsonNode pathsNode = rootNode.path(PATHS);
+        if (pathsNode == null || pathsNode.isMissingNode()) {
+            return false;
+        }
+
+        String normalizedBasePath = normalizeOpenApiPath(basePath);
+        String itemPrefix = normalizedBasePath + "/{";
+        Iterator<String> pathIterator = pathsNode.fieldNames();
+        while (pathIterator.hasNext()) {
+            String candidatePath = pathIterator.next();
+            if (candidatePath == null || !candidatePath.startsWith(itemPrefix)) {
+                continue;
+            }
+
+            JsonNode candidateNode = pathsNode.path(candidatePath);
+            for (String method : methods) {
+                if (method != null && candidateNode.has(method)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     @SuppressWarnings("unchecked")

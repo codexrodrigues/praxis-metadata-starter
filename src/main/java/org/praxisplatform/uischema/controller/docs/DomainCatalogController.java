@@ -191,7 +191,10 @@ public class DomainCatalogController {
         if (StringUtils.hasText(group)) {
             return group;
         }
-        return openApiDocumentService.resolveGroupFromPath(StringUtils.hasText(pathFilter) ? pathFilter : "/api");
+        if (StringUtils.hasText(pathFilter)) {
+            return openApiDocumentService.resolveGroupFromPath(pathFilter);
+        }
+        return "application";
     }
 
     private JsonNode fetchOpenApiDocument(String group) {

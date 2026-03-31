@@ -17,6 +17,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
@@ -115,6 +116,25 @@ class ApiDocsControllerTest {
         assertTrue(((Map<?,?>) responseSchema.get("properties")).containsKey("email"));
     }
 
+    @Test
+    void getFilteredSchemaNormalizesTrailingSlashBeforeOpenApiPathLookup() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("users");
+
+        server.expect(requestTo("http://localhost/v3/api-docs/users"))
+                .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema("/users/", "post", false, "request", null, null, java.util.Locale.ENGLISH);
+        Map<String, Object> requestSchema = response.getBody();
+
+        assertNotNull(requestSchema);
+        assertTrue(((Map<?, ?>) requestSchema.get("properties")).containsKey("name"));
+    }
+
     @Test 
     void getFilteredSchemaHandlesDirectDtoResponse() throws Exception {
         // Mock para o OpenApiGroupResolver não retornar nada, forçando derivação do path
@@ -193,6 +213,27 @@ class ApiDocsControllerTest {
         );
 
         assertEquals("Parameter 'schemaType' must be 'response' or 'request'.", exception.getMessage());
+    }
+
+    @Test
+    void missingPathThrowsNotFoundForFilteredSchema() {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("users");
+
+        server.expect(requestTo("http://localhost/v3/api-docs/users"))
+                .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.getFilteredSchema("/users/missing", "get", false, "response", null, null, java.util.Locale.ENGLISH)
+        );
+
+        assertEquals(404, exception.getStatusCode().value());
+        assertEquals("The specified path or operation was not found in the documentation.", exception.getReason());
     }
 
     @Test
@@ -688,5 +729,151 @@ class ApiDocsControllerTest {
         assertEquals("id", resource.get("idField"));
         assertEquals(Boolean.FALSE, resource.get("idFieldValid"));
         assertEquals("idField not found in schema properties", resource.get("idFieldMessage"));
+    }
+
+    @Test
+    void getFilteredSchemaTreatsPatchIntentAsWritableResourceCapability() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/profiles/{id}/details\": {\n" +
+                "      \"patch\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"application/json\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/ProfilePatchRequest\"}\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"ProfilePatchRequest\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"displayName\": {\"type\": \"string\"}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/profiles"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema(
+                "/profiles/{id}/details",
+                "patch",
+                false,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH);
+
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        assertNotNull(xUi);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> resource = (Map<String, Object>) xUi.get("resource");
+        assertNotNull(resource);
+        assertEquals(Boolean.FALSE, resource.get("readOnly"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> capabilities = (Map<String, Object>) resource.get("capabilities");
+        assertNotNull(capabilities);
+        assertEquals(Boolean.TRUE, capabilities.get("update"));
+    }
+
+    @Test
+    void getFilteredSchemaDoesNotMutateCachedOpenApiDocumentWhenInliningInternalSchemas() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/nested\": {\n" +
+                "      \"post\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"application/json\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/NestedRequest\"}\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"NestedRequest\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"address\": {\"$ref\": \"#/components/schemas/AddressDto\"}\n" +
+                "        }\n" +
+                "      },\n" +
+                "      \"AddressDto\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"street\": {\"type\": \"string\"}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/nested"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var expandedResponse = controller.getFilteredSchema(
+                "/nested",
+                "post",
+                true,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH);
+        Map<String, Object> expandedSchema = expandedResponse.getBody();
+        assertNotNull(expandedSchema);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> expandedProperties = (Map<String, Object>) expandedSchema.get("properties");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> expandedAddress = (Map<String, Object>) expandedProperties.get("address");
+        assertNotNull(expandedAddress);
+        assertTrue(expandedAddress.containsKey("properties"));
+        assertFalse(expandedAddress.containsKey("$ref"));
+
+        var canonicalResponse = controller.getFilteredSchema(
+                "/nested",
+                "post",
+                false,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH);
+        Map<String, Object> canonicalSchema = canonicalResponse.getBody();
+        assertNotNull(canonicalSchema);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> canonicalProperties = (Map<String, Object>) canonicalSchema.get("properties");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> canonicalAddress = (Map<String, Object>) canonicalProperties.get("address");
+        assertNotNull(canonicalAddress);
+        assertEquals("#/components/schemas/AddressDto", canonicalAddress.get("$ref"));
+        assertFalse(canonicalAddress.containsKey("properties"));
     }
 }

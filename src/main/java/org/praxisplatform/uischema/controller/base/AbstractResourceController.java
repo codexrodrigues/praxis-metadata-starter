@@ -45,6 +45,7 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
                 linkToAll(),
                 linkToFilter(),
                 linkToFilterCursor(),
+                linkToUpdate(newId),
                 linkToDelete(newId),
                 linkToUiSchema("/", "post", "request")
         );
@@ -101,10 +102,14 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
     @Override
     protected List<Link> buildEntityActionLinks(ID id) {
         List<Link> links = new ArrayList<>();
-        links.add(linkToCreate());
         links.add(linkToUpdate(id));
         links.add(linkToDelete(id));
         return links;
+    }
+
+    @Override
+    protected List<Link> buildCollectionActionLinks() {
+        return List.of(linkToCreate());
     }
 
     protected Link linkToCreate() {

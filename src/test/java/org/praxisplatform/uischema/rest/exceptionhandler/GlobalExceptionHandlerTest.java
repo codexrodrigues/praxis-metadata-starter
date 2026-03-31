@@ -8,6 +8,7 @@ import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilter
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -17,7 +18,10 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springdoc.api.OpenApiResourceNotFoundException;
 
 class GlobalExceptionHandlerTest {
 
@@ -243,6 +247,46 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void shouldMapHttpRequestMethodNotSupportedToMethodNotAllowed() {
+        WebRequest request = webRequest("/payroll-view/1");
+
+        var response = handler.handleHttpRequestMethodNotSupported(
+                new HttpRequestMethodNotSupportedException("PUT"),
+                request
+        );
+
+        assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals("Method 'PUT' is not supported for this endpoint.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
+        assertEquals("METHOD_NOT_ALLOWED", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("/payroll-view/1", body.getErrors().get(0).getInstance().toString());
+    }
+
+    @Test
+    void shouldMapOpenApiResourceNotFoundToNotFound() {
+        WebRequest request = webRequest("/v3/api-docs/does-not-exist");
+
+        var response = handler.handleOpenApiResourceNotFoundException(
+                new OpenApiResourceNotFoundException("does-not-exist"),
+                request
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals("OpenAPI resource was not found.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
+        assertEquals("RESOURCE_NOT_FOUND", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("/v3/api-docs/does-not-exist", body.getErrors().get(0).getInstance().toString());
+    }
+
+    @Test
     void shouldExposeFilterPayloadRootCauseInHttpMessageNotReadable() {
         WebRequest request = webRequest("/simple/filter");
 
@@ -341,6 +385,26 @@ class GlobalExceptionHandlerTest {
         assertNotNull(body);
         assertNotNull(body.getErrors());
         assertEquals("req-123", body.getErrors().get(0).getProperties().get("traceId"));
+    }
+
+    @Test
+    void shouldMapNoResourceFoundToNotFound() {
+        WebRequest request = webRequest("/payroll-view");
+
+        var response = handler.handleNoResourceFoundException(
+                new NoResourceFoundException(HttpMethod.POST, "/payroll-view"),
+                request
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals("Endpoint '/payroll-view' does not exist or was not found.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
+        assertEquals("RESOURCE_NOT_FOUND", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("/payroll-view", body.getErrors().get(0).getInstance().toString());
     }
 
     private WebRequest webRequest(String uri) {

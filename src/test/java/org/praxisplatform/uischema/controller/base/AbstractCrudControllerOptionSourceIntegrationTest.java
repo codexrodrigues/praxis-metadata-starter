@@ -249,7 +249,7 @@ class OptionEmployeeService extends AbstractBaseCrudService<OptionEmployee, Opti
     }
 }
 
-@ApiResource("/option-employees")
+@ApiResource(value = "/option-employees", resourceKey = "option.employees")
 class OptionEmployeeController extends AbstractCrudController<OptionEmployee, OptionEmployeeDto, Long, OptionEmployeeFilterDTO> {
 
     @Autowired

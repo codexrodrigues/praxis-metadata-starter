@@ -21,8 +21,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springdoc.api.OpenApiResourceNotFoundException;
 
 import java.net.URI;
 import java.util.List;
@@ -48,6 +51,7 @@ public class GlobalExceptionHandler {
     private static final String RESPONSE_STATUS_VALIDATION_TYPE = "https://example.com/probs/validation-error";
     private static final String RESPONSE_STATUS_SECURITY_TYPE = "https://example.com/probs/security";
     private static final String RESPONSE_STATUS_NOT_FOUND_TYPE = "https://example.com/probs/resource-not-found";
+    private static final String RESPONSE_STATUS_METHOD_NOT_ALLOWED_TYPE = "https://example.com/probs/method-not-allowed";
     private static final String RESPONSE_STATUS_CONFLICT_TYPE = "https://example.com/probs/conflict";
     private static final String RESPONSE_STATUS_GONE_TYPE = "https://example.com/probs/resource-gone";
     private static final String RESPONSE_STATUS_THROTTLE_TYPE = "https://example.com/probs/rate-limit";
@@ -56,6 +60,7 @@ public class GlobalExceptionHandler {
     private static final String ERROR_CODE_FILTER_PAYLOAD_INVALID = "FILTER_PAYLOAD_INVALID";
     private static final String ERROR_CODE_REQUEST_PAYLOAD_INVALID = "REQUEST_PAYLOAD_INVALID";
     private static final String ERROR_CODE_INVALID_PARAMETER = "INVALID_PARAMETER";
+    private static final String ERROR_CODE_METHOD_NOT_ALLOWED = "METHOD_NOT_ALLOWED";
     private static final String ERROR_CODE_DATA_ACCESS_ERROR = "DATA_ACCESS_ERROR";
     private static final String ERROR_CODE_INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR";
     private static final String ERROR_CODE_BUSINESS_RULE_VIOLATION = "BUSINESS_RULE_VIOLATION";
@@ -284,6 +289,34 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleHttpRequestMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex,
+            WebRequest request
+    ) {
+        String method = normalize(ex.getMethod());
+        String detailMessage = method != null
+                ? "Method '" + method + "' is not supported for this endpoint."
+                : "HTTP method is not supported for this endpoint.";
+
+        CustomProblemDetail customProblemDetail = new CustomProblemDetail(detailMessage);
+        customProblemDetail.setStatus(HttpStatus.METHOD_NOT_ALLOWED);
+        customProblemDetail.setTitle("Method not allowed");
+        customProblemDetail.setType(URI.create(RESPONSE_STATUS_METHOD_NOT_ALLOWED_TYPE));
+        customProblemDetail.setInstance(instanceUri(request));
+        customProblemDetail.setCategory(ErrorCategory.VALIDATION);
+        enrichErrorDetails(customProblemDetail, request, ERROR_CODE_METHOD_NOT_ALLOWED);
+
+        RestApiResponse<Object> response = RestApiResponse
+                .builder()
+                .status(RestApiResponseStatus.FAILURE)
+                .message(detailMessage)
+                .errors(List.of(customProblemDetail))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(response);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<RestApiResponse<Object>> handleGenericException(Exception ex, WebRequest request) {
         log.error("[GlobalExceptionHandler] Unhandled exception", ex);
@@ -341,6 +374,50 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleNoResourceFoundException(NoResourceFoundException ex, WebRequest request) {
+        String resourcePath = ex.getResourcePath() != null ? ex.getResourcePath() : "unknown";
+        String errorMessage = String.format("Endpoint '%s' does not exist or was not found.", resourcePath);
+
+        CustomProblemDetail customProblemDetail = new CustomProblemDetail(errorMessage);
+        customProblemDetail.setStatus(HttpStatus.NOT_FOUND);
+        customProblemDetail.setTitle("Endpoint not found");
+        customProblemDetail.setType(URI.create(RESPONSE_STATUS_NOT_FOUND_TYPE));
+        customProblemDetail.setInstance(instanceUri(request));
+        customProblemDetail.setCategory(ErrorCategory.SYSTEM);
+        enrichErrorDetails(customProblemDetail, request, ERROR_CODE_ENTITY_NOT_FOUND);
+
+        RestApiResponse<Object> response = RestApiResponse.failure(
+                errorMessage,
+                List.of(customProblemDetail)
+        );
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(OpenApiResourceNotFoundException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleOpenApiResourceNotFoundException(
+            OpenApiResourceNotFoundException ex,
+            WebRequest request
+    ) {
+        String errorMessage = "OpenAPI resource was not found.";
+
+        CustomProblemDetail customProblemDetail = new CustomProblemDetail(errorMessage);
+        customProblemDetail.setStatus(HttpStatus.NOT_FOUND);
+        customProblemDetail.setTitle("OpenAPI resource not found");
+        customProblemDetail.setType(URI.create(RESPONSE_STATUS_NOT_FOUND_TYPE));
+        customProblemDetail.setInstance(instanceUri(request));
+        customProblemDetail.setCategory(ErrorCategory.SYSTEM);
+        enrichErrorDetails(customProblemDetail, request, ERROR_CODE_ENTITY_NOT_FOUND);
+
+        RestApiResponse<Object> response = RestApiResponse.failure(
+                errorMessage,
+                List.of(customProblemDetail)
+        );
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<RestApiResponse<Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex, WebRequest request) {
         String expectedType = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
@@ -371,7 +448,7 @@ public class GlobalExceptionHandler {
             return ErrorCategory.UNKNOWN;
         }
         return switch (status) {
-            case BAD_REQUEST, UNPROCESSABLE_ENTITY -> ErrorCategory.VALIDATION;
+            case BAD_REQUEST, METHOD_NOT_ALLOWED, UNPROCESSABLE_ENTITY -> ErrorCategory.VALIDATION;
             case UNAUTHORIZED, FORBIDDEN -> ErrorCategory.SECURITY;
             case NOT_FOUND, CONFLICT, GONE -> ErrorCategory.BUSINESS_LOGIC;
             case TOO_MANY_REQUESTS, SERVICE_UNAVAILABLE, INTERNAL_SERVER_ERROR -> ErrorCategory.SYSTEM;
@@ -385,6 +462,7 @@ public class GlobalExceptionHandler {
         }
         return switch (status) {
             case BAD_REQUEST -> "Validation error.";
+            case METHOD_NOT_ALLOWED -> "Method not allowed.";
             case UNAUTHORIZED -> "Authentication required.";
             case FORBIDDEN -> "Access denied.";
             case NOT_FOUND -> "Resource not found.";
@@ -405,6 +483,7 @@ public class GlobalExceptionHandler {
         }
         return switch (status) {
             case BAD_REQUEST -> "Invalid request";
+            case METHOD_NOT_ALLOWED -> "Method not allowed";
             case UNAUTHORIZED -> "Unauthenticated";
             case FORBIDDEN -> "Access denied";
             case NOT_FOUND -> "Resource not found";
@@ -423,6 +502,7 @@ public class GlobalExceptionHandler {
         }
         return switch (status) {
             case BAD_REQUEST, UNPROCESSABLE_ENTITY -> RESPONSE_STATUS_VALIDATION_TYPE;
+            case METHOD_NOT_ALLOWED -> RESPONSE_STATUS_METHOD_NOT_ALLOWED_TYPE;
             case UNAUTHORIZED, FORBIDDEN -> RESPONSE_STATUS_SECURITY_TYPE;
             case NOT_FOUND -> RESPONSE_STATUS_NOT_FOUND_TYPE;
             case CONFLICT -> RESPONSE_STATUS_CONFLICT_TYPE;

@@ -294,7 +294,7 @@ class DistributionEmployeeService extends AbstractBaseCrudService<DistributionEm
     }
 }
 
-@ApiResource("/distribution-employees")
+@ApiResource(value = "/distribution-employees", resourceKey = "distribution.employees")
 @org.springframework.web.bind.annotation.RestController
 class DistributionEmployeeController extends AbstractCrudController<DistributionEmployee, DistributionEmployeeDto, Long, DistributionEmployeeFilterDto> {
 

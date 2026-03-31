@@ -297,7 +297,7 @@ class GroupByEmployeeService extends AbstractBaseCrudService<GroupByEmployee, Gr
     }
 }
 
-@ApiResource("/groupby-employees")
+@ApiResource(value = "/groupby-employees", resourceKey = "groupby.employees")
 @org.springframework.web.bind.annotation.RestController
 class GroupByEmployeeController extends AbstractCrudController<GroupByEmployee, GroupByEmployeeDto, Long, GroupByEmployeeFilterDto> {
 

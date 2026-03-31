@@ -13,7 +13,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 /**
- * Testes para validar a resolução automática de grupos no ApiDocsController.
+ * Testes para validar a resolucao automatica de grupos no ApiDocsController.
  */
 @ExtendWith(MockitoExtension.class)
 class ApiDocsControllerPathResolutionTest {
@@ -31,106 +31,86 @@ class ApiDocsControllerPathResolutionTest {
 
     @Test
     void testResolveGroupFromPath_WithOpenApiGroupResolver() {
-        // Given
         String path = "/api/human-resources/funcionarios/all";
         String expectedGroup = "human-resources";
         when(openApiGroupResolver.resolveGroup(path)).thenReturn(expectedGroup);
 
-        // When
         String resolvedGroup = invokeResolveGroupFromPath(path);
 
-        // Then
         assertEquals(expectedGroup, resolvedGroup);
     }
 
     @Test
     void testResolveGroupFromPath_WithPathDerivation() {
-        // Given
         String path = "/api/human-resources/eventos-folha/all";
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
 
-        // When
         String resolvedGroup = invokeResolveGroupFromPath(path);
 
-        // Then
         assertEquals("api-human-resources-eventos-folha", resolvedGroup);
     }
 
     @Test
     void testResolveGroupFromPath_WithShortPath() {
-        // Given
         String path = "/api/funcionarios";
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
 
-        // When
         String resolvedGroup = invokeResolveGroupFromPath(path);
 
-        // Then
         assertEquals("api", resolvedGroup);
     }
 
     @Test
     void testResolveGroupFromPath_WithVeryShortPath() {
-        // Given
         String path = "/funcionarios";
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
 
-        // When
         String resolvedGroup = invokeResolveGroupFromPath(path);
 
-        // Then
         assertEquals("funcionarios", resolvedGroup);
     }
 
     @Test
     void testResolveGroupFromPath_WithEmptyPath() {
-        // Given
         String path = "";
 
-        // When
         String resolvedGroup = invokeResolveGroupFromPath(path);
 
-        // Then
         assertEquals("application", resolvedGroup);
     }
 
     @Test
     void testResolveGroupFromPath_WithNullPath() {
-        // Given
         String path = null;
-        // No stubbing needed; resolver not invoked for null path
-        // When
+
         String resolvedGroup = invokeResolveGroupFromPath(path);
 
-        // Then
         assertEquals("application", resolvedGroup);
     }
 
     @Test
     void testResolveGroupFromPath_ComplexPaths() {
-        // Given - diferentes cenários de paths reais
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
 
-        // Test cases com expected results
-        assertEquals("api-human-resources-funcionarios", 
-            invokeResolveGroupFromPath("/api/human-resources/funcionarios/all"));
-            
-        assertEquals("api-human-resources-departamentos", 
-            invokeResolveGroupFromPath("/api/human-resources/departamentos/123"));
-            
-        assertEquals("api-human-resources-eventos-folha", 
-            invokeResolveGroupFromPath("/api/human-resources/eventos-folha/filter"));
-            
-        assertEquals("api-financial-accounts", 
-            invokeResolveGroupFromPath("/api/financial/accounts/summary"));
-            
-        assertEquals("api-inventory-products", 
-            invokeResolveGroupFromPath("/api/inventory/products/{id}/details"));
+        assertEquals("api-human-resources-funcionarios",
+                invokeResolveGroupFromPath("/api/human-resources/funcionarios/all"));
+
+        assertEquals("api-human-resources-departamentos",
+                invokeResolveGroupFromPath("/api/human-resources/departamentos/123"));
+
+        assertEquals("api-human-resources-eventos-folha",
+                invokeResolveGroupFromPath("/api/human-resources/eventos-folha/filter"));
+
+        assertEquals("api-financial-accounts",
+                invokeResolveGroupFromPath("/api/financial/accounts/summary"));
+
+        assertEquals("api-inventory-products",
+                invokeResolveGroupFromPath("/api/inventory/products/{id}/details"));
+
+        assertEquals("integration-employees",
+                invokeResolveGroupFromPath("/integration-employees/{id}/profile"));
     }
 
-    /**
-     * Invoca o método privado resolveGroupFromPath via reflection para testes.
-     */
     private String invokeResolveGroupFromPath(String path) {
         return openApiDocsSupport.resolveGroupFromPath(path);
     }

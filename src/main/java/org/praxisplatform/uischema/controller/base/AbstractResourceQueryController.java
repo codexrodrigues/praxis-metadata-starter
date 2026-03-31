@@ -15,6 +15,8 @@ import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
+import org.praxisplatform.uischema.surface.SurfaceCatalogResponse;
+import org.praxisplatform.uischema.surface.SurfaceCatalogService;
 import org.praxisplatform.uischema.util.PageableBuilder;
 import org.praxisplatform.uischema.util.SortBuilder;
 import org.slf4j.Logger;
@@ -32,6 +34,7 @@ import org.springframework.hateoas.Links;
 import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,8 +56,10 @@ import java.util.OptionalLong;
  *
  * <p>
  * Esta classe concentra a superficie HTTP de query, options, option-sources, stats e schema
- * discovery. Recursos mutantes devem subir para {@link AbstractResourceController}; recursos
- * somente leitura devem herdar diretamente desta base.
+ * discovery. A partir da Fase 4, ela tambem publica `GET /{id}/surfaces` como discovery
+ * contextual item-level derivado do catalogo canonico de surfaces. Recursos mutantes devem subir
+ * para {@link AbstractResourceController}; recursos somente leitura devem herdar diretamente desta
+ * base.
  * </p>
  */
 public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extends GenericFilterDTO> {
@@ -79,6 +84,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @Autowired
     private Environment environment;
+
+    @Autowired(required = false)
+    private SurfaceCatalogService surfaceCatalogService;
 
     private String detectedBasePath;
 
@@ -130,7 +138,21 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         return detectedBasePath;
     }
 
+    protected String getResourceKey() {
+        ApiResource apiResource = AnnotationUtils.findAnnotation(getClass(), ApiResource.class);
+        if (apiResource != null && StringUtils.hasText(apiResource.resourceKey())) {
+            return apiResource.resourceKey().trim();
+        }
+        throw new IllegalStateException(
+                "Contextual surface discovery requires @ApiResource(resourceKey=...) on " + getClass().getName()
+        );
+    }
+
     protected EntityModel<ResponseDTO> toEntityModel(ResponseDTO dto) {
+        if (!isHateoasEnabled()) {
+            return EntityModel.of(dto);
+        }
+
         ID id = getResponseId(dto);
         List<Link> links = new ArrayList<>();
         links.add(linkToSelf(id));
@@ -143,6 +165,10 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     protected List<Link> buildEntityActionLinks(ID id) {
+        return List.of();
+    }
+
+    protected List<Link> buildCollectionActionLinks() {
         return List.of();
     }
 
@@ -165,13 +191,13 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         Page<ResponseDTO> result = getService().filter(filterDTO, pageable, includeIds);
         Page<EntityModel<ResponseDTO>> entityModels = result.map(this::toEntityModel);
 
-        Links links = Links.of(
-                linkToAll(),
-                linkToUiSchema("/filter", "post", "request"),
-                linkToUiSchema("/filter", "post", "response")
-        );
+        List<Link> links = new ArrayList<>();
+        links.add(linkToAll());
+        links.add(linkToUiSchema("/filter", "post", "request"));
+        links.add(linkToUiSchema("/filter", "post", "response"));
+        links.addAll(buildCollectionActionLinks());
 
-        return withVersion(ResponseEntity.ok(), RestApiResponse.success(entityModels, hateoasOrNull(links)));
+        return withVersion(ResponseEntity.ok(), RestApiResponse.success(entityModels, hateoasOrNull(Links.of(links))));
     }
 
     @PostMapping("/filter/cursor")
@@ -205,13 +231,13 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 result.size()
         );
 
-        Links links = Links.of(
-                linkToAll(),
-                linkToUiSchema("/filter/cursor", "post", "request"),
-                linkToUiSchema("/filter/cursor", "post", "response")
-        );
+        List<Link> links = new ArrayList<>();
+        links.add(linkToAll());
+        links.add(linkToUiSchema("/filter/cursor", "post", "request"));
+        links.add(linkToUiSchema("/filter/cursor", "post", "response"));
+        links.addAll(buildCollectionActionLinks());
 
-        return withVersion(ResponseEntity.ok(), RestApiResponse.success(mapped, hateoasOrNull(links)));
+        return withVersion(ResponseEntity.ok(), RestApiResponse.success(mapped, hateoasOrNull(Links.of(links))));
     }
 
     @PostMapping("/locate")
@@ -306,13 +332,13 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 .map(this::toEntityModel)
                 .toList();
 
-        Links links = Links.of(
-                linkToFilter(),
-                linkToFilterCursor(),
-                linkToUiSchema("/all", "get", "response")
-        );
+        List<Link> links = new ArrayList<>();
+        links.add(linkToFilter());
+        links.add(linkToFilterCursor());
+        links.add(linkToUiSchema("/all", "get", "response"));
+        links.addAll(buildCollectionActionLinks());
 
-        return withVersion(ResponseEntity.ok(), RestApiResponse.success(entityModels, hateoasOrNull(links)));
+        return withVersion(ResponseEntity.ok(), RestApiResponse.success(entityModels, hateoasOrNull(Links.of(links))));
     }
 
     @GetMapping("/by-ids")
@@ -438,6 +464,16 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         );
     }
 
+    @GetMapping("/{id}/surfaces")
+    @Operation(summary = "Descobrir surfaces contextuais do registro")
+    public ResponseEntity<SurfaceCatalogResponse> getItemSurfaces(@PathVariable ID id) {
+        if (surfaceCatalogService == null) {
+            throw new IllegalStateException("SurfaceCatalogService is not configured for contextual discovery.");
+        }
+        getService().findById(id);
+        return withVersion(ResponseEntity.ok(), surfaceCatalogService.findItemSurfaces(getResourceKey(), id));
+    }
+
     @GetMapping(SCHEMAS_PATH)
     @Operation(summary = "Redirecionar para o schema filtrado do recurso")
     public ResponseEntity<Void> getSchema() {
@@ -488,7 +524,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 ? "response"
                 : schemaType.toLowerCase();
 
-        String fullPath = methodPath.startsWith("/") ? getBasePath() + methodPath : getBasePath() + "/" + methodPath;
+        String fullPath = resolveSchemaMethodPath(methodPath);
         try {
             String docsPath = UriComponentsBuilder.fromPath(contextPath + SCHEMAS_FILTERED_PATH)
                     .queryParam("path", fullPath)
@@ -518,6 +554,34 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 ? environment.getProperty("praxis.hateoas.enabled", "true")
                 : "true";
         return Boolean.parseBoolean(configured);
+    }
+
+    private String resolveSchemaMethodPath(String methodPath) {
+        String normalizedBasePath = normalizePath(getBasePath());
+        String trimmedMethodPath = methodPath.trim();
+        if ("/".equals(trimmedMethodPath)) {
+            return normalizedBasePath;
+        }
+
+        String combined = trimmedMethodPath.startsWith("/")
+                ? normalizedBasePath + trimmedMethodPath
+                : normalizedBasePath + "/" + trimmedMethodPath;
+        return normalizePath(combined);
+    }
+
+    private String normalizePath(String path) {
+        if (path == null || path.isBlank()) {
+            return "/";
+        }
+
+        String normalized = path.trim().replaceAll("/+", "/");
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+        if (normalized.length() > 1 && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     private String extractBasePath(String[] values, String[] paths) {

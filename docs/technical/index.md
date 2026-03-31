@@ -14,6 +14,8 @@ Documentacao tecnica detalhada e material de implementacao.
 - [Auto-configuracao](AUTO-CONFIGURACAO.html)
 - [Estrategia dupla de grupos OpenAPI](ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.html)
 - [Validacao @ApiResource](VALIDACAO-API-RESOURCE.html)
+- [Piloto resource-oriented em src/test](RESOURCE-ORIENTED-PILOT-IN-SRC-TEST.html)
+- [Backlog E2E do starter](E2E-TEST-BACKLOG.html)
 - [Cursor pagination plan](CURSOR-PAGINATION-KEYSET-PLAN.html)
 - [Cursor pagination backlog](CURSOR-PAGINATION-KEYSET-BACKLOG.html)
 

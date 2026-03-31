@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
+import org.praxisplatform.uischema.controller.docs.SurfaceCatalogController;
 import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
 import org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodPayloadNormalizer;
 import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
@@ -16,6 +17,13 @@ import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
+import org.praxisplatform.uischema.surface.AnnotationDrivenSurfaceDefinitionRegistry;
+import org.praxisplatform.uischema.surface.DefaultSurfaceAvailabilityContextResolver;
+import org.praxisplatform.uischema.surface.DefaultSurfaceAvailabilityEvaluator;
+import org.praxisplatform.uischema.surface.SurfaceAvailabilityContextResolver;
+import org.praxisplatform.uischema.surface.SurfaceAvailabilityEvaluator;
+import org.praxisplatform.uischema.surface.SurfaceCatalogService;
+import org.praxisplatform.uischema.surface.SurfaceDefinitionRegistry;
 import org.praxisplatform.uischema.stats.StatsEligibility;
 import org.praxisplatform.uischema.stats.StatsProperties;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
@@ -27,6 +35,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springdoc.core.models.GroupedOpenApi;
@@ -198,6 +207,48 @@ public class OpenApiUiSchemaAutoConfiguration {
         return new FilteredSchemaReferenceResolver();
     }
 
+    @Bean
+    @ConditionalOnMissingBean
+    public SurfaceAvailabilityEvaluator surfaceAvailabilityEvaluator() {
+        return new DefaultSurfaceAvailabilityEvaluator();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SurfaceAvailabilityContextResolver surfaceAvailabilityContextResolver() {
+        return new DefaultSurfaceAvailabilityContextResolver();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SurfaceDefinitionRegistry surfaceDefinitionRegistry(
+            RequestMappingHandlerMapping requestMappingHandlerMapping,
+            ApplicationContext applicationContext,
+            CanonicalOperationResolver canonicalOperationResolver,
+            SchemaReferenceResolver schemaReferenceResolver
+    ) {
+        return new AnnotationDrivenSurfaceDefinitionRegistry(
+                requestMappingHandlerMapping,
+                applicationContext,
+                canonicalOperationResolver,
+                schemaReferenceResolver
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SurfaceCatalogService surfaceCatalogService(
+            SurfaceDefinitionRegistry surfaceDefinitionRegistry,
+            SurfaceAvailabilityEvaluator surfaceAvailabilityEvaluator,
+            SurfaceAvailabilityContextResolver surfaceAvailabilityContextResolver
+    ) {
+        return new SurfaceCatalogService(
+                surfaceDefinitionRegistry,
+                surfaceAvailabilityEvaluator,
+                surfaceAvailabilityContextResolver
+        );
+    }
+
     /**
      * Publica o {@link ApiDocsController} com as dependencias canonicas ja resolvidas.
      *
@@ -211,5 +262,11 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Bean
     public ApiDocsController apiDocsController() {
         return new ApiDocsController();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SurfaceCatalogController surfaceCatalogController(SurfaceCatalogService surfaceCatalogService) {
+        return new SurfaceCatalogController(surfaceCatalogService);
     }
 }

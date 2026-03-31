@@ -10,50 +10,40 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Meta-anotacao que combina {@link RestController} e {@link RequestMapping} para declarar
- * recursos REST da plataforma de forma canonica.
+ * Meta-anotacao canonica para declarar um recurso REST da plataforma.
  *
  * <p>
- * No ecossistema do starter, esta e a forma recomendada de expor controllers que herdam
- * {@code AbstractResourceController}, {@code AbstractResourceQueryController} ou
- * {@code AbstractReadOnlyResourceController}. Ela centraliza o
- * base path do recurso, reduz boilerplate e permite que a infraestrutura de documentacao,
- * HATEOAS e resolucao de schemas trabalhe sobre uma mesma fonte de verdade.
+ * {@code @ApiResource} combina {@link RestController} e {@link RequestMapping} e passa a ser a
+ * fonte de verdade do recurso em tres eixos complementares:
  * </p>
  *
- * <h3>O que ela entrega</h3>
  * <ul>
- *   <li>Registra o controller como bean REST sem exigir {@code @RestController} separado.</li>
- *   <li>Define o base path do recurso para endpoints CRUD, options, stats e schemas.</li>
- *   <li>Permite autodeteccao consistente do path pela infraestrutura OpenAPI do starter.</li>
+ *   <li>path REST do recurso, publicado no OpenAPI e usado pelos controllers canonicos;</li>
+ *   <li>identidade semantica estavel via {@link #resourceKey()}, usada por discovery;</li>
+ *   <li>metadados basicos para scanner OpenAPI, HATEOAS e resolucao de schemas filtrados.</li>
  * </ul>
+ *
+ * <p>
+ * No core atual do starter, esta e a forma recomendada de expor controllers que herdam
+ * {@code AbstractResourceController}, {@code AbstractResourceQueryController} ou
+ * {@code AbstractReadOnlyResourceController}. Ela evita que path e identidade do recurso fiquem
+ * espalhados por convencoes paralelas.
+ * </p>
  *
  * <h3>Exemplo recomendado</h3>
  * <pre>{@code
- * // Recomenda-se definir constantes no projeto da aplicacao:
- * public final class ApiPaths {
- *     public static final class HumanResources {
- *         public static final String FUNCIONARIOS = "/api/human-resources/funcionarios";
- *     }
- * }
- *
- * @ApiResource(ApiPaths.HumanResources.FUNCIONARIOS)
+ * @ApiResource(
+ *     value = "/api/human-resources/employees",
+ *     resourceKey = "human-resources.employees"
+ * )
  * @ApiGroup("human-resources")
- * public class FuncionarioController extends AbstractResourceController<...> {
- *     // apenas heranca e wiring do service
- * }
- * }</pre>
- *
- * <h3>Forma alternativa</h3>
- * <pre>{@code
- * @ApiResource("/api/human-resources/funcionarios")
- * public class FuncionarioController extends AbstractResourceController<...> {
+ * public class EmployeeController extends AbstractResourceController<...> {
  * }
  * }</pre>
  *
  * <p>
  * Nao e necessario combinar {@code @ApiResource} com {@code @RestController}; a meta-anotacao
- * ja incorpora esse papel. Quando houver necessidade de organizacao documental explicita, combine
+ * ja incorpora esse papel. Quando houver necessidade de agrupamento documental explicito, combine
  * com {@link ApiGroup}.
  * </p>
  *
@@ -65,37 +55,50 @@ import java.lang.annotation.Target;
 @RestController
 @RequestMapping
 public @interface ApiResource {
-    
+
     /**
-     * Define o path do recurso. Recomenda-se criar constantes 
-     * específicas da aplicação em vez de usar as constantes do framework.
-     * 
+     * Define o path do recurso. Recomenda-se criar constantes especificas da aplicacao em vez de
+     * repetir literais espalhados no codigo.
+     *
      * @return o path do recurso
      */
     @AliasFor(annotation = RequestMapping.class, attribute = "value")
     String[] value() default {};
-    
+
     /**
-     * Alias para value() para maior clareza.
-     * 
+     * Alias para {@link #value()} para maior clareza.
+     *
      * @return o path do recurso
      */
     @AliasFor(annotation = RequestMapping.class, attribute = "path")
     String[] path() default {};
-    
+
+    /**
+     * Identidade semantica estavel do recurso.
+     *
+     * <p>
+     * Este valor e usado por superficies derivadas de discovery, como o catalogo de surfaces.
+     * Diferentemente do path REST, ele nao deve variar apenas porque a URL operacional mudou.
+     * </p>
+     *
+     * <p>
+     * @return chave semantica estavel do recurso
+     */
+    String resourceKey();
+
     /**
      * Define os content types produzidos pelo recurso.
-     * Por padrão, produz JSON.
-     * 
+     * Por padrao, produz JSON.
+     *
      * @return os media types produzidos
      */
     @AliasFor(annotation = RequestMapping.class, attribute = "produces")
     String[] produces() default {"application/json"};
-    
+
     /**
      * Define os content types consumidos pelo recurso.
-     * Por padrão, não especifica content types (aceita todos).
-     * 
+     * Por padrao, nao especifica content types e aceita todos.
+     *
      * @return os media types consumidos
      */
     @AliasFor(annotation = RequestMapping.class, attribute = "consumes")

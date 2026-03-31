@@ -25,8 +25,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -215,15 +216,11 @@ public class DynamicSwaggerConfig {
         Map<RequestMappingInfo, HandlerMethod> handlerMethods = handlerMapping.getHandlerMethods();
         Set<Class<?>> qualifyingControllers = new HashSet<>();
 
-        // 🗂️ PASSO 2: Mapas para organizar grupos e paths
-        Map<Class<?>, String> controllerGroups = new HashMap<>();
-        Map<Class<?>, String> controllerPaths = new HashMap<>();
-
         int totalHandlers = handlerMethods.size();
         logger.info("Total de handlers encontrados: {}", totalHandlers);
 
         // 🔍 PASSO 3A: Escanear controllers resource-oriented canônicos para grupos individuais
-        Map<String, Set<String>> aggregatedGroupToPaths = new HashMap<>();
+        Map<String, Set<String>> aggregatedGroupToPaths = new LinkedHashMap<>();
         Set<String> registeredGroupNames = new HashSet<>();
         
         for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : handlerMethods.entrySet()) {
@@ -248,7 +245,7 @@ public class DynamicSwaggerConfig {
                             individualGroupName, controllerClass.getSimpleName(), basePath);
                     }
                 } else {
-                    logger.warn("BasePath inválido ou vazio para controller CRUD: {} (basePath='{}')",
+                    logger.warn("BasePath inválido ou vazio para controller resource-oriented: {} (basePath='{}')",
                         controllerClass.getSimpleName(), basePath);
                 }
             }
@@ -271,7 +268,7 @@ public class DynamicSwaggerConfig {
                 
                 if (basePath != null && !basePath.isEmpty() && !"/".equals(basePath)) {
                     String customGroupName = apiGroup.value();
-                    aggregatedGroupToPaths.computeIfAbsent(customGroupName, k -> new HashSet<>()).add(basePath);
+                    aggregatedGroupToPaths.computeIfAbsent(customGroupName, k -> new LinkedHashSet<>()).add(basePath);
                 } else {
                     logger.warn("Controller {} tem @ApiGroup mas basePath inválido: '{}'",
                         controllerClass.getSimpleName(), basePath);
@@ -286,12 +283,12 @@ public class DynamicSwaggerConfig {
             
             if (!registeredGroupNames.contains(customGroupName)) {
                 // Criar padrão agregado que inclui todos os paths do grupo
-                String aggregatedPattern = determineAggregatedPattern(paths);
-                registerGroupBeanWithCustomName(aggregatedPattern, customGroupName);
+                String[] aggregatedPatterns = toPathsToMatchPatterns(paths);
+                registerGroupBeanWithPaths(customGroupName, paths);
                 registeredGroupNames.add(customGroupName);
                 
-                logger.info("Grupo agregado '{}' registrado com {} controller(s) (pattern: {}, paths: {})",
-                    customGroupName, paths.size(), aggregatedPattern, paths);
+                logger.info("Grupo agregado '{}' registrado com {} controller(s) (patterns: {}, paths: {})",
+                    customGroupName, paths.size(), java.util.Arrays.toString(aggregatedPatterns), paths);
             }
         }
 
@@ -605,5 +602,42 @@ public class DynamicSwaggerConfig {
         
         logger.info("Bean GroupedOpenApi registrado: bean={}, group={}, paths={}",
             beanName, groupName, pathsToMatch);
+    }
+
+    private void registerGroupBeanWithPaths(String groupName, Set<String> basePaths) {
+        String[] normalizedPaths = toPathsToMatchPatterns(basePaths);
+        GroupedOpenApi groupedOpenApi = GroupedOpenApi.builder()
+                .group(groupName)
+                .pathsToMatch(normalizedPaths)
+                .build();
+
+        String beanName = groupName.replace("-", "_") + "_ApiGroup";
+        beanFactory.registerSingleton(beanName, groupedOpenApi);
+
+        logger.info("Bean GroupedOpenApi registrado: bean={}, group={}, paths={}",
+                beanName, groupName, java.util.Arrays.toString(normalizedPaths));
+    }
+
+    private String[] toPathsToMatchPatterns(Set<String> basePaths) {
+        if (basePaths == null || basePaths.isEmpty()) {
+            return new String[]{"/**"};
+        }
+        return basePaths.stream()
+                .map(this::toPathsToMatchPattern)
+                .toArray(String[]::new);
+    }
+
+    private String toPathsToMatchPattern(String basePath) {
+        if (basePath == null || basePath.isBlank()) {
+            return "/**";
+        }
+        String normalizedBasePath = basePath.trim();
+        if ("/".equals(normalizedBasePath)) {
+            return "/**";
+        }
+        if (normalizedBasePath.length() > 1 && normalizedBasePath.endsWith("/")) {
+            normalizedBasePath = normalizedBasePath.substring(0, normalizedBasePath.length() - 1);
+        }
+        return normalizedBasePath + "/**";
     }
 }

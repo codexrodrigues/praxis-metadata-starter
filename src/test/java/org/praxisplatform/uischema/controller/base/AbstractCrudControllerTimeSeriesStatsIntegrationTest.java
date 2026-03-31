@@ -325,7 +325,7 @@ class TimeSeriesEmployeeService extends AbstractBaseCrudService<TimeSeriesEmploy
     }
 }
 
-@ApiResource("/timeseries-employees")
+@ApiResource(value = "/timeseries-employees", resourceKey = "timeseries.employees")
 @org.springframework.web.bind.annotation.RestController
 class TimeSeriesEmployeeController extends AbstractCrudController<TimeSeriesEmployee, TimeSeriesEmployeeDto, Long, TimeSeriesEmployeeFilterDto> {
 
