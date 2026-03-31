@@ -22,6 +22,8 @@ public record SurfaceDefinition(
         CanonicalOperationRef operation,
         CanonicalSchemaRef schema,
         int order,
+        List<String> requiredAuthorities,
+        List<String> allowedStates,
         List<String> tags
 ) {
 }

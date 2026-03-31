@@ -6,10 +6,18 @@ package org.praxisplatform.uischema.surface;
  * <p>
  * Esta fronteira separa a coleta de sinais contextuais do runtime HTTP da regra de availability
  * propriamente dita. Assim, `SurfaceCatalogService` continua orquestrando o catalogo sem acoplar
- * diretamente a detalhes de servlet, locale ou tenancy.
+ * diretamente a detalhes de servlet, locale, tenancy, authorities ou snapshots de estado.
  * </p>
  */
 public interface SurfaceAvailabilityContextResolver {
 
-    SurfaceAvailabilityContext resolve(SurfaceDefinition definition, Object resourceId);
+    /**
+     * Resolve um contexto compartilhavel por todas as surfaces do mesmo recurso/catalogo.
+     *
+     * <p>
+     * Implementacoes devem tratar este metodo como ponto de agregacao por request, e nao como
+     * lookup por surface individual.
+     * </p>
+     */
+    SurfaceAvailabilityContext resolve(String resourceKey, String resourcePath, Object resourceId);
 }

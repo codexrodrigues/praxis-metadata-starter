@@ -4,7 +4,9 @@ import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.springframework.util.StringUtils;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Monta respostas do catalogo de surfaces sobre o registry annotation-driven.
@@ -32,46 +34,68 @@ public class SurfaceCatalogService {
     }
 
     public SurfaceCatalogResponse findByResourceKey(String resourceKey) {
-        List<SurfaceDefinition> definitions = sort(surfaceDefinitionRegistry.findByResourceKey(resourceKey));
+        List<SurfaceDefinition> definitions = requireDefinitions(
+                sort(surfaceDefinitionRegistry.findByResourceKey(resourceKey)),
+                SurfaceCatalogNotFoundException.unknownResourceKey(resourceKey)
+        );
         String resolvedResourcePath = singleValue(definitions, SurfaceDefinition::resourcePath);
         String resolvedGroup = singleValue(definitions, SurfaceDefinition::group);
+        Map<ContextKey, SurfaceAvailabilityContext> contexts = availabilityContexts(definitions, null);
         return new SurfaceCatalogResponse(
                 resourceKey,
                 resolvedResourcePath,
                 resolvedGroup,
                 null,
-                definitions.stream().map(def -> toCatalogItem(def, null)).toList()
+                definitions.stream().map(def -> toCatalogItem(def, contexts, null)).toList()
         );
     }
 
     public SurfaceCatalogResponse findByGroup(String group) {
-        List<SurfaceDefinition> definitions = sort(surfaceDefinitionRegistry.findByGroup(group));
+        List<SurfaceDefinition> definitions = requireDefinitions(
+                sort(surfaceDefinitionRegistry.findByGroup(group)),
+                SurfaceCatalogNotFoundException.unknownGroup(group)
+        );
+        Map<ContextKey, SurfaceAvailabilityContext> contexts = availabilityContexts(definitions, null);
         return new SurfaceCatalogResponse(
                 null,
                 null,
                 group,
                 null,
-                definitions.stream().map(def -> toCatalogItem(def, null)).toList()
+                definitions.stream().map(def -> toCatalogItem(def, contexts, null)).toList()
         );
     }
 
     public SurfaceCatalogResponse findItemSurfaces(String resourceKey, Object resourceId) {
-        List<SurfaceDefinition> definitions = sort(surfaceDefinitionRegistry.findByResourceKey(resourceKey).stream()
+        List<SurfaceDefinition> resourceDefinitions = requireDefinitions(
+                sort(surfaceDefinitionRegistry.findByResourceKey(resourceKey)),
+                SurfaceCatalogNotFoundException.unknownResourceKey(resourceKey)
+        );
+        List<SurfaceDefinition> definitions = requireDefinitions(resourceDefinitions.stream()
                 .filter(definition -> definition.scope() == SurfaceScope.ITEM)
-                .toList());
+                .toList(), SurfaceCatalogNotFoundException.missingItemSurfaces(resourceKey));
         String resolvedResourcePath = singleValue(definitions, SurfaceDefinition::resourcePath);
         String resolvedGroup = singleValue(definitions, SurfaceDefinition::group);
+        Map<ContextKey, SurfaceAvailabilityContext> contexts = availabilityContexts(definitions, resourceId);
         return new SurfaceCatalogResponse(
                 resourceKey,
                 resolvedResourcePath,
                 resolvedGroup,
                 resourceId,
-                definitions.stream().map(def -> toCatalogItem(def, resourceId)).toList()
+                definitions.stream().map(def -> toCatalogItem(def, contexts, resourceId)).toList()
         );
     }
 
-    private SurfaceCatalogItem toCatalogItem(SurfaceDefinition definition, Object resourceId) {
-        SurfaceAvailabilityContext context = contextResolver.resolve(definition, resourceId);
+    private SurfaceCatalogItem toCatalogItem(
+            SurfaceDefinition definition,
+            Map<ContextKey, SurfaceAvailabilityContext> contexts,
+            Object requestedResourceId
+    ) {
+        Object scopedResourceId = definition.scope() == SurfaceScope.ITEM ? requestedResourceId : null;
+        SurfaceAvailabilityContext context = contexts.get(new ContextKey(
+                definition.resourceKey(),
+                definition.resourcePath(),
+                scopedResourceId
+        ));
         AvailabilityDecision availability = availabilityEvaluator.evaluate(definition, context);
         return new SurfaceCatalogItem(
                 definition.id(),
@@ -92,6 +116,26 @@ public class SurfaceCatalogService {
         );
     }
 
+    private Map<ContextKey, SurfaceAvailabilityContext> availabilityContexts(
+            List<SurfaceDefinition> definitions,
+            Object requestedResourceId
+    ) {
+        Map<ContextKey, SurfaceAvailabilityContext> contexts = new LinkedHashMap<>();
+        for (SurfaceDefinition definition : definitions) {
+            Object scopedResourceId = definition.scope() == SurfaceScope.ITEM ? requestedResourceId : null;
+            ContextKey key = new ContextKey(definition.resourceKey(), definition.resourcePath(), scopedResourceId);
+            contexts.computeIfAbsent(
+                    key,
+                    ignored -> contextResolver.resolve(
+                            definition.resourceKey(),
+                            definition.resourcePath(),
+                            scopedResourceId
+                    )
+            );
+        }
+        return contexts;
+    }
+
     private List<SurfaceDefinition> sort(List<SurfaceDefinition> definitions) {
         return definitions.stream()
                 .sorted(Comparator
@@ -100,6 +144,16 @@ public class SurfaceCatalogService {
                         .thenComparing(SurfaceDefinition::id, Comparator.nullsLast(String::compareTo))
                 )
                 .toList();
+    }
+
+    private List<SurfaceDefinition> requireDefinitions(
+            List<SurfaceDefinition> definitions,
+            RuntimeException notFoundException
+    ) {
+        if (definitions == null || definitions.isEmpty()) {
+            throw notFoundException;
+        }
+        return definitions;
     }
 
     private String singleValue(List<SurfaceDefinition> definitions, java.util.function.Function<SurfaceDefinition, String> extractor) {
@@ -115,5 +169,8 @@ public class SurfaceCatalogService {
             return values.get(0);
         }
         throw new IllegalStateException("Surface catalog expected a single canonical value but found: " + values);
+    }
+
+    private record ContextKey(String resourceKey, String resourcePath, Object resourceId) {
     }
 }
