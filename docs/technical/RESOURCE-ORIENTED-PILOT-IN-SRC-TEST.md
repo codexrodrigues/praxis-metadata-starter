@@ -123,6 +123,50 @@ Nao devemos migrar `praxis-api-quickstart` ou qualquer outro host enquanto este 
 - revisado por QA independente
 - documentado como referencia oficial do core novo
 
+## Como transpor o piloto interno para um consumidor externo
+
+### O que o piloto interno ja prova
+
+O piloto em `src/test` ja prova que o starter suporta, de ponta a ponta:
+
+- DTOs separados de `response`, `create`, `update` e `filter`
+- `PATCH` resource-oriented por intencao
+- `OpenAPI` individual do recurso
+- `/schemas/filtered` para create, update e patch
+- integridade basica do ciclo HTTP do controller novo
+
+### Como levar isso para um host real
+
+Ao migrar o primeiro consumidor externo, siga esta ordem:
+
+1. escolha um recurso pequeno, com escopo congelado
+2. substitua o DTO unico por:
+   - `ResponseDTO`
+   - `CreateDTO`
+   - `UpdateDTO`
+   - `FilterDTO`
+3. troque o controller legado por:
+   - `AbstractResourceController`, se o recurso for mutavel
+   - `AbstractReadOnlyResourceController`, se o recurso for query-only
+4. troque o service legado por:
+   - `AbstractBaseResourceService`
+   - `AbstractReadOnlyResourceService`
+5. introduza `@ResourceIntent`, `@UiSurface` e `@WorkflowAction` apenas quando houver operacoes reais correspondentes
+6. valide no host:
+   - `/schemas/filtered`
+   - `/schemas/catalog`
+   - `/schemas/surfaces`
+   - `/schemas/actions`
+   - `/capabilities`
+
+### O que nao fazer na transposicao
+
+- nao criar aliases `v2`
+- nao manter o DTO unico so por conveniencia
+- nao criar dispatcher generico de action
+- nao embutir payload inline em `surfaces`, `actions` ou `capabilities`
+- nao tratar o app consumidor como fonte canonica da semantica
+
 ## Regra de engenharia
 
 Qualquer ajuste no core `AbstractResource*` que altere:

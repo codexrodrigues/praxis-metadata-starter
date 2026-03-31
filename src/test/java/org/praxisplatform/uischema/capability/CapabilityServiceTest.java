@@ -16,6 +16,7 @@ import org.praxisplatform.uischema.surface.SurfaceScope;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -145,6 +146,85 @@ class CapabilityServiceTest {
         assertTrue(collection.actions().isEmpty());
         assertTrue(item.surfaces().isEmpty());
         assertTrue(item.actions().isEmpty());
+    }
+
+    @Test
+    void repeatedCapabilitySnapshotsRemainDeterministicAcrossCalls() {
+        AtomicInteger collectionSurfaceCalls = new AtomicInteger();
+        AtomicInteger itemSurfaceCalls = new AtomicInteger();
+        AtomicInteger collectionActionCalls = new AtomicInteger();
+        AtomicInteger itemActionCalls = new AtomicInteger();
+
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of("all", true, "update", true)),
+                new SurfaceCatalogService(null, null, null) {
+                    @Override
+                    public SurfaceCatalogResponse findByResourceKey(String resourceKey) {
+                        collectionSurfaceCalls.incrementAndGet();
+                        return new SurfaceCatalogResponse(
+                                resourceKey,
+                                "/employees",
+                                "human-resources",
+                                null,
+                                List.of(surface("create", SurfaceScope.COLLECTION), surface("detail", SurfaceScope.ITEM))
+                        );
+                    }
+
+                    @Override
+                    public SurfaceCatalogResponse findItemSurfaces(String resourceKey, Object resourceId) {
+                        itemSurfaceCalls.incrementAndGet();
+                        return new SurfaceCatalogResponse(
+                                resourceKey,
+                                "/employees",
+                                "human-resources",
+                                resourceId,
+                                List.of(surface("detail", SurfaceScope.ITEM), surface("edit", SurfaceScope.ITEM))
+                        );
+                    }
+                },
+                new ActionCatalogService(null, null, null) {
+                    @Override
+                    public ActionCatalogResponse findCollectionActions(String resourceKey) {
+                        collectionActionCalls.incrementAndGet();
+                        return new ActionCatalogResponse(
+                                resourceKey,
+                                "/employees",
+                                "human-resources",
+                                null,
+                                List.of(action("bulk-approve", ActionScope.COLLECTION), action("approve", ActionScope.ITEM))
+                        );
+                    }
+
+                    @Override
+                    public ActionCatalogResponse findItemActions(String resourceKey, Object resourceId) {
+                        itemActionCalls.incrementAndGet();
+                        return new ActionCatalogResponse(
+                                resourceKey,
+                                "/employees",
+                                "human-resources",
+                                resourceId,
+                                List.of(action("approve", ActionScope.ITEM))
+                        );
+                    }
+                },
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        CapabilitySnapshot firstCollection = service.collectionCapabilities("human-resources.employees", "/employees");
+        CapabilitySnapshot secondCollection = service.collectionCapabilities("human-resources.employees", "/employees");
+        CapabilitySnapshot firstItem = service.itemCapabilities("human-resources.employees", "/employees", 42L);
+        CapabilitySnapshot secondItem = service.itemCapabilities("human-resources.employees", "/employees", 42L);
+
+        assertEquals(firstCollection, secondCollection);
+        assertEquals(firstItem, secondItem);
+        assertEquals(List.of("create"), firstCollection.surfaces().stream().map(SurfaceCatalogItem::id).toList());
+        assertEquals(List.of("bulk-approve"), firstCollection.actions().stream().map(ActionCatalogItem::id).toList());
+        assertEquals(List.of("detail", "edit"), firstItem.surfaces().stream().map(SurfaceCatalogItem::id).toList());
+        assertEquals(List.of("approve"), firstItem.actions().stream().map(ActionCatalogItem::id).toList());
+        assertEquals(2, collectionSurfaceCalls.get());
+        assertEquals(2, itemSurfaceCalls.get());
+        assertEquals(2, collectionActionCalls.get());
+        assertEquals(2, itemActionCalls.get());
     }
 
     private SurfaceCatalogItem surface(String id, SurfaceScope scope) {

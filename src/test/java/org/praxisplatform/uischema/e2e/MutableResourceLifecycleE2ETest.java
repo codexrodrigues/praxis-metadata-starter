@@ -79,4 +79,27 @@ class MutableResourceLifecycleE2ETest extends AbstractE2eH2Test {
         assertFalse(postDeleteAllBody.toString().contains("\"nome\":\"Bob\""));
         assertFalse(postDeleteAllBody.toString().contains("\"nome\":\"Carol\""));
     }
+
+    @Test
+    void mutableResourceCreateRejectsInvalidPayloadWithCanonicalValidationResponse() throws Exception {
+        long beforeCount = fixtureData.employeeCount();
+
+        ResponseEntity<String> response = postJson("/employees", """
+                {
+                  "matricula": "HR-999",
+                  "status": "ACTIVE",
+                  "salario": 8123.45,
+                  "admissionDate": "2025-02-01",
+                  "departmentId": %d
+                }
+                """.formatted(state.humanResourcesDepartmentId()));
+
+        assertEquals(400, response.getStatusCode().value());
+        JsonNode error = body(response);
+        assertEquals("failure", error.path("status").asText());
+        assertEquals("Validation error.", error.path("message").asText());
+        assertEquals("nome", error.path("errors").get(0).path("title").asText());
+        assertEquals("INVALID_PARAMETER", error.path("errors").get(0).path("properties").path("code").asText());
+        assertEquals(beforeCount, fixtureData.employeeCount());
+    }
 }

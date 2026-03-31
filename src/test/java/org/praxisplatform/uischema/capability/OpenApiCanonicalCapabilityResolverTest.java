@@ -125,6 +125,34 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertFalse(capabilities.get("statsDistribution"));
     }
 
+    @Test
+    void ignoresWorkflowLikePatchPathsWhenResolvingCanonicalUpdateCapability() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {
+                  "paths": {
+                    "/employees/{id}": {
+                      "get": {}
+                    },
+                    "/employees/{id}/actions/approve": {
+                      "patch": {}
+                    },
+                    "/employees/{id}:approve": {
+                      "patch": {}
+                    }
+                  }
+                }
+                """);
+
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
+                new StaticOpenApiDocumentService("human-resources", document)
+        );
+
+        Map<String, Boolean> capabilities = resolver.resolve("/employees");
+
+        assertFalse(capabilities.get("update"));
+        assertTrue(capabilities.get("byId"));
+    }
+
     private record StaticOpenApiDocumentService(String group, JsonNode document) implements OpenApiDocumentService {
 
         @Override

@@ -72,7 +72,9 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         Iterator<String> pathIterator = pathsNode.fieldNames();
         while (pathIterator.hasNext()) {
             String candidatePath = pathIterator.next();
-            if (!StringUtils.hasText(candidatePath) || !candidatePath.startsWith(itemPrefix)) {
+            if (!StringUtils.hasText(candidatePath)
+                    || !candidatePath.startsWith(itemPrefix)
+                    || isWorkflowLikeItemPath(normalizedBasePath, candidatePath)) {
                 continue;
             }
 
@@ -85,6 +87,17 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         }
 
         return false;
+    }
+
+    private boolean isWorkflowLikeItemPath(String normalizedBasePath, String candidatePath) {
+        int itemMarkerStart = normalizedBasePath.length() + 1;
+        int itemMarkerEnd = candidatePath.indexOf('}', itemMarkerStart);
+        if (itemMarkerEnd < 0) {
+            return false;
+        }
+
+        String remainder = candidatePath.substring(itemMarkerEnd + 1);
+        return remainder.startsWith("/actions/") || remainder.startsWith(":");
     }
 
     private String normalizePath(String path) {

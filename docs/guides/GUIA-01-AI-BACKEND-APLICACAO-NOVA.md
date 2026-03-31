@@ -1,182 +1,55 @@
-# Guia 01 - IA Backend - Aplicacao Nova com Praxis Metadata Starter
+# Guia 01 - IA Backend - Aplicacao Nova com Core Canonico Atual
 
 ## Objetivo
 
-Este guia orienta uma LLM a criar uma nova aplicacao Spring Boot que use o
-`praxis-metadata-starter` como fonte canonica do contrato metadata-driven.
+Este guia orienta a criacao de uma nova aplicacao Spring Boot sobre o estado atual do
+`praxis-metadata-starter`.
 
-O objetivo nao e gerar um projeto "parecido com os apps do time". O objetivo e
-gerar uma base minima que:
+O baseline canonico nao e mais o legado `AbstractCrudController`.
+Uma aplicacao nova deve nascer sobre:
 
-- publique `OpenAPI + x-ui`
-- exponha `GET /{resource}/schemas`
-- exponha `/schemas/filtered`
-- use `@ApiResource`, `@ApiGroup`, `@UISchema`,
-  `AbstractCrudController` e `AbstractBaseCrudService`
-- possa ser consumida por `praxis-ui-angular` sem ajuste local de contrato
+- `AbstractResourceController`
+- `AbstractReadOnlyResourceController`
+- `AbstractBaseResourceService`
+- `AbstractReadOnlyResourceService`
+- `ResourceMapper`
+- `@ApiResource(value = ..., resourceKey = ...)`
+- `/schemas/filtered`
+- `/schemas/catalog`
+- `/schemas/surfaces`
+- `/schemas/actions`
+- `/capabilities`
 
-## Ordem de leitura para a LLM
+## Resultado esperado
 
-Use esta ordem:
+Uma aplicacao nova deve sair com:
 
-1. este guia
-2. `GUIA-02-AI-BACKEND-CRUD-METADATA.md`
-3. `CHECKLIST-VALIDACAO-IA.md`
+- contrato metadata-driven em OpenAPI + `x-ui`
+- um primeiro recurso canonico resource-oriented
+- DTOs separados de `response`, `create`, `update` e `filter`
+- discovery estrutural e discovery semantico alinhados ao starter
 
-Este guia precisa ser suficiente por si so. Nao dependa de nenhum app externo
-como fonte necessaria.
+## Dependencias minimas
 
-## O que este guia deve gerar
-
-A base minima de uma nova aplicacao deve conter:
-
-- `pom.xml`
-- classe `@SpringBootApplication`
-- `ApiPaths` local da aplicacao
-- `application.properties` ou perfis equivalentes
-- ao menos um modulo com DTO, FilterDTO, mapper, repository, service e controller
-
-## O que nao faz parte do baseline
-
-Nao trate como obrigatorio por padrao:
-
-- `praxis-bulk-starter`
-- `praxis-bulk-web`
-- `praxis-files-starter`
-- `praxis-config-starter`
-- scans manuais de pacotes externos
-
-Esses modulos sao opcionais. So entram se o pedido exigir explicitamente.
-
-## Dependencia minima recomendada
+Exemplo base:
 
 ```xml
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>2.0.0-rc.7</version>
+  <version>5.0.0-rc.2</version>
 </dependency>
-```
 
-Dependencias complementares comuns:
-
-```xml
 <dependency>
   <groupId>org.springframework.boot</groupId>
   <artifactId>spring-boot-starter-validation</artifactId>
 </dependency>
-
-<dependency>
-  <groupId>org.flywaydb</groupId>
-  <artifactId>flyway-core</artifactId>
-</dependency>
 ```
 
-Se o projeto usar MapStruct, adicione `mapstruct` e o annotation processor.
+Observacoes:
 
-Importante:
-
-- o starter ja traz o baseline web/JPA/OpenAPI necessario
-- a aplicacao host ainda precisa declarar o driver real do banco
-- para build executavel, o host deve declarar `spring-boot-maven-plugin`
-- para MapStruct funcionar em CI e IDE, o host deve declarar
-  `maven-compiler-plugin` com processor
-
-## Template de `pom.xml`
-
-```xml
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-
-  <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.2.5</version>
-    <relativePath/>
-  </parent>
-
-  <groupId>{groupId}</groupId>
-  <artifactId>{artifactId}</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
-
-  <properties>
-    <java.version>21</java.version>
-    <praxis.metadata.version>2.0.0-rc.7</praxis.metadata.version>
-    <org.mapstruct.version>1.5.5.Final</org.mapstruct.version>
-  </properties>
-
-  <dependencies>
-    <dependency>
-      <groupId>io.github.codexrodrigues</groupId>
-      <artifactId>praxis-metadata-starter</artifactId>
-      <version>${praxis.metadata.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-validation</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-core</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <scope>runtime</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.mapstruct</groupId>
-      <artifactId>mapstruct</artifactId>
-      <version>${org.mapstruct.version}</version>
-    </dependency>
-  </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-      </plugin>
-
-      <plugin>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <annotationProcessorPaths>
-            <path>
-              <groupId>org.mapstruct</groupId>
-              <artifactId>mapstruct-processor</artifactId>
-              <version>${org.mapstruct.version}</version>
-            </path>
-          </annotationProcessorPaths>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
-</project>
-```
-
-Se a aplicacao nao usar MapStruct, remova o bloco correspondente.
-
-## Classe principal
-
-Template simples:
-
-```java
-@SpringBootApplication
-public class DemoApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(DemoApplication.class, args);
-    }
-}
-```
-
-Nao adicione `scanBasePackages` arbitrario sem necessidade comprovada.
+- o starter ja publica `spring-boot-starter-validation`, mas o host pode manter a dependencia explicita sem problema
+- o host ainda precisa declarar driver real de banco, Flyway e plugins de build quando aplicavel
 
 ## Estrutura recomendada
 
@@ -195,149 +68,212 @@ src/main/java/{base-package}/
     `-- service/
 ```
 
-## `ApiPaths` local
+## Primeiro recurso canonico
 
-Cada aplicacao deve definir sua propria classe `ApiPaths`.
+O primeiro recurso de uma aplicacao nova deve nascer com:
+
+- `ResponseDTO`
+- `CreateDTO`
+- `UpdateDTO`
+- `FilterDTO`
+- `ResourceMapper`
+- `Repository`
+- `Service`
+- `Controller`
+
+Se houver um caso real de escrita parcial por intencao:
+
+- `@ResourceIntent`
+- endpoint `PATCH` tipado real
+- `@UiSurface` apenas se a UX precisar de discovery semantico
+
+Se houver um caso real de workflow:
+
+- `@WorkflowAction`
+- endpoint tipado real, por exemplo `POST /{id}/actions/approve`
+
+## Controller canonico
 
 ```java
-public final class ApiPaths {
-    public static final String BASE = "/api";
+@RestController
+@ApiResource(value = ApiPaths.HumanResources.EMPLOYEES, resourceKey = "human-resources.employees")
+@ApiGroup("human-resources")
+public class EmployeeController extends AbstractResourceController<
+        EmployeeResponseDTO,
+        Long,
+        EmployeeFilterDTO,
+        CreateEmployeeDTO,
+        UpdateEmployeeDTO> {
 
-    public static final class HumanResources {
-        private static final String HR = BASE + "/human-resources";
-        public static final String FUNCIONARIOS = HR + "/funcionarios";
-        public static final String CARGOS = HR + "/cargos";
+    private final EmployeeService service;
+
+    public EmployeeController(EmployeeService service) {
+        this.service = service;
     }
 
-    private ApiPaths() {}
+    @Override
+    protected EmployeeService getService() {
+        return service;
+    }
+
+    @Override
+    protected Long getResponseId(EmployeeResponseDTO dto) {
+        return dto.getId();
+    }
 }
 ```
 
-## Propriedades minimas
+## Read-only canonico
 
-Exemplo de `application.properties`:
+```java
+@RestController
+@ApiResource(value = ApiPaths.HumanResources.PAYROLL_VIEW, resourceKey = "human-resources.payroll-view")
+@ApiGroup("human-resources")
+public class PayrollViewController extends AbstractReadOnlyResourceController<
+        PayrollViewResponseDTO,
+        Long,
+        PayrollViewFilterDTO> {
 
-```properties
-spring.application.name={app-name}
-server.port=8080
+    private final PayrollViewService service;
 
-springdoc.api-docs.enabled=true
-springdoc.api-docs.path=/v3/api-docs
-springdoc.api-docs.groups.enabled=true
-springdoc.swagger-ui.enabled=true
+    public PayrollViewController(PayrollViewService service) {
+        this.service = service;
+    }
 
-spring.jpa.open-in-view=false
-spring.flyway.enabled=true
+    @Override
+    protected PayrollViewService getService() {
+        return service;
+    }
 
-spring.datasource.url=jdbc:postgresql://localhost:5432/{db-name}
-spring.datasource.username={db-user}
-spring.datasource.password={db-password}
-
-# Opcional quando URL publica e interna divergem
-# app.openapi.internal-base-url=http://localhost:8080
+    @Override
+    protected Long getResponseId(PayrollViewResponseDTO dto) {
+        return dto.getId();
+    }
+}
 ```
 
-Observacoes:
+## Service canonico
 
-- `springdoc.swagger-ui.path=/swagger-ui.html` nao e obrigatorio
-- se houver proxy ou balanceador, documente `app.openapi.internal-base-url`
-- se o host usar H2 local, troque o datasource de acordo com o perfil real
-- Flyway sem datasource compativel nao resolve bootstrap sozinho
+```java
+@Service
+public class EmployeeService extends AbstractBaseResourceService<
+        Employee,
+        EmployeeResponseDTO,
+        Long,
+        EmployeeFilterDTO,
+        CreateEmployeeDTO,
+        UpdateEmployeeDTO> {
 
-## Bootstrap inicial do banco
+    private final EmployeeMapper mapper;
 
-Trilha preferencial:
+    public EmployeeService(EmployeeRepository repository, EmployeeMapper mapper) {
+        super(repository, Employee.class);
+        this.mapper = mapper;
+    }
 
-- manter `spring.flyway.enabled=true`
-- criar a migration inicial, por exemplo `V1__init.sql`
-- garantir que a primeira tabela exista antes do primeiro `POST` ou `/filter`
+    @Override
+    protected ResourceMapper<Employee, EmployeeResponseDTO, CreateEmployeeDTO, UpdateEmployeeDTO, Long> getResourceMapper() {
+        return mapper;
+    }
+}
+```
 
-Trilha temporaria apenas para sandbox:
+## Resource mapper canonico
 
-- usar `spring.jpa.hibernate.ddl-auto=update` ou `create-drop` em perfil local
-- documentar que isso e contingencia
-- remover a dependencia de `ddl-auto` assim que a migration existir
+```java
+@Component
+public class EmployeeMapper implements ResourceMapper<
+        Employee,
+        EmployeeResponseDTO,
+        CreateEmployeeDTO,
+        UpdateEmployeeDTO,
+        Long> {
 
-Regra:
+    @Override
+    public EmployeeResponseDTO toResponse(Employee entity) { ... }
 
-- para aplicacao real, prefira migration
-- para prova local guiada por LLM, `ddl-auto` so entra como contingencia explicita
+    @Override
+    public Employee newEntity(CreateEmployeeDTO dto) { ... }
 
-## Primeiro recurso da aplicacao
+    @Override
+    public void applyUpdate(Employee entity, UpdateEmployeeDTO dto) { ... }
 
-A aplicacao nova deve nascer com pelo menos um recurso que demonstre:
+    @Override
+    public Long extractId(Employee entity) {
+        return entity.getId();
+    }
+}
+```
 
-- DTO com `@UISchema`
-- `FilterDTO` com `@Filterable`
-- controller sobre `AbstractCrudController`
-- `/schemas/filtered` retornando contrato consumivel
+## Discovery que a aplicacao nova deve publicar
 
-Os detalhes do recurso ficam no `GUIA-02-AI-BACKEND-CRUD-METADATA.md`.
+No baseline atual, um host novo deve expor pelo menos:
 
-## Como o frontend vai consumir este backend
+- `/schemas/filtered`
+- `/schemas/catalog`
+- `/schemas/surfaces`
+- `/schemas/actions`
+- `GET /{resource}/capabilities`
+- `GET /{resource}/{id}/capabilities`
 
-O `GenericCrudService` espera:
+Os catalogos nao compartilham a mesma semantica de ausencia:
 
-- `GET {resource}/schemas`
-- `/schemas/filtered?path={resource}/all&operation=get&schemaType=response`
-- `/schemas/filtered?path={resource}/filter&operation=post&schemaType=request`
-- `ETag`
-- `X-Schema-Hash`
-- `x-ui.resource.idField`
+- `/schemas/surfaces?resource=...` continua publicando surfaces automaticas de `create`, `list`,
+  `detail` e `edit` para controllers canonicos.
+- `/schemas/actions?resource=...` so existe quando houver pelo menos uma `@WorkflowAction`
+  explicita; sem workflow anotado, o retorno esperado e `404`.
+- `/capabilities` agrega o que existir e normaliza ausencia de `surfaces` ou `actions` para listas
+  vazias.
+- em catalogos globais, entradas `ITEM` de `surfaces` e `actions` sao discovery-only e tendem a
+  sair com `availability.allowed=false` ate que exista `resourceId` real.
 
-Implicacoes:
+## O que nao usar em aplicacao nova
 
-- a aplicacao deve publicar contrato estavel, nao apenas CRUD funcional
-- o runtime Angular resolve a estrutura via `/schemas/filtered`
-- o `resourcePath` consumido no frontend deve apontar para o recurso base
+- `AbstractCrudController`
+- `AbstractBaseCrudService`
+- DTO unico para leitura e escrita
+- dispatcher generico de workflow
+- schema inline em `surfaces`, `actions` ou `capabilities`
 
 ## Prompt recomendado para IA
 
 ```text
-Voce esta criando uma nova aplicacao Spring Boot com praxis-metadata-starter.
+Voce esta criando uma nova aplicacao Spring Boot sobre o baseline atual do praxis-metadata-starter.
 
-Siga apenas o contrato canonico publicado neste guia e no guia de CRUD.
-Considere praxis-ui-angular como consumidor final esperado do contrato.
+Use o core canonico atual:
+- AbstractResourceController / AbstractReadOnlyResourceController
+- AbstractBaseResourceService / AbstractReadOnlyResourceService
+- ResourceMapper
+- @ApiResource(value=..., resourceKey=...)
+- DTOs separados de response, create, update e filter
 
 Gere:
-- pom.xml minimo e coerente
+- pom.xml coerente
 - classe principal Spring Boot
 - ApiPaths local
-- application.properties baseline
-- primeiro modulo CRUD metadata-driven completo
+- modulo inicial resource-oriented completo
 
-Nao trate bulk, files ou config-store como obrigatorios.
-So adicione modulos opcionais se o pedido disser explicitamente.
-
-Entrada:
-- Nome da aplicacao: {app-name}
-- GroupId base: {group-id}
-- ArtifactId: {artifact-id}
-- Modulo inicial: {modulo}
-- Resource path inicial: {resource-path}
-- Api group inicial: {api-group}
+Nao gere AbstractCrudController nem BaseCrudService.
+Nao gere payload inline em catalogos semanticos.
 ```
 
 ## Checklist minimo
 
-Antes de concluir:
+Antes de concluir a aplicacao nova:
 
-- `mvn clean package`
-- `GET /v3/api-docs`
-- Swagger UI
+- `mvn test`
+- `GET /v3/api-docs/{grupo}`
 - `GET /schemas/filtered`
-- um schema `request` e um `response`
-- `options/filter` quando houver relacao remota
+- `GET /schemas/catalog`
+- `GET /schemas/surfaces?resource={resourceKey}` com surfaces automaticas coerentes para o tipo de controller
+- `GET /schemas/actions?resource={resourceKey}` se houver `@WorkflowAction`; sem workflow explicito, validar `404`
+- `GET /{resource}/{id}/surfaces` e `GET /{resource}/{id}/actions` quando houver discovery `ITEM`
+- `GET /{resource}/capabilities`
+- validacao `@Valid` funcionando com `400 Validation error`
 
-Se houver persistencia real:
+## Referencias
 
-- `POST /{resource}` sem erro de tabela inexistente
-- `POST /{resource}/filter` sem erro de schema ou tabela inexistente
-- migration inicial ou `ddl-auto` temporario explicitamente documentado
-
-## Referencias publicas
-
-- starter canonico: `praxis-metadata-starter/README.md`
-- repositório público do runtime Angular: `https://github.com/codexrodrigues/praxis-ui-angular`
-- pacote publicado de consumo de contrato: `@praxisui/core`
-- guia relacionado: `praxis-metadata-starter/docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md`
+- `docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md`
+- `docs/guides/GUIA-03-MIGRACAO-CONSUMIDOR-PILOTO.md`
+- `docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md`
+- `docs/technical/RESOURCE-SURFACE-ACTION-ARCHITECTURE-PLAN.md`

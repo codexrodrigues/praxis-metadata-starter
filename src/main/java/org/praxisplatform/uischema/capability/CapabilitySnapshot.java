@@ -8,6 +8,12 @@ import java.util.Map;
 
 /**
  * Snapshot unificado das capacidades canonicamente disponiveis para uma colecao ou instancia.
+ *
+ * <p>
+ * O campo {@code group} representa o grupo OpenAPI canonico resolvido a partir de
+ * {@code resourcePath}. No estado atual da Fase 6, isso normalmente corresponde ao grupo
+ * individual do recurso, e nao ao agrupamento documental agregado de {@code @ApiGroup}.
+ * </p>
  */
 public record CapabilitySnapshot(
         String resourceKey,

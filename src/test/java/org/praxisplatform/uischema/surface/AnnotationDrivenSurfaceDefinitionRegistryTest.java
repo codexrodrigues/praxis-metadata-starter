@@ -28,6 +28,12 @@ import org.springframework.web.method.HandlerMethod;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -199,6 +205,79 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
 
         assertEquals(List.of("list", "detail"), readOnlySurfaces.stream().map(SurfaceDefinition::id).toList());
         assertTrue(readOnlySurfaces.stream().noneMatch(surface -> "create".equals(surface.id()) || "edit".equals(surface.id()) || "approve".equals(surface.id())));
+    }
+
+    @Test
+    void buildsCachedSnapshotOnlyOnceUnderConcurrentLookupLoad() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        ApplicationContext applicationContext = mock(ApplicationContext.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+        SchemaReferenceResolver schemaResolver = mock(SchemaReferenceResolver.class);
+
+        MutableRegistryController mutableController = new MutableRegistryController();
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = new LinkedHashMap<>();
+        handlerMethods.put(
+                RequestMappingInfo.paths("/mutable-resources/all").methods(RequestMethod.GET).build(),
+                new HandlerMethod(mutableController, AbstractResourceQueryController.class.getMethod("getAll"))
+        );
+        handlerMethods.put(
+                RequestMappingInfo.paths("/mutable-resources/{id}").methods(RequestMethod.GET).build(),
+                new HandlerMethod(mutableController, AbstractResourceQueryController.class.getMethod("getById", Object.class))
+        );
+        when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
+        when(operationResolver.resolve(any(HandlerMethod.class), any(RequestMappingInfo.class)))
+                .thenAnswer(invocation -> {
+                    RequestMappingInfo mappingInfo = invocation.getArgument(1);
+                    String path = mappingInfo.getPatternValues().iterator().next();
+                    return new CanonicalOperationRef("registry-group", path.contains("/all") ? "listMutableResources" : "getMutableResource", path, "GET");
+                });
+        when(schemaResolver.resolve(any(), any(), any(), any(Boolean.class), any(), any(), any(), any()))
+                .thenAnswer(invocation -> new CanonicalSchemaRef(
+                        "schema-" + invocation.getArgument(2, String.class),
+                        invocation.getArgument(2, String.class),
+                        "/schemas/filtered?path=" + invocation.getArgument(0, String.class)
+                ));
+
+        AnnotationDrivenSurfaceDefinitionRegistry registry = new AnnotationDrivenSurfaceDefinitionRegistry(
+                handlerMapping,
+                applicationContext,
+                operationResolver,
+                schemaResolver,
+                AnnotationConflictMode.WARN
+        );
+
+        ExecutorService executor = Executors.newFixedThreadPool(6);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            List<Callable<List<SurfaceDefinition>>> tasks = List.of(
+                    () -> awaitAndLookup(start, () -> registry.findByResourceKey("registry.mutable")),
+                    () -> awaitAndLookup(start, () -> registry.findByGroup("registry-group")),
+                    () -> awaitAndLookup(start, () -> registry.findByResourceKey("registry.mutable")),
+                    () -> awaitAndLookup(start, () -> registry.findByGroup("registry-group")),
+                    () -> awaitAndLookup(start, () -> registry.findByResourceKey("registry.mutable")),
+                    () -> awaitAndLookup(start, () -> registry.findByGroup("registry-group"))
+            );
+            List<Future<List<SurfaceDefinition>>> futures = tasks.stream().map(executor::submit).toList();
+            start.countDown();
+
+            for (Future<List<SurfaceDefinition>> future : futures) {
+                assertEquals(List.of("list", "detail"), future.get(5, TimeUnit.SECONDS).stream().map(SurfaceDefinition::id).toList());
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        verify(handlerMapping, times(1)).getHandlerMethods();
+    }
+
+    private List<SurfaceDefinition> awaitAndLookup(CountDownLatch start, CheckedLookup<List<SurfaceDefinition>> lookup) throws Exception {
+        start.await(5, TimeUnit.SECONDS);
+        return lookup.run();
+    }
+
+    @FunctionalInterface
+    private interface CheckedLookup<T> {
+        T run() throws Exception;
     }
 
     @ApiResource(value = "/registry-resources", resourceKey = "registry.resources")

@@ -30,6 +30,12 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -206,6 +212,81 @@ class AnnotationDrivenActionDefinitionRegistryTest {
         );
 
         assertThrows(IllegalStateException.class, () -> registry.findByResourceKey("invalid.path.actions"));
+    }
+
+    @Test
+    void buildsCachedSnapshotOnlyOnceUnderConcurrentLookupLoad() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        ApplicationContext applicationContext = mock(ApplicationContext.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+        SchemaReferenceResolver schemaResolver = mock(SchemaReferenceResolver.class);
+
+        RegistryActionController controller = new RegistryActionController();
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = new LinkedHashMap<>();
+        handlerMethods.put(
+                RequestMappingInfo.paths("/registry-actions/{id}/actions/approve").methods(RequestMethod.POST).build(),
+                new HandlerMethod(controller, RegistryActionController.class.getDeclaredMethod("approve", Long.class))
+        );
+        handlerMethods.put(
+                RequestMappingInfo.paths("/registry-actions/actions/bulk-approve").methods(RequestMethod.POST).build(),
+                new HandlerMethod(controller, RegistryActionController.class.getDeclaredMethod("bulkApprove"))
+        );
+        when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
+        when(operationResolver.resolve(any(HandlerMethod.class), any(RequestMappingInfo.class)))
+                .thenAnswer(invocation -> {
+                    RequestMappingInfo mappingInfo = invocation.getArgument(1);
+                    String path = mappingInfo.getPatternValues().iterator().next();
+                    String operationId = path.contains("bulk-approve") ? "bulkApproveResource" : "approveResource";
+                    return new CanonicalOperationRef("registry-group", operationId, path, "POST");
+                });
+        when(schemaResolver.resolve(any(String.class), any(String.class), any(String.class), anyBoolean(), any(), any(), any(String.class), any(Boolean.class)))
+                .thenAnswer(invocation -> new CanonicalSchemaRef(
+                        invocation.getArgument(2, String.class) + "-" + invocation.getArgument(0, String.class),
+                        invocation.getArgument(2, String.class),
+                        "/schemas/filtered?path=" + invocation.getArgument(0, String.class)
+                ));
+
+        AnnotationDrivenActionDefinitionRegistry registry = new AnnotationDrivenActionDefinitionRegistry(
+                handlerMapping,
+                applicationContext,
+                operationResolver,
+                schemaResolver,
+                AnnotationConflictMode.WARN,
+                AnnotationConflictMode.WARN
+        );
+
+        ExecutorService executor = Executors.newFixedThreadPool(6);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            List<Callable<List<ActionDefinition>>> tasks = List.of(
+                    () -> awaitAndLookup(start, () -> registry.findByResourceKey("registry.actions")),
+                    () -> awaitAndLookup(start, () -> registry.findByGroup("registry-group")),
+                    () -> awaitAndLookup(start, () -> registry.findByResourceKey("registry.actions")),
+                    () -> awaitAndLookup(start, () -> registry.findByGroup("registry-group")),
+                    () -> awaitAndLookup(start, () -> registry.findByResourceKey("registry.actions")),
+                    () -> awaitAndLookup(start, () -> registry.findByGroup("registry-group"))
+            );
+            List<Future<List<ActionDefinition>>> futures = tasks.stream().map(executor::submit).toList();
+            start.countDown();
+
+            for (Future<List<ActionDefinition>> future : futures) {
+                assertEquals(List.of("approve", "bulk-approve"), future.get(5, TimeUnit.SECONDS).stream().map(ActionDefinition::id).toList());
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        verify(handlerMapping, times(1)).getHandlerMethods();
+    }
+
+    private List<ActionDefinition> awaitAndLookup(CountDownLatch start, CheckedLookup<List<ActionDefinition>> lookup) throws Exception {
+        start.await(5, TimeUnit.SECONDS);
+        return lookup.run();
+    }
+
+    @FunctionalInterface
+    private interface CheckedLookup<T> {
+        T run() throws Exception;
     }
 
     @ApiResource(value = "/registry-actions", resourceKey = "registry.actions")

@@ -1,4 +1,4 @@
-# E2E Test Backlog - Praxis Metadata Starter
+﻿# E2E Test Backlog - Praxis Metadata Starter
 
 ## Objetivo
 
@@ -12,6 +12,129 @@ Consolidar uma suite E2E interna do `praxis-metadata-starter` antes da migracao 
 - `e2e-pg`: pendente; ainda nao existe dependencia de `Testcontainers` ou PostgreSQL no `pom.xml`
 
 ### Validacoes focais oficiais atuais
+
+Sprint E2E final de consistencia/negativos/override em H2:
+
+```powershell
+mvn -Dproject.build.directory=D:\Developer\praxis-plataform\praxis-metadata-starter\.codex-build-final-e2e ^
+  -Dtest=MutableResourceLifecycleE2ETest,CapabilityConsistencyE2ETest,WorkflowNegativePathsE2ETest,CapabilityE2ETest,ActionCatalogE2ETest,SurfaceCatalogE2ETest,OpenApiUiSchemaAutoConfigurationSurfaceAvailabilityTest,OpenApiUiSchemaAutoConfigurationActionAvailabilityTest,GlobalExceptionHandlerTest test
+```
+
+Resultado validado:
+
+- `BUILD SUCCESS`
+- 59 testes
+- fecha o cross-check entre `/capabilities` e os catalogos dedicados de `surfaces`/`actions` em escopo `COLLECTION` e `ITEM`
+- endurece caminhos negativos de workflow para payload invalido e IDs inexistentes, incluindo ausencia de efeito parcial em `bulk-approve`
+- prova override e ordering reais de `SurfaceAvailabilityRule` no container, no mesmo nivel ja coberto para `actions`
+- corrige um gap estrutural do starter: o `pom.xml` agora publica `spring-boot-starter-validation`, garantindo que `@Valid` nos controllers canonicos realmente produza `400 Validation error` no runtime HTTP
+- adiciona prova E2E de que `POST /employees` invalido falha canonicamente, confirmando que a correcao de validacao nao ficou restrita a endpoints de workflow
+
+Hardening transversal de repetibilidade e concorrencia leve:
+
+```powershell
+mvn -Dproject.build.directory=D:\Developer\praxis-plataform\praxis-metadata-starter\.codex-build-transversal-hardening ^
+  -Dtest=AnnotationDrivenSurfaceDefinitionRegistryTest,AnnotationDrivenActionDefinitionRegistryTest,CapabilityServiceTest,CapabilityE2ETest,OpenApiUiSchemaAutoConfigurationSurfaceAvailabilityTest,OpenApiUiSchemaAutoConfigurationActionAvailabilityTest test
+```
+
+Objetivo deste corte:
+
+- validar que os registries lazy de `surfaces` e `actions` constroem snapshot uma unica vez mesmo sob lookup concorrente leve
+- provar que `/capabilities` e `DefaultCapabilityService` permanecem deterministas em chamadas repetidas para o mesmo contexto
+- endurecer o starter para uso enterprise sem alterar contrato publico nem abrir novo eixo funcional
+
+Cobertura inicial da Fase 5 de `WorkflowAction` em H2:
+
+```powershell
+mvn -Dproject.build.directory=D:\Developer\praxis-plataform\praxis-metadata-starter\.codex-build-phase5-actions ^
+  -Dtest=ActionCatalogE2ETest,AnnotationDrivenActionDefinitionRegistryTest,ActionCatalogServiceTest,DefaultActionAvailabilityEvaluatorTest,SurfaceCatalogE2ETest,AnnotationDrivenSurfaceDefinitionRegistryTest,AbstractResourceControllerJpaWriteIntegrationTest test
+```
+
+Resultado validado:
+
+- `BUILD SUCCESS`
+- 44 testes
+- abre o catalogo global/contextual de `actions`, valida a separacao `surface` vs `workflow`, prova execucao tipada real com `POST /employees/{id}/actions/approve` e `POST /employees/actions/bulk-approve`, e cobre a availability composicional por contexto, RBAC e estado do recurso em escopos `ITEM` e `COLLECTION`
+
+Hardening adicional da availability de `actions` no mesmo nivel final da Fase 4:
+
+```powershell
+mvn -Dproject.build.directory=D:\Developer\praxis-plataform\praxis-metadata-starter\.codex-build-phase5-actions-availability ^
+  -Dtest=ActionCatalogE2ETest,ActionCatalogServiceTest,DefaultActionAvailabilityEvaluatorTest,DefaultActionAvailabilityContextResolverTest,OpenApiUiSchemaAutoConfigurationActionAvailabilityTest,AnnotationDrivenActionDefinitionRegistryTest,SurfaceCatalogE2ETest,AnnotationDrivenSurfaceDefinitionRegistryTest,AbstractResourceControllerJpaWriteIntegrationTest test
+```
+
+Resultado validado:
+
+- `BUILD SUCCESS`
+- 50 testes
+- actions agora usam availability composicional por `ActionAvailabilityRule`, com short-circuit no primeiro deny, metadata incremental e cobertura para:
+  - `resource-context-required`
+  - `missing-authority`
+  - `resource-state-blocked`
+  - `resource-state-unavailable`
+  - ausencia de vazamento de metadata de estado apos deny por RBAC
+  - wiring plugavel da auto-configuracao por lista de regras
+
+Primeiro corte validado da Fase 6 de `capabilities` unificadas:
+
+```powershell
+mvn -Dproject.build.directory=D:\Developer\praxis-plataform\praxis-metadata-starter\.codex-build-phase6-capabilities ^
+  -Dtest=OpenApiCanonicalCapabilityResolverTest,CapabilityServiceTest,CapabilityE2ETest,AbstractResourceControllerJpaWriteIntegrationTest,SurfaceCatalogE2ETest,ActionCatalogE2ETest,ApiDocsControllerTest test
+```
+
+Resultado validado:
+
+- `BUILD SUCCESS`
+- 61 testes
+- fecha o primeiro corte do snapshot unificado com:
+  - `GET /{resource}/capabilities`
+  - `GET /{resource}/{id}/capabilities`
+  - agregacao de operacoes canonicas + `surfaces` + `actions`
+  - cobertura para recurso mutavel, recurso read-only, fixture E2E real e piloto JPA interno
+  - regra explicita de que `CapabilitySnapshot.group` segue o grupo OpenAPI canonico resolvido por `resourcePath`, normalmente o grupo individual do recurso
+
+Fechamento de `ActionScope.COLLECTION` na Fase 5:
+
+```powershell
+mvn -Dproject.build.directory=D:\Developer\praxis-plataform\praxis-metadata-starter\.codex-build-phase5-actions-collection ^
+  -Dtest=ActionCatalogE2ETest,ActionCatalogServiceTest,AnnotationDrivenActionDefinitionRegistryTest,DefaultActionAvailabilityEvaluatorTest,DefaultActionAvailabilityContextResolverTest,OpenApiUiSchemaAutoConfigurationActionAvailabilityTest,SurfaceCatalogE2ETest,AnnotationDrivenSurfaceDefinitionRegistryTest,AbstractResourceControllerJpaWriteIntegrationTest test
+```
+
+Resultado validado:
+
+- `BUILD SUCCESS`
+- 54 testes
+- fecha o discovery contextual `GET /{resource}/actions`, o caso real `POST /employees/actions/bulk-approve` e a convivencia correta entre escopos `ITEM` e `COLLECTION`
+
+Cobertura adicional que fecha a Fase 4 de `surfaces` em H2:
+
+```powershell
+mvn -Dproject.build.directory=D:\Developer\praxis-plataform\praxis-metadata-starter\.codex-build-phase4-availability ^
+  -Dtest=SurfaceCatalogE2ETest,AnnotationDrivenSurfaceDefinitionRegistryTest,DefaultSurfaceAvailabilityContextResolverTest,DefaultSurfaceAvailabilityEvaluatorTest,SurfaceCatalogServiceTest,OpenApiUiSchemaAutoConfigurationSurfaceAvailabilityTest,AbstractResourceControllerJpaWriteIntegrationTest test
+```
+
+Resultado validado:
+
+- `BUILD SUCCESS`
+- 32 testes
+- fecha o catalogo global e contextual de `surfaces`, a availability por composicao, o guardrail contra N+1 por surface e o wiring plugavel basico por regras
+
+Hardening adicional da Fase 4 em `src/test`:
+
+```powershell
+mvn -Dproject.build.directory=D:\Developer\praxis-plataform\praxis-metadata-starter\.codex-build-phase4-exhaustive-tests ^
+  -Dtest=SurfaceCatalogE2ETest,AnnotationDrivenSurfaceDefinitionRegistryTest,DefaultSurfaceAvailabilityContextResolverTest,DefaultSurfaceAvailabilityEvaluatorTest,SurfaceCatalogServiceTest,OpenApiUiSchemaAutoConfigurationSurfaceAvailabilityTest,AbstractResourceControllerJpaWriteIntegrationTest test
+```
+
+Resultado validado:
+
+- `BUILD SUCCESS`
+- 39 testes
+- endurece explicitamente:
+  - `resource-state-unavailable`
+  - short-circuit sem vazamento de metadata apos deny por RBAC
+  - ordenacao, `not found`, conflito de valor canonico e caching por grupo no `SurfaceCatalogService`
+  - publicacao automatica de surfaces mutaveis vs. read-only e exclusao de mappings workflow-like no registry
 
 Baseline do Sprint 1 em H2:
 
@@ -132,6 +255,7 @@ Observacoes do estado atual:
 Pendente:
 
 - perfil `e2e-pg` com PostgreSQL e Testcontainers
+- smoke mais amplo de bootstrap full-context alem dos testes focais de auto-configuracao, apenas se o consumidor piloto exigir
 
 ## Regra atual de avanco
 
@@ -145,3 +269,38 @@ Antes de migrar um consumidor externo, a base minima do starter deve incluir:
 - QA independente da rodada, com foco em integridade de codigo, logica de negocio e uso corporativo
 - backlog do Sprint 2 priorizado sobre a mesma fixture
 - plano explicito para `e2e-pg`, sem tratar H2 como substituto definitivo de cenarios enterprise
+
+## Gate de Prontidao Pre-Piloto
+
+O comando oficial minimo de validacao pre-piloto, no estado atual do starter, e:
+
+```powershell
+mvn -Dproject.build.directory=D:\Developer\praxis-plataform\praxis-metadata-starter\.codex-build-final-e2e ^
+  -Dtest=MutableResourceLifecycleE2ETest,CapabilityConsistencyE2ETest,WorkflowNegativePathsE2ETest,CapabilityE2ETest,ActionCatalogE2ETest,SurfaceCatalogE2ETest,OpenApiUiSchemaAutoConfigurationSurfaceAvailabilityTest,OpenApiUiSchemaAutoConfigurationActionAvailabilityTest,GlobalExceptionHandlerTest test
+```
+
+Complemento recomendado de hardening transversal:
+
+```powershell
+mvn -Dproject.build.directory=D:\Developer\praxis-plataform\praxis-metadata-starter\.codex-build-transversal-hardening ^
+  -Dtest=AnnotationDrivenSurfaceDefinitionRegistryTest,AnnotationDrivenActionDefinitionRegistryTest,CapabilityServiceTest,CapabilityE2ETest,OpenApiUiSchemaAutoConfigurationSurfaceAvailabilityTest,OpenApiUiSchemaAutoConfigurationActionAvailabilityTest test
+```
+
+## O Que Pode Ficar Fora do Primeiro Consumidor
+
+Nao precisa bloquear o primeiro piloto real por:
+
+- `e2e-pg` com PostgreSQL/Testcontainers
+- stress mais agressivo de concorrencia/caches lazy
+- suite integral do modulo
+
+Esses itens continuam sendo hardening transversal desejavel, mas nao sao gate minimo para sair do starter.
+
+## Estado de readiness para a proxima fase
+
+- Fase 4 de `surfaces` esta encerrada no starter
+- a Fase 5 de `WorkflowAction` esta formalmente encerrada no starter
+- a Fase 6 de `capabilities` esta formalmente encerrada no starter
+- o backlog E2E remanescente nao bloqueia mais a migracao do primeiro consumidor; ele agora endurece infraestrutura adjacente
+
+

@@ -4,6 +4,38 @@
 
 Nao ha compromisso com compatibilidade retroativa. A estrategia correta e substituir o nucleo conceitualmente errado, e nao empilhar uma camada "V2" sobre o legado.
 
+## Estado Atual do Starter
+
+As Fases 1 a 6 deste plano ja foram implementadas no `praxis-metadata-starter`.
+
+Estado consolidado atual:
+
+- core `resource-oriented` novo consolidado
+- discovery de `surfaces` consolidado
+- discovery de `actions` consolidado
+- `capabilities` unificadas consolidadas
+- piloto interno em `src/test` consolidado
+- fixture E2E interna verde em H2 para o baseline minimo do starter
+
+Residuos conhecidos, nao bloqueantes para abrir o primeiro consumidor externo:
+
+- `e2e-pg` com PostgreSQL/Testcontainers ainda pendente
+- stress mais agressivo de concorrencia sobre caches lazy ainda opcional
+- `CapabilitySnapshot.group` continua significando o grupo OpenAPI canonico resolvido por `resourcePath`
+
+## Gate Para Migrar o Primeiro Consumidor Externo
+
+Antes de migrar um host real, o baseline esperado do starter e:
+
+- piloto interno em `src/test` verde
+- fixture E2E H2 verde para o recorte minimo oficial
+- QA independente concluido nas rodadas estruturais recentes
+- guias de migracao/readiness publicados
+- decisao explicita do recurso piloto e do escopo congelado
+
+O proximo passo canonico, portanto, nao e mais evolucao interna do starter por fase. E a
+migracao controlada do primeiro consumidor externo sobre este baseline.
+
 O ponto que permanece canonico no repo e:
 
 - `@ApiResource`
@@ -39,7 +71,7 @@ O starter deve passar a ter tres eixos distintos:
 - Todo item de discovery deve retornar `operationId`, `schemaId` e `schemaUrl`.
 - `schemaId` e `schemaUrl` devem ser sempre derivados de `/schemas/filtered`.
 - `surface` organiza experiencia contextual; nao substitui `resource intent`.
-- `PATCH /{id}` so deve existir como update base se `UpdateDTO` for parcial. Se o contrato quiser substituicao completa, manter `PUT`.
+- `PATCH /{id}` foi tratado neste plano como opcao arquitetural, mas nao faz parte do baseline atual do starter. Hoje o core canonico publica `PUT /{id}` como update base e usa `PATCH` apenas por intencao explicita.
 - `resourcePath` nao deve ser a identidade canonica do recurso. O modelo interno deve usar um identificador estavel, como `resourceKey`, e tratar a URL como dado derivado.
 - Nao introduzir roteadores genericos de execucao como `PATCH /{resource}/{id}/intents/{intentId}` ou `POST /{resource}/{id}/actions/{actionId}` sem controllers tipados reais por operacao.
 
@@ -62,7 +94,7 @@ Isso aperta o modelo para:
 - `GET /{id}` retorna `ResponseDTO`
 - `POST /` recebe `CreateDTO`
 - `PUT /{id}` recebe `UpdateDTO` se a semantica for substituicao completa
-- `PATCH /{id}` recebe `UpdateDTO` se a semantica base da plataforma for update parcial
+- `PATCH /{id}` permanece fora do baseline atual do starter; se um dia entrar como update base, isso deve ser tratado como decisao canonica nova de plataforma
 - `PATCH /{id}/profile`, `PATCH /{id}/bank-details` etc. recebem DTOs parciais nomeados por intencao
 
 ### Surface-oriented
@@ -77,7 +109,10 @@ Isso aperta o modelo para:
 - executa por endpoint real, tipado e documentado
 - usa DTO semantico proprio
 
-## Sequencia Recomendada de Implementacao
+## Registro Historico da Implementacao
+
+As secoes abaixo preservam a sequencia historica que levou ao estado atual do starter. Elas nao devem
+ser lidas como backlog ativo; o backlog ativo para a proxima etapa esta nos guias e checklists pre-piloto.
 
 ## Fase 1 - Extrair a resolucao canonica de operacao e schema
 
@@ -192,7 +227,7 @@ o scanning de grupos OpenAPI para reconhecer a nova hierarquia. O legado `Abstra
 `AbstractReadOnlyController` permanece apenas como superficie transitoria enquanto consumidores como
 o `praxis-api-quickstart` ainda nao foram migrados.
 
-O proximo corte da Fase 2 deve:
+No encerramento original da Fase 2, os proximos passos previstos eram:
 
 - migrar consumidores piloto para os controllers novos
 - remover progressivamente o legado `AbstractReadOnlyController`
@@ -324,7 +359,7 @@ Formularios parciais viram operacoes canonicamente resource-oriented, com DTO no
 - o piloto valida o endpoint tipado, o DTO parcial `UpdateEmployeeProfileDto`, o OpenAPI do grupo individual e a resolucao canonica de `/schemas/filtered` para o `PATCH`
 - discovery/catalogo de intents ainda nao existe; nesta fase o objetivo continua sendo operacao real e tipada, nao dispatcher generico nem catalogo semantico
 
-## Fase 4 - Catalogo de surfaces
+## Fase 4 - Catalogo de surfaces (concluida)
 
 ### Objetivo
 
@@ -333,14 +368,16 @@ Adicionar discovery semantico de formularios, views e projecoes, sempre por refe
 ### Estado atual da implementacao
 
 - `@ApiResource` agora exige `resourceKey` como identidade semantica estavel do recurso
-- `@UiSurface` foi introduzida para surfaces explicitas sobre operacoes HTTP reais
+- `@UiSurface` foi introduzida para surfaces explicitas sobre operacoes HTTP reais e agora pode declarar `requiredAuthorities` e `allowedStates`
 - o pacote `surface/*` agora publica `SurfaceDefinition`, `SurfaceCatalogItem`, `SurfaceCatalogResponse`,
   `SurfaceDefinitionRegistry`, `SurfaceCatalogService`, `SurfaceAvailabilityEvaluator` e `AnnotationDrivenSurfaceDefinitionRegistry`
 - `GET /schemas/surfaces?resource={resourceKey}` e `GET /schemas/surfaces?group={openApiGroup}` ja estao publicados
 - o primeiro corte cobre surfaces automaticas `create`, `list`, `detail`, `edit` e surfaces explicitas anotadas, como `profile`
 - o segundo corte acoplou `GET /{resource}/{id}/surfaces` ao `AbstractResourceQueryController`, com `resourceId` real no payload
-- o endpoint contextual devolve apenas `SurfaceScope.ITEM` e usa `SurfaceAvailabilityContext` com `resourceKey`, `resourcePath`, `resourceId`, `locale` e `principal`
+- o endpoint contextual devolve apenas `SurfaceScope.ITEM` e usa `SurfaceAvailabilityContext` com `resourceKey`, `resourcePath`, `resourceId`, `locale`, `principal`, authorities e snapshot opcional de estado do recurso
 - o terceiro corte extraiu `SurfaceAvailabilityContextResolver`, passou a usar `X-Tenant` como sinal contextual canonico e tornou surfaces `ITEM` globalmente indisponiveis sem `resourceId`, com `reason=resource-context-required`
+- o corte atual substituiu a availability monolitica por composicao de regras, com `ResourceStateSnapshotProvider` plugavel, `SurfaceAvailabilityRule` componivel por beans Spring e contexto/snapshot compartilhados por catalogo para evitar custo N+1 por surface
+- o hardening final da fase endureceu `/schemas/surfaces` com `404` para `resourceKey` ou `group` desconhecidos, adicionou cache lazily built no registry annotation-driven e passou a ignorar mappings workflow-like (`/actions/` e `:approve`) no catalogo de surfaces
 
 ### Pacotes
 
@@ -376,6 +413,7 @@ public @interface UiSurface {
 - `SurfaceCatalogService`
 - `SurfaceAvailabilityEvaluator`
 - `SurfaceAvailabilityContext`
+- `ResourceStateSnapshotProvider`
 - `AnnotationDrivenSurfaceDefinitionRegistry`
 
 ### Endpoints
@@ -392,12 +430,59 @@ public @interface UiSurface {
 - `VIEW` e `READ_PROJECTION` apontam para schema `response`
 - a Fase 4 nao surfaceia `delete`, `filter`, `cursor`, `locate`, `options`, `stats` nem workflow actions
 - no catalogo global, surfaces `ITEM` sao discovery semantico e devem refletir ausencia de contexto concreto em `availability`
+- `resourceKey` ou `group` desconhecidos devem falhar explicitamente com `404`, e nao retornar catalogo vazio indistinguivel de sucesso
+- availability deve evoluir por composicao de regras com `reason` explicito, short-circuit no primeiro deny sensivel e nunca por condicionais monoliticos ou lookup N+1 por surface
 
-## Fase 5 - Catalogo de actions de workflow
+### Fechamento da fase
+
+A Fase 4 esta formalmente encerrada no estado atual do starter.
+
+Criterios de saida atingidos:
+
+- surfaces automaticas e explicitas publicadas sobre operacoes reais
+- catalogo global e item-level publicados
+- `availability` contextual endurecida por composicao
+- `404` explicito para `resourceKey` e `group` desconhecidos
+- cache lazy no registry annotation-driven
+- guardrail para impedir workflow-like mappings no catalogo de surfaces
+- cobertura focal e E2E interna validando shape, availability, hardening e fixture piloto
+
+O proximo passo canonico deixa de ser hardening adicional de `surfaces` e passa a ser a Fase 5 de `WorkflowAction`.
+
+## Fase 5 - Catalogo de actions de workflow (concluida)
 
 ### Objetivo
 
 Catalogar e avaliar workflows de negocio explicitos.
+
+### Estado atual da implementacao
+
+- `@WorkflowAction` foi introduzida como anotacao canonica para comandos de negocio explicitos sobre endpoints reais
+- o pacote `action/*` agora publica `ActionDefinition`, `ActionCatalogItem`, `ActionCatalogResponse`,
+  `ActionDefinitionRegistry`, `ActionCatalogService`, `ActionAvailabilityEvaluator`,
+  `ActionAvailabilityContext`, `DefaultActionAvailabilityContextResolver` e `AnnotationDrivenActionDefinitionRegistry`
+- `GET /schemas/actions?resource={resourceKey}` e `GET /schemas/actions?group={openApiGroup}` ja estao publicados
+- `GET /{resource}/{id}/actions` foi acoplado ao `AbstractResourceQueryController` como discovery contextual item-level
+- `GET /{resource}/actions` passa a ser o endpoint contextual canonico para `ActionScope.COLLECTION` quando houver actions reais de colecao
+- actions nao sao automaticas; entram apenas por `@WorkflowAction`
+- o catalogo de actions sempre referencia `operationId`, `path`, `method`, `requestSchemaId`, `requestSchemaUrl`,
+  `responseSchemaId` e `responseSchemaUrl`, sem fields/schema inline
+- a fixture E2E do starter agora prova o fluxo completo com `POST /employees/{id}/actions/approve`,
+  catalogo global/contextual e separacao rigida em relacao a `surfaces`
+- a fixture E2E do starter agora tambem prova `ActionScope.COLLECTION` com
+  `GET /{resource}/actions` e `POST /employees/actions/bulk-approve`
+- o conflito semantico `@UiSurface` + `@WorkflowAction` passou a ser governado por
+  `praxis.metadata.validation.surface-workflow-conflict=FAIL|WARN|IGNORE`, com default `WARN`
+- `ResourceStateSnapshot` e `ResourceStateSnapshotProvider` foram promovidos para o pacote neutro `capability`,
+  removendo o acoplamento `action -> surface` no estado compartilhado de availability
+- `AnnotationDrivenActionDefinitionRegistry` agora resolve `requestSchema` e `responseSchema` com o
+  mesmo contexto canonico de `idField` usado por `surfaces` e pelos links do core HTTP
+- o shape de `@WorkflowAction` passou a ser validado por
+  `praxis.metadata.validation.workflow-action-shape=FAIL|WARN|IGNORE`, aceitando apenas mappings
+  canonicos de comando (`POST`/`PATCH` sobre `/actions/...` ou alias `:action`)
+- a availability de actions ja foi elevada ao mesmo modelo final de `surfaces`: `ActionAvailabilityRule` componivel por beans Spring,
+  `DefaultActionAvailabilityEvaluator` com short-circuit no primeiro deny e metadados incrementais, e reasons explicitos para contexto,
+  RBAC e estado do recurso sem N+1 por action
 
 ### Pacotes
 
@@ -436,6 +521,7 @@ public @interface WorkflowAction {
 
 - `GET /schemas/actions?resource={resourceKey}`
 - `GET /schemas/actions?group={openApiGroup}`
+- `GET /{resource}/actions`
 - `GET /{resource}/{id}/actions`
 
 ### Execucao
@@ -450,6 +536,29 @@ public ResponseEntity<RestApiResponse<EmployeeResponseDTO>> approve(
     @Valid @RequestBody ApproveEmployeeDTO dto
 ) { ... }
 ```
+
+### Regras canonicas
+
+- a identidade canonica da action e `(resourceKey, actionId)`
+- `ActionScope` suporta `ITEM` e `COLLECTION`, e actions de colecao reais devem usar `GET /{resource}/actions` como discovery contextual canonico
+- `delete`, `filter`, `stats`, `options` e `PATCH` resource-oriented por intencao nao entram no catalogo de actions
+- `@WorkflowAction` exclui entrada no catalogo de `surfaces`
+- availability de action deve permanecer contextual, plugavel, com `reason` explicito e sem N+1 por action
+- o catalogo de actions nao decide execucao; ele apenas descobre o que existe, o que esta disponivel e qual schema canonico usar
+
+### Fechamento da fase
+
+A Fase 5 esta formalmente encerrada no estado atual do starter.
+
+Criterios de saida atingidos:
+
+- catalogo global/contextual publicado para `ITEM` e `COLLECTION`
+- availability composicional por contexto, authorities e estado
+- fixture real com comandos tipados de item e colecao
+- exclusao semantica endurecida em relacao a `surfaces`
+- cobertura focal e E2E interna validando shape, availability, hardening e workflow real
+
+O proximo passo canonico deixa de ser hardening adicional de `actions` e passa a ser a Fase 6 de capabilities unificadas.
 
 ## Fase 6 - Capabilities unificadas
 
@@ -486,6 +595,24 @@ Capabilities agregam:
 
 Sem redefinir payload ou contrato.
 
+### Estado atual da implementacao
+
+- `CanonicalCapabilityResolver` foi extraido do calculo canonico antes embutido em `ApiDocsController`
+- `CapabilitySnapshot` e `CapabilityService` ja agregam operacoes canonicas, `surfaces` e `actions`
+- `AbstractResourceQueryController` ja publica `GET /capabilities` e `GET /{id}/capabilities`
+- o agregado respeita escopo:
+  - colecao -> apenas `surfaces` de `COLLECTION` e `actions` de `COLLECTION`
+  - item -> apenas `surfaces` de `ITEM` e `actions` de `ITEM`
+- ausencia de catalogo de `surfaces` ou `actions` para um recurso valido resulta em lista vazia, e nao em shadow contract ou falha artificial
+- `CapabilitySnapshot.group` segue o grupo OpenAPI canonico resolvido por `resourcePath`; no estado atual isso normalmente significa o grupo individual do recurso
+- o calculo canonico de `update` ignora mappings workflow-like (`/actions/...` e alias `:action`), preservando a semantica resource-oriented mesmo quando `actions` usam `PATCH`
+
+### Fechamento da fase
+
+A Fase 6 esta concluida no starter. O proximo passo canonicamente correto deixa de ser evolucao
+interna do `praxis-metadata-starter` e passa a ser a migracao do primeiro consumidor externo sobre
+o baseline completo `resource + surfaces + actions + capabilities`.
+
 ## Estrutura de Pacotes Alvo
 
 ```text
@@ -504,7 +631,7 @@ org.praxisplatform.uischema
 `-- configuration
 ```
 
-## Corte Recomendado para o Primeiro PR
+## Registro Historico do Primeiro Corte Recomendado
 
 ### Escopo
 
@@ -523,7 +650,7 @@ Esse corte tem o menor risco arquitetural e estabelece a fundacao canonica para:
 - catalogo de actions
 - snapshot de capabilities
 
-## Corte Recomendado para o Segundo PR
+## Registro Historico do Segundo Corte Recomendado
 
 ### Escopo
 
@@ -758,6 +885,15 @@ Ao final do plano:
 - `action` explicita workflows de negocio
 - `/schemas/filtered` continua sendo a unica fonte estrutural canonica
 - nenhum catalogo define payload inline
+
+## Proximos Passos Canonicamente Corretos
+
+Depois do fechamento das Fases 1 a 6, a trilha correta e:
+
+1. consolidar o pacote documental e operacional do piloto
+2. escolher um recurso piloto real em um consumidor externo
+3. migrar o recurso no consumidor usando o baseline `resource + surfaces + actions + capabilities`
+4. so depois decidir se vale abrir `e2e-pg` ou mais hardening transversal
 
 ## Frase-Guia
 

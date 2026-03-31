@@ -100,6 +100,22 @@ class CapabilityE2ETest extends AbstractE2eH2Test {
         assertEquals(404, response.getStatusCode().value());
     }
 
+    @Test
+    void repeatedCapabilityRequestsRemainStableForTheSameContext() throws Exception {
+        Long carolId = state.employeeIdsByName().get("Carol");
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Test-Principal", "qa-user");
+        headers.add("X-Test-Authorities", "employee:approve,employee:profile:update");
+
+        JsonNode firstCollection = body(get("/employees/capabilities"));
+        JsonNode secondCollection = body(get("/employees/capabilities"));
+        assertEquals(firstCollection, secondCollection);
+
+        JsonNode firstItem = body(exchange("/employees/" + carolId + "/capabilities", HttpMethod.GET, headers));
+        JsonNode secondItem = body(exchange("/employees/" + carolId + "/capabilities", HttpMethod.GET, headers));
+        assertEquals(firstItem, secondItem);
+    }
+
     private JsonNode findById(JsonNode items, String id) {
         for (JsonNode item : items) {
             if (id.equals(item.path("id").asText())) {
