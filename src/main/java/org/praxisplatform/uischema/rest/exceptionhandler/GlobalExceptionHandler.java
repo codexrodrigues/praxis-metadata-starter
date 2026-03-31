@@ -17,6 +17,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
@@ -26,6 +27,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springdoc.api.OpenApiResourceNotFoundException;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 
 import java.net.URI;
 import java.util.List;
@@ -142,25 +144,7 @@ public class GlobalExceptionHandler {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
         }
         String reason = normalize(ex.getReason());
-        String responseMessage = reason != null ? reason : defaultResponseMessage(status);
-        String detailMessage = reason != null ? reason : responseMessage;
-
-        CustomProblemDetail customProblemDetail = new CustomProblemDetail(detailMessage);
-        customProblemDetail.setStatus(status);
-        customProblemDetail.setTitle(defaultProblemTitle(status));
-        customProblemDetail.setType(URI.create(defaultProblemType(status)));
-        customProblemDetail.setInstance(instanceUri(request));
-        customProblemDetail.setCategory(resolveCategory(status));
-        enrichErrorDetails(customProblemDetail, request, null);
-
-        RestApiResponse<Object> response = RestApiResponse
-                .builder()
-                .status(RestApiResponseStatus.FAILURE)
-                .message(responseMessage)
-                .errors(List.of(customProblemDetail))
-                .build();
-
-        return ResponseEntity.status(status).body(response);
+        return buildStatusResponse(status, reason, request, null);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -319,6 +303,20 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<RestApiResponse<Object>> handleGenericException(Exception ex, WebRequest request) {
+        ResponseStatus responseStatus = AnnotatedElementUtils.findMergedAnnotation(ex.getClass(), ResponseStatus.class);
+        if (responseStatus != null) {
+            HttpStatus status = responseStatus.code() != HttpStatus.INTERNAL_SERVER_ERROR
+                    ? responseStatus.code()
+                    : responseStatus.value();
+            if (status == HttpStatus.INTERNAL_SERVER_ERROR) {
+                status = HttpStatus.resolve(responseStatus.value().value());
+            }
+            if (status != null) {
+                String reason = normalize(responseStatus.reason());
+                String message = reason != null ? reason : normalize(ex.getMessage());
+                return buildStatusResponse(status, message, request, null);
+            }
+        }
         log.error("[GlobalExceptionHandler] Unhandled exception", ex);
         return buildInternalServerErrorResponse(request);
     }
@@ -349,6 +347,33 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+
+    private ResponseEntity<RestApiResponse<Object>> buildStatusResponse(
+            HttpStatus status,
+            String reason,
+            WebRequest request,
+            String errorCode
+    ) {
+        String responseMessage = reason != null ? reason : defaultResponseMessage(status);
+        String detailMessage = reason != null ? reason : responseMessage;
+
+        CustomProblemDetail customProblemDetail = new CustomProblemDetail(detailMessage);
+        customProblemDetail.setStatus(status);
+        customProblemDetail.setTitle(defaultProblemTitle(status));
+        customProblemDetail.setType(URI.create(defaultProblemType(status)));
+        customProblemDetail.setInstance(instanceUri(request));
+        customProblemDetail.setCategory(resolveCategory(status));
+        enrichErrorDetails(customProblemDetail, request, errorCode);
+
+        RestApiResponse<Object> response = RestApiResponse
+                .builder()
+                .status(RestApiResponseStatus.FAILURE)
+                .message(responseMessage)
+                .errors(List.of(customProblemDetail))
+                .build();
+
+        return ResponseEntity.status(status).body(response);
     }
 
 
