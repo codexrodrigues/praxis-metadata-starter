@@ -3,6 +3,8 @@ package org.praxisplatform.uischema.controller.base;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.annotation.PostConstruct;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.capability.CapabilityService;
+import org.praxisplatform.uischema.capability.CapabilitySnapshot;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.LocateResponse;
 import org.praxisplatform.uischema.dto.OptionDTO;
@@ -92,6 +94,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @Autowired(required = false)
     private ActionCatalogService actionCatalogService;
+
+    @Autowired(required = false)
+    private CapabilityService capabilityService;
 
     private String detectedBasePath;
 
@@ -496,6 +501,25 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             throw new IllegalStateException("ActionCatalogService is not configured for contextual discovery.");
         }
         return withVersion(ResponseEntity.ok(), actionCatalogService.findCollectionActions(getResourceKey()));
+    }
+
+    @GetMapping("/capabilities")
+    @Operation(summary = "Descobrir capabilities unificadas da colecao")
+    public ResponseEntity<CapabilitySnapshot> getCollectionCapabilities() {
+        if (capabilityService == null) {
+            throw new IllegalStateException("CapabilityService is not configured for contextual discovery.");
+        }
+        return withVersion(ResponseEntity.ok(), capabilityService.collectionCapabilities(getResourceKey(), getBasePath()));
+    }
+
+    @GetMapping("/{id}/capabilities")
+    @Operation(summary = "Descobrir capabilities unificadas do registro")
+    public ResponseEntity<CapabilitySnapshot> getItemCapabilities(@PathVariable ID id) {
+        if (capabilityService == null) {
+            throw new IllegalStateException("CapabilityService is not configured for contextual discovery.");
+        }
+        getService().findById(id);
+        return withVersion(ResponseEntity.ok(), capabilityService.itemCapabilities(getResourceKey(), getBasePath(), id));
     }
 
     @GetMapping(SCHEMAS_PATH)

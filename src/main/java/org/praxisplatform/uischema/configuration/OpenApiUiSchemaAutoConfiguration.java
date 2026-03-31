@@ -2,7 +2,11 @@ package org.praxisplatform.uischema.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.praxisplatform.uischema.capability.CapabilityService;
+import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
+import org.praxisplatform.uischema.capability.DefaultCapabilityService;
 import org.praxisplatform.uischema.capability.NoOpResourceStateSnapshotProvider;
+import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
 import org.praxisplatform.uischema.capability.ResourceStateSnapshotProvider;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
 import org.praxisplatform.uischema.controller.docs.ActionCatalogController;
@@ -227,6 +231,12 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
+    public CanonicalCapabilityResolver canonicalCapabilityResolver(OpenApiDocumentService openApiDocumentService) {
+        return new OpenApiCanonicalCapabilityResolver(openApiDocumentService);
+    }
+
+    @Bean
     @ConditionalOnMissingBean(name = "contextualSurfaceAvailabilityRule")
     @Order(0)
     public SurfaceAvailabilityRule contextualSurfaceAvailabilityRule() {
@@ -365,6 +375,22 @@ public class OpenApiUiSchemaAutoConfiguration {
                 actionDefinitionRegistry,
                 actionAvailabilityEvaluator,
                 actionAvailabilityContextResolver
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public CapabilityService capabilityService(
+            CanonicalCapabilityResolver canonicalCapabilityResolver,
+            SurfaceCatalogService surfaceCatalogService,
+            ActionCatalogService actionCatalogService,
+            OpenApiDocumentService openApiDocumentService
+    ) {
+        return new DefaultCapabilityService(
+                canonicalCapabilityResolver,
+                surfaceCatalogService,
+                actionCatalogService,
+                openApiDocumentService
         );
     }
 

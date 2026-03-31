@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.uischema.FieldConfigProperties;
+import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
@@ -85,6 +86,9 @@ public class ApiDocsController {
 
     @Autowired
     private SchemaReferenceResolver schemaReferenceResolver;
+
+    @Autowired
+    private CanonicalCapabilityResolver canonicalCapabilityResolver;
 
     @Autowired(required = false)
     private OptionSourceRegistry optionSourceRegistry;
@@ -506,59 +510,7 @@ public class ApiDocsController {
      * </p>
      */
     private Map<String, Boolean> computeCapabilities(JsonNode rootNode, String basePath) {
-        Map<String, Boolean> caps = new java.util.HashMap<>();
-        java.util.function.BiFunction<String, String, Boolean> hasOp = (path, op) -> {
-            JsonNode node = rootNode.path(PATHS).path(path);
-            return node != null && !node.isMissingNode() && node.has(op);
-        };
-
-        String p = basePath;
-        caps.put("create", hasOp.apply(p, "post"));
-        caps.put("update", hasOp.apply(p + "/{id}", "put")
-                || hasOp.apply(p + "/{id}", "patch")
-                || hasItemLevelWriteOperation(rootNode, p, "put", "patch"));
-        caps.put("delete", hasOp.apply(p + "/{id}", "delete") || hasOp.apply(p + "/batch", "delete"));
-        caps.put("options", hasOp.apply(p + "/options/filter", "post") || hasOp.apply(p + "/options/by-ids", "get"));
-        caps.put("optionSources", hasOp.apply(p + "/option-sources/{sourceKey}/options/filter", "post")
-                || hasOp.apply(p + "/option-sources/{sourceKey}/options/by-ids", "get"));
-        caps.put("byId", hasOp.apply(p + "/{id}", "get"));
-        caps.put("all", hasOp.apply(p + "/all", "get"));
-        caps.put("filter", hasOp.apply(p + "/filter", "post"));
-        caps.put("cursor", hasOp.apply(p + "/filter/cursor", "post"));
-        caps.put("statsGroupBy", hasOp.apply(p + "/stats/group-by", "post"));
-        caps.put("statsTimeSeries", hasOp.apply(p + "/stats/timeseries", "post"));
-        caps.put("statsDistribution", hasOp.apply(p + "/stats/distribution", "post"));
-        return caps;
-    }
-
-    private boolean hasItemLevelWriteOperation(JsonNode rootNode, String basePath, String... methods) {
-        if (rootNode == null || basePath == null || basePath.isBlank() || methods == null || methods.length == 0) {
-            return false;
-        }
-
-        JsonNode pathsNode = rootNode.path(PATHS);
-        if (pathsNode == null || pathsNode.isMissingNode()) {
-            return false;
-        }
-
-        String normalizedBasePath = normalizeOpenApiPath(basePath);
-        String itemPrefix = normalizedBasePath + "/{";
-        Iterator<String> pathIterator = pathsNode.fieldNames();
-        while (pathIterator.hasNext()) {
-            String candidatePath = pathIterator.next();
-            if (candidatePath == null || !candidatePath.startsWith(itemPrefix)) {
-                continue;
-            }
-
-            JsonNode candidateNode = pathsNode.path(candidatePath);
-            for (String method : methods) {
-                if (method != null && candidateNode.has(method)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return canonicalCapabilityResolver.resolve(rootNode, basePath);
     }
 
     @SuppressWarnings("unchecked")
