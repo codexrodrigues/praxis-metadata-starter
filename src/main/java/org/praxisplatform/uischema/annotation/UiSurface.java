@@ -57,6 +57,27 @@ public @interface UiSurface {
     int order() default 0;
 
     /**
+     * Authorities/roles canonicamente exigidas para a surface.
+     *
+     * <p>
+     * O starter nao impoe framework de seguranca especifico. Quando um principal com authorities
+     * estiver disponivel no runtime, a avaliacao de availability pode bloquear a surface se
+     * alguma authority declarada estiver ausente.
+     * </p>
+     */
+    String[] requiredAuthorities() default {};
+
+    /**
+     * Estados canonicos do recurso em que a surface pode ficar disponivel.
+     *
+     * <p>
+     * A avaliacao usa um {@code ResourceStateSnapshotProvider} plugavel para resolver o estado do
+     * recurso uma vez por request item-level, sem custo N+1 por surface.
+     * </p>
+     */
+    String[] allowedStates() default {};
+
+    /**
      * Tags opcionais de organizacao semantica.
      */
     String[] tags() default {};
