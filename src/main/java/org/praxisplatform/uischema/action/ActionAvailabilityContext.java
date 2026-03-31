@@ -1,6 +1,6 @@
 package org.praxisplatform.uischema.action;
 
-import org.praxisplatform.uischema.surface.ResourceStateSnapshot;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshot;
 
 import java.security.Principal;
 import java.util.Locale;

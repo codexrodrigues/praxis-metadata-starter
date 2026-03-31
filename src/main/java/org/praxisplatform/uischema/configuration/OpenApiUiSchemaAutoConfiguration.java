@@ -2,6 +2,8 @@ package org.praxisplatform.uischema.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.praxisplatform.uischema.capability.NoOpResourceStateSnapshotProvider;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshotProvider;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
 import org.praxisplatform.uischema.controller.docs.ActionCatalogController;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
@@ -35,8 +37,6 @@ import org.praxisplatform.uischema.surface.AllowedStatesSurfaceAvailabilityRule;
 import org.praxisplatform.uischema.surface.ContextualSurfaceAvailabilityRule;
 import org.praxisplatform.uischema.surface.DefaultSurfaceAvailabilityContextResolver;
 import org.praxisplatform.uischema.surface.DefaultSurfaceAvailabilityEvaluator;
-import org.praxisplatform.uischema.surface.NoOpResourceStateSnapshotProvider;
-import org.praxisplatform.uischema.surface.ResourceStateSnapshotProvider;
 import org.praxisplatform.uischema.surface.RequiredAuthoritiesSurfaceAvailabilityRule;
 import org.praxisplatform.uischema.surface.SurfaceAvailabilityContextResolver;
 import org.praxisplatform.uischema.surface.SurfaceAvailabilityEvaluator;
@@ -341,14 +341,16 @@ public class OpenApiUiSchemaAutoConfiguration {
             ApplicationContext applicationContext,
             CanonicalOperationResolver canonicalOperationResolver,
             SchemaReferenceResolver schemaReferenceResolver,
-            @Value("${praxis.metadata.validation.surface-workflow-conflict:WARN}") AnnotationConflictMode conflictMode
+            @Value("${praxis.metadata.validation.surface-workflow-conflict:WARN}") AnnotationConflictMode conflictMode,
+            @Value("${praxis.metadata.validation.workflow-action-shape:WARN}") AnnotationConflictMode workflowActionShapeMode
     ) {
         return new AnnotationDrivenActionDefinitionRegistry(
                 requestMappingHandlerMapping,
                 applicationContext,
                 canonicalOperationResolver,
                 schemaReferenceResolver,
-                conflictMode
+                conflictMode,
+                workflowActionShapeMode
         );
     }
 

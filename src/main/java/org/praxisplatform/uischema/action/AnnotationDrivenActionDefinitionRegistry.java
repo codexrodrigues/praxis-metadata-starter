@@ -15,6 +15,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -40,6 +41,7 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
     private final CanonicalOperationResolver canonicalOperationResolver;
     private final SchemaReferenceResolver schemaReferenceResolver;
     private final AnnotationConflictMode conflictMode;
+    private final AnnotationConflictMode workflowActionShapeMode;
     private volatile ActionRegistrySnapshot cachedSnapshot;
 
     public AnnotationDrivenActionDefinitionRegistry(
@@ -47,13 +49,15 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
             ApplicationContext applicationContext,
             CanonicalOperationResolver canonicalOperationResolver,
             SchemaReferenceResolver schemaReferenceResolver,
-            AnnotationConflictMode conflictMode
+            AnnotationConflictMode conflictMode,
+            AnnotationConflictMode workflowActionShapeMode
     ) {
         this.handlerMapping = handlerMapping;
         this.applicationContext = applicationContext;
         this.canonicalOperationResolver = canonicalOperationResolver;
         this.schemaReferenceResolver = schemaReferenceResolver;
         this.conflictMode = conflictMode;
+        this.workflowActionShapeMode = workflowActionShapeMode;
     }
 
     @Override
@@ -108,6 +112,7 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
         }
 
         handleConflictIfPresent(handlerMethod);
+        validateWorkflowActionShape(entry.getKey(), handlerMethod);
 
         ResourceDescriptor resource = resolveResourceDescriptor(handlerMethod, controllerClass);
         if (resource == null) {
@@ -115,8 +120,8 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
         }
 
         CanonicalOperationRef operationRef = canonicalOperationResolver.resolve(handlerMethod, entry.getKey());
-        CanonicalSchemaRef requestSchemaRef = schemaReferenceResolver.requestSchema(operationRef);
-        CanonicalSchemaRef responseSchemaRef = schemaReferenceResolver.responseSchema(operationRef);
+        CanonicalSchemaRef requestSchemaRef = resolveSchema(operationRef, "request", resource);
+        CanonicalSchemaRef responseSchemaRef = resolveSchema(operationRef, "response", resource);
         ActionDefinition definition = new ActionDefinition(
                 workflowAction.id(),
                 resource.resourceKey(),
@@ -155,6 +160,58 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
                 // no-op
             }
         }
+    }
+
+    private void validateWorkflowActionShape(RequestMappingInfo mappingInfo, HandlerMethod handlerMethod) {
+        if (isWorkflowActionShapeValid(mappingInfo)) {
+            return;
+        }
+
+        String message = "Method %s#%s declares @WorkflowAction on a non-canonical command shape. "
+                + "Expected explicit POST/PATCH mapping under /actions/... or alias path ':action'. "
+                + "Resolved methods=%s, paths=%s."
+                .formatted(
+                        handlerMethod.getBeanType().getName(),
+                        handlerMethod.getMethod().getName(),
+                        mappingInfo.getMethodsCondition().getMethods(),
+                        mappingInfo.getPatternValues()
+                );
+
+        switch (workflowActionShapeMode) {
+            case FAIL -> throw new IllegalStateException(message);
+            case WARN -> logger.warn(message);
+            case IGNORE -> {
+                // no-op
+            }
+        }
+    }
+
+    private boolean isWorkflowActionShapeValid(RequestMappingInfo mappingInfo) {
+        return hasCanonicalWorkflowMethod(mappingInfo) && hasCanonicalWorkflowPath(mappingInfo);
+    }
+
+    private boolean hasCanonicalWorkflowMethod(RequestMappingInfo mappingInfo) {
+        return mappingInfo != null
+                && !mappingInfo.getMethodsCondition().getMethods().isEmpty()
+                && mappingInfo.getMethodsCondition().getMethods().stream().allMatch(this::isWorkflowActionMethod);
+    }
+
+    private boolean isWorkflowActionMethod(RequestMethod requestMethod) {
+        return requestMethod == RequestMethod.POST || requestMethod == RequestMethod.PATCH;
+    }
+
+    private boolean hasCanonicalWorkflowPath(RequestMappingInfo mappingInfo) {
+        return mappingInfo != null
+                && !mappingInfo.getPatternValues().isEmpty()
+                && mappingInfo.getPatternValues().stream().anyMatch(this::isWorkflowActionPath);
+    }
+
+    private boolean isWorkflowActionPath(String path) {
+        if (!StringUtils.hasText(path)) {
+            return false;
+        }
+        String normalized = normalizePath(path);
+        return normalized.contains("/actions/") || normalized.matches(".+:[A-Za-z][A-Za-z0-9-]*$");
     }
 
     private ResourceDescriptor resolveResourceDescriptor(HandlerMethod handlerMethod, Class<?> controllerClass) {
@@ -235,6 +292,23 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
                 ? normalized.substring("/api/".length())
                 : normalized.substring(1);
         return withoutApiPrefix.replace('/', '.');
+    }
+
+    private CanonicalSchemaRef resolveSchema(
+            CanonicalOperationRef operationRef,
+            String schemaType,
+            ResourceDescriptor resource
+    ) {
+        return schemaReferenceResolver.resolve(
+                operationRef.path(),
+                operationRef.method(),
+                schemaType,
+                false,
+                null,
+                null,
+                resource.idField(),
+                false
+        );
     }
 
     private Map<String, List<ActionDefinition>> indexBy(

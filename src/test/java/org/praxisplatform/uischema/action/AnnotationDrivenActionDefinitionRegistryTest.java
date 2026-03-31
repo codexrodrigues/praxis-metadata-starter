@@ -20,7 +20,9 @@ import org.praxisplatform.uischema.surface.SurfaceScope;
 import org.praxisplatform.uischema.validation.AnnotationConflictMode;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -32,7 +34,9 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -50,15 +54,15 @@ class AnnotationDrivenActionDefinitionRegistryTest {
         RegistryActionController controller = new RegistryActionController();
         Map<RequestMappingInfo, HandlerMethod> handlerMethods = new LinkedHashMap<>();
         handlerMethods.put(
-                RequestMappingInfo.paths("/registry-actions/{id}/actions/approve").build(),
+                RequestMappingInfo.paths("/registry-actions/{id}/actions/approve").methods(RequestMethod.POST).build(),
                 new HandlerMethod(controller, RegistryActionController.class.getDeclaredMethod("approve", Long.class))
         );
         handlerMethods.put(
-                RequestMappingInfo.paths("/registry-actions/{id}/actions/reject").build(),
+                RequestMappingInfo.paths("/registry-actions/{id}/actions/reject").methods(RequestMethod.POST).build(),
                 new HandlerMethod(controller, RegistryActionController.class.getDeclaredMethod("reject", Long.class))
         );
         handlerMethods.put(
-                RequestMappingInfo.paths("/registry-actions/actions/bulk-approve").build(),
+                RequestMappingInfo.paths("/registry-actions/actions/bulk-approve").methods(RequestMethod.POST).build(),
                 new HandlerMethod(controller, RegistryActionController.class.getDeclaredMethod("bulkApprove"))
         );
         when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
@@ -71,11 +75,29 @@ class AnnotationDrivenActionDefinitionRegistryTest {
                             : path.contains("approve") ? "approveResource" : "rejectResource";
                     return new CanonicalOperationRef("registry-group", operationId, path, "POST");
                 });
-        when(schemaResolver.resolve(any(CanonicalOperationRef.class), any(String.class)))
+        when(schemaResolver.resolve(
+                any(String.class),
+                any(String.class),
+                any(String.class),
+                anyBoolean(),
+                any(),
+                any(),
+                any(String.class),
+                any(Boolean.class)
+        ))
                 .thenAnswer(invocation -> {
-                    CanonicalOperationRef operationRef = invocation.getArgument(0, CanonicalOperationRef.class);
-                    String schemaType = invocation.getArgument(1, String.class);
-                    return new CanonicalSchemaRef(schemaType + "-" + operationRef.operationId(), schemaType, "/schemas/filtered");
+                    String path = invocation.getArgument(0, String.class);
+                    String schemaType = invocation.getArgument(2, String.class);
+                    String idField = invocation.getArgument(6, String.class);
+                    Boolean readOnly = invocation.getArgument(7, Boolean.class);
+                    String operationId = path.contains("bulk-approve")
+                            ? "bulkApproveResource"
+                            : path.contains("approve") ? "approveResource" : "rejectResource";
+                    return new CanonicalSchemaRef(
+                            schemaType + "-" + operationId + "-" + idField + "-" + readOnly,
+                            schemaType,
+                            "/schemas/filtered?idField=" + idField + "&schemaType=" + schemaType
+                    );
                 });
 
         AnnotationDrivenActionDefinitionRegistry registry = new AnnotationDrivenActionDefinitionRegistry(
@@ -83,6 +105,7 @@ class AnnotationDrivenActionDefinitionRegistryTest {
                 applicationContext,
                 operationResolver,
                 schemaResolver,
+                AnnotationConflictMode.WARN,
                 AnnotationConflictMode.WARN
         );
 
@@ -93,12 +116,15 @@ class AnnotationDrivenActionDefinitionRegistryTest {
         assertEquals(firstLookup, secondLookup);
         assertEquals(3, firstLookup.size());
         assertEquals(List.of("approve", "bulk-approve", "reject"), firstLookup.stream().map(ActionDefinition::id).toList());
+        assertEquals("request-approveResource-employeeId-false", firstLookup.get(0).requestSchema().schemaId());
+        assertEquals("/schemas/filtered?idField=employeeId&schemaType=request", firstLookup.get(0).requestSchema().url());
         assertEquals(ActionScope.COLLECTION, firstLookup.stream()
                 .filter(action -> "bulk-approve".equals(action.id()))
                 .findFirst()
                 .orElseThrow()
                 .scope());
         assertNotNull(registry.findByGroup("registry-group").stream().filter(action -> "approve".equals(action.id())).findFirst().orElse(null));
+        verify(schemaResolver, times(6)).resolve(any(String.class), eq("POST"), any(String.class), eq(false), eq(null), eq(null), eq("employeeId"), eq(false));
     }
 
     @Test
@@ -111,7 +137,7 @@ class AnnotationDrivenActionDefinitionRegistryTest {
         ConflictingActionController controller = new ConflictingActionController();
         Map<RequestMappingInfo, HandlerMethod> handlerMethods = new LinkedHashMap<>();
         handlerMethods.put(
-                RequestMappingInfo.paths("/conflicting-actions/{id}/actions/approve").build(),
+                RequestMappingInfo.paths("/conflicting-actions/{id}/actions/approve").methods(RequestMethod.POST).build(),
                 new HandlerMethod(controller, ConflictingActionController.class.getDeclaredMethod("approve", Long.class))
         );
         when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
@@ -121,10 +147,65 @@ class AnnotationDrivenActionDefinitionRegistryTest {
                 applicationContext,
                 operationResolver,
                 schemaResolver,
-                AnnotationConflictMode.FAIL
+                AnnotationConflictMode.FAIL,
+                AnnotationConflictMode.WARN
         );
 
         assertThrows(IllegalStateException.class, () -> registry.findByResourceKey("conflicting.actions"));
+    }
+
+    @Test
+    void failsWhenWorkflowActionUsesNonCommandHttpMethodUnderFailMode() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        ApplicationContext applicationContext = mock(ApplicationContext.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+        SchemaReferenceResolver schemaResolver = mock(SchemaReferenceResolver.class);
+
+        InvalidMethodActionController controller = new InvalidMethodActionController();
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = new LinkedHashMap<>();
+        handlerMethods.put(
+                RequestMappingInfo.paths("/invalid-method-actions/{id}/actions/approve").methods(RequestMethod.GET).build(),
+                new HandlerMethod(controller, InvalidMethodActionController.class.getDeclaredMethod("approve", Long.class))
+        );
+        when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
+
+        AnnotationDrivenActionDefinitionRegistry registry = new AnnotationDrivenActionDefinitionRegistry(
+                handlerMapping,
+                applicationContext,
+                operationResolver,
+                schemaResolver,
+                AnnotationConflictMode.WARN,
+                AnnotationConflictMode.FAIL
+        );
+
+        assertThrows(IllegalStateException.class, () -> registry.findByResourceKey("invalid.method.actions"));
+    }
+
+    @Test
+    void failsWhenWorkflowActionPathIsNotWorkflowLikeUnderFailMode() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        ApplicationContext applicationContext = mock(ApplicationContext.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+        SchemaReferenceResolver schemaResolver = mock(SchemaReferenceResolver.class);
+
+        InvalidPathActionController controller = new InvalidPathActionController();
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = new LinkedHashMap<>();
+        handlerMethods.put(
+                RequestMappingInfo.paths("/invalid-path-actions/{id}/approve").methods(RequestMethod.POST).build(),
+                new HandlerMethod(controller, InvalidPathActionController.class.getDeclaredMethod("approve", Long.class))
+        );
+        when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
+
+        AnnotationDrivenActionDefinitionRegistry registry = new AnnotationDrivenActionDefinitionRegistry(
+                handlerMapping,
+                applicationContext,
+                operationResolver,
+                schemaResolver,
+                AnnotationConflictMode.WARN,
+                AnnotationConflictMode.FAIL
+        );
+
+        assertThrows(IllegalStateException.class, () -> registry.findByResourceKey("invalid.path.actions"));
     }
 
     @ApiResource(value = "/registry-actions", resourceKey = "registry.actions")
@@ -143,7 +224,7 @@ class AnnotationDrivenActionDefinitionRegistryTest {
 
         @Override
         protected String getIdFieldName() {
-            return "id";
+            return "employeeId";
         }
 
         @PostMapping("/{id}/actions/approve")
@@ -162,6 +243,44 @@ class AnnotationDrivenActionDefinitionRegistryTest {
         @Operation(summary = "Bulk approve resource")
         @WorkflowAction(id = "bulk-approve", title = "Bulk Approve", scope = ActionScope.COLLECTION)
         public void bulkApprove() {
+        }
+    }
+
+    @ApiResource(value = "/invalid-method-actions", resourceKey = "invalid.method.actions")
+    static class InvalidMethodActionController extends AbstractReadOnlyResourceController<TestDto, Long, TestFilterDTO> {
+
+        @Override
+        protected BaseResourceQueryService<TestDto, Long, TestFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(TestDto dto) {
+            return dto.id();
+        }
+
+        @GetMapping("/{id}/actions/approve")
+        @WorkflowAction(id = "approve", title = "Approve", scope = ActionScope.ITEM)
+        public void approve(@PathVariable Long id) {
+        }
+    }
+
+    @ApiResource(value = "/invalid-path-actions", resourceKey = "invalid.path.actions")
+    static class InvalidPathActionController extends AbstractReadOnlyResourceController<TestDto, Long, TestFilterDTO> {
+
+        @Override
+        protected BaseResourceQueryService<TestDto, Long, TestFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(TestDto dto) {
+            return dto.id();
+        }
+
+        @PostMapping("/{id}/approve")
+        @WorkflowAction(id = "approve", title = "Approve", scope = ActionScope.ITEM)
+        public void approve(@PathVariable Long id) {
         }
     }
 

@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.surface;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshot;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;

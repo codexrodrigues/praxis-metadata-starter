@@ -1,8 +1,8 @@
 package org.praxisplatform.uischema.action;
 
-import org.praxisplatform.uischema.surface.NoOpResourceStateSnapshotProvider;
-import org.praxisplatform.uischema.surface.ResourceStateSnapshot;
-import org.praxisplatform.uischema.surface.ResourceStateSnapshotProvider;
+import org.praxisplatform.uischema.capability.NoOpResourceStateSnapshotProvider;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshot;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshotProvider;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;

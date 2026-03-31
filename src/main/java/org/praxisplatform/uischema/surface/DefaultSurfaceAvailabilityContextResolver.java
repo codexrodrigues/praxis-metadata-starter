@@ -1,12 +1,15 @@
 package org.praxisplatform.uischema.surface;
 
+import org.praxisplatform.uischema.capability.NoOpResourceStateSnapshotProvider;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshot;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshotProvider;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.lang.reflect.Method;
 import java.lang.reflect.InaccessibleObjectException;
+import java.lang.reflect.Method;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.LinkedHashSet;

@@ -1,4 +1,4 @@
-package org.praxisplatform.uischema.surface;
+package org.praxisplatform.uischema.capability;
 
 import java.util.Optional;
 

@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.surface;
 
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshot;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
 

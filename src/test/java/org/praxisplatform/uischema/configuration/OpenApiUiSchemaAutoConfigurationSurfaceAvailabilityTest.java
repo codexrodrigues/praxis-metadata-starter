@@ -2,8 +2,8 @@ package org.praxisplatform.uischema.configuration;
 
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshot;
 import org.praxisplatform.uischema.surface.DefaultSurfaceAvailabilityEvaluator;
-import org.praxisplatform.uischema.surface.ResourceStateSnapshot;
 import org.praxisplatform.uischema.surface.SurfaceAvailabilityContext;
 import org.praxisplatform.uischema.surface.SurfaceAvailabilityEvaluator;
 import org.praxisplatform.uischema.surface.SurfaceAvailabilityRule;

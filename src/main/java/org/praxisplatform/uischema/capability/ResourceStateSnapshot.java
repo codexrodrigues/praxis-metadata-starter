@@ -1,4 +1,4 @@
-package org.praxisplatform.uischema.surface;
+package org.praxisplatform.uischema.capability;
 
 import java.util.Map;
 
@@ -6,8 +6,8 @@ import java.util.Map;
  * Snapshot canonico do estado de um recurso para avaliacao de availability.
  *
  * <p>
- * O snapshot e carregado uma vez por request contextual de surface e compartilhado entre todas as
- * avaliacoes daquele catalogo, evitando custo N+1 por surface.
+ * O snapshot e carregado uma vez por request contextual e compartilhado entre todas as avaliacoes
+ * daquele catalogo, evitando custo N+1 por surface ou action.
  * </p>
  */
 public record ResourceStateSnapshot(

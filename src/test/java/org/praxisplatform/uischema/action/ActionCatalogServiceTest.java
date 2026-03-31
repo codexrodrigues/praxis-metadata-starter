@@ -2,9 +2,9 @@ package org.praxisplatform.uischema.action;
 
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshot;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
-import org.praxisplatform.uischema.surface.ResourceStateSnapshot;
 
 import java.util.List;
 import java.util.Locale;
