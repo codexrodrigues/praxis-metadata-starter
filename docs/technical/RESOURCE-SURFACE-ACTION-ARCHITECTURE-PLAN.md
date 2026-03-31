@@ -172,11 +172,13 @@ O repo ganha uma API interna unica para resolver operacao e schema canonicos, se
 - `BaseResourceQueryService`
 - `BaseResourceCommandService`
 - `BaseResourceService`
+- `AbstractBaseQueryResourceService`
 - `AbstractBaseResourceService`
 - `AbstractReadOnlyResourceService`
 
 Este corte troca o boundary de service e mapeamento, separando `ResponseDTO`, `CreateDTO` e
-`UpdateDTO`, mas ainda nao remove os controllers legados nesta mesma rodada.
+`UpdateDTO`, garante `findAll()` e preservacao de ordem em `findAllById()`, e move read-only para
+uma hierarquia query-only real. Os controllers legados ainda nao foram removidos nesta rodada.
 
 O proximo corte da Fase 2 deve:
 

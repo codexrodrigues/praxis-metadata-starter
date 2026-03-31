@@ -12,20 +12,20 @@ Praxis Metadata Starter is a Spring Boot library that enables metadata-driven ba
 - **Resolvers**: `CustomOpenApiResolver` converts annotations and Bean Validation into `x-ui` metadata.
 - **Controllers**: `ApiDocsController` exposes `/schemas/filtered` (runtime contract) and `DomainCatalogController` exposes `/schemas/catalog` (documentation/RAG surface).
 - **Canonical OpenAPI boundary**: `OpenApiDocumentService`, `CanonicalOperationResolver` and `SchemaReferenceResolver` own the canonical resolution of groups, operations and filtered schema links.
-- **Services**: the canonical new core is `BaseResourceQueryService` + `BaseResourceCommandService` + `BaseResourceService`, implemented by `AbstractBaseResourceService` and `AbstractReadOnlyResourceService`.
+- **Services**: the canonical new core is `BaseResourceQueryService` + `BaseResourceCommandService` + `BaseResourceService`, implemented through `AbstractBaseQueryResourceService`, `AbstractBaseResourceService` and `AbstractReadOnlyResourceService`.
 - **Legacy CRUD core**: `BaseCrudService`, `AbstractBaseCrudService` and `AbstractCrudController` still exist, but they are migration surface and should not receive new semantics.
 - **Filters**: Dynamic JPA Specifications from `FilterDTO` classes annotated with `@Filterable`.
 
 ### Data Flow
-1. DTOs with `@UISchema` + Bean Validation → `CustomOpenApiResolver` → enriched OpenAPI with `x-ui`.
-2. Controllers with `@ApiResource` → `DynamicSwaggerConfig` → grouped OpenAPI documents.
+1. DTOs with `@UISchema` + Bean Validation -> `CustomOpenApiResolver` -> enriched OpenAPI with `x-ui`.
+2. Controllers with `@ApiResource` -> `DynamicSwaggerConfig` -> grouped OpenAPI documents.
 3. Runtime: `/schemas/filtered` filters and caches schema payloads for UI consumption.
 4. Groups reduce OpenAPI payload by ~97% vs. full docs.
 
 ### Key Packages
 - `org.praxisplatform.uischema.annotation`: Core annotations.
-- `org.praxisplatform.uischema.controller.base`: Abstract controllers like `AbstractCrudController`.
-- `org.praxisplatform.uischema.service.base`: `AbstractBaseCrudService` for CRUD logic.
+- `org.praxisplatform.uischema.controller.base`: Legacy base controllers plus the migration target for the new `AbstractResource*Controller` hierarchy.
+- `org.praxisplatform.uischema.service.base`: Canonical resource-oriented core implemented by `AbstractBaseQueryResourceService`, `AbstractBaseResourceService` and `AbstractReadOnlyResourceService`.
 - `org.praxisplatform.uischema.filter`: Specification builders for dynamic queries.
 - `org.praxisplatform.uischema.extension`: OpenAPI enrichment logic.
 
@@ -54,8 +54,8 @@ Praxis Metadata Starter is a Spring Boot library that enables metadata-driven ba
 ## Project-Specific Conventions
 
 ### Code Structure
-- New canonical services should extend `AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>` and provide a `ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO>`.
-- Read-only services should extend `AbstractReadOnlyResourceService<E, ResponseDTO, ID, FilterDTO>`.
+- New canonical mutable services should extend `AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>` and provide a `ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>`.
+- Read-only services should extend `AbstractReadOnlyResourceService<E, ResponseDTO, ID, FilterDTO>`, which is query-only and does not inherit command methods.
 - Controllers based on `AbstractCrudController` are legacy and should only be touched when the migration explicitly requires it.
 - Repositories extend `JpaRepository<E, ID>` and `JpaSpecificationExecutor<E>`.
 - DTOs use Lombok (`@Data`, `@Builder`) and Bean Validation.
@@ -107,7 +107,7 @@ public class EmployeeService extends AbstractBaseResourceService<
         UpdateEmployeeDTO> {
 
     @Override
-    protected ResourceMapper<Employee, EmployeeResponseDTO, CreateEmployeeDTO, UpdateEmployeeDTO> getResourceMapper() {
+    protected ResourceMapper<Employee, EmployeeResponseDTO, CreateEmployeeDTO, UpdateEmployeeDTO, Long> getResourceMapper() {
         return mapper;
     }
 }

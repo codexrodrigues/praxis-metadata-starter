@@ -26,10 +26,12 @@ import java.util.OptionalLong;
  * Boundary canonico de leitura para resources metadata-driven.
  *
  * <p>
- * Este contrato concentra apenas query, discovery de options e stats. O lado de comando vive em
+ * Este contrato concentra query, discovery de options e stats. O lado de comando vive em
  * {@link BaseResourceCommandService}, evitando que o mesmo DTO de escrita contamine a superficie de
- * resposta do recurso. Dependencias de infraestrutura, como repositorio, entity class e builder de
- * specifications, permanecem restritas a base abstrata e nao fazem parte da superficie canonica.
+ * resposta do recurso. Metadados operacionais que impactam diretamente a surface canonica de
+ * leitura e discovery, como sort default, dataset version, stats support e option-sources,
+ * continuam expostos aqui por enquanto. Dependencias estruturais de infraestrutura, como
+ * repositorio, entity class e builder de specifications, permanecem restritas a base abstrata.
  * </p>
  */
 public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends GenericFilterDTO> {
@@ -55,6 +57,8 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
     OptionSourceDescriptor resolveOptionSource(String sourceKey);
 
     ResponseDTO findById(ID id);
+
+    List<ResponseDTO> findAll();
 
     List<ResponseDTO> findAllById(Collection<ID> ids);
 

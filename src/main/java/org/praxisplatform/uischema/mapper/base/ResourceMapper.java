@@ -13,8 +13,9 @@ package org.praxisplatform.uischema.mapper.base;
  * @param <R> tipo do DTO de resposta
  * @param <C> tipo do DTO de criacao
  * @param <U> tipo do DTO de atualizacao
+ * @param <ID> tipo do identificador do recurso
  */
-public interface ResourceMapper<E, R, C, U> {
+public interface ResourceMapper<E, R, C, U, ID> {
 
     /**
      * Converte uma entidade no DTO de resposta canonico.
@@ -34,5 +35,5 @@ public interface ResourceMapper<E, R, C, U> {
     /**
      * Extrai o identificador persistido da entidade.
      */
-    Object extractId(E entity);
+    ID extractId(E entity);
 }
