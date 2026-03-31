@@ -15,6 +15,8 @@ import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
+import org.praxisplatform.uischema.action.ActionCatalogResponse;
+import org.praxisplatform.uischema.action.ActionCatalogService;
 import org.praxisplatform.uischema.surface.SurfaceCatalogResponse;
 import org.praxisplatform.uischema.surface.SurfaceCatalogService;
 import org.praxisplatform.uischema.util.PageableBuilder;
@@ -56,10 +58,10 @@ import java.util.OptionalLong;
  *
  * <p>
  * Esta classe concentra a superficie HTTP de query, options, option-sources, stats e schema
- * discovery. A partir da Fase 4, ela tambem publica `GET /{id}/surfaces` como discovery
- * contextual item-level derivado do catalogo canonico de surfaces. Recursos mutantes devem subir
- * para {@link AbstractResourceController}; recursos somente leitura devem herdar diretamente desta
- * base.
+ * discovery. A partir da Fase 4/5, ela tambem publica discovery contextual em
+ * `GET /surfaces`, `GET /{id}/surfaces`, `GET /actions` e `GET /{id}/actions` a partir dos
+ * catalogos canonicos de surfaces/actions. Recursos mutantes devem subir para
+ * {@link AbstractResourceController}; recursos somente leitura devem herdar diretamente desta base.
  * </p>
  */
 public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extends GenericFilterDTO> {
@@ -87,6 +89,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @Autowired(required = false)
     private SurfaceCatalogService surfaceCatalogService;
+
+    @Autowired(required = false)
+    private ActionCatalogService actionCatalogService;
 
     private String detectedBasePath;
 
@@ -472,6 +477,25 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         }
         getService().findById(id);
         return withVersion(ResponseEntity.ok(), surfaceCatalogService.findItemSurfaces(getResourceKey(), id));
+    }
+
+    @GetMapping("/{id}/actions")
+    @Operation(summary = "Descobrir workflow actions contextuais do registro")
+    public ResponseEntity<ActionCatalogResponse> getItemActions(@PathVariable ID id) {
+        if (actionCatalogService == null) {
+            throw new IllegalStateException("ActionCatalogService is not configured for contextual discovery.");
+        }
+        getService().findById(id);
+        return withVersion(ResponseEntity.ok(), actionCatalogService.findItemActions(getResourceKey(), id));
+    }
+
+    @GetMapping("/actions")
+    @Operation(summary = "Descobrir workflow actions contextuais da colecao")
+    public ResponseEntity<ActionCatalogResponse> getCollectionActions() {
+        if (actionCatalogService == null) {
+            throw new IllegalStateException("ActionCatalogService is not configured for contextual discovery.");
+        }
+        return withVersion(ResponseEntity.ok(), actionCatalogService.findCollectionActions(getResourceKey()));
     }
 
     @GetMapping(SCHEMAS_PATH)
