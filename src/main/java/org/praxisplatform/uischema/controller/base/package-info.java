@@ -10,8 +10,10 @@
  * <p>
  * <strong>Classes principais:</strong>
  * <ul>
- *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractCrudController} — superficie completa do recurso.</li>
- *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractReadOnlyController} — variante somente leitura com {@code 405} para escrita.</li>
+ *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractResourceQueryController} — superficie canonica de leitura, options, stats e schema discovery.</li>
+ *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractResourceController} — superficie mutante canonica com create, update e delete.</li>
+ *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController} — variante query-only para recursos somente leitura.</li>
+ *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractCrudController} — legado em migracao; nao deve receber novas semanticas.</li>
  * </ul>
  * </p>
  *

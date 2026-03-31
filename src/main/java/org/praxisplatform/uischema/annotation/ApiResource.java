@@ -15,7 +15,8 @@ import java.lang.annotation.Target;
  *
  * <p>
  * No ecossistema do starter, esta e a forma recomendada de expor controllers que herdam
- * {@code AbstractCrudController} ou {@code AbstractReadOnlyController}. Ela centraliza o
+ * {@code AbstractResourceController}, {@code AbstractResourceQueryController} ou
+ * {@code AbstractReadOnlyResourceController}. Ela centraliza o
  * base path do recurso, reduz boilerplate e permite que a infraestrutura de documentacao,
  * HATEOAS e resolucao de schemas trabalhe sobre uma mesma fonte de verdade.
  * </p>
@@ -38,7 +39,7 @@ import java.lang.annotation.Target;
  *
  * @ApiResource(ApiPaths.HumanResources.FUNCIONARIOS)
  * @ApiGroup("human-resources")
- * public class FuncionarioController extends AbstractCrudController<...> {
+ * public class FuncionarioController extends AbstractResourceController<...> {
  *     // apenas heranca e wiring do service
  * }
  * }</pre>
@@ -46,7 +47,7 @@ import java.lang.annotation.Target;
  * <h3>Forma alternativa</h3>
  * <pre>{@code
  * @ApiResource("/api/human-resources/funcionarios")
- * public class FuncionarioController extends AbstractCrudController<...> {
+ * public class FuncionarioController extends AbstractResourceController<...> {
  * }
  * }</pre>
  *

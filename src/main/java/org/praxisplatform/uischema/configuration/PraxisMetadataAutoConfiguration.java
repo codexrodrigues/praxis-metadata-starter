@@ -77,7 +77,7 @@ import java.math.BigDecimal;
  *   <li><strong>DynamicSwaggerConfig:</strong> Depende do component scan para ser detectado</li>
  *   <li><strong>ApiDocsController:</strong> Registrado via component scan</li>
  *   <li><strong>Services e Utilidades:</strong> Serviços base detectados automaticamente</li>
- *   <li><strong>AbstractCrudController:</strong> Classes base disponibilizadas para herança</li>
+ *   <li><strong>Resource controllers:</strong> Classes base canônicas e legadas disponibilizadas para heranca</li>
  * </ul>
  * 
  * <h3>⚡ Ordem de Execução</h3>

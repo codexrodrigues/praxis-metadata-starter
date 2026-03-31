@@ -56,6 +56,9 @@ Praxis Metadata Starter is a Spring Boot library that enables metadata-driven ba
 ### Code Structure
 - New canonical mutable services should extend `AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>` and provide a `ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>`.
 - Read-only services should extend `AbstractReadOnlyResourceService<E, ResponseDTO, ID, FilterDTO>`, which is query-only and does not inherit command methods.
+- New canonical query controllers should extend `AbstractResourceQueryController<ResponseDTO, ID, FilterDTO>`.
+- New canonical mutable controllers should extend `AbstractResourceController<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>`.
+- New canonical read-only controllers should extend `AbstractReadOnlyResourceController<ResponseDTO, ID, FilterDTO>`, which does not publish write endpoints.
 - Controllers based on `AbstractCrudController` are legacy and should only be touched when the migration explicitly requires it.
 - Repositories extend `JpaRepository<E, ID>` and `JpaSpecificationExecutor<E>`.
 - DTOs use Lombok (`@Data`, `@Builder`) and Bean Validation.
@@ -93,6 +96,30 @@ Praxis Metadata Starter is a Spring Boot library that enables metadata-driven ba
 @ApiGroup("example")
 public class EntityController extends AbstractCrudController<Entity, EntityDTO, Long, EntityFilterDTO> {
     // Implement getService(), toDto(), etc.
+}
+```
+
+### Canonical Resource Controller
+```java
+@RestController
+@ApiResource("/api/example/entities")
+@ApiGroup("example")
+public class EntityController extends AbstractResourceController<
+        EntityResponseDTO,
+        Long,
+        EntityFilterDTO,
+        CreateEntityDTO,
+        UpdateEntityDTO> {
+
+    @Override
+    protected EntityService getService() {
+        return service;
+    }
+
+    @Override
+    protected Long getResponseId(EntityResponseDTO dto) {
+        return dto.getId();
+    }
 }
 ```
 

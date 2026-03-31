@@ -180,12 +180,23 @@ Este corte troca o boundary de service e mapeamento, separando `ResponseDTO`, `C
 `UpdateDTO`, garante `findAll()` e preservacao de ordem em `findAllById()`, e move read-only para
 uma hierarquia query-only real. Os controllers legados ainda nao foram removidos nesta rodada.
 
+### Estado implementado no corte B da Fase 2
+
+- `AbstractResourceQueryController`
+- `AbstractResourceController`
+- `AbstractReadOnlyResourceController`
+
+Este corte sobe o core HTTP novo sobre o boundary resource-oriented, preserva a superficie canonica
+de query/options/stats/schema, remove a semantica de escrita herdada da variante read-only e adapta
+o scanning de grupos OpenAPI para reconhecer a nova hierarquia. O legado `AbstractCrudController` /
+`AbstractReadOnlyController` permanece apenas como superficie transitoria enquanto consumidores como
+o `praxis-api-quickstart` ainda nao foram migrados.
+
 O proximo corte da Fase 2 deve:
 
-- introduzir `AbstractResourceQueryController`
-- introduzir `AbstractResourceController`
-- introduzir `AbstractReadOnlyResourceController`
-- migrar os testes e exemplos do starter para o novo core
+- migrar consumidores piloto para os controllers novos
+- remover progressivamente o legado `AbstractReadOnlyController`
+- reduzir a coexistencia com `AbstractCrudController`
 
 ## Fase 2 - Reescrever o core resource-oriented
 
@@ -257,7 +268,7 @@ public interface BaseResourceService<
 
 - `AbstractReadOnlyResourceController` herda apenas da base de query
 - o modelo atual de read-only herdando CRUD e devolvendo `405` deve ser removido
-- `findAll()` nao entra como operacao obrigatoria do core
+- `findAll()` permanece obrigatorio enquanto a superficie canonica do starter continuar expondo `GET /all`
 
 ### Resultado esperado
 

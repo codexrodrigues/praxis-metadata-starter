@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.configuration;
 import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.controller.base.AbstractCrudController;
+import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springdoc.core.models.GroupedOpenApi;
@@ -43,7 +44,7 @@ import java.util.Set;
  * 
  * <h3>📊 1. Grupos Individuais Ultra-Específicos</h3>
  * <ul>
- *   <li><strong>Escopo:</strong> Apenas controllers que estendem {@code AbstractCrudController}</li>
+ *   <li><strong>Escopo:</strong> Controllers do legado {@code AbstractCrudController} e da nova hierarquia {@code AbstractResourceQueryController}</li>
  *   <li><strong>Performance:</strong> ~3-5KB por documento (ultra-rápido)</li>
  *   <li><strong>Uso:</strong> Consultas específicas como {@code /schemas/filtered?path=/api/human-resources/eventos-folha/all}</li>
  * </ul>
@@ -60,7 +61,7 @@ import java.util.Set;
  *   <li><strong>Startup da Aplicação:</strong> @PostConstruct é executado automaticamente</li>
  *   <li><strong>Escaneamento Dual:</strong> 
  *       <ul>
- *         <li>1ª passada: Identifica {@code AbstractCrudController} para grupos individuais</li>
+ *         <li>1ª passada: Identifica controllers resource-oriented canônicos para grupos individuais</li>
  *         <li>2ª passada: Identifica QUALQUER controller com {@code @ApiGroup} para grupos agregados</li>
  *       </ul>
  *   </li>
@@ -148,7 +149,7 @@ public class DynamicSwaggerConfig {
     private RequestMappingHandlerMapping handlerMapping;
 
     /**
-     * Configuração para validar se controllers que estendem AbstractCrudController usam @ApiResource.
+ * Configuração para validar se controllers resource-oriented canônicos usam @ApiResource.
      * 
      * <h4>📋 Valores possíveis:</h4>
      * <ul>
@@ -173,7 +174,7 @@ public class DynamicSwaggerConfig {
      * 
      * <h4>📊 1ª Passada - Grupos Individuais Ultra-Específicos:</h4>
      * <ul>
-     *   <li>Escaneia apenas controllers que estendem {@code AbstractCrudController}</li>
+ *   <li>Escaneia controllers que estendem {@code AbstractCrudController} ou {@code AbstractResourceQueryController}</li>
      *   <li>Cria grupos individuais baseados no path completo (ex: "api-human-resources-funcionarios")</li>
      *   <li>Performance ultra-otimizada: ~3-5KB por documento</li>
      * </ul>
@@ -188,7 +189,7 @@ public class DynamicSwaggerConfig {
      * <h4>📊 Exemplo de Saída no Log:</h4>
      * <pre>
      * Total de handlers encontrados: 247
-     * Controllers qualificados para grupos individuais (AbstractCrudController): 8
+ * Controllers qualificados para grupos individuais canônicos: 8
      * Grupo individual 'api-human-resources-funcionarios' registrado para FuncionarioController
      * Grupo individual 'api-human-resources-cargos' registrado para CargoController
      * ... (6 mais grupos individuais)
@@ -208,7 +209,7 @@ public class DynamicSwaggerConfig {
      */
     @PostConstruct
     public void createDynamicGroups() {
-        logger.info("Iniciando escaneamento dinâmico de grupos para controllers que estendem AbstractCrudController...");
+        logger.info("Iniciando escaneamento dinamico de grupos para controllers resource-oriented canonicamente suportados...");
 
         // 📋 PASSO 1: Obter todos os handler methods registrados no Spring MVC
         Map<RequestMappingInfo, HandlerMethod> handlerMethods = handlerMapping.getHandlerMethods();
@@ -221,7 +222,7 @@ public class DynamicSwaggerConfig {
         int totalHandlers = handlerMethods.size();
         logger.info("Total de handlers encontrados: {}", totalHandlers);
 
-        // 🔍 PASSO 3A: Escanear controllers AbstractCrudController para grupos individuais
+        // 🔍 PASSO 3A: Escanear controllers resource-oriented canônicos para grupos individuais
         Map<String, Set<String>> aggregatedGroupToPaths = new HashMap<>();
         Set<String> registeredGroupNames = new HashSet<>();
         
@@ -229,11 +230,11 @@ public class DynamicSwaggerConfig {
             HandlerMethod handlerMethod = entry.getValue();
             Class<?> controllerClass = handlerMethod.getBeanType();
 
-            // ✅ GRUPOS INDIVIDUAIS: Apenas controllers que estendem AbstractCrudController
-            if (AbstractCrudController.class.isAssignableFrom(controllerClass)) {
+            // ✅ GRUPOS INDIVIDUAIS: controllers do legado ou da nova hierarquia resource-oriented
+            if (isCanonicalResourceController(controllerClass)) {
                 qualifyingControllers.add(controllerClass);
 
-                logger.debug("🔍 DEBUG: Analisando controller CRUD: {}", controllerClass.getSimpleName());
+                logger.debug("🔍 DEBUG: Analisando controller de recurso: {}", controllerClass.getSimpleName());
                 
                 String basePath = extractControllerBasePath(controllerClass);
                 
@@ -253,7 +254,7 @@ public class DynamicSwaggerConfig {
             }
         }
 
-        logger.info("Controllers qualificados para grupos individuais (AbstractCrudController): {}", qualifyingControllers.size());
+        logger.info("Controllers qualificados para grupos individuais canonicos: {}", qualifyingControllers.size());
 
         // 🔍 PASSO 3B: Escanear TODOS os controllers para grupos agregados via @ApiGroup
         for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : handlerMethods.entrySet()) {
@@ -296,14 +297,14 @@ public class DynamicSwaggerConfig {
 
         // 🚨 Aviso caso nenhum controller qualificado seja encontrado
         if (qualifyingControllers.isEmpty()) {
-            logger.warn("Nenhum controller qualificado encontrado. Verifique se os controllers estendem AbstractCrudController e têm @RequestMapping.");
+            logger.warn("Nenhum controller qualificado encontrado. Verifique se os controllers resource-oriented usam @ApiResource ou @RequestMapping.");
         }
     }
 
     /**
      * <h3>✅ Validação de Conformidade com @ApiResource</h3>
      * <p>Executa após o startup completo da aplicação para validar se todos os controllers 
-     * que estendem AbstractCrudController estão usando @ApiResource conforme esperado.</p>
+     * resource-oriented canônicos estão usando @ApiResource conforme esperado.</p>
      * 
      * <h4>🎯 Objetivo:</h4>
      * <p>Garantir que developers sigam o padrão arquitetural correto, evitando inconsistências
@@ -318,7 +319,7 @@ public class DynamicSwaggerConfig {
      * </ul>
      * 
      * <h4>⚠️ Sem Exceções:</h4>
-     * <p>Todos os controllers que estendem AbstractCrudController devem migrar para @ApiResource.
+     * <p>Todos os controllers resource-oriented canônicos devem migrar para @ApiResource.
      * Não há anotação de exceção ou contorno - a validação é direta e obrigatória.</p>
      */
     @EventListener(ApplicationReadyEvent.class)
@@ -328,19 +329,19 @@ public class DynamicSwaggerConfig {
             return;
         }
 
-        logger.info("🔍 Iniciando validação de uso de @ApiResource em controllers AbstractCrud...");
+        logger.info("🔍 Iniciando validacao de uso de @ApiResource em controllers resource-oriented...");
         
         Map<RequestMappingInfo, HandlerMethod> handlerMethods = handlerMapping.getHandlerMethods();
         Set<Class<?>> violatingControllers = new HashSet<>();
         Set<Class<?>> compliantControllers = new HashSet<>();
         
-        // 📋 PASSO 1: Identificar controllers que estendem AbstractCrudController
+        // 📋 PASSO 1: Identificar controllers resource-oriented canônicos
         for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : handlerMethods.entrySet()) {
             HandlerMethod handlerMethod = entry.getValue();
             Class<?> controllerClass = handlerMethod.getBeanType();
 
-            // ✅ Filtra apenas controllers que estendem AbstractCrudController
-            if (AbstractCrudController.class.isAssignableFrom(controllerClass)) {
+            // ✅ Filtra controllers do legado ou da nova hierarquia resource-oriented
+            if (isCanonicalResourceController(controllerClass)) {
                 
                 // 🔍 Verifica se usa @ApiResource ou pelo menos @RequestMapping + @RestController
                 boolean hasApiResource = AnnotationUtils.findAnnotation(controllerClass, ApiResource.class) != null;
@@ -390,7 +391,7 @@ public class DynamicSwaggerConfig {
                 logger.info("💡 Para falhar o startup: praxis.openapi.validation.api-resource-required=FAIL");
             }
         } else {
-            logger.info("🎉 Todos os controllers AbstractCrud estão usando @ApiResource corretamente!");
+            logger.info("🎉 Todos os controllers resource-oriented estao usando @ApiResource corretamente!");
         }
     }
 
@@ -435,6 +436,11 @@ public class DynamicSwaggerConfig {
         logger.debug("🔍 DEBUG: Controller {}: Nenhuma anotação @ApiResource ou @RequestMapping encontrada", 
             controllerClass.getSimpleName());
         return null;
+    }
+
+    private boolean isCanonicalResourceController(Class<?> controllerClass) {
+        return AbstractCrudController.class.isAssignableFrom(controllerClass)
+                || AbstractResourceQueryController.class.isAssignableFrom(controllerClass);
     }
 
     /**

@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
  * <pre>{@code
  * @ApiResource(ApiPaths.HumanResources.FUNCIONARIOS)
  * @ApiGroup("human-resources")
- * public class FuncionarioController extends AbstractCrudController<...> {
+ * public class FuncionarioController extends AbstractResourceController<...> {
  *     // heranca + wiring do service
  * }
  * }</pre>
@@ -44,7 +44,7 @@ import java.lang.annotation.Target;
  *
  * @see org.praxisplatform.uischema.annotation.ApiResource
  * @see org.praxisplatform.uischema.configuration.DynamicSwaggerConfig
- * @see org.praxisplatform.uischema.controller.base.AbstractCrudController
+ * @see org.praxisplatform.uischema.controller.base.AbstractResourceController
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
