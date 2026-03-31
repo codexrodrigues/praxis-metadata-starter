@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.configuration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
+import org.praxisplatform.uischema.controller.docs.ActionCatalogController;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
 import org.praxisplatform.uischema.controller.docs.SurfaceCatalogController;
 import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
@@ -17,11 +18,29 @@ import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
+import org.praxisplatform.uischema.validation.AnnotationConflictMode;
+import org.praxisplatform.uischema.action.ActionAvailabilityRule;
+import org.praxisplatform.uischema.action.ActionAvailabilityContextResolver;
+import org.praxisplatform.uischema.action.ActionAvailabilityEvaluator;
+import org.praxisplatform.uischema.action.AllowedStatesActionAvailabilityRule;
+import org.praxisplatform.uischema.action.ActionCatalogService;
+import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
+import org.praxisplatform.uischema.action.AnnotationDrivenActionDefinitionRegistry;
+import org.praxisplatform.uischema.action.ContextualActionAvailabilityRule;
+import org.praxisplatform.uischema.action.DefaultActionAvailabilityContextResolver;
+import org.praxisplatform.uischema.action.DefaultActionAvailabilityEvaluator;
+import org.praxisplatform.uischema.action.RequiredAuthoritiesActionAvailabilityRule;
 import org.praxisplatform.uischema.surface.AnnotationDrivenSurfaceDefinitionRegistry;
+import org.praxisplatform.uischema.surface.AllowedStatesSurfaceAvailabilityRule;
+import org.praxisplatform.uischema.surface.ContextualSurfaceAvailabilityRule;
 import org.praxisplatform.uischema.surface.DefaultSurfaceAvailabilityContextResolver;
 import org.praxisplatform.uischema.surface.DefaultSurfaceAvailabilityEvaluator;
+import org.praxisplatform.uischema.surface.NoOpResourceStateSnapshotProvider;
+import org.praxisplatform.uischema.surface.ResourceStateSnapshotProvider;
+import org.praxisplatform.uischema.surface.RequiredAuthoritiesSurfaceAvailabilityRule;
 import org.praxisplatform.uischema.surface.SurfaceAvailabilityContextResolver;
 import org.praxisplatform.uischema.surface.SurfaceAvailabilityEvaluator;
+import org.praxisplatform.uischema.surface.SurfaceAvailabilityRule;
 import org.praxisplatform.uischema.surface.SurfaceCatalogService;
 import org.praxisplatform.uischema.surface.SurfaceDefinitionRegistry;
 import org.praxisplatform.uischema.stats.StatsEligibility;
@@ -208,15 +227,44 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    public SurfaceAvailabilityEvaluator surfaceAvailabilityEvaluator() {
-        return new DefaultSurfaceAvailabilityEvaluator();
+    @ConditionalOnMissingBean(name = "contextualSurfaceAvailabilityRule")
+    @Order(0)
+    public SurfaceAvailabilityRule contextualSurfaceAvailabilityRule() {
+        return new ContextualSurfaceAvailabilityRule();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "requiredAuthoritiesSurfaceAvailabilityRule")
+    @Order(100)
+    public SurfaceAvailabilityRule requiredAuthoritiesSurfaceAvailabilityRule() {
+        return new RequiredAuthoritiesSurfaceAvailabilityRule();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "allowedStatesSurfaceAvailabilityRule")
+    @Order(200)
+    public SurfaceAvailabilityRule allowedStatesSurfaceAvailabilityRule() {
+        return new AllowedStatesSurfaceAvailabilityRule();
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public SurfaceAvailabilityContextResolver surfaceAvailabilityContextResolver() {
-        return new DefaultSurfaceAvailabilityContextResolver();
+    public SurfaceAvailabilityEvaluator surfaceAvailabilityEvaluator(List<SurfaceAvailabilityRule> surfaceAvailabilityRules) {
+        return new DefaultSurfaceAvailabilityEvaluator(surfaceAvailabilityRules);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ResourceStateSnapshotProvider resourceStateSnapshotProvider() {
+        return new NoOpResourceStateSnapshotProvider();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SurfaceAvailabilityContextResolver surfaceAvailabilityContextResolver(
+            ResourceStateSnapshotProvider resourceStateSnapshotProvider
+    ) {
+        return new DefaultSurfaceAvailabilityContextResolver(resourceStateSnapshotProvider);
     }
 
     @Bean
@@ -225,13 +273,15 @@ public class OpenApiUiSchemaAutoConfiguration {
             RequestMappingHandlerMapping requestMappingHandlerMapping,
             ApplicationContext applicationContext,
             CanonicalOperationResolver canonicalOperationResolver,
-            SchemaReferenceResolver schemaReferenceResolver
+            SchemaReferenceResolver schemaReferenceResolver,
+            @Value("${praxis.metadata.validation.surface-workflow-conflict:WARN}") AnnotationConflictMode conflictMode
     ) {
         return new AnnotationDrivenSurfaceDefinitionRegistry(
                 requestMappingHandlerMapping,
                 applicationContext,
                 canonicalOperationResolver,
-                schemaReferenceResolver
+                schemaReferenceResolver,
+                conflictMode
         );
     }
 
@@ -246,6 +296,73 @@ public class OpenApiUiSchemaAutoConfiguration {
                 surfaceDefinitionRegistry,
                 surfaceAvailabilityEvaluator,
                 surfaceAvailabilityContextResolver
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "contextualActionAvailabilityRule")
+    @Order(0)
+    public ActionAvailabilityRule contextualActionAvailabilityRule() {
+        return new ContextualActionAvailabilityRule();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "requiredAuthoritiesActionAvailabilityRule")
+    @Order(100)
+    public ActionAvailabilityRule requiredAuthoritiesActionAvailabilityRule() {
+        return new RequiredAuthoritiesActionAvailabilityRule();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "allowedStatesActionAvailabilityRule")
+    @Order(200)
+    public ActionAvailabilityRule allowedStatesActionAvailabilityRule() {
+        return new AllowedStatesActionAvailabilityRule();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ActionAvailabilityEvaluator actionAvailabilityEvaluator(List<ActionAvailabilityRule> actionAvailabilityRules) {
+        return new DefaultActionAvailabilityEvaluator(actionAvailabilityRules);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ActionAvailabilityContextResolver actionAvailabilityContextResolver(
+            ResourceStateSnapshotProvider resourceStateSnapshotProvider
+    ) {
+        return new DefaultActionAvailabilityContextResolver(resourceStateSnapshotProvider);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ActionDefinitionRegistry actionDefinitionRegistry(
+            RequestMappingHandlerMapping requestMappingHandlerMapping,
+            ApplicationContext applicationContext,
+            CanonicalOperationResolver canonicalOperationResolver,
+            SchemaReferenceResolver schemaReferenceResolver,
+            @Value("${praxis.metadata.validation.surface-workflow-conflict:WARN}") AnnotationConflictMode conflictMode
+    ) {
+        return new AnnotationDrivenActionDefinitionRegistry(
+                requestMappingHandlerMapping,
+                applicationContext,
+                canonicalOperationResolver,
+                schemaReferenceResolver,
+                conflictMode
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ActionCatalogService actionCatalogService(
+            ActionDefinitionRegistry actionDefinitionRegistry,
+            ActionAvailabilityEvaluator actionAvailabilityEvaluator,
+            ActionAvailabilityContextResolver actionAvailabilityContextResolver
+    ) {
+        return new ActionCatalogService(
+                actionDefinitionRegistry,
+                actionAvailabilityEvaluator,
+                actionAvailabilityContextResolver
         );
     }
 
@@ -268,5 +385,11 @@ public class OpenApiUiSchemaAutoConfiguration {
     @ConditionalOnMissingBean
     public SurfaceCatalogController surfaceCatalogController(SurfaceCatalogService surfaceCatalogService) {
         return new SurfaceCatalogController(surfaceCatalogService);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ActionCatalogController actionCatalogController(ActionCatalogService actionCatalogService) {
+        return new ActionCatalogController(actionCatalogService);
     }
 }
