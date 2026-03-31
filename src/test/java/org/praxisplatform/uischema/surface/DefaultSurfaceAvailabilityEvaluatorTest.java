@@ -19,13 +19,15 @@ class DefaultSurfaceAvailabilityEvaluatorTest {
 
     @Test
     void deniesItemSurfaceWithoutConcreteResourceContext() {
-        SurfaceDefinition definition = definition("detail", SurfaceScope.ITEM);
+        SurfaceDefinition definition = definition("detail", SurfaceScope.ITEM, List.of(), List.of());
         SurfaceAvailabilityContext context = new SurfaceAvailabilityContext(
                 "example.employees",
                 "/employees",
                 null,
                 null,
                 Locale.forLanguageTag("pt-BR"),
+                null,
+                java.util.Set.of(),
                 null
         );
 
@@ -39,14 +41,16 @@ class DefaultSurfaceAvailabilityEvaluatorTest {
 
     @Test
     void allowsContextualItemSurfaceAndCarriesAvailabilityMetadata() {
-        SurfaceDefinition definition = definition("profile", SurfaceScope.ITEM);
+        SurfaceDefinition definition = definition("profile", SurfaceScope.ITEM, List.of(), List.of());
         SurfaceAvailabilityContext context = new SurfaceAvailabilityContext(
                 "example.employees",
                 "/employees",
                 10L,
                 "tenant-a",
                 Locale.forLanguageTag("pt-BR"),
-                () -> "qa-user"
+                () -> "qa-user",
+                java.util.Set.of("employee:profile:update"),
+                ResourceStateSnapshot.of("ACTIVE")
         );
 
         AvailabilityDecision decision = evaluator.evaluate(definition, context);
@@ -59,7 +63,122 @@ class DefaultSurfaceAvailabilityEvaluatorTest {
         assertEquals("ITEM", decision.metadata().get("scope"));
     }
 
-    private SurfaceDefinition definition(String id, SurfaceScope scope) {
+    @Test
+    void deniesWhenRequiredAuthorityIsMissing() {
+        SurfaceDefinition definition = definition(
+                "profile",
+                SurfaceScope.ITEM,
+                List.of("employee:profile:update"),
+                List.of()
+        );
+        SurfaceAvailabilityContext context = new SurfaceAvailabilityContext(
+                "example.employees",
+                "/employees",
+                10L,
+                null,
+                Locale.forLanguageTag("pt-BR"),
+                () -> "qa-user",
+                java.util.Set.of(),
+                ResourceStateSnapshot.of("ACTIVE")
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(definition, context);
+
+        assertFalse(decision.allowed());
+        assertEquals("missing-authority", decision.reason());
+        assertEquals(List.of("employee:profile:update"), decision.metadata().get("requiredAuthorities"));
+        assertEquals(List.of("employee:profile:update"), decision.metadata().get("missingAuthorities"));
+    }
+
+    @Test
+    void shortCircuitsOnMissingAuthorityWithoutLeakingLaterStateMetadata() {
+        SurfaceDefinition definition = definition(
+                "profile",
+                SurfaceScope.ITEM,
+                List.of("employee:profile:update"),
+                List.of("ACTIVE")
+        );
+        SurfaceAvailabilityContext context = new SurfaceAvailabilityContext(
+                "example.employees",
+                "/employees",
+                10L,
+                null,
+                Locale.forLanguageTag("pt-BR"),
+                () -> "qa-user",
+                java.util.Set.of(),
+                ResourceStateSnapshot.of("INACTIVE")
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(definition, context);
+
+        assertFalse(decision.allowed());
+        assertEquals("missing-authority", decision.reason());
+        assertEquals(List.of("employee:profile:update"), decision.metadata().get("requiredAuthorities"));
+        assertEquals(List.of("employee:profile:update"), decision.metadata().get("missingAuthorities"));
+        assertNull(decision.metadata().get("allowedStates"));
+        assertNull(decision.metadata().get("resourceState"));
+    }
+
+    @Test
+    void deniesWhenResourceStateDoesNotMatchAllowedStates() {
+        SurfaceDefinition definition = definition(
+                "profile",
+                SurfaceScope.ITEM,
+                List.of("employee:profile:update"),
+                List.of("ACTIVE")
+        );
+        SurfaceAvailabilityContext context = new SurfaceAvailabilityContext(
+                "example.employees",
+                "/employees",
+                10L,
+                null,
+                Locale.forLanguageTag("pt-BR"),
+                () -> "qa-user",
+                java.util.Set.of("employee:profile:update"),
+                ResourceStateSnapshot.of("INACTIVE")
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(definition, context);
+
+        assertFalse(decision.allowed());
+        assertEquals("resource-state-blocked", decision.reason());
+        assertEquals("INACTIVE", decision.metadata().get("resourceState"));
+        assertEquals(List.of("ACTIVE"), decision.metadata().get("allowedStates"));
+    }
+
+    @Test
+    void deniesWhenAllowedStateIsDeclaredButStateSnapshotIsUnavailable() {
+        SurfaceDefinition definition = definition(
+                "profile",
+                SurfaceScope.ITEM,
+                List.of("employee:profile:update"),
+                List.of("ACTIVE")
+        );
+        SurfaceAvailabilityContext context = new SurfaceAvailabilityContext(
+                "example.employees",
+                "/employees",
+                10L,
+                null,
+                Locale.forLanguageTag("pt-BR"),
+                () -> "qa-user",
+                java.util.Set.of("employee:profile:update"),
+                null
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(definition, context);
+
+        assertFalse(decision.allowed());
+        assertEquals("resource-state-unavailable", decision.reason());
+        assertEquals(List.of("ACTIVE"), decision.metadata().get("allowedStates"));
+        assertNull(decision.metadata().get("resourceState"));
+    }
+
+    private SurfaceDefinition definition(
+            String id,
+            SurfaceScope scope,
+            List<String> requiredAuthorities,
+            List<String> allowedStates
+    ) {
         return new SurfaceDefinition(
                 id,
                 "example.employees",
@@ -74,6 +193,8 @@ class DefaultSurfaceAvailabilityEvaluatorTest {
                 new CanonicalOperationRef("example", id, "/employees/{id}/" + id, "PATCH"),
                 new CanonicalSchemaRef("schema-id", "request", "/schemas/filtered?path=/employees"),
                 10,
+                requiredAuthorities,
+                allowedStates,
                 List.of()
         );
     }

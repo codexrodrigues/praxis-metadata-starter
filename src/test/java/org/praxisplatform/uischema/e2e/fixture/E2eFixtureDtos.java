@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.e2e.fixture;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
@@ -198,6 +199,67 @@ class UpdateEmployeeProfileDTO {
 
     public void setNome(String nome) {
         this.nome = nome;
+    }
+}
+
+class ApproveEmployeeDTO {
+
+    @NotBlank
+    private String comentario;
+
+    public String getComentario() {
+        return comentario;
+    }
+
+    public void setComentario(String comentario) {
+        this.comentario = comentario;
+    }
+}
+
+class BulkApproveEmployeesDTO {
+
+    @NotEmpty
+    private java.util.List<Long> employeeIds;
+
+    @NotBlank
+    private String comentario;
+
+    public java.util.List<Long> getEmployeeIds() {
+        return employeeIds;
+    }
+
+    public void setEmployeeIds(java.util.List<Long> employeeIds) {
+        this.employeeIds = employeeIds;
+    }
+
+    public String getComentario() {
+        return comentario;
+    }
+
+    public void setComentario(String comentario) {
+        this.comentario = comentario;
+    }
+}
+
+class BulkApproveEmployeesResultDTO {
+
+    private int approvedCount;
+    private java.util.List<Long> approvedEmployeeIds;
+
+    public int getApprovedCount() {
+        return approvedCount;
+    }
+
+    public void setApprovedCount(int approvedCount) {
+        this.approvedCount = approvedCount;
+    }
+
+    public java.util.List<Long> getApprovedEmployeeIds() {
+        return approvedEmployeeIds;
+    }
+
+    public void setApprovedEmployeeIds(java.util.List<Long> approvedEmployeeIds) {
+        this.approvedEmployeeIds = approvedEmployeeIds;
     }
 }
 

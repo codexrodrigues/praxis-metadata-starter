@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
@@ -127,6 +128,25 @@ class GlobalExceptionHandlerTest {
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
         assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getProperties().get("code"));
+    }
+
+    @Test
+    void shouldRespectResponseStatusAnnotationInsideGenericHandler() {
+        WebRequest request = webRequest("/schemas/surfaces?resource=unknown.resource");
+
+        var response = handler.handleGenericException(
+                SurfaceCatalogNotFoundException.unknownResourceKey("unknown.resource"),
+                request
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals("Unknown surface resource key: unknown.resource", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.BUSINESS_LOGIC, body.getErrors().get(0).getCategory());
+        assertEquals("/schemas/surfaces?resource=unknown.resource", body.getErrors().get(0).getInstance().toString());
     }
 
     @Test

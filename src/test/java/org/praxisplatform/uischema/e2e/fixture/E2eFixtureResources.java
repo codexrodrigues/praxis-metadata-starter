@@ -6,6 +6,8 @@ import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.ResourceIntent;
 import org.praxisplatform.uischema.annotation.UiSurface;
+import org.praxisplatform.uischema.annotation.WorkflowAction;
+import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.filter.specification.GenericSpecification;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
@@ -27,13 +29,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -264,6 +269,50 @@ class EmployeeService extends AbstractBaseResourceService<
         return mapper.toResponse(saved);
     }
 
+    @Transactional
+    public EmployeeResponseDTO approve(Long id, ApproveEmployeeDTO dto) {
+        EmployeeEntity existing = findEntityById(id);
+        existing.setStatus(EmployeeStatus.ACTIVE);
+        EmployeeEntity saved = getRepository().save(existing);
+        if (getEntityManager() != null) {
+            getEntityManager().flush();
+            EmployeeEntity managed = getEntityManager().contains(saved) ? saved : getEntityManager().merge(saved);
+            getEntityManager().refresh(managed);
+            return mapper.toResponse(managed);
+        }
+        return mapper.toResponse(saved);
+    }
+
+    @Transactional
+    public BulkApproveEmployeesResultDTO bulkApprove(BulkApproveEmployeesDTO dto) {
+        List<Long> requestedIds = dto.getEmployeeIds() == null ? List.of() : List.copyOf(dto.getEmployeeIds());
+        List<EmployeeEntity> found = getRepository().findAllById(requestedIds);
+        if (found.size() != requestedIds.size()) {
+            throw getNotFoundException();
+        }
+
+        Map<Long, EmployeeEntity> byId = new LinkedHashMap<>();
+        for (EmployeeEntity employee : found) {
+            byId.put(employee.getId(), employee);
+        }
+
+        List<Long> approvedIds = requestedIds.stream()
+                .map(byId::get)
+                .peek(employee -> employee.setStatus(EmployeeStatus.ACTIVE))
+                .map(EmployeeEntity::getId)
+                .toList();
+
+        getRepository().saveAll(byId.values());
+        if (getEntityManager() != null) {
+            getEntityManager().flush();
+        }
+
+        BulkApproveEmployeesResultDTO result = new BulkApproveEmployeesResultDTO();
+        result.setApprovedCount(approvedIds.size());
+        result.setApprovedEmployeeIds(approvedIds);
+        return result;
+    }
+
     private List<EmployeeEntity> findFilteredEmployees(EmployeeFilterDTO filter, Sort sort) {
         GenericSpecification<EmployeeEntity> specification = getSpecificationsBuilder().buildSpecification(
                 filter,
@@ -395,6 +444,8 @@ class EmployeeController extends org.praxisplatform.uischema.controller.base.Abs
             description = "Atualiza apenas os dados de perfil do funcionario",
             intent = "profile",
             order = 50,
+            requiredAuthorities = {"employee:profile:update"},
+            allowedStates = {"ACTIVE"},
             tags = {"profile"}
     )
     @ResourceIntent(id = "employee-profile", title = "Editar perfil", description = "Atualiza apenas os dados de perfil do funcionario")
@@ -413,6 +464,61 @@ class EmployeeController extends org.praxisplatform.uischema.controller.base.Abs
                 linkToUiSchema("/{id}/profile", "patch", "request")
         );
         return withVersion(ResponseEntity.ok(), RestApiResponse.success(updated, hateoasOrNull(links)));
+    }
+
+    @PostMapping("/{id}/actions/approve")
+    @Operation(summary = "Aprovar funcionario")
+    @WorkflowAction(
+            id = "approve",
+            title = "Aprovar funcionario",
+            description = "Executa a aprovacao final do funcionario",
+            scope = ActionScope.ITEM,
+            order = 100,
+            successMessage = "Funcionario aprovado",
+            requiredAuthorities = {"employee:approve"},
+            allowedStates = {"INACTIVE"},
+            tags = {"workflow", "approval"}
+    )
+    public ResponseEntity<RestApiResponse<EmployeeResponseDTO>> approve(
+            @PathVariable Long id,
+            @Valid @RequestBody ApproveEmployeeDTO dto
+    ) {
+        EmployeeResponseDTO approved = service.approve(id, dto);
+        Links links = Links.of(
+                linkToSelf(id),
+                linkToAll(),
+                linkToFilter(),
+                linkToFilterCursor(),
+                linkToUiSchema("/{id}/actions/approve", "post", "request"),
+                linkToUiSchema("/{id}/actions/approve", "post", "response")
+        );
+        return withVersion(ResponseEntity.ok(), RestApiResponse.success(approved, hateoasOrNull(links)));
+    }
+
+    @PostMapping("/actions/bulk-approve")
+    @Operation(summary = "Aprovar funcionarios em lote")
+    @WorkflowAction(
+            id = "bulk-approve",
+            title = "Aprovar funcionarios em lote",
+            description = "Executa a aprovacao em lote de funcionarios selecionados",
+            scope = ActionScope.COLLECTION,
+            order = 90,
+            successMessage = "Funcionarios aprovados",
+            requiredAuthorities = {"employee:bulk-approve"},
+            tags = {"workflow", "bulk-approval"}
+    )
+    public ResponseEntity<RestApiResponse<BulkApproveEmployeesResultDTO>> bulkApprove(
+            @Valid @RequestBody BulkApproveEmployeesDTO dto
+    ) {
+        BulkApproveEmployeesResultDTO result = service.bulkApprove(dto);
+        Links links = Links.of(
+                linkToAll(),
+                linkToFilter(),
+                linkToFilterCursor(),
+                linkToUiSchema("/actions/bulk-approve", "post", "request"),
+                linkToUiSchema("/actions/bulk-approve", "post", "response")
+        );
+        return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(links)));
     }
 }
 

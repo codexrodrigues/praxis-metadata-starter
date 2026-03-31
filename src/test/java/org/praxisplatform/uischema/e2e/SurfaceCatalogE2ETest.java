@@ -56,6 +56,8 @@ class SurfaceCatalogE2ETest extends AbstractE2eH2Test {
         assertTrue(profile.path("schemaUrl").asText().contains("schemaType=request"));
         assertFalse(profile.path("availability").path("allowed").asBoolean());
         assertEquals("resource-context-required", profile.path("availability").path("reason").asText());
+        assertFalse(profile.path("availability").path("metadata").has("requiredAuthorities"));
+        assertFalse(profile.path("availability").path("metadata").has("allowedStates"));
     }
 
     @Test
@@ -104,9 +106,53 @@ class SurfaceCatalogE2ETest extends AbstractE2eH2Test {
         assertNotNull(profile);
         assertEquals("ITEM", profile.path("scope").asText());
         assertEquals("PATCH", profile.path("method").asText());
+        assertFalse(profile.path("availability").path("allowed").asBoolean());
+        assertEquals("missing-authority", profile.path("availability").path("reason").asText());
+        assertEquals("employee:profile:update", profile.path("availability").path("metadata").path("requiredAuthorities").get(0).asText());
+        assertFalse(profile.path("availability").path("metadata").has("resourceState"));
 
         assertNullSurface(catalog.path("surfaces"), "create");
         assertNullSurface(catalog.path("surfaces"), "list");
+    }
+
+    @Test
+    void itemSurfaceCatalogAllowsProfileWhenAuthorityAndStateMatch() throws Exception {
+        Long aliceId = state.employeeIdsByName().get("Alice");
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Test-Principal", "qa-user");
+        headers.add("X-Test-Authorities", "employee:profile:update");
+
+        ResponseEntity<String> response = exchange("/employees/" + aliceId + "/surfaces", HttpMethod.GET, headers);
+        assertEquals(200, response.getStatusCode().value());
+
+        JsonNode catalog = body(response);
+        JsonNode profile = findSurface(catalog.path("surfaces"), "profile");
+        assertNotNull(profile);
+        assertTrue(profile.path("availability").path("allowed").asBoolean());
+        assertTrue(profile.path("availability").path("reason").isNull());
+        assertTrue(profile.path("availability").path("metadata").path("principalPresent").asBoolean());
+        assertEquals("ACTIVE", profile.path("availability").path("metadata").path("resourceState").asText());
+        assertEquals("employee:profile:update", profile.path("availability").path("metadata").path("requiredAuthorities").get(0).asText());
+        assertEquals("ACTIVE", profile.path("availability").path("metadata").path("allowedStates").get(0).asText());
+    }
+
+    @Test
+    void itemSurfaceCatalogBlocksProfileWhenResourceStateDoesNotMatch() throws Exception {
+        Long carolId = state.employeeIdsByName().get("Carol");
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Test-Principal", "qa-user");
+        headers.add("X-Test-Authorities", "employee:profile:update");
+
+        ResponseEntity<String> response = exchange("/employees/" + carolId + "/surfaces", HttpMethod.GET, headers);
+        assertEquals(200, response.getStatusCode().value());
+
+        JsonNode catalog = body(response);
+        JsonNode profile = findSurface(catalog.path("surfaces"), "profile");
+        assertNotNull(profile);
+        assertFalse(profile.path("availability").path("allowed").asBoolean());
+        assertEquals("resource-state-blocked", profile.path("availability").path("reason").asText());
+        assertEquals("INACTIVE", profile.path("availability").path("metadata").path("resourceState").asText());
+        assertEquals("ACTIVE", profile.path("availability").path("metadata").path("allowedStates").get(0).asText());
     }
 
     @Test
@@ -164,6 +210,15 @@ class SurfaceCatalogE2ETest extends AbstractE2eH2Test {
 
         ResponseEntity<String> ambiguousParams = get("/schemas/surfaces?resource=human-resources.employees&group=human-resources");
         assertEquals(400, ambiguousParams.getStatusCode().value());
+    }
+
+    @Test
+    void surfacesCatalogReturnsNotFoundForUnknownResourceOrGroup() {
+        ResponseEntity<String> unknownResource = get("/schemas/surfaces?resource=unknown.resource");
+        assertEquals(404, unknownResource.getStatusCode().value());
+
+        ResponseEntity<String> unknownGroup = get("/schemas/surfaces?group=unknown-group");
+        assertEquals(404, unknownGroup.getStatusCode().value());
     }
 
     private JsonNode findSurface(JsonNode surfaces, String id) {
