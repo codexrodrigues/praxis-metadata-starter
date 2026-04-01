@@ -13,12 +13,15 @@ import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.server.ResponseStatusException;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.util.Map;
 
@@ -28,6 +31,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+@ExtendWith(OutputCaptureExtension.class)
 class ApiDocsControllerTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
@@ -651,7 +655,7 @@ class ApiDocsControllerTest {
     }
 
     @Test
-    void getFilteredSchemaResolvesIdFieldFromCanonicalResourceResponseForRequestSchema() throws Exception {
+    void getFilteredSchemaResolvesIdFieldFromCanonicalResourceResponseForRequestSchema(CapturedOutput output) throws Exception {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
         String doc = "{\n" +
                 "  \"paths\": {\n" +
@@ -731,6 +735,7 @@ class ApiDocsControllerTest {
         assertEquals("id", resource.get("idField"));
         assertEquals(Boolean.FALSE, resource.get("idFieldValid"));
         assertEquals("idField not found in schema properties", resource.get("idFieldMessage"));
+        assertFalse(output.getAll().contains("x-ui.resource.idField='id' nao encontrado nas propriedades do schema 'ProdutoFilterDTO'"));
     }
 
     @Test

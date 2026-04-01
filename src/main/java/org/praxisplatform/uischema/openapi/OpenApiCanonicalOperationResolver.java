@@ -2,10 +2,12 @@ package org.praxisplatform.uischema.openapi;
 
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.UriUtils;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.Locale;
 import java.util.Map;
@@ -42,7 +44,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
 
     @Override
     public String resolveGroup(String path) {
-        return openApiDocumentService.resolveGroupFromPath(path);
+        return openApiDocumentService.resolveGroupFromPath(normalizePath(path));
     }
 
     @Override
@@ -94,11 +96,19 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         if (!StringUtils.hasText(path)) {
             return "";
         }
-        String normalized = path.replaceAll("/+", "/");
+        String normalized = decodePath(path).replaceAll("/+", "/");
         if (normalized.endsWith("/") && normalized.length() > 1) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
         return normalized;
+    }
+
+    private String decodePath(String path) {
+        try {
+            return UriUtils.decode(path, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException ex) {
+            return path;
+        }
     }
 
     private String normalizeMethod(String method) {

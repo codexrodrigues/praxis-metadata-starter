@@ -52,14 +52,15 @@ public class OpenApiDocsSupport {
         if (!StringUtils.hasText(path)) {
             return "application";
         }
+        String normalizedPath = decodePath(path);
         if (openApiGroupResolver != null) {
-            String resolved = openApiGroupResolver.resolveGroup(path);
+            String resolved = openApiGroupResolver.resolveGroup(normalizedPath);
             if (StringUtils.hasText(resolved)) {
                 return resolved;
             }
         }
 
-        String fallbackPath = truncateAtFirstPathVariable(path);
+        String fallbackPath = truncateAtFirstPathVariable(normalizedPath);
         String[] segments = fallbackPath.split("/");
         if (segments.length >= 4) {
             return String.join("-", java.util.Arrays.copyOfRange(segments, 1, 4));
@@ -68,6 +69,14 @@ public class OpenApiDocsSupport {
             return segments[1];
         }
         return "application";
+    }
+
+    private String decodePath(String path) {
+        try {
+            return UriUtils.decode(path, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException ex) {
+            return path;
+        }
     }
 
     /**

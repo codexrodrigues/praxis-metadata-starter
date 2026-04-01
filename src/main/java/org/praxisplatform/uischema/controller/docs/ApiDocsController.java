@@ -126,11 +126,13 @@ public class ApiDocsController {
             throw new IllegalArgumentException("Parameter 'schemaType' must be 'response' or 'request'.");
         }
 
+        String decodedPath = UriUtils.decode(path, StandardCharsets.UTF_8);
+
         // 1. Resolver grupo automaticamente baseado no path
-        CanonicalOperationRef operationRef = canonicalOperationResolver.resolve(path, operation);
+        CanonicalOperationRef operationRef = canonicalOperationResolver.resolve(decodedPath, operation);
         String normalizedOperation = operationRef.method().toLowerCase(Locale.ROOT);
         String groupName = operationRef.group();
-        LOGGER.info("Path '{}' -> grupo resolvido: '{}'", path, groupName);
+        LOGGER.info("Path '{}' -> grupo resolvido: '{}'", decodedPath, groupName);
         
         // 2. Obter documento especifico do cache
         JsonNode rootNode = openApiDocumentService.getDocumentForGroup(groupName);
@@ -139,8 +141,6 @@ public class ApiDocsController {
             throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + groupName);
         }
 
-        // Decodifica o path para tratar caracteres especiais especiais (por exemplo, '%2F')
-        String decodedPath = UriUtils.decode(path, StandardCharsets.UTF_8);
         String canonicalPath = resolveDocumentPath(rootNode.path(PATHS), decodedPath);
 
         // Procura o caminho especificado no JSON
@@ -250,7 +250,7 @@ public class ApiDocsController {
             resourceMeta.put("idFieldValid", valid);
             if (!valid) {
                 resourceMeta.put("idFieldMessage", "idField not found in schema properties");
-                LOGGER.warn("x-ui.resource.idField='{}' nao encontrado nas propriedades do schema '{}'", resolvedIdField, schemaName);
+                logMissingIdField(schemaType, resolvedIdField, schemaName);
             }
 
             resourceMeta.put("readOnly", computedReadOnly);
@@ -559,6 +559,22 @@ public class ApiDocsController {
         Object propsObj = schemaMap.get("properties");
         if (!(propsObj instanceof Map)) return false;
         return ((Map<String, Object>) propsObj).containsKey(prop);
+    }
+
+    private void logMissingIdField(String schemaType, String resolvedIdField, String schemaName) {
+        if ("request".equalsIgnoreCase(schemaType)) {
+            LOGGER.debug(
+                    "x-ui.resource.idField='{}' derivado do recurso canonico nao esta presente no request schema '{}'",
+                    resolvedIdField,
+                    schemaName
+            );
+            return;
+        }
+        LOGGER.warn(
+                "x-ui.resource.idField='{}' nao encontrado nas propriedades do schema '{}'",
+                resolvedIdField,
+                schemaName
+        );
     }
 
     @SuppressWarnings("unchecked")

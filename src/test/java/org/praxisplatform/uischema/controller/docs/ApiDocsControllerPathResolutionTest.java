@@ -41,6 +41,17 @@ class ApiDocsControllerPathResolutionTest {
     }
 
     @Test
+    void testResolveGroupFromPath_DecodesEncodedPathBeforeDelegating() {
+        String encodedPath = "%2Fapi%2Fhuman-resources%2Ffuncionarios%2F%7Bid%7D%2Fprofile";
+        String decodedPath = "/api/human-resources/funcionarios/{id}/profile";
+        when(openApiGroupResolver.resolveGroup(decodedPath)).thenReturn("api-human-resources-funcionarios");
+
+        String resolvedGroup = invokeResolveGroupFromPath(encodedPath);
+
+        assertEquals("api-human-resources-funcionarios", resolvedGroup);
+    }
+
+    @Test
     void testResolveGroupFromPath_WithPathDerivation() {
         String path = "/api/human-resources/eventos-folha/all";
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);

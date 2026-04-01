@@ -37,7 +37,7 @@ class OpenApiCanonicalOperationResolverTest {
 
     @Test
     void resolveNormalizesPathMethodAndUsesResolvedGroup() {
-        when(openApiDocumentService.resolveGroupFromPath("/api/human-resources/employees/")).thenReturn("hr");
+        when(openApiDocumentService.resolveGroupFromPath("/api/human-resources/employees")).thenReturn("hr");
 
         CanonicalOperationRef ref = resolver.resolve("/api/human-resources/employees/", "post");
 
@@ -45,6 +45,21 @@ class OpenApiCanonicalOperationResolverTest {
         assertEquals("/api/human-resources/employees", ref.path());
         assertEquals("POST", ref.method());
         assertNull(ref.operationId());
+    }
+
+    @Test
+    void resolveDecodesEncodedPathBeforeResolvingGroup() {
+        when(openApiDocumentService.resolveGroupFromPath("/api/human-resources/funcionarios/{id}/profile"))
+                .thenReturn("api-human-resources-funcionarios");
+
+        CanonicalOperationRef ref = resolver.resolve(
+                "%2Fapi%2Fhuman-resources%2Ffuncionarios%2F%7Bid%7D%2Fprofile",
+                "patch"
+        );
+
+        assertEquals("api-human-resources-funcionarios", ref.group());
+        assertEquals("/api/human-resources/funcionarios/{id}/profile", ref.path());
+        assertEquals("PATCH", ref.method());
     }
 
     @Test
