@@ -1,5 +1,18 @@
 # 🔍 Validação de Uso de @ApiResource
 
+## Status do documento
+
+Este documento descreve um guardrail importante para a superfície legada baseada
+em `AbstractCrudController`. Ele continua útil para migração e manutenção do
+core antigo, mas não descreve o baseline recomendado para recursos novos.
+
+Para recursos novos:
+
+- prefira `AbstractResourceController` ou `AbstractReadOnlyResourceController`
+- trate `@ApiResource(resourceKey = ...)` como parte do baseline canônico atual
+- use este texto apenas quando a tarefa envolver o core legado ou a migração
+  dele
+
 ## 📋 Visão Geral
 
 A partir desta versão, o Praxis Metadata Starter inclui validação automática para garantir que controllers que estendem `AbstractCrudController` usem a anotação `@ApiResource` em vez de `@RestController` + `@RequestMapping`.

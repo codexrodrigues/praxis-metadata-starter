@@ -1,8 +1,25 @@
 # 🎯 Estratégia Dupla de Grupos OpenAPI - Documentação Técnica
 
+## Status do documento
+
+Este documento é principalmente histórico. Ele registra a estratégia que
+organizou os grupos OpenAPI durante a fase dominada por `AbstractCrudController`
+e durante a transição para o baseline `resource-oriented`.
+
+Use este material para:
+
+- entender a evolução do scanning e da resolução canônica de grupos
+- manter o core legado enquanto ele ainda existir
+- reconstruir decisões técnicas da migração
+
+Não use este texto como onboarding principal para recursos novos.
+
 ## 📋 Visão Geral
 
-Esta documentação descreve a **Estratégia Dupla de Grupos OpenAPI** implementada no Praxis Metadata Starter, que otimiza drasticamente a performance da documentação OpenAPI através da criação automática de grupos ultra-específicos e contextuais.
+Esta documentação descreve a **Estratégia Dupla de Grupos OpenAPI** implementada
+no Praxis Metadata Starter. A origem desse desenho está no core legado, mas a
+resolução canônica atual já não depende apenas da velha fronteira
+`AbstractCrudController`.
 
 ## 🚀 Problema Resolvido
 

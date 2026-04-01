@@ -3,12 +3,16 @@
 Este exemplo mostra uma integracao minima entre uma aplicacao Spring Boot e o
 `praxis-metadata-starter`.
 
+> Nota: este exemplo mostra um wiring historico simplificado do core legado.
+> Para aplicacoes novas, priorize os guias principais resource-oriented e trate
+> `AbstractCrudController` apenas como referencia de migracao.
+
 ## Objetivo
 
 Demonstrar um caminho autocontido para:
 
 - subir a aplicacao
-- expor um controller CRUD
+- expor um controller de exemplo
 - publicar `OpenAPI + x-ui`
 - responder `/schemas/filtered`
 
@@ -16,7 +20,7 @@ Demonstrar um caminho autocontido para:
 
 - use `@ApiResource` e `@ApiGroup`
 - publique um DTO com `@UISchema`
-- use `AbstractCrudController`
+- use o core canonico atual quando estiver criando aplicacao nova
 - mantenha o contrato consumivel por `praxis-ui-angular`
 
 ## Exemplo de controller

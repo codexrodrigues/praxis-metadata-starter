@@ -1,4 +1,4 @@
-# Exemplo de Prompt para Solicitar Recurso CRUD Metadata-Driven
+# Exemplo de Prompt para Solicitar Recurso Metadata-Driven
 
 Este arquivo mostra um prompt recomendado para agentes de IA gerarem um recurso
 alinhado ao [Guia 02](../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md).
@@ -6,7 +6,7 @@ alinhado ao [Guia 02](../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md).
 ## Template recomendado
 
 ```text
-Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
+Crie um recurso metadata-driven alinhado ao baseline atual do praxis-metadata-starter.
 
 Siga o guia GUIA-02-AI-BACKEND-CRUD-METADATA.md.
 Garanta compatibilidade de consumo com praxis-ui-angular.
@@ -32,7 +32,7 @@ So adicione trilha bulk se eu pedir explicitamente.
 ## Exemplo autocontido
 
 ```text
-Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
+Crie um recurso metadata-driven alinhado ao baseline atual do praxis-metadata-starter.
 
 Siga o guia GUIA-02-AI-BACKEND-CRUD-METADATA.md.
 Garanta compatibilidade de consumo com praxis-ui-angular.
@@ -57,7 +57,7 @@ Nao trate bulk como obrigatorio.
 ## Variante para entidade de catalogo simples
 
 ```text
-Crie um recurso CRUD metadata-driven alinhado ao praxis-metadata-starter.
+Crie um recurso metadata-driven alinhado ao baseline atual do praxis-metadata-starter.
 
 Entrada:
 - Entidade: src/main/java/com/example/demo/catalog/entity/Categoria.java

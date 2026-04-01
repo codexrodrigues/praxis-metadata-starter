@@ -81,7 +81,8 @@ Decidir:
    - `/schemas/catalog`
    - `/schemas/surfaces`
    - `/schemas/actions`
-   - `/capabilities`
+   - `GET /{resource}/capabilities`
+   - `GET /{resource}/{id}/capabilities`
 7. Rodar a suite focal do host e o checklist de prontidao.
 
 ## Semantica contextual de availability

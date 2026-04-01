@@ -1,5 +1,19 @@
 # Plano de Reescrita do Core Resource/Surface/Action
 
+## Status do documento
+
+Este arquivo é um registro histórico de arquitetura. As fases 1 a 6 descritas
+aqui já foram implementadas no `praxis-metadata-starter`.
+
+Leia este plano como:
+
+- memória de projeto
+- justificativa da troca do core legado
+- contexto para manutenção e auditoria técnica
+
+Não leia este arquivo como backlog ativo de onboarding. Para a narrativa pública
+atual, use `README.md`, `docs/architecture-overview.md` e `docs/guides/**`.
+
 ## Contexto
 
 Nao ha compromisso com compatibilidade retroativa. A estrategia correta e substituir o nucleo conceitualmente errado, e nao empilhar uma camada "V2" sobre o legado.

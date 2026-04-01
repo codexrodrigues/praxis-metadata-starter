@@ -1,15 +1,29 @@
 # 🏗️ Auto-Configuração do Praxis UI Schema
 
+## Status do documento
+
+Este documento continua relevante para a auto-configuração viva do starter, mas
+mistura exemplos do baseline atual com referências de compatibilidade do core
+legado.
+
+Leia assim:
+
+- recursos novos devem seguir o baseline `resource + surfaces + actions + capabilities`
+- exemplos com `AbstractCrudController` são históricos ou de compatibilidade
+- para a narrativa pública atual, consulte primeiro `README.md`, `docs/index.md`
+  e `docs/architecture-overview.md`
+
 ## 📋 Visão Geral
 
 O `OpenApiUiSchemaAutoConfiguration` é o **"bootstrap"** de todo o sistema Praxis UI Schema, implementando o padrão **"Convention over Configuration"** do Spring Boot para que desenvolvedores apenas adicionem a dependência e todo o sistema fique automaticamente disponível.
 
 ## 🎯 Objetivo Principal
 
-**Zero Setup Experience**: Desenvolvedores apenas precisam:
-1. Adicionar a dependência no `pom.xml`
-2. Usar `@ApiResource` nos controllers
-3. Todo o sistema funciona automaticamente
+Objetivo prático da auto-configuração:
+1. adicionar a dependência no `pom.xml`
+2. expor controllers compatíveis com o baseline atual do starter
+3. deixar discovery, docs filtrados e infraestrutura interna disponíveis sem
+   boilerplate manual
 
 ## ⚙️ Propriedades de Configuração
 

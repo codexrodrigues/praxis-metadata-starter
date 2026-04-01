@@ -1,31 +1,44 @@
 # Technical Docs
 
-Documentacao tecnica detalhada e material de implementacao.
+Material tecnico, historico e de planejamento do `praxis-metadata-starter`.
 
-## Navegacao
+## Navegacao rapida
 
 - [Home da documentacao](../index.html)
 - [Hub dos guias](../guides/index.html)
 - [Referencia de API](../api/index.html)
 
-## Documentos
+## Referencias tecnicas atuais
 
-- [README tecnico](README.html)
+- [Hub tecnico](README.html)
 - [Auto-configuracao](AUTO-CONFIGURACAO.html)
-- [Estrategia dupla de grupos OpenAPI](ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.html)
-- [Validacao @ApiResource](VALIDACAO-API-RESOURCE.html)
 - [Piloto resource-oriented em src/test](RESOURCE-ORIENTED-PILOT-IN-SRC-TEST.html)
+
+## Legado e migracao do core antigo
+
+- [Estrategia de grupos OpenAPI do core legado e da transicao](ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.html)
+- [Validacao @ApiResource no core legado](VALIDACAO-API-RESOURCE.html)
+
+## Fechamentos historicos do baseline atual
+
 - [Checklist de prontidao do piloto](PILOT-READINESS-CHECKLIST.html)
 - [Rollback e observabilidade do piloto](ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.html)
 - [Fechamento da Fase 4 - Surfaces](PHASE-4-SURFACES-CLOSURE.html)
 - [Fechamento da Fase 5 - Workflow Actions](PHASE-5-ACTIONS-CLOSURE.html)
 - [Fechamento da Fase 6 - Capabilities Unificadas](PHASE-6-CAPABILITIES-CLOSURE.html)
-- [Backlog E2E do starter](E2E-TEST-BACKLOG.html)
+
+## Planos e backlog
+
+- [Plano de reescrita do core resource/surface/action](RESOURCE-SURFACE-ACTION-ARCHITECTURE-PLAN.html)
 - [Cursor pagination plan](CURSOR-PAGINATION-KEYSET-PLAN.html)
 - [Cursor pagination backlog](CURSOR-PAGINATION-KEYSET-BACKLOG.html)
+- [Plano de filtered stats](FILTERED-STATS-PLAN.html)
+- [Backlog E2E do starter](E2E-TEST-BACKLOG.html)
+- [Stats response schema platform fix plan](STATS-RESPONSE-SCHEMA-PLATFORM-FIX-PLAN.html)
+- [Roadmap de filtros](FILTROS-ROADMAP.html)
 
-## Quando usar esta area
+## Como interpretar esta area
 
-- para detalhes de implementacao e evolucao tecnica
-- para material de engenharia que complementa os guias
-- para investigar decisoes de projeto e backlog tecnico
+- nao use esta area como onboarding principal
+- use os guias e a visao arquitetural publica para o baseline atual
+- leia planos e fechamentos historicos como contexto de engenharia

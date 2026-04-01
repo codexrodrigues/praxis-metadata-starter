@@ -1,70 +1,56 @@
-# Visão Geral — Praxis Metadata Starter
+# Visao Geral - Praxis Metadata Starter
 
-O Praxis Metadata Starter permite publicar contratos ricos (OpenAPI + x‑ui) a partir de anotações Java e auto‑configuração Spring, para que a UI se configure em tempo de execução com o mínimo de boilerplate.
+O `praxis-metadata-starter` publica o contrato canonico metadata-driven do
+backend Praxis.
+
+Hoje esse contrato nao deve mais ser entendido apenas como "DTO anotado + CRUD".
+O baseline atual da plataforma combina:
+
+- OpenAPI enriquecido com `x-ui`
+- `/schemas/filtered` como contrato estrutural
+- `/schemas/catalog` como superficie documental
+- `/schemas/surfaces` e `/schemas/actions` como discovery semantico
+- `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities`
+- `RestApiResponse` com HATEOAS efetivo
 
 ## Problema que resolvemos
-- Telas rígidas e duplicação de lógica entre back e front.
-- Muito código cerimonial para listar/filtrar/paginar/ordenar.
-- Evolução custosa do contrato entre times e sistemas.
+
+- duplicacao de semantica entre back e front
+- contratos rigidos e dificeis de evoluir
+- descoberta pobre do que o recurso pode fazer agora
+- excesso de convencoes implícitas no onboarding
 
 ## Abordagem
-- Self‑describing APIs: o backend publica o contrato com extensões de UI (x‑ui).
-- Schema‑driven UI: tabelas/formulários nascem do schema (sem codegen frágil).
-- Configuration‑driven: preferências e variações vivem em configuração, não forks.
-- Rules as Specifications: variações condicionais/visibilidade como regras portáveis.
 
-## Como funciona (fluxo)
-1) Você anota DTOs/entidades com `@UISchema` e expõe controllers com `@ApiResource`.
-2) O starter enriquece o OpenAPI com `x‑ui` e expõe `/schemas/filtered`.
-3) A UI consome esse endpoint, revalida com ETag e rende componentes dinâmicos.
+- self-describing APIs: o backend publica o contrato com extensoes `x-ui`
+- resource-oriented backend: o recurso define payload e schema canonicos
+- semantic discovery: surfaces, actions e capabilities ficam explicitos
+- schema-driven UI: o runtime consome o contrato estrutural sem DSL paralelo
 
-Trecho de uso (exemplo simplificado):
-```java
-@UISchema(label = "Nome") @NotBlank @Size(max = 120)
-private String nome;
+## Como funciona
 
-@ApiResource("/api/human-resources/pessoas")
-public class PessoaController extends AbstractCrudController<...> {}
-```
+1. o backend publica o recurso canonico com `@ApiResource(value = ..., resourceKey = ...)`
+2. o starter enriquece o OpenAPI e resolve grupos por `path`
+3. o runtime consome `/schemas/filtered`
+4. clientes semanticos podem consumir `/schemas/surfaces`, `/schemas/actions` e `/{resource}/capabilities`
 
-```bash
-# Schema para grid (response)
-curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/all&operation=get&schemaType=response"
-```
+## Beneficios praticos
 
-## Benefícios práticos
-- Menos código acoplado; mais velocidade e consistência.
-- Contratos versionáveis (ETag/If‑None‑Match) e evolução segura.
-- Integração suave com Spring, SpringDoc e HATEOAS opcional.
+- menos boilerplate estrutural
+- fronteira mais clara entre contrato estrutural e discovery semantico
+- evolucao de schema com `ETag` e `X-Schema-Hash`
+- semantica de recurso, acao e UX publicada de forma governada
 
-## Passos rápidos
-1) Dependência no pom.xml do serviço backend (após publicar RC/final):
-```xml
-<dependency>
-  <groupId>io.github.codexrodrigues</groupId>
-  <artifactId>praxis-metadata-starter</artifactId>
-  <version>2.0.0-rc.7</version>
-  </dependency>
-```
-2) Anote DTOs com `@UISchema` e exponha `@ApiResource` nos controllers.
-3) No front, consuma `/schemas/filtered` e configure `resourcePath` no componente.
+## Passos rapidos
 
-## Evolução de contrato
-- Cache condicional: `ETag`/`If‑None‑Match` evita downloads desnecessários.
-- Mudanças non‑breaking incrementam hash; mudanças breaking usam versão lógica/documentação.
+1. siga `docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`
+2. modele o primeiro recurso no baseline resource-oriented
+3. valide `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions` e capabilities resource-scoped
+4. integre o host Angular oficial com o contrato publicado
 
-## Conceitos relacionados (leitura rápida)
-- Self‑describing APIs: ../concepts/self-describing-apis.md
-- UI Schema vs Data Schema: ../concepts/ui-schema-vs-data-schema.md
-- Schema‑driven UI: ../concepts/schema-driven-ui.md
-- Configuration‑driven development: ../concepts/configuration-driven-development.md
-- Rules & Specifications: ../concepts/rules-engines-and-specifications.md
+## Leitura recomendada
 
-## Exemplo completo
-- A trilha principal para LLMs fica em `docs/guides/README.md`
-
-## Guias e técnica
-- Guia de CRUD metadata-driven: ../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md
-- Estratégia de grupos OpenAPI: ../technical/ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md
-- Auto‑configuração: ../technical/AUTO-CONFIGURACAO.md
-- Validação @ApiResource: ../technical/VALIDACAO-API-RESOURCE.md
+- `../architecture-overview.md`
+- `../guides/README.md`
+- `../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md`
+- `../guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md`

@@ -18,7 +18,8 @@ Uma aplicacao nova deve nascer sobre:
 - `/schemas/catalog`
 - `/schemas/surfaces`
 - `/schemas/actions`
-- `/capabilities`
+- `GET /{resource}/capabilities`
+- `GET /{resource}/{id}/capabilities`
 
 ## Resultado esperado
 
@@ -222,7 +223,7 @@ Os catalogos nao compartilham a mesma semantica de ausencia:
   `detail` e `edit` para controllers canonicos.
 - `/schemas/actions?resource=...` so existe quando houver pelo menos uma `@WorkflowAction`
   explicita; sem workflow anotado, o retorno esperado e `404`.
-- `/capabilities` agrega o que existir e normaliza ausencia de `surfaces` ou `actions` para listas
+- `GET /{resource}/capabilities` agrega o que existir e normaliza ausencia de `surfaces` ou `actions` para listas
   vazias.
 - em catalogos globais, entradas `ITEM` de `surfaces` e `actions` sao discovery-only e tendem a
   sair com `availability.allowed=false` ate que exista `resourceId` real.

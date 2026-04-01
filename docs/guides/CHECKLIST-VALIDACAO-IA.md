@@ -1,7 +1,7 @@
 # Checklist de Validacao - Codigo Gerado por IA
 
 Use esta lista apos o agente gerar codigo para uma aplicacao nova, um recurso
-CRUD metadata-driven ou um frontend Angular.
+metadata-driven no baseline atual ou um frontend Angular.
 
 ## 1. Build e execucao
 

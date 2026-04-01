@@ -76,7 +76,7 @@ Regra:
 
 ## Capability
 
-Use `/capabilities` quando o cliente precisa de um snapshot agregado do que pode ser feito agora.
+Use `GET /{resource}/capabilities` ou `GET /{resource}/{id}/capabilities` quando o cliente precisa de um snapshot agregado do que pode ser feito agora.
 
 O snapshot agrega:
 

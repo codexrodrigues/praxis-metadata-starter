@@ -1,5 +1,12 @@
 # Piloto Resource-Oriented em `src/test`
 
+## Status do documento
+
+Este documento continua atual como referência técnica do piloto interno que
+provou o baseline `resource-oriented` dentro do starter. Ele não é onboarding
+básico; é uma prova operacional e histórica do endurecimento interno do core
+novo.
+
 ## Objetivo
 
 Antes de migrar qualquer consumidor externo, o `praxis-metadata-starter` precisa provar o novo core
