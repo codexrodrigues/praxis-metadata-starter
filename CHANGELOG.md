@@ -4,6 +4,12 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Rollout do baseline semântico `resource + surface + action + capability`, com `@UiSurface`, `@WorkflowAction`, `GET /schemas/surfaces`, `GET /schemas/actions` e snapshots agregados em `/capabilities`.
+
+### Documentation
+- `README.md` e `docs/spec/CONFORMANCE.md` passam a citar explicitamente `/schemas/surfaces` e `/schemas/actions` como superfícies públicas canônicas de discovery.
+
 ## [2.0.0-rc.7] - 2026-03-21
 
 ## [5.0.0-rc.2] - 2026-03-24

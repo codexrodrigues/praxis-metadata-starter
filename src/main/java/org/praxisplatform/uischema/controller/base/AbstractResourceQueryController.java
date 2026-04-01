@@ -13,6 +13,9 @@ import org.praxisplatform.uischema.dto.LocateResponse;
 import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseDistributionStatsResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseGroupByStatsResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseTimeSeriesStatsResponse;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
@@ -428,6 +431,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                             description = "Group-by calculado com sucesso",
                             content = @Content(
                                     mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = RestApiResponseGroupByStatsResponse.class
+                                    ),
                                     examples = @ExampleObject(
                                             name = "groupByCountResponse",
                                             summary = "Buckets agregados por status",
@@ -476,6 +482,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                             description = "Serie temporal calculada com sucesso",
                             content = @Content(
                                     mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = RestApiResponseTimeSeriesStatsResponse.class
+                                    ),
                                     examples = @ExampleObject(
                                             name = "timeSeriesSumResponse",
                                             summary = "Pontos de serie temporal com datas ISO",
@@ -524,6 +533,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                             description = "Distribuicao calculada com sucesso",
                             content = @Content(
                                     mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = RestApiResponseDistributionStatsResponse.class
+                                    ),
                                     examples = @ExampleObject(
                                             name = "distributionHistogramResponse",
                                             summary = "Buckets de histograma canonicos",

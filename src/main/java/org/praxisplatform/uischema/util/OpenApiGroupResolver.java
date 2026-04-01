@@ -4,6 +4,7 @@ import org.springdoc.core.models.GroupedOpenApi;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Resolvedor de grupos OpenAPI com estrategia de {@code best match}.
@@ -27,10 +28,16 @@ import java.util.List;
  */
 public class OpenApiGroupResolver {
 
-    private final List<GroupedOpenApi> groupedOpenApis;
+    private final Supplier<List<GroupedOpenApi>> groupedOpenApisSupplier;
 
     public OpenApiGroupResolver(List<GroupedOpenApi> groupedOpenApis) {
-        this.groupedOpenApis = groupedOpenApis == null ? Collections.emptyList() : groupedOpenApis;
+        this(() -> groupedOpenApis == null ? Collections.emptyList() : groupedOpenApis);
+    }
+
+    public OpenApiGroupResolver(Supplier<List<GroupedOpenApi>> groupedOpenApisSupplier) {
+        this.groupedOpenApisSupplier = groupedOpenApisSupplier == null
+                ? Collections::emptyList
+                : groupedOpenApisSupplier;
     }
 
     /**
@@ -49,7 +56,12 @@ public class OpenApiGroupResolver {
         if (requestPath == null) {
             return null;
         }
-        
+
+        List<GroupedOpenApi> groupedOpenApis = groupedOpenApisSupplier.get();
+        if (groupedOpenApis == null || groupedOpenApis.isEmpty()) {
+            return null;
+        }
+
         String bestMatch = null;
         int bestMatchLength = 0;
         

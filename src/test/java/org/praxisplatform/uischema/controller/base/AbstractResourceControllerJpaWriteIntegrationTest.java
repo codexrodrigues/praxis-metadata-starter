@@ -66,6 +66,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         classes = AbstractResourceControllerJpaWriteIntegrationTest.TestConfig.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
+                "spring.data.jpa.repositories.enabled=false",
                 "spring.jpa.open-in-view=false",
                 "spring.jpa.hibernate.ddl-auto=create-drop",
                 "spring.datasource.url=jdbc:h2:mem:starter-resource-write-it;DB_CLOSE_DELAY=-1",

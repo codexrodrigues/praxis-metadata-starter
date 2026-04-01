@@ -34,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(
         classes = AbstractCrudControllerGroupByStatsIntegrationTest.TestConfig.class,
         properties = {
+                "spring.data.jpa.repositories.enabled=false",
                 "spring.jpa.open-in-view=false",
                 "spring.jpa.hibernate.ddl-auto=create-drop",
                 "spring.datasource.url=jdbc:h2:mem:starter-groupby-it;DB_CLOSE_DELAY=-1",

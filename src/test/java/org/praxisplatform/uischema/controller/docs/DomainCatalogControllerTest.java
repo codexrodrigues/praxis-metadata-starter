@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
 import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
 import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
@@ -340,6 +341,7 @@ class DomainCatalogControllerTest {
         ReflectionTestUtils.setField(apiDocsController, "openApiDocumentService", openApiDocumentService);
         ReflectionTestUtils.setField(apiDocsController, "canonicalOperationResolver", new OpenApiCanonicalOperationResolver(openApiDocumentService, null));
         ReflectionTestUtils.setField(apiDocsController, "schemaReferenceResolver", new FilteredSchemaReferenceResolver());
+        ReflectionTestUtils.setField(apiDocsController, "canonicalCapabilityResolver", new OpenApiCanonicalCapabilityResolver(openApiDocumentService));
 
         Map<String, Object> filteredSchema = apiDocsController
                 .getFilteredSchema("/stats/group-by", "post", false, "response", null, null, java.util.Locale.ENGLISH)

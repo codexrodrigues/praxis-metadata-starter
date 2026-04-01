@@ -54,7 +54,9 @@ import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
 import org.praxisplatform.uischema.stats.service.jpa.JpaStatsQueryExecutor;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Value;
@@ -182,8 +184,8 @@ public class OpenApiUiSchemaAutoConfiguration {
      * </p>
      */
     @Bean
-    public OpenApiGroupResolver openApiGroupResolver(List<GroupedOpenApi> groupedOpenApis) {
-        return new OpenApiGroupResolver(groupedOpenApis);
+    public OpenApiGroupResolver openApiGroupResolver(ObjectProvider<GroupedOpenApi> groupedOpenApis) {
+        return new OpenApiGroupResolver(() -> groupedOpenApis.orderedStream().toList());
     }
 
     /**
@@ -278,6 +280,7 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(RequestMappingHandlerMapping.class)
     @ConditionalOnMissingBean
     public SurfaceDefinitionRegistry surfaceDefinitionRegistry(
             RequestMappingHandlerMapping requestMappingHandlerMapping,
@@ -296,6 +299,7 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(SurfaceDefinitionRegistry.class)
     @ConditionalOnMissingBean
     public SurfaceCatalogService surfaceCatalogService(
             SurfaceDefinitionRegistry surfaceDefinitionRegistry,
@@ -345,6 +349,7 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(RequestMappingHandlerMapping.class)
     @ConditionalOnMissingBean
     public ActionDefinitionRegistry actionDefinitionRegistry(
             RequestMappingHandlerMapping requestMappingHandlerMapping,
@@ -365,6 +370,7 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(ActionDefinitionRegistry.class)
     @ConditionalOnMissingBean
     public ActionCatalogService actionCatalogService(
             ActionDefinitionRegistry actionDefinitionRegistry,
@@ -379,6 +385,7 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean({SurfaceCatalogService.class, ActionCatalogService.class})
     @ConditionalOnMissingBean
     public CapabilityService capabilityService(
             CanonicalCapabilityResolver canonicalCapabilityResolver,
@@ -410,12 +417,14 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(SurfaceCatalogService.class)
     @ConditionalOnMissingBean
     public SurfaceCatalogController surfaceCatalogController(SurfaceCatalogService surfaceCatalogService) {
         return new SurfaceCatalogController(surfaceCatalogService);
     }
 
     @Bean
+    @ConditionalOnBean(ActionCatalogService.class)
     @ConditionalOnMissingBean
     public ActionCatalogController actionCatalogController(ActionCatalogService actionCatalogService) {
         return new ActionCatalogController(actionCatalogService);

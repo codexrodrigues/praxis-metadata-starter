@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
 import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 
@@ -35,6 +36,11 @@ public class ApiDocsControllerAllOfTest {
                 controller,
                 "schemaReferenceResolver",
                 new FilteredSchemaReferenceResolver()
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                controller,
+                "canonicalCapabilityResolver",
+                new OpenApiCanonicalCapabilityResolver(openApiDocumentService)
         );
 
         String group = "api-ui-test-wrappers";

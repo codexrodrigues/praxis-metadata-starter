@@ -93,6 +93,7 @@ Documentação online (GitHub Pages):
 *   **🧠 OpenAPI enriquecido (x‑ui):** `@UISchema` + Bean Validation → metadados de UI no contrato.
 *   **🎯 Grupos OpenAPI automáticos:** redução de ~97% no payload com documentos por grupo + cache inteligente.
 *   **📚 Catálogo para RAG:** `GET /schemas/catalog` gera um resumo enxuto dos endpoints OpenAPI.
+*   **🧭 Discovery semântico canônico:** `GET /schemas/surfaces`, `GET /schemas/actions` e `GET /{resource}/capabilities` publicam discovery resource-oriented sem redefinir payload ou schema inline.
 *   **📄 Views / Read‑only sem esforço:** herde de `AbstractReadOnlyController`/`Service` e ganhe filtros, paginação e opções id/label; escritas retornam 405.
 
 #### Excluir endpoints do catálogo RAG
@@ -113,7 +114,7 @@ Observação:
 
 #### Base interna para leitura do OpenAPI
 
-Os endpoints internos do starter que consultam o SpringDoc, como `GET /schemas/filtered` e `GET /schemas/catalog`, resolvem a base do OpenAPI nesta ordem:
+Os endpoints internos do starter que consultam o SpringDoc, como `GET /schemas/filtered`, `GET /schemas/catalog`, `GET /schemas/surfaces` e `GET /schemas/actions`, resolvem a base do OpenAPI nesta ordem:
 
 1. `app.openapi.internal-base-url`, quando configurada
 2. contexto HTTP atual via `ServletUriComponentsBuilder`

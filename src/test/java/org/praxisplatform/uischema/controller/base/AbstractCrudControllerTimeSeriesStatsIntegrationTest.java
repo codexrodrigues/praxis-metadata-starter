@@ -35,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(
         classes = AbstractCrudControllerTimeSeriesStatsIntegrationTest.TestConfig.class,
         properties = {
+                "spring.data.jpa.repositories.enabled=false",
                 "spring.jpa.open-in-view=false",
                 "spring.jpa.hibernate.ddl-auto=create-drop",
                 "spring.datasource.url=jdbc:h2:mem:starter-timeseries-it;DB_CLOSE_DELAY=-1",

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
 import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourcePolicy;
@@ -43,6 +44,11 @@ class ApiDocsControllerReadOnlyMetaTest {
                 controller,
                 "schemaReferenceResolver",
                 new FilteredSchemaReferenceResolver()
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                controller,
+                "canonicalCapabilityResolver",
+                new OpenApiCanonicalCapabilityResolver(openApiDocumentService)
         );
         org.springframework.test.util.ReflectionTestUtils.setField(controller, "optionSourceRegistry", OptionSourceRegistry.builder()
                 .add(ReadOnlyDemoEntity.class, new OptionSourceDescriptor(
