@@ -325,6 +325,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         List<String> sort = queryParams.get("sort");
         Pageable pageable = PageableBuilder.from(page, size, sort, getService().getDefaultSort());
         Page<ResponseDTO> result = getService().filter(filterDTO, pageable, includeIds);
+        if (!isHateoasEnabled()) {
+            return successEnvelope(ResponseEntity.ok(), result, null);
+        }
         Page<EntityModel<ResponseDTO>> entityModels = result.map(this::toEntityModel);
 
         List<Link> links = new ArrayList<>();
@@ -334,7 +337,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         links.addAll(buildCollectionActionLinks());
         links.addAll(buildCollectionDiscoveryLinks());
 
-        return withVersion(ResponseEntity.ok(), RestApiResponse.success(entityModels, hateoasOrNull(Links.of(links))));
+        return successEnvelope(ResponseEntity.ok(), entityModels, Links.of(links));
     }
 
     @PostMapping("/filter/cursor")
@@ -360,6 +363,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
         }
+        if (!isHateoasEnabled()) {
+            return successEnvelope(ResponseEntity.ok(), result, null);
+        }
 
         CursorPage<EntityModel<ResponseDTO>> mapped = new CursorPage<>(
                 result.content().stream().map(this::toEntityModel).toList(),
@@ -375,7 +381,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         links.addAll(buildCollectionActionLinks());
         links.addAll(buildCollectionDiscoveryLinks());
 
-        return withVersion(ResponseEntity.ok(), RestApiResponse.success(mapped, hateoasOrNull(Links.of(links))));
+        return successEnvelope(ResponseEntity.ok(), mapped, Links.of(links));
     }
 
     @PostMapping("/locate")
@@ -550,7 +556,12 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     @GetMapping("/all")
     @Operation(summary = "Listar todos os registros")
     public ResponseEntity<RestApiResponse<List<EntityModel<ResponseDTO>>>> getAll() {
-        List<EntityModel<ResponseDTO>> entityModels = getService().findAll().stream()
+        List<ResponseDTO> dtos = getService().findAll();
+        if (!isHateoasEnabled()) {
+            return successEnvelope(ResponseEntity.ok(), dtos, null);
+        }
+
+        List<EntityModel<ResponseDTO>> entityModels = dtos.stream()
                 .map(this::toEntityModel)
                 .toList();
 
@@ -561,7 +572,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         links.addAll(buildCollectionActionLinks());
         links.addAll(buildCollectionDiscoveryLinks());
 
-        return withVersion(ResponseEntity.ok(), RestApiResponse.success(entityModels, hateoasOrNull(Links.of(links))));
+        return successEnvelope(ResponseEntity.ok(), entityModels, Links.of(links));
     }
 
     @GetMapping("/by-ids")
@@ -867,6 +878,15 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     protected Links hateoasOrNull(Links links) {
         return isHateoasEnabled() ? links : null;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    protected <T> ResponseEntity<RestApiResponse<T>> successEnvelope(
+            ResponseEntity.BodyBuilder builder,
+            Object data,
+            Links links
+    ) {
+        return (ResponseEntity) withVersion(builder, RestApiResponse.success(data, hateoasOrNull(links)));
     }
 
     private boolean isHateoasEnabled() {

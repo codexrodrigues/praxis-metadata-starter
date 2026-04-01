@@ -661,6 +661,9 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         List<String> sort = queryParams.get("sort");
         Pageable pageable = PageableBuilder.from(page, size, sort, getService().getDefaultSort());
         Page<D> result = getService().filterMappedWithIncludeIds(filterDTO, pageable, includeIds, this::toDto);
+        if (!isHateoasEnabled()) {
+            return successEnvelope(ResponseEntity.ok(), result, null);
+        }
         Page<EntityModel<D>> entityModels = result.map(this::toEntityModel);
 
         Links links = Links.of(
@@ -669,8 +672,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                 linkToUiSchema("/filter", "post", "response")
         );
 
-        var response = RestApiResponse.success(entityModels, isHateoasEnabled() ? links : null);
-        return withVersion(ResponseEntity.ok(), response);
+        return successEnvelope(ResponseEntity.ok(), entityModels, links);
     }
 
     /**
@@ -727,6 +729,10 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
         }
 
+        if (!isHateoasEnabled()) {
+            return successEnvelope(ResponseEntity.ok(), result, null);
+        }
+
         CursorPage<EntityModel<D>> mapped = new CursorPage<>(
                 result.content().stream().map(this::toEntityModel).toList(),
                 result.next(),
@@ -740,8 +746,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                 linkToUiSchema("/filter/cursor", "post", "response")
         );
 
-        var response = RestApiResponse.success(mapped, isHateoasEnabled() ? links : null);
-        return withVersion(ResponseEntity.ok(), response);
+        return successEnvelope(ResponseEntity.ok(), mapped, links);
     }
 
     /**
@@ -1004,6 +1009,9 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     @Operation(summary = "Listar todos os registros", description = "Retorna todos os registros, aplicando @DefaultSortColumn quando nenhum sort é enviado.")
     public ResponseEntity<RestApiResponse<List<EntityModel<D>>>> getAll() {
         List<D> dtos = getService().findAllMapped(this::toDto);
+        if (!isHateoasEnabled()) {
+            return successEnvelope(ResponseEntity.ok(), dtos, null);
+        }
         List<EntityModel<D>> entityModels = dtos.stream().map(this::toEntityModel).toList();
 
         Links links = Links.of(
@@ -1012,8 +1020,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                 linkToUiSchema("/all", "get", "response")
         );
 
-        var response = RestApiResponse.success(entityModels, isHateoasEnabled() ? links : null);
-        return withVersion(ResponseEntity.ok(), response);
+        return successEnvelope(ResponseEntity.ok(), entityModels, links);
     }
 
     /**
@@ -1530,6 +1537,10 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     // Métodos auxiliares de HATEOAS
     // -------------------------------------------------------------------------
     protected EntityModel<D> toEntityModel(D dto) {
+        if (!isHateoasEnabled()) {
+            return EntityModel.of(dto);
+        }
+
         ID id = getDtoId(dto);
         java.util.List<Link> links = new java.util.ArrayList<>();
         links.add(linkToSelf(id));
@@ -1557,6 +1568,15 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
     private <T> ResponseEntity<T> withVersion(ResponseEntity.BodyBuilder builder, T body) {
         getService().getDatasetVersion().ifPresent(v -> builder.header(HDR, v));
         return builder.body(body);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private <T> ResponseEntity<RestApiResponse<T>> successEnvelope(
+            ResponseEntity.BodyBuilder builder,
+            Object data,
+            Links links
+    ) {
+        return (ResponseEntity) withVersion(builder, RestApiResponse.success(data, isHateoasEnabled() ? links : null));
     }
 
     /**

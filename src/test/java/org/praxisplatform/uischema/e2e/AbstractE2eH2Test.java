@@ -91,7 +91,7 @@ abstract class AbstractE2eH2Test {
     }
 
     protected String findLinkHref(JsonNode envelope, String rel) {
-        JsonNode links = envelope.path("links");
+        JsonNode links = envelope.path("_links");
         if (links.isArray()) {
             for (JsonNode link : links) {
                 if (rel.equals(link.path("rel").asText())) {

@@ -33,9 +33,9 @@ class AbstractReadOnlyResourceControllerLinksTest {
 
         mockMvc.perform(get("/ro/all"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$._embedded..links.create").doesNotExist())
-                .andExpect(jsonPath("$._embedded..links.update").doesNotExist())
-                .andExpect(jsonPath("$._embedded..links.delete").doesNotExist());
+                .andExpect(jsonPath("$._embedded.._links[?(@.rel == 'create')]").doesNotExist())
+                .andExpect(jsonPath("$._embedded.._links[?(@.rel == 'update')]").doesNotExist())
+                .andExpect(jsonPath("$._embedded.._links[?(@.rel == 'delete')]").doesNotExist());
     }
 
     @Test
@@ -46,9 +46,9 @@ class AbstractReadOnlyResourceControllerLinksTest {
 
         mockMvc.perform(get("/ro/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.links.create").doesNotExist())
-                .andExpect(jsonPath("$.links.update").doesNotExist())
-                .andExpect(jsonPath("$.links.delete").doesNotExist());
+                .andExpect(jsonPath("$._links[?(@.rel == 'create')]").doesNotExist())
+                .andExpect(jsonPath("$._links[?(@.rel == 'update')]").doesNotExist())
+                .andExpect(jsonPath("$._links[?(@.rel == 'delete')]").doesNotExist());
     }
 
     @Test

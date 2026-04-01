@@ -36,6 +36,8 @@ class HateoasAndPayloadSizeE2ETest extends AbstractE2eH2Test {
 
         String enabledCollectionBody = enabledCollectionResponse.getBody();
         String enabledItemBody = enabledItemResponse.getBody();
+        assertTrue(enabledCollectionBody.contains("\"_links\""));
+        assertTrue(enabledItemBody.contains("\"_links\""));
         assertTrue(enabledCollectionBody.contains("\"rel\":\"create\""));
         assertTrue(enabledCollectionBody.contains("\"rel\":\"update\""));
         assertTrue(enabledCollectionBody.contains("\"rel\":\"delete\""));
@@ -50,6 +52,10 @@ class HateoasAndPayloadSizeE2ETest extends AbstractE2eH2Test {
 
         String disabledCollectionBody = disabledCollectionResponse.getBody();
         String disabledItemBody = disabledItemResponse.getBody();
+        assertFalse(disabledCollectionBody.contains("\"_links\""));
+        assertFalse(disabledItemBody.contains("\"_links\""));
+        assertFalse(disabledCollectionBody.contains("\"links\":"));
+        assertFalse(disabledItemBody.contains("\"links\":"));
         assertFalse(disabledCollectionBody.contains("\"rel\":\"create\""));
         assertFalse(disabledCollectionBody.contains("\"rel\":\"update\""));
         assertFalse(disabledCollectionBody.contains("\"rel\":\"delete\""));
@@ -59,6 +65,8 @@ class HateoasAndPayloadSizeE2ETest extends AbstractE2eH2Test {
 
         JsonNode disabledCollectionJson = body(disabledCollectionResponse);
         JsonNode disabledItemJson = body(disabledItemResponse);
+        assertTrue(disabledCollectionJson.path("_links").isMissingNode() || disabledCollectionJson.path("_links").isNull());
+        assertTrue(disabledItemJson.path("_links").isMissingNode() || disabledItemJson.path("_links").isNull());
         assertTrue(disabledCollectionJson.path("links").isMissingNode() || disabledCollectionJson.path("links").isNull());
         assertTrue(disabledItemJson.path("links").isMissingNode() || disabledItemJson.path("links").isNull());
     }

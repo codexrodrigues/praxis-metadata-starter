@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.rest.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 import org.springframework.hateoas.Links;
@@ -19,8 +20,9 @@ import java.util.List;
  * </p>
  *
  * <p>
- * Em respostas bem-sucedidas, o campo {@code data} carrega o payload principal. Em respostas de
- * falha, o envelope pode trazer mensagem resumida e uma lista de {@link CustomProblemDetail}.
+ * Em respostas bem-sucedidas, o campo {@code data} carrega o payload principal e o campo
+ * {@code _links} expõe affordances HATEOAS quando habilitadas. Em respostas de falha, o envelope
+ * pode trazer mensagem resumida e uma lista de {@link CustomProblemDetail}.
  * </p>
  *
  * @param <T> tipo do payload da resposta
@@ -34,6 +36,7 @@ public class RestApiResponse<T> {
     private String status;
     private String message;
     private T data;
+    @JsonProperty("_links")
     private Links links;
     private List<CustomProblemDetail> errors;
 
