@@ -234,6 +234,20 @@
 </header>
 <h1 id="validação-de-uso-de-apiresource">🔍 Validação de Uso de <span
 class="citation" data-cites="ApiResource">@ApiResource</span></h1>
+<h2 id="status-do-documento">Status do documento</h2>
+<p>Este documento descreve um guardrail importante para a superfície
+legada baseada em <code>AbstractCrudController</code>. Ele continua útil
+para migração e manutenção do core antigo, mas não descreve o baseline
+recomendado para recursos novos.</p>
+<p>Para recursos novos:</p>
+<ul>
+<li>prefira <code>AbstractResourceController</code> ou
+<code>AbstractReadOnlyResourceController</code></li>
+<li>trate <code>@ApiResource(resourceKey = ...)</code> como parte do
+baseline canônico atual</li>
+<li>use este texto apenas quando a tarefa envolver o core legado ou a
+migração dele</li>
+</ul>
 <h2 id="visão-geral">📋 Visão Geral</h2>
 <p>A partir desta versão, o Praxis Metadata Starter inclui validação
 automática para garantir que controllers que estendem

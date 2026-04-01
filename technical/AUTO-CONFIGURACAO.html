@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>🏗️ Auto-Configuração do Praxis UI Schema</title>
+  <title>🏗️ Auto-Configuração do Praxis UI Schema</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,10 +230,24 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">🏗️ Auto-Configuração do Praxis UI Schema </h1>
+<h1 class="title">🏗️ Auto-Configuração do Praxis UI Schema</h1>
 </header>
 <h1 id="auto-configuração-do-praxis-ui-schema">🏗️ Auto-Configuração do
 Praxis UI Schema</h1>
+<h2 id="status-do-documento">Status do documento</h2>
+<p>Este documento continua relevante para a auto-configuração viva do
+starter, mas mistura exemplos do baseline atual com referências de
+compatibilidade do core legado.</p>
+<p>Leia assim:</p>
+<ul>
+<li>recursos novos devem seguir o baseline
+<code>resource + surfaces + actions + capabilities</code></li>
+<li>exemplos com <code>AbstractCrudController</code> são históricos ou
+de compatibilidade</li>
+<li>para a narrativa pública atual, consulte primeiro
+<code>README.md</code>, <code>docs/index.md</code> e
+<code>docs/architecture-overview.md</code></li>
+</ul>
 <h2 id="visão-geral">📋 Visão Geral</h2>
 <p>O <code>OpenApiUiSchemaAutoConfiguration</code> é o
 <strong>“bootstrap”</strong> de todo o sistema Praxis UI Schema,
@@ -241,10 +255,10 @@ implementando o padrão <strong>“Convention over Configuration”</strong>
 do Spring Boot para que desenvolvedores apenas adicionem a dependência e
 todo o sistema fique automaticamente disponível.</p>
 <h2 id="objetivo-principal">🎯 Objetivo Principal</h2>
-<p><strong>Zero Setup Experience</strong>: Desenvolvedores apenas
-precisam: 1. Adicionar a dependência no <code>pom.xml</code> 2. Usar
-<code>@ApiResource</code> nos controllers 3. Todo o sistema funciona
-automaticamente</p>
+<p>Objetivo prático da auto-configuração: 1. adicionar a dependência no
+<code>pom.xml</code> 2. expor controllers compatíveis com o baseline
+atual do starter 3. deixar discovery, docs filtrados e infraestrutura
+interna disponíveis sem boilerplate manual</p>
 <h2 id="propriedades-de-configuração">⚙️ Propriedades de
 Configuração</h2>
 <table>

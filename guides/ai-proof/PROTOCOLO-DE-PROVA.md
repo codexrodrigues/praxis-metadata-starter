@@ -5,7 +5,7 @@
 Medir se uma LLM consegue, partindo apenas dos guias oficiais, produzir:
 
 - uma aplicacao Spring Boot funcional
-- um CRUD metadata-driven aderente ao contrato da plataforma
+- um recurso metadata-driven aderente ao baseline atual da plataforma
 - um frontend Angular capaz de consumir esse contrato
 
 ## Regras da rodada

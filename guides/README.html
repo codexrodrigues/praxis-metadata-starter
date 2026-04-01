@@ -178,7 +178,10 @@ LLMs.</p>
 <li><a href="GUIA-01-AI-BACKEND-APLICACAO-NOVA.md">Guia 01 - Backend -
 Aplicacao Nova</a></li>
 <li><a href="GUIA-02-AI-BACKEND-CRUD-METADATA.md">Guia 02 - Backend -
-CRUD Metadata-Driven</a></li>
+Recurso Metadata-Driven</a></li>
+<li><a
+href="GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md">Guia 04
+- Quando usar Resource, Surface, Action e Capability</a></li>
 <li><a href="GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md">Guia 03 - Frontend -
 Angular CRUD Completo</a></li>
 <li><a href="CHECKLIST-VALIDACAO-IA.md">Checklist de Validacao</a></li>
@@ -192,8 +195,14 @@ sem depender de app externo nem de conhecimento oral do time.</p>
 <p>Use para criar uma nova aplicacao Spring Boot minima e correta sobre
 o starter.</p>
 <h3 id="guia-02">Guia 02</h3>
-<p>Use para gerar um recurso CRUD metadata-driven dentro da aplicacao
-criada no Guia 01.</p>
+<p>Use para gerar um recurso metadata-driven no baseline canonico atual,
+com modelo resource-oriented, DTOs separados e semantica correta de
+contrato.</p>
+<h3 id="guia-04">Guia 04</h3>
+<p>Use para decidir quando a modelagem deve ficar em
+<code>resource</code>, quando deve subir para <code>@UiSurface</code>,
+quando deve virar <code>@WorkflowAction</code> e quando o cliente deve
+consumir <code>capabilities</code>.</p>
 <h3 id="guia-03">Guia 03</h3>
 <p>Use apenas quando o backend ja publicar corretamente o contrato
 metadata-driven e a tarefa for gerar o host Angular canonico.</p>
@@ -202,9 +211,8 @@ metadata-driven e a tarefa for gerar o host Angular canonico.</p>
 consumo.</p>
 <h2 id="guias-complementares">Guias complementares</h2>
 <ul>
-<li><a href="CRUD-COM-APIRESOURCE.md">CRUD com <span class="citation"
-data-cites="ApiResource">@ApiResource</span> e <span class="citation"
-data-cites="ApiGroup">@ApiGroup</span></a></li>
+<li><a href="CRUD-COM-APIRESOURCE.md">Uso de <span class="citation"
+data-cites="ApiResource">@ApiResource</span> no core legado</a></li>
 <li><a href="FILTROS-E-PAGINACAO.md">Filtros e Paginacao</a></li>
 <li><a href="ORDEM-PADRAO.md">Ordenacao Padrao</a></li>
 <li><a href="OPTIONS-ENDPOINT.md">Options (id/label)</a></li>

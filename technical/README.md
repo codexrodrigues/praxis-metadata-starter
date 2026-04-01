@@ -1,157 +1,75 @@
-# 🔧 Documentação Técnica
+# Technical Docs
 
-Esta seção contém documentação técnica detalhada sobre os recursos avançados e internos do Praxis Metadata Starter.
+Esta area concentra material tecnico de engenharia do `praxis-metadata-starter`.
+Ela mistura referencias atuais, registros historicos de fechamento e planos
+arquivados. Nao deve ser lida como onboarding principal.
 
-## 📋 **Documentação Técnica Disponível**
+Para onboarding e narrativa publica atual, use primeiro:
 
-### ⚙️ [Auto-configuração](AUTO-CONFIGURACAO.md)
-**Sistema de configuração automática do Praxis Metadata Starter**
+- [README principal](../README.md)
+- [Hub dos guias](../guides/)
+- [Visao arquitetural publica](../architecture-overview.md)
 
-- Configuração automática de componentes Spring
-- Propriedades de configuração disponíveis
-- Resolução explícita da base interna do OpenAPI via `app.openapi.internal-base-url`
-- Personalização e extensões
-- Bean registration automático
+## Como ler esta area
 
-**Ideal para:** Entender como o sistema se configura automaticamente e como personalizar.
+### Referencias tecnicas atuais
 
-### 🏷️ [Estratégia Dupla de Grupos OpenAPI](ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md)
-**Sistema avançado de resolução automática de grupos OpenAPI**
+Estes documentos ainda descrevem comportamento vivo do starter, mas podem citar
+compatibilidade com o core legado quando isso fizer parte da implementacao atual.
 
-- ✅ **@ApiResource + @ApiGroup** - Sistema duplo de anotações
-- ✅ **Resolução automática** via OpenApiGroupResolver  
-- ✅ **97% menos dados** - Documentos específicos vs completos
-- ✅ **Cache inteligente** com algoritmo "best match"
-- ✅ **Zero configuração** - Grupos criados automaticamente
+- [Auto-configuracao](AUTO-CONFIGURACAO.md)
+- [Piloto resource-oriented em src/test](RESOURCE-ORIENTED-PILOT-IN-SRC-TEST.md)
 
-**Ideal para:** Entender o sistema revolucionário de documentação OpenAPI automática.
+### Legado e migracao do core antigo
 
-### ✅ [Validação @ApiResource](VALIDACAO-API-RESOURCE.md)
-**Sistema de validação obrigatória de anotações**
+Estes documentos continuam uteis para quem ainda toca o core legado, mas nao
+descrevem o baseline recomendado para recursos novos.
 
-- Validação automática em tempo de compilação
-- Detecção de controllers sem @ApiResource
-- Sistema de testes automatizados
-- Integração com CI/CD
+- [Estrategia de grupos OpenAPI do core legado e da transicao](ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md)
+- [Validacao de @ApiResource no core legado](VALIDACAO-API-RESOURCE.md)
 
-**Ideal para:** Garantir que todos os controllers sigam os padrões estabelecidos.
+### Fechamentos historicos do baseline atual
 
-### 🔁 [Plano de Cursor Pagination / Keyset](CURSOR-PAGINATION-KEYSET-PLAN.md)
-**Desenho canônico para suportar `/filter/cursor` no starter**
+Registros do que foi implementado e endurecido nas fases que consolidaram o
+baseline `resource + surfaces + actions + capabilities`.
 
-- Uso de `Window<T>` e `ScrollPosition` do Spring Data Commons
-- Fragmentos de repositório para encapsular keyset pagination
-- Regras de elegibilidade por recurso
-- Sort estável com tie-break por ID
-- Estratégia de rollout segura para o v1
+- [Fechamento da Fase 4 - Surfaces](PHASE-4-SURFACES-CLOSURE.md)
+- [Fechamento da Fase 5 - Workflow Actions](PHASE-5-ACTIONS-CLOSURE.md)
+- [Fechamento da Fase 6 - Capabilities Unificadas](PHASE-6-CAPABILITIES-CLOSURE.md)
+- [Checklist de prontidao do piloto](PILOT-READINESS-CHECKLIST.md)
+- [Rollback e observabilidade do piloto](ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.md)
 
-**Ideal para:** Planejar a implementação correta de paginação por cursor no nível de plataforma.
+### Planos e backlog arquivados ou em evolucao
 
-### 🧱 [Backlog Executável de Cursor Pagination / Keyset](CURSOR-PAGINATION-KEYSET-BACKLOG.md)
-**Decomposição técnica do v1, arquivo por arquivo**
+Documentos de planejamento tecnico. Sao uteis para contexto e continuidade de
+engenharia, mas nao substituem a fonte canonica do contrato publico atual.
 
-- backlog por camada e pacote
-- arquivos a criar e arquivos a alterar
-- critérios de aceite por etapa
-- ordem recomendada de execução
-- definition of done do v1
+- [Plano de reescrita do core resource/surface/action](RESOURCE-SURFACE-ACTION-ARCHITECTURE-PLAN.md)
+- [Plano de cursor pagination / keyset](CURSOR-PAGINATION-KEYSET-PLAN.md)
+- [Backlog executavel de cursor pagination / keyset](CURSOR-PAGINATION-KEYSET-BACKLOG.md)
+- [Plano de filtered stats](FILTERED-STATS-PLAN.md)
+- [Roadmap de filtros - lotes 2 e 3](FILTROS-ROADMAP.md)
+- [Backlog E2E do starter](E2E-TEST-BACKLOG.md)
+- [Stats response schema platform fix plan](STATS-RESPONSE-SCHEMA-PLATFORM-FIX-PLAN.md)
 
-**Ideal para:** Sair do plano arquitetural e entrar na implementação do v1.
+## Regras de leitura
 
-### 📊 [Plano de Filtered Stats](FILTERED-STATS-PLAN.md)
-**Desenho canônico para KPIs e agregações sobre o conjunto filtrado**
+- O baseline canonico do starter e `resource + surfaces + actions + capabilities + HATEOAS`.
+- `AbstractCrudController`, `BaseCrudService` e afins sao superficie legada.
+- Planos e fechamentos historicos ajudam a entender como o baseline atual surgiu,
+  mas nao devem rebaixar a fonte canonica atual para a semantica antiga.
+- Quando houver duvida de contrato publico, a prioridade e:
+  1. `README.md`
+  2. `docs/architecture-overview.md`
+  3. `docs/guides/**`
+  4. `docs/spec/**`
+  5. esta area tecnica
 
-- endpoints `/stats/group-by`, `/stats/timeseries` e `/stats/distribution`
-- status atual do v1 e matriz de suporte por operação
-- contrato JSON estabilizado de `timeseries` para `start/end` em `yyyy-MM-dd`
-- capability explícita por recurso
-- governança de campos e métricas agregáveis
-- reuso de `FilterDTO -> Specification`
-- backlog arquivo por arquivo para implementação
+## Referencias relacionadas
 
-**Ideal para:** Planejar analytics filtrados no nível de plataforma sem criar endpoints ad hoc por app.
-
----
-
-## 🎯 **Para Quem é Esta Seção**
-
-### **Arquitetos de Software**
-- Entender as decisões de design do framework
-- Avaliar impacto de performance e escalabilidade
-- Planejar integrações e extensões
-
-### **Desenvolvedores Sênior** 
-- Implementar customizações avançadas
-- Resolver problemas técnicos complexos  
-- Contribuir com melhorias no framework
-
-### **DevOps/SRE**
-- Configurar ambientes de produção
-- Implementar monitoramento e observabilidade
-- Otimizar performance e cache
-
----
-
-## 🔍 **Conceitos Técnicos Principais**
-
-### **Sistema de Resolução Automática**
-- **DynamicSwaggerConfig:** Escaneia controllers no startup
-- **ApiDocsController:** Resolve grupos baseado no path da requisição
-- **OpenApiGroupResolver:** Algoritmo "best match" para detecção
-- **AbstractCrudController:** Auto-detecção de base path
-
-### **Cache Inteligente**
-- Documentos específicos por grupo (97% menor que completo)
-- Cache baseado em path pattern matching
-- Invalidação automática em mudanças de schema
-
-### **Validação Automática**
-- Detecção de controllers não anotados
-- Validação em tempo de compilação
-- Testes automatizados de conformidade
-
----
-
-## 🚀 **Performance e Escalabilidade**
-
-### **Métricas de Performance**
-- **Redução de payload:** ~500KB → ~14KB (97% menor)
-- **Cache hit rate:** >95% em ambientes típicos
-- **Startup time:** Impacto mínimo (<100ms adicional)
-
-### **Escalabilidade**
-- Suporte a milhares de controllers simultâneos
-- Cache distribuído para ambientes multi-instância
-- Lazy loading de documentação por demanda
-
----
-
-## 🛠️ **Troubleshooting Avançado**
-
-### **Problemas Comuns**
-- Controllers não detectados → Verificar herança de AbstractCrudController
-- Grupos não criados → Validar anotações @ApiResource
-- Cache não funcionando → Verificar configuração de Spring Boot
-
-### **Debug e Monitoramento**
-- Logs específicos para resolução de grupos
-- Métricas de cache via Micrometer
-- Health checks automáticos
-
----
-
-## 📚 **Referências Relacionadas**
-
-- 📖 [Guias de Implementação](../guides/)
-- 💡 [Exemplos Práticos](../examples/)
-- 🏠 [Índice Principal](../README.md)
-- 🧭 [Heurística de ControlType](../concepts/CONTROLTYPE-HEURISTICA.md)
- - 🧩 [Roadmap de Filtros (Lote 2 e 3)](FILTROS-ROADMAP.md)
- - 🔁 [Plano de Cursor Pagination / Keyset](CURSOR-PAGINATION-KEYSET-PLAN.md)
- - 🧱 [Backlog Executável de Cursor Pagination / Keyset](CURSOR-PAGINATION-KEYSET-BACKLOG.md)
- - 📊 [Plano de Filtered Stats](FILTERED-STATS-PLAN.md)
- - 🔎 Javadoc: [Visão geral](../apidocs/index.html), [Pacotes](../apidocs/allpackages-index.html)
-
----
-
-**⚡ Nota:** Esta seção é para usuários avançados. Para uso básico, consulte os [Guias](../guides/) e [Exemplos](../examples/).
+- [Hub dos guias](../guides/)
+- [Examples](../examples/)
+- [Conformance](../spec/CONFORMANCE.md)
+- [Architecture overview](../architecture-overview.md)
+- [Heuristica de control type](../concepts/CONTROLTYPE-HEURISTICA.md)
+- Javadoc: [Visao geral](../apidocs/index.html), [Pacotes](../apidocs/allpackages-index.html)

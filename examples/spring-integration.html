@@ -236,11 +236,17 @@
 ponta a ponta</h1>
 <p>Este exemplo mostra uma integracao minima entre uma aplicacao Spring
 Boot e o <code>praxis-metadata-starter</code>.</p>
+<blockquote>
+<p>Nota: este exemplo mostra um wiring historico simplificado do core
+legado. Para aplicacoes novas, priorize os guias principais
+resource-oriented e trate <code>AbstractCrudController</code> apenas
+como referencia de migracao.</p>
+</blockquote>
 <h2 id="objetivo">Objetivo</h2>
 <p>Demonstrar um caminho autocontido para:</p>
 <ul>
 <li>subir a aplicacao</li>
-<li>expor um controller CRUD</li>
+<li>expor um controller de exemplo</li>
 <li>publicar <code>OpenAPI + x-ui</code></li>
 <li>responder <code>/schemas/filtered</code></li>
 </ul>
@@ -248,7 +254,7 @@ Boot e o <code>praxis-metadata-starter</code>.</p>
 <ul>
 <li>use <code>@ApiResource</code> e <code>@ApiGroup</code></li>
 <li>publique um DTO com <code>@UISchema</code></li>
-<li>use <code>AbstractCrudController</code></li>
+<li>use o core canonico atual quando estiver criando aplicacao nova</li>
 <li>mantenha o contrato consumivel por
 <code>praxis-ui-angular</code></li>
 </ul>

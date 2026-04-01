@@ -226,7 +226,8 @@ Para um recurso mutavel no core atual, o baseline esperado inclui:
 - `/schemas/catalog`
 - `/schemas/surfaces`
 - `/schemas/actions`
-- `/capabilities`
+- `GET /{resource}/capabilities`
+- `GET /{resource}/{id}/capabilities`
 
 ## O que nao deve ser gerado
 
@@ -245,7 +246,7 @@ Antes de concluir:
 - `@Valid` funciona de verdade
 - `/schemas/filtered` resolve request e response
 - `/schemas/surfaces` e `/schemas/actions` so expoem referencias canonicas
-- `/capabilities` agrega sem redefinir contrato
+- `GET /{resource}/capabilities` agrega sem redefinir contrato
 
 ## Referencias
 

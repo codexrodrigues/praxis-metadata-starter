@@ -169,6 +169,12 @@
 <h1 class="title">Pilot Readiness Checklist</h1>
 </header>
 <h1 id="pilot-readiness-checklist">Pilot Readiness Checklist</h1>
+<h2 id="status-do-documento">Status do documento</h2>
+<p>Checklist histórico de prontidão para abrir o primeiro consumidor
+externo do baseline
+<code>resource + surfaces + actions + capabilities</code>.</p>
+<p>Ele permanece útil como registro do gate de migração, mas não
+substitui a documentação canônica atual do starter.</p>
 <h2 id="go-no-go-antes-do-primeiro-consumidor-externo">Go / No-Go antes
 do primeiro consumidor externo</h2>
 <p>Marque todos os itens abaixo antes de abrir a migracao do piloto.</p>
@@ -218,7 +224,11 @@ validado</label></li>
 validado</label></li>
 <li><label><input type="checkbox" /><code>/schemas/actions</code>
 validado</label></li>
-<li><label><input type="checkbox" /><code>/capabilities</code>
+<li><label><input
+type="checkbox" /><code>GET /{resource}/capabilities</code>
+validado</label></li>
+<li><label><input
+type="checkbox" /><code>GET /{resource}/{id}/capabilities</code>
 validado</label></li>
 </ul>
 <h2 id="testes-e-validacao">Testes e validacao</h2>

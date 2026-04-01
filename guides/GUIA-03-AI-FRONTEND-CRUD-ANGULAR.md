@@ -84,7 +84,7 @@ Gere o frontend Angular de CRUD completo para o recurso abaixo.
 
 Entrada:
 - Recurso: Funcionarios
-- resourcePath: api/human-resources/funcionarios
+- resourcePath: human-resources/funcionarios
 - idField: id
 - endpointKey: HumanResources
 - rota da lista: /funcionarios
@@ -110,7 +110,7 @@ npm i @praxisui/ai @google/generative-ai
 
 Motivo:
 
-- as libs publicadas em `@praxisui 3.0.0-beta.3` ainda puxam `@praxisui/ai`
+- as libs publicadas em `@praxisui 3.0.0-beta.10` ainda puxam `@praxisui/ai`
   no grafo de bundle de algumas libs
 - `@praxisui/ai` referencia `@google/generative-ai`
 
@@ -120,7 +120,7 @@ novo.
 Referencia operacional validada nesta rodada:
 
 - `praxis-metadata-starter 5.0.0-rc.2`
-- `@praxisui 3.0.0-beta.3`
+- `@praxisui 3.0.0-beta.10`
 
 ## Contratos canonicos de runtime
 
@@ -129,10 +129,11 @@ Referencia operacional validada nesta rodada:
 No runtime Angular atual, o `resourcePath` segue o formato:
 
 ```text
-api/human-resources/funcionarios
+human-resources/funcionarios
 ```
 
-Nao remova o prefixo `api/` por conta propria.
+Se `API_URL` ja aponta para `/api`, mantenha o `resourcePath` relativo ao
+dominio do recurso e nao repita o prefixo `api/`.
 
 ### 2. `API_URL`
 

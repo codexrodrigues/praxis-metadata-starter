@@ -2,28 +2,34 @@
 
 Documentacao publica do `praxis-metadata-starter`.
 
-Esta home orienta pessoas, LLMs e indexadores para a superficie correta da
-documentacao.
+Esta home deve orientar pessoas, LLMs e indexadores para a semantica atual da
+plataforma, sem misturar onboarding novo com baseline legado.
 
 ## O que este site publica
 
-- a trilha principal de guias para gerar backend e frontend metadata-driven
-- a prova operacional que valida a suficiencia dos guias
+- a trilha principal do backend canonico resource-oriented
+- o contrato estrutural e documental publicado pelo starter
+- a semantica de `surfaces`, `actions` e `capabilities`
 - referencia tecnica complementar em Javadoc
-- conceitos, exemplos e material tecnico de apoio
 
 ## Comece por objetivo
 
-### Quero usar com LLM
+### Quero adotar o baseline atual
 
-- [Trilha principal dos guias](guides/index.html)
-- [Prova operacional dos guias](guides/ai-proof/index.html)
+- [Guides hub](guides/index.html)
+- [Architecture overview](architecture-overview.html)
+- [Conformance](spec/CONFORMANCE.html)
 
-### Quero entender o contrato
+### Quero gerar uma aplicacao nova
 
-- [Visao geral funcional](overview/index.html)
-- [Conceitos](concepts/index.html)
-- [Exemplos](examples/index.html)
+1. [Guia 01 - Backend - Aplicacao Nova](guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html)
+2. [Guia 02 - Backend - Recurso Metadata-Driven](guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html)
+3. [Guia 04 - Quando usar Resource, Surface, Action e Capability](guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html)
+
+### Quero integrar um runtime Angular
+
+- [Guia 03 - Frontend - Angular CRUD Completo](guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html)
+- [Checklist de Validacao](guides/CHECKLIST-VALIDACAO-IA.html)
 
 ### Quero referencia tecnica Java
 
@@ -31,21 +37,27 @@ documentacao.
 - [Indice humano do Javadoc](api/index.html)
 - [Documentacao tecnica](technical/index.html)
 
-## Trilha principal para LLM
+## Baseline Atual
 
-1. [Guia 01 - Backend - Aplicacao Nova](guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html)
-2. [Guia 02 - Backend - CRUD Metadata-Driven](guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html)
-3. [Guia 03 - Frontend - Angular CRUD Completo](guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html)
-4. [Checklist de Validacao](guides/CHECKLIST-VALIDACAO-IA.html)
+O baseline canonico atual do starter e:
 
-## Hierarquia documental
+- `resource`
+- `surface`
+- `action`
+- `capability`
+- HATEOAS
 
-- `guides/` e a trilha principal
-- `guides/ai-proof/` prova que os guias fecham o fluxo
-- `apidocs/` e referencia tecnica complementar
-- `examples/`, `concepts/` e `technical/` aprofundam pontos especificos
+Isso significa:
 
-## Regra de leitura
+- `/schemas/filtered` segue como contrato estrutural
+- `/schemas/catalog` segue como catalogo documental
+- `/schemas/surfaces` e `/schemas/actions` publicam discovery semantico
+- `/{resource}/capabilities` agrega as capacidades do recurso sem redefinir o contrato estrutural
 
-Se houver duvida entre um exemplo isolado e a trilha principal, priorize os
-guias e o protocolo de prova.
+## Regra De Leitura
+
+Se houver divergencia entre material antigo de CRUD generico e a trilha atual:
+
+- priorize os guias desta home
+- priorize `architecture-overview`
+- trate material legado como referencia de migracao, nao como baseline para app nova

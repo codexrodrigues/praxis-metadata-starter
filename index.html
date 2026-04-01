@@ -170,28 +170,43 @@
 </header>
 <h1 id="praxis-metadata-starter-docs">Praxis Metadata Starter Docs</h1>
 <p>Documentacao publica do <code>praxis-metadata-starter</code>.</p>
-<p>Esta home orienta pessoas, LLMs e indexadores para a superficie
-correta da documentacao.</p>
+<p>Esta home deve orientar pessoas, LLMs e indexadores para a semantica
+atual da plataforma, sem misturar onboarding novo com baseline
+legado.</p>
 <h2 id="o-que-este-site-publica">O que este site publica</h2>
 <ul>
-<li>a trilha principal de guias para gerar backend e frontend
-metadata-driven</li>
-<li>a prova operacional que valida a suficiencia dos guias</li>
+<li>a trilha principal do backend canonico resource-oriented</li>
+<li>o contrato estrutural e documental publicado pelo starter</li>
+<li>a semantica de <code>surfaces</code>, <code>actions</code> e
+<code>capabilities</code></li>
 <li>referencia tecnica complementar em Javadoc</li>
-<li>conceitos, exemplos e material tecnico de apoio</li>
 </ul>
 <h2 id="comece-por-objetivo">Comece por objetivo</h2>
-<h3 id="quero-usar-com-llm">Quero usar com LLM</h3>
+<h3 id="quero-adotar-o-baseline-atual">Quero adotar o baseline
+atual</h3>
 <ul>
-<li><a href="guides/index.html">Trilha principal dos guias</a></li>
-<li><a href="guides/ai-proof/index.html">Prova operacional dos
-guias</a></li>
+<li><a href="guides/index.html">Guides hub</a></li>
+<li><a href="architecture-overview.html">Architecture overview</a></li>
+<li><a href="spec/CONFORMANCE.html">Conformance</a></li>
 </ul>
-<h3 id="quero-entender-o-contrato">Quero entender o contrato</h3>
+<h3 id="quero-gerar-uma-aplicacao-nova">Quero gerar uma aplicacao
+nova</h3>
+<ol type="1">
+<li><a href="guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html">Guia 01 -
+Backend - Aplicacao Nova</a></li>
+<li><a href="guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html">Guia 02 -
+Backend - Recurso Metadata-Driven</a></li>
+<li><a
+href="guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html">Guia
+04 - Quando usar Resource, Surface, Action e Capability</a></li>
+</ol>
+<h3 id="quero-integrar-um-runtime-angular">Quero integrar um runtime
+Angular</h3>
 <ul>
-<li><a href="overview/index.html">Visao geral funcional</a></li>
-<li><a href="concepts/index.html">Conceitos</a></li>
-<li><a href="examples/index.html">Exemplos</a></li>
+<li><a href="guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html">Guia 03 -
+Frontend - Angular CRUD Completo</a></li>
+<li><a href="guides/CHECKLIST-VALIDACAO-IA.html">Checklist de
+Validacao</a></li>
 </ul>
 <h3 id="quero-referencia-tecnica-java">Quero referencia tecnica
 Java</h3>
@@ -200,27 +215,32 @@ Java</h3>
 <li><a href="api/index.html">Indice humano do Javadoc</a></li>
 <li><a href="technical/index.html">Documentacao tecnica</a></li>
 </ul>
-<h2 id="trilha-principal-para-llm">Trilha principal para LLM</h2>
-<ol type="1">
-<li><a href="guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html">Guia 01 -
-Backend - Aplicacao Nova</a></li>
-<li><a href="guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html">Guia 02 -
-Backend - CRUD Metadata-Driven</a></li>
-<li><a href="guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html">Guia 03 -
-Frontend - Angular CRUD Completo</a></li>
-<li><a href="guides/CHECKLIST-VALIDACAO-IA.html">Checklist de
-Validacao</a></li>
-</ol>
-<h2 id="hierarquia-documental">Hierarquia documental</h2>
+<h2 id="baseline-atual">Baseline Atual</h2>
+<p>O baseline canonico atual do starter e:</p>
 <ul>
-<li><code>guides/</code> e a trilha principal</li>
-<li><code>guides/ai-proof/</code> prova que os guias fecham o fluxo</li>
-<li><code>apidocs/</code> e referencia tecnica complementar</li>
-<li><code>examples/</code>, <code>concepts/</code> e
-<code>technical/</code> aprofundam pontos especificos</li>
+<li><code>resource</code></li>
+<li><code>surface</code></li>
+<li><code>action</code></li>
+<li><code>capability</code></li>
+<li>HATEOAS</li>
 </ul>
-<h2 id="regra-de-leitura">Regra de leitura</h2>
-<p>Se houver duvida entre um exemplo isolado e a trilha principal,
-priorize os guias e o protocolo de prova.</p>
+<p>Isso significa:</p>
+<ul>
+<li><code>/schemas/filtered</code> segue como contrato estrutural</li>
+<li><code>/schemas/catalog</code> segue como catalogo documental</li>
+<li><code>/schemas/surfaces</code> e <code>/schemas/actions</code>
+publicam discovery semantico</li>
+<li><code>/{resource}/capabilities</code> agrega as capacidades do
+recurso sem redefinir o contrato estrutural</li>
+</ul>
+<h2 id="regra-de-leitura">Regra De Leitura</h2>
+<p>Se houver divergencia entre material antigo de CRUD generico e a
+trilha atual:</p>
+<ul>
+<li>priorize os guias desta home</li>
+<li>priorize <code>architecture-overview</code></li>
+<li>trate material legado como referencia de migracao, nao como baseline
+para app nova</li>
+</ul>
 </body>
 </html>

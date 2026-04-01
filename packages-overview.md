@@ -1,135 +1,113 @@
-# Visão dos Pacotes do Praxis Metadata Starter
+# Visao dos Pacotes do Praxis Metadata Starter
 
-Esta referência resume os pacotes Java disponibilizados pelo starter, destacando **responsabilidades**, **principais tipos** e **como cada peça se conecta aos fluxos descritos na [visão arquitetural](architecture-overview.md)**.
+Esta referencia resume os pacotes Java disponibilizados pelo starter e como
+eles se conectam ao baseline atual da plataforma.
 
-> 💡 Use esta página como mapa mental antes de navegar pelo Javadoc. Cada seção cita classes chave com links para facilitar a exploração.
-
-## Pacote Raiz: `org.praxisplatform.uischema`
-
-Abriga enums e tipos compartilhados entre as camadas.
-
-| Tipo | Função | Notas |
-|------|--------|-------|
-| [`FieldConfigProperties`](../src/main/java/org/praxisplatform/uischema/FieldConfigProperties.java) | Lista oficial de chaves `x-ui` para propriedades de campos | Usada por `CustomOpenApiResolver` e pela UI |
-| [`ValidationProperties`](../src/main/java/org/praxisplatform/uischema/ValidationProperties.java) | Mapeia restrições de validação e mensagens padrão | Preenchida automaticamente a partir de Bean Validation |
-| `FieldControlType`, `FieldDataType`, `FieldAlignment` | Enumerações de suporte visual | Podem ser referenciadas diretamente em `@UISchema` |
+> Importante: esta pagina mistura o baseline canonico atual com classes
+> legadas ainda presentes no codigo. Para aplicacoes novas, a fonte de verdade
+> continua sendo `resource + surfaces + actions + capabilities + HATEOAS`,
+> conforme `architecture-overview.md` e os guias principais.
 
 ## `annotation`
 
-Fornece anotações que descrevem recursos API e comportamento de UI.
+Anotacoes que expressam semantica do backend publicado.
 
-* `@ApiResource` / `@ApiGroup` — categorizam controllers REST para geração de grupos OpenAPI.
-* `@UISchema` (exposta em `extension.annotation`) — descreve propriedades visuais; ver [conceito detalhado](concepts/ui-schema.md).
-* `@Filterable` — identifica campos que participam de filtros dinâmicos.
+- `@ApiResource`
+- `@ApiGroup`
+- `@ResourceIntent`
+- `@UiSurface`
+- `@WorkflowAction`
+
+`@UISchema` continua existindo para metadados de campo, mas nao descreve sozinha
+o baseline arquitetural atual.
 
 ## `configuration`
 
-Auto-configurações Spring Boot que ligam todos os componentes automaticamente.
+Auto-configuracoes do starter.
 
-* `OpenApiUiSchemaAutoConfiguration` habilita resolvers, controllers e utilitários.
-* `DynamicSwaggerConfig` registra grupos adicionais e integra com `OpenApiGroupResolver`.
-* `RepositoryConfiguration` expõe beans com `JpaSpecificationExecutor` para filtros dinâmicos.
+- `PraxisMetadataAutoConfiguration`
+- `OpenApiUiSchemaAutoConfiguration`
+- `DynamicSwaggerConfig`
+
+Essas pecas ligam resolvers, grouped OpenAPI e os controllers de docs/discovery.
 
 ## `controller`
 
-Camada HTTP responsável por expor operações prontas.
+Camada HTTP do starter.
 
-* `controller.base` — controllers genéricos (`AbstractCrudController`, `BaseFilterController`) com operações CRUD, paginação e filtros.
-* `controller.docs` — endpoints de documentação (`ApiDocsController`) com cache e ETag. Faz a ponte entre `/v3/api-docs` e o fluxo de enriquecimento descrito em [architecture-overview.md](architecture-overview.md).
+- `controller.docs` publica `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces` e `/schemas/actions`
+- `controller.base` contem tanto o core atual resource-oriented quanto classes legadas ainda mantidas por compatibilidade
+
+Para aplicacoes novas, priorize os controllers resource-oriented. Leia
+`AbstractCrudController` apenas como referencia de legado ou migracao.
 
 ## `dto`
 
-Objetos de transporte utilizados por controllers e services.
+Objetos de transporte usados por controllers e services.
 
-* `OptionDTO` — payload leve para combos e autocompletes.
-* `PagedResponseDTO` — abstrai paginação padrão.
-* Exemplos de uso: [Filter DTO real](examples/filter-dto.md).
+No baseline atual, espere separacao entre:
+
+- response
+- create
+- update
+- filter
 
 ## `extension`
 
-Corpo do processo de enriquecimento OpenAPI.
+Corpo do enriquecimento OpenAPI.
 
-* `CustomOpenApiResolver` — converte metadados de anotações e validação em `x-ui`.
-* `ResolverUtils` — utilitários para leitura de anotações e classes.
-* `extension.annotation` — contém `@UISchema`, organizada separadamente para minimizar dependências.
+- `CustomOpenApiResolver`
+- utilitarios de resolucao e anotacoes
+
+Aqui DTOs, validacoes e metadata de recurso viram `x-ui` e metadata de operacao.
 
 ## `filter`
 
-Infraestrutura de filtros dinâmicos baseada em Specification.
+Infraestrutura de filtros dinamicos baseada em Specification.
 
-* `filter.annotation` — `@Filterable` e metadados adicionais.
-* `filter.dto` — contratos de DTOs e adaptadores (por exemplo, `FilterDefinitionDTO`). Veja [exemplo detalhado](examples/filter-dto.md).
-* `filter.specification` — builders de Specifications Spring Data que transformam DTOs em consultas.
+- `filter.annotation`
+- `filter.dto`
+- `filter.specification`
 
-## `hash`
+## `http` e `rest`
 
-Geração e comparação de hashes de schema.
+Infraestrutura de resposta e semantica HTTP.
 
-* Utilizado por `ApiDocsController` para calcular ETag do payload filtrado.
-* Extensível para persistência de versões via banco ou cache distribuído.
+- `RestApiResponse`
+- builders de link
+- tratamento de excecao
 
-## `http`
-
-Classes auxiliares para construção de respostas padronizadas.
-
-* `RestApiResponse` — wrapper com categoria, payload e erros.
-* `LinkBuilder` — utilitário para montagem de links HATEOAS baseados em rota.
-
-## `id`
-
-Estruturas relacionadas a identificação única e extração de IDs.
-
-* `Identifiable` — contrato usado pelos serviços base para extrair chave primária.
-* `IdExtractor` — reflexão segura para identificar getters de ID.
+Essas pecas sustentam a superficie publica com HATEOAS e envelopes consistentes.
 
 ## `mapper`
 
-Configurações compartilhadas para MapStruct e mapeamento de entidades.
-
-* `mapper.base` — mapeadores genéricos (`BaseMapper`, `OptionMapper`).
-* `mapper.config` — configurações corporativas (`CorporateMapperConfig`).
-
-## `numeric`
-
-Conversores e utilitários para campos numéricos.
-
-* `NumberFormatStyle` — enum com estilos (percentual, moeda etc.).
-* Integrado diretamente pelo `CustomOpenApiResolver`.
+Configuracoes compartilhadas para mapeamento e integracao com MapStruct.
 
 ## `repository`
 
-Infraestrutura de acesso a dados.
-
-* `repository.base` — interfaces base (`BaseRepository`, `BaseReadOnlyRepository`).
-* Extensível por aplicações consumidoras que desejam padronizar operações CRUD.
-
-## `rest`
-
-Exceções e respostas específicas da camada REST.
-
-* `rest.exceptionhandler` — `GlobalExceptionHandler` padroniza respostas de erro.
-* `rest.response` — builders auxiliares para `RestApiResponse`.
+Infraestrutura base de acesso a dados.
 
 ## `service`
 
-Serviços base orientados a domínio.
+Camada de servicos base.
 
-* `service.base` — implementações padrão para CRUD (`BaseCrudService`) e leitura (`BaseReadOnlyService`).
-* `service.base.annotation` — metadados de serviço utilizados por anotações.
+- o pacote contem servicos resource-oriented atuais
+- tambem contem servicos CRUD legados ainda presentes no codigo
+
+Para aplicacoes novas, trate `BaseCrudService` como referencia historica do
+core legado, nao como baseline recomendado.
 
 ## `util`
 
-Utilitários diversos.
+Utilitarios de suporte, incluindo:
 
-* `OpenApiUiUtils` — converte validações em mensagens amigáveis.
-* `OpenApiGroupResolver` — estratégia para detectar grupos (`ApiDocsController` depende dele).
-* `LocaleUtils` — suporte a localização para mensagens e labels.
+- `OpenApiGroupResolver`
+- `OpenApiUiUtils`
+- localizacao e helpers gerais
 
----
+## Como usar esta visao
 
-### Como usar esta visão
-
-1. Identifique o pacote relevante via tabela acima.
-2. Abra o `package-info.java` correspondente para obter detalhes extras e links cruzados.
-3. Consulte o Javadoc da classe desejada para obter exemplos de uso e contratos detalhados.
-4. Navegue pelos [exemplos](examples/) para ver o pacote em ação.
+1. identifique o pacote relevante
+2. confira `architecture-overview.md` para entender o papel dele no baseline atual
+3. use os guias principais para onboarding
+4. use o Javadoc quando precisar aprofundar detalhes de API ou classes legadas

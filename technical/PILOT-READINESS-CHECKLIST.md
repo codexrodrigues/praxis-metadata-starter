@@ -1,5 +1,13 @@
 # Pilot Readiness Checklist
 
+## Status do documento
+
+Checklist histórico de prontidão para abrir o primeiro consumidor externo do
+baseline `resource + surfaces + actions + capabilities`.
+
+Ele permanece útil como registro do gate de migração, mas não substitui a
+documentação canônica atual do starter.
+
 ## Go / No-Go antes do primeiro consumidor externo
 
 Marque todos os itens abaixo antes de abrir a migracao do piloto.
@@ -31,7 +39,8 @@ Marque todos os itens abaixo antes de abrir a migracao do piloto.
 - [ ] `/schemas/catalog` validado
 - [ ] `/schemas/surfaces` validado
 - [ ] `/schemas/actions` validado
-- [ ] `/capabilities` validado
+- [ ] `GET /{resource}/capabilities` validado
+- [ ] `GET /{resource}/{id}/capabilities` validado
 
 ## Testes e validacao
 

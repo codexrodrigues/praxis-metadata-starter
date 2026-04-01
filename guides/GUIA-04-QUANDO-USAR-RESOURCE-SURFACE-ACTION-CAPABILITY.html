@@ -244,8 +244,9 @@ sem <code>resourceId</code>; a availability real vem de
 <code>GET /{resource}/{id}/actions</code></li>
 </ul>
 <h2 id="capability">Capability</h2>
-<p>Use <code>/capabilities</code> quando o cliente precisa de um
-snapshot agregado do que pode ser feito agora.</p>
+<p>Use <code>GET /{resource}/capabilities</code> ou
+<code>GET /{resource}/{id}/capabilities</code> quando o cliente precisa
+de um snapshot agregado do que pode ser feito agora.</p>
 <p>O snapshot agrega:</p>
 <ul>
 <li>operacoes canonicas publicadas</li>

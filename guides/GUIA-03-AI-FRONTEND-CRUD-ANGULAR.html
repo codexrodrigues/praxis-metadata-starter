@@ -320,7 +320,7 @@ configurada</li>
 
 Entrada:
 - Recurso: Funcionarios
-- resourcePath: api/human-resources/funcionarios
+- resourcePath: human-resources/funcionarios
 - idField: id
 - endpointKey: HumanResources
 - rota da lista: /funcionarios
@@ -338,7 +338,7 @@ que o baseline real tambem precisa incluir:</p>
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> i @praxisui/ai @google/generative-ai</span></code></pre></div>
 <p>Motivo:</p>
 <ul>
-<li>as libs publicadas em <code>@praxisui 3.0.0-beta.3</code> ainda
+<li>as libs publicadas em <code>@praxisui 3.0.0-beta.10</code> ainda
 puxam <code>@praxisui/ai</code> no grafo de bundle de algumas libs</li>
 <li><code>@praxisui/ai</code> referencia
 <code>@google/generative-ai</code></li>
@@ -348,15 +348,17 @@ Angular novo.</p>
 <p>Referencia operacional validada nesta rodada:</p>
 <ul>
 <li><code>praxis-metadata-starter 5.0.0-rc.2</code></li>
-<li><code>@praxisui 3.0.0-beta.3</code></li>
+<li><code>@praxisui 3.0.0-beta.10</code></li>
 </ul>
 <h2 id="contratos-canonicos-de-runtime">Contratos canonicos de
 runtime</h2>
 <h3 id="resourcepath">1. <code>resourcePath</code></h3>
 <p>No runtime Angular atual, o <code>resourcePath</code> segue o
 formato:</p>
-<pre class="text"><code>api/human-resources/funcionarios</code></pre>
-<p>Nao remova o prefixo <code>api/</code> por conta propria.</p>
+<pre class="text"><code>human-resources/funcionarios</code></pre>
+<p>Se <code>API_URL</code> ja aponta para <code>/api</code>, mantenha o
+<code>resourcePath</code> relativo ao dominio do recurso e nao repita o
+prefixo <code>api/</code>.</p>
 <h3 id="api_url">2. <code>API_URL</code></h3>
 <p>O app host precisa fornecer o token <code>API_URL</code>.</p>
 <p>Exemplo minimo:</p>

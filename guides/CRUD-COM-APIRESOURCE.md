@@ -1,83 +1,54 @@
-# CRUD com @ApiResource e @ApiGroup
+# Uso de @ApiResource no Core Legado
 
-Este guia mostra como expor recursos REST usando `@ApiResource` e organizar a documentação com `@ApiGroup`, aproveitando a auto‑detecção de base path no `AbstractCrudController`.
+Este guia foi mantido por compatibilidade para times que ainda operam no core
+legado baseado em `AbstractCrudController`.
 
-- Javadoc: [`@ApiResource`](../apidocs/org/praxisplatform/uischema/annotation/ApiResource.html), [`@ApiGroup`](../apidocs/org/praxisplatform/uischema/annotation/ApiGroup.html)
-- Javadoc: [`AbstractCrudController`](../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html)
-- Conceitos: [Documentação Técnica](../technical/), [Índice de API](../api/README.md)
- - Tour: [`Endpoints Overview`](../apidocs/org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html)
+Para aplicacoes novas, nao use este guia como baseline. Comece por:
 
-## Passo a passo
+- `GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`
+- `GUIA-02-AI-BACKEND-CRUD-METADATA.md`
+- `GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md`
 
-1) Defina o path do recurso com `@ApiResource`
+## Quando este guia ainda faz sentido
+
+Use este material apenas se o codigo existente:
+
+- ainda herda de `AbstractCrudController`
+- ainda depende de `BaseCrudService`
+- ainda esta em migracao para o core resource-oriented
+
+## Papel de @ApiResource no legado
+
+Mesmo no core legado, `@ApiResource` continua importante para:
+
+- declarar o base path
+- alinhar a documentacao OpenAPI
+- gerar links HATEOAS coerentes
+- permitir resolucao automatica de grupos
+
+Exemplo legado:
 
 ```java
 @ApiResource("/api/human-resources/funcionarios")
 @ApiGroup("human-resources")
 public class FuncionarioController extends AbstractCrudController<Funcionario, FuncionarioDTO, Long, FuncionarioFilterDTO> {
-    // ... apenas herança e wiring do service
+    // wiring legado
 }
 ```
 
-2) Opcional: use constantes de path no projeto da aplicação
+## Recomendacao de plataforma
 
-```java
-public final class ApiPaths {
-  public static final class HumanResources {
-    public static final String FUNCIONARIOS = "/api/human-resources/funcionarios";
-  }
-}
+Nao evolua um projeto novo em cima deste guia.
 
-@ApiResource(ApiPaths.HumanResources.FUNCIONARIOS)
-@ApiGroup("human-resources")
-public class FuncionarioController extends AbstractCrudController<...> { }
-```
+Se o sistema ainda estiver no core legado, a direcao correta de plataforma e:
 
-3) Auto‑detecção de base path no controller base
+1. remover DTO unico
+2. migrar para controllers e services resource-oriented
+3. explicitar `resourceKey`
+4. publicar discovery semantico com surfaces, actions e capabilities onde fizer sentido
 
-- O `AbstractCrudController` detecta o base path a partir de `@ApiResource`/`@RequestMapping` para:
-  - montar links HATEOAS;  
-  - compor URLs dos endpoints auxiliares (filter, options, etc.);
-  - alinhar com a documentação gerada.
+## Referencias
 
-4) Organização no OpenAPI
-
-- Use `@ApiGroup` para agrupar controllers por contexto (ex.: `human-resources`).
-- A documentação OpenAPI é exposta por grupo; consulte o guia técnico para detalhes.
-
-## Endpoints padrão do AbstractCrudController
-
-- GET `/{id}` — busca registro por ID
-- GET `/all` — lista completa (aplica ordenação padrão se configurada)
-- POST `/filter` — paginação/filtragem
-- POST `/filter/cursor` — paginação por cursor
-- POST `/options/filter` — opções id/label (para selects)
-- GET `/options/by-ids` — opções por IDs informados
-
-> Veja Javadoc: [`AbstractCrudController`](../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html)
-
-### Configurações úteis
-
-- `praxis.pagination.max-size`: tamanho máximo por página (default: 200)
-- `praxis.hateoas.enabled`: habilita/desabilita links HATEOAS nas respostas (default: true)
-
-## Boas práticas
-
-- Prefira constantes de path na aplicação (em vez de usar constantes do framework)
-- Sempre defina `@ApiGroup` para facilitar a navegação no Swagger/OpenAPI
-- Use `@DefaultSortColumn` na entidade para ordenação inicial previsível (veja o guia de Ordenação)
-
-### Heurística de controlType (string)
-
-- Campos `string` inferem `input` por padrão; `textarea` apenas quando `maxLength > 300`.
-- Nomes como `nome`, `name`, `titulo`, `title`, `assunto`, `subject` forçam `input` (single-line).
-- Nomes como `descricao`, `observacao`, `description`, `comment` forçam `textarea`.
-- Precedência: `@UISchema(controlType=...)` > heurística por nome > detecção por schema > defaults.
-- Detalhes: [Heurística de ControlType](../concepts/CONTROLTYPE-HEURISTICA.md)
-
-## Referências
-
-- [`@ApiResource`](../apidocs/org/praxisplatform/uischema/annotation/ApiResource.html)
-- [`@ApiGroup`](../apidocs/org/praxisplatform/uischema/annotation/ApiGroup.html)
-- [`AbstractCrudController`](../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html)
-- [Ordenação Padrão](ORDEM-PADRAO.md)
+- `GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`
+- `GUIA-02-AI-BACKEND-CRUD-METADATA.md`
+- `../technical/VALIDACAO-API-RESOURCE.md`

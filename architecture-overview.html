@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Praxis Metadata Starter — Visão Arquitetural</title>
+  <title>Praxis Metadata Starter - Visao Arquitetural</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,282 +166,217 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Praxis Metadata Starter — Visão Arquitetural</h1>
+<h1 class="title">Praxis Metadata Starter - Visao Arquitetural</h1>
 </header>
-<h1 id="praxis-metadata-starter-visão-arquitetural">Praxis Metadata
-Starter — Visão Arquitetural</h1>
-<p>A arquitetura do <strong>Praxis Metadata Starter</strong> foi
-desenhada para transformar <strong>DTOs Java anotados</strong>,
-<strong>controllers metadata-driven</strong> e <strong>grupos OpenAPI
-dinâmicos</strong> em uma superfície canônica composta por
-<strong>OpenAPI enriquecido com <code>x-ui</code></strong>,
-<strong><code>/schemas/filtered</code></strong> e
-<strong><code>/schemas/catalog</code></strong>. Esta visão detalha os
-componentes principais, como eles se relacionam e como esse contrato é
-consumido pelas implementações de referência em
-<code>praxis-api-quickstart</code> e <code>praxis-ui-angular</code>.</p>
-<h2 id="camadas-principais">Camadas Principais</h2>
-<pre class="mermaid"><code>graph TD
-    A[Aplicação Spring Boot] --&gt;|Depende| B[Praxis Metadata Starter]
-    B --&gt; C[PraxisMetadataAutoConfiguration]
-    B --&gt; D[OpenApiUiSchemaAutoConfiguration]
-    B --&gt; E[Anotações e Resolvers]
-    B --&gt; F[Serviços Base e Filtros]
-    B --&gt; G[Docs Controllers]
-    C --&gt;|component scan| G
-    C --&gt;|component scan| H[DynamicSwaggerConfig]
-    D --&gt;|registra bean| I[CustomOpenApiResolver]
-    D --&gt;|registra bean| J[OpenApiGroupResolver]
-    H --&gt;|cria grupos| J
-    E --&gt;|@UISchema + Bean Validation| I
-    E --&gt;|@ApiResource/@ApiGroup| H
-    I --&gt;|enriquece| K[OpenAPI /v3/api-docs]
-    G --&gt;|filtra e projeta| L[/schemas/filtered]
-    G --&gt;|resume e cataloga| M[/schemas/catalog]
-    K --&gt; G
-    L --&gt;|consumo runtime| N[praxis-ui-angular]
-    M --&gt;|discovery, docs, RAG| O[Tooling e catálogos]</code></pre>
+<h1 id="praxis-metadata-starter---visao-arquitetural">Praxis Metadata
+Starter - Visao Arquitetural</h1>
+<p>A arquitetura atual do <code>praxis-metadata-starter</code> nao deve
+mais ser explicada como “DTO anotado gera CRUD”. O baseline canonico
+evoluiu para um sistema resource-oriented que publica:</p>
 <ul>
-<li><strong>Auto-configurações</strong> (<code>configuration</code>):
-<code>PraxisMetadataAutoConfiguration</code> faz
-<code>component scan</code> das áreas canônicas e
-<code>OpenApiUiSchemaAutoConfiguration</code> registra beans como
-<code>CustomOpenApiResolver</code>, <code>OpenApiGroupResolver</code>,
-<code>OpenApiDocsSupport</code> e <code>ApiDocsController</code>.</li>
-<li><strong>Anotações e resolvers</strong> (<code>annotation</code>,
-<code>extension</code>): <code>@UISchema</code> e Bean Validation
-alimentam <code>CustomOpenApiResolver</code>; <code>@ApiResource</code>
-e <code>@ApiGroup</code> não geram <code>x-ui</code> de campo, mas
-governam base path e agrupamento OpenAPI usados na resolução
-documental.</li>
-<li><strong>Serviços Base</strong> (<code>service.base</code>):
-<code>BaseCrudService</code> e derivados sustentam CRUD, opções, filtros
-e integração com repositórios/Specifications.</li>
-<li><strong>Controladores de documentação</strong>
-(<code>controller.docs</code>): <code>ApiDocsController</code> expõe
-<code>GET /schemas/filtered</code>; <code>DomainCatalogController</code>
-expõe <code>GET /schemas/catalog</code>; ambos resolvem o grupo
-automaticamente a partir do <code>path</code>.</li>
-<li><strong>Metadados x-ui</strong> (<code>FieldConfigProperties</code>,
-<code>ValidationProperties</code>): padronizam o vocabulário canônico
-consumido pelos runtimes Praxis.</li>
+<li>OpenAPI enriquecido com <code>x-ui</code></li>
+<li><code>/schemas/filtered</code> como contrato estrutural</li>
+<li><code>/schemas/catalog</code> como catalogo documental</li>
+<li><code>/schemas/surfaces</code> e <code>/schemas/actions</code> como
+discovery semantico</li>
+<li><code>/{resource}/capabilities</code> e
+<code>/{resource}/{id}/capabilities</code> como snapshot agregado</li>
+<li><code>RestApiResponse</code> com Spring HATEOAS efetivo</li>
 </ul>
-<h2 id="fluxo-de-enriquecimento-x-ui">Fluxo de Enriquecimento x-ui</h2>
+<h2 id="o-que-e-canonicamente-publicado">1. O Que E Canonicamente
+Publicado</h2>
+<pre class="mermaid"><code>flowchart LR
+    host[&quot;Spring Boot host&quot;] --&gt; auto[&quot;PraxisMetadataAutoConfiguration&quot;]
+    auto --&gt; openapi[&quot;OpenAPI enriched with x-ui&quot;]
+    openapi --&gt; filtered[&quot;/schemas/filtered&quot;]
+    openapi --&gt; catalog[&quot;/schemas/catalog&quot;]
+    openapi --&gt; surfaces[&quot;/schemas/surfaces&quot;]
+    openapi --&gt; actions[&quot;/schemas/actions&quot;]
+    surfaces --&gt; caps[&quot;/{resource}/capabilities&quot;]
+    actions --&gt; caps
+    filtered --&gt; runtime[&quot;praxis-ui-angular runtime&quot;]
+    catalog --&gt; docs[&quot;docs, examples, RAG&quot;]
+    caps --&gt; semantic[&quot;semantic clients and assistants&quot;]</code></pre>
+<p>O contrato estrutural e o discovery semantico tem papeis
+diferentes:</p>
+<ul>
+<li><code>/schemas/filtered</code> e a superficie lida pelo runtime para
+renderizacao</li>
+<li><code>/schemas/catalog</code> organiza exemplos, links e sumarios
+para exploracao</li>
+<li><code>/schemas/surfaces</code> e <code>/schemas/actions</code>
+publicam catalogos semanticos</li>
+<li><code>/{resource}/capabilities</code> agrega o que pode ser feito
+agora sem virar um schema alternativo</li>
+</ul>
+<h2 id="baseline-de-modelagem">2. Baseline De Modelagem</h2>
+<p>Para aplicacoes novas, o baseline correto e:</p>
+<ul>
+<li><code>AbstractResourceController</code></li>
+<li><code>AbstractReadOnlyResourceController</code></li>
+<li><code>AbstractBaseResourceService</code></li>
+<li><code>AbstractReadOnlyResourceService</code></li>
+<li><code>ResourceMapper</code></li>
+<li><code>@ApiResource(value = ..., resourceKey = ...)</code></li>
+</ul>
+<p>O modelo esperado separa:</p>
+<ul>
+<li><code>ResponseDTO</code></li>
+<li><code>CreateDTO</code></li>
+<li><code>UpdateDTO</code></li>
+<li><code>FilterDTO</code></li>
+</ul>
+<p><code>@UISchema</code> continua relevante para metadados de campo,
+mas ele ja nao descreve sozinho a arquitetura publica do starter.</p>
+<h2 id="camadas-principais">3. Camadas Principais</h2>
+<h3 id="auto-configuracao">Auto-configuracao</h3>
+<ul>
+<li><code>PraxisMetadataAutoConfiguration</code></li>
+<li><code>OpenApiUiSchemaAutoConfiguration</code></li>
+<li><code>DynamicSwaggerConfig</code></li>
+</ul>
+<p>Essas pecas registram controllers, resolvers, grouped OpenAPI e o
+suporte de docs/discovery.</p>
+<h3 id="resolucao-de-contrato">Resolucao de contrato</h3>
+<ul>
+<li><code>CustomOpenApiResolver</code></li>
+<li><code>OpenApiGroupResolver</code></li>
+<li><code>OpenApiDocsSupport</code></li>
+</ul>
+<p>Aqui o starter transforma DTOs, Bean Validation e metadata de recurso
+em OpenAPI enriquecido e grupos canonicamente resolvidos por
+<code>path</code>.</p>
+<h3 id="publicacao-de-docs-e-discovery">Publicacao de docs e
+discovery</h3>
+<ul>
+<li><code>ApiDocsController</code></li>
+<li><code>DomainCatalogController</code></li>
+<li><code>SurfaceCatalogController</code></li>
+<li><code>ActionCatalogController</code></li>
+</ul>
+<p>Esses controllers nao sao equivalentes entre si:</p>
+<ul>
+<li><code>ApiDocsController</code> publica o payload estrutural</li>
+<li><code>DomainCatalogController</code> publica o catalogo
+documental</li>
+<li><code>SurfaceCatalogController</code> publica surfaces canonicas do
+recurso</li>
+<li><code>ActionCatalogController</code> publica workflow actions
+canonicamente anotadas</li>
+</ul>
+<h3 id="semantica-de-recurso">Semantica de recurso</h3>
+<ul>
+<li><code>@ApiResource</code></li>
+<li><code>@ResourceIntent</code></li>
+<li><code>@UiSurface</code></li>
+<li><code>@WorkflowAction</code></li>
+<li>resolvers de capability</li>
+</ul>
+<p>Aqui a arquitetura sai do antigo “CRUD com metadata” e passa para
+semantica de recurso, experiencia e acao de negocio.</p>
+<h2 id="fluxo-estrutural">4. Fluxo Estrutural</h2>
 <pre class="mermaid"><code>sequenceDiagram
-    participant DTO as DTO com @UISchema
+    participant DTO as DTOs + validation
     participant Resolver as CustomOpenApiResolver
-    participant OpenAPI as Documento OpenAPI
+    participant OpenAPI as OpenAPI document
     participant Docs as ApiDocsController
-    participant UI as Runtime Angular
+    participant Runtime as Angular runtime
 
-    DTO-&gt;&gt;Resolver: Propriedades de campos + Bean Validation
-    Resolver-&gt;&gt;Resolver: Aplica precedência (defaults → detecção → overrides → validações)
-    Resolver-&gt;&gt;OpenAPI: Persiste extensão x-ui por campo
-    Docs-&gt;&gt;OpenAPI: Recupera documento correto (grupo autodetectado)
-    Docs-&gt;&gt;Docs: Filtra schema, resolve $ref opcional, anota x-ui.resource e calcula ETag/hash
-    Docs--&gt;&gt;UI: Retorna payload estrutural com `properties.*.x-ui` e `x-ui` de operação</code></pre>
-<ol type="1">
-<li><strong>Entrada</strong>: DTOs anotados com <code>@UISchema</code> e
-validações Jakarta.</li>
-<li><strong>Processamento</strong>: <code>CustomOpenApiResolver</code>
-aplica heurísticas e gera <code>x-ui</code> coerente.</li>
-<li><strong>Agrupamento OpenAPI</strong>:
-<code>DynamicSwaggerConfig</code> registra <code>GroupedOpenApi</code> a
-partir de <code>@ApiResource</code>/<code>@ApiGroup</code>, e
-<code>OpenApiGroupResolver</code> escolhe o grupo correto pelo melhor
-match de path.</li>
-<li><strong>Entrega estrutural</strong>: <code>ApiDocsController</code>
-filtra o documento, pode expandir <code>$ref</code>, copia
-<code>x-ui</code> de operação, adiciona
-<code>x-ui.resource.idField/readOnly/capabilities</code>, injeta
-<code>operationExamples</code> e devolve apenas o payload estrutural
-necessário ao frontend.</li>
-<li><strong>Entrega documental</strong>:
-<code>DomainCatalogController</code> resume endpoints, exemplos e links
-para os schemas estruturais; ele não substitui
-<code>/schemas/filtered</code> para renderização runtime.</li>
-</ol>
-<h2 id="principais-componentes-técnicos">Principais Componentes
-Técnicos</h2>
-<table>
-<colgroup>
-<col style="width: 17%" />
-<col style="width: 11%" />
-<col style="width: 26%" />
-<col style="width: 43%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th>Componente</th>
-<th>Pacote</th>
-<th>Responsabilidade</th>
-<th>Quando estender/configurar</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>OpenApiUiSchemaAutoConfiguration</code></td>
-<td><code>configuration</code></td>
-<td>Ativa resolvers, registradores e endpoints de documentação</td>
-<td>Override quando precisar desligar peças automáticas em aplicações
-multi-módulo</td>
-</tr>
-<tr class="even">
-<td><code>PraxisMetadataAutoConfiguration</code></td>
-<td><code>configuration</code></td>
-<td>Faz <code>component scan</code> das camadas canônicas
-(<code>controller.docs</code>, <code>service</code>,
-<code>filter</code>, <code>configuration</code>)</td>
-<td>Ajuste quando precisar controlar bootstrap/component scan do
-starter</td>
-</tr>
-<tr class="odd">
-<td><code>@UISchema</code></td>
-<td><code>extension.annotation</code></td>
-<td>Declara propriedades visuais e comportamentais de campos</td>
-<td>Estenda atributos via <code>extraProperties</code> ou
-metaprogramação</td>
-</tr>
-<tr class="even">
-<td><code>DynamicSwaggerConfig</code></td>
-<td><code>configuration</code></td>
-<td>Descobre controllers e cria <code>GroupedOpenApi</code> a partir de
-<code>@ApiResource</code>/<code>@ApiGroup</code></td>
-<td>Ajuste quando precisar alterar estratégia de agrupamento
-OpenAPI</td>
-</tr>
-<tr class="odd">
-<td><code>CustomOpenApiResolver</code></td>
-<td><code>extension</code></td>
-<td>Aplica precedência de metadados e Bean Validation</td>
-<td>Substitua para alterar heurísticas globais</td>
-</tr>
-<tr class="even">
-<td><code>OpenApiGroupResolver</code></td>
-<td><code>util</code></td>
-<td>Resolve o grupo OpenAPI mais específico a partir do
-<code>path</code> do recurso</td>
-<td>Ajuste se precisar mudar o algoritmo de resolução de grupos</td>
-</tr>
-<tr class="odd">
-<td><code>ApiDocsController</code></td>
-<td><code>controller.docs</code></td>
-<td>Expõe <code>/schemas/filtered</code> como contrato estrutural com
-cache e filtro</td>
-<td>Habilite filtros customizados ou headers adicionais</td>
-</tr>
-<tr class="even">
-<td><code>DomainCatalogController</code></td>
-<td><code>controller.docs</code></td>
-<td>Expõe <code>/schemas/catalog</code> como superfície documental para
-exploração e RAG</td>
-<td>Use quando precisar de exemplos operacionais, resumos e links para
-request/response schema</td>
-</tr>
-<tr class="odd">
-<td><code>Filterable</code> &amp; Filtros</td>
-<td><code>filter.annotation</code>, <code>filter.dto</code>,
-<code>filter.specification</code></td>
-<td>Convertem DTOs em Specifications dinamicamente</td>
-<td>Crie DTOs específicos por contexto e reutilize adaptadores</td>
-</tr>
-<tr class="even">
-<td><code>BaseCrudService</code></td>
-<td><code>service.base</code></td>
-<td>Implementa CRUD padrão com mapeamento de opções</td>
-<td>Substitua métodos para lógica de negócio específica</td>
-</tr>
-</tbody>
-</table>
-<h2 id="integração-com-springdoc-e-openapi">Integração com SpringDoc e
-OpenAPI</h2>
-<ol type="1">
-<li><code>springdoc-openapi</code> publica <code>/v3/api-docs</code> com
-os esquemas da aplicação.</li>
-<li>O starter registra <code>CustomOpenApiResolver</code> como
-<code>ModelResolver</code> para interceptar geração de schemas.</li>
-<li><code>ApiDocsController</code> consulta o documento adequado e
-aplica filtros específicos:
+    DTO-&gt;&gt;Resolver: field metadata, validation, resource semantics
+    Resolver-&gt;&gt;OpenAPI: persist x-ui and operation metadata
+    Docs-&gt;&gt;OpenAPI: resolve best group for the requested path
+    Docs-&gt;&gt;Docs: filter request or response schema
+    Docs-&gt;&gt;Docs: inject x-ui.resource and cache headers
+    Docs--&gt;&gt;Runtime: structural payload for rendering</code></pre>
+<p>Esse fluxo ainda e o centro do runtime oficial.</p>
+<p>O que mudou foi a semantica ao redor dele:</p>
 <ul>
-<li>Resolução automática de grupo
-(<code>OpenApiGroupResolver</code>).</li>
-<li>Substituição opcional de <code>$ref</code> por objetos
-expandidos.</li>
-<li>Mescla do <code>x-ui</code> de operação com
-<code>operationExamples</code>, <code>idField</code>,
-<code>readOnly</code>, <code>capabilities</code> e
-<code>optionSources</code> quando aplicável.</li>
-</ul></li>
-<li><code>DomainCatalogController</code> usa o mesmo documento OpenAPI
-para expor um catálogo mais documental:
+<li><code>x-ui.resource.capabilities</code> nao e mais o unico discovery
+relevante</li>
+<li>a plataforma agora diferencia contrato estrutural de catalogos
+semanticos</li>
+<li>item-level discovery e agregado contextual ganharam papel de
+primeira classe</li>
+</ul>
+<h2 id="fluxo-semantico">5. Fluxo Semantico</h2>
+<pre class="mermaid"><code>sequenceDiagram
+    participant Resource as @ApiResource
+    participant Surface as @UiSurface
+    participant Action as @WorkflowAction
+    participant Catalogs as surface/action catalogs
+    participant Capabilities as capability resolver
+    participant Client as semantic client
+
+    Resource-&gt;&gt;Catalogs: publish automatic resource surfaces
+    Surface-&gt;&gt;Catalogs: publish explicit UX surfaces
+    Action-&gt;&gt;Catalogs: publish explicit workflow actions
+    Catalogs-&gt;&gt;Capabilities: contribute semantic entries
+    Capabilities--&gt;&gt;Client: aggregate current snapshot</code></pre>
+<p>Regras importantes:</p>
 <ul>
-<li>Resumos e descrições das operações.</li>
-<li>Exemplos request/response.</li>
-<li>Links diretos para os schemas estruturais em
-<code>/schemas/filtered</code>.</li>
-</ul></li>
-</ol>
-<h2 id="conformidade-com-implementações-de-referência">Conformidade com
-Implementações de Referência</h2>
+<li><code>surfaces</code> automaticas continuam existindo para o recurso
+canonico</li>
+<li><code>actions</code> dependem de workflow explicito; ausencia pode
+resultar em <code>404</code></li>
+<li><code>capabilities</code> agrega ausencia de <code>surfaces</code> e
+<code>actions</code> como listas vazias</li>
+<li>entradas <code>ITEM</code> em catalogos globais sao discovery-only
+ate existir <code>resourceId</code></li>
+</ul>
+<h2 id="spring-hateoas-faz-parte-da-arquitetura">6. Spring HATEOAS Faz
+Parte Da Arquitetura</h2>
+<p>HATEOAS nao e detalhe de serializacao.</p>
+<p>Ele compoe a semantica publica em:</p>
+<ul>
+<li><code>_links</code> de <code>RestApiResponse</code></li>
+<li>links canonicamente montados pelos controllers base</li>
+<li>navegacao entre recurso, schema e operacoes</li>
+<li>coerencia entre contrato publicado e affordances HTTP</li>
+</ul>
+<p>Quando o host desliga HATEOAS, a plataforma perde links, nao a
+semantica canonica de recurso e discovery.</p>
+<h2 id="consumidores-de-referencia">7. Consumidores De Referencia</h2>
 <h3 id="praxis-api-quickstart"><code>praxis-api-quickstart</code></h3>
+<p>E o host operacional de referencia. Ele prova:</p>
 <ul>
-<li>O quickstart valida a cadeia real
-<code>DynamicSwaggerConfig -&gt; OpenApiGroupResolver -&gt; /schemas/catalog -&gt; /v3/api-docs/{group} -&gt; /schemas/filtered</code>
-em <code>OpenApiGroupResolutionIsolatedIntegrationTest</code>.</li>
-<li>Os testes de stats também comprovam que
-<code>DomainCatalogController</code> e <code>ApiDocsController</code>
-servem links e payloads coerentes para operações <code>request</code> e
-<code>response</code>, inclusive com
-<code>operationExamples</code>.</li>
-<li>Na prática, o quickstart é o host operacional de referência que
-demonstra o contrato do starter em rotas como
-<code>/api/human-resources/**</code>.</li>
+<li>resolucao de grupos OpenAPI por <code>path</code></li>
+<li>publicacao coerente de <code>/schemas/catalog</code></li>
+<li>publicacao coerente de <code>/schemas/filtered</code></li>
+<li>discovery resource-oriented</li>
+<li>consistencia entre stats, resource semantics e examples</li>
 </ul>
 <h3 id="praxis-ui-angular"><code>praxis-ui-angular</code></h3>
+<p>E o runtime oficial. Ele consome:</p>
 <ul>
-<li>O consumo runtime principal ocorre via
-<code>/schemas/filtered</code>, não via
-<code>/schemas/catalog</code>.</li>
-<li><code>GenericCrudService</code> deriva
-<code>path/operation/schemaType</code>, envia
-<code>If-None-Match</code>, reaproveita
-<code>ETag</code>/<code>X-Schema-Hash</code>, persiste
-<code>schemaId</code> e extrai <code>x-ui.resource.idField</code> para
-grid, form e filter.</li>
-<li><code>SchemaMetadataClient</code> reforça o mesmo contrato para
-consumidores que trabalham diretamente com
-<code>baseUrl + query params</code>, inclusive com fallback para
-<code>304</code> sem cache local.</li>
-<li>Portanto, para Angular, <code>/schemas/catalog</code> é superfície
-auxiliar de discovery/documentação/tooling; a renderização
-metadata-driven depende do payload estrutural retornado por
-<code>/schemas/filtered</code>.</li>
+<li><code>/schemas/filtered</code></li>
+<li><code>ETag</code></li>
+<li><code>X-Schema-Hash</code></li>
+<li><code>x-ui.resource.idField</code></li>
 </ul>
-<h2 id="observabilidade-e-cache">Observabilidade e Cache</h2>
+<p>Ele pode tambem usar discovery semantico novo, mas o contrato
+estrutural segue sendo a base do runtime.</p>
+<h2 id="o-que-nao-deve-ser-repetido-na-documentacao-publica">8. O Que
+Nao Deve Ser Repetido Na Documentacao Publica</h2>
+<p>Nao explicar o starter como se ele fosse:</p>
 <ul>
-<li><strong>Cache in-memory</strong>: <code>ApiDocsController</code>
-mantém cache em memória do documento OpenAPI por grupo e cache separado
-do hash do payload estrutural por <code>schemaId</code>, ambos em
-<code>ConcurrentHashMap</code>.</li>
-<li><strong>Headers HTTP</strong>: <code>If-None-Match</code> é
-respeitado e retorna <code>304</code> quando não há alterações.</li>
-<li><strong>Headers expostos</strong>: o payload estrutural retorna
-<code>ETag</code> forte e <code>X-Schema-Hash</code>, com
-<code>Access-Control-Expose-Headers</code> apropriado.</li>
-<li><strong>Logs</strong>: <code>ApiDocsController</code>,
-<code>DomainCatalogController</code> e
-<code>CustomOpenApiResolver</code> utilizam SLF4J para rastrear grupos
-resolvidos, documentos carregados e propriedades aplicadas.</li>
+<li>apenas um gerador de CRUD</li>
+<li>apenas <code>@UISchema</code> +
+<code>AbstractCrudController</code></li>
+<li>um sistema em que <code>/schemas/catalog</code> substitui
+<code>/schemas/filtered</code></li>
+<li>um backend que publica schema estrutural sem semantica de
+recurso</li>
 </ul>
-<h2 id="próximos-passos">Próximos Passos</h2>
+<p>Essas leituras ficaram historicamente incompletas.</p>
+<h2 id="referencias">9. Referencias</h2>
 <ul>
-<li>Leia a <a href="packages-overview.md">visão de pacotes</a> para
-localizar rapidamente responsabilidades.</li>
-<li>Confira os <a href="examples/filter-dto.md">exemplos de DTO</a> e <a
-href="examples/spring-integration.md">integrações Spring</a>.</li>
-<li>Aprofunde-se nos conceitos de <a
-href="concepts/ui-schema.md"><code>@UISchema</code> e validações
-estendidas</a>.</li>
+<li><a href="README.md">README.md</a></li>
+<li><a href="guides/index.md">guides/index.md</a></li>
+<li><a
+href="guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md">guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</a></li>
+<li><a
+href="guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md">guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md</a></li>
+<li><a href="spec/CONFORMANCE.md">spec/CONFORMANCE.md</a></li>
 </ul>
 </body>
 </html>

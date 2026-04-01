@@ -8,9 +8,10 @@ por pessoas e por LLMs.
 Use os guias nesta ordem:
 
 1. [Guia 01 - Backend - Aplicacao Nova](GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
-2. [Guia 02 - Backend - CRUD Metadata-Driven](GUIA-02-AI-BACKEND-CRUD-METADATA.md)
-3. [Guia 03 - Frontend - Angular CRUD Completo](GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
-4. [Checklist de Validacao](CHECKLIST-VALIDACAO-IA.md)
+2. [Guia 02 - Backend - Recurso Metadata-Driven](GUIA-02-AI-BACKEND-CRUD-METADATA.md)
+3. [Guia 04 - Quando usar Resource, Surface, Action e Capability](GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
+4. [Guia 03 - Frontend - Angular CRUD Completo](GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
+5. [Checklist de Validacao](CHECKLIST-VALIDACAO-IA.md)
 
 Essa trilha foi organizada para que a LLM consiga percorrer os passos sem
 depender de app externo nem de conhecimento oral do time.
@@ -26,8 +27,14 @@ Use para criar uma nova aplicacao Spring Boot minima e correta sobre o starter.
 
 ### Guia 02
 
-Use para gerar um recurso CRUD metadata-driven dentro da aplicacao criada no
-Guia 01.
+Use para gerar um recurso metadata-driven no baseline canonico atual, com
+modelo resource-oriented, DTOs separados e semantica correta de contrato.
+
+### Guia 04
+
+Use para decidir quando a modelagem deve ficar em `resource`, quando deve subir
+para `@UiSurface`, quando deve virar `@WorkflowAction` e quando o cliente deve
+consumir `capabilities`.
 
 ### Guia 03
 
@@ -40,7 +47,7 @@ Use depois da geracao para validar build, endpoints, schemas e consumo.
 
 ## Guias complementares
 
-- [CRUD com @ApiResource e @ApiGroup](CRUD-COM-APIRESOURCE.md)
+- [Uso de @ApiResource no core legado](CRUD-COM-APIRESOURCE.md)
 - [Filtros e Paginacao](FILTROS-E-PAGINACAO.md)
 - [Ordenacao Padrao](ORDEM-PADRAO.md)
 - [Options (id/label)](OPTIONS-ENDPOINT.md)

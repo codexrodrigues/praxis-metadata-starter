@@ -1,5 +1,14 @@
 # Stats Response Schema Platform Fix Plan
 
+## Status do documento
+
+Este arquivo virou registro histórico de uma correção de plataforma já
+implementada e validada. Ele é útil para auditoria técnica e para reconstruir a
+causa raiz original do problema de `stats/*`.
+
+Não use este texto como fonte primária do contrato atual de stats; o contrato
+vivo está no código, nos testes e nos guias/specs sincronizados do starter.
+
 ## Status em 2026-03-21
 
 - Fase 1 concluída: `AbstractCrudController` publica `response schema` explícito para `group-by`, `timeseries` e `distribution`.

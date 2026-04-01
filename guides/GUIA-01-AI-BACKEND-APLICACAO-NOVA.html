@@ -253,7 +253,8 @@ sobre:</p>
 <li><code>/schemas/catalog</code></li>
 <li><code>/schemas/surfaces</code></li>
 <li><code>/schemas/actions</code></li>
-<li><code>/capabilities</code></li>
+<li><code>GET /{resource}/capabilities</code></li>
+<li><code>GET /{resource}/{id}/capabilities</code></li>
 </ul>
 <h2 id="resultado-esperado">Resultado esperado</h2>
 <p>Uma aplicacao nova deve sair com:</p>
@@ -442,9 +443,9 @@ surfaces automaticas de <code>create</code>, <code>list</code>,
 <li><code>/schemas/actions?resource=...</code> so existe quando houver
 pelo menos uma <code>@WorkflowAction</code> explicita; sem workflow
 anotado, o retorno esperado e <code>404</code>.</li>
-<li><code>/capabilities</code> agrega o que existir e normaliza ausencia
-de <code>surfaces</code> ou <code>actions</code> para listas
-vazias.</li>
+<li><code>GET /{resource}/capabilities</code> agrega o que existir e
+normaliza ausencia de <code>surfaces</code> ou <code>actions</code> para
+listas vazias.</li>
 <li>em catalogos globais, entradas <code>ITEM</code> de
 <code>surfaces</code> e <code>actions</code> sao discovery-only e tendem
 a sair com <code>availability.allowed=false</code> ate que exista

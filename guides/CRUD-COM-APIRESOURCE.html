@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>CRUD com @ApiResource e @ApiGroup</title>
+  <title>Uso de @ApiResource no Core Legado</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,130 +230,60 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">CRUD com @ApiResource e @ApiGroup</h1>
+<h1 class="title">Uso de @ApiResource no Core Legado</h1>
 </header>
-<h1 id="crud-com-apiresource-e-apigroup">CRUD com <span class="citation"
-data-cites="ApiResource">@ApiResource</span> e <span class="citation"
-data-cites="ApiGroup">@ApiGroup</span></h1>
-<p>Este guia mostra como expor recursos REST usando
-<code>@ApiResource</code> e organizar a documentação com
-<code>@ApiGroup</code>, aproveitando a auto‑detecção de base path no
-<code>AbstractCrudController</code>.</p>
+<h1 id="uso-de-apiresource-no-core-legado">Uso de <span class="citation"
+data-cites="ApiResource">@ApiResource</span> no Core Legado</h1>
+<p>Este guia foi mantido por compatibilidade para times que ainda operam
+no core legado baseado em <code>AbstractCrudController</code>.</p>
+<p>Para aplicacoes novas, nao use este guia como baseline. Comece
+por:</p>
 <ul>
-<li>Javadoc: <a
-href="../apidocs/org/praxisplatform/uischema/annotation/ApiResource.html"><code>@ApiResource</code></a>,
-<a
-href="../apidocs/org/praxisplatform/uischema/annotation/ApiGroup.html"><code>@ApiGroup</code></a></li>
-<li>Javadoc: <a
-href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html"><code>AbstractCrudController</code></a></li>
-<li>Conceitos: <a href="../technical/">Documentação Técnica</a>, <a
-href="../api/README.md">Índice de API</a></li>
-<li>Tour: <a
-href="../apidocs/org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html"><code>Endpoints Overview</code></a></li>
+<li><code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md</code></li>
 </ul>
-<h2 id="passo-a-passo">Passo a passo</h2>
-<ol type="1">
-<li>Defina o path do recurso com <code>@ApiResource</code></li>
-</ol>
+<h2 id="quando-este-guia-ainda-faz-sentido">Quando este guia ainda faz
+sentido</h2>
+<p>Use este material apenas se o codigo existente:</p>
+<ul>
+<li>ainda herda de <code>AbstractCrudController</code></li>
+<li>ainda depende de <code>BaseCrudService</code></li>
+<li>ainda esta em migracao para o core resource-oriented</li>
+</ul>
+<h2 id="papel-de-apiresource-no-legado">Papel de <span class="citation"
+data-cites="ApiResource">@ApiResource</span> no legado</h2>
+<p>Mesmo no core legado, <code>@ApiResource</code> continua importante
+para:</p>
+<ul>
+<li>declarar o base path</li>
+<li>alinhar a documentacao OpenAPI</li>
+<li>gerar links HATEOAS coerentes</li>
+<li>permitir resolucao automatica de grupos</li>
+</ul>
+<p>Exemplo legado:</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span><span class="st">&quot;/api/human-resources/funcionarios&quot;</span><span class="op">)</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;human-resources&quot;</span><span class="op">)</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioController <span class="kw">extends</span> AbstractCrudController<span class="op">&lt;</span>Funcionario<span class="op">,</span> FuncionarioDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ... apenas herança e wiring do service</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// wiring legado</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<ol start="2" type="1">
-<li>Opcional: use constantes de path no projeto da aplicação</li>
+<h2 id="recomendacao-de-plataforma">Recomendacao de plataforma</h2>
+<p>Nao evolua um projeto novo em cima deste guia.</p>
+<p>Se o sistema ainda estiver no core legado, a direcao correta de
+plataforma e:</p>
+<ol type="1">
+<li>remover DTO unico</li>
+<li>migrar para controllers e services resource-oriented</li>
+<li>explicitar <code>resourceKey</code></li>
+<li>publicar discovery semantico com surfaces, actions e capabilities
+onde fizer sentido</li>
 </ol>
-<div class="sourceCode" id="cb2"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="dt">final</span> <span class="kw">class</span> ApiPaths <span class="op">{</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="kw">class</span> HumanResources <span class="op">{</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> FUNCIONARIOS <span class="op">=</span> <span class="st">&quot;/api/human-resources/funcionarios&quot;</span><span class="op">;</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">FUNCIONARIOS</span><span class="op">)</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;human-resources&quot;</span><span class="op">)</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioController <span class="kw">extends</span> AbstractCrudController<span class="op">&lt;</span><span class="kw">...</span><span class="op">&gt;</span> <span class="op">{</span> <span class="op">}</span></span></code></pre></div>
-<ol start="3" type="1">
-<li>Auto‑detecção de base path no controller base</li>
-</ol>
+<h2 id="referencias">Referencias</h2>
 <ul>
-<li>O <code>AbstractCrudController</code> detecta o base path a partir
-de <code>@ApiResource</code>/<code>@RequestMapping</code> para:
-<ul>
-<li>montar links HATEOAS;<br />
-</li>
-<li>compor URLs dos endpoints auxiliares (filter, options, etc.);</li>
-<li>alinhar com a documentação gerada.</li>
-</ul></li>
-</ul>
-<ol start="4" type="1">
-<li>Organização no OpenAPI</li>
-</ol>
-<ul>
-<li>Use <code>@ApiGroup</code> para agrupar controllers por contexto
-(ex.: <code>human-resources</code>).</li>
-<li>A documentação OpenAPI é exposta por grupo; consulte o guia técnico
-para detalhes.</li>
-</ul>
-<h2 id="endpoints-padrão-do-abstractcrudcontroller">Endpoints padrão do
-AbstractCrudController</h2>
-<ul>
-<li>GET <code>/{id}</code> — busca registro por ID</li>
-<li>GET <code>/all</code> — lista completa (aplica ordenação padrão se
-configurada)</li>
-<li>POST <code>/filter</code> — paginação/filtragem</li>
-<li>POST <code>/filter/cursor</code> — paginação por cursor</li>
-<li>POST <code>/options/filter</code> — opções id/label (para
-selects)</li>
-<li>GET <code>/options/by-ids</code> — opções por IDs informados</li>
-</ul>
-<blockquote>
-<p>Veja Javadoc: <a
-href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html"><code>AbstractCrudController</code></a></p>
-</blockquote>
-<h3 id="configurações-úteis">Configurações úteis</h3>
-<ul>
-<li><code>praxis.pagination.max-size</code>: tamanho máximo por página
-(default: 200)</li>
-<li><code>praxis.hateoas.enabled</code>: habilita/desabilita links
-HATEOAS nas respostas (default: true)</li>
-</ul>
-<h2 id="boas-práticas">Boas práticas</h2>
-<ul>
-<li>Prefira constantes de path na aplicação (em vez de usar constantes
-do framework)</li>
-<li>Sempre defina <code>@ApiGroup</code> para facilitar a navegação no
-Swagger/OpenAPI</li>
-<li>Use <code>@DefaultSortColumn</code> na entidade para ordenação
-inicial previsível (veja o guia de Ordenação)</li>
-</ul>
-<h3 id="heurística-de-controltype-string">Heurística de controlType
-(string)</h3>
-<ul>
-<li>Campos <code>string</code> inferem <code>input</code> por padrão;
-<code>textarea</code> apenas quando
-<code>maxLength &gt; 300</code>.</li>
-<li>Nomes como <code>nome</code>, <code>name</code>,
-<code>titulo</code>, <code>title</code>, <code>assunto</code>,
-<code>subject</code> forçam <code>input</code> (single-line).</li>
-<li>Nomes como <code>descricao</code>, <code>observacao</code>,
-<code>description</code>, <code>comment</code> forçam
-<code>textarea</code>.</li>
-<li>Precedência: <code>@UISchema(controlType=...)</code> &gt; heurística
-por nome &gt; detecção por schema &gt; defaults.</li>
-<li>Detalhes: <a href="../concepts/CONTROLTYPE-HEURISTICA.md">Heurística
-de ControlType</a></li>
-</ul>
-<h2 id="referências">Referências</h2>
-<ul>
-<li><a
-href="../apidocs/org/praxisplatform/uischema/annotation/ApiResource.html"><code>@ApiResource</code></a></li>
-<li><a
-href="../apidocs/org/praxisplatform/uischema/annotation/ApiGroup.html"><code>@ApiGroup</code></a></li>
-<li><a
-href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractCrudController.html"><code>AbstractCrudController</code></a></li>
-<li><a href="ORDEM-PADRAO.md">Ordenação Padrão</a></li>
+<li><code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>../technical/VALIDACAO-API-RESOURCE.md</code></li>
 </ul>
 </body>
 </html>

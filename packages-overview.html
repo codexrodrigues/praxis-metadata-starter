@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Visão dos Pacotes do Praxis Metadata Starter</title>
+  <title>Visao dos Pacotes do Praxis Metadata Starter</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,206 +166,114 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Visão dos Pacotes do Praxis Metadata Starter</h1>
+<h1 class="title">Visao dos Pacotes do Praxis Metadata Starter</h1>
 </header>
-<h1 id="visão-dos-pacotes-do-praxis-metadata-starter">Visão dos Pacotes
+<h1 id="visao-dos-pacotes-do-praxis-metadata-starter">Visao dos Pacotes
 do Praxis Metadata Starter</h1>
-<p>Esta referência resume os pacotes Java disponibilizados pelo starter,
-destacando <strong>responsabilidades</strong>, <strong>principais
-tipos</strong> e <strong>como cada peça se conecta aos fluxos descritos
-na <a href="architecture-overview.md">visão
-arquitetural</a></strong>.</p>
+<p>Esta referencia resume os pacotes Java disponibilizados pelo starter
+e como eles se conectam ao baseline atual da plataforma.</p>
 <blockquote>
-<p>💡 Use esta página como mapa mental antes de navegar pelo Javadoc.
-Cada seção cita classes chave com links para facilitar a exploração.</p>
+<p>Importante: esta pagina mistura o baseline canonico atual com classes
+legadas ainda presentes no codigo. Para aplicacoes novas, a fonte de
+verdade continua sendo
+<code>resource + surfaces + actions + capabilities + HATEOAS</code>,
+conforme <code>architecture-overview.md</code> e os guias
+principais.</p>
 </blockquote>
-<h2 id="pacote-raiz-org.praxisplatform.uischema">Pacote Raiz:
-<code>org.praxisplatform.uischema</code></h2>
-<p>Abriga enums e tipos compartilhados entre as camadas.</p>
-<table>
-<colgroup>
-<col style="width: 28%" />
-<col style="width: 38%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th>Tipo</th>
-<th>Função</th>
-<th>Notas</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><a
-href="../src/main/java/org/praxisplatform/uischema/FieldConfigProperties.java"><code>FieldConfigProperties</code></a></td>
-<td>Lista oficial de chaves <code>x-ui</code> para propriedades de
-campos</td>
-<td>Usada por <code>CustomOpenApiResolver</code> e pela UI</td>
-</tr>
-<tr class="even">
-<td><a
-href="../src/main/java/org/praxisplatform/uischema/ValidationProperties.java"><code>ValidationProperties</code></a></td>
-<td>Mapeia restrições de validação e mensagens padrão</td>
-<td>Preenchida automaticamente a partir de Bean Validation</td>
-</tr>
-<tr class="odd">
-<td><code>FieldControlType</code>, <code>FieldDataType</code>,
-<code>FieldAlignment</code></td>
-<td>Enumerações de suporte visual</td>
-<td>Podem ser referenciadas diretamente em <code>@UISchema</code></td>
-</tr>
-</tbody>
-</table>
 <h2 id="annotation"><code>annotation</code></h2>
-<p>Fornece anotações que descrevem recursos API e comportamento de
-UI.</p>
+<p>Anotacoes que expressam semantica do backend publicado.</p>
 <ul>
-<li><code>@ApiResource</code> / <code>@ApiGroup</code> — categorizam
-controllers REST para geração de grupos OpenAPI.</li>
-<li><code>@UISchema</code> (exposta em
-<code>extension.annotation</code>) — descreve propriedades visuais; ver
-<a href="concepts/ui-schema.md">conceito detalhado</a>.</li>
-<li><code>@Filterable</code> — identifica campos que participam de
-filtros dinâmicos.</li>
+<li><code>@ApiResource</code></li>
+<li><code>@ApiGroup</code></li>
+<li><code>@ResourceIntent</code></li>
+<li><code>@UiSurface</code></li>
+<li><code>@WorkflowAction</code></li>
 </ul>
+<p><code>@UISchema</code> continua existindo para metadados de campo,
+mas nao descreve sozinha o baseline arquitetural atual.</p>
 <h2 id="configuration"><code>configuration</code></h2>
-<p>Auto-configurações Spring Boot que ligam todos os componentes
-automaticamente.</p>
+<p>Auto-configuracoes do starter.</p>
 <ul>
-<li><code>OpenApiUiSchemaAutoConfiguration</code> habilita resolvers,
-controllers e utilitários.</li>
-<li><code>DynamicSwaggerConfig</code> registra grupos adicionais e
-integra com <code>OpenApiGroupResolver</code>.</li>
-<li><code>RepositoryConfiguration</code> expõe beans com
-<code>JpaSpecificationExecutor</code> para filtros dinâmicos.</li>
+<li><code>PraxisMetadataAutoConfiguration</code></li>
+<li><code>OpenApiUiSchemaAutoConfiguration</code></li>
+<li><code>DynamicSwaggerConfig</code></li>
 </ul>
+<p>Essas pecas ligam resolvers, grouped OpenAPI e os controllers de
+docs/discovery.</p>
 <h2 id="controller"><code>controller</code></h2>
-<p>Camada HTTP responsável por expor operações prontas.</p>
+<p>Camada HTTP do starter.</p>
 <ul>
-<li><code>controller.base</code> — controllers genéricos
-(<code>AbstractCrudController</code>, <code>BaseFilterController</code>)
-com operações CRUD, paginação e filtros.</li>
-<li><code>controller.docs</code> — endpoints de documentação
-(<code>ApiDocsController</code>) com cache e ETag. Faz a ponte entre
-<code>/v3/api-docs</code> e o fluxo de enriquecimento descrito em <a
-href="architecture-overview.md">architecture-overview.md</a>.</li>
+<li><code>controller.docs</code> publica <code>/schemas/filtered</code>,
+<code>/schemas/catalog</code>, <code>/schemas/surfaces</code> e
+<code>/schemas/actions</code></li>
+<li><code>controller.base</code> contem tanto o core atual
+resource-oriented quanto classes legadas ainda mantidas por
+compatibilidade</li>
 </ul>
+<p>Para aplicacoes novas, priorize os controllers resource-oriented.
+Leia <code>AbstractCrudController</code> apenas como referencia de
+legado ou migracao.</p>
 <h2 id="dto"><code>dto</code></h2>
-<p>Objetos de transporte utilizados por controllers e services.</p>
+<p>Objetos de transporte usados por controllers e services.</p>
+<p>No baseline atual, espere separacao entre:</p>
 <ul>
-<li><code>OptionDTO</code> — payload leve para combos e
-autocompletes.</li>
-<li><code>PagedResponseDTO</code> — abstrai paginação padrão.</li>
-<li>Exemplos de uso: <a href="examples/filter-dto.md">Filter DTO
-real</a>.</li>
+<li>response</li>
+<li>create</li>
+<li>update</li>
+<li>filter</li>
 </ul>
 <h2 id="extension"><code>extension</code></h2>
-<p>Corpo do processo de enriquecimento OpenAPI.</p>
+<p>Corpo do enriquecimento OpenAPI.</p>
 <ul>
-<li><code>CustomOpenApiResolver</code> — converte metadados de anotações
-e validação em <code>x-ui</code>.</li>
-<li><code>ResolverUtils</code> — utilitários para leitura de anotações e
-classes.</li>
-<li><code>extension.annotation</code> — contém <code>@UISchema</code>,
-organizada separadamente para minimizar dependências.</li>
+<li><code>CustomOpenApiResolver</code></li>
+<li>utilitarios de resolucao e anotacoes</li>
 </ul>
+<p>Aqui DTOs, validacoes e metadata de recurso viram <code>x-ui</code> e
+metadata de operacao.</p>
 <h2 id="filter"><code>filter</code></h2>
-<p>Infraestrutura de filtros dinâmicos baseada em Specification.</p>
+<p>Infraestrutura de filtros dinamicos baseada em Specification.</p>
 <ul>
-<li><code>filter.annotation</code> — <code>@Filterable</code> e
-metadados adicionais.</li>
-<li><code>filter.dto</code> — contratos de DTOs e adaptadores (por
-exemplo, <code>FilterDefinitionDTO</code>). Veja <a
-href="examples/filter-dto.md">exemplo detalhado</a>.</li>
-<li><code>filter.specification</code> — builders de Specifications
-Spring Data que transformam DTOs em consultas.</li>
+<li><code>filter.annotation</code></li>
+<li><code>filter.dto</code></li>
+<li><code>filter.specification</code></li>
 </ul>
-<h2 id="hash"><code>hash</code></h2>
-<p>Geração e comparação de hashes de schema.</p>
+<h2 id="http-e-rest"><code>http</code> e <code>rest</code></h2>
+<p>Infraestrutura de resposta e semantica HTTP.</p>
 <ul>
-<li>Utilizado por <code>ApiDocsController</code> para calcular ETag do
-payload filtrado.</li>
-<li>Extensível para persistência de versões via banco ou cache
-distribuído.</li>
+<li><code>RestApiResponse</code></li>
+<li>builders de link</li>
+<li>tratamento de excecao</li>
 </ul>
-<h2 id="http"><code>http</code></h2>
-<p>Classes auxiliares para construção de respostas padronizadas.</p>
-<ul>
-<li><code>RestApiResponse</code> — wrapper com categoria, payload e
-erros.</li>
-<li><code>LinkBuilder</code> — utilitário para montagem de links HATEOAS
-baseados em rota.</li>
-</ul>
-<h2 id="id"><code>id</code></h2>
-<p>Estruturas relacionadas a identificação única e extração de IDs.</p>
-<ul>
-<li><code>Identifiable</code> — contrato usado pelos serviços base para
-extrair chave primária.</li>
-<li><code>IdExtractor</code> — reflexão segura para identificar getters
-de ID.</li>
-</ul>
+<p>Essas pecas sustentam a superficie publica com HATEOAS e envelopes
+consistentes.</p>
 <h2 id="mapper"><code>mapper</code></h2>
-<p>Configurações compartilhadas para MapStruct e mapeamento de
-entidades.</p>
-<ul>
-<li><code>mapper.base</code> — mapeadores genéricos
-(<code>BaseMapper</code>, <code>OptionMapper</code>).</li>
-<li><code>mapper.config</code> — configurações corporativas
-(<code>CorporateMapperConfig</code>).</li>
-</ul>
-<h2 id="numeric"><code>numeric</code></h2>
-<p>Conversores e utilitários para campos numéricos.</p>
-<ul>
-<li><code>NumberFormatStyle</code> — enum com estilos (percentual, moeda
-etc.).</li>
-<li>Integrado diretamente pelo <code>CustomOpenApiResolver</code>.</li>
-</ul>
+<p>Configuracoes compartilhadas para mapeamento e integracao com
+MapStruct.</p>
 <h2 id="repository"><code>repository</code></h2>
-<p>Infraestrutura de acesso a dados.</p>
-<ul>
-<li><code>repository.base</code> — interfaces base
-(<code>BaseRepository</code>, <code>BaseReadOnlyRepository</code>).</li>
-<li>Extensível por aplicações consumidoras que desejam padronizar
-operações CRUD.</li>
-</ul>
-<h2 id="rest"><code>rest</code></h2>
-<p>Exceções e respostas específicas da camada REST.</p>
-<ul>
-<li><code>rest.exceptionhandler</code> —
-<code>GlobalExceptionHandler</code> padroniza respostas de erro.</li>
-<li><code>rest.response</code> — builders auxiliares para
-<code>RestApiResponse</code>.</li>
-</ul>
+<p>Infraestrutura base de acesso a dados.</p>
 <h2 id="service"><code>service</code></h2>
-<p>Serviços base orientados a domínio.</p>
+<p>Camada de servicos base.</p>
 <ul>
-<li><code>service.base</code> — implementações padrão para CRUD
-(<code>BaseCrudService</code>) e leitura
-(<code>BaseReadOnlyService</code>).</li>
-<li><code>service.base.annotation</code> — metadados de serviço
-utilizados por anotações.</li>
+<li>o pacote contem servicos resource-oriented atuais</li>
+<li>tambem contem servicos CRUD legados ainda presentes no codigo</li>
 </ul>
+<p>Para aplicacoes novas, trate <code>BaseCrudService</code> como
+referencia historica do core legado, nao como baseline recomendado.</p>
 <h2 id="util"><code>util</code></h2>
-<p>Utilitários diversos.</p>
+<p>Utilitarios de suporte, incluindo:</p>
 <ul>
-<li><code>OpenApiUiUtils</code> — converte validações em mensagens
-amigáveis.</li>
-<li><code>OpenApiGroupResolver</code> — estratégia para detectar grupos
-(<code>ApiDocsController</code> depende dele).</li>
-<li><code>LocaleUtils</code> — suporte a localização para mensagens e
-labels.</li>
+<li><code>OpenApiGroupResolver</code></li>
+<li><code>OpenApiUiUtils</code></li>
+<li>localizacao e helpers gerais</li>
 </ul>
-<hr />
-<h3 id="como-usar-esta-visão">Como usar esta visão</h3>
+<h2 id="como-usar-esta-visao">Como usar esta visao</h2>
 <ol type="1">
-<li>Identifique o pacote relevante via tabela acima.</li>
-<li>Abra o <code>package-info.java</code> correspondente para obter
-detalhes extras e links cruzados.</li>
-<li>Consulte o Javadoc da classe desejada para obter exemplos de uso e
-contratos detalhados.</li>
-<li>Navegue pelos <a href="examples/">exemplos</a> para ver o pacote em
-ação.</li>
+<li>identifique o pacote relevante</li>
+<li>confira <code>architecture-overview.md</code> para entender o papel
+dele no baseline atual</li>
+<li>use os guias principais para onboarding</li>
+<li>use o Javadoc quando precisar aprofundar detalhes de API ou classes
+legadas</li>
 </ol>
 </body>
 </html>

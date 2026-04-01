@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>🔧 Documentação Técnica</title>
+  <title>Technical Docs</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,215 +166,105 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">🔧 Documentação Técnica</h1>
+<h1 class="title">Technical Docs</h1>
 </header>
-<h1 id="documentação-técnica">🔧 Documentação Técnica</h1>
-<p>Esta seção contém documentação técnica detalhada sobre os recursos
-avançados e internos do Praxis Metadata Starter.</p>
-<h2 id="documentação-técnica-disponível">📋 <strong>Documentação Técnica
-Disponível</strong></h2>
-<h3 id="auto-configuração">⚙️ <a
-href="AUTO-CONFIGURACAO.md">Auto-configuração</a></h3>
-<p><strong>Sistema de configuração automática do Praxis Metadata
-Starter</strong></p>
+<h1 id="technical-docs">Technical Docs</h1>
+<p>Esta area concentra material tecnico de engenharia do
+<code>praxis-metadata-starter</code>. Ela mistura referencias atuais,
+registros historicos de fechamento e planos arquivados. Nao deve ser
+lida como onboarding principal.</p>
+<p>Para onboarding e narrativa publica atual, use primeiro:</p>
 <ul>
-<li>Configuração automática de componentes Spring</li>
-<li>Propriedades de configuração disponíveis</li>
-<li>Resolução explícita da base interna do OpenAPI via
-<code>app.openapi.internal-base-url</code></li>
-<li>Personalização e extensões</li>
-<li>Bean registration automático</li>
+<li><a href="../README.md">README principal</a></li>
+<li><a href="../guides/">Hub dos guias</a></li>
+<li><a href="../architecture-overview.md">Visao arquitetural
+publica</a></li>
 </ul>
-<p><strong>Ideal para:</strong> Entender como o sistema se configura
-automaticamente e como personalizar.</p>
-<h3 id="estratégia-dupla-de-grupos-openapi">🏷️ <a
-href="ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md">Estratégia Dupla de Grupos
-OpenAPI</a></h3>
-<p><strong>Sistema avançado de resolução automática de grupos
-OpenAPI</strong></p>
+<h2 id="como-ler-esta-area">Como ler esta area</h2>
+<h3 id="referencias-tecnicas-atuais">Referencias tecnicas atuais</h3>
+<p>Estes documentos ainda descrevem comportamento vivo do starter, mas
+podem citar compatibilidade com o core legado quando isso fizer parte da
+implementacao atual.</p>
 <ul>
-<li>✅ <strong><span class="citation"
-data-cites="ApiResource">@ApiResource</span> + <span class="citation"
-data-cites="ApiGroup">@ApiGroup</span></strong> - Sistema duplo de
-anotações</li>
-<li>✅ <strong>Resolução automática</strong> via
-OpenApiGroupResolver<br />
-</li>
-<li>✅ <strong>97% menos dados</strong> - Documentos específicos vs
-completos</li>
-<li>✅ <strong>Cache inteligente</strong> com algoritmo “best
-match”</li>
-<li>✅ <strong>Zero configuração</strong> - Grupos criados
-automaticamente</li>
+<li><a href="AUTO-CONFIGURACAO.md">Auto-configuracao</a></li>
+<li><a href="RESOURCE-ORIENTED-PILOT-IN-SRC-TEST.md">Piloto
+resource-oriented em src/test</a></li>
 </ul>
-<p><strong>Ideal para:</strong> Entender o sistema revolucionário de
-documentação OpenAPI automática.</p>
-<h3 id="validação-apiresource">✅ <a
-href="VALIDACAO-API-RESOURCE.md">Validação <span class="citation"
-data-cites="ApiResource">@ApiResource</span></a></h3>
-<p><strong>Sistema de validação obrigatória de anotações</strong></p>
+<h3 id="legado-e-migracao-do-core-antigo">Legado e migracao do core
+antigo</h3>
+<p>Estes documentos continuam uteis para quem ainda toca o core legado,
+mas nao descrevem o baseline recomendado para recursos novos.</p>
 <ul>
-<li>Validação automática em tempo de compilação</li>
-<li>Detecção de controllers sem <span class="citation"
-data-cites="ApiResource">@ApiResource</span></li>
-<li>Sistema de testes automatizados</li>
-<li>Integração com CI/CD</li>
+<li><a href="ESTRATEGIA-DUPLA-GRUPOS-OPENAPI.md">Estrategia de grupos
+OpenAPI do core legado e da transicao</a></li>
+<li><a href="VALIDACAO-API-RESOURCE.md">Validacao de <span
+class="citation" data-cites="ApiResource">@ApiResource</span> no core
+legado</a></li>
 </ul>
-<p><strong>Ideal para:</strong> Garantir que todos os controllers sigam
-os padrões estabelecidos.</p>
-<h3 id="plano-de-cursor-pagination-keyset">🔁 <a
-href="CURSOR-PAGINATION-KEYSET-PLAN.md">Plano de Cursor Pagination /
-Keyset</a></h3>
-<p><strong>Desenho canônico para suportar <code>/filter/cursor</code> no
-starter</strong></p>
+<h3 id="fechamentos-historicos-do-baseline-atual">Fechamentos historicos
+do baseline atual</h3>
+<p>Registros do que foi implementado e endurecido nas fases que
+consolidaram o baseline
+<code>resource + surfaces + actions + capabilities</code>.</p>
 <ul>
-<li>Uso de <code>Window&lt;T&gt;</code> e <code>ScrollPosition</code> do
-Spring Data Commons</li>
-<li>Fragmentos de repositório para encapsular keyset pagination</li>
-<li>Regras de elegibilidade por recurso</li>
-<li>Sort estável com tie-break por ID</li>
-<li>Estratégia de rollout segura para o v1</li>
+<li><a href="PHASE-4-SURFACES-CLOSURE.md">Fechamento da Fase 4 -
+Surfaces</a></li>
+<li><a href="PHASE-5-ACTIONS-CLOSURE.md">Fechamento da Fase 5 - Workflow
+Actions</a></li>
+<li><a href="PHASE-6-CAPABILITIES-CLOSURE.md">Fechamento da Fase 6 -
+Capabilities Unificadas</a></li>
+<li><a href="PILOT-READINESS-CHECKLIST.md">Checklist de prontidao do
+piloto</a></li>
+<li><a href="ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.md">Rollback e
+observabilidade do piloto</a></li>
 </ul>
-<p><strong>Ideal para:</strong> Planejar a implementação correta de
-paginação por cursor no nível de plataforma.</p>
-<h3 id="backlog-executável-de-cursor-pagination-keyset">🧱 <a
-href="CURSOR-PAGINATION-KEYSET-BACKLOG.md">Backlog Executável de Cursor
-Pagination / Keyset</a></h3>
-<p><strong>Decomposição técnica do v1, arquivo por arquivo</strong></p>
+<h3 id="planos-e-backlog-arquivados-ou-em-evolucao">Planos e backlog
+arquivados ou em evolucao</h3>
+<p>Documentos de planejamento tecnico. Sao uteis para contexto e
+continuidade de engenharia, mas nao substituem a fonte canonica do
+contrato publico atual.</p>
 <ul>
-<li>backlog por camada e pacote</li>
-<li>arquivos a criar e arquivos a alterar</li>
-<li>critérios de aceite por etapa</li>
-<li>ordem recomendada de execução</li>
-<li>definition of done do v1</li>
+<li><a href="RESOURCE-SURFACE-ACTION-ARCHITECTURE-PLAN.md">Plano de
+reescrita do core resource/surface/action</a></li>
+<li><a href="CURSOR-PAGINATION-KEYSET-PLAN.md">Plano de cursor
+pagination / keyset</a></li>
+<li><a href="CURSOR-PAGINATION-KEYSET-BACKLOG.md">Backlog executavel de
+cursor pagination / keyset</a></li>
+<li><a href="FILTERED-STATS-PLAN.md">Plano de filtered stats</a></li>
+<li><a href="FILTROS-ROADMAP.md">Roadmap de filtros - lotes 2 e
+3</a></li>
+<li><a href="E2E-TEST-BACKLOG.md">Backlog E2E do starter</a></li>
+<li><a href="STATS-RESPONSE-SCHEMA-PLATFORM-FIX-PLAN.md">Stats response
+schema platform fix plan</a></li>
 </ul>
-<p><strong>Ideal para:</strong> Sair do plano arquitetural e entrar na
-implementação do v1.</p>
-<h3 id="plano-de-filtered-stats">📊 <a
-href="FILTERED-STATS-PLAN.md">Plano de Filtered Stats</a></h3>
-<p><strong>Desenho canônico para KPIs e agregações sobre o conjunto
-filtrado</strong></p>
+<h2 id="regras-de-leitura">Regras de leitura</h2>
 <ul>
-<li>endpoints <code>/stats/group-by</code>,
-<code>/stats/timeseries</code> e <code>/stats/distribution</code></li>
-<li>status atual do v1 e matriz de suporte por operação</li>
-<li>contrato JSON estabilizado de <code>timeseries</code> para
-<code>start/end</code> em <code>yyyy-MM-dd</code></li>
-<li>capability explícita por recurso</li>
-<li>governança de campos e métricas agregáveis</li>
-<li>reuso de <code>FilterDTO -&gt; Specification</code></li>
-<li>backlog arquivo por arquivo para implementação</li>
+<li>O baseline canonico do starter e
+<code>resource + surfaces + actions + capabilities + HATEOAS</code>.</li>
+<li><code>AbstractCrudController</code>, <code>BaseCrudService</code> e
+afins sao superficie legada.</li>
+<li>Planos e fechamentos historicos ajudam a entender como o baseline
+atual surgiu, mas nao devem rebaixar a fonte canonica atual para a
+semantica antiga.</li>
+<li>Quando houver duvida de contrato publico, a prioridade e:
+<ol type="1">
+<li><code>README.md</code></li>
+<li><code>docs/architecture-overview.md</code></li>
+<li><code>docs/guides/**</code></li>
+<li><code>docs/spec/**</code></li>
+<li>esta area tecnica</li>
+</ol></li>
 </ul>
-<p><strong>Ideal para:</strong> Planejar analytics filtrados no nível de
-plataforma sem criar endpoints ad hoc por app.</p>
-<hr />
-<h2 id="para-quem-é-esta-seção">🎯 <strong>Para Quem é Esta
-Seção</strong></h2>
-<h3 id="arquitetos-de-software"><strong>Arquitetos de
-Software</strong></h3>
+<h2 id="referencias-relacionadas">Referencias relacionadas</h2>
 <ul>
-<li>Entender as decisões de design do framework</li>
-<li>Avaliar impacto de performance e escalabilidade</li>
-<li>Planejar integrações e extensões</li>
-</ul>
-<h3 id="desenvolvedores-sênior"><strong>Desenvolvedores
-Sênior</strong></h3>
-<ul>
-<li>Implementar customizações avançadas</li>
-<li>Resolver problemas técnicos complexos<br />
-</li>
-<li>Contribuir com melhorias no framework</li>
-</ul>
-<h3 id="devopssre"><strong>DevOps/SRE</strong></h3>
-<ul>
-<li>Configurar ambientes de produção</li>
-<li>Implementar monitoramento e observabilidade</li>
-<li>Otimizar performance e cache</li>
-</ul>
-<hr />
-<h2 id="conceitos-técnicos-principais">🔍 <strong>Conceitos Técnicos
-Principais</strong></h2>
-<h3 id="sistema-de-resolução-automática"><strong>Sistema de Resolução
-Automática</strong></h3>
-<ul>
-<li><strong>DynamicSwaggerConfig:</strong> Escaneia controllers no
-startup</li>
-<li><strong>ApiDocsController:</strong> Resolve grupos baseado no path
-da requisição</li>
-<li><strong>OpenApiGroupResolver:</strong> Algoritmo “best match” para
-detecção</li>
-<li><strong>AbstractCrudController:</strong> Auto-detecção de base
-path</li>
-</ul>
-<h3 id="cache-inteligente"><strong>Cache Inteligente</strong></h3>
-<ul>
-<li>Documentos específicos por grupo (97% menor que completo)</li>
-<li>Cache baseado em path pattern matching</li>
-<li>Invalidação automática em mudanças de schema</li>
-</ul>
-<h3 id="validação-automática"><strong>Validação Automática</strong></h3>
-<ul>
-<li>Detecção de controllers não anotados</li>
-<li>Validação em tempo de compilação</li>
-<li>Testes automatizados de conformidade</li>
-</ul>
-<hr />
-<h2 id="performance-e-escalabilidade">🚀 <strong>Performance e
-Escalabilidade</strong></h2>
-<h3 id="métricas-de-performance"><strong>Métricas de
-Performance</strong></h3>
-<ul>
-<li><strong>Redução de payload:</strong> ~500KB → ~14KB (97% menor)</li>
-<li><strong>Cache hit rate:</strong> &gt;95% em ambientes típicos</li>
-<li><strong>Startup time:</strong> Impacto mínimo (&lt;100ms
-adicional)</li>
-</ul>
-<h3 id="escalabilidade"><strong>Escalabilidade</strong></h3>
-<ul>
-<li>Suporte a milhares de controllers simultâneos</li>
-<li>Cache distribuído para ambientes multi-instância</li>
-<li>Lazy loading de documentação por demanda</li>
-</ul>
-<hr />
-<h2 id="troubleshooting-avançado">🛠️ <strong>Troubleshooting
-Avançado</strong></h2>
-<h3 id="problemas-comuns"><strong>Problemas Comuns</strong></h3>
-<ul>
-<li>Controllers não detectados → Verificar herança de
-AbstractCrudController</li>
-<li>Grupos não criados → Validar anotações <span class="citation"
-data-cites="ApiResource">@ApiResource</span></li>
-<li>Cache não funcionando → Verificar configuração de Spring Boot</li>
-</ul>
-<h3 id="debug-e-monitoramento"><strong>Debug e
-Monitoramento</strong></h3>
-<ul>
-<li>Logs específicos para resolução de grupos</li>
-<li>Métricas de cache via Micrometer</li>
-<li>Health checks automáticos</li>
-</ul>
-<hr />
-<h2 id="referências-relacionadas">📚 <strong>Referências
-Relacionadas</strong></h2>
-<ul>
-<li>📖 <a href="../guides/">Guias de Implementação</a></li>
-<li>💡 <a href="../examples/">Exemplos Práticos</a></li>
-<li>🏠 <a href="../README.md">Índice Principal</a></li>
-<li>🧭 <a href="../concepts/CONTROLTYPE-HEURISTICA.md">Heurística de
-ControlType</a></li>
-<li>🧩 <a href="FILTROS-ROADMAP.md">Roadmap de Filtros (Lote 2 e
-3)</a></li>
-<li>🔁 <a href="CURSOR-PAGINATION-KEYSET-PLAN.md">Plano de Cursor
-Pagination / Keyset</a></li>
-<li>🧱 <a href="CURSOR-PAGINATION-KEYSET-BACKLOG.md">Backlog Executável
-de Cursor Pagination / Keyset</a></li>
-<li>📊 <a href="FILTERED-STATS-PLAN.md">Plano de Filtered Stats</a></li>
-<li>🔎 Javadoc: <a href="../apidocs/index.html">Visão geral</a>, <a
+<li><a href="../guides/">Hub dos guias</a></li>
+<li><a href="../examples/">Examples</a></li>
+<li><a href="../spec/CONFORMANCE.md">Conformance</a></li>
+<li><a href="../architecture-overview.md">Architecture overview</a></li>
+<li><a href="../concepts/CONTROLTYPE-HEURISTICA.md">Heuristica de
+control type</a></li>
+<li>Javadoc: <a href="../apidocs/index.html">Visao geral</a>, <a
 href="../apidocs/allpackages-index.html">Pacotes</a></li>
 </ul>
-<hr />
-<p><strong>⚡ Nota:</strong> Esta seção é para usuários avançados. Para
-uso básico, consulte os <a href="../guides/">Guias</a> e <a
-href="../examples/">Exemplos</a>.</p>
 </body>
 </html>

@@ -6,7 +6,8 @@ repetivel de prova operacional.
 ## Objetivo
 
 - verificar se uma LLM, seguindo apenas os guias oficiais, consegue criar uma
-  aplicacao nova e um CRUD metadata-driven sem intervencao humana corretiva
+  aplicacao nova e um recurso metadata-driven no baseline atual sem
+  intervencao humana corretiva
 - coletar falhas reais de execucao
 - retroalimentar os guias ate fechar o protocolo sem depender de conhecimento
   implicito do time
