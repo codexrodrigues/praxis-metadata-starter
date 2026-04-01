@@ -40,19 +40,19 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
         ResponseDTO body = saved.body();
         Link selfLink = linkToSelf(newId);
 
-        Links links = Links.of(
-                selfLink,
-                linkToAll(),
-                linkToFilter(),
-                linkToFilterCursor(),
-                linkToUpdate(newId),
-                linkToDelete(newId),
-                linkToUiSchema("/", "post", "request")
-        );
+        List<Link> linkList = new ArrayList<>();
+        linkList.add(selfLink);
+        linkList.add(linkToAll());
+        linkList.add(linkToFilter());
+        linkList.add(linkToFilterCursor());
+        linkList.add(linkToUpdate(newId));
+        linkList.add(linkToDelete(newId));
+        linkList.addAll(buildItemDiscoveryLinks(newId));
+        linkList.add(linkToUiSchema("/", "post", "request"));
 
         return withVersion(
                 ResponseEntity.created(selfLink.toUri()),
-                RestApiResponse.success(body, hateoasOrNull(links))
+                RestApiResponse.success(body, hateoasOrNull(Links.of(linkList)))
         );
     }
 
@@ -64,17 +64,17 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
     ) {
         ResponseDTO updated = getService().update(id, dto);
 
-        Links links = Links.of(
-                linkToSelf(id),
-                linkToAll(),
-                linkToFilter(),
-                linkToFilterCursor(),
-                linkToUpdate(id),
-                linkToDelete(id),
-                linkToUiSchema("/{id}", "put", "request")
-        );
+        List<Link> linkList = new ArrayList<>();
+        linkList.add(linkToSelf(id));
+        linkList.add(linkToAll());
+        linkList.add(linkToFilter());
+        linkList.add(linkToFilterCursor());
+        linkList.add(linkToUpdate(id));
+        linkList.add(linkToDelete(id));
+        linkList.addAll(buildItemDiscoveryLinks(id));
+        linkList.add(linkToUiSchema("/{id}", "put", "request"));
 
-        return withVersion(ResponseEntity.ok(), RestApiResponse.success(updated, hateoasOrNull(links)));
+        return withVersion(ResponseEntity.ok(), RestApiResponse.success(updated, hateoasOrNull(Links.of(linkList))));
     }
 
     @DeleteMapping("/{id}")

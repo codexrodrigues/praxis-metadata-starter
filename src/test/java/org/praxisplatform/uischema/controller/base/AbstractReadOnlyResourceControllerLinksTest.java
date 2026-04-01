@@ -3,19 +3,18 @@ package org.praxisplatform.uischema.controller.base;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.hateoas.Link;
 import org.springframework.http.MediaType;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -24,19 +23,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(AbstractReadOnlyResourceControllerLinksTest.ReadOnlyController.class)
-@Import(AbstractReadOnlyResourceControllerLinksTest.ReadOnlyController.class)
 class AbstractReadOnlyResourceControllerLinksTest {
-
-    @Autowired
-    MockMvc mockMvc;
-
-    @MockBean
-    ReadOnlyService service;
 
     @Test
     void getAllOmitsWriteLinks() throws Exception {
+        ReadOnlyService service = mock(ReadOnlyService.class);
         when(service.findAll()).thenReturn(List.of(new SimpleDto(1L)));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controllerWith(service)).build();
 
         mockMvc.perform(get("/ro/all"))
                 .andExpect(status().isOk())
@@ -47,7 +40,9 @@ class AbstractReadOnlyResourceControllerLinksTest {
 
     @Test
     void getByIdOmitsWriteLinks() throws Exception {
+        ReadOnlyService service = mock(ReadOnlyService.class);
         when(service.findById(1L)).thenReturn(new SimpleDto(1L));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controllerWith(service)).build();
 
         mockMvc.perform(get("/ro/1"))
                 .andExpect(status().isOk())
@@ -58,6 +53,8 @@ class AbstractReadOnlyResourceControllerLinksTest {
 
     @Test
     void writeOperationsAreNotExposedByTheReadOnlyBase() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controllerWith(mock(ReadOnlyService.class))).build();
+
         mockMvc.perform(post("/ro").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isNotFound());
 
@@ -102,7 +99,6 @@ class AbstractReadOnlyResourceControllerLinksTest {
     @org.springframework.web.bind.annotation.RequestMapping("/ro")
     static class ReadOnlyController extends AbstractReadOnlyResourceController<SimpleDto, Long, SimpleFilterDTO> {
 
-        @Autowired
         ReadOnlyService service;
 
         @Override
@@ -128,5 +124,11 @@ class AbstractReadOnlyResourceControllerLinksTest {
         Link exposeLinkToUiSchema(String methodPath, String operation, String schemaType) {
             return linkToUiSchema(methodPath, operation, schemaType);
         }
+    }
+
+    private static ReadOnlyController controllerWith(ReadOnlyService service) {
+        ReadOnlyController controller = new ReadOnlyController();
+        ReflectionTestUtils.setField(controller, "service", service);
+        return controller;
     }
 }

@@ -1,6 +1,9 @@
 package org.praxisplatform.uischema.controller.base;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.annotation.PostConstruct;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.capability.CapabilityService;
@@ -17,6 +20,8 @@ import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
+import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
+import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.action.ActionCatalogResponse;
 import org.praxisplatform.uischema.action.ActionCatalogService;
 import org.praxisplatform.uischema.surface.SurfaceCatalogResponse;
@@ -73,6 +78,81 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     private static final String SCHEMAS_FILTERED_PATH = "/schemas/filtered";
     private static final String HDR = "X-Data-Version";
     private static final String MISSING_BASE_PATH = "/__unconfigured-resource__";
+    private static final String GROUP_BY_STATS_REQUEST_EXAMPLE = """
+            {
+              "filter": {},
+              "field": "status",
+              "metrics": [
+                { "metric": "count" }
+              ],
+              "includeNullBucket": false,
+              "limit": 10
+            }
+            """;
+    private static final String GROUP_BY_STATS_RESPONSE_EXAMPLE = """
+            {
+              "success": true,
+              "data": {
+                "field": "status",
+                "buckets": [
+                  { "key": "ATIVO", "label": "ATIVO", "count": 42, "metrics": { "count": 42 } },
+                  { "key": "INATIVO", "label": "INATIVO", "count": 8, "metrics": { "count": 8 } }
+                ],
+                "totalBuckets": 2,
+                "truncated": false
+              }
+            }
+            """;
+    private static final String TIME_SERIES_STATS_REQUEST_EXAMPLE = """
+            {
+              "filter": {},
+              "field": "createdAt",
+              "granularity": "day",
+              "metrics": [
+                { "metric": "sum", "field": "amount" }
+              ],
+              "from": "2026-01-01T00:00:00Z",
+              "to": "2026-01-31T23:59:59Z",
+              "fillGaps": true
+            }
+            """;
+    private static final String TIME_SERIES_STATS_RESPONSE_EXAMPLE = """
+            {
+              "success": true,
+              "data": {
+                "field": "createdAt",
+                "granularity": "day",
+                "points": [
+                  { "key": "2026-01-01", "label": "2026-01-01", "count": 3, "metrics": { "sum_amount": 1250.00 } },
+                  { "key": "2026-01-02", "label": "2026-01-02", "count": 0, "metrics": { "sum_amount": 0.00 } }
+                ]
+              }
+            }
+            """;
+    private static final String DISTRIBUTION_STATS_REQUEST_EXAMPLE = """
+            {
+              "filter": {},
+              "field": "amount",
+              "mode": "histogram",
+              "interval": 1000,
+              "metrics": [
+                { "metric": "count" }
+              ]
+            }
+            """;
+    private static final String DISTRIBUTION_STATS_RESPONSE_EXAMPLE = """
+            {
+              "success": true,
+              "data": {
+                "field": "amount",
+                "mode": "histogram",
+                "buckets": [
+                  { "key": "0", "label": "0-1000", "count": 5, "metrics": { "count": 5 } },
+                  { "key": "1000", "label": "1000-2000", "count": 7, "metrics": { "count": 7 } }
+                ]
+              }
+            }
+            """;
 
     @Value("${springdoc.api-docs.path:/v3/api-docs}")
     private String openApiBasePath;
@@ -94,6 +174,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @Autowired(required = false)
     private ActionCatalogService actionCatalogService;
+
+    @Autowired(required = false)
+    private ActionDefinitionRegistry actionDefinitionRegistry;
 
     @Autowired(required = false)
     private CapabilityService capabilityService;
@@ -149,13 +232,21 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     protected String getResourceKey() {
-        ApiResource apiResource = AnnotationUtils.findAnnotation(getClass(), ApiResource.class);
-        if (apiResource != null && StringUtils.hasText(apiResource.resourceKey())) {
-            return apiResource.resourceKey().trim();
+        String resourceKey = getResourceKeyOrNull();
+        if (StringUtils.hasText(resourceKey)) {
+            return resourceKey;
         }
         throw new IllegalStateException(
                 "Contextual surface discovery requires @ApiResource(resourceKey=...) on " + getClass().getName()
         );
+    }
+
+    protected String getResourceKeyOrNull() {
+        ApiResource apiResource = AnnotationUtils.findAnnotation(getClass(), ApiResource.class);
+        if (apiResource != null && StringUtils.hasText(apiResource.resourceKey())) {
+            return apiResource.resourceKey().trim();
+        }
+        return null;
     }
 
     protected EntityModel<ResponseDTO> toEntityModel(ResponseDTO dto) {
@@ -167,6 +258,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         List<Link> links = new ArrayList<>();
         links.add(linkToSelf(id));
         links.addAll(buildEntityActionLinks(id));
+        links.addAll(buildItemDiscoveryLinks(id));
         return EntityModel.of(dto, links);
     }
 
@@ -180,6 +272,40 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     protected List<Link> buildCollectionActionLinks() {
         return List.of();
+    }
+
+    protected List<Link> buildItemDiscoveryLinks(ID id) {
+        List<Link> links = new ArrayList<>();
+        Link surfacesLink = linkToItemSurfacesIfAvailable(id);
+        if (surfacesLink != null) {
+            links.add(surfacesLink);
+        }
+        Link actionsLink = linkToItemActionsIfAvailable(id);
+        if (actionsLink != null) {
+            links.add(actionsLink);
+        }
+        Link capabilitiesLink = linkToItemCapabilitiesIfAvailable(id);
+        if (capabilitiesLink != null) {
+            links.add(capabilitiesLink);
+        }
+        return links;
+    }
+
+    protected List<Link> buildCollectionDiscoveryLinks() {
+        List<Link> links = new ArrayList<>();
+        Link surfacesLink = linkToCollectionSurfacesIfAvailable();
+        if (surfacesLink != null) {
+            links.add(surfacesLink);
+        }
+        Link actionsLink = linkToCollectionActionsIfAvailable();
+        if (actionsLink != null) {
+            links.add(actionsLink);
+        }
+        Link capabilitiesLink = linkToCollectionCapabilitiesIfAvailable();
+        if (capabilitiesLink != null) {
+            links.add(capabilitiesLink);
+        }
+        return links;
     }
 
     @PostMapping("/filter")
@@ -206,6 +332,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         links.add(linkToUiSchema("/filter", "post", "request"));
         links.add(linkToUiSchema("/filter", "post", "response"));
         links.addAll(buildCollectionActionLinks());
+        links.addAll(buildCollectionDiscoveryLinks());
 
         return withVersion(ResponseEntity.ok(), RestApiResponse.success(entityModels, hateoasOrNull(Links.of(links))));
     }
@@ -246,6 +373,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         links.add(linkToUiSchema("/filter/cursor", "post", "request"));
         links.add(linkToUiSchema("/filter/cursor", "post", "response"));
         links.addAll(buildCollectionActionLinks());
+        links.addAll(buildCollectionDiscoveryLinks());
 
         return withVersion(ResponseEntity.ok(), RestApiResponse.success(mapped, hateoasOrNull(Links.of(links))));
     }
@@ -276,7 +404,35 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     @PostMapping("/stats/group-by")
-    @Operation(summary = "Group-by stats sobre o conjunto filtrado")
+    @Operation(
+            summary = "Group-by stats sobre o conjunto filtrado",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    name = "groupByCount",
+                                    summary = "Agrupamento por status com COUNT",
+                                    value = GROUP_BY_STATS_REQUEST_EXAMPLE
+                            )
+                    )
+            ),
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Group-by calculado com sucesso",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    examples = @ExampleObject(
+                                            name = "groupByCountResponse",
+                                            summary = "Buckets agregados por status",
+                                            value = GROUP_BY_STATS_RESPONSE_EXAMPLE
+                                    )
+                            )
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Request de stats invalido"),
+                    @ApiResponse(responseCode = "501", description = "Stats nao suportado pelo recurso")
+            }
+    )
     public ResponseEntity<RestApiResponse<GroupByStatsResponse>> groupByStats(
             @RequestBody GroupByStatsRequest<FD> request
     ) {
@@ -296,7 +452,35 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     @PostMapping("/stats/timeseries")
-    @Operation(summary = "Time-series stats sobre o conjunto filtrado")
+    @Operation(
+            summary = "Time-series stats sobre o conjunto filtrado",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    name = "timeSeriesSum",
+                                    summary = "Serie diaria com SUM e fillGaps",
+                                    value = TIME_SERIES_STATS_REQUEST_EXAMPLE
+                            )
+                    )
+            ),
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Serie temporal calculada com sucesso",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    examples = @ExampleObject(
+                                            name = "timeSeriesSumResponse",
+                                            summary = "Pontos de serie temporal com datas ISO",
+                                            value = TIME_SERIES_STATS_RESPONSE_EXAMPLE
+                                    )
+                            )
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Request de stats invalido"),
+                    @ApiResponse(responseCode = "501", description = "Stats nao suportado pelo recurso")
+            }
+    )
     public ResponseEntity<RestApiResponse<TimeSeriesStatsResponse>> timeSeriesStats(
             @RequestBody TimeSeriesStatsRequest<FD> request
     ) {
@@ -316,7 +500,35 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     @PostMapping("/stats/distribution")
-    @Operation(summary = "Distribution stats sobre o conjunto filtrado")
+    @Operation(
+            summary = "Distribution stats sobre o conjunto filtrado",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    name = "distributionHistogram",
+                                    summary = "Distribuicao por histograma com COUNT",
+                                    value = DISTRIBUTION_STATS_REQUEST_EXAMPLE
+                            )
+                    )
+            ),
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Distribuicao calculada com sucesso",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    examples = @ExampleObject(
+                                            name = "distributionHistogramResponse",
+                                            summary = "Buckets de histograma canonicos",
+                                            value = DISTRIBUTION_STATS_RESPONSE_EXAMPLE
+                                    )
+                            )
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Request de stats invalido"),
+                    @ApiResponse(responseCode = "501", description = "Stats nao suportado pelo recurso")
+            }
+    )
     public ResponseEntity<RestApiResponse<DistributionStatsResponse>> distributionStats(
             @RequestBody DistributionStatsRequest<FD> request
     ) {
@@ -347,6 +559,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         links.add(linkToFilterCursor());
         links.add(linkToUiSchema("/all", "get", "response"));
         links.addAll(buildCollectionActionLinks());
+        links.addAll(buildCollectionDiscoveryLinks());
 
         return withVersion(ResponseEntity.ok(), RestApiResponse.success(entityModels, hateoasOrNull(Links.of(links))));
     }
@@ -466,6 +679,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         linkList.add(linkToFilter());
         linkList.add(linkToFilterCursor());
         linkList.addAll(buildItemActionLinks(id));
+        linkList.addAll(buildItemDiscoveryLinks(id));
         linkList.add(linkToUiSchema("/{id}", "get", "response"));
 
         return withVersion(
@@ -555,6 +769,64 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         ).withRel("filter-cursor");
     }
 
+    protected Link linkToCollectionSurfacesIfAvailable() {
+        String resourceKey = getResourceKeyOrNull();
+        if (!StringUtils.hasText(resourceKey) || surfaceCatalogService == null) {
+            return null;
+        }
+        String href = UriComponentsBuilder.fromPath(StringUtils.hasText(contextPath) ? contextPath : "")
+                .path("/schemas/surfaces")
+                .queryParam("resource", resourceKey)
+                .build()
+                .toUriString();
+        return Link.of(href, "surfaces");
+    }
+
+    protected Link linkToItemSurfacesIfAvailable(ID id) {
+        if (!StringUtils.hasText(getResourceKeyOrNull()) || surfaceCatalogService == null) {
+            return null;
+        }
+        return WebMvcLinkBuilder.linkTo(
+                WebMvcLinkBuilder.methodOn(getControllerClass()).getItemSurfaces(id)
+        ).withRel("surfaces");
+    }
+
+    protected Link linkToCollectionActionsIfAvailable() {
+        if (!hasWorkflowActions(ActionScope.COLLECTION) || actionCatalogService == null) {
+            return null;
+        }
+        return WebMvcLinkBuilder.linkTo(
+                WebMvcLinkBuilder.methodOn(getControllerClass()).getCollectionActions()
+        ).withRel("actions");
+    }
+
+    protected Link linkToItemActionsIfAvailable(ID id) {
+        if (!hasWorkflowActions(ActionScope.ITEM) || actionCatalogService == null) {
+            return null;
+        }
+        return WebMvcLinkBuilder.linkTo(
+                WebMvcLinkBuilder.methodOn(getControllerClass()).getItemActions(id)
+        ).withRel("actions");
+    }
+
+    protected Link linkToCollectionCapabilitiesIfAvailable() {
+        if (!StringUtils.hasText(getResourceKeyOrNull()) || capabilityService == null) {
+            return null;
+        }
+        return WebMvcLinkBuilder.linkTo(
+                WebMvcLinkBuilder.methodOn(getControllerClass()).getCollectionCapabilities()
+        ).withRel("capabilities");
+    }
+
+    protected Link linkToItemCapabilitiesIfAvailable(ID id) {
+        if (!StringUtils.hasText(getResourceKeyOrNull()) || capabilityService == null) {
+            return null;
+        }
+        return WebMvcLinkBuilder.linkTo(
+                WebMvcLinkBuilder.methodOn(getControllerClass()).getItemCapabilities(id)
+        ).withRel("capabilities");
+    }
+
     protected Link linkToDocs() {
         String docsUrl = String.format("%s%s", openApiBasePath, getBasePath());
         return Link.of(docsUrl, "docs");
@@ -602,6 +874,15 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 ? environment.getProperty("praxis.hateoas.enabled", "true")
                 : "true";
         return Boolean.parseBoolean(configured);
+    }
+
+    private boolean hasWorkflowActions(ActionScope scope) {
+        String resourceKey = getResourceKeyOrNull();
+        if (!StringUtils.hasText(resourceKey) || actionDefinitionRegistry == null) {
+            return false;
+        }
+        return actionDefinitionRegistry.findByResourceKey(resourceKey).stream()
+                .anyMatch(definition -> definition.scope() == scope);
     }
 
     private String resolveSchemaMethodPath(String methodPath) {

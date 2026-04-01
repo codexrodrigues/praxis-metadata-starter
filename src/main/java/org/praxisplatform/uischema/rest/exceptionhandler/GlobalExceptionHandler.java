@@ -317,6 +317,10 @@ public class GlobalExceptionHandler {
                 return buildStatusResponse(status, message, request, null);
             }
         }
+        HttpStatus frameworkStatus = resolveFrameworkStatus(ex);
+        if (frameworkStatus != null) {
+            return buildStatusResponse(frameworkStatus, normalize(ex.getMessage()), request, null);
+        }
         log.error("[GlobalExceptionHandler] Unhandled exception", ex);
         return buildInternalServerErrorResponse(request);
     }
@@ -618,6 +622,26 @@ public class GlobalExceptionHandler {
             current = current.getCause();
         }
         return current;
+    }
+
+    private HttpStatus resolveFrameworkStatus(Throwable throwable) {
+        if (throwable == null) {
+            return null;
+        }
+
+        Class<?> current = throwable.getClass();
+        while (current != null) {
+            String name = current.getName();
+            if ("org.springframework.security.access.AccessDeniedException".equals(name)
+                    || "org.springframework.security.authorization.AuthorizationDeniedException".equals(name)) {
+                return HttpStatus.FORBIDDEN;
+            }
+            if ("org.springframework.security.core.AuthenticationException".equals(name)) {
+                return HttpStatus.UNAUTHORIZED;
+            }
+            current = current.getSuperclass();
+        }
+        return null;
     }
 
 }

@@ -1,7 +1,13 @@
 package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.action.ActionDefinition;
+import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
+import org.praxisplatform.uischema.action.ActionScope;
+import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.surface.SurfaceCatalogService;
 import org.praxisplatform.uischema.service.base.BaseResourceService;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.mock.env.MockEnvironment;
@@ -11,6 +17,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class AbstractResourceQueryControllerHateoasTest {
 
@@ -34,6 +42,43 @@ class AbstractResourceQueryControllerHateoasTest {
         EntityModel<SimpleResponseDto> model = controller.exposeToEntityModel(new SimpleResponseDto(7L));
 
         assertEquals(List.of("self", "update", "delete"), model.getLinks().stream()
+                .map(link -> link.getRel().value())
+                .toList());
+    }
+
+    @Test
+    void toEntityModelAddsDiscoveryLinksWhenServicesAndItemActionsExist() {
+        SimpleController controller = new SimpleController();
+        ReflectionTestUtils.setField(controller, "environment",
+                new MockEnvironment().withProperty("praxis.hateoas.enabled", "true"));
+        ReflectionTestUtils.setField(controller, "surfaceCatalogService", mock(SurfaceCatalogService.class));
+        ReflectionTestUtils.setField(controller, "capabilityService", mock(CapabilityService.class));
+        ReflectionTestUtils.setField(controller, "actionCatalogService", mock(org.praxisplatform.uischema.action.ActionCatalogService.class));
+        ActionDefinitionRegistry registry = mock(ActionDefinitionRegistry.class);
+        ReflectionTestUtils.setField(controller, "actionDefinitionRegistry", registry);
+        when(registry.findByResourceKey("test.simple")).thenReturn(List.of(
+                new ActionDefinition(
+                        "approve",
+                        "test.simple",
+                        "/simple",
+                        "simple",
+                        ActionScope.ITEM,
+                        "Approve",
+                        "",
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(),
+                        List.of()
+                )
+        ));
+
+        EntityModel<SimpleResponseDto> model = controller.exposeToEntityModel(new SimpleResponseDto(7L));
+
+        assertEquals(List.of("self", "update", "delete", "surfaces", "actions", "capabilities"), model.getLinks().stream()
                 .map(link -> link.getRel().value())
                 .toList());
     }
@@ -75,6 +120,7 @@ class AbstractResourceQueryControllerHateoasTest {
 
     @org.springframework.web.bind.annotation.RestController
     @org.springframework.web.bind.annotation.RequestMapping("/simple")
+    @ApiResource(value = "/simple", resourceKey = "test.simple")
     static class SimpleController extends AbstractResourceController<
             SimpleResponseDto,
             Long,

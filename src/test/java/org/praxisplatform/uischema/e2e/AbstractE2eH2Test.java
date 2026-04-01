@@ -71,6 +71,14 @@ abstract class AbstractE2eH2Test {
         return rest.getRestTemplate().exchange(URI.create(url(path)), method, new HttpEntity<>(headers), String.class);
     }
 
+    protected ResponseEntity<String> getHref(String href) {
+        return rest.getRestTemplate().getForEntity(resolveHref(href), String.class);
+    }
+
+    protected ResponseEntity<String> exchangeHref(String href, HttpMethod method, HttpHeaders headers) {
+        return rest.getRestTemplate().exchange(resolveHref(href), method, new HttpEntity<>(headers), String.class);
+    }
+
     protected JsonNode body(ResponseEntity<String> response) throws Exception {
         assertNotNull(response.getBody(), "Expected response body for " + response.getStatusCode());
         return objectMapper.readTree(response.getBody());
@@ -80,5 +88,36 @@ abstract class AbstractE2eH2Test {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         return new HttpEntity<>(body, headers);
+    }
+
+    protected String findLinkHref(JsonNode envelope, String rel) {
+        JsonNode links = envelope.path("links");
+        if (links.isArray()) {
+            for (JsonNode link : links) {
+                if (rel.equals(link.path("rel").asText())) {
+                    return link.path("href").asText();
+                }
+            }
+        }
+
+        JsonNode halLink = links.path(rel);
+        if (halLink.isObject()) {
+            return halLink.path("href").asText(null);
+        }
+
+        return null;
+    }
+
+    protected URI resolveHref(String href) {
+        if (href == null || href.isBlank()) {
+            throw new IllegalArgumentException("href must not be blank");
+        }
+
+        if (href.startsWith("http://") || href.startsWith("https://")) {
+            return URI.create(href);
+        }
+
+        String path = href.startsWith("/") ? href : "/" + href;
+        return URI.create(url(path));
     }
 }
