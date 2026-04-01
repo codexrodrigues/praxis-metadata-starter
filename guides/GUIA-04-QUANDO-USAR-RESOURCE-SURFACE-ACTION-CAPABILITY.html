@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY</h1>
+</header>
+<h1 id="guia-04---quando-usar-resource-surface-action-e-capability">Guia
+04 - Quando usar Resource, Surface, Action e Capability</h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este guia evita o erro mais comum na migracao do primeiro consumidor:
+misturar os papeis de <code>resource</code>, <code>surface</code>,
+<code>action</code> e <code>capability</code>.</p>
+<h2 id="resource">Resource</h2>
+<p>Use <code>resource-oriented</code> quando a operacao e parte do
+contrato canonico do recurso.</p>
+<p>Entram aqui:</p>
+<ul>
+<li><code>GET /{id}</code></li>
+<li><code>GET /all</code></li>
+<li><code>POST /</code></li>
+<li><code>PUT /{id}</code></li>
+<li><code>DELETE /{id}</code></li>
+<li><code>POST /filter</code></li>
+<li><code>PATCH /{id}/profile</code> quando isso ainda for manutencao do
+recurso</li>
+</ul>
+<p>Regra:</p>
+<ul>
+<li><code>resource</code> define o contrato real</li>
+<li><code>resource</code> e a fonte da verdade de payload e schema</li>
+</ul>
+<h2 id="resourceintent">ResourceIntent</h2>
+<p>Use <code>@ResourceIntent</code> quando um <code>PATCH</code>
+continua sendo resource-oriented, mas com semantica propria.</p>
+<p>Exemplo:</p>
+<ul>
+<li><code>PATCH /employees/{id}/profile</code></li>
+</ul>
+<p>Regra:</p>
+<ul>
+<li>continua sendo <code>resource</code></li>
+<li>o <code>intent</code> nomeia a manutencao parcial</li>
+<li>nao vira workflow so porque tem nome proprio</li>
+</ul>
+<h2 id="uisurface">UiSurface</h2>
+<p>Use <code>@UiSurface</code> quando a UI precisa descobrir
+semanticamente uma experiencia sobre uma operacao real.</p>
+<p>Entram aqui:</p>
+<ul>
+<li>formulario parcial</li>
+<li>view detalhada</li>
+<li>projecao de leitura</li>
+</ul>
+<p>Regra:</p>
+<ul>
+<li><code>surface</code> nao define payload</li>
+<li><code>surface</code> aponta para operacao real + schema
+canonico</li>
+<li><code>ITEM</code> em <code>/schemas/surfaces</code> e discovery-only
+sem <code>resourceId</code>; a availability real vem de
+<code>GET /{resource}/{id}/surfaces</code></li>
+</ul>
+<h2 id="workflowaction">WorkflowAction</h2>
+<p>Use <code>@WorkflowAction</code> quando a operacao e um comando de
+negocio explicito.</p>
+<p>Entram aqui:</p>
+<ul>
+<li><code>approve</code></li>
+<li><code>reject</code></li>
+<li><code>resubmit</code></li>
+<li><code>bulk-approve</code></li>
+</ul>
+<p>Regra:</p>
+<ul>
+<li><code>action</code> nao e CRUD</li>
+<li><code>action</code> nao e patch de manutencao do recurso</li>
+<li>execucao sempre por endpoint tipado real</li>
+<li><code>ITEM</code> em <code>/schemas/actions</code> e discovery-only
+sem <code>resourceId</code>; a availability real vem de
+<code>GET /{resource}/{id}/actions</code></li>
+</ul>
+<h2 id="capability">Capability</h2>
+<p>Use <code>/capabilities</code> quando o cliente precisa de um
+snapshot agregado do que pode ser feito agora.</p>
+<p>O snapshot agrega:</p>
+<ul>
+<li>operacoes canonicas publicadas</li>
+<li><code>surfaces</code></li>
+<li><code>actions</code></li>
+</ul>
+<p>Regra:</p>
+<ul>
+<li><code>capability</code> nao substitui catalogos dedicados</li>
+<li><code>capability</code> nao define schema inline</li>
+<li><code>capability</code> agrega ausencia de <code>surfaces</code> e
+<code>actions</code> como listas vazias, mas os catalogos dedicados
+mantem sua propria semantica (<code>surfaces</code> automaticas;
+<code>actions</code> <code>404</code> sem workflow)</li>
+</ul>
+<h2 id="regra-pratica-de-decisao">Regra pratica de decisao</h2>
+<p>Pergunta 1: a operacao altera ou le o recurso como parte do contrato
+principal?</p>
+<ul>
+<li>sim -&gt; <code>resource</code></li>
+</ul>
+<p>Pergunta 2: a operacao ainda e manutencao do recurso, mas parcial ou
+com UX propria?</p>
+<ul>
+<li>sim -&gt; <code>resource</code> + opcionalmente
+<code>@ResourceIntent</code> + <code>@UiSurface</code></li>
+</ul>
+<p>Pergunta 3: a operacao e um comando de negocio explicito?</p>
+<ul>
+<li>sim -&gt; <code>@WorkflowAction</code></li>
+</ul>
+<p>Pergunta 4: a UI so precisa saber o que existe ou o que esta
+disponivel agora?</p>
+<ul>
+<li>catalogo semantico especifico -&gt; <code>surfaces</code> ou
+<code>actions</code></li>
+<li>visao agregada -&gt; <code>capabilities</code></li>
+</ul>
+<h2 id="exemplos-rapidos">Exemplos rapidos</h2>
+<ul>
+<li><code>PATCH /employees/{id}/profile</code> -&gt;
+<code>resource</code> + <code>@ResourceIntent</code> + opcionalmente
+<code>@UiSurface</code></li>
+<li><code>POST /employees/{id}/actions/approve</code> -&gt;
+<code>@WorkflowAction</code></li>
+<li><code>GET /employees/{id}/surfaces</code> -&gt; discovery semantico
+contextual</li>
+<li><code>GET /employees/{id}/actions</code> -&gt; discovery de workflow
+contextual</li>
+<li><code>GET /employees/{id}/capabilities</code> -&gt; snapshot
+agregado contextual</li>
+</ul>
+</body>
+</html>

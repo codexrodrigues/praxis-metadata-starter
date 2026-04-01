@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Fechamento da Fase 4 - Catalogo de Surfaces</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Fechamento da Fase 4 - Catalogo de Surfaces</h1>
+</header>
+<h1 id="fechamento-da-fase-4---catalogo-de-surfaces">Fechamento da Fase
+4 - Catalogo de Surfaces</h1>
+<h2 id="status">Status</h2>
+<p>A Fase 4 do catalogo de surfaces esta concluida no
+<code>praxis-metadata-starter</code>.</p>
+<p>O eixo <code>surface-oriented</code> ja esta implementado como camada
+semantica derivada sobre o contrato canonico
+<code>resource-oriented</code>, sem redefinir payload, validacao ou
+schema inline.</p>
+<h2 id="o-que-a-fase-entregou">O que a fase entregou</h2>
+<ul>
+<li><code>resourceKey</code> obrigatorio em <code>@ApiResource</code>
+como identidade semantica estavel do recurso</li>
+<li><code>@UiSurface</code> para surfaces explicitas sobre operacoes
+HTTP reais</li>
+<li>surfaces automaticas <code>create</code>, <code>list</code>,
+<code>detail</code> e <code>edit</code></li>
+<li>discovery global em:
+<ul>
+<li><code>GET /schemas/surfaces?resource={resourceKey}</code></li>
+<li><code>GET /schemas/surfaces?group={openApiGroup}</code></li>
+</ul></li>
+<li>discovery contextual item-level em:
+<ul>
+<li><code>GET /{resource}/{id}/surfaces</code></li>
+</ul></li>
+<li>catalogo retornando apenas referencias canonicas:
+<ul>
+<li><code>operationId</code></li>
+<li><code>path</code></li>
+<li><code>method</code></li>
+<li><code>schemaId</code></li>
+<li><code>schemaUrl</code></li>
+</ul></li>
+<li>availability contextual por composicao, com:
+<ul>
+<li><code>SurfaceAvailabilityRule</code></li>
+<li><code>SurfaceAvailabilityContextResolver</code></li>
+<li><code>ResourceStateSnapshotProvider</code></li>
+<li>short-circuit no primeiro deny sensivel</li>
+<li>compartilhamento de contexto/snapshot por catalogo para evitar custo
+N+1 por surface</li>
+</ul></li>
+<li>hardening final do catalogo:
+<ul>
+<li><code>404</code> para <code>resourceKey</code> ou <code>group</code>
+desconhecidos</li>
+<li>cache lazy no registry annotation-driven</li>
+<li>exclusao de mappings workflow-like (<code>/actions/</code> e
+<code>:approve</code>)</li>
+</ul></li>
+</ul>
+<h2 id="regras-canonicamente-fixadas">Regras canonicamente fixadas</h2>
+<ul>
+<li><code>surface</code> nao define campos, schema ou validacao
+inline</li>
+<li><code>surface</code> sempre referencia operacao real descoberta no
+OpenAPI</li>
+<li><code>FORM</code> e <code>PARTIAL_FORM</code> apontam para schema
+<code>request</code></li>
+<li><code>VIEW</code> e <code>READ_PROJECTION</code> apontam para schema
+<code>response</code></li>
+<li><code>ITEM</code> surfaces em catalogo global sao discovery
+semantico e nao affordance executavel sem <code>resourceId</code></li>
+<li>workflow actions continuam fora do catalogo de surfaces</li>
+</ul>
+<h2 id="validacao-que-fecha-a-fase">Validacao que fecha a fase</h2>
+<p>Cobertura focal validada no starter:</p>
+<ul>
+<li><code>SurfaceCatalogE2ETest</code></li>
+<li><code>AnnotationDrivenSurfaceDefinitionRegistryTest</code></li>
+<li><code>DefaultSurfaceAvailabilityContextResolverTest</code></li>
+<li><code>DefaultSurfaceAvailabilityEvaluatorTest</code></li>
+<li><code>SurfaceCatalogServiceTest</code></li>
+<li><code>OpenApiUiSchemaAutoConfigurationSurfaceAvailabilityTest</code></li>
+<li><code>AbstractResourceControllerJpaWriteIntegrationTest</code></li>
+</ul>
+<p>Rodada de fechamento formal:</p>
+<ul>
+<li><code>BUILD SUCCESS</code></li>
+<li><code>32 testes</code></li>
+<li>QA independente sem findings bloqueantes</li>
+</ul>
+<p>Rodada de hardening de testes em <code>src/test</code>:</p>
+<ul>
+<li><code>BUILD SUCCESS</code></li>
+<li><code>39 testes</code></li>
+<li>ampliou a blindagem de:
+<ul>
+<li>short-circuit sem vazamento de metadata apos deny por RBAC</li>
+<li><code>resource-state-unavailable</code></li>
+<li>ordenacao e conflitos canônicos em
+<code>SurfaceCatalogService</code></li>
+<li><code>not found</code> de <code>resourceKey</code> e
+<code>group</code></li>
+<li>cache do registry e publicacao automatica mutavel vs. read-only</li>
+</ul></li>
+<li>QA independente sem blockers</li>
+</ul>
+<h2 id="o-que-ficou-fora-por-escopo">O que ficou fora por escopo</h2>
+<ul>
+<li>catalogo de workflow actions (<code>@WorkflowAction</code>) e
+endpoints <code>/schemas/actions</code></li>
+<li>capabilities unificadas agregando surfaces + actions</li>
+<li>perfil <code>e2e-pg</code> com PostgreSQL/Testcontainers</li>
+<li>teste de bootstrap completo de <code>ApplicationContext</code> para
+ordering/override de <code>SurfaceAvailabilityRule</code> beans</li>
+</ul>
+<p>Esses pontos nao bloqueiam o encerramento da Fase 4. Eles pertencem a
+fases posteriores ou a hardening adicional.</p>
+<h2 id="saida-formal-da-fase">Saida formal da fase</h2>
+<p>Com a Fase 4 encerrada:</p>
+<ul>
+<li>o starter ja possui discovery semantico de surfaces sobre operacoes
+reais</li>
+<li>o catalogo de surfaces ja esta endurecido para uso corporativo
+basico</li>
+<li>a proxima fase canonicamente correta e a Fase 5 de
+<code>WorkflowAction</code></li>
+</ul>
+</body>
+</html>

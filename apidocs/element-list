@@ -1,5 +1,7 @@
 org.praxisplatform.uischema
+org.praxisplatform.uischema.action
 org.praxisplatform.uischema.annotation
+org.praxisplatform.uischema.capability
 org.praxisplatform.uischema.configuration
 org.praxisplatform.uischema.constants
 org.praxisplatform.uischema.controller.base
@@ -19,6 +21,7 @@ org.praxisplatform.uischema.id
 org.praxisplatform.uischema.mapper.base
 org.praxisplatform.uischema.mapper.config
 org.praxisplatform.uischema.numeric
+org.praxisplatform.uischema.openapi
 org.praxisplatform.uischema.options
 org.praxisplatform.uischema.options.service
 org.praxisplatform.uischema.options.service.jpa
@@ -26,10 +29,13 @@ org.praxisplatform.uischema.repository.base
 org.praxisplatform.uischema.rest.exceptionhandler
 org.praxisplatform.uischema.rest.exceptionhandler.exception
 org.praxisplatform.uischema.rest.response
+org.praxisplatform.uischema.schema
 org.praxisplatform.uischema.service.base
 org.praxisplatform.uischema.service.base.annotation
 org.praxisplatform.uischema.stats
 org.praxisplatform.uischema.stats.dto
 org.praxisplatform.uischema.stats.service
 org.praxisplatform.uischema.stats.service.jpa
+org.praxisplatform.uischema.surface
 org.praxisplatform.uischema.util
+org.praxisplatform.uischema.validation

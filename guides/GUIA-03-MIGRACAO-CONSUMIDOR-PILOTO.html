@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>GUIA-03-MIGRACAO-CONSUMIDOR-PILOTO</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">GUIA-03-MIGRACAO-CONSUMIDOR-PILOTO</h1>
+</header>
+<h1 id="guia-03---migracao-do-consumidor-piloto">Guia 03 - Migracao do
+Consumidor Piloto</h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este guia descreve como migrar o primeiro consumidor externo real
+sobre o baseline atual do <code>praxis-metadata-starter</code>.</p>
+<p>O objetivo nao e adaptar um host ao legado. O objetivo e levar o
+consumidor para o modelo canonico:</p>
+<ul>
+<li><code>resource-oriented</code></li>
+<li><code>surfaces</code></li>
+<li><code>actions</code></li>
+<li><code>capabilities</code></li>
+</ul>
+<h2 id="pre-requisitos-minimos">Pre-requisitos minimos</h2>
+<p>Antes de tocar o consumidor:</p>
+<ul>
+<li>piloto interno em <code>src/test</code> do starter verde</li>
+<li>fixture E2E H2 do starter verde</li>
+<li>QA independente recente concluido</li>
+<li>guias e checklist do piloto publicados</li>
+<li>se o host ficar atras de proxy/gateway,
+<code>app.openapi.internal-base-url</code> decidido e validado</li>
+</ul>
+<p>Referencias obrigatorias:</p>
+<ul>
+<li><code>docs/technical/RESOURCE-SURFACE-ACTION-ARCHITECTURE-PLAN.md</code></li>
+<li><code>docs/technical/E2E-TEST-BACKLOG.md</code></li>
+<li><code>docs/technical/PILOT-READINESS-CHECKLIST.md</code></li>
+<li><code>docs/technical/ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.md</code></li>
+</ul>
+<h2 id="como-escolher-o-recurso-piloto">Como escolher o recurso
+piloto</h2>
+<p>Escolha um recurso que seja:</p>
+<ul>
+<li>pequeno e isolado</li>
+<li>importante o suficiente para provar o baseline</li>
+<li>com no maximo um patch por intencao e um workflow real</li>
+<li>sem dependencia de integracao pesada para o primeiro corte</li>
+</ul>
+<p>Evite no primeiro piloto:</p>
+<ul>
+<li>modulo com muitas relacoes acopladas</li>
+<li>recurso com regras de workflow altamente excepcionais</li>
+<li>recurso com necessidade imediata de compatibilidade paralela</li>
+</ul>
+<h2 id="mapeamento-do-legado-para-o-core-novo">Mapeamento do legado para
+o core novo</h2>
+<h3 id="se-hoje-existe-dto-unico">Se hoje existe DTO unico</h3>
+<p>Separar em:</p>
+<ul>
+<li><code>ResponseDTO</code></li>
+<li><code>CreateDTO</code></li>
+<li><code>UpdateDTO</code></li>
+<li><code>FilterDTO</code></li>
+</ul>
+<h3 id="se-hoje-o-controller-usa-legado">Se hoje o controller usa
+legado</h3>
+<p>Trocar:</p>
+<ul>
+<li><code>AbstractCrudController</code> -&gt;
+<code>AbstractResourceController</code></li>
+<li><code>AbstractReadOnlyController</code> -&gt;
+<code>AbstractReadOnlyResourceController</code></li>
+</ul>
+<h3 id="se-hoje-existe-patch-sem-semantica-clara">Se hoje existe patch
+sem semantica clara</h3>
+<p>Decidir:</p>
+<ul>
+<li>continua sendo manutencao do recurso -&gt;
+<code>@ResourceIntent</code> e opcionalmente
+<code>@UiSurface</code></li>
+<li>vira comando de negocio -&gt; <code>@WorkflowAction</code></li>
+</ul>
+<h2 id="sequencia-recomendada-de-migracao">Sequencia recomendada de
+migracao</h2>
+<ol type="1">
+<li>Congelar o escopo do recurso piloto.</li>
+<li>Mapear os endpoints reais que vao continuar existindo.</li>
+<li>Separar DTOs e criar <code>ResourceMapper</code>.</li>
+<li>Migrar service e controller para o core novo.</li>
+<li>Adicionar <code>@ResourceIntent</code>, <code>@UiSurface</code> e
+<code>@WorkflowAction</code> so onde houver operacao real
+correspondente.</li>
+<li>Validar discovery:
+<ul>
+<li><code>/schemas/filtered</code></li>
+<li><code>/schemas/catalog</code></li>
+<li><code>/schemas/surfaces</code></li>
+<li><code>/schemas/actions</code></li>
+<li><code>/capabilities</code></li>
+</ul></li>
+<li>Rodar a suite focal do host e o checklist de prontidao.</li>
+</ol>
+<h2 id="semantica-contextual-de-availability">Semantica contextual de
+availability</h2>
+<p>Ao migrar o primeiro host, nao trate os catalogos semanticos como se
+todos tivessem a mesma semantica:</p>
+<ul>
+<li>em <code>/schemas/surfaces</code> e <code>/schemas/actions</code>,
+entradas <code>ITEM</code> sao discovery-only sem
+<code>resourceId</code> concreto e podem sair com
+<code>availability.allowed=false</code></li>
+<li>authorities, tenant e estado do recurso so fazem sentido nos
+endpoints contextuais como <code>GET /{resource}/{id}/surfaces</code>,
+<code>GET /{resource}/{id}/actions</code> e
+<code>GET /{resource}/{id}/capabilities</code></li>
+<li>ausencia de workflow explicito nao gera lista vazia em
+<code>/schemas/actions</code>; o comportamento esperado e
+<code>404</code></li>
+<li><code>capabilities</code> agrega ausencia de <code>surfaces</code>
+ou <code>actions</code> como listas vazias, sem redefinir o contrato dos
+catalogos dedicados</li>
+</ul>
+<h2 id="o-que-deve-existir-no-host-ao-final">O que deve existir no host
+ao final</h2>
+<p>Para o recurso piloto escolhido:</p>
+<ul>
+<li>contrato canonico do recurso</li>
+<li>read-only correto, se aplicavel</li>
+<li>patch por intencao, se existir</li>
+<li>workflow tipado real, se existir</li>
+<li>discovery estrutural</li>
+<li>discovery semantico</li>
+<li>snapshot de capabilities</li>
+</ul>
+<h2 id="o-que-nao-fazer">O que nao fazer</h2>
+<ul>
+<li>nao criar <code>v2</code></li>
+<li>nao manter DTO unico por conveniencia</li>
+<li>nao criar endpoints espelho so para a UI</li>
+<li>nao criar dispatcher generico para workflows</li>
+<li>nao usar o consumidor como fonte canonica da semantica</li>
+</ul>
+<h2 id="validacao-minima-antes-do-merge-do-piloto">Validacao minima
+antes do merge do piloto</h2>
+<ul>
+<li>suite focal do host verde</li>
+<li>verificacao manual dos endpoints de discovery</li>
+<li>QA independente</li>
+<li>rollback definido</li>
+<li>observabilidade minima definida</li>
+</ul>
+<h2 id="estrategia-de-rollback">Estrategia de rollback</h2>
+<p>Nao introduza caminhos paralelos permanentes.</p>
+<p>Se o piloto falhar:</p>
+<ul>
+<li>antes do merge: reverta a branch</li>
+<li>depois do merge/desdobramento: reverta a entrega do host</li>
+</ul>
+<p>O rollback nao deve ser “manter o legado e o novo para sempre”. Deve
+ser reversao operacional da mudanca.</p>
+</body>
+</html>

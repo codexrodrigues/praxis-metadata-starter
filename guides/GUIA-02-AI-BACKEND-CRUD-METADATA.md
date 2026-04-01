@@ -1,383 +1,255 @@
-# Guia 02 - IA Backend - CRUD Metadata-Driven por Entidade
+﻿# Guia 02 - IA Backend - Recurso Metadata-Driven no Core Atual
 
 ## Objetivo
 
-Este guia orienta uma LLM a gerar uma feature CRUD alinhada ao contrato
-canonico do `praxis-metadata-starter`.
+Este guia orienta a implementacao de um recurso backend metadata-driven alinhado ao core atual do
+`praxis-metadata-starter`.
 
-O objetivo nao e gerar "qualquer CRUD que compile". O objetivo e gerar:
+O baseline correto hoje e `resource-oriented`.
+Este guia nao deve gerar:
 
-- DTO com `@UISchema` e Bean Validation coerentes com `/schemas/filtered`
-- `FilterDTO` com `@Filterable`
-- `Mapper`, `Service`, `Repository` e `Controller` compativeis com
-  `AbstractCrudController` e `AbstractBaseCrudService`
-- endpoints e metadata consumiveis por `praxis-ui-angular` sem ajuste local
+- `AbstractCrudController`
+- `AbstractBaseCrudService`
+- DTO unico de leitura/escrita
 
-## Ordem de leitura para a LLM
-
-Use este guia depois de `GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`.
-
-Ordem recomendada:
-
-1. `GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`
-2. este guia
-3. `CHECKLIST-VALIDACAO-IA.md`
-
-## Escopo correto deste guia
-
-Este guia cobre o baseline canonico de um recurso CRUD metadata-driven.
-
-Este guia nao deve tratar como obrigatorio:
-
-- `BulkFilterAdapter`
-- `BulkController`
-- `org.praxisplatform.bulk.*`
-- receitas herdadas de projetos externos
-
-Se a feature precisar de bulk, isso e trilha opcional e separada.
-
-## O que a LLM deve receber como entrada
+## Entrada minima para a LLM
 
 No minimo:
 
 1. entidade JPA ou sua estrutura
-2. `resourcePath` canonico
-3. grupo OpenAPI
-4. pacote base do modulo
+2. `resourcePath`
+3. `resourceKey`
+4. grupo OpenAPI
+5. pacote base
 
 Exemplo:
 
 ```text
-Gere uma feature CRUD metadata-driven alinhada ao praxis-metadata-starter.
+Gere um recurso metadata-driven canonico.
 
 Entrada:
-- Entidade: src/main/java/com/example/hr/entity/Funcionario.java
-- Resource path: /api/human-resources/funcionarios
+- Entidade: src/main/java/com/example/hr/entity/Employee.java
+- Resource path: /api/human-resources/employees
+- Resource key: human-resources.employees
 - Api group: human-resources
 - Pacote base: com.example.hr
 ```
 
-## Arquivos minimos
+## Arquivos minimos do recurso
 
 ```text
-src/main/java/{pacote-base}/
+src/main/java/{base-package}/
 |-- dto/
-|   |-- {Nome}DTO.java
+|   |-- {Resource}ResponseDTO.java
+|   |-- Create{Resource}DTO.java
+|   |-- Update{Resource}DTO.java
 |   `-- filter/
-|       `-- {Nome}FilterDTO.java
+|       `-- {Resource}FilterDTO.java
 |-- mapper/
-|   `-- {Nome}Mapper.java
+|   `-- {Resource}Mapper.java
 |-- repository/
-|   `-- {Nome}Repository.java
+|   `-- {Resource}Repository.java
 |-- service/
-|   `-- {Nome}Service.java
+|   `-- {Resource}Service.java
 `-- controller/
-    `-- {Nome}Controller.java
+    `-- {Resource}Controller.java
 ```
 
-## Padrao canonico do controller
+## DTOs canonicos
 
-O controller deve estender
-`AbstractCrudController<E, D, ID, FD>` e implementar:
+Use sempre:
 
-- `getService()`
-- `toDto(...)`
-- `toEntity(...)`
-- `getEntityId(...)`
-- `getDtoId(...)`
+- `{Resource}ResponseDTO` para leitura
+- `Create{Resource}DTO` para `POST`
+- `Update{Resource}DTO` para `PUT` base
+- `{Resource}FilterDTO` para query/filter
 
-Exemplo estrutural:
+No baseline atual do starter, `PATCH /{id}` nao faz parte do core HTTP canonico. Use `PATCH`
+apenas em operacoes explicitas por intencao com `@ResourceIntent`.
+
+Se existir escrita parcial por intencao:
+
+- `Update{Resource}{Intent}DTO`
+- endpoint `PATCH /{id}/{intent}`
+- `@ResourceIntent`
+
+## Controller canonico
 
 ```java
 @RestController
-@ApiResource(ApiPaths.HumanResources.FUNCIONARIOS)
+@ApiResource(value = ApiPaths.HumanResources.EMPLOYEES, resourceKey = "human-resources.employees")
 @ApiGroup("human-resources")
-public class FuncionarioController extends AbstractCrudController<Funcionario, FuncionarioDTO, Integer, FuncionarioFilterDTO> {
+public class EmployeeController extends AbstractResourceController<
+        EmployeeResponseDTO,
+        Long,
+        EmployeeFilterDTO,
+        CreateEmployeeDTO,
+        UpdateEmployeeDTO> {
 
-    private final FuncionarioService service;
-    private final FuncionarioMapper mapper;
+    private final EmployeeService service;
 
-    public FuncionarioController(FuncionarioService service, FuncionarioMapper mapper) {
+    public EmployeeController(EmployeeService service) {
         this.service = service;
-        this.mapper = mapper;
     }
 
     @Override
-    protected BaseCrudService<Funcionario, FuncionarioDTO, Integer, FuncionarioFilterDTO> getService() {
+    protected EmployeeService getService() {
         return service;
     }
 
     @Override
-    protected FuncionarioDTO toDto(Funcionario entity) {
-        return mapper.toDto(entity);
-    }
-
-    @Override
-    protected Funcionario toEntity(FuncionarioDTO dto) {
-        return mapper.toEntity(dto);
-    }
-
-    @Override
-    protected Integer getEntityId(Funcionario entity) {
-        return entity.getId();
-    }
-
-    @Override
-    protected Integer getDtoId(FuncionarioDTO dto) {
+    protected Long getResponseId(EmployeeResponseDTO dto) {
         return dto.getId();
     }
 }
 ```
 
-Regras:
-
-- `@ApiResource` e a superficie canonica
-- `ApiPaths` deve vir do projeto host
-- o host so deve sobrescrever metodos quando precisar enriquecer OpenAPI
-
-## Padrao canonico do service
-
-O service padrao deve estender
-`AbstractBaseCrudService<E, D, ID, FD>`.
+## Service canonico
 
 ```java
 @Service
-public class FuncionarioService extends AbstractBaseCrudService<Funcionario, FuncionarioDTO, Integer, FuncionarioFilterDTO> {
+public class EmployeeService extends AbstractBaseResourceService<
+        Employee,
+        EmployeeResponseDTO,
+        Long,
+        EmployeeFilterDTO,
+        CreateEmployeeDTO,
+        UpdateEmployeeDTO> {
 
-    public FuncionarioService(FuncionarioRepository repository) {
-        super(repository, Funcionario.class);
+    private final EmployeeMapper mapper;
+
+    public EmployeeService(EmployeeRepository repository, EmployeeMapper mapper) {
+        super(repository, Employee.class);
+        this.mapper = mapper;
     }
 
     @Override
-    public Funcionario mergeUpdate(Funcionario existing, Funcionario payload) {
-        existing.setNomeCompleto(payload.getNomeCompleto());
-        existing.setCpf(payload.getCpf());
-        existing.setEmail(payload.getEmail());
-        existing.setAtivo(payload.getAtivo());
-        return existing;
+    protected ResourceMapper<Employee, EmployeeResponseDTO, CreateEmployeeDTO, UpdateEmployeeDTO, Long> getResourceMapper() {
+        return mapper;
     }
 }
 ```
 
-Quando houver relacoes, `mergeUpdate(...)` deve preservar a semantica do
-aggregate persistido.
-
-## Padrao canonico do mapper
-
-Padrao preferencial: MapStruct com `CorporateMapperConfig`.
+## Mapper canonico
 
 ```java
-@Mapper(componentModel = "spring", config = CorporateMapperConfig.class)
-public interface FuncionarioMapper {
+@Component
+public class EmployeeMapper implements ResourceMapper<
+        Employee,
+        EmployeeResponseDTO,
+        CreateEmployeeDTO,
+        UpdateEmployeeDTO,
+        Long> {
 
-    @Mapping(target = "cargoId", source = "cargo.id")
-    FuncionarioDTO toDto(Funcionario entity);
+    @Override
+    public EmployeeResponseDTO toResponse(Employee entity) { ... }
 
-    @Mapping(target = "cargo", expression = "java(cargoFromId(dto.getCargoId()))")
-    Funcionario toEntity(FuncionarioDTO dto);
+    @Override
+    public Employee newEntity(CreateEmployeeDTO dto) { ... }
 
-    default Cargo cargoFromId(Integer id) {
-        if (id == null) return null;
-        Cargo cargo = new Cargo();
-        cargo.setId(id);
-        return cargo;
+    @Override
+    public void applyUpdate(Employee entity, UpdateEmployeeDTO dto) { ... }
+
+    @Override
+    public Long extractId(Employee entity) {
+        return entity.getId();
     }
 }
 ```
 
-Regras:
+## Read-only canonico
 
-- prefira `CorporateMapperConfig` quando houver MapStruct
-- use mapper manual apenas se o projeto realmente adotar esse estilo
-- ao mapear relacoes por ID, exponha `relacaoId` no DTO
+Quando o recurso for apenas leitura:
 
-## DTO canonico
+- controller: `AbstractReadOnlyResourceController`
+- service: `AbstractReadOnlyResourceService`
+- sem endpoints de escrita publicados
 
-O DTO deve refletir o contrato que a UI vai consumir via `/schemas/filtered`.
+## Quando adicionar ResourceIntent, UiSurface e WorkflowAction
 
-Regras obrigatorias:
+### `@ResourceIntent`
 
-- campos visiveis na UI devem usar `@UISchema`
-- validacoes estruturais devem usar Bean Validation
-- selects remotos devem usar `endpoint`, `valueField` e `displayField`
-  coerentes com o endpoint real
-
-## Apresentacao de valor canonica
-
-Para campos escalares exibidos em modos table/list/read-only, o starter pode publicar `x-ui.valuePresentation` automaticamente.
-
-Regra pratica:
-
-- `valuePresentation` expressa a intencao semantica (`currency`, `number`, `percentage`, `date`, `datetime`, `time`, `boolean`)
-- `format` nao substitui essa semantica; ele deve ser tratado como override explicito no consumidor
-- para overrides raros, prefira `extraProperties` com chaves aninhadas, por exemplo `valuePresentation.type`
-
-Publicacao automatica esperada:
-
-- `numericFormat = CURRENCY` -> `valuePresentation.type = currency`
-- `numericFormat = PERCENT` -> `valuePresentation.type = percentage`
-- `format = date|date-time|time|currency|percent` -> tipo correspondente
-- `controlType` escalar compativel -> tipo correspondente
-
-Nao trate como `valuePresentation` automatico:
-
-- selects e variantes inline de selecao
-- ranges (`dateRange`, `dateTimeRange`, `priceRange`, etc.)
-- arrays, objects e IDs tecnicos
+Use quando a operacao ainda e manutencao do recurso, mas com DTO parcial e semantica propria.
 
 Exemplo:
 
 ```java
-@NotNull
-@UISchema(
-    label = "Cargo",
-    controlType = FieldControlType.SELECT,
-    valueField = "id",
-    displayField = "label",
-    endpoint = ApiPaths.HumanResources.CARGOS + "/options/filter",
-    tableHidden = true
-)
-private Integer cargoId;
+@PatchMapping("/{id}/profile")
+@ResourceIntent(id = "employee-profile", title = "Editar perfil")
+public ResponseEntity<RestApiResponse<EmployeeResponseDTO>> updateProfile(
+        @PathVariable Long id,
+        @Valid @RequestBody UpdateEmployeeProfileDTO dto) {
+    ...
+}
 ```
 
-Exemplo de override via `extraProperties`:
+### `@UiSurface`
 
-```java
-@UISchema(
-    label = "Salario",
-    numericFormat = NumericFormat.CURRENCY,
-    extraProperties = {
-        @ExtensionProperty(name = "valuePresentation.style", value = "short")
-    }
-)
-private BigDecimal salario;
-```
-
-Regra critica:
-
-- se o endpoint for `.../options/filter`, use `displayField = "label"`
-- se o endpoint for `.../filter` retornando DTO completo, use o campo textual
-  do DTO, como `nome`
-
-## FilterDTO canonico
-
-O `FilterDTO` deve implementar `GenericFilterDTO`.
-
-Regras praticas:
-
-- texto: `LIKE`
-- boolean: `EQUAL`
-- ranges numericos e datas: `BETWEEN`
-- listas: `IN` ou `NOT_IN`
-- relacoes: campo `...Id` com `relation = "relacao.id"`
+Use quando a UX precisar descobrir semanticamente uma operacao real.
 
 Exemplo:
 
 ```java
-@UISchema
-@Filterable(operation = Filterable.FilterOperation.LIKE)
-private String nomeCompleto;
-
-@UISchema(type = FieldDataType.BOOLEAN, controlType = FieldControlType.CHECKBOX)
-@Filterable(operation = Filterable.FilterOperation.EQUAL)
-private Boolean ativo;
-
-@UISchema(
-    controlType = FieldControlType.SELECT,
-    endpoint = ApiPaths.HumanResources.CARGOS + "/options/filter",
-    valueField = "id",
-    displayField = "label"
+@PatchMapping("/{id}/profile")
+@UiSurface(
+        id = "profile",
+        kind = SurfaceKind.PARTIAL_FORM,
+        scope = SurfaceScope.ITEM,
+        title = "Editar perfil",
+        intent = "profile"
 )
-@Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "cargo.id")
-private Integer cargoId;
 ```
 
-Enums corretos:
+### `@WorkflowAction`
 
-- `FilterOperation.EQUAL`, nao `EQUALS`
-- `FieldControlType.CHECKBOX` e um baseline seguro para booleanos simples
-- `FieldControlType.TOGGLE_SWITCH` nao e canonico
+Use apenas para comando de negocio explicito.
 
-## Endpoints que a UI espera
+Exemplo:
 
-O contrato minimo do recurso deve ser compativel com:
+```java
+@PostMapping("/{id}/actions/approve")
+@WorkflowAction(id = "approve", title = "Aprovar", scope = ActionScope.ITEM)
+```
 
-- `GET /{resource}/schemas`
-- `GET /schemas/filtered?path={resource}/all&operation=get&schemaType=response`
-- `GET /schemas/filtered?path={resource}/filter&operation=post&schemaType=request`
+## O que o recurso deve expor no runtime
+
+Para um recurso mutavel no core atual, o baseline esperado inclui:
+
+- `GET /{resource}/all`
+- `GET /{resource}/{id}`
+- `POST /{resource}`
+- `PUT /{resource}/{id}`
 - `POST /{resource}/filter`
 - `POST /{resource}/filter/cursor`
 - `POST /{resource}/locate`
-- `POST /{resource}/options/filter`
-- `GET /{resource}/options/by-ids`
-- CRUD basico
+- `/schemas/filtered`
+- `/schemas/catalog`
+- `/schemas/surfaces`
+- `/schemas/actions`
+- `/capabilities`
 
-## Como o Angular consome isso
+## O que nao deve ser gerado
 
-`praxis-ui-angular` usa `GenericCrudService` para:
+- schema inline em catalogos
+- action router generico
+- payload generico por string
+- duplicacao `V1/V2`
+- contrato paralelo para read-only com `405` herdado
 
-- chamar `getSchema()`
-- resolver grid schema via `/schemas/filtered`
-- resolver schema do filtro
-- revalidar com `If-None-Match`
-- ler `ETag`, `X-Schema-Hash` e `x-ui.resource.idField`
-
-Implicacoes:
-
-- o schema precisa expor `x-ui` coerente
-- o DTO precisa manter `idField` inferivel ou sobrescrito corretamente
-- endpoints de select precisam ser compativeis com `OptionDTO{id,label}`
-
-## Resultado que este guia precisa produzir
-
-Ao terminar este guia, o recurso precisa estar pronto para:
-
-- CRUD baseline
-- `/schemas/filtered` de request e response
-- `POST /filter`
-- `POST /options/filter` quando houver select remoto
-- `GET /options/by-ids` quando houver select remoto
-- consumo por `GenericCrudService` sem adaptacao local
-
-## Prompt recomendado para IA
-
-```text
-Voce esta gerando uma feature CRUD metadata-driven para o ecossistema Praxis.
-
-Siga o contrato canonico do praxis-metadata-starter.
-Considere praxis-ui-angular como consumidor final do contrato.
-
-Gere:
-- DTO com @UISchema e Bean Validation
-- FilterDTO com @Filterable
-- Mapper com CorporateMapperConfig quando usar MapStruct
-- Repository extendendo BaseCrudRepository
-- Service extendendo AbstractBaseCrudService
-- Controller extendendo AbstractCrudController
-
-Nao trate bulk como obrigatorio.
-So gere BulkController ou similares se o pedido mencionar explicitamente uma stack bulk externa.
-
-Entrada:
-- Entidade: {entity-path}
-- Resource path: {resource-path}
-- Api group: {api-group}
-- Pacote base: {base-package}
-```
-
-## Checklist minimo
+## Checklist do recurso
 
 Antes de concluir:
 
-- o controller usa `@ApiResource` e `@ApiGroup`
-- o mapper usa `CorporateMapperConfig` quando aplicavel
-- `FilterOperation` usa enums canonicos
-- selects remotos apontam para `/options/filter` com `displayField = "label"`
-- o recurso pode ser consumido por `GenericCrudService` sem adaptacao local
+- o controller usa `@ApiResource(value = ..., resourceKey = ...)`
+- o recurso nao usa DTO unico
+- `@Valid` funciona de verdade
+- `/schemas/filtered` resolve request e response
+- `/schemas/surfaces` e `/schemas/actions` so expoem referencias canonicas
+- `/capabilities` agrega sem redefinir contrato
 
-## Referencias publicas
+## Referencias
 
-- `praxis-metadata-starter/README.md`
-- repositório público do runtime Angular: `https://github.com/codexrodrigues/praxis-ui-angular`
-- pacote publicado de consumo de contrato: `@praxisui/core`
-- `praxis-metadata-starter/docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`
+- `docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`
+- `docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md`
+- `docs/technical/RESOURCE-ORIENTED-PILOT-IN-SRC-TEST.md`
+

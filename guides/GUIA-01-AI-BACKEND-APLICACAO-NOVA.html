@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Guia 01 - IA Backend - Aplicacao Nova com Praxis Metadata Starter</title>
+  <title>Guia 01 - IA Backend - Aplicacao Nova com Core Canonico Atual</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,177 +230,60 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Guia 01 - IA Backend - Aplicacao Nova com Praxis
-Metadata Starter</h1>
+<h1 class="title">Guia 01 - IA Backend - Aplicacao Nova com Core
+Canonico Atual</h1>
 </header>
 <h1
-id="guia-01---ia-backend---aplicacao-nova-com-praxis-metadata-starter">Guia
-01 - IA Backend - Aplicacao Nova com Praxis Metadata Starter</h1>
+id="guia-01---ia-backend---aplicacao-nova-com-core-canonico-atual">Guia
+01 - IA Backend - Aplicacao Nova com Core Canonico Atual</h1>
 <h2 id="objetivo">Objetivo</h2>
-<p>Este guia orienta uma LLM a criar uma nova aplicacao Spring Boot que
-use o <code>praxis-metadata-starter</code> como fonte canonica do
-contrato metadata-driven.</p>
-<p>O objetivo nao e gerar um projeto “parecido com os apps do time”. O
-objetivo e gerar uma base minima que:</p>
+<p>Este guia orienta a criacao de uma nova aplicacao Spring Boot sobre o
+estado atual do <code>praxis-metadata-starter</code>.</p>
+<p>O baseline canonico nao e mais o legado
+<code>AbstractCrudController</code>. Uma aplicacao nova deve nascer
+sobre:</p>
 <ul>
-<li>publique <code>OpenAPI + x-ui</code></li>
-<li>exponha <code>GET /{resource}/schemas</code></li>
-<li>exponha <code>/schemas/filtered</code></li>
-<li>use <code>@ApiResource</code>, <code>@ApiGroup</code>,
-<code>@UISchema</code>, <code>AbstractCrudController</code> e
-<code>AbstractBaseCrudService</code></li>
-<li>possa ser consumida por <code>praxis-ui-angular</code> sem ajuste
-local de contrato</li>
+<li><code>AbstractResourceController</code></li>
+<li><code>AbstractReadOnlyResourceController</code></li>
+<li><code>AbstractBaseResourceService</code></li>
+<li><code>AbstractReadOnlyResourceService</code></li>
+<li><code>ResourceMapper</code></li>
+<li><code>@ApiResource(value = ..., resourceKey = ...)</code></li>
+<li><code>/schemas/filtered</code></li>
+<li><code>/schemas/catalog</code></li>
+<li><code>/schemas/surfaces</code></li>
+<li><code>/schemas/actions</code></li>
+<li><code>/capabilities</code></li>
 </ul>
-<h2 id="ordem-de-leitura-para-a-llm">Ordem de leitura para a LLM</h2>
-<p>Use esta ordem:</p>
-<ol type="1">
-<li>este guia</li>
-<li><code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
-<li><code>CHECKLIST-VALIDACAO-IA.md</code></li>
-</ol>
-<p>Este guia precisa ser suficiente por si so. Nao dependa de nenhum app
-externo como fonte necessaria.</p>
-<h2 id="o-que-este-guia-deve-gerar">O que este guia deve gerar</h2>
-<p>A base minima de uma nova aplicacao deve conter:</p>
+<h2 id="resultado-esperado">Resultado esperado</h2>
+<p>Uma aplicacao nova deve sair com:</p>
 <ul>
-<li><code>pom.xml</code></li>
-<li>classe <code>@SpringBootApplication</code></li>
-<li><code>ApiPaths</code> local da aplicacao</li>
-<li><code>application.properties</code> ou perfis equivalentes</li>
-<li>ao menos um modulo com DTO, FilterDTO, mapper, repository, service e
-controller</li>
+<li>contrato metadata-driven em OpenAPI + <code>x-ui</code></li>
+<li>um primeiro recurso canonico resource-oriented</li>
+<li>DTOs separados de <code>response</code>, <code>create</code>,
+<code>update</code> e <code>filter</code></li>
+<li>discovery estrutural e discovery semantico alinhados ao starter</li>
 </ul>
-<h2 id="o-que-nao-faz-parte-do-baseline">O que nao faz parte do
-baseline</h2>
-<p>Nao trate como obrigatorio por padrao:</p>
-<ul>
-<li><code>praxis-bulk-starter</code></li>
-<li><code>praxis-bulk-web</code></li>
-<li><code>praxis-files-starter</code></li>
-<li><code>praxis-config-starter</code></li>
-<li>scans manuais de pacotes externos</li>
-</ul>
-<p>Esses modulos sao opcionais. So entram se o pedido exigir
-explicitamente.</p>
-<h2 id="dependencia-minima-recomendada">Dependencia minima
-recomendada</h2>
+<h2 id="dependencias-minimas">Dependencias minimas</h2>
+<p>Exemplo base:</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode xml"><code class="sourceCode xml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">dependency</span>&gt;</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">groupId</span>&gt;io.github.codexrodrigues&lt;/<span class="kw">groupId</span>&gt;</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">artifactId</span>&gt;praxis-metadata-starter&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">version</span>&gt;2.0.0-rc.7&lt;/<span class="kw">version</span>&gt;</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">dependency</span>&gt;</span></code></pre></div>
-<p>Dependencias complementares comuns:</p>
-<div class="sourceCode" id="cb2"><pre
-class="sourceCode xml"><code class="sourceCode xml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">dependency</span>&gt;</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">artifactId</span>&gt;spring-boot-starter-validation&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">dependency</span>&gt;</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">dependency</span>&gt;</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">groupId</span>&gt;org.flywaydb&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">artifactId</span>&gt;flyway-core&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">dependency</span>&gt;</span></code></pre></div>
-<p>Se o projeto usar MapStruct, adicione <code>mapstruct</code> e o
-annotation processor.</p>
-<p>Importante:</p>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">version</span>&gt;5.0.0-rc.2&lt;/<span class="kw">version</span>&gt;</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">dependency</span>&gt;</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">dependency</span>&gt;</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">artifactId</span>&gt;spring-boot-starter-validation&lt;/<span class="kw">artifactId</span>&gt;</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">dependency</span>&gt;</span></code></pre></div>
+<p>Observacoes:</p>
 <ul>
-<li>o starter ja traz o baseline web/JPA/OpenAPI necessario</li>
-<li>a aplicacao host ainda precisa declarar o driver real do banco</li>
-<li>para build executavel, o host deve declarar
-<code>spring-boot-maven-plugin</code></li>
-<li>para MapStruct funcionar em CI e IDE, o host deve declarar
-<code>maven-compiler-plugin</code> com processor</li>
+<li>o starter ja publica <code>spring-boot-starter-validation</code>,
+mas o host pode manter a dependencia explicita sem problema</li>
+<li>o host ainda precisa declarar driver real de banco, Flyway e plugins
+de build quando aplicavel</li>
 </ul>
-<h2 id="template-de-pom.xml">Template de <code>pom.xml</code></h2>
-<div class="sourceCode" id="cb3"><pre
-class="sourceCode xml"><code class="sourceCode xml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">project</span><span class="ot"> xmlns=</span><span class="st">&quot;http://maven.apache.org/POM/4.0.0&quot;</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ot">         xmlns:xsi=</span><span class="st">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="ot">         xsi:schemaLocation=</span><span class="st">&quot;http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd&quot;</span>&gt;</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">modelVersion</span>&gt;4.0.0&lt;/<span class="kw">modelVersion</span>&gt;</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">parent</span>&gt;</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">artifactId</span>&gt;spring-boot-starter-parent&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">version</span>&gt;3.2.5&lt;/<span class="kw">version</span>&gt;</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">relativePath</span>/&gt;</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  &lt;/<span class="kw">parent</span>&gt;</span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">groupId</span>&gt;{groupId}&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">artifactId</span>&gt;{artifactId}&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">version</span>&gt;1.0.0-SNAPSHOT&lt;/<span class="kw">version</span>&gt;</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">properties</span>&gt;</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">java.version</span>&gt;21&lt;/<span class="kw">java.version</span>&gt;</span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">praxis.metadata.version</span>&gt;2.0.0-rc.7&lt;/<span class="kw">praxis.metadata.version</span>&gt;</span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">org.mapstruct.version</span>&gt;1.5.5.Final&lt;/<span class="kw">org.mapstruct.version</span>&gt;</span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  &lt;/<span class="kw">properties</span>&gt;</span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">dependencies</span>&gt;</span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">groupId</span>&gt;io.github.codexrodrigues&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">artifactId</span>&gt;praxis-metadata-starter&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">version</span>&gt;${praxis.metadata.version}&lt;/<span class="kw">version</span>&gt;</span>
-<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">artifactId</span>&gt;spring-boot-starter-validation&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">groupId</span>&gt;org.flywaydb&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">artifactId</span>&gt;flyway-core&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">groupId</span>&gt;org.postgresql&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">artifactId</span>&gt;postgresql&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">scope</span>&gt;runtime&lt;/<span class="kw">scope</span>&gt;</span>
-<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">groupId</span>&gt;org.mapstruct&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">artifactId</span>&gt;mapstruct&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">version</span>&gt;${org.mapstruct.version}&lt;/<span class="kw">version</span>&gt;</span>
-<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>  &lt;/<span class="kw">dependencies</span>&gt;</span>
-<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  &lt;<span class="kw">build</span>&gt;</span>
-<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">plugins</span>&gt;</span>
-<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">plugin</span>&gt;</span>
-<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">groupId</span>&gt;org.springframework.boot&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">artifactId</span>&gt;spring-boot-maven-plugin&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>      &lt;/<span class="kw">plugin</span>&gt;</span>
-<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>      &lt;<span class="kw">plugin</span>&gt;</span>
-<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">artifactId</span>&gt;maven-compiler-plugin&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>        &lt;<span class="kw">configuration</span>&gt;</span>
-<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>          &lt;<span class="kw">annotationProcessorPaths</span>&gt;</span>
-<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a>            &lt;<span class="kw">path</span>&gt;</span>
-<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>              &lt;<span class="kw">groupId</span>&gt;org.mapstruct&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a>              &lt;<span class="kw">artifactId</span>&gt;mapstruct-processor&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>              &lt;<span class="kw">version</span>&gt;${org.mapstruct.version}&lt;/<span class="kw">version</span>&gt;</span>
-<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>            &lt;/<span class="kw">path</span>&gt;</span>
-<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>          &lt;/<span class="kw">annotationProcessorPaths</span>&gt;</span>
-<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>        &lt;/<span class="kw">configuration</span>&gt;</span>
-<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>      &lt;/<span class="kw">plugin</span>&gt;</span>
-<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a>    &lt;/<span class="kw">plugins</span>&gt;</span>
-<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a>  &lt;/<span class="kw">build</span>&gt;</span>
-<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">project</span>&gt;</span></code></pre></div>
-<p>Se a aplicacao nao usar MapStruct, remova o bloco correspondente.</p>
-<h2 id="classe-principal">Classe principal</h2>
-<p>Template simples:</p>
-<div class="sourceCode" id="cb4"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@SpringBootApplication</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> DemoApplication <span class="op">{</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">void</span> <span class="fu">main</span><span class="op">(</span><span class="bu">String</span><span class="op">[]</span> args<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        SpringApplication<span class="op">.</span><span class="fu">run</span><span class="op">(</span>DemoApplication<span class="op">.</span><span class="fu">class</span><span class="op">,</span> args<span class="op">);</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Nao adicione <code>scanBasePackages</code> arbitrario sem necessidade
-comprovada.</p>
 <h2 id="estrutura-recomendada">Estrutura recomendada</h2>
 <pre class="text"><code>src/main/java/{base-package}/
 |-- {App}Application.java
@@ -414,156 +297,212 @@ comprovada.</p>
     |-- mapper/
     |-- repository/
     `-- service/</code></pre>
-<h2 id="apipaths-local"><code>ApiPaths</code> local</h2>
-<p>Cada aplicacao deve definir sua propria classe
-<code>ApiPaths</code>.</p>
+<h2 id="primeiro-recurso-canonico">Primeiro recurso canonico</h2>
+<p>O primeiro recurso de uma aplicacao nova deve nascer com:</p>
+<ul>
+<li><code>ResponseDTO</code></li>
+<li><code>CreateDTO</code></li>
+<li><code>UpdateDTO</code></li>
+<li><code>FilterDTO</code></li>
+<li><code>ResourceMapper</code></li>
+<li><code>Repository</code></li>
+<li><code>Service</code></li>
+<li><code>Controller</code></li>
+</ul>
+<p>Se houver um caso real de escrita parcial por intencao:</p>
+<ul>
+<li><code>@ResourceIntent</code></li>
+<li>endpoint <code>PATCH</code> tipado real</li>
+<li><code>@UiSurface</code> apenas se a UX precisar de discovery
+semantico</li>
+</ul>
+<p>Se houver um caso real de workflow:</p>
+<ul>
+<li><code>@WorkflowAction</code></li>
+<li>endpoint tipado real, por exemplo
+<code>POST /{id}/actions/approve</code></li>
+</ul>
+<h2 id="controller-canonico">Controller canonico</h2>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@RestController</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>value <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">EMPLOYEES</span><span class="op">,</span> resourceKey <span class="op">=</span> <span class="st">&quot;human-resources.employees&quot;</span><span class="op">)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;human-resources&quot;</span><span class="op">)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeController <span class="kw">extends</span> AbstractResourceController<span class="op">&lt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        EmployeeResponseDTO<span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        EmployeeFilterDTO<span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        CreateEmployeeDTO<span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        UpdateEmployeeDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> EmployeeService service<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">EmployeeController</span><span class="op">(</span>EmployeeService service<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">service</span> <span class="op">=</span> service<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> EmployeeService <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getResponseId</span><span class="op">(</span>EmployeeResponseDTO dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="read-only-canonico">Read-only canonico</h2>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@RestController</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>value <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">PAYROLL_VIEW</span><span class="op">,</span> resourceKey <span class="op">=</span> <span class="st">&quot;human-resources.payroll-view&quot;</span><span class="op">)</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;human-resources&quot;</span><span class="op">)</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> PayrollViewController <span class="kw">extends</span> AbstractReadOnlyResourceController<span class="op">&lt;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        PayrollViewResponseDTO<span class="op">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        PayrollViewFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> PayrollViewService service<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">PayrollViewController</span><span class="op">(</span>PayrollViewService service<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">service</span> <span class="op">=</span> service<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> PayrollViewService <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getResponseId</span><span class="op">(</span>PayrollViewResponseDTO dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="service-canonico">Service canonico</h2>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeService <span class="kw">extends</span> AbstractBaseResourceService<span class="op">&lt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>        Employee<span class="op">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        EmployeeResponseDTO<span class="op">,</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">,</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        EmployeeFilterDTO<span class="op">,</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        CreateEmployeeDTO<span class="op">,</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        UpdateEmployeeDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> EmployeeMapper mapper<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">EmployeeService</span><span class="op">(</span>EmployeeRepository repository<span class="op">,</span> EmployeeMapper mapper<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">(</span>repository<span class="op">,</span> Employee<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">mapper</span> <span class="op">=</span> mapper<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> ResourceMapper<span class="op">&lt;</span>Employee<span class="op">,</span> EmployeeResponseDTO<span class="op">,</span> CreateEmployeeDTO<span class="op">,</span> UpdateEmployeeDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="fu">getResourceMapper</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">;</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="resource-mapper-canonico">Resource mapper canonico</h2>
 <div class="sourceCode" id="cb6"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="dt">final</span> <span class="kw">class</span> ApiPaths <span class="op">{</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> BASE <span class="op">=</span> <span class="st">&quot;/api&quot;</span><span class="op">;</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="kw">class</span> HumanResources <span class="op">{</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> HR <span class="op">=</span> BASE <span class="op">+</span> <span class="st">&quot;/human-resources&quot;</span><span class="op">;</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> FUNCIONARIOS <span class="op">=</span> HR <span class="op">+</span> <span class="st">&quot;/funcionarios&quot;</span><span class="op">;</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> CARGOS <span class="op">=</span> HR <span class="op">+</span> <span class="st">&quot;/cargos&quot;</span><span class="op">;</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="fu">ApiPaths</span><span class="op">()</span> <span class="op">{}</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h2 id="propriedades-minimas">Propriedades minimas</h2>
-<p>Exemplo de <code>application.properties</code>:</p>
-<pre class="properties"><code>spring.application.name={app-name}
-server.port=8080
-
-springdoc.api-docs.enabled=true
-springdoc.api-docs.path=/v3/api-docs
-springdoc.api-docs.groups.enabled=true
-springdoc.swagger-ui.enabled=true
-
-spring.jpa.open-in-view=false
-spring.flyway.enabled=true
-
-spring.datasource.url=jdbc:postgresql://localhost:5432/{db-name}
-spring.datasource.username={db-user}
-spring.datasource.password={db-password}
-
-# Opcional quando URL publica e interna divergem
-# app.openapi.internal-base-url=http://localhost:8080</code></pre>
-<p>Observacoes:</p>
+class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Component</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeMapper <span class="kw">implements</span> ResourceMapper<span class="op">&lt;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        Employee<span class="op">,</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        EmployeeResponseDTO<span class="op">,</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        CreateEmployeeDTO<span class="op">,</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        UpdateEmployeeDTO<span class="op">,</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> EmployeeResponseDTO <span class="fu">toResponse</span><span class="op">(</span>Employee entity<span class="op">)</span> <span class="op">{</span> <span class="kw">...</span> <span class="op">}</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> Employee <span class="fu">newEntity</span><span class="op">(</span>CreateEmployeeDTO dto<span class="op">)</span> <span class="op">{</span> <span class="kw">...</span> <span class="op">}</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">applyUpdate</span><span class="op">(</span>Employee entity<span class="op">,</span> UpdateEmployeeDTO dto<span class="op">)</span> <span class="op">{</span> <span class="kw">...</span> <span class="op">}</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="bu">Long</span> <span class="fu">extractId</span><span class="op">(</span>Employee entity<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> entity<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="discovery-que-a-aplicacao-nova-deve-publicar">Discovery que a
+aplicacao nova deve publicar</h2>
+<p>No baseline atual, um host novo deve expor pelo menos:</p>
 <ul>
-<li><code>springdoc.swagger-ui.path=/swagger-ui.html</code> nao e
-obrigatorio</li>
-<li>se houver proxy ou balanceador, documente
-<code>app.openapi.internal-base-url</code></li>
-<li>se o host usar H2 local, troque o datasource de acordo com o perfil
-real</li>
-<li>Flyway sem datasource compativel nao resolve bootstrap sozinho</li>
+<li><code>/schemas/filtered</code></li>
+<li><code>/schemas/catalog</code></li>
+<li><code>/schemas/surfaces</code></li>
+<li><code>/schemas/actions</code></li>
+<li><code>GET /{resource}/capabilities</code></li>
+<li><code>GET /{resource}/{id}/capabilities</code></li>
 </ul>
-<h2 id="bootstrap-inicial-do-banco">Bootstrap inicial do banco</h2>
-<p>Trilha preferencial:</p>
+<p>Os catalogos nao compartilham a mesma semantica de ausencia:</p>
 <ul>
-<li>manter <code>spring.flyway.enabled=true</code></li>
-<li>criar a migration inicial, por exemplo
-<code>V1__init.sql</code></li>
-<li>garantir que a primeira tabela exista antes do primeiro
-<code>POST</code> ou <code>/filter</code></li>
+<li><code>/schemas/surfaces?resource=...</code> continua publicando
+surfaces automaticas de <code>create</code>, <code>list</code>,
+<code>detail</code> e <code>edit</code> para controllers canonicos.</li>
+<li><code>/schemas/actions?resource=...</code> so existe quando houver
+pelo menos uma <code>@WorkflowAction</code> explicita; sem workflow
+anotado, o retorno esperado e <code>404</code>.</li>
+<li><code>/capabilities</code> agrega o que existir e normaliza ausencia
+de <code>surfaces</code> ou <code>actions</code> para listas
+vazias.</li>
+<li>em catalogos globais, entradas <code>ITEM</code> de
+<code>surfaces</code> e <code>actions</code> sao discovery-only e tendem
+a sair com <code>availability.allowed=false</code> ate que exista
+<code>resourceId</code> real.</li>
 </ul>
-<p>Trilha temporaria apenas para sandbox:</p>
+<h2 id="o-que-nao-usar-em-aplicacao-nova">O que nao usar em aplicacao
+nova</h2>
 <ul>
-<li>usar <code>spring.jpa.hibernate.ddl-auto=update</code> ou
-<code>create-drop</code> em perfil local</li>
-<li>documentar que isso e contingencia</li>
-<li>remover a dependencia de <code>ddl-auto</code> assim que a migration
-existir</li>
-</ul>
-<p>Regra:</p>
-<ul>
-<li>para aplicacao real, prefira migration</li>
-<li>para prova local guiada por LLM, <code>ddl-auto</code> so entra como
-contingencia explicita</li>
-</ul>
-<h2 id="primeiro-recurso-da-aplicacao">Primeiro recurso da
-aplicacao</h2>
-<p>A aplicacao nova deve nascer com pelo menos um recurso que
-demonstre:</p>
-<ul>
-<li>DTO com <code>@UISchema</code></li>
-<li><code>FilterDTO</code> com <code>@Filterable</code></li>
-<li>controller sobre <code>AbstractCrudController</code></li>
-<li><code>/schemas/filtered</code> retornando contrato consumivel</li>
-</ul>
-<p>Os detalhes do recurso ficam no
-<code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code>.</p>
-<h2 id="como-o-frontend-vai-consumir-este-backend">Como o frontend vai
-consumir este backend</h2>
-<p>O <code>GenericCrudService</code> espera:</p>
-<ul>
-<li><code>GET {resource}/schemas</code></li>
-<li><code>/schemas/filtered?path={resource}/all&amp;operation=get&amp;schemaType=response</code></li>
-<li><code>/schemas/filtered?path={resource}/filter&amp;operation=post&amp;schemaType=request</code></li>
-<li><code>ETag</code></li>
-<li><code>X-Schema-Hash</code></li>
-<li><code>x-ui.resource.idField</code></li>
-</ul>
-<p>Implicacoes:</p>
-<ul>
-<li>a aplicacao deve publicar contrato estavel, nao apenas CRUD
-funcional</li>
-<li>o runtime Angular resolve a estrutura via
-<code>/schemas/filtered</code></li>
-<li>o <code>resourcePath</code> consumido no frontend deve apontar para
-o recurso base</li>
+<li><code>AbstractCrudController</code></li>
+<li><code>AbstractBaseCrudService</code></li>
+<li>DTO unico para leitura e escrita</li>
+<li>dispatcher generico de workflow</li>
+<li>schema inline em <code>surfaces</code>, <code>actions</code> ou
+<code>capabilities</code></li>
 </ul>
 <h2 id="prompt-recomendado-para-ia">Prompt recomendado para IA</h2>
-<pre class="text"><code>Voce esta criando uma nova aplicacao Spring Boot com praxis-metadata-starter.
+<pre class="text"><code>Voce esta criando uma nova aplicacao Spring Boot sobre o baseline atual do praxis-metadata-starter.
 
-Siga apenas o contrato canonico publicado neste guia e no guia de CRUD.
-Considere praxis-ui-angular como consumidor final esperado do contrato.
+Use o core canonico atual:
+- AbstractResourceController / AbstractReadOnlyResourceController
+- AbstractBaseResourceService / AbstractReadOnlyResourceService
+- ResourceMapper
+- @ApiResource(value=..., resourceKey=...)
+- DTOs separados de response, create, update e filter
 
 Gere:
-- pom.xml minimo e coerente
+- pom.xml coerente
 - classe principal Spring Boot
 - ApiPaths local
-- application.properties baseline
-- primeiro modulo CRUD metadata-driven completo
+- modulo inicial resource-oriented completo
 
-Nao trate bulk, files ou config-store como obrigatorios.
-So adicione modulos opcionais se o pedido disser explicitamente.
-
-Entrada:
-- Nome da aplicacao: {app-name}
-- GroupId base: {group-id}
-- ArtifactId: {artifact-id}
-- Modulo inicial: {modulo}
-- Resource path inicial: {resource-path}
-- Api group inicial: {api-group}</code></pre>
+Nao gere AbstractCrudController nem BaseCrudService.
+Nao gere payload inline em catalogos semanticos.</code></pre>
 <h2 id="checklist-minimo">Checklist minimo</h2>
-<p>Antes de concluir:</p>
+<p>Antes de concluir a aplicacao nova:</p>
 <ul>
-<li><code>mvn clean package</code></li>
-<li><code>GET /v3/api-docs</code></li>
-<li>Swagger UI</li>
+<li><code>mvn test</code></li>
+<li><code>GET /v3/api-docs/{grupo}</code></li>
 <li><code>GET /schemas/filtered</code></li>
-<li>um schema <code>request</code> e um <code>response</code></li>
-<li><code>options/filter</code> quando houver relacao remota</li>
+<li><code>GET /schemas/catalog</code></li>
+<li><code>GET /schemas/surfaces?resource={resourceKey}</code> com
+surfaces automaticas coerentes para o tipo de controller</li>
+<li><code>GET /schemas/actions?resource={resourceKey}</code> se houver
+<code>@WorkflowAction</code>; sem workflow explicito, validar
+<code>404</code></li>
+<li><code>GET /{resource}/{id}/surfaces</code> e
+<code>GET /{resource}/{id}/actions</code> quando houver discovery
+<code>ITEM</code></li>
+<li><code>GET /{resource}/capabilities</code></li>
+<li>validacao <code>@Valid</code> funcionando com
+<code>400 Validation error</code></li>
 </ul>
-<p>Se houver persistencia real:</p>
+<h2 id="referencias">Referencias</h2>
 <ul>
-<li><code>POST /{resource}</code> sem erro de tabela inexistente</li>
-<li><code>POST /{resource}/filter</code> sem erro de schema ou tabela
-inexistente</li>
-<li>migration inicial ou <code>ddl-auto</code> temporario explicitamente
-documentado</li>
-</ul>
-<h2 id="referencias-publicas">Referencias publicas</h2>
-<ul>
-<li>starter canonico:
-<code>praxis-metadata-starter/README.md</code></li>
-<li>repositório público do runtime Angular:
-<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
-<li>pacote publicado de consumo de contrato:
-<code>@praxisui/core</code></li>
-<li>guia relacionado:
-<code>praxis-metadata-starter/docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>docs/guides/GUIA-03-MIGRACAO-CONSUMIDOR-PILOTO.md</code></li>
+<li><code>docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md</code></li>
+<li><code>docs/technical/RESOURCE-SURFACE-ACTION-ARCHITECTURE-PLAN.md</code></li>
 </ul>
 </body>
 </html>

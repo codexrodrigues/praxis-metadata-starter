@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Guia 02 - IA Backend - CRUD Metadata-Driven por Entidade</title>
+  <title>GUIA-02-AI-BACKEND-CRUD-METADATA</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,385 +230,232 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Guia 02 - IA Backend - CRUD Metadata-Driven por
-Entidade</h1>
+<h1 class="title">GUIA-02-AI-BACKEND-CRUD-METADATA</h1>
 </header>
-<h1 id="guia-02---ia-backend---crud-metadata-driven-por-entidade">Guia
-02 - IA Backend - CRUD Metadata-Driven por Entidade</h1>
+<h1
+id="guia-02---ia-backend---recurso-metadata-driven-no-core-atual">Guia
+02 - IA Backend - Recurso Metadata-Driven no Core Atual</h1>
 <h2 id="objetivo">Objetivo</h2>
-<p>Este guia orienta uma LLM a gerar uma feature CRUD alinhada ao
-contrato canonico do <code>praxis-metadata-starter</code>.</p>
-<p>O objetivo nao e gerar “qualquer CRUD que compile”. O objetivo e
-gerar:</p>
+<p>Este guia orienta a implementacao de um recurso backend
+metadata-driven alinhado ao core atual do
+<code>praxis-metadata-starter</code>.</p>
+<p>O baseline correto hoje e <code>resource-oriented</code>. Este guia
+nao deve gerar:</p>
 <ul>
-<li>DTO com <code>@UISchema</code> e Bean Validation coerentes com
-<code>/schemas/filtered</code></li>
-<li><code>FilterDTO</code> com <code>@Filterable</code></li>
-<li><code>Mapper</code>, <code>Service</code>, <code>Repository</code> e
-<code>Controller</code> compativeis com
-<code>AbstractCrudController</code> e
-<code>AbstractBaseCrudService</code></li>
-<li>endpoints e metadata consumiveis por <code>praxis-ui-angular</code>
-sem ajuste local</li>
+<li><code>AbstractCrudController</code></li>
+<li><code>AbstractBaseCrudService</code></li>
+<li>DTO unico de leitura/escrita</li>
 </ul>
-<h2 id="ordem-de-leitura-para-a-llm">Ordem de leitura para a LLM</h2>
-<p>Use este guia depois de
-<code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code>.</p>
-<p>Ordem recomendada:</p>
-<ol type="1">
-<li><code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
-<li>este guia</li>
-<li><code>CHECKLIST-VALIDACAO-IA.md</code></li>
-</ol>
-<h2 id="escopo-correto-deste-guia">Escopo correto deste guia</h2>
-<p>Este guia cobre o baseline canonico de um recurso CRUD
-metadata-driven.</p>
-<p>Este guia nao deve tratar como obrigatorio:</p>
-<ul>
-<li><code>BulkFilterAdapter</code></li>
-<li><code>BulkController</code></li>
-<li><code>org.praxisplatform.bulk.*</code></li>
-<li>receitas herdadas de projetos externos</li>
-</ul>
-<p>Se a feature precisar de bulk, isso e trilha opcional e separada.</p>
-<h2 id="o-que-a-llm-deve-receber-como-entrada">O que a LLM deve receber
-como entrada</h2>
+<h2 id="entrada-minima-para-a-llm">Entrada minima para a LLM</h2>
 <p>No minimo:</p>
 <ol type="1">
 <li>entidade JPA ou sua estrutura</li>
-<li><code>resourcePath</code> canonico</li>
+<li><code>resourcePath</code></li>
+<li><code>resourceKey</code></li>
 <li>grupo OpenAPI</li>
-<li>pacote base do modulo</li>
+<li>pacote base</li>
 </ol>
 <p>Exemplo:</p>
-<pre class="text"><code>Gere uma feature CRUD metadata-driven alinhada ao praxis-metadata-starter.
+<pre class="text"><code>Gere um recurso metadata-driven canonico.
 
 Entrada:
-- Entidade: src/main/java/com/example/hr/entity/Funcionario.java
-- Resource path: /api/human-resources/funcionarios
+- Entidade: src/main/java/com/example/hr/entity/Employee.java
+- Resource path: /api/human-resources/employees
+- Resource key: human-resources.employees
 - Api group: human-resources
 - Pacote base: com.example.hr</code></pre>
-<h2 id="arquivos-minimos">Arquivos minimos</h2>
-<pre class="text"><code>src/main/java/{pacote-base}/
+<h2 id="arquivos-minimos-do-recurso">Arquivos minimos do recurso</h2>
+<pre class="text"><code>src/main/java/{base-package}/
 |-- dto/
-|   |-- {Nome}DTO.java
+|   |-- {Resource}ResponseDTO.java
+|   |-- Create{Resource}DTO.java
+|   |-- Update{Resource}DTO.java
 |   `-- filter/
-|       `-- {Nome}FilterDTO.java
+|       `-- {Resource}FilterDTO.java
 |-- mapper/
-|   `-- {Nome}Mapper.java
+|   `-- {Resource}Mapper.java
 |-- repository/
-|   `-- {Nome}Repository.java
+|   `-- {Resource}Repository.java
 |-- service/
-|   `-- {Nome}Service.java
+|   `-- {Resource}Service.java
 `-- controller/
-    `-- {Nome}Controller.java</code></pre>
-<h2 id="padrao-canonico-do-controller">Padrao canonico do
-controller</h2>
-<p>O controller deve estender
-<code>AbstractCrudController&lt;E, D, ID, FD&gt;</code> e
-implementar:</p>
+    `-- {Resource}Controller.java</code></pre>
+<h2 id="dtos-canonicos">DTOs canonicos</h2>
+<p>Use sempre:</p>
 <ul>
-<li><code>getService()</code></li>
-<li><code>toDto(...)</code></li>
-<li><code>toEntity(...)</code></li>
-<li><code>getEntityId(...)</code></li>
-<li><code>getDtoId(...)</code></li>
+<li><code>{Resource}ResponseDTO</code> para leitura</li>
+<li><code>Create{Resource}DTO</code> para <code>POST</code></li>
+<li><code>Update{Resource}DTO</code> para <code>PUT</code> base</li>
+<li><code>{Resource}FilterDTO</code> para query/filter</li>
 </ul>
-<p>Exemplo estrutural:</p>
+<p>No baseline atual do starter, <code>PATCH /{id}</code> nao faz parte
+do core HTTP canonico. Use <code>PATCH</code> apenas em operacoes
+explicitas por intencao com <code>@ResourceIntent</code>.</p>
+<p>Se existir escrita parcial por intencao:</p>
+<ul>
+<li><code>Update{Resource}{Intent}DTO</code></li>
+<li>endpoint <code>PATCH /{id}/{intent}</code></li>
+<li><code>@ResourceIntent</code></li>
+</ul>
+<h2 id="controller-canonico">Controller canonico</h2>
 <div class="sourceCode" id="cb3"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@RestController</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">FUNCIONARIOS</span><span class="op">)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>value <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">EMPLOYEES</span><span class="op">,</span> resourceKey <span class="op">=</span> <span class="st">&quot;human-resources.employees&quot;</span><span class="op">)</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;human-resources&quot;</span><span class="op">)</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioController <span class="kw">extends</span> AbstractCrudController<span class="op">&lt;</span>Funcionario<span class="op">,</span> FuncionarioDTO<span class="op">,</span> <span class="bu">Integer</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> FuncionarioService service<span class="op">;</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> FuncionarioMapper mapper<span class="op">;</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">FuncionarioController</span><span class="op">(</span>FuncionarioService service<span class="op">,</span> FuncionarioMapper mapper<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">service</span> <span class="op">=</span> service<span class="op">;</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">mapper</span> <span class="op">=</span> mapper<span class="op">;</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> BaseCrudService<span class="op">&lt;</span>Funcionario<span class="op">,</span> FuncionarioDTO<span class="op">,</span> <span class="bu">Integer</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">&gt;</span> <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">;</span></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> FuncionarioDTO <span class="fu">toDto</span><span class="op">(</span>Funcionario entity<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">.</span><span class="fu">toDto</span><span class="op">(</span>entity<span class="op">);</span></span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> Funcionario <span class="fu">toEntity</span><span class="op">(</span>FuncionarioDTO dto<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">.</span><span class="fu">toEntity</span><span class="op">(</span>dto<span class="op">);</span></span>
-<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Integer</span> <span class="fu">getEntityId</span><span class="op">(</span>Funcionario entity<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> entity<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
-<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Integer</span> <span class="fu">getDtoId</span><span class="op">(</span>FuncionarioDTO dto<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
-<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Regras:</p>
-<ul>
-<li><code>@ApiResource</code> e a superficie canonica</li>
-<li><code>ApiPaths</code> deve vir do projeto host</li>
-<li>o host so deve sobrescrever metodos quando precisar enriquecer
-OpenAPI</li>
-</ul>
-<h2 id="padrao-canonico-do-service">Padrao canonico do service</h2>
-<p>O service padrao deve estender
-<code>AbstractBaseCrudService&lt;E, D, ID, FD&gt;</code>.</p>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeController <span class="kw">extends</span> AbstractResourceController<span class="op">&lt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        EmployeeResponseDTO<span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        EmployeeFilterDTO<span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        CreateEmployeeDTO<span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        UpdateEmployeeDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> EmployeeService service<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">EmployeeController</span><span class="op">(</span>EmployeeService service<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">service</span> <span class="op">=</span> service<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> EmployeeService <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getResponseId</span><span class="op">(</span>EmployeeResponseDTO dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="service-canonico">Service canonico</h2>
 <div class="sourceCode" id="cb4"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioService <span class="kw">extends</span> AbstractBaseCrudService<span class="op">&lt;</span>Funcionario<span class="op">,</span> FuncionarioDTO<span class="op">,</span> <span class="bu">Integer</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">FuncionarioService</span><span class="op">(</span>FuncionarioRepository repository<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">(</span>repository<span class="op">,</span> Funcionario<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> Funcionario <span class="fu">mergeUpdate</span><span class="op">(</span>Funcionario existing<span class="op">,</span> Funcionario payload<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">.</span><span class="fu">setNomeCompleto</span><span class="op">(</span>payload<span class="op">.</span><span class="fu">getNomeCompleto</span><span class="op">());</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">.</span><span class="fu">setCpf</span><span class="op">(</span>payload<span class="op">.</span><span class="fu">getCpf</span><span class="op">());</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">.</span><span class="fu">setEmail</span><span class="op">(</span>payload<span class="op">.</span><span class="fu">getEmail</span><span class="op">());</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        existing<span class="op">.</span><span class="fu">setAtivo</span><span class="op">(</span>payload<span class="op">.</span><span class="fu">getAtivo</span><span class="op">());</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> existing<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeService <span class="kw">extends</span> AbstractBaseResourceService<span class="op">&lt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        Employee<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        EmployeeResponseDTO<span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        EmployeeFilterDTO<span class="op">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        CreateEmployeeDTO<span class="op">,</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        UpdateEmployeeDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> EmployeeMapper mapper<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">EmployeeService</span><span class="op">(</span>EmployeeRepository repository<span class="op">,</span> EmployeeMapper mapper<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">(</span>repository<span class="op">,</span> Employee<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">mapper</span> <span class="op">=</span> mapper<span class="op">;</span></span>
 <span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Quando houver relacoes, <code>mergeUpdate(...)</code> deve preservar
-a semantica do aggregate persistido.</p>
-<h2 id="padrao-canonico-do-mapper">Padrao canonico do mapper</h2>
-<p>Padrao preferencial: MapStruct com
-<code>CorporateMapperConfig</code>.</p>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> ResourceMapper<span class="op">&lt;</span>Employee<span class="op">,</span> EmployeeResponseDTO<span class="op">,</span> CreateEmployeeDTO<span class="op">,</span> UpdateEmployeeDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="fu">getResourceMapper</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="mapper-canonico">Mapper canonico</h2>
 <div class="sourceCode" id="cb5"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Mapper</span><span class="op">(</span>componentModel <span class="op">=</span> <span class="st">&quot;spring&quot;</span><span class="op">,</span> config <span class="op">=</span> CorporateMapperConfig<span class="op">.</span><span class="fu">class</span><span class="op">)</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> FuncionarioMapper <span class="op">{</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Mapping</span><span class="op">(</span>target <span class="op">=</span> <span class="st">&quot;cargoId&quot;</span><span class="op">,</span> source <span class="op">=</span> <span class="st">&quot;cargo.id&quot;</span><span class="op">)</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    FuncionarioDTO <span class="fu">toDto</span><span class="op">(</span>Funcionario entity<span class="op">);</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Mapping</span><span class="op">(</span>target <span class="op">=</span> <span class="st">&quot;cargo&quot;</span><span class="op">,</span> expression <span class="op">=</span> <span class="st">&quot;java(cargoFromId(dto.getCargoId()))&quot;</span><span class="op">)</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    Funcionario <span class="fu">toEntity</span><span class="op">(</span>FuncionarioDTO dto<span class="op">);</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">default</span> Cargo <span class="fu">cargoFromId</span><span class="op">(</span><span class="bu">Integer</span> id<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>id <span class="op">==</span> <span class="kw">null</span><span class="op">)</span> <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        Cargo cargo <span class="op">=</span> <span class="kw">new</span> <span class="fu">Cargo</span><span class="op">();</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        cargo<span class="op">.</span><span class="fu">setId</span><span class="op">(</span>id<span class="op">);</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> cargo<span class="op">;</span></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Regras:</p>
+class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Component</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeMapper <span class="kw">implements</span> ResourceMapper<span class="op">&lt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>        Employee<span class="op">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        EmployeeResponseDTO<span class="op">,</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        CreateEmployeeDTO<span class="op">,</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        UpdateEmployeeDTO<span class="op">,</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> EmployeeResponseDTO <span class="fu">toResponse</span><span class="op">(</span>Employee entity<span class="op">)</span> <span class="op">{</span> <span class="kw">...</span> <span class="op">}</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> Employee <span class="fu">newEntity</span><span class="op">(</span>CreateEmployeeDTO dto<span class="op">)</span> <span class="op">{</span> <span class="kw">...</span> <span class="op">}</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">applyUpdate</span><span class="op">(</span>Employee entity<span class="op">,</span> UpdateEmployeeDTO dto<span class="op">)</span> <span class="op">{</span> <span class="kw">...</span> <span class="op">}</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="bu">Long</span> <span class="fu">extractId</span><span class="op">(</span>Employee entity<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> entity<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="read-only-canonico">Read-only canonico</h2>
+<p>Quando o recurso for apenas leitura:</p>
 <ul>
-<li>prefira <code>CorporateMapperConfig</code> quando houver
-MapStruct</li>
-<li>use mapper manual apenas se o projeto realmente adotar esse
-estilo</li>
-<li>ao mapear relacoes por ID, exponha <code>relacaoId</code> no
-DTO</li>
+<li>controller: <code>AbstractReadOnlyResourceController</code></li>
+<li>service: <code>AbstractReadOnlyResourceService</code></li>
+<li>sem endpoints de escrita publicados</li>
 </ul>
-<h2 id="dto-canonico">DTO canonico</h2>
-<p>O DTO deve refletir o contrato que a UI vai consumir via
-<code>/schemas/filtered</code>.</p>
-<p>Regras obrigatorias:</p>
-<ul>
-<li>campos visiveis na UI devem usar <code>@UISchema</code></li>
-<li>validacoes estruturais devem usar Bean Validation</li>
-<li>selects remotos devem usar <code>endpoint</code>,
-<code>valueField</code> e <code>displayField</code> coerentes com o
-endpoint real</li>
-</ul>
-<h2 id="apresentacao-de-valor-canonica">Apresentacao de valor
-canonica</h2>
-<p>Para campos escalares exibidos em modos table/list/read-only, o
-starter pode publicar <code>x-ui.valuePresentation</code>
-automaticamente.</p>
-<p>Regra pratica:</p>
-<ul>
-<li><code>valuePresentation</code> expressa a intencao semantica
-(<code>currency</code>, <code>number</code>, <code>percentage</code>,
-<code>date</code>, <code>datetime</code>, <code>time</code>,
-<code>boolean</code>)</li>
-<li><code>format</code> nao substitui essa semantica; ele deve ser
-tratado como override explicito no consumidor</li>
-<li>para overrides raros, prefira <code>extraProperties</code> com
-chaves aninhadas, por exemplo <code>valuePresentation.type</code></li>
-</ul>
-<p>Publicacao automatica esperada:</p>
-<ul>
-<li><code>numericFormat = CURRENCY</code> -&gt;
-<code>valuePresentation.type = currency</code></li>
-<li><code>numericFormat = PERCENT</code> -&gt;
-<code>valuePresentation.type = percentage</code></li>
-<li><code>format = date|date-time|time|currency|percent</code> -&gt;
-tipo correspondente</li>
-<li><code>controlType</code> escalar compativel -&gt; tipo
-correspondente</li>
-</ul>
-<p>Nao trate como <code>valuePresentation</code> automatico:</p>
-<ul>
-<li>selects e variantes inline de selecao</li>
-<li>ranges (<code>dateRange</code>, <code>dateTimeRange</code>,
-<code>priceRange</code>, etc.)</li>
-<li>arrays, objects e IDs tecnicos</li>
-</ul>
+<h2
+id="quando-adicionar-resourceintent-uisurface-e-workflowaction">Quando
+adicionar ResourceIntent, UiSurface e WorkflowAction</h2>
+<h3 id="resourceintent"><code>@ResourceIntent</code></h3>
+<p>Use quando a operacao ainda e manutencao do recurso, mas com DTO
+parcial e semantica propria.</p>
 <p>Exemplo:</p>
 <div class="sourceCode" id="cb6"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="at">@NotNull</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    label <span class="op">=</span> <span class="st">&quot;Cargo&quot;</span><span class="op">,</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">SELECT</span><span class="op">,</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    valueField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    displayField <span class="op">=</span> <span class="st">&quot;label&quot;</span><span class="op">,</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">CARGOS</span> <span class="op">+</span> <span class="st">&quot;/options/filter&quot;</span><span class="op">,</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    tableHidden <span class="op">=</span> <span class="kw">true</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Integer</span> cargoId<span class="op">;</span></span></code></pre></div>
-<p>Exemplo de override via <code>extraProperties</code>:</p>
+class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="at">@PatchMapping</span><span class="op">(</span><span class="st">&quot;/{id}/profile&quot;</span><span class="op">)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ResourceIntent</span><span class="op">(</span>id <span class="op">=</span> <span class="st">&quot;employee-profile&quot;</span><span class="op">,</span> title <span class="op">=</span> <span class="st">&quot;Editar perfil&quot;</span><span class="op">)</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> ResponseEntity<span class="op">&lt;</span>RestApiResponse<span class="op">&lt;</span>EmployeeResponseDTO<span class="op">&gt;&gt;</span> <span class="fu">updateProfile</span><span class="op">(</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">@PathVariable</span> <span class="bu">Long</span> id<span class="op">,</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">@Valid</span> <span class="at">@RequestBody</span> UpdateEmployeeProfileDTO dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">...</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="uisurface"><code>@UiSurface</code></h3>
+<p>Use quando a UX precisar descobrir semanticamente uma operacao
+real.</p>
+<p>Exemplo:</p>
 <div class="sourceCode" id="cb7"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    label <span class="op">=</span> <span class="st">&quot;Salario&quot;</span><span class="op">,</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    numericFormat <span class="op">=</span> NumericFormat<span class="op">.</span><span class="fu">CURRENCY</span><span class="op">,</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    extraProperties <span class="op">=</span> <span class="op">{</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;valuePresentation.style&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;short&quot;</span><span class="op">)</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">BigDecimal</span> salario<span class="op">;</span></span></code></pre></div>
-<p>Regra critica:</p>
-<ul>
-<li>se o endpoint for <code>.../options/filter</code>, use
-<code>displayField = "label"</code></li>
-<li>se o endpoint for <code>.../filter</code> retornando DTO completo,
-use o campo textual do DTO, como <code>nome</code></li>
-</ul>
-<h2 id="filterdto-canonico">FilterDTO canonico</h2>
-<p>O <code>FilterDTO</code> deve implementar
-<code>GenericFilterDTO</code>.</p>
-<p>Regras praticas:</p>
-<ul>
-<li>texto: <code>LIKE</code></li>
-<li>boolean: <code>EQUAL</code></li>
-<li>ranges numericos e datas: <code>BETWEEN</code></li>
-<li>listas: <code>IN</code> ou <code>NOT_IN</code></li>
-<li>relacoes: campo <code>...Id</code> com
-<code>relation = "relacao.id"</code></li>
-</ul>
+class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="at">@PatchMapping</span><span class="op">(</span><span class="st">&quot;/{id}/profile&quot;</span><span class="op">)</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="at">@UiSurface</span><span class="op">(</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        id <span class="op">=</span> <span class="st">&quot;profile&quot;</span><span class="op">,</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        kind <span class="op">=</span> SurfaceKind<span class="op">.</span><span class="fu">PARTIAL_FORM</span><span class="op">,</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        scope <span class="op">=</span> SurfaceScope<span class="op">.</span><span class="fu">ITEM</span><span class="op">,</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        title <span class="op">=</span> <span class="st">&quot;Editar perfil&quot;</span><span class="op">,</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        intent <span class="op">=</span> <span class="st">&quot;profile&quot;</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
+<h3 id="workflowaction"><code>@WorkflowAction</code></h3>
+<p>Use apenas para comando de negocio explicito.</p>
 <p>Exemplo:</p>
 <div class="sourceCode" id="cb8"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">)</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">String</span> nomeCompleto<span class="op">;</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">BOOLEAN</span><span class="op">,</span> controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">CHECKBOX</span><span class="op">)</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">)</span></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Boolean</span> ativo<span class="op">;</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">SELECT</span><span class="op">,</span></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">CARGOS</span> <span class="op">+</span> <span class="st">&quot;/options/filter&quot;</span><span class="op">,</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    valueField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    displayField <span class="op">=</span> <span class="st">&quot;label&quot;</span></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">EQUAL</span><span class="op">,</span> relation <span class="op">=</span> <span class="st">&quot;cargo.id&quot;</span><span class="op">)</span></span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Integer</span> cargoId<span class="op">;</span></span></code></pre></div>
-<p>Enums corretos:</p>
+class="sourceCode java"><code class="sourceCode java"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="at">@PostMapping</span><span class="op">(</span><span class="st">&quot;/{id}/actions/approve&quot;</span><span class="op">)</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="at">@WorkflowAction</span><span class="op">(</span>id <span class="op">=</span> <span class="st">&quot;approve&quot;</span><span class="op">,</span> title <span class="op">=</span> <span class="st">&quot;Aprovar&quot;</span><span class="op">,</span> scope <span class="op">=</span> ActionScope<span class="op">.</span><span class="fu">ITEM</span><span class="op">)</span></span></code></pre></div>
+<h2 id="o-que-o-recurso-deve-expor-no-runtime">O que o recurso deve
+expor no runtime</h2>
+<p>Para um recurso mutavel no core atual, o baseline esperado
+inclui:</p>
 <ul>
-<li><code>FilterOperation.EQUAL</code>, nao <code>EQUALS</code></li>
-<li><code>FieldControlType.CHECKBOX</code> e um baseline seguro para
-booleanos simples</li>
-<li><code>FieldControlType.TOGGLE_SWITCH</code> nao e canonico</li>
-</ul>
-<h2 id="endpoints-que-a-ui-espera">Endpoints que a UI espera</h2>
-<p>O contrato minimo do recurso deve ser compativel com:</p>
-<ul>
-<li><code>GET /{resource}/schemas</code></li>
-<li><code>GET /schemas/filtered?path={resource}/all&amp;operation=get&amp;schemaType=response</code></li>
-<li><code>GET /schemas/filtered?path={resource}/filter&amp;operation=post&amp;schemaType=request</code></li>
+<li><code>GET /{resource}/all</code></li>
+<li><code>GET /{resource}/{id}</code></li>
+<li><code>POST /{resource}</code></li>
+<li><code>PUT /{resource}/{id}</code></li>
 <li><code>POST /{resource}/filter</code></li>
 <li><code>POST /{resource}/filter/cursor</code></li>
 <li><code>POST /{resource}/locate</code></li>
-<li><code>POST /{resource}/options/filter</code></li>
-<li><code>GET /{resource}/options/by-ids</code></li>
-<li>CRUD basico</li>
+<li><code>/schemas/filtered</code></li>
+<li><code>/schemas/catalog</code></li>
+<li><code>/schemas/surfaces</code></li>
+<li><code>/schemas/actions</code></li>
+<li><code>/capabilities</code></li>
 </ul>
-<h2 id="como-o-angular-consome-isso">Como o Angular consome isso</h2>
-<p><code>praxis-ui-angular</code> usa <code>GenericCrudService</code>
-para:</p>
+<h2 id="o-que-nao-deve-ser-gerado">O que nao deve ser gerado</h2>
 <ul>
-<li>chamar <code>getSchema()</code></li>
-<li>resolver grid schema via <code>/schemas/filtered</code></li>
-<li>resolver schema do filtro</li>
-<li>revalidar com <code>If-None-Match</code></li>
-<li>ler <code>ETag</code>, <code>X-Schema-Hash</code> e
-<code>x-ui.resource.idField</code></li>
+<li>schema inline em catalogos</li>
+<li>action router generico</li>
+<li>payload generico por string</li>
+<li>duplicacao <code>V1/V2</code></li>
+<li>contrato paralelo para read-only com <code>405</code> herdado</li>
 </ul>
-<p>Implicacoes:</p>
-<ul>
-<li>o schema precisa expor <code>x-ui</code> coerente</li>
-<li>o DTO precisa manter <code>idField</code> inferivel ou sobrescrito
-corretamente</li>
-<li>endpoints de select precisam ser compativeis com
-<code>OptionDTO{id,label}</code></li>
-</ul>
-<h2 id="resultado-que-este-guia-precisa-produzir">Resultado que este
-guia precisa produzir</h2>
-<p>Ao terminar este guia, o recurso precisa estar pronto para:</p>
-<ul>
-<li>CRUD baseline</li>
-<li><code>/schemas/filtered</code> de request e response</li>
-<li><code>POST /filter</code></li>
-<li><code>POST /options/filter</code> quando houver select remoto</li>
-<li><code>GET /options/by-ids</code> quando houver select remoto</li>
-<li>consumo por <code>GenericCrudService</code> sem adaptacao local</li>
-</ul>
-<h2 id="prompt-recomendado-para-ia">Prompt recomendado para IA</h2>
-<pre class="text"><code>Voce esta gerando uma feature CRUD metadata-driven para o ecossistema Praxis.
-
-Siga o contrato canonico do praxis-metadata-starter.
-Considere praxis-ui-angular como consumidor final do contrato.
-
-Gere:
-- DTO com @UISchema e Bean Validation
-- FilterDTO com @Filterable
-- Mapper com CorporateMapperConfig quando usar MapStruct
-- Repository extendendo BaseCrudRepository
-- Service extendendo AbstractBaseCrudService
-- Controller extendendo AbstractCrudController
-
-Nao trate bulk como obrigatorio.
-So gere BulkController ou similares se o pedido mencionar explicitamente uma stack bulk externa.
-
-Entrada:
-- Entidade: {entity-path}
-- Resource path: {resource-path}
-- Api group: {api-group}
-- Pacote base: {base-package}</code></pre>
-<h2 id="checklist-minimo">Checklist minimo</h2>
+<h2 id="checklist-do-recurso">Checklist do recurso</h2>
 <p>Antes de concluir:</p>
 <ul>
-<li>o controller usa <code>@ApiResource</code> e
-<code>@ApiGroup</code></li>
-<li>o mapper usa <code>CorporateMapperConfig</code> quando
-aplicavel</li>
-<li><code>FilterOperation</code> usa enums canonicos</li>
-<li>selects remotos apontam para <code>/options/filter</code> com
-<code>displayField = "label"</code></li>
-<li>o recurso pode ser consumido por <code>GenericCrudService</code> sem
-adaptacao local</li>
+<li>o controller usa
+<code>@ApiResource(value = ..., resourceKey = ...)</code></li>
+<li>o recurso nao usa DTO unico</li>
+<li><code>@Valid</code> funciona de verdade</li>
+<li><code>/schemas/filtered</code> resolve request e response</li>
+<li><code>/schemas/surfaces</code> e <code>/schemas/actions</code> so
+expoem referencias canonicas</li>
+<li><code>/capabilities</code> agrega sem redefinir contrato</li>
 </ul>
-<h2 id="referencias-publicas">Referencias publicas</h2>
+<h2 id="referencias">Referencias</h2>
 <ul>
-<li><code>praxis-metadata-starter/README.md</code></li>
-<li>repositório público do runtime Angular:
-<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
-<li>pacote publicado de consumo de contrato:
-<code>@praxisui/core</code></li>
-<li><code>praxis-metadata-starter/docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md</code></li>
+<li><code>docs/technical/RESOURCE-ORIENTED-PILOT-IN-SRC-TEST.md</code></li>
 </ul>
 </body>
 </html>

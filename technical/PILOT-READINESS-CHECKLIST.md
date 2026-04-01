@@ -1,0 +1,52 @@
+# Pilot Readiness Checklist
+
+## Go / No-Go antes do primeiro consumidor externo
+
+Marque todos os itens abaixo antes de abrir a migracao do piloto.
+
+## Baseline do starter
+
+- [ ] Fases 1 a 6 formalmente encerradas no starter
+- [ ] piloto interno em `src/test` verde
+- [ ] fixture E2E H2 verde no recorte oficial
+- [ ] QA independente recente concluido
+
+## Recurso piloto escolhido
+
+- [ ] recurso pequeno e com escopo congelado
+- [ ] sem necessidade imediata de compatibilidade paralela
+- [ ] fronteira entre `resource`, `surface` e `action` decidida
+
+## Contrato
+
+- [ ] `@ApiResource(value = ..., resourceKey = ...)` definido
+- [ ] DTOs separados de `response`, `create`, `update` e `filter`
+- [ ] `@ResourceIntent` usado apenas onde a operacao continua sendo manutencao do recurso
+- [ ] `@UiSurface` usado apenas para discovery semantico
+- [ ] `@WorkflowAction` usado apenas para comando de negocio explicito
+
+## Discovery
+
+- [ ] `/schemas/filtered` validado
+- [ ] `/schemas/catalog` validado
+- [ ] `/schemas/surfaces` validado
+- [ ] `/schemas/actions` validado
+- [ ] `/capabilities` validado
+
+## Testes e validacao
+
+- [ ] suite focal do host verde
+- [ ] validacao de `@Valid` com `400 Validation error`
+- [ ] sem payload inline em `surfaces`, `actions` ou `capabilities`
+
+## Operacao
+
+- [ ] rollback definido
+- [ ] observabilidade minima definida
+- [ ] responsavel tecnico pelo piloto definido
+
+## Pode ficar fora do primeiro piloto
+
+- `e2e-pg` do starter
+- stress mais agressivo de concorrencia/caches lazy
+- suite integral do modulo do starter

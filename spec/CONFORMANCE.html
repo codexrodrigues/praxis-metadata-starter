@@ -222,6 +222,9 @@ controle e validacoes basicas</li>
 <li>x-ui.resource presente no payload de <code>/schemas/filtered</code>
 contendo <code>idField</code>, <code>idFieldValid</code>,
 <code>readOnly</code>, <code>capabilities</code></li>
+<li><code>/schemas/surfaces</code> e <code>/schemas/actions</code>
+publicam apenas discovery semantico e links para schemas canonicos
+resolviveis via <code>/schemas/filtered</code></li>
 <li>ETag forte no <code>/schemas/filtered</code> e hash deterministico
 em <code>X-Schema-Hash</code></li>
 <li><code>schemaId</code> estavel conforme composicao
@@ -249,6 +252,9 @@ quando o OpenAPI publicar exemplos uteis</li>
 UX</li>
 <li>incluir <code>capabilities.options|byId|all|filter|cursor</code>
 quando aplicavel</li>
+<li>manter <code>/schemas/surfaces</code> e
+<code>/schemas/actions</code> sincronizados com a semantica publicada
+por <code>@UiSurface</code> e <code>@WorkflowAction</code></li>
 <li>adotar <code>custom.*</code> para extensoes privadas do host</li>
 <li>publicar <code>x-ui.optionSource</code> para fontes derivadas
 governadas, evitando promover <code>INPUT</code> em campos com semantica
@@ -312,6 +318,13 @@ diagnostico e alertas</li>
 <li><code>readOnly</code> -&gt; bloqueio de edicao</li>
 <li><code>capabilities</code> -&gt; habilitacao de acoes e
 utilitarios</li>
+</ul></li>
+<li>discovery semantico
+<ul>
+<li><code>/schemas/surfaces</code> -&gt; catalogo semantico de
+<code>@UiSurface</code> e surfaces automaticas do recurso</li>
+<li><code>/schemas/actions</code> -&gt; catalogo semantico de
+<code>@WorkflowAction</code></li>
 </ul></li>
 </ul>
 <h2 id="compatibilidade-de-consumidor---praxisuicharts">Compatibilidade

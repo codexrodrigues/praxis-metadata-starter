@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Pilot Readiness Checklist</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Pilot Readiness Checklist</h1>
+</header>
+<h1 id="pilot-readiness-checklist">Pilot Readiness Checklist</h1>
+<h2 id="go-no-go-antes-do-primeiro-consumidor-externo">Go / No-Go antes
+do primeiro consumidor externo</h2>
+<p>Marque todos os itens abaixo antes de abrir a migracao do piloto.</p>
+<h2 id="baseline-do-starter">Baseline do starter</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />Fases 1 a 6 formalmente encerradas
+no starter</label></li>
+<li><label><input type="checkbox" />piloto interno em
+<code>src/test</code> verde</label></li>
+<li><label><input type="checkbox" />fixture E2E H2 verde no recorte
+oficial</label></li>
+<li><label><input type="checkbox" />QA independente recente
+concluido</label></li>
+</ul>
+<h2 id="recurso-piloto-escolhido">Recurso piloto escolhido</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />recurso pequeno e com escopo
+congelado</label></li>
+<li><label><input type="checkbox" />sem necessidade imediata de
+compatibilidade paralela</label></li>
+<li><label><input type="checkbox" />fronteira entre
+<code>resource</code>, <code>surface</code> e <code>action</code>
+decidida</label></li>
+</ul>
+<h2 id="contrato">Contrato</h2>
+<ul class="task-list">
+<li><label><input
+type="checkbox" /><code>@ApiResource(value = ..., resourceKey = ...)</code>
+definido</label></li>
+<li><label><input type="checkbox" />DTOs separados de
+<code>response</code>, <code>create</code>, <code>update</code> e
+<code>filter</code></label></li>
+<li><label><input type="checkbox" /><code>@ResourceIntent</code> usado
+apenas onde a operacao continua sendo manutencao do recurso</label></li>
+<li><label><input type="checkbox" /><code>@UiSurface</code> usado apenas
+para discovery semantico</label></li>
+<li><label><input type="checkbox" /><code>@WorkflowAction</code> usado
+apenas para comando de negocio explicito</label></li>
+</ul>
+<h2 id="discovery">Discovery</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" /><code>/schemas/filtered</code>
+validado</label></li>
+<li><label><input type="checkbox" /><code>/schemas/catalog</code>
+validado</label></li>
+<li><label><input type="checkbox" /><code>/schemas/surfaces</code>
+validado</label></li>
+<li><label><input type="checkbox" /><code>/schemas/actions</code>
+validado</label></li>
+<li><label><input type="checkbox" /><code>/capabilities</code>
+validado</label></li>
+</ul>
+<h2 id="testes-e-validacao">Testes e validacao</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />suite focal do host
+verde</label></li>
+<li><label><input type="checkbox" />validacao de <code>@Valid</code> com
+<code>400 Validation error</code></label></li>
+<li><label><input type="checkbox" />sem payload inline em
+<code>surfaces</code>, <code>actions</code> ou
+<code>capabilities</code></label></li>
+</ul>
+<h2 id="operacao">Operacao</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />rollback definido</label></li>
+<li><label><input type="checkbox" />observabilidade minima
+definida</label></li>
+<li><label><input type="checkbox" />responsavel tecnico pelo piloto
+definido</label></li>
+</ul>
+<h2 id="pode-ficar-fora-do-primeiro-piloto">Pode ficar fora do primeiro
+piloto</h2>
+<ul>
+<li><code>e2e-pg</code> do starter</li>
+<li>stress mais agressivo de concorrencia/caches lazy</li>
+<li>suite integral do modulo do starter</li>
+</ul>
+</body>
+</html>

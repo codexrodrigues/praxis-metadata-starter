@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Piloto Resource-Oriented em `src/test`</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Piloto Resource-Oriented em `src/test`</h1>
+</header>
+<h1 id="piloto-resource-oriented-em-srctest">Piloto Resource-Oriented em
+<code>src/test</code></h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Antes de migrar qualquer consumidor externo, o
+<code>praxis-metadata-starter</code> precisa provar o novo core
+<code>resource-oriented</code> dentro do proprio repositorio.</p>
+<p>O piloto oficial desta fase fica em:</p>
+<ul>
+<li><code>src/test/java/org/praxisplatform/uischema/controller/base/AbstractResourceControllerJpaWriteIntegrationTest.java</code></li>
+</ul>
+<p>Ele substitui o piloto JPA de escrita que antes exercitava:</p>
+<ul>
+<li><code>AbstractCrudController</code></li>
+<li><code>AbstractBaseCrudService</code></li>
+<li>DTO unico de leitura/escrita</li>
+</ul>
+<p>e passa a validar o contrato canonico novo com:</p>
+<ul>
+<li><code>AbstractResourceController</code></li>
+<li><code>AbstractBaseResourceService</code></li>
+<li><code>ResourceMapper</code></li>
+<li><code>@ResourceIntent</code></li>
+<li><code>EmployeeResponseDto</code></li>
+<li><code>CreateEmployeeDto</code></li>
+<li><code>UpdateEmployeeDto</code></li>
+<li><code>UpdateEmployeeProfileDto</code></li>
+</ul>
+<h2 id="o-que-o-piloto-prova">O que o piloto prova</h2>
+<h3 id="boundary-separado-de-leitura-e-escrita">1. Boundary separado de
+leitura e escrita</h3>
+<p>O recurso de teste nao usa mais DTO unico.</p>
+<p>Ele nasce com:</p>
+<ul>
+<li><code>EmployeeResponseDto</code> para leitura</li>
+<li><code>CreateEmployeeDto</code> para
+<code>POST /integration-employees</code></li>
+<li><code>UpdateEmployeeDto</code> para
+<code>PUT /integration-employees/{id}</code></li>
+<li><code>UpdateEmployeeProfileDto</code> para
+<code>PATCH /integration-employees/{id}/profile</code></li>
+<li><code>EmployeeFilterDto</code> para query/filter</li>
+</ul>
+<h3 id="integridade-de-logica-de-negocio-no-service-novo">2. Integridade
+de logica de negocio no service novo</h3>
+<p>O service piloto usa:</p>
+<ul>
+<li><code>AbstractBaseResourceService&lt;Employee, EmployeeResponseDto, Long, EmployeeFilterDto, CreateEmployeeDto, UpdateEmployeeDto&gt;</code></li>
+</ul>
+<p>Isso prova que o boundary novo preserva:</p>
+<ul>
+<li>create com retorno canonico</li>
+<li>update com retorno canonico</li>
+<li>patch por intencao com DTO proprio</li>
+<li><code>datasetVersion</code></li>
+<li>reidratacao suficiente para mapear associacoes lazy no DTO de
+resposta</li>
+</ul>
+<h3 id="integridade-http-do-controller-novo">3. Integridade HTTP do
+controller novo</h3>
+<p>O controller piloto usa:</p>
+<ul>
+<li><code>AbstractResourceController&lt;EmployeeResponseDto, Long, EmployeeFilterDto, CreateEmployeeDto, UpdateEmployeeDto&gt;</code></li>
+</ul>
+<p>Isso prova a surface HTTP nova para:</p>
+<ul>
+<li><code>POST /integration-employees</code></li>
+<li><code>PUT /integration-employees/{id}</code></li>
+<li><code>PATCH /integration-employees/{id}/profile</code></li>
+<li><code>GET /integration-employees/{id}</code></li>
+<li><code>GET /integration-employees/all</code></li>
+<li><code>GET /integration-employees/by-ids</code></li>
+<li><code>DELETE /integration-employees/{id}</code></li>
+<li><code>DELETE /integration-employees/batch</code></li>
+<li><code>GET /integration-employees/schemas</code></li>
+</ul>
+<h3 id="integridade-documental-do-starter">4. Integridade documental do
+starter</h3>
+<p>O piloto nao valida so payload de negocio. Ele tambem prova que a
+camada documental acompanha o core novo:</p>
+<ul>
+<li><code>GET /v3/api-docs/integration-employees</code></li>
+<li><code>GET /schemas/filtered?path=/integration-employees&amp;operation=post&amp;schemaType=request</code></li>
+<li><code>GET /schemas/filtered?path=/integration-employees/{id}&amp;operation=put&amp;schemaType=request</code></li>
+<li><code>GET /schemas/filtered?path=/integration-employees/{id}/profile&amp;operation=patch&amp;schemaType=request</code></li>
+</ul>
+<p>Com isso, o starter garante que:</p>
+<ul>
+<li>OpenAPI do grupo individual do recurso existe</li>
+<li><code>POST</code> referencia <code>CreateEmployeeDto</code></li>
+<li><code>PUT</code> referencia <code>UpdateEmployeeDto</code></li>
+<li><code>PATCH /{id}/profile</code> referencia
+<code>UpdateEmployeeProfileDto</code></li>
+<li><code>/schemas/filtered</code> resolve corretamente os contratos de
+create, update e patch por intencao</li>
+</ul>
+<h3 id="ciclo-crud-real-no-consumidor-piloto">5. Ciclo CRUD real no
+consumidor piloto</h3>
+<p>O piloto cobre o ciclo essencial do recurso migrado:</p>
+<ul>
+<li>criacao com <code>Location</code> e <code>X-Data-Version</code></li>
+<li>leitura individual</li>
+<li>leitura de colecao</li>
+<li>leitura por ids mantendo a ordem solicitada</li>
+<li>atualizacao com reidratacao de associacao lazy</li>
+<li>patch por intencao preservando os campos fora do escopo do DTO
+parcial</li>
+<li>exclusao simples</li>
+<li>exclusao em lote</li>
+</ul>
+<h2 id="escopo-minimo-de-validacao">Escopo minimo de validacao</h2>
+<p>Antes de sair deste starter para outro projeto, a suite focal minima
+do piloto deve passar:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>mvn <span class="st">&quot;-Dtest=AbstractResourceControllerJpaWriteIntegrationTest,AbstractBaseResourceServiceTest,AbstractResourceControllerMappedCrudTest,AbstractResourceQueryControllerGetByIdsTest,AbstractResourceControllerLinksTest,AbstractResourceQueryControllerHateoasTest,AbstractResourceQueryControllerBasePathDetectionTest,AbstractReadOnlyResourceControllerLinksTest,ApiDocsControllerTest,ApiDocsControllerPathResolutionTest,OpenApiDocsSupportTest,DynamicSwaggerConfigTest&quot;</span> test</span></code></pre></div>
+<p>Observacao:</p>
+<ul>
+<li>os logs de <code>/schemas/filtered</code> ainda podem emitir warning
+sobre <code>x-ui.resource.idField</code> ausente em request DTOs de
+create, update e patch por intencao; no estado atual do core isso e
+esperado e nao caracteriza regressao do piloto</li>
+</ul>
+<h2 id="criterio-de-pronto-para-migrar-consumidor-externo">Criterio de
+pronto para migrar consumidor externo</h2>
+<p>Nao devemos migrar <code>praxis-api-quickstart</code> ou qualquer
+outro host enquanto este piloto nao estiver:</p>
+<ul>
+<li>verde em execucao local</li>
+<li>revisado por QA independente</li>
+<li>documentado como referencia oficial do core novo</li>
+</ul>
+<h2 id="como-transpor-o-piloto-interno-para-um-consumidor-externo">Como
+transpor o piloto interno para um consumidor externo</h2>
+<h3 id="o-que-o-piloto-interno-ja-prova">O que o piloto interno ja
+prova</h3>
+<p>O piloto em <code>src/test</code> ja prova que o starter suporta, de
+ponta a ponta:</p>
+<ul>
+<li>DTOs separados de <code>response</code>, <code>create</code>,
+<code>update</code> e <code>filter</code></li>
+<li><code>PATCH</code> resource-oriented por intencao</li>
+<li><code>OpenAPI</code> individual do recurso</li>
+<li><code>/schemas/filtered</code> para create, update e patch</li>
+<li>integridade basica do ciclo HTTP do controller novo</li>
+</ul>
+<h3 id="como-levar-isso-para-um-host-real">Como levar isso para um host
+real</h3>
+<p>Ao migrar o primeiro consumidor externo, siga esta ordem:</p>
+<ol type="1">
+<li>escolha um recurso pequeno, com escopo congelado</li>
+<li>substitua o DTO unico por:
+<ul>
+<li><code>ResponseDTO</code></li>
+<li><code>CreateDTO</code></li>
+<li><code>UpdateDTO</code></li>
+<li><code>FilterDTO</code></li>
+</ul></li>
+<li>troque o controller legado por:
+<ul>
+<li><code>AbstractResourceController</code>, se o recurso for
+mutavel</li>
+<li><code>AbstractReadOnlyResourceController</code>, se o recurso for
+query-only</li>
+</ul></li>
+<li>troque o service legado por:
+<ul>
+<li><code>AbstractBaseResourceService</code></li>
+<li><code>AbstractReadOnlyResourceService</code></li>
+</ul></li>
+<li>introduza <code>@ResourceIntent</code>, <code>@UiSurface</code> e
+<code>@WorkflowAction</code> apenas quando houver operacoes reais
+correspondentes</li>
+<li>valide no host:
+<ul>
+<li><code>/schemas/filtered</code></li>
+<li><code>/schemas/catalog</code></li>
+<li><code>/schemas/surfaces</code></li>
+<li><code>/schemas/actions</code></li>
+<li><code>/capabilities</code></li>
+</ul></li>
+</ol>
+<h3 id="o-que-nao-fazer-na-transposicao">O que nao fazer na
+transposicao</h3>
+<ul>
+<li>nao criar aliases <code>v2</code></li>
+<li>nao manter o DTO unico so por conveniencia</li>
+<li>nao criar dispatcher generico de action</li>
+<li>nao embutir payload inline em <code>surfaces</code>,
+<code>actions</code> ou <code>capabilities</code></li>
+<li>nao tratar o app consumidor como fonte canonica da semantica</li>
+</ul>
+<h2 id="regra-de-engenharia">Regra de engenharia</h2>
+<p>Qualquer ajuste no core <code>AbstractResource*</code> que
+altere:</p>
+<ul>
+<li>HATEOAS</li>
+<li>schema discovery</li>
+<li><code>datasetVersion</code></li>
+<li>mapeamento create/update</li>
+<li>integracao com OpenAPI</li>
+</ul>
+<p>deve primeiro manter este piloto verde.</p>
+<p>Se o piloto quebrar, a mudanca ainda nao esta pronta para sair do
+starter.</p>
+</body>
+</html>
