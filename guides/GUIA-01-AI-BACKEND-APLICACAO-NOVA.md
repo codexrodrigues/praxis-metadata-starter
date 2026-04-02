@@ -69,6 +69,26 @@ src/main/java/{base-package}/
     `-- service/
 ```
 
+## Como pensar `resourcePath` vs `resourceKey`
+
+Antes de criar o primeiro controller, trate os dois campos como responsabilidades diferentes:
+
+- `resourcePath`: URL operacional real do recurso, por exemplo `/api/human-resources/employees`
+- `resourceKey`: identidade semantica estavel do recurso, por exemplo `human-resources.employees`
+
+Na plataforma Praxis, `resourceKey` e a chave usada por discovery e capabilities.
+Ele alimenta consultas como:
+
+- `GET /schemas/surfaces?resource={resourceKey}`
+- `GET /schemas/actions?resource={resourceKey}`
+- `GET /{resource}/capabilities`
+- `GET /{resource}/{id}/capabilities`
+
+Regra pratica:
+
+- se a URL mudar, tente preservar o mesmo `resourceKey`
+- so mude o `resourceKey` quando a semantica canonica do recurso realmente mudou
+
 ## Primeiro recurso canonico
 
 O primeiro recurso de uma aplicacao nova deve nascer com:
@@ -123,6 +143,11 @@ public class EmployeeController extends AbstractResourceController<
     }
 }
 ```
+
+O exemplo acima deixa explicita a separacao correta:
+
+- `ApiPaths.HumanResources.EMPLOYEES` define o endereco HTTP do recurso
+- `"human-resources.employees"` define a identidade semantica que o starter usa em discovery
 
 ## Read-only canonico
 

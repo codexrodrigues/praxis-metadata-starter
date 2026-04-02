@@ -298,6 +298,31 @@ de build quando aplicavel</li>
     |-- mapper/
     |-- repository/
     `-- service/</code></pre>
+<h2 id="como-pensar-resourcepath-vs-resourcekey">Como pensar
+<code>resourcePath</code> vs <code>resourceKey</code></h2>
+<p>Antes de criar o primeiro controller, trate os dois campos como
+responsabilidades diferentes:</p>
+<ul>
+<li><code>resourcePath</code>: URL operacional real do recurso, por
+exemplo <code>/api/human-resources/employees</code></li>
+<li><code>resourceKey</code>: identidade semantica estavel do recurso,
+por exemplo <code>human-resources.employees</code></li>
+</ul>
+<p>Na plataforma Praxis, <code>resourceKey</code> e a chave usada por
+discovery e capabilities. Ele alimenta consultas como:</p>
+<ul>
+<li><code>GET /schemas/surfaces?resource={resourceKey}</code></li>
+<li><code>GET /schemas/actions?resource={resourceKey}</code></li>
+<li><code>GET /{resource}/capabilities</code></li>
+<li><code>GET /{resource}/{id}/capabilities</code></li>
+</ul>
+<p>Regra pratica:</p>
+<ul>
+<li>se a URL mudar, tente preservar o mesmo
+<code>resourceKey</code></li>
+<li>so mude o <code>resourceKey</code> quando a semantica canonica do
+recurso realmente mudou</li>
+</ul>
 <h2 id="primeiro-recurso-canonico">Primeiro recurso canonico</h2>
 <p>O primeiro recurso de uma aplicacao nova deve nascer com:</p>
 <ul>
@@ -351,6 +376,13 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="
 <span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
 <span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
 <span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>O exemplo acima deixa explicita a separacao correta:</p>
+<ul>
+<li><code>ApiPaths.HumanResources.EMPLOYEES</code> define o endereco
+HTTP do recurso</li>
+<li><code>"human-resources.employees"</code> define a identidade
+semantica que o starter usa em discovery</li>
+</ul>
 <h2 id="read-only-canonico">Read-only canonico</h2>
 <div class="sourceCode" id="cb4"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@RestController</span></span>

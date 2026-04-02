@@ -35,6 +35,29 @@ Entrada:
 - Pacote base: com.example.hr
 ```
 
+## Semantica obrigatoria de `resourceKey`
+
+Ao gerar um recurso novo, nao trate `resourceKey` como espelho cosmetico do path.
+
+Use esta regra:
+
+- `resourcePath` identifica a URL do recurso
+- `resourceKey` identifica a semantica canonica do recurso
+
+Exemplo:
+
+- `resourcePath = /api/human-resources/employees`
+- `resourceKey = human-resources.employees`
+
+O starter usa `resourceKey` para:
+
+- encontrar surfaces do recurso em `/schemas/surfaces`
+- encontrar workflow actions do recurso em `/schemas/actions`
+- compor snapshots de `capabilities`
+- manter a identidade do recurso estavel mesmo se o path operacional mudar
+
+Se o recurso continua semanticamente o mesmo, prefira manter o mesmo `resourceKey` mesmo quando a URL precisar evoluir.
+
 ## Arquivos minimos do recurso
 
 ```text
@@ -103,6 +126,11 @@ public class EmployeeController extends AbstractResourceController<
     }
 }
 ```
+
+Leitura correta do exemplo:
+
+- `value = ApiPaths.HumanResources.EMPLOYEES` define o path publicado pelo controller
+- `resourceKey = "human-resources.employees"` define a chave semantica que a plataforma usa em discovery e capabilities
 
 ## Service canonico
 
@@ -242,6 +270,7 @@ Para um recurso mutavel no core atual, o baseline esperado inclui:
 Antes de concluir:
 
 - o controller usa `@ApiResource(value = ..., resourceKey = ...)`
+- `resourceKey` representa a semantica do recurso, e nao apenas a URL atual
 - o recurso nao usa DTO unico
 - `@Valid` funciona de verdade
 - `/schemas/filtered` resolve request e response

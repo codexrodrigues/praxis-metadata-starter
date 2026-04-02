@@ -264,6 +264,32 @@ Entrada:
 - Resource key: human-resources.employees
 - Api group: human-resources
 - Pacote base: com.example.hr</code></pre>
+<h2 id="semantica-obrigatoria-de-resourcekey">Semantica obrigatoria de
+<code>resourceKey</code></h2>
+<p>Ao gerar um recurso novo, nao trate <code>resourceKey</code> como
+espelho cosmetico do path.</p>
+<p>Use esta regra:</p>
+<ul>
+<li><code>resourcePath</code> identifica a URL do recurso</li>
+<li><code>resourceKey</code> identifica a semantica canonica do
+recurso</li>
+</ul>
+<p>Exemplo:</p>
+<ul>
+<li><code>resourcePath = /api/human-resources/employees</code></li>
+<li><code>resourceKey = human-resources.employees</code></li>
+</ul>
+<p>O starter usa <code>resourceKey</code> para:</p>
+<ul>
+<li>encontrar surfaces do recurso em <code>/schemas/surfaces</code></li>
+<li>encontrar workflow actions do recurso em
+<code>/schemas/actions</code></li>
+<li>compor snapshots de <code>capabilities</code></li>
+<li>manter a identidade do recurso estavel mesmo se o path operacional
+mudar</li>
+</ul>
+<p>Se o recurso continua semanticamente o mesmo, prefira manter o mesmo
+<code>resourceKey</code> mesmo quando a URL precisar evoluir.</p>
 <h2 id="arquivos-minimos-do-recurso">Arquivos minimos do recurso</h2>
 <pre class="text"><code>src/main/java/{base-package}/
 |-- dto/
@@ -325,6 +351,13 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="
 <span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
 <span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
 <span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Leitura correta do exemplo:</p>
+<ul>
+<li><code>value = ApiPaths.HumanResources.EMPLOYEES</code> define o path
+publicado pelo controller</li>
+<li><code>resourceKey = "human-resources.employees"</code> define a
+chave semantica que a plataforma usa em discovery e capabilities</li>
+</ul>
 <h2 id="service-canonico">Service canonico</h2>
 <div class="sourceCode" id="cb4"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
@@ -445,6 +478,8 @@ inclui:</p>
 <ul>
 <li>o controller usa
 <code>@ApiResource(value = ..., resourceKey = ...)</code></li>
+<li><code>resourceKey</code> representa a semantica do recurso, e nao
+apenas a URL atual</li>
 <li>o recurso nao usa DTO unico</li>
 <li><code>@Valid</code> funciona de verdade</li>
 <li><code>/schemas/filtered</code> resolve request e response</li>
