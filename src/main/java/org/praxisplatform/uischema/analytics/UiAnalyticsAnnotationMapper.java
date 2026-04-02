@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.analytics;
 
 import org.praxisplatform.uischema.annotation.AnalyticsDimensionBinding;
+import org.praxisplatform.uischema.annotation.AnalyticsGranularity;
 import org.praxisplatform.uischema.annotation.AnalyticsMetricBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsProjection;
 import org.praxisplatform.uischema.annotation.AnalyticsPresentationFamily;
@@ -35,7 +36,11 @@ public class UiAnalyticsAnnotationMapper {
         result.put("source", buildSource(projection, operationPath));
         result.put("bindings", buildBindings(projection));
 
-        Map<String, Object> defaults = buildDefaults(projection.defaultSort(), projection.defaultLimit());
+        Map<String, Object> defaults = buildDefaults(
+                projection.defaultSort(),
+                projection.defaultLimit(),
+                projection.defaultGranularity()
+        );
         if (!defaults.isEmpty()) {
             result.put("defaults", defaults);
         }
@@ -125,7 +130,11 @@ public class UiAnalyticsAnnotationMapper {
         return result;
     }
 
-    private Map<String, Object> buildDefaults(AnalyticsSort[] defaultSort, int defaultLimit) {
+    private Map<String, Object> buildDefaults(
+            AnalyticsSort[] defaultSort,
+            int defaultLimit,
+            AnalyticsGranularity defaultGranularity
+    ) {
         Map<String, Object> defaults = new LinkedHashMap<>();
         if (defaultSort != null && defaultSort.length > 0) {
             List<Map<String, Object>> sort = new ArrayList<>();
@@ -139,6 +148,9 @@ public class UiAnalyticsAnnotationMapper {
         }
         if (defaultLimit > 0) {
             defaults.put("limit", defaultLimit);
+        }
+        if (defaultGranularity != null && !defaultGranularity.wireValue().isBlank()) {
+            defaults.put("granularity", defaultGranularity.wireValue());
         }
         return defaults;
     }
