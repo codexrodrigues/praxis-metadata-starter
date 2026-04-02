@@ -97,6 +97,10 @@
         "limit": {
           "type": "integer",
           "minimum": 1
+        },
+        "granularity": {
+          "type": "string",
+          "enum": ["hour", "day", "week", "month", "quarter", "year"]
         }
       }
     },

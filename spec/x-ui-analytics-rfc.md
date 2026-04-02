@@ -68,7 +68,8 @@ uma unica leitura editorial.
             "sort": [
               { "field": "valorLiquido", "direction": "desc" }
             ],
-            "limit": 10
+            "limit": 10,
+            "granularity": "month"
           },
           "presentationHints": {
             "preferredFamilies": ["analytic-table", "chart"]
@@ -90,6 +91,7 @@ uma unica leitura editorial.
 - `MUST`: publicar `projections[]`
 - `MUST`: cada projection conter `id`, `intent`, `source`, `bindings.primaryMetrics`
 - `SHOULD`: publicar `defaults` e `preferredFamilies` quando a leitura canonica estiver clara
+- `SHOULD`: projections `timeseries` publicar `defaults.granularity` quando o runtime depender da granularidade para executar a consulta sem heuristica local
 - `MUST NOT`: fixar componente Angular, engine, layout ou detalhes visuais de chart
 
 ## Convivencia com `x-ui.chart`
