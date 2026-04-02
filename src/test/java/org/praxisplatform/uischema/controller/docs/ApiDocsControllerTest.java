@@ -64,7 +64,27 @@ class ApiDocsControllerTest {
                 "  \"paths\": {\n" +
                 "    \"/users\": {\n" +
                 "      \"post\": {\n" +
-                "        \"x-ui\": {\"responseSchema\": \"UserResponse\"},\n" +
+                "        \"x-ui\": {\n" +
+                "          \"responseSchema\": \"UserResponse\",\n" +
+                "          \"analytics\": {\n" +
+                "            \"projections\": [\n" +
+                "              {\n" +
+                "                \"id\": \"users-ranking\",\n" +
+                "                \"intent\": \"ranking\",\n" +
+                "                \"source\": {\n" +
+                "                  \"kind\": \"praxis.stats\",\n" +
+                "                  \"resource\": \"/users\",\n" +
+                "                  \"operation\": \"group-by\"\n" +
+                "                },\n" +
+                "                \"bindings\": {\n" +
+                "                  \"primaryMetrics\": [\n" +
+                "                    {\"field\": \"total\", \"aggregation\": \"count\"}\n" +
+                "                  ]\n" +
+                "                }\n" +
+                "              }\n" +
+                "            ]\n" +
+                "          }\n" +
+                "        },\n" +
                 "        \"requestBody\": {\n" +
                 "          \"content\": {\n" +
                 "            \"application/json\": {\n" +
@@ -120,6 +140,32 @@ class ApiDocsControllerTest {
         Map<String, Object> responseSchema = rRes.getBody();
         assertNotNull(responseSchema);
         assertTrue(((Map<?,?>) responseSchema.get("properties")).containsKey("email"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getFilteredSchemaPreservesAnalyticsWithoutOverwritingExistingXUiKeys() {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+
+        server.expect(requestTo("http://localhost/v3/api-docs/users"))
+                .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        var response = controller.getFilteredSchema("/users", "post", false, "response", null, null, java.util.Locale.ENGLISH);
+        Map<String, Object> responseSchema = response.getBody();
+        assertNotNull(responseSchema);
+
+        Map<String, Object> xUi = (Map<String, Object>) responseSchema.get("x-ui");
+        assertNotNull(xUi);
+        assertEquals("UserResponse", xUi.get("responseSchema"));
+
+        Map<String, Object> analytics = (Map<String, Object>) xUi.get("analytics");
+        assertNotNull(analytics);
+        assertNotNull(analytics.get("projections"));
     }
 
     @Test
