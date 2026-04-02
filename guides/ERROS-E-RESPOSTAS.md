@@ -18,10 +18,17 @@ Use o helper `RestApiResponse.success(data, links)` nos controllers base.
   "status": "success",
   "message": "Requisição realizada com sucesso",
   "data": { /* payload */ },
-  "links": { /* HATEOAS (quando habilitado) */ },
+  "_links": {
+    "self": { "href": "https://api.exemplo.com/api/recurso/1" }
+  },
   "timestamp": "2024-01-01T10:00:00"
 }
 ```
+
+O contrato publico canonico usa `_links` em formato de objeto por `rel`, nao `links`
+em array nem envelope HAL completo com `_embedded`. Cada `rel` aponta para um
+objeto de link unico (`{ "href": "..." }`) ou para uma lista desses objetos
+quando houver multiplas ocorrencias para o mesmo `rel`.
 
 </details>
 

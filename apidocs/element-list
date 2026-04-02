@@ -1,5 +1,6 @@
 org.praxisplatform.uischema
 org.praxisplatform.uischema.action
+org.praxisplatform.uischema.analytics
 org.praxisplatform.uischema.annotation
 org.praxisplatform.uischema.capability
 org.praxisplatform.uischema.configuration

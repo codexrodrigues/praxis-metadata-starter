@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://praxis.dev/spec/x-ui-analytics.schema.json",
+  "title": "x-ui.analytics - 0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["projections"],
+  "properties": {
+    "projections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/projection" }
+    }
+  },
+  "$defs": {
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "intent", "source", "bindings"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "intent": {
+          "type": "string",
+          "enum": ["ranking", "trend", "distribution", "composition", "comparison", "correlation"]
+        },
+        "source": { "$ref": "#/$defs/source" },
+        "bindings": { "$ref": "#/$defs/bindings" },
+        "defaults": { "$ref": "#/$defs/defaults" },
+        "presentationHints": { "$ref": "#/$defs/presentationHints" },
+        "interactions": { "$ref": "#/$defs/interactions" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "resource", "operation"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "praxis.stats"
+        },
+        "resource": { "type": "string", "minLength": 1 },
+        "operation": {
+          "type": "string",
+          "enum": ["group-by", "timeseries", "distribution"]
+        }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primaryMetrics"],
+      "properties": {
+        "primaryDimension": { "$ref": "#/$defs/dimension" },
+        "primaryMetrics": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/metric" }
+        },
+        "secondaryMetrics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/metric" }
+        }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field"],
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field"],
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "aggregation": {
+          "type": "string",
+          "enum": ["count", "sum", "avg", "min", "max"]
+        },
+        "label": { "type": "string", "minLength": 1 }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sort": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sort" }
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "sort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "direction"],
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "direction": {
+          "type": "string",
+          "enum": ["asc", "desc"]
+        }
+      }
+    },
+    "presentationHints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preferredFamilies": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["chart", "analytic-table", "kpi", "summary-list"]
+          }
+        }
+      }
+    },
+    "interactions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "drillDown": { "type": "boolean" },
+        "pointSelection": { "type": "boolean" },
+        "crossFilter": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -186,6 +186,8 @@ localmente contra os JSON Schemas desta pasta.</li>
 <li>x-ui.resource no payload final consumido pela UI
 (<code>/schemas/filtered</code>):
 <code>x-ui-resource.schema.json</code></li>
+<li>x-ui.analytics como draft validavel:
+<code>x-ui-analytics.schema.json</code></li>
 <li>x-ui.chart como draft validavel:
 <code>x-ui-chart.schema.json</code></li>
 <li>checklist de publicacao do draft:
@@ -203,6 +205,16 @@ validavel inicial</li>
 <li>publicacao assistida por
 <code>x-ui-chart-publication-checklist.md</code>, com gates minimos de
 contrato, host operacional e compatibilidade de consumidor</li>
+</ul></li>
+<li>Analytics semantics metadata-driven:
+<code>x-ui-analytics-rfc.md</code>
+<ul>
+<li>define a direcao canonica de <code>x-ui.analytics</code> como
+projecao semantica analitica de operacao</li>
+<li>usa <code>projections[]</code> para manter a neutralidade de
+<code>praxis.stats</code></li>
+<li>convive com <code>x-ui.chart</code>, que permanece como
+especializacao opcional</li>
 </ul></li>
 <li>Option sources metadata-driven:
 <code>x-ui-option-source-rfc.md</code>
@@ -269,7 +281,16 @@ basicas</li>
 <li><code>displayColumns</code> (string[]), <code>displayFields</code>
 (string[]), <code>filterFields</code> (string[]),
 <code>responseSchema</code> (string),
-<code>relatedEntitiesEndpoints</code> (string[])</li>
+<code>relatedEntitiesEndpoints</code> (string[]),
+<code>analytics</code></li>
+</ul></li>
+<li>Analytics (x-ui.analytics)
+<ul>
+<li><code>projections[]</code></li>
+<li>cada projection define <code>id</code>, <code>intent</code>,
+<code>source</code>, <code>bindings</code>, <code>defaults</code>,
+<code>presentationHints</code> e <code>interactions</code></li>
+<li>a escolha de apresentacao continua no runtime consumidor</li>
 </ul></li>
 <li>Recurso (x-ui.resource)
 <ul>
@@ -307,6 +328,12 @@ JSON Schema</li>
 <code>bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter</code></li>
 <li><code>x-ui.chart.source.kind</code>:
 <code>praxis.stats | derived</code></li>
+<li><code>x-ui.analytics.intent</code>:
+<code>ranking | trend | distribution | composition | comparison | correlation</code></li>
+<li><code>x-ui.analytics.source.operation</code>:
+<code>group-by | timeseries | distribution</code></li>
+<li><code>x-ui.analytics.presentationHints.preferredFamilies</code>:
+<code>chart | analytic-table | kpi | summary-list</code></li>
 <li><code>x-ui.optionSource.type</code>:
 <code>RESOURCE_ENTITY | DISTINCT_DIMENSION | CATEGORICAL_BUCKET | LIGHT_LOOKUP | STATIC_CANONICAL</code></li>
 </ul>
@@ -317,6 +344,13 @@ inferir <code>type/controlType</code> por heuristica, mas recomenda-se
 prover ao menos <code>type</code> e <code>label</code>.</li>
 <li>Operacao (x-ui): todos opcionais; sugerem preferencias de
 renderizacao.</li>
+<li>Analytics (x-ui.analytics):
+<ul>
+<li>MUST conter <code>projections[]</code></li>
+<li>cada projection MUST conter <code>id</code>, <code>intent</code>,
+<code>source</code> e <code>bindings.primaryMetrics</code></li>
+<li>MUST NOT fixar renderer, engine ou layout</li>
+</ul></li>
 <li>Recurso (x-ui.resource): MUST conter <code>idField</code>,
 <code>idFieldValid</code>, <code>readOnly</code>,
 <code>capabilities</code>; <code>idFieldMessage</code> e opcional e
@@ -366,6 +400,9 @@ forte e <code>X-Schema-Hash</code> e expor via
 <li>SHOULD: publicacoes de <code>x-ui.chart</code> explicitar quando o
 contrato canonico ainda e mais amplo que o runtime consumidor
 atual.</li>
+<li>SHOULD: publicacoes de <code>x-ui.analytics</code> manterem a
+semantica estritamente analitica, sem reempacotar detalhes especificos
+de chart.</li>
 <li>MAY: incluir <code>specVersion</code> em um envelope/meta do payload
 para auditoria.</li>
 </ul>
@@ -386,11 +423,16 @@ especificacao</h2>
 operacao</li>
 <li><code>x-ui-resource.schema.json</code> - valida x-ui.resource no
 payload final</li>
+<li><code>x-ui-analytics.schema.json</code> - valida o draft inicial de
+<code>x-ui.analytics</code></li>
 <li><code>x-ui-chart.schema.json</code> - valida o draft inicial de
 <code>x-ui.chart</code></li>
 </ul>
 <h2 id="drafts-e-rfcs">Drafts e RFCs</h2>
 <ul>
+<li><code>x-ui-analytics-rfc.md</code> - proposta canonica para
+<code>x-ui.analytics</code>, separando capacidade analitica, projecao
+semantica e especializacao opcional de chart</li>
 <li><code>x-ui-chart-rfc.md</code> - proposta canonica para
 <code>x-ui.chart</code>, separando semantica de plataforma de runtime
 Angular e detalhes de engine</li>
@@ -424,6 +466,8 @@ esperado</li>
 <li><code>examples/x-ui-operation.invalid.json</code></li>
 <li><code>examples/x-ui-resource.valid.json</code></li>
 <li><code>examples/x-ui-resource.invalid.json</code></li>
+<li><code>examples/x-ui-analytics.valid.json</code></li>
+<li><code>examples/x-ui-analytics.invalid.json</code></li>
 <li><code>examples/x-ui-chart.valid.json</code></li>
 <li><code>examples/x-ui-chart.invalid.json</code></li>
 </ul></li>

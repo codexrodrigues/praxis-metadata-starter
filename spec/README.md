@@ -10,6 +10,7 @@
 - x-ui de campo (por propriedade OpenAPI): `x-ui-field.schema.json`
 - x-ui em nivel de operacao (por path+operation do OpenAPI): `x-ui-operation.schema.json`
 - x-ui.resource no payload final consumido pela UI (`/schemas/filtered`): `x-ui-resource.schema.json`
+- x-ui.analytics como draft validavel: `x-ui-analytics.schema.json`
 - x-ui.chart como draft validavel: `x-ui-chart.schema.json`
 - checklist de publicacao do draft: `x-ui-chart-publication-checklist.md`
 
@@ -19,6 +20,10 @@
   - define a direcao canonica de `x-ui.chart` como extensao governada da plataforma
   - complementado por `x-ui-chart.schema.json` como draft validavel inicial
   - publicacao assistida por `x-ui-chart-publication-checklist.md`, com gates minimos de contrato, host operacional e compatibilidade de consumidor
+- Analytics semantics metadata-driven: `x-ui-analytics-rfc.md`
+  - define a direcao canonica de `x-ui.analytics` como projecao semantica analitica de operacao
+  - usa `projections[]` para manter a neutralidade de `praxis.stats`
+  - convive com `x-ui.chart`, que permanece como especializacao opcional
 - Option sources metadata-driven: `x-ui-option-source-rfc.md`
   - define a direcao canonica para fontes de opcoes derivadas em filtros metadata-driven
   - cobre a lacuna entre recursos CRUD com `/options/filter`, dimensoes categoricas derivadas e buckets governados
@@ -42,7 +47,11 @@
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`
   - Legado (opcional): bloco `validation{}` com chaves basicas
 - Operacao (x-ui por operacao)
-  - `displayColumns` (string[]), `displayFields` (string[]), `filterFields` (string[]), `responseSchema` (string), `relatedEntitiesEndpoints` (string[])
+  - `displayColumns` (string[]), `displayFields` (string[]), `filterFields` (string[]), `responseSchema` (string), `relatedEntitiesEndpoints` (string[]), `analytics`
+- Analytics (x-ui.analytics)
+  - `projections[]`
+  - cada projection define `id`, `intent`, `source`, `bindings`, `defaults`, `presentationHints` e `interactions`
+  - a escolha de apresentacao continua no runtime consumidor
 - Recurso (x-ui.resource)
   - `idField` (string), `idFieldValid` (boolean), `idFieldMessage?` (string, opcional)
   - `readOnly` (boolean)
@@ -60,12 +69,19 @@
 - `numericFormat` (NumericFormat): `integer | decimal | currency | scientific | time | date | date-time | duration | number | fraction | percent`
 - `x-ui.chart.kind`: `bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter`
 - `x-ui.chart.source.kind`: `praxis.stats | derived`
+- `x-ui.analytics.intent`: `ranking | trend | distribution | composition | comparison | correlation`
+- `x-ui.analytics.source.operation`: `group-by | timeseries | distribution`
+- `x-ui.analytics.presentationHints.preferredFamilies`: `chart | analytic-table | kpi | summary-list`
 - `x-ui.optionSource.type`: `RESOURCE_ENTITY | DISTINCT_DIMENSION | CATEGORICAL_BUCKET | LIGHT_LOOKUP | STATIC_CANONICAL`
 
 ## Obrigatoriedade e Defaults
 
 - Campo (x-ui): nao ha campos obrigatorios universais. A UI consegue inferir `type/controlType` por heuristica, mas recomenda-se prover ao menos `type` e `label`.
 - Operacao (x-ui): todos opcionais; sugerem preferencias de renderizacao.
+- Analytics (x-ui.analytics):
+  - MUST conter `projections[]`
+  - cada projection MUST conter `id`, `intent`, `source` e `bindings.primaryMetrics`
+  - MUST NOT fixar renderer, engine ou layout
 - Recurso (x-ui.resource): MUST conter `idField`, `idFieldValid`, `readOnly`, `capabilities`; `idFieldMessage` e opcional e presente quando `idFieldValid=false`.
 - Chart (x-ui.chart):
   - MUST conter `version`, `kind` e `source`
@@ -91,6 +107,7 @@
 - MUST NOT: publicar `x-ui.valuePresentation` automatico para ranges, selecoes, arrays, objects ou IDs semanticos sem override explicito.
 - SHOULD: `/schemas/filtered` enviar `ETag` forte e `X-Schema-Hash` e expor via `Access-Control-Expose-Headers`.
 - SHOULD: publicacoes de `x-ui.chart` explicitar quando o contrato canonico ainda e mais amplo que o runtime consumidor atual.
+- SHOULD: publicacoes de `x-ui.analytics` manterem a semantica estritamente analitica, sem reempacotar detalhes especificos de chart.
 - MAY: incluir `specVersion` em um envelope/meta do payload para auditoria.
 
 ## Versionamento da especificacao
@@ -105,10 +122,12 @@
 - `x-ui-field.schema.json` - valida x-ui de campo
 - `x-ui-operation.schema.json` - valida x-ui por operacao
 - `x-ui-resource.schema.json` - valida x-ui.resource no payload final
+- `x-ui-analytics.schema.json` - valida o draft inicial de `x-ui.analytics`
 - `x-ui-chart.schema.json` - valida o draft inicial de `x-ui.chart`
 
 ## Drafts e RFCs
 
+- `x-ui-analytics-rfc.md` - proposta canonica para `x-ui.analytics`, separando capacidade analitica, projecao semantica e especializacao opcional de chart
 - `x-ui-chart-rfc.md` - proposta canonica para `x-ui.chart`, separando semantica de plataforma de runtime Angular e detalhes de engine
 - `x-ui-chart-publication-checklist.md` - gates minimos para publicar o draft `0.1.0` sem drift imediato entre starter, quickstart e `@praxisui/charts`
 - `x-ui-option-source-rfc.md` - proposta canonica para `x-ui.optionSource`, separando recursos CRUD, fontes derivadas de options e backend interno de stats/distinct values
@@ -129,6 +148,8 @@
   - `examples/x-ui-operation.invalid.json`
   - `examples/x-ui-resource.valid.json`
   - `examples/x-ui-resource.invalid.json`
+  - `examples/x-ui-analytics.valid.json`
+  - `examples/x-ui-analytics.invalid.json`
   - `examples/x-ui-chart.valid.json`
   - `examples/x-ui-chart.invalid.json`
 - Exemplos canonicos de documentacao:
