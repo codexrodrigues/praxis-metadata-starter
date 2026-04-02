@@ -24,6 +24,22 @@ import java.lang.annotation.Target;
  * </ul>
  *
  * <p>
+ * A distincao entre path e {@code resourceKey} e intencional:
+ * </p>
+ *
+ * <ul>
+ *   <li>o path diz onde o recurso vive operacionalmente, por exemplo {@code /api/human-resources/employees};</li>
+ *   <li>o {@code resourceKey} diz qual recurso a plataforma esta tratando semanticamente, por exemplo
+ *   {@code human-resources.employees}.</li>
+ * </ul>
+ *
+ * <p>
+ * No baseline atual, o {@code resourceKey} e a chave usada para catalogos de surfaces/actions,
+ * snapshots de capabilities e availability contextual. Por isso ele nao deve variar apenas porque
+ * a URL operacional do recurso mudou.
+ * </p>
+ *
+ * <p>
  * No core atual do starter, esta e a forma recomendada de expor controllers que herdam
  * {@code AbstractResourceController}, {@code AbstractResourceQueryController} ou
  * {@code AbstractReadOnlyResourceController}. Ela evita que path e identidade do recurso fiquem
@@ -77,8 +93,9 @@ public @interface ApiResource {
      * Identidade semantica estavel do recurso.
      *
      * <p>
-     * Este valor e usado por superficies derivadas de discovery, como o catalogo de surfaces.
-     * Diferentemente do path REST, ele nao deve variar apenas porque a URL operacional mudou.
+     * Este valor e usado por superficies derivadas de discovery, como os catalogos de surfaces e
+     * actions, alem dos snapshots de capabilities. Diferentemente do path REST, ele nao deve
+     * variar apenas porque a URL operacional mudou.
      * </p>
      *
      * <p>

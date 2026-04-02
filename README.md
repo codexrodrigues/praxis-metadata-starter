@@ -96,6 +96,32 @@ Use `@UiSurface` quando a UX precisa descobrir semanticamente uma experiencia re
 
 Use `@WorkflowAction` quando a operacao for um comando de negocio explicito.
 
+## What `resourceKey` Actually Means
+
+`resourceKey` e a identidade semantica estavel do recurso na plataforma.
+
+Diferenca pratica:
+
+- `path` ou `resourcePath` diz onde o endpoint vive, por exemplo `/api/human-resources/employees`
+- `resourceKey` diz o que o recurso e para discovery e agregacao, por exemplo `human-resources.employees`
+
+Regra de plataforma:
+
+- o `path` pode mudar por reorganizacao de URL, proxy, versionamento ou host
+- o `resourceKey` nao deve mudar apenas porque a URL mudou
+
+No starter, `resourceKey` e usado para:
+
+- resolver `GET /schemas/surfaces?resource={resourceKey}`
+- resolver `GET /schemas/actions?resource={resourceKey}`
+- agregar `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities`
+- indexar availability contextual de surfaces e actions
+
+Por isso, `@ApiResource(value = ..., resourceKey = ...)` nao e so decoracao. Ele define:
+
+- a URL operacional do recurso
+- a identidade semantica que o restante da plataforma usa para discovery
+
 ## Spring HATEOAS Is Part Of The Contract
 
 O starter usa HATEOAS de forma efetiva, nao ornamental.
