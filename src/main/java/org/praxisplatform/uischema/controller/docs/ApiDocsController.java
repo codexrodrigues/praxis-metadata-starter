@@ -911,7 +911,11 @@ public class ApiDocsController {
             // Verificar se e RestApiResponseTestDTO ou RestApiResponseListTestDTO
                 if (wrapperSchemaName.startsWith("RestApiResponse")) {
                 // Encontrar o tipo generico dentro do RestApiResponse
-                    String realTypeName = extractRealTypeFromRestApiResponse(wrapperSchema, wrapperSchemaName);
+                    String realTypeName = extractRealTypeFromRestApiResponse(
+                            wrapperSchema,
+                            wrapperSchemaName,
+                            rootNode.path(COMPONENTS).path(SCHEMAS)
+                    );
                     if (realTypeName != null) {
                     LOGGER.info("Tipo real extraido de {}: {}", wrapperSchemaName, realTypeName);
                         return realTypeName;
@@ -952,7 +956,16 @@ public class ApiDocsController {
     /**
      * Extrai o tipo de dominio encapsulado por wrappers como {@code RestApiResponse}.
      */
-    private String extractRealTypeFromRestApiResponse(JsonNode wrapperSchema, String wrapperSchemaName) {
+    private String extractRealTypeFromRestApiResponse(JsonNode wrapperSchema, String wrapperSchemaName, JsonNode allSchemas) {
+        String structuralType = resolveDomainSchemaName(
+                wrapperSchema.path("properties").path("data"),
+                allSchemas,
+                new LinkedHashSet<>()
+        );
+        if (StringUtils.hasText(structuralType)) {
+            return structuralType;
+        }
+
         // Analise do nome para casos comuns como "RestApiResponseTestDTO" ou "RestApiResponseListTestDTO"
         if (wrapperSchemaName.startsWith("RestApiResponse")) {
             String remaining = wrapperSchemaName.substring("RestApiResponse".length());
@@ -968,7 +981,7 @@ public class ApiDocsController {
 
         // Se a analise pelo nome nao funcionar, tenta analisar a estrutura do schema
         // Especificamente, buscamos a propriedade "data" do RestApiResponse
-        JsonNode dataSchema = wrapperSchema.path("properties").path("data").path("schema");
+        JsonNode dataSchema = wrapperSchema.path("properties").path("data");
 
         // Verifica se data e um array
         if (dataSchema.has("type") && "array".equals(dataSchema.path("type").asText()) && dataSchema.has("items") && dataSchema.path("items").has("$ref")) {
@@ -1004,6 +1017,81 @@ public class ApiDocsController {
 
         // Nao conseguiu extrair o tipo
         return null;
+    }
+
+    private String resolveDomainSchemaName(JsonNode schemaNode, JsonNode allSchemas, Set<String> visited) {
+        if (schemaNode == null || schemaNode.isMissingNode() || schemaNode.isNull()) {
+            return null;
+        }
+
+        if (schemaNode.has(REF)) {
+            String schemaName = extractSchemaNameFromRef(schemaNode.path(REF).asText());
+            if (!StringUtils.hasText(schemaName)) {
+                return null;
+            }
+            if (!visited.add(schemaName)) {
+                return unwrapWrapperSchemaName(schemaName);
+            }
+
+            JsonNode referencedSchema = allSchemas == null ? null : allSchemas.path(schemaName);
+            String nestedType = resolveDomainSchemaName(referencedSchema, allSchemas, visited);
+            if (StringUtils.hasText(nestedType) && !isLinkInfrastructureSchema(nestedType)) {
+                return nestedType;
+            }
+            return unwrapWrapperSchemaName(schemaName);
+        }
+
+        if (schemaNode.has("items")) {
+            String nestedType = resolveDomainSchemaName(schemaNode.path("items"), allSchemas, visited);
+            if (StringUtils.hasText(nestedType)) {
+                return nestedType;
+            }
+        }
+
+        JsonNode contentNode = schemaNode.path("properties").path("content");
+        if (!contentNode.isMissingNode()) {
+            String nestedType = resolveDomainSchemaName(contentNode, allSchemas, visited);
+            if (StringUtils.hasText(nestedType)) {
+                return nestedType;
+            }
+        }
+
+        JsonNode dataNode = schemaNode.path("properties").path("data");
+        if (!dataNode.isMissingNode()) {
+            String nestedType = resolveDomainSchemaName(dataNode, allSchemas, visited);
+            if (StringUtils.hasText(nestedType)) {
+                return nestedType;
+            }
+        }
+
+        JsonNode allOf = schemaNode.path("allOf");
+        if (allOf.isArray()) {
+            for (JsonNode candidate : allOf) {
+                String nestedType = resolveDomainSchemaName(candidate, allSchemas, visited);
+                if (StringUtils.hasText(nestedType) && !isLinkInfrastructureSchema(nestedType)) {
+                    return nestedType;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private String unwrapWrapperSchemaName(String schemaName) {
+        if (!StringUtils.hasText(schemaName)) {
+            return null;
+        }
+        if (schemaName.startsWith("RestApiResource")) {
+            return schemaName.substring("RestApiResource".length());
+        }
+        if (schemaName.startsWith("EntityModel")) {
+            return schemaName.substring("EntityModel".length());
+        }
+        return schemaName;
+    }
+
+    private boolean isLinkInfrastructureSchema(String schemaName) {
+        return "RestApiLinks".equals(schemaName) || "RestApiLinkObject".equals(schemaName);
     }
 
     /**
