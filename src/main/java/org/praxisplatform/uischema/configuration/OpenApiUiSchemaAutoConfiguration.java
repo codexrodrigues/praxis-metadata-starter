@@ -126,6 +126,7 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(RequestMappingHandlerMapping.class)
     @ConditionalOnMissingBean(name = "uiAnalyticsOpenApiCustomizer")
     public GlobalOpenApiCustomizer uiAnalyticsOpenApiCustomizer(
             RequestMappingHandlerMapping requestMappingHandlerMapping,
