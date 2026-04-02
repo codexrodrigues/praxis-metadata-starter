@@ -12,6 +12,7 @@ import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.LocateResponse;
 import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.rest.response.RestApiResource;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseDistributionStatsResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseGroupByStatsResponse;
@@ -265,6 +266,19 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         return EntityModel.of(dto, links);
     }
 
+    protected RestApiResource<ResponseDTO> toResourceModel(ResponseDTO dto) {
+        if (!isHateoasEnabled()) {
+            return RestApiResource.of(dto);
+        }
+
+        ID id = getResponseId(dto);
+        List<Link> links = new ArrayList<>();
+        links.add(linkToSelf(id));
+        links.addAll(buildEntityActionLinks(id));
+        links.addAll(buildItemDiscoveryLinks(id));
+        return RestApiResource.of(dto, links);
+    }
+
     protected List<Link> buildItemActionLinks(ID id) {
         return List.of();
     }
@@ -331,7 +345,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (!isHateoasEnabled()) {
             return successEnvelope(ResponseEntity.ok(), result, null);
         }
-        Page<EntityModel<ResponseDTO>> entityModels = result.map(this::toEntityModel);
+        Page<RestApiResource<ResponseDTO>> entityModels = result.map(this::toResourceModel);
 
         List<Link> links = new ArrayList<>();
         links.add(linkToAll());
@@ -370,8 +384,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return successEnvelope(ResponseEntity.ok(), result, null);
         }
 
-        CursorPage<EntityModel<ResponseDTO>> mapped = new CursorPage<>(
-                result.content().stream().map(this::toEntityModel).toList(),
+        CursorPage<RestApiResource<ResponseDTO>> mapped = new CursorPage<>(
+                result.content().stream().map(this::toResourceModel).toList(),
                 result.next(),
                 result.prev(),
                 result.size()
@@ -573,8 +587,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return successEnvelope(ResponseEntity.ok(), dtos, null);
         }
 
-        List<EntityModel<ResponseDTO>> entityModels = dtos.stream()
-                .map(this::toEntityModel)
+        List<RestApiResource<ResponseDTO>> entityModels = dtos.stream()
+                .map(this::toResourceModel)
                 .toList();
 
         List<Link> links = new ArrayList<>();

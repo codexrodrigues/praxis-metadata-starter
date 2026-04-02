@@ -5,6 +5,7 @@ import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.LocateResponse;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.rest.response.RestApiResource;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseDistributionStatsResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseGroupByStatsResponse;
@@ -240,7 +241,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                   }
                 ]
               },
-              "links": null
+              "_links": null
             }
             """;
 
@@ -286,7 +287,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                   }
                 ]
               },
-              "links": null
+              "_links": null
             }
             """;
 
@@ -333,7 +334,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
                   }
                 ]
               },
-              "links": null
+              "_links": null
             }
             """;
 
@@ -664,7 +665,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         if (!isHateoasEnabled()) {
             return successEnvelope(ResponseEntity.ok(), result, null);
         }
-        Page<EntityModel<D>> entityModels = result.map(this::toEntityModel);
+        Page<RestApiResource<D>> entityModels = result.map(this::toResourceModel);
 
         Links links = Links.of(
                 linkToAll(),
@@ -733,8 +734,8 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
             return successEnvelope(ResponseEntity.ok(), result, null);
         }
 
-        CursorPage<EntityModel<D>> mapped = new CursorPage<>(
-                result.content().stream().map(this::toEntityModel).toList(),
+        CursorPage<RestApiResource<D>> mapped = new CursorPage<>(
+                result.content().stream().map(this::toResourceModel).toList(),
                 result.next(),
                 result.prev(),
                 result.size()
@@ -1003,7 +1004,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
 
     /**
      * Lista todos os registros aplicando @DefaultSortColumn quando nenhum sort é enviado.
-     * @return envelope de resposta com a lista de entidades como {@link EntityModel}
+     * @return envelope de resposta com a lista de entidades como {@link RestApiResource}
      */
     @GetMapping("/all")
     @Operation(summary = "Listar todos os registros", description = "Retorna todos os registros, aplicando @DefaultSortColumn quando nenhum sort é enviado.")
@@ -1012,7 +1013,7 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         if (!isHateoasEnabled()) {
             return successEnvelope(ResponseEntity.ok(), dtos, null);
         }
-        List<EntityModel<D>> entityModels = dtos.stream().map(this::toEntityModel).toList();
+        List<RestApiResource<D>> entityModels = dtos.stream().map(this::toResourceModel).toList();
 
         Links links = Links.of(
                 linkToFilter(),
@@ -1544,10 +1545,22 @@ public abstract class AbstractCrudController<E, D, ID, FD extends GenericFilterD
         ID id = getDtoId(dto);
         java.util.List<Link> links = new java.util.ArrayList<>();
         links.add(linkToSelf(id));
-        if (allowCreate()) links.add(linkToCreate());
         if (allowUpdate()) links.add(linkToUpdate(id));
         if (allowDelete()) links.add(linkToDelete(id));
         return EntityModel.of(dto, links);
+    }
+
+    protected RestApiResource<D> toResourceModel(D dto) {
+        if (!isHateoasEnabled()) {
+            return RestApiResource.of(dto);
+        }
+
+        ID id = getDtoId(dto);
+        java.util.List<Link> links = new java.util.ArrayList<>();
+        links.add(linkToSelf(id));
+        if (allowUpdate()) links.add(linkToUpdate(id));
+        if (allowDelete()) links.add(linkToDelete(id));
+        return RestApiResource.of(dto, links);
     }
 
     /**
