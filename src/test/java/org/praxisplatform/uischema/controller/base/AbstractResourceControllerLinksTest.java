@@ -98,6 +98,19 @@ class AbstractResourceControllerLinksTest {
     }
 
     @Test
+    void collectionDiscoveryLinksOmitActionsWhenNoCollectionWorkflowExists() {
+        SimpleController controller = new SimpleController();
+        ReflectionTestUtils.setField(controller, "surfaceCatalogService", mock(SurfaceCatalogService.class));
+        ReflectionTestUtils.setField(controller, "capabilityService", mock(CapabilityService.class));
+        ReflectionTestUtils.setField(controller, "actionCatalogService", mock(org.praxisplatform.uischema.action.ActionCatalogService.class));
+        ActionDefinitionRegistry registry = mock(ActionDefinitionRegistry.class);
+        ReflectionTestUtils.setField(controller, "actionDefinitionRegistry", registry);
+        when(registry.findByResourceKey("test.simple")).thenReturn(List.of(itemAction()));
+
+        assertEquals(List.of("surfaces", "capabilities"), controller.exposeCollectionDiscoveryRels());
+    }
+
+    @Test
     void itemDiscoveryLinksOmitActionsWhenNoItemWorkflowExists() {
         SimpleController controller = new SimpleController();
         ReflectionTestUtils.setField(controller, "surfaceCatalogService", mock(SurfaceCatalogService.class));
@@ -110,6 +123,19 @@ class AbstractResourceControllerLinksTest {
         assertEquals(List.of("surfaces", "capabilities"), controller.exposeItemDiscoveryRels(10L));
     }
 
+    @Test
+    void itemDiscoveryLinksExposeActionsWhenItemWorkflowExists() {
+        SimpleController controller = new SimpleController();
+        ReflectionTestUtils.setField(controller, "surfaceCatalogService", mock(SurfaceCatalogService.class));
+        ReflectionTestUtils.setField(controller, "capabilityService", mock(CapabilityService.class));
+        ReflectionTestUtils.setField(controller, "actionCatalogService", mock(org.praxisplatform.uischema.action.ActionCatalogService.class));
+        ActionDefinitionRegistry registry = mock(ActionDefinitionRegistry.class);
+        ReflectionTestUtils.setField(controller, "actionDefinitionRegistry", registry);
+        when(registry.findByResourceKey("test.simple")).thenReturn(List.of(itemAction()));
+
+        assertEquals(List.of("surfaces", "actions", "capabilities"), controller.exposeItemDiscoveryRels(10L));
+    }
+
     private static ActionDefinition collectionAction() {
         return new ActionDefinition(
                 "bulk-approve",
@@ -118,6 +144,26 @@ class AbstractResourceControllerLinksTest {
                 "simple",
                 ActionScope.COLLECTION,
                 "Bulk approve",
+                "",
+                null,
+                null,
+                null,
+                0,
+                null,
+                List.of(),
+                List.of(),
+                List.of()
+        );
+    }
+
+    private static ActionDefinition itemAction() {
+        return new ActionDefinition(
+                "approve",
+                "test.simple",
+                "/simple",
+                "simple",
+                ActionScope.ITEM,
+                "Approve",
                 "",
                 null,
                 null,

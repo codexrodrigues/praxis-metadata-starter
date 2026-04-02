@@ -1,8 +1,11 @@
 package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
+import org.praxisplatform.uischema.surface.SurfaceCatalogService;
 import org.springframework.hateoas.Link;
 import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -86,6 +89,24 @@ class AbstractReadOnlyResourceControllerLinksTest {
         assertEquals("schema", link.getRel().value());
     }
 
+    @Test
+    void readOnlyCollectionDiscoveryLinksExposeSurfacesAndCapabilitiesButNotActions() {
+        ReadOnlyController controller = new ReadOnlyController();
+        ReflectionTestUtils.setField(controller, "surfaceCatalogService", mock(SurfaceCatalogService.class));
+        ReflectionTestUtils.setField(controller, "capabilityService", mock(CapabilityService.class));
+
+        assertEquals(List.of("surfaces", "capabilities"), controller.exposeCollectionDiscoveryRels());
+    }
+
+    @Test
+    void readOnlyItemDiscoveryLinksExposeSurfacesAndCapabilitiesButNotActions() {
+        ReadOnlyController controller = new ReadOnlyController();
+        ReflectionTestUtils.setField(controller, "surfaceCatalogService", mock(SurfaceCatalogService.class));
+        ReflectionTestUtils.setField(controller, "capabilityService", mock(CapabilityService.class));
+
+        assertEquals(List.of("surfaces", "capabilities"), controller.exposeItemDiscoveryRels(10L));
+    }
+
     interface ReadOnlyService extends BaseResourceQueryService<SimpleDto, Long, SimpleFilterDTO> {}
 
     static class SimpleDto {
@@ -100,6 +121,7 @@ class AbstractReadOnlyResourceControllerLinksTest {
 
     @org.springframework.web.bind.annotation.RestController
     @org.springframework.web.bind.annotation.RequestMapping("/ro")
+    @ApiResource(value = "/ro", resourceKey = "test.ro")
     static class ReadOnlyController extends AbstractReadOnlyResourceController<SimpleDto, Long, SimpleFilterDTO> {
 
         ReadOnlyService service;
@@ -126,6 +148,14 @@ class AbstractReadOnlyResourceControllerLinksTest {
 
         Link exposeLinkToUiSchema(String methodPath, String operation, String schemaType) {
             return linkToUiSchema(methodPath, operation, schemaType);
+        }
+
+        List<String> exposeCollectionDiscoveryRels() {
+            return buildCollectionDiscoveryLinks().stream().map(link -> link.getRel().value()).toList();
+        }
+
+        List<String> exposeItemDiscoveryRels(Long id) {
+            return buildItemDiscoveryLinks(id).stream().map(link -> link.getRel().value()).toList();
         }
     }
 

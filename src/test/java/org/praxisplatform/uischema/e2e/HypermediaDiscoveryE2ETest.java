@@ -4,8 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,6 +41,7 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
         JsonNode createSurface = findById(surfacesCatalog.path("surfaces"), "create");
         assertNotNull(createSurface);
         assertEquals("COLLECTION", createSurface.path("scope").asText());
+        assertFilteredSchemaUrl(createSurface.path("schemaUrl").asText(), "/employees", "post", "request");
 
         JsonNode createSchema = body(getHref(createSurface.path("schemaUrl").asText()));
         assertTrue(createSchema.path("properties").has("nome"));
@@ -48,6 +53,7 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
         JsonNode bulkApprove = findById(actionsCatalog.path("actions"), "bulk-approve");
         assertNotNull(bulkApprove);
         assertEquals("COLLECTION", bulkApprove.path("scope").asText());
+        assertFilteredSchemaUrl(bulkApprove.path("requestSchemaUrl").asText(), "/employees/actions/bulk-approve", "post", "request");
 
         JsonNode bulkApproveRequestSchema = body(getHref(bulkApprove.path("requestSchemaUrl").asText()));
         assertTrue(bulkApproveRequestSchema.path("properties").has("employeeIds"));
@@ -85,6 +91,7 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
         JsonNode profileSurface = findById(surfacesCatalog.path("surfaces"), "profile");
         assertNotNull(profileSurface);
         assertTrue(profileSurface.path("availability").path("allowed").asBoolean());
+        assertFilteredSchemaUrl(profileSurface.path("schemaUrl").asText(), "/employees/{id}/profile", "patch", "request");
         JsonNode profileSchema = body(getHref(profileSurface.path("schemaUrl").asText()));
         assertTrue(profileSchema.path("properties").has("nome"));
         assertFalse(profileSchema.path("readOnly").asBoolean());
@@ -93,6 +100,7 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
         assertNotNull(approveAction);
         assertFalse(approveAction.path("availability").path("allowed").asBoolean());
         assertEquals("resource-state-blocked", approveAction.path("availability").path("reason").asText());
+        assertFilteredSchemaUrl(approveAction.path("requestSchemaUrl").asText(), "/employees/{id}/actions/approve", "post", "request");
         JsonNode approveRequestSchema = body(getHref(approveAction.path("requestSchemaUrl").asText()));
         assertTrue(approveRequestSchema.path("properties").has("comentario"));
 
@@ -128,9 +136,23 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
         JsonNode itemSurfaces = body(getHref(findLinkHref(itemEnvelope, "surfaces")));
         JsonNode detailSurface = findById(itemSurfaces.path("surfaces"), "detail");
         assertNotNull(detailSurface);
+        assertFilteredSchemaUrl(detailSurface.path("schemaUrl").asText(), "/payroll-view/{id}", "get", "response");
         JsonNode detailSchema = body(getHref(detailSurface.path("schemaUrl").asText()));
         assertTrue(detailSchema.path("properties").has("employeeNome"));
         assertTrue(detailSchema.path("properties").has("departmentNome"));
+    }
+
+    private void assertFilteredSchemaUrl(String href, String path, String operation, String schemaType) {
+        var uri = UriComponentsBuilder.fromUriString(href).build(true);
+        assertEquals("/schemas/filtered", uri.getPath());
+        assertEquals(
+                List.of(path),
+                uri.getQueryParams().get("path").stream()
+                        .map(value -> URLDecoder.decode(value, StandardCharsets.UTF_8))
+                        .toList()
+        );
+        assertEquals(List.of(operation), uri.getQueryParams().get("operation"));
+        assertEquals(List.of(schemaType), uri.getQueryParams().get("schemaType"));
     }
 
     private JsonNode findById(JsonNode items, String id) {

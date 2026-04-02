@@ -42,11 +42,20 @@ class HateoasAndPayloadSizeE2ETest extends AbstractE2eH2Test {
         assertTrue(enabledItemJson.path("_links").isObject());
         assertTrue(enabledCollectionRow.path("_links").isObject());
         assertTrue(enabledCollectionJson.path("_links").has("create"));
+        assertTrue(enabledCollectionJson.path("_links").has("surfaces"));
+        assertTrue(enabledCollectionJson.path("_links").has("actions"));
+        assertTrue(enabledCollectionJson.path("_links").has("capabilities"));
         assertFalse(enabledCollectionRow.path("_links").has("create"));
         assertTrue(enabledCollectionRow.path("_links").has("update"));
         assertTrue(enabledCollectionRow.path("_links").has("delete"));
+        assertTrue(enabledCollectionRow.path("_links").has("surfaces"));
+        assertTrue(enabledCollectionRow.path("_links").has("actions"));
+        assertTrue(enabledCollectionRow.path("_links").has("capabilities"));
         assertTrue(enabledItemJson.path("_links").has("self"));
         assertFalse(enabledItemJson.path("_links").has("create"));
+        assertTrue(enabledItemJson.path("_links").has("surfaces"));
+        assertTrue(enabledItemJson.path("_links").has("actions"));
+        assertTrue(enabledItemJson.path("_links").has("capabilities"));
         assertTrue(enabledCollectionJson.path("links").isMissingNode() || enabledCollectionJson.path("links").isNull());
         assertTrue(enabledItemJson.path("links").isMissingNode() || enabledItemJson.path("links").isNull());
         assertTrue(enabledCollectionRow.path("links").isMissingNode() || enabledCollectionRow.path("links").isNull());
@@ -97,6 +106,33 @@ class HateoasAndPayloadSizeE2ETest extends AbstractE2eH2Test {
         assertFalse(itemBody.contains("\"rel\":\"create\""));
         assertFalse(itemBody.contains("\"rel\":\"update\""));
         assertFalse(itemBody.contains("\"rel\":\"delete\""));
+    }
+
+    @Test
+    void hateoasToggleAlsoRemovesReadOnlyDiscoveryRels() throws Exception {
+        Long payrollId = state.payrollIdsByEmployee().get("Alice");
+
+        setHateoasEnabled(true);
+        JsonNode enabledCollectionJson = body(get("/payroll-view/all"));
+        JsonNode enabledItemJson = body(get("/payroll-view/" + payrollId));
+        JsonNode enabledCollectionRow = enabledCollectionJson.path("data").path(0);
+
+        assertTrue(enabledCollectionJson.path("_links").has("surfaces"));
+        assertTrue(enabledCollectionJson.path("_links").has("capabilities"));
+        assertFalse(enabledCollectionJson.path("_links").has("actions"));
+        assertTrue(enabledCollectionRow.path("_links").has("surfaces"));
+        assertTrue(enabledCollectionRow.path("_links").has("capabilities"));
+        assertFalse(enabledCollectionRow.path("_links").has("actions"));
+        assertTrue(enabledItemJson.path("_links").has("surfaces"));
+        assertTrue(enabledItemJson.path("_links").has("capabilities"));
+        assertFalse(enabledItemJson.path("_links").has("actions"));
+
+        setHateoasEnabled(false);
+        JsonNode disabledCollectionJson = body(get("/payroll-view/all"));
+        JsonNode disabledItemJson = body(get("/payroll-view/" + payrollId));
+
+        assertTrue(disabledCollectionJson.path("_links").isMissingNode() || disabledCollectionJson.path("_links").isNull());
+        assertTrue(disabledItemJson.path("_links").isMissingNode() || disabledItemJson.path("_links").isNull());
     }
 
     private void setHateoasEnabled(boolean enabled) {
