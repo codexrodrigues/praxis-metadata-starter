@@ -27,6 +27,8 @@ public @interface AnalyticsProjection {
 
     int defaultLimit() default -1;
 
+    AnalyticsGranularity defaultGranularity() default AnalyticsGranularity.UNSPECIFIED;
+
     AnalyticsPresentationFamily[] preferredFamilies() default {};
 
     boolean drillDown() default false;
