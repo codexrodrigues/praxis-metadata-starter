@@ -19,6 +19,10 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
     @Test
     void collectionLinksLetAnAngularLikeClientDiscoverCatalogsAndSchemas() throws Exception {
         JsonNode collectionEnvelope = body(get("/employees/all"));
+        JsonNode firstRow = collectionEnvelope.path("data").path(0);
+
+        assertTrue(collectionEnvelope.path("_links").isObject());
+        assertTrue(firstRow.path("_links").isObject());
 
         String surfacesHref = findLinkHref(collectionEnvelope, "surfaces");
         String actionsHref = findLinkHref(collectionEnvelope, "actions");
@@ -64,6 +68,8 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
         headers.add("X-Test-Authorities", "employee:approve,employee:profile:update");
 
         JsonNode itemEnvelope = body(exchange("/employees/" + aliceId, HttpMethod.GET, headers));
+        assertTrue(itemEnvelope.path("_links").isObject());
+
         String surfacesHref = findLinkHref(itemEnvelope, "surfaces");
         String actionsHref = findLinkHref(itemEnvelope, "actions");
         String capabilitiesHref = findLinkHref(itemEnvelope, "capabilities");
@@ -99,6 +105,9 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
         Long payrollId = state.payrollIdsByEmployee().get("Alice");
 
         JsonNode collectionEnvelope = body(get("/payroll-view/all"));
+        JsonNode firstRow = collectionEnvelope.path("data").path(0);
+        assertTrue(collectionEnvelope.path("_links").isObject());
+        assertTrue(firstRow.path("_links").isObject());
         assertNotNull(findLinkHref(collectionEnvelope, "surfaces"));
         assertNotNull(findLinkHref(collectionEnvelope, "capabilities"));
         assertNull(findLinkHref(collectionEnvelope, "actions"));
@@ -109,6 +118,7 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
         assertNotNull(findById(collectionSurfaces.path("surfaces"), "list"));
 
         JsonNode itemEnvelope = body(get("/payroll-view/" + payrollId));
+        assertTrue(itemEnvelope.path("_links").isObject());
         assertNotNull(findLinkHref(itemEnvelope, "surfaces"));
         assertNotNull(findLinkHref(itemEnvelope, "capabilities"));
         assertNull(findLinkHref(itemEnvelope, "actions"));

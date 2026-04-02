@@ -92,20 +92,12 @@ abstract class AbstractE2eH2Test {
 
     protected String findLinkHref(JsonNode envelope, String rel) {
         JsonNode links = envelope.path("_links");
-        if (links.isArray()) {
-            for (JsonNode link : links) {
-                if (rel.equals(link.path("rel").asText())) {
-                    return link.path("href").asText();
-                }
-            }
+        if (!links.isObject()) {
+            return null;
         }
 
-        JsonNode halLink = links.path(rel);
-        if (halLink.isObject()) {
-            return halLink.path("href").asText(null);
-        }
-
-        return null;
+        JsonNode link = links.path(rel);
+        return link.isObject() ? link.path("href").asText(null) : null;
     }
 
     protected URI resolveHref(String href) {

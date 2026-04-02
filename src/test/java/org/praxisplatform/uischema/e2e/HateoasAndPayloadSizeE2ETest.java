@@ -34,15 +34,22 @@ class HateoasAndPayloadSizeE2ETest extends AbstractE2eH2Test {
         assertEquals(200, enabledCollectionResponse.getStatusCode().value());
         assertEquals(200, enabledItemResponse.getStatusCode().value());
 
-        String enabledCollectionBody = enabledCollectionResponse.getBody();
-        String enabledItemBody = enabledItemResponse.getBody();
-        assertTrue(enabledCollectionBody.contains("\"_links\""));
-        assertTrue(enabledItemBody.contains("\"_links\""));
-        assertTrue(enabledCollectionBody.contains("\"rel\":\"create\""));
-        assertTrue(enabledCollectionBody.contains("\"rel\":\"update\""));
-        assertTrue(enabledCollectionBody.contains("\"rel\":\"delete\""));
-        assertTrue(enabledItemBody.contains("\"rel\":\"self\""));
-        assertEquals(1, countOccurrences(enabledCollectionBody, "\"rel\":\"create\""));
+        JsonNode enabledCollectionJson = body(enabledCollectionResponse);
+        JsonNode enabledItemJson = body(enabledItemResponse);
+        JsonNode enabledCollectionRow = enabledCollectionJson.path("data").path(0);
+
+        assertTrue(enabledCollectionJson.path("_links").isObject());
+        assertTrue(enabledItemJson.path("_links").isObject());
+        assertTrue(enabledCollectionRow.path("_links").isObject());
+        assertTrue(enabledCollectionJson.path("_links").has("create"));
+        assertFalse(enabledCollectionRow.path("_links").has("create"));
+        assertTrue(enabledCollectionRow.path("_links").has("update"));
+        assertTrue(enabledCollectionRow.path("_links").has("delete"));
+        assertTrue(enabledItemJson.path("_links").has("self"));
+        assertFalse(enabledItemJson.path("_links").has("create"));
+        assertTrue(enabledCollectionJson.path("links").isMissingNode() || enabledCollectionJson.path("links").isNull());
+        assertTrue(enabledItemJson.path("links").isMissingNode() || enabledItemJson.path("links").isNull());
+        assertTrue(enabledCollectionRow.path("links").isMissingNode() || enabledCollectionRow.path("links").isNull());
 
         setHateoasEnabled(false);
         ResponseEntity<String> disabledCollectionResponse = get("/employees/all");
@@ -50,6 +57,8 @@ class HateoasAndPayloadSizeE2ETest extends AbstractE2eH2Test {
         assertEquals(200, disabledCollectionResponse.getStatusCode().value());
         assertEquals(200, disabledItemResponse.getStatusCode().value());
 
+        String enabledCollectionBody = enabledCollectionResponse.getBody();
+        String enabledItemBody = enabledItemResponse.getBody();
         String disabledCollectionBody = disabledCollectionResponse.getBody();
         String disabledItemBody = disabledItemResponse.getBody();
         assertFalse(disabledCollectionBody.contains("\"_links\""));
@@ -98,13 +107,4 @@ class HateoasAndPayloadSizeE2ETest extends AbstractE2eH2Test {
         ));
     }
 
-    private int countOccurrences(String body, String token) {
-        int count = 0;
-        int index = 0;
-        while ((index = body.indexOf(token, index)) >= 0) {
-            count++;
-            index += token.length();
-        }
-        return count;
-    }
 }
