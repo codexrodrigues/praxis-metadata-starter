@@ -1,14 +1,28 @@
 package org.praxisplatform.uischema.configuration;
 
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.media.ArraySchema;
+import io.swagger.v3.oas.models.media.BooleanSchema;
+import io.swagger.v3.oas.models.media.ComposedSchema;
 import io.swagger.v3.oas.models.media.NumberSchema;
+import io.swagger.v3.oas.models.media.ObjectSchema;
+import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.StringSchema;
+import org.praxisplatform.uischema.rest.response.RestApiResource;
+import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.hateoas.EntityModel;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * <h2>⚙️ Auto-Configuração Principal do Praxis Metadata Starter</h2>
@@ -103,6 +117,11 @@ import java.math.BigDecimal;
 })
 public class PraxisMetadataAutoConfiguration {
 
+    static {
+        // Alinha o schema bruto ao JSON real dos itens de colecao antes da geracao do OpenAPI.
+        SpringDocUtils.getConfig().replaceWithClass(EntityModel.class, RestApiResource.class);
+    }
+
     /**
      * <h3>🔢 Bean OpenApiCustomizer para BigDecimal</h3>
      * 
@@ -169,6 +188,11 @@ public class PraxisMetadataAutoConfiguration {
     public OpenApiCustomizer bigDecimalOpenApiCustomizer() {
         return openApi -> SpringDocUtils.getConfig()
             .replaceWithSchema(BigDecimal.class, new NumberSchema().type("number").format("decimal"));
+    }
+
+    @Bean
+    public GlobalOpenApiCustomizer restApiResourceComponentCustomizer() {
+        return this::customizeRestApiResourceSchemas;
     }
 
     /**
@@ -335,6 +359,125 @@ public class PraxisMetadataAutoConfiguration {
             .pathsToMatch("/**")
             .pathsToExclude("/schemas/**")
             .build();
+    }
+
+    private void customizeRestApiResourceSchemas(OpenAPI openApi) {
+        Components components = openApi.getComponents();
+        if (components == null || components.getSchemas() == null || components.getSchemas().isEmpty()) {
+            return;
+        }
+
+        Map<String, Schema> schemas = components.getSchemas();
+        customizeRestApiLinksSchema(schemas);
+        for (String schemaName : new ArrayList<>(schemas.keySet())) {
+            if (schemaName.startsWith("PageEntityModel")) {
+                rewriteArrayItemRef(schemas, schemaName, "content", schemaName.substring("PageEntityModel".length()));
+                continue;
+            }
+            if (schemaName.startsWith("CursorPageEntityModel")) {
+                rewriteArrayItemRef(schemas, schemaName, "content", schemaName.substring("CursorPageEntityModel".length()));
+                continue;
+            }
+            if (schemaName.startsWith("RestApiResponseListEntityModel")) {
+                rewriteArrayItemRef(schemas, schemaName, "data", schemaName.substring("RestApiResponseListEntityModel".length()));
+            }
+        }
+    }
+
+    private void customizeRestApiLinksSchema(Map<String, Schema> schemas) {
+        ObjectSchema linkObject = new ObjectSchema();
+        linkObject.setDescription("Objeto de link canonico publicado dentro de `_links`.");
+        linkObject.addProperty("href", new StringSchema().description("URL absoluta ou relativa do affordance."));
+        linkObject.addProperty("templated", new BooleanSchema().description("Indica se o href e URI template."));
+        linkObject.addProperty("type", new StringSchema().description("Media type associado ao link."));
+        linkObject.addProperty("deprecation", new StringSchema().description("URL de deprecacao quando aplicavel."));
+        linkObject.addProperty("profile", new StringSchema().description("Profile URI associado ao link."));
+        linkObject.addProperty("name", new StringSchema().description("Nome opcional do link."));
+        linkObject.addProperty("title", new StringSchema().description("Titulo humano opcional."));
+        linkObject.addProperty("hreflang", new StringSchema().description("Idioma associado ao link."));
+        schemas.put("RestApiLinkObject", linkObject);
+
+        ArraySchema repeatedLinks = new ArraySchema();
+        repeatedLinks.setItems(refSchema("RestApiLinkObject"));
+
+        Schema<?> linkValue = new Schema<>().oneOf(List.of(refSchema("RestApiLinkObject"), repeatedLinks));
+
+        ObjectSchema linksSchema = new ObjectSchema();
+        linksSchema.setDescription("Mapa canonico de `_links` por rel. Cada rel aponta para um objeto unico ou para uma lista quando houver multiplas ocorrencias.");
+        linksSchema.setAdditionalProperties(linkValue);
+        schemas.put("RestApiLinks", linksSchema);
+    }
+
+    private void rewriteArrayItemRef(Map<String, Schema> schemas, String containerSchemaName, String arrayProperty, String dtoSchemaName) {
+        Schema<?> containerSchema = schemas.get(containerSchemaName);
+        if (containerSchema == null || containerSchema.getProperties() == null) {
+            return;
+        }
+
+        Schema<?> arrayCandidate = containerSchema.getProperties().get(arrayProperty);
+        if (arrayCandidate == null) {
+            return;
+        }
+
+        Schema<?> resolvedArray = dereferenceSchema(schemas, arrayCandidate);
+        if (!(resolvedArray instanceof ArraySchema arraySchema) || arraySchema.getItems() == null) {
+            return;
+        }
+
+        Schema<?> resolvedItems = dereferenceSchema(schemas, arraySchema.getItems());
+        if (!isGenericRestApiResourceRef(arraySchema.getItems(), resolvedItems)) {
+            return;
+        }
+
+        String resourceSchemaName = ensureConcreteRestApiResourceSchema(schemas, dtoSchemaName);
+        arraySchema.setItems(refSchema(resourceSchemaName));
+    }
+
+    private Schema<?> dereferenceSchema(Map<String, Schema> schemas, Schema<?> schema) {
+        if (schema == null || schema.get$ref() == null) {
+            return schema;
+        }
+        String ref = schema.get$ref();
+        String prefix = "#/components/schemas/";
+        if (!ref.startsWith(prefix)) {
+            return schema;
+        }
+        return schemas.getOrDefault(ref.substring(prefix.length()), schema);
+    }
+
+    private boolean isGenericRestApiResourceRef(Schema<?> rawItems, Schema<?> resolvedItems) {
+        if (rawItems != null && "#/components/schemas/RestApiResource".equals(rawItems.get$ref())) {
+            return true;
+        }
+        return resolvedItems != null
+                && resolvedItems.getProperties() != null
+                && resolvedItems.getProperties().containsKey("content")
+                && resolvedItems.getProperties().containsKey("_links");
+    }
+
+    private String ensureConcreteRestApiResourceSchema(Map<String, Schema> schemas, String dtoSchemaName) {
+        String resourceSchemaName = "RestApiResource" + dtoSchemaName;
+        if (schemas.containsKey(resourceSchemaName)) {
+            return resourceSchemaName;
+        }
+
+        if (!schemas.containsKey(dtoSchemaName)) {
+            return "RestApiResource";
+        }
+
+        ComposedSchema resourceSchema = new ComposedSchema();
+        resourceSchema.addAllOfItem(refSchema(dtoSchemaName));
+
+        ObjectSchema linksSchema = new ObjectSchema();
+        linksSchema.addProperty("_links", refSchema("RestApiLinks"));
+        resourceSchema.addAllOfItem(linksSchema);
+
+        schemas.put(resourceSchemaName, resourceSchema);
+        return resourceSchemaName;
+    }
+
+    private Schema<?> refSchema(String schemaName) {
+        return new Schema<>().$ref("#/components/schemas/" + schemaName);
     }
 }
 

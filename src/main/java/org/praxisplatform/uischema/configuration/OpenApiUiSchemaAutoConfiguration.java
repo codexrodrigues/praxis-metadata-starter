@@ -8,6 +8,8 @@ import org.praxisplatform.uischema.capability.DefaultCapabilityService;
 import org.praxisplatform.uischema.capability.NoOpResourceStateSnapshotProvider;
 import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
 import org.praxisplatform.uischema.capability.ResourceStateSnapshotProvider;
+import org.praxisplatform.uischema.analytics.UiAnalyticsAnnotationMapper;
+import org.praxisplatform.uischema.analytics.UiAnalyticsOpenApiCustomizer;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
 import org.praxisplatform.uischema.controller.docs.ActionCatalogController;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
@@ -64,6 +66,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springdoc.core.models.GroupedOpenApi;
+import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
+import org.springdoc.core.customizers.OpenApiCustomizer;
 
 import java.time.Clock;
 import java.time.ZoneId;
@@ -113,6 +117,26 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Bean
     public CustomOpenApiResolver modelResolver(ObjectMapper mapper) {
         return new CustomOpenApiResolver(mapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public UiAnalyticsAnnotationMapper uiAnalyticsAnnotationMapper() {
+        return new UiAnalyticsAnnotationMapper();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "uiAnalyticsOpenApiCustomizer")
+    public GlobalOpenApiCustomizer uiAnalyticsOpenApiCustomizer(
+            RequestMappingHandlerMapping requestMappingHandlerMapping,
+            CanonicalOperationResolver canonicalOperationResolver,
+            UiAnalyticsAnnotationMapper uiAnalyticsAnnotationMapper
+    ) {
+        return new UiAnalyticsOpenApiCustomizer(
+                requestMappingHandlerMapping,
+                canonicalOperationResolver,
+                uiAnalyticsAnnotationMapper
+        );
     }
 
     @Bean
