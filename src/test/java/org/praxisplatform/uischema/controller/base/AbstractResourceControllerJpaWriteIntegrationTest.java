@@ -258,6 +258,62 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
     }
 
     @Test
+    void openApiDocumentUsesFlattenedRestApiResourceShapeForCollectionResponses() throws Exception {
+        MvcResult result = mockMvc.perform(get("/v3/api-docs/integration-employees"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+
+        JsonNode allRowSchema = resolveCollectionItemSchema(root, "/integration-employees/all", "get");
+        assertTrue(allRowSchema.path("properties").has("nome"));
+        assertTrue(allRowSchema.path("properties").has("departmentId"));
+        assertTrue(allRowSchema.path("properties").has("_links"));
+        assertFalse(allRowSchema.path("properties").has("content"));
+        assertFalse(allRowSchema.path("properties").has("links"));
+        assertCanonicalLinksSchema(root, allRowSchema);
+
+        JsonNode filterRowSchema = resolveCollectionItemSchema(root, "/integration-employees/filter", "post");
+        assertTrue(filterRowSchema.path("properties").has("nome"));
+        assertTrue(filterRowSchema.path("properties").has("_links"));
+        assertFalse(filterRowSchema.path("properties").has("content"));
+        assertCanonicalLinksSchema(root, filterRowSchema);
+
+        JsonNode cursorRowSchema = resolveCollectionItemSchema(root, "/integration-employees/filter/cursor", "post");
+        assertTrue(cursorRowSchema.path("properties").has("nome"));
+        assertTrue(cursorRowSchema.path("properties").has("_links"));
+        assertFalse(cursorRowSchema.path("properties").has("content"));
+        assertCanonicalLinksSchema(root, cursorRowSchema);
+    }
+
+    @Test
+    void openApiDocumentUsesCanonicalLinksShapeForItemResponses() throws Exception {
+        MvcResult result = mockMvc.perform(get("/v3/api-docs/integration-employees"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode itemResponseSchema = resolveSchemaNode(
+                root,
+                root.path("paths")
+                        .path("/integration-employees/{id}")
+                        .path("get")
+                        .path("responses")
+                        .path("200")
+                        .path("content")
+                        .path("application/json")
+                        .path("schema")
+        );
+        JsonNode itemDataSchema = resolveSchemaNode(root, itemResponseSchema.path("properties").path("data"));
+
+        assertTrue(itemResponseSchema.path("properties").has("_links"));
+        assertTrue(itemDataSchema.path("properties").has("nome"));
+        assertTrue(itemDataSchema.path("properties").has("departmentId"));
+        assertFalse(itemDataSchema.path("properties").has("content"));
+        assertCanonicalLinksSchema(root, itemResponseSchema);
+    }
+
+    @Test
     void filteredSchemasResolveCanonicalCreateUpdateAndIntentPatchContracts() throws Exception {
         JsonNode createSchema = getSchema("/integration-employees", "post", "request");
         JsonNode updateSchema = getSchema("/integration-employees/{id}", "put", "request");
@@ -443,6 +499,79 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
         String ref = schemaNode.path("$ref").asText();
         assertTrue(ref.startsWith("#/components/schemas/"), "Schema ref not found: " + schemaNode);
         return ref;
+    }
+
+    private JsonNode resolveCollectionItemSchema(JsonNode root, String path, String operation) {
+        JsonNode responseSchema = resolveSchemaNode(
+                root,
+                root.path("paths")
+                        .path(path)
+                        .path(operation)
+                        .path("responses")
+                        .path("200")
+                        .path("content")
+                        .path("application/json")
+                        .path("schema")
+        );
+        JsonNode dataSchema = resolveSchemaNode(root, responseSchema.path("properties").path("data"));
+        JsonNode contentSchema = "array".equals(dataSchema.path("type").asText())
+                ? dataSchema
+                : resolveSchemaNode(root, dataSchema.path("properties").path("content"));
+        assertEquals("array", contentSchema.path("type").asText(), "Expected collection content array for " + path);
+        return resolveSchemaNode(root, contentSchema.path("items"));
+    }
+
+    private void assertCanonicalLinksSchema(JsonNode root, JsonNode rowSchema) {
+        JsonNode linksSchema = resolveSchemaNode(root, rowSchema.path("properties").path("_links"));
+        assertEquals("object", linksSchema.path("type").asText());
+        assertFalse(linksSchema.path("properties").has("empty"));
+        JsonNode additionalProperties = linksSchema.path("additionalProperties");
+        assertTrue(additionalProperties.has("oneOf"));
+        assertEquals(2, additionalProperties.path("oneOf").size());
+
+        JsonNode singleLink = resolveSchemaNode(root, additionalProperties.path("oneOf").get(0));
+        assertEquals("object", singleLink.path("type").asText());
+        assertTrue(singleLink.path("properties").has("href"));
+
+        JsonNode repeatedLinks = additionalProperties.path("oneOf").get(1);
+        assertEquals("array", repeatedLinks.path("type").asText());
+        JsonNode repeatedLinkItem = resolveSchemaNode(root, repeatedLinks.path("items"));
+        assertTrue(repeatedLinkItem.path("properties").has("href"));
+    }
+
+    private JsonNode resolveSchemaNode(JsonNode root, JsonNode schemaNode) {
+        if (schemaNode == null || schemaNode.isMissingNode() || schemaNode.isNull()) {
+            return schemaNode;
+        }
+        if (schemaNode.has("$ref")) {
+            return resolveSchemaNode(root, resolveRef(root, schemaNode.path("$ref").asText()));
+        }
+        if (schemaNode.has("allOf") && schemaNode.path("allOf").isArray() && !schemaNode.path("allOf").isEmpty()) {
+            com.fasterxml.jackson.databind.node.ObjectNode merged = objectMapper.createObjectNode();
+            com.fasterxml.jackson.databind.node.ObjectNode mergedProperties = objectMapper.createObjectNode();
+            for (JsonNode candidate : schemaNode.path("allOf")) {
+                JsonNode resolved = resolveSchemaNode(root, candidate);
+                if (resolved != null && resolved.has("properties")) {
+                    resolved.path("properties").fields()
+                            .forEachRemaining(entry -> mergedProperties.set(entry.getKey(), entry.getValue()));
+                }
+            }
+            if (!mergedProperties.isEmpty()) {
+                merged.set("properties", mergedProperties);
+                return merged;
+            }
+        }
+        return schemaNode;
+    }
+
+    private JsonNode resolveRef(JsonNode root, String ref) {
+        assertTrue(ref.startsWith("#/"), "Unsupported ref: " + ref);
+        JsonNode current = root;
+        for (String token : ref.substring(2).split("/")) {
+            current = current.path(token);
+        }
+        assertFalse(current.isMissingNode(), "Missing component for ref " + ref);
+        return current;
     }
 
     private JsonNode getSchema(String path, String operation, String schemaType) throws Exception {

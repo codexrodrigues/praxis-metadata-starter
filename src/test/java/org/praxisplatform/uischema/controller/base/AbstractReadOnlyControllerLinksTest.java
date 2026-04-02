@@ -88,9 +88,9 @@ class AbstractReadOnlyControllerLinksTest {
 
         mockMvc.perform(get("/ro/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$._links[?(@.rel == 'create')]").doesNotExist())
-                .andExpect(jsonPath("$._links[?(@.rel == 'update')]").doesNotExist())
-                .andExpect(jsonPath("$._links[?(@.rel == 'delete')]").doesNotExist());
+                .andExpect(jsonPath("$._links.create").doesNotExist())
+                .andExpect(jsonPath("$._links.update").doesNotExist())
+                .andExpect(jsonPath("$._links.delete").doesNotExist());
     }
 
     @Test
