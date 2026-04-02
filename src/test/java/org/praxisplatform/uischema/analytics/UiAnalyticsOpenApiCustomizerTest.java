@@ -6,6 +6,7 @@ import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.Paths;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.annotation.AnalyticsDimensionBinding;
+import org.praxisplatform.uischema.annotation.AnalyticsGranularity;
 import org.praxisplatform.uischema.annotation.AnalyticsIntent;
 import org.praxisplatform.uischema.annotation.AnalyticsMetricBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsOperation;
@@ -70,6 +71,9 @@ class UiAnalyticsOpenApiCustomizerTest {
         Map<String, Object> analytics = (Map<String, Object>) xUi.get("analytics");
         assertNotNull(analytics);
         assertNotNull(analytics.get("projections"));
+        Map<String, Object> projection = ((java.util.List<Map<String, Object>>) analytics.get("projections")).get(0);
+        Map<String, Object> defaults = (Map<String, Object>) projection.get("defaults");
+        assertEquals("month", defaults.get("granularity"));
     }
 
     @Test
@@ -114,6 +118,7 @@ class UiAnalyticsOpenApiCustomizerTest {
                                         @AnalyticsSort(field = "total", direction = AnalyticsSortDirection.DESC)
                                 },
                                 defaultLimit = 10,
+                                defaultGranularity = AnalyticsGranularity.MONTH,
                                 preferredFamilies = {
                                         AnalyticsPresentationFamily.ANALYTIC_TABLE,
                                         AnalyticsPresentationFamily.CHART
