@@ -37,7 +37,7 @@ public class RestApiResponse<T> {
     private String message;
     private T data;
     @JsonProperty("_links")
-    private Links links;
+    private RestApiLinks links;
     private List<CustomProblemDetail> errors;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
@@ -56,7 +56,7 @@ public class RestApiResponse<T> {
                 .status(RestApiResponseStatus.SUCCESS)
                 .message("Request processed successfully.")
                 .data(data)
-                .links(links)
+                .links(RestApiLinks.from(links))
                 .timestamp(LocalDateTime.now())
                 .build();
     }
