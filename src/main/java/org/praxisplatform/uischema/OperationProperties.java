@@ -13,6 +13,7 @@ package org.praxisplatform.uischema;
  * @see org.praxisplatform.uischema.controller.docs.ApiDocsController
  */
 public interface OperationProperties {
+    String ANALYTICS = "analytics";
     String RESPONSE_SCHEMA = "responseSchema";
     String DISPLAY_FIELDS = "displayFields";
     String DISPLAY_COLUMNS = "displayColumns";
