@@ -1,0 +1,15 @@
+{
+  "projections": [
+    {
+      "id": "",
+      "intent": "ranking",
+      "source": {
+        "kind": "praxis.stats",
+        "resource": "/api/human-resources/vw-analytics-folha-pagamento"
+      },
+      "bindings": {
+        "primaryMetrics": []
+      }
+    }
+  ]
+}

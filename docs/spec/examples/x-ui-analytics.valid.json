@@ -1,0 +1,44 @@
+{
+  "projections": [
+    {
+      "id": "ranking-table",
+      "intent": "ranking",
+      "source": {
+        "kind": "praxis.stats",
+        "resource": "/api/human-resources/vw-analytics-folha-pagamento",
+        "operation": "group-by"
+      },
+      "bindings": {
+        "primaryDimension": {
+          "field": "departamento",
+          "role": "category",
+          "label": "Departamento"
+        },
+        "primaryMetrics": [
+          {
+            "field": "valorLiquido",
+            "aggregation": "sum",
+            "label": "Valor liquido"
+          }
+        ]
+      },
+      "defaults": {
+        "sort": [
+          {
+            "field": "valorLiquido",
+            "direction": "desc"
+          }
+        ],
+        "limit": 10
+      },
+      "presentationHints": {
+        "preferredFamilies": ["analytic-table", "chart"]
+      },
+      "interactions": {
+        "drillDown": true,
+        "pointSelection": false,
+        "crossFilter": false
+      }
+    }
+  ]
+}
