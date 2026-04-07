@@ -47,6 +47,12 @@ import java.util.Map.Entry;
  * e orquestrar a resolucao canonica, selecionar o schema de request/response e aplicar os
  * enriquecimentos finais visiveis para consumidores do contrato.
  * </p>
+ *
+ * <p>
+ * Em termos de plataforma, esta e a superficie estrutural de verdade. Catalogos documentais,
+ * surfaces, actions e capabilities podem referenciar schemas, mas nao devem substituir o payload
+ * produzido por este endpoint como fonte canonica do shape filtrado.
+ * </p>
  */
 @RestController
 @RequestMapping("/schemas/filtered")
@@ -108,6 +114,11 @@ public class ApiDocsController {
      * {@code includeInternalSchemas}, {@code idField} e {@code readOnly}. Os parametros
      * {@code tenant} e {@code locale} continuam no boundary canonico, mas permanecem neutros para a
      * estrutura retornada.
+     * </p>
+     *
+     * <p>
+     * A operacao tambem respeita validacao por ETag via {@code If-None-Match}, emitindo a mesma
+     * identidade estrutural observada por consumidores runtime e documentais.
      * </p>
      */
     @GetMapping

@@ -13,6 +13,12 @@ import java.util.Map;
  * A implementacao continua simples por default, mas agora usa regras compostas para permitir
  * evolucao por RBAC e estado do recurso sem transformar o evaluator em um ponto monolitico.
  * </p>
+ *
+ * <p>
+ * As regras sao avaliadas em ordem e podem acumular metadata antes de uma negacao final.
+ * Isso permite explicar por que uma surface ficou indisponivel sem perder sinais contextuais
+ * coletados ao longo da avaliacao.
+ * </p>
  */
 public class DefaultSurfaceAvailabilityEvaluator implements SurfaceAvailabilityEvaluator {
 

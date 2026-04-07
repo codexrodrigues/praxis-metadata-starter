@@ -16,6 +16,13 @@ import java.util.Collection;
  * apenas quando o recurso precisa de create/update/delete, evitando que recursos read-only herdem
  * semantica de comando desabilitada.
  * </p>
+ *
+ * <p>
+ * O contrato desta base pressupoe que a escrita do recurso continua sendo modelada por operacoes
+ * tipadas e por um {@link ResourceMapper} canonico, sem introduzir dispatchers genericos,
+ * contratos paralelos ou paths especiais para semantica que deveria permanecer
+ * resource-oriented.
+ * </p>
  */
 public abstract class AbstractBaseResourceService<
         E,
@@ -39,6 +46,9 @@ public abstract class AbstractBaseResourceService<
         super(repository, entityClass);
     }
 
+    /**
+     * Fornece o mapper canonico responsavel por traduzir DTOs de escrita e resposta.
+     */
     @Override
     protected abstract ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID> getResourceMapper();
 

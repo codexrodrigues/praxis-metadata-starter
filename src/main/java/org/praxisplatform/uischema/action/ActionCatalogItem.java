@@ -5,7 +5,13 @@ import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import java.util.List;
 
 /**
- * Action pronta para consumo por clientes documentais e runtimes UI.
+ * Representacao serializavel de uma action semantica pronta para clientes documentais e runtimes UI.
+ *
+ * <p>
+ * Cada item referencia uma operacao HTTP real que representa um comando explicito de negocio.
+ * Quando a operacao tiver payload de entrada ou saida, os campos de schema apontam para os
+ * schemas canonicos da operacao, sem redefini-los inline no catalogo.
+ * </p>
  */
 public record ActionCatalogItem(
         String id,

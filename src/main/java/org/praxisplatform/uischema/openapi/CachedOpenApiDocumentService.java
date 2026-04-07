@@ -23,6 +23,12 @@ import java.util.function.Supplier;
  * classe apenas concentra a politica de memoizacao e a traducao de falhas em excecoes estruturais
  * adequadas para os controllers canonicamente expostos.
  * </p>
+ *
+ * <p>
+ * Em termos de plataforma, esta classe e o ponto central de cache para documentos e hashes
+ * estruturais. Ela evita que controllers e resolvedores repitam fetch remoto e recalculo de hash
+ * com criterios divergentes.
+ * </p>
  */
 public class CachedOpenApiDocumentService implements OpenApiDocumentService {
 

@@ -6,13 +6,13 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Anotação opcional para definir explicitamente o grupo OpenAPI de um controller.
+ * Anotacao opcional para definir explicitamente o grupo OpenAPI de um controller.
  *
  * <p>
- * No contrato atual da plataforma, {@code @ApiGroup} e usado para estabilizar a navegacao da
- * documentacao publica sem depender apenas da derivacao automatica pelo nome do controller ou
- * pelo path do recurso. Isso e especialmente util quando varios recursos pertencem ao mesmo
- * contexto de negocio e devem aparecer agrupados sob a mesma superficie OpenAPI.
+ * No contrato atual da plataforma, {@code @ApiGroup} estabiliza a navegacao da documentacao
+ * publica sem depender apenas da derivacao automatica pelo nome do controller ou pelo path do
+ * recurso. Isso e especialmente util quando varios recursos pertencem ao mesmo contexto de
+ * negocio e devem aparecer agrupados sob a mesma superficie OpenAPI.
  * </p>
  *
  * <h3>Quando usar</h3>
@@ -49,9 +49,9 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ApiGroup {
-    
+
     /**
-     * Nome canônico do grupo OpenAPI para este controller.
+     * Nome canonico do grupo OpenAPI para este controller.
      *
      * <p>
      * O valor informado sera usado como identificador do grupo na documentacao OpenAPI,

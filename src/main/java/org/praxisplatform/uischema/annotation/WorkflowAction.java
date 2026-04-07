@@ -15,6 +15,13 @@ import java.lang.annotation.Target;
  * operacao deve aparecer no catalogo semantico de actions, sempre por referencia a endpoint,
  * request schema e response schema canonicos.
  * </p>
+ *
+ * <p>
+ * Use esta anotacao quando a operacao representa um comando explicito de negocio, como
+ * {@code approve}, {@code cancel}, {@code submit} ou {@code reopen}. Se a necessidade for
+ * apenas discovery de uma experiencia visual ou de uma view especializada, a anotacao correta e
+ * {@link UiSurface}.
+ * </p>
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -36,7 +43,7 @@ public @interface WorkflowAction {
     String description() default "";
 
     /**
-     * Escopo semantico da action.
+     * Escopo semantico da action, como colecao ou item especifico.
      */
     ActionScope scope() default ActionScope.ITEM;
 
@@ -51,7 +58,7 @@ public @interface WorkflowAction {
     String successMessage() default "";
 
     /**
-     * Tags opcionais de organizacao semantica.
+     * Tags opcionais de organizacao semantica e navegacao documental.
      */
     String[] tags() default {};
 

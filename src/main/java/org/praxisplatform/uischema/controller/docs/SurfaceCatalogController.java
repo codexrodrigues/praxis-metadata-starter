@@ -14,6 +14,11 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 /**
  * Exporta discovery semantico de surfaces sem redefinir o contrato estrutural.
+ *
+ * <p>
+ * Este endpoint publica apenas metadados semanticos de navegacao e disponibilidade. O schema
+ * estrutural das operacoes referenciadas continua sendo resolvido por {@code /schemas/filtered}.
+ * </p>
  */
 @RestController
 @RequestMapping("/schemas/surfaces")
@@ -25,6 +30,15 @@ public class SurfaceCatalogController {
         this.surfaceCatalogService = surfaceCatalogService;
     }
 
+    /**
+     * Retorna surfaces por recurso ou por grupo documental.
+     *
+     * <p>
+     * A operacao exige exatamente um dos parametros {@code resource} ou {@code group} para evitar
+     * ambiguidades entre discovery por identidade semantica do recurso e discovery agregado por
+     * grupo OpenAPI.
+     * </p>
+     */
     @GetMapping
     public ResponseEntity<SurfaceCatalogResponse> getSurfaces(
             @RequestParam(name = "resource", required = false) String resourceKey,

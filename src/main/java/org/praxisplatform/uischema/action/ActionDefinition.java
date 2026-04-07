@@ -7,6 +7,12 @@ import java.util.List;
 
 /**
  * Definicao estavel de action derivada de endpoint real anotado com {@code @WorkflowAction}.
+ *
+ * <p>
+ * Este record representa a camada interna canonica usada pelo registry e pelo catalogo de
+ * actions. Ele preserva a ligacao entre semantica de comando, operacao HTTP real e schemas
+ * canonicos de request e response.
+ * </p>
  */
 public record ActionDefinition(
         String id,

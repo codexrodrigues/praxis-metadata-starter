@@ -42,6 +42,12 @@ import java.util.stream.Collectors;
  * {@link OpenApiDocumentService}, {@link CanonicalOperationResolver} e
  * {@link SchemaReferenceResolver}.
  * </p>
+ *
+ * <p>
+ * O catalogo existe como superficie derivada para consulta, indexacao e navegacao operacional.
+ * Ele nao substitui o documento OpenAPI completo nem o endpoint estrutural
+ * {@code /schemas/filtered}; apenas resume e conecta essas fontes canonicas.
+ * </p>
  */
 @RestController
 @RequestMapping("/schemas/catalog")
@@ -93,6 +99,12 @@ public class DomainCatalogController {
      * parametros, exemplos e {@code schemaLinks} canonicos de request/response quando existirem.
      * Esses links passam pelo {@link SchemaReferenceResolver} e ficam alinhados ao mesmo contrato
      * estrutural usado por {@code /schemas/filtered}.
+     * </p>
+     *
+     * <p>
+     * Quando {@code group} nao e informado, o controller pode derivar o grupo a partir de
+     * {@code path}. Se nenhum dos dois estiver presente, a resposta cai no grupo default
+     * {@code application}, coerente com a organizacao documental atual do starter.
      * </p>
      */
     @GetMapping

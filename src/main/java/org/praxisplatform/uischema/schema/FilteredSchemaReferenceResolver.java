@@ -25,6 +25,12 @@ import java.util.Locale;
  * lane. Eles sao aceitos para preservar a fronteira canonica e devem permanecer fora do ID/URL ate
  * que alguma evolucao futura os torne estruturalmente relevantes.
  * </p>
+ *
+ * <p>
+ * Esta e a implementacao padrao do starter e, por isso, precisa permanecer estritamente alinhada
+ * com o contrato publicado por {@code ApiDocsController}. Qualquer nova dimensao estrutural deve
+ * ser refletida simultaneamente no algoritmo de URL e no algoritmo de {@code schemaId}.
+ * </p>
  */
 @Component
 public class FilteredSchemaReferenceResolver implements SchemaReferenceResolver {

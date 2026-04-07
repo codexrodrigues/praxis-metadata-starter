@@ -20,6 +20,19 @@ import java.util.List;
 
 /**
  * Base canonica mutante do core resource-oriented.
+ *
+ * <p>
+ * Esta classe adiciona a camada de comando sobre
+ * {@link AbstractResourceQueryController}, publicando create, update e delete com envelope
+ * {@link RestApiResponse}, links HATEOAS e discovery coerente com o restante do baseline
+ * canonico do recurso.
+ * </p>
+ *
+ * <p>
+ * O uso recomendado e herdar desta base apenas para recursos realmente mutaveis. Para recursos
+ * query-only, a variante correta continua sendo {@link AbstractReadOnlyResourceController}, sem
+ * expor endpoints de escrita que retornariam {@code 405}.
+ * </p>
  */
 public abstract class AbstractResourceController<ResponseDTO, ID, FD extends GenericFilterDTO, CreateDTO, UpdateDTO>
         extends AbstractResourceQueryController<ResponseDTO, ID, FD> {

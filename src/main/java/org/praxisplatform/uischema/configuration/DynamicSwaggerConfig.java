@@ -2,7 +2,6 @@ package org.praxisplatform.uischema.configuration;
 
 import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
-import org.praxisplatform.uischema.controller.base.AbstractCrudController;
 import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,106 +31,18 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * <h1>🎯 Configuração Dinâmica de Grupos OpenAPI com Estratégia Dupla</h1>
- * 
- * <p>Cria automaticamente grupos OpenAPI otimizados para performance usando uma estratégia dupla:
- * <strong>Grupos Individuais Ultra-Específicos</strong> para CRUDs + <strong>Grupos Agregados por Contexto</strong> via @ApiGroup.</p>
- * 
- * <h2>🎯 Problema Resolvido</h2>
- * <p>Antes desta implementação, era necessário registrar grupos OpenAPI manualmente e especificar parâmetros 
- * 'document' no ApiDocsController. Esta classe resolve automaticamente ambos os problemas com performance otimizada.</p>
+ * Configura dinamicamente os grupos OpenAPI usados pelo starter.
  *
- * <h2>🚀 Estratégia Dupla de Grupos</h2>
- * 
- * <h3>📊 1. Grupos Individuais Ultra-Específicos</h3>
- * <ul>
- *   <li><strong>Escopo:</strong> Controllers do legado {@code AbstractCrudController} e da nova hierarquia {@code AbstractResourceQueryController}</li>
- *   <li><strong>Performance:</strong> ~3-5KB por documento (ultra-rápido)</li>
- *   <li><strong>Uso:</strong> Consultas específicas como {@code /schemas/filtered?path=/api/human-resources/eventos-folha/all}</li>
- * </ul>
- * 
- * <h3>🏷️ 2. Grupos Agregados por Contexto</h3>
- * <ul>
- *   <li><strong>Escopo:</strong> QUALQUER controller com anotação {@code @ApiGroup}</li>
- *   <li><strong>Performance:</strong> ~50-100KB por documento (ainda otimizado)</li>
- *   <li><strong>Uso:</strong> Visualização de contextos completos no Swagger UI</li>
- * </ul>
+ * <p>
+ * A configuracao registra grupos individuais para controllers canonicos da hierarquia
+ * {@link AbstractResourceQueryController} e grupos agregados por contexto via {@link ApiGroup}.
+ * </p>
  *
- * <h2>🔄 Fluxo de Funcionamento</h2>
- * <ol>
- *   <li><strong>Startup da Aplicação:</strong> @PostConstruct é executado automaticamente</li>
- *   <li><strong>Escaneamento Dual:</strong> 
- *       <ul>
- *         <li>1ª passada: Identifica controllers resource-oriented canônicos para grupos individuais</li>
- *         <li>2ª passada: Identifica QUALQUER controller com {@code @ApiGroup} para grupos agregados</li>
- *       </ul>
- *   </li>
- *   <li><strong>Extração de Paths:</strong> Usa {@code AnnotationUtils} para detectar @ApiResource/@RequestMapping</li>
- *   <li><strong>Registro Inteligente:</strong> Evita duplicação de beans e otimiza padrões agregados</li>
- * </ol>
- *
- * <h2>📋 Exemplos de Uso</h2>
- * <pre>{@code
- * // ✅ CRUD Controller - Cria grupo individual + participa do agregado
- * @ApiResource("/api/human-resources/funcionarios")
- * @ApiGroup("human-resources") 
- * public class FuncionarioController extends AbstractCrudController<...> {
- *     // Grupo individual: "api-human-resources-funcionarios" (ultra-específico)
- *     // Grupo agregado: "recursos-humanos" (contexto completo)
- * }
- * 
- * // ✅ Bulk Controller - Apenas participa do grupo agregado
- * @ApiResource("/api/human-resources/funcionarios")
- * @ApiGroup("human-resources-bulk")
- * public class FuncionarioBulkController extends AbstractBulkController<...> {
- *     // Grupo agregado: "recursos-humanos-bulk" (contexto bulk)
- * }
- * 
- * // ✅ Qualquer Controller - Participa apenas do grupo agregado
- * @RestController
- * @RequestMapping("/api/custom/reports")
- * @ApiGroup("relatorios")
- * public class CustomReportController {
- *     // Grupo agregado: "relatorios" (contexto customizado)
- * }
- * }</pre>
- *
- * <h2>📊 Resultado Típico</h2>
- * <p>Para uma aplicação com 8 controllers CRUD e 8 controllers Bulk:</p>
- * <pre>
- * 📋 Grupos Individuais (8):
- * ├── api-human-resources-funcionarios     (3KB - ultra-rápido)
- * ├── api-human-resources-cargos          (3KB - ultra-rápido) 
- * ├── api-human-resources-departamentos   (3KB - ultra-rápido)
- * └── ... (5 mais)
- * 
- * 🏷️ Grupos Agregados (2):
- * ├── recursos-humanos        (50KB - 8 controllers CRUD)
- * └── recursos-humanos-bulk   (30KB - 8 controllers Bulk)
- * 
- * 📈 Total: 10 grupos vs documento completo (500KB+)
- * </pre>
- *
- * <h2>🚀 Benefícios</h2>
- * <ul>
- *   <li><strong>Performance Extrema:</strong> Grupos individuais ~99% menores que documento completo</li>
- *   <li><strong>Flexibilidade Total:</strong> Qualquer controller pode participar de contextos via @ApiGroup</li>
- *   <li><strong>Semântica Clara:</strong> Grupos individuais para CRUDs, agregados para contextos</li>
- *   <li><strong>Zero Configuração:</strong> Detecção automática de anotações @ApiResource/@RequestMapping</li>
- *   <li><strong>Integração Perfeita:</strong> ApiDocsController resolve grupos automaticamente</li>
- * </ul>
- *
- * <h2>⚙️ Configuração Necessária</h2>
- * <p>Esta classe deve estar incluída no @ComponentScan da PraxisMetadataAutoConfiguration:</p>
- * <pre>{@code
- * @ComponentScan(basePackages = {"org.praxisplatform.uischema.configuration"})
- * }</pre>
- *
- * @see org.praxisplatform.uischema.annotation.ApiGroup
- * @since 1.0.0
- * @see org.praxisplatform.uischema.annotation.ApiResource
- * @see org.praxisplatform.uischema.controller.docs.ApiDocsController
- * @see org.praxisplatform.uischema.util.OpenApiGroupResolver
+ * <p>
+ * O objetivo e manter a resolucao de grupos coerente entre Swagger UI, documentos OpenAPI
+ * agrupados e superficies canonicas como {@code /schemas/filtered}. A classe tambem valida a
+ * adocao de {@link ApiResource} em controllers resource-oriented.
+ * </p>
  */
 @Configuration
 public class DynamicSwaggerConfig {
@@ -144,26 +55,12 @@ public class DynamicSwaggerConfig {
     @Autowired
     private ConfigurableListableBeanFactory beanFactory;
 
-    // Injeta o bean específico para evitar ambiguidade
     @Autowired
     @Qualifier("requestMappingHandlerMapping")
     private RequestMappingHandlerMapping handlerMapping;
 
     /**
- * Configuração para validar se controllers resource-oriented canônicos usam @ApiResource.
-     * 
-     * <h4>📋 Valores possíveis:</h4>
-     * <ul>
-     *   <li><strong>WARN (padrão):</strong> Apenas emite warnings no log</li>
-     *   <li><strong>FAIL:</strong> Falha o startup da aplicação</li>
-     *   <li><strong>IGNORE:</strong> Desabilita a validação completamente</li>
-     * </ul>
-     * 
-     * <h4>⚙️ Configuração:</h4>
-     * <pre>
-     * # application.properties
-     * praxis.openapi.validation.api-resource-required=WARN
-     * </pre>
+     * Modo de validacao para exigir {@link ApiResource} em controllers resource-oriented.
      */
     @Value("${praxis.openapi.validation.api-resource-required:WARN}")
     private String apiResourceValidationMode;
@@ -175,7 +72,7 @@ public class DynamicSwaggerConfig {
      * 
      * <h4>📊 1ª Passada - Grupos Individuais Ultra-Específicos:</h4>
      * <ul>
- *   <li>Escaneia controllers que estendem {@code AbstractCrudController} ou {@code AbstractResourceQueryController}</li>
+*   <li>Escaneia controllers que estendem {@code AbstractResourceQueryController}</li>
      *   <li>Cria grupos individuais baseados no path completo (ex: "api-human-resources-funcionarios")</li>
      *   <li>Performance ultra-otimizada: ~3-5KB por documento</li>
      * </ul>
@@ -436,8 +333,7 @@ public class DynamicSwaggerConfig {
     }
 
     private boolean isCanonicalResourceController(Class<?> controllerClass) {
-        return AbstractCrudController.class.isAssignableFrom(controllerClass)
-                || AbstractResourceQueryController.class.isAssignableFrom(controllerClass);
+        return AbstractResourceQueryController.class.isAssignableFrom(controllerClass);
     }
 
     /**

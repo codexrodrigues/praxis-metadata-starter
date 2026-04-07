@@ -7,7 +7,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Regra declarativa de availability por authorities/roles.
+ * Regra declarativa de availability por authorities ou roles.
+ *
+ * <p>
+ * A regra nao impõe um modelo especifico de seguranca; ela apenas verifica se as authorities
+ * declaradas na definicao da surface estao presentes no contexto atual.
+ * </p>
  */
 public class RequiredAuthoritiesSurfaceAvailabilityRule implements SurfaceAvailabilityRule {
 

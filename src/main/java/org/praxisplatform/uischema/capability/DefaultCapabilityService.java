@@ -17,6 +17,12 @@ import java.util.Map;
 
 /**
  * Monta snapshots unificados de capabilities sobre os eixos canonicamente publicados.
+ *
+ * <p>
+ * A implementacao combina tres fontes: operacoes canonicas extraidas do OpenAPI, surfaces
+ * publicadas pelo catalogo semantico e actions publicadas pelo catalogo de workflow. A composicao
+ * continua defensiva: ausencia de surfaces ou actions nao invalida o snapshot inteiro.
+ * </p>
  */
 public class DefaultCapabilityService implements CapabilityService {
 

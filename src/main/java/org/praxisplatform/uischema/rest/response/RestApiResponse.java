@@ -21,8 +21,15 @@ import java.util.List;
  *
  * <p>
  * Em respostas bem-sucedidas, o campo {@code data} carrega o payload principal e o campo
- * {@code _links} expõe affordances HATEOAS quando habilitadas. Em respostas de falha, o envelope
+ * {@code _links} expoe affordances HATEOAS quando habilitadas. Em respostas de falha, o envelope
  * pode trazer mensagem resumida e uma lista de {@link CustomProblemDetail}.
+ * </p>
+ *
+ * <p>
+ * Este envelope e a representacao canonica usada pelas bases resource-oriented do starter.
+ * Quando um endpoint precisa devolver listas, itens ou estatisticas, o payload principal continua
+ * dentro de {@code data}; o envelope nao deve ser reinterpretado como uma segunda fonte de
+ * verdade para schema ou semantica do recurso.
  * </p>
  *
  * @param <T> tipo do payload da resposta
@@ -45,9 +52,9 @@ public class RestApiResponse<T> {
     private LocalDateTime timestamp = LocalDateTime.now();
 
     /**
-     * Cria um envelope de sucesso.
+     * Cria um envelope de sucesso para o payload informado.
      *
-     * @param data corpo da resposta
+     * @param data corpo principal da resposta
      * @param links links HATEOAS, quando aplicavel
      * @return envelope de sucesso preenchido
      */
@@ -62,7 +69,7 @@ public class RestApiResponse<T> {
     }
 
     /**
-     * Cria um envelope de falha com mensagem e detalhes estruturados.
+     * Cria um envelope de falha com mensagem resumida e detalhes estruturados.
      *
      * @param message mensagem resumida de erro
      * @param errors lista de detalhes de problema
@@ -76,5 +83,4 @@ public class RestApiResponse<T> {
                 .timestamp(LocalDateTime.now())
                 .build();
     }
-
 }

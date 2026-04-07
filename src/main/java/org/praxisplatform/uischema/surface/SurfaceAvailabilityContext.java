@@ -14,6 +14,11 @@ import java.util.Set;
  * `resourceId` concreto quando houver, tenancy, locale, principal, authorities e snapshot
  * opcional do estado do recurso.
  * </p>
+ *
+ * <p>
+ * O objetivo e concentrar esses sinais uma unica vez por recurso e request, para que multiplas
+ * surfaces possam ser avaliadas sem repetir acesso a contexto HTTP, seguranca ou estado.
+ * </p>
  */
 public record SurfaceAvailabilityContext(
         String resourceKey,

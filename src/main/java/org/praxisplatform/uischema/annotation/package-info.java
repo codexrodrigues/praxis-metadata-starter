@@ -1,24 +1,26 @@
 /**
- * Conjunto de anotações que descrevem recursos REST, agrupamentos OpenAPI e
- * metadados de interface {@code x-ui}.
+ * Anotacoes publicas que descrevem recursos REST, discovery semantico e metadados
+ * {@code x-ui} do starter.
  *
  * <p>
- * O trio {@link org.praxisplatform.uischema.annotation.ApiResource},
- * {@link org.praxisplatform.uischema.annotation.ApiGroup} e
- * {@link org.praxisplatform.uischema.extension.annotation.UISchema}
- * conecta controllers, DTOs e documentação gerada. Essas anotações são
- * interpretadas pelo pacote {@code configuration} e pelo
- * {@link org.praxisplatform.uischema.extension.CustomOpenApiResolver}.
+ * Este pacote concentra a camada declarativa do baseline canonico
+ * {@code resource + surfaces + actions + capabilities}. Em termos praticos:
  * </p>
  *
- * <p><strong>Veja exemplos:</strong>
  * <ul>
- *   <li><a href="../../../../doc-files/exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading">Expondo controller com {@code @ApiResource}</a></li>
- *   <li><a href="../../../../doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">Modelando DTO com {@code @UISchema}</a></li>
+ *   <li>{@link org.praxisplatform.uischema.annotation.ApiResource} fixa identidade e path do recurso;</li>
+ *   <li>{@link org.praxisplatform.uischema.annotation.ApiGroup} organiza a documentacao OpenAPI publica;</li>
+ *   <li>{@link org.praxisplatform.uischema.annotation.UiSurface} publica discovery semantico de experiencias de UI;</li>
+ *   <li>{@link org.praxisplatform.uischema.annotation.WorkflowAction} publica comandos explicitos de negocio;</li>
+ *   <li>{@link org.praxisplatform.uischema.annotation.ResourceCapabilities} resume capacidades habilitadas do recurso.</li>
  * </ul>
+ *
+ * <p>
+ * Essas anotacoes sao interpretadas pela auto-configuracao do starter, pela resolucao canonica
+ * de OpenAPI e pelos catalogos semanticos de surfaces, actions e capabilities. Elas nao
+ * substituem operacoes HTTP reais nem redefinem sozinhas payloads ou schemas.
  * </p>
  *
  * @since 1.0.0
  */
 package org.praxisplatform.uischema.annotation;
-

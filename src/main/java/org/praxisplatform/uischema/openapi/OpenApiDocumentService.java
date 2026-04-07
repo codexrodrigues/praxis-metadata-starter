@@ -12,6 +12,12 @@ import java.util.function.Supplier;
  * path, leitura do documento OpenAPI do grupo, cache estrutural desses documentos e calculo de
  * hash canonico para payloads de schema.
  * </p>
+ *
+ * <p>
+ * No desenho atual do starter, essa interface sustenta tanto endpoints documentais quanto a
+ * resolucao estrutural usada por {@code /schemas/filtered}. Ela existe para evitar que cada
+ * superfície implemente fetch, cache e hashing de forma divergente.
+ * </p>
  */
 public interface OpenApiDocumentService {
 

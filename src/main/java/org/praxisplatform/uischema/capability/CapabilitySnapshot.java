@@ -14,6 +14,12 @@ import java.util.Map;
  * {@code resourcePath}. No estado atual da Fase 6, isso normalmente corresponde ao grupo
  * individual do recurso, e nao ao agrupamento documental agregado de {@code @ApiGroup}.
  * </p>
+ *
+ * <p>
+ * O snapshot agrega tres camadas complementares do baseline da plataforma:
+ * operacoes canonicas, surfaces disponiveis e actions disponiveis. Ele nao substitui
+ * {@code /schemas/filtered} como fonte estrutural do schema nem redefine payloads das operacoes.
+ * </p>
  */
 public record CapabilitySnapshot(
         String resourceKey,

@@ -10,6 +10,12 @@ import java.util.Map;
 
 /**
  * Resolve o mapa canonicamente publicado de operacoes a partir do OpenAPI agrupado.
+ *
+ * <p>
+ * A implementacao interpreta o baseline resource-oriented diretamente do documento OpenAPI do
+ * grupo, convertendo paths e metodos publicados em um mapa normalizado de capacidades. Ela
+ * ignora paths de workflow item-level quando esses paths nao pertencem ao baseline CRUD/query.
+ * </p>
  */
 public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityResolver {
 

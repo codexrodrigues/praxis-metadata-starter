@@ -7,7 +7,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Regra declarativa de availability por authorities/roles.
+ * Regra declarativa de availability por authorities ou roles.
+ *
+ * <p>
+ * A regra verifica apenas hints declarativos publicados na definicao da action, preservando a
+ * separacao entre semantica canônica de availability e politicas concretas do host.
+ * </p>
  */
 public class RequiredAuthoritiesActionAvailabilityRule implements ActionAvailabilityRule {
 

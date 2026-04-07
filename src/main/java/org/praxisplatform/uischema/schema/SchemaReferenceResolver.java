@@ -19,6 +19,12 @@ import java.util.Locale;
  * fizer qualquer um deles alterar o payload estrutural, a implementacao precisara promover essa
  * variacao tanto em {@code schemaId} quanto em {@code schemaUrl}.
  * </p>
+ *
+ * <p>
+ * Esta interface protege a regra central de que uma variante estrutural deve sempre ter uma
+ * referencia biunivoca: a mesma identidade precisa aparecer no {@code schemaId} e na
+ * {@code schemaUrl}. Discovery semantico e payload estrutural nao podem divergir aqui.
+ * </p>
  */
 public interface SchemaReferenceResolver {
 
@@ -27,10 +33,16 @@ public interface SchemaReferenceResolver {
      */
     CanonicalSchemaRef resolve(CanonicalOperationRef operationRef, String schemaType);
 
+    /**
+     * Atalho para resolver o schema de request de uma operacao canonica.
+     */
     default CanonicalSchemaRef requestSchema(CanonicalOperationRef operationRef) {
         return resolve(operationRef, "request");
     }
 
+    /**
+     * Atalho para resolver o schema de response de uma operacao canonica.
+     */
     default CanonicalSchemaRef responseSchema(CanonicalOperationRef operationRef) {
         return resolve(operationRef, "response");
     }
@@ -55,6 +67,9 @@ public interface SchemaReferenceResolver {
             Boolean readOnly
     );
 
+    /**
+     * Variante reduzida que preserva apenas as dimensoes canonicas atualmente estruturais.
+     */
     default CanonicalSchemaRef resolve(
             String path,
             String method,
@@ -66,14 +81,23 @@ public interface SchemaReferenceResolver {
         return resolve(path, method, schemaType, includeInternalSchemas, tenant, locale, null, null);
     }
 
+    /**
+     * Variante minima para resolver uma referencia canonica sem dimensoes adicionais.
+     */
     default CanonicalSchemaRef resolve(String path, String method, String schemaType) {
         return resolve(path, method, schemaType, false, null, null);
     }
 
+    /**
+     * Atalho para resolver o schema de request de {@code path + method}.
+     */
     default CanonicalSchemaRef requestSchema(String path, String method) {
         return resolve(path, method, "request");
     }
 
+    /**
+     * Atalho para resolver o schema de response de {@code path + method}.
+     */
     default CanonicalSchemaRef responseSchema(String path, String method) {
         return resolve(path, method, "response");
     }

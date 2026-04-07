@@ -13,6 +13,12 @@ import java.util.Optional;
  * {@code group + operationId + path + method}. Ela atende tanto fluxos baseados apenas em
  * {@code path + method} quanto fluxos que partem de {@code HandlerMethod}.
  * </p>
+ *
+ * <p>
+ * A importancia desta interface e centralizar a fonte de verdade usada por schemas filtrados,
+ * surfaces, actions e capabilities. Se a heuristica canonica mudar, ela deve mudar aqui, e nao
+ * ser duplicada em consumidores documentais ou controllers.
+ * </p>
  */
 public interface CanonicalOperationResolver {
 
@@ -37,7 +43,7 @@ public interface CanonicalOperationResolver {
      * <p>
      * Implementacoes podem aplicar heuristicas para escolher o path e o metodo canonicos quando o
      * mapping tiver multiplos valores. Essas heuristicas devem permanecer documentadas porque
-     * superficies futuras de discovery dependem delas.
+     * superficies de discovery e resolucao de schema dependem delas.
      * </p>
      */
     CanonicalOperationRef resolve(HandlerMethod handlerMethod, RequestMappingInfo mappingInfo);

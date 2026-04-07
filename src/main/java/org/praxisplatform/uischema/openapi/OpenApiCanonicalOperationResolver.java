@@ -28,6 +28,11 @@ import java.util.Optional;
  * A busca por {@code operationId} percorre os handlers registrados no
  * {@link RequestMappingHandlerMapping} e devolve a primeira correspondencia exata.
  * </p>
+ *
+ * <p>
+ * A heuristica aqui precisa permanecer estavel porque e compartilhada por discovery semantico,
+ * resolucao de schema e capacidades derivadas do contrato OpenAPI.
+ * </p>
  */
 public class OpenApiCanonicalOperationResolver implements CanonicalOperationResolver {
 

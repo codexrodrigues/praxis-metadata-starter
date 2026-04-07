@@ -10,6 +10,11 @@ import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
  * Diferentemente do legado, esta base nao expoe endpoints de escrita para devolver {@code 405}.
  * A superficie HTTP publicada e estritamente a de leitura.
  * </p>
+ *
+ * <p>
+ * Ela deve ser usada quando o recurso publica apenas consulta, filtros, stats e discovery
+ * semantico, preservando um boundary explicito entre query e command desde a camada HTTP.
+ * </p>
  */
 public abstract class AbstractReadOnlyResourceController<ResponseDTO, ID, FD extends GenericFilterDTO>
         extends AbstractResourceQueryController<ResponseDTO, ID, FD> {

@@ -8,6 +8,11 @@ package org.praxisplatform.uischema.surface;
  * propriamente dita. Assim, `SurfaceCatalogService` continua orquestrando o catalogo sem acoplar
  * diretamente a detalhes de servlet, locale, tenancy, authorities ou snapshots de estado.
  * </p>
+ *
+ * <p>
+ * Implementacoes devem privilegiar agregacao por recurso e request, e nao lookup isolado por
+ * surface, para evitar custo repetido e N+1 contextual.
+ * </p>
  */
 public interface SurfaceAvailabilityContextResolver {
 

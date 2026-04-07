@@ -14,6 +14,12 @@ import java.util.Map;
  * concreto sao discovery-only e recebem deny explicito; quando houver contexto, o evaluator
  * aplica hints declarativos de authorities e estados sem hardcode de seguranca corporativa.
  * </p>
+ *
+ * <p>
+ * As regras sao avaliadas em ordem e podem anexar metadata ao resultado final, o que permite ao
+ * catalogo retornar razoes e pistas de indisponibilidade sem acoplar a implementacao a uma
+ * politica unica de seguranca.
+ * </p>
  */
 public class DefaultActionAvailabilityEvaluator implements ActionAvailabilityEvaluator {
 

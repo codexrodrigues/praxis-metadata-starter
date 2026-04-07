@@ -9,6 +9,12 @@ import java.util.Map;
 
 /**
  * Regra declarativa de availability por estado do recurso.
+ *
+ * <p>
+ * A regra compara o estado atual resolvido no contexto com a lista de estados permitidos na
+ * definicao da action. Para actions collection-level, a ausencia de {@code resourceId} nao
+ * impede discovery.
+ * </p>
  */
 public class AllowedStatesActionAvailabilityRule implements ActionAvailabilityRule {
 

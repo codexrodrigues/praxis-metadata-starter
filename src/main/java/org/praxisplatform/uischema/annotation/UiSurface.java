@@ -16,6 +16,13 @@ import java.lang.annotation.Target;
  * atribui metadados semanticos para discovery, sempre apontando para uma operacao canonicamente
  * documentada e para o schema resolvivel via {@code /schemas/filtered}.
  * </p>
+ *
+ * <p>
+ * Use {@code @UiSurface} para expor experiencias de leitura ou interacao visual, como
+ * {@code list}, {@code details}, {@code create-form}, {@code edit-form} ou dashboards
+ * especializados. Nao use esta anotacao para modelar comando de negocio; nesses casos, a
+ * superficie correta e {@link WorkflowAction}.
+ * </p>
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -32,7 +39,7 @@ public @interface UiSurface {
     SurfaceKind kind();
 
     /**
-     * Escopo da surface.
+     * Escopo em que a surface faz sentido, como colecao ou item especifico.
      */
     SurfaceScope scope();
 
@@ -42,7 +49,7 @@ public @interface UiSurface {
     String title();
 
     /**
-     * Descricao opcional da surface.
+     * Descricao opcional exibida em catalogos semanticos e consumidores documentais.
      */
     String description() default "";
 
@@ -52,12 +59,12 @@ public @interface UiSurface {
     String intent() default "";
 
     /**
-     * Ordem estavel para renderizacao/listagem.
+     * Ordem estavel para renderizacao, navegacao ou listagem.
      */
     int order() default 0;
 
     /**
-     * Authorities/roles canonicamente exigidas para a surface.
+     * Authorities ou roles canonicamente exigidas para a surface ficar disponivel.
      *
      * <p>
      * O starter nao impoe framework de seguranca especifico. Quando um principal com authorities
@@ -78,7 +85,7 @@ public @interface UiSurface {
     String[] allowedStates() default {};
 
     /**
-     * Tags opcionais de organizacao semantica.
+     * Tags opcionais de organizacao semantica, navegacao e filtros documentais.
      */
     String[] tags() default {};
 }

@@ -39,6 +39,12 @@ import java.util.Map;
  * e {@link SchemaReferenceResolver}. Ele nao constroi contrato paralelo; apenas aponta para
  * operacoes e schemas canonicamente publicados.
  * </p>
+ *
+ * <p>
+ * Alem de surfaces explicitas anotadas com {@link UiSurface}, a implementacao tambem deriva
+ * automaticamente surfaces baseline para operacoes resource-oriented como list, detail, create e
+ * edit quando a hierarquia canonica do controller permite isso.
+ * </p>
  */
 public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinitionRegistry {
 

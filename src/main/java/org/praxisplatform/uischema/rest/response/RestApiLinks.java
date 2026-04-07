@@ -17,9 +17,15 @@ import java.util.Map;
  * Colecao canonica de links HATEOAS serializada como objeto por rel.
  *
  * <p>
- * A superficie HTTP publica do starter usa `_links` em formato semelhante a HAL:
+ * A superficie HTTP publica do starter usa {@code _links} em formato semelhante a HAL:
  * cada rel vira uma propriedade estavel apontando para um link unico ou uma lista
  * de links quando houver multiplas ocorrencias para o mesmo rel.
+ * </p>
+ *
+ * <p>
+ * O objetivo e manter o contrato JSON publico desacoplado do shape interno do Spring HATEOAS,
+ * preservando a semantica de rels canonicos como {@code self}, {@code update},
+ * {@code delete}, {@code schema}, {@code surfaces} e {@code actions}.
  * </p>
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -31,6 +37,9 @@ public final class RestApiLinks {
         this.values = Collections.unmodifiableMap(new LinkedHashMap<>(values));
     }
 
+    /**
+     * Converte a colecao de links do Spring HATEOAS para o formato canonico serializavel.
+     */
     public static RestApiLinks from(Links links) {
         if (links == null || links.isEmpty()) {
             return null;
@@ -38,6 +47,9 @@ public final class RestApiLinks {
         return from(links.toList());
     }
 
+    /**
+     * Converte uma colecao arbitraria de links para o formato canonico serializavel.
+     */
     public static RestApiLinks from(Collection<Link> links) {
         if (links == null || links.isEmpty()) {
             return null;
@@ -61,6 +73,9 @@ public final class RestApiLinks {
         return new RestApiLinks(canonical);
     }
 
+    /**
+     * Expoe os links agrupados por rel como propriedades JSON do objeto {@code _links}.
+     */
     @JsonAnyGetter
     public Map<String, Object> values() {
         return values;

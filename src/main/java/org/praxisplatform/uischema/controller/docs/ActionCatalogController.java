@@ -14,6 +14,11 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 /**
  * Exporta discovery semantico de workflow actions sem redefinir o contrato estrutural.
+ *
+ * <p>
+ * Este endpoint publica comandos de negocio documentados e sua disponibilidade contextual, mas
+ * continua referenciando operacoes HTTP reais e schemas canonicos da plataforma.
+ * </p>
  */
 @RestController
 @RequestMapping("/schemas/actions")
@@ -25,6 +30,15 @@ public class ActionCatalogController {
         this.actionCatalogService = actionCatalogService;
     }
 
+    /**
+     * Retorna actions por recurso ou por grupo documental.
+     *
+     * <p>
+     * A operacao exige exatamente um dos parametros {@code resource} ou {@code group} para manter
+     * a fronteira clara entre discovery semantico de um recurso especifico e discovery agregado de
+     * um grupo OpenAPI.
+     * </p>
+     */
     @GetMapping
     public ResponseEntity<ActionCatalogResponse> getActions(
             @RequestParam(name = "resource", required = false) String resourceKey,

@@ -25,87 +25,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * <h2>⚙️ Auto-Configuração Principal do Praxis Metadata Starter</h2>
- * 
- * <p>Esta classe é responsável por configurar os aspectos <strong>estruturais e de integração</strong> 
- * do sistema Praxis Metadata, incluindo escaneamento de componentes, customizações OpenAPI 
- * e grupos de documentação de infraestrutura.</p>
+ * Auto-configuracao principal do `praxis-metadata-starter`.
  *
- * <h3>🎯 Objetivos Principais</h3>
- * <ol>
- *   <li><strong>Component Scanning:</strong> Detecta e registra automaticamente todos os componentes do framework</li>
- *   <li><strong>OpenAPI Integration:</strong> Configura customizações específicas para melhor documentação</li>
- *   <li><strong>Infrastructure Groups:</strong> Cria grupos básicos de documentação para infraestrutura</li>
- *   <li><strong>Type Mapping:</strong> Configura mapeamento correto de tipos Java para schemas OpenAPI</li>
- * </ol>
- * 
- * <h3>🔄 Diferença das Outras Auto-Configurações</h3>
- * <table>
- *   <tr><th>Configuração</th><th>Responsabilidade</th><th>Foco</th></tr>
- *   <tr>
- *     <td>PraxisMetadataAutoConfiguration</td>
- *     <td>Estrutura base + Component Scan</td>
- *     <td>🏗️ Infraestrutura</td>
- *   </tr>
- *   <tr>
- *     <td>OpenApiUiSchemaAutoConfiguration</td>
- *     <td>Beans específicos do UI Schema</td>
- *     <td>🎨 Funcionalidade</td>
- *   </tr>
- *   <tr>
- *     <td>DynamicSwaggerConfig</td>
- *     <td>Grupos dinâmicos + Validação</td>
- *     <td>🤖 Automação</td>
- *   </tr>
- * </table>
- * 
- * <h3>📦 Component Scanning Strategy</h3>
- * <p>Esta classe usa {@code @ComponentScan} para detectar automaticamente:</p>
- * <ul>
- *   <li><strong>org.praxisplatform.uischema.controller.docs:</strong> Controllers de documentação</li>
- *   <li><strong>org.praxisplatform.uischema.service:</strong> Serviços base e metadados</li>
- *   <li><strong>org.praxisplatform.uischema.filter:</strong> Filtros e specifications</li>
- *   <li><strong>org.praxisplatform.uischema.configuration:</strong> Configurações adicionais</li>
- * </ul>
- * 
- * <h3>🔧 Fluxo de Inicialização</h3>
- * <pre>
- * Spring Boot Auto-Configuration Detection
- *              ↓
- * PraxisMetadataAutoConfiguration
- *              ↓
- * {@code @ComponentScan} escaneia packages
- *              ↓
- * Registra: Controllers, Services, Filters, Configs
- *              ↓  
- * OpenAPI Customizers aplicados
- *              ↓
- * Grupos de infraestrutura criados
- *              ↓
- * Sistema pronto para DynamicSwaggerConfig
- * </pre>
- * 
- * <h3>🎯 Integração Sistêmica</h3>
- * <p>Esta auto-configuração é a <strong>"fundação"</strong> que permite que outras funcionalidades funcionem:</p>
- * <ul>
- *   <li><strong>DynamicSwaggerConfig:</strong> Depende do component scan para ser detectado</li>
- *   <li><strong>ApiDocsController:</strong> Registrado via component scan</li>
- *   <li><strong>Services e Utilidades:</strong> Serviços base detectados automaticamente</li>
- *   <li><strong>Resource controllers:</strong> Classes base canônicas e legadas disponibilizadas para heranca</li>
- * </ul>
- * 
- * <h3>⚡ Ordem de Execução</h3>
- * <ol>
- *   <li><strong>1º:</strong> PraxisMetadataAutoConfiguration (fundação + component scan)</li>
- *   <li><strong>2º:</strong> OpenApiUiSchemaAutoConfiguration (beans específicos)</li>
- *   <li><strong>3º:</strong> DynamicSwaggerConfig (detectado via component scan, roda via @PostConstruct)</li>
- *   <li><strong>4º:</strong> Validação (executada via @EventListener após startup completo)</li>
- * </ol>
- * 
- * @since 1.0.0
- * @see org.praxisplatform.uischema.configuration.OpenApiUiSchemaAutoConfiguration
- * @see org.praxisplatform.uischema.configuration.DynamicSwaggerConfig
- * @see org.praxisplatform.uischema.service.base.BaseCrudService
+ * <p>
+ * Esta classe registra a infraestrutura base do starter: component scan, customizacoes OpenAPI,
+ * mapeamentos de tipos e grupos documentais de infraestrutura. Ela funciona como a fundacao sobre
+ * a qual as demais configuracoes especificas do metadata-driven sao montadas.
+ * </p>
  */
 @AutoConfiguration
 @ComponentScan(basePackages = {
@@ -123,66 +49,7 @@ public class PraxisMetadataAutoConfiguration {
     }
 
     /**
-     * <h3>🔢 Bean OpenApiCustomizer para BigDecimal</h3>
-     * 
-     * <p>Configura o mapeamento correto de {@code BigDecimal} para schemas OpenAPI, 
-     * garantindo que valores decimais sejam documentados adequadamente na API.</p>
-     * 
-     * <h4>🎯 Problema Resolvido:</h4>
-     * <p>Por padrão, SpringDoc pode mapear {@code BigDecimal} de forma inconsistente. 
-     * Este customizer força o mapeamento correto para o tipo "number" com formato "decimal".</p>
-     * 
-     * <h4>📋 Mapeamento Aplicado:</h4>
-     * <pre>
-     * // Antes (inconsistente):
-     * BigDecimal → pode ser "string", "number", ou indefinido
-     * 
-     * // Depois (consistente):
-     * BigDecimal → "number" com format "decimal"
-     * </pre>
-     * 
-     * <h4>🔄 Exemplo de Schema Gerado:</h4>
-     * <pre>{@code
-     * // Campo Java:
-     * @Schema(description = "Valor do salário")
-     * private BigDecimal salario;
-     * 
-     * // Schema OpenAPI resultante:
-     * {
-     *   "salario": {
-     *     "type": "number",
-     *     "format": "decimal",
-     *     "description": "Valor do salário"
-     *   }
-     * }
-     * }</pre>
-     * 
-     * <h4>🎯 Benefícios:</h4>
-     * <ul>
-     *   <li><strong>Consistência:</strong> Todos os BigDecimal mapeados igualmente</li>
-     *   <li><strong>Precisão:</strong> Frontend sabe como tratar valores decimais</li>
-     *   <li><strong>Validação:</strong> Schemas corretos para validação de entrada</li>
-     *   <li><strong>Documentação:</strong> API docs mostram tipos precisos</li>
-     * </ul>
-     * 
-     * <h4>🔗 Uso em DTOs:</h4>
-     * <pre>{@code
-     * public class FuncionarioDTO {
-     *     // Automaticamente mapeado como "number"/"decimal":
-     *     private BigDecimal salario;
-     *     private BigDecimal bonus; 
-     *     private BigDecimal desconto;
-     * }
-     * 
-     * // Frontend JavaScript pode tratar adequadamente:
-     * const salario = parseFloat(response.salario); // Não precisa converter de string
-     * }</pre>
-     * 
-     * <h4>⚙️ Configuração Técnica:</h4>
-     * <p>Utiliza {@code SpringDocUtils.getConfig().replaceWithSchema()} para aplicar 
-     * o mapeamento globalmente a todas as ocorrências de {@code BigDecimal} na aplicação.</p>
-     * 
-     * @return OpenApiCustomizer que configura mapeamento de BigDecimal
+     * Ajusta o mapeamento global de {@link BigDecimal} para schema OpenAPI decimal.
      */
     @Bean
     public OpenApiCustomizer bigDecimalOpenApiCustomizer() {

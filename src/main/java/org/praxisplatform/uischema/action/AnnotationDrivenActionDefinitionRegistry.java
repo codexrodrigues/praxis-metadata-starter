@@ -30,6 +30,12 @@ import java.util.Map;
 
 /**
  * Descobre workflow actions a partir de metodos reais registrados no Spring MVC.
+ *
+ * <p>
+ * A implementacao so aceita operacoes explicitamente anotadas com {@link WorkflowAction} e ainda
+ * valida se o shape HTTP continua coerente com o baseline canonico de comandos, evitando inferir
+ * action por nome de metodo ou path acidental.
+ * </p>
  */
 public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitionRegistry {
 

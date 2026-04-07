@@ -74,6 +74,13 @@ import java.util.OptionalLong;
  * catalogos canonicos de surfaces/actions. Recursos mutantes devem subir para
  * {@link AbstractResourceController}; recursos somente leitura devem herdar diretamente desta base.
  * </p>
+ *
+ * <p>
+ * Ela tambem concentra a deteccao do base path do recurso, a composicao de links HATEOAS e a
+ * exposicao do schema canonicalmente resolvido pelo starter. Por isso, qualquer extensao desta
+ * base deve preservar a regra de que discovery e links sempre apontam para operacoes HTTP reais,
+ * e nao para aliases ou contratos paralelos.
+ * </p>
  */
 public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extends GenericFilterDTO> {
 

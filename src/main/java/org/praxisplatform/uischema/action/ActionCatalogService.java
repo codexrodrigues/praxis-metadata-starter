@@ -10,6 +10,12 @@ import java.util.Map;
 
 /**
  * Monta respostas do catalogo de actions sobre o registry annotation-driven.
+ *
+ * <p>
+ * O servico suporta discovery documental por recurso ou grupo e discovery contextual para
+ * actions item-level e collection-level. Em todos os casos, o catalogo referencia operacoes HTTP
+ * reais e schemas canonicos, sem introduzir payload inline ou dispatcher generico.
+ * </p>
  */
 public class ActionCatalogService {
 
@@ -27,6 +33,9 @@ public class ActionCatalogService {
         this.contextResolver = contextResolver;
     }
 
+    /**
+     * Retorna as actions documentais de um recurso.
+     */
     public ActionCatalogResponse findByResourceKey(String resourceKey) {
         List<ActionDefinition> definitions = requireDefinitions(
                 sort(actionDefinitionRegistry.findByResourceKey(resourceKey)),
@@ -44,6 +53,9 @@ public class ActionCatalogService {
         );
     }
 
+    /**
+     * Retorna as actions documentais agregadas por grupo OpenAPI.
+     */
     public ActionCatalogResponse findByGroup(String group) {
         List<ActionDefinition> definitions = requireDefinitions(
                 sort(actionDefinitionRegistry.findByGroup(group)),
@@ -59,6 +71,9 @@ public class ActionCatalogService {
         );
     }
 
+    /**
+     * Retorna apenas as actions item-level disponiveis para uma instancia especifica.
+     */
     public ActionCatalogResponse findItemActions(String resourceKey, Object resourceId) {
         List<ActionDefinition> resourceDefinitions = requireDefinitions(
                 sort(actionDefinitionRegistry.findByResourceKey(resourceKey)),
@@ -80,6 +95,9 @@ public class ActionCatalogService {
         );
     }
 
+    /**
+     * Retorna apenas as actions collection-level de um recurso.
+     */
     public ActionCatalogResponse findCollectionActions(String resourceKey) {
         List<ActionDefinition> resourceDefinitions = requireDefinitions(
                 sort(actionDefinitionRegistry.findByResourceKey(resourceKey)),

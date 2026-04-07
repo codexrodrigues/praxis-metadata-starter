@@ -9,6 +9,11 @@ import java.util.Map;
 /**
  * Regra baseline que publica metadados contextuais minimos e exige contexto concreto para
  * surfaces `ITEM`.
+ *
+ * <p>
+ * Essa regra garante o comportamento minimo esperado do baseline: surfaces item-level sem
+ * instancia concreta permanecem apenas documentais e nao aparecem como disponiveis em runtime.
+ * </p>
  */
 public class ContextualSurfaceAvailabilityRule implements SurfaceAvailabilityRule {
 

@@ -98,7 +98,6 @@ public @interface ApiResource {
      * variar apenas porque a URL operacional mudou.
      * </p>
      *
-     * <p>
      * @return chave semantica estavel do recurso
      */
     String resourceKey();

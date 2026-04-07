@@ -22,6 +22,13 @@ import java.lang.annotation.Target;
  * mesma entidade continuam resource-oriented, com operacoes reais e tipadas, sem transformar
  * {@code surface} em contrato de escrita.
  * </p>
+ *
+ * <p>
+ * Em outras palavras, {@code @ResourceIntent} modela variacoes legitimas de escrita sobre o
+ * mesmo recurso canonicamente identificado por {@code @ApiResource}. Ela nao substitui
+ * {@link UiSurface} nem {@link WorkflowAction}; cada anotacao ocupa uma camada semantica
+ * diferente no baseline da plataforma.
+ * </p>
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -43,7 +50,7 @@ public @interface ResourceIntent {
     String description() default "";
 
     /**
-     * Ordem sugerida para catalogos/documentacao futuros.
+     * Ordem sugerida para catalogos e discovery documental futuro.
      */
     int order() default 0;
 }

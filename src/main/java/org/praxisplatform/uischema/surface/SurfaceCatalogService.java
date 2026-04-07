@@ -16,6 +16,11 @@ import java.util.Map;
  * contextual item-level (`/{resource}/{id}/surfaces`). Em ambos os casos, a resposta apenas
  * referencia operacoes reais e schemas canonicos; nao define payload inline.
  * </p>
+ *
+ * <p>
+ * O servico tambem compartilha o contexto de availability por requisicao e recurso para evitar
+ * resolucoes redundantes quando varias surfaces dependem da mesma fotografia contextual.
+ * </p>
  */
 public class SurfaceCatalogService {
 
@@ -33,6 +38,9 @@ public class SurfaceCatalogService {
         this.contextResolver = contextResolver;
     }
 
+    /**
+     * Retorna as surfaces documentais e collection-level de um recurso.
+     */
     public SurfaceCatalogResponse findByResourceKey(String resourceKey) {
         List<SurfaceDefinition> definitions = requireDefinitions(
                 sort(surfaceDefinitionRegistry.findByResourceKey(resourceKey)),
@@ -50,6 +58,9 @@ public class SurfaceCatalogService {
         );
     }
 
+    /**
+     * Retorna as surfaces documentais agregadas por grupo OpenAPI.
+     */
     public SurfaceCatalogResponse findByGroup(String group) {
         List<SurfaceDefinition> definitions = requireDefinitions(
                 sort(surfaceDefinitionRegistry.findByGroup(group)),
@@ -65,6 +76,9 @@ public class SurfaceCatalogService {
         );
     }
 
+    /**
+     * Retorna apenas as surfaces item-level para um recurso e instancia especificos.
+     */
     public SurfaceCatalogResponse findItemSurfaces(String resourceKey, Object resourceId) {
         List<SurfaceDefinition> resourceDefinitions = requireDefinitions(
                 sort(surfaceDefinitionRegistry.findByResourceKey(resourceKey)),

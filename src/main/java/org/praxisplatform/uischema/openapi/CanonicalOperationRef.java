@@ -9,6 +9,12 @@ package org.praxisplatform.uischema.openapi;
  * devem resolver a operacao a partir de um {@code HandlerMethod} concreto ou por
  * {@code resolveByOperationId}.
  * </p>
+ *
+ * <p>
+ * O record representa o minimo contrato compartilhado entre resolvedores OpenAPI, catalogos
+ * semanticos e resolvedores de schema. Ele identifica uma operacao documentada sem carregar o
+ * payload ou o schema da operacao.
+ * </p>
  */
 public record CanonicalOperationRef(
         String group,

@@ -6,6 +6,12 @@ import java.util.Map;
 
 /**
  * Resolve as operacoes canonicas publicadas para um recurso a partir do OpenAPI.
+ *
+ * <p>
+ * Esta fronteira reduz o documento OpenAPI a um mapa enxuto de capacidades baseline do recurso,
+ * como create, update, filter, cursor e stats. Ela nao trata availability contextual nem
+ * surfaces/actions, apenas operacoes canonicas detectadas no contrato HTTP.
+ * </p>
  */
 public interface CanonicalCapabilityResolver {
 

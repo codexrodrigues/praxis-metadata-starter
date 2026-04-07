@@ -11,6 +11,12 @@ import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
  * Diferente do legado, recursos somente leitura agora nascem de um boundary query-only real e nao
  * herdam create/update/delete apenas para desabilita-los.
  * </p>
+ *
+ * <p>
+ * Esta base e a contrapartida de servico de
+ * {@link org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController} e deve
+ * ser a escolha padrao quando o recurso publica apenas leitura, filtros, stats e discovery.
+ * </p>
  */
 public abstract class AbstractReadOnlyResourceService<
         E,

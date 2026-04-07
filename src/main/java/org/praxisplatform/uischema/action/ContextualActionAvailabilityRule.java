@@ -9,6 +9,11 @@ import java.util.Map;
 /**
  * Regra baseline que publica metadados contextuais minimos e exige contexto concreto para
  * actions {@code ITEM}.
+ *
+ * <p>
+ * Isso impede que comandos item-level sejam anunciados como disponiveis sem uma instancia
+ * concreta do recurso, mantendo a semantica de workflow coerente com o contexto real.
+ * </p>
  */
 public class ContextualActionAvailabilityRule implements ActionAvailabilityRule {
 
