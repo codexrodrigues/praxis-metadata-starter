@@ -3,10 +3,6 @@
 Este exemplo mostra uma integracao minima entre uma aplicacao Spring Boot e o
 `praxis-metadata-starter`.
 
-> Nota: este exemplo mostra um wiring historico simplificado do core legado.
-> Para aplicacoes novas, priorize os guias principais resource-oriented e trate
-> `AbstractCrudController` apenas como referencia de migracao.
-
 ## Objetivo
 
 Demonstrar um caminho autocontido para:
@@ -20,23 +16,38 @@ Demonstrar um caminho autocontido para:
 
 - use `@ApiResource` e `@ApiGroup`
 - publique um DTO com `@UISchema`
-- use o core canonico atual quando estiver criando aplicacao nova
+- use o core resource-oriented canonico
 - mantenha o contrato consumivel por `praxis-ui-angular`
 
-## Exemplo de controller
+## Exemplo minimo
 
 ```java
-@RestController
-@ApiResource(ApiPaths.Catalog.CATEGORIAS)
+@ApiResource(value = ApiPaths.Catalog.CATEGORIAS, resourceKey = "catalog.categorias")
 @ApiGroup("catalog")
-public class CategoriaController extends AbstractCrudController<Categoria, CategoriaDTO, Integer, CategoriaFilterDTO> {
+public class CategoriaController
+    extends AbstractReadOnlyResourceController<Categoria, CategoriaResponseDTO, Integer, CategoriaFilterDTO> {
+
+    public CategoriaController(CategoriaService service) {
+        super(service);
+    }
 }
 ```
 
-## Exemplo de DTO
+```java
+@Service
+public class CategoriaService
+    extends AbstractReadOnlyResourceService<Categoria, CategoriaResponseDTO, Integer, CategoriaFilterDTO> {
+
+    public CategoriaService(CategoriaRepository repository, CategoriaMapper mapper) {
+        super(repository, Categoria.class, mapper);
+    }
+}
+```
+
+## Exemplo de DTO de resposta
 
 ```java
-public class CategoriaDTO {
+public class CategoriaResponseDTO {
   @UISchema(label = "Nome")
   private String nome;
 }

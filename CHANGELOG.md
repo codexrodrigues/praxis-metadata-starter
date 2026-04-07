@@ -4,6 +4,14 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased]
 
+### Removed
+- Superficie legada removida do starter: `AbstractCrudController`, `AbstractReadOnlyController`, `BaseCrudService`, `AbstractBaseCrudService` e `AbstractReadOnlyService`.
+- Suite de testes e fixtures de coexistencia do core legado removidas para consolidar o baseline `resource-oriented`.
+
+### Changed
+- `DynamicSwaggerConfig` passa a reconhecer apenas controllers da hierarquia `AbstractResourceQueryController`.
+- Guias publicos deixam de apontar onboarding ativo para o core legado.
+
 ### Added
 - Rollout do baseline semântico `resource + surface + action + capability`, com `@UiSurface`, `@WorkflowAction`, `GET /schemas/surfaces`, `GET /schemas/actions` e snapshots agregados em `/capabilities`.
 

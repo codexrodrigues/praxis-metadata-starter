@@ -126,7 +126,7 @@ Tipos ainda nao implementados de ponta a ponta no executor JPA:
 
 ### Problemas Comuns e Soluções
 
-- **Endpoint Retorna 404**: Verifique se o controller herda de `AbstractCrudController` ou `AbstractReadOnlyController` e se o `OptionSourceRegistry` está registrado no service.
+- **Endpoint Retorna 404**: Verifique se o controller herda de `AbstractResourceController` ou `AbstractReadOnlyResourceController` e se o `OptionSourceRegistry` esta registrado no service.
 - **Opções Não Aparecem no Frontend**: Confirme que o campo no `@UISchema` tem nome idêntico à `key` do descriptor. Use o browser dev tools para inspecionar `/schemas/filtered` e ver se `x-ui.optionSource` está presente.
 - **Busca Não Funciona**: Certifique-se de que `allowSearch: true` na `OptionSourcePolicy` e que o `searchMode` (ex.: "contains") é suportado pelo executor.
 - **Paginação Quebrada**: Verifique `defaultPageSize` e `maxPageSize` na policy; o frontend deve enviar `page` e `size` no request.

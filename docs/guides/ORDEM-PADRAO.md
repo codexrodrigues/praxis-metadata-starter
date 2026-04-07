@@ -3,7 +3,7 @@
 Como definir ordenação padrão automática nas listagens quando nenhum `sort` é informado.
 
 - Javadoc: [`@DefaultSortColumn`](../apidocs/org/praxisplatform/uischema/service/base/annotation/DefaultSortColumn.html)
-- Javadoc: [`BaseCrudService#getDefaultSort`](../apidocs/org/praxisplatform/uischema/service/base/BaseCrudService.html)
+- Javadoc: [`BaseResourceQueryService#getDefaultSort`](../apidocs/org/praxisplatform/uischema/service/base/BaseResourceQueryService.html)
 
 ## Como funciona
 
@@ -40,4 +40,4 @@ public class Funcionario {
 ## Referências
 
 - [`@DefaultSortColumn`](../apidocs/org/praxisplatform/uischema/service/base/annotation/DefaultSortColumn.html)
-- [`BaseCrudService`](../apidocs/org/praxisplatform/uischema/service/base/BaseCrudService.html)
+- [`BaseResourceQueryService`](../apidocs/org/praxisplatform/uischema/service/base/BaseResourceQueryService.html)

@@ -3,7 +3,7 @@
 Documentacao publica do `praxis-metadata-starter`.
 
 Esta home deve orientar pessoas, LLMs e indexadores para a semantica atual da
-plataforma, sem misturar onboarding novo com baseline legado.
+plataforma, sem misturar onboarding novo com APIs legadas removidas.
 
 ## O que este site publica
 
@@ -25,6 +25,7 @@ plataforma, sem misturar onboarding novo com baseline legado.
 1. [Guia 01 - Backend - Aplicacao Nova](guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html)
 2. [Guia 02 - Backend - Recurso Metadata-Driven](guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html)
 3. [Guia 04 - Quando usar Resource, Surface, Action e Capability](guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html)
+4. [Guia 05 - Do CRUD ao Contrato Semantico](guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
 
 ### Quero integrar um runtime Angular
 
@@ -33,7 +34,7 @@ plataforma, sem misturar onboarding novo com baseline legado.
 
 ### Quero referencia tecnica Java
 
-- [Javadoc publico](apidocs/index.html)
+- [Javadoc publico](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
 - [Indice humano do Javadoc](api/index.html)
 - [Documentacao tecnica](technical/index.html)
 
@@ -56,8 +57,8 @@ Isso significa:
 
 ## Regra De Leitura
 
-Se houver divergencia entre material antigo de CRUD generico e a trilha atual:
+Se houver divergencia entre material historico de CRUD generico e a trilha atual:
 
 - priorize os guias desta home
 - priorize `architecture-overview`
-- trate material legado como referencia de migracao, nao como baseline para app nova
+- trate material legado como referencia arquivada, nao como API ainda disponivel

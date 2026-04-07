@@ -73,7 +73,6 @@ class SurfaceCatalogE2ETest extends AbstractE2eH2Test {
         assertNotNull(findSurface(catalog.path("surfaces"), "human-resources.employees", "create"));
         assertNotNull(findSurface(catalog.path("surfaces"), "human-resources.departments", "create"));
         assertNotNull(findSurface(catalog.path("surfaces"), "human-resources.payroll-view", "list"));
-        assertNullSurface(catalog.path("surfaces"), "legacy-employees", "list");
     }
 
     @Test

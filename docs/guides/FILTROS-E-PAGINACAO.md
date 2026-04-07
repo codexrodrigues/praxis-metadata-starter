@@ -28,7 +28,8 @@ public class FuncionarioFilterDTO implements GenericFilterDTO {
 2) O service base resolve as Specifications automaticamente
 
 ```java
-public class FuncionarioService extends AbstractBaseCrudService<Funcionario, FuncionarioDTO, Long, FuncionarioFilterDTO> {
+public class FuncionarioService extends AbstractBaseResourceService<
+    Funcionario, FuncionarioResponseDTO, Long, FuncionarioFilterDTO, CreateFuncionarioDTO, UpdateFuncionarioDTO> {
   public FuncionarioService(BaseCrudRepository<Funcionario, Long> repo, Class<Funcionario> entityClass) {
     super(repo, entityClass);
   }

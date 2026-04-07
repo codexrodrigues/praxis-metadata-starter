@@ -12,7 +12,6 @@ import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.filter.specification.GenericSpecification;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
-import org.praxisplatform.uischema.service.base.AbstractBaseCrudService;
 import org.praxisplatform.uischema.service.base.AbstractBaseResourceService;
 import org.praxisplatform.uischema.service.base.AbstractReadOnlyResourceService;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
@@ -32,9 +31,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -395,19 +392,6 @@ class PayrollViewService extends AbstractReadOnlyResourceService<
     }
 }
 
-@Service
-class LegacyEmployeeService extends AbstractBaseCrudService<EmployeeEntity, LegacyEmployeeDTO, Long, LegacyEmployeeFilterDTO> {
-
-    LegacyEmployeeService(EmployeeRepository repository) {
-        super(repository, EmployeeEntity.class);
-    }
-
-    @Override
-    public Optional<String> getDatasetVersion() {
-        return Optional.of("e2e");
-    }
-}
-
 @org.springframework.web.bind.annotation.RestController
 @ApiResource(value = "/employees", resourceKey = "human-resources.employees")
 @ApiGroup("human-resources")
@@ -574,57 +558,3 @@ class PayrollViewController extends org.praxisplatform.uischema.controller.base.
     }
 }
 
-@org.springframework.web.bind.annotation.RestController
-@ApiResource(value = "/legacy-employees", resourceKey = "legacy.employees")
-class LegacyEmployeeController extends org.praxisplatform.uischema.controller.base.AbstractCrudController<
-        EmployeeEntity,
-        LegacyEmployeeDTO,
-        Long,
-        LegacyEmployeeFilterDTO> {
-
-    private final LegacyEmployeeService service;
-
-    LegacyEmployeeController(LegacyEmployeeService service) {
-        this.service = service;
-    }
-
-    @Override
-    protected LegacyEmployeeService getService() {
-        return service;
-    }
-
-    @Override
-    protected LegacyEmployeeDTO toDto(EmployeeEntity entity) {
-        LegacyEmployeeDTO dto = new LegacyEmployeeDTO();
-        dto.setId(entity.getId());
-        dto.setNome(entity.getNome());
-        dto.setDepartmentId(entity.getDepartment().getId());
-        dto.setDepartmentNome(entity.getDepartment().getNome());
-        return dto;
-    }
-
-    @Override
-    protected EmployeeEntity toEntity(LegacyEmployeeDTO dto) {
-        EmployeeEntity entity = new EmployeeEntity();
-        entity.setId(dto.getId());
-        entity.setNome(dto.getNome());
-        DepartmentEntity department = new DepartmentEntity();
-        department.setId(dto.getDepartmentId());
-        entity.setDepartment(department);
-        entity.setMatricula("LEGACY-" + (dto.getId() == null ? "NEW" : dto.getId()));
-        entity.setStatus(EmployeeStatus.ACTIVE);
-        entity.setSalario(BigDecimal.ZERO);
-        entity.setAdmissionDate(LocalDate.of(2024, 1, 1));
-        return entity;
-    }
-
-    @Override
-    protected Long getEntityId(EmployeeEntity entity) {
-        return entity.getId();
-    }
-
-    @Override
-    protected Long getDtoId(LegacyEmployeeDTO dto) {
-        return dto.getId();
-    }
-}

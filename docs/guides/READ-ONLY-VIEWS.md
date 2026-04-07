@@ -1,25 +1,25 @@
 # Recursos Somente Leitura (Views JPA / @Immutable)
 
-Acelere telas baseadas em Views do banco (ou entidades marcadas como `@Immutable`) com o modo read‑only do Starter.
+Acelere telas baseadas em views do banco, ou entidades marcadas como `@Immutable`, com o modo read-only canonico do Starter.
 
-- Sem escrever endpoints: herde do controller/serviço read‑only e ganhe automaticamente filtros, paginação, opções id/label e documentação.
-- Segurança por padrão: operações de escrita (POST/PUT/DELETE) respondem `405 Method Not Allowed`.
+- Sem escrever endpoints: herde do controller/servico read-only e ganhe automaticamente filtros, paginacao, opcoes id/label e documentacao.
+- Seguranca por design: a superficie read-only canonica nao publica endpoints de escrita.
 
 <a id="endpoints-readonly"></a>
 <details>
-<summary><strong>Endpoints disponíveis (read‑only)</strong></summary>
+<summary><strong>Endpoints disponiveis (read-only)</strong></summary>
 
-- `GET /{id}` — busca registro por ID
-- `GET /all` — lista completa (aplica ordenação padrão se configurada)
-- `POST /filter` — paginação/filtragem via Specifications
-- `POST /filter/cursor` — paginação por cursor (keyset)
-- `POST /locate` — retorna posição absoluta e página de um ID com base no filtro/sort
-- `GET /by-ids` — múltiplos registros por IDs na ordem solicitada
-- `POST /options/filter` — opções id/label para selects (paginadas)
-- `GET /options/by-ids` — opções por IDs (ordem preservada)
-- `GET /schemas` — redirect para `/schemas/filtered` do recurso
+- `GET /{id}` - busca registro por ID
+- `GET /all` - lista completa
+- `POST /filter` - paginacao e filtragem via Specifications
+- `POST /filter/cursor` - paginacao por cursor
+- `POST /locate` - retorna a posicao absoluta de um ID no conjunto filtrado
+- `GET /by-ids` - multiplos registros por IDs na ordem solicitada
+- `POST /options/filter` - opcoes id/label para selects
+- `GET /options/by-ids` - opcoes por IDs com ordem preservada
+- `GET /schemas` - redirect para `/schemas/filtered` do recurso
 
-> Bloqueadas: `POST /`, `PUT /{id}`, `DELETE /{id}`, `DELETE /batch` → `405`.
+> Nao publicadas: `POST /`, `PUT /{id}`, `DELETE /{id}`, `DELETE /batch`.
 
 </details>
 
@@ -27,81 +27,83 @@ Acelere telas baseadas em Views do banco (ou entidades marcadas como `@Immutable
 <details>
 <summary><strong>Como usar</strong></summary>
 
-### 1) Entidade (View/@Immutable)
+### 1) Entidade (view/@Immutable)
 
 ```java
 import org.hibernate.annotations.Immutable;
 
-@Entity @Immutable
+@Entity
+@Immutable
 @Table(name = "vw_vendas_resumo")
 public class VendaResumo { /* campos da view */ }
 ```
 
 ### 2) Repository
+
 ```java
 public interface VendaResumoRepository extends BaseCrudRepository<VendaResumo, Long> { }
 ```
 
-### 3) Service read‑only
+### 3) Service read-only
+
 ```java
 @Service
-public class VendaResumoService extends AbstractReadOnlyService<VendaResumo, VendaResumoDTO, Long, VendaResumoFilterDTO> {
-  public VendaResumoService(VendaResumoRepository repo) { super(repo, VendaResumo.class); }
-}
-```
-
-### 4) Controller read‑only
-```java
-@ApiResource("/api/relatorios/vendas-resumo")
-@ApiGroup("relatorios")
-@RestController
-public class VendaResumoController extends AbstractReadOnlyController<
+public class VendaResumoService extends AbstractReadOnlyResourceService<
     VendaResumo, VendaResumoDTO, Long, VendaResumoFilterDTO> {
 
-  @Autowired private VendaResumoService service;
-  @Override protected BaseCrudService<VendaResumo, VendaResumoDTO, Long, VendaResumoFilterDTO> getService() { return service; }
-  @Override protected Long getEntityId(VendaResumo e) { return e.getId(); }
-  @Override protected Long getDtoId(VendaResumoDTO d) { return d.getId(); }
-  @Override protected VendaResumoDTO toDto(VendaResumo e) { /* map */ }
-  @Override protected VendaResumo toEntity(VendaResumoDTO d) { /* map */ }
+  public VendaResumoService(VendaResumoRepository repo) {
+    super(repo, VendaResumo.class);
+  }
 }
 ```
 
-### 5) Filtros e ordenação
-- Use `@Filterable` no DTO de filtro para Specifications (26 operações)
-- Defina `@DefaultSortColumn` na entidade para ordenação padrão
+### 4) Controller read-only
+
+```java
+@ApiResource(value = "/api/relatorios/vendas-resumo", resourceKey = "relatorios.vendas-resumo")
+@ApiGroup("relatorios")
+public class VendaResumoController extends AbstractReadOnlyResourceController<
+    VendaResumoDTO, Long, VendaResumoFilterDTO> {
+
+  @Autowired private VendaResumoService service;
+
+  @Override protected VendaResumoService getService() { return service; }
+  @Override protected Long getResponseId(VendaResumoDTO dto) { return dto.getId(); }
+}
+```
+
+### 5) Filtros e ordenacao
+
+- Use `@Filterable` no DTO de filtro para Specifications
+- Defina `@DefaultSortColumn` na entidade para ordenacao padrao
 
 ### 6) Semantica de display/read-only
 
-Recursos read-only tambem participam do contrato canonico de apresentacao de valor.
+Recursos read-only participam do mesmo contrato canonico de apresentacao:
 
-Diretrizes:
-
-- para valores escalares, o starter publica `x-ui.valuePresentation` quando a intencao de exibicao for inferivel
-- isso vale especialmente para `currency`, `percentage`, `date`, `datetime`, `time`, `number` e `boolean`
-- `valuePresentation` nao deve ser usado como contrato automatico para ranges, selecoes ou IDs semanticos
-- quando houver necessidade excepcional de override, use `extraProperties` aninhado no `@UISchema`
-
-Isso garante que superficies read-only e metadata-driven consumam a mesma semantica horizontal de exibicao, sem depender apenas de heuristicas locais do frontend.
+- o starter publica `x-ui.valuePresentation` quando a intencao de exibicao for inferivel
+- isso vale para `currency`, `percentage`, `date`, `datetime`, `time`, `number` e `boolean`
+- quando houver necessidade excepcional de override, use `extraProperties` em `@UISchema`
 
 </details>
 
 <a id="beneficios"></a>
 <details>
-<summary><strong>Benefícios (prontos para produção)</strong></summary>
-- Sem riscos de escrita: 405 para operações mutáveis.
-- 9+ endpoints de leitura prontos e documentados (Swagger/OpenAPI) com cache e grupos por path.
-- Integração com UI: `options` e `/schemas/filtered` aceleram formulários/tabelas read‑only.
-- Consistência corporativa: respostas padronizadas (`RestApiResponse`) e HATEOAS opcional.
+<summary><strong>Beneficios</strong></summary>
+
+- Sem riscos de escrita: o controller nao expoe operacoes mutaveis.
+- Endpoints de leitura prontos e documentados em OpenAPI.
+- Integracao direta com `/schemas/filtered`, `options/*` e runtime Angular.
 
 </details>
 
 <a id="referencias"></a>
 <details>
-<summary><strong>Referências</strong></summary>
-- [`AbstractReadOnlyController`](../apidocs/org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.html)
-- [`AbstractReadOnlyService`](../apidocs/org/praxisplatform/uischema/service/base/AbstractReadOnlyService.html)
+<summary><strong>Referencias</strong></summary>
+
+- [`AbstractReadOnlyResourceController`](../apidocs/org/praxisplatform/uischema/controller/base/AbstractReadOnlyResourceController.html)
+- [`AbstractReadOnlyResourceService`](../apidocs/org/praxisplatform/uischema/service/base/AbstractReadOnlyResourceService.html)
 - [`@Filterable`](../apidocs/org/praxisplatform/uischema/filter/annotation/Filterable.html)
-- [Filtros e Paginação](FILTROS-E-PAGINACAO.md)
+- [Filtros e Paginacao](FILTROS-E-PAGINACAO.md)
 
 </details>

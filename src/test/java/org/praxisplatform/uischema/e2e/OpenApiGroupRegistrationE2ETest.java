@@ -30,14 +30,13 @@ class OpenApiGroupRegistrationE2ETest extends AbstractE2eH2Test {
         assertTrue(aggregatedRoot.path("paths").has("/employees"));
         assertTrue(aggregatedRoot.path("paths").has("/departments"));
         assertTrue(aggregatedRoot.path("paths").has("/payroll-view/all"));
-        assertFalse(aggregatedRoot.path("paths").has("/legacy-employees"));
         assertFalse(aggregatedRoot.path("paths").has("/schemas/filtered"));
 
         ResponseEntity<String> applicationGroup = get("/v3/api-docs/application");
         assertEquals(200, applicationGroup.getStatusCode().value());
         JsonNode applicationRoot = body(applicationGroup);
         assertTrue(applicationRoot.path("paths").has("/employees"));
-        assertTrue(applicationRoot.path("paths").has("/legacy-employees"));
+        assertFalse(applicationRoot.path("paths").has("/legacy-employees"));
 
         ResponseEntity<String> infraGroup = get("/v3/api-docs/praxis-metadata-infra");
         assertEquals(200, infraGroup.getStatusCode().value());

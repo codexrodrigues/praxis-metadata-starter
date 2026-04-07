@@ -1,26 +1,24 @@
-﻿# Guia 02 - IA Backend - Recurso Metadata-Driven no Core Atual
+# Guia 02 - IA Backend - Recurso Metadata-Driven no Core Atual
 
 ## Objetivo
 
-Este guia orienta a implementacao de um recurso backend metadata-driven alinhado ao core atual do
-`praxis-metadata-starter`.
+Este guia orienta a implementacao de um recurso backend metadata-driven alinhado
+ao core atual do `praxis-metadata-starter`.
 
-O baseline correto hoje e `resource-oriented`.
-Este guia nao deve gerar:
-
-- `AbstractCrudController`
-- `AbstractBaseCrudService`
-- DTO unico de leitura/escrita
+Ele foca no caso mais comum: a aplicacao ja existe, e a LLM precisa adicionar um
+novo recurso sem cair no core legado removido nem gerar codigo incompleto.
 
 ## Entrada minima para a LLM
 
 No minimo:
 
-1. entidade JPA ou sua estrutura
-2. `resourcePath`
-3. `resourceKey`
-4. grupo OpenAPI
-5. pacote base
+1. entidade JPA ou estrutura equivalente
+2. tipo do ID
+3. `resourcePath`
+4. `resourceKey`
+5. grupo OpenAPI
+6. pacote base
+7. se o recurso e mutavel ou read-only
 
 Exemplo:
 
@@ -29,15 +27,33 @@ Gere um recurso metadata-driven canonico.
 
 Entrada:
 - Entidade: src/main/java/com/example/hr/entity/Employee.java
+- ID: Long
 - Resource path: /api/human-resources/employees
 - Resource key: human-resources.employees
 - Api group: human-resources
-- Pacote base: com.example.hr
+- Pacote base: com.example.hr.employee
+- Recurso mutavel: sim
 ```
+
+## Protocolo de geracao
+
+Peça explicitamente para a LLM gerar nesta ordem:
+
+1. DTOs
+2. repository
+3. mapper
+4. service
+5. controller
+6. apenas depois intents, surfaces e workflow actions
+
+Isso evita dois erros frequentes:
+
+- controller dependente de tipos ainda inexistentes
+- service sem mapper correto
 
 ## Semantica obrigatoria de `resourceKey`
 
-Ao gerar um recurso novo, nao trate `resourceKey` como espelho cosmetico do path.
+Nao trate `resourceKey` como espelho cosmetico do path.
 
 Use esta regra:
 
@@ -54,9 +70,9 @@ O starter usa `resourceKey` para:
 - encontrar surfaces do recurso em `/schemas/surfaces`
 - encontrar workflow actions do recurso em `/schemas/actions`
 - compor snapshots de `capabilities`
-- manter a identidade do recurso estavel mesmo se o path operacional mudar
 
-Se o recurso continua semanticamente o mesmo, prefira manter o mesmo `resourceKey` mesmo quando a URL precisar evoluir.
+Se o recurso continua semanticamente o mesmo, prefira manter o mesmo
+`resourceKey` mesmo quando a URL operacional mudar.
 
 ## Arquivos minimos do recurso
 
@@ -78,85 +94,34 @@ src/main/java/{base-package}/
     `-- {Resource}Controller.java
 ```
 
+Para recurso read-only, remova:
+
+- `Create{Resource}DTO`
+- `Update{Resource}DTO`
+
 ## DTOs canonicos
 
 Use sempre:
 
 - `{Resource}ResponseDTO` para leitura
 - `Create{Resource}DTO` para `POST`
-- `Update{Resource}DTO` para `PUT` base
+- `Update{Resource}DTO` para `PUT`
 - `{Resource}FilterDTO` para query/filter
 
-No baseline atual do starter, `PATCH /{id}` nao faz parte do core HTTP canonico. Use `PATCH`
-apenas em operacoes explicitas por intencao com `@ResourceIntent`.
+Regras que a LLM deve obedecer:
 
-Se existir escrita parcial por intencao:
+- `FilterDTO` deve implementar `GenericFilterDTO`
+- DTOs de escrita devem carregar `@Valid` e constraints reais quando houver
+- `ResponseDTO` deve expor o ID retornado pelo controller
 
-- `Update{Resource}{Intent}DTO`
-- endpoint `PATCH /{id}/{intent}`
-- `@ResourceIntent`
-
-## Controller canonico
+## Repository minimo
 
 ```java
-@RestController
-@ApiResource(value = ApiPaths.HumanResources.EMPLOYEES, resourceKey = "human-resources.employees")
-@ApiGroup("human-resources")
-public class EmployeeController extends AbstractResourceController<
-        EmployeeResponseDTO,
-        Long,
-        EmployeeFilterDTO,
-        CreateEmployeeDTO,
-        UpdateEmployeeDTO> {
-
-    private final EmployeeService service;
-
-    public EmployeeController(EmployeeService service) {
-        this.service = service;
-    }
-
-    @Override
-    protected EmployeeService getService() {
-        return service;
-    }
-
-    @Override
-    protected Long getResponseId(EmployeeResponseDTO dto) {
-        return dto.getId();
-    }
+public interface EmployeeRepository extends BaseCrudRepository<Employee, Long> {
 }
 ```
 
-Leitura correta do exemplo:
-
-- `value = ApiPaths.HumanResources.EMPLOYEES` define o path publicado pelo controller
-- `resourceKey = "human-resources.employees"` define a chave semantica que a plataforma usa em discovery e capabilities
-
-## Service canonico
-
-```java
-@Service
-public class EmployeeService extends AbstractBaseResourceService<
-        Employee,
-        EmployeeResponseDTO,
-        Long,
-        EmployeeFilterDTO,
-        CreateEmployeeDTO,
-        UpdateEmployeeDTO> {
-
-    private final EmployeeMapper mapper;
-
-    public EmployeeService(EmployeeRepository repository, EmployeeMapper mapper) {
-        super(repository, Employee.class);
-        this.mapper = mapper;
-    }
-
-    @Override
-    protected ResourceMapper<Employee, EmployeeResponseDTO, CreateEmployeeDTO, UpdateEmployeeDTO, Long> getResourceMapper() {
-        return mapper;
-    }
-}
-```
+Sem isso, o service nao encaixa no core atual.
 
 ## Mapper canonico
 
@@ -185,19 +150,134 @@ public class EmployeeMapper implements ResourceMapper<
 }
 ```
 
+Metodos obrigatorios:
+
+- `toResponse`
+- `newEntity`
+- `applyUpdate`
+- `extractId`
+
+## Service canonico
+
+```java
+@Service
+public class EmployeeService extends AbstractBaseResourceService<
+        Employee,
+        EmployeeResponseDTO,
+        Long,
+        EmployeeFilterDTO,
+        CreateEmployeeDTO,
+        UpdateEmployeeDTO> {
+
+    private final EmployeeMapper mapper;
+
+    public EmployeeService(EmployeeRepository repository, EmployeeMapper mapper) {
+        super(repository, Employee.class);
+        this.mapper = mapper;
+    }
+
+    @Override
+    protected ResourceMapper<Employee, EmployeeResponseDTO, CreateEmployeeDTO, UpdateEmployeeDTO, Long> getResourceMapper() {
+        return mapper;
+    }
+}
+```
+
+Para read-only:
+
+```java
+@Service
+public class PayrollViewService extends AbstractReadOnlyResourceService<
+        PayrollView,
+        PayrollViewResponseDTO,
+        Long,
+        PayrollViewFilterDTO> {
+
+    private final PayrollViewMapper mapper;
+
+    public PayrollViewService(PayrollViewRepository repository, PayrollViewMapper mapper) {
+        super(repository, PayrollView.class);
+        this.mapper = mapper;
+    }
+
+    @Override
+    protected ResourceMapper<PayrollView, PayrollViewResponseDTO, ?, ?, Long> getResourceMapper() {
+        return mapper;
+    }
+}
+```
+
+## Controller canonico
+
+```java
+@ApiResource(value = ApiPaths.HumanResources.EMPLOYEES, resourceKey = "human-resources.employees")
+@ApiGroup("human-resources")
+public class EmployeeController extends AbstractResourceController<
+        EmployeeResponseDTO,
+        Long,
+        EmployeeFilterDTO,
+        CreateEmployeeDTO,
+        UpdateEmployeeDTO> {
+
+    private final EmployeeService service;
+
+    public EmployeeController(EmployeeService service) {
+        this.service = service;
+    }
+
+    @Override
+    protected EmployeeService getService() {
+        return service;
+    }
+
+    @Override
+    protected Long getResponseId(EmployeeResponseDTO dto) {
+        return dto.getId();
+    }
+}
+```
+
+Regras obrigatorias:
+
+- use `@ApiResource(value = ..., resourceKey = ...)`
+- nao use `@RestController` junto com `@ApiResource`
+- sobrescreva `getService()`
+- sobrescreva `getResponseId()`
+
 ## Read-only canonico
 
-Quando o recurso for apenas leitura:
+```java
+@ApiResource(value = ApiPaths.HumanResources.PAYROLL_VIEW, resourceKey = "human-resources.payroll-view")
+@ApiGroup("human-resources")
+public class PayrollViewController extends AbstractReadOnlyResourceController<
+        PayrollViewResponseDTO,
+        Long,
+        PayrollViewFilterDTO> {
 
-- controller: `AbstractReadOnlyResourceController`
-- service: `AbstractReadOnlyResourceService`
-- sem endpoints de escrita publicados
+    private final PayrollViewService service;
 
-## Quando adicionar ResourceIntent, UiSurface e WorkflowAction
+    public PayrollViewController(PayrollViewService service) {
+        this.service = service;
+    }
+
+    @Override
+    protected PayrollViewService getService() {
+        return service;
+    }
+
+    @Override
+    protected Long getResponseId(PayrollViewResponseDTO dto) {
+        return dto.getId();
+    }
+}
+```
+
+## Quando adicionar `@ResourceIntent`, `@UiSurface` e `@WorkflowAction`
 
 ### `@ResourceIntent`
 
-Use quando a operacao ainda e manutencao do recurso, mas com DTO parcial e semantica propria.
+Use quando a operacao ainda e manutencao do recurso, mas com DTO parcial e
+semantica propria.
 
 Exemplo:
 
@@ -215,10 +295,7 @@ public ResponseEntity<RestApiResponse<EmployeeResponseDTO>> updateProfile(
 
 Use quando a UX precisar descobrir semanticamente uma operacao real.
 
-Exemplo:
-
 ```java
-@PatchMapping("/{id}/profile")
 @UiSurface(
         id = "profile",
         kind = SurfaceKind.PARTIAL_FORM,
@@ -232,16 +309,14 @@ Exemplo:
 
 Use apenas para comando de negocio explicito.
 
-Exemplo:
-
 ```java
 @PostMapping("/{id}/actions/approve")
 @WorkflowAction(id = "approve", title = "Aprovar", scope = ActionScope.ITEM)
 ```
 
-## O que o recurso deve expor no runtime
+## O que o recurso deve expor
 
-Para um recurso mutavel no core atual, o baseline esperado inclui:
+Para um recurso mutavel no core atual, espere:
 
 - `GET /{resource}/all`
 - `GET /{resource}/{id}`
@@ -250,29 +325,67 @@ Para um recurso mutavel no core atual, o baseline esperado inclui:
 - `POST /{resource}/filter`
 - `POST /{resource}/filter/cursor`
 - `POST /{resource}/locate`
-- `/schemas/filtered`
-- `/schemas/catalog`
-- `/schemas/surfaces`
-- `/schemas/actions`
+- `POST /{resource}/options/filter`
+- `GET /{resource}/options/by-ids`
 - `GET /{resource}/capabilities`
 - `GET /{resource}/{id}/capabilities`
+
+Para recurso read-only, nao espere:
+
+- `POST /{resource}`
+- `PUT /{resource}/{id}`
+- `DELETE /{resource}/{id}`
 
 ## O que nao deve ser gerado
 
 - schema inline em catalogos
 - action router generico
 - payload generico por string
-- duplicacao `V1/V2`
-- contrato paralelo para read-only com `405` herdado
+- duplicacao `v1/v2`
+- DTO unico para leitura e escrita
+- classes do core legado removido
+
+## Prompt recomendado para adicionar um recurso novo
+
+```text
+Adicione um novo recurso metadata-driven ao projeto Spring Boot existente.
+
+Use obrigatoriamente:
+- @ApiResource(value = ..., resourceKey = ...)
+- @ApiGroup
+- BaseCrudRepository
+- ResourceMapper
+- AbstractBaseResourceService ou AbstractReadOnlyResourceService
+- AbstractResourceController ou AbstractReadOnlyResourceController
+
+Gere, nesta ordem:
+1. DTOs
+2. repository
+3. mapper
+4. service
+5. controller
+
+Regras:
+- nao use @RestController junto com @ApiResource
+- FilterDTO deve implementar GenericFilterDTO
+- mapper deve implementar toResponse, newEntity, applyUpdate, extractId
+- service deve sobrescrever getResourceMapper()
+- controller deve sobrescrever getService() e getResponseId()
+- nao gere classes do core legado removido
+- entregue codigo compilavel, sem stubs
+```
 
 ## Checklist do recurso
 
 Antes de concluir:
 
 - o controller usa `@ApiResource(value = ..., resourceKey = ...)`
-- `resourceKey` representa a semantica do recurso, e nao apenas a URL atual
+- `resourceKey` representa a semantica do recurso
 - o recurso nao usa DTO unico
-- `@Valid` funciona de verdade
+- `FilterDTO implements GenericFilterDTO`
+- repository estende `BaseCrudRepository`
+- service sobrescreve `getResourceMapper()`
+- controller sobrescreve `getService()` e `getResponseId()`
 - `/schemas/filtered` resolve request e response
 - `/schemas/surfaces` e `/schemas/actions` so expoem referencias canonicas
 - `GET /{resource}/capabilities` agrega sem redefinir contrato
@@ -281,5 +394,4 @@ Antes de concluir:
 
 - `docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`
 - `docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md`
-- `docs/technical/RESOURCE-ORIENTED-PILOT-IN-SRC-TEST.md`
-
+- `docs/architecture-overview.md`

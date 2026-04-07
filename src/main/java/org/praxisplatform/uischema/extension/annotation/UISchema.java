@@ -31,8 +31,8 @@ import static java.lang.annotation.ElementType.*;
  * )
  * private Long categoriaId;
  * }</pre>
- *   <p>O label é resolvido no backend via {@code @OptionLabel} ou heurísticas do
- *   {@code BaseCrudService#computeOptionLabel}.</p>
+ *   <p>O label e resolvido no backend via {@code @OptionLabel} ou heuristicas do
+ *   {@code AbstractBaseQueryResourceService#computeOptionLabel}.</p>
  *   </li>
  *   <li><strong>DTO completo</strong> (recomendado quando a UI precisa de colunas extras no dropdown)
  *   <pre>{@code

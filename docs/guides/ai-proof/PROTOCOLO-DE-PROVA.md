@@ -31,7 +31,7 @@ Material adicional opcional:
 
 - `docs/guides/OPTIONS-ENDPOINT.md`
 - `docs/guides/FILTROS-E-PAGINACAO.md`
-- `docs/guides/CRUD-COM-APIRESOURCE.md`
+- `docs/guides/READ-ONLY-VIEWS.md`
 
 Nao liberar como baseline:
 

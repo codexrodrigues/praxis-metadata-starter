@@ -214,15 +214,13 @@ Nao crie um contrato paralelo de read-only para contornar o baseline canonico.
 
 ## Legacy Positioning
 
-O projeto ainda contem material historico sobre `AbstractCrudController`, `BaseCrudService` e onboarding CRUD antigo.
+O core legado baseado em `AbstractCrudController`, `BaseCrudService` e afins foi removido do starter.
 
-Esse material deve ser lido como referencia de migracao e legado, nao como baseline para aplicacoes novas.
-
-Se houver divergencia entre README antigo, exemplos antigos e guias novos, a fonte correta e a trilha atual em [docs/guides/index.md](docs/guides/index.md) junto com [docs/architecture-overview.md](docs/architecture-overview.md).
+Se houver material historico citando essa superficie, trate-o como registro arquivado de migracao, nao como API ainda disponivel.
 
 ## References
 
 - Architecture overview: [docs/architecture-overview.md](docs/architecture-overview.md)
-- Legacy package map: [docs/packages-overview.md](docs/packages-overview.md)
+- Package map: [docs/packages-overview.md](docs/packages-overview.md)
 - Guides hub: [docs/guides/index.md](docs/guides/index.md)
 - Conformance: [docs/spec/CONFORMANCE.md](docs/spec/CONFORMANCE.md)
