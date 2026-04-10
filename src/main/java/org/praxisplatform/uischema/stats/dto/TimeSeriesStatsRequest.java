@@ -55,7 +55,7 @@ public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
     }
 
     /**
-     * Retorna a metrica primaria para consumidores legados ou fluxos de metrica unica.
+     * Retorna a metrica primaria para consumidores de metrica unica.
      *
      * @return primeira metrica efetiva ou {@code null}
      */

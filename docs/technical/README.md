@@ -14,23 +14,26 @@ Para onboarding e narrativa publica atual, use primeiro:
 ### Referencias tecnicas atuais
 
 - [Auto-configuracao](AUTO-CONFIGURACAO.md)
-- [Checklist de prontidao do piloto](PILOT-READINESS-CHECKLIST.md)
-- [Rollback e observabilidade do piloto](ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.md)
 - [Fechamento da Fase 4 - Surfaces](PHASE-4-SURFACES-CLOSURE.md)
 - [Fechamento da Fase 5 - Workflow Actions](PHASE-5-ACTIONS-CLOSURE.md)
 - [Fechamento da Fase 6 - Capabilities Unificadas](PHASE-6-CAPABILITIES-CLOSURE.md)
 - [Roadmap de filtros - lotes 2 e 3](FILTROS-ROADMAP.md)
 
+### Registros tecnicos de rollout e piloto
+
+- [Checklist de prontidao do piloto](PILOT-READINESS-CHECKLIST.md)
+- [Rollback e observabilidade do piloto](ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.md)
+
 ## Regras de leitura
 
 - O baseline canonico do starter e `resource + surfaces + actions + capabilities + HATEOAS`.
-- O core legado removido nao faz mais parte da superficie publicada do starter.
 - Quando houver duvida de contrato publico, a prioridade e:
   1. `README.md`
   2. `docs/architecture-overview.md`
   3. `docs/guides/**`
   4. `docs/spec/**`
   5. esta area tecnica
+- Materiais de piloto, rollout e validacao historica nao redefinem a narrativa publica principal.
 
 ## Referencias relacionadas
 

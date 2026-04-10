@@ -124,7 +124,7 @@ public class DynamicSwaggerConfig {
             HandlerMethod handlerMethod = entry.getValue();
             Class<?> controllerClass = handlerMethod.getBeanType();
 
-            // ✅ GRUPOS INDIVIDUAIS: controllers do legado ou da nova hierarquia resource-oriented
+            // Grupos individuais para controllers canonicamente suportados pela hierarquia resource-oriented.
             if (isCanonicalResourceController(controllerClass)) {
                 qualifyingControllers.add(controllerClass);
 
@@ -200,9 +200,9 @@ public class DynamicSwaggerConfig {
      * resource-oriented canônicos estão usando @ApiResource conforme esperado.</p>
      * 
      * <h4>🎯 Objetivo:</h4>
-     * <p>Garantir que developers sigam o padrão arquitetural correto, evitando inconsistências
-     * e problemas de manutenção futuros. Força migração para @ApiResource para aproveitar
-     * os benefícios da resolução automática de grupos OpenAPI.</p>
+     * <p>Garantir que controllers resource-oriented publiquem sua identidade canônica com
+     * {@link ApiResource}, preservando a resolução automática de grupos OpenAPI e a coerência
+     * entre documentação e contrato.</p>
      * 
      * <h4>📋 Comportamentos:</h4>
      * <ul>
@@ -211,9 +211,9 @@ public class DynamicSwaggerConfig {
      *   <li><strong>IGNORE:</strong> Pula a validação completamente</li>
      * </ul>
      * 
-     * <h4>⚠️ Sem Exceções:</h4>
-     * <p>Todos os controllers resource-oriented canônicos devem migrar para @ApiResource.
-     * Não há anotação de exceção ou contorno - a validação é direta e obrigatória.</p>
+     * <h4>⚠️ Regra:</h4>
+     * <p>Todos os controllers resource-oriented canônicos devem usar {@link ApiResource}.
+     * Não há atalho alternativo para a publicação canônica dessa superfície.</p>
      */
     @EventListener(ApplicationReadyEvent.class)
     public void validateApiResourceUsage() {
@@ -233,7 +233,7 @@ public class DynamicSwaggerConfig {
             HandlerMethod handlerMethod = entry.getValue();
             Class<?> controllerClass = handlerMethod.getBeanType();
 
-            // ✅ Filtra controllers do legado ou da nova hierarquia resource-oriented
+            // Filtra controllers da hierarquia resource-oriented suportada pelo contrato canônico.
             if (isCanonicalResourceController(controllerClass)) {
                 
                 // 🔍 Verifica se usa @ApiResource ou pelo menos @RequestMapping + @RestController
@@ -260,7 +260,7 @@ public class DynamicSwaggerConfig {
         
         logger.info("Relatorio de conformidade @ApiResource:");
         logger.info("Conformes: {}/{} controllers", compliantCount, totalControllers);
-        logger.info("Precisam migracao: {}/{} controllers", violatingCount, totalControllers);
+        logger.info("Sem @ApiResource: {}/{} controllers", violatingCount, totalControllers);
         
         if (!violatingControllers.isEmpty()) {
             String violatingNames = violatingControllers.stream()
@@ -269,8 +269,8 @@ public class DynamicSwaggerConfig {
                 .orElse("nenhum");
                 
             String message = String.format(
-                "Controllers que precisam migrar para @ApiResource: %s. " +
-                "Recomenda-se substituir @RestController + @RequestMapping por @ApiResource(ApiPaths.CONSTANT) " +
+                "Controllers sem @ApiResource: %s. " +
+                "Use @ApiResource(ApiPaths.CONSTANT) no controller canônico " +
                 "para aproveitar os beneficios da resolucao automatica de grupos OpenAPI.",
                 violatingNames
             );

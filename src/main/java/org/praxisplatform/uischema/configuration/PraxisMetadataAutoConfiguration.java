@@ -171,8 +171,8 @@ public class PraxisMetadataAutoConfiguration {
      * → DynamicSwaggerConfig cria grupo específico
      * → NÃO aparece no grupo "application"
      * 
-     * Cenário 2 - Controller sem {@code @ApiResource}:
-     * {@code @RestController @RequestMapping("/api/legacy")}
+     * Cenário 2 - Controller com mapeamento HTTP fora da publicação canônica:
+     * {@code @RestController @RequestMapping("/api/funcionarios")}
      * → NÃO tem grupo específico criado
      * → APARECE no grupo "application" 
      * 
@@ -184,14 +184,14 @@ public class PraxisMetadataAutoConfiguration {
      * <h4>🎪 Benefícios:</h4>
      * <ul>
      *   <li><strong>Cobertura Total:</strong> Nenhum endpoint fica sem documentação</li>
-     *   <li><strong>Fallback Seguro:</strong> Endpoints legados ainda são documentados</li>
+     *   <li><strong>Fallback Seguro:</strong> Endpoints sem grupo específico continuam documentados</li>
      *   <li><strong>Debugging:</strong> Facilita identificar endpoints não organizados</li>
-     *   <li><strong>Migração Gradual:</strong> Permite transição suave para @ApiResource</li>
+     *   <li><strong>Governança:</strong> Evidencia rapidamente o que ainda não foi publicado na trilha canônica</li>
      * </ul>
      * 
-     * <h4>⚠️ Indicador de Migração:</h4>
-     * <p>Se endpoints de negócio aparecem neste grupo em vez de grupos específicos, 
-     * é um indicador de que o controller precisa migrar para usar @ApiResource:</p>
+     * <h4>⚠️ Indicador de Adoção Canônica:</h4>
+     * <p>Se endpoints de negócio aparecem neste grupo em vez de grupos específicos,
+     * isso indica que o controller ainda não foi publicado com {@link org.praxisplatform.uischema.annotation.ApiResource}:</p>
      * <pre>{@code
      * // ❌ Aparece no grupo "application":
      * @RestController
@@ -210,7 +210,7 @@ public class PraxisMetadataAutoConfiguration {
      * └── application (este grupo - fallback)
      *     ├── /health
      *     ├── /actuator/info  
-     *     └── /api/legacy/** (controllers não migrados)
+     *     └── /api/custom/** (controllers fora do agrupamento específico)
      * </pre>
      * 
      * <h4>🔗 Integração com Resolução Automática:</h4>

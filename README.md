@@ -287,11 +287,11 @@ Read-only continua sendo um caso de primeira classe:
 
 Nao crie um contrato paralelo de read-only para contornar o baseline canonico.
 
-## Legacy Positioning
+## Documentation Positioning
 
-O core legado baseado em `AbstractCrudController`, `BaseCrudService` e afins foi removido do starter.
+Este README descreve apenas a superficie publica atual do starter.
 
-Se houver material historico citando essa superficie, trate-o como registro arquivado de migracao, nao como API ainda disponivel.
+Para onboarding, modelagem e validacao, siga os entry points documentados neste arquivo e em `docs/`.
 
 ## References
 

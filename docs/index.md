@@ -2,8 +2,8 @@
 
 Documentacao publica do `praxis-metadata-starter`.
 
-Esta home deve orientar pessoas, LLMs e indexadores para a semantica atual da
-plataforma, sem misturar onboarding novo com APIs legadas removidas.
+Esta home orienta pessoas, LLMs e indexadores para a semantica atual da
+plataforma.
 
 ## O que este site publica
 
@@ -58,8 +58,8 @@ Isso significa:
 
 ## Regra De Leitura
 
-Se houver divergencia entre material historico de CRUD generico e a trilha atual:
+Quando houver duvida sobre a superficie publicada:
 
 - priorize os guias desta home
 - priorize `architecture-overview`
-- trate material legado como referencia arquivada, nao como API ainda disponivel
+- use a trilha desta home como referencia principal do baseline atual

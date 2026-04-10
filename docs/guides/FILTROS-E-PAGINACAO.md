@@ -72,9 +72,9 @@ Content-Type: application/json
 
 - Propriedade `praxis.filter.range.allow-scalar-payload`:
   - `false` (padrão): payload escalar de range é inválido e retorna `400`.
-  - `true`: fallback temporário para legado, convertendo escalar para lista.
+  - `true`: fallback compativel temporario, convertendo escalar para lista.
 - Propriedade `praxis.filter.range.log-legacy-scalar-payload`:
-  - `true` (padrão): registra uso de payload escalar legado para plano de migração.
+  - `true` (padrão): registra uso de payload escalar compativel para observabilidade de transição.
 - Erros de payload de filtro retornam `400` com `errors[].properties.code = FILTER_PAYLOAD_INVALID`.
 
 </details>

@@ -11,7 +11,7 @@ import java.util.List;
  * <p>
  * O request combina o filtro principal do recurso com a definicao do campo de agrupamento e da
  * metrica agregada. A plataforma tambem suporta o modo multi-metrica via {@code metrics}, mantendo
- * compatibilidade com o campo legado {@code metric} como primary metric.
+ * compatibilidade com o campo singular {@code metric} como primary metric.
  * </p>
  *
  * @param <FD> tipo do filtro do recurso

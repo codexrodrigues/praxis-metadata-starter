@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Este guia evita o erro mais comum na migracao do primeiro consumidor: misturar os papeis de
+Este guia evita o erro mais comum na adocao do baseline atual: misturar os papeis de
 `resource`, `surface`, `action` e `capability`.
 
 ## Resource

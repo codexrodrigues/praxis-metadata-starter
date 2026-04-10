@@ -8,8 +8,8 @@ import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
  * Base resource-oriented para recursos estritamente de consulta.
  *
  * <p>
- * Diferente do legado, recursos somente leitura agora nascem de um boundary query-only real e nao
- * herdam create/update/delete apenas para desabilita-los.
+ * Recursos somente leitura nascem de um boundary query-only real e nao carregam
+ * responsabilidades de command.
  * </p>
  *
  * <p>
