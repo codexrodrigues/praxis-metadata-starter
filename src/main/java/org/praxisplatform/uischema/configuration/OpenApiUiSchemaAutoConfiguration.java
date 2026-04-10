@@ -68,12 +68,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 
+import java.lang.reflect.Method;
 import java.time.Clock;
 import java.time.ZoneId;
 import java.util.List;
@@ -211,15 +213,40 @@ public class OpenApiUiSchemaAutoConfiguration {
             ObjectProvider<BaseResourceQueryService<?, ?, ?>> queryServices
     ) {
         OptionSourceRegistry[] registries = queryServices.orderedStream()
-                .map(service -> {
-                    if (service instanceof org.praxisplatform.uischema.service.base.AbstractBaseQueryResourceService<?, ?, ?, ?> abstractService) {
-                        return abstractService.getDeclaredOptionSourceRegistry();
-                    }
-                    return service.getOptionSourceRegistry();
-                })
+                .map(this::resolveRegistryForAggregation)
                 .filter(registry -> registry != null && !registry.isEmpty())
                 .toArray(OptionSourceRegistry[]::new);
         return registries.length == 0 ? OptionSourceRegistry.empty() : OptionSourceRegistry.merge(registries);
+    }
+
+    private OptionSourceRegistry resolveRegistryForAggregation(BaseResourceQueryService<?, ?, ?> service) {
+        if (service instanceof org.praxisplatform.uischema.service.base.AbstractBaseQueryResourceService<?, ?, ?, ?> abstractService) {
+            OptionSourceRegistry declaredRegistry = abstractService.getDeclaredOptionSourceRegistry();
+            if (declaredRegistry != null && !declaredRegistry.isEmpty()) {
+                return declaredRegistry;
+            }
+            if (overridesOptionSourceRegistry(abstractService)) {
+                OptionSourceRegistry overriddenRegistry = abstractService.getOptionSourceRegistry();
+                if (overriddenRegistry != null && !overriddenRegistry.isEmpty()) {
+                    return overriddenRegistry;
+                }
+            }
+            return OptionSourceRegistry.empty();
+        }
+        return service.getOptionSourceRegistry();
+    }
+
+    private boolean overridesOptionSourceRegistry(
+            org.praxisplatform.uischema.service.base.AbstractBaseQueryResourceService<?, ?, ?, ?> service
+    ) {
+        try {
+            Class<?> userClass = AopUtils.getTargetClass(service);
+            Method method = userClass.getMethod("getOptionSourceRegistry");
+            return method.getDeclaringClass()
+                    != org.praxisplatform.uischema.service.base.AbstractBaseQueryResourceService.class;
+        } catch (NoSuchMethodException ex) {
+            return false;
+        }
     }
 
     @Bean
