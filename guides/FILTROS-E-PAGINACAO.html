@@ -320,14 +320,14 @@ enterprise)</strong>
 <ul>
 <li><code>false</code> (padrão): payload escalar de range é inválido e
 retorna <code>400</code>.</li>
-<li><code>true</code>: fallback temporário para legado, convertendo
+<li><code>true</code>: fallback compativel temporario, convertendo
 escalar para lista.</li>
 </ul></li>
 <li>Propriedade
 <code>praxis.filter.range.log-legacy-scalar-payload</code>:
 <ul>
-<li><code>true</code> (padrão): registra uso de payload escalar legado
-para plano de migração.</li>
+<li><code>true</code> (padrão): registra uso de payload escalar
+compativel para observabilidade de transição.</li>
 </ul></li>
 <li>Erros de payload de filtro retornam <code>400</code> com
 <code>errors[].properties.code = FILTER_PAYLOAD_INVALID</code>.</li>

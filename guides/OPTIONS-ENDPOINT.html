@@ -330,8 +330,9 @@ enriquece o schema com <code>x-ui.optionSource</code>.</p>
 recurso</li>
 <li>o runtime Angular compoe
 <code>.../option-sources/{key}/options/filter</code></li>
-<li>quando <code>optionSource</code> existe, ele e mais canonico do que
-um <code>endpoint</code> legado</li>
+<li>quando <code>optionSource</code> existe, ele passa a ser a
+referencia canonica preferencial sobre o shape
+<code>endpoint</code></li>
 </ul>
 <h2 id="como-o-angular-consome-isso">Como o Angular consome isso</h2>
 <p>O <code>praxis-ui-angular</code> ja tem consumo explicito para
@@ -460,7 +461,8 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Lógica customizada</span></span>
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> options<span class="op">.</span><span class="fu">map</span><span class="op">(</span>option <span class="op">-&gt;</span> option<span class="op">.</span><span class="fu">withExtra</span><span class="op">(</span><span class="bu">Map</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;count&quot;</span><span class="op">,</span> <span class="dv">42</span><span class="op">)));</span></span>
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="migrando-de-endpoint-legado">Migrando de Endpoint Legado</h3>
+<h3 id="adequando-de-endpoint-para-optionsource">Adequando De
+<code>endpoint</code> Para <code>optionSource</code></h3>
 <p>Campo antigo:</p>
 <div class="sourceCode" id="cb8"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>

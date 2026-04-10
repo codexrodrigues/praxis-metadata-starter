@@ -408,8 +408,8 @@ publica <code>oneOf</code> com duas variantes aceitas:
 <li><code>BETWEEN</code>/<code>NOT_BETWEEN</code>/<code>OUTSIDE_RANGE</code>:
 <code>[min]</code>, <code>[min,max]</code> ou
 <code>[null,max]</code>;</li>
-<li>compatibilidade legado: <code>[min,null]</code> é aceito e
-normalizado para <code>[min]</code> no backend;</li>
+<li>shape compativel ainda aceito: <code>[min,null]</code> e normalizado
+para <code>[min]</code> no backend;</li>
 <li><code>BETWEEN_EXCLUSIVE</code>: exige exatamente dois limites não
 nulos (<code>[min,max]</code>).</li>
 </ul></li>
@@ -447,23 +447,23 @@ registrar aviso de validação.</li>
 <code>min=0</code>, <code>max=100</code>, <code>step=0.01</code>.</li>
 <li><code>currency</code> pode ser enviado como contexto de UX, mas o
 backend considera apenas os limites para construir o predicado.</li>
-<li>manter <code>between[]</code> apenas como compatibilidade com
-legado.</li>
+<li>manter <code>between[]</code> apenas como shape compativel
+temporario.</li>
 <li>no frontend enterprise, prefira normalização metadata-driven: só
 campos com <code>controlType</code> de range no schema devem ser
 colapsados para formato canônico.</li>
 </ul>
-<p>Compatibilidade legada controlada por configuração:</p>
+<p>Compatibilidade transitoria controlada por configuracao:</p>
 <ul>
 <li>padrão do starter: <strong>estrito</strong>
 (<code>praxis.filter.range.allow-scalar-payload=false</code>), rejeita
 payload escalar (<code>400</code>).</li>
-<li>fallback legado (temporário):
+<li>fallback compativel (temporario):
 <code>praxis.filter.range.allow-scalar-payload=true</code> para aceitar
 escalar e normalizar para lista.</li>
-<li>observabilidade de legado:
-<code>praxis.filter.range.log-legacy-scalar-payload=true</code> (padrão)
-registra uso de payload escalar compatível.</li>
+<li>observabilidade de compatibilidade:
+<code>praxis.filter.range.log-legacy-scalar-payload=true</code> (padrao)
+registra uso de payload escalar compativel.</li>
 <li>payload inválido de filtro retorna <code>400</code> com
 <code>errors[].properties.code = FILTER_PAYLOAD_INVALID</code>.</li>
 </ul>

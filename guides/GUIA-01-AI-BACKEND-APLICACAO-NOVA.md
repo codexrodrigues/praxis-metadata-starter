@@ -690,7 +690,7 @@ Para recurso mutavel, gere nesta ordem:
 
 Regras obrigatorias:
 - nao use @RestController quando houver @ApiResource
-- nao gere classes do core legado removido
+- nao gere classes fora do baseline resource-oriented atual
 - FilterDTO deve implementar GenericFilterDTO
 - Repository deve estender BaseCrudRepository<Entidade, ID>
 - Service deve sobrescrever getResourceMapper()
@@ -722,6 +722,5 @@ Antes de concluir a aplicacao nova:
 ## Referencias
 
 - `docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md`
-- `docs/guides/GUIA-03-MIGRACAO-CONSUMIDOR-PILOTO.md`
 - `docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md`
 - `docs/architecture-overview.md`

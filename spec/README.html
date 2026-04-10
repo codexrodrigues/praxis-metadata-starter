@@ -254,9 +254,9 @@ implementacao automatica no starter ou no runtime Angular</li>
 <li>No runtime Angular, a UI Praxis normaliza esses campos para
 <code>resourcePath</code>, <code>optionValueKey</code> e
 <code>optionLabelKey</code>.</li>
-<li>Quando publicado, <code>optionSource</code> passa a ser a forma
-canonica de descrever fontes derivadas de options; <code>endpoint</code>
-permanece como contrato legado/compativel.</li>
+<li>Quando publicado, <code>optionSource</code> e a forma canonica de
+descrever fontes derivadas de options; <code>endpoint</code> permanece
+apenas como shape compativel ainda aceito.</li>
 </ul></li>
 <li>Numerico: <code>numericFormat</code> (enum),
 <code>numericStep</code>, <code>numericMin</code>,
@@ -273,8 +273,8 @@ como contrato canonico de display/read-only para valores escalares</li>
 <code>minWords</code>, <code>validationTrigger(s)</code>,
 <code>validationDebounce</code>, <code>showInlineErrors</code>,
 <code>errorPosition</code></li>
-<li>Legado (opcional): bloco <code>validation{}</code> com chaves
-basicas</li>
+<li>Compatibilidade temporaria: bloco <code>validation{}</code> com
+chaves basicas</li>
 </ul></li>
 <li>Operacao (x-ui por operacao)
 <ul>

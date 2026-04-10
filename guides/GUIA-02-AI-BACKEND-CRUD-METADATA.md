@@ -6,7 +6,7 @@ Este guia orienta a implementacao de um recurso backend metadata-driven alinhado
 ao core atual do `praxis-metadata-starter`.
 
 Ele foca no caso mais comum: a aplicacao ja existe, e a LLM precisa adicionar um
-novo recurso sem cair no core legado removido nem gerar codigo incompleto.
+novo recurso no baseline atual sem gerar codigo incompleto.
 
 ## Entrada minima para a LLM
 
@@ -346,7 +346,7 @@ Para recurso read-only, nao espere:
 - payload generico por string
 - duplicacao `v1/v2`
 - DTO unico para leitura e escrita
-- classes do core legado removido
+- classes fora do baseline resource-oriented atual
 
 ## Prompt recomendado para adicionar um recurso novo
 
@@ -374,7 +374,7 @@ Regras:
 - mapper deve implementar toResponse, newEntity, applyUpdate, extractId
 - service deve sobrescrever getResourceMapper()
 - controller deve sobrescrever getService() e getResponseId()
-- nao gere classes do core legado removido
+- nao gere classes fora do baseline resource-oriented atual
 - entregue codigo compilavel, sem stubs
 ```
 

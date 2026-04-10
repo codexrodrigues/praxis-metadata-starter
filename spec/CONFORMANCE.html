@@ -233,7 +233,8 @@ em <code>X-Schema-Hash</code></li>
 contrato publicado exige <code>source.resource</code> e
 <code>source.operation</code></li>
 <li>quando um campo publicar <code>x-ui.optionSource</code>, o bloco
-deve obedecer o schema draft e manter convivio aditivo com o legado</li>
+deve obedecer o schema draft e conviver de forma aditiva com o shape
+compativel ainda aceito</li>
 </ul></li>
 <li>Extended (recomendado)
 <ul>
@@ -393,9 +394,10 @@ ponta no executor JPA padrao</li>
 <ul>
 <li><code>x-ui.optionSource</code> deve entrar de forma aditiva</li>
 <li><code>endpoint</code>, <code>valueField</code> e
-<code>displayField</code> permanecem validos durante a transicao</li>
+<code>displayField</code> permanecem aceitos enquanto ainda houver
+consumidores dependentes desse shape</li>
 <li>um host pode publicar ambos os modelos para o mesmo campo quando
-isso reduzir risco de migracao</li>
+isso reduzir risco operacional na adequacao dos consumidores</li>
 <li>consumidores nao devem inferir <code>optionSource</code> a partir de
 heuristicas locais se o backend ainda nao o publicar</li>
 </ul>
@@ -415,8 +417,7 @@ cache</li>
 <ul>
 <li><code>filterOptions</code>: a spec define <code>array</code>, porem
 o starter atualmente serializa como <code>string</code> em alguns
-caminhos legados. Mantido assim por compatibilidade com consumidores
-atuais.</li>
+caminhos ainda compativeis com consumidores atuais.</li>
 <li><code>optionSource</code>: o starter ja publica e executa a
 superficie base para <code>DISTINCT_DIMENSION</code> e
 <code>CATEGORICAL_BUCKET</code>; a compatibilidade remanescente esta

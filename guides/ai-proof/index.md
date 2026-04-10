@@ -5,6 +5,8 @@ Esta area organiza a prova operacional dos guias.
 Ela existe para responder se uma LLM consegue concluir o fluxo real da
 plataforma seguindo apenas os artefatos canonicos publicados.
 
+Ela nao faz parte da trilha principal de onboarding ou de contrato publico.
+
 ## Comece aqui
 
 - [Home da documentacao](../../index.html)
@@ -35,3 +37,4 @@ plataforma seguindo apenas os artefatos canonicos publicados.
 - os relatorios registram a execucao concreta
 - smoke browser-level pode existir como trilha propria sem redefinir o
   criterio de aprovacao material
+- trate esta area como evidencia de validacao, nao como guia principal da plataforma

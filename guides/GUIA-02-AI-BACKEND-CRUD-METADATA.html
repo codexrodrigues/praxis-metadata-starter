@@ -241,8 +241,8 @@ id="guia-02---ia-backend---recurso-metadata-driven-no-core-atual">Guia
 metadata-driven alinhado ao core atual do
 <code>praxis-metadata-starter</code>.</p>
 <p>Ele foca no caso mais comum: a aplicacao ja existe, e a LLM precisa
-adicionar um novo recurso sem cair no core legado removido nem gerar
-codigo incompleto.</p>
+adicionar um novo recurso no baseline atual sem gerar codigo
+incompleto.</p>
 <h2 id="entrada-minima-para-a-llm">Entrada minima para a LLM</h2>
 <p>No minimo:</p>
 <ol type="1">
@@ -544,7 +544,7 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb11-1"><a href=
 <li>payload generico por string</li>
 <li>duplicacao <code>v1/v2</code></li>
 <li>DTO unico para leitura e escrita</li>
-<li>classes do core legado removido</li>
+<li>classes fora do baseline resource-oriented atual</li>
 </ul>
 <h2 id="prompt-recomendado-para-adicionar-um-recurso-novo">Prompt
 recomendado para adicionar um recurso novo</h2>
@@ -571,7 +571,7 @@ Regras:
 - mapper deve implementar toResponse, newEntity, applyUpdate, extractId
 - service deve sobrescrever getResourceMapper()
 - controller deve sobrescrever getService() e getResponseId()
-- nao gere classes do core legado removido
+- nao gere classes fora do baseline resource-oriented atual
 - entregue codigo compilavel, sem stubs</code></pre>
 <h2 id="checklist-do-recurso">Checklist do recurso</h2>
 <p>Antes de concluir:</p>

@@ -3,6 +3,9 @@
 Este pacote transforma os guias do `praxis-metadata-starter` em um processo
 repetivel de prova operacional.
 
+Ele deve ser lido como pacote de validacao de engenharia, nao como documentacao
+principal de adoção da plataforma.
+
 ## Objetivo
 
 - verificar se uma LLM, seguindo apenas os guias oficiais, consegue criar uma

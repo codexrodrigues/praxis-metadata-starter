@@ -34,7 +34,7 @@
   - ETag forte no `/schemas/filtered` e hash deterministico em `X-Schema-Hash`
   - `schemaId` estavel conforme composicao `path|operation|schemaType|internal|tenant|locale`
   - quando `x-ui.chart.source.kind = "praxis.stats"`, o contrato publicado exige `source.resource` e `source.operation`
-  - quando um campo publicar `x-ui.optionSource`, o bloco deve obedecer o schema draft e manter convivio aditivo com o legado
+  - quando um campo publicar `x-ui.optionSource`, o bloco deve obedecer o schema draft e conviver de forma aditiva com o shape compativel ainda aceito
 - Extended (recomendado)
   - preencher `displayColumns`/`displayFields` no x-ui de operacao
   - publicar `x-ui.chart` com `version`, `kind`, `source`, semantica analitica e eventos declarativos, mantendo o contrato agnostico de engine
@@ -124,8 +124,8 @@ Assimetria que ainda pode existir fora do starter:
 Diretriz de rollout:
 
 - `x-ui.optionSource` deve entrar de forma aditiva
-- `endpoint`, `valueField` e `displayField` permanecem validos durante a transicao
-- um host pode publicar ambos os modelos para o mesmo campo quando isso reduzir risco de migracao
+- `endpoint`, `valueField` e `displayField` permanecem aceitos enquanto ainda houver consumidores dependentes desse shape
+- um host pode publicar ambos os modelos para o mesmo campo quando isso reduzir risco operacional na adequacao dos consumidores
 - consumidores nao devem inferir `optionSource` a partir de heuristicas locais se o backend ainda nao o publicar
 
 ## Boas praticas e notas
@@ -137,7 +137,7 @@ Diretriz de rollout:
 
 ## Compatibilidade (anotacoes temporarias)
 
-- `filterOptions`: a spec define `array`, porem o starter atualmente serializa como `string` em alguns caminhos legados. Mantido assim por compatibilidade com consumidores atuais.
+- `filterOptions`: a spec define `array`, porem o starter atualmente serializa como `string` em alguns caminhos ainda compativeis com consumidores atuais.
 - `optionSource`: o starter ja publica e executa a superficie base para `DISTINCT_DIMENSION` e `CATEGORICAL_BUCKET`; a compatibilidade remanescente esta concentrada nos consumidores especificos e nos tipos ainda nao implementados pelo executor JPA padrao.
 
 ## Suite de fixtures

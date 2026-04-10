@@ -41,11 +41,11 @@
   - Layout/Icone: `hint`, `helpText`, `tooltipOnHover`, `icon*`
   - Selecao/Opcaoes: `options[]`, `endpoint`, `valueField`, `displayField`, `multiple`, `emptyOptionText`
     - No runtime Angular, a UI Praxis normaliza esses campos para `resourcePath`, `optionValueKey` e `optionLabelKey`.
-    - Quando publicado, `optionSource` passa a ser a forma canonica de descrever fontes derivadas de options; `endpoint` permanece como contrato legado/compativel.
+    - Quando publicado, `optionSource` e a forma canonica de descrever fontes derivadas de options; `endpoint` permanece apenas como shape compativel ainda aceito.
   - Numerico: `numericFormat` (enum), `numericStep`, `numericMin`, `numericMax`, `numericMaxLength`
   - Apresentacao de valor: `valuePresentation{ type, style?, format?, currency?, number? }` como contrato canonico de display/read-only para valores escalares
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`
-  - Legado (opcional): bloco `validation{}` com chaves basicas
+  - Compatibilidade temporaria: bloco `validation{}` com chaves basicas
 - Operacao (x-ui por operacao)
   - `displayColumns` (string[]), `displayFields` (string[]), `filterFields` (string[]), `responseSchema` (string), `relatedEntitiesEndpoints` (string[]), `analytics`
 - Analytics (x-ui.analytics)

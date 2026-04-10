@@ -83,7 +83,7 @@ Importante:
 
 - `x-ui.optionSource.resourcePath` e o path base do recurso
 - o runtime Angular compoe `.../option-sources/{key}/options/filter`
-- quando `optionSource` existe, ele e mais canonico do que um `endpoint` legado
+- quando `optionSource` existe, ele passa a ser a referencia canonica preferencial sobre o shape `endpoint`
 
 ## Como o Angular consome isso
 
@@ -198,7 +198,7 @@ public Page<OptionDTO> filterOptionSourceOptions(String sourceKey, GenericFilter
 }
 ```
 
-### Migrando de Endpoint Legado
+### Adequando De `endpoint` Para `optionSource`
 
 Campo antigo:
 ```json

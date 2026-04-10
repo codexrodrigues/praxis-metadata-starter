@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>RFC â€” `x-ui.optionSource` para OpÃ§Ãµes Derivadas em Filtros Metadata-Driven</title>
+  <title>RFC - `x-ui.optionSource` para Opcoes Derivadas em Filtros Metadata-Driven</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,12 +230,12 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">RFC â€” `x-ui.optionSource` para OpÃ§Ãµes Derivadas em
+<h1 class="title">RFC - `x-ui.optionSource` para Opcoes Derivadas em
 Filtros Metadata-Driven</h1>
 </header>
 <h1
-id="rfc-â-x-ui.optionsource-para-opããµes-derivadas-em-filtros-metadata-driven">RFC
-â€” <code>x-ui.optionSource</code> para OpÃ§Ãµes Derivadas em Filtros
+id="rfc---x-ui.optionsource-para-opcoes-derivadas-em-filtros-metadata-driven">RFC
+- <code>x-ui.optionSource</code> para Opcoes Derivadas em Filtros
 Metadata-Driven</h1>
 <h2 id="status">Status</h2>
 <ul>
@@ -244,241 +244,201 @@ Metadata-Driven</h1>
 <li>classe: <code>arquitetural</code></li>
 </ul>
 <h2 id="objetivo">Objetivo</h2>
-<p>Definir a direÃ§Ã£o canÃ´nica para fontes de opÃ§Ãµes derivadas em
-filtros metadata-driven na plataforma Praxis, cobrindo cenÃ¡rios em que
-um campo precisa de seleÃ§Ã£o assistida, mas nÃ£o possui um recurso CRUD
-prÃ³prio para <code>POST /options/filter</code>.</p>
-<p>Esta RFC ainda nÃ£o congela um JSON Schema final. O objetivo desta
-rodada Ã© fechar:</p>
+<p>Definir a direcao canonica para fontes de opcoes derivadas em filtros
+metadata-driven na plataforma Praxis, cobrindo cenarios em que um campo
+precisa de selecao assistida, mas nao possui um recurso CRUD proprio
+para <code>POST /options/filter</code>.</p>
+<p>Esta RFC fecha quatro pontos:</p>
 <ul>
-<li>a lacuna de plataforma entre filtros, options e stats</li>
-<li>a fronteira entre recurso CRUD, dimensÃ£o categÃ³rica derivada e
-lookup leve</li>
-<li>a direÃ§Ã£o canÃ´nica de publicaÃ§Ã£o em
-<code>/schemas/filtered</code></li>
-<li>o modelo de evoluÃ§Ã£o para hosts operacionais, runtime Angular e
-exemplos oficiais</li>
+<li>a fronteira entre filtros, options e stats</li>
+<li>a publicacao canonica em <code>/schemas/filtered</code></li>
+<li>o papel de <code>optionSource</code> no contrato
+<code>x-ui</code></li>
+<li>a integracao com starter, host de referencia e runtime Angular</li>
 </ul>
-<h2 id="fonte-canãnica">Fonte CanÃ´nica</h2>
-<p><code>praxis-metadata-starter</code> Ã© a fonte canÃ´nica do
-vocabulÃ¡rio <code>x-ui</code>, da semÃ¢ntica de
-<code>/schemas/filtered</code> e das superfÃ­cies pÃºblicas
-metadata-driven da plataforma.</p>
-<p>ConsequÃªncia:</p>
+<h2 id="fonte-canonica">Fonte Canonica</h2>
+<p><code>praxis-metadata-starter</code> e a fonte canonica do
+vocabulario <code>x-ui</code>, da semantica de
+<code>/schemas/filtered</code> e das superficies metadata-driven
+publicas da plataforma.</p>
+<p>Consequencia:</p>
 <ul>
-<li>a semÃ¢ntica de <code>optionSource</code> deve nascer aqui</li>
-<li><code>praxis-ui-angular</code> implementa o runtime oficial e seus
-adapters/normalizers</li>
-<li>hosts como <code>praxis-api-quickstart</code> apenas publicam
-instÃ¢ncias governadas da capacidade</li>
+<li>o contrato canonico deve nascer no starter</li>
+<li>hosts consumidores nao devem inventar shapes locais para opcoes
+derivadas</li>
+<li>runtimes devem preferir a semantica canonica publicada pelo
+backend</li>
 </ul>
-<h2 id="motivaãão">MotivaÃ§Ã£o</h2>
-<p>Hoje a plataforma resolve muito bem dois polos:</p>
+<h2 id="motivacao">Motivacao</h2>
+<p>Hoje a plataforma ja publica campos com opcoes locais e tambem
+suporta fluxos em que o frontend consome endpoints de options derivados
+de recursos. O problema e que isso ainda aparece de forma
+heterogenea:</p>
 <ul>
-<li>descoberta de registros reais via <code>POST /filter</code></li>
-<li>descoberta de opÃ§Ãµes quando existe um recurso prÃ³prio com
-<code>POST /options/filter</code></li>
+<li>parte dos campos expõe <code>endpoint</code>,
+<code>valueField</code> e <code>displayField</code></li>
+<li>parte dos consumidores ja trabalha mais perto de
+<code>resourcePath</code> e semantica de fonte</li>
+<li>a relacao com <code>stats</code> e dimensoes derivadas ainda precisa
+de uma linguagem publica unica</li>
 </ul>
-<p>E tambÃ©m resolve um terceiro polo, separado:</p>
+<p>O objetivo desta RFC nao e preservar multiplas trilhas como
+recomendacao. O objetivo e fechar uma forma canonica de publicacao e
+manter shapes compativeis apenas enquanto existirem consumidores que
+ainda dependam deles.</p>
+<h2 id="diagnostico-do-estado-atual">Diagnostico do Estado Atual</h2>
+<h3 id="o-que-ja-existe">O que ja existe</h3>
 <ul>
-<li>dimensÃµes categÃ³ricas e buckets via <code>praxis.stats</code></li>
-</ul>
-<p>O gap aparece nos casos em que o filtro precisa oferecer seleÃ§Ã£o
-assistida para valores como:</p>
-<ul>
-<li><code>universo</code></li>
-<li><code>payrollProfile</code></li>
-<li><code>composicaoFolha</code></li>
-<li><code>faixaSalarioBruto</code></li>
-<li><code>faixaSalarioLiquido</code></li>
-<li><code>faixaPctDesconto</code></li>
-</ul>
-<p>Esses campos:</p>
-<ul>
-<li>nÃ£o sÃ£o entidades CRUD prÃ³prias</li>
-<li>jÃ¡ tÃªm semÃ¢ntica corporativa relevante</li>
-<li>muitas vezes jÃ¡ sÃ£o elegÃ­veis como dimensÃ£o categÃ³rica
-analÃ­tica</li>
-<li>mas hoje acabam publicados como <code>INPUT</code>, empurrando a UX
-para digitaÃ§Ã£o livre</li>
-</ul>
-<p>Sem uma soluÃ§Ã£o canÃ´nica, os consumidores ficam presos a
-alternativas erradas:</p>
-<ul>
-<li>criar endpoints ad hoc por recurso analÃ­tico</li>
-<li>inventar pseudo-recursos CRUD sÃ³ para servir options</li>
-<li>acoplar frontend a <code>group-by</code> como se fosse API pÃºblica
-de seleÃ§Ã£o</li>
-<li>manter campos de texto onde a plataforma jÃ¡ conhece a cardinalidade
-e a semÃ¢ntica do valor</li>
-</ul>
-<h2 id="diagnã³stico-do-estado-atual">DiagnÃ³stico do Estado Atual</h2>
-<h3 id="o-que-jã-existe">O que jÃ¡ existe</h3>
-<ul>
-<li><code>@Filterable</code> governa predicados, relaÃ§Ãµes e
-operaÃ§Ãµes de filtro</li>
-<li><code>@UISchema</code> jÃ¡ publica <code>endpoint</code>,
-<code>valueField</code> e <code>displayField</code> para selects
-remotos</li>
-<li><code>BaseResourceQueryService.filterOptions()</code> e
-<code>byIdsOptions()</code> padronizam <code>OptionDTO</code></li>
-<li><code>AbstractResourceQueryController</code> expÃµe
-<code>POST /options/filter</code> e
-<code>GET /options/by-ids</code></li>
-<li><code>StatsFieldRegistry</code> jÃ¡ governa campos categÃ³ricos
-elegÃ­veis para <code>group-by</code> e <code>distribution</code></li>
+<li><code>OptionDTO</code> como payload publico para opcoes remotas</li>
+<li>endpoints operacionais de filtro e reidratacao por IDs</li>
+<li>runtime Angular com capacidade de consumir
+<code>optionSource</code></li>
+<li>starter com suporte base para <code>DISTINCT_DIMENSION</code> e
+<code>CATEGORICAL_BUCKET</code></li>
 </ul>
 <h3 id="o-que-falta">O que falta</h3>
 <ul>
-<li>uma semÃ¢ntica pÃºblica para â€œfonte de opÃ§Ãµes derivadaâ€</li>
-<li>governanÃ§a canÃ´nica de distinct values/buckets categÃ³ricos em
-contexto de filtro</li>
-<li>publicaÃ§Ã£o explÃ­cita dessa capability em
-<code>/schemas/filtered</code></li>
-<li>integraÃ§Ã£o de cascata dependente sem hacks locais</li>
+<li>um bloco canonico unico em <code>x-ui</code></li>
+<li>regras publicas para os tipos de fonte</li>
+<li>diretriz clara sobre quando usar <code>stats</code>, lookup leve ou
+entidade de recurso</li>
+<li>narrativa publica limpa para rollout e conformidade</li>
 </ul>
-<h2 id="princãpios">PrincÃ­pios</h2>
-<h3 id="opãão-pãºblica-não-deve-depender-de-endpoint-ad-hoc">1. OpÃ§Ã£o
-pÃºblica nÃ£o deve depender de endpoint ad hoc</h3>
-<p>O consumidor nÃ£o deve precisar conhecer URLs especiais por recurso
-analÃ­tico para descobrir opÃ§Ãµes de filtro.</p>
-<h3 id="stats-não-deve-virar-api-pãºblica-de-options">2.
-<code>stats</code> nÃ£o deve virar API pÃºblica de options</h3>
-<p><code>group-by</code> e <code>distribution</code> podem ser backend
-interno da soluÃ§Ã£o, mas nÃ£o devem ser institucionalizados como
-contrato pÃºblico de seleÃ§Ã£o para filtros.</p>
-<h3 id="optiondto-continua-sendo-o-payload-pãºblico">3.
-<code>OptionDTO</code> continua sendo o payload pÃºblico</h3>
-<p>A plataforma jÃ¡ tem um payload pÃºblico leve e consistente para
-seleÃ§Ã£o remota. A evoluÃ§Ã£o deve preservar isso.</p>
-<h3 id="recurso-crud-prã³prio-não-ã-obrigatã³rio">4. Recurso CRUD
-prÃ³prio nÃ£o Ã© obrigatÃ³rio</h3>
-<p>A ausÃªncia de uma entidade CRUD prÃ³pria nÃ£o deve forÃ§ar o campo a
-virar <code>INPUT</code>.</p>
-<h3 id="a-soluãão-deve-ser-governada-por-campofonte">5. A soluÃ§Ã£o deve
-ser governada por campo/fonte</h3>
-<p>Nem todo campo textual Ã© elegÃ­vel para distinct options. A
-plataforma precisa de allowlist explÃ­cita, limites e polÃ­tica de
-execuÃ§Ã£o.</p>
+<h2 id="principios">Principios</h2>
+<h3 id="opcao-publica-nao-deve-depender-de-endpoint-ad-hoc">1. Opcao
+publica nao deve depender de endpoint ad hoc</h3>
+<p>A forma canonica de publicacao deve descrever a fonte sem exigir que
+o consumidor interprete um endpoint arbitrario como contrato
+principal.</p>
+<h3 id="stats-nao-deve-virar-api-publica-de-options">2.
+<code>stats</code> nao deve virar API publica de options</h3>
+<p><code>stats</code> continua sendo superficie analitica. Quando uma
+fonte de opcoes aproveitar infraestrutura analitica internamente, isso
+nao muda o contrato publico publicado ao consumidor.</p>
+<h3 id="optiondto-continua-sendo-o-payload-publico">3.
+<code>OptionDTO</code> continua sendo o payload publico</h3>
+<p>O shape de resposta de opcoes deve continuar convergindo para
+<code>OptionDTO</code>, evitando contratos alternativos por tipo de
+fonte.</p>
+<h3 id="recurso-crud-proprio-nao-e-obrigatorio">4. Recurso CRUD proprio
+nao e obrigatorio</h3>
+<p>Nem toda fonte de opcoes precisa nascer como recurso CRUD. A
+plataforma precisa suportar fontes derivadas, lookup leve e buckets
+categoricos sem forcar supermodelagem.</p>
+<h3 id="a-solucao-deve-ser-governada-por-campo-e-por-fonte">5. A solucao
+deve ser governada por campo e por fonte</h3>
+<p>O contrato precisa descrever claramente:</p>
+<ul>
+<li>de onde vem a opcao</li>
+<li>como filtrar</li>
+<li>como reidratar selecionados</li>
+<li>quais dependencias afetam a cascata</li>
+</ul>
 <h2 id="modelo-conceitual-proposto">Modelo Conceitual Proposto</h2>
-<p>Introduzir uma capacidade canÃ´nica de plataforma para fontes de
-opÃ§Ãµes derivadas:</p>
+<p>Cada campo pode publicar <code>x-ui.optionSource</code> quando a
+opcao remota for parte do contrato canonico do backend. Esse bloco
+descreve a identidade da fonte e sua semantica operacional.</p>
+<p>Elementos esperados:</p>
 <ul>
-<li><code>x-ui.optionSource</code></li>
-<li><code>OptionSourceRegistry</code></li>
-<li><code>OptionSourceDescriptor</code></li>
-<li><code>OptionSourceType</code></li>
-<li><code>OptionSourcePolicy</code></li>
+<li><code>key</code></li>
+<li><code>type</code></li>
+<li><code>resourcePath</code></li>
+<li><code>filterField</code> quando necessario</li>
+<li><code>dependsOn</code> quando houver cascata</li>
+<li>hints de <code>policy</code>, <code>search</code> e
+<code>pagination</code> quando aplicavel</li>
 </ul>
-<h2 id="tipos-canãnicos-iniciais">Tipos CanÃ´nicos Iniciais</h2>
+<p>O runtime consumidor deve tratar <code>optionSource</code> como
+referencia principal quando o bloco for publicado.</p>
+<h2 id="tipos-canonicos-iniciais">Tipos Canonicos Iniciais</h2>
 <h3 id="resource_entity"><code>RESOURCE_ENTITY</code></h3>
-<p>Fonte baseada em um recurso CRUD/read-only tradicional.</p>
-<p>Exemplos:</p>
+<p>Fonte cuja opcao deriva de um recurso identificavel e navegavel,
+normalmente com semantica de entidade reutilizavel entre
+superficies.</p>
+<p>Use quando:</p>
 <ul>
-<li>funcionÃ¡rio</li>
-<li>cargo</li>
-<li>departamento</li>
-<li>equipe</li>
-<li>base</li>
+<li>ha identidade estavel</li>
+<li>existe reuso entre filtros, formularios ou outras telas</li>
+<li>a opcao representa algo mais proximo de um recurso do dominio</li>
 </ul>
 <h3 id="distinct_dimension"><code>DISTINCT_DIMENSION</code></h3>
-<p>Fonte baseada em valores distintos reais de um campo categÃ³rico
-derivado do recurso atual.</p>
-<p>Exemplos:</p>
+<p>Fonte derivada de valores distintos sobre uma dimensao real do
+conjunto consultado.</p>
+<p>Use quando:</p>
 <ul>
-<li><code>universo</code></li>
-<li><code>payrollProfile</code></li>
-<li><code>composicaoFolha</code></li>
-<li><code>severidade</code></li>
+<li>a opcao vem de um campo real do dataset</li>
+<li>o objetivo principal e discovery de valores distintos</li>
+<li>nao faz sentido promover a fonte a recurso proprio</li>
 </ul>
 <h3 id="categorical_bucket"><code>CATEGORICAL_BUCKET</code></h3>
-<p>Fonte baseada em buckets categÃ³ricos governados, inclusive faixas
-semÃ¢nticas jÃ¡ calculadas.</p>
-<p>Exemplos:</p>
+<p>Fonte derivada de buckets ou faixas categoricas governadas.</p>
+<p>Use quando:</p>
 <ul>
-<li><code>faixaSalarioBruto</code></li>
-<li><code>faixaSalarioLiquido</code></li>
-<li><code>faixaPctDesconto</code></li>
-<li><code>faixaValorAdicionais</code></li>
+<li>a opcao nao e um valor literal armazenado como entidade</li>
+<li>a fonte depende de regra de classificacao</li>
+<li>a apresentacao canonica depende mais da categoria do que do valor
+bruto</li>
 </ul>
 <h3 id="light_lookup"><code>LIGHT_LOOKUP</code></h3>
-<p>Fonte leve de id/label quando a semÃ¢ntica Ã© lookup, mas a origem
-nÃ£o Ã© um CRUD clÃ¡ssico exposto como recurso principal.</p>
-<p>Exemplos:</p>
+<p>Fonte leve para selecao assistida sem peso de recurso completo.</p>
+<p>Use quando:</p>
 <ul>
-<li>labels relacionais especializadas</li>
-<li>identificadores derivados com descriÃ§Ã£o curta</li>
+<li>ha busca e reidratacao por IDs</li>
+<li>o caso nao exige CRUD proprio</li>
+<li>a opcao continua sendo parte operacional de outro recurso</li>
 </ul>
 <h3 id="static_canonical"><code>STATIC_CANONICAL</code></h3>
-<p>Fonte estÃ¡tica governada pelo contrato canÃ´nico, sem necessidade de
-consulta dinÃ¢mica.</p>
-<p>Exemplos:</p>
+<p>Fonte governada por catalogo estavel publicado como parte do contrato
+da plataforma.</p>
+<p>Use quando:</p>
 <ul>
-<li>listas corporativas fixas</li>
-<li>classificaÃ§Ãµes internas de baixa variabilidade</li>
+<li>o conjunto e pequeno e relativamente estavel</li>
+<li>o valor deve ser governado como vocabulario controlado</li>
 </ul>
 <h2 id="fronteira-entre-tipos">Fronteira Entre Tipos</h2>
 <h3
 id="distinct_dimension-versus-categorical_bucket"><code>DISTINCT_DIMENSION</code>
 versus <code>CATEGORICAL_BUCKET</code></h3>
-<p><code>DISTINCT_DIMENSION</code>:</p>
+<p><code>DISTINCT_DIMENSION</code> representa valores observados no
+dataset.</p>
+<p><code>CATEGORICAL_BUCKET</code> representa classificacoes governadas
+sobre os dados.</p>
+<p>Regra pratica:</p>
 <ul>
-<li>retorna os valores reais distintos do campo</li>
-<li>a cardinalidade nasce dos dados</li>
-<li>a label costuma ser o prÃ³prio valor normalizado</li>
+<li>se o valor publicado corresponde ao valor observado, use
+<code>DISTINCT_DIMENSION</code></li>
+<li>se o valor publicado corresponde a uma classificacao derivada, use
+<code>CATEGORICAL_BUCKET</code></li>
 </ul>
-<p><code>CATEGORICAL_BUCKET</code>:</p>
-<ul>
-<li>retorna buckets governados e semanticamente estÃ¡veis</li>
-<li>a label pode nÃ£o coincidir com o valor bruto</li>
-<li>Ã© adequado para faixas, bandas e taxonomias jÃ¡ consolidadas</li>
-</ul>
-<p>Essa distinÃ§Ã£o Ã© importante para evitar que â€œdistinct de
-stringâ€ e â€œbucket semÃ¢nticoâ€ sejam tratados como o mesmo
-contrato.</p>
-<h2 id="contrato-canãnico-no-metadata">Contrato CanÃ´nico no
+<h2 id="contrato-canonico-no-metadata">Contrato Canonico no
 Metadata</h2>
-<p>DireÃ§Ã£o inicial:</p>
+<p><code>/schemas/filtered</code> deve ser a superficie estrutural que
+publica o bloco <code>x-ui.optionSource</code>.</p>
+<p>Diretriz minima:</p>
 <ul>
-<li><code>@UISchema</code> passa a aceitar referÃªncia a uma fonte
-canÃ´nica de opÃ§Ãµes</li>
-<li><code>/schemas/filtered</code> publica isso como
-<code>x-ui.optionSource</code></li>
+<li>o bloco deve ser aditivo</li>
+<li>o contrato deve continuar apontando para <code>OptionDTO</code> como
+resposta operacional</li>
+<li>a publicacao deve explicitar a fonte sem exigir heuristica local do
+runtime</li>
 </ul>
-<p>Shape conceitual mÃ­nimo do bloco:</p>
+<p>Exemplo ilustrativo:</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;payrollProfile&quot;</span><span class="fu">,</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;DISTINCT_DIMENSION&quot;</span><span class="fu">,</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/human-resources/vw-analytics-folha-pagamento&quot;</span><span class="fu">,</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;filterField&quot;</span><span class="fu">:</span> <span class="st">&quot;payrollProfile&quot;</span><span class="fu">,</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dependsOn&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;competenciaBetween&quot;</span><span class="ot">,</span> <span class="st">&quot;universo&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;excludeSelfField&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;searchMode&quot;</span><span class="fu">:</span> <span class="st">&quot;contains&quot;</span><span class="fu">,</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;pageSize&quot;</span><span class="fu">:</span> <span class="dv">25</span><span class="fu">,</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;includeIds&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;cachePolicy&quot;</span><span class="fu">:</span> <span class="st">&quot;request-scope&quot;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;x-ui&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;controlType&quot;</span><span class="fu">:</span> <span class="st">&quot;select&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;optionSource&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;universo&quot;</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;DISTINCT_DIMENSION&quot;</span><span class="fu">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/folha/eventos&quot;</span><span class="fu">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;filterField&quot;</span><span class="fu">:</span> <span class="st">&quot;universo&quot;</span><span class="fu">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dependsOn&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;empresaId&quot;</span><span class="ot">]</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
-<p>DireÃ§Ã£o conceitual mÃ­nima:</p>
-<ul>
-<li><code>key</code></li>
-<li><code>type</code></li>
-<li><code>resourcePath</code></li>
-<li><code>filterField</code></li>
-<li><code>dependsOn</code></li>
-<li><code>excludeSelfField</code></li>
-<li><code>searchMode</code></li>
-<li><code>pageSize</code></li>
-<li><code>includeIds</code></li>
-<li><code>cachePolicy</code></li>
-</ul>
-<p>ObservaÃ§Ã£o:</p>
-<p><code>endpoint</code> continua vÃ¡lido como mecanismo
-legado/compatÃ­vel, mas nÃ£o deve seguir sendo a Ãºnica forma de modelar
-opÃ§Ãµes remotas no nÃ­vel canÃ´nico.</p>
-<h2 id="compatibilidade-com-o-legado">Compatibilidade com o legado</h2>
-<p>Esta evoluÃ§Ã£o deve ser estritamente aditiva no primeiro ciclo.</p>
-<p>Permanece vÃ¡lido:</p>
+<h2 id="compatibilidade-transitoria">Compatibilidade Transitoria</h2>
+<p>Durante a adequacao dos consumidores, o backend ainda pode publicar o
+shape compativel:</p>
 <ul>
 <li><code>endpoint</code></li>
 <li><code>valueField</code></li>
@@ -486,417 +446,218 @@ opÃ§Ãµes remotas no nÃ­vel canÃ´nico.</p>
 <li><code>POST /options/filter</code></li>
 <li><code>GET /options/by-ids</code></li>
 </ul>
-<p>DireÃ§Ã£o de convivÃªncia:</p>
+<p>Direcao de convivio:</p>
 <ul>
-<li>campos tradicionais podem continuar publicando apenas
+<li>campos existentes podem continuar publicando apenas
 <code>endpoint/valueField/displayField</code></li>
-<li>campos novos ou migrados podem publicar
+<li>campos no baseline atual devem preferir
 <code>x-ui.optionSource</code></li>
-<li>durante a transiÃ§Ã£o, um mesmo campo pode publicar ambos os blocos
-quando isso for Ãºtil para compatibilidade</li>
+<li>um mesmo campo pode publicar ambos os blocos quando isso reduzir
+risco operacional</li>
 <li>o runtime oficial deve preferir <code>x-ui.optionSource</code>
-quando disponÃ­vel, sem quebrar consumidores antigos</li>
-<li>quando o campo do filtro nÃ£o coincidir com a <code>key</code> da
-source, o contrato deve publicar <code>filterField</code> para evitar
-auto-restriÃ§Ã£o incorreta em cascata</li>
+quando disponivel</li>
 </ul>
-<h2 id="não-objetivos-desta-fase">NÃ£o objetivos desta fase</h2>
-<p>Esta RFC nÃ£o tenta resolver ainda:</p>
+<p>Essa compatibilidade nao muda a recomendacao principal da
+plataforma.</p>
+<h2 id="nao-objetivos-desta-fase">Nao Objetivos Desta Fase</h2>
+<p>Esta RFC nao tenta resolver agora:</p>
 <ul>
-<li>descontinuaÃ§Ã£o imediata de
+<li>remocao imediata do shape compativel
 <code>endpoint/valueField/displayField</code></li>
-<li>suporte completo no runtime Angular antes da publicaÃ§Ã£o canÃ´nica
-no starter</li>
-<li>geraÃ§Ã£o automÃ¡tica de <code>optionSource</code> para todo campo
-textual com baixa cardinalidade</li>
-<li>transformaÃ§Ã£o de <code>praxis.stats</code> em superfÃ­cie pÃºblica
-de options</li>
-<li>definiÃ§Ã£o de um motor distribuÃ­do de cache para options
-derivadas</li>
+<li>suporte completo a todos os tipos no executor JPA padrao</li>
+<li>conversao automatica de qualquer campo textual em fonte de
+options</li>
+<li>exposicao de <code>stats/*</code> como API publica de options</li>
 </ul>
-<h2 id="endpoints-canãnicos-propostos">Endpoints CanÃ´nicos
+<h2 id="endpoints-canonicos-propostos">Endpoints Canonicos
 Propostos</h2>
-<h3 id="filtro-de-opããµes-por-source">Filtro de opÃ§Ãµes por source</h3>
+<h3 id="filtro-de-opcoes-por-source">Filtro de opcoes por source</h3>
 <ul>
 <li><code>POST /{resource}/option-sources/{sourceKey}/options/filter</code></li>
 </ul>
-<h3 id="reidrataãão-de-selecionados-por-source">ReidrataÃ§Ã£o de
+<h3 id="reidratacao-de-selecionados-por-source">Reidratacao de
 selecionados por source</h3>
 <ul>
 <li><code>GET /{resource}/option-sources/{sourceKey}/options/by-ids</code></li>
 </ul>
-<p>Esses endpoints:</p>
+<p>Regras:</p>
 <ul>
-<li>retornam <code>OptionDTO</code></li>
-<li>preservam paginaÃ§Ã£o, lookup e <code>includeIds</code></li>
-<li>mantÃªm alinhamento conceitual com o modelo atual</li>
-<li>evitam criar APIs paralelas por campo</li>
+<li>o payload de resposta converge para <code>OptionDTO</code></li>
+<li>o contrato da fonte vive em <code>x-ui.optionSource</code></li>
+<li>o endpoint operacional nao vira a fonte primaria da semantica</li>
 </ul>
 <h2 id="request-e-cascata">Request e Cascata</h2>
-<p>O <code>options/filter</code> derivado deve operar sobre o mesmo
-universo filtrado do recurso base.</p>
-<p>DireÃ§Ã£o recomendada:</p>
+<p>Quando a source depender de outros campos:</p>
 <ul>
-<li>aceita o mesmo <code>FD extends GenericFilterDTO</code> do
-recurso</li>
-<li>aceita <code>search</code></li>
-<li>aceita <code>includeIds</code></li>
-<li>aceita paginaÃ§Ã£o</li>
-<li>aplica <code>excludeSelfField</code> quando configurado para evitar
-auto-restriÃ§Ã£o indevida</li>
+<li><code>dependsOn</code> deve listar as dependencias relevantes</li>
+<li><code>filterField</code> deve explicitar o campo real quando a
+<code>key</code> da source nao coincidir com ele</li>
+<li>o runtime nao deve inferir cascata por naming heuristic</li>
 </ul>
-<p>Isso Ã© especialmente importante em filtros dependentes, como:</p>
-<ul>
-<li>departamento dependente de universo</li>
-<li>equipe dependente de departamento</li>
-<li>faixas dependentes de perÃ­odo selecionado</li>
-</ul>
-<h2 id="relaãão-com-statsfieldregistry">RelaÃ§Ã£o com
+<h2 id="relacao-com-statsfieldregistry">Relacao com
 <code>StatsFieldRegistry</code></h2>
-<p><code>StatsFieldRegistry</code> jÃ¡ governa campos categÃ³ricos
-elegÃ­veis para:</p>
+<p>O starter pode reaproveitar infraestrutura de stats para executar
+algumas fontes, em especial <code>DISTINCT_DIMENSION</code>, mas isso
+nao altera o contrato publico.</p>
+<p>Regra:</p>
 <ul>
-<li><code>group-by</code></li>
-<li><code>distribution</code> em modo categÃ³rico</li>
+<li><code>StatsFieldRegistry</code> e detalhe operacional</li>
+<li><code>optionSource</code> e a superficie canonica publicada ao
+consumidor</li>
 </ul>
-<p>DireÃ§Ã£o recomendada:</p>
-<ul>
-<li><code>OptionSourceRegistry</code> governa a publicaÃ§Ã£o pÃºblica de
-options</li>
-<li><code>StatsFieldRegistry</code> pode ser backend auxiliar para
-fontes do tipo <code>DISTINCT_DIMENSION</code> e
-<code>CATEGORICAL_BUCKET</code></li>
-<li><code>stats</code> nÃ£o vira o contrato pÃºblico de seleÃ§Ã£o</li>
-</ul>
-<p>Isso preserva uma separaÃ§Ã£o saudÃ¡vel:</p>
-<ul>
-<li>options = UX de filtro</li>
-<li>stats = UX analÃ­tica</li>
-</ul>
-<h2 id="optiondto">OptionDTO</h2>
-<p><code>OptionDTO</code> permanece como contrato pÃºblico.</p>
-<p>Pode ser enriquecido por <code>extra</code>, quando necessÃ¡rio, para
-suportar:</p>
-<ul>
-<li><code>count</code></li>
-<li><code>badge</code></li>
-<li><code>group</code></li>
-<li><code>description</code></li>
-<li><code>meta</code></li>
-</ul>
-<p>sem quebrar o payload base:</p>
+<h2 id="optiondto"><code>OptionDTO</code></h2>
+<p><code>OptionDTO</code> continua sendo o payload publico minimo
+esperado para opcoes remotas.</p>
+<p>Campos minimos esperados:</p>
 <ul>
 <li><code>id</code></li>
 <li><code>label</code></li>
-<li><code>extra</code></li>
 </ul>
-<h2 id="publicaãão-em-schemasfiltered">PublicaÃ§Ã£o em
+<p>Campos adicionais podem existir quando houver valor claro de
+plataforma, mas sem fragmentar o contrato por tipo de fonte.</p>
+<h2 id="publicacao-em-schemasfiltered">Publicacao em
 <code>/schemas/filtered</code></h2>
-<p><code>/schemas/filtered</code> deve publicar a capability de fonte de
-opÃ§Ã£o por campo.</p>
-<p>DireÃ§Ã£o mÃ­nima:</p>
+<p><code>/schemas/filtered</code> deve publicar a capacidade de fonte de
+opcao por campo.</p>
+<p>Direcao minima:</p>
 <ul>
-<li>manter o shape legado para
-<code>endpoint/valueField/displayField</code></li>
+<li>manter o shape compativel para
+<code>endpoint/valueField/displayField</code> enquanto necessario</li>
 <li>adicionar <code>x-ui.optionSource</code></li>
-<li>explicitar capability de options derivadas no nÃ­vel certo da
-operaÃ§Ã£o/recurso/campo</li>
+<li>explicitar a capability de options derivadas no nivel certo de
+recurso, operacao ou campo</li>
 </ul>
 <p>Com isso, o runtime consumidor pode:</p>
 <ul>
-<li>continuar funcionando no caminho legado</li>
-<li>migrar progressivamente para a semÃ¢ntica canÃ´nica</li>
+<li>continuar funcionando com o shape compativel</li>
+<li>preferir a semantica canonica quando disponivel</li>
 </ul>
 <h2 id="compatibilidade-com-angular">Compatibilidade com Angular</h2>
-<p>O runtime Angular jÃ¡ estÃ¡ mais prÃ³ximo de
-<code>resourcePath</code> base do que de â€œendpoint arbitrÃ¡rio
-finalâ€.</p>
-<p>ConsequÃªncia:</p>
+<p>O runtime Angular ja esta mais proximo de <code>resourcePath</code>
+base do que de endpoint arbitrario final.</p>
+<p>Implicacao:</p>
 <ul>
-<li>fase 1: o Angular pode consumir
-<code>option-sources/{sourceKey}</code> como resourcePath derivado</li>
-<li>fase 2: o Angular deve ganhar suporte first-class a
-<code>x-ui.optionSource</code></li>
-<li>fase 3: a documentaÃ§Ã£o pÃºblica deve reduzir a ambiguidade
-histÃ³rica do uso direto de <code>endpoint="/options/filter"</code></li>
+<li><code>optionSource</code> reduz heuristica local</li>
+<li><code>resourcePath</code> alinha melhor backend e runtime</li>
+<li>o consumidor oficial deve ser tratado como prova operacional do
+contrato</li>
 </ul>
 <h2 id="alternativas-consideradas">Alternativas Consideradas</h2>
-<h3 id="exigir-sempre-recurso-crud-prã³prio">1. Exigir sempre recurso
-CRUD prÃ³prio</h3>
-<p>Vantagem:</p>
+<h3 id="exigir-sempre-recurso-crud-proprio">1. Exigir sempre recurso
+CRUD proprio</h3>
+<p>Rejeitada porque supermodela casos simples de selecao assistida e
+empurra a plataforma para mais entidades do que o dominio realmente
+precisa.</p>
+<h3 id="criar-endpoint-ad-hoc-por-recurso-analitico">2. Criar endpoint
+ad hoc por recurso analitico</h3>
+<p>Rejeitada porque institucionaliza contratos locais e enfraquece a
+governanca canonicamente publicada em <code>x-ui</code>.</p>
+<h3 id="expor-statsgroup-by-como-api-publica-de-options">3. Expor
+<code>stats/group-by</code> como API publica de options</h3>
+<p>Rejeitada porque mistura superficie analitica com superficie
+operacional de selecao.</p>
+<h3 id="manter-apenas-endpointvaluefielddisplayfield">4. Manter apenas
+<code>endpoint/valueField/displayField</code></h3>
+<p>Rejeitada como direcao principal porque obriga o runtime a operar por
+shape operacional em vez de semantica canonica de fonte.</p>
+<h2 id="casos-prioritarios">Casos Prioritarios</h2>
+<p>Casos que devem guiar a primeira implementacao:</p>
 <ul>
-<li>reaproveita a infraestrutura atual</li>
+<li>dimensao distinta de universo</li>
+<li>bucket categorico como faixa salarial</li>
+<li>lookup leve com busca e reidratacao por IDs</li>
+<li>cascata governada por <code>dependsOn</code></li>
 </ul>
-<p>Desvantagem:</p>
+<h2 id="seguranca-e-governanca">Seguranca e Governanca</h2>
+<p>O contrato de options derivadas deve respeitar as mesmas guardrails
+de contrato publico do starter:</p>
 <ul>
-<li>cria pseudo-recursos artificiais</li>
-<li>duplica semÃ¢ntica</li>
+<li>sem endpoint improvisado como fonte de verdade</li>
+<li>sem duplicacao de semantica em consumidor</li>
+<li>sem heuristica local para inferir algo que o backend pode publicar
+explicitamente</li>
 </ul>
-<p>ConclusÃ£o:</p>
-<ul>
-<li>nÃ£o Ã© a soluÃ§Ã£o correta de plataforma</li>
-</ul>
-<h3 id="criar-endpoint-ad-hoc-por-recurso-analãtico">2. Criar endpoint
-ad hoc por recurso analÃ­tico</h3>
-<p>Vantagem:</p>
-<ul>
-<li>rÃ¡pido localmente</li>
-</ul>
-<p>Desvantagem:</p>
-<ul>
-<li>fragmenta contrato, docs e runtime</li>
-</ul>
-<p>ConclusÃ£o:</p>
-<ul>
-<li>deve ser evitado</li>
-</ul>
-<h3 id="expor-statsgroup-by-como-api-pãºblica-de-options">3. Expor
-<code>stats/group-by</code> como API pÃºblica de options</h3>
-<p>Vantagem:</p>
-<ul>
-<li>reaproveita governanÃ§a jÃ¡ existente</li>
-</ul>
-<p>Desvantagem:</p>
-<ul>
-<li>mistura semÃ¢ntica analÃ­tica com semÃ¢ntica de filtro</li>
-</ul>
-<p>ConclusÃ£o:</p>
-<ul>
-<li>aceitÃ¡vel apenas como backend interno de execuÃ§Ã£o</li>
-</ul>
-<h3 id="criar-contrato-unificado-de-optionsource">4. Criar contrato
-unificado de <code>optionSource</code></h3>
-<p>Vantagem:</p>
-<ul>
-<li>separa bem a semÃ¢ntica pÃºblica</li>
-<li>reaproveita <code>OptionDTO</code></li>
-<li>permite governanÃ§a e rollout gradual</li>
-</ul>
-<p>ConclusÃ£o:</p>
-<ul>
-<li>recomendaÃ§Ã£o principal desta RFC</li>
-</ul>
-<h2 id="casos-prioritãrios">Casos PrioritÃ¡rios</h2>
-<p>Casos iniciais que justificam a evoluÃ§Ã£o:</p>
-<ul>
-<li><code>universo</code></li>
-<li><code>payrollProfile</code></li>
-<li><code>composicaoFolha</code></li>
-<li><code>faixaSalarioBruto</code></li>
-<li><code>faixaSalarioLiquido</code></li>
-<li><code>faixaPctDesconto</code></li>
-<li><code>faixaValorAdicionais</code></li>
-<li><code>severidade</code></li>
-<li><code>equipePrincipal</code></li>
-<li><code>basePrincipal</code></li>
-</ul>
-<h2 id="seguranãa-e-governanãa">SeguranÃ§a e GovernanÃ§a</h2>
-<p>Cada <code>OptionSourceDescriptor</code> deve declarar polÃ­tica
-explÃ­cita para:</p>
-<ul>
-<li>elegibilidade do campo</li>
-<li>busca textual permitida</li>
-<li>tamanho mÃ¡ximo de pÃ¡gina</li>
-<li>ordenaÃ§Ã£o padrÃ£o</li>
-<li>reidrataÃ§Ã£o por IDs</li>
-<li>dependÃªncias de cascata</li>
-<li>cache</li>
-<li>possibilidade de excluir o prÃ³prio campo do filtro aplicado</li>
-</ul>
-<p>Isso evita transformar â€œdistinct valuesâ€ em superfÃ­cie frouxa e
-nÃ£o governada.</p>
 <h2 id="versionamento">Versionamento</h2>
-<p>Antes de endurecer schema definitivo, a capacidade deve nascer com
-versionamento explÃ­cito.</p>
-<p>RecomendaÃ§Ã£o:</p>
+<p>Recomendacao:</p>
 <ul>
 <li><code>version</code> no bloco <code>x-ui.optionSource</code></li>
 <li>rollout aditivo</li>
-<li>sem remoÃ§Ã£o do modelo legado
+<li>sem remocao do modelo compativel
 <code>endpoint/valueField/displayField</code> na primeira fase</li>
 </ul>
-<h2 id="plano-de-evoluãão">Plano de EvoluÃ§Ã£o</h2>
-<h3 id="fase-1-â-contrato">Fase 1 â€” Contrato</h3>
+<h2 id="plano-de-evolucao">Plano de Evolucao</h2>
+<h3 id="fase-1---contrato">Fase 1 - Contrato</h3>
 <ul>
-<li>definir <code>OptionSourceType</code></li>
-<li>definir <code>OptionSourceDescriptor</code></li>
-<li>definir <code>OptionSourceRegistry</code></li>
-<li>documentar <code>x-ui.optionSource</code></li>
+<li>fechar o shape canonico de <code>x-ui.optionSource</code></li>
+<li>documentar tipos iniciais e regras de uso</li>
 </ul>
-<h3 id="fase-2-â-starter">Fase 2 â€” Starter</h3>
+<h3 id="fase-2---starter">Fase 2 - Starter</h3>
 <ul>
-<li>implementar
-<code>option-sources/{sourceKey}/options/filter</code></li>
-<li>implementar
-<code>option-sources/{sourceKey}/options/by-ids</code></li>
-<li>reusar <code>Specification&lt;E&gt;</code> do recurso base</li>
-<li>integrar com <code>StatsFieldRegistry</code> quando aplicÃ¡vel</li>
+<li>publicar o bloco em <code>/schemas/filtered</code></li>
+<li>suportar filtro e reidratacao para os tipos iniciais
+priorizados</li>
 </ul>
-<h3 id="fase-3-â-host-de-referãªncia">Fase 3 â€” Host de
-referÃªncia</h3>
+<h3 id="fase-3---host-de-referencia">Fase 3 - Host de referencia</h3>
 <ul>
-<li>modelar casos reais em <code>praxis-api-quickstart</code></li>
-<li>priorizar:
-<ul>
-<li><code>payrollProfile</code></li>
-<li><code>composicaoFolha</code></li>
-<li><code>faixaPctDesconto</code></li>
-<li><code>universo</code></li>
-<li><code>severidade</code></li>
-</ul></li>
+<li>provar a superficie em <code>praxis-api-quickstart</code></li>
+<li>validar cascata, filtro e reidratacao em fluxo real</li>
 </ul>
-<h3 id="fase-4-â-runtime-angular">Fase 4 â€” Runtime Angular</h3>
+<h3 id="fase-4---runtime-angular">Fase 4 - Runtime Angular</h3>
 <ul>
-<li>consumo compatÃ­vel via resourcePath derivado</li>
-<li>suporte first-class a <code>x-ui.optionSource</code></li>
-<li>documentaÃ§Ã£o do contrato correto para selects remotos</li>
+<li>consumir <code>optionSource</code> como referencia principal</li>
+<li>manter shape compativel apenas como fallback operacional</li>
 </ul>
-<h3 id="fase-5-â-exemplos-e-conformidade">Fase 5 â€” Exemplos e
+<h3 id="fase-5---exemplos-e-conformidade">Fase 5 - Exemplos e
 Conformidade</h3>
 <ul>
 <li>atualizar exemplos oficiais</li>
-<li>atualizar guias de filtros/options</li>
-<li>publicar matriz â€œquando usar recurso prÃ³prio versus optionSource
-derivadoâ€</li>
+<li>alinhar docs de conformance e guias</li>
 </ul>
-<h1 id="introduãão-didãtica-para-iniciantes">IntroduÃ§Ã£o DidÃ¡tica para
-Iniciantes</h1>
-<p>Se vocÃª Ã© novo na plataforma Praxis, pense no OptionSource como uma
-“receita” para criar listas de opÃ§Ãµes (como um dropdown) em
-formulÃ¡rios ou filtros, sem precisar programar tudo do zero.</p>
-<p><strong>Analogia Simples</strong>: Imagine um restaurante onde o
-cardÃ¡pio (metadata) diz: “Para o prato ‘Pizza’, use ingredientes de
-‘Queijos DisponÃ­veis’”. OptionSource Ã© a receita que explica como
-buscar esses “ingredientes” (opÃ§Ãµes) de forma padronizada, em vez de
-inventar uma nova cozinha para cada prato.</p>
-<p><strong>Por Que Importa?</strong> Em apps metadata-driven, campos
-como “Perfil Salarial” ou “Faixas de Idade” precisam de opÃ§Ãµes
-inteligentes. Sem OptionSource, o usuÃ¡rio digita tudo manualmente â€”
-ruim para UX. Com ele, o sistema “sabe” buscar opÃ§Ãµes
-automaticamente.</p>
-<p><strong>Fluxo BÃ¡sico</strong>: 1. Defina o tipo de fonte (ex.:
-valores distintos de dados). 2. Registre no serviÃ§o com um descritor.
-3. O frontend lÃª do schema e chama endpoints canÃ´nicos. 4. Resultado:
-OpÃ§Ãµes aparecem no select!</p>
-<p>Se ainda confuso, leia os exemplos abaixo antes de mergulhar no spec
-tÃ©cnico.</p>
-<h2 id="exemplos-prãticos-expandidos">Exemplos PrÃ¡ticos Expandidos</h2>
+<h2 id="introducao-didatica-para-iniciantes">Introducao Didatica para
+Iniciantes</h2>
+<p>Se um campo precisa mostrar opcoes dinamicas, a plataforma precisa
+responder tres perguntas:</p>
+<ol type="1">
+<li>de onde vem a opcao</li>
+<li>como filtrar opcoes validas para o contexto atual</li>
+<li>como reidratar opcoes ja selecionadas</li>
+</ol>
+<p><code>x-ui.optionSource</code> existe para responder essas perguntas
+de forma canonica, sem depender de contratos ad hoc espalhados entre
+backend e frontend.</p>
+<h2 id="exemplos-praticos-expandidos">Exemplos Praticos Expandidos</h2>
 <h3 id="exemplo-1-distinct_dimension-para-universo">Exemplo 1:
-DISTINCT_DIMENSION para “Universo”</h3>
-<ul>
-<li><p><strong>CenÃ¡rio</strong>: Campo “universo” em uma view de
-analytics de folha de pagamento.</p></li>
-<li><p><strong>Como Funciona</strong>: Busca valores Ãºnicos reais do
-campo “universo” na tabela, sem buckets artificiais.</p></li>
-<li><p><strong>CÃ³digo no Service</strong>:</p>
-<div class="sourceCode" id="cb2"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>OptionSourceDescriptor universoDescriptor <span class="op">=</span> <span class="kw">new</span> <span class="fu">OptionSourceDescriptor</span><span class="op">(</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    OptionSourceType<span class="op">.</span><span class="fu">DISTINCT_DIMENSION</span><span class="op">,</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;/api/human-resources/vw-analytics-folha-pagamento&quot;</span><span class="op">,</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span> <span class="co">// filterField</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span> <span class="co">// propertyPath</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span> <span class="co">// labelPropertyPath</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span> <span class="co">// valuePropertyPath</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(),</span> <span class="co">// dependsOn (nenhuma)</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    OptionSourcePolicy<span class="op">.</span><span class="fu">defaults</span><span class="op">()</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div></li>
-<li><p><strong>Resultado no Schema (/schemas/filtered)</strong>:</p>
-<div class="sourceCode" id="cb3"><pre
-class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;universo&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;x-ui.optionSource&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;universo&quot;</span><span class="fu">,</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;DISTINCT_DIMENSION&quot;</span><span class="fu">,</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/human-resources/vw-analytics-folha-pagamento&quot;</span><span class="fu">,</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;filterField&quot;</span><span class="fu">:</span> <span class="st">&quot;universo&quot;</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div></li>
-<li><p><strong>Como o UsuÃ¡rio VÃª</strong>: Dropdown com opÃ§Ãµes como
-“Empresa A”, “Empresa B”, baseadas em dados reais.</p></li>
-</ul>
+<code>DISTINCT_DIMENSION</code> para <code>universo</code></h3>
+<p>Use quando o campo precisa listar valores distintos realmente
+observados no conjunto filtrado.</p>
 <h3 id="exemplo-2-categorical_bucket-para-faixa-salarial">Exemplo 2:
-CATEGORICAL_BUCKET para “Faixa Salarial”</h3>
+<code>CATEGORICAL_BUCKET</code> para faixa salarial</h3>
+<p>Use quando o usuario escolhe categorias governadas, e nao valores
+brutos diretamente observados.</p>
+<h3 id="exemplo-3-dependencias-em-cascata">Exemplo 3: Dependencias em
+cascata</h3>
+<p>Se a lista de opcoes depende de empresa, filial ou outro campo,
+publique <code>dependsOn</code> e <code>filterField</code> quando
+necessario.</p>
+<h2 id="decisoes-em-aberto">Decisoes em Aberto</h2>
+<p>Itens ainda dependentes de implementacao completa:</p>
 <ul>
-<li><p><strong>CenÃ¡rio</strong>: Campo “faixaSalarioBruto” para filtros
-em relatÃ³rios.</p></li>
-<li><p><strong>Como Funciona</strong>: Define buckets semÃ¢nticos (ex.:
-“0-1000”, “1001-2000”) com labels amigÃ¡veis, nÃ£o valores
-brutos.</p></li>
-<li><p><strong>CÃ³digo no Service</strong>:</p>
-<div class="sourceCode" id="cb4"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>OptionSourceDescriptor faixaDescriptor <span class="op">=</span> <span class="kw">new</span> <span class="fu">OptionSourceDescriptor</span><span class="op">(</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;faixaSalarioBruto&quot;</span><span class="op">,</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    OptionSourceType<span class="op">.</span><span class="fu">CATEGORICAL_BUCKET</span><span class="op">,</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;/api/human-resources/vw-analytics-folha-pagamento&quot;</span><span class="op">,</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;faixaSalarioBruto&quot;</span><span class="op">,</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;faixaSalarioBruto&quot;</span><span class="op">,</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;label&quot;</span><span class="op">,</span> <span class="co">// labelPropertyPath (ex.: &quot;AtÃ© R$ 1.000&quot;)</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;value&quot;</span><span class="op">,</span> <span class="co">// valuePropertyPath (ex.: &quot;0-1000&quot;)</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;competenciaBetween&quot;</span><span class="op">),</span> <span class="co">// depende do perÃ­odo</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">new</span> <span class="fu">OptionSourcePolicy</span><span class="op">(</span><span class="kw">true</span><span class="op">,</span> <span class="kw">true</span><span class="op">,</span> <span class="st">&quot;contains&quot;</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">25</span><span class="op">,</span> <span class="dv">100</span><span class="op">,</span> <span class="kw">true</span><span class="op">,</span> <span class="kw">false</span><span class="op">,</span> <span class="st">&quot;label&quot;</span><span class="op">)</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div></li>
-<li><p><strong>Resultado</strong>: OpÃ§Ãµes como “AtÃ© R$ 1.000” (label)
-com valor “0-1000” para filtro.</p></li>
+<li>cobertura de todos os tipos pelo executor JPA padrao</li>
+<li>formato final de hints adicionais de policy e cache</li>
 </ul>
-<h3 id="exemplo-3-dependãªncias-em-cascata">Exemplo 3: DependÃªncias em
-Cascata</h3>
+<h2 id="pitfalls-comuns">Pitfalls Comuns</h2>
 <ul>
-<li><p><strong>CenÃ¡rio</strong>: “Equipe” depende de
-“Departamento”.</p></li>
-<li><p><strong>Como Funciona</strong>: O <code>dependsOn</code> filtra
-opÃ§Ãµes baseadas em seleÃ§Ãµes anteriores.</p></li>
-<li><p><strong>CÃ³digo</strong>:</p>
-<div class="sourceCode" id="cb5"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;departamento&quot;</span><span class="op">)</span> <span class="co">// dependsOn</span></span></code></pre></div></li>
-<li><p><strong>Fluxo</strong>: Selecione departamento primeiro; equipe
-filtra automaticamente.</p></li>
+<li>tratar <code>endpoint</code> compativel como se ainda fosse a
+direcao canonica</li>
+<li>inferir fonte por heuristica local no runtime</li>
+<li>misturar semantica de stats com semantica publica de options</li>
+<li>publicar cascata sem <code>dependsOn</code> explicito</li>
 </ul>
-<h2 id="decisãµes-em-aberto-resolvidas-para-esta-versão">DecisÃµes em
-Aberto (Resolvidas para Esta VersÃ£o)</h2>
-<ul>
-<li><strong>Contrato em NÃ­vel de Campo vs. OperaÃ§Ã£o</strong>:
-Recomendamos nÃ­vel de campo para granularidade, mas suporte ambos.</li>
-<li><strong>LIGHT_LOOKUP</strong>: Nasce como subtipo de
-<code>RESOURCE_ENTITY</code> na fase 1; evolui se necessÃ¡rio.</li>
-<li><strong>Busca Textual</strong>: Aceita parcial (“contains”) para
-flexibilidade.</li>
-<li><strong>PublicaÃ§Ã£o em Schema</strong>: Copia referÃªncia da fonte,
-nÃ£o descriptor completo, para evitar duplicaÃ§Ã£o.</li>
-</ul>
-<h2 id="seãão-de-pitfalls-comuns">SeÃ§Ã£o de Pitfalls Comuns</h2>
-<ul>
-<li><strong>Erro: Campo NÃ£o Aparece no Schema</strong>: Verifique se o
-nome do campo coincide com a <code>key</code> no registry.</li>
-<li><strong>Erro: OpÃ§Ãµes Vazias</strong>: Confirme
-<code>resourcePath</code> correto e permissÃµes no endpoint.</li>
-<li><strong>Erro: DependÃªncias NÃ£o Funcionam</strong>: Use
-<code>excludeSelfField: true</code> para evitar loops.</li>
-<li><strong>Dica</strong>: Sempre teste com
-<code>POST /option-sources/{key}/options/filter</code> manualmente.</li>
-</ul>
-<h2 id="conclusão">ConclusÃ£o</h2>
-<p>A plataforma Praxis jÃ¡ possui os blocos necessÃ¡rios para resolver o
-problema:</p>
-<ul>
-<li>filtro governado</li>
-<li><code>OptionDTO</code></li>
-<li>endpoints de options</li>
-<li>governanÃ§a analÃ­tica via <code>StatsFieldRegistry</code></li>
-</ul>
-<p>O que falta Ã© a camada canÃ´nica intermediÃ¡ria:</p>
-<ul>
-<li>uma semÃ¢ntica pÃºblica de <code>optionSource</code></li>
-</ul>
-<p>Essa camada permite cobrir o caso atual de payroll analytics e outros
-cenÃ¡rios prÃ³ximos sem cair em:</p>
-<ul>
-<li>endpoints ad hoc</li>
-<li>pseudo-recursos CRUD</li>
-<li>ou acoplamento indevido da UI a <code>stats</code></li>
-</ul>
-<p>Essa Ã© a evoluÃ§Ã£o correta de plataforma para filtros
-metadata-driven corporativos em cenÃ¡rios analÃ­ticos e derivados.</p>
+<h2 id="conclusao">Conclusao</h2>
+<p><code>x-ui.optionSource</code> deve se consolidar como a forma
+canonica de publicar opcoes derivadas no backend Praxis. Shapes
+compativeis ainda aceitos existem apenas para reduzir risco operacional
+durante a adequacao dos consumidores, sem competir com a direcao oficial
+da plataforma.</p>
 </body>
 </html>
