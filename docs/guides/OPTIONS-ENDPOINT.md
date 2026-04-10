@@ -51,6 +51,8 @@ Se nao houver anotacao, o framework aplica heuristicas como `getLabel`,
 
 `option-sources` vem do `OptionSourceRegistry` exposto pelo service.
 
+No baseline atual do starter, esse registry do proprio recurso e a fonte canonica da feature. Os controllers base, o enrich de `/schemas/filtered` e os endpoints `/{resource}/option-sources/{sourceKey}/options/*` usam a auto-configuracao padrao do starter; nao e necessario registrar `OptionSourceQueryExecutor` ou `OptionSourceEligibility` manualmente no host comum.
+
 ```java
 private static final OptionSourceRegistry OPTION_SOURCES = OptionSourceRegistry.builder()
     .add(VwAnalyticsFolhaPagamento.class, new OptionSourceDescriptor(

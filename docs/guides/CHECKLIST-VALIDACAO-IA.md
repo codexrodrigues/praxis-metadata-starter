@@ -33,6 +33,7 @@ metadata-driven no baseline atual ou um frontend Angular.
 ## 5. Filtros e paginacao
 
 - `FilterDTO` usa `@Filterable` corretamente
+- filtros ricos cobrem ao menos um caso real de `LIKE`, `EQUAL` e `BETWEEN` quando a rodada exigir esse cenario
 - `/filter` e `/filter/cursor` respeitam sort e limites
 - `/locate` retorna resposta coerente
 
@@ -42,6 +43,7 @@ metadata-driven no baseline atual ou um frontend Angular.
 - `ETag` esta presente
 - `If-None-Match` retorna `304` quando o schema nao muda
 - `x-ui.resource.idField` esta resolvido corretamente
+- em request schemas com campos relacionais `...Id`, o `idField` nao deve ser sequestrado pelo id da relacao
 
 ## 7. DTOs, mapeamentos e service
 
@@ -75,5 +77,5 @@ metadata-driven no baseline atual ou um frontend Angular.
 ## Referencias publicas
 
 - guias principais: `GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`, `GUIA-02-AI-BACKEND-CRUD-METADATA.md`, `GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md`
-- repositÃ³rio Git do runtime Angular: `https://github.com/codexrodrigues/praxis-ui-angular`
+- repositorio Git do runtime Angular: `https://github.com/codexrodrigues/praxis-ui-angular`
 - pacotes npm relevantes: `@praxisui/core`, `@praxisui/table`, `@praxisui/dynamic-form`, `@praxisui/crud`

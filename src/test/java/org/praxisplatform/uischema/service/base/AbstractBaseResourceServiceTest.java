@@ -8,8 +8,13 @@ import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
+import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourcePolicy;
+import org.praxisplatform.uischema.options.OptionSourceRegistry;
+import org.praxisplatform.uischema.options.OptionSourceType;
 import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
 import org.praxisplatform.uischema.service.base.annotation.DefaultSortColumn;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -200,6 +205,30 @@ class AbstractBaseResourceServiceTest {
                 ),
                 service.getDefaultSort().toList()
         );
+    }
+
+    @Test
+    void resolveOptionSourceFallsBackToSharedRegistryBeanWhenServiceDoesNotOverrideRegistry() {
+        BaseCrudRepository<TestEntity, Long> repository = mockRepository();
+        TestReadOnlyService service = new TestReadOnlyService(repository);
+        OptionSourceRegistry sharedRegistry = OptionSourceRegistry.builder()
+                .add(TestEntity.class, new OptionSourceDescriptor(
+                        "departmentLookup",
+                        OptionSourceType.RESOURCE_ENTITY,
+                        "/test-entities",
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of("departmentId"),
+                        OptionSourcePolicy.defaults()
+                ))
+                .build();
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("optionSourceRegistry", sharedRegistry);
+        ReflectionTestUtils.setField(service, "optionSourceRegistryProvider", beanFactory.getBeanProvider(OptionSourceRegistry.class));
+
+        assertEquals("departmentLookup", service.resolveOptionSource("departmentLookup").key());
     }
 
     @SuppressWarnings("unchecked")

@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
 
@@ -28,6 +29,12 @@ class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
         Map<String, JsonNode> expectedCollectionActions = indexById(actionsCatalog.path("actions"));
         assertEquals(expectedCollectionActions.keySet(), capabilityActions.keySet());
         expectedCollectionActions.forEach((id, expected) -> assertActionMatches(expected, capabilityActions.get(id)));
+
+        assertEquals("COLLECTION", capabilitySnapshot.path("operations").path("create").path("scope").asText());
+        assertEquals("POST", capabilitySnapshot.path("operations").path("create").path("preferredMethod").asText());
+        assertTrue(capabilitySnapshot.path("operations").path("view").path("supported").asBoolean());
+        assertTrue(capabilitySnapshot.path("operations").path("edit").path("supported").asBoolean());
+        assertTrue(capabilitySnapshot.path("operations").path("delete").path("supported").asBoolean());
     }
 
     @Test
@@ -50,6 +57,11 @@ class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
         Map<String, JsonNode> expectedItemActions = indexById(actionsCatalog.path("actions"));
         assertEquals(expectedItemActions.keySet(), capabilityActions.keySet());
         expectedItemActions.forEach((id, expected) -> assertActionMatches(expected, capabilityActions.get(id)));
+
+        assertEquals("ITEM", capabilitySnapshot.path("operations").path("view").path("scope").asText());
+        assertEquals("GET", capabilitySnapshot.path("operations").path("view").path("preferredMethod").asText());
+        assertEquals("ITEM", capabilitySnapshot.path("operations").path("edit").path("scope").asText());
+        assertTrue(capabilitySnapshot.path("operations").path("edit").path("supported").asBoolean());
     }
 
     private JsonNode filterByScope(JsonNode items, String scope) {

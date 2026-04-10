@@ -24,8 +24,13 @@ import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
+import org.praxisplatform.uischema.options.OptionSourceEligibility;
+import org.praxisplatform.uischema.options.OptionSourceRegistry;
+import org.praxisplatform.uischema.options.service.OptionSourceQueryExecutor;
+import org.praxisplatform.uischema.options.service.jpa.JpaOptionSourceQueryExecutor;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
+import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
 import org.praxisplatform.uischema.validation.AnnotationConflictMode;
 import org.praxisplatform.uischema.action.ActionAvailabilityRule;
 import org.praxisplatform.uischema.action.ActionAvailabilityContextResolver;
@@ -186,6 +191,35 @@ public class OpenApiUiSchemaAutoConfiguration {
     @ConditionalOnMissingBean
     public StatsQueryExecutor statsQueryExecutor() {
         return new JpaStatsQueryExecutor();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OptionSourceEligibility optionSourceEligibility() {
+        return new OptionSourceEligibility();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OptionSourceQueryExecutor optionSourceQueryExecutor() {
+        return new JpaOptionSourceQueryExecutor();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OptionSourceRegistry optionSourceRegistry(
+            ObjectProvider<BaseResourceQueryService<?, ?, ?>> queryServices
+    ) {
+        OptionSourceRegistry[] registries = queryServices.orderedStream()
+                .map(service -> {
+                    if (service instanceof org.praxisplatform.uischema.service.base.AbstractBaseQueryResourceService<?, ?, ?, ?> abstractService) {
+                        return abstractService.getDeclaredOptionSourceRegistry();
+                    }
+                    return service.getOptionSourceRegistry();
+                })
+                .filter(registry -> registry != null && !registry.isEmpty())
+                .toArray(OptionSourceRegistry[]::new);
+        return registries.length == 0 ? OptionSourceRegistry.empty() : OptionSourceRegistry.merge(registries);
     }
 
     @Bean

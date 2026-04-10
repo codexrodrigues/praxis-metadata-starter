@@ -106,14 +106,20 @@ Publicacoes do starter devem deixar essa assimetria explicita ate que os consumi
 
 ## Compatibilidade de consumidor - `x-ui.optionSource`
 
-O draft canonico de `x-ui.optionSource` ainda pode ser mais amplo que o rollout implementado em cada consumidor.
+O draft canonico de `x-ui.optionSource` ainda pode ser mais amplo que o rollout implementado em cada consumidor, mas o starter ja trata essa superficie como contrato publico oficial.
 
-Estado esperado por fase:
+Estado canonicamente suportado no starter:
 
 - documentado na RFC: `x-ui-option-source-rfc.md`
 - validado no schema de campo: `x-ui-field.schema.json`
-- ainda nao obrigatoriamente publicado/executado em todos os hosts
-- ainda nao obrigatoriamente consumido pelo runtime Angular oficial
+- publicado em `/schemas/filtered` quando o recurso expoe `OptionSourceRegistry`
+- executado pelos controllers base para `DISTINCT_DIMENSION` e `CATEGORICAL_BUCKET`
+- exposto nas capacidades agregadas e nos endpoints `/{resource}/option-sources/{sourceKey}/options/*`
+
+Assimetria que ainda pode existir fora do starter:
+
+- um consumidor especifico pode ainda nao consumir todo o draft de `x-ui.optionSource`
+- tipos como `RESOURCE_ENTITY`, `LIGHT_LOOKUP` e `STATIC_CANONICAL` ainda nao estao implementados de ponta a ponta no executor JPA padrao
 
 Diretriz de rollout:
 
@@ -132,7 +138,7 @@ Diretriz de rollout:
 ## Compatibilidade (anotacoes temporarias)
 
 - `filterOptions`: a spec define `array`, porem o starter atualmente serializa como `string` em alguns caminhos legados. Mantido assim por compatibilidade com consumidores atuais.
-- `optionSource`: o schema draft ja valida o bloco, mas a publicacao em `/schemas/filtered` e o consumo runtime oficial dependem das PRs de rollout de backend/host/UI.
+- `optionSource`: o starter ja publica e executa a superficie base para `DISTINCT_DIMENSION` e `CATEGORICAL_BUCKET`; a compatibilidade remanescente esta concentrada nos consumidores especificos e nos tipos ainda nao implementados pelo executor JPA padrao.
 
 ## Suite de fixtures
 

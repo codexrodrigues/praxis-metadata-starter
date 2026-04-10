@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
@@ -387,6 +388,24 @@ class GlobalExceptionHandlerTest {
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
         assertEquals("DATA_ACCESS_ERROR", body.getErrors().get(0).getProperties().get("code"));
+    }
+
+    @Test
+    void shouldMapDataIntegrityViolationToConflict() {
+        WebRequest request = webRequest("/api/helpdesk/chamados/42");
+        DataIntegrityViolationException exception = new DataIntegrityViolationException("fk violation");
+
+        var response = handler.handleDataIntegrityViolationException(exception, request);
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals("Request conflicts with existing data constraints.", body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.BUSINESS_LOGIC, body.getErrors().get(0).getCategory());
+        assertEquals("DATA_INTEGRITY_VIOLATION", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("/api/helpdesk/chamados/42", body.getErrors().get(0).getInstance().toString());
     }
 
     @Test

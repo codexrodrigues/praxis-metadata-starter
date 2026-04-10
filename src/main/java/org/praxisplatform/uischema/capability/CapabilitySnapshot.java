@@ -27,12 +27,14 @@ public record CapabilitySnapshot(
         String group,
         Object resourceId,
         Map<String, Boolean> canonicalOperations,
+        Map<String, CapabilityOperation> operations,
         List<SurfaceCatalogItem> surfaces,
         List<ActionCatalogItem> actions
 ) {
 
     public CapabilitySnapshot {
         canonicalOperations = canonicalOperations == null ? Map.of() : Map.copyOf(canonicalOperations);
+        operations = operations == null ? Map.of() : Map.copyOf(operations);
         surfaces = surfaces == null ? List.of() : List.copyOf(surfaces);
         actions = actions == null ? List.of() : List.copyOf(actions);
     }

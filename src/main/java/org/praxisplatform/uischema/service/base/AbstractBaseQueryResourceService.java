@@ -33,6 +33,7 @@ import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import org.praxisplatform.uischema.stats.service.ResolvedStatsMetric;
 import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -86,7 +87,7 @@ public abstract class AbstractBaseQueryResourceService<
     private StatsProperties statsProperties;
 
     @Autowired(required = false)
-    private OptionSourceRegistry optionSourceRegistry;
+    private ObjectProvider<OptionSourceRegistry> optionSourceRegistryProvider;
 
     @Autowired(required = false)
     private OptionSourceQueryExecutor optionSourceQueryExecutor;
@@ -195,7 +196,18 @@ public abstract class AbstractBaseQueryResourceService<
 
     @Override
     public OptionSourceRegistry getOptionSourceRegistry() {
-        return optionSourceRegistry != null ? optionSourceRegistry : OptionSourceRegistry.empty();
+        OptionSourceRegistry declaredRegistry = getDeclaredOptionSourceRegistry();
+        if (declaredRegistry != null && !declaredRegistry.isEmpty()) {
+            return declaredRegistry;
+        }
+        OptionSourceRegistry sharedRegistry = optionSourceRegistryProvider != null
+                ? optionSourceRegistryProvider.getIfAvailable()
+                : null;
+        return sharedRegistry != null ? sharedRegistry : OptionSourceRegistry.empty();
+    }
+
+    public OptionSourceRegistry getDeclaredOptionSourceRegistry() {
+        return OptionSourceRegistry.empty();
     }
 
     @Override

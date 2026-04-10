@@ -60,6 +60,54 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         return Map.copyOf(capabilities);
     }
 
+    @Override
+    public Map<String, CapabilityOperation> resolveCrudOperations(String resourcePath) {
+        String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
+        JsonNode openApiDocument = openApiDocumentService.getDocumentForGroup(group);
+        return resolveCrudOperations(openApiDocument, resourcePath);
+    }
+
+    @Override
+    public Map<String, CapabilityOperation> resolveCrudOperations(JsonNode openApiDocument, String resourcePath) {
+        String basePath = normalizePath(resourcePath);
+        JsonNode pathsNode = openApiDocument == null ? null : openApiDocument.path(PATHS);
+
+        Map<String, CapabilityOperation> operations = new LinkedHashMap<>();
+        operations.put("create", new CapabilityOperation(
+                "create",
+                hasOperation(pathsNode, basePath, "post"),
+                "COLLECTION",
+                hasOperation(pathsNode, basePath, "post") ? "POST" : null,
+                "create",
+                AvailabilityDecision.allowAll()
+        ));
+        operations.put("view", new CapabilityOperation(
+                "view",
+                hasOperation(pathsNode, basePath + "/{id}", "get"),
+                "ITEM",
+                hasOperation(pathsNode, basePath + "/{id}", "get") ? "GET" : null,
+                "self",
+                AvailabilityDecision.allowAll()
+        ));
+        operations.put("edit", new CapabilityOperation(
+                "edit",
+                resolveEditSupported(pathsNode, basePath),
+                "ITEM",
+                resolveEditPreferredMethod(pathsNode, basePath),
+                "edit",
+                AvailabilityDecision.allowAll()
+        ));
+        operations.put("delete", new CapabilityOperation(
+                "delete",
+                hasOperation(pathsNode, basePath + "/{id}", "delete"),
+                "ITEM",
+                hasOperation(pathsNode, basePath + "/{id}", "delete") ? "DELETE" : null,
+                "delete",
+                AvailabilityDecision.allowAll()
+        ));
+        return Map.copyOf(operations);
+    }
+
     private boolean hasOperation(JsonNode pathsNode, String path, String operation) {
         if (pathsNode == null || pathsNode.isMissingNode() || !StringUtils.hasText(path) || !StringUtils.hasText(operation)) {
             return false;
@@ -93,6 +141,26 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         }
 
         return false;
+    }
+
+    private boolean resolveEditSupported(JsonNode pathsNode, String basePath) {
+        return resolveEditPreferredMethod(pathsNode, basePath) != null;
+    }
+
+    private String resolveEditPreferredMethod(JsonNode pathsNode, String basePath) {
+        if (hasOperation(pathsNode, basePath + "/{id}", "patch")) {
+            return "PATCH";
+        }
+        if (hasOperation(pathsNode, basePath + "/{id}", "put")) {
+            return "PUT";
+        }
+        if (hasItemLevelWriteOperation(pathsNode, basePath, "patch")) {
+            return "PATCH";
+        }
+        if (hasItemLevelWriteOperation(pathsNode, basePath, "put")) {
+            return "PUT";
+        }
+        return null;
     }
 
     private boolean isWorkflowLikeItemPath(String normalizedBasePath, String candidatePath) {

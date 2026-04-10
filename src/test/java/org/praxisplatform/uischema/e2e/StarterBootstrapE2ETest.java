@@ -16,6 +16,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
@@ -60,9 +61,9 @@ class StarterBootstrapE2ETest {
     @Test
     void starterBootstrapsCanonicalDocsAndNewControllersWithoutManualCoreWiring() throws Exception {
         assertTrue(applicationContext.getBeansOfType(E2eFixtureDataSupport.class).containsKey("e2eFixtureDataSupport"));
-        assertTrue(applicationContext.getBeansOfType(OptionSourceQueryExecutor.class).isEmpty());
-        assertTrue(applicationContext.getBeansOfType(OptionSourceEligibility.class).isEmpty());
-        assertTrue(applicationContext.getBeansOfType(OptionSourceRegistry.class).isEmpty());
+        assertEquals(1, applicationContext.getBeansOfType(OptionSourceQueryExecutor.class).size());
+        assertEquals(1, applicationContext.getBeansOfType(OptionSourceEligibility.class).size());
+        assertEquals(1, applicationContext.getBeansOfType(OptionSourceRegistry.class).size());
 
         ResponseEntity<String> employeesAllResponse = get("/employees/all");
         assertEquals(200, employeesAllResponse.getStatusCode().value());
@@ -80,6 +81,19 @@ class StarterBootstrapE2ETest {
         JsonNode filteredSchemaBody = body(filteredSchemaResponse);
         assertEquals("id", filteredSchemaBody.path("x-ui").path("resource").path("idField").asText());
         assertFalse(filteredSchemaBody.path("x-ui").path("resource").path("readOnly").asBoolean());
+
+        ResponseEntity<String> optionSourceResponse = postJson(
+                "/employees/option-sources/payrollProfile/options/filter?page=0&size=10",
+                """
+                {
+                  "departmentId": %d
+                }
+                """.formatted(state.humanResourcesDepartmentId())
+        );
+        assertEquals(200, optionSourceResponse.getStatusCode().value());
+        JsonNode optionSourceBody = body(optionSourceResponse);
+        assertEquals(2, optionSourceBody.path("content").size());
+        assertEquals("EXEC", optionSourceBody.path("content").get(0).path("id").asText());
 
         ResponseEntity<String> patchProfileResponse = patchJson(
                 "/employees/" + state.employeeIdsByName().get("Alice") + "/profile",
@@ -132,6 +146,16 @@ class StarterBootstrapE2ETest {
         } catch (Exception ex) {
             throw new IllegalStateException("PATCH helper failed in StarterBootstrapE2ETest", ex);
         }
+    }
+
+    private ResponseEntity<String> postJson(String path, String body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return rest.postForEntity(
+                URI.create("http://localhost:" + port + path),
+                new HttpEntity<>(body, headers),
+                String.class
+        );
     }
 
     private JsonNode body(ResponseEntity<String> response) throws Exception {

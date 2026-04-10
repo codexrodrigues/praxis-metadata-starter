@@ -17,6 +17,7 @@ import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -96,8 +97,8 @@ public class ApiDocsController {
     @Autowired
     private CanonicalCapabilityResolver canonicalCapabilityResolver;
 
-    @Autowired(required = false)
-    private OptionSourceRegistry optionSourceRegistry;
+    @Autowired
+    private ObjectProvider<OptionSourceRegistry> optionSourceRegistryProvider;
 
     /**
      * Resolve e devolve o fragmento estrutural de schema para uma operacao OpenAPI concreta.
@@ -526,6 +527,9 @@ public class ApiDocsController {
 
     @SuppressWarnings("unchecked")
     private void enrichPropertyOptionSources(Map<String, Object> schemaMap, String basePath) {
+        OptionSourceRegistry optionSourceRegistry = optionSourceRegistryProvider != null
+                ? optionSourceRegistryProvider.getIfAvailable()
+                : null;
         if (optionSourceRegistry == null || basePath == null || basePath.isBlank()) {
             return;
         }

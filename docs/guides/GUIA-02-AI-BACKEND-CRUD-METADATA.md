@@ -37,7 +37,7 @@ Entrada:
 
 ## Protocolo de geracao
 
-Peça explicitamente para a LLM gerar nesta ordem:
+Peca explicitamente para a LLM gerar nesta ordem:
 
 1. DTOs
 2. repository
@@ -70,6 +70,9 @@ O starter usa `resourceKey` para:
 - encontrar surfaces do recurso em `/schemas/surfaces`
 - encontrar workflow actions do recurso em `/schemas/actions`
 - compor snapshots de `capabilities`
+
+Mesmo quando o host publica `/schemas/catalog`, o contrato estrutural continua
+ancorado em `/schemas/filtered`.
 
 Se o recurso continua semanticamente o mesmo, prefira manter o mesmo
 `resourceKey` mesmo quando a URL operacional mudar.
@@ -387,6 +390,7 @@ Antes de concluir:
 - service sobrescreve `getResourceMapper()`
 - controller sobrescreve `getService()` e `getResponseId()`
 - `/schemas/filtered` resolve request e response
+- `/schemas/catalog` continua sendo discovery documental, nao fonte estrutural
 - `/schemas/surfaces` e `/schemas/actions` so expoem referencias canonicas
 - `GET /{resource}/capabilities` agrega sem redefinir contrato
 

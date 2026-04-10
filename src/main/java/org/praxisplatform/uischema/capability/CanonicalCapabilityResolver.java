@@ -24,4 +24,14 @@ public interface CanonicalCapabilityResolver {
      * Resolve as operacoes canonicas usando um documento OpenAPI ja carregado.
      */
     Map<String, Boolean> resolve(JsonNode openApiDocument, String resourcePath);
+
+    /**
+     * Resolve a semantica operacional minima de CRUD para o recurso informado.
+     */
+    Map<String, CapabilityOperation> resolveCrudOperations(String resourcePath);
+
+    /**
+     * Resolve a semantica operacional minima de CRUD usando um documento OpenAPI ja carregado.
+     */
+    Map<String, CapabilityOperation> resolveCrudOperations(JsonNode openApiDocument, String resourcePath);
 }

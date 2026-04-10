@@ -11,6 +11,10 @@ import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.filter.specification.GenericSpecification;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
+import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourcePolicy;
+import org.praxisplatform.uischema.options.OptionSourceRegistry;
+import org.praxisplatform.uischema.options.OptionSourceType;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.service.base.AbstractBaseResourceService;
 import org.praxisplatform.uischema.service.base.AbstractReadOnlyResourceService;
@@ -167,6 +171,31 @@ class EmployeeService extends AbstractBaseResourceService<
         CreateEmployeeDTO,
         UpdateEmployeeDTO> {
 
+    private static final OptionSourceRegistry EMPLOYEE_OPTION_SOURCES = OptionSourceRegistry.builder()
+            .add(EmployeeEntity.class, new OptionSourceDescriptor(
+                    "payrollProfile",
+                    OptionSourceType.DISTINCT_DIMENSION,
+                    "/employees",
+                    "payrollProfile",
+                    "payrollProfile",
+                    "payrollProfileLabel",
+                    "payrollProfile",
+                    List.of("departmentId"),
+                    new OptionSourcePolicy(true, true, "contains", 0, 25, 100, true, false, "label")
+            ))
+            .add(EmployeeEntity.class, new OptionSourceDescriptor(
+                    "legacyDepartmentLookup",
+                    OptionSourceType.RESOURCE_ENTITY,
+                    "/employees",
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of("departmentId"),
+                    OptionSourcePolicy.defaults()
+            ))
+            .build();
+
     private static final StatsFieldRegistry EMPLOYEE_STATS_FIELDS = StatsFieldRegistry.builder()
             .categoricalGroupByBucket("status", "status")
             .temporalTimeSeriesField("admissionDate", "admissionDate")
@@ -208,6 +237,11 @@ class EmployeeService extends AbstractBaseResourceService<
     @Override
     public StatsFieldRegistry getStatsFieldRegistry() {
         return EMPLOYEE_STATS_FIELDS;
+    }
+
+    @Override
+    public OptionSourceRegistry getOptionSourceRegistry() {
+        return EMPLOYEE_OPTION_SOURCES;
     }
 
     @Override

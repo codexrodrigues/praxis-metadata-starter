@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CapabilityServiceTest {
@@ -67,6 +68,9 @@ class CapabilityServiceTest {
         assertEquals("human-resources", snapshot.group());
         assertEquals(null, snapshot.resourceId());
         assertEquals(Boolean.TRUE, snapshot.canonicalOperations().get("create"));
+        assertEquals(Boolean.TRUE, snapshot.operations().get("create").supported());
+        assertEquals("COLLECTION", snapshot.operations().get("create").scope());
+        assertEquals("POST", snapshot.operations().get("create").preferredMethod());
         assertEquals(List.of("create"), snapshot.surfaces().stream().map(SurfaceCatalogItem::id).toList());
         assertEquals(List.of("bulk-approve"), snapshot.actions().stream().map(ActionCatalogItem::id).toList());
     }
@@ -108,6 +112,9 @@ class CapabilityServiceTest {
         assertEquals(List.of("detail", "edit"), snapshot.surfaces().stream().map(SurfaceCatalogItem::id).toList());
         assertEquals(List.of("approve"), snapshot.actions().stream().map(ActionCatalogItem::id).toList());
         assertEquals(Boolean.TRUE, snapshot.canonicalOperations().get("update"));
+        assertEquals(Boolean.TRUE, snapshot.operations().get("edit").supported());
+        assertEquals("ITEM", snapshot.operations().get("edit").scope());
+        assertEquals("GET", snapshot.operations().get("view").preferredMethod());
     }
 
     @Test
@@ -144,8 +151,10 @@ class CapabilityServiceTest {
 
         assertTrue(collection.surfaces().isEmpty());
         assertTrue(collection.actions().isEmpty());
+        assertTrue(collection.operations().containsKey("view"));
         assertTrue(item.surfaces().isEmpty());
         assertTrue(item.actions().isEmpty());
+        assertTrue(item.operations().containsKey("delete"));
     }
 
     @Test
@@ -219,12 +228,53 @@ class CapabilityServiceTest {
         assertEquals(firstItem, secondItem);
         assertEquals(List.of("create"), firstCollection.surfaces().stream().map(SurfaceCatalogItem::id).toList());
         assertEquals(List.of("bulk-approve"), firstCollection.actions().stream().map(ActionCatalogItem::id).toList());
+        assertEquals("POST", firstCollection.operations().get("create").preferredMethod());
         assertEquals(List.of("detail", "edit"), firstItem.surfaces().stream().map(SurfaceCatalogItem::id).toList());
         assertEquals(List.of("approve"), firstItem.actions().stream().map(ActionCatalogItem::id).toList());
+        assertEquals("GET", firstItem.operations().get("view").preferredMethod());
         assertEquals(2, collectionSurfaceCalls.get());
         assertEquals(2, itemSurfaceCalls.get());
         assertEquals(2, collectionActionCalls.get());
         assertEquals(2, itemActionCalls.get());
+    }
+
+    @Test
+    void deleteWorkflowActionDoesNotOverrideCanonicalDeleteOperation() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of("byId", true, "delete", false)),
+                new SurfaceCatalogService(null, null, null) {
+                    @Override
+                    public SurfaceCatalogResponse findItemSurfaces(String resourceKey, Object resourceId) {
+                        return new SurfaceCatalogResponse(
+                                resourceKey,
+                                "/employees",
+                                "human-resources",
+                                resourceId,
+                                List.of(surface("detail", SurfaceScope.ITEM))
+                        );
+                    }
+                },
+                new ActionCatalogService(null, null, null) {
+                    @Override
+                    public ActionCatalogResponse findItemActions(String resourceKey, Object resourceId) {
+                        return new ActionCatalogResponse(
+                                resourceKey,
+                                "/employees",
+                                "human-resources",
+                                resourceId,
+                                List.of(deleteAction("archive"))
+                        );
+                    }
+                },
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        CapabilitySnapshot snapshot = service.itemCapabilities("human-resources.employees", "/employees", 42L);
+
+        assertFalse(snapshot.operations().get("delete").supported());
+        assertEquals("ITEM", snapshot.operations().get("delete").scope());
+        assertEquals(null, snapshot.operations().get("delete").preferredMethod());
+        assertEquals(List.of("archive"), snapshot.actions().stream().map(ActionCatalogItem::id).toList());
     }
 
     private SurfaceCatalogItem surface(String id, SurfaceScope scope) {
@@ -268,6 +318,27 @@ class CapabilityServiceTest {
         );
     }
 
+    private ActionCatalogItem deleteAction(String id) {
+        return new ActionCatalogItem(
+                id,
+                "human-resources.employees",
+                ActionScope.ITEM,
+                id,
+                "",
+                id,
+                "/employees/{id}/actions/" + id,
+                "DELETE",
+                null,
+                null,
+                null,
+                null,
+                AvailabilityDecision.allowAll(),
+                10,
+                "ok",
+                List.of()
+        );
+    }
+
     private record StaticOpenApiDocumentService(String group) implements OpenApiDocumentService {
 
         @Override
@@ -300,6 +371,21 @@ class CapabilityServiceTest {
         @Override
         public Map<String, Boolean> resolve(com.fasterxml.jackson.databind.JsonNode openApiDocument, String resourcePath) {
             return capabilities;
+        }
+
+        @Override
+        public Map<String, CapabilityOperation> resolveCrudOperations(String resourcePath) {
+            return Map.of(
+                    "create", new CapabilityOperation("create", capabilities.getOrDefault("create", false), "COLLECTION", capabilities.getOrDefault("create", false) ? "POST" : null, "create", AvailabilityDecision.allowAll()),
+                    "view", new CapabilityOperation("view", capabilities.getOrDefault("byId", false), "ITEM", capabilities.getOrDefault("byId", false) ? "GET" : null, "self", AvailabilityDecision.allowAll()),
+                    "edit", new CapabilityOperation("edit", capabilities.getOrDefault("update", false), "ITEM", capabilities.getOrDefault("update", false) ? "PUT" : null, "edit", AvailabilityDecision.allowAll()),
+                    "delete", new CapabilityOperation("delete", capabilities.getOrDefault("delete", false), "ITEM", capabilities.getOrDefault("delete", false) ? "DELETE" : null, "delete", AvailabilityDecision.allowAll())
+            );
+        }
+
+        @Override
+        public Map<String, CapabilityOperation> resolveCrudOperations(com.fasterxml.jackson.databind.JsonNode openApiDocument, String resourcePath) {
+            return resolveCrudOperations(resourcePath);
         }
     }
 }

@@ -9,6 +9,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpenApiCanonicalCapabilityResolverTest {
@@ -85,6 +86,16 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertEquals(Boolean.TRUE, capabilities.get("statsGroupBy"));
         assertEquals(Boolean.TRUE, capabilities.get("statsTimeSeries"));
         assertEquals(Boolean.TRUE, capabilities.get("statsDistribution"));
+
+        Map<String, CapabilityOperation> operations = resolver.resolveCrudOperations(document, "/employees/");
+        assertTrue(operations.get("create").supported());
+        assertEquals("POST", operations.get("create").preferredMethod());
+        assertTrue(operations.get("view").supported());
+        assertEquals("GET", operations.get("view").preferredMethod());
+        assertTrue(operations.get("edit").supported());
+        assertEquals("PATCH", operations.get("edit").preferredMethod());
+        assertTrue(operations.get("delete").supported());
+        assertEquals("DELETE", operations.get("delete").preferredMethod());
     }
 
     @Test
@@ -123,6 +134,12 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertFalse(capabilities.get("statsGroupBy"));
         assertFalse(capabilities.get("statsTimeSeries"));
         assertFalse(capabilities.get("statsDistribution"));
+
+        Map<String, CapabilityOperation> operations = resolver.resolveCrudOperations(document, "/payroll-view");
+        assertFalse(operations.get("create").supported());
+        assertTrue(operations.get("view").supported());
+        assertFalse(operations.get("edit").supported());
+        assertFalse(operations.get("delete").supported());
     }
 
     @Test
@@ -151,6 +168,38 @@ class OpenApiCanonicalCapabilityResolverTest {
 
         assertFalse(capabilities.get("update"));
         assertTrue(capabilities.get("byId"));
+
+        Map<String, CapabilityOperation> operations = resolver.resolveCrudOperations(document, "/employees");
+        assertFalse(operations.get("edit").supported());
+        assertNull(operations.get("edit").preferredMethod());
+    }
+
+    @Test
+    void doesNotPublishItemDeleteOperationWhenOnlyBatchDeleteExists() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {
+                  "paths": {
+                    "/employees/batch": {
+                      "delete": {}
+                    },
+                    "/employees/filter": {
+                      "post": {}
+                    }
+                  }
+                }
+                """);
+
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
+                new StaticOpenApiDocumentService("human-resources", document)
+        );
+
+        Map<String, Boolean> capabilities = resolver.resolve("/employees");
+        assertTrue(capabilities.get("delete"));
+
+        Map<String, CapabilityOperation> operations = resolver.resolveCrudOperations(document, "/employees");
+        assertFalse(operations.get("delete").supported());
+        assertEquals("ITEM", operations.get("delete").scope());
+        assertNull(operations.get("delete").preferredMethod());
     }
 
     private record StaticOpenApiDocumentService(String group, JsonNode document) implements OpenApiDocumentService {

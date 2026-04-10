@@ -9,6 +9,7 @@ import org.praxisplatform.uischema.rest.response.RestApiResponseStatus;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -64,6 +65,7 @@ public class GlobalExceptionHandler {
     private static final String ERROR_CODE_INVALID_PARAMETER = "INVALID_PARAMETER";
     private static final String ERROR_CODE_METHOD_NOT_ALLOWED = "METHOD_NOT_ALLOWED";
     private static final String ERROR_CODE_DATA_ACCESS_ERROR = "DATA_ACCESS_ERROR";
+    private static final String ERROR_CODE_DATA_INTEGRITY_VIOLATION = "DATA_INTEGRITY_VIOLATION";
     private static final String ERROR_CODE_INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR";
     private static final String ERROR_CODE_BUSINESS_RULE_VIOLATION = "BUSINESS_RULE_VIOLATION";
     private static final String ERROR_CODE_ENTITY_NOT_FOUND = "RESOURCE_NOT_FOUND";
@@ -185,6 +187,20 @@ public class GlobalExceptionHandler {
 
         log.error("[GlobalExceptionHandler] InvalidDataAccessApiUsageException", ex);
         return buildInternalServerErrorResponse(request, ERROR_CODE_DATA_ACCESS_ERROR);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleDataIntegrityViolationException(
+            DataIntegrityViolationException ex,
+            WebRequest request
+    ) {
+        log.error("[GlobalExceptionHandler] DataIntegrityViolationException", ex);
+        return buildStatusResponse(
+                HttpStatus.CONFLICT,
+                "Request conflicts with existing data constraints.",
+                request,
+                ERROR_CODE_DATA_INTEGRITY_VIOLATION
+        );
     }
 
     private ResponseEntity<RestApiResponse<Object>> buildValidationErrorResponse(

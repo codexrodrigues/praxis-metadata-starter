@@ -19,6 +19,7 @@ plataforma, sem misturar onboarding novo com APIs legadas removidas.
 - [Guides hub](guides/index.html)
 - [Architecture overview](architecture-overview.html)
 - [Conformance](spec/CONFORMANCE.html)
+- [Options e option-sources](guides/OPTIONS-ENDPOINT.html)
 
 ### Quero gerar uma aplicacao nova
 

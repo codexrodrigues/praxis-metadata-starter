@@ -27,6 +27,17 @@ class CapabilityE2ETest extends AbstractE2eH2Test {
         assertTrue(snapshot.path("canonicalOperations").path("update").asBoolean());
         assertTrue(snapshot.path("canonicalOperations").path("delete").asBoolean());
         assertTrue(snapshot.path("canonicalOperations").path("filter").asBoolean());
+        assertTrue(snapshot.path("operations").path("create").path("supported").asBoolean());
+        assertEquals("COLLECTION", snapshot.path("operations").path("create").path("scope").asText());
+        assertEquals("POST", snapshot.path("operations").path("create").path("preferredMethod").asText());
+        assertTrue(snapshot.path("operations").path("view").path("supported").asBoolean());
+        assertEquals("ITEM", snapshot.path("operations").path("view").path("scope").asText());
+        assertEquals("GET", snapshot.path("operations").path("view").path("preferredMethod").asText());
+        assertTrue(snapshot.path("operations").path("edit").path("supported").asBoolean());
+        assertEquals("ITEM", snapshot.path("operations").path("edit").path("scope").asText());
+        assertEquals("PUT", snapshot.path("operations").path("edit").path("preferredMethod").asText());
+        assertTrue(snapshot.path("operations").path("delete").path("supported").asBoolean());
+        assertEquals("DELETE", snapshot.path("operations").path("delete").path("preferredMethod").asText());
 
         JsonNode create = findById(snapshot.path("surfaces"), "create");
         assertNotNull(create);
@@ -57,6 +68,12 @@ class CapabilityE2ETest extends AbstractE2eH2Test {
         assertEquals("employees", snapshot.path("group").asText());
         assertEquals(carolId.longValue(), snapshot.path("resourceId").asLong());
         assertTrue(snapshot.path("canonicalOperations").path("update").asBoolean());
+        assertTrue(snapshot.path("operations").path("view").path("supported").asBoolean());
+        assertEquals("GET", snapshot.path("operations").path("view").path("preferredMethod").asText());
+        assertTrue(snapshot.path("operations").path("edit").path("supported").asBoolean());
+        assertEquals("PUT", snapshot.path("operations").path("edit").path("preferredMethod").asText());
+        assertTrue(snapshot.path("operations").path("edit").path("availability").path("allowed").asBoolean());
+        assertTrue(snapshot.path("operations").path("delete").path("supported").asBoolean());
 
         JsonNode detail = findById(snapshot.path("surfaces"), "detail");
         assertNotNull(detail);
@@ -90,6 +107,10 @@ class CapabilityE2ETest extends AbstractE2eH2Test {
         assertTrue(snapshot.path("canonicalOperations").path("byId").asBoolean());
         assertTrue(snapshot.path("canonicalOperations").path("all").asBoolean());
         assertTrue(snapshot.path("canonicalOperations").path("filter").asBoolean());
+        assertFalse(snapshot.path("operations").path("create").path("supported").asBoolean());
+        assertTrue(snapshot.path("operations").path("view").path("supported").asBoolean());
+        assertFalse(snapshot.path("operations").path("edit").path("supported").asBoolean());
+        assertFalse(snapshot.path("operations").path("delete").path("supported").asBoolean());
         assertNotNull(findById(snapshot.path("surfaces"), "list"));
         assertEquals(0, snapshot.path("actions").size());
     }

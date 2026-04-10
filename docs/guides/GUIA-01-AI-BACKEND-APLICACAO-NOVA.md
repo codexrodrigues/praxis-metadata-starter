@@ -24,6 +24,11 @@ E deve publicar, no minimo:
 - `GET /{resource}/capabilities`
 - `GET /{resource}/{id}/capabilities`
 
+No baseline atual:
+
+- `/schemas/filtered` e a superficie estrutural canonica consumida pelos runtimes
+- `/schemas/catalog` e discovery documental; nao substitui o contrato estrutural
+
 ## O que uma LLM precisa receber como entrada
 
 Se voce quer que a IA gere um servico novo com sucesso, entregue pelo menos:
@@ -638,6 +643,8 @@ No baseline atual, um host novo deve expor pelo menos:
 
 Regras importantes:
 
+- `/schemas/filtered` continua sendo a fonte de verdade estrutural para request e response
+- `/schemas/catalog` ajuda discovery e documentacao, mas nao substitui o schema canonico
 - `/schemas/surfaces?resource=...` publica `list` e `detail` para qualquer controller canonico
 - `create` e `edit` aparecem apenas em recursos mutaveis
 - `/schemas/actions?resource=...` so existe quando houver `@WorkflowAction`

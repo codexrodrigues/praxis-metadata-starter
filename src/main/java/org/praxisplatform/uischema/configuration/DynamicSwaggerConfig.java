@@ -128,7 +128,7 @@ public class DynamicSwaggerConfig {
             if (isCanonicalResourceController(controllerClass)) {
                 qualifyingControllers.add(controllerClass);
 
-                logger.debug("🔍 DEBUG: Analisando controller de recurso: {}", controllerClass.getSimpleName());
+                logger.debug("Analisando controller de recurso: {}", controllerClass.getSimpleName());
                 
                 String basePath = extractControllerBasePath(controllerClass);
                 
@@ -142,7 +142,7 @@ public class DynamicSwaggerConfig {
                             individualGroupName, controllerClass.getSimpleName(), basePath);
                     }
                 } else {
-                    logger.warn("BasePath inválido ou vazio para controller resource-oriented: {} (basePath='{}')",
+                    logger.warn("BasePath invalido ou vazio para controller resource-oriented: {} (basePath='{}')",
                         controllerClass.getSimpleName(), basePath);
                 }
             }
@@ -158,8 +158,7 @@ public class DynamicSwaggerConfig {
             // 🏷️ GRUPOS AGREGADOS: Qualquer controller com @ApiGroup
             ApiGroup apiGroup = AnnotationUtils.findAnnotation(controllerClass, ApiGroup.class);
             if (apiGroup != null) {
-                logger.debug("🔍 DEBUG: Controller com @ApiGroup encontrado: {} → '{}'", 
-                    controllerClass.getSimpleName(), apiGroup.value());
+                logger.debug("Controller com @ApiGroup encontrado: {} -> '{}'", controllerClass.getSimpleName(), apiGroup.value());
                 
                 String basePath = extractControllerBasePath(controllerClass);
                 
@@ -167,7 +166,7 @@ public class DynamicSwaggerConfig {
                     String customGroupName = apiGroup.value();
                     aggregatedGroupToPaths.computeIfAbsent(customGroupName, k -> new LinkedHashSet<>()).add(basePath);
                 } else {
-                    logger.warn("Controller {} tem @ApiGroup mas basePath inválido: '{}'",
+                    logger.warn("Controller {} tem @ApiGroup mas basePath invalido: '{}'",
                         controllerClass.getSimpleName(), basePath);
                 }
             }
@@ -219,11 +218,11 @@ public class DynamicSwaggerConfig {
     @EventListener(ApplicationReadyEvent.class)
     public void validateApiResourceUsage() {
         if ("IGNORE".equalsIgnoreCase(apiResourceValidationMode)) {
-            logger.debug("Validação de @ApiResource desabilitada via configuração");
+            logger.debug("Validacao de @ApiResource desabilitada via configuracao");
             return;
         }
 
-        logger.info("🔍 Iniciando validacao de uso de @ApiResource em controllers resource-oriented...");
+        logger.info("Iniciando validacao de uso de @ApiResource em controllers resource-oriented...");
         
         Map<RequestMappingInfo, HandlerMethod> handlerMethods = handlerMapping.getHandlerMethods();
         Set<Class<?>> violatingControllers = new HashSet<>();
@@ -243,13 +242,13 @@ public class DynamicSwaggerConfig {
                 
                 if (hasApiResource) {
                     compliantControllers.add(controllerClass);
-                    logger.debug("✅ {} usa @ApiResource corretamente", controllerClass.getSimpleName());
+                    logger.debug("{} usa @ApiResource corretamente", controllerClass.getSimpleName());
                 } else if (hasRequestMapping) {
                     violatingControllers.add(controllerClass);
-                    logger.debug("⚠️ {} usa @RequestMapping em vez de @ApiResource", controllerClass.getSimpleName());
+                    logger.debug("{} usa @RequestMapping em vez de @ApiResource", controllerClass.getSimpleName());
                 } else {
                     violatingControllers.add(controllerClass);
-                    logger.debug("❌ {} não tem anotação de mapeamento detectável", controllerClass.getSimpleName());
+                    logger.debug("{} nao tem anotacao de mapeamento detectavel", controllerClass.getSimpleName());
                 }
             }
         }
@@ -259,9 +258,9 @@ public class DynamicSwaggerConfig {
         int compliantCount = compliantControllers.size();
         int violatingCount = violatingControllers.size();
         
-        logger.info("📊 Relatório de Conformidade @ApiResource:");
-        logger.info("   ✅ Conformes: {}/{} controllers", compliantCount, totalControllers);
-        logger.info("   ⚠️ Precisam migração: {}/{} controllers", violatingCount, totalControllers);
+        logger.info("Relatorio de conformidade @ApiResource:");
+        logger.info("Conformes: {}/{} controllers", compliantCount, totalControllers);
+        logger.info("Precisam migracao: {}/{} controllers", violatingCount, totalControllers);
         
         if (!violatingControllers.isEmpty()) {
             String violatingNames = violatingControllers.stream()
@@ -270,9 +269,9 @@ public class DynamicSwaggerConfig {
                 .orElse("nenhum");
                 
             String message = String.format(
-                "🚨 Controllers que precisam migrar para @ApiResource: %s. " +
+                "Controllers que precisam migrar para @ApiResource: %s. " +
                 "Recomenda-se substituir @RestController + @RequestMapping por @ApiResource(ApiPaths.CONSTANT) " +
-                "para aproveitar os benefícios da resolução automática de grupos OpenAPI.",
+                "para aproveitar os beneficios da resolucao automatica de grupos OpenAPI.",
                 violatingNames
             );
             
@@ -281,11 +280,11 @@ public class DynamicSwaggerConfig {
                 throw new IllegalStateException(message + " Configurado para falhar no startup (praxis.openapi.validation.api-resource-required=FAIL)");
             } else {
                 logger.warn(message);
-                logger.info("💡 Para desabilitar esta validação: praxis.openapi.validation.api-resource-required=IGNORE");
-                logger.info("💡 Para falhar o startup: praxis.openapi.validation.api-resource-required=FAIL");
+                logger.info("Para desabilitar esta validacao: praxis.openapi.validation.api-resource-required=IGNORE");
+                logger.info("Para falhar o startup: praxis.openapi.validation.api-resource-required=FAIL");
             }
         } else {
-            logger.info("🎉 Todos os controllers resource-oriented estao usando @ApiResource corretamente!");
+            logger.info("Todos os controllers resource-oriented estao usando @ApiResource corretamente.");
         }
     }
 
@@ -309,8 +308,7 @@ public class DynamicSwaggerConfig {
         
         if (apiResource != null) {
             String basePath = extractBasePath(apiResource);
-            logger.debug("🔍 DEBUG: Controller {}: @ApiResource={}, basePath extraído={}", 
-                controllerClass.getSimpleName(), 
+            logger.debug("Controller {}: @ApiResource={}, basePath extraido={}", controllerClass.getSimpleName(), 
                 java.util.Arrays.toString(apiResource.value()),
                 basePath);
             return basePath;
@@ -320,15 +318,13 @@ public class DynamicSwaggerConfig {
         RequestMapping requestMapping = AnnotationUtils.findAnnotation(controllerClass, RequestMapping.class);
         if (requestMapping != null) {
             String basePath = extractBasePath(requestMapping);
-            logger.debug("🔍 DEBUG: Controller {}: @RequestMapping={}, basePath extraído={}", 
-                controllerClass.getSimpleName(), 
+            logger.debug("Controller {}: @RequestMapping={}, basePath extraido={}", controllerClass.getSimpleName(), 
                 java.util.Arrays.toString(requestMapping.value()),
                 basePath);
             return basePath;
         }
         
-        logger.debug("🔍 DEBUG: Controller {}: Nenhuma anotação @ApiResource ou @RequestMapping encontrada", 
-            controllerClass.getSimpleName());
+        logger.debug("Controller {}: Nenhuma anotacao @ApiResource ou @RequestMapping encontrada", controllerClass.getSimpleName());
         return null;
     }
 

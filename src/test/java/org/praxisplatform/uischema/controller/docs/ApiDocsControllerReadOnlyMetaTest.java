@@ -12,6 +12,7 @@ import org.praxisplatform.uischema.options.OptionSourcePolicy;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.OptionSourceType;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
@@ -50,7 +51,7 @@ class ApiDocsControllerReadOnlyMetaTest {
                 "canonicalCapabilityResolver",
                 new OpenApiCanonicalCapabilityResolver(openApiDocumentService)
         );
-        org.springframework.test.util.ReflectionTestUtils.setField(controller, "optionSourceRegistry", OptionSourceRegistry.builder()
+        OptionSourceRegistry optionSourceRegistry = OptionSourceRegistry.builder()
                 .add(ReadOnlyDemoEntity.class, new OptionSourceDescriptor(
                         "payrollProfile",
                         OptionSourceType.DISTINCT_DIMENSION,
@@ -62,7 +63,14 @@ class ApiDocsControllerReadOnlyMetaTest {
                         List.of("universo"),
                         new OptionSourcePolicy(true, true, "contains", 1, 25, 100, true, false, "label")
                 ))
-                .build());
+                .build();
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("optionSourceRegistry", optionSourceRegistry);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                controller,
+                "optionSourceRegistryProvider",
+                beanFactory.getBeanProvider(OptionSourceRegistry.class)
+        );
 
         String group = "api-ro-demo-all"; // derived from path below
         JsonNode doc = buildReadOnlyOpenApiDocument();

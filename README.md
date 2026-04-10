@@ -29,6 +29,7 @@ Use estes entry points primeiro:
 - Conformance: [docs/spec/CONFORMANCE.md](docs/spec/CONFORMANCE.md)
 - Guide 01 - Application setup: [docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
 - Guide 02 - Canonical resource backend: [docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md)
+- Options and option-sources: [docs/guides/OPTIONS-ENDPOINT.md](docs/guides/OPTIONS-ENDPOINT.md)
 - Guide 04 - When to use resource, surface, action, capability: [docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
 - GitHub Pages site: [https://codexrodrigues.github.io/praxis-metadata-starter/](https://codexrodrigues.github.io/praxis-metadata-starter/)
 - Public Javadoc: [https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
@@ -71,6 +72,55 @@ Regras importantes:
 - `surfaces` e `actions` sao catalogos semanticos; nao redefinem schema inline
 - `capabilities` agrega o que existe agora sem virar uma segunda fonte de verdade do contrato
 - ausencia em `actions` e `capabilities` nao tem a mesma semantica
+
+### `capabilities.operations` como semantica minima canonica
+
+Para o baseline novo de CRUD inferido no frontend oficial, `capabilities` precisa expor um bloco operacional minimo por acao canonica.
+
+Shape esperado por operacao:
+
+- `supported`
+- `scope`
+- `preferredMethod`
+- `preferredRel`
+- `availability`
+
+Operacoes canonicas esperadas:
+
+- `create`
+- `view`
+- `edit`
+- `delete`
+
+Papel de cada camada:
+
+- `capabilities.operations` governa se a operacao existe agora e como ela deve ser tratada semanticamente
+- `/schemas/filtered` continua sendo a fonte estrutural de request/response schema
+- `surfaces` e `actions` continuam sendo discovery semantico rico quando publicados
+- `_links` entram como camada operacional/contextual para escolher o target real de execucao
+
+Em outras palavras:
+
+- `capabilities` nao substitui schema
+- `capabilities` nao deve carregar schema inline
+- `capabilities` governa operacao; schema continua vindo do contrato estrutural e dos catalogos semanticos
+
+### Regras de delete canonico
+
+`delete` canÃ´nico do recurso precisa permanecer semanticamente separado de outros usos de HTTP `DELETE`.
+
+Regras de plataforma:
+
+- `operations.delete` representa delete canÃ´nico item-level do recurso
+- `DELETE /batch` nao deve promover `operations.delete` item-level
+- workflow actions de negocio com verbo HTTP `DELETE` nao devem contaminar o delete canÃ´nico
+- `delete` canÃ´nico normalmente nao exige schema; ele exige suporte, escopo e target operacional validos
+
+Isso evita que clientes metadata-driven confundam:
+
+- exclusao de um item do recurso
+- comando destrutivo de negocio
+- operacao em lote
 
 ## Canonical Backend Baseline
 
@@ -157,7 +207,8 @@ flowchart LR
 2. Siga [docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md).
 3. Modele o primeiro recurso com `@ApiResource(value = ..., resourceKey = ...)`.
 4. Valide `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities`.
-5. Integre o host oficial com `praxis-ui-angular`.
+5. Se o recurso publicar `OptionSourceRegistry`, valide tambem `POST /{resource}/option-sources/{sourceKey}/options/filter` e `GET /{resource}/option-sources/{sourceKey}/options/by-ids`.
+6. Integre o host oficial com `praxis-ui-angular`.
 
 Dependencia minima:
 
@@ -181,10 +232,34 @@ Para um recurso mutavel no baseline atual, valide no minimo:
 - `GET /{resource}/capabilities`
 - `GET /{resource}/{id}/capabilities`
 
+Quando o frontend oficial for consumir CRUD inferido, valide tambem no payload de `capabilities`:
+
+- `operations.create.supported`
+- `operations.create.scope`
+- `operations.create.preferredMethod`
+- `operations.create.preferredRel`
+- `operations.view.supported`
+- `operations.edit.supported`
+- `operations.delete.supported`
+- `operations.delete.scope`
+- `operations.delete.preferredMethod`
+
+Para `delete`, confira explicitamente:
+
+- item-level real publica `operations.delete.scope = ITEM`
+- um endpoint `DELETE /batch` isolado nao promove `operations.delete`
+- workflow `DELETE` continua em `actions`, nao redefine `operations.delete`
+
 Quando houver discovery `ITEM`, valide tambem:
 
 - `GET /{resource}/{id}/surfaces`
 - `GET /{resource}/{id}/actions`
+
+Quando o recurso publicar `OptionSourceRegistry`, valide tambem:
+
+- `POST /{resource}/option-sources/{sourceKey}/options/filter`
+- `GET /{resource}/option-sources/{sourceKey}/options/by-ids`
+- `x-ui.optionSource` em `/schemas/filtered` para os campos governados por essa source
 
 ## Internal OpenAPI Base Resolution
 
