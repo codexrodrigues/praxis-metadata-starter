@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>🏗️ Auto-Configuração do Praxis UI Schema</title>
+  <title>Auto-Configuracao do Praxis Metadata Starter</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,37 +230,44 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">🏗️ Auto-Configuração do Praxis UI Schema</h1>
+<h1 class="title">Auto-Configuracao do Praxis Metadata Starter</h1>
 </header>
-<h1 id="auto-configuração-do-praxis-ui-schema">🏗️ Auto-Configuração do
-Praxis UI Schema</h1>
+<h1 id="auto-configuracao-do-praxis-metadata-starter">Auto-Configuracao
+do Praxis Metadata Starter</h1>
 <h2 id="status-do-documento">Status do documento</h2>
-<p>Este documento continua relevante para a auto-configuração viva do
-starter, mas mistura exemplos do baseline atual com referências de
-compatibilidade do core legado.</p>
-<p>Leia assim:</p>
+<p>Este documento descreve a auto-configuracao viva do starter no
+baseline atual.</p>
+<p>Para narrativa publica e onboarding, consulte primeiro:</p>
 <ul>
-<li>recursos novos devem seguir o baseline
-<code>resource + surfaces + actions + capabilities</code></li>
-<li>exemplos com <code>AbstractCrudController</code> são históricos ou
-de compatibilidade</li>
-<li>para a narrativa pública atual, consulte primeiro
-<code>README.md</code>, <code>docs/index.md</code> e
-<code>docs/architecture-overview.md</code></li>
+<li><code>README.md</code></li>
+<li><code>docs/index.md</code></li>
+<li><code>docs/architecture-overview.md</code></li>
 </ul>
-<h2 id="visão-geral">📋 Visão Geral</h2>
-<p>O <code>OpenApiUiSchemaAutoConfiguration</code> é o
-<strong>“bootstrap”</strong> de todo o sistema Praxis UI Schema,
-implementando o padrão <strong>“Convention over Configuration”</strong>
-do Spring Boot para que desenvolvedores apenas adicionem a dependência e
-todo o sistema fique automaticamente disponível.</p>
-<h2 id="objetivo-principal">🎯 Objetivo Principal</h2>
-<p>Objetivo prático da auto-configuração: 1. adicionar a dependência no
-<code>pom.xml</code> 2. expor controllers compatíveis com o baseline
-atual do starter 3. deixar discovery, docs filtrados e infraestrutura
-interna disponíveis sem boilerplate manual</p>
-<h2 id="propriedades-de-configuração">⚙️ Propriedades de
-Configuração</h2>
+<h2 id="visao-geral">Visao geral</h2>
+<p>O starter sobe duas auto-configuracoes complementares:</p>
+<ul>
+<li><code>PraxisMetadataAutoConfiguration</code></li>
+<li><code>OpenApiUiSchemaAutoConfiguration</code></li>
+</ul>
+<p>Juntas, elas registram:</p>
+<ul>
+<li>infra base do starter</li>
+<li>beans de resolucao OpenAPI enriquecida</li>
+<li>endpoints de docs e discovery</li>
+<li>suporte a grupos OpenAPI e schema filtering</li>
+</ul>
+<h2 id="objetivo-pratico">Objetivo pratico</h2>
+<p>Ao adicionar a dependencia Maven, a aplicacao passa a ter:</p>
+<ul>
+<li>OpenAPI enriquecido com <code>x-ui</code></li>
+<li><code>/schemas/filtered</code></li>
+<li><code>/schemas/catalog</code></li>
+<li><code>/schemas/surfaces</code></li>
+<li><code>/schemas/actions</code></li>
+<li>resolucao de grupos OpenAPI por path</li>
+</ul>
+<p>Sem boilerplate manual para os beans principais.</p>
+<h2 id="propriedades-relevantes">Propriedades relevantes</h2>
 <table>
 <colgroup>
 <col style="width: 40%" />
@@ -270,465 +277,103 @@ Configuração</h2>
 <thead>
 <tr class="header">
 <th>Propriedade</th>
-<th>Padrão</th>
-<th>Descrição</th>
+<th>Padrao</th>
+<th>Descricao</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td><code>praxis.query.by-ids.max</code></td>
 <td><code>200</code></td>
-<td>Limite de IDs aceitos pelo endpoint
-<code>GET /{resource}/by-ids</code>. Ajuda a evitar consultas excessivas
-em ambientes corporativos.</td>
+<td>Limite de IDs aceitos por <code>GET /{resource}/by-ids</code>.</td>
 </tr>
 <tr class="even">
 <td><code>praxis.pagination.max-size</code></td>
 <td><code>200</code></td>
-<td>Tamanho máximo de página aceito pelos endpoints paginados
-(<code>/filter</code> e <code>/options/filter</code>). Evita requisições
-muito grandes que possam degradar o sistema.</td>
+<td>Tamanho maximo de pagina nos endpoints paginados.</td>
 </tr>
 <tr class="odd">
 <td><code>app.openapi.internal-base-url</code></td>
 <td>vazio</td>
-<td>Origem interna explícita para consultas server-side ao SpringDoc
-(<code>/v3/api-docs</code>). Útil quando a URL pública difere da URL
-acessível pelo processo da aplicação.</td>
+<td>Origem interna explicita para consultas server-side ao
+SpringDoc.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="duas-auto-configurações-complementares">🏗️ Duas
-Auto-Configurações Complementares</h2>
-<p>O sistema Praxis possui <strong>duas auto-configurações</strong> que
-trabalham em conjunto:</p>
-<table style="width:100%;">
-<colgroup>
-<col style="width: 40%" />
-<col style="width: 38%" />
-<col style="width: 21%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th>Auto-Configuração</th>
-<th>Responsabilidade</th>
-<th>Execução</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><strong>PraxisMetadataAutoConfiguration</strong></td>
-<td>🏗️ Infraestrutura base + Component Scan</td>
-<td>1º - Fundação</td>
-</tr>
-<tr class="even">
-<td><strong>OpenApiUiSchemaAutoConfiguration</strong></td>
-<td>🎨 Beans funcionais do UI Schema</td>
-<td>2º - Funcionalidade</td>
-</tr>
-</tbody>
-</table>
-<h3 id="ordem-de-execução">⚡ Ordem de Execução</h3>
+<h2 id="o-que-cada-auto-configuracao-faz">O que cada auto-configuracao
+faz</h2>
+<h3
+id="praxismetadataautoconfiguration"><code>PraxisMetadataAutoConfiguration</code></h3>
+<ul>
+<li>registra infraestrutura base</li>
+<li>publica grupos <code>praxis-metadata-infra</code> e
+<code>application</code></li>
+<li>participa do bootstrap do scanning e do agrupamento OpenAPI</li>
+</ul>
+<h3
+id="openapiuischemaautoconfiguration"><code>OpenApiUiSchemaAutoConfiguration</code></h3>
+<ul>
+<li>registra <code>RestTemplate</code> interno</li>
+<li>registra <code>ObjectMapper</code> dedicado</li>
+<li>registra <code>CustomOpenApiResolver</code></li>
+<li>registra <code>GenericSpecificationsBuilder</code></li>
+<li>registra <code>OpenApiGroupResolver</code></li>
+</ul>
+<h2 id="fluxo-de-inicializacao">Fluxo de inicializacao</h2>
 <ol type="1">
-<li><strong>PraxisMetadataAutoConfiguration</strong> → Detecta
-componentes via <span class="citation"
-data-cites="ComponentScan">@ComponentScan</span></li>
-<li><strong>OpenApiUiSchemaAutoConfiguration</strong> → Registra beans
-específicos</li>
-<li><strong>DynamicSwaggerConfig</strong> → Detectado via component
-scan, executa <span class="citation"
-data-cites="PostConstruct">@PostConstruct</span></li>
-<li><strong>Validação</strong> → Executada via <span class="citation"
-data-cites="EventListener">@EventListener</span> após startup
-completo</li>
+<li>Spring Boot detecta as auto-configuracoes.</li>
+<li><code>PraxisMetadataAutoConfiguration</code> registra a base.</li>
+<li><code>OpenApiUiSchemaAutoConfiguration</code> registra os beans
+funcionais.</li>
+<li><code>DynamicSwaggerConfig</code> monta os grupos OpenAPI.</li>
+<li><code>ApiDocsController</code> e os catalogos ficam
+disponiveis.</li>
 </ol>
-<h2 id="beans-da-praxismetadataautoconfiguration">🔧 Beans da
-PraxisMetadataAutoConfiguration</h2>
-<h3 id="bigdecimal-openapicustomizer">🔢 BigDecimal
-OpenApiCustomizer</h3>
-<ul>
-<li><strong>Função</strong>: Mapeia BigDecimal para “number”/“decimal”
-nos schemas</li>
-<li><strong>Problema resolvido</strong>: Inconsistência no mapeamento
-padrão do SpringDoc</li>
-<li><strong>Benefício</strong>: Frontends sabem como tratar valores
-decimais corretamente</li>
-</ul>
-<h3 id="grupo-praxis-metadata-infra">🏗️ Grupo
-“praxis-metadata-infra”</h3>
-<ul>
-<li><strong>Função</strong>: Documentação dos endpoints internos do
-framework (/schemas/**)</li>
-<li><strong>Separação</strong>: Infraestrutura isolada dos endpoints de
-aplicação</li>
-<li><strong>Tamanho</strong>: ~2-5KB (documentação leve e focada)</li>
-</ul>
-<h3 id="grupo-application-fallback">🌐 Grupo “application”
-(Fallback)</h3>
-<ul>
-<li><strong>Função</strong>: Captura todos os endpoints não
-categorizados em grupos específicos</li>
-<li><strong>Uso</strong>: Controllers legados, endpoints de sistema
-(/health, /actuator)</li>
-<li><strong>Indicador</strong>: Se endpoints de negócio aparecem aqui,
-precisam migrar para <span class="citation"
-data-cites="ApiResource">@ApiResource</span></li>
-</ul>
-<h2 id="beans-da-openapiuischemaautoconfiguration">🔧 Beans da
-OpenApiUiSchemaAutoConfiguration</h2>
-<h3 id="resttemplate-openapiuischemaresttemplate">📡 RestTemplate
-(<code>openApiUiSchemaRestTemplate</code>)</h3>
-<ul>
-<li><strong>Função</strong>: Comunicação HTTP interna com SpringDoc
-OpenAPI</li>
-<li><strong>Características</strong>: Nome específico para evitar
-conflitos</li>
-<li><strong>Uso</strong>: Chamadas internas do ApiDocsController</li>
-</ul>
-<h3 id="objectmapper-openapiuischemaobjectmapper">📝 ObjectMapper
-(<code>openApiUiSchemaObjectMapper</code>)</h3>
-<ul>
-<li><strong>Função</strong>: Serialização/deserialização JSON de
-schemas</li>
-<li><strong>Características</strong>: Suporte completo a Java Time API
-(LocalDate, LocalDateTime, etc.)</li>
-<li><strong>Uso</strong>: Processamento de metadados UI e schemas
-OpenAPI</li>
-</ul>
-<h3 id="customopenapiresolver">🔍 CustomOpenApiResolver</h3>
-<ul>
-<li><strong>Função</strong>: Enriquece schemas OpenAPI com metadados
-UI</li>
-<li><strong>Características</strong>: Processa anotações <span
-class="citation" data-cites="UISchema">@UISchema</span> e adiciona
-informações de interface</li>
-<li><strong>Uso</strong>: Transforma schemas técnicos em configurações
-para componentes UI</li>
-</ul>
-<h3 id="genericspecificationsbuilder">📋
-GenericSpecificationsBuilder</h3>
-<ul>
-<li><strong>Função</strong>: Cria filtros JPA automaticamente a partir
-de DTOs</li>
-<li><strong>Características</strong>: Genérico (<code>&lt;E&gt;</code>),
-funciona com qualquer entidade</li>
-<li><strong>Uso</strong>: Endpoints <code>/filter</code> dos
-AbstractCrudController</li>
-</ul>
-<h3 id="openapigroupresolver-crítico">🎯 OpenApiGroupResolver
-(<strong>CRÍTICO</strong>)</h3>
-<ul>
-<li><strong>Função</strong>: <strong>Componente mais importante</strong>
-- resolve automaticamente grupos OpenAPI</li>
-<li><strong>Características</strong>: Implementa algoritmo “best match”
-para encontrar grupo mais específico<br />
-</li>
-<li><strong>Uso</strong>: Elimina necessidade do parâmetro ‘document’ no
-ApiDocsController</li>
-</ul>
-<h3 id="apidocscontroller">🌐 ApiDocsController</h3>
-<ul>
-<li><strong>Função</strong>: Exposição de endpoints de documentação
-filtrada</li>
-<li><strong>Características</strong>: API RESTful para consumo por
-frontends</li>
-<li><strong>Uso</strong>: <code>/schemas/filtered</code> com resolução
-automática de grupos</li>
-<li><strong>Payload derivado</strong>: além do schema e de
-<code>x-ui.resource</code>, também pode publicar
-<code>x-ui.operationExamples.&lt;schemaType&gt;</code> quando a operação
-OpenAPI tiver exemplos declarados</li>
-</ul>
-<h3 id="domaincatalogcontroller">📚 DomainCatalogController</h3>
-<ul>
-<li><strong>Função</strong>: Exposição de um catálogo compacto para RAG
-e exploração de domínio</li>
-<li><strong>Características</strong>: Lê o OpenAPI por grupo e resume
-paths, métodos, parâmetros e schemas</li>
-<li><strong>Uso</strong>: <code>/schemas/catalog</code> com suporte à
-mesma resolução de base interna do ApiDocsController</li>
-</ul>
-<h2 id="fluxo-de-inicialização">🔄 Fluxo de Inicialização</h2>
-<pre class="mermaid"><code>graph TD
-    A[Spring Boot Startup] --&gt; B[Detecta @AutoConfiguration]
-    B --&gt; C[OpenApiUiSchemaAutoConfiguration]
-    C --&gt; D[Registra 6 Beans]
-    D --&gt; E[DynamicSwaggerConfig usa beans]
-    E --&gt; F[Cria GroupedOpenApi dinamicamente]
-    F --&gt; G[OpenApiGroupResolver recebe grupos via DI]
-    G --&gt; H[ApiDocsController pronto para uso]
-    H --&gt; I[Sistema funcional]</code></pre>
-<h2 id="arquitetura-completa-de-auto-configuração">🎪 Arquitetura
-Completa de Auto-Configuração</h2>
-<pre><code>┌─────────────────────────────────────────────┐
-│     PraxisMetadataAutoConfiguration         │
-│  🏗️ Infraestrutura + Component Scan        │
-└─────────────────┬───────────────────────────┘
-                  │ @ComponentScan detecta
-                  ▼
-┌─────────────────────────────────────────────┐
-│  🔢 BigDecimal Customizer                   │
-│  🏗️ Grupo &quot;praxis-metadata-infra&quot;          │  
-│  🌐 Grupo &quot;application&quot; (fallback)          │
-│  📦 @ComponentScan packages                 │
-└─────────────────┬───────────────────────────┘
-                  │ + registra beans específicos
-                  ▼
-┌─────────────────────────────────────────────┐
-│    OpenApiUiSchemaAutoConfiguration         │
-│  🎨 Beans funcionais do UI Schema           │
-└─────────────────┬───────────────────────────┘
-                  │ registra beans
-                  ▼
-┌─────────────────────────────────────────────┐
-│  📡 RestTemplate (HTTP interno)             │
-│  📝 ObjectMapper (JSON + JavaTime)         │  
-│  🔍 CustomOpenApiResolver (schemas + UI)    │
-│  📋 GenericSpecificationsBuilder (filtros)  │
-│  🎯 OpenApiGroupResolver (resolução grupos) │
-│  🌐 ApiDocsController (endpoints REST)      │
-└─────────────────┬───────────────────────────┘
-                  │ componentes detectados + beans injetados
-                  ▼
-┌─────────────────────────────────────────────┐
-│       DynamicSwaggerConfig                  │
-│       AbstractCrudController               │
-│       PraxisMetadataProvider               │
-│       Outros componentes detectados        │
-└─────────────────────────────────────────────┘</code></pre>
-<h2 id="benefícios-para-desenvolvedores">🚀 Benefícios para
-Desenvolvedores</h2>
-<h3 id="plug-play">✅ Plug &amp; Play</h3>
-<div class="sourceCode" id="cb3"><pre
-class="sourceCode xml"><code class="sourceCode xml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- Apenas isso no pom.xml: --&gt;</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">dependency</span>&gt;</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">groupId</span>&gt;io.github.codexrodrigues&lt;/<span class="kw">groupId</span>&gt;</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    &lt;<span class="kw">artifactId</span>&gt;praxis-metadata-starter&lt;/<span class="kw">artifactId</span>&gt;</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>&lt;/<span class="kw">dependency</span>&gt;</span></code></pre></div>
-<h3 id="zero-boilerplate">✅ Zero Boilerplate</h3>
-<div class="sourceCode" id="cb4"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Sem necessidade de configurar beans manualmente:</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Configuration</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> MyConfig <span class="op">{</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ❌ NÃO precisa disso:</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// @Bean public RestTemplate restTemplate() { ... }</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// @Bean public ObjectMapper objectMapper() { ... }</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// @Bean public OpenApiGroupResolver resolver() { ... }</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">// ✅ Apenas use diretamente:</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>ApiPaths<span class="op">.</span><span class="fu">FUNCIONARIOS</span><span class="op">)</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioController <span class="kw">extends</span> AbstractCrudController<span class="op">&lt;</span><span class="kw">...</span><span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Tudo funciona automaticamente!</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="não-conflitante">✅ Não Conflitante</h3>
-<ul>
-<li>Usa <code>@ConditionalOnMissingBean</code> para respeitar
-configurações customizadas</li>
-<li>Nomes específicos nos beans para evitar colisões</li>
-<li>Permite sobrescrita com <code>@Primary</code> se necessário</li>
-</ul>
-<h2 id="customização-avançada">⚙️ Customização Avançada</h2>
-<h3 id="definir-a-base-interna-do-openapi">Definir a base interna do
-OpenAPI</h3>
-<p>Por padrão, os controllers internos de documentação tentam inferir a
-base atual da aplicação com <code>ServletUriComponentsBuilder</code>.
-Isso funciona bem quando a origem externa e a origem interna são
-equivalentes, mas pode falhar em topologias com proxy reverso.</p>
-<p>Para eliminar ambiguidade, defina:</p>
+<h2 id="exemplo-de-uso">Exemplo de uso</h2>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>value <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HR_EVENTOS_FOLHA</span><span class="op">,</span> resourceKey <span class="op">=</span> <span class="st">&quot;hr.eventos-folha&quot;</span><span class="op">)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;human-resources&quot;</span><span class="op">)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EventosFolhaController</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">extends</span> AbstractResourceController<span class="op">&lt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        EventoFolha<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        EventoFolhaResponseDTO<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        EventoFolhaFilterDTO<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        CreateEventoFolhaDTO<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        UpdateEventoFolhaDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">EventosFolhaController</span><span class="op">(</span>EventosFolhaService service<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">(</span>service<span class="op">);</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="base-interna-do-openapi">Base interna do OpenAPI</h2>
+<p>Os endpoints internos que consultam o SpringDoc resolvem a base nesta
+ordem:</p>
+<ol type="1">
+<li><code>app.openapi.internal-base-url</code></li>
+<li>contexto HTTP atual</li>
+</ol>
+<p>Use configuracao explicita quando a aplicacao estiver atras de proxy,
+gateway ou quando a origem interna diferir da origem publica.</p>
+<p>Exemplo:</p>
 <pre class="properties"><code>app.openapi.internal-base-url=http://localhost:4003</code></pre>
-<p>Ou via ambiente:</p>
-<div class="sourceCode" id="cb6"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="va">APP_OPENAPI_INTERNAL_BASE_URL</span><span class="op">=</span>http://localhost:4003</span></code></pre></div>
-<p>Fluxo de resolução: 1. Se <code>app.openapi.internal-base-url</code>
-estiver preenchida, ela é usada como base. 2. Caso contrário, a base é
-inferida do contexto HTTP atual. 3. Em seguida, o starter concatena
-<code>springdoc.api-docs.path</code> e, quando aplicável, o nome do
-grupo OpenAPI.</p>
-<p>Quando configurar explicitamente: - Render ou outras plataformas
-PaaS. - Docker Compose com porta pública diferente da porta interna. -
-Kubernetes com ingress/gateway. - Ambientes onde
-<code>X-Forwarded-Host</code> e a origem interna não representam o mesmo
-endpoint acessível pelo backend.</p>
-<p>Exemplo final de URL construída:</p>
-<pre class="text"><code>http://localhost:4003/v3/api-docs
-http://localhost:4003/v3/api-docs/api-human-resources-funcionarios</code></pre>
-<h3 id="sobrescrever-objectmapper">Sobrescrever ObjectMapper</h3>
-<div class="sourceCode" id="cb8"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Configuration</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> MyCustomConfig <span class="op">{</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Bean</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Primary</span> <span class="co">// substitui o bean padrão</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> ObjectMapper <span class="fu">myObjectMapper</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        ObjectMapper mapper <span class="op">=</span> <span class="kw">new</span> <span class="fu">ObjectMapper</span><span class="op">();</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        mapper<span class="op">.</span><span class="fu">registerModule</span><span class="op">(</span><span class="kw">new</span> <span class="fu">JavaTimeModule</span><span class="op">());</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        mapper<span class="op">.</span><span class="fu">configure</span><span class="op">(</span>DeserializationFeature<span class="op">.</span><span class="fu">FAIL_ON_UNKNOWN_PROPERTIES</span><span class="op">,</span> <span class="kw">false</span><span class="op">);</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// suas customizações específicas...</span></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">;</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="sobrescrever-resttemplate">Sobrescrever RestTemplate</h3>
-<div class="sourceCode" id="cb9"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Bean</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Primary</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> RestTemplate <span class="fu">myRestTemplate</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    RestTemplate template <span class="op">=</span> <span class="kw">new</span> <span class="fu">RestTemplate</span><span class="op">();</span></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Configurar timeouts:</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    HttpComponentsClientHttpRequestFactory factory <span class="op">=</span> </span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">HttpComponentsClientHttpRequestFactory</span><span class="op">();</span></span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    factory<span class="op">.</span><span class="fu">setConnectTimeout</span><span class="op">(</span><span class="dv">5000</span><span class="op">);</span></span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    factory<span class="op">.</span><span class="fu">setReadTimeout</span><span class="op">(</span><span class="dv">10000</span><span class="op">);</span></span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    template<span class="op">.</span><span class="fu">setRequestFactory</span><span class="op">(</span>factory<span class="op">);</span></span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> template<span class="op">;</span></span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h2 id="integração-com-spring-boot">🔗 Integração com Spring Boot</h2>
-<h3
-id="meta-infspringorg.springframework.boot.autoconfigure.autoconfiguration.imports">META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</h3>
-<pre><code>org.praxisplatform.uischema.configuration.OpenApiUiSchemaAutoConfiguration
-org.praxisplatform.uischema.configuration.PraxisMetadataAutoConfiguration</code></pre>
-<h3 id="ordem-de-inicialização">Ordem de Inicialização</h3>
-<ol type="1">
-<li><strong>OpenApiUiSchemaAutoConfiguration</strong> registra beans
-base</li>
-<li><strong>PraxisMetadataAutoConfiguration</strong> adiciona component
-scan</li>
-<li><strong>DynamicSwaggerConfig</strong> usa beans para criar
-grupos</li>
-<li><strong>Spring Boot</strong> completa inicialização</li>
-<li><strong>Sistema pronto</strong> para uso</li>
-</ol>
-<h2 id="impacto-na-performance">📊 Impacto na Performance</h2>
-<h3 id="documentação-openapi">Documentação OpenAPI</h3>
+<h2 id="regras-de-leitura">Regras de leitura</h2>
 <ul>
-<li><strong>Sem grupos</strong>: Um documento gigante (~500KB+)</li>
-<li><strong>Com auto-configuração</strong>: Documentos específicos
-(~14KB cada)</li>
-<li><strong>Redução</strong>: 97% no tamanho dos documentos</li>
+<li>o baseline canonico do starter e resource-oriented</li>
+<li>a auto-configuracao nao deve ser explicada como “CRUD generico com
+metadata”</li>
+<li>docs e discovery sao parte do contrato publico, nao um extra
+opcional</li>
 </ul>
-<h3 id="tempo-de-resposta">Tempo de Resposta</h3>
+<h2 id="referencias">Referencias</h2>
 <ul>
-<li><strong>Cache interno</strong>: Evita reprocessamento
-desnecessário</li>
-<li><strong>Resolução otimizada</strong>: Algoritmo O(n) para encontrar
-grupos</li>
-<li><strong>Lazy loading</strong>: Componentes carregados sob
-demanda</li>
-</ul>
-<h2 id="troubleshooting">❓ Troubleshooting</h2>
-<h3 id="bean-não-está-sendo-injetado">Bean não está sendo injetado</h3>
-<div class="sourceCode" id="cb11"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Verificar se a auto-configuração está sendo detectada:</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="ex">--debug</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Buscar logs:</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="ex">[INFO]</span> OpenApiUiSchemaAutoConfiguration matched:</span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>   <span class="ex">-</span> @ConditionalOnMissingBean <span class="er">(</span><span class="ex">types:</span> org.springframework.web.client.RestTemplate<span class="kw">)</span></span></code></pre></div>
-<h3 id="conflito-de-beans">Conflito de beans</h3>
-<div class="sourceCode" id="cb12"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Se houver conflito, usar @Qualifier:</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Autowired</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="at">@Qualifier</span><span class="op">(</span><span class="st">&quot;openApiUiSchemaRestTemplate&quot;</span><span class="op">)</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> RestTemplate restTemplate<span class="op">;</span></span></code></pre></div>
-<h3 id="debug-de-grupos-criados">Debug de grupos criados</h3>
-<div class="sourceCode" id="cb13"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">// No DynamicSwaggerConfig, os logs mostrarão:</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="op">[</span>INFO<span class="op">]</span> Bean GroupedOpenApi registrado<span class="op">:</span> bean<span class="op">=</span>funcionarios_ApiGroup<span class="op">,</span> group<span class="op">=</span>funcionarios<span class="op">,</span> paths<span class="op">=/</span>api<span class="op">/</span>funcionarios<span class="co">/**</span></span></code></pre></div>
-<h3 id="falha-ao-buscar-v3api-docs">Falha ao buscar
-<code>/v3/api-docs</code></h3>
-<p>Sintomas comuns: - erro ao montar URL como
-<code>https://localhost:4003/v3/api-docs</code> - falhas intermitentes
-apenas em produção - <code>/schemas/filtered</code> ou
-<code>/schemas/catalog</code> funcionando localmente, mas quebrando
-atrás de proxy</p>
-<p>Causa típica: - a aplicação inferiu a base a partir da requisição
-externa, mas o processo Java precisa acessar outra origem
-internamente</p>
-<p>Correção: - configure <code>app.openapi.internal-base-url</code> para
-a origem interna real do serviço - mantenha
-<code>springdoc.api-docs.path</code> coerente com a rota publicada pelo
-SpringDoc</p>
-<p>Verificação: - a partir do ambiente da app, confirme que a URL final
-responde com o documento OpenAPI esperado</p>
-<h2 id="complementaridade-das-auto-configurações">🤝 Complementaridade
-das Auto-Configurações</h2>
-<h3
-id="praxismetadataautoconfiguration-fundação">PraxisMetadataAutoConfiguration
-(Fundação)</h3>
-<ul>
-<li><strong>Quando executa</strong>: Primeiro, durante boot da
-aplicação</li>
-<li><strong>O que faz</strong>:
-<ul>
-<li>📦 <strong><span class="citation"
-data-cites="ComponentScan">@ComponentScan</span></strong>: Detecta
-DynamicSwaggerConfig, ApiDocsController, Services</li>
-<li>🔢 <strong>Type Mapping</strong>: Configura BigDecimal →
-number/decimal</li>
-<li>🏗️ <strong>Base Groups</strong>: Cria grupos de infraestrutura e
-fallback</li>
-</ul></li>
-<li><strong>Resultado</strong>: Componentes detectados e disponíveis
-para injeção</li>
-</ul>
-<h3
-id="openapiuischemaautoconfiguration-funcionalidade">OpenApiUiSchemaAutoConfiguration
-(Funcionalidade)</h3>
-<ul>
-<li><strong>Quando executa</strong>: Segundo, depois do component
-scan</li>
-<li><strong>O que faz</strong>:
-<ul>
-<li>📡 <strong>Infraestrutura</strong>: RestTemplate, ObjectMapper com
-JavaTime</li>
-<li>🔍 <strong>Processamento</strong>: CustomOpenApiResolver para
-schemas</li>
-<li>📋 <strong>Filtros</strong>: GenericSpecificationsBuilder para
-JPA</li>
-<li>🎯 <strong>Resolução</strong>: OpenApiGroupResolver (componente
-crítico)</li>
-</ul></li>
-<li><strong>Resultado</strong>: Beans funcionais injetados nos
-componentes detectados</li>
-</ul>
-<h3 id="como-trabalham-juntas">Como Trabalham Juntas</h3>
-<div class="sourceCode" id="cb14"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. PraxisMetadataAutoConfiguration detecta via @ComponentScan:</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Configuration</span>  <span class="co">// ← Detectado pelo component scan</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> DynamicSwaggerConfig <span class="op">{</span></span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. OpenApiUiSchemaAutoConfiguration fornece via DI:</span></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Autowired</span> </span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> OpenApiGroupResolver resolver<span class="op">;</span> <span class="co">// ← Injetado automaticamente</span></span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="resultado-final">Resultado Final</h3>
-<ul>
-<li><strong>Zero configuração manual</strong>: Desarrollador só adiciona
-dependência</li>
-<li><strong>Integração perfeita</strong>: Componentes se conectam
-automaticamente</li>
-<li><strong>Funcionalidade completa</strong>: Resolução automática de
-grupos funciona</li>
-<li><strong>Validação automática</strong>: Controllers são validados
-para conformidade</li>
-</ul>
-<h2 id="referências">📚 Referências</h2>
-<ul>
-<li><a
-href="https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.developing-auto-configuration">Spring
-Boot Auto-Configuration</a></li>
-<li><a
-href="https://springdoc.org/#how-can-i-separate-different-api-definitions">SpringDoc
-OpenAPI GroupedOpenApi</a></li>
 <li><a
 href="../../src/main/java/org/praxisplatform/uischema/configuration/PraxisMetadataAutoConfiguration.java">PraxisMetadataAutoConfiguration.java</a></li>
 <li><a
 href="../../src/main/java/org/praxisplatform/uischema/configuration/OpenApiUiSchemaAutoConfiguration.java">OpenApiUiSchemaAutoConfiguration.java</a></li>
-<li><a href="README.md">Praxis Metadata Starter README</a></li>
-<li><a href="VALIDACAO-API-RESOURCE.md">Validação <span class="citation"
-data-cites="ApiResource">@ApiResource</span></a></li>
+<li><a
+href="../../src/main/java/org/praxisplatform/uischema/configuration/DynamicSwaggerConfig.java">DynamicSwaggerConfig.java</a></li>
+<li><a href="../../README.md">README</a></li>
 </ul>
 </body>
 </html>

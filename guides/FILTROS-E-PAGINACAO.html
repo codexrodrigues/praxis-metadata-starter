@@ -269,11 +269,12 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 <li>O service base resolve as Specifications automaticamente</li>
 </ol>
 <div class="sourceCode" id="cb2"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioService <span class="kw">extends</span> AbstractBaseCrudService<span class="op">&lt;</span>Funcionario<span class="op">,</span> FuncionarioDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">public</span> <span class="fu">FuncionarioService</span><span class="op">(</span>BaseCrudRepository<span class="op">&lt;</span>Funcionario<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> repo<span class="op">,</span> <span class="bu">Class</span><span class="op">&lt;</span>Funcionario<span class="op">&gt;</span> entityClass<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">super</span><span class="op">(</span>repo<span class="op">,</span> entityClass<span class="op">);</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioService <span class="kw">extends</span> AbstractBaseResourceService<span class="op">&lt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    Funcionario<span class="op">,</span> FuncionarioResponseDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">,</span> CreateFuncionarioDTO<span class="op">,</span> UpdateFuncionarioDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">public</span> <span class="fu">FuncionarioService</span><span class="op">(</span>BaseCrudRepository<span class="op">&lt;</span>Funcionario<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> repo<span class="op">,</span> <span class="bu">Class</span><span class="op">&lt;</span>Funcionario<span class="op">&gt;</span> entityClass<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">super</span><span class="op">(</span>repo<span class="op">,</span> entityClass<span class="op">);</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <ol start="3" type="1">
 <li>Utilize os endpoints de filtragem do controller base</li>
 </ol>

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Relatorio de Rodada de Prova</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Relatorio de Rodada de Prova</h1>
+</header>
+<h1 id="relatorio-de-rodada-de-prova">Relatorio de Rodada de Prova</h1>
+<h2 id="identificacao">Identificacao</h2>
+<ul>
+<li>rodada: 2</li>
+<li>repeticao: 1</li>
+<li>data: 2026-04-08</li>
+<li>executor: Codex</li>
+<li>llm: GPT-5 Codex</li>
+<li>versao do guia: apos endurecimento do pacote <code>ai-proof</code>
+com <code>resourceKey</code> explicito e harness fixando JDK 21</li>
+<li>projeto sandbox: <code>tmp/ai-guide-proof-h2-relation-r2</code></li>
+<li>banco usado: H2 em memoria</li>
+</ul>
+<h2 id="material-entregue-a-llm">Material entregue a LLM</h2>
+<ul>
+<li>guias liberados:
+<ul>
+<li><code>docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>docs/guides/CHECKLIST-VALIDACAO-IA.md</code></li>
+<li><code>docs/guides/OPTIONS-ENDPOINT.md</code></li>
+<li><code>docs/guides/ai-proof/PROMPTS-DE-EXECUCAO.md</code></li>
+</ul></li>
+<li>prompt usado:
+<ul>
+<li><code>docs/guides/ai-proof/PROMPTS-DE-EXECUCAO.md</code> -&gt;
+<code>Rodada 2: H2 com relacao</code></li>
+</ul></li>
+<li>restricoes adicionais:
+<ul>
+<li>sandbox limpo</li>
+<li>migrations fisicas para <code>Categoria</code> e
+<code>Produto</code></li>
+<li>startup com JDK 21 explicito</li>
+<li>validacao sequencial de mutacao e leitura</li>
+</ul></li>
+</ul>
+<h2 id="resultado">Resultado</h2>
+<ul>
+<li>status geral: aprovado com ressalva</li>
+<li>build: aprovado</li>
+<li>startup: aprovado</li>
+<li>contrato de schemas: aprovado com ressalva</li>
+<li>CRUD baseline: aprovado</li>
+<li>options: aprovado</li>
+<li>consumo Angular: nao executado</li>
+</ul>
+<h2 id="evidencias-minimas">Evidencias minimas</h2>
+<ul>
+<li>comando de build:
+<ul>
+<li><code>mvn -q clean package</code></li>
+</ul></li>
+<li>comando de startup:
+<ul>
+<li><code>D:\Developer\JAVA\graalvm-jdk-21.0.2+13.1\bin\java.exe -jar target/ai-guide-proof-h2-relation-1.0.0-SNAPSHOT.jar</code></li>
+</ul></li>
+<li>endpoint <code>GET /v3/api-docs</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>GET /api/catalog/produtos/schemas</code>:
+<ul>
+<li>nao validado nesta repeticao; o contrato estrutural foi validado
+direto em <code>/schemas/filtered</code></li>
+</ul></li>
+<li>endpoint
+<code>GET /schemas/filtered?path=/api/catalog/produtos/filter&amp;operation=post&amp;schemaType=request</code>:
+<ul>
+<li><code>200 OK</code> com <code>ETag</code> e
+<code>X-Schema-Hash</code></li>
+</ul></li>
+<li>endpoint
+<code>GET /schemas/filtered?path=/api/catalog/produtos/all&amp;operation=get&amp;schemaType=response</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>POST /api/catalog/categorias</code>:
+<ul>
+<li><code>201 Created</code></li>
+</ul></li>
+<li>endpoint
+<code>POST /api/catalog/categorias/options/filter?page=0&amp;size=20</code>:
+<ul>
+<li><code>200 OK</code>, retornando <code>Categoria A</code></li>
+</ul></li>
+<li>endpoint
+<code>GET /api/catalog/categorias/options/by-ids?ids=1</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>POST /api/catalog/produtos</code>:
+<ul>
+<li><code>201 Created</code></li>
+</ul></li>
+<li>endpoint
+<code>POST /api/catalog/produtos/filter?page=0&amp;size=20</code> com
+<code>{"categoriaId":1}</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>GET /api/catalog/produtos/capabilities</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>GET /api/catalog/produtos/10/capabilities</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint
+<code>GET /schemas/actions?resource=catalog.produtos</code>:
+<ul>
+<li><code>404 Not Found</code> sem workflow, conforme esperado</li>
+</ul></li>
+<li>revalidacao <code>If-None-Match</code>:
+<ul>
+<li><code>304 Not Modified</code></li>
+</ul></li>
+</ul>
+<h2 id="falhas-encontradas">Falhas encontradas</h2>
+<h3 id="falha-1">Falha 1</h3>
+<ul>
+<li>categoria: contrato-com-ressalva</li>
+<li>sintoma: no request schema de <code>Produto</code>,
+<code>x-ui.resource.idField</code> permaneceu como <code>id</code>, mas
+<code>idFieldValid=false</code></li>
+<li>evidencia:
+<ul>
+<li><code>GET /schemas/filtered?path=/api/catalog/produtos/filter&amp;operation=post&amp;schemaType=request</code></li>
+<li>retorno:
+<code>"idField":"id","idFieldValid":false,"idFieldMessage":"idField not found in schema properties"</code></li>
+</ul></li>
+<li>causa provavel:
+<ul>
+<li>o request schema de filtro nao expoe a propriedade <code>id</code>,
+o que e coerente, mas a superficie ainda publica o <code>idField</code>
+do recurso com validade falsa</li>
+</ul></li>
+<li>impede aprovacao: nao</li>
+<li>ajuste proposto:
+<ul>
+<li>manter esse comportamento como esperado de filtro ou documentar
+explicitamente que <code>idFieldValid=false</code> no request schema nao
+e falha quando o schema nao precisa expor <code>id</code></li>
+</ul></li>
+</ul>
+<h3 id="falha-2">Falha 2</h3>
+<ul>
+<li>categoria: relatorio-historico-obsoleto</li>
+<li>sintoma: o achado antigo de que <code>categoriaId</code> sequestrava
+<code>x-ui.resource.idField</code> nao se reproduziu no estado atual do
+starter</li>
+<li>evidencia:
+<ul>
+<li>nesta revalidacao, o request schema veio com
+<code>idField="id"</code>, nao com <code>categoriaId</code></li>
+</ul></li>
+<li>causa provavel:
+<ul>
+<li>o starter evoluiu desde o relatorio historico de 2026-03-24</li>
+</ul></li>
+<li>impede aprovacao: nao</li>
+<li>ajuste proposto:
+<ul>
+<li>registrar esta revalidacao e tratar o relatorio antigo como
+evidencia historica, nao como estado atual</li>
+</ul></li>
+</ul>
+<h3 id="falha-3">Falha 3</h3>
+<ul>
+<li>categoria: problema-real-do-starter</li>
+<li>sintoma: os logs de inicializacao ainda exibem mojibake em mensagens
+do <code>DynamicSwaggerConfig</code></li>
+<li>evidencia:
+<ul>
+<li>caracteres corrompidos nas mensagens de validacao de
+<code>@ApiResource</code></li>
+</ul></li>
+<li>causa provavel:
+<ul>
+<li>residuos de encoding no pacote de configuracao do starter</li>
+</ul></li>
+<li>impede aprovacao: nao</li>
+<li>ajuste proposto:
+<ul>
+<li>limpar as strings de log do starter em rodada dedicada</li>
+</ul></li>
+</ul>
+<h2 id="divergencias-entre-guia-e-codigo">Divergencias entre guia e
+codigo</h2>
+<ul>
+<li>nenhuma bloqueante para a trilha de relacao simples com options de
+recurso proprio</li>
+</ul>
+<h2 id="divergencias-entre-guia-e-comportamento-da-llm">Divergencias
+entre guia e comportamento da LLM</h2>
+<ul>
+<li>nenhuma bloqueante nesta revalidacao</li>
+</ul>
+<h2 id="acoes-apos-a-rodada">Acoes apos a rodada</h2>
+<ul>
+<li>ajustes no guia:
+<ul>
+<li>nenhum obrigatorio nos guias principais</li>
+</ul></li>
+<li>ajustes no checklist:
+<ul>
+<li>adicionada validacao explicita para request schemas com campos
+relacionais <code>...Id</code></li>
+</ul></li>
+<li>ajustes no prompt:
+<ul>
+<li>rodada 2 agora recebe <code>resourceKey</code>, mutabilidade e
+detalhes de entidades</li>
+</ul></li>
+<li>ajuste necessario no starter:
+<ul>
+<li>backlog para limpar mojibake nos logs de bootstrap</li>
+</ul></li>
+</ul>
+<h2 id="veredito">Veredito</h2>
+<ul>
+<li>pode repetir a mesma rodada sem mudar prompt: sim</li>
+<li>pronto para proxima rodada: sim</li>
+<li>ponto exato de retomada:
+<ul>
+<li>iniciar <code>Rodada 3: H2 com MapStruct</code></li>
+</ul></li>
+</ul>
+</body>
+</html>

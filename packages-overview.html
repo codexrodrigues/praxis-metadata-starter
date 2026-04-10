@@ -171,11 +171,10 @@
 <h1 id="visao-dos-pacotes-do-praxis-metadata-starter">Visao dos Pacotes
 do Praxis Metadata Starter</h1>
 <p>Esta referencia resume os pacotes Java disponibilizados pelo starter
-e como eles se conectam ao baseline atual da plataforma.</p>
+e como eles se conectam ao baseline canonico atual da plataforma.</p>
 <blockquote>
-<p>Importante: esta pagina mistura o baseline canonico atual com classes
-legadas ainda presentes no codigo. Para aplicacoes novas, a fonte de
-verdade continua sendo
+<p>Importante: esta pagina descreve apenas a superficie viva do starter.
+Para onboarding, a fonte de verdade continua sendo
 <code>resource + surfaces + actions + capabilities + HATEOAS</code>,
 conforme <code>architecture-overview.md</code> e os guias
 principais.</p>
@@ -206,13 +205,14 @@ docs/discovery.</p>
 <li><code>controller.docs</code> publica <code>/schemas/filtered</code>,
 <code>/schemas/catalog</code>, <code>/schemas/surfaces</code> e
 <code>/schemas/actions</code></li>
-<li><code>controller.base</code> contem tanto o core atual
-resource-oriented quanto classes legadas ainda mantidas por
-compatibilidade</li>
+<li><code>controller.base</code> concentra o core resource-oriented</li>
 </ul>
-<p>Para aplicacoes novas, priorize os controllers resource-oriented.
-Leia <code>AbstractCrudController</code> apenas como referencia de
-legado ou migracao.</p>
+<p>Os controllers-base canonicos sao:</p>
+<ul>
+<li><code>AbstractResourceController</code></li>
+<li><code>AbstractReadOnlyResourceController</code></li>
+<li><code>AbstractResourceQueryController</code></li>
+</ul>
 <h2 id="dto"><code>dto</code></h2>
 <p>Objetos de transporte usados por controllers e services.</p>
 <p>No baseline atual, espere separacao entre:</p>
@@ -254,11 +254,15 @@ MapStruct.</p>
 <h2 id="service"><code>service</code></h2>
 <p>Camada de servicos base.</p>
 <ul>
-<li>o pacote contem servicos resource-oriented atuais</li>
-<li>tambem contem servicos CRUD legados ainda presentes no codigo</li>
+<li><code>AbstractBaseQueryResourceService</code></li>
+<li><code>AbstractBaseResourceService</code></li>
+<li><code>AbstractReadOnlyResourceService</code></li>
+<li><code>BaseResourceQueryService</code></li>
+<li><code>BaseResourceCommandService</code></li>
+<li><code>BaseResourceService</code></li>
 </ul>
-<p>Para aplicacoes novas, trate <code>BaseCrudService</code> como
-referencia historica do core legado, nao como baseline recomendado.</p>
+<p>Essas interfaces e classes sustentam o baseline query/command atual
+do starter.</p>
 <h2 id="util"><code>util</code></h2>
 <p>Utilitarios de suporte, incluindo:</p>
 <ul>
@@ -272,8 +276,8 @@ referencia historica do core legado, nao como baseline recomendado.</p>
 <li>confira <code>architecture-overview.md</code> para entender o papel
 dele no baseline atual</li>
 <li>use os guias principais para onboarding</li>
-<li>use o Javadoc quando precisar aprofundar detalhes de API ou classes
-legadas</li>
+<li>use o Javadoc publicado quando precisar aprofundar detalhes de API
+Java</li>
 </ol>
 </body>
 </html>

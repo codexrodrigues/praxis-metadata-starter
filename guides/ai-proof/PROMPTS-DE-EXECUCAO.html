@@ -209,7 +209,9 @@ Cenario:
 - ArtifactId: ai-guide-proof-h2-simple
 - Pacote base: com.example.proof.catalog
 - Resource path: /api/catalog/categorias
+- Resource key: catalog.categorias
 - Api group: catalog
+- Recurso mutavel: sim
 
 Entidade inicial:
 - Categoria
@@ -226,9 +228,109 @@ Cenario:
 - ArtifactId: ai-guide-proof-h2-relation
 - Pacote base: com.example.proof.catalog
 - Recursos:
-  - /api/catalog/categorias
-  - /api/catalog/produtos
-- Api group: catalog</code></pre>
+  - path: /api/catalog/categorias
+    key: catalog.categorias
+    mutavel: sim
+  - path: /api/catalog/produtos
+    key: catalog.produtos
+    mutavel: sim
+- Api group: catalog
+
+Entidades iniciais:
+- Categoria
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+- Produto
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+  - categoriaId: Integer
+
+Regras adicionais da rodada:
+- usar H2 com migrations fisicas
+- expor `options/filter` e `options/by-ids` para `Categoria`
+- modelar `categoriaId` em `Produto` com discovery de options apontando para `Categoria`</code></pre>
+<h2 id="rodada-3-h2-com-mapstruct">Rodada 3: H2 com MapStruct</h2>
+<pre class="text"><code>Execute a prova operacional usando H2 local com relacao simples e MapStruct.
+
+Cenario:
+- Nome da aplicacao: ai-guide-proof-h2-mapstruct
+- GroupId: com.example.proof
+- ArtifactId: ai-guide-proof-h2-mapstruct
+- Pacote base: com.example.proof.catalog
+- Recursos:
+  - path: /api/catalog/categorias
+    key: catalog.categorias
+    mutavel: sim
+  - path: /api/catalog/produtos
+    key: catalog.produtos
+    mutavel: sim
+- Api group: catalog
+
+Entidades iniciais:
+- Categoria
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+- Produto
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+  - categoriaId: Integer
+
+Regras adicionais da rodada:
+- usar H2 com migrations fisicas
+- usar MapStruct com `CorporateMapperConfig`
+- o mapper deve implementar o contrato `ResourceMapper`
+- o build deve ativar annotation processor compilavel para gerar beans Spring
+- expor `options/filter` e `options/by-ids` para `Categoria`
+- modelar `categoriaId` em `Produto` com discovery de options apontando para `Categoria`</code></pre>
+<h2 id="rodada-4-h2-com-filtros-ricos">Rodada 4: H2 com filtros
+ricos</h2>
+<pre class="text"><code>Execute a prova operacional usando H2 local com relacao simples, MapStruct e filtros ricos.
+
+Cenario:
+- Nome da aplicacao: ai-guide-proof-h2-filters
+- GroupId: com.example.proof
+- ArtifactId: ai-guide-proof-h2-filters
+- Pacote base: com.example.proof.catalog
+- Recursos:
+  - path: /api/catalog/categorias
+    key: catalog.categorias
+    mutavel: sim
+  - path: /api/catalog/produtos
+    key: catalog.produtos
+    mutavel: sim
+- Api group: catalog
+
+Entidades iniciais:
+- Categoria
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+- Produto
+  - id: Integer
+  - nome: String
+  - ativo: Boolean
+  - categoriaId: Integer
+  - preco: BigDecimal
+  - dataCadastro: LocalDate
+
+Regras adicionais da rodada:
+- usar H2 com migrations fisicas
+- usar MapStruct com `CorporateMapperConfig`
+- o mapper deve implementar o contrato `ResourceMapper`
+- o build deve ativar annotation processor compilavel para gerar beans Spring
+- expor `options/filter` e `options/by-ids` para `Categoria`
+- modelar `categoriaId` em `Produto` com discovery de options apontando para `Categoria`
+- o `ProdutoFilterDTO` deve declarar explicitamente:
+  - `LIKE` para `nome`
+  - `EQUAL` para `ativo`
+  - `EQUAL` para `categoriaId`
+  - `BETWEEN` para `preco`
+  - `BETWEEN` para `dataCadastro`
+- validar requests reais com combinacao de filtros</code></pre>
 <h2 id="rodada-5-consumo-angular">Rodada 5: Consumo Angular</h2>
 <pre class="text"><code>Use o backend gerado e valide o consumo pelo GenericCrudService do praxis-ui-angular.
 

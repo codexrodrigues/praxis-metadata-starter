@@ -193,8 +193,9 @@ consumidor para o modelo canonico:</p>
 </ul>
 <p>Referencias obrigatorias:</p>
 <ul>
-<li><code>docs/technical/RESOURCE-SURFACE-ACTION-ARCHITECTURE-PLAN.md</code></li>
-<li><code>docs/technical/E2E-TEST-BACKLOG.md</code></li>
+<li><code>docs/architecture-overview.md</code></li>
+<li><code>docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
 <li><code>docs/technical/PILOT-READINESS-CHECKLIST.md</code></li>
 <li><code>docs/technical/ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.md</code></li>
 </ul>
@@ -213,8 +214,8 @@ piloto</h2>
 <li>recurso com regras de workflow altamente excepcionais</li>
 <li>recurso com necessidade imediata de compatibilidade paralela</li>
 </ul>
-<h2 id="mapeamento-do-legado-para-o-core-novo">Mapeamento do legado para
-o core novo</h2>
+<h2 id="mapeamento-de-um-host-antigo-para-o-baseline-atual">Mapeamento
+de um host antigo para o baseline atual</h2>
 <h3 id="se-hoje-existe-dto-unico">Se hoje existe DTO unico</h3>
 <p>Separar em:</p>
 <ul>
@@ -223,14 +224,17 @@ o core novo</h2>
 <li><code>UpdateDTO</code></li>
 <li><code>FilterDTO</code></li>
 </ul>
-<h3 id="se-hoje-o-controller-usa-legado">Se hoje o controller usa
-legado</h3>
-<p>Trocar:</p>
+<h3 id="se-hoje-o-host-concentra-leitura-e-escrita-no-mesmo-recurso">Se
+hoje o host concentra leitura e escrita no mesmo recurso</h3>
+<p>Trocar por:</p>
 <ul>
-<li><code>AbstractCrudController</code> -&gt;
-<code>AbstractResourceController</code></li>
-<li><code>AbstractReadOnlyController</code> -&gt;
-<code>AbstractReadOnlyResourceController</code></li>
+<li><code>AbstractResourceController</code> para recurso mutavel</li>
+<li><code>AbstractReadOnlyResourceController</code> para recurso somente
+leitura</li>
+<li><code>AbstractBaseResourceService</code> ou
+<code>AbstractReadOnlyResourceService</code> no service</li>
+<li><code>ResourceMapper</code> para separar response, create e
+update</li>
 </ul>
 <h3 id="se-hoje-existe-patch-sem-semantica-clara">Se hoje existe patch
 sem semantica clara</h3>

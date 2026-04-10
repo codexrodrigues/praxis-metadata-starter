@@ -23,6 +23,7 @@ Regra:
 
 - `resource` define o contrato real
 - `resource` e a fonte da verdade de payload e schema
+- `/schemas/filtered` e a superficie estrutural canonica desse contrato
 
 ## ResourceIntent
 
@@ -52,6 +53,7 @@ Regra:
 
 - `surface` nao define payload
 - `surface` aponta para operacao real + schema canonico
+- o schema continua vindo de `/schemas/filtered`, nao de `/schemas/surfaces`
 - `ITEM` em `/schemas/surfaces` e discovery-only sem `resourceId`; a availability real vem de
   `GET /{resource}/{id}/surfaces`
 
@@ -71,6 +73,7 @@ Regra:
 - `action` nao e CRUD
 - `action` nao e patch de manutencao do recurso
 - execucao sempre por endpoint tipado real
+- `/schemas/actions` faz discovery semantico; nao publica um segundo contrato de payload
 - `ITEM` em `/schemas/actions` e discovery-only sem `resourceId`; a availability real vem de
   `GET /{resource}/{id}/actions`
 

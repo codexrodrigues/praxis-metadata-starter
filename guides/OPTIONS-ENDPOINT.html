@@ -293,6 +293,13 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 option-sources no service</h2>
 <p><code>option-sources</code> vem do <code>OptionSourceRegistry</code>
 exposto pelo service.</p>
+<p>No baseline atual do starter, esse registry do proprio recurso e a
+fonte canonica da feature. Os controllers base, o enrich de
+<code>/schemas/filtered</code> e os endpoints
+<code>/{resource}/option-sources/{sourceKey}/options/*</code> usam a
+auto-configuracao padrao do starter; nao e necessario registrar
+<code>OptionSourceQueryExecutor</code> ou
+<code>OptionSourceEligibility</code> manualmente no host comum.</p>
 <div class="sourceCode" id="cb2"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> OptionSourceRegistry OPTION_SOURCES <span class="op">=</span> OptionSourceRegistry<span class="op">.</span><span class="fu">builder</span><span class="op">()</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">add</span><span class="op">(</span>VwAnalyticsFolhaPagamento<span class="op">.</span><span class="fu">class</span><span class="op">,</span> <span class="kw">new</span> <span class="fu">OptionSourceDescriptor</span><span class="op">(</span></span>
@@ -372,9 +379,9 @@ autofiltrar</li>
 <h3 id="problemas-comuns-e-soluções">Problemas Comuns e Soluções</h3>
 <ul>
 <li><strong>Endpoint Retorna 404</strong>: Verifique se o controller
-herda de <code>AbstractCrudController</code> ou
-<code>AbstractReadOnlyController</code> e se o
-<code>OptionSourceRegistry</code> está registrado no service.</li>
+herda de <code>AbstractResourceController</code> ou
+<code>AbstractReadOnlyResourceController</code> e se o
+<code>OptionSourceRegistry</code> esta registrado no service.</li>
 <li><strong>Opções Não Aparecem no Frontend</strong>: Confirme que o
 campo no <code>@UISchema</code> tem nome idêntico à <code>key</code> do
 descriptor. Use o browser dev tools para inspecionar

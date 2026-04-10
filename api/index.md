@@ -7,18 +7,20 @@ fina da API Java.
 
 - [Home da documentacao](../index.html)
 - [Hub dos guias](../guides/index.html)
-- [Javadoc publico](../apidocs/index.html)
+- [Javadoc publico](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
 - [Indice humano do Javadoc](README.html)
-- [Pacotes](../apidocs/allpackages-index.html)
-- [Overview](../apidocs/overview-summary.html)
+- [Packages overview](../packages-overview.html)
+- [Architecture overview](../architecture-overview.html)
 
 ## Pontos importantes
 
-- [Anotacoes](../apidocs/org/praxisplatform/uischema/annotation/package-summary.html)
-- [Controllers base](../apidocs/org/praxisplatform/uischema/controller/base/package-summary.html)
-- [Docs controller](../apidocs/org/praxisplatform/uischema/controller/docs/package-summary.html)
-- [DTOs](../apidocs/org/praxisplatform/uischema/dto/package-summary.html)
-- [Services base](../apidocs/org/praxisplatform/uischema/service/base/package-summary.html)
+- `annotation`
+- `controller.base`
+- `controller.docs`
+- `dto`
+- `service.base`
+
+Use o Javadoc publicado para navegar nas classes desses pacotes.
 
 ## Papel desta area
 

@@ -176,6 +176,10 @@
 <li>a prova nao deve reaproveitar codigo pronto de outro app</li>
 <li>a LLM deve trabalhar apenas com os guias oficiais liberados para a
 rodada</li>
+<li>o ambiente de execucao deve fixar explicitamente JDK 21 e Maven
+compativeis</li>
+<li>build e startup devem usar o mesmo <code>JAVA_HOME</code>, sem
+depender do <code>java</code> implicito do PATH</li>
 </ul>
 <h2 id="o-que-evitar">O que evitar</h2>
 <ul>

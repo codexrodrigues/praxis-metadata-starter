@@ -235,43 +235,40 @@
 <h1 id="recursos-somente-leitura-views-jpa-immutable">Recursos Somente
 Leitura (Views JPA / <span class="citation"
 data-cites="Immutable">@Immutable</span>)</h1>
-<p>Acelere telas baseadas em Views do banco (ou entidades marcadas como
-<code>@Immutable</code>) com o modo read‑only do Starter.</p>
+<p>Acelere telas baseadas em views do banco, ou entidades marcadas como
+<code>@Immutable</code>, com o modo read-only canonico do Starter.</p>
 <ul>
-<li>Sem escrever endpoints: herde do controller/serviço read‑only e
-ganhe automaticamente filtros, paginação, opções id/label e
-documentação.</li>
-<li>Segurança por padrão: operações de escrita (POST/PUT/DELETE)
-respondem <code>405 Method Not Allowed</code>.</li>
+<li>Sem escrever endpoints: herde do controller/servico read-only e
+ganhe automaticamente filtros, paginacao, opcoes id/label e
+documentacao.</li>
+<li>Seguranca por design: a superficie read-only canonica nao publica
+endpoints de escrita.</li>
 </ul>
 <a id="endpoints-readonly"></a>
 <details>
 <summary>
-<strong>Endpoints disponíveis (read‑only)</strong>
+<strong>Endpoints disponiveis (read-only)</strong>
 </summary>
 <ul>
-<li><code>GET /{id}</code> — busca registro por ID</li>
-<li><code>GET /all</code> — lista completa (aplica ordenação padrão se
-configurada)</li>
-<li><code>POST /filter</code> — paginação/filtragem via
+<li><code>GET /{id}</code> - busca registro por ID</li>
+<li><code>GET /all</code> - lista completa</li>
+<li><code>POST /filter</code> - paginacao e filtragem via
 Specifications</li>
-<li><code>POST /filter/cursor</code> — paginação por cursor
-(keyset)</li>
-<li><code>POST /locate</code> — retorna posição absoluta e página de um
-ID com base no filtro/sort</li>
-<li><code>GET /by-ids</code> — múltiplos registros por IDs na ordem
+<li><code>POST /filter/cursor</code> - paginacao por cursor</li>
+<li><code>POST /locate</code> - retorna a posicao absoluta de um ID no
+conjunto filtrado</li>
+<li><code>GET /by-ids</code> - multiplos registros por IDs na ordem
 solicitada</li>
-<li><code>POST /options/filter</code> — opções id/label para selects
-(paginadas)</li>
-<li><code>GET /options/by-ids</code> — opções por IDs (ordem
-preservada)</li>
-<li><code>GET /schemas</code> — redirect para
+<li><code>POST /options/filter</code> - opcoes id/label para
+selects</li>
+<li><code>GET /options/by-ids</code> - opcoes por IDs com ordem
+preservada</li>
+<li><code>GET /schemas</code> - redirect para
 <code>/schemas/filtered</code> do recurso</li>
 </ul>
 <blockquote>
-<p>Bloqueadas: <code>POST /</code>, <code>PUT /{id}</code>,
-<code>DELETE /{id}</code>, <code>DELETE /batch</code> →
-<code>405</code>.</p>
+<p>Nao publicadas: <code>POST /</code>, <code>PUT /{id}</code>,
+<code>DELETE /{id}</code>, <code>DELETE /batch</code>.</p>
 </blockquote>
 </details>
 <a id="como-usar"></a>
@@ -279,95 +276,87 @@ preservada)</li>
 <summary>
 <strong>Como usar</strong>
 </summary>
-<h3 id="entidade-viewimmutable">1) Entidade (View/<span class="citation"
+<h3 id="entidade-viewimmutable">1) Entidade (view/<span class="citation"
 data-cites="Immutable">@Immutable</span>)</h3>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">hibernate</span><span class="op">.</span><span class="im">annotations</span><span class="op">.</span><span class="im">Immutable</span><span class="op">;</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">@Entity</span> <span class="at">@Immutable</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">@Table</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;vw_vendas_resumo&quot;</span><span class="op">)</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumo <span class="op">{</span> <span class="co">/* campos da view */</span> <span class="op">}</span></span></code></pre></div>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">@Entity</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">@Immutable</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="at">@Table</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;vw_vendas_resumo&quot;</span><span class="op">)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumo <span class="op">{</span> <span class="co">/* campos da view */</span> <span class="op">}</span></span></code></pre></div>
 <h3 id="repository">2) Repository</h3>
 <div class="sourceCode" id="cb2"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> VendaResumoRepository <span class="kw">extends</span> BaseCrudRepository<span class="op">&lt;</span>VendaResumo<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span> <span class="op">}</span></span></code></pre></div>
-<h3 id="service-readonly">3) Service read‑only</h3>
+<h3 id="service-read-only">3) Service read-only</h3>
 <div class="sourceCode" id="cb3"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumoService <span class="kw">extends</span> AbstractReadOnlyService<span class="op">&lt;</span>VendaResumo<span class="op">,</span> VendaResumoDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> VendaResumoFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">public</span> <span class="fu">VendaResumoService</span><span class="op">(</span>VendaResumoRepository repo<span class="op">)</span> <span class="op">{</span> <span class="kw">super</span><span class="op">(</span>repo<span class="op">,</span> VendaResumo<span class="op">.</span><span class="fu">class</span><span class="op">);</span> <span class="op">}</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="controller-readonly">4) Controller read‑only</h3>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumoService <span class="kw">extends</span> AbstractReadOnlyResourceService<span class="op">&lt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    VendaResumo<span class="op">,</span> VendaResumoDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> VendaResumoFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">public</span> <span class="fu">VendaResumoService</span><span class="op">(</span>VendaResumoRepository repo<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">super</span><span class="op">(</span>repo<span class="op">,</span> VendaResumo<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="controller-read-only">4) Controller read-only</h3>
 <div class="sourceCode" id="cb4"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span><span class="st">&quot;/api/relatorios/vendas-resumo&quot;</span><span class="op">)</span></span>
+class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>value <span class="op">=</span> <span class="st">&quot;/api/relatorios/vendas-resumo&quot;</span><span class="op">,</span> resourceKey <span class="op">=</span> <span class="st">&quot;relatorios.vendas-resumo&quot;</span><span class="op">)</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;relatorios&quot;</span><span class="op">)</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="at">@RestController</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumoController <span class="kw">extends</span> AbstractReadOnlyController<span class="op">&lt;</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    VendaResumo<span class="op">,</span> VendaResumoDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> VendaResumoFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Autowired</span> <span class="kw">private</span> VendaResumoService service<span class="op">;</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Override</span> <span class="kw">protected</span> BaseCrudService<span class="op">&lt;</span>VendaResumo<span class="op">,</span> VendaResumoDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> VendaResumoFilterDTO<span class="op">&gt;</span> <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span> <span class="cf">return</span> service<span class="op">;</span> <span class="op">}</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Override</span> <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getEntityId</span><span class="op">(</span>VendaResumo e<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> e<span class="op">.</span><span class="fu">getId</span><span class="op">();</span> <span class="op">}</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Override</span> <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getDtoId</span><span class="op">(</span>VendaResumoDTO d<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> d<span class="op">.</span><span class="fu">getId</span><span class="op">();</span> <span class="op">}</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Override</span> <span class="kw">protected</span> VendaResumoDTO <span class="fu">toDto</span><span class="op">(</span>VendaResumo e<span class="op">)</span> <span class="op">{</span> <span class="co">/* map */</span> <span class="op">}</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Override</span> <span class="kw">protected</span> VendaResumo <span class="fu">toEntity</span><span class="op">(</span>VendaResumoDTO d<span class="op">)</span> <span class="op">{</span> <span class="co">/* map */</span> <span class="op">}</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="filtros-e-ordenação">5) Filtros e ordenação</h3>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumoController <span class="kw">extends</span> AbstractReadOnlyResourceController<span class="op">&lt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    VendaResumoDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> VendaResumoFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Autowired</span> <span class="kw">private</span> VendaResumoService service<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Override</span> <span class="kw">protected</span> VendaResumoService <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span> <span class="cf">return</span> service<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Override</span> <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getResponseId</span><span class="op">(</span>VendaResumoDTO dto<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span> <span class="op">}</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="filtros-e-ordenacao">5) Filtros e ordenacao</h3>
 <ul>
-<li>Use <code>@Filterable</code> no DTO de filtro para Specifications
-(26 operações)</li>
-<li>Defina <code>@DefaultSortColumn</code> na entidade para ordenação
-padrão</li>
+<li>Use <code>@Filterable</code> no DTO de filtro para
+Specifications</li>
+<li>Defina <code>@DefaultSortColumn</code> na entidade para ordenacao
+padrao</li>
 </ul>
 <h3 id="semantica-de-displayread-only">6) Semantica de
 display/read-only</h3>
-<p>Recursos read-only tambem participam do contrato canonico de
-apresentacao de valor.</p>
-<p>Diretrizes:</p>
+<p>Recursos read-only participam do mesmo contrato canonico de
+apresentacao:</p>
 <ul>
-<li>para valores escalares, o starter publica
-<code>x-ui.valuePresentation</code> quando a intencao de exibicao for
-inferivel</li>
-<li>isso vale especialmente para <code>currency</code>,
-<code>percentage</code>, <code>date</code>, <code>datetime</code>,
-<code>time</code>, <code>number</code> e <code>boolean</code></li>
-<li><code>valuePresentation</code> nao deve ser usado como contrato
-automatico para ranges, selecoes ou IDs semanticos</li>
+<li>o starter publica <code>x-ui.valuePresentation</code> quando a
+intencao de exibicao for inferivel</li>
+<li>isso vale para <code>currency</code>, <code>percentage</code>,
+<code>date</code>, <code>datetime</code>, <code>time</code>,
+<code>number</code> e <code>boolean</code></li>
 <li>quando houver necessidade excepcional de override, use
-<code>extraProperties</code> aninhado no <code>@UISchema</code></li>
+<code>extraProperties</code> em <code>@UISchema</code></li>
 </ul>
-<p>Isso garante que superficies read-only e metadata-driven consumam a
-mesma semantica horizontal de exibicao, sem depender apenas de
-heuristicas locais do frontend.</p>
 </details>
 <a id="beneficios"></a>
 <details>
 <summary>
-<strong>Benefícios (prontos para produção)</strong>
+<strong>Beneficios</strong>
 </summary>
 <ul>
-<li>Sem riscos de escrita: 405 para operações mutáveis.</li>
-<li>9+ endpoints de leitura prontos e documentados (Swagger/OpenAPI) com
-cache e grupos por path.</li>
-<li>Integração com UI: <code>options</code> e
-<code>/schemas/filtered</code> aceleram formulários/tabelas
-read‑only.</li>
-<li>Consistência corporativa: respostas padronizadas
-(<code>RestApiResponse</code>) e HATEOAS opcional.</li>
+<li>Sem riscos de escrita: o controller nao expoe operacoes
+mutaveis.</li>
+<li>Endpoints de leitura prontos e documentados em OpenAPI.</li>
+<li>Integracao direta com <code>/schemas/filtered</code>,
+<code>options/*</code> e runtime Angular.</li>
 </ul>
 </details>
 <a id="referencias"></a>
 <details>
 <summary>
-<strong>Referências</strong>
+<strong>Referencias</strong>
 </summary>
 <ul>
 <li><a
-href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.html"><code>AbstractReadOnlyController</code></a></li>
+href="../apidocs/org/praxisplatform/uischema/controller/base/AbstractReadOnlyResourceController.html"><code>AbstractReadOnlyResourceController</code></a></li>
 <li><a
-href="../apidocs/org/praxisplatform/uischema/service/base/AbstractReadOnlyService.html"><code>AbstractReadOnlyService</code></a></li>
+href="../apidocs/org/praxisplatform/uischema/service/base/AbstractReadOnlyResourceService.html"><code>AbstractReadOnlyResourceService</code></a></li>
 <li><a
 href="../apidocs/org/praxisplatform/uischema/filter/annotation/Filterable.html"><code>@Filterable</code></a></li>
-<li><a href="FILTROS-E-PAGINACAO.md">Filtros e Paginação</a></li>
+<li><a href="FILTROS-E-PAGINACAO.md">Filtros e Paginacao</a></li>
 </ul>
 </details>
 </body>

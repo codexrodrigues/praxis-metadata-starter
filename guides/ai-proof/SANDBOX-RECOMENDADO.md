@@ -7,6 +7,8 @@ Use um projeto sandbox descartavel e isolado.
 - o sandbox deve nascer limpo
 - a prova nao deve reaproveitar codigo pronto de outro app
 - a LLM deve trabalhar apenas com os guias oficiais liberados para a rodada
+- o ambiente de execucao deve fixar explicitamente JDK 21 e Maven compativeis
+- build e startup devem usar o mesmo `JAVA_HOME`, sem depender do `java` implicito do PATH
 
 ## O que evitar
 

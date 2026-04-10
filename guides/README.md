@@ -10,8 +10,9 @@ Use os guias nesta ordem:
 1. [Guia 01 - Backend - Aplicacao Nova](GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
 2. [Guia 02 - Backend - Recurso Metadata-Driven](GUIA-02-AI-BACKEND-CRUD-METADATA.md)
 3. [Guia 04 - Quando usar Resource, Surface, Action e Capability](GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
-4. [Guia 03 - Frontend - Angular CRUD Completo](GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
-5. [Checklist de Validacao](CHECKLIST-VALIDACAO-IA.md)
+4. [Guia 05 - Do CRUD ao Contrato Semantico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
+5. [Guia 03 - Frontend - Angular CRUD Completo](GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
+6. [Checklist de Validacao](CHECKLIST-VALIDACAO-IA.md)
 
 Essa trilha foi organizada para que a LLM consiga percorrer os passos sem
 depender de app externo nem de conhecimento oral do time.
@@ -36,6 +37,12 @@ Use para decidir quando a modelagem deve ficar em `resource`, quando deve subir
 para `@UiSurface`, quando deve virar `@WorkflowAction` e quando o cliente deve
 consumir `capabilities`.
 
+### Guia 05
+
+Use quando for preciso explicar visualmente a transicao do modelo CRUD para o
+contrato semantico atual e como `ResourceIntent`, `UiSurface`,
+`WorkflowAction` e `capabilities` se encaixam no mesmo contrato.
+
 ### Guia 03
 
 Use apenas quando o backend ja publicar corretamente o contrato metadata-driven
@@ -47,12 +54,12 @@ Use depois da geracao para validar build, endpoints, schemas e consumo.
 
 ## Guias complementares
 
-- [Uso de @ApiResource no core legado](CRUD-COM-APIRESOURCE.md)
 - [Filtros e Paginacao](FILTROS-E-PAGINACAO.md)
 - [Ordenacao Padrao](ORDEM-PADRAO.md)
 - [Options (id/label)](OPTIONS-ENDPOINT.md)
 - [Views / Somente Leitura](READ-ONLY-VIEWS.md)
 - [Erros e Respostas](ERROS-E-RESPOSTAS.md)
+- [Do CRUD ao Contrato Semantico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
 - [Prova Operacional dos Guias de IA](ai-proof/README.md)
 
 ## Papel desta pasta

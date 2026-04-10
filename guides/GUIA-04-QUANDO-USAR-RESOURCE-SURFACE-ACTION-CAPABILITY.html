@@ -192,6 +192,8 @@ recurso</li>
 <ul>
 <li><code>resource</code> define o contrato real</li>
 <li><code>resource</code> e a fonte da verdade de payload e schema</li>
+<li><code>/schemas/filtered</code> e a superficie estrutural canonica
+desse contrato</li>
 </ul>
 <h2 id="resourceintent">ResourceIntent</h2>
 <p>Use <code>@ResourceIntent</code> quando um <code>PATCH</code>
@@ -220,6 +222,8 @@ semanticamente uma experiencia sobre uma operacao real.</p>
 <li><code>surface</code> nao define payload</li>
 <li><code>surface</code> aponta para operacao real + schema
 canonico</li>
+<li>o schema continua vindo de <code>/schemas/filtered</code>, nao de
+<code>/schemas/surfaces</code></li>
 <li><code>ITEM</code> em <code>/schemas/surfaces</code> e discovery-only
 sem <code>resourceId</code>; a availability real vem de
 <code>GET /{resource}/{id}/surfaces</code></li>
@@ -239,6 +243,8 @@ negocio explicito.</p>
 <li><code>action</code> nao e CRUD</li>
 <li><code>action</code> nao e patch de manutencao do recurso</li>
 <li>execucao sempre por endpoint tipado real</li>
+<li><code>/schemas/actions</code> faz discovery semantico; nao publica
+um segundo contrato de payload</li>
 <li><code>ITEM</code> em <code>/schemas/actions</code> e discovery-only
 sem <code>resourceId</code>; a availability real vem de
 <code>GET /{resource}/{id}/actions</code></li>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Relatorio de Rodada de Prova</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Relatorio de Rodada de Prova</h1>
+</header>
+<h1 id="relatorio-de-rodada-de-prova">Relatorio de Rodada de Prova</h1>
+<h2 id="identificacao">Identificacao</h2>
+<ul>
+<li>rodada: 4</li>
+<li>data: 2026-04-08</li>
+<li>executor: Codex</li>
+<li>llm: GPT-5 Codex</li>
+<li>versao do guia: baseline atual com <code>resourceKey</code>, JDK 21
+fixado no harness e trilha MapStruct ja revalidada</li>
+<li>projeto sandbox: <code>tmp/ai-guide-proof-h2-filters-r2</code></li>
+<li>banco usado: H2 em memoria</li>
+</ul>
+<h2 id="material-entregue-a-llm">Material entregue a LLM</h2>
+<ul>
+<li>guias liberados:
+<ul>
+<li><code>docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>docs/guides/CHECKLIST-VALIDACAO-IA.md</code></li>
+</ul></li>
+<li>prompt usado:
+<ul>
+<li>trilha H2 com relacao + MapStruct, agora explicitando a Rodada 4 com
+filtros ricos</li>
+</ul></li>
+<li>restricoes adicionais:
+<ul>
+<li>migrations fisicas</li>
+<li><code>MapStruct + CorporateMapperConfig</code></li>
+<li>validacao real de <code>LIKE</code>, <code>EQUAL</code> e
+<code>BETWEEN</code></li>
+<li>validacao sequencial de mutacao, filtro e <code>ETag</code></li>
+</ul></li>
+</ul>
+<h2 id="resultado">Resultado</h2>
+<ul>
+<li>status geral: aprovado</li>
+<li>build: aprovado</li>
+<li>startup: aprovado</li>
+<li>contrato de schemas: aprovado</li>
+<li>CRUD baseline: aprovado</li>
+<li>filtro rico: aprovado</li>
+<li>options: aprovado</li>
+<li>consumo Angular: nao executado</li>
+</ul>
+<h2 id="evidencias-minimas">Evidencias minimas</h2>
+<ul>
+<li>comando de build:
+<ul>
+<li><code>mvn -q clean package</code></li>
+</ul></li>
+<li>comando de startup:
+<ul>
+<li><code>java -jar target/ai-guide-proof-h2-filters-1.0.0-SNAPSHOT.jar</code></li>
+</ul></li>
+<li>endpoint
+<code>GET /schemas/filtered?path=/api/catalog/produtos/filter&amp;operation=post&amp;schemaType=request</code>:
+<ul>
+<li><code>200 OK</code>, com campos <code>nome</code>,
+<code>ativo</code>, <code>categoriaId</code>, <code>precoBetween</code>
+e <code>dataCadastroRange</code></li>
+<li><code>x-ui.resource.idField = "id"</code></li>
+<li><code>x-ui.resource.idFieldValid = false</code></li>
+</ul></li>
+<li>endpoint
+<code>POST /api/catalog/categorias/options/filter?page=0&amp;size=20</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint
+<code>GET /api/catalog/categorias/options/by-ids?ids=1,2</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>POST /api/catalog/produtos</code>:
+<ul>
+<li><code>201 Created</code> para <code>Produto Alpha</code>,
+<code>Produto Beta</code> e <code>Servico Gamma</code></li>
+</ul></li>
+<li>endpoint
+<code>POST /api/catalog/produtos/filter?page=0&amp;size=20</code> com
+<code>{"nome":"Produto"}</code>:
+<ul>
+<li><code>200 OK</code>, retornando <code>Produto Alpha</code> e
+<code>Produto Beta</code></li>
+</ul></li>
+<li>endpoint
+<code>POST /api/catalog/produtos/filter?page=0&amp;size=20</code> com
+<code>{"ativo":true}</code>:
+<ul>
+<li><code>200 OK</code>, retornando <code>Produto Alpha</code> e
+<code>Servico Gamma</code></li>
+</ul></li>
+<li>endpoint
+<code>POST /api/catalog/produtos/filter?page=0&amp;size=20</code> com
+<code>{"categoriaId":2}</code>:
+<ul>
+<li><code>200 OK</code>, retornando <code>Produto Alpha</code> e
+<code>Servico Gamma</code></li>
+</ul></li>
+<li>endpoint
+<code>POST /api/catalog/produtos/filter?page=0&amp;size=20</code> com
+<code>{"precoBetween":[10,30]}</code>:
+<ul>
+<li><code>200 OK</code>, retornando <code>Produto Alpha</code> e
+<code>Produto Beta</code></li>
+</ul></li>
+<li>endpoint
+<code>POST /api/catalog/produtos/filter?page=0&amp;size=20</code> com
+<code>{"dataCadastroRange":["2026-03-01","2026-03-15"]}</code>:
+<ul>
+<li><code>200 OK</code>, retornando <code>Produto Alpha</code> e
+<code>Produto Beta</code></li>
+</ul></li>
+<li>endpoint
+<code>POST /api/catalog/produtos/filter?page=0&amp;size=20</code> com
+<code>{"ativo":true,"categoriaId":2,"precoBetween":[0,20]}</code>:
+<ul>
+<li><code>200 OK</code>, retornando apenas
+<code>Produto Alpha</code></li>
+</ul></li>
+<li>endpoint <code>GET /schemas/filtered?...</code> com
+<code>If-None-Match</code>:
+<ul>
+<li><code>304 Not Modified</code></li>
+</ul></li>
+<li>endpoint <code>GET /api/catalog/produtos/capabilities</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>GET /api/catalog/produtos/1/capabilities</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint
+<code>GET /schemas/surfaces?resource=catalog.produtos</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint
+<code>GET /schemas/actions?resource=catalog.produtos</code>:
+<ul>
+<li><code>404</code> sem workflow, como esperado</li>
+</ul></li>
+</ul>
+<h2 id="falhas-encontradas">Falhas encontradas</h2>
+<ul>
+<li>nenhuma bloqueante nesta revalidacao</li>
+</ul>
+<h2 id="divergencias-entre-guia-e-codigo">Divergencias entre guia e
+codigo</h2>
+<ul>
+<li>o pacote <code>ai-proof</code> ainda nao tinha uma secao explicita
+de prompt para a Rodada 4</li>
+</ul>
+<h2 id="divergencias-entre-guia-e-comportamento-da-llm">Divergencias
+entre guia e comportamento da LLM</h2>
+<ul>
+<li>nenhuma bloqueante nesta rodada</li>
+</ul>
+<h2 id="acoes-apos-a-rodada">Acoes apos a rodada</h2>
+<ul>
+<li>ajustes no guia:
+<ul>
+<li>nenhum adicional obrigatorio nos guias principais</li>
+</ul></li>
+<li>ajustes no checklist:
+<ul>
+<li>incluir verificacao explicita de <code>LIKE</code>,
+<code>EQUAL</code> e <code>BETWEEN</code> quando a rodada pedir filtros
+ricos</li>
+</ul></li>
+<li>ajustes no prompt:
+<ul>
+<li>adicionar secao explicita da Rodada 4 ao
+<code>PROMPTS-DE-EXECUCAO.md</code></li>
+</ul></li>
+<li>ajuste necessario no starter:
+<ul>
+<li>nenhum novo bloqueio funcional detectado nesta rodada</li>
+</ul></li>
+</ul>
+<h2 id="veredito">Veredito</h2>
+<ul>
+<li>pode repetir a mesma rodada sem mudar prompt: sim</li>
+<li>pronto para proxima rodada: sim</li>
+<li>ponto exato de retomada:
+<ul>
+<li>iniciar a rodada de consumo Angular usando o backend aprovado como
+fonte do contrato</li>
+</ul></li>
+</ul>
+</body>
+</html>

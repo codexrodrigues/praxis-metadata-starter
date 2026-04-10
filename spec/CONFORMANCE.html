@@ -367,16 +367,27 @@ os consumidores sejam endurecidos no mesmo nivel.</p>
 id="compatibilidade-de-consumidor---x-ui.optionsource">Compatibilidade
 de consumidor - <code>x-ui.optionSource</code></h2>
 <p>O draft canonico de <code>x-ui.optionSource</code> ainda pode ser
-mais amplo que o rollout implementado em cada consumidor.</p>
-<p>Estado esperado por fase:</p>
+mais amplo que o rollout implementado em cada consumidor, mas o starter
+ja trata essa superficie como contrato publico oficial.</p>
+<p>Estado canonicamente suportado no starter:</p>
 <ul>
 <li>documentado na RFC: <code>x-ui-option-source-rfc.md</code></li>
 <li>validado no schema de campo:
 <code>x-ui-field.schema.json</code></li>
-<li>ainda nao obrigatoriamente publicado/executado em todos os
-hosts</li>
-<li>ainda nao obrigatoriamente consumido pelo runtime Angular
-oficial</li>
+<li>publicado em <code>/schemas/filtered</code> quando o recurso expoe
+<code>OptionSourceRegistry</code></li>
+<li>executado pelos controllers base para
+<code>DISTINCT_DIMENSION</code> e <code>CATEGORICAL_BUCKET</code></li>
+<li>exposto nas capacidades agregadas e nos endpoints
+<code>/{resource}/option-sources/{sourceKey}/options/*</code></li>
+</ul>
+<p>Assimetria que ainda pode existir fora do starter:</p>
+<ul>
+<li>um consumidor especifico pode ainda nao consumir todo o draft de
+<code>x-ui.optionSource</code></li>
+<li>tipos como <code>RESOURCE_ENTITY</code>, <code>LIGHT_LOOKUP</code> e
+<code>STATIC_CANONICAL</code> ainda nao estao implementados de ponta a
+ponta no executor JPA padrao</li>
 </ul>
 <p>Diretriz de rollout:</p>
 <ul>
@@ -406,9 +417,11 @@ cache</li>
 o starter atualmente serializa como <code>string</code> em alguns
 caminhos legados. Mantido assim por compatibilidade com consumidores
 atuais.</li>
-<li><code>optionSource</code>: o schema draft ja valida o bloco, mas a
-publicacao em <code>/schemas/filtered</code> e o consumo runtime oficial
-dependem das PRs de rollout de backend/host/UI.</li>
+<li><code>optionSource</code>: o starter ja publica e executa a
+superficie base para <code>DISTINCT_DIMENSION</code> e
+<code>CATEGORICAL_BUCKET</code>; a compatibilidade remanescente esta
+concentrada nos consumidores especificos e nos tipos ainda nao
+implementados pelo executor JPA padrao.</li>
 </ul>
 <h2 id="suite-de-fixtures">Suite de fixtures</h2>
 <ul>

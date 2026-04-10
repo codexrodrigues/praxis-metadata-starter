@@ -24,8 +24,9 @@ Antes de tocar o consumidor:
 
 Referencias obrigatorias:
 
-- `docs/technical/RESOURCE-SURFACE-ACTION-ARCHITECTURE-PLAN.md`
-- `docs/technical/E2E-TEST-BACKLOG.md`
+- `docs/architecture-overview.md`
+- `docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`
+- `docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md`
 - `docs/technical/PILOT-READINESS-CHECKLIST.md`
 - `docs/technical/ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.md`
 
@@ -44,7 +45,7 @@ Evite no primeiro piloto:
 - recurso com regras de workflow altamente excepcionais
 - recurso com necessidade imediata de compatibilidade paralela
 
-## Mapeamento do legado para o core novo
+## Mapeamento de um host antigo para o baseline atual
 
 ### Se hoje existe DTO unico
 
@@ -55,12 +56,14 @@ Separar em:
 - `UpdateDTO`
 - `FilterDTO`
 
-### Se hoje o controller usa legado
+### Se hoje o host concentra leitura e escrita no mesmo recurso
 
-Trocar:
+Trocar por:
 
-- `AbstractCrudController` -> `AbstractResourceController`
-- `AbstractReadOnlyController` -> `AbstractReadOnlyResourceController`
+- `AbstractResourceController` para recurso mutavel
+- `AbstractReadOnlyResourceController` para recurso somente leitura
+- `AbstractBaseResourceService` ou `AbstractReadOnlyResourceService` no service
+- `ResourceMapper` para separar response, create e update
 
 ### Se hoje existe patch sem semantica clara
 

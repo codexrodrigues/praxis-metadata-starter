@@ -1,12 +1,12 @@
 # Visao dos Pacotes do Praxis Metadata Starter
 
 Esta referencia resume os pacotes Java disponibilizados pelo starter e como
-eles se conectam ao baseline atual da plataforma.
+eles se conectam ao baseline canonico atual da plataforma.
 
-> Importante: esta pagina mistura o baseline canonico atual com classes
-> legadas ainda presentes no codigo. Para aplicacoes novas, a fonte de verdade
-> continua sendo `resource + surfaces + actions + capabilities + HATEOAS`,
-> conforme `architecture-overview.md` e os guias principais.
+> Importante: esta pagina descreve apenas a superficie viva do starter.
+> Para onboarding, a fonte de verdade continua sendo
+> `resource + surfaces + actions + capabilities + HATEOAS`, conforme
+> `architecture-overview.md` e os guias principais.
 
 ## `annotation`
 
@@ -36,10 +36,13 @@ Essas pecas ligam resolvers, grouped OpenAPI e os controllers de docs/discovery.
 Camada HTTP do starter.
 
 - `controller.docs` publica `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces` e `/schemas/actions`
-- `controller.base` contem tanto o core atual resource-oriented quanto classes legadas ainda mantidas por compatibilidade
+- `controller.base` concentra o core resource-oriented
 
-Para aplicacoes novas, priorize os controllers resource-oriented. Leia
-`AbstractCrudController` apenas como referencia de legado ou migracao.
+Os controllers-base canonicos sao:
+
+- `AbstractResourceController`
+- `AbstractReadOnlyResourceController`
+- `AbstractResourceQueryController`
 
 ## `dto`
 
@@ -91,11 +94,14 @@ Infraestrutura base de acesso a dados.
 
 Camada de servicos base.
 
-- o pacote contem servicos resource-oriented atuais
-- tambem contem servicos CRUD legados ainda presentes no codigo
+- `AbstractBaseQueryResourceService`
+- `AbstractBaseResourceService`
+- `AbstractReadOnlyResourceService`
+- `BaseResourceQueryService`
+- `BaseResourceCommandService`
+- `BaseResourceService`
 
-Para aplicacoes novas, trate `BaseCrudService` como referencia historica do
-core legado, nao como baseline recomendado.
+Essas interfaces e classes sustentam o baseline query/command atual do starter.
 
 ## `util`
 
@@ -110,4 +116,4 @@ Utilitarios de suporte, incluindo:
 1. identifique o pacote relevante
 2. confira `architecture-overview.md` para entender o papel dele no baseline atual
 3. use os guias principais para onboarding
-4. use o Javadoc quando precisar aprofundar detalhes de API ou classes legadas
+4. use o Javadoc publicado quando precisar aprofundar detalhes de API Java

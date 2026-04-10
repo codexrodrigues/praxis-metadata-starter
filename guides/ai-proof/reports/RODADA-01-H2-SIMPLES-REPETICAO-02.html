@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Relatorio de Rodada de Prova</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Relatorio de Rodada de Prova</h1>
+</header>
+<h1 id="relatorio-de-rodada-de-prova">Relatorio de Rodada de Prova</h1>
+<h2 id="identificacao">Identificacao</h2>
+<ul>
+<li>rodada: 1</li>
+<li>repeticao: 2</li>
+<li>data: 2026-04-08</li>
+<li>executor: Codex</li>
+<li>llm: GPT-5 Codex</li>
+<li>versao do guia: apos revisao editorial dos guias de adocao e
+alinhamento fino de <code>/schemas/filtered</code> vs
+<code>/schemas/catalog</code></li>
+<li>projeto sandbox: <code>tmp/ai-guide-proof-h2-simple-r3</code></li>
+<li>banco usado: H2 em memoria</li>
+</ul>
+<h2 id="material-entregue-a-llm">Material entregue a LLM</h2>
+<ul>
+<li>guias liberados:
+<ul>
+<li><code>docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>docs/guides/CHECKLIST-VALIDACAO-IA.md</code></li>
+<li><code>docs/guides/ai-proof/PROMPTS-DE-EXECUCAO.md</code></li>
+</ul></li>
+<li>prompt usado:
+<ul>
+<li><code>docs/guides/ai-proof/PROMPTS-DE-EXECUCAO.md</code> -&gt;
+<code>Rodada 1: H2 simples</code></li>
+</ul></li>
+<li>restricoes adicionais:
+<ul>
+<li>sandbox limpo</li>
+<li>migrations fisicas via Flyway</li>
+<li>sem reaproveitar codigo de app consumidor</li>
+</ul></li>
+</ul>
+<h2 id="resultado">Resultado</h2>
+<ul>
+<li>status geral: aprovado com ressalvas</li>
+<li>build: aprovado</li>
+<li>startup: aprovado</li>
+<li>contrato de schemas: aprovado</li>
+<li>CRUD baseline: aprovado</li>
+<li>options: nao aplicavel</li>
+<li>consumo Angular: nao executado</li>
+</ul>
+<h2 id="evidencias-minimas">Evidencias minimas</h2>
+<ul>
+<li>comando de build:
+<ul>
+<li><code>mvn -q clean package</code></li>
+</ul></li>
+<li>comando de startup:
+<ul>
+<li><code>D:\Developer\JAVA\graalvm-jdk-21.0.2+13.1\bin\java.exe -jar target/ai-guide-proof-h2-simple-1.0.0-SNAPSHOT.jar</code></li>
+</ul></li>
+<li>endpoint <code>GET /v3/api-docs</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>GET /{resource}/schemas</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>GET /schemas/filtered?...response</code>:
+<ul>
+<li><code>200 OK</code> com <code>ETag</code> e
+<code>X-Schema-Hash</code></li>
+</ul></li>
+<li>endpoint <code>GET /schemas/filtered?...request</code>:
+<ul>
+<li><code>200 OK</code> com <code>ETag</code> e
+<code>X-Schema-Hash</code></li>
+</ul></li>
+<li>endpoint <code>POST /{resource}</code>:
+<ul>
+<li><code>201 Created</code></li>
+</ul></li>
+<li>endpoint <code>POST /{resource}/filter</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>POST /{resource}/options/filter</code>:
+<ul>
+<li>nao aplicavel</li>
+</ul></li>
+<li>endpoint <code>GET /{resource}/options/by-ids</code>:
+<ul>
+<li>nao aplicavel</li>
+</ul></li>
+<li>endpoint <code>GET /schemas/catalog</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint
+<code>GET /schemas/surfaces?resource=catalog.categorias</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint
+<code>GET /schemas/actions?resource=catalog.categorias</code>:
+<ul>
+<li><code>404 Not Found</code> sem workflow, conforme esperado</li>
+</ul></li>
+<li>endpoint <code>GET /{resource}/capabilities</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>endpoint <code>GET /{resource}/{id}/capabilities</code>:
+<ul>
+<li><code>200 OK</code></li>
+</ul></li>
+<li>revalidacao <code>If-None-Match</code>:
+<ul>
+<li><code>304 Not Modified</code></li>
+</ul></li>
+</ul>
+<h2 id="falhas-encontradas">Falhas encontradas</h2>
+<h3 id="falha-1">Falha 1</h3>
+<ul>
+<li>categoria: prompt-incompleto</li>
+<li>sintoma: o prompt canonico da <code>Rodada 1: H2 simples</code> nao
+informava <code>resourceKey</code>, embora os guias tratem esse campo
+como entrada obrigatoria</li>
+<li>evidencia:
+<ul>
+<li><code>docs/guides/ai-proof/PROMPTS-DE-EXECUCAO.md</code> listava
+<code>resourcePath</code> e <code>Api group</code>, mas nao
+<code>resourceKey</code></li>
+</ul></li>
+<li>causa provavel:
+<ul>
+<li>drift entre o pacote <code>ai-proof</code> e os guias principais
+apos a consolidacao do baseline resource-oriented atual</li>
+</ul></li>
+<li>impede aprovacao: nao</li>
+<li>ajuste proposto:
+<ul>
+<li>adicionar <code>Resource key</code> explicitamente no prompt da
+rodada</li>
+</ul></li>
+</ul>
+<h3 id="falha-2">Falha 2</h3>
+<ul>
+<li>categoria: harness-incompleto</li>
+<li>sintoma: a primeira tentativa de startup do jar falhou porque o
+launcher caiu em um <code>java</code> do PATH diferente do JDK 21 usado
+no build</li>
+<li>evidencia:
+<ul>
+<li>erro inicial: <code>UnsupportedClassVersionError</code> ao subir o
+jar com runtime Java 8</li>
+</ul></li>
+<li>causa provavel:
+<ul>
+<li>o protocolo e o sandbox nao exigiam de forma explicita que build e
+startup usassem o mesmo <code>JAVA_HOME</code></li>
+</ul></li>
+<li>impede aprovacao: nao</li>
+<li>ajuste proposto:
+<ul>
+<li>fixar no protocolo e no sandbox que build e startup devem usar
+explicitamente JDK 21</li>
+</ul></li>
+</ul>
+<h3 id="falha-3">Falha 3</h3>
+<ul>
+<li>categoria: problema-real-do-starter</li>
+<li>sintoma: logs de inicializacao do starter ainda exibem mojibake em
+mensagens do <code>DynamicSwaggerConfig</code></li>
+<li>evidencia:
+<ul>
+<li>saida com caracteres corrompidos em mensagens como validacao de
+<code>@ApiResource</code></li>
+</ul></li>
+<li>causa provavel:
+<ul>
+<li>residuos de encoding em logs do starter</li>
+</ul></li>
+<li>impede aprovacao: nao</li>
+<li>ajuste proposto:
+<ul>
+<li>revisar strings de log do pacote <code>configuration</code> e
+classes relacionadas</li>
+</ul></li>
+</ul>
+<h2 id="divergencias-entre-guia-e-codigo">Divergencias entre guia e
+codigo</h2>
+<ul>
+<li>os guias principais permitiram chegar a um backend funcional com H2,
+Flyway, schema, CRUD e capabilities sem correcao estrutural no codigo
+gerado</li>
+</ul>
+<h2 id="divergencias-entre-guia-e-comportamento-da-llm">Divergencias
+entre guia e comportamento da LLM</h2>
+<ul>
+<li>nenhuma bloqueante nesta repeticao; os gaps encontrados estavam no
+pacote operacional <code>ai-proof</code>, nao no baseline principal dos
+guias</li>
+</ul>
+<h2 id="acoes-apos-a-rodada">Acoes apos a rodada</h2>
+<ul>
+<li>ajustes no guia:
+<ul>
+<li>nenhum obrigatorio nos guias principais desta rodada</li>
+</ul></li>
+<li>ajustes no checklist:
+<ul>
+<li>corrigir residuo de mojibake em referencia publica</li>
+</ul></li>
+<li>ajustes no prompt:
+<ul>
+<li>adicionar a entrada <code>Resource key</code> na rodada H2
+simples</li>
+</ul></li>
+<li>ajuste necessario no starter:
+<ul>
+<li>registrar backlog para limpar mojibake em logs do starter</li>
+</ul></li>
+</ul>
+<h2 id="veredito">Veredito</h2>
+<ul>
+<li>pode repetir a mesma rodada sem mudar prompt: sim</li>
+<li>pronto para proxima rodada: sim</li>
+<li>ponto exato de retomada:
+<ul>
+<li>iniciar <code>Rodada 2: H2 com relacao</code> com o prompt
+atualizado e o mesmo harness fixando JDK 21</li>
+</ul></li>
+</ul>
+</body>
+</html>

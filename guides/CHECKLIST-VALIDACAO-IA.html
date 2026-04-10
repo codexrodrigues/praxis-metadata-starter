@@ -208,6 +208,9 @@ ordem</li>
 <ul>
 <li><code>FilterDTO</code> usa <code>@Filterable</code>
 corretamente</li>
+<li>filtros ricos cobrem ao menos um caso real de <code>LIKE</code>,
+<code>EQUAL</code> e <code>BETWEEN</code> quando a rodada exigir esse
+cenario</li>
 <li><code>/filter</code> e <code>/filter/cursor</code> respeitam sort e
 limites</li>
 <li><code>/locate</code> retorna resposta coerente</li>
@@ -220,6 +223,8 @@ limites</li>
 <li><code>If-None-Match</code> retorna <code>304</code> quando o schema
 nao muda</li>
 <li><code>x-ui.resource.idField</code> esta resolvido corretamente</li>
+<li>em request schemas com campos relacionais <code>...Id</code>, o
+<code>idField</code> nao deve ser sequestrado pelo id da relacao</li>
 </ul>
 <h2 id="dtos-mapeamentos-e-service">7. DTOs, mapeamentos e service</h2>
 <ul>
@@ -261,7 +266,7 @@ read-only</li>
 <li>guias principais: <code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code>,
 <code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code>,
 <code>GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md</code></li>
-<li>repositÃ³rio Git do runtime Angular:
+<li>repositorio Git do runtime Angular:
 <code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
 <li>pacotes npm relevantes: <code>@praxisui/core</code>,
 <code>@praxisui/table</code>, <code>@praxisui/dynamic-form</code>,

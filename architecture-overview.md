@@ -195,7 +195,7 @@ sendo a base do runtime.
 Nao explicar o starter como se ele fosse:
 
 - apenas um gerador de CRUD
-- apenas `@UISchema` + `AbstractCrudController`
+- apenas DTO anotado + CRUD generico
 - um sistema em que `/schemas/catalog` substitui `/schemas/filtered`
 - um backend que publica schema estrutural sem semantica de recurso
 

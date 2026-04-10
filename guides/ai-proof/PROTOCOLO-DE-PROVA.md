@@ -16,6 +16,8 @@ Medir se uma LLM consegue, partindo apenas dos guias oficiais, produzir:
 - falhas de build, runtime, contrato ou consumo contam como reprova
 - toda rodada deve gerar um relatorio a partir de
   `TEMPLATE-RELATORIO-DE-RODADA.md`
+- o harness deve fixar JDK 21 de build e startup para evitar falso negativo por
+  execucao com `java` divergente do PATH
 
 ## Material permitido para a LLM
 
@@ -31,7 +33,7 @@ Material adicional opcional:
 
 - `docs/guides/OPTIONS-ENDPOINT.md`
 - `docs/guides/FILTROS-E-PAGINACAO.md`
-- `docs/guides/CRUD-COM-APIRESOURCE.md`
+- `docs/guides/READ-ONLY-VIEWS.md`
 
 Nao liberar como baseline:
 

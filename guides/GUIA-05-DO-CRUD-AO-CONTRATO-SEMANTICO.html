@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Guia 05 - Do CRUD ao Contrato Semantico</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Guia 05 - Do CRUD ao Contrato Semantico</h1>
+</header>
+<h1 id="guia-05---do-crud-ao-contrato-semantico">Guia 05 - Do CRUD ao
+Contrato Semantico</h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este guia mostra visualmente por que o
+<code>praxis-metadata-starter</code> nao deve ser lido como “CRUD com
+DTO anotado”.</p>
+<p>O ponto central e este:</p>
+<ul>
+<li><code>resource</code> continua sendo o contrato canonico</li>
+<li><code>surface</code> adiciona descoberta semantica de
+experiencia</li>
+<li><code>workflow action</code> adiciona descoberta semantica de
+comando de negocio</li>
+<li><code>capabilities</code> agrega o que pode ser feito agora</li>
+<li>tudo isso continua apontando para operacoes HTTP reais e schemas
+canonicos</li>
+</ul>
+<h2 id="a-mudanca-de-modelo">A mudanca de modelo</h2>
+<p>O modelo antigo de leitura mental era:</p>
+<pre class="mermaid"><code>flowchart LR
+    dto[&quot;DTO anotado&quot;] --&gt; crud[&quot;CRUD generico&quot;]
+    crud --&gt; ui[&quot;UI renderizada&quot;]</code></pre>
+<p>O modelo atual do starter e:</p>
+<pre class="mermaid"><code>flowchart LR
+    resource[&quot;Resource HTTP real&quot;] --&gt; filtered[&quot;/schemas/filtered&quot;]
+    resource --&gt; catalog[&quot;/schemas/catalog&quot;]
+    resource --&gt; surfaces[&quot;/schemas/surfaces&quot;]
+    resource --&gt; actions[&quot;/schemas/actions&quot;]
+    surfaces --&gt; capabilities[&quot;/{resource}/capabilities&quot;]
+    actions --&gt; capabilities
+    filtered --&gt; runtime[&quot;Runtime Angular&quot;]
+    catalog --&gt; docs[&quot;Docs, examples, RAG&quot;]
+    capabilities --&gt; clients[&quot;Clientes semanticos e assistentes&quot;]</code></pre>
+<p>Praxis continua tendo CRUD quando o recurso realmente e CRUD. O ganho
+da plataforma esta no que aparece em volta dele.</p>
+<h2 id="camada-1---resource-continua-sendo-a-fonte-da-verdade">Camada 1
+- Resource continua sendo a fonte da verdade</h2>
+<p><code>resource</code> continua definindo:</p>
+<ul>
+<li>path HTTP real</li>
+<li>payload real</li>
+<li>schema real</li>
+<li>operacoes reais</li>
+</ul>
+<p>Exemplos canonicos:</p>
+<ul>
+<li><code>GET /employees/{id}</code></li>
+<li><code>POST /employees</code></li>
+<li><code>PUT /employees/{id}</code></li>
+<li><code>POST /employees/filter</code></li>
+</ul>
+<p>O que mudou:</p>
+<ul>
+<li>o recurso agora nasce com <code>resourceKey</code></li>
+<li>o recurso passa a ser indexado por discovery</li>
+<li>o recurso passa a publicar links e snapshots agregados</li>
+</ul>
+<h2
+id="camada-2---resourceintent-evita-transformar-tudo-em-workflow">Camada
+2 - ResourceIntent evita transformar tudo em workflow</h2>
+<p>Nem todo <code>PATCH</code> com nome proprio e workflow.</p>
+<pre class="mermaid"><code>flowchart TD
+    patch[&quot;PATCH tipado real&quot;] --&gt; q1{&quot;Ainda e manutencao do mesmo recurso?&quot;}
+    q1 -- &quot;sim&quot; --&gt; intent[&quot;Resource + @ResourceIntent&quot;]
+    q1 -- &quot;nao&quot; --&gt; action[&quot;@WorkflowAction&quot;]</code></pre>
+<p>Exemplo:</p>
+<ul>
+<li><code>PATCH /employees/{id}/profile</code></li>
+</ul>
+<p>Se o endpoint ainda atualiza parte do mesmo recurso:</p>
+<ul>
+<li>continua sendo <code>resource</code></li>
+<li>pode receber <code>@ResourceIntent</code></li>
+<li>pode receber <code>@UiSurface</code> se a UX precisar discovery
+semantico</li>
+</ul>
+<p>Ele nao precisa virar workflow apenas porque tem nome.</p>
+<h2 id="camada-3---uisurface-publica-experiencia-nao-payload">Camada 3 -
+UiSurface publica experiencia, nao payload</h2>
+<p><code>@UiSurface</code> nao cria schema novo. Ela aponta para uma
+operacao real e para o schema canonico daquela operacao.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant UX as UX / host
+    participant Catalog as /schemas/surfaces
+    participant Op as Operacao real
+    participant Schema as /schemas/filtered
+
+    UX-&gt;&gt;Catalog: descobrir surfaces do recurso
+    Catalog--&gt;&gt;UX: metadata semantica da surface
+    UX-&gt;&gt;Op: seguir a operacao real associada
+    UX-&gt;&gt;Schema: resolver request/response schema canonico</code></pre>
+<p>Isso permite modelar:</p>
+<ul>
+<li>formulario parcial</li>
+<li>detalhe especializado</li>
+<li>projecao de leitura</li>
+<li>experiencia contextual por item</li>
+</ul>
+<p>Sem duplicar contrato de payload.</p>
+<h2 id="camada-4---workflowaction-publica-comando-de-negocio">Camada 4 -
+WorkflowAction publica comando de negocio</h2>
+<p><code>@WorkflowAction</code> e o eixo em que o Praxis vai claramente
+alem do CRUD.</p>
+<p>Exemplos:</p>
+<ul>
+<li><code>approve</code></li>
+<li><code>reject</code></li>
+<li><code>resubmit</code></li>
+<li><code>bulk-approve</code></li>
+</ul>
+<pre class="mermaid"><code>flowchart TD
+    op[&quot;POST/PATCH real&quot;] --&gt; q1{&quot;E manutencao do recurso?&quot;}
+    q1 -- &quot;nao&quot; --&gt; action[&quot;@WorkflowAction&quot;]
+    action --&gt; catalog[&quot;/schemas/actions&quot;]
+    catalog --&gt; schema[&quot;request/response schema canonico&quot;]</code></pre>
+<p>Regras reais do starter:</p>
+<ul>
+<li>action nao cria dispatcher generico</li>
+<li>action nao substitui endpoint real</li>
+<li>action nao publica payload inline</li>
+<li>action aparece no catalogo semantico por referencia ao
+request/response schema</li>
+</ul>
+<p>No codigo, isso e resolvido por scanner real de handlers em:</p>
+<ul>
+<li><code>AnnotationDrivenActionDefinitionRegistry</code></li>
+</ul>
+<h2 id="camada-5---capabilities-agregam-o-que-existe-agora">Camada 5 -
+Capabilities agregam o que existe agora</h2>
+<p><code>capabilities</code> existem para responder a pergunta:</p>
+<p>“o que esta disponivel agora para este recurso ou para esta
+instancia?”</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant Client as Cliente
+    participant Capability as CapabilityService
+    participant Ops as OpenAPI canonical ops
+    participant Surfaces as SurfaceCatalogService
+    participant Actions as ActionCatalogService
+
+    Client-&gt;&gt;Capability: GET /{resource}/{id}/capabilities
+    Capability-&gt;&gt;Ops: resolver operacoes canonicas
+    Capability-&gt;&gt;Surfaces: resolver surfaces contextuais
+    Capability-&gt;&gt;Actions: resolver actions contextuais
+    Capability--&gt;&gt;Client: snapshot agregado</code></pre>
+<p>O snapshot agrega:</p>
+<ul>
+<li>operacoes canonicas do recurso</li>
+<li>surfaces disponiveis</li>
+<li>actions disponiveis</li>
+</ul>
+<p>Sem substituir:</p>
+<ul>
+<li><code>/schemas/filtered</code></li>
+<li><code>/schemas/surfaces</code></li>
+<li><code>/schemas/actions</code></li>
+</ul>
+<p>Ou seja:</p>
+<ul>
+<li><code>filtered</code> continua sendo contrato estrutural</li>
+<li><code>capabilities</code> vira contrato agregado de
+disponibilidade</li>
+</ul>
+<h2 id="como-os-conceitos-se-encaixam">Como os conceitos se
+encaixam</h2>
+<pre class="mermaid"><code>flowchart TD
+    resource[&quot;Resource&quot;] --&gt; intent[&quot;ResourceIntent&quot;]
+    resource --&gt; surface[&quot;UiSurface&quot;]
+    resource --&gt; action[&quot;WorkflowAction&quot;]
+    resource --&gt; filtered[&quot;/schemas/filtered&quot;]
+    surface --&gt; surfaces[&quot;/schemas/surfaces&quot;]
+    action --&gt; actions[&quot;/schemas/actions&quot;]
+    filtered --&gt; capabilities[&quot;/capabilities&quot;]
+    surfaces --&gt; capabilities
+    actions --&gt; capabilities</code></pre>
+<p>Leitura correta do diagrama:</p>
+<ul>
+<li><code>ResourceIntent</code> continua dentro do eixo
+<code>resource</code></li>
+<li><code>UiSurface</code> publica uma experiencia semantica sobre
+operacao real</li>
+<li><code>WorkflowAction</code> publica um comando de negocio</li>
+<li><code>capabilities</code> e a agregacao desses eixos</li>
+</ul>
+<h2 id="o-que-isso-habilita-na-pratica">O que isso habilita na
+pratica</h2>
+<p>Com esse modelo, o backend passa a publicar mais do que
+endpoints.</p>
+<p>Ele publica:</p>
+<ul>
+<li>estrutura para renderizacao</li>
+<li>identidade semantica do recurso</li>
+<li>experiencias de UI descobriveis</li>
+<li>comandos de negocio descobriveis</li>
+<li>snapshot de disponibilidade contextual</li>
+<li>links HATEOAS efetivos</li>
+</ul>
+<p>Isso habilita:</p>
+<ul>
+<li>runtime Angular mais inteligente</li>
+<li>catálogos documentais e RAG</li>
+<li>clientes semanticos</li>
+<li>assistentes que descobrem o que podem fazer sem hardcode local</li>
+</ul>
+<h2 id="exemplo-mental-rapido">Exemplo mental rapido</h2>
+<p>Considere um recurso <code>eventos-folha</code>.</p>
+<p>Ele pode ter:</p>
+<ul>
+<li><code>GET /eventos-folha/{id}</code> -&gt; resource</li>
+<li><code>PATCH /eventos-folha/{id}/profile</code> -&gt; resource +
+<code>@ResourceIntent</code></li>
+<li><code>PATCH /eventos-folha/{id}/profile</code> +
+<code>@UiSurface</code> -&gt; a UX descobre um formulario parcial
+real</li>
+<li><code>POST /eventos-folha/actions/bulk-approve</code> +
+<code>@WorkflowAction</code> -&gt; comando de negocio de colecao</li>
+<li><code>GET /eventos-folha/capabilities</code> -&gt; snapshot
+agregado</li>
+</ul>
+<p>O ponto nao e “ter mais endpoints”. O ponto e publicar semantica de
+plataforma sobre endpoints reais.</p>
+<h2 id="regra-de-ouro">Regra de ouro</h2>
+<p>Praxis nao vai alem do CRUD porque inventa uma segunda API.</p>
+<p>Praxis vai alem do CRUD porque:</p>
+<ul>
+<li>preserva o recurso como fonte da verdade</li>
+<li>adiciona discovery semantico sobre operacoes reais</li>
+<li>agrega disponibilidade contextual</li>
+<li>mantem tudo ligado a schema canonico e HATEOAS</li>
+</ul>
+<h2 id="onde-isso-aparece-no-starter">Onde isso aparece no starter</h2>
+<ul>
+<li>arquitetura geral: <code>docs/architecture-overview.md</code></li>
+<li>decisao semantica:
+<code>docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md</code></li>
+<li>discovery de surfaces:
+<code>AnnotationDrivenSurfaceDefinitionRegistry</code></li>
+<li>discovery de actions:
+<code>AnnotationDrivenActionDefinitionRegistry</code></li>
+<li>snapshot agregado: <code>DefaultCapabilityService</code></li>
+<li>endpoints contextuais e links:
+<code>AbstractResourceQueryController</code></li>
+</ul>
+<h2 id="referencias">Referencias</h2>
+<ul>
+<li><code>docs/architecture-overview.md</code></li>
+<li><code>docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md</code></li>
+<li><code>src/main/java/org/praxisplatform/uischema/surface/AnnotationDrivenSurfaceDefinitionRegistry.java</code></li>
+<li><code>src/main/java/org/praxisplatform/uischema/action/AnnotationDrivenActionDefinitionRegistry.java</code></li>
+<li><code>src/main/java/org/praxisplatform/uischema/capability/DefaultCapabilityService.java</code></li>
+<li><code>src/main/java/org/praxisplatform/uischema/controller/base/AbstractResourceQueryController.java</code></li>
+</ul>
+</body>
+</html>
