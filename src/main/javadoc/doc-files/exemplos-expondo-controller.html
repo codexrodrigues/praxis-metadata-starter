@@ -40,7 +40,7 @@ import org.praxisplatform.uischema.annotation.ApiResource;
 
 @ApiResource(ApiPaths.HumanResources.PESSOAS)
 @ApiGroup("human-resources")
-public class PessoaController extends AbstractCrudController&lt;Pessoa, PessoaDTO, Long, PessoaFilterDTO&gt; {
+public class PessoaController extends AbstractResourceController&lt;Pessoa, PessoaResponseDTO, PessoaCreateDTO, PessoaUpdateDTO, Long, PessoaFilterDTO&gt; {
   // injete service/repository conforme a arquitetura da aplicacao
 }
       </code></pre>
@@ -82,7 +82,7 @@ public class PessoaController extends AbstractCrudController&lt;Pessoa, PessoaDT
 
     <h2>Read-only (Views/@Immutable)</h2>
     <div class="card">
-      <p>Use <code>AbstractReadOnlyController</code> para manter os endpoints de leitura e responder <code>405 Method Not Allowed</code> nas operacoes de escrita.</p>
+      <p>Use <code>AbstractReadOnlyResourceController</code> para manter os endpoints de leitura e responder <code>405 Method Not Allowed</code> nas operacoes de escrita.</p>
       <p>O recurso continua com leitura, filtros, options, option-sources e schema x-ui, sem precisar duplicar controller.</p>
     </div>
 
@@ -90,8 +90,8 @@ public class PessoaController extends AbstractCrudController&lt;Pessoa, PessoaDT
     <ul>
       <li><a href="../org/praxisplatform/uischema/annotation/ApiResource.html">Javadoc: @ApiResource</a></li>
       <li><a href="../org/praxisplatform/uischema/annotation/ApiGroup.html">Javadoc: @ApiGroup</a></li>
-      <li><a href="../org/praxisplatform/uischema/controller/base/AbstractCrudController.html">Javadoc: AbstractCrudController</a></li>
-      <li><a href="../org/praxisplatform/uischema/controller/base/AbstractReadOnlyController.html">Javadoc: AbstractReadOnlyController</a></li>
+      <li><a href="../org/praxisplatform/uischema/controller/base/AbstractResourceController.html">Javadoc: AbstractResourceController</a></li>
+      <li><a href="../org/praxisplatform/uischema/controller/base/AbstractReadOnlyResourceController.html">Javadoc: AbstractReadOnlyResourceController</a></li>
       <li><a href="exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">Modelando DTO com @UISchema</a></li>
       <li><a href="exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">Consumindo o contrato</a></li>
     </ul>

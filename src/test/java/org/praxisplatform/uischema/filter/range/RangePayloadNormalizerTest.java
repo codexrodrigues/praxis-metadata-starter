@@ -195,22 +195,6 @@ class RangePayloadNormalizerTest {
         );
     }
 
-    @Test
-    void shouldNormalizeScalarRangePayloadWhenScalarFallbackIsEnabled() throws Exception {
-        RangePayloadNormalizer compatibilityNormalizer = new RangePayloadNormalizer(true, false);
-        ObjectNode payload = (ObjectNode) mapper.readTree("""
-                {
-                  "valorBetween": 1500
-                }
-                """);
-
-        boolean changed = compatibilityNormalizer.normalizeInPlace(payload, RangeFilterDTO.class);
-
-        assertTrue(changed);
-        assertEquals(1, payload.path("valorBetween").size());
-        assertEquals("1500", payload.path("valorBetween").get(0).asText());
-    }
-
     static class RangeFilterDTO implements GenericFilterDTO {
         @UISchema(numericFormat = NumericFormat.CURRENCY)
         @Filterable(operation = Filterable.FilterOperation.BETWEEN, relation = "valor")

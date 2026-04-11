@@ -9,7 +9,7 @@ Escopo e Heranca
 Classificacao Padrao da Mudanca
 - `docs-apenas`: mudancas restritas a `AGENTS.md`, `README.md`, `CHANGELOG.md` ou `docs/**` sem efeito em contrato ou codigo.
 - `contrato-publico`: qualquer mudanca em `x-ui`, `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `/capabilities`, `_links`, ETag, `X-Schema-Hash`, anotacoes exportadas ou controladores/base publicos.
-- `arquitetural`: mudanca que move semantica entre o core resource-oriented, a camada de discovery, a resolucao canonica de OpenAPI/schema, a availability contextual ou superficies anteriores de migracao.
+- `arquitetural`: mudanca que move semantica entre o core resource-oriented, a camada de discovery, a resolucao canonica de OpenAPI/schema ou a availability contextual.
 - `transversal`: mudanca que cruza mais de uma dessas fronteiras e exige sincronizar testes/docs/artefatos derivados.
 
 Fronteira Canonica Local
@@ -50,8 +50,8 @@ Fronteira Canonica Local
   - `src/main/java/org/praxisplatform/uischema/annotation/ResourceIntent.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/ResourceCapabilities.java`
 
-Superficies de Migracao Removidas
-- `AbstractCrudController`, `AbstractReadOnlyController`, `BaseCrudService`, `AbstractBaseCrudService` e `AbstractReadOnlyService` nao fazem parte do baseline atual do starter.
+Baseline Resource-Oriented
+- O starter publica uma unica hierarquia canonica resource-oriented.
 - Nao reintroduzir hierarquias paralelas por conveniencia. Se a necessidade for canonica, implementar na hierarquia `AbstractResource*` e nos servicos resource-oriented.
 
 Regras Locais Obrigatorias
@@ -143,17 +143,11 @@ Artefatos Derivados e Sincronizacao
   - `docs/spec/*.schema.json`
   - `docs/spec/examples/**`
 - Se a mudanca alterar a narrativa arquitetural do baseline `resource + surfaces + actions + capabilities`, revisar especialmente:
-  - `docs/technical/RESOURCE-SURFACE-ACTION-ARCHITECTURE-PLAN.md`
-  - `docs/technical/PHASE-4-SURFACES-CLOSURE.md`
-  - `docs/technical/PHASE-5-ACTIONS-CLOSURE.md`
-  - `docs/technical/PHASE-6-CAPABILITIES-CLOSURE.md`
   - `docs/technical/PILOT-READINESS-CHECKLIST.md`
 - Nao editar `docs/apidocs/**` manualmente. Se a tarefa pedir esse output, trate como artefato gerado.
 
 Referencias Uteis
-- `docs/technical/RESOURCE-SURFACE-ACTION-ARCHITECTURE-PLAN.md`
-- `docs/technical/RESOURCE-ORIENTED-PILOT-IN-SRC-TEST.md`
-- `docs/guides/GUIA-03-MIGRACAO-CONSUMIDOR-PILOTO.md`
+- `docs/guides/GUIA-03-ADOCAO-CONSUMIDOR-PILOTO.md`
 - `docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md`
 - `docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md`
 - `docs/spec/CONFORMANCE.md`

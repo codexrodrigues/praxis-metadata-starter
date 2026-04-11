@@ -2,15 +2,14 @@
 
 ## Status do documento
 
-Checklist histórico de prontidão para abrir o primeiro consumidor externo do
+Checklist de prontidao para abrir o primeiro consumidor externo do
 baseline `resource + surfaces + actions + capabilities`.
 
-Ele permanece útil como registro do gate de migração, mas não substitui a
-documentação canônica atual do starter.
+Ele complementa a documentacao canonica atual do starter.
 
 ## Go / No-Go antes do primeiro consumidor externo
 
-Marque todos os itens abaixo antes de abrir a migracao do piloto.
+Marque todos os itens abaixo antes de abrir a adocao do piloto.
 
 ## Baseline do starter
 
@@ -22,7 +21,7 @@ Marque todos os itens abaixo antes de abrir a migracao do piloto.
 ## Recurso piloto escolhido
 
 - [ ] recurso pequeno e com escopo congelado
-- [ ] sem necessidade imediata de compatibilidade paralela
+- [ ] sem necessidade de contratos paralelos
 - [ ] fronteira entre `resource`, `surface` e `action` decidida
 
 ## Contrato

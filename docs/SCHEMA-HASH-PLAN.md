@@ -159,7 +159,7 @@ Notas:
 ## Implementação (Backend) — Fase 3 (opcional)
 
 - Adicionar `key()` em `@UISchema` para identidade estável de campos (fallback: nome do atributo).
-- Marcação `deprecated/replacementFor` para ajudar migrações.
+- Manter a evolução de schema em um unico contrato canonico, sem marcadores paralelos de substituicao preventiva.
 
 ---
 
@@ -190,7 +190,7 @@ Notas:
 3) Regras por classificação (se disponível) ou política geral:
    - Non‑breaking: aplicar e re‑renderizar silenciosamente.
    - Potencialmente‑breaking: aplicar, logar aviso/telemetria, oferecer banner de “UI atualizada”.
-   - Breaking: bloquear funcionalidade da tela/fluxo afetado, exibir mensagem clara e, opcionalmente, UI de migração.
+   - Breaking: bloquear funcionalidade da tela/fluxo afetado e exibir mensagem clara.
 
 ## Estados/Erros
 
@@ -233,13 +233,13 @@ Notas:
 
 2) Hash diferente + endpoint de diff ativo:
    - Frontend: chama `/ui-schema/{schemaId}/diff?fromHash=<hashLocal>&format=summary`.
-   - Exibe resumo e, se “breaking”, bloqueia ações críticas e orienta migração.
+   - Exibe resumo e, se “breaking”, bloqueia ações críticas com mensagem clara.
 
 3) Múltiplas telas/rotas dependentes do mesmo schema:
    - Coordenar atualização em lote; evitar re-fetch redundante com memoização por `schemaId`.
 
-4) Rollback/Feature flags:
-   - Se o hash novo causa regressões no front, um feature‑flag pode impedir uso do novo schema até correção (lado front), mantendo o cache anterior (com aviso claro ao usuário sobre desatualização).
+4) Correcao operacional:
+   - Se o hash novo expuser um schema incoerente, corrigir a fonte canonica que publicou o contrato e gerar um novo hash a partir do schema corrigido.
 
 ---
 
@@ -259,7 +259,7 @@ Notas:
   - Classificação de mudanças.
 
 - Backend — Fase 3 (opcional):
-  - `@UISchema.key()` e marcações `deprecated/replacementFor`.
+  - `@UISchema.key()` para identidade estavel de campos.
   - Cache por `schemaId` do `canonicalJson` + `schemaHash` com invalidation alinhada à limpeza do cache de documentos OpenAPI (evitar recomputo por request).
 
 - Frontend — Fase A:
@@ -305,7 +305,7 @@ Esta seção captura decisões refinadas após revisão do código atual e risco
 7) Observabilidade/segurança
 - Métricas de 200 vs 304, tempo de canonicalização, tamanho do payload.
 - Evitar logar `schemaHash` em nível INFO em multi‑tenant; prefira DEBUG.
-- Revisar conteúdo de `x-ui` para ambientes multi‑tenant (sanitização se necessário por feature flag).
+- Revisar conteúdo de `x-ui` para ambientes multi‑tenant e aplicar sanitizacao na fonte canonica quando necessario.
 
 ---
 

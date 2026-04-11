@@ -200,24 +200,23 @@ Exemplo ilustrativo:
 }
 ```
 
-## Compatibilidade Transitoria
+## Contrato Canonico
 
-Durante a adequacao dos consumidores, o backend ainda pode publicar o shape compativel:
+Campos que usam fontes remotas devem publicar o bloco canonico `x-ui.optionSource`.
+O backend nao deve criar shapes paralelos para a mesma semantica.
 
-- `endpoint`
-- `valueField`
-- `displayField`
-- `POST /options/filter`
-- `GET /options/by-ids`
+Campos operacionais do contrato:
 
-Direcao de convivio:
+- `key`
+- `type`
+- `resourcePath`
+- `filterField`
+- `dependsOn`
 
-- campos existentes podem continuar publicando apenas `endpoint/valueField/displayField`
-- campos no baseline atual devem preferir `x-ui.optionSource`
-- um mesmo campo pode publicar ambos os blocos quando isso reduzir risco operacional
-- o runtime oficial deve preferir `x-ui.optionSource` quando disponivel
+Endpoints de execucao:
 
-Essa compatibilidade nao muda a recomendacao principal da plataforma.
+- `POST /option-sources/{sourceKey}/options/filter`
+- `GET /option-sources/{sourceKey}/options/by-ids`
 
 ## Nao Objetivos Desta Fase
 

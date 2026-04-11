@@ -5,13 +5,15 @@ All notable changes to this module will be documented in this file.
 ## [Unreleased]
 
 ### Removed
-- Superficie CRUD anterior removida do starter: `AbstractCrudController`, `AbstractReadOnlyController`, `BaseCrudService`, `AbstractBaseCrudService` e `AbstractReadOnlyService`.
-- Suite de testes e fixtures de coexistencia do core anterior removidas para consolidar o baseline `resource-oriented`.
+- Superficies paralelas de CRUD removidas para consolidar o baseline `resource-oriented`.
+- Suite de testes e fixtures ajustadas para manter uma unica hierarquia canonica.
+- Fallback configuravel de payload escalar para filtros de range removido; ranges aceitam apenas lista ou objeto canonico.
 
 ### Changed
-- `DynamicSwaggerConfig` passa a reconhecer apenas controllers da hierarquia `AbstractResourceQueryController`.
-- Guias publicos deixam de apontar onboarding ativo para o core anterior.
+- `DynamicSwaggerConfig` passa a reconhecer controllers da hierarquia `AbstractResourceQueryController`.
+- Guias publicos passam a apontar onboarding ativo apenas para o baseline resource-oriented.
 - `README.md`, `docs/index.md` e `docs/spec/CONFORMANCE.md` passam a tratar `option-sources` como superficie publica canonicamente suportada quando o recurso publica `OptionSourceRegistry`.
+- Guia do consumidor piloto passa a ser guia de adocao canonica, sem narrativa de migracao entre modelos.
 
 ### Added
 - Rollout do baseline semantico `resource + surface + action + capability`, com `@UiSurface`, `@WorkflowAction`, `GET /schemas/surfaces`, `GET /schemas/actions` e snapshots agregados em `/capabilities`.
@@ -85,7 +87,7 @@ All notable changes to this module will be documented in this file.
 - Anti-patterns e exemplos praticos: cursor pagination (JS), jump-to-row (`/locate`) e reidratacao (React/Angular).
 - Ancoras por endpoint e links cruzados a partir da pagina overview do Javadoc.
 - Javadoc ampliado:
-- `AbstractCrudController`: detalhes de `/filter`, `/filter/cursor`, `/locate`, `/options` (inclui blocos "Uso em DTOs (@UISchema)").
+- Controllers resource-oriented: detalhes de `/filter`, `/filter/cursor`, `/locate`, `/options` (inclui blocos "Uso em DTOs (@UISchema)").
 - `@UISchema`: secao "Referenciando endpoints de Options em DTOs" (OptionDTO vs DTO completo; combos dependentes com interpolacao; reidratacao).
 - `OptionDTO`: exemplo de referencia em DTOs com `@UISchema`.
 
@@ -102,7 +104,7 @@ All notable changes to this module will be documented in this file.
 
 ### Added
 - New annotation `@OptionLabel` to declare the label source for OptionDTO on entity field or getter (supports inheritance).
-- Default `OptionMapper` fallback in `BaseCrudService`: if `getOptionMapper()` is not overridden, entities are projected to `OptionDTO` using `extractId()` and `computeOptionLabel()`.
+- Default `OptionMapper` fallback in resource services: if `getOptionMapper()` is not overridden, entities are projected to `OptionDTO` using `extractId()` and `computeOptionLabel()`.
 
 ### Compatibility
 - No breaking changes. Existing services and custom mappers continue to work unchanged.

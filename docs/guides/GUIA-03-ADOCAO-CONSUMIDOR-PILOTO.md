@@ -1,11 +1,11 @@
-﻿# Guia 03 - Migracao do Consumidor Piloto
+# Guia 03 - Adocao do Consumidor Piloto
 
 ## Objetivo
 
-Este guia descreve como migrar o primeiro consumidor externo real sobre o baseline atual do
-`praxis-metadata-starter`.
+Este guia descreve como adotar o baseline canonico do `praxis-metadata-starter`
+no primeiro consumidor externo real.
 
-O objetivo nao e adaptar um host a um modelo anterior. O objetivo e levar o consumidor para o modelo canonico:
+O objetivo e publicar um recurso pequeno, observavel e representativo usando:
 
 - `resource-oriented`
 - `surfaces`
@@ -43,41 +43,35 @@ Evite no primeiro piloto:
 
 - modulo com muitas relacoes acopladas
 - recurso com regras de workflow altamente excepcionais
-- recurso com necessidade imediata de compatibilidade paralela
+- recurso que exija contratos paralelos
 
-## Mapeamento de um host antigo para o baseline atual
+## Modelagem canonica do recurso
 
-### Se hoje existe DTO unico
-
-Separar em:
+Use DTOs separados:
 
 - `ResponseDTO`
 - `CreateDTO`
 - `UpdateDTO`
 - `FilterDTO`
 
-### Se hoje o host concentra leitura e escrita no mesmo recurso
-
-Trocar por:
+Use a hierarquia resource-oriented:
 
 - `AbstractResourceController` para recurso mutavel
 - `AbstractReadOnlyResourceController` para recurso somente leitura
 - `AbstractBaseResourceService` ou `AbstractReadOnlyResourceService` no service
 - `ResourceMapper` para separar response, create e update
 
-### Se hoje existe patch sem semantica clara
-
-Decidir:
+Modele intencoes explicitamente:
 
 - continua sendo manutencao do recurso -> `@ResourceIntent` e opcionalmente `@UiSurface`
 - vira comando de negocio -> `@WorkflowAction`
 
-## Sequencia recomendada de migracao
+## Sequencia recomendada de adocao
 
 1. Congelar o escopo do recurso piloto.
-2. Mapear os endpoints reais que vao continuar existindo.
+2. Mapear os endpoints reais que pertencem ao recurso.
 3. Separar DTOs e criar `ResourceMapper`.
-4. Migrar service e controller para o core novo.
+4. Implementar service e controller na hierarquia resource-oriented.
 5. Adicionar `@ResourceIntent`, `@UiSurface` e `@WorkflowAction` so onde houver operacao real correspondente.
 6. Validar discovery:
    - `/schemas/filtered`
@@ -90,7 +84,7 @@ Decidir:
 
 ## Semantica contextual de availability
 
-Ao migrar o primeiro host, nao trate os catalogos semanticos como se todos tivessem a mesma semantica:
+Ao publicar o primeiro consumidor, nao trate os catalogos semanticos como se todos tivessem a mesma semantica:
 
 - em `/schemas/surfaces` e `/schemas/actions`, entradas `ITEM` sao discovery-only sem `resourceId`
   concreto e podem sair com `availability.allowed=false`
@@ -120,6 +114,7 @@ Para o recurso piloto escolhido:
 - nao criar endpoints espelho so para a UI
 - nao criar dispatcher generico para workflows
 - nao usar o consumidor como fonte canonica da semantica
+- nao criar contratos paralelos permanentes
 
 ## Validacao minima antes do merge do piloto
 
@@ -131,14 +126,9 @@ Para o recurso piloto escolhido:
 
 ## Estrategia de rollback
 
-Nao introduza caminhos paralelos permanentes.
-
 Se o piloto falhar:
 
 - antes do merge: reverta a branch
 - depois do merge/desdobramento: reverta a entrega do host
 
-O rollback nao deve ser "manter o modelo anterior e o atual coexistindo indefinidamente".
-Deve ser reversao operacional da mudanca.
-
-
+O rollback deve ser reversao operacional da mudanca, sem contratos paralelos permanentes.

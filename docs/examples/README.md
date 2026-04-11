@@ -13,6 +13,7 @@ construcao de prompts.
 - `EXEMPLO-PROMPT-CRUD-BULK.md`
 - `filter-dto.md`
 - `spring-integration.md`
+- `stats-multi-metric-examples.md`
 
 ## Regra de uso para LLM
 

@@ -150,11 +150,8 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "rangePayloadNormalizer")
     @Order(0)
-    public FilterPayloadNormalizer rangePayloadNormalizer(
-            @Value("${praxis.filter.range.allow-scalar-payload:false}") boolean allowScalarRangePayload,
-            @Value("${praxis.filter.range.log-scalar-payload:true}") boolean logScalarRangePayload
-    ) {
-        return new RangePayloadNormalizer(allowScalarRangePayload, logScalarRangePayload);
+    public FilterPayloadNormalizer rangePayloadNormalizer() {
+        return new RangePayloadNormalizer();
     }
 
     @Bean

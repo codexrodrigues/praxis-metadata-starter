@@ -15,7 +15,7 @@ Se o piloto falhar:
 - antes do merge: revert da branch
 - depois do merge ou deploy: revert da entrega do host
 
-O rollback nao deve significar "manter modelo anterior e atual coexistindo indefinidamente".
+O rollback nao deve criar contratos paralelos permanentes.
 
 ## O que observar
 
@@ -48,5 +48,5 @@ Headers e sinais importantes:
 1. confirmar se a regressao esta no starter ou no host
 2. isolar o recurso piloto
 3. reverter a entrega se houver impacto de contrato
-4. registrar o desvio antes de reabrir a migracao
+4. registrar o desvio antes de retomar a adocao
 

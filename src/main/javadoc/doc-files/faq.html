@@ -97,7 +97,7 @@ curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoa
   <a id="readonly"></a>
   <h2>Como expor views e recursos read-only?</h2>
   <p>
-    Use <code>AbstractReadOnlyService</code> e <code>AbstractReadOnlyController</code>. Os endpoints de leitura, filtros, options e locate
+    Use <code>AbstractReadOnlyResourceService</code> e <code>AbstractReadOnlyResourceController</code>. Os endpoints de leitura, filtros, options e locate
     continuam disponiveis; escritas retornam <code>405 Method Not Allowed</code> por design.
   </p>
   <p>Guia publico: <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/READ-ONLY-VIEWS.html" target="_blank" rel="noopener noreferrer">READ-ONLY-VIEWS</a>.</p>

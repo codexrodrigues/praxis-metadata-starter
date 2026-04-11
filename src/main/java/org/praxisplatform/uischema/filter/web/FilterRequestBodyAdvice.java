@@ -35,7 +35,13 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
 
     @Autowired
     public FilterRequestBodyAdvice(ObjectMapper objectMapper) {
-        this(objectMapper, false, true);
+        this(
+                objectMapper,
+                List.of(
+                        new RangePayloadNormalizer(),
+                        new RelativePeriodPayloadNormalizer()
+                )
+        );
     }
 
     public FilterRequestBodyAdvice(
@@ -44,20 +50,6 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
     ) {
         this.objectMapper = objectMapper;
         this.payloadNormalizers = List.copyOf(payloadNormalizers);
-    }
-
-    public FilterRequestBodyAdvice(
-            ObjectMapper objectMapper,
-            boolean allowScalarRangePayload,
-            boolean logScalarRangePayload
-    ) {
-        this(
-                objectMapper,
-                List.of(
-                        new RangePayloadNormalizer(allowScalarRangePayload, logScalarRangePayload),
-                        new RelativePeriodPayloadNormalizer()
-                )
-        );
     }
 
     @Override

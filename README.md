@@ -124,9 +124,7 @@ Isso evita que clientes metadata-driven confundam:
 
 ## Canonical Backend Baseline
 
-Para aplicacoes novas, o baseline correto nao e mais `AbstractCrudController`.
-
-Prefira:
+O baseline canonico para recursos metadata-driven e:
 
 - `AbstractResourceController`
 - `AbstractReadOnlyResourceController`

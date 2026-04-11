@@ -12,7 +12,7 @@ Resultado prático: menos boilerplate, regras consistentes ponta‑a‑ponta e e
 - Enriquecimento automático do OpenAPI com a extensão `x-ui` (validações, controles, hints).
 - Endpoint self‑describing `/schemas/filtered` (via `ApiDocsController`) com ETag, idField e merge inteligente.
 - Detecção de grupos OpenAPI por path (OpenApiGroupResolver) e cache de documentos.
-- Infra CRUD base (`AbstractCrudController`, `AbstractBaseCrudService`), HATEOAS e `RestApiResponse` consistente.
+- Infra resource-oriented base (`AbstractResourceController`, `AbstractBaseResourceService`, `ResourceMapper`), HATEOAS e `RestApiResponse` consistente.
 - Integração com Bean Validation (Jakarta): `@NotBlank`, `@Size`, etc. viram `x-ui.validation` consumível no front.
 
 ```mermaid
@@ -55,17 +55,22 @@ public class ValorParametroInstituicaoItemDTO {
 }
 ```
 
-2) Exponha controllers CRUD com `@ApiResource`/`@ApiGroup`:
+2) Exponha recursos com `@ApiResource`/`@ApiGroup`:
 
 ```java
 @ApiResource(ApiPaths.HumanResources.VALORES_PARAMETRO_INSTITUICAO)
 @ApiGroup("human-resources")
-public class ValorparametroinstituicaoController extends AbstractCrudController<
-    Valorparametroinstituicao, ValorparametroinstituicaoDTO, Short, ValorparametroinstituicaoFilterDTO> {
+public class ValorparametroinstituicaoController extends AbstractResourceController<
+    Valorparametroinstituicao,
+    ValorparametroinstituicaoResponseDTO,
+    ValorparametroinstituicaoCreateDTO,
+    ValorparametroinstituicaoUpdateDTO,
+    Short,
+    ValorparametroinstituicaoFilterDTO> {
 }
 ```
 
-3) Services que estendem `AbstractBaseCrudService` devem sobrescrever `getOptionMapper()` para populações remotas (selects):
+3) Services resource-oriented podem sobrescrever `getOptionMapper()` para populacoes remotas (selects):
 
 ```java
 @Override
@@ -122,7 +127,7 @@ curl -i "http://localhost:8080/schemas/filtered?path=/api/valores-parametro-inst
 
 ## Integrações que vêm no pacote
 
-- CRUD base com paginação/ordenação, HATEOAS e `RestApiResponse` consistente.
+- Recursos base com paginacao/ordenacao, HATEOAS e `RestApiResponse` consistente.
 - Detecção automática de grupos via `OpenApiGroupResolver` (menos parâmetros, menos dor).
 - Cache de documentos OpenAPI por grupo, com 97%+ de redução em payload em cenários reais.
 
@@ -149,7 +154,7 @@ mockMvc.perform(get("/schemas/filtered")
 ## Dicas e troubleshooting
 
 - Enum atualizado: use `FieldDataType.TEXT` (não `STRING`).
-- Lembre de implementar `getOptionMapper()` em services base; retorna `OptionDTO(id, label)`.
+- Use `getOptionMapper()` em services base quando o label de options precisar de regra explicita.
 - Labels, placeholders e ajuda devem viver no `@UISchema` — evite duplicar no front.
 
 ---
@@ -164,9 +169,8 @@ mockMvc.perform(get("/schemas/filtered")
 
 ## Próximo passo
 
-Quais DTOs do seu serviço podem ganhar `@UISchema` hoje? Que telas no front poderiam nascer direto do contrato amanhã? Se quiser discutir migração e boas práticas, comente e vamos aprofundar — o Praxis Metadata Starter está evoluindo com a comunidade.
+Quais DTOs do seu serviço podem ganhar `@UISchema` hoje? Que telas no front poderiam nascer direto do contrato amanhã? Se quiser discutir boas práticas, comente e vamos aprofundar — o Praxis Metadata Starter está evoluindo com a comunidade.
 
 ---
 
 > Nota: Este artigo vive no repositório (APRESENTACAO-BACKEND-METADATA-STARTER.md) e será atualizado conforme novas capacidades forem incorporadas ao starter.
-

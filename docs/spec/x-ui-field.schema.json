@@ -156,7 +156,7 @@
     },
     "optionSource": {
       "$ref": "#/definitions/optionSource",
-      "description": "Draft canonical contract for derived option sources. This block may coexist with the compatible endpoint/valueField/displayField shape during rollout."
+      "description": "Canonical contract for derived option sources."
     },
     "emptyOptionText": { "type": "string" },
     "options": {

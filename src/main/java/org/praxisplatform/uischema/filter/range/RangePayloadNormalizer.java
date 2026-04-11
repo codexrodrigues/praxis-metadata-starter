@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.praxisplatform.uischema.NumericFormat;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
@@ -34,7 +32,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Canonicaliza payloads de range para o formato de lista usado pelos FilterDTOs
@@ -42,7 +39,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class RangePayloadNormalizer implements FilterPayloadNormalizer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(RangePayloadNormalizer.class);
     private static final Set<Filterable.FilterOperation> RANGE_OPERATIONS = EnumSet.of(
             Filterable.FilterOperation.BETWEEN,
             Filterable.FilterOperation.BETWEEN_EXCLUSIVE,
@@ -51,7 +47,6 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
     );
     private static final String SCALAR_PAYLOAD_ERROR =
             "Scalar range payload is invalid. Use [min], [null,max], [min,max], or a canonical object.";
-    private static final long SCALAR_LOG_SAMPLE_LIMIT = 5L;
 
     private static final List<String> LOWER_DATE_KEYS = RangeBoundAliasRegistry.lowerDateKeys();
     private static final List<String> UPPER_DATE_KEYS = RangeBoundAliasRegistry.upperDateKeys();
@@ -60,20 +55,7 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
     private static final List<String> LOWER_GENERIC_KEYS = RangeBoundAliasRegistry.lowerGenericKeys();
     private static final List<String> UPPER_GENERIC_KEYS = RangeBoundAliasRegistry.upperGenericKeys();
 
-    private final boolean allowScalarPayload;
-    private final boolean logScalarPayload;
     private final Map<Class<?>, List<RangeFieldMetadata>> fieldCache = new ConcurrentHashMap<>();
-    private final AtomicLong scalarPayloadTotal = new AtomicLong(0);
-    private final Map<RangeKind, AtomicLong> scalarPayloadByKind = new ConcurrentHashMap<>();
-
-    public RangePayloadNormalizer() {
-        this(false, true);
-    }
-
-    public RangePayloadNormalizer(boolean allowScalarPayload, boolean logScalarPayload) {
-        this.allowScalarPayload = allowScalarPayload;
-        this.logScalarPayload = logScalarPayload;
-    }
 
     public boolean normalizeInPlace(ObjectNode payload, Class<?> filterClass) {
         if (payload == null || filterClass == null || !GenericFilterDTO.class.isAssignableFrom(filterClass)) {
@@ -343,7 +325,6 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
     }
 
     private ArrayNode normalizeRangeValue(JsonNode raw, RangeKind kind) {
-        JsonNodeFactory factory = JsonNodeFactory.instance;
         if (raw == null || raw.isNull()) {
             return null;
         }
@@ -354,13 +335,7 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
             return normalizeFromObject((ObjectNode) raw, kind);
         }
         if (isMeaningful(raw)) {
-            if (!allowScalarPayload) {
-                throw new InvalidFilterPayloadException(SCALAR_PAYLOAD_ERROR);
-            }
-            trackScalarPayload(kind, raw);
-            ArrayNode arr = factory.arrayNode();
-            arr.add(raw);
-            return arr;
+            throw new InvalidFilterPayloadException(SCALAR_PAYLOAD_ERROR);
         }
         return null;
     }
@@ -610,25 +585,6 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
         if (node.isNumber()) return RangeNumberParser.parse(node.numberValue());
         String text = node.asText("");
         return text == null || text.trim().isEmpty() ? null : RangeNumberParser.parse(text);
-    }
-
-    private void trackScalarPayload(RangeKind kind, JsonNode raw) {
-        long total = scalarPayloadTotal.incrementAndGet();
-        long kindCount = scalarPayloadByKind
-                .computeIfAbsent(kind, ignored -> new AtomicLong(0))
-                .incrementAndGet();
-
-        if (!logScalarPayload) {
-            return;
-        }
-        if (kindCount <= SCALAR_LOG_SAMPLE_LIMIT || kindCount % 100 == 0) {
-            LOGGER.warn(
-                    "[RangePayloadNormalizer] Scalar range payload normalized (kind={}, kindCount={}, total={}, nodeType={}). " +
-                            "Migration to array/canonical object is recommended. To keep scalar fallback, leave " +
-                            "praxis.filter.range.allow-scalar-payload=true.",
-                    kind, kindCount, total, raw != null ? raw.getNodeType() : null
-            );
-        }
     }
 
     private enum RangeKind {
