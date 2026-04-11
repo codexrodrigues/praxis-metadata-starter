@@ -309,25 +309,17 @@ previsíveis</li>
 <li>Limite o <code>size</code> conforme sua política de performance</li>
 </ul>
 </details>
-<a id="modo-estrito-range"></a>
+<a id="payload-canonico-range"></a>
 <details>
 <summary>
-<strong>Modo estrito para payload de range (recomendado
-enterprise)</strong>
+<strong>Payload canonico para range</strong>
 </summary>
 <ul>
-<li>Propriedade <code>praxis.filter.range.allow-scalar-payload</code>:
-<ul>
-<li><code>false</code> (padrão): payload escalar de range é inválido e
-retorna <code>400</code>.</li>
-<li><code>true</code>: fallback compativel temporario, convertendo
-escalar para lista.</li>
-</ul></li>
-<li>Propriedade <code>praxis.filter.range.log-scalar-payload</code>:
-<ul>
-<li><code>true</code> (padrão): registra uso de payload escalar
-compativel para observabilidade de transição.</li>
-</ul></li>
+<li>Payload escalar de range é inválido e retorna <code>400</code>.</li>
+<li>Use lista canonica (<code>[min]</code>, <code>[null, max]</code>,
+<code>[min, max]</code>) ou objeto canonico com limites
+reconhecidos.</li>
+<li>Não há flag de compatibilidade para aceitar escalar em runtime.</li>
 <li>Erros de payload de filtro retornam <code>400</code> com
 <code>errors[].properties.code = FILTER_PAYLOAD_INVALID</code>.</li>
 </ul>

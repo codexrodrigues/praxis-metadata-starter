@@ -447,23 +447,16 @@ registrar aviso de validação.</li>
 <code>min=0</code>, <code>max=100</code>, <code>step=0.01</code>.</li>
 <li><code>currency</code> pode ser enviado como contexto de UX, mas o
 backend considera apenas os limites para construir o predicado.</li>
-<li>manter <code>between[]</code> apenas como shape compativel
-temporario.</li>
+<li>use sempre lista ou objeto canonico para ranges; payload escalar e
+invalido.</li>
 <li>no frontend enterprise, prefira normalização metadata-driven: só
 campos com <code>controlType</code> de range no schema devem ser
 colapsados para formato canônico.</li>
 </ul>
-<p>Compatibilidade transitoria controlada por configuracao:</p>
+<p>Contrato canonico de payload:</p>
 <ul>
-<li>padrão do starter: <strong>estrito</strong>
-(<code>praxis.filter.range.allow-scalar-payload=false</code>), rejeita
-payload escalar (<code>400</code>).</li>
-<li>fallback compativel (temporario):
-<code>praxis.filter.range.allow-scalar-payload=true</code> para aceitar
-escalar e normalizar para lista.</li>
-<li>observabilidade de payload escalar:
-<code>praxis.filter.range.log-scalar-payload=true</code> (padrao)
-registra uso de payload escalar compativel.</li>
+<li>payload escalar de range e invalido e retorna <code>400</code>.</li>
+<li>nao ha flag de compatibilidade para aceitar escalar em runtime.</li>
 <li>payload inválido de filtro retorna <code>400</code> com
 <code>errors[].properties.code = FILTER_PAYLOAD_INVALID</code>.</li>
 </ul>

@@ -12,9 +12,6 @@ Material tecnico ainda vivo do `praxis-metadata-starter`.
 
 - [Hub tecnico](README.html)
 - [Auto-configuracao](AUTO-CONFIGURACAO.html)
-- [Fechamento da Fase 4 - Surfaces](PHASE-4-SURFACES-CLOSURE.html)
-- [Fechamento da Fase 5 - Workflow Actions](PHASE-5-ACTIONS-CLOSURE.html)
-- [Fechamento da Fase 6 - Capabilities Unificadas](PHASE-6-CAPABILITIES-CLOSURE.html)
 - [Roadmap de filtros](FILTROS-ROADMAP.html)
 
 ## Registros de rollout e piloto

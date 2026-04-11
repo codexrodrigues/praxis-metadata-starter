@@ -16,6 +16,7 @@ Examples publicos complementares para reforcar o uso dos guias.
 - [Spring integration](spring-integration.html)
 - [DTO filtros exemplos](DTO-FILTROS-EXEMPLOS.html)
 - [Filter cheatsheet](FILTER-CHEATSHEET.html)
+- [Stats multi-metric examples](stats-multi-metric-examples.html)
 
 ## Regra de uso
 

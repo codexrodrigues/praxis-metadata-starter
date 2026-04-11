@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>GUIA-03-MIGRACAO-CONSUMIDOR-PILOTO</title>
+  <title>Guia 03 - Adocao do Consumidor Piloto</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,15 +166,16 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">GUIA-03-MIGRACAO-CONSUMIDOR-PILOTO</h1>
+<h1 class="title">Guia 03 - Adocao do Consumidor Piloto</h1>
 </header>
-<h1 id="guia-03---migracao-do-consumidor-piloto">Guia 03 - Migracao do
+<h1 id="guia-03---adocao-do-consumidor-piloto">Guia 03 - Adocao do
 Consumidor Piloto</h1>
 <h2 id="objetivo">Objetivo</h2>
-<p>Este guia descreve como migrar o primeiro consumidor externo real
-sobre o baseline atual do <code>praxis-metadata-starter</code>.</p>
-<p>O objetivo nao e adaptar um host a um modelo anterior. O objetivo e
-levar o consumidor para o modelo canonico:</p>
+<p>Este guia descreve como adotar o baseline canonico do
+<code>praxis-metadata-starter</code> no primeiro consumidor externo
+real.</p>
+<p>O objetivo e publicar um recurso pequeno, observavel e representativo
+usando:</p>
 <ul>
 <li><code>resource-oriented</code></li>
 <li><code>surfaces</code></li>
@@ -212,21 +213,18 @@ piloto</h2>
 <ul>
 <li>modulo com muitas relacoes acopladas</li>
 <li>recurso com regras de workflow altamente excepcionais</li>
-<li>recurso com necessidade imediata de compatibilidade paralela</li>
+<li>recurso que exija contratos paralelos</li>
 </ul>
-<h2 id="mapeamento-de-um-host-antigo-para-o-baseline-atual">Mapeamento
-de um host antigo para o baseline atual</h2>
-<h3 id="se-hoje-existe-dto-unico">Se hoje existe DTO unico</h3>
-<p>Separar em:</p>
+<h2 id="modelagem-canonica-do-recurso">Modelagem canonica do
+recurso</h2>
+<p>Use DTOs separados:</p>
 <ul>
 <li><code>ResponseDTO</code></li>
 <li><code>CreateDTO</code></li>
 <li><code>UpdateDTO</code></li>
 <li><code>FilterDTO</code></li>
 </ul>
-<h3 id="se-hoje-o-host-concentra-leitura-e-escrita-no-mesmo-recurso">Se
-hoje o host concentra leitura e escrita no mesmo recurso</h3>
-<p>Trocar por:</p>
+<p>Use a hierarquia resource-oriented:</p>
 <ul>
 <li><code>AbstractResourceController</code> para recurso mutavel</li>
 <li><code>AbstractReadOnlyResourceController</code> para recurso somente
@@ -236,22 +234,21 @@ leitura</li>
 <li><code>ResourceMapper</code> para separar response, create e
 update</li>
 </ul>
-<h3 id="se-hoje-existe-patch-sem-semantica-clara">Se hoje existe patch
-sem semantica clara</h3>
-<p>Decidir:</p>
+<p>Modele intencoes explicitamente:</p>
 <ul>
 <li>continua sendo manutencao do recurso -&gt;
 <code>@ResourceIntent</code> e opcionalmente
 <code>@UiSurface</code></li>
 <li>vira comando de negocio -&gt; <code>@WorkflowAction</code></li>
 </ul>
-<h2 id="sequencia-recomendada-de-migracao">Sequencia recomendada de
-migracao</h2>
+<h2 id="sequencia-recomendada-de-adocao">Sequencia recomendada de
+adocao</h2>
 <ol type="1">
 <li>Congelar o escopo do recurso piloto.</li>
-<li>Mapear os endpoints reais que vao continuar existindo.</li>
+<li>Mapear os endpoints reais que pertencem ao recurso.</li>
 <li>Separar DTOs e criar <code>ResourceMapper</code>.</li>
-<li>Migrar service e controller para o core novo.</li>
+<li>Implementar service e controller na hierarquia
+resource-oriented.</li>
 <li>Adicionar <code>@ResourceIntent</code>, <code>@UiSurface</code> e
 <code>@WorkflowAction</code> so onde houver operacao real
 correspondente.</li>
@@ -268,8 +265,8 @@ correspondente.</li>
 </ol>
 <h2 id="semantica-contextual-de-availability">Semantica contextual de
 availability</h2>
-<p>Ao migrar o primeiro host, nao trate os catalogos semanticos como se
-todos tivessem a mesma semantica:</p>
+<p>Ao publicar o primeiro consumidor, nao trate os catalogos semanticos
+como se todos tivessem a mesma semantica:</p>
 <ul>
 <li>em <code>/schemas/surfaces</code> e <code>/schemas/actions</code>,
 entradas <code>ITEM</code> sao discovery-only sem
@@ -305,6 +302,7 @@ ao final</h2>
 <li>nao criar endpoints espelho so para a UI</li>
 <li>nao criar dispatcher generico para workflows</li>
 <li>nao usar o consumidor como fonte canonica da semantica</li>
+<li>nao criar contratos paralelos permanentes</li>
 </ul>
 <h2 id="validacao-minima-antes-do-merge-do-piloto">Validacao minima
 antes do merge do piloto</h2>
@@ -316,14 +314,12 @@ antes do merge do piloto</h2>
 <li>observabilidade minima definida</li>
 </ul>
 <h2 id="estrategia-de-rollback">Estrategia de rollback</h2>
-<p>Nao introduza caminhos paralelos permanentes.</p>
 <p>Se o piloto falhar:</p>
 <ul>
 <li>antes do merge: reverta a branch</li>
 <li>depois do merge/desdobramento: reverta a entrega do host</li>
 </ul>
-<p>O rollback nao deve ser “manter o modelo anterior e o atual
-coexistindo indefinidamente”. Deve ser reversao operacional da
-mudanca.</p>
+<p>O rollback deve ser reversao operacional da mudanca, sem contratos
+paralelos permanentes.</p>
 </body>
 </html>

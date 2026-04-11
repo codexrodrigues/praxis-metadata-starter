@@ -156,12 +156,11 @@ Regras recomendadas:
 * quando `minPrice > maxPrice`, normalizar (swap) e registrar aviso de validação.
 * para ranges percentuais (`NumericFormat.PERCENT` ou `format: percent`), o metadata publica `rangeSlider` com `mode=range` e defaults `min=0`, `max=100`, `step=0.01`.
 * `currency` pode ser enviado como contexto de UX, mas o backend considera apenas os limites para construir o predicado.
-* manter `between[]` apenas como shape compativel temporario.
+* use sempre lista ou objeto canonico para ranges; payload escalar e invalido.
 * no frontend enterprise, prefira normalização metadata-driven: só campos com `controlType` de range no schema devem ser colapsados para formato canônico.
 
-Compatibilidade transitoria controlada por configuracao:
+Contrato canonico de payload:
 
-* padrão do starter: **estrito** (`praxis.filter.range.allow-scalar-payload=false`), rejeita payload escalar (`400`).
-* fallback compativel (temporario): `praxis.filter.range.allow-scalar-payload=true` para aceitar escalar e normalizar para lista.
-* observabilidade de payload escalar: `praxis.filter.range.log-scalar-payload=true` (padrao) registra uso de payload escalar compativel.
+* payload escalar de range e invalido e retorna `400`.
+* nao ha flag de compatibilidade para aceitar escalar em runtime.
 * payload inválido de filtro retorna `400` com `errors[].properties.code = FILTER_PAYLOAD_INVALID`.

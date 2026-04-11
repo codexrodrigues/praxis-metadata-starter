@@ -19,7 +19,7 @@
 - Charts metadata-driven: `x-ui-chart-rfc.md`
   - define a direcao canonica de `x-ui.chart` como extensao governada da plataforma
   - complementado por `x-ui-chart.schema.json` como draft validavel inicial
-  - publicacao assistida por `x-ui-chart-publication-checklist.md`, com gates minimos de contrato, host operacional e compatibilidade de consumidor
+  - publicacao assistida por `x-ui-chart-publication-checklist.md`, com gates minimos de contrato, host operacional e consumo pelo runtime oficial
 - Analytics semantics metadata-driven: `x-ui-analytics-rfc.md`
   - define a direcao canonica de `x-ui.analytics` como projecao semantica analitica de operacao
   - usa `projections[]` para manter a neutralidade de `praxis.stats`
@@ -41,11 +41,11 @@
   - Layout/Icone: `hint`, `helpText`, `tooltipOnHover`, `icon*`
   - Selecao/Opcaoes: `options[]`, `endpoint`, `valueField`, `displayField`, `multiple`, `emptyOptionText`
     - No runtime Angular, a UI Praxis normaliza esses campos para `resourcePath`, `optionValueKey` e `optionLabelKey`.
-    - Quando publicado, `optionSource` e a forma canonica de descrever fontes derivadas de options; `endpoint` permanece apenas como shape compativel ainda aceito.
+    - Quando publicado, `optionSource` e a forma canonica de descrever fontes derivadas de options; `endpoint` permanece como contrato de options remotas diretas.
   - Numerico: `numericFormat` (enum), `numericStep`, `numericMin`, `numericMax`, `numericMaxLength`
   - Apresentacao de valor: `valuePresentation{ type, style?, format?, currency?, number? }` como contrato canonico de display/read-only para valores escalares
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`
-  - Compatibilidade temporaria: bloco `validation{}` com chaves basicas
+  - Validacao agrupada: bloco `validation{}` com chaves basicas quando o produtor optar por agrupar regras no mesmo namespace
 - Operacao (x-ui por operacao)
   - `displayColumns` (string[]), `displayFields` (string[]), `filterFields` (string[]), `responseSchema` (string), `relatedEntitiesEndpoints` (string[]), `analytics`
 - Analytics (x-ui.analytics)

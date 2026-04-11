@@ -428,8 +428,8 @@ Fase 3 (opcional)</h2>
 <ul>
 <li>Adicionar <code>key()</code> em <code>@UISchema</code> para
 identidade estável de campos (fallback: nome do atributo).</li>
-<li>Marcação <code>deprecated/replacementFor</code> para ajudar
-migrações.</li>
+<li>Manter a evolução de schema em um unico contrato canonico, sem
+marcadores paralelos de substituicao preventiva.</li>
 </ul>
 <hr />
 <h1 id="plano-de-integração-no-frontend">Plano de Integração no
@@ -484,8 +484,8 @@ feedback ao usuário/desenvolvedor.</li>
 <li>Non‑breaking: aplicar e re‑renderizar silenciosamente.</li>
 <li>Potencialmente‑breaking: aplicar, logar aviso/telemetria, oferecer
 banner de “UI atualizada”.</li>
-<li>Breaking: bloquear funcionalidade da tela/fluxo afetado, exibir
-mensagem clara e, opcionalmente, UI de migração.</li>
+<li>Breaking: bloquear funcionalidade da tela/fluxo afetado e exibir
+mensagem clara.</li>
 </ul></li>
 </ol>
 <h2 id="estadoserros">Estados/Erros</h2>
@@ -551,19 +551,19 @@ payload atualizado.</li>
 <ul>
 <li>Frontend: chama
 <code>/ui-schema/{schemaId}/diff?fromHash=&lt;hashLocal&gt;&amp;format=summary</code>.</li>
-<li>Exibe resumo e, se “breaking”, bloqueia ações críticas e orienta
-migração.</li>
+<li>Exibe resumo e, se “breaking”, bloqueia ações críticas com mensagem
+clara.</li>
 </ul></li>
 <li>Múltiplas telas/rotas dependentes do mesmo schema:
 <ul>
 <li>Coordenar atualização em lote; evitar re-fetch redundante com
 memoização por <code>schemaId</code>.</li>
 </ul></li>
-<li>Rollback/Feature flags:
+<li>Correcao operacional:
 <ul>
-<li>Se o hash novo causa regressões no front, um feature‑flag pode
-impedir uso do novo schema até correção (lado front), mantendo o cache
-anterior (com aviso claro ao usuário sobre desatualização).</li>
+<li>Se o hash novo expuser um schema incoerente, corrigir a fonte
+canonica que publicou o contrato e gerar um novo hash a partir do schema
+corrigido.</li>
 </ul></li>
 </ol>
 <hr />
@@ -598,8 +598,7 @@ Patch/Summary) e endpoints opt‑in.</li>
 </ul></li>
 <li>Backend — Fase 3 (opcional):
 <ul>
-<li><code>@UISchema.key()</code> e marcações
-<code>deprecated/replacementFor</code>.</li>
+<li><code>@UISchema.key()</code> para identidade estavel de campos.</li>
 <li>Cache por <code>schemaId</code> do <code>canonicalJson</code> +
 <code>schemaHash</code> com invalidation alinhada à limpeza do cache de
 documentos OpenAPI (evitar recomputo por request).</li>
@@ -702,8 +701,8 @@ ETags e <code>*</code>).</li>
 payload.</li>
 <li>Evitar logar <code>schemaHash</code> em nível INFO em multi‑tenant;
 prefira DEBUG.</li>
-<li>Revisar conteúdo de <code>x-ui</code> para ambientes multi‑tenant
-(sanitização se necessário por feature flag).</li>
+<li>Revisar conteúdo de <code>x-ui</code> para ambientes multi‑tenant e
+aplicar sanitizacao na fonte canonica quando necessario.</li>
 </ul>
 <hr />
 <h1 id="plano-de-testes">Plano de Testes</h1>

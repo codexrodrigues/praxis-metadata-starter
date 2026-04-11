@@ -14,7 +14,7 @@ seguir o fluxo canonico atual da plataforma.
 
 ## Guias de adequacao especifica
 
-- [Guia 03 - Migracao do Consumidor Piloto](GUIA-03-MIGRACAO-CONSUMIDOR-PILOTO.html)
+- [Guia 03 - Adocao do Consumidor Piloto](GUIA-03-ADOCAO-CONSUMIDOR-PILOTO.html)
 
 ## Nota de leitura
 

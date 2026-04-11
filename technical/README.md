@@ -14,9 +14,6 @@ Para onboarding e narrativa publica atual, use primeiro:
 ### Referencias tecnicas atuais
 
 - [Auto-configuracao](AUTO-CONFIGURACAO.md)
-- [Fechamento da Fase 4 - Surfaces](PHASE-4-SURFACES-CLOSURE.md)
-- [Fechamento da Fase 5 - Workflow Actions](PHASE-5-ACTIONS-CLOSURE.md)
-- [Fechamento da Fase 6 - Capabilities Unificadas](PHASE-6-CAPABILITIES-CLOSURE.md)
 - [Roadmap de filtros - lotes 2 e 3](FILTROS-ROADMAP.md)
 
 ### Registros tecnicos de rollout e piloto

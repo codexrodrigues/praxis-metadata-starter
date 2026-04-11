@@ -204,7 +204,7 @@ governada da plataforma</li>
 validavel inicial</li>
 <li>publicacao assistida por
 <code>x-ui-chart-publication-checklist.md</code>, com gates minimos de
-contrato, host operacional e compatibilidade de consumidor</li>
+contrato, host operacional e consumo pelo runtime oficial</li>
 </ul></li>
 <li>Analytics semantics metadata-driven:
 <code>x-ui-analytics-rfc.md</code>
@@ -256,7 +256,7 @@ implementacao automatica no starter ou no runtime Angular</li>
 <code>optionLabelKey</code>.</li>
 <li>Quando publicado, <code>optionSource</code> e a forma canonica de
 descrever fontes derivadas de options; <code>endpoint</code> permanece
-apenas como shape compativel ainda aceito.</li>
+como contrato de options remotas diretas.</li>
 </ul></li>
 <li>Numerico: <code>numericFormat</code> (enum),
 <code>numericStep</code>, <code>numericMin</code>,
@@ -273,8 +273,9 @@ como contrato canonico de display/read-only para valores escalares</li>
 <code>minWords</code>, <code>validationTrigger(s)</code>,
 <code>validationDebounce</code>, <code>showInlineErrors</code>,
 <code>errorPosition</code></li>
-<li>Compatibilidade temporaria: bloco <code>validation{}</code> com
-chaves basicas</li>
+<li>Validacao agrupada: bloco <code>validation{}</code> com chaves
+basicas quando o produtor optar por agrupar regras no mesmo
+namespace</li>
 </ul></li>
 <li>Operacao (x-ui por operacao)
 <ul>
