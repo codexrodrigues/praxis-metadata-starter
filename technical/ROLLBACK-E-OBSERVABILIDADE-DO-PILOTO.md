@@ -15,7 +15,7 @@ Se o piloto falhar:
 - antes do merge: revert da branch
 - depois do merge ou deploy: revert da entrega do host
 
-O rollback nao deve significar "manter legado e novo coexistindo indefinidamente".
+O rollback nao deve significar "manter modelo anterior e atual coexistindo indefinidamente".
 
 ## O que observar
 

@@ -163,5 +163,5 @@ Compatibilidade transitoria controlada por configuracao:
 
 * padrão do starter: **estrito** (`praxis.filter.range.allow-scalar-payload=false`), rejeita payload escalar (`400`).
 * fallback compativel (temporario): `praxis.filter.range.allow-scalar-payload=true` para aceitar escalar e normalizar para lista.
-* observabilidade de compatibilidade: `praxis.filter.range.log-legacy-scalar-payload=true` (padrao) registra uso de payload escalar compativel.
+* observabilidade de payload escalar: `praxis.filter.range.log-scalar-payload=true` (padrao) registra uso de payload escalar compativel.
 * payload inválido de filtro retorna `400` com `errors[].properties.code = FILTER_PAYLOAD_INVALID`.
