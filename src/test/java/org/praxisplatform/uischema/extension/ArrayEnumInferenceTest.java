@@ -30,7 +30,7 @@ class ArrayEnumInferenceTest {
     }
 
     @Test
-    void largeArrayEnumShouldUseMultiSelectWithoutLegacyFilterHintByDefault() {
+    void largeArrayEnumShouldUseMultiSelectWithoutResidualFilterHintByDefault() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
         ArraySchema property = new ArraySchema();
         StringSchema items = new StringSchema();

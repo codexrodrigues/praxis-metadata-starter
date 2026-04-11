@@ -21,9 +21,9 @@ import static org.mockito.Mockito.mock;
 class OpenApiUiSchemaAutoConfigurationOptionSourceRegistryTest {
 
     @Test
-    void resolveRegistryForAggregationHonorsLegacyOverrideWithoutCallingSharedFallback() {
+    void resolveRegistryForAggregationHonorsConcreteOverrideWithoutCallingSharedFallback() {
         OpenApiUiSchemaAutoConfiguration configuration = new OpenApiUiSchemaAutoConfiguration();
-        LegacyOverrideOptionSourceService service = new LegacyOverrideOptionSourceService();
+        ConcreteOverrideOptionSourceService service = new ConcreteOverrideOptionSourceService();
 
         OptionSourceRegistry registry = (OptionSourceRegistry) ReflectionTestUtils.invokeMethod(
                 configuration,
@@ -48,14 +48,14 @@ class OpenApiUiSchemaAutoConfigurationOptionSourceRegistryTest {
         assertTrue(registry.isEmpty());
     }
 
-    static class LegacyOverrideOptionSourceService extends AbstractReadOnlyResourceService<
+    static class ConcreteOverrideOptionSourceService extends AbstractReadOnlyResourceService<
             TestEntity,
             TestResponseDTO,
             Long,
             TestFilterDTO
             > {
 
-        private static final OptionSourceRegistry LEGACY_OVERRIDE_REGISTRY = OptionSourceRegistry.builder()
+        private static final OptionSourceRegistry CONCRETE_OVERRIDE_REGISTRY = OptionSourceRegistry.builder()
                 .add(TestEntity.class, new OptionSourceDescriptor(
                         "payrollProfile",
                         OptionSourceType.DISTINCT_DIMENSION,
@@ -91,7 +91,7 @@ class OpenApiUiSchemaAutoConfigurationOptionSourceRegistryTest {
                     }
                 };
 
-        LegacyOverrideOptionSourceService() {
+        ConcreteOverrideOptionSourceService() {
             super(mockRepository(), new GenericSpecificationsBuilder<>(), TestEntity.class);
         }
 
@@ -102,14 +102,14 @@ class OpenApiUiSchemaAutoConfigurationOptionSourceRegistryTest {
 
         @Override
         public OptionSourceRegistry getOptionSourceRegistry() {
-            return LEGACY_OVERRIDE_REGISTRY;
+            return CONCRETE_OVERRIDE_REGISTRY;
         }
     }
 
-    static final class ProxyLikeReadOnlyService extends LegacyBaseReadOnlyService {
+    static final class ProxyLikeReadOnlyService extends BaseReadOnlyService {
     }
 
-    static class LegacyBaseReadOnlyService extends AbstractReadOnlyResourceService<
+    static class BaseReadOnlyService extends AbstractReadOnlyResourceService<
             TestEntity,
             TestResponseDTO,
             Long,
@@ -138,7 +138,7 @@ class OpenApiUiSchemaAutoConfigurationOptionSourceRegistryTest {
                     }
                 };
 
-        LegacyBaseReadOnlyService() {
+        BaseReadOnlyService() {
             super(mockRepository(), new GenericSpecificationsBuilder<>(), TestEntity.class);
         }
 

@@ -57,7 +57,7 @@ class RangePayloadNormalizerTest {
     }
 
     @Test
-    void shouldNormalizeLegacySplitAliasesAndRemoveOriginalKeys() throws Exception {
+    void shouldNormalizeSplitBoundAliasesAndRemoveOriginalKeys() throws Exception {
         ObjectNode payload = (ObjectNode) mapper.readTree("""
                 {
                   "valorMin": null,
@@ -196,7 +196,7 @@ class RangePayloadNormalizerTest {
     }
 
     @Test
-    void shouldNormalizeScalarRangePayloadWhenLegacyCompatibilityIsEnabled() throws Exception {
+    void shouldNormalizeScalarRangePayloadWhenScalarFallbackIsEnabled() throws Exception {
         RangePayloadNormalizer compatibilityNormalizer = new RangePayloadNormalizer(true, false);
         ObjectNode payload = (ObjectNode) mapper.readTree("""
                 {

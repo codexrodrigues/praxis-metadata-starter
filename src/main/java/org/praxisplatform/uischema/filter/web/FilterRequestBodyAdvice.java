@@ -49,13 +49,13 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
     public FilterRequestBodyAdvice(
             ObjectMapper objectMapper,
             boolean allowScalarRangePayload,
-            boolean logLegacyScalarRangePayload
+            boolean logScalarRangePayload
     ) {
         this(
                 objectMapper,
                 List.of(
-                new RangePayloadNormalizer(allowScalarRangePayload, logLegacyScalarRangePayload),
-                new RelativePeriodPayloadNormalizer()
+                        new RangePayloadNormalizer(allowScalarRangePayload, logScalarRangePayload),
+                        new RelativePeriodPayloadNormalizer()
                 )
         );
     }

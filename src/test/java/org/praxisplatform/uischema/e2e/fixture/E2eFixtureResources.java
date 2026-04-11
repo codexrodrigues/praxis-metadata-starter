@@ -184,7 +184,7 @@ class EmployeeService extends AbstractBaseResourceService<
                     new OptionSourcePolicy(true, true, "contains", 0, 25, 100, true, false, "label")
             ))
             .add(EmployeeEntity.class, new OptionSourceDescriptor(
-                    "legacyDepartmentLookup",
+                    "externalDepartmentLookup",
                     OptionSourceType.RESOURCE_ENTITY,
                     "/employees",
                     null,

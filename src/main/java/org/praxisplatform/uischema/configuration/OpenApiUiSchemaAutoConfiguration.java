@@ -152,9 +152,9 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Order(0)
     public FilterPayloadNormalizer rangePayloadNormalizer(
             @Value("${praxis.filter.range.allow-scalar-payload:false}") boolean allowScalarRangePayload,
-            @Value("${praxis.filter.range.log-legacy-scalar-payload:true}") boolean logLegacyScalarRangePayload
+            @Value("${praxis.filter.range.log-scalar-payload:true}") boolean logScalarRangePayload
     ) {
-        return new RangePayloadNormalizer(allowScalarRangePayload, logLegacyScalarRangePayload);
+        return new RangePayloadNormalizer(allowScalarRangePayload, logScalarRangePayload);
     }
 
     @Bean

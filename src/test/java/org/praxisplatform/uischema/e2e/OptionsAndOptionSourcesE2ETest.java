@@ -62,7 +62,7 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
         assertTrue(unknownSourceResponse.getBody().contains("unknown-source"));
 
         ResponseEntity<String> unsupportedSourceResponse = postJson(
-                "/employees/option-sources/legacyDepartmentLookup/options/filter?page=0&size=10",
+                "/employees/option-sources/externalDepartmentLookup/options/filter?page=0&size=10",
                 "{}"
         );
         assertEquals(501, unsupportedSourceResponse.getStatusCode().value());

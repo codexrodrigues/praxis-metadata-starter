@@ -53,7 +53,7 @@ class FieldControlTypeSchemaParityTest {
         assertIterableEquals(
                 List.of(),
                 readArray(controlTypeSchema.path("x-compatibility-control-types")),
-                "schema should expose an empty compatibility list after removing unsupported legacy control types"
+                "schema should expose an empty compatibility list after removing unsupported control types"
         );
     }
 

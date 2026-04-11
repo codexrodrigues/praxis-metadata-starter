@@ -112,8 +112,8 @@ class DynamicSwaggerConfigTest {
                         AbstractResourceQueryController.class.getMethod("getAll"))
         );
         handlerMethods.put(
-                RequestMappingInfo.paths("/legacy-employees/all").methods(RequestMethod.GET).build(),
-                new HandlerMethod(new LegacyCatalogController(),
+                RequestMappingInfo.paths("/external-employees/all").methods(RequestMethod.GET).build(),
+                new HandlerMethod(new ExternalCatalogController(),
                         AbstractResourceQueryController.class.getMethod("getAll"))
         );
         when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
@@ -131,7 +131,7 @@ class DynamicSwaggerConfigTest {
         assertEquals("human-resources", aggregated.getGroup());
         assertEquals(List.of("/employees/**", "/departments/**", "/payroll-view/**"), aggregated.getPathsToMatch());
         assertFalse(aggregated.getPathsToMatch().contains("//**"));
-        assertFalse(aggregated.getPathsToMatch().contains("/legacy-employees/**"));
+        assertFalse(aggregated.getPathsToMatch().contains("/external-employees/**"));
     }
 
     @ApiResource(value = "/api/test/products", resourceKey = "test.products")
@@ -163,10 +163,10 @@ class DynamicSwaggerConfigTest {
     static final class HumanResourcesPayrollController extends BaseTestController {
     }
 
-    @ApiResource(value = "/legacy-employees", resourceKey = "legacy.employees")
-    @ApiGroup("legacy")
+    @ApiResource(value = "/external-employees", resourceKey = "external.employees")
+    @ApiGroup("external")
     @Profile("dynamic-swagger-config-test")
-    static final class LegacyCatalogController extends BaseTestController {
+    static final class ExternalCatalogController extends BaseTestController {
     }
 
     abstract static class BaseTestController extends AbstractResourceQueryController<TestDto, Long, TestFilterDTO> {

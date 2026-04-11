@@ -5,7 +5,7 @@
 Este guia descreve como migrar o primeiro consumidor externo real sobre o baseline atual do
 `praxis-metadata-starter`.
 
-O objetivo nao e adaptar um host ao legado. O objetivo e levar o consumidor para o modelo canonico:
+O objetivo nao e adaptar um host a um modelo anterior. O objetivo e levar o consumidor para o modelo canonico:
 
 - `resource-oriented`
 - `surfaces`
@@ -138,7 +138,7 @@ Se o piloto falhar:
 - antes do merge: reverta a branch
 - depois do merge/desdobramento: reverta a entrega do host
 
-O rollback nao deve ser "manter o legado e o novo para sempre".
+O rollback nao deve ser "manter o modelo anterior e o atual coexistindo indefinidamente".
 Deve ser reversao operacional da mudanca.
 
 

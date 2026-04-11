@@ -54,7 +54,7 @@ class ValidationSchemaParityTest {
             assertTrue(properties.has(key), "schema should expose top-level validation property: " + key);
         }
 
-        List<String> mirroredLegacyValidationKeys = List.of(
+        List<String> mirroredValidationKeys = List.of(
                 "required",
                 "minLength",
                 "maxLength",
@@ -65,14 +65,14 @@ class ValidationSchemaParityTest {
                 "rangeMessage"
         );
 
-        for (String key : mirroredLegacyValidationKeys) {
-            assertTrue(validation.has(key), "legacy validation block should mirror key: " + key);
+        for (String key : mirroredValidationKeys) {
+            assertTrue(validation.has(key), "validation block should mirror key: " + key);
         }
 
         assertEquals(
                 false,
                 root.path("properties").path("validation").path("additionalProperties").asBoolean(true),
-                "legacy validation block should stay closed to undocumented keys"
+                "validation block should stay closed to undocumented keys"
         );
     }
 

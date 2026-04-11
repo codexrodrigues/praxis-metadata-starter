@@ -9,7 +9,7 @@ Escopo e Heranca
 Classificacao Padrao da Mudanca
 - `docs-apenas`: mudancas restritas a `AGENTS.md`, `README.md`, `CHANGELOG.md` ou `docs/**` sem efeito em contrato ou codigo.
 - `contrato-publico`: qualquer mudanca em `x-ui`, `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `/capabilities`, `_links`, ETag, `X-Schema-Hash`, anotacoes exportadas ou controladores/base publicos.
-- `arquitetural`: mudanca que move semantica entre o core resource-oriented, a camada de discovery, a resolucao canonica de OpenAPI/schema, a availability contextual ou a superficie legada de migracao.
+- `arquitetural`: mudanca que move semantica entre o core resource-oriented, a camada de discovery, a resolucao canonica de OpenAPI/schema, a availability contextual ou superficies anteriores de migracao.
 - `transversal`: mudanca que cruza mais de uma dessas fronteiras e exige sincronizar testes/docs/artefatos derivados.
 
 Fronteira Canonica Local
@@ -50,9 +50,9 @@ Fronteira Canonica Local
   - `src/main/java/org/praxisplatform/uischema/annotation/ResourceIntent.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/ResourceCapabilities.java`
 
-Superficie Legada e de Migracao
-- `AbstractCrudController`, `AbstractReadOnlyController`, `BaseCrudService` e `AbstractBaseCrudService` ainda existem, mas sao superficie legada.
-- Nao adicionar nova semantica ali por conveniencia. Se a necessidade for canonica, mover para a hierarquia `AbstractResource*` e para os servicos resource-oriented.
+Superficies de Migracao Removidas
+- `AbstractCrudController`, `AbstractReadOnlyController`, `BaseCrudService`, `AbstractBaseCrudService` e `AbstractReadOnlyService` nao fazem parte do baseline atual do starter.
+- Nao reintroduzir hierarquias paralelas por conveniencia. Se a necessidade for canonica, implementar na hierarquia `AbstractResource*` e nos servicos resource-oriented.
 
 Regras Locais Obrigatorias
 - O baseline canonico do starter e `resource + surfaces + actions + capabilities`.
