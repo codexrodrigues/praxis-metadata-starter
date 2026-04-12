@@ -9,7 +9,7 @@ alinhado ao [Guia 02](../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md).
 Crie um recurso metadata-driven alinhado ao baseline atual do praxis-metadata-starter.
 
 Siga o guia GUIA-02-AI-BACKEND-CRUD-METADATA.md.
-Garanta compatibilidade de consumo com praxis-ui-angular.
+Garanta alinhamento de consumo com praxis-ui-angular.
 
 Entrada:
 - Entidade: [caminho-da-entidade]
@@ -35,7 +35,7 @@ So adicione trilha bulk se eu pedir explicitamente.
 Crie um recurso metadata-driven alinhado ao baseline atual do praxis-metadata-starter.
 
 Siga o guia GUIA-02-AI-BACKEND-CRUD-METADATA.md.
-Garanta compatibilidade de consumo com praxis-ui-angular.
+Garanta alinhamento de consumo com praxis-ui-angular.
 
 Entrada:
 - Entidade: src/main/java/com/example/demo/hr/entity/Funcionario.java
@@ -78,7 +78,7 @@ Nao peca ao agente para assumir automaticamente:
 - `BulkFilterAdapter`
 - `BulkController`
 - dependencias `org.praxisplatform.bulk.*`
-- exemplos herdados de stacks externas
+- exemplos provenientes de stacks externas
 
 ## Resposta esperada do agente
 
@@ -88,7 +88,7 @@ Uma resposta boa tende a:
 2. gerar os arquivos minimos do recurso
 3. justificar selects remotos com `/options/filter`
 4. usar `displayField=label` quando o endpoint retorna `OptionDTO`
-5. citar a compatibilidade com `/schemas/filtered` e `GenericCrudService`
+5. citar o alinhamento com `/schemas/filtered` e `GenericCrudService`
 
 ## Referencias publicas
 

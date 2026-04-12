@@ -312,7 +312,7 @@ public class ApiDocsController {
                 .body(schemaMap);
     }
 
-    // Backwards-compatible overload used by unit tests and callers without idField param
+    // Convenience overload used by unit tests and callers without idField param.
     public org.springframework.http.ResponseEntity<Map<String, Object>> getFilteredSchema(
             String path,
             String operation,

@@ -18,7 +18,7 @@ public record GroupByStatsResponse(
         List<StatsMetricRequest> metrics
 ) {
     /**
-     * Construtor de compatibilidade para respostas de metrica unica.
+     * Construtor para respostas de metrica unica.
      */
     public GroupByStatsResponse(String field, StatsMetricRequest metric, List<GroupByBucket> buckets) {
         this(field, metric, buckets, null);

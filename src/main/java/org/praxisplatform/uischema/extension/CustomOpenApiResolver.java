@@ -1300,7 +1300,7 @@ public class CustomOpenApiResolver extends ModelResolver {
             uiExtension.put(FieldConfigProperties.MASK.getValue(), annotation.mask());
         }
         if (!annotation.conditionalRequired().isEmpty()) {
-            // Grava nos dois espaços para compatibilidade (top-level e validation)
+            // Publica conditionalRequired nos espacos reconhecidos pelo contrato atual.
             uiExtension.put(FieldConfigProperties.CONDITIONAL_REQUIRED.getValue(), annotation.conditionalRequired());
             uiExtension.put(ValidationProperties.CONDITIONAL_REQUIRED.getValue(), annotation.conditionalRequired());
         }

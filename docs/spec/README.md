@@ -3,7 +3,7 @@
 ## Objetivo
 
 - Padronizar, de forma agnostica de tecnologia, o contrato de metadados que a UI Praxis consome.
-- Permitir que qualquer backend produza JSON compativel e valide localmente contra os JSON Schemas desta pasta.
+- Permitir que qualquer backend produza JSON alinhado ao contrato e valide localmente contra os JSON Schemas desta pasta.
 
 ## Escopo de validacao (JSON)
 

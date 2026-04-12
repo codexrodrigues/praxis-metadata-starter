@@ -164,7 +164,7 @@ public class OpenApiUiUtils {
 
             case "number":
             case "integer":
-                if (hasEnum) { // enum numérico raramente é usado; manter SELECT por compatibilidade
+                if (hasEnum) { // Usa SELECT para enum numerico por coerencia com a inferencia de enum.
                     return FieldControlType.SELECT.getValue();
                 }
                 // Specific formats for numbers can override default

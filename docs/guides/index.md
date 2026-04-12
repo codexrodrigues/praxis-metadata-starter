@@ -18,8 +18,8 @@ seguir o fluxo canonico atual da plataforma.
 
 ## Nota de leitura
 
-O nome do arquivo `GUIA-02-AI-BACKEND-CRUD-METADATA` foi preservado por
-compatibilidade de links, mas o guia ja descreve o baseline canônico atual,
+O nome do arquivo `GUIA-02-AI-BACKEND-CRUD-METADATA` permanece estavel para
+links publicados, mas o guia ja descreve o baseline canônico atual,
 resource-oriented, com DTOs separados e discovery semantico.
 
 ## Apoio

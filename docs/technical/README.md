@@ -30,7 +30,7 @@ Para onboarding e narrativa publica atual, use primeiro:
   3. `docs/guides/**`
   4. `docs/spec/**`
   5. esta area tecnica
-- Materiais de piloto, rollout e validacao historica nao redefinem a narrativa publica principal.
+- Materiais de piloto, rollout e revalidacao tecnica nao redefinem a narrativa publica principal.
 
 ## Referencias relacionadas
 

@@ -11,7 +11,7 @@ import java.util.List;
  * <p>
  * O request combina o filtro principal do recurso com a definicao do campo de agrupamento e da
  * metrica agregada. A plataforma tambem suporta o modo multi-metrica via {@code metrics}, mantendo
- * compatibilidade com o campo singular {@code metric} como primary metric.
+ * {@code metric} como primary metric do contrato.
  * </p>
  *
  * @param <FD> tipo do filtro do recurso
@@ -25,7 +25,7 @@ public record GroupByStatsRequest<FD extends GenericFilterDTO>(
         List<StatsMetricRequest> metrics
 ) {
     /**
-     * Construtor de compatibilidade para o modo de metrica unica.
+     * Construtor para o modo de metrica unica.
      */
     public GroupByStatsRequest(FD filter, String field, StatsMetricRequest metric, Integer limit, StatsBucketOrder orderBy) {
         this(filter, field, metric, limit, orderBy, null);

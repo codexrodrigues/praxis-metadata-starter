@@ -537,7 +537,7 @@ Content-Type: application/json
     <li><strong>Usar /all em listas grandes</strong>: bloqueia a UI. Prefira <code>/filter</code> com <code>size</code> controlado.</li>
     <li><strong>Keyset sem tie‑break</strong>: ordenar só por <code>updatedAt</code> causa gaps/duplicações. Adicione <code>id</code> como desempate.</li>
     <li><strong>Persistir cursores após mudar filtros/sort</strong>: cursores ficam inválidos. Sempre <em>reset</em> ao trocar filtros/sort.</li>
-    <li><strong>Ignorar X‑Data‑Version</strong>: pode mostrar dados obsoletos. Compare o cabeçalho para invalidar cache local.</li>
+    <li><strong>Ignorar X‑Data‑Version</strong>: pode mostrar dados desatualizados. Compare o cabeçalho para invalidar cache local.</li>
     <li><strong>Enviar listas enormes em NOT_IN</strong>: caro no banco e na rede. Reavalie o critério (flags/filtros positivos).</li>
     <li><strong>Options com payload pesado</strong>: se só precisa de id/label, use <code>/options/filter</code> (OptionDTO), não <code>/filter</code> do recurso.</li>
     <li><strong>Não reenviar includeIds nas páginas seguintes</strong>: permite duplicação dos itens “fixados”. Reenvie <code>includeIds</code> sem reinjeção.</li>

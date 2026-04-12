@@ -1,6 +1,6 @@
 # Roadmap de Filtros — Lotes 2 e 3
 
-Este documento descreve planos de evolução do mecanismo de filtros após o Lote 1 (core) já implementado. O objetivo é ampliar expressividade mantendo compatibilidade, legibilidade e portabilidade JPA.
+Este documento descreve planos de evolucao do mecanismo de filtros apos o Lote 1 (core) ja implementado. O objetivo e ampliar expressividade preservando legibilidade, previsibilidade de consumo e portabilidade JPA.
 
 - Lote 1 (entregue): operadores adicionais básicos (NOT_EQUAL, GTE/LTE, NOT_LIKE, STARTS/ENDS, NOT_IN, IS_NULL/IS_NOT_NULL, BETWEEN_EXCLUSIVE, NOT_BETWEEN, OUTSIDE_RANGE, ON_DATE, IN_LAST/NEXT_DAYS, SIZE_EQ/GT/LT, IS_TRUE/IS_FALSE)
 - Lote 2 (multicampo e relação): comparações campo↔campo, sobreposição de intervalos e existência de relações
@@ -23,7 +23,7 @@ Habilitar regras envolvendo dois campos (no mesmo root ou em relação) e exist�
   - Útil para “tem pelo menos um filho com …” (ou ausência).
 
 ### Proposta de API (@Filterable)
-Sem quebrar compatibilidade, estender a anotação com parâmetros opcionais:
+Estender a anotacao com parametros opcionais mantendo a semantica atual:
 - `otherField` (String): caminho do outro campo (pode ser relation path) para FIELD_*_FIELD
 - `rangeStartField`, `rangeEndField` (String): caminhos para delimitar intervalos do campo B em RANGE_OVERLAP
 - `existsRelation` (String): caminho para a relação (join) em EXISTS_RELATION/NOT_EXISTS_RELATION

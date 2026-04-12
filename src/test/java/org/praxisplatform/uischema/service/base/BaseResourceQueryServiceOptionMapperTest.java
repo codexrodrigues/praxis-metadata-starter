@@ -173,13 +173,13 @@ class BaseResourceQueryServiceOptionMapperTest {
 
     @Test
     void detectsAnnotationOnSuperclass() {
-        ChildEntity entity = new ChildEntity(21L, "Herdado");
+        ChildEntity entity = new ChildEntity(21L, "DaSuperclasse");
         SimpleService<ChildEntity> service = new SimpleService<>(ChildEntity.class) {};
 
         OptionDTO<Long> option = service.getOptionMapper().toOption(entity);
 
         assertEquals(21L, option.id());
-        assertEquals("Herdado", option.label());
+        assertEquals("DaSuperclasse", option.label());
     }
 
     @Test

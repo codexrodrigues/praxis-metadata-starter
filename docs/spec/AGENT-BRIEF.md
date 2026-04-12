@@ -1,10 +1,10 @@
-# Brief — Backend Compatível com Praxis UI (ex.: .NET)
+# Brief — Backend Alinhado ao Praxis UI (ex.: .NET)
 
 Objetivo
 - Padronizar contrato e metadados (OpenAPI + x‑ui) para que qualquer backend (ex.: .NET/ASP.NET Core) seja plug‑and‑play com o frontend Praxis.
 - Entregar plano, especificação validável (JSON Schema), suíte de conformidade e uma PoC mínima em .NET.
 
-Escopo de Compatibilidade (mínimo)
+Escopo de Alinhamento (minimo)
 - Endpoint `GET /schemas/filtered` com parâmetros: `path`, `operation`, `schemaType` (response|request), `includeInternalSchemas` (bool), `idField` (opcional), `readOnly` (opcional).
 - Resposta mescla `x-ui` e inclui `x-ui.resource` { `idField`, `idFieldValid`, `readOnly`, `capabilities` }.
 - ETag forte e 304 com `If-None-Match`; headers: `ETag`, `X-Schema-Hash`, `Access-Control-Expose-Headers: ETag,X-Schema-Hash`.

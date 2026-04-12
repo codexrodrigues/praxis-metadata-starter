@@ -28,7 +28,7 @@ public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
         List<StatsMetricRequest> metrics
 ) {
     /**
-     * Construtor de compatibilidade para o modo de metrica unica.
+     * Construtor para o modo de metrica unica.
      */
     public TimeSeriesStatsRequest(
             FD filter,

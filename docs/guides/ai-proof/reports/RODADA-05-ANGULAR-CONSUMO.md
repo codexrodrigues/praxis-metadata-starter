@@ -99,7 +99,7 @@ Cobertura relevante confirmada:
 Nenhum desvio funcional novo foi encontrado nesta rodada.
 
 O ajuste canônico anterior no starter para `x-ui.resource.idField` ficou
-compatível com o runtime Angular oficial.
+alinhado ao runtime Angular oficial.
 
 Houve um bloqueio operacional inicial na suite de `praxis-crud` (`NG0908` sem
 `Zone.js`). Esse bloqueio foi corrigido no workspace pelo ajuste canônico da

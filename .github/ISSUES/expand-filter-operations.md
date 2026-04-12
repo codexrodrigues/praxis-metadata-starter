@@ -9,7 +9,7 @@ Contexto
 - Há demandas recorrentes por operações adicionais com o mesmo padrão de implementação.
 
 Objetivo
-- Ampliar as operações suportadas, mantendo o mecanismo atual (enum + PredicateBuilder) e a compatibilidade.
+- Ampliar as operacoes suportadas, preservando o mecanismo atual (enum + PredicateBuilder) e a previsibilidade de consumo.
 
 Escopo
 - Adicionar as operações abaixo em `@Filterable.FilterOperation` e respectivos PredicateBuilders:
@@ -95,4 +95,3 @@ Riscos e Mitigação
 
 Notas
 - Para datas, recomenda-se manter uso de `BETWEEN` para intervalos (`LocalDate` já é tratado para `Instant` no builder atual de BETWEEN). As novas operações GTE/LTE aplicam-se a tipos `Comparable` conforme os já existentes.
-

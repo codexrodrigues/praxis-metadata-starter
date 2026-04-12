@@ -9,8 +9,8 @@ import java.util.List;
  *
  * <p>
  * A resposta devolve o campo temporal de referencia, a granularidade aplicada e a serie de pontos
- * resultante. Em cenarios multi-metrica, a lista {@code metrics} expõe as metricas efetivamente
- * processadas, mantendo compatibilidade com o campo principal {@code metric}.
+ * resultante. Em cenarios multi-metrica, a lista {@code metrics} expoe as metricas efetivamente
+ * processadas, preservando {@code metric} como campo principal da resposta.
  * </p>
  */
 public record TimeSeriesStatsResponse(
@@ -21,7 +21,7 @@ public record TimeSeriesStatsResponse(
         List<StatsMetricRequest> metrics
 ) {
     /**
-     * Construtor de compatibilidade para respostas de metrica unica.
+     * Construtor para respostas de metrica unica.
      */
     public TimeSeriesStatsResponse(
             String field,

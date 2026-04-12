@@ -21,7 +21,7 @@ public record StatsMetricRequest(
         String alias
 ) {
     /**
-     * Construtor de compatibilidade para requests sem alias explicito.
+     * Construtor para requests sem alias explicito.
      */
     public StatsMetricRequest(StatsMetric operation, String field) {
         this(operation, field, null);

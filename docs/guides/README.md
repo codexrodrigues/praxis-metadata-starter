@@ -39,8 +39,8 @@ consumir `capabilities`.
 
 ### Guia 05
 
-Use quando for preciso explicar visualmente a transicao do modelo CRUD para o
-contrato semantico atual e como `ResourceIntent`, `UiSurface`,
+Use quando for preciso explicar visualmente a diferenca entre uma leitura CRUD
+simplificada e o contrato semantico canonico, e como `ResourceIntent`, `UiSurface`,
 `WorkflowAction` e `capabilities` se encaixam no mesmo contrato.
 
 ### Guia 03

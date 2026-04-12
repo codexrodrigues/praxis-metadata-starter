@@ -198,9 +198,9 @@ public Page<OptionDTO> filterOptionSourceOptions(String sourceKey, GenericFilter
 }
 ```
 
-### Adequando De `endpoint` Para `optionSource`
+### `optionSource` Como Contrato Canonico
 
-Campo antigo:
+Forma baseada em endpoint direto:
 ```json
 {
   "campo": {
@@ -211,7 +211,7 @@ Campo antigo:
 }
 ```
 
-Novo com OptionSource:
+Forma canonica com OptionSource:
 ```json
 {
   "campo": {
@@ -224,4 +224,6 @@ Novo com OptionSource:
 }
 ```
 
-Durante transição, publique ambos para compatibilidade.
+Publique `x-ui.optionSource` como contrato canonico. Endpoints diretos para
+opcoes podem existir como implementacao operacional, mas nao devem redefinir a
+semantica metadata-driven publicada.

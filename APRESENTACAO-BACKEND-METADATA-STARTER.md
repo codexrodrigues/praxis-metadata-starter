@@ -121,7 +121,7 @@ curl -i "http://localhost:8080/schemas/filtered?path=/api/valores-parametro-inst
 
 - Evolução de contrato
   - Non‑breaking: novos labels/hints/extraProperties → incrementa ETag.
-  - Breaking: renomeio/required/tipo → use versão lógica (header), mantenha janela de compatibilidade e comunique no CHANGELOG.
+  - Breaking: renomeio/required/tipo -> ajuste a fonte canonica do contrato, use versao logica quando necessario e comunique no CHANGELOG.
 
 ---
 
