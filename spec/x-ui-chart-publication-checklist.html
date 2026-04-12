@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Checklist de Publicacao - `x-ui.chart` draft `0.1.0`</title>
+  <title>Checklist de Conformidade - `x-ui.chart` draft `0.1.0`</title>
   <style>
     html {
       color: #1a1a1a;
@@ -230,22 +230,20 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Checklist de Publicacao - `x-ui.chart` draft
+<h1 class="title">Checklist de Conformidade - `x-ui.chart` draft
 `0.1.0`</h1>
 </header>
-<h1 id="checklist-de-publicacao---x-ui.chart-draft-0.1.0">Checklist de
-Publicacao - <code>x-ui.chart</code> draft <code>0.1.0</code></h1>
+<h1 id="checklist-de-conformidade---x-ui.chart-draft-0.1.0">Checklist de
+Conformidade - <code>x-ui.chart</code> draft <code>0.1.0</code></h1>
 <h2 id="objetivo">Objetivo</h2>
-<p>Consolidar os gates minimos para publicar uma nova versao do
-<code>praxis-metadata-starter</code> contendo o draft canonico de
-<code>x-ui.chart</code> sem gerar drift imediato entre:</p>
+<p>Consolidar os gates minimos para manter o draft canonico de
+<code>x-ui.chart</code> coerente entre:</p>
 <ul>
 <li>schema canonico no starter</li>
 <li>host operacional <code>praxis-api-quickstart</code></li>
 <li>runtime oficial <code>@praxisui/charts</code></li>
 </ul>
-<h2 id="gates-minimos-antes-da-publicacao">Gates Minimos Antes da
-Publicacao</h2>
+<h2 id="gates-minimos">Gates Minimos</h2>
 <h3 id="integridade-do-contrato-canonico">1. Integridade do contrato
 canonico</h3>
 <ul>
@@ -262,12 +260,12 @@ JSON</li>
 <li><code>refresh.strategy = "interval"</code> exige
 <code>intervalMs</code></li>
 </ul>
-<h3 id="compatibilidade-operacional-com-stats">2. Compatibilidade
-operacional com stats</h3>
+<h3 id="alinhamento-operacional-com-stats">2. Alinhamento operacional
+com stats</h3>
 <ul>
 <li>o contrato aponta explicitamente para a familia institucional
 <code>praxis.stats</code></li>
-<li>as operacoes cobertas nesta fase sao:
+<li>as operacoes cobertas sao:
 <ul>
 <li><code>group-by</code></li>
 <li><code>timeseries</code></li>
@@ -278,11 +276,11 @@ payloads nesse shape sem adaptadores ad hoc</li>
 <li><code>/schemas/filtered</code> resolve request/response schema para
 essas operacoes</li>
 </ul>
-<h3 id="compatibilidade-com-o-runtime-angular-oficial">3.
-Compatibilidade com o runtime Angular oficial</h3>
-<p>O draft canonico pode ser mais amplo que o runtime atual, mas isso
-precisa estar documentado explicitamente.</p>
-<p>Suportado hoje em <code>@praxisui/charts</code>:</p>
+<h3 id="cobertura-no-runtime-angular-oficial">3. Cobertura no runtime
+Angular oficial</h3>
+<p>O contrato canonico e a cobertura do runtime oficial devem estar
+documentados de forma objetiva.</p>
+<p>Cobertura executavel em <code>@praxisui/charts</code>:</p>
 <ul>
 <li><code>source.kind = "praxis.stats"</code></li>
 <li><code>kind</code>: <code>bar</code>, <code>line</code>,
@@ -290,9 +288,10 @@ precisa estar documentado explicitamente.</p>
 <code>stacked-bar</code></li>
 <li>uma metrica por chart quando a origem e
 <code>praxis.stats</code></li>
-<li><code>pointClick</code> e <code>drillDown</code> no fluxo atual</li>
+<li><code>pointClick</code> e <code>drillDown</code> no fluxo
+executavel</li>
 </ul>
-<p>Ainda nao suportado no runtime Angular atual:</p>
+<p>Sem cobertura executavel no runtime Angular oficial:</p>
 <ul>
 <li><code>source.kind = "derived"</code></li>
 <li><code>aggregation = "distinct-count"</code></li>
@@ -302,17 +301,17 @@ precisa estar documentado explicitamente.</p>
 <li><code>theme.palette</code> como token semantico string</li>
 <li>pie/donut com multiplas metricas</li>
 </ul>
-<p>Consequencia:</p>
+<p>Regra de publicacao:</p>
 <ul>
-<li>a publicacao do starter pode incluir essas capacidades no draft
-canonico</li>
-<li>mas a release deve deixar claro que parte delas ainda esta fora da
-superficie executavel atual do Angular</li>
+<li>o starter so deve publicar exemplos operacionais para capacidades
+com cobertura executavel documentada;</li>
+<li>capacidades presentes apenas no schema devem permanecer descritas
+como vocabulario de contrato, sem promessa de execucao pelo consumidor
+oficial.</li>
 </ul>
 <h3 id="validacao-de-host-operacional">4. Validacao de host
 operacional</h3>
-<p>Antes da publicacao, recomenda-se validar no
-<code>praxis-api-quickstart</code>:</p>
+<p>Recomenda-se validar no <code>praxis-api-quickstart</code>:</p>
 <ul>
 <li>schema request/response para <code>group-by</code>,
 <code>timeseries</code> e <code>distribution</code></li>
@@ -321,37 +320,34 @@ operacional</h3>
 <p>Comando focal recomendado:</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="va">PRAXIS_EXTERNAL_SMOKE_TESTS</span><span class="op">=</span>true <span class="ex">./mvnw</span> <span class="at">-Dtest</span><span class="op">=</span>StatsSchemaSmokeHttpTest,VwStatsSmokeHttpTest test</span></code></pre></div>
-<h2 id="riscos-conhecidos-na-publicacao-desta-fase">Riscos Conhecidos na
-Publicacao desta Fase</h2>
-<h3 id="contrato-mais-amplo-que-o-runtime">1. Contrato mais amplo que o
-runtime</h3>
-<p>O starter pode publicar semantica que o Angular oficial ainda nao
-executa completamente. Isso e aceitavel apenas se a limitacao estiver
-documentada como compatibilidade parcial de consumidor.</p>
-<h3
-id="nao-ha-ainda-integracao-canonica-automatica-em-schemasfiltered">2.
-Nao ha ainda integracao canonica automatica em
+<h2 id="riscos-conhecidos">Riscos Conhecidos</h2>
+<h3 id="contrato-sem-cobertura-executavel-correspondente">1. Contrato
+sem cobertura executavel correspondente</h3>
+<p>Toda semantica publicada pelo starter deve declarar se existe
+cobertura executavel no consumidor oficial.</p>
+<h3 id="projecao-para-schemasfiltered">2. Projecao para
 <code>/schemas/filtered</code></h3>
-<p>Nesta fase, o schema e a documentacao canonica existem no starter,
-mas a projecao automatica de <code>x-ui.chart</code> para payloads
-finais continua dependendo do rollout dos produtores/hosts.</p>
+<p>A documentacao de <code>x-ui.chart</code> deve separar o vocabulario
+de contrato da projecao automatica para payloads finais em
+<code>/schemas/filtered</code>.</p>
 <h3 id="o-contrato-continua-em-estado-draft">3. O contrato continua em
 estado <code>draft</code></h3>
 <p>Mesmo com schema validavel, o bloco segue como draft
-<code>0.1.0</code>. A release nao deve comunicar estabilidade de longo
-prazo equivalente ao core <code>x-ui</code> v1.</p>
-<h2 id="texto-recomendado-para-release-notes">Texto Recomendado para
-Release Notes</h2>
+<code>0.1.0</code>. A comunicacao deve deixar claro que a estabilidade e
+de draft, sem equivalencia ao core <code>x-ui</code> v1.</p>
+<h2 id="texto-recomendado-para-notas-publicas">Texto Recomendado para
+Notas Publicas</h2>
 <div class="sourceCode" id="cb2"><pre class="sourceCode md"><code class="sourceCode markdown"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>adiciona o draft canonico <span class="in">`x-ui.chart`</span> (<span class="in">`0.1.0`</span>) em <span class="in">`docs/spec`</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>alinha a origem analitica inicial ao namespace institucional <span class="in">`praxis.stats`</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>publica exemplo valido e guia de conformidade para charts metadata-driven</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>documenta limites de compatibilidade atuais do runtime Angular oficial <span class="in">`@praxisui/charts`</span></span></code></pre></div>
-<h2 id="onde-retomar-depois-da-publicacao">Onde Retomar Depois da
-Publicacao</h2>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>documenta a cobertura executavel do runtime Angular oficial <span class="in">`@praxisui/charts`</span></span></code></pre></div>
+<h2 id="validacoes-operacionais-relacionadas">Validacoes Operacionais
+Relacionadas</h2>
 <ul>
-<li>ligar o <code>praxis-api-quickstart</code> na versao publicada nova
-do starter</li>
-<li>publicar o host operacional no ambiente remoto</li>
+<li>ligar o <code>praxis-api-quickstart</code> ao starter em
+validacao</li>
+<li>publicar o host operacional no ambiente remoto quando houver gate de
+release</li>
 <li>apontar o <code>praxis-ui-angular</code> para a API publicada e
 validar <code>/charts-showcase</code> contra backend real</li>
 </ul>

@@ -87,15 +87,15 @@
 
 ### Falha 2
 
-- categoria: relatorio-historico-obsoleto
-- sintoma: o achado antigo de que `categoriaId` sequestrava `x-ui.resource.idField` nao se reproduziu no estado atual do starter
+- categoria: achado-revalidado-sem-reproducao
+- sintoma: o achado da rodada anterior de que `categoriaId` sequestrava `x-ui.resource.idField` nao se reproduziu no estado atual do starter
 - evidencia:
   - nesta revalidacao, o request schema veio com `idField="id"`, nao com `categoriaId`
 - causa provavel:
-  - o starter evoluiu desde o relatorio historico de 2026-03-24
+  - o starter foi revalidado em relacao ao relatorio de 2026-03-24
 - impede aprovacao: nao
 - ajuste proposto:
-  - registrar esta revalidacao e tratar o relatorio antigo como evidencia historica, nao como estado atual
+  - registrar esta revalidacao e tratar o relatorio anterior como evidencia tecnica de rodada, nao como estado atual
 
 ### Falha 3
 

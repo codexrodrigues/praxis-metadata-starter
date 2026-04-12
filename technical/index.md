@@ -24,4 +24,4 @@ Material tecnico ainda vivo do `praxis-metadata-starter`.
 - nao use esta area como onboarding principal
 - use os guias e a visao arquitetural publica para o baseline atual
 - trate esta area como referencia de engenharia complementar
-- trate registros de piloto e rollout como historico tecnico controlado
+- trate registros de piloto e rollout como evidencias tecnicas complementares

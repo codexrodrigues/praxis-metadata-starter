@@ -98,8 +98,9 @@ Esses controllers nao sao equivalentes entre si:
 - `@WorkflowAction`
 - resolvers de capability
 
-Aqui a arquitetura sai do antigo "CRUD com metadata" e passa para semantica de
-recurso, experiencia e acao de negocio.
+Aqui a arquitetura deixa claro que "CRUD com metadata" e uma leitura
+insuficiente. O contrato canonico combina recurso, experiencia e acao de
+negocio.
 
 ## 4. Fluxo Estrutural
 
@@ -199,7 +200,7 @@ Nao explicar o starter como se ele fosse:
 - um sistema em que `/schemas/catalog` substitui `/schemas/filtered`
 - um backend que publica schema estrutural sem semantica de recurso
 
-Essas leituras ficaram historicamente incompletas.
+Essas leituras sao incompletas para o baseline canonico do starter.
 
 ## 9. Referencias
 

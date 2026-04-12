@@ -185,12 +185,13 @@ comando de negocio</li>
 <li>tudo isso continua apontando para operacoes HTTP reais e schemas
 canonicos</li>
 </ul>
-<h2 id="a-mudanca-de-modelo">A mudanca de modelo</h2>
-<p>O modelo antigo de leitura mental era:</p>
+<h2 id="a-leitura-correta-do-contrato">A leitura correta do
+contrato</h2>
+<p>Uma leitura simplificada seria:</p>
 <pre class="mermaid"><code>flowchart LR
     dto[&quot;DTO anotado&quot;] --&gt; crud[&quot;CRUD generico&quot;]
     crud --&gt; ui[&quot;UI renderizada&quot;]</code></pre>
-<p>O modelo atual do starter e:</p>
+<p>O contrato canonico do starter e:</p>
 <pre class="mermaid"><code>flowchart LR
     resource[&quot;Resource HTTP real&quot;] --&gt; filtered[&quot;/schemas/filtered&quot;]
     resource --&gt; catalog[&quot;/schemas/catalog&quot;]

@@ -3,7 +3,7 @@
 Contexto
 - Hoje `@UISchema(filterOptions="...")` é serializado como `string` em `x-ui.filterOptions`.
 - A spec de campo exige `filterOptions: array` (docs/spec/x-ui-field.schema.json:189).
-- Decisão atual: manter `string` por compatibilidade e documentar. Este follow‑up detalha como migrar para `array` com coerção defensiva.
+- Estado observado: alguns caminhos ainda serializam `x-ui.filterOptions` como `string`. A forma canonica da spec e `array`; este follow-up detalha a normalizacao defensiva para esse formato.
 
 Objetivo
 - Serializar `x-ui.filterOptions` sempre como `array` com comportamento previsível, mantendo a informação original quando não for possível parsear como estrutura.
@@ -43,10 +43,11 @@ Aceite / Testes
   - String inválida ("foo") → `["foo"]`.
 - Rodar: `./mvnw -DskipITs -Dtest=org.praxisplatform.uischema.extension.* test`.
 
-Compatibilidade
-- Mudança é forward‑compatible com a spec e resiliente:
-  - Consumidores que esperavam string passarão a receber um array. Em casos de objeto JSON, o conteúdo passa a ser mais estruturado conforme esperado pela spec.
-  - Em casos não parseáveis, a informação original é preservada como `string` dentro do array.
+Impacto de consumo
+- A mudanca alinha o payload a spec e torna a serializacao mais previsivel:
+  - consumidores internos devem tratar `x-ui.filterOptions` como `array`;
+  - em casos de objeto JSON, o conteudo passa a ser estruturado conforme esperado pela spec;
+  - em casos nao parseaveis, a informacao original e preservada como `string` dentro do array.
 
 Risco / Mitigações
 - UI que assume `string` pode precisar de ajuste; mitigado pelo fallback consistente e pela validação na spec.
@@ -60,4 +61,3 @@ Rollout Sugerido
 
 Observação
 - Não há alteração em `@UISchema` (continua `String filterOptions()`), apenas coerção na serialização do `x-ui`.
-

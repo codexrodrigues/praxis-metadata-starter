@@ -34,7 +34,7 @@
   - ETag forte no `/schemas/filtered` e hash deterministico em `X-Schema-Hash`
   - `schemaId` estavel conforme composicao `path|operation|schemaType|internal|tenant|locale`
   - quando `x-ui.chart.source.kind = "praxis.stats"`, o contrato publicado exige `source.resource` e `source.operation`
-  - quando um campo publicar `x-ui.optionSource`, o bloco deve obedecer o schema draft e conviver de forma aditiva com o shape compativel ainda aceito
+  - quando um campo publicar `x-ui.optionSource`, o bloco deve obedecer o schema draft e representar a fonte de opcoes como contrato canonico
 - Extended (recomendado)
   - preencher `displayColumns`/`displayFields` no x-ui de operacao
   - publicar `x-ui.chart` com `version`, `kind`, `source`, semantica analitica e eventos declarativos, mantendo o contrato agnostico de engine
@@ -77,21 +77,21 @@
   - `/schemas/surfaces` -> catalogo semantico de `@UiSurface` e surfaces automaticas do recurso
   - `/schemas/actions` -> catalogo semantico de `@WorkflowAction`
 
-## Compatibilidade de consumidor - `@praxisui/charts`
+## Cobertura do consumidor oficial - `@praxisui/charts`
 
-O draft canonico pode ser mais amplo que o runtime Angular atual.
+O draft canonico e a cobertura executavel do runtime Angular oficial sao documentados separadamente.
 
-Suportado hoje no runtime oficial:
+Cobertura executavel no runtime oficial:
 
 - `source.kind = "praxis.stats"`
 - `kind`: `bar`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`
 - `kind`: `combo` com dados locais/derivados e series heterogeneas por metrica
 - uma metrica por chart quando a origem e `praxis.stats`
-- `pointClick` e `drillDown` no fluxo atual
+- `pointClick` e `drillDown` no fluxo executavel
 - `orientation = "horizontal"` para `horizontal-bar`
 - `scatter` com leitura bidimensional minima: primeira dimensao no eixo `x` e primeira metrica no eixo `y`
 
-Ainda nao suportado no runtime Angular atual:
+Sem cobertura executavel no runtime Angular oficial:
 
 - `source.kind = "derived"`
 - `kind = "combo"` sobre `source.kind = "praxis.stats"` com multiplas metricas publicadas pelo backend
@@ -102,11 +102,11 @@ Ainda nao suportado no runtime Angular atual:
 - `theme.palette` como token string
 - pie/donut com multiplas metricas
 
-Publicacoes do starter devem deixar essa assimetria explicita ate que os consumidores sejam endurecidos no mesmo nivel.
+Publicacoes do starter devem declarar essa diferenca como cobertura de execucao, sem sugerir trilhas paralelas de contrato.
 
-## Compatibilidade de consumidor - `x-ui.optionSource`
+## Cobertura do consumidor oficial - `x-ui.optionSource`
 
-O draft canonico de `x-ui.optionSource` ainda pode ser mais amplo que o rollout implementado em cada consumidor, mas o starter ja trata essa superficie como contrato publico oficial.
+O draft canonico de `x-ui.optionSource` e contrato publico oficial do starter. Consumidores devem ler esse bloco como a fonte semantica da opcao remota.
 
 Estado canonicamente suportado no starter:
 
@@ -116,17 +116,16 @@ Estado canonicamente suportado no starter:
 - executado pelos controllers base para `DISTINCT_DIMENSION` e `CATEGORICAL_BUCKET`
 - exposto nas capacidades agregadas e nos endpoints `/{resource}/option-sources/{sourceKey}/options/*`
 
-Assimetria que ainda pode existir fora do starter:
+Limites de cobertura fora do starter:
 
-- um consumidor especifico pode ainda nao consumir todo o draft de `x-ui.optionSource`
-- tipos como `RESOURCE_ENTITY`, `LIGHT_LOOKUP` e `STATIC_CANONICAL` ainda nao estao implementados de ponta a ponta no executor JPA padrao
+- consumidores especificos podem declarar subconjuntos de cobertura do draft;
+- tipos como `RESOURCE_ENTITY`, `LIGHT_LOOKUP` e `STATIC_CANONICAL` exigem executor correspondente no host.
 
-Diretriz de rollout:
+Diretriz canonica:
 
-- `x-ui.optionSource` deve entrar de forma aditiva
-- `endpoint`, `valueField` e `displayField` permanecem aceitos enquanto ainda houver consumidores dependentes desse shape
-- um host pode publicar ambos os modelos para o mesmo campo quando isso reduzir risco operacional na adequacao dos consumidores
-- consumidores nao devem inferir `optionSource` a partir de heuristicas locais se o backend ainda nao o publicar
+- campos com fonte remota devem publicar `x-ui.optionSource`;
+- `endpoint`, `valueField` e `displayField` nao devem redefinir a semantica de fonte quando `x-ui.optionSource` estiver presente;
+- consumidores nao devem inferir `optionSource` a partir de heuristicas locais.
 
 ## Boas praticas e notas
 
@@ -135,15 +134,15 @@ Diretriz de rollout:
 - o backend deve separar payload estrutural e payload documental antes de calcular o hash
 - locale/tenant variam `schemaId` e os headers de cache
 
-## Compatibilidade (anotacoes temporarias)
+## Cobertura atual das anotacoes
 
-- `filterOptions`: a spec define `array`, porem o starter atualmente serializa como `string` em alguns caminhos ainda compativeis com consumidores atuais.
-- `optionSource`: o starter ja publica e executa a superficie base para `DISTINCT_DIMENSION` e `CATEGORICAL_BUCKET`; a compatibilidade remanescente esta concentrada nos consumidores especificos e nos tipos ainda nao implementados pelo executor JPA padrao.
+- `filterOptions`: a spec define `array`; a serializacao deve seguir esse formato canonico.
+- `optionSource`: o starter publica e executa a superficie base para `DISTINCT_DIMENSION` e `CATEGORICAL_BUCKET`; demais tipos exigem executor correspondente no host.
 
 ## Suite de fixtures
 
 - Esta pasta traz exemplos validos e invalidos para facilitar a automacao no CI.
 - Os arquivos `*.valid.json` e `*.invalid.json` devem ser tratados como fixtures de validacao, nao como catalogo exaustivo de exemplos publicos.
 - `canonical-payload.json` e `x-ui-chart.valid.json` tambem cumprem papel documental e podem ser referenciados em guias, desde que permanecam coerentes com os schemas publicados.
-- os fixtures `x-ui-field-option-source-*.json` cobrem apenas o draft contratual inicial e nao implicam rollout completo da feature.
+- os fixtures `x-ui-field-option-source-*.json` documentam o draft contratual de `x-ui.optionSource`.
 - Use estes arquivos como base para gerar casos especificos do seu dominio.

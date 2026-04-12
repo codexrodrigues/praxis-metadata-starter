@@ -461,9 +461,9 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Lógica customizada</span></span>
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> options<span class="op">.</span><span class="fu">map</span><span class="op">(</span>option <span class="op">-&gt;</span> option<span class="op">.</span><span class="fu">withExtra</span><span class="op">(</span><span class="bu">Map</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;count&quot;</span><span class="op">,</span> <span class="dv">42</span><span class="op">)));</span></span>
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="adequando-de-endpoint-para-optionsource">Adequando De
-<code>endpoint</code> Para <code>optionSource</code></h3>
-<p>Campo antigo:</p>
+<h3 id="optionsource-como-contrato-canonico"><code>optionSource</code>
+Como Contrato Canonico</h3>
+<p>Forma baseada em endpoint direto:</p>
 <div class="sourceCode" id="cb8"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;campo&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
@@ -472,7 +472,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb8-1"><a href="
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;displayField&quot;</span><span class="fu">:</span> <span class="st">&quot;label&quot;</span></span>
 <span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
 <span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
-<p>Novo com OptionSource:</p>
+<p>Forma canonica com OptionSource:</p>
 <div class="sourceCode" id="cb9"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;campo&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
@@ -483,6 +483,9 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb9-1"><a href="
 <span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
 <span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
 <span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
-<p>Durante transição, publique ambos para compatibilidade.</p>
+<p>Publique <code>x-ui.optionSource</code> como contrato canonico.
+Endpoints diretos para opcoes podem existir como implementacao
+operacional, mas nao devem redefinir a semantica metadata-driven
+publicada.</p>
 </body>
 </html>

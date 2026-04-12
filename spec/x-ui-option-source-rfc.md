@@ -32,33 +32,29 @@ Consequencia:
 
 ## Motivacao
 
-Hoje a plataforma ja publica campos com opcoes locais e tambem suporta fluxos em que
-o frontend consome endpoints de options derivados de recursos. O problema e que isso
-ainda aparece de forma heterogenea:
+A plataforma publica opcoes locais e fontes remotas de opcoes como parte do contrato
+metadata-driven. `x-ui.optionSource` define a linguagem publica unica para campos que
+dependem de uma fonte derivada, governada ou reidratavel.
 
-- parte dos campos expõe `endpoint`, `valueField` e `displayField`
-- parte dos consumidores ja trabalha mais perto de `resourcePath` e semantica de fonte
-- a relacao com `stats` e dimensoes derivadas ainda precisa de uma linguagem publica unica
+O objetivo desta RFC e declarar essa forma canonica de publicacao, mantendo endpoints
+operacionais como detalhe de execucao e impedindo que consumidores reconstruam semantica
+por heuristicas locais.
 
-O objetivo desta RFC nao e preservar multiplas trilhas como recomendacao. O objetivo e
-fechar uma forma canonica de publicacao e manter shapes compativeis apenas enquanto
-existirem consumidores que ainda dependam deles.
+## Diagnostico do Contrato
 
-## Diagnostico do Estado Atual
-
-### O que ja existe
+### Superficies existentes
 
 - `OptionDTO` como payload publico para opcoes remotas
 - endpoints operacionais de filtro e reidratacao por IDs
 - runtime Angular com capacidade de consumir `optionSource`
 - starter com suporte base para `DISTINCT_DIMENSION` e `CATEGORICAL_BUCKET`
 
-### O que falta
+### Decisoes canonicas
 
 - um bloco canonico unico em `x-ui`
 - regras publicas para os tipos de fonte
 - diretriz clara sobre quando usar `stats`, lookup leve ou entidade de recurso
-- narrativa publica limpa para rollout e conformidade
+- narrativa publica limpa para conformidade
 
 ## Principios
 
@@ -218,11 +214,10 @@ Endpoints de execucao:
 - `POST /option-sources/{sourceKey}/options/filter`
 - `GET /option-sources/{sourceKey}/options/by-ids`
 
-## Nao Objetivos Desta Fase
+## Limites Deste Contrato
 
-Esta RFC nao tenta resolver agora:
+Esta RFC nao define:
 
-- remocao imediata do shape compativel `endpoint/valueField/displayField`
 - suporte completo a todos os tipos no executor JPA padrao
 - conversao automatica de qualquer campo textual em fonte de options
 - exposicao de `stats/*` como API publica de options
@@ -277,18 +272,17 @@ o contrato por tipo de fonte.
 
 `/schemas/filtered` deve publicar a capacidade de fonte de opcao por campo.
 
-Direcao minima:
+Regra minima:
 
-- manter o shape compativel para `endpoint/valueField/displayField` enquanto necessario
-- adicionar `x-ui.optionSource`
+- publicar `x-ui.optionSource`
 - explicitar a capability de options derivadas no nivel certo de recurso, operacao ou campo
 
 Com isso, o runtime consumidor pode:
 
-- continuar funcionando com o shape compativel
-- preferir a semantica canonica quando disponivel
+- consumir a semantica canonica publicada pelo backend
+- usar endpoints operacionais apenas como meio de execucao
 
-## Compatibilidade com Angular
+## Cobertura no Angular Oficial
 
 O runtime Angular ja esta mais proximo de `resourcePath` base do que de endpoint arbitrario final.
 
@@ -341,32 +335,29 @@ O contrato de options derivadas deve respeitar as mesmas guardrails de contrato 
 Recomendacao:
 
 - `version` no bloco `x-ui.optionSource`
-- rollout aditivo
-- sem remocao do modelo compativel `endpoint/valueField/displayField` na primeira fase
 
-## Plano de Evolucao
+## Plano de Implementacao
 
-### Fase 1 - Contrato
+### Contrato
 
 - fechar o shape canonico de `x-ui.optionSource`
 - documentar tipos iniciais e regras de uso
 
-### Fase 2 - Starter
+### Starter
 
 - publicar o bloco em `/schemas/filtered`
 - suportar filtro e reidratacao para os tipos iniciais priorizados
 
-### Fase 3 - Host de referencia
+### Host de referencia
 
 - provar a superficie em `praxis-api-quickstart`
 - validar cascata, filtro e reidratacao em fluxo real
 
-### Fase 4 - Runtime Angular
+### Runtime Angular
 
 - consumir `optionSource` como referencia principal
-- manter shape compativel apenas como fallback operacional
 
-### Fase 5 - Exemplos e Conformidade
+### Exemplos e Conformidade
 
 - atualizar exemplos oficiais
 - alinhar docs de conformance e guias
@@ -397,22 +388,22 @@ Use quando o usuario escolhe categorias governadas, e nao valores brutos diretam
 Se a lista de opcoes depende de empresa, filial ou outro campo, publique `dependsOn` e
 `filterField` quando necessario.
 
-## Decisoes em Aberto
+## Decisoes de Cobertura
 
-Itens ainda dependentes de implementacao completa:
+Itens que exigem implementacao correspondente:
 
 - cobertura de todos os tipos pelo executor JPA padrao
 - formato final de hints adicionais de policy e cache
 
 ## Pitfalls Comuns
 
-- tratar `endpoint` compativel como se ainda fosse a direcao canonica
+- tratar endpoint operacional como fonte de verdade semantica
 - inferir fonte por heuristica local no runtime
 - misturar semantica de stats com semantica publica de options
 - publicar cascata sem `dependsOn` explicito
 
 ## Conclusao
 
-`x-ui.optionSource` deve se consolidar como a forma canonica de publicar opcoes derivadas no
-backend Praxis. Shapes compativeis ainda aceitos existem apenas para reduzir risco operacional
-durante a adequacao dos consumidores, sem competir com a direcao oficial da plataforma.
+`x-ui.optionSource` e a forma canonica de publicar opcoes derivadas no backend Praxis.
+Endpoints operacionais executam filtro e reidratacao, mas nao competem com a semantica
+publicada em `x-ui`.

@@ -139,7 +139,7 @@ Contrato OpenAPI publicado para ranges:
 * o schema de campos `@Filterable` com operação de range publica `oneOf` com duas variantes aceitas:
   * array canônico:
     * `BETWEEN`/`NOT_BETWEEN`/`OUTSIDE_RANGE`: `[min]`, `[min,max]` ou `[null,max]`;
-    * shape compativel ainda aceito: `[min,null]` e normalizado para `[min]` no backend;
+    * shape normalizado: `[min,null]` e convertido para `[min]` no backend;
     * `BETWEEN_EXCLUSIVE`: exige exatamente dois limites não nulos (`[min,max]`).
   * objeto canônico (`{ minPrice, maxPrice, currency? }` para monetário ou `{ startDate, endDate }` para datas), com regra OpenAPI para obrigar ao menos um limite (ou ambos no `BETWEEN_EXCLUSIVE`).
 
@@ -162,5 +162,5 @@ Regras recomendadas:
 Contrato canonico de payload:
 
 * payload escalar de range e invalido e retorna `400`.
-* nao ha flag de compatibilidade para aceitar escalar em runtime.
+* nao ha flag para aceitar escalar em runtime.
 * payload inválido de filtro retorna `400` com `errors[].properties.code = FILTER_PAYLOAD_INVALID`.

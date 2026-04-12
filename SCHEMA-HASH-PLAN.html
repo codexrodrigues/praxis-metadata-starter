@@ -326,7 +326,7 @@ adicionados/removidos/modificados + classificação).</li>
 </ul></li>
 <li>Alternativa: incorporar <code>fromHash</code> em
 <code>/schemas/filtered</code> e responder com <code>x-diff</code>
-(resumo/patch) no body. Mantém compatibilidade com o fluxo atual.</li>
+(resumo/patch) no body. Preserva o fluxo canonico de consumo.</li>
 <li>Otimização: quando <code>fromHash</code> for igual ao hash atual,
 responder <code>204 No Content</code>.</li>
 </ul>
@@ -394,9 +394,9 @@ por inteiro (preservar <code>type</code>, <code>required</code>,
 <code>format</code>, <code>description</code>,
 <code>allOf/oneOf/anyOf/items</code>, etc.). Reaplicar recursão em
 <code>items.$ref</code>. - Se um “achatamento” de
-<code>properties</code> for mantido por compatibilidade, documentar
-explicitamente que metadados do schema referenciado não serão incluídos
-e, portanto, não afetarão o hash.</p>
+<code>properties</code> for preservado como modo documentado de
+resolucao, documentar explicitamente que metadados do schema
+referenciado nao serao incluidos e, portanto, nao afetarao o hash.</p>
 <h2 id="schemaid-canônico">SchemaId Canônico</h2>
 <p>Para alinhar caches (backend e frontend) e evitar colisões,
 padronizar a composição do <code>schemaId</code>:</p>

@@ -461,7 +461,7 @@ o contrato editorial do chart.</p>
 apresentada e integrada no ecossistema UI</li>
 </ul></li>
 </ul>
-<p>Compatibilidade da primeira onda com <code>praxis.stats</code>:</p>
+<p>Cobertura da primeira onda com <code>praxis.stats</code>:</p>
 <ul>
 <li><code>horizontal-bar</code>
 <ul>
@@ -481,7 +481,7 @@ recurso permitir usar uma dimensao numerica ou temporal no eixo
 ricos</li>
 </ul></li>
 </ul>
-<p>Compatibilidade inicial da segunda onda:</p>
+<p>Cobertura inicial da segunda onda:</p>
 <ul>
 <li><code>combo</code>
 <ul>
@@ -499,7 +499,7 @@ nascer com versionamento explicito.</p>
 <ul>
 <li><code>version</code> no proprio bloco <code>x-ui.chart</code></li>
 <li>SemVer para a especificacao</li>
-<li>compatibilidade por mapper no runtime Angular quando necessario</li>
+<li>alinhamento por mapper no runtime Angular quando necessario</li>
 </ul>
 <p>Sem isso, editor, builder, payload remoto e recipes correm risco de
 quebrar em cadeia.</p>
@@ -552,13 +552,15 @@ quebrar em cadeia.</p>
 <li>docs publicas potencialmente afetadas:
 <ul>
 <li>docs da spec <code>x-ui</code></li>
-<li>guias de backend compativel</li>
+<li>guias de backend alinhado ao contrato</li>
 <li>docs publicas de charts</li>
 </ul></li>
 <li>testes ou validacoes minimas necessarias:
 <ul>
 <li>fixtures de contrato</li>
-<li>compatibilidade com payloads mockados atuais</li>
+</ul></li>
+<li>alinhamento com payloads mockados atuais
+<ul>
 <li>testes de copia de <code>x-ui.chart</code> por
 <code>/schemas/filtered</code></li>
 <li>testes de mapper no runtime Angular</li>

@@ -173,9 +173,10 @@ Compliance)</h1>
 <p>Contexto - Hoje <code>@UISchema(filterOptions="...")</code> é
 serializado como <code>string</code> em <code>x-ui.filterOptions</code>.
 - A spec de campo exige <code>filterOptions: array</code>
-(docs/spec/x-ui-field.schema.json:189). - Decisão atual: manter
-<code>string</code> por compatibilidade e documentar. Este follow‑up
-detalha como migrar para <code>array</code> com coerção defensiva.</p>
+(docs/spec/x-ui-field.schema.json:189). - Estado observado: alguns
+caminhos ainda serializam <code>x-ui.filterOptions</code> como
+<code>string</code>. A forma canonica da spec e <code>array</code>; este
+follow-up detalha a normalizacao defensiva para esse formato.</p>
 <p>Objetivo - Serializar <code>x-ui.filterOptions</code> sempre como
 <code>array</code> com comportamento previsível, mantendo a informação
 original quando não for possível parsear como estrutura.</p>
@@ -216,11 +217,12 @@ array de objetos. - JSON objeto válido → array de um objeto. - CSV
 simples (“a,b,c”) → array de strings <code>["a","b","c"]</code>. -
 String inválida (“foo”) → <code>["foo"]</code>. - Rodar:
 <code>./mvnw -DskipITs -Dtest=org.praxisplatform.uischema.extension.* test</code>.</p>
-<p>Compatibilidade - Mudança é forward‑compatible com a spec e
-resiliente: - Consumidores que esperavam string passarão a receber um
-array. Em casos de objeto JSON, o conteúdo passa a ser mais estruturado
-conforme esperado pela spec. - Em casos não parseáveis, a informação
-original é preservada como <code>string</code> dentro do array.</p>
+<p>Impacto de consumo - A mudanca alinha o payload a spec e torna a
+serializacao mais previsivel: - consumidores internos devem tratar
+<code>x-ui.filterOptions</code> como <code>array</code>; - em casos de
+objeto JSON, o conteudo passa a ser estruturado conforme esperado pela
+spec; - em casos nao parseaveis, a informacao original e preservada como
+<code>string</code> dentro do array.</p>
 <p>Risco / Mitigações - UI que assume <code>string</code> pode precisar
 de ajuste; mitigado pelo fallback consistente e pela validação na spec.
 - Parsing de JSON duplamente escapado já está padronizado nos

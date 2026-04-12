@@ -219,7 +219,7 @@ Separacao recomendada:
 - `x-ui.chart`
   - representa como uma capacidade analitica deve ser composta, apresentada e integrada no ecossistema UI
 
-Compatibilidade da primeira onda com `praxis.stats`:
+Cobertura da primeira onda com `praxis.stats`:
 
 - `horizontal-bar`
   - deve nascer sobre `group-by`
@@ -229,7 +229,7 @@ Compatibilidade da primeira onda com `praxis.stats`:
   - pode nascer inicialmente sobre `group-by` quando o recurso permitir usar uma dimensao numerica ou temporal no eixo `x` e uma metrica agregada no eixo `y`
   - isso nao elimina uma evolucao futura para `source.kind = "derived"` ou envelopes analiticos mais ricos
 
-Compatibilidade inicial da segunda onda:
+Cobertura inicial da segunda onda:
 
 - `combo`
   - deve nascer primeiro com `source.kind = "derived"` ou dados locais fornecidos pelo host/widget
@@ -243,7 +243,7 @@ Recomendacao:
 
 - `version` no proprio bloco `x-ui.chart`
 - SemVer para a especificacao
-- compatibilidade por mapper no runtime Angular quando necessario
+- alinhamento por mapper no runtime Angular quando necessario
 
 Sem isso, editor, builder, payload remoto e recipes correm risco de quebrar em cadeia.
 
@@ -295,11 +295,11 @@ Define:
   - hosts backend que publicarem payloads analiticos
 - docs publicas potencialmente afetadas:
   - docs da spec `x-ui`
-  - guias de backend compativel
+  - guias de backend alinhado ao contrato
   - docs publicas de charts
 - testes ou validacoes minimas necessarias:
   - fixtures de contrato
-  - compatibilidade com payloads mockados atuais
+- alinhamento com payloads mockados atuais
   - testes de copia de `x-ui.chart` por `/schemas/filtered`
   - testes de mapper no runtime Angular
 - risco de breaking change:

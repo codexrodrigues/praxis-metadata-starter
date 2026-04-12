@@ -234,10 +234,10 @@
 </header>
 <h1 id="roadmap-de-filtros-lotes-2-e-3">Roadmap de Filtros — Lotes 2 e
 3</h1>
-<p>Este documento descreve planos de evolução do mecanismo de filtros
-após o Lote 1 (core) já implementado. O objetivo é ampliar
-expressividade mantendo compatibilidade, legibilidade e portabilidade
-JPA.</p>
+<p>Este documento descreve planos de evolucao do mecanismo de filtros
+apos o Lote 1 (core) ja implementado. O objetivo e ampliar
+expressividade preservando legibilidade, previsibilidade de consumo e
+portabilidade JPA.</p>
 <ul>
 <li>Lote 1 (entregue): operadores adicionais básicos (NOT_EQUAL,
 GTE/LTE, NOT_LIKE, STARTS/ENDS, NOT_IN, IS_NULL/IS_NOT_NULL,
@@ -278,15 +278,15 @@ com predicados simples no lado filho.</li>
 </ul>
 <h3 id="proposta-de-api-filterable">Proposta de API (<span
 class="citation" data-cites="Filterable">@Filterable</span>)</h3>
-<p>Sem quebrar compatibilidade, estender a anotação com parâmetros
-opcionais: - <code>otherField</code> (String): caminho do outro campo
-(pode ser relation path) para FIELD_*_FIELD -
-<code>rangeStartField</code>, <code>rangeEndField</code> (String):
-caminhos para delimitar intervalos do campo B em RANGE_OVERLAP -
-<code>existsRelation</code> (String): caminho para a relação (join) em
-EXISTS_RELATION/NOT_EXISTS_RELATION - <code>existsFilter</code> (String,
-opcional): nome simbólico de um predicado simples a aplicar no filho
-(ex.: <code>ativo=true</code> ou referenciar outro campo do DTO)</p>
+<p>Estender a anotacao com parametros opcionais mantendo a semantica
+atual: - <code>otherField</code> (String): caminho do outro campo (pode
+ser relation path) para FIELD_*_FIELD - <code>rangeStartField</code>,
+<code>rangeEndField</code> (String): caminhos para delimitar intervalos
+do campo B em RANGE_OVERLAP - <code>existsRelation</code> (String):
+caminho para a relação (join) em EXISTS_RELATION/NOT_EXISTS_RELATION -
+<code>existsFilter</code> (String, opcional): nome simbólico de um
+predicado simples a aplicar no filho (ex.: <code>ativo=true</code> ou
+referenciar outro campo do DTO)</p>
 <p>Exemplos (DTO):</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// precoPromocional &lt; precoCheio</span></span>

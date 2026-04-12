@@ -316,10 +316,10 @@ e falha quando o schema nao precisa expor <code>id</code></li>
 </ul>
 <h3 id="falha-2">Falha 2</h3>
 <ul>
-<li>categoria: relatorio-historico-obsoleto</li>
-<li>sintoma: o achado antigo de que <code>categoriaId</code> sequestrava
-<code>x-ui.resource.idField</code> nao se reproduziu no estado atual do
-starter</li>
+<li>categoria: achado-revalidado-sem-reproducao</li>
+<li>sintoma: o achado da rodada anterior de que <code>categoriaId</code>
+sequestrava <code>x-ui.resource.idField</code> nao se reproduziu no
+estado atual do starter</li>
 <li>evidencia:
 <ul>
 <li>nesta revalidacao, o request schema veio com
@@ -327,13 +327,13 @@ starter</li>
 </ul></li>
 <li>causa provavel:
 <ul>
-<li>o starter evoluiu desde o relatorio historico de 2026-03-24</li>
+<li>o starter foi revalidado em relacao ao relatorio de 2026-03-24</li>
 </ul></li>
 <li>impede aprovacao: nao</li>
 <li>ajuste proposto:
 <ul>
-<li>registrar esta revalidacao e tratar o relatorio antigo como
-evidencia historica, nao como estado atual</li>
+<li>registrar esta revalidacao e tratar o relatorio anterior como
+evidencia tecnica de rodada, nao como estado atual</li>
 </ul></li>
 </ul>
 <h3 id="falha-3">Falha 3</h3>

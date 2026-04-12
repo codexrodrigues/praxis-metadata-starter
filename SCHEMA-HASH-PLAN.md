@@ -100,7 +100,7 @@ static boolean matches(String header, String currentEtagQuoted) {
     - `patch`: JSON Patch (RFC 6902).
     - `merge`: JSON Merge Patch (RFC 7396).
     - `summary`: resumo estruturado (campos adicionados/removidos/modificados + classificação).
-- Alternativa: incorporar `fromHash` em `/schemas/filtered` e responder com `x-diff` (resumo/patch) no body. Mantém compatibilidade com o fluxo atual.
+- Alternativa: incorporar `fromHash` em `/schemas/filtered` e responder com `x-diff` (resumo/patch) no body. Preserva o fluxo canonico de consumo.
  - Otimização: quando `fromHash` for igual ao hash atual, responder `204 No Content`.
 
 ## Classificação de Mudanças
@@ -135,7 +135,7 @@ Lacunas atuais no código (status “as is”):
 Expansão de `$ref` (includeInternalSchemas):
 - A implementação atual substitui `$ref` apenas por `properties` do schema referenciado, perdendo metadados como `type`, `required`, `format`, `description`.
 - Diretriz: quando `includeInternalSchemas=true`, expandir o objeto referenciado por inteiro (preservar `type`, `required`, `format`, `description`, `allOf/oneOf/anyOf/items`, etc.). Reaplicar recursão em `items.$ref`.
-- Se um “achatamento” de `properties` for mantido por compatibilidade, documentar explicitamente que metadados do schema referenciado não serão incluídos e, portanto, não afetarão o hash.
+- Se um “achatamento” de `properties` for preservado como modo documentado de resolucao, documentar explicitamente que metadados do schema referenciado nao serao incluidos e, portanto, nao afetarao o hash.
 
 ## SchemaId Canônico
 

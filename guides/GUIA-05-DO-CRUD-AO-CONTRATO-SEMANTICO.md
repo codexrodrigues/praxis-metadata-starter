@@ -13,9 +13,9 @@ O ponto central e este:
 - `capabilities` agrega o que pode ser feito agora
 - tudo isso continua apontando para operacoes HTTP reais e schemas canonicos
 
-## A mudanca de modelo
+## A leitura correta do contrato
 
-O modelo antigo de leitura mental era:
+Uma leitura simplificada seria:
 
 ```mermaid
 flowchart LR
@@ -23,7 +23,7 @@ flowchart LR
     crud --> ui["UI renderizada"]
 ```
 
-O modelo atual do starter e:
+O contrato canonico do starter e:
 
 ```mermaid
 flowchart LR
