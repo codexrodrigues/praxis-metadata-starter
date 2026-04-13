@@ -36,10 +36,12 @@ import java.time.ZoneOffset;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -316,6 +318,10 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         if (metric.operation() == org.praxisplatform.uischema.stats.StatsMetric.COUNT) {
             return cb.count(root);
         }
+        if (metric.operation() == org.praxisplatform.uischema.stats.StatsMetric.DISTINCT_COUNT) {
+            Path<?> metricPath = resolvePath(root, Objects.requireNonNull(resolvedMetric.descriptor()).propertyPath());
+            return cb.countDistinct(metricPath);
+        }
         Path<Number> metricPath = resolveNumericPath(root, Objects.requireNonNull(resolvedMetric.descriptor()).propertyPath());
         if (metric.operation() == org.praxisplatform.uischema.stats.StatsMetric.SUM) {
             return cb.sum(metricPath);
@@ -534,20 +540,30 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         private double sum;
         private Double min;
         private Double max;
+        private final Set<Object> distinctValues = new HashSet<>();
 
         static AggregateValue empty() {
             return new AggregateValue();
         }
 
-        void accumulate(org.praxisplatform.uischema.stats.StatsMetric metric, Number value) {
+        void accumulate(org.praxisplatform.uischema.stats.StatsMetric metric, Object value) {
             count++;
             if (metric == org.praxisplatform.uischema.stats.StatsMetric.COUNT) {
+                return;
+            }
+            if (metric == org.praxisplatform.uischema.stats.StatsMetric.DISTINCT_COUNT) {
+                if (value != null) {
+                    distinctValues.add(value);
+                }
                 return;
             }
             if (value == null) {
                 return;
             }
-            double numeric = value.doubleValue();
+            if (!(value instanceof Number number)) {
+                return;
+            }
+            double numeric = number.doubleValue();
             sum += numeric;
             min = min == null ? numeric : Math.min(min, numeric);
             max = max == null ? numeric : Math.max(max, numeric);
@@ -556,6 +572,9 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         Number value(org.praxisplatform.uischema.stats.StatsMetric metric) {
             if (metric == org.praxisplatform.uischema.stats.StatsMetric.COUNT) {
                 return count;
+            }
+            if (metric == org.praxisplatform.uischema.stats.StatsMetric.DISTINCT_COUNT) {
+                return distinctValues.size();
             }
             if (metric == org.praxisplatform.uischema.stats.StatsMetric.SUM) {
                 return sum;
@@ -596,7 +615,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             count++;
             for (int index = 0; index < metrics.size(); index++) {
                 ResolvedStatsMetric metric = metrics.get(index);
-                Number value = metric.descriptor() == null ? null : (Number) tuple.get(metricTupleAlias(index));
+                Object value = metric.descriptor() == null ? null : tuple.get(metricTupleAlias(index));
                 aggregates.get(metric.alias()).accumulate(metric.metric().operation(), value);
             }
         }

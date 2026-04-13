@@ -46,7 +46,7 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
     }
 
     @PostMapping
-    @Operation(summary = "Criar novo registro")
+    @Operation(summary = "Criar item")
     public ResponseEntity<RestApiResponse<ResponseDTO>> create(@jakarta.validation.Valid @RequestBody CreateDTO dto) {
         BaseResourceCommandService.SavedResult<ID, ResponseDTO> saved = getService().create(dto);
         ID newId = saved.id();
@@ -70,7 +70,7 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Atualizar registro existente")
+    @Operation(summary = "Editar item")
     public ResponseEntity<RestApiResponse<ResponseDTO>> update(
             @PathVariable ID id,
             @jakarta.validation.Valid @RequestBody UpdateDTO dto
@@ -91,14 +91,14 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Excluir registro")
+    @Operation(summary = "Excluir item")
     public ResponseEntity<Void> delete(@PathVariable ID id) {
         getService().deleteById(id);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/batch")
-    @Operation(summary = "Excluir registros em lote")
+    @Operation(summary = "Excluir itens em lote")
     public ResponseEntity<Void> deleteBatch(@RequestBody List<ID> ids) {
         if (ids == null || ids.isEmpty()) {
             return ResponseEntity.badRequest().build();

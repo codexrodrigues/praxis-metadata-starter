@@ -6,7 +6,7 @@ import org.praxisplatform.uischema.stats.StatsMetric;
  * Define uma metrica agregada solicitada pelos endpoints estatisticos.
  *
  * <p>
- * O contrato separa a operacao agregada ({@code COUNT}, {@code SUM}, etc.) do campo alvo e de um
+ * O contrato separa a operacao agregada ({@code COUNT}, {@code DISTINCT_COUNT}, {@code SUM}, etc.) do campo alvo e de um
  * alias opcional. Isso permite que a mesma superficie suporte metrica unica e multi-metrica sem
  * introduzir formatos paralelos de payload.
  * </p>

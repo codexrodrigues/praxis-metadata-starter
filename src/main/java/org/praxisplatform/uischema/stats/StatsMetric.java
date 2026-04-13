@@ -5,6 +5,7 @@ package org.praxisplatform.uischema.stats;
  */
 public enum StatsMetric {
     COUNT,
+    DISTINCT_COUNT,
     SUM,
     AVG,
     MIN,

@@ -587,7 +587,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     @GetMapping("/all")
-    @Operation(summary = "Listar todos os registros")
+    @Operation(summary = "Listar itens")
     public ResponseEntity<RestApiResponse<List<EntityModel<ResponseDTO>>>> getAll() {
         List<ResponseDTO> dtos = getService().findAll();
         if (!isHateoasEnabled()) {
@@ -713,7 +713,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Buscar registro por ID")
+    @Operation(summary = "Abrir item")
     public ResponseEntity<RestApiResponse<ResponseDTO>> getById(@PathVariable ID id) {
         ResponseDTO dto = getService().findById(id);
 

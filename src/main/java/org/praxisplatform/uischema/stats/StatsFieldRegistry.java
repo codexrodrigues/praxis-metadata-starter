@@ -122,6 +122,10 @@ public final class StatsFieldRegistry {
             return add(StatsFieldDescriptor.numericHistogramMeasureField(field, propertyPath));
         }
 
+        public Builder distinctCountField(String field, String propertyPath) {
+            return add(StatsFieldDescriptor.distinctCountField(field, propertyPath));
+        }
+
         public Builder groupByBucket(String field, String propertyPath, java.util.Set<StatsMetric> metrics) {
             return add(StatsFieldDescriptor.groupByBucket(field, propertyPath, metrics));
         }

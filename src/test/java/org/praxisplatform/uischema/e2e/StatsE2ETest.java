@@ -240,6 +240,52 @@ class StatsE2ETest extends AbstractE2eH2Test {
     }
 
     @Test
+    void employeesExposeDistinctCountMetric() throws Exception {
+        ResponseEntity<String> groupByDistinctCountResponse = postJson("/employees/stats/group-by", """
+                {
+                  "filter": {},
+                  "field": "status",
+                  "metric": {
+                    "operation": "DISTINCT_COUNT",
+                    "field": "payrollProfile",
+                    "alias": "profiles"
+                  },
+                  "orderBy": "VALUE_DESC"
+                }
+                """);
+        assertEquals(200, groupByDistinctCountResponse.getStatusCode().value());
+        JsonNode groupByDistinctCountBody = body(groupByDistinctCountResponse);
+        assertEquals("DISTINCT_COUNT", groupByDistinctCountBody.path("data").path("metric").path("operation").asText());
+        assertEquals("payrollProfile", groupByDistinctCountBody.path("data").path("metric").path("field").asText());
+        assertEquals("profiles", groupByDistinctCountBody.path("data").path("metric").path("alias").asText());
+        assertEquals("ACTIVE", groupByDistinctCountBody.path("data").path("buckets").get(0).path("key").asText());
+        assertEquals(4, groupByDistinctCountBody.path("data").path("buckets").get(0).path("value").asInt());
+        assertEquals(4, groupByDistinctCountBody.path("data").path("buckets").get(0).path("count").asInt());
+
+        ResponseEntity<String> timeSeriesDistinctCountResponse = postJson("/employees/stats/timeseries", """
+                {
+                  "filter": {},
+                  "field": "admissionDate",
+                  "granularity": "MONTH",
+                  "metric": {
+                    "operation": "DISTINCT_COUNT",
+                    "field": "payrollProfile",
+                    "alias": "profiles"
+                  },
+                  "from": "2022-11-01",
+                  "to": "2024-03-31",
+                  "fillGaps": false
+                }
+                """);
+        assertEquals(200, timeSeriesDistinctCountResponse.getStatusCode().value());
+        JsonNode timeSeriesDistinctCountBody = body(timeSeriesDistinctCountResponse);
+        assertEquals("DISTINCT_COUNT", timeSeriesDistinctCountBody.path("data").path("metric").path("operation").asText());
+        assertEquals("2023-01-01", timeSeriesDistinctCountBody.path("data").path("points").get(1).path("start").asText());
+        assertEquals(1, timeSeriesDistinctCountBody.path("data").path("points").get(1).path("value").asInt());
+        assertEquals(1, timeSeriesDistinctCountBody.path("data").path("points").get(1).path("count").asInt());
+    }
+
+    @Test
     void statsSurfacePreservesStableErrorSemantics() throws Exception {
         ResponseEntity<String> invalidGroupByResponse = postJson("/employees/stats/group-by", """
                 {

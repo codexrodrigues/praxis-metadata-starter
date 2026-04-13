@@ -44,7 +44,7 @@ class StatsEligibilityTest {
     void acceptsTimeSeriesRequestWithMetricsArray() {
         StatsFieldRegistry registry = StatsFieldRegistry.builder()
                 .temporalTimeSeriesField("createdOn", "createdOn")
-                .metricField("salary", "salary", Set.of(StatsMetric.SUM))
+                .metricField("salary", "salary", Set.of(StatsMetric.SUM, StatsMetric.DISTINCT_COUNT))
                 .build();
 
         TimeSeriesStatsRequest<TestFilterDTO> request = new TimeSeriesStatsRequest<>(
@@ -62,6 +62,24 @@ class StatsEligibilityTest {
         );
 
         assertDoesNotThrow(() -> eligibility.validateTimeSeries(request, registry, 50));
+    }
+
+    @Test
+    void acceptsDistinctCountWithGovernedMetricField() {
+        StatsFieldRegistry registry = StatsFieldRegistry.builder()
+                .categoricalGroupByBucket("status", "status")
+                .distinctCountField("profile", "profile")
+                .build();
+
+        GroupByStatsRequest<TestFilterDTO> request = new GroupByStatsRequest<>(
+                new TestFilterDTO(),
+                "status",
+                new StatsMetricRequest(StatsMetric.DISTINCT_COUNT, "profile", "profiles"),
+                10,
+                null
+        );
+
+        assertDoesNotThrow(() -> eligibility.validateGroupBy(request, registry, 50));
     }
 
     @Test

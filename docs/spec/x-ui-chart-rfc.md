@@ -113,6 +113,7 @@ Direcao preferencial desta fase:
   - `group-by`, `timeseries`, `distribution`
 - `source.options`
   - opcoes especificas da familia `stats`, como `granularity`, `mode`, `bucketSize`, `bucketCount`, `orderBy`, `limit`
+  - em `timeseries`, `granularity` usa `day`, `week` ou `month`
 - `source.refresh`
   - freshness, cache hints, update policy
 
@@ -124,6 +125,7 @@ Observacao:
 
 - `dimensions[]`
 - `metrics[]`
+  - `aggregation`: `count`, `distinct-count`, `sum`, `avg`, `min`, `max`
 - `aggregations[]`
 - `groupBy[]`
 - `sort[]`
@@ -303,7 +305,7 @@ Define:
   - testes de copia de `x-ui.chart` por `/schemas/filtered`
   - testes de mapper no runtime Angular
 - risco de breaking change:
-  - medio, mitigado por versionamento e rollout em fases
+  - medio, mitigado por versionamento da especificacao e validacao coordenada entre starter, runtime e docs publicas
 
 ## Decisoes Recomendadas para a Proxima Rodada
 

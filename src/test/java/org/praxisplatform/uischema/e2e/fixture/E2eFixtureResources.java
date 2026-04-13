@@ -199,6 +199,7 @@ class EmployeeService extends AbstractBaseResourceService<
     private static final StatsFieldRegistry EMPLOYEE_STATS_FIELDS = StatsFieldRegistry.builder()
             .categoricalGroupByBucket("status", "status")
             .temporalTimeSeriesField("admissionDate", "admissionDate")
+            .distinctCountField("payrollProfile", "payrollProfile")
             .numericHistogramMeasureField("salario", "salario")
             .build();
 

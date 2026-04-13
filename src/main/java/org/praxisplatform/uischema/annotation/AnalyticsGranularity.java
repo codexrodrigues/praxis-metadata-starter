@@ -2,12 +2,9 @@ package org.praxisplatform.uischema.annotation;
 
 public enum AnalyticsGranularity {
     UNSPECIFIED(""),
-    HOUR("hour"),
     DAY("day"),
     WEEK("week"),
-    MONTH("month"),
-    QUARTER("quarter"),
-    YEAR("year");
+    MONTH("month");
 
     private final String wireValue;
 

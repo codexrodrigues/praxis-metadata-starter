@@ -109,14 +109,34 @@ public record StatsFieldDescriptor(
             String field,
             String propertyPath
     ) {
-        return metricField(field, propertyPath, Set.of(StatsMetric.SUM, StatsMetric.AVG, StatsMetric.MIN, StatsMetric.MAX));
+        return metricField(field, propertyPath, Set.of(
+                StatsMetric.DISTINCT_COUNT,
+                StatsMetric.SUM,
+                StatsMetric.AVG,
+                StatsMetric.MIN,
+                StatsMetric.MAX
+        ));
     }
 
     public static StatsFieldDescriptor numericHistogramMeasureField(
             String field,
             String propertyPath
     ) {
-        return histogramField(field, propertyPath, Set.of(StatsMetric.COUNT, StatsMetric.SUM, StatsMetric.AVG, StatsMetric.MIN, StatsMetric.MAX));
+        return histogramField(field, propertyPath, Set.of(
+                StatsMetric.COUNT,
+                StatsMetric.DISTINCT_COUNT,
+                StatsMetric.SUM,
+                StatsMetric.AVG,
+                StatsMetric.MIN,
+                StatsMetric.MAX
+        ));
+    }
+
+    public static StatsFieldDescriptor distinctCountField(
+            String field,
+            String propertyPath
+    ) {
+        return metricField(field, propertyPath, Set.of(StatsMetric.DISTINCT_COUNT));
     }
 
     /**

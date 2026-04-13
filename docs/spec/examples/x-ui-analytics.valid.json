@@ -16,9 +16,9 @@
         },
         "primaryMetrics": [
           {
-            "field": "valorLiquido",
-            "aggregation": "sum",
-            "label": "Valor liquido"
+            "field": "matricula",
+            "aggregation": "distinct-count",
+            "label": "Colaboradores distintos"
           }
         ]
       },

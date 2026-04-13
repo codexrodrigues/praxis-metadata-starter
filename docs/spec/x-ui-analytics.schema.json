@@ -81,7 +81,7 @@
         "field": { "type": "string", "minLength": 1 },
         "aggregation": {
           "type": "string",
-          "enum": ["count", "sum", "avg", "min", "max"]
+          "enum": ["count", "distinct-count", "sum", "avg", "min", "max"]
         },
         "label": { "type": "string", "minLength": 1 }
       }
@@ -100,7 +100,7 @@
         },
         "granularity": {
           "type": "string",
-          "enum": ["hour", "day", "week", "month", "quarter", "year"]
+          "enum": ["day", "week", "month"]
         }
       }
     },
