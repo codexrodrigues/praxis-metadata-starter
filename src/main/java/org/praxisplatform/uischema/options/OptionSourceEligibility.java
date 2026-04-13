@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.options;
 
 import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
+import org.praxisplatform.uischema.stats.StatsMetric;
 import org.springframework.stereotype.Component;
 
 /**
@@ -47,7 +48,10 @@ public class OptionSourceEligibility {
             OptionSourceDescriptor descriptor,
             StatsFieldDescriptor statsDescriptor
     ) {
-        if (statsDescriptor != null && !statsDescriptor.groupByEligible() && !statsDescriptor.distributionTermsEligible()) {
+        if (statsDescriptor != null
+                && !statsDescriptor.groupByEligible()
+                && !statsDescriptor.distributionTermsEligible()
+                && !statsDescriptor.supports(StatsMetric.DISTINCT_COUNT)) {
             throw new IllegalArgumentException("Option source is not eligible as distinct dimension: " + descriptor.key());
         }
         return enrichPropertyPath(descriptor, statsDescriptor);

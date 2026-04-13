@@ -35,6 +35,30 @@ class OptionSourceEligibilityTest {
     }
 
     @Test
+    void acceptsDistinctDimensionBackedByDistinctCountMetricField() {
+        OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
+                "payrollProfile",
+                OptionSourceType.DISTINCT_DIMENSION,
+                "/api/payroll",
+                null,
+                null,
+                null,
+                null,
+                null,
+                OptionSourcePolicy.defaults()
+        );
+
+        OptionSourceDescriptor effective = eligibility.resolveEffectiveDescriptor(
+                descriptor,
+                StatsFieldRegistry.builder()
+                        .distinctCountField("payrollProfile", "payrollProfile")
+                        .build()
+        );
+
+        assertEquals("payrollProfile", effective.propertyPath());
+    }
+
+    @Test
     void rejectsDerivedSourceWithoutPropertyPathOrStatsBridge() {
         OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
                 "payrollProfile",
