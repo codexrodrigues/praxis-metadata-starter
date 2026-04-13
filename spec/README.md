@@ -106,7 +106,7 @@
 - SHOULD: publicar `x-ui.valuePresentation` para campos escalares de exibicao quando a intencao semantica estiver clara.
 - MUST NOT: publicar `x-ui.valuePresentation` automatico para ranges, selecoes, arrays, objects ou IDs semanticos sem override explicito.
 - SHOULD: `/schemas/filtered` enviar `ETag` forte e `X-Schema-Hash` e expor via `Access-Control-Expose-Headers`.
-- SHOULD: publicacoes de `x-ui.chart` explicitar quando o contrato canonico ainda e mais amplo que o runtime consumidor atual.
+- SHOULD: publicacoes de `x-ui.chart` explicitar restricoes executaveis do runtime oficial sem criar contrato paralelo.
 - SHOULD: publicacoes de `x-ui.analytics` manterem a semantica estritamente analitica, sem reempacotar detalhes especificos de chart.
 - MAY: incluir `specVersion` em um envelope/meta do payload para auditoria.
 

@@ -9,6 +9,7 @@ In this phase:
 
 - `metric` remains valid and fully supported
 - `metrics[]` is now part of the public contract for `group-by` and `timeseries`
+- `DISTINCT_COUNT` is part of the public metric operation set and requires a governed `field`
 - `value` remains the compatibility field for the primary metric
 - `values` is the compatibility-safe container for per-alias values
 - `group-by` and `timeseries` already execute this shape in the starter JPA runtime
@@ -31,6 +32,11 @@ In this phase:
       "operation": "SUM",
       "field": "massaLiquida",
       "alias": "massaLiquida"
+    },
+    {
+      "operation": "DISTINCT_COUNT",
+      "field": "perfilFolha",
+      "alias": "perfis"
     }
   ],
   "limit": 10,
@@ -56,6 +62,11 @@ In this phase:
       "operation": "SUM",
       "field": "massaLiquida",
       "alias": "massaLiquida"
+    },
+    {
+      "operation": "DISTINCT_COUNT",
+      "field": "perfilFolha",
+      "alias": "perfis"
     }
   ],
   "buckets": [
@@ -66,7 +77,8 @@ In this phase:
       "count": 12,
       "values": {
         "total": 12,
-        "massaLiquida": 84000
+        "massaLiquida": 84000,
+        "perfis": 3
       }
     }
   ]
@@ -89,6 +101,11 @@ In this phase:
       "operation": "SUM",
       "field": "massaLiquida",
       "alias": "massaLiquida"
+    },
+    {
+      "operation": "DISTINCT_COUNT",
+      "field": "perfilFolha",
+      "alias": "perfis"
     }
   ],
   "from": "2026-01-01",
@@ -116,6 +133,11 @@ In this phase:
       "operation": "SUM",
       "field": "massaLiquida",
       "alias": "massaLiquida"
+    },
+    {
+      "operation": "DISTINCT_COUNT",
+      "field": "perfilFolha",
+      "alias": "perfis"
     }
   ],
   "points": [
@@ -127,7 +149,8 @@ In this phase:
       "count": 12,
       "values": {
         "total": 12,
-        "massaLiquida": 84000
+        "massaLiquida": 84000,
+        "perfis": 3
       }
     }
   ]

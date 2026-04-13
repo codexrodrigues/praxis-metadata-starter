@@ -336,6 +336,12 @@ clara</li>
 <li><code>SHOULD</code>: projections <code>timeseries</code> publicar
 <code>defaults.granularity</code> quando o runtime depender da
 granularidade para executar a consulta sem heuristica local</li>
+<li><code>MUST</code>: <code>defaults.granularity</code>, quando
+publicado para <code>praxis.stats</code>, usar <code>day</code>,
+<code>week</code> ou <code>month</code></li>
+<li><code>MAY</code>: metricas publicar
+<code>aggregation = "distinct-count"</code> quando a fonte
+<code>praxis.stats</code> governar o campo de metrica</li>
 <li><code>MUST NOT</code>: fixar componente Angular, engine, layout ou
 detalhes visuais de chart</li>
 </ul>

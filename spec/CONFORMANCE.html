@@ -191,21 +191,21 @@ CLI)</h2>
 <ul>
 <li>Validar x-ui de campo:
 <ul>
-<li><code>npx ajv -s ./x-ui-field.schema.json -d ./examples/x-ui-field.valid.json -c ajv-formats</code></li>
-<li><code>npx ajv -s ./x-ui-field.schema.json -d ./examples/x-ui-field.invalid.json -c ajv-formats || echo "(esperado: invalido)"</code></li>
+<li><code>npx ajv --spec=draft2020 -s ./x-ui-field.schema.json -d ./examples/x-ui-field.valid.json -c ajv-formats</code></li>
+<li><code>npx ajv --spec=draft2020 -s ./x-ui-field.schema.json -d ./examples/x-ui-field.invalid.json -c ajv-formats || echo "(esperado: invalido)"</code></li>
 </ul></li>
 <li>Validar x-ui de operacao:
 <ul>
-<li><code>npx ajv -s ./x-ui-operation.schema.json -d ./examples/x-ui-operation.valid.json</code></li>
+<li><code>npx ajv --spec=draft2020 -s ./x-ui-operation.schema.json -d ./examples/x-ui-operation.valid.json</code></li>
 </ul></li>
 <li>Validar x-ui.resource:
 <ul>
-<li><code>npx ajv -s ./x-ui-resource.schema.json -d ./examples/x-ui-resource.valid.json</code></li>
+<li><code>npx ajv --spec=draft2020 -s ./x-ui-resource.schema.json -d ./examples/x-ui-resource.valid.json</code></li>
 </ul></li>
 <li>Validar x-ui.chart:
 <ul>
-<li><code>npx ajv -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.valid.json</code></li>
-<li><code>npx ajv -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.invalid.json || echo "(esperado: invalido)"</code></li>
+<li><code>npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.valid.json</code></li>
+<li><code>npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.invalid.json || echo "(esperado: invalido)"</code></li>
 </ul></li>
 <li>Antes de publicar uma versao nova do starter com charts:
 <ul>
@@ -335,36 +335,40 @@ sao documentados separadamente.</p>
 <p>Cobertura executavel no runtime oficial:</p>
 <ul>
 <li><code>source.kind = "praxis.stats"</code></li>
+<li><code>source.kind = "derived"</code></li>
 <li><code>kind</code>: <code>bar</code>, <code>horizontal-bar</code>,
 <code>line</code>, <code>pie</code>, <code>donut</code>,
 <code>area</code>, <code>stacked-bar</code>, <code>stacked-area</code>,
-<code>scatter</code></li>
-<li><code>kind</code>: <code>combo</code> com dados locais/derivados e
-series heterogeneas por metrica</li>
-<li>uma metrica por chart quando a origem e
-<code>praxis.stats</code></li>
-<li><code>pointClick</code> e <code>drillDown</code> no fluxo
+<code>combo</code>, <code>scatter</code></li>
+<li><code>combo</code> com dados locais/derivados e series heterogeneas
+por metrica</li>
+<li><code>combo</code> sobre <code>source.kind = "praxis.stats"</code>
+quando a operacao e <code>group-by</code> ou
+<code>timeseries</code></li>
+<li><code>aggregation = "distinct-count"</code></li>
+<li><code>pointClick</code>, <code>selectionChange</code>,
+<code>drillDown</code> e <code>crossFilter</code> no fluxo
 executavel</li>
 <li><code>orientation = "horizontal"</code> para
 <code>horizontal-bar</code></li>
 <li><code>scatter</code> com leitura bidimensional minima: primeira
 dimensao no eixo <code>x</code> e primeira metrica no eixo
 <code>y</code></li>
-</ul>
-<p>Sem cobertura executavel no runtime Angular oficial:</p>
-<ul>
-<li><code>source.kind = "derived"</code></li>
-<li><code>kind = "combo"</code> sobre
-<code>source.kind = "praxis.stats"</code> com multiplas metricas
-publicadas pelo backend</li>
-<li><code>aggregation = "distinct-count"</code></li>
-<li><code>events.selectionChange</code></li>
-<li><code>events.crossFilter</code></li>
 <li><code>theme.variant</code></li>
 <li><code>theme.palette</code> como token string</li>
+</ul>
+<p>Restricoes executaveis no runtime Angular oficial:</p>
+<ul>
+<li><code>timeseries</code> aceita
+<code>source.options.granularity</code> em <code>day</code>,
+<code>week</code> ou <code>month</code></li>
+<li><code>distribution</code> aceita uma metrica</li>
+<li><code>combo</code> exige pelo menos duas metricas</li>
+<li><code>axis = "secondary"</code> e exclusivo de
+<code>combo</code></li>
 <li>pie/donut com multiplas metricas</li>
 </ul>
-<p>Publicacoes do starter devem declarar essa diferenca como cobertura
+<p>Publicacoes do starter devem declarar essas restricoes como cobertura
 de execucao, sem sugerir trilhas paralelas de contrato.</p>
 <h2 id="cobertura-do-consumidor-oficial---x-ui.optionsource">Cobertura
 do consumidor oficial - <code>x-ui.optionSource</code></h2>

@@ -27,6 +27,7 @@
       "then": {
         "properties": {
           "source": {
+            "type": "object",
             "required": ["kind", "resource", "operation"]
           }
         }
@@ -281,7 +282,7 @@
       "properties": {
         "granularity": {
           "type": "string",
-          "enum": ["hour", "day", "week", "month", "quarter", "year"]
+          "enum": ["day", "week", "month"]
         },
         "fillGaps": {
           "type": "boolean"

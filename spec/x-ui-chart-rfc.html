@@ -325,6 +325,8 @@ orientacao sem depender apenas do nome do tipo</li>
 <li>opcoes especificas da familia <code>stats</code>, como
 <code>granularity</code>, <code>mode</code>, <code>bucketSize</code>,
 <code>bucketCount</code>, <code>orderBy</code>, <code>limit</code></li>
+<li>em <code>timeseries</code>, <code>granularity</code> usa
+<code>day</code>, <code>week</code> ou <code>month</code></li>
 </ul></li>
 <li><code>source.refresh</code>
 <ul>
@@ -340,7 +342,12 @@ para a familia analitica institucional ja publicada pelo starter</li>
 <h3 id="semantica-analitica">3. Semantica analitica</h3>
 <ul>
 <li><code>dimensions[]</code></li>
-<li><code>metrics[]</code></li>
+<li><code>metrics[]</code>
+<ul>
+<li><code>aggregation</code>: <code>count</code>,
+<code>distinct-count</code>, <code>sum</code>, <code>avg</code>,
+<code>min</code>, <code>max</code></li>
+</ul></li>
 <li><code>aggregations[]</code></li>
 <li><code>groupBy[]</code></li>
 <li><code>sort[]</code></li>
@@ -567,7 +574,8 @@ quebrar em cadeia.</p>
 </ul></li>
 <li>risco de breaking change:
 <ul>
-<li>medio, mitigado por versionamento e rollout em fases</li>
+<li>medio, mitigado por versionamento da especificacao e validacao
+coordenada entre starter, runtime e docs publicas</li>
 </ul></li>
 </ul>
 <h2 id="decisoes-recomendadas-para-a-proxima-rodada">Decisoes

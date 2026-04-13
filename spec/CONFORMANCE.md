@@ -13,15 +13,15 @@
   - `npm i -D ajv ajv-formats ajv-cli`
 - Exemplos de execucao:
   - Validar x-ui de campo:
-    - `npx ajv -s ./x-ui-field.schema.json -d ./examples/x-ui-field.valid.json -c ajv-formats`
-    - `npx ajv -s ./x-ui-field.schema.json -d ./examples/x-ui-field.invalid.json -c ajv-formats || echo "(esperado: invalido)"`
+    - `npx ajv --spec=draft2020 -s ./x-ui-field.schema.json -d ./examples/x-ui-field.valid.json -c ajv-formats`
+    - `npx ajv --spec=draft2020 -s ./x-ui-field.schema.json -d ./examples/x-ui-field.invalid.json -c ajv-formats || echo "(esperado: invalido)"`
   - Validar x-ui de operacao:
-    - `npx ajv -s ./x-ui-operation.schema.json -d ./examples/x-ui-operation.valid.json`
+    - `npx ajv --spec=draft2020 -s ./x-ui-operation.schema.json -d ./examples/x-ui-operation.valid.json`
   - Validar x-ui.resource:
-    - `npx ajv -s ./x-ui-resource.schema.json -d ./examples/x-ui-resource.valid.json`
+    - `npx ajv --spec=draft2020 -s ./x-ui-resource.schema.json -d ./examples/x-ui-resource.valid.json`
   - Validar x-ui.chart:
-    - `npx ajv -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.valid.json`
-    - `npx ajv -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.invalid.json || echo "(esperado: invalido)"`
+    - `npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.valid.json`
+    - `npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.invalid.json || echo "(esperado: invalido)"`
   - Antes de publicar uma versao nova do starter com charts:
     - revisar `./x-ui-chart-publication-checklist.md`
 
@@ -84,25 +84,26 @@ O draft canonico e a cobertura executavel do runtime Angular oficial sao documen
 Cobertura executavel no runtime oficial:
 
 - `source.kind = "praxis.stats"`
-- `kind`: `bar`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`
-- `kind`: `combo` com dados locais/derivados e series heterogeneas por metrica
-- uma metrica por chart quando a origem e `praxis.stats`
-- `pointClick` e `drillDown` no fluxo executavel
+- `source.kind = "derived"`
+- `kind`: `bar`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `combo`, `scatter`
+- `combo` com dados locais/derivados e series heterogeneas por metrica
+- `combo` sobre `source.kind = "praxis.stats"` quando a operacao e `group-by` ou `timeseries`
+- `aggregation = "distinct-count"`
+- `pointClick`, `selectionChange`, `drillDown` e `crossFilter` no fluxo executavel
 - `orientation = "horizontal"` para `horizontal-bar`
 - `scatter` com leitura bidimensional minima: primeira dimensao no eixo `x` e primeira metrica no eixo `y`
-
-Sem cobertura executavel no runtime Angular oficial:
-
-- `source.kind = "derived"`
-- `kind = "combo"` sobre `source.kind = "praxis.stats"` com multiplas metricas publicadas pelo backend
-- `aggregation = "distinct-count"`
-- `events.selectionChange`
-- `events.crossFilter`
 - `theme.variant`
 - `theme.palette` como token string
+
+Restricoes executaveis no runtime Angular oficial:
+
+- `timeseries` aceita `source.options.granularity` em `day`, `week` ou `month`
+- `distribution` aceita uma metrica
+- `combo` exige pelo menos duas metricas
+- `axis = "secondary"` e exclusivo de `combo`
 - pie/donut com multiplas metricas
 
-Publicacoes do starter devem declarar essa diferenca como cobertura de execucao, sem sugerir trilhas paralelas de contrato.
+Publicacoes do starter devem declarar essas restricoes como cobertura de execucao, sem sugerir trilhas paralelas de contrato.
 
 ## Cobertura do consumidor oficial - `x-ui.optionSource`
 

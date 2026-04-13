@@ -92,6 +92,8 @@ uma unica leitura editorial.
 - `MUST`: cada projection conter `id`, `intent`, `source`, `bindings.primaryMetrics`
 - `SHOULD`: publicar `defaults` e `preferredFamilies` quando a leitura canonica estiver clara
 - `SHOULD`: projections `timeseries` publicar `defaults.granularity` quando o runtime depender da granularidade para executar a consulta sem heuristica local
+- `MUST`: `defaults.granularity`, quando publicado para `praxis.stats`, usar `day`, `week` ou `month`
+- `MAY`: metricas publicar `aggregation = "distinct-count"` quando a fonte `praxis.stats` governar o campo de metrica
 - `MUST NOT`: fixar componente Angular, engine, layout ou detalhes visuais de chart
 
 ## Convivencia com `x-ui.chart`
