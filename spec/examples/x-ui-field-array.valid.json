@@ -1,0 +1,57 @@
+{
+  "label": "Participantes",
+  "name": "participantes",
+  "type": "array",
+  "controlType": "array",
+  "required": true,
+  "array": {
+    "itemType": "object",
+    "mode": "cards",
+    "itemSchemaRef": "#/components/schemas/MissaoEquipePlanejadaItemDTO",
+    "itemSchema": {
+      "type": "object",
+      "fields": [
+        {
+          "name": "funcionarioId",
+          "type": "number",
+          "controlType": "entityLookup",
+          "required": true
+        },
+        {
+          "name": "papel",
+          "type": "string",
+          "controlType": "select",
+          "required": true
+        },
+        {
+          "name": "principal",
+          "type": "boolean",
+          "controlType": "toggle"
+        }
+      ]
+    },
+    "itemIdentityField": "id",
+    "minItems": 1,
+    "maxItems": 12,
+    "addLabel": "Adicionar participante",
+    "emptyState": "Nenhum participante planejado",
+    "itemTitleTemplate": "{{funcionarioNome}} - {{papel}}",
+    "sortable": true,
+    "deleteMode": "removeFromPayload",
+    "operations": {
+      "add": true,
+      "edit": true,
+      "remove": true,
+      "duplicate": false,
+      "reorder": true
+    },
+    "collectionValidation": {
+      "uniqueBy": ["funcionarioId"],
+      "atLeastOne": {
+        "field": "principal",
+        "value": true,
+        "message": "Defina ao menos um participante principal."
+      }
+    }
+  }
+}

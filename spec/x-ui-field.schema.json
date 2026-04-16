@@ -14,7 +14,7 @@
     "type": {
       "type": "string",
       "enum": [
-        "text", "number", "email", "date", "password", "file", "url", "boolean", "json"
+        "text", "number", "email", "date", "password", "file", "url", "boolean", "array", "json"
       ]
     },
     "controlType": {
@@ -26,6 +26,7 @@
       "x-compatibility-control-types": [],
       "enum": [
         "auto",
+        "array",
         "async-select",
         "autoComplete",
         "avatar",
@@ -44,6 +45,7 @@
         "dateTime",
         "dateTimeRange",
         "email",
+        "entityLookup",
         "upload",
         "input",
         "inlineSelect",
@@ -177,6 +179,11 @@
     },
     "filterOptions": { "type": "array" },
 
+    "array": {
+      "$ref": "#/definitions/arrayConfig",
+      "description": "Canonical editable collection contract for array fields."
+    },
+
     "numericFormat": {
       "type": "string",
       "enum": [
@@ -304,10 +311,68 @@
           "type": "string",
           "minLength": 1
         },
+        "propertyPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "labelPropertyPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "valuePropertyPath": {
+          "type": "string",
+          "minLength": 1
+        },
         "dependsOn": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "uniqueItems": true
+        },
+        "entityKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "codePropertyPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "descriptionPropertyPaths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "statusPropertyPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "disabledPropertyPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "disabledReasonPropertyPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "searchPropertyPaths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "dependencyFilterMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "selectionPolicy": {
+          "$ref": "#/definitions/lookupSelectionPolicy"
+        },
+        "capabilities": {
+          "$ref": "#/definitions/lookupCapabilities"
+        },
+        "detail": {
+          "$ref": "#/definitions/lookupDetail"
         },
         "excludeSelfField": { "type": "boolean" },
         "searchMode": {
@@ -325,6 +390,181 @@
         }
       },
       "required": ["key", "type", "resourcePath"]
+    },
+    "lookupSelectionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "selectablePropertyPath": { "type": "string", "minLength": 1 },
+        "statusPropertyPath": { "type": "string", "minLength": 1 },
+        "allowedStatuses": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "blockedStatuses": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "allowRetainInvalidExistingValue": { "type": "boolean" },
+        "disabledReasonTemplate": { "type": "string" },
+        "validationMessageTemplate": { "type": "string" }
+      }
+    },
+    "lookupCapabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "filter": { "type": "boolean" },
+        "byIds": { "type": "boolean" },
+        "detail": { "type": "boolean" },
+        "create": { "type": "boolean" },
+        "edit": { "type": "boolean" },
+        "navigateToDetail": { "type": "boolean" },
+        "multiSelect": { "type": "boolean" },
+        "recent": { "type": "boolean" },
+        "favorites": { "type": "boolean" },
+        "auditSnapshot": { "type": "boolean" }
+      }
+    },
+    "lookupDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hrefTemplate": { "type": "string", "minLength": 1 },
+        "routeTemplate": { "type": "string", "minLength": 1 },
+        "openDetailMode": {
+          "type": "string",
+          "enum": ["samePage", "newTab", "drawer", "modal"]
+        }
+      }
+    },
+    "arrayConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "itemType": {
+          "type": "string",
+          "enum": ["string", "number", "boolean", "object", "entity"]
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["chips", "rows", "cards", "accordion", "table", "drawer", "wizard"]
+        },
+        "itemSchemaRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "itemSchema": {
+          "$ref": "#/definitions/arrayItemSchema",
+          "description": "Inline item schema published by /schemas/filtered when itemSchemaRef points to an OpenAPI component."
+        },
+        "itemIdentityField": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "addLabel": {
+          "type": "string"
+        },
+        "emptyState": {
+          "type": "string"
+        },
+        "itemTitleTemplate": {
+          "type": "string"
+        },
+        "sortable": {
+          "type": "boolean"
+        },
+        "deleteMode": {
+          "type": "string",
+          "enum": ["removeFromPayload", "markForDeletion", "emitDeletedIds"]
+        },
+        "itemStateTracking": {
+          "type": "boolean"
+        },
+        "operations": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "add": { "type": "boolean" },
+            "edit": { "type": "boolean" },
+            "remove": { "type": "boolean" },
+            "duplicate": { "type": "boolean" },
+            "reorder": { "type": "boolean" }
+          }
+        },
+        "collectionValidation": {
+          "$ref": "#/definitions/collectionValidation"
+        }
+      }
+    },
+    "arrayItemSchema": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["object"]
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "name": { "type": "string", "minLength": 1 }
+            },
+            "required": ["name"]
+          }
+        }
+      },
+      "required": ["fields"]
+    },
+    "collectionValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uniqueBy": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "atLeastOne": {
+          "$ref": "#/definitions/collectionFieldCondition"
+        },
+        "exactlyOne": {
+          "$ref": "#/definitions/collectionFieldCondition"
+        },
+        "sumEquals": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "field": { "type": "string", "minLength": 1 },
+            "targetField": { "type": "string", "minLength": 1 },
+            "message": { "type": "string" }
+          },
+          "required": ["field", "targetField"]
+        }
+      }
+    },
+    "collectionFieldCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "value": {},
+        "message": { "type": "string" }
+      },
+      "required": ["field"]
     }
   }
 }

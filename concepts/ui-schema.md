@@ -60,7 +60,7 @@ Essas chaves são preenchidas automaticamente pelo resolver, mas podem ser sobre
 ## Integrações avançadas
 
 * **Schemas externos**: use `dataEndpoint` para conectar combos a endpoints `/options` padronizados.
-* **Condicionais**: combine `conditionalDisplay` e `dependentField` para interfaces dinâmicas.
+* **Condicionais**: combine `conditionalDisplay` e `dependentField` para interfaces dinâmicas; `dependentField` é legado/condicional e não substitui `x-ui.optionSource.dependsOn` em cascatas de option-source.
 * **Internacionalização**: preencha labels com `MessageSource` e resolva em runtime usando `LocaleUtils`.
 
 ## Referências cruzadas

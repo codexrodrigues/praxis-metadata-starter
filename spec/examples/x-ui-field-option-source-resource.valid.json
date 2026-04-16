@@ -1,15 +1,51 @@
 {
-  "label": "Departamento",
-  "name": "departamentoId",
+  "label": "Empresa",
+  "name": "empresaId",
   "type": "text",
-  "controlType": "inlineAsyncSelect",
-  "endpoint": "/api/human-resources/departamentos/options/filter",
+  "controlType": "entityLookup",
+  "endpoint": "/api/companies/options/filter",
   "valueField": "id",
-  "displayField": "nome",
+  "displayField": "legalName",
   "optionSource": {
-    "key": "departamento",
+    "key": "company",
     "type": "RESOURCE_ENTITY",
-    "resourcePath": "/api/human-resources/departamentos",
+    "resourcePath": "/api/companies",
+    "entityKey": "company",
+    "valuePropertyPath": "id",
+    "labelPropertyPath": "legalName",
+    "codePropertyPath": "code",
+    "descriptionPropertyPaths": ["documentNumber", "kind", "city", "state"],
+    "statusPropertyPath": "status",
+    "disabledPropertyPath": "disabled",
+    "disabledReasonPropertyPath": "disabledReason",
+    "searchPropertyPaths": ["code", "legalName", "documentNumber"],
+    "dependsOn": ["tenantId"],
+    "dependencyFilterMap": {
+      "tenantId": "tenant.id"
+    },
+    "selectionPolicy": {
+      "selectablePropertyPath": "selectable",
+      "statusPropertyPath": "status",
+      "allowedStatuses": ["ACTIVE"],
+      "allowRetainInvalidExistingValue": true
+    },
+    "capabilities": {
+      "filter": true,
+      "byIds": true,
+      "detail": true,
+      "create": false,
+      "edit": false,
+      "navigateToDetail": true,
+      "multiSelect": false,
+      "recent": true,
+      "favorites": true,
+      "auditSnapshot": true
+    },
+    "detail": {
+      "hrefTemplate": "/api/companies/{id}",
+      "routeTemplate": "/companies/{id}",
+      "openDetailMode": "drawer"
+    },
     "searchMode": "contains",
     "pageSize": 20,
     "includeIds": true,

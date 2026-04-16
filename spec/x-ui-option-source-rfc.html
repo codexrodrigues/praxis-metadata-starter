@@ -336,6 +336,8 @@ descreve a identidade da fonte e sua semantica operacional.</p>
 <li><code>resourcePath</code></li>
 <li><code>filterField</code> quando necessario</li>
 <li><code>dependsOn</code> quando houver cascata</li>
+<li><code>dependencyFilterMap</code> quando a chave do campo dependente
+nao coincidir com a chave de filtro esperada pelo executor</li>
 <li>hints de <code>policy</code>, <code>search</code> e
 <code>pagination</code> quando aplicavel</li>
 </ul>
@@ -352,6 +354,62 @@ superficies.</p>
 <li>existe reuso entre filtros, formularios ou outras telas</li>
 <li>a opcao representa algo mais proximo de um recurso do dominio</li>
 </ul>
+<p>Quando usado por <code>controlType: "entityLookup"</code>,
+<code>RESOURCE_ENTITY</code> publica tambem semantica governada de
+entidade no proprio <code>x-ui.optionSource</code>:</p>
+<ul>
+<li><code>entityKey</code></li>
+<li><code>valuePropertyPath</code></li>
+<li><code>labelPropertyPath</code></li>
+<li><code>codePropertyPath</code></li>
+<li><code>descriptionPropertyPaths</code></li>
+<li><code>statusPropertyPath</code></li>
+<li><code>disabledPropertyPath</code></li>
+<li><code>disabledReasonPropertyPath</code></li>
+<li><code>searchPropertyPaths</code></li>
+<li><code>dependencyFilterMap</code></li>
+<li><code>selectionPolicy</code></li>
+<li><code>capabilities</code></li>
+<li><code>detail</code></li>
+</ul>
+<p>Esse bloco permite que runtime, formularios, tabelas e editores
+tratem o lookup como selecao de entidade real, com identidade, status,
+permissao, reidratacao e navegacao, sem promover aliases locais no
+frontend.</p>
+<p>Exemplo:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;controlType&quot;</span><span class="fu">:</span> <span class="st">&quot;entityLookup&quot;</span><span class="fu">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;optionSource&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;company&quot;</span><span class="fu">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;RESOURCE_ENTITY&quot;</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/companies&quot;</span><span class="fu">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;entityKey&quot;</span><span class="fu">:</span> <span class="st">&quot;company&quot;</span><span class="fu">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;valuePropertyPath&quot;</span><span class="fu">:</span> <span class="st">&quot;id&quot;</span><span class="fu">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;labelPropertyPath&quot;</span><span class="fu">:</span> <span class="st">&quot;legalName&quot;</span><span class="fu">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;codePropertyPath&quot;</span><span class="fu">:</span> <span class="st">&quot;code&quot;</span><span class="fu">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;descriptionPropertyPaths&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;documentNumber&quot;</span><span class="ot">,</span> <span class="st">&quot;city&quot;</span><span class="ot">,</span> <span class="st">&quot;state&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;statusPropertyPath&quot;</span><span class="fu">:</span> <span class="st">&quot;status&quot;</span><span class="fu">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;searchPropertyPaths&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;code&quot;</span><span class="ot">,</span> <span class="st">&quot;legalName&quot;</span><span class="ot">,</span> <span class="st">&quot;documentNumber&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;selectionPolicy&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;selectablePropertyPath&quot;</span><span class="fu">:</span> <span class="st">&quot;selectable&quot;</span><span class="fu">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;statusPropertyPath&quot;</span><span class="fu">:</span> <span class="st">&quot;status&quot;</span><span class="fu">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;allowedStatuses&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;ACTIVE&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;allowRetainInvalidExistingValue&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;capabilities&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;filter&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;byIds&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;detail&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;create&quot;</span><span class="fu">:</span> <span class="kw">false</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;detail&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;hrefTemplate&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/companies/{id}&quot;</span><span class="fu">,</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;routeTemplate&quot;</span><span class="fu">:</span> <span class="st">&quot;/companies/{id}&quot;</span><span class="fu">,</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;openDetailMode&quot;</span><span class="fu">:</span> <span class="st">&quot;drawer&quot;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <h3 id="distinct_dimension"><code>DISTINCT_DIMENSION</code></h3>
 <p>Fonte derivada de valores distintos sobre uma dimensao real do
 conjunto consultado.</p>
@@ -414,19 +472,19 @@ resposta operacional</li>
 runtime</li>
 </ul>
 <p>Exemplo ilustrativo:</p>
-<div class="sourceCode" id="cb1"><pre
-class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;x-ui&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;controlType&quot;</span><span class="fu">:</span> <span class="st">&quot;select&quot;</span><span class="fu">,</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;optionSource&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;universo&quot;</span><span class="fu">,</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;DISTINCT_DIMENSION&quot;</span><span class="fu">,</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/folha/eventos&quot;</span><span class="fu">,</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;filterField&quot;</span><span class="fu">:</span> <span class="st">&quot;universo&quot;</span><span class="fu">,</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dependsOn&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;empresaId&quot;</span><span class="ot">]</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;x-ui&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;controlType&quot;</span><span class="fu">:</span> <span class="st">&quot;select&quot;</span><span class="fu">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;optionSource&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;universo&quot;</span><span class="fu">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;DISTINCT_DIMENSION&quot;</span><span class="fu">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/folha/eventos&quot;</span><span class="fu">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;filterField&quot;</span><span class="fu">:</span> <span class="st">&quot;universo&quot;</span><span class="fu">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;dependsOn&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;empresaId&quot;</span><span class="ot">]</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <h2 id="contrato-canonico">Contrato Canonico</h2>
 <p>Campos que usam fontes remotas devem publicar o bloco canonico
 <code>x-ui.optionSource</code>. O backend nao deve criar shapes
@@ -438,6 +496,7 @@ paralelos para a mesma semantica.</p>
 <li><code>resourcePath</code></li>
 <li><code>filterField</code></li>
 <li><code>dependsOn</code></li>
+<li><code>dependencyFilterMap</code></li>
 </ul>
 <p>Endpoints de execucao:</p>
 <ul>
@@ -473,6 +532,9 @@ selecionados por source</h3>
 <p>Quando a source depender de outros campos:</p>
 <ul>
 <li><code>dependsOn</code> deve listar as dependencias relevantes</li>
+<li><code>dependencyFilterMap</code> deve mapear dependencia -&gt; chave
+de filtro quando o nome publicado em <code>dependsOn</code> nao for a
+chave esperada no payload de filtro</li>
 <li><code>filterField</code> deve explicitar o campo real quando a
 <code>key</code> da source nao coincidir com ele</li>
 <li>o runtime nao deve inferir cascata por naming heuristic</li>

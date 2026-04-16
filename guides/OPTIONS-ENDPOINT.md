@@ -64,6 +64,7 @@ private static final OptionSourceRegistry OPTION_SOURCES = OptionSourceRegistry.
         "payrollProfile",
         "payrollProfile",
         List.of("competenciaBetween", "universo"),
+        Map.of("universo", "universoContexto"),
         new OptionSourcePolicy(true, true, "contains", 0, 25, 100, true, false, "label")
     ))
     .build();
@@ -92,10 +93,30 @@ O `praxis-ui-angular` ja tem consumo explicito para `option-sources`.
 Fluxo real:
 
 - o normalizador le `x-ui.optionSource`
-- o mapper normaliza `optionSource.resourcePath`
+- o normalizador preserva `optionSource.dependsOn` e `optionSource.dependencyFilterMap`
+- o mapper normaliza `optionSource.resourcePath` e deriva `dependencyFields` para o runtime Angular quando nao houver `dependencyFields` explicito
 - o select remoto passa a chamar:
   - `filterOptionSourceOptions(sourceKey, ...)`
   - `getOptionSourceOptionsByIds(sourceKey, ids)`
+
+Exemplo real do quickstart:
+
+- campo de UI observado: `universo`
+- chave de filtro backend: `universoContexto`
+- endpoint: `POST /api/human-resources/vw-analytics-folha-pagamento/option-sources/payrollProfile/options/filter`
+
+Payload efetivo depois da traducao por `dependencyFilterMap`:
+
+```json
+{
+  "competenciaBetween": {
+    "start": "2026-01-01",
+    "end": "2026-12-31"
+  },
+  "universoContexto": "Marvel",
+  "search": "exec"
+}
+```
 
 ## Suporte atual e limites
 
@@ -112,15 +133,58 @@ Execucao atualmente implementada no starter:
 
 Tipos ainda nao implementados de ponta a ponta no executor JPA:
 
-- `RESOURCE_ENTITY`
 - `LIGHT_LOOKUP`
 - `STATIC_CANONICAL`
+
+`RESOURCE_ENTITY` com `entityLookup` tambem e executado pelo executor JPA padrao. Ele
+usa `valuePropertyPath` como identificador, `labelPropertyPath` como label, aplica busca
+nos `searchPropertyPaths`, reidrata por IDs e projeta `OptionDTO.extra` com chaves
+governadas como `code`, `description`, `status`, `selectable`, `disabledReason`,
+`detailHref`, `detailRoute`, `resourcePath` e `entityKey`.
+
+Contrato minimo recomendado para Entity Lookup:
+
+```json
+{
+  "controlType": "entityLookup",
+  "optionSource": {
+    "key": "company",
+    "type": "RESOURCE_ENTITY",
+    "resourcePath": "/api/companies",
+    "entityKey": "company",
+    "valuePropertyPath": "id",
+    "labelPropertyPath": "legalName",
+    "codePropertyPath": "code",
+    "descriptionPropertyPaths": ["documentNumber", "city", "state"],
+    "statusPropertyPath": "status",
+    "searchPropertyPaths": ["code", "legalName", "documentNumber"],
+    "selectionPolicy": {
+      "selectablePropertyPath": "selectable",
+      "statusPropertyPath": "status",
+      "allowedStatuses": ["ACTIVE"],
+      "allowRetainInvalidExistingValue": true
+    },
+    "capabilities": {
+      "filter": true,
+      "byIds": true,
+      "detail": true,
+      "create": false
+    },
+    "detail": {
+      "hrefTemplate": "/api/companies/{id}",
+      "routeTemplate": "/companies/{id}",
+      "openDetailMode": "drawer"
+    }
+  }
+}
+```
 
 ## Boas praticas
 
 - use `option-sources` para dimensoes derivadas
 - mantenha `filterField` explicito quando necessario
 - use `dependsOn` para cascata
+- use `dependencyFilterMap` quando o nome do campo dependente nao for a chave de filtro esperada pelo executor
 - use `excludeSelfField=true` quando a source nao deve se autofiltrar
 - para `OptionDTO`, mantenha `optionLabelKey=label` e `optionValueKey=id`
 

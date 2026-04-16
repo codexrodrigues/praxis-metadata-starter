@@ -244,7 +244,11 @@ implementacao automatica no starter ou no runtime Angular</li>
 <li>Visibilidade: <code>hidden</code>, <code>tableHidden</code>,
 <code>formHidden</code></li>
 <li>Dependencias/Condicionais: <code>conditionalDisplay</code>,
-<code>dependentField</code>, <code>resetOnDependentChange</code></li>
+<code>dependentField</code>, <code>resetOnDependentChange</code>
+<ul>
+<li><code>dependentField</code> e legado/condicional; cascata de
+option-source deve usar <code>optionSource.dependsOn</code>.</li>
+</ul></li>
 <li>Layout/Icone: <code>hint</code>, <code>helpText</code>,
 <code>tooltipOnHover</code>, <code>icon*</code></li>
 <li>Selecao/Opcaoes: <code>options[]</code>, <code>endpoint</code>,
@@ -257,6 +261,9 @@ implementacao automatica no starter ou no runtime Angular</li>
 <li>Quando publicado, <code>optionSource</code> e a forma canonica de
 descrever fontes derivadas de options; <code>endpoint</code> permanece
 como contrato de options remotas diretas.</li>
+<li><code>optionSource.dependsOn</code> e a origem canonica de cascata
+metadata-driven; <code>optionSource.dependencyFilterMap</code> explicita
+o mapeamento dependencia -&gt; chave de filtro quando necessario.</li>
 </ul></li>
 <li>Numerico: <code>numericFormat</code> (enum),
 <code>numericStep</code>, <code>numericMin</code>,

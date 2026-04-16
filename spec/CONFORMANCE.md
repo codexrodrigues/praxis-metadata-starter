@@ -66,7 +66,7 @@
 - `state`, `events` -> estados e interacoes declarativas de plataforma
 - x-ui.optionSource
   - `key`, `type`, `resourcePath` -> identidade minima da fonte derivada
-  - `dependsOn`, `excludeSelfField` -> cascata e remocao do proprio predicado
+  - `dependsOn`, `dependencyFilterMap`, `excludeSelfField` -> cascata, mapeamento dependencia -> filtro e remocao do proprio predicado
   - `searchMode`, `pageSize`, `includeIds`, `cachePolicy` -> politica publica minima de consumo
 - x-ui.resource
   - `idField` -> chave primaria no fluxo de CRUD/UI
