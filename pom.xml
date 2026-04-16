@@ -13,7 +13,7 @@
 
     <groupId>io.github.codexrodrigues</groupId>
     <artifactId>praxis-metadata-starter</artifactId>
-    <version>8.0.0-rc.3</version>
+    <version>8.0.0-rc.4</version>
     <packaging>jar</packaging>
 
     <name>Praxis Metadata Starter</name>
@@ -307,6 +307,8 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>PUBLISHED</waitUntil>
                         </configuration>
                     </plugin>
                 </plugins>
