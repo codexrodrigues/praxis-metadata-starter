@@ -57,9 +57,9 @@ class DynamicSwaggerConfigTest {
         GroupedOpenApi aggregated = (GroupedOpenApi) beanFactory.getSingleton("catalog_ApiGroup");
 
         assertEquals("api-test-products", individual.getGroup());
-        assertEquals("/api/test/products/**", individual.getPathsToMatch().getFirst());
+        assertEquals(List.of("/api/test/products", "/api/test/products/**"), individual.getPathsToMatch());
         assertEquals("catalog", aggregated.getGroup());
-        assertEquals("/api/test/products/**", aggregated.getPathsToMatch().getFirst());
+        assertEquals(List.of("/api/test/products", "/api/test/products/**"), aggregated.getPathsToMatch());
     }
 
     @Test
@@ -86,7 +86,7 @@ class DynamicSwaggerConfigTest {
         assertTrue(beanFactory.containsSingleton("api_fallback_reports_ApiGroup"));
         GroupedOpenApi group = (GroupedOpenApi) beanFactory.getSingleton("api_fallback_reports_ApiGroup");
         assertEquals("api-fallback-reports", group.getGroup());
-        assertEquals("/api/fallback/reports/**", group.getPathsToMatch().getFirst());
+        assertEquals(List.of("/api/fallback/reports", "/api/fallback/reports/**"), group.getPathsToMatch());
     }
 
     @Test
@@ -129,7 +129,7 @@ class DynamicSwaggerConfigTest {
         GroupedOpenApi aggregated = (GroupedOpenApi) beanFactory.getSingleton("human_resources_ApiGroup");
 
         assertEquals("human-resources", aggregated.getGroup());
-        assertEquals(List.of("/employees/**", "/departments/**", "/payroll-view/**"), aggregated.getPathsToMatch());
+        assertEquals(List.of("/employees", "/employees/**", "/departments", "/departments/**", "/payroll-view", "/payroll-view/**"), aggregated.getPathsToMatch());
         assertFalse(aggregated.getPathsToMatch().contains("//**"));
         assertFalse(aggregated.getPathsToMatch().contains("/external-employees/**"));
     }
