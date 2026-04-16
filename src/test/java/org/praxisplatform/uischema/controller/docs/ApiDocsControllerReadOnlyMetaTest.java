@@ -61,6 +61,7 @@ class ApiDocsControllerReadOnlyMetaTest {
                         "payrollProfileLabel",
                         "payrollProfileCode",
                         List.of("universo"),
+                        Map.of("universo", "empresa.universo"),
                         new OptionSourcePolicy(true, true, "contains", 1, 25, 100, true, false, "label")
                 ))
                 .build();
@@ -162,6 +163,7 @@ class ApiDocsControllerReadOnlyMetaTest {
         assertEquals("DISTINCT_DIMENSION", optionSource.get("type"));
         assertEquals(Boolean.TRUE, optionSource.get("excludeSelfField"));
         assertEquals(java.util.List.of("universo"), optionSource.get("dependsOn"));
+        assertEquals(Map.of("universo", "empresa.universo"), optionSource.get("dependencyFilterMap"));
         assertEquals("/api/ro-demo", optionSource.get("resourcePath"));
         assertEquals("contains", optionSource.get("searchMode"));
         assertEquals(25, optionSource.get("pageSize"));

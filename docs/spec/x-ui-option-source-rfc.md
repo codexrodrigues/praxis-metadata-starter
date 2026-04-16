@@ -99,6 +99,7 @@ Elementos esperados:
 - `resourcePath`
 - `filterField` quando necessario
 - `dependsOn` quando houver cascata
+- `dependencyFilterMap` quando a chave do campo dependente nao coincidir com a chave de filtro esperada pelo executor
 - hints de `policy`, `search` e `pagination` quando aplicavel
 
 O runtime consumidor deve tratar `optionSource` como referencia principal quando o bloco
@@ -116,6 +117,64 @@ Use quando:
 - ha identidade estavel
 - existe reuso entre filtros, formularios ou outras telas
 - a opcao representa algo mais proximo de um recurso do dominio
+
+Quando usado por `controlType: "entityLookup"`, `RESOURCE_ENTITY` publica tambem
+semantica governada de entidade no proprio `x-ui.optionSource`:
+
+- `entityKey`
+- `valuePropertyPath`
+- `labelPropertyPath`
+- `codePropertyPath`
+- `descriptionPropertyPaths`
+- `statusPropertyPath`
+- `disabledPropertyPath`
+- `disabledReasonPropertyPath`
+- `searchPropertyPaths`
+- `dependencyFilterMap`
+- `selectionPolicy`
+- `capabilities`
+- `detail`
+
+Esse bloco permite que runtime, formularios, tabelas e editores tratem o lookup como
+selecao de entidade real, com identidade, status, permissao, reidratacao e navegacao,
+sem promover aliases locais no frontend.
+
+Exemplo:
+
+```json
+{
+  "controlType": "entityLookup",
+  "optionSource": {
+    "key": "company",
+    "type": "RESOURCE_ENTITY",
+    "resourcePath": "/api/companies",
+    "entityKey": "company",
+    "valuePropertyPath": "id",
+    "labelPropertyPath": "legalName",
+    "codePropertyPath": "code",
+    "descriptionPropertyPaths": ["documentNumber", "city", "state"],
+    "statusPropertyPath": "status",
+    "searchPropertyPaths": ["code", "legalName", "documentNumber"],
+    "selectionPolicy": {
+      "selectablePropertyPath": "selectable",
+      "statusPropertyPath": "status",
+      "allowedStatuses": ["ACTIVE"],
+      "allowRetainInvalidExistingValue": true
+    },
+    "capabilities": {
+      "filter": true,
+      "byIds": true,
+      "detail": true,
+      "create": false
+    },
+    "detail": {
+      "hrefTemplate": "/api/companies/{id}",
+      "routeTemplate": "/companies/{id}",
+      "openDetailMode": "drawer"
+    }
+  }
+}
+```
 
 ### `DISTINCT_DIMENSION`
 
@@ -208,6 +267,7 @@ Campos operacionais do contrato:
 - `resourcePath`
 - `filterField`
 - `dependsOn`
+- `dependencyFilterMap`
 
 Endpoints de execucao:
 
@@ -243,6 +303,7 @@ Regras:
 Quando a source depender de outros campos:
 
 - `dependsOn` deve listar as dependencias relevantes
+- `dependencyFilterMap` deve mapear dependencia -> chave de filtro quando o nome publicado em `dependsOn` nao for a chave esperada no payload de filtro
 - `filterField` deve explicitar o campo real quando a `key` da source nao coincidir com ele
 - o runtime nao deve inferir cascata por naming heuristic
 

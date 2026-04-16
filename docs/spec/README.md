@@ -38,10 +38,12 @@
   - Estado/Validacao: `disabled`, `readOnly`, `editable`, `unique`, `mask`, `sortable`, `filterable`
   - Visibilidade: `hidden`, `tableHidden`, `formHidden`
   - Dependencias/Condicionais: `conditionalDisplay`, `dependentField`, `resetOnDependentChange`
+    - `dependentField` e legado/condicional; cascata de option-source deve usar `optionSource.dependsOn`.
   - Layout/Icone: `hint`, `helpText`, `tooltipOnHover`, `icon*`
   - Selecao/Opcaoes: `options[]`, `endpoint`, `valueField`, `displayField`, `multiple`, `emptyOptionText`
     - No runtime Angular, a UI Praxis normaliza esses campos para `resourcePath`, `optionValueKey` e `optionLabelKey`.
     - Quando publicado, `optionSource` e a forma canonica de descrever fontes derivadas de options; `endpoint` permanece como contrato de options remotas diretas.
+    - `optionSource.dependsOn` e a origem canonica de cascata metadata-driven; `optionSource.dependencyFilterMap` explicita o mapeamento dependencia -> chave de filtro quando necessario.
   - Numerico: `numericFormat` (enum), `numericStep`, `numericMin`, `numericMax`, `numericMaxLength`
   - Apresentacao de valor: `valuePresentation{ type, style?, format?, currency?, number? }` como contrato canonico de display/read-only para valores escalares
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`

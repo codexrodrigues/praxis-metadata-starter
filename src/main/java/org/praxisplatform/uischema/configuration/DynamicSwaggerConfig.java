@@ -480,7 +480,7 @@ public class DynamicSwaggerConfig {
      */
     private void registerGroupBeanWithCustomName(String basePath, String groupName) {
         // 🎯 Cria padrão de matching: "/api/human-resources/funcionarios" → "/api/human-resources/funcionarios/**"
-        String pathsToMatch = basePath + "/**";
+        String[] pathsToMatch = toPathsToMatchPatterns(Set.of(basePath));
 
         // 🏗️ Constrói o bean GroupedOpenApi
         GroupedOpenApi groupedOpenApi = GroupedOpenApi.builder()
@@ -493,7 +493,7 @@ public class DynamicSwaggerConfig {
         beanFactory.registerSingleton(beanName, groupedOpenApi);
         
         logger.info("Bean GroupedOpenApi registrado: bean={}, group={}, paths={}",
-            beanName, groupName, pathsToMatch);
+            beanName, groupName, java.util.Arrays.toString(pathsToMatch));
     }
 
     private void registerGroupBeanWithPaths(String groupName, Set<String> basePaths) {
@@ -515,21 +515,21 @@ public class DynamicSwaggerConfig {
             return new String[]{"/**"};
         }
         return basePaths.stream()
-                .map(this::toPathsToMatchPattern)
+                .flatMap(basePath -> java.util.Arrays.stream(toPathsToMatchPatternPair(basePath)))
                 .toArray(String[]::new);
     }
 
-    private String toPathsToMatchPattern(String basePath) {
+    private String[] toPathsToMatchPatternPair(String basePath) {
         if (basePath == null || basePath.isBlank()) {
-            return "/**";
+            return new String[]{"/**"};
         }
         String normalizedBasePath = basePath.trim();
         if ("/".equals(normalizedBasePath)) {
-            return "/**";
+            return new String[]{"/**"};
         }
         if (normalizedBasePath.length() > 1 && normalizedBasePath.endsWith("/")) {
             normalizedBasePath = normalizedBasePath.substring(0, normalizedBasePath.length() - 1);
         }
-        return normalizedBasePath + "/**";
+        return new String[]{normalizedBasePath, normalizedBasePath + "/**"};
     }
 }

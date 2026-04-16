@@ -20,6 +20,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -203,6 +204,18 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public ResponseEntity<Void> handleAsyncRequestNotUsableException(
+            AsyncRequestNotUsableException ex,
+            WebRequest request
+    ) {
+        log.debug(
+                "[GlobalExceptionHandler] Client connection closed before the response could be written: {}",
+                extractUri(request)
+        );
+        return ResponseEntity.noContent().build();
+    }
+
     private ResponseEntity<RestApiResponse<Object>> buildValidationErrorResponse(
             String detailMessage,
             String title,
@@ -319,6 +332,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<RestApiResponse<Object>> handleGenericException(Exception ex, WebRequest request) {
+        if (isClientAbortException(ex)) {
+            log.debug(
+                    "[GlobalExceptionHandler] Client connection closed before the response could be written: {}",
+                    extractUri(request)
+            );
+            return ResponseEntity.noContent().build();
+        }
+
         ResponseStatus responseStatus = AnnotatedElementUtils.findMergedAnnotation(ex.getClass(), ResponseStatus.class);
         if (responseStatus != null) {
             HttpStatus status = responseStatus.code() != HttpStatus.INTERNAL_SERVER_ERROR
@@ -627,6 +648,20 @@ public class GlobalExceptionHandler {
             return mdcTraceId;
         }
         return normalize(MDC.get("X-B3-TraceId"));
+    }
+
+    private boolean isClientAbortException(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String className = current.getClass().getName();
+            if ("org.apache.catalina.connector.ClientAbortException".equals(className)
+                    || "org.eclipse.jetty.io.EofException".equals(className)
+                    || "java.io.EOFException".equals(className)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private Throwable rootCause(Throwable throwable) {

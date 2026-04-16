@@ -325,8 +325,11 @@ public class CustomOpenApiResolver extends ModelResolver {
                         break;
                         
                     case "array":
-                        // Verificar se items têm enum para multi-select
-                        if (property.getItems() != null && property.getItems().getEnum() != null && 
+                        schemaBasedDataType = FieldDataType.ARRAY.getValue();
+                        if (isObjectArray(property)) {
+                            schemaBasedControlType = FieldControlType.ARRAY.getValue();
+                            publishArrayContract(property, uiExtension);
+                        } else if (property.getItems() != null && property.getItems().getEnum() != null && 
                             !property.getItems().getEnum().isEmpty()) {
                             schemaBasedControlType = FieldControlType.MULTI_SELECT.getValue();
                         } else {
@@ -816,7 +819,11 @@ public class CustomOpenApiResolver extends ModelResolver {
                 break;
                 
             case "array":
-                if (property.getItems() != null && property.getItems().getEnum() != null &&
+                detectedDataType = FieldDataType.ARRAY.getValue();
+                if (isObjectArray(property)) {
+                    detectedControlType = FieldControlType.ARRAY.getValue();
+                    publishArrayContract(property, uiExtension);
+                } else if (property.getItems() != null && property.getItems().getEnum() != null &&
                     !property.getItems().getEnum().isEmpty()) {
                     int c = property.getItems().getEnum().size();
                     detectedControlType = OpenApiUiUtils.determineArrayEnumControlBySize(c);
@@ -905,6 +912,57 @@ public class CustomOpenApiResolver extends ModelResolver {
             }
             OpenApiUiUtils.applyPercentDefaults(uiExtension);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void publishArrayContract(Schema<?> property, Map<String, Object> uiExtension) {
+        if (property == null || !"array".equals(property.getType())) {
+            return;
+        }
+
+        Map<String, Object> arrayConfig;
+        Object existing = uiExtension.get("array");
+        if (existing instanceof Map<?, ?> existingMap) {
+            arrayConfig = (Map<String, Object>) existingMap;
+        } else {
+            arrayConfig = new LinkedHashMap<>();
+            uiExtension.put("array", arrayConfig);
+        }
+
+        boolean objectArray = isObjectArray(property);
+        arrayConfig.putIfAbsent("itemType", objectArray ? "object" : "string");
+        arrayConfig.putIfAbsent("mode", objectArray ? "cards" : "chips");
+        arrayConfig.putIfAbsent("deleteMode", "removeFromPayload");
+
+        Integer minItems = property.getMinItems();
+        if (minItems != null) {
+            arrayConfig.putIfAbsent("minItems", minItems);
+        }
+        Integer maxItems = property.getMaxItems();
+        if (maxItems != null) {
+            arrayConfig.putIfAbsent("maxItems", maxItems);
+        }
+
+        String itemSchemaRef = itemSchemaRef(property);
+        if (itemSchemaRef != null) {
+            arrayConfig.putIfAbsent("itemSchemaRef", itemSchemaRef);
+        }
+    }
+
+    private boolean isObjectArray(Schema<?> property) {
+        if (property == null || property.getItems() == null) {
+            return false;
+        }
+        Schema<?> items = property.getItems();
+        return "object".equals(items.getType()) || itemSchemaRef(property) != null;
+    }
+
+    private String itemSchemaRef(Schema<?> property) {
+        if (property == null || property.getItems() == null) {
+            return null;
+        }
+        String ref = property.getItems().get$ref();
+        return ref == null || ref.isBlank() ? null : ref;
     }
 
     private boolean isNumericItemType(String itemType) {

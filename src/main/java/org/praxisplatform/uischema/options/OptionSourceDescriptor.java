@@ -22,8 +22,90 @@ public record OptionSourceDescriptor(
         String labelPropertyPath,
         String valuePropertyPath,
         List<String> dependsOn,
-        OptionSourcePolicy policy
+        Map<String, String> dependencyFilterMap,
+        OptionSourcePolicy policy,
+        EntityLookupDescriptor entityLookup
 ) {
+    public OptionSourceDescriptor(
+            String key,
+            OptionSourceType type,
+            String resourcePath,
+            String filterField,
+            String propertyPath,
+            String labelPropertyPath,
+            String valuePropertyPath,
+            List<String> dependsOn,
+            OptionSourcePolicy policy,
+            EntityLookupDescriptor entityLookup
+    ) {
+        this(
+                key,
+                type,
+                resourcePath,
+                filterField,
+                propertyPath,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                null,
+                policy,
+                entityLookup
+        );
+    }
+
+    public OptionSourceDescriptor(
+            String key,
+            OptionSourceType type,
+            String resourcePath,
+            String filterField,
+            String propertyPath,
+            String labelPropertyPath,
+            String valuePropertyPath,
+            List<String> dependsOn,
+            Map<String, String> dependencyFilterMap,
+            OptionSourcePolicy policy
+    ) {
+        this(
+                key,
+                type,
+                resourcePath,
+                filterField,
+                propertyPath,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                dependencyFilterMap,
+                policy,
+                null
+        );
+    }
+
+    public OptionSourceDescriptor(
+            String key,
+            OptionSourceType type,
+            String resourcePath,
+            String filterField,
+            String propertyPath,
+            String labelPropertyPath,
+            String valuePropertyPath,
+            List<String> dependsOn,
+            OptionSourcePolicy policy
+    ) {
+        this(
+                key,
+                type,
+                resourcePath,
+                filterField,
+                propertyPath,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                null,
+                policy,
+                null
+        );
+    }
+
     /**
      * Valida e normaliza o descritor no momento da criacao.
      */
@@ -38,6 +120,7 @@ public record OptionSourceDescriptor(
             throw new IllegalArgumentException("Option source resourcePath is required.");
         }
         dependsOn = dependsOn == null ? List.of() : List.copyOf(dependsOn);
+        dependencyFilterMap = normalizeMap(dependencyFilterMap);
         policy = policy == null ? OptionSourcePolicy.defaults() : policy;
         filterField = normalize(filterField);
         propertyPath = normalize(propertyPath);
@@ -70,11 +153,29 @@ public record OptionSourceDescriptor(
         if (!dependsOn.isEmpty()) {
             metadata.put("dependsOn", dependsOn);
         }
+        if (!dependencyFilterMap.isEmpty()) {
+            metadata.put("dependencyFilterMap", dependencyFilterMap);
+        }
+        if (propertyPath != null) {
+            metadata.put("propertyPath", propertyPath);
+        }
+        if (labelPropertyPath != null) {
+            metadata.put("labelPropertyPath", labelPropertyPath);
+        }
+        if (valuePropertyPath != null) {
+            metadata.put("valuePropertyPath", valuePropertyPath);
+        }
         metadata.put("excludeSelfField", policy.excludeSelfField());
         metadata.put("searchMode", policy.searchMode());
         metadata.put("pageSize", policy.defaultPageSize());
         metadata.put("includeIds", policy.allowIncludeIds());
         metadata.put("cachePolicy", policy.cacheable() ? "request-scope" : "none");
+        if (entityLookup != null) {
+            metadata.putAll(entityLookup.toMetadataMap());
+            if (!dependencyFilterMap.isEmpty()) {
+                metadata.put("dependencyFilterMap", dependencyFilterMap);
+            }
+        }
         return metadata;
     }
 
@@ -83,5 +184,20 @@ public record OptionSourceDescriptor(
      */
     private static String normalize(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private static Map<String, String> normalizeMap(Map<String, String> value) {
+        if (value == null || value.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> normalized = new LinkedHashMap<>();
+        value.forEach((key, mappedValue) -> {
+            String normalizedKey = normalize(key);
+            String normalizedValue = normalize(mappedValue);
+            if (normalizedKey != null && normalizedValue != null) {
+                normalized.put(normalizedKey, normalizedValue);
+            }
+        });
+        return normalized.isEmpty() ? Map.of() : Map.copyOf(normalized);
     }
 }

@@ -2,11 +2,13 @@ package org.praxisplatform.uischema.extension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.models.media.ArraySchema;
+import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
+import org.praxisplatform.uischema.FieldDataType;
 import java.lang.annotation.Annotation;
 
 import java.util.Arrays;
@@ -46,6 +48,50 @@ class ArrayEnumInferenceTest {
                 xui.containsKey("filterControlType"),
                 "resolver nao deve emitir propriedades residuais de filtro por padrao"
         );
+    }
+
+    @Test
+    void objectArrayShouldPublishEditableCollectionContract() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        ArraySchema property = new ArraySchema();
+        property.setItems(new ObjectSchema());
+        property.setMinItems(1);
+        property.setMaxItems(5);
+        Annotation[] anns = new Annotation[]{ TestUISchemaDefaults.instance() };
+
+        resolver.applyBeanValidatorAnnotations(property, anns, null, false);
+
+        Map<String,Object> xui = getXui(property);
+        assertEquals(FieldControlType.ARRAY.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals(FieldDataType.ARRAY.getValue(), xui.get(FieldConfigProperties.TYPE.getValue()));
+        assertTrue(xui.get("array") instanceof Map);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> array = (Map<String, Object>) xui.get("array");
+        assertEquals("object", array.get("itemType"));
+        assertEquals("cards", array.get("mode"));
+        assertEquals("removeFromPayload", array.get("deleteMode"));
+        assertEquals(1, array.get("minItems"));
+        assertEquals(5, array.get("maxItems"));
+    }
+
+    @Test
+    void referencedItemArrayShouldPublishItemSchemaRef() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        ArraySchema property = new ArraySchema();
+        Schema<?> item = new Schema<>();
+        item.set$ref("#/components/schemas/MissaoEquipePlanejadaItemDTO");
+        property.setItems(item);
+        Annotation[] anns = new Annotation[]{ TestUISchemaDefaults.instance() };
+
+        resolver.applyBeanValidatorAnnotations(property, anns, null, false);
+
+        Map<String,Object> xui = getXui(property);
+        assertEquals(FieldControlType.ARRAY.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> array = (Map<String, Object>) xui.get("array");
+        assertEquals("#/components/schemas/MissaoEquipePlanejadaItemDTO", array.get("itemSchemaRef"));
     }
 
     @SuppressWarnings("unchecked")

@@ -11,6 +11,10 @@ import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.filter.specification.GenericSpecification;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
+import org.praxisplatform.uischema.options.EntityLookupDescriptor;
+import org.praxisplatform.uischema.options.LookupCapabilities;
+import org.praxisplatform.uischema.options.LookupDetailDescriptor;
+import org.praxisplatform.uischema.options.LookupSelectionPolicy;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourcePolicy;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
@@ -193,6 +197,38 @@ class EmployeeService extends AbstractBaseResourceService<
                     null,
                     List.of("departmentId"),
                     OptionSourcePolicy.defaults()
+            ))
+            .add(EmployeeEntity.class, new OptionSourceDescriptor(
+                    "employeeEntityLookup",
+                    OptionSourceType.RESOURCE_ENTITY,
+                    "/employees",
+                    null,
+                    null,
+                    "nome",
+                    "id",
+                    List.of("departmentId"),
+                    new OptionSourcePolicy(true, true, "contains", 0, 25, 100, true, false, "label"),
+                    new EntityLookupDescriptor(
+                            "employee",
+                            "matricula",
+                            List.of("department.nome", "payrollProfileLabel"),
+                            "status",
+                            null,
+                            null,
+                            List.of("nome", "matricula", "department.nome"),
+                            Map.of("departmentId", "department.id"),
+                            new LookupSelectionPolicy(
+                                    null,
+                                    "status",
+                                    List.of("ACTIVE"),
+                                    List.of("INACTIVE"),
+                                    true,
+                                    null,
+                                    null
+                            ),
+                            new LookupCapabilities(true, true, true, false, false, true, false, false, false, true),
+                            new LookupDetailDescriptor("/employees/{id}", "/employees/{id}", "route")
+                    )
             ))
             .build();
 

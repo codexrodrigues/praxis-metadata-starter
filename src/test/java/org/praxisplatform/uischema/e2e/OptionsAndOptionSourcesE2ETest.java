@@ -54,6 +54,40 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
         assertEquals("SPEC", payrollProfileByIdsBody.get(0).path("id").asText());
         assertEquals("EXEC", payrollProfileByIdsBody.get(1).path("id").asText());
 
+        ResponseEntity<String> employeeLookupResponse = postJson(
+                "/employees/option-sources/employeeEntityLookup/options/filter?search=Human&page=0&size=10",
+                "{}"
+        );
+        assertEquals(200, employeeLookupResponse.getStatusCode().value());
+        JsonNode employeeLookupBody = body(employeeLookupResponse);
+        assertEquals(3, employeeLookupBody.path("content").size());
+        JsonNode aliceLookupOption = employeeLookupBody.path("content").get(0);
+        assertEquals(state.employeeIdsByName().get("Alice").longValue(), aliceLookupOption.path("id").asLong());
+        assertEquals("Alice", aliceLookupOption.path("label").asText());
+        assertEquals("HR-001", aliceLookupOption.path("extra").path("code").asText());
+        assertEquals("Human Resources - Executive", aliceLookupOption.path("extra").path("description").asText());
+        assertEquals("ACTIVE", aliceLookupOption.path("extra").path("status").asText());
+        assertTrue(aliceLookupOption.path("extra").path("selectable").asBoolean());
+        assertEquals("/employees/" + state.employeeIdsByName().get("Alice"), aliceLookupOption.path("extra").path("detailHref").asText());
+        assertEquals("employee", aliceLookupOption.path("extra").path("entityKey").asText());
+
+        JsonNode carolLookupOption = employeeLookupBody.path("content").get(1);
+        assertEquals(state.employeeIdsByName().get("Carol").longValue(), carolLookupOption.path("id").asLong());
+        assertEquals("INACTIVE", carolLookupOption.path("extra").path("status").asText());
+        assertEquals(false, carolLookupOption.path("extra").path("selectable").asBoolean());
+
+        ResponseEntity<String> employeeLookupByIdsResponse = get(
+                "/employees/option-sources/employeeEntityLookup/options/by-ids?ids=%d&ids=%d".formatted(
+                        state.employeeIdsByName().get("Carol"),
+                        state.employeeIdsByName().get("Alice")
+                )
+        );
+        assertEquals(200, employeeLookupByIdsResponse.getStatusCode().value());
+        JsonNode employeeLookupByIdsBody = body(employeeLookupByIdsResponse);
+        assertEquals("Carol", employeeLookupByIdsBody.get(0).path("label").asText());
+        assertEquals(false, employeeLookupByIdsBody.get(0).path("extra").path("selectable").asBoolean());
+        assertEquals("Alice", employeeLookupByIdsBody.get(1).path("label").asText());
+
         ResponseEntity<String> unknownSourceResponse = postJson(
                 "/employees/option-sources/unknown-source/options/filter?page=0&size=10",
                 "{}"

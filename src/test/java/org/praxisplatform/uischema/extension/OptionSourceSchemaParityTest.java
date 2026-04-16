@@ -1,0 +1,78 @@
+package org.praxisplatform.uischema.extension;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Iterator;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class OptionSourceSchemaParityTest {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Test
+    void optionSourceSchemaShouldPublishDependencyFilterMapContract() throws Exception {
+        JsonNode schema = readProjectJson("docs/spec/x-ui-field.schema.json");
+        JsonNode optionSource = schema.path("definitions").path("optionSource");
+        JsonNode properties = optionSource.path("properties");
+        JsonNode dependencyFilterMap = properties.path("dependencyFilterMap");
+
+        assertEquals(false, optionSource.path("additionalProperties").asBoolean(true),
+                "optionSource schema should stay closed to undocumented keys");
+        assertTrue(properties.has("dependsOn"), "optionSource schema should expose dependsOn");
+        assertTrue(properties.has("dependencyFilterMap"), "optionSource schema should expose dependencyFilterMap");
+        assertEquals("object", dependencyFilterMap.path("type").asText());
+        assertEquals("string", dependencyFilterMap.path("additionalProperties").path("type").asText());
+        assertEquals(1, dependencyFilterMap.path("additionalProperties").path("minLength").asInt());
+    }
+
+    @Test
+    void resourceEntityOptionSourceExampleShouldOnlyUseDocumentedOptionSourceKeys() throws Exception {
+        JsonNode schema = readProjectJson("docs/spec/x-ui-field.schema.json");
+        JsonNode example = readProjectJson("docs/spec/examples/x-ui-field-option-source-resource.valid.json");
+        JsonNode documentedProperties = schema.path("definitions").path("optionSource").path("properties");
+        JsonNode optionSource = example.path("optionSource");
+
+        assertFalse(optionSource.path("dependencyFilterMap").isMissingNode(),
+                "resource entity example should include dependencyFilterMap");
+        assertEquals("tenant.id", optionSource.path("dependencyFilterMap").path("tenantId").asText());
+
+        Iterator<String> fieldNames = optionSource.fieldNames();
+        while (fieldNames.hasNext()) {
+            String fieldName = fieldNames.next();
+            assertTrue(documentedProperties.has(fieldName),
+                    "example optionSource key should be declared in schema: " + fieldName);
+        }
+    }
+
+    private JsonNode readProjectJson(String relativePath) throws Exception {
+        Path path = resolveProjectFile(relativePath);
+        assertTrue(Files.exists(path), relativePath + " should exist");
+        return objectMapper.readTree(Files.readString(path));
+    }
+
+    private static Path resolveProjectFile(String relativePath) {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        while (current != null) {
+            Path direct = current.resolve(relativePath);
+            if (Files.exists(direct)) {
+                return direct;
+            }
+
+            Path nestedModule = current.resolve("praxis-metadata-starter").resolve(relativePath);
+            if (Files.exists(nestedModule)) {
+                return nestedModule;
+            }
+
+            current = current.getParent();
+        }
+
+        throw new IllegalStateException("Unable to locate project file: " + relativePath);
+    }
+}

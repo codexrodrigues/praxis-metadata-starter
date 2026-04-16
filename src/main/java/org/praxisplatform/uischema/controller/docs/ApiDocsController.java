@@ -270,6 +270,8 @@ public class ApiDocsController {
         }
 
         enrichPropertyOptionSources(schemaMap, basePath);
+        enrichArrayItemSchemasInline(schemaMap, allSchemas);
+        enrichReferencedComponentSchemas(schemaMap, allSchemas);
         schemaMap.put(X_UI, xUiMap);
 
         // 4) Canonicalize and hash the final payload (com cache por schemaId)
@@ -629,6 +631,207 @@ public class ApiDocsController {
             filtered.put("response", operationExamples.get("response"));
         }
         return filtered;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichArrayItemSchemasInline(Map<String, Object> schemaMap, JsonNode allSchemas) {
+        if (schemaMap == null || allSchemas == null || allSchemas.isMissingNode() || !allSchemas.isObject()) {
+            return;
+        }
+
+        enrichArrayItemSchemasInlineRecursive(schemaMap, allSchemas);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichArrayItemSchemasInlineRecursive(Object schemaNode, JsonNode allSchemas) {
+        if (schemaNode instanceof Map<?, ?> rawSchemaNode) {
+            Map<String, Object> typedSchemaNode = (Map<String, Object>) rawSchemaNode;
+            enrichArrayItemSchemaInline(typedSchemaNode, allSchemas);
+            typedSchemaNode.values().forEach(value -> enrichArrayItemSchemasInlineRecursive(value, allSchemas));
+            return;
+        }
+
+        if (schemaNode instanceof Collection<?> values) {
+            values.forEach(value -> enrichArrayItemSchemasInlineRecursive(value, allSchemas));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichArrayItemSchemaInline(Map<String, Object> propertySchema, JsonNode allSchemas) {
+        Object rawXUi = propertySchema.get(X_UI);
+        if (!(rawXUi instanceof Map<?, ?> xUi)) {
+            return;
+        }
+        Object rawArray = xUi.get("array");
+        if (!(rawArray instanceof Map<?, ?> array)) {
+            return;
+        }
+
+        Map<String, Object> arrayConfig = (Map<String, Object>) array;
+        if (arrayConfig.get("itemSchema") instanceof Map<?, ?>) {
+            return;
+        }
+
+        Object rawRef = arrayConfig.get("itemSchemaRef");
+        String ref = rawRef instanceof String refText ? refText : null;
+        if (ref == null || ref.isBlank()) {
+            ref = refFromItems(propertySchema);
+        }
+        if (ref == null || ref.isBlank()) {
+            return;
+        }
+
+        Map<String, Object> itemSchema = buildInlineItemSchema(ref, allSchemas);
+        if (!itemSchema.isEmpty()) {
+            arrayConfig.put("itemSchema", itemSchema);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private String refFromItems(Map<String, Object> propertySchema) {
+        Object rawItems = propertySchema.get(ITEMS);
+        if (!(rawItems instanceof Map<?, ?> items)) {
+            return null;
+        }
+        Object rawRef = ((Map<String, Object>) items).get(REF);
+        return rawRef instanceof String ref ? ref : null;
+    }
+
+    private Map<String, Object> buildInlineItemSchema(String ref, JsonNode allSchemas) {
+        String schemaName = extractSchemaNameFromRef(ref);
+        if (schemaName == null || schemaName.isBlank()) {
+            return Collections.emptyMap();
+        }
+
+        JsonNode componentSchema = allSchemas.path(schemaName);
+        JsonNode properties = componentSchema.path(PROPERTIES);
+        if (properties.isMissingNode() || !properties.isObject()) {
+            return Collections.emptyMap();
+        }
+
+        Set<String> requiredFields = requiredFields(componentSchema.path("required"));
+        List<Map<String, Object>> fields = new ArrayList<>();
+        Iterator<Entry<String, JsonNode>> iterator = properties.fields();
+        while (iterator.hasNext()) {
+            Entry<String, JsonNode> property = iterator.next();
+            Map<String, Object> field = objectMapper.convertValue(
+                    property.getValue(),
+                    new TypeReference<Map<String, Object>>() { }
+            );
+            field.putIfAbsent("name", property.getKey());
+            if (requiredFields.contains(property.getKey())) {
+                markInlineFieldRequired(field);
+            }
+            fields.add(field);
+        }
+
+        Map<String, Object> itemSchema = new LinkedHashMap<>();
+        itemSchema.put("type", componentSchema.path("type").asText("object"));
+        itemSchema.put("fields", fields);
+        return itemSchema;
+    }
+
+    private Set<String> requiredFields(JsonNode requiredNode) {
+        if (requiredNode == null || !requiredNode.isArray()) {
+            return Collections.emptySet();
+        }
+
+        Set<String> required = new LinkedHashSet<>();
+        requiredNode.forEach(item -> {
+            if (item.isTextual() && StringUtils.hasText(item.asText())) {
+                required.add(item.asText());
+            }
+        });
+        return required;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void markInlineFieldRequired(Map<String, Object> field) {
+        field.put("required", true);
+        Object rawXUi = field.get(X_UI);
+        Map<String, Object> xUi;
+        if (rawXUi instanceof Map<?, ?> existingXUi) {
+            xUi = (Map<String, Object>) existingXUi;
+        } else {
+            xUi = new LinkedHashMap<>();
+            field.put(X_UI, xUi);
+        }
+        xUi.put("required", true);
+    }
+
+    private void enrichReferencedComponentSchemas(Map<String, Object> schemaMap, JsonNode allSchemas) {
+        if (schemaMap == null || allSchemas == null || allSchemas.isMissingNode() || !allSchemas.isObject()) {
+            return;
+        }
+
+        JsonNode schemaTree = objectMapper.valueToTree(schemaMap);
+        Map<String, Object> referencedSchemas = new LinkedHashMap<>();
+        collectReferencedComponentSchemas(schemaTree, allSchemas, referencedSchemas, new LinkedHashSet<>());
+        if (referencedSchemas.isEmpty()) {
+            return;
+        }
+
+        Map<String, Object> components = new LinkedHashMap<>();
+        components.put(SCHEMAS, referencedSchemas);
+        schemaMap.put(COMPONENTS, components);
+    }
+
+    private void collectReferencedComponentSchemas(JsonNode node,
+                                                   JsonNode allSchemas,
+                                                   Map<String, Object> referencedSchemas,
+                                                   Set<String> visitedSchemaNames) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return;
+        }
+
+        if (node.isObject()) {
+            String ref = refText(node.path(REF));
+            if (ref == null) {
+                ref = refText(node.path("itemSchemaRef"));
+            }
+            if (ref != null) {
+                addReferencedComponentSchema(ref, allSchemas, referencedSchemas, visitedSchemaNames);
+            }
+
+            Iterator<Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                Entry<String, JsonNode> field = fields.next();
+                collectReferencedComponentSchemas(field.getValue(), allSchemas, referencedSchemas, visitedSchemaNames);
+            }
+            return;
+        }
+
+        if (node.isArray()) {
+            for (JsonNode item : node) {
+                collectReferencedComponentSchemas(item, allSchemas, referencedSchemas, visitedSchemaNames);
+            }
+        }
+    }
+
+    private String refText(JsonNode node) {
+        if (node == null || !node.isTextual()) {
+            return null;
+        }
+        String ref = node.asText();
+        return ref != null && ref.startsWith("#/components/schemas/") ? ref : null;
+    }
+
+    private void addReferencedComponentSchema(String ref,
+                                              JsonNode allSchemas,
+                                              Map<String, Object> referencedSchemas,
+                                              Set<String> visitedSchemaNames) {
+        String schemaName = extractSchemaNameFromRef(ref);
+        if (schemaName == null || schemaName.isBlank() || !visitedSchemaNames.add(schemaName)) {
+            return;
+        }
+
+        JsonNode componentSchema = allSchemas.path(schemaName);
+        if (componentSchema.isMissingNode() || !componentSchema.isObject()) {
+            return;
+        }
+
+        referencedSchemas.put(schemaName, objectMapper.convertValue(componentSchema, new TypeReference<Map<String, Object>>() { }));
+        collectReferencedComponentSchemas(componentSchema, allSchemas, referencedSchemas, visitedSchemaNames);
     }
 
     private Map<String, Object> extractOperationExamples(JsonNode operationNode, String schemaType) {

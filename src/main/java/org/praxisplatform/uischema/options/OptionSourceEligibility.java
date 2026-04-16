@@ -40,8 +40,25 @@ public class OptionSourceEligibility {
         return switch (descriptor.type()) {
             case DISTINCT_DIMENSION -> resolveDistinctDimension(descriptor, statsDescriptor);
             case CATEGORICAL_BUCKET -> resolveCategoricalBucket(descriptor, statsDescriptor);
-            case RESOURCE_ENTITY, LIGHT_LOOKUP, STATIC_CANONICAL -> descriptor;
+            case RESOURCE_ENTITY -> resolveResourceEntity(descriptor);
+            case LIGHT_LOOKUP, STATIC_CANONICAL -> descriptor;
         };
+    }
+
+    private OptionSourceDescriptor resolveResourceEntity(OptionSourceDescriptor descriptor) {
+        if (descriptor.entityLookup() == null) {
+            return descriptor;
+        }
+        if (isBlank(descriptor.valuePropertyPath())) {
+            throw new IllegalArgumentException("Option source valuePropertyPath is required for RESOURCE_ENTITY: " + descriptor.key());
+        }
+        if (isBlank(descriptor.labelPropertyPath())) {
+            throw new IllegalArgumentException("Option source labelPropertyPath is required for RESOURCE_ENTITY: " + descriptor.key());
+        }
+        if (isBlank(descriptor.entityLookup().entityKey())) {
+            throw new IllegalArgumentException("Option source entityKey is required for RESOURCE_ENTITY lookup metadata: " + descriptor.key());
+        }
+        return descriptor;
     }
 
     private OptionSourceDescriptor resolveDistinctDimension(
@@ -87,7 +104,13 @@ public class OptionSourceEligibility {
                 descriptor.labelPropertyPath(),
                 descriptor.valuePropertyPath(),
                 descriptor.dependsOn(),
-                descriptor.policy()
+                descriptor.dependencyFilterMap(),
+                descriptor.policy(),
+                descriptor.entityLookup()
         );
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

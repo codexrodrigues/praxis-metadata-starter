@@ -2,7 +2,9 @@ package org.praxisplatform.uischema.rest.exceptionhandler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.io.EOFException;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springdoc.api.OpenApiResourceNotFoundException;
@@ -129,6 +132,32 @@ class GlobalExceptionHandlerTest {
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
         assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getProperties().get("code"));
+    }
+
+    @Test
+    void shouldTreatAsyncRequestNotUsableAsClientAbort() {
+        WebRequest request = webRequest("/schemas/filtered");
+
+        var response = handler.handleAsyncRequestNotUsableException(
+                new AsyncRequestNotUsableException("ServletOutputStream failed to flush", new EOFException("closed")),
+                request
+        );
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        assertNull(response.getBody());
+    }
+
+    @Test
+    void shouldTreatNestedClientAbortAsNoContentInGenericHandler() {
+        WebRequest request = webRequest("/schemas/filtered");
+
+        var response = handler.handleGenericException(
+                new IllegalStateException("write failed", new EOFException("closed")),
+                request
+        );
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        assertNull(response.getBody());
     }
 
     @Test

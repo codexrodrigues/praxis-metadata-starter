@@ -24,6 +24,10 @@ public enum FieldControlType {
      */
     AUTO("auto"),
     /**
+     * Colecao editavel de itens, normalmente publicada com {@code x-ui.array}.
+     */
+    ARRAY("array"),
+    /**
      * Select remoto com busca/publicação explícita no contrato.
      */
     ASYNC_SELECT("async-select"),
@@ -75,6 +79,10 @@ public enum FieldControlType {
     DATE_TIME_RANGE("dateTimeRange"),
     DATETIME_LOCAL_INPUT("dateTimeLocal"),
     EMAIL_INPUT("email"),
+    /**
+     * Lookup corporativo para selecao de entidades de negocio governadas por optionSource.
+     */
+    ENTITY_LOOKUP("entityLookup"),
     FILE_UPLOAD("upload"),
     INPUT("input"),
     INLINE_SELECT("inlineSelect"),

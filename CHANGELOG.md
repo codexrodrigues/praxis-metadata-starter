@@ -13,11 +13,14 @@ All notable changes to this module will be documented in this file.
 - `DynamicSwaggerConfig` passa a reconhecer controllers da hierarquia `AbstractResourceQueryController`.
 - Guias publicos passam a apontar onboarding ativo apenas para o baseline resource-oriented.
 - `README.md`, `docs/index.md` e `docs/spec/CONFORMANCE.md` passam a tratar `option-sources` como superficie publica canonicamente suportada quando o recurso publica `OptionSourceRegistry`.
+- `OptionSourceDescriptor` passa a carregar e publicar `dependencyFilterMap` diretamente para qualquer tipo de option-source, preservando a cascata canonica em `x-ui.optionSource` quando o campo dependente difere da chave de filtro.
 - Guia do consumidor piloto passa a ser guia de adocao canonica, sem narrativa de migracao entre modelos.
 
 ### Added
 - Rollout do baseline semantico `resource + surface + action + capability`, com `@UiSurface`, `@WorkflowAction`, `GET /schemas/surfaces`, `GET /schemas/actions` e snapshots agregados em `/capabilities`.
 - Auto-configuracao canonica de `OptionSourceQueryExecutor`, `OptionSourceEligibility` e `OptionSourceRegistry` agregado para discovery e enrich de `/schemas/filtered`.
+- Contrato rico de Entity Lookup para `x-ui.optionSource` com `RESOURCE_ENTITY`, incluindo `entityKey`, paths de display/status/busca, `dependencyFilterMap`, `selectionPolicy`, `capabilities` e `detail`.
+- Execucao JPA de `RESOURCE_ENTITY` rico, com busca multi-campo, reidratacao por IDs e `OptionDTO.extra` governado para Entity Lookup.
 
 ### Fixed
 - Corrigida a lacuna que impedia `option-sources` reais de funcionar apenas com o starter: recursos que expoem `OptionSourceRegistry` agora publicam `x-ui.optionSource` em `/schemas/filtered` e executam `POST /{resource}/option-sources/{sourceKey}/options/filter` e `GET /{resource}/option-sources/{sourceKey}/options/by-ids` via auto-configuracao padrao.

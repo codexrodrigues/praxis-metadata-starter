@@ -51,6 +51,11 @@ public enum FieldDataType {
     BOOLEAN("boolean"),
 
     /**
+     * Represents a collection data type.
+     */
+    ARRAY("array"),
+
+    /**
      * Represents a JSON object data type.
      */
     JSON("json");

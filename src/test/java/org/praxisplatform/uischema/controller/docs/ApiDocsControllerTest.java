@@ -143,6 +143,102 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    void getFilteredSchemaIncludesReferencedComponentSchemasForEditableCollections() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/missions/{id}/team-plan\": {\n" +
+                "      \"patch\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/TeamPlanRequest\"}}}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\"schemas\": {\n" +
+                "    \"TeamPlanRequest\": {\n" +
+                "      \"type\": \"object\",\n" +
+                "      \"properties\": {\n" +
+                "        \"participants\": {\n" +
+                "          \"type\": \"array\",\n" +
+                "          \"items\": {\"$ref\": \"#/components/schemas/TeamPlanParticipant\"},\n" +
+                "          \"x-ui\": {\"controlType\": \"array\", \"array\": {\"itemSchemaRef\": \"#/components/schemas/TeamPlanParticipant\"}}\n" +
+                "        },\n" +
+                "        \"schedule\": {\n" +
+                "          \"type\": \"object\",\n" +
+                "          \"properties\": {\n" +
+                "            \"reviewers\": {\n" +
+                "              \"type\": \"array\",\n" +
+                "              \"items\": {\"$ref\": \"#/components/schemas/TeamPlanParticipant\"},\n" +
+                "              \"x-ui\": {\"controlType\": \"array\", \"array\": {\"itemSchemaRef\": \"#/components/schemas/TeamPlanParticipant\"}}\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    },\n" +
+                "    \"TeamPlanParticipant\": {\n" +
+                "      \"type\": \"object\",\n" +
+                "      \"required\": [\"principal\"],\n" +
+                "      \"properties\": {\"principal\": {\"type\": \"boolean\", \"x-ui\": {\"controlType\": \"toggle\"}}}\n" +
+                "    }\n" +
+                "  }}\n" +
+                "}";
+        server.expect(requestTo("http://localhost/v3/api-docs/missions"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        var response = controller.getFilteredSchema(
+                "/missions/{id}/team-plan",
+                "patch",
+                false,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH
+        );
+
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+        Map<?, ?> components = (Map<?, ?>) schema.get("components");
+        assertNotNull(components);
+        Map<?, ?> schemas = (Map<?, ?>) components.get("schemas");
+        assertNotNull(schemas);
+        assertTrue(schemas.containsKey("TeamPlanParticipant"));
+
+        Map<?, ?> properties = (Map<?, ?>) schema.get("properties");
+        Map<?, ?> participants = (Map<?, ?>) properties.get("participants");
+        Map<?, ?> participantsXUi = (Map<?, ?>) participants.get("x-ui");
+        Map<?, ?> array = (Map<?, ?>) participantsXUi.get("array");
+        Map<?, ?> itemSchema = (Map<?, ?>) array.get("itemSchema");
+        assertNotNull(itemSchema);
+        assertEquals("object", itemSchema.get("type"));
+
+        @SuppressWarnings("unchecked")
+        java.util.List<Map<String, Object>> fields = (java.util.List<Map<String, Object>>) itemSchema.get("fields");
+        assertNotNull(fields);
+        assertEquals(1, fields.size());
+        assertEquals("principal", fields.get(0).get("name"));
+        assertEquals("boolean", fields.get(0).get("type"));
+        assertEquals(true, fields.get(0).get("required"));
+        Map<?, ?> principalXUi = (Map<?, ?>) fields.get(0).get("x-ui");
+        assertEquals(true, principalXUi.get("required"));
+
+        Map<?, ?> schedule = (Map<?, ?>) properties.get("schedule");
+        Map<?, ?> scheduleProperties = (Map<?, ?>) schedule.get("properties");
+        Map<?, ?> reviewers = (Map<?, ?>) scheduleProperties.get("reviewers");
+        Map<?, ?> reviewersXUi = (Map<?, ?>) reviewers.get("x-ui");
+        Map<?, ?> reviewersArray = (Map<?, ?>) reviewersXUi.get("array");
+        Map<?, ?> reviewersItemSchema = (Map<?, ?>) reviewersArray.get("itemSchema");
+        assertNotNull(reviewersItemSchema);
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void getFilteredSchemaPreservesAnalyticsWithoutOverwritingExistingXUiKeys() {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);

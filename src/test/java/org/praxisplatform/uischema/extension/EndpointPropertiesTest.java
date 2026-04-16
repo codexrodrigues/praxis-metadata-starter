@@ -40,6 +40,7 @@ class EndpointPropertiesTest {
                         @ExtensionProperty(name = "optionSource.key", value = "payrollProfile"),
                         @ExtensionProperty(name = "optionSource.type", value = "DISTINCT_DIMENSION"),
                         @ExtensionProperty(name = "optionSource.dependsOn", value = "[\"universo\"]"),
+                        @ExtensionProperty(name = "optionSource.dependencyFilterMap", value = "{\"universo\":\"empresa.universo\"}"),
                         @ExtensionProperty(name = "optionSource.excludeSelfField", value = "true"),
                         @ExtensionProperty(name = "optionSource.pageSize", value = "25")
                 }
@@ -89,6 +90,7 @@ class EndpointPropertiesTest {
         assertEquals(Boolean.TRUE, optionSource.get("excludeSelfField"));
         assertEquals(25, optionSource.get("pageSize"));
         assertEquals(java.util.List.of("universo"), optionSource.get("dependsOn"));
+        assertEquals(Map.of("universo", "empresa.universo"), optionSource.get("dependencyFilterMap"));
     }
 }
 
