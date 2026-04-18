@@ -64,6 +64,18 @@ class ApiDocsControllerReadOnlyMetaTest {
                         Map.of("universo", "empresa.universo"),
                         new OptionSourcePolicy(true, true, "contains", 1, 25, 100, true, false, "label")
                 ))
+                .add(SupplierLookupEntity.class, new OptionSourceDescriptor(
+                        "supplier",
+                        OptionSourceType.RESOURCE_ENTITY,
+                        "/api/procurement/suppliers",
+                        "supplierId",
+                        "id",
+                        "legalName",
+                        "id",
+                        List.of("companyId"),
+                        Map.of("companyId", "companyId"),
+                        new OptionSourcePolicy(true, true, "contains", 0, 25, 100, true, false, "label")
+                ))
                 .build();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("optionSourceRegistry", optionSourceRegistry);
@@ -101,6 +113,10 @@ class ApiDocsControllerReadOnlyMetaTest {
         props.putObject("demoId").put("type", "integer");
         props.putObject("name").put("type", "string");
         props.putObject("payrollProfile").put("type", "string");
+        ObjectNode supplierId = props.putObject("supplierId");
+        supplierId.put("type", "integer");
+        supplierId.putObject("x-ui")
+                .put("endpoint", "/api/procurement/suppliers/option-sources/supplier/options/filter");
 
         return root;
     }
@@ -168,8 +184,24 @@ class ApiDocsControllerReadOnlyMetaTest {
         assertEquals("contains", optionSource.get("searchMode"));
         assertEquals(25, optionSource.get("pageSize"));
         assertEquals(Boolean.TRUE, optionSource.get("includeIds"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> supplierId = (Map<String, Object>) properties.get("supplierId");
+        assertNotNull(supplierId);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> supplierXUi = (Map<String, Object>) supplierId.get("x-ui");
+        assertNotNull(supplierXUi);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> supplierOptionSource = (Map<String, Object>) supplierXUi.get("optionSource");
+        assertNotNull(supplierOptionSource);
+        assertEquals("supplier", supplierOptionSource.get("key"));
+        assertEquals("RESOURCE_ENTITY", supplierOptionSource.get("type"));
+        assertEquals("/api/procurement/suppliers", supplierOptionSource.get("resourcePath"));
     }
 
     static final class ReadOnlyDemoEntity {
+    }
+
+    static final class SupplierLookupEntity {
     }
 }

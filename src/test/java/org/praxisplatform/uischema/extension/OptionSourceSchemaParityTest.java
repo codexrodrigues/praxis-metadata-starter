@@ -27,9 +27,11 @@ class OptionSourceSchemaParityTest {
                 "optionSource schema should stay closed to undocumented keys");
         assertTrue(properties.has("dependsOn"), "optionSource schema should expose dependsOn");
         assertTrue(properties.has("dependencyFilterMap"), "optionSource schema should expose dependencyFilterMap");
+        assertEquals("\\S", properties.path("dependsOn").path("items").path("pattern").asText());
         assertEquals("object", dependencyFilterMap.path("type").asText());
         assertEquals("string", dependencyFilterMap.path("additionalProperties").path("type").asText());
         assertEquals(1, dependencyFilterMap.path("additionalProperties").path("minLength").asInt());
+        assertEquals("\\S", dependencyFilterMap.path("additionalProperties").path("pattern").asText());
     }
 
     @Test

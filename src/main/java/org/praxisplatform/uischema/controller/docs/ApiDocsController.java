@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriUtils;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.Map.Entry;
@@ -543,17 +544,104 @@ public class ApiDocsController {
             if (!(entry.getKey() instanceof String fieldName) || !(entry.getValue() instanceof Map<?, ?> rawFieldSchema)) {
                 continue;
             }
-            OptionSourceDescriptor descriptor = optionSourceRegistry
-                    .resolveByResourcePathAndField(basePath, fieldName)
-                    .orElse(null);
+            Map<String, Object> fieldSchema = (Map<String, Object>) rawFieldSchema;
+            OptionSourceDescriptor descriptor = resolveFieldOptionSource(optionSourceRegistry, basePath, fieldName, fieldSchema);
             if (descriptor == null) {
                 continue;
             }
-            Map<String, Object> fieldSchema = (Map<String, Object>) rawFieldSchema;
             Map<String, Object> fieldXUi = ensureNestedMap(fieldSchema, X_UI);
             Map<String, Object> optionSourceMeta = ensureNestedMap(fieldXUi, "optionSource");
             descriptor.toMetadataMap().forEach(optionSourceMeta::putIfAbsent);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private OptionSourceDescriptor resolveFieldOptionSource(
+            OptionSourceRegistry optionSourceRegistry,
+            String basePath,
+            String fieldName,
+            Map<String, Object> fieldSchema
+    ) {
+        Object rawXUi = fieldSchema.get(X_UI);
+        if (rawXUi instanceof Map<?, ?> xUi) {
+            Object endpoint = ((Map<String, Object>) xUi).get(FieldConfigProperties.ENDPOINT.getValue());
+            OptionSourceEndpointRef endpointRef = parseOptionSourceEndpoint(endpoint);
+            if (endpointRef != null) {
+                OptionSourceDescriptor descriptor = optionSourceRegistry
+                        .resolveByResourcePathAndKey(endpointRef.resourcePath(), endpointRef.sourceKey())
+                        .orElse(null);
+                if (descriptor != null) {
+                    return descriptor;
+                }
+            }
+        }
+        return optionSourceRegistry
+                .resolveByResourcePathAndField(basePath, fieldName)
+                .orElse(null);
+    }
+
+    private OptionSourceEndpointRef parseOptionSourceEndpoint(Object endpoint) {
+        if (!(endpoint instanceof String rawEndpoint) || rawEndpoint.isBlank()) {
+            return null;
+        }
+        String path = endpointPath(rawEndpoint);
+        int marker = path.indexOf("/option-sources/");
+        if (marker <= 0) {
+            return null;
+        }
+        String resourcePath = normalizePath(path.substring(0, marker));
+        String suffix = path.substring(marker + "/option-sources/".length());
+        int nextSlash = suffix.indexOf('/');
+        if (nextSlash <= 0) {
+            return null;
+        }
+        String sourceKey = suffix.substring(0, nextSlash);
+        String operationPath = suffix.substring(nextSlash);
+        if (!operationPath.startsWith("/options/")) {
+            return null;
+        }
+        return new OptionSourceEndpointRef(resourcePath, sourceKey);
+    }
+
+    private String endpointPath(String rawEndpoint) {
+        String candidate = rawEndpoint.trim();
+        int queryIndex = candidate.indexOf('?');
+        if (queryIndex >= 0) {
+            candidate = candidate.substring(0, queryIndex);
+        }
+        int hashIndex = candidate.indexOf('#');
+        if (hashIndex >= 0) {
+            candidate = candidate.substring(0, hashIndex);
+        }
+        try {
+            URI uri = URI.create(candidate);
+            if (uri.getPath() != null && !uri.getPath().isBlank()) {
+                candidate = uri.getPath();
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Keep the literal path when the endpoint is not an absolute URI.
+        }
+        return normalizePath(candidate);
+    }
+
+    private String normalizePath(String path) {
+        if (path == null || path.isBlank()) {
+            return "";
+        }
+        String normalized = path.trim();
+        while (normalized.contains("//")) {
+            normalized = normalized.replace("//", "/");
+        }
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+        if (normalized.length() > 1 && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
+    }
+
+    private record OptionSourceEndpointRef(String resourcePath, String sourceKey) {
     }
 
     @SuppressWarnings("unchecked")

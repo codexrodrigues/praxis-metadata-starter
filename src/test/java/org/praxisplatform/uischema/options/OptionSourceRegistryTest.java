@@ -31,8 +31,10 @@ class OptionSourceRegistryTest {
         assertTrue(registry.contains(PayrollView.class, "payrollProfile"));
         assertSame(profile, registry.resolve(PayrollView.class, "payrollProfile").orElseThrow());
         assertSame(profile, registry.resolveByResourcePathAndField("/api/human-resources/vw-analytics-folha-pagamento", "profileFilter").orElseThrow());
+        assertSame(profile, registry.resolveByResourcePathAndKey("/api/human-resources/vw-analytics-folha-pagamento", "payrollProfile").orElseThrow());
         assertFalse(registry.contains(PayrollView.class, "universo"));
         assertFalse(registry.resolve(null, "payrollProfile").isPresent());
+        assertFalse(registry.resolveByResourcePathAndKey("/api/human-resources/vw-analytics-folha-pagamento", "universo").isPresent());
     }
 
     @Test

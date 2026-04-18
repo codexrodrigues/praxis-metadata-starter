@@ -305,7 +305,8 @@
         },
         "resourcePath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Backend resource path that owns the option-source endpoints. It can differ from the schema consumer resource when a form field looks up entities from another resource."
         },
         "filterField": {
           "type": "string",
@@ -325,7 +326,7 @@
         },
         "dependsOn": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" },
           "uniqueItems": true
         },
         "entityKey": {
@@ -362,7 +363,8 @@
           "type": "object",
           "additionalProperties": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S"
           }
         },
         "selectionPolicy": {
@@ -446,11 +448,11 @@
       "properties": {
         "itemType": {
           "type": "string",
-          "enum": ["string", "number", "boolean", "object", "entity"]
+          "enum": ["object"]
         },
         "mode": {
           "type": "string",
-          "enum": ["chips", "rows", "cards", "accordion", "table", "drawer", "wizard"]
+          "enum": ["cards"]
         },
         "itemSchemaRef": {
           "type": "string",
@@ -481,15 +483,9 @@
         "itemTitleTemplate": {
           "type": "string"
         },
-        "sortable": {
-          "type": "boolean"
-        },
         "deleteMode": {
           "type": "string",
-          "enum": ["removeFromPayload", "markForDeletion", "emitDeletedIds"]
-        },
-        "itemStateTracking": {
-          "type": "boolean"
+          "enum": ["removeFromPayload"]
         },
         "operations": {
           "type": "object",
@@ -497,9 +493,7 @@
           "properties": {
             "add": { "type": "boolean" },
             "edit": { "type": "boolean" },
-            "remove": { "type": "boolean" },
-            "duplicate": { "type": "boolean" },
-            "reorder": { "type": "boolean" }
+            "remove": { "type": "boolean" }
           }
         },
         "collectionValidation": {

@@ -86,7 +86,7 @@ class OptionSourceDescriptorTest {
                 "payrollProfile",
                 null,
                 null,
-                List.of("universo"),
+                List.of(" universo ", "", "universo"),
                 Map.of("universo", "empresa.universo"),
                 OptionSourcePolicy.defaults(),
                 null

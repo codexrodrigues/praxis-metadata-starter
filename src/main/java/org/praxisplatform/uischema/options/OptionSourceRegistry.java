@@ -130,6 +130,30 @@ public final class OptionSourceRegistry {
     }
 
     /**
+     * Resolve uma option-source pelo path do recurso que hospeda a fonte e pela chave canonica.
+     *
+     * <p>
+     * Esse metodo cobre cenarios em que um schema consumidor referencia uma fonte hospedada em
+     * outro recurso, por exemplo um formulario de pedido que usa entidades de fornecedores como
+     * lookup remoto.
+     * </p>
+     *
+     * @param resourcePath path do recurso HTTP que hospeda a option-source
+     * @param sourceKey chave canonica da fonte
+     * @return descritor correspondente, quando existir
+     */
+    public Optional<OptionSourceDescriptor> resolveByResourcePathAndKey(String resourcePath, String sourceKey) {
+        if (resourcePath == null || resourcePath.isBlank() || sourceKey == null || sourceKey.isBlank()) {
+            return Optional.empty();
+        }
+        return descriptorsByResource.values().stream()
+                .flatMap(byKey -> byKey.values().stream())
+                .filter(descriptor -> resourcePath.equals(descriptor.resourcePath()))
+                .filter(descriptor -> sourceKey.equals(descriptor.key()))
+                .findFirst();
+    }
+
+    /**
      * Verifica se uma chave de option-source esta registrada para o recurso.
      *
      * @param resourceClass classe da entidade/recurso

@@ -119,7 +119,7 @@ public record OptionSourceDescriptor(
         if (resourcePath == null || resourcePath.isBlank()) {
             throw new IllegalArgumentException("Option source resourcePath is required.");
         }
-        dependsOn = dependsOn == null ? List.of() : List.copyOf(dependsOn);
+        dependsOn = normalizeList(dependsOn);
         dependencyFilterMap = normalizeMap(dependencyFilterMap);
         policy = policy == null ? OptionSourcePolicy.defaults() : policy;
         filterField = normalize(filterField);
@@ -184,6 +184,17 @@ public record OptionSourceDescriptor(
      */
     private static String normalize(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private static List<String> normalizeList(List<String> value) {
+        if (value == null || value.isEmpty()) {
+            return List.of();
+        }
+        return value.stream()
+                .filter(item -> item != null && !item.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
     }
 
     private static Map<String, String> normalizeMap(Map<String, String> value) {

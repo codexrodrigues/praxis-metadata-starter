@@ -920,6 +920,10 @@ public class CustomOpenApiResolver extends ModelResolver {
             return;
         }
 
+        if (!isObjectArray(property)) {
+            return;
+        }
+
         Map<String, Object> arrayConfig;
         Object existing = uiExtension.get("array");
         if (existing instanceof Map<?, ?> existingMap) {
@@ -929,9 +933,8 @@ public class CustomOpenApiResolver extends ModelResolver {
             uiExtension.put("array", arrayConfig);
         }
 
-        boolean objectArray = isObjectArray(property);
-        arrayConfig.putIfAbsent("itemType", objectArray ? "object" : "string");
-        arrayConfig.putIfAbsent("mode", objectArray ? "cards" : "chips");
+        arrayConfig.putIfAbsent("itemType", "object");
+        arrayConfig.putIfAbsent("mode", "cards");
         arrayConfig.putIfAbsent("deleteMode", "removeFromPayload");
 
         Integer minItems = property.getMinItems();

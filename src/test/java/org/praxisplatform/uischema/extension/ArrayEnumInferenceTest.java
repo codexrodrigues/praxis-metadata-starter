@@ -29,6 +29,7 @@ class ArrayEnumInferenceTest {
         resolver.applyBeanValidatorAnnotations(property, anns, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.CHIP_INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertFalse(xui.containsKey("array"), "arrays simples nao devem publicar contrato de colecao editavel");
     }
 
     @Test
@@ -44,6 +45,7 @@ class ArrayEnumInferenceTest {
         resolver.applyBeanValidatorAnnotations(property, anns, null, false);
         Map<String,Object> xui = getXui(property);
         assertEquals(FieldControlType.MULTI_SELECT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertFalse(xui.containsKey("array"), "arrays simples nao devem publicar contrato de colecao editavel");
         assertFalse(
                 xui.containsKey("filterControlType"),
                 "resolver nao deve emitir propriedades residuais de filtro por padrao"
