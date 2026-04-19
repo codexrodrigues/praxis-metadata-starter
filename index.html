@@ -178,6 +178,7 @@ da plataforma.</p>
 <li>o contrato estrutural e documental publicado pelo starter</li>
 <li>a semantica de <code>surfaces</code>, <code>actions</code> e
 <code>capabilities</code></li>
+<li>a operacao canonica de exportacao de colecao</li>
 <li>referencia tecnica complementar em Javadoc</li>
 </ul>
 <h2 id="comece-por-objetivo">Comece por objetivo</h2>
@@ -237,6 +238,11 @@ publico</a></li>
 publicam discovery semantico</li>
 <li><code>/{resource}/capabilities</code> agrega as capacidades do
 recurso sem redefinir o contrato estrutural</li>
+<li><code>POST /{resource}/export</code> executa exportacao de colecao a
+partir de escopo, selecao, filtros, ordenacao e campos; o resultado pode
+ser binario inline ou <code>202 Accepted</code> com
+<code>status=deferred</code>, <code>downloadUrl</code> e
+<code>jobId</code></li>
 </ul>
 <h2 id="regra-de-leitura">Regra De Leitura</h2>
 <p>Quando houver duvida sobre a superficie publicada:</p>
