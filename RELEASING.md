@@ -8,6 +8,7 @@ Este documento descreve como publicar um Release Candidate (RC) e versões finai
   - `GPG_PRIVATE_KEY` (chave privada ASCII‑armored ou base64, sem CRLF)
   - `GPG_PASSPHRASE` (passphrase da chave)
   - `GPG_KEY_ID` (opcional; se ausente, o workflow resolve automaticamente)
+  - `RELEASE_PAT` (recomendado quando o workflow `workflow_dispatch` criar tags; pushes feitos com `GITHUB_TOKEN` nao disparam novo workflow de tag)
 - Java 21 instalado localmente (para builds locais).
 
 ## Fluxo (Release Candidate)
@@ -20,6 +21,12 @@ Este documento descreve como publicar um Release Candidate (RC) e versões finai
 ```
 git tag v1.0.0-rc.6
 git push origin v1.0.0-rc.6
+```
+
+Para publicar as mudancas atuais da plataforma, apos o merge em `main`, use a proxima coordenada nao publicada:
+```
+git tag v8.0.0-rc.5
+git push origin v8.0.0-rc.5
 ```
 3) Acompanhar o workflow “Release Java Starter (praxis-metadata-starter)”
 - O workflow resolve a versão a partir da tag (`v` é removido → `1.0.0-rc.6`).
