@@ -68,11 +68,38 @@ class CapabilityServiceTest {
         assertEquals("human-resources", snapshot.group());
         assertEquals(null, snapshot.resourceId());
         assertEquals(Boolean.TRUE, snapshot.canonicalOperations().get("create"));
+        assertEquals(Boolean.FALSE, snapshot.canonicalOperations().get("export"));
         assertEquals(Boolean.TRUE, snapshot.operations().get("create").supported());
         assertEquals("COLLECTION", snapshot.operations().get("create").scope());
         assertEquals("POST", snapshot.operations().get("create").preferredMethod());
         assertEquals(List.of("create"), snapshot.surfaces().stream().map(SurfaceCatalogItem::id).toList());
         assertEquals(List.of("bulk-approve"), snapshot.actions().stream().map(ActionCatalogItem::id).toList());
+    }
+
+    @Test
+    void collectionCapabilitiesExposeExportOnlyWhenServiceSupportIsProvided() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of("filter", true, "export", false)),
+                new SurfaceCatalogService(null, null, null) {
+                    @Override
+                    public SurfaceCatalogResponse findByResourceKey(String resourceKey) {
+                        throw SurfaceCatalogNotFoundException.unknownResourceKey(resourceKey);
+                    }
+                },
+                new ActionCatalogService(null, null, null) {
+                    @Override
+                    public ActionCatalogResponse findCollectionActions(String resourceKey) {
+                        throw ActionCatalogNotFoundException.missingCollectionActions(resourceKey);
+                    }
+                },
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        CapabilitySnapshot unsupported = service.collectionCapabilities("human-resources.employees", "/employees");
+        CapabilitySnapshot supported = service.collectionCapabilities("human-resources.employees", "/employees", true);
+
+        assertEquals(Boolean.FALSE, unsupported.canonicalOperations().get("export"));
+        assertEquals(Boolean.TRUE, supported.canonicalOperations().get("export"));
     }
 
     @Test

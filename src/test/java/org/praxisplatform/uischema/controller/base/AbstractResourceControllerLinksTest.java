@@ -78,10 +78,19 @@ class AbstractResourceControllerLinksTest {
 
     @Test
     void entityActionLinksOmitCreateAndCollectionCarriesCreate() {
-        SimpleController controller = new SimpleController();
+        SimpleController controller = controllerWith(mock(SimpleService.class));
 
         assertEquals(List.of("update", "delete"), controller.exposeEntityActionRels(10L));
         assertEquals(List.of("create"), controller.exposeCollectionActionRels());
+    }
+
+    @Test
+    void collectionActionLinksExposeExportOnlyWhenServiceSupportsIt() {
+        SimpleService service = mock(SimpleService.class);
+        when(service.supportsCollectionExport()).thenReturn(true);
+        SimpleController controller = controllerWith(service);
+
+        assertEquals(List.of("create", "export"), controller.exposeCollectionActionRels());
     }
 
     @Test

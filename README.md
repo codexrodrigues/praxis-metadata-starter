@@ -9,6 +9,7 @@ Ele publica:
 - `/schemas/catalog` como catalogo documental e de discovery
 - `/schemas/surfaces` e `/schemas/actions` como discovery semantico
 - `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities` como snapshot agregado
+- `POST /{resource}/export` como operacao canonica de exportacao de colecao
 - envelopes `RestApiResponse` com suporte efetivo a Spring HATEOAS
 
 Nao e apenas um gerador de CRUD. O baseline atual da plataforma e:
@@ -66,12 +67,14 @@ O baseline atual adiciona discovery orientado a recurso:
 - `GET /schemas/actions`
 - `GET /{resource}/capabilities`
 - `GET /{resource}/{id}/capabilities`
+- `POST /{resource}/export`
 
 Regras importantes:
 
 - `surfaces` e `actions` sao catalogos semanticos; nao redefinem schema inline
 - `capabilities` agrega o que existe agora sem virar uma segunda fonte de verdade do contrato
 - ausencia em `actions` e `capabilities` nao tem a mesma semantica
+- exportacao e uma operacao de colecao; o request preserva escopo, selecao, filtros, ordenacao, campos e limites
 
 ### `capabilities.operations` como semantica minima canonica
 
@@ -121,6 +124,26 @@ Isso evita que clientes metadata-driven confundam:
 - exclusao de um item do recurso
 - comando destrutivo de negocio
 - operacao em lote
+
+### Exportacao canonica de colecao
+
+`POST /{resource}/export` e a superficie backend canonica consumida por componentes como Table e List.
+
+O request publica o estado de colecao necessario para uma exportacao correta:
+
+- `format`: `csv`, `json`, `excel`, `pdf` ou `print`
+- `scope`: `auto`, `selected`, `filtered`, `currentPage` ou `all`
+- `selection`: chaves selecionadas, chave identificadora, selecao de todos os resultados e exclusoes
+- `filters`, `sort`, `pagination` e `query`
+- `fields`, `includeHeaders`, `applyFormatting`, `maxRows` e `fileName`
+
+A base `AbstractResourceQueryController` publica o endpoint e delega para
+`BaseResourceQueryService.exportCollection(...)`. A implementacao padrao retorna `501 Not Implemented`;
+recursos que suportam exportacao devem sobrescrever o metodo no servico e retornar `CollectionExportResult`
+com `status`, `format`, `scope` e o artefato produzido. Para exportacoes pequenas, `status=completed`
+retorna bytes inline com nome de arquivo, content type e, opcionalmente, `rowCount`. Para exportacoes
+corporativas grandes, `status=deferred` retorna `202 Accepted` em JSON com `downloadUrl`, `jobId`,
+`warnings` e `metadata` para filas, retencao e governanca do host.
 
 ## Canonical Backend Baseline
 
@@ -229,6 +252,7 @@ Para um recurso mutavel no baseline atual, valide no minimo:
 - `GET /schemas/actions?resource={resourceKey}` quando houver `@WorkflowAction`
 - `GET /{resource}/capabilities`
 - `GET /{resource}/{id}/capabilities`
+- `POST /{resource}/export` quando o recurso suportar exportacao
 
 Quando o frontend oficial for consumir CRUD inferido, valide tambem no payload de `capabilities`:
 
