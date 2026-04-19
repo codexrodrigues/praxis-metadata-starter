@@ -16,6 +16,14 @@ public interface CapabilityService {
      */
     CapabilitySnapshot collectionCapabilities(String resourceKey, String resourcePath);
 
+    default CapabilitySnapshot collectionCapabilities(
+            String resourceKey,
+            String resourcePath,
+            boolean collectionExportSupported
+    ) {
+        return collectionCapabilities(resourceKey, resourcePath);
+    }
+
     /**
      * Resolve o snapshot de capabilities no escopo de um item especifico do recurso.
      */

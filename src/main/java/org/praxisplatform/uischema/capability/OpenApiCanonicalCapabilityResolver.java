@@ -54,6 +54,9 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         capabilities.put("all", hasOperation(pathsNode, basePath + "/all", "get"));
         capabilities.put("filter", hasOperation(pathsNode, basePath + "/filter", "post"));
         capabilities.put("cursor", hasOperation(pathsNode, basePath + "/filter/cursor", "post"));
+        // Export is service opt-in. The base mapping can exist for every resource,
+        // so path presence alone must not advertise runtime availability.
+        capabilities.put("export", false);
         capabilities.put("statsGroupBy", hasOperation(pathsNode, basePath + "/stats/group-by", "post"));
         capabilities.put("statsTimeSeries", hasOperation(pathsNode, basePath + "/stats/timeseries", "post"));
         capabilities.put("statsDistribution", hasOperation(pathsNode, basePath + "/stats/distribution", "post"));

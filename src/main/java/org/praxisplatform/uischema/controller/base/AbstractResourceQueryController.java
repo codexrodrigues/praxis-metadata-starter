@@ -11,6 +11,8 @@ import org.praxisplatform.uischema.capability.CapabilitySnapshot;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.LocateResponse;
 import org.praxisplatform.uischema.dto.OptionDTO;
+import org.praxisplatform.uischema.exporting.CollectionExportRequest;
+import org.praxisplatform.uischema.exporting.CollectionExportResult;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.response.RestApiResource;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
@@ -45,6 +47,8 @@ import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.Links;
 import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -62,6 +66,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalLong;
 
 /**
@@ -295,7 +300,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     protected List<Link> buildCollectionActionLinks() {
-        return List.of();
+        return supportsCollectionExport() ? List.of(linkToExport()) : List.of();
     }
 
     protected List<Link> buildItemDiscoveryLinks(ID id) {
@@ -586,6 +591,49 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         }
     }
 
+    @PostMapping("/export")
+    @Operation(summary = "Exportar colecao", description = "Exporta dados da colecao preservando escopo, selecao, filtros, ordenacao e campos.")
+    public ResponseEntity<?> exportCollection(@RequestBody CollectionExportRequest<FD> request) {
+        try {
+            CollectionExportResult result = getService().exportCollection(request);
+            if (result == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+            }
+
+            if (result.deferredStatus()) {
+                return withVersion(
+                        ResponseEntity.accepted().contentType(MediaType.APPLICATION_JSON),
+                        exportResultBody(result)
+                );
+            }
+
+            if (StringUtils.hasText(result.downloadUrl()) && result.content().length == 0) {
+                return withVersion(
+                        ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON),
+                        exportResultBody(result)
+                );
+            }
+
+            ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
+                    .contentType(resolveExportContentType(result))
+                    .header(
+                            org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                            ContentDisposition.attachment()
+                                    .filename(resolveExportFileName(result, request))
+                                    .build()
+                                    .toString()
+                    );
+            if (result.rowCount() != null) {
+                builder.header("X-Export-Row-Count", result.rowCount().toString());
+            }
+            return withVersion(builder, result.content());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (UnsupportedOperationException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.", ex);
+        }
+    }
+
     @GetMapping("/all")
     @Operation(summary = "Listar itens")
     public ResponseEntity<RestApiResponse<List<EntityModel<ResponseDTO>>>> getAll() {
@@ -767,7 +815,10 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (capabilityService == null) {
             throw new IllegalStateException("CapabilityService is not configured for contextual discovery.");
         }
-        return withVersion(ResponseEntity.ok(), capabilityService.collectionCapabilities(getResourceKey(), getBasePath()));
+        return withVersion(
+                ResponseEntity.ok(),
+                capabilityService.collectionCapabilities(getResourceKey(), getBasePath(), supportsCollectionExport())
+        );
     }
 
     @GetMapping("/{id}/capabilities")
@@ -811,6 +862,16 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         return WebMvcLinkBuilder.linkTo(
                 WebMvcLinkBuilder.methodOn(getControllerClass()).filterByCursor(null, null, null, 0, null)
         ).withRel("filter-cursor");
+    }
+
+    protected Link linkToExport() {
+        return WebMvcLinkBuilder.linkTo(
+                WebMvcLinkBuilder.methodOn(getControllerClass()).exportCollection(null)
+        ).withRel("export");
+    }
+
+    protected boolean supportsCollectionExport() {
+        return getService().supportsCollectionExport();
     }
 
     protected Link linkToCollectionSurfacesIfAvailable() {
@@ -874,6 +935,37 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     protected Link linkToDocs() {
         String docsUrl = String.format("%s%s", openApiBasePath, getBasePath());
         return Link.of(docsUrl, "docs");
+    }
+
+    private MediaType resolveExportContentType(CollectionExportResult result) {
+        if (StringUtils.hasText(result.contentType())) {
+            return MediaType.parseMediaType(result.contentType());
+        }
+        return MediaType.APPLICATION_OCTET_STREAM;
+    }
+
+    private String resolveExportFileName(CollectionExportResult result, CollectionExportRequest<FD> request) {
+        if (StringUtils.hasText(result.fileName())) {
+            return result.fileName().trim();
+        }
+        if (request != null && StringUtils.hasText(request.fileName())) {
+            return request.fileName().trim();
+        }
+        return "export";
+    }
+
+    private Map<String, Object> exportResultBody(CollectionExportResult result) {
+        return Map.of(
+                "status", result.status().value(),
+                "format", result.format().value(),
+                "scope", result.scope().value(),
+                "fileName", result.fileName() == null ? "" : result.fileName(),
+                "downloadUrl", result.downloadUrl() == null ? "" : result.downloadUrl(),
+                "jobId", result.jobId() == null ? "" : result.jobId(),
+                "rowCount", result.rowCount() == null ? 0 : result.rowCount(),
+                "warnings", result.warnings(),
+                "metadata", result.metadata()
+        );
     }
 
     protected Link linkToUiSchema(String methodPath, String operation, String schemaType) {
