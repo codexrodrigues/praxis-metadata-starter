@@ -36,14 +36,11 @@
     "addLabel": "Adicionar participante",
     "emptyState": "Nenhum participante planejado",
     "itemTitleTemplate": "{{funcionarioNome}} - {{papel}}",
-    "sortable": true,
     "deleteMode": "removeFromPayload",
     "operations": {
       "add": true,
       "edit": true,
-      "remove": true,
-      "duplicate": false,
-      "reorder": true
+      "remove": true
     },
     "collectionValidation": {
       "uniqueBy": ["funcionarioId"],
