@@ -2,6 +2,8 @@ package org.praxisplatform.uischema.service.base;
 
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.OptionDTO;
+import org.praxisplatform.uischema.exporting.CollectionExportRequest;
+import org.praxisplatform.uischema.exporting.CollectionExportResult;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
@@ -87,4 +89,12 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
     TimeSeriesStatsResponse timeSeriesStats(TimeSeriesStatsRequest<FilterDTO> request);
 
     DistributionStatsResponse distributionStats(DistributionStatsRequest<FilterDTO> request);
+
+    default boolean supportsCollectionExport() {
+        return false;
+    }
+
+    default CollectionExportResult exportCollection(CollectionExportRequest<FilterDTO> request) {
+        throw new UnsupportedOperationException("Collection export not implemented");
+    }
 }

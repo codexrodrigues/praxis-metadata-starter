@@ -37,6 +37,9 @@ class OpenApiCanonicalCapabilityResolverTest {
                     "/employees/filter/cursor": {
                       "post": {}
                     },
+                    "/employees/export": {
+                      "post": {}
+                    },
                     "/employees/options/filter": {
                       "post": {}
                     },
@@ -83,6 +86,7 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertEquals(Boolean.TRUE, capabilities.get("all"));
         assertEquals(Boolean.TRUE, capabilities.get("filter"));
         assertEquals(Boolean.TRUE, capabilities.get("cursor"));
+        assertEquals(Boolean.FALSE, capabilities.get("export"));
         assertEquals(Boolean.TRUE, capabilities.get("statsGroupBy"));
         assertEquals(Boolean.TRUE, capabilities.get("statsTimeSeries"));
         assertEquals(Boolean.TRUE, capabilities.get("statsDistribution"));
@@ -131,6 +135,7 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertTrue(capabilities.get("all"));
         assertTrue(capabilities.get("filter"));
         assertFalse(capabilities.get("cursor"));
+        assertFalse(capabilities.get("export"));
         assertFalse(capabilities.get("statsGroupBy"));
         assertFalse(capabilities.get("statsTimeSeries"));
         assertFalse(capabilities.get("statsDistribution"));

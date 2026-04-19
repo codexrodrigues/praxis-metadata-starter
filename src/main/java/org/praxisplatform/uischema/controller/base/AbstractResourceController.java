@@ -122,7 +122,10 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
 
     @Override
     protected List<Link> buildCollectionActionLinks() {
-        return List.of(linkToCreate());
+        List<Link> links = new ArrayList<>();
+        links.add(linkToCreate());
+        links.addAll(super.buildCollectionActionLinks());
+        return links;
     }
 
     protected Link linkToCreate() {

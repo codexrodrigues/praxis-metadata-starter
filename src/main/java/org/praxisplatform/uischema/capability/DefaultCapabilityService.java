@@ -47,7 +47,17 @@ public class DefaultCapabilityService implements CapabilityService {
 
     @Override
     public CapabilitySnapshot collectionCapabilities(String resourceKey, String resourcePath) {
-        Map<String, Boolean> canonicalOperations = canonicalCapabilityResolver.resolve(resourcePath);
+        return collectionCapabilities(resourceKey, resourcePath, false);
+    }
+
+    @Override
+    public CapabilitySnapshot collectionCapabilities(
+            String resourceKey,
+            String resourcePath,
+            boolean collectionExportSupported
+    ) {
+        Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
+        canonicalOperations.put("export", collectionExportSupported);
         List<SurfaceCatalogItem> collectionSurfaces = collectionSurfaces(resourceKey);
         List<ActionCatalogItem> collectionActions = collectionActions(resourceKey);
         String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
@@ -56,7 +66,7 @@ public class DefaultCapabilityService implements CapabilityService {
                 resourcePath,
                 group,
                 null,
-                canonicalOperations,
+                Map.copyOf(canonicalOperations),
                 resolveOperations(resourcePath, collectionSurfaces, collectionActions),
                 collectionSurfaces,
                 collectionActions
