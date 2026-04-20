@@ -14,6 +14,11 @@ import org.praxisplatform.uischema.controller.docs.ApiDocsController;
 import org.praxisplatform.uischema.controller.docs.ActionCatalogController;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
 import org.praxisplatform.uischema.controller.docs.SurfaceCatalogController;
+import org.praxisplatform.uischema.exporting.CollectionExportEngine;
+import org.praxisplatform.uischema.exporting.CollectionExportExecutor;
+import org.praxisplatform.uischema.exporting.CsvCollectionExportEngine;
+import org.praxisplatform.uischema.exporting.DefaultCollectionExportExecutor;
+import org.praxisplatform.uischema.exporting.JsonCollectionExportEngine;
 import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
 import org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodPayloadNormalizer;
 import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
@@ -170,6 +175,24 @@ public class OpenApiUiSchemaAutoConfiguration {
             List<FilterPayloadNormalizer> payloadNormalizers
     ) {
         return new FilterRequestBodyAdvice(mapper, payloadNormalizers);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public CsvCollectionExportEngine csvCollectionExportEngine() {
+        return new CsvCollectionExportEngine();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public JsonCollectionExportEngine jsonCollectionExportEngine(ObjectMapper objectMapper) {
+        return new JsonCollectionExportEngine(objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public CollectionExportExecutor collectionExportExecutor(List<CollectionExportEngine> engines) {
+        return new DefaultCollectionExportExecutor(engines);
     }
 
     /**

@@ -5,6 +5,7 @@ import org.praxisplatform.uischema.action.ActionCatalogNotFoundException;
 import org.praxisplatform.uischema.action.ActionCatalogResponse;
 import org.praxisplatform.uischema.action.ActionCatalogService;
 import org.praxisplatform.uischema.action.ActionScope;
+import org.praxisplatform.uischema.exporting.CollectionExportCapability;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.surface.SurfaceCatalogItem;
 import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
@@ -56,6 +57,25 @@ public class DefaultCapabilityService implements CapabilityService {
             String resourcePath,
             boolean collectionExportSupported
     ) {
+        return collectionCapabilities(resourceKey, resourcePath, collectionExportSupported, null);
+    }
+
+    @Override
+    public CapabilitySnapshot collectionCapabilities(
+            String resourceKey,
+            String resourcePath,
+            CollectionExportCapability collectionExportCapability
+    ) {
+        return collectionCapabilities(resourceKey, resourcePath, false, collectionExportCapability);
+    }
+
+    @Override
+    public CapabilitySnapshot collectionCapabilities(
+            String resourceKey,
+            String resourcePath,
+            boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability
+    ) {
         Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
         canonicalOperations.put("export", collectionExportSupported);
         List<SurfaceCatalogItem> collectionSurfaces = collectionSurfaces(resourceKey);
@@ -67,7 +87,13 @@ public class DefaultCapabilityService implements CapabilityService {
                 group,
                 null,
                 Map.copyOf(canonicalOperations),
-                resolveOperations(resourcePath, collectionSurfaces, collectionActions),
+                resolveCollectionOperations(
+                        resourcePath,
+                        collectionSurfaces,
+                        collectionActions,
+                        collectionExportSupported,
+                        collectionExportCapability
+                ),
                 collectionSurfaces,
                 collectionActions
         );
@@ -89,6 +115,20 @@ public class DefaultCapabilityService implements CapabilityService {
                 itemSurfaces,
                 itemActions
         );
+    }
+
+    private Map<String, CapabilityOperation> resolveCollectionOperations(
+            String resourcePath,
+            List<SurfaceCatalogItem> surfaces,
+            List<ActionCatalogItem> actions,
+            boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability
+    ) {
+        Map<String, CapabilityOperation> operations = new LinkedHashMap<>(
+                resolveOperations(resourcePath, surfaces, actions)
+        );
+        operations.put("export", exportOperation(collectionExportSupported, collectionExportCapability));
+        return Map.copyOf(operations);
     }
 
     private Map<String, CapabilityOperation> resolveOperations(
@@ -113,6 +153,34 @@ public class DefaultCapabilityService implements CapabilityService {
                 enrichDeleteOperation(operation, surfaces, actions)
         );
         return Map.copyOf(operations);
+    }
+
+    private CapabilityOperation exportOperation(
+            boolean supported,
+            CollectionExportCapability collectionExportCapability
+    ) {
+        if (!supported || collectionExportCapability == null) {
+            return new CapabilityOperation(
+                    "export",
+                    supported,
+                    "COLLECTION",
+                    supported ? "POST" : null,
+                    "export",
+                    AvailabilityDecision.allowAll()
+            );
+        }
+        return new CapabilityOperation(
+                "export",
+                supported,
+                "COLLECTION",
+                supported ? "POST" : null,
+                "export",
+                AvailabilityDecision.allowAll(),
+                collectionExportCapability.formats(),
+                collectionExportCapability.scopes(),
+                collectionExportCapability.maxRows(),
+                collectionExportCapability.async()
+        );
     }
 
     private CapabilityOperation enrichFromSurface(

@@ -2,7 +2,7 @@
 
 All notable changes to this module will be documented in this file.
 
-## [Unreleased]
+## [8.0.0-rc.6] - 2026-04-20
 
 ### Removed
 - Superficies paralelas de CRUD removidas para consolidar o baseline `resource-oriented`.
@@ -15,6 +15,8 @@ All notable changes to this module will be documented in this file.
 - `README.md`, `docs/index.md` e `docs/spec/CONFORMANCE.md` passam a tratar `option-sources` como superficie publica canonicamente suportada quando o recurso publica `OptionSourceRegistry`.
 - `OptionSourceDescriptor` passa a carregar e publicar `dependencyFilterMap` diretamente para qualquer tipo de option-source, preservando a cascata canonica em `x-ui.optionSource` quando o campo dependente difere da chave de filtro.
 - Guia do consumidor piloto passa a ser guia de adocao canonica, sem narrativa de migracao entre modelos.
+- `/capabilities` passa a publicar detalhes governados da operacao `export` apenas quando o service declara suporte real a exportacao de colecao.
+- `POST /{resource}/export` passa a expor headers de limite, truncamento, linhas candidatas e warnings quando o resultado inline trouxer esses metadados.
 
 ### Added
 - Rollout do baseline semantico `resource + surface + action + capability`, com `@UiSurface`, `@WorkflowAction`, `GET /schemas/surfaces`, `GET /schemas/actions` e snapshots agregados em `/capabilities`.
@@ -22,13 +24,18 @@ All notable changes to this module will be documented in this file.
 - Contrato rico de Entity Lookup para `x-ui.optionSource` com `RESOURCE_ENTITY`, incluindo `entityKey`, paths de display/status/busca, `dependencyFilterMap`, `selectionPolicy`, `capabilities` e `detail`.
 - Execucao JPA de `RESOURCE_ENTITY` rico, com busca multi-campo, reidratacao por IDs e `OptionDTO.extra` governado para Entity Lookup.
 - Superficie canonica `POST /{resource}/export` para exportacao de colecao, com request preservando escopo, selecao, filtros, ordenacao, campos e limites.
+- Camada reutilizavel de exportacao de colecoes com executor canonico e engines CSV/JSON tabulares.
+- Guia canonico `docs/guides/COLLECTION-EXPORT.md` para contrato, responsabilidades do recurso, capabilities, headers, limites e checklist de publicacao.
 
 ### Fixed
 - Corrigida a lacuna que impedia `option-sources` reais de funcionar apenas com o starter: recursos que expoem `OptionSourceRegistry` agora publicam `x-ui.optionSource` em `/schemas/filtered` e executam `POST /{resource}/option-sources/{sourceKey}/options/filter` e `GET /{resource}/option-sources/{sourceKey}/options/by-ids` via auto-configuracao padrao.
+- Exportacao CSV passa a proteger contra formula injection mesmo quando o valor perigoso vem depois de whitespace inicial.
+- Requests de exportacao com campos informados, mas nenhum campo suportado pelo recurso, passam a falhar em vez de cair silenciosamente para os campos default.
 
 ### Documentation
 - `README.md` e `docs/spec/CONFORMANCE.md` passam a citar explicitamente `/schemas/surfaces` e `/schemas/actions` como superficies publicas canonicas de discovery.
 - `README.md`, `docs/index.md` e o guia `docs/guides/OPTIONS-ENDPOINT.md` passam a integrar a checklist minima de validacao de `option-sources` e o posicionamento canonico dessa superficie no starter.
+- `README.md`, `docs/index.md`, `docs/spec/CONFORMANCE.md`, guias e checklist tecnica passam a documentar a politica de exportacao de colecoes, incluindo limites corporativos, truncamento, headers e allowlist de campos.
 
 ## [2.0.0-rc.7] - 2026-03-21
 

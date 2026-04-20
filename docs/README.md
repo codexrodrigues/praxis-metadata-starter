@@ -14,6 +14,7 @@ Este diretorio contem a documentacao principal do `praxis-metadata-starter`.
 
 - trilha principal para LLM: [guides/README.md](guides/README.md)
 - visao geral funcional: [overview/VISAO-GERAL.md](overview/VISAO-GERAL.md)
+- contrato de exportacao de colecoes: [guides/COLLECTION-EXPORT.md](guides/COLLECTION-EXPORT.md)
 - prova operacional dos guias: [guides/ai-proof/README.md](guides/ai-proof/README.md)
 - exemplos complementares: [examples/README.md](examples/README.md)
 - referencia tecnica publica complementar: [GitHub Pages / apidocs](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)

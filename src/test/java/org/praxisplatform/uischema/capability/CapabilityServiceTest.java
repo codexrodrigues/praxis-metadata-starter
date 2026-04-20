@@ -6,6 +6,9 @@ import org.praxisplatform.uischema.action.ActionCatalogNotFoundException;
 import org.praxisplatform.uischema.action.ActionCatalogResponse;
 import org.praxisplatform.uischema.action.ActionCatalogService;
 import org.praxisplatform.uischema.action.ActionScope;
+import org.praxisplatform.uischema.exporting.CollectionExportCapability;
+import org.praxisplatform.uischema.exporting.CollectionExportFormat;
+import org.praxisplatform.uischema.exporting.CollectionExportScope;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.surface.SurfaceCatalogItem;
 import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
@@ -100,6 +103,89 @@ class CapabilityServiceTest {
 
         assertEquals(Boolean.FALSE, unsupported.canonicalOperations().get("export"));
         assertEquals(Boolean.TRUE, supported.canonicalOperations().get("export"));
+        assertFalse(unsupported.operations().get("export").supported());
+        assertTrue(supported.operations().get("export").supported());
+        assertEquals("POST", supported.operations().get("export").preferredMethod());
+    }
+
+    @Test
+    void collectionCapabilitiesExposeCollectionExportDetailsWhenProvided() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of("filter", true)),
+                new SurfaceCatalogService(null, null, null) {
+                    @Override
+                    public SurfaceCatalogResponse findByResourceKey(String resourceKey) {
+                        throw SurfaceCatalogNotFoundException.unknownResourceKey(resourceKey);
+                    }
+                },
+                new ActionCatalogService(null, null, null) {
+                    @Override
+                    public ActionCatalogResponse findCollectionActions(String resourceKey) {
+                        throw ActionCatalogNotFoundException.missingCollectionActions(resourceKey);
+                    }
+                },
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        CapabilitySnapshot snapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                true,
+                new CollectionExportCapability(
+                        List.of(CollectionExportFormat.CSV, CollectionExportFormat.JSON),
+                        List.of(CollectionExportScope.SELECTED, CollectionExportScope.FILTERED),
+                        Map.of(CollectionExportFormat.CSV.value(), 500, CollectionExportFormat.JSON.value(), 500),
+                        false
+                )
+        );
+
+        CapabilityOperation export = snapshot.operations().get("export");
+        assertTrue(snapshot.canonicalOperations().get("export"));
+        assertTrue(export.supported());
+        assertEquals(List.of(CollectionExportFormat.CSV, CollectionExportFormat.JSON), export.formats());
+        assertEquals(List.of(CollectionExportScope.SELECTED, CollectionExportScope.FILTERED), export.scopes());
+        assertEquals(500, export.maxRows().get(CollectionExportFormat.CSV.value()));
+        assertFalse(export.async());
+    }
+
+    @Test
+    void collectionCapabilitiesDoNotInferExportSupportFromDetailsWithoutOptIn() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of("filter", true)),
+                new SurfaceCatalogService(null, null, null) {
+                    @Override
+                    public SurfaceCatalogResponse findByResourceKey(String resourceKey) {
+                        throw SurfaceCatalogNotFoundException.unknownResourceKey(resourceKey);
+                    }
+                },
+                new ActionCatalogService(null, null, null) {
+                    @Override
+                    public ActionCatalogResponse findCollectionActions(String resourceKey) {
+                        throw ActionCatalogNotFoundException.missingCollectionActions(resourceKey);
+                    }
+                },
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        CapabilitySnapshot snapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                new CollectionExportCapability(
+                        List.of(CollectionExportFormat.CSV, CollectionExportFormat.JSON),
+                        List.of(CollectionExportScope.SELECTED, CollectionExportScope.FILTERED),
+                        Map.of(CollectionExportFormat.CSV.value(), 500, CollectionExportFormat.JSON.value(), 500),
+                        false
+                )
+        );
+
+        CapabilityOperation export = snapshot.operations().get("export");
+        assertFalse(snapshot.canonicalOperations().get("export"));
+        assertFalse(export.supported());
+        assertEquals(null, export.preferredMethod());
+        assertTrue(export.formats().isEmpty());
+        assertTrue(export.scopes().isEmpty());
+        assertTrue(export.maxRows().isEmpty());
+        assertEquals(null, export.async());
     }
 
     @Test
