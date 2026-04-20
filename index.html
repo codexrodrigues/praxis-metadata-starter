@@ -190,6 +190,8 @@ atual</h3>
 <li><a href="spec/CONFORMANCE.html">Conformance</a></li>
 <li><a href="guides/OPTIONS-ENDPOINT.html">Options e
 option-sources</a></li>
+<li><a href="guides/COLLECTION-EXPORT.html">Exportacao de
+colecoes</a></li>
 </ul>
 <h3 id="quero-gerar-uma-aplicacao-nova">Quero gerar uma aplicacao
 nova</h3>
@@ -243,6 +245,11 @@ partir de escopo, selecao, filtros, ordenacao e campos; o resultado pode
 ser binario inline ou <code>202 Accepted</code> com
 <code>status=deferred</code>, <code>downloadUrl</code> e
 <code>jobId</code></li>
+<li>detalhes de exportacao em <code>/capabilities</code> sao derivados
+do suporte real do service e podem publicar <code>formats</code>,
+<code>scopes</code>, <code>maxRows</code> e <code>async</code></li>
+<li>resultados inline podem publicar headers de linhas, truncamento,
+limite efetivo e warnings para UI corporativa</li>
 </ul>
 <h2 id="regra-de-leitura">Regra De Leitura</h2>
 <p>Quando houver duvida sobre a superficie publicada:</p>

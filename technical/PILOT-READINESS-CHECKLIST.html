@@ -228,6 +228,11 @@ validado</label></li>
 <li><label><input
 type="checkbox" /><code>GET /{resource}/{id}/capabilities</code>
 validado</label></li>
+<li><label><input type="checkbox" />detalhes de <code>export</code> em
+<code>/capabilities</code> coerentes com
+<code>supportsCollectionExport()</code> e
+<code>getCollectionExportCapability()</code>, quando
+aplicavel</label></li>
 </ul>
 <h2 id="testes-e-validacao">Testes e validacao</h2>
 <ul class="task-list">
@@ -238,6 +243,9 @@ verde</label></li>
 <li><label><input type="checkbox" />sem payload inline em
 <code>surfaces</code>, <code>actions</code> ou
 <code>capabilities</code></label></li>
+<li><label><input type="checkbox" />exportacao de colecao validada com
+sucesso, limite/truncamento, headers e rejeicao de campo nao suportado,
+quando aplicavel</label></li>
 </ul>
 <h2 id="operacao">Operacao</h2>
 <ul class="task-list">
@@ -246,6 +254,8 @@ verde</label></li>
 definida</label></li>
 <li><label><input type="checkbox" />responsavel tecnico pelo piloto
 definido</label></li>
+<li><label><input type="checkbox" />limite corporativo de exportacao
+definido por recurso e comunicado ao consumidor</label></li>
 </ul>
 <h2 id="pode-ficar-fora-do-primeiro-piloto">Pode ficar fora do primeiro
 piloto</h2>

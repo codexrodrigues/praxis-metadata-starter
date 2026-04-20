@@ -235,6 +235,9 @@ contrato publicado exige <code>source.resource</code> e
 <li>quando um campo publicar <code>x-ui.optionSource</code>, o bloco
 deve obedecer o schema draft e representar a fonte de opcoes como
 contrato canonico</li>
+<li>quando um recurso publicar exportacao de colecao,
+<code>POST /{resource}/export</code> deve aplicar filtros, selecao,
+allowlist de campos e limite efetivo do servidor</li>
 </ul></li>
 <li>Extended (recomendado)
 <ul>
@@ -260,6 +263,9 @@ por <code>@UiSurface</code> e <code>@WorkflowAction</code></li>
 <li>publicar <code>x-ui.optionSource</code> para fontes derivadas
 governadas, evitando promover <code>INPUT</code> em campos com semantica
 corporativa clara</li>
+<li>publicar detalhes de <code>export</code> em
+<code>/capabilities</code> com formatos, escopos, limites e async quando
+o service declarar suporte real a exportacao de colecao</li>
 </ul></li>
 </ul>
 <h2 id="matriz---chave-da-spec---consumo-na-ui">Matriz - Chave da Spec
@@ -327,6 +333,15 @@ utilitarios</li>
 <code>@UiSurface</code> e surfaces automaticas do recurso</li>
 <li><code>/schemas/actions</code> -&gt; catalogo semantico de
 <code>@WorkflowAction</code></li>
+</ul></li>
+<li>exportacao de colecao
+<ul>
+<li><code>/capabilities.operations.export</code> -&gt; discovery
+agregado de suporte, formatos, escopos, limites e async</li>
+<li><code>POST /{resource}/export</code> -&gt; execucao governada pelo
+service do recurso</li>
+<li><code>X-Export-*</code> -&gt; metadados de resultado inline, limite
+efetivo, truncamento e warnings</li>
 </ul></li>
 </ul>
 <h2 id="cobertura-do-consumidor-oficial---praxisuicharts">Cobertura do
@@ -405,6 +420,37 @@ host.</li>
 quando <code>x-ui.optionSource</code> estiver presente;</li>
 <li>consumidores nao devem inferir <code>optionSource</code> a partir de
 heuristicas locais.</li>
+</ul>
+<h2
+id="cobertura-do-consumidor-oficial---exportacao-de-colecao">Cobertura
+do consumidor oficial - exportacao de colecao</h2>
+<p>O contrato canonico de exportacao de colecao e uma superficie
+resource-oriented, nao uma extensao de <code>x-ui</code> por campo.</p>
+<p>Estado canonicamente suportado no starter:</p>
+<ul>
+<li>request canonico <code>CollectionExportRequest</code>, preservando
+formato, escopo, selecao, filtros, sort, paginacao, campos, limite e
+metadados;</li>
+<li>executor reutilizavel para reconciliar campos e delegar para engine
+por formato;</li>
+<li>engines tabulares CSV e JSON;</li>
+<li>discovery agregado por
+<code>/capabilities.operations.export</code>;</li>
+<li>headers <code>X-Export-Row-Count</code>,
+<code>X-Export-Truncated</code>, <code>X-Export-Max-Rows</code>,
+<code>X-Export-Candidate-Row-Count</code> e
+<code>X-Export-Warnings</code> quando o resultado inline trouxer esses
+metadados.</li>
+</ul>
+<p>Diretriz canonica:</p>
+<ul>
+<li>o service do recurso decide consulta, seguranca, limite efetivo e
+allowlist de campos;</li>
+<li><code>maxRows</code> do cliente e sugestao limitada pela politica do
+servidor;</li>
+<li>campos desconhecidos nao devem abrir fallback silencioso para dados
+default quando nenhum campo solicitado for suportado;</li>
+<li>CSV deve aplicar protecao contra formula injection.</li>
 </ul>
 <h2 id="boas-praticas-e-notas">Boas praticas e notas</h2>
 <ul>

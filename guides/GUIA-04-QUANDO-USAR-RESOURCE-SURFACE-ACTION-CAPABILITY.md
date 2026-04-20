@@ -86,6 +86,7 @@ O snapshot agrega:
 - operacoes canonicas publicadas
 - `surfaces`
 - `actions`
+- detalhes governados de `export`, quando o service publica suporte real a exportacao de colecao
 
 Regra:
 
@@ -93,6 +94,8 @@ Regra:
 - `capability` nao define schema inline
 - `capability` agrega ausencia de `surfaces` e `actions` como listas vazias, mas os catalogos
   dedicados mantem sua propria semantica (`surfaces` automaticas; `actions` `404` sem workflow)
+- `capability` pode anunciar formatos, escopos, limites e async de exportacao, mas a execucao,
+  seguranca, filtros e allowlist de campos continuam no service do recurso
 
 ## Regra pratica de decisao
 
@@ -120,4 +123,6 @@ Pergunta 4: a UI so precisa saber o que existe ou o que esta disponivel agora?
 - `GET /employees/{id}/surfaces` -> discovery semantico contextual
 - `GET /employees/{id}/actions` -> discovery de workflow contextual
 - `GET /employees/{id}/capabilities` -> snapshot agregado contextual
+- `POST /employees/export` -> operacao canonica de colecao, com contrato detalhado em
+  [Exportacao de Colecoes](COLLECTION-EXPORT.md)
 

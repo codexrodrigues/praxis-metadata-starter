@@ -74,8 +74,20 @@ metadata-driven no baseline atual ou um frontend Angular.
 - consumir `/schemas/filtered` e verificar `x-ui`
 - testar options quando houver relacao remota
 
+## 11. Exportacao de colecoes
+
+- `GET /{resource}/capabilities` anuncia `export` apenas quando o service suporta exportacao
+- detalhes de `export` publicam formatos, escopos, limites e async coerentes com o recurso
+- `POST /{resource}/export` respeita filtros, selecao, pagina atual e allowlist de campos
+- limite efetivo do servidor e aplicado mesmo quando o cliente pede `maxRows` maior
+- resultado truncado publica `X-Export-Truncated`, `X-Export-Max-Rows`,
+  `X-Export-Candidate-Row-Count` e `X-Export-Warnings`
+- campos solicitados e nao suportados retornam `400` quando nenhum campo valido sobrar
+- CSV protege contra formula injection
+
 ## Referencias publicas
 
 - guias principais: `GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`, `GUIA-02-AI-BACKEND-CRUD-METADATA.md`, `GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md`
+- exportacao de colecoes: `COLLECTION-EXPORT.md`
 - repositorio Git do runtime Angular: `https://github.com/codexrodrigues/praxis-ui-angular`
 - pacotes npm relevantes: `@praxisui/core`, `@praxisui/table`, `@praxisui/dynamic-form`, `@praxisui/crud`

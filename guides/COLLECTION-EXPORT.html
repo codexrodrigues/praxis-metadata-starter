@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Exportacao De Colecoes</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Exportacao De Colecoes</h1>
+</header>
+<h1 id="exportacao-de-colecoes">Exportacao De Colecoes</h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este guia documenta o contrato canonico de backend para exportacao de
+colecoes resource-oriented no <code>praxis-metadata-starter</code>.</p>
+<p>A exportacao existe para atender componentes como Table e List sem
+mover regras de seguranca, limites, filtros ou campos autorizados para o
+frontend.</p>
+<h2 id="superficie-publica">Superficie Publica</h2>
+<p>O endpoint canonico e:</p>
+<pre class="http"><code>POST /{resource}/export</code></pre>
+<p>O controller resource-oriented publica esse endpoint quando o service
+declara suporte a exportacao de colecao. O resultado pode ser:</p>
+<ul>
+<li><code>200 OK</code>, com arquivo inline no corpo da resposta.</li>
+<li><code>202 Accepted</code>, com <code>status=deferred</code>,
+<code>downloadUrl</code> e <code>jobId</code> para execucao
+assincrona.</li>
+</ul>
+<h2 id="request-canonico">Request Canonico</h2>
+<p>O request de exportacao preserva o estado da colecao:</p>
+<ul>
+<li><code>format</code>: formato solicitado, como <code>csv</code> ou
+<code>json</code>.</li>
+<li><code>scope</code>: <code>auto</code>, <code>selected</code>,
+<code>filtered</code>, <code>currentPage</code> ou
+<code>all</code>.</li>
+<li><code>selection</code>: chaves selecionadas,
+<code>allMatchingSelected</code> e exclusoes.</li>
+<li><code>fields</code>: campos solicitados pelo cliente.</li>
+<li><code>filters</code>: DTO de filtro do recurso.</li>
+<li><code>sort</code> e <code>pagination</code>: estado de ordenacao e
+pagina atual.</li>
+<li><code>query</code>: metadados adicionais de busca.</li>
+<li><code>includeHeaders</code>: controla cabecalho em formatos
+tabulares.</li>
+<li><code>maxRows</code>: limite solicitado pelo cliente.</li>
+<li><code>fileName</code>: nome sugerido para download.</li>
+</ul>
+<h2 id="responsabilidade-do-recurso">Responsabilidade Do Recurso</h2>
+<p>O starter fornece a infraestrutura comum, mas cada recurso continua
+responsavel por:</p>
+<ul>
+<li>resolver a consulta efetiva;</li>
+<li>aplicar filtros e seguranca do dominio;</li>
+<li>impor limite maximo aceito pelo servidor;</li>
+<li>decidir campos exportaveis;</li>
+<li>decidir se o resultado sera inline ou assincrono;</li>
+<li>devolver metadados de auditoria e truncamento.</li>
+</ul>
+<p>Nao trate <code>maxRows</code> enviado pelo cliente como limite
+confiavel. O service deve calcular o limite efetivo a partir da politica
+do recurso.</p>
+<h2 id="capabilities">Capabilities</h2>
+<p><code>GET /{resource}/capabilities</code> pode publicar detalhes da
+operacao <code>export</code>. Esses detalhes sao derivados do suporte
+real do service:</p>
+<ul>
+<li><code>formats</code>: formatos aceitos pelo recurso.</li>
+<li><code>scopes</code>: escopos aceitos pelo recurso.</li>
+<li><code>maxRows</code>: limites por formato.</li>
+<li><code>async</code>: indica se o recurso pode devolver job
+assincrono.</li>
+</ul>
+<p>Se o service nao declara suporte a exportacao,
+<code>/capabilities</code> nao deve publicar detalhes operacionais de
+exportacao como se a funcionalidade estivesse disponivel.</p>
+<h2 id="campos-exportaveis">Campos Exportaveis</h2>
+<p>Campos solicitados pelo cliente devem ser reconciliados com a lista
+canonica do recurso. Campos desconhecidos ou nao exportaveis nao podem
+abrir acesso a dados internos.</p>
+<p>Regra:</p>
+<ul>
+<li>request sem campos usa a lista padrao do recurso;</li>
+<li>request com alguns campos validos exporta apenas os validos;</li>
+<li>request com campos informados, mas nenhum campo suportado, deve
+falhar com <code>400</code>.</li>
+</ul>
+<h2 id="headers-de-resultado">Headers De Resultado</h2>
+<p>Quando a exportacao e concluida inline, o controller pode publicar
+headers de resultado:</p>
+<ul>
+<li><code>X-Export-Row-Count</code>: quantidade de linhas
+retornadas.</li>
+<li><code>X-Export-Truncated</code>: <code>true</code> quando o
+resultado foi limitado pelo servidor.</li>
+<li><code>X-Export-Max-Rows</code>: limite efetivo aplicado pelo
+servidor.</li>
+<li><code>X-Export-Candidate-Row-Count</code>: quantidade de linhas
+candidatas antes do corte.</li>
+<li><code>X-Export-Warnings</code>: avisos legiveis para UI e
+auditoria.</li>
+</ul>
+<p>A UI deve tratar <code>X-Export-Truncated=true</code> como resultado
+parcial e apresentar o aviso ao operador.</p>
+<h2 id="csv">CSV</h2>
+<p>O engine CSV canonico serializa linhas tabulares com protecao basica
+contra formula injection. Valores iniciados por formula, inclusive
+depois de whitespace inicial, sao prefixados com apostrofo antes da
+serializacao.</p>
+<p>Essa protecao nao substitui allowlist de campos nem politicas de
+seguranca do recurso.</p>
+<h2 id="json">JSON</h2>
+<p>O engine JSON canonico preserva a ordem dos campos exportados e emite
+uma lista de objetos tabulares.</p>
+<p>Use JSON quando o consumidor precisar reprocessar dados ou validar o
+payload de forma estruturada. Use CSV quando o objetivo principal for
+abertura em planilhas.</p>
+<h2 id="checklist-minima">Checklist Minima</h2>
+<p>Antes de publicar exportacao em um recurso:</p>
+<ul>
+<li><code>supportsCollectionExport()</code> retorna
+<code>true</code>.</li>
+<li><code>getCollectionExportCapability()</code> descreve formatos,
+escopos, limites e async.</li>
+<li><code>exportCollection(...)</code> usa o executor canonico ou engine
+equivalente governado.</li>
+<li>a consulta aplica filtros, seguranca e limite efetivo do
+servidor.</li>
+<li>campos exportaveis usam allowlist do recurso.</li>
+<li>campos desconhecidos nao caem silenciosamente para defaults.</li>
+<li>truncamento publica metadados e headers.</li>
+<li>CSV protege contra formula injection.</li>
+<li>teste HTTP cobre sucesso, limite/truncamento e campo rejeitado.</li>
+</ul>
+</body>
+</html>

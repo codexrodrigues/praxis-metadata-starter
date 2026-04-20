@@ -261,11 +261,30 @@ read-only</li>
 <code>x-ui</code></li>
 <li>testar options quando houver relacao remota</li>
 </ul>
+<h2 id="exportacao-de-colecoes">11. Exportacao de colecoes</h2>
+<ul>
+<li><code>GET /{resource}/capabilities</code> anuncia
+<code>export</code> apenas quando o service suporta exportacao</li>
+<li>detalhes de <code>export</code> publicam formatos, escopos, limites
+e async coerentes com o recurso</li>
+<li><code>POST /{resource}/export</code> respeita filtros, selecao,
+pagina atual e allowlist de campos</li>
+<li>limite efetivo do servidor e aplicado mesmo quando o cliente pede
+<code>maxRows</code> maior</li>
+<li>resultado truncado publica <code>X-Export-Truncated</code>,
+<code>X-Export-Max-Rows</code>,
+<code>X-Export-Candidate-Row-Count</code> e
+<code>X-Export-Warnings</code></li>
+<li>campos solicitados e nao suportados retornam <code>400</code> quando
+nenhum campo valido sobrar</li>
+<li>CSV protege contra formula injection</li>
+</ul>
 <h2 id="referencias-publicas">Referencias publicas</h2>
 <ul>
 <li>guias principais: <code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code>,
 <code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code>,
 <code>GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md</code></li>
+<li>exportacao de colecoes: <code>COLLECTION-EXPORT.md</code></li>
 <li>repositorio Git do runtime Angular:
 <code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
 <li>pacotes npm relevantes: <code>@praxisui/core</code>,

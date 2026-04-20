@@ -258,6 +258,8 @@ de um snapshot agregado do que pode ser feito agora.</p>
 <li>operacoes canonicas publicadas</li>
 <li><code>surfaces</code></li>
 <li><code>actions</code></li>
+<li>detalhes governados de <code>export</code>, quando o service publica
+suporte real a exportacao de colecao</li>
 </ul>
 <p>Regra:</p>
 <ul>
@@ -267,6 +269,9 @@ de um snapshot agregado do que pode ser feito agora.</p>
 <code>actions</code> como listas vazias, mas os catalogos dedicados
 mantem sua propria semantica (<code>surfaces</code> automaticas;
 <code>actions</code> <code>404</code> sem workflow)</li>
+<li><code>capability</code> pode anunciar formatos, escopos, limites e
+async de exportacao, mas a execucao, seguranca, filtros e allowlist de
+campos continuam no service do recurso</li>
 </ul>
 <h2 id="regra-pratica-de-decisao">Regra pratica de decisao</h2>
 <p>Pergunta 1: a operacao altera ou le o recurso como parte do contrato
@@ -304,6 +309,9 @@ contextual</li>
 contextual</li>
 <li><code>GET /employees/{id}/capabilities</code> -&gt; snapshot
 agregado contextual</li>
+<li><code>POST /employees/export</code> -&gt; operacao canonica de
+colecao, com contrato detalhado em <a
+href="COLLECTION-EXPORT.md">Exportacao de Colecoes</a></li>
 </ul>
 </body>
 </html>

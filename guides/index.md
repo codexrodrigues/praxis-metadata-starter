@@ -26,6 +26,7 @@ resource-oriented, com DTOs separados e discovery semantico.
 
 - [Do CRUD ao Contrato Semantico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
 - [Options](OPTIONS-ENDPOINT.html)
+- [Exportacao de Colecoes](COLLECTION-EXPORT.html)
 - [Filtros e Paginacao](FILTROS-E-PAGINACAO.html)
 - [Views read-only](READ-ONLY-VIEWS.html)
 - [Erros e Respostas](ERROS-E-RESPOSTAS.html)
