@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.service.base;
 
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.OptionDTO;
+import org.praxisplatform.uischema.exporting.CollectionExportCapability;
 import org.praxisplatform.uischema.exporting.CollectionExportRequest;
 import org.praxisplatform.uischema.exporting.CollectionExportResult;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
@@ -92,6 +93,10 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
 
     default boolean supportsCollectionExport() {
         return false;
+    }
+
+    default Optional<CollectionExportCapability> getCollectionExportCapability() {
+        return Optional.empty();
     }
 
     default CollectionExportResult exportCollection(CollectionExportRequest<FilterDTO> request) {

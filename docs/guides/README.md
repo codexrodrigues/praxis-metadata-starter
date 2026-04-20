@@ -57,6 +57,7 @@ Use depois da geracao para validar build, endpoints, schemas e consumo.
 - [Filtros e Paginacao](FILTROS-E-PAGINACAO.md)
 - [Ordenacao Padrao](ORDEM-PADRAO.md)
 - [Options (id/label)](OPTIONS-ENDPOINT.md)
+- [Exportacao de Colecoes](COLLECTION-EXPORT.md)
 - [Views / Somente Leitura](READ-ONLY-VIEWS.md)
 - [Erros e Respostas](ERROS-E-RESPOSTAS.md)
 - [Do CRUD ao Contrato Semantico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)

@@ -40,18 +40,21 @@ Marque todos os itens abaixo antes de abrir a adocao do piloto.
 - [ ] `/schemas/actions` validado
 - [ ] `GET /{resource}/capabilities` validado
 - [ ] `GET /{resource}/{id}/capabilities` validado
+- [ ] detalhes de `export` em `/capabilities` coerentes com `supportsCollectionExport()` e `getCollectionExportCapability()`, quando aplicavel
 
 ## Testes e validacao
 
 - [ ] suite focal do host verde
 - [ ] validacao de `@Valid` com `400 Validation error`
 - [ ] sem payload inline em `surfaces`, `actions` ou `capabilities`
+- [ ] exportacao de colecao validada com sucesso, limite/truncamento, headers e rejeicao de campo nao suportado, quando aplicavel
 
 ## Operacao
 
 - [ ] rollback definido
 - [ ] observabilidade minima definida
 - [ ] responsavel tecnico pelo piloto definido
+- [ ] limite corporativo de exportacao definido por recurso e comunicado ao consumidor
 
 ## Pode ficar fora do primeiro piloto
 

@@ -1,5 +1,7 @@
 package org.praxisplatform.uischema.capability;
 
+import org.praxisplatform.uischema.exporting.CollectionExportCapability;
+
 /**
  * Agrega operacoes canonicas, surfaces e actions para uma colecao ou instancia.
  *
@@ -22,6 +24,23 @@ public interface CapabilityService {
             boolean collectionExportSupported
     ) {
         return collectionCapabilities(resourceKey, resourcePath);
+    }
+
+    default CapabilitySnapshot collectionCapabilities(
+            String resourceKey,
+            String resourcePath,
+            CollectionExportCapability collectionExportCapability
+    ) {
+        return collectionCapabilities(resourceKey, resourcePath, false, collectionExportCapability);
+    }
+
+    default CapabilitySnapshot collectionCapabilities(
+            String resourceKey,
+            String resourcePath,
+            boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability
+    ) {
+        return collectionCapabilities(resourceKey, resourcePath, collectionExportSupported);
     }
 
     /**

@@ -35,6 +35,7 @@
   - `schemaId` estavel conforme composicao `path|operation|schemaType|internal|tenant|locale`
   - quando `x-ui.chart.source.kind = "praxis.stats"`, o contrato publicado exige `source.resource` e `source.operation`
   - quando um campo publicar `x-ui.optionSource`, o bloco deve obedecer o schema draft e representar a fonte de opcoes como contrato canonico
+  - quando um recurso publicar exportacao de colecao, `POST /{resource}/export` deve aplicar filtros, selecao, allowlist de campos e limite efetivo do servidor
 - Extended (recomendado)
   - preencher `displayColumns`/`displayFields` no x-ui de operacao
   - publicar `x-ui.chart` com `version`, `kind`, `source`, semantica analitica e eventos declarativos, mantendo o contrato agnostico de engine
@@ -45,6 +46,7 @@
   - manter `/schemas/surfaces` e `/schemas/actions` sincronizados com a semantica publicada por `@UiSurface` e `@WorkflowAction`
   - adotar `custom.*` para extensoes privadas do host
   - publicar `x-ui.optionSource` para fontes derivadas governadas, evitando promover `INPUT` em campos com semantica corporativa clara
+  - publicar detalhes de `export` em `/capabilities` com formatos, escopos, limites e async quando o service declarar suporte real a exportacao de colecao
 
 ## Matriz - Chave da Spec -> Consumo na UI
 
@@ -76,6 +78,10 @@
 - discovery semantico
   - `/schemas/surfaces` -> catalogo semantico de `@UiSurface` e surfaces automaticas do recurso
   - `/schemas/actions` -> catalogo semantico de `@WorkflowAction`
+- exportacao de colecao
+  - `/capabilities.operations.export` -> discovery agregado de suporte, formatos, escopos, limites e async
+  - `POST /{resource}/export` -> execucao governada pelo service do recurso
+  - `X-Export-*` -> metadados de resultado inline, limite efetivo, truncamento e warnings
 
 ## Cobertura do consumidor oficial - `@praxisui/charts`
 
@@ -127,6 +133,30 @@ Diretriz canonica:
 - campos com fonte remota devem publicar `x-ui.optionSource`;
 - `endpoint`, `valueField` e `displayField` nao devem redefinir a semantica de fonte quando `x-ui.optionSource` estiver presente;
 - consumidores nao devem inferir `optionSource` a partir de heuristicas locais.
+
+## Cobertura do consumidor oficial - exportacao de colecao
+
+O contrato canonico de exportacao de colecao e uma superficie resource-oriented,
+nao uma extensao de `x-ui` por campo.
+
+Estado canonicamente suportado no starter:
+
+- request canonico `CollectionExportRequest`, preservando formato, escopo, selecao,
+  filtros, sort, paginacao, campos, limite e metadados;
+- executor reutilizavel para reconciliar campos e delegar para engine por formato;
+- engines tabulares CSV e JSON;
+- discovery agregado por `/capabilities.operations.export`;
+- headers `X-Export-Row-Count`, `X-Export-Truncated`, `X-Export-Max-Rows`,
+  `X-Export-Candidate-Row-Count` e `X-Export-Warnings` quando o resultado inline
+  trouxer esses metadados.
+
+Diretriz canonica:
+
+- o service do recurso decide consulta, seguranca, limite efetivo e allowlist de campos;
+- `maxRows` do cliente e sugestao limitada pela politica do servidor;
+- campos desconhecidos nao devem abrir fallback silencioso para dados default quando
+  nenhum campo solicitado for suportado;
+- CSV deve aplicar protecao contra formula injection.
 
 ## Boas praticas e notas
 

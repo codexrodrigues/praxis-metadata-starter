@@ -145,6 +145,50 @@ retorna bytes inline com nome de arquivo, content type e, opcionalmente, `rowCou
 corporativas grandes, `status=deferred` retorna `202 Accepted` em JSON com `downloadUrl`, `jobId`,
 `warnings` e `metadata` para filas, retencao e governanca do host.
 
+Limites publicados em `CollectionExportCapability` devem ser tratados como politica do servidor, nao
+como preferencia do cliente. Quando uma exportacao inline for limitada ou truncada, o controller pode
+propagar metadados operacionais em headers como `X-Export-Truncated`, `X-Export-Max-Rows`,
+`X-Export-Candidate-Row-Count` e `X-Export-Warnings`. Campos solicitados que nao pertencem ao allowlist
+exportavel do recurso devem falhar com erro claro, em vez de cair silenciosamente para todos os campos
+padrao.
+
+Quando um recurso suportar exportacao, ele pode publicar `CollectionExportCapability` no servico. O snapshot
+`GET /{resource}/capabilities` entao preenche `operations.export` com os formatos, escopos, limites e modo
+sincrono/assincrono realmente disponiveis:
+
+```json
+{
+  "operations": {
+    "export": {
+      "supported": true,
+      "scope": "COLLECTION",
+      "preferredMethod": "POST",
+      "preferredRel": "export",
+      "formats": ["csv", "json"],
+      "scopes": ["auto", "selected", "filtered", "currentPage", "all"],
+      "maxRows": {
+        "csv": 500,
+        "json": 500
+      },
+      "async": false
+    }
+  }
+}
+```
+
+O starter tambem publica uma SPI reutilizavel para recursos que querem manter a responsabilidade
+local apenas sobre consulta, permissao e campos:
+
+- `CollectionExportExecutor`: resolve o engine pelo `format` solicitado e monta o `CollectionExportResult`
+- `CollectionExportEngine`: contrato de serializacao por formato
+- `CsvCollectionExportEngine`: engine padrao para CSV com headers opcionais e protecao contra formula injection
+- `JsonCollectionExportEngine`: engine padrao para JSON tabular preservando a ordem dos campos
+- `CollectionExportValueResolver`: funcao do recurso para mapear linha + campo em valor exportavel
+
+Os formatos `excel`, `pdf` e `print` permanecem no contrato publico para que consumidores possam expressar
+a intencao, mas exigem engine registrado pelo host ou por versao futura do starter. Na ausencia de engine,
+o executor rejeita o formato com `400 Bad Request` pela mesma trilha de validacao do endpoint base.
+
 ## Canonical Backend Baseline
 
 O baseline canonico para recursos metadata-driven e:
@@ -237,7 +281,7 @@ Dependencia minima:
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>8.0.0-rc.5</version>
+  <version>8.0.0-rc.6</version>
 </dependency>
 ```
 

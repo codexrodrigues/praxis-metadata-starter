@@ -30,6 +30,7 @@ import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.action.ActionCatalogResponse;
 import org.praxisplatform.uischema.action.ActionCatalogService;
+import org.praxisplatform.uischema.exporting.CollectionExportCapability;
 import org.praxisplatform.uischema.surface.SurfaceCatalogResponse;
 import org.praxisplatform.uischema.surface.SurfaceCatalogService;
 import org.praxisplatform.uischema.util.PageableBuilder;
@@ -626,6 +627,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             if (result.rowCount() != null) {
                 builder.header("X-Export-Row-Count", result.rowCount().toString());
             }
+            appendExportMetadataHeaders(builder, result);
             return withVersion(builder, result.content());
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
@@ -815,9 +817,16 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (capabilityService == null) {
             throw new IllegalStateException("CapabilityService is not configured for contextual discovery.");
         }
+        CollectionExportCapability exportCapability = getService().getCollectionExportCapability().orElse(null);
+        CapabilitySnapshot snapshot = capabilityService.collectionCapabilities(
+                getResourceKey(),
+                getBasePath(),
+                supportsCollectionExport(),
+                exportCapability
+        );
         return withVersion(
                 ResponseEntity.ok(),
-                capabilityService.collectionCapabilities(getResourceKey(), getBasePath(), supportsCollectionExport())
+                snapshot
         );
     }
 
@@ -966,6 +975,22 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 "warnings", result.warnings(),
                 "metadata", result.metadata()
         );
+    }
+
+    private void appendExportMetadataHeaders(ResponseEntity.BodyBuilder builder, CollectionExportResult result) {
+        Map<String, Object> metadata = result.metadata();
+        addExportHeader(builder, "X-Export-Truncated", metadata.get("truncated"));
+        addExportHeader(builder, "X-Export-Max-Rows", metadata.get("maxRows"));
+        addExportHeader(builder, "X-Export-Candidate-Row-Count", metadata.get("candidateRows"));
+        if (!result.warnings().isEmpty()) {
+            builder.header("X-Export-Warnings", String.join(" | ", result.warnings()));
+        }
+    }
+
+    private void addExportHeader(ResponseEntity.BodyBuilder builder, String headerName, Object value) {
+        if (value != null) {
+            builder.header(headerName, value.toString());
+        }
     }
 
     protected Link linkToUiSchema(String methodPath, String operation, String schemaType) {
