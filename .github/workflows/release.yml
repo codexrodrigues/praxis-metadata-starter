@@ -332,5 +332,5 @@ jobs:
 
       - name: Publish to Central
         run: |
-          ./mvnw -B -P release -Dmaven.test.skip=true -Dgpg.skip=false -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -DautoPublish=true -DwaitUntil=published -T 1C \
+          ./mvnw -B -P release -Dmaven.test.skip=true -Dgpg.skip=false -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -DautoPublish=true -DwaitUntil=PUBLISHED -DwaitMaxTime=7200 -T 1C \
             clean verify org.sonatype.central:central-publishing-maven-plugin:publish
