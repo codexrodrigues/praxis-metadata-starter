@@ -92,6 +92,7 @@ public class SemanticDomainCatalogService {
         Map<String, DomainCatalogResponse.DomainEdgeItem> edges = new LinkedHashMap<>();
         Map<String, DomainCatalogResponse.DomainBindingItem> bindings = new LinkedHashMap<>();
         Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence = new LinkedHashMap<>();
+        Map<String, DomainCatalogResponse.DomainGovernanceItem> governance = new LinkedHashMap<>();
 
         for (ActionDefinition action : sortActions(actions)) {
             String resourceKey = action.resourceKey();
@@ -100,9 +101,9 @@ public class SemanticDomainCatalogService {
             ensureConcept(nodes, resourceKey, contextKey, action.resourcePath(), action.group(), action.tags());
             addAction(action, contextKey, nodes, edges, bindings, evidence);
             addSchemaFields(action.resourceKey(), contextKey, action.group(), action.requestSchema(), "request",
-                    nodes, edges, bindings, evidence);
+                    nodes, edges, bindings, evidence, governance);
             addSchemaFields(action.resourceKey(), contextKey, action.group(), action.responseSchema(), "response",
-                    nodes, edges, bindings, evidence);
+                    nodes, edges, bindings, evidence, governance);
         }
 
         for (SurfaceDefinition surface : sortSurfaces(surfaces)) {
@@ -112,7 +113,7 @@ public class SemanticDomainCatalogService {
             ensureConcept(nodes, resourceKey, contextKey, surface.resourcePath(), surface.group(), surface.tags());
             addSurface(surface, contextKey, nodes, edges, bindings, evidence);
             addSchemaFields(surface.resourceKey(), contextKey, surface.group(), surface.schema(), surface.schemaType(),
-                    nodes, edges, bindings, evidence);
+                    nodes, edges, bindings, evidence, governance);
         }
 
         for (OptionSourceDescriptor descriptor : optionSourceRegistry.descriptors()) {
@@ -141,7 +142,7 @@ public class SemanticDomainCatalogService {
                 List.copyOf(bindings.values()),
                 List.of(),
                 List.copyOf(evidence.values()),
-                List.of()
+                List.copyOf(governance.values())
         );
     }
 
@@ -341,7 +342,8 @@ public class SemanticDomainCatalogService {
             Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
             Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
             Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
-            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence
+            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence,
+            Map<String, DomainCatalogResponse.DomainGovernanceItem> governance
     ) {
         if (schemaRef == null || !StringUtils.hasText(schemaRef.schemaId()) || openApiDocumentService == null) {
             return;
@@ -359,7 +361,7 @@ public class SemanticDomainCatalogService {
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> field = fields.next();
             addField(resourceKey, contextKey, schemaRef, schemaRole, field.getKey(), field.getValue(),
-                    requiredFields.contains(field.getKey()), nodes, edges, bindings, evidence);
+                    requiredFields.contains(field.getKey()), nodes, edges, bindings, evidence, governance);
         }
     }
 
@@ -374,7 +376,8 @@ public class SemanticDomainCatalogService {
             Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
             Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
             Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
-            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence
+            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence,
+            Map<String, DomainCatalogResponse.DomainGovernanceItem> governance
     ) {
         String fieldNodeKey = resourceKey + ".field." + keyPart(fieldName);
         String evidenceKey = "evidence:" + fieldNodeKey + ":" + keyPart(schemaRef.schemaId());
@@ -443,6 +446,97 @@ public class SemanticDomainCatalogService {
                 "Campo derivado do schema OpenAPI " + schemaRef.schemaId() + ".",
                 0.9
         ));
+
+        DomainCatalogResponse.DomainGovernanceItem fieldGovernance =
+                classifyFieldGovernance(fieldNodeKey, fieldName, effectiveSchema, schemaRef, schemaRole);
+        if (fieldGovernance != null) {
+            governance.putIfAbsent(fieldGovernance.governanceKey(), fieldGovernance);
+        }
+    }
+
+    private DomainCatalogResponse.DomainGovernanceItem classifyFieldGovernance(
+            String fieldNodeKey,
+            String fieldName,
+            JsonNode effectiveSchema,
+            CanonicalSchemaRef schemaRef,
+            String schemaRole
+    ) {
+        String searchable = normalizeForSearch(String.join(" ",
+                fieldName,
+                effectiveSchema.path("title").asText(""),
+                effectiveSchema.path("description").asText(""),
+                effectiveSchema.path("format").asText("")
+        ));
+
+        if (containsAny(searchable, "senha", "password", "token", "secret", "credential", "credencial", "api key", "apikey")) {
+            return governanceItem(fieldNodeKey, "security", "restricted", "credential",
+                    List.of("INTERNAL_POLICY"), "deny", "deny", "deny", "deny",
+                    schemaRef, schemaRole, "security-sensitive-field-name", 0.78);
+        }
+
+        if (containsAny(searchable, "saude", "health", "medical", "medico", "cid", "diagnostico", "diagnosis")) {
+            return governanceItem(fieldNodeKey, "privacy", "restricted", "sensitive_personal",
+                    List.of("LGPD", "GDPR"), "mask", "deny", "review_required", "review_required",
+                    schemaRef, schemaRole, "sensitive-personal-field-name", 0.72);
+        }
+
+        if (containsAny(searchable, "cpf", "cnpj", "rg", "documento", "document", "identidade", "passport",
+                "email", "e mail", "telefone", "phone", "celular", "mobile", "endereco", "address",
+                "nascimento", "birth")) {
+            return governanceItem(fieldNodeKey, "privacy", "confidential", "personal",
+                    List.of("LGPD", "GDPR"), "mask", "deny", "review_required", "review_required",
+                    schemaRef, schemaRole, "personal-data-field-name", 0.74);
+        }
+
+        if (containsAny(searchable, "salario", "salary", "remuneracao", "remuneration", "valor liquido",
+                "valorliquido", "amount", "pagamento", "payment", "payroll", "bonus", "beneficio",
+                "benefit", "custo", "cost")) {
+            return governanceItem(fieldNodeKey, "privacy", "confidential", "financial",
+                    List.of("LGPD", "INTERNAL_POLICY"), "mask", "deny", "review_required", "allow",
+                    schemaRef, schemaRole, "financial-field-name", 0.72);
+        }
+
+        return null;
+    }
+
+    private DomainCatalogResponse.DomainGovernanceItem governanceItem(
+            String fieldNodeKey,
+            String annotationType,
+            String classification,
+            String dataCategory,
+            List<String> complianceTags,
+            String visibility,
+            String trainingUse,
+            String ruleAuthoring,
+            String reasoningUse,
+            CanonicalSchemaRef schemaRef,
+            String schemaRole,
+            String reason,
+            Double confidence
+    ) {
+        String governanceKey = "governance:" + fieldNodeKey + ":" + annotationType;
+        return new DomainCatalogResponse.DomainGovernanceItem(
+                governanceKey,
+                fieldNodeKey,
+                annotationType,
+                classification,
+                dataCategory,
+                complianceTags,
+                null,
+                null,
+                null,
+                mapOfNonNull(
+                        "visibility", visibility,
+                        "trainingUse", trainingUse,
+                        "ruleAuthoring", ruleAuthoring,
+                        "reasoningUse", reasoningUse,
+                        "reason", reason,
+                        "schemaId", schemaRef != null ? schemaRef.schemaId() : null,
+                        "schemaRole", schemaRole
+                ),
+                "dto-field-heuristic",
+                confidence
+        );
     }
 
     private void ensureContext(
@@ -904,6 +998,33 @@ public class SemanticDomainCatalogService {
 
     private Number numericValue(JsonNode node) {
         return node != null && node.isNumber() ? node.numberValue() : null;
+    }
+
+    private boolean containsAny(String value, String... candidates) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        for (String candidate : candidates) {
+            if (StringUtils.hasText(candidate) && value.contains(normalizeForSearch(candidate))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeForSearch(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replace('_', ' ')
+                .replace('-', ' ')
+                .replaceAll("([a-z])([A-Z])", "$1 $2")
+                .replaceAll("[^A-Za-z0-9]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim()
+                .toLowerCase(Locale.ROOT);
     }
 
     private String keyPart(String value) {

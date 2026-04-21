@@ -77,6 +77,20 @@ class SemanticDomainCatalogServiceTest {
                 .contains("workflow_action", "ui_surface", "dto_field", "option_source");
         assertThat(response.evidence()).extracting(DomainCatalogResponse.DomainEvidenceItem::evidenceType)
                 .contains("annotation", "dto_schema", "option_source");
+        assertThat(response.governance())
+                .filteredOn(item -> "human-resources.folhas-pagamento.field.valor-liquido".equals(item.nodeKey()))
+                .singleElement()
+                .satisfies(item -> {
+                    assertThat(item.annotationType()).isEqualTo("privacy");
+                    assertThat(item.classification()).isEqualTo("confidential");
+                    assertThat(item.dataCategory()).isEqualTo("financial");
+                    assertThat(item.complianceTags()).containsExactly("LGPD", "INTERNAL_POLICY");
+                    assertThat(item.aiUsage())
+                            .containsEntry("visibility", "mask")
+                            .containsEntry("trainingUse", "deny")
+                            .containsEntry("ruleAuthoring", "review_required")
+                            .containsEntry("reasoningUse", "allow");
+                });
     }
 
     private OptionSourceRegistry optionSources() {

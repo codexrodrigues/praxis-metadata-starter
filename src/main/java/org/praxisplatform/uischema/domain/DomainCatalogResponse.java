@@ -118,6 +118,11 @@ public record DomainCatalogResponse(
             String nodeKey,
             String annotationType,
             String classification,
+            String dataCategory,
+            List<String> complianceTags,
+            String owner,
+            String steward,
+            String retentionPolicy,
             Map<String, Object> aiUsage,
             String source,
             Double confidence
