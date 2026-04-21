@@ -281,7 +281,7 @@ Dependencia minima:
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>8.0.0-rc.6</version>
+  <version>8.0.0-rc.7</version>
 </dependency>
 ```
 

@@ -13,7 +13,9 @@ import org.praxisplatform.uischema.analytics.UiAnalyticsOpenApiCustomizer;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
 import org.praxisplatform.uischema.controller.docs.ActionCatalogController;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
+import org.praxisplatform.uischema.controller.docs.SemanticDomainCatalogController;
 import org.praxisplatform.uischema.controller.docs.SurfaceCatalogController;
+import org.praxisplatform.uischema.domain.SemanticDomainCatalogService;
 import org.praxisplatform.uischema.exporting.CollectionExportEngine;
 import org.praxisplatform.uischema.exporting.CollectionExportExecutor;
 import org.praxisplatform.uischema.exporting.CsvCollectionExportEngine;
@@ -491,6 +493,30 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean({ActionDefinitionRegistry.class, SurfaceDefinitionRegistry.class})
+    @ConditionalOnMissingBean
+    public SemanticDomainCatalogService semanticDomainCatalogService(
+            ActionDefinitionRegistry actionDefinitionRegistry,
+            SurfaceDefinitionRegistry surfaceDefinitionRegistry,
+            OptionSourceRegistry optionSourceRegistry,
+            OpenApiDocumentService openApiDocumentService,
+            @Value("${spring.application.name:praxis-service}") String serviceKey,
+            @Value("${praxis.metadata.domain.service-name:${spring.application.name:praxis-service}}") String serviceName,
+            @Value("${praxis.metadata.domain.service-version:}") String serviceVersion
+    ) {
+        return new SemanticDomainCatalogService(
+                actionDefinitionRegistry,
+                surfaceDefinitionRegistry,
+                optionSourceRegistry,
+                openApiDocumentService,
+                Clock.systemUTC(),
+                serviceKey,
+                serviceName,
+                serviceVersion
+        );
+    }
+
+    @Bean
     @ConditionalOnBean({SurfaceCatalogService.class, ActionCatalogService.class})
     @ConditionalOnMissingBean
     public CapabilityService capabilityService(
@@ -534,5 +560,14 @@ public class OpenApiUiSchemaAutoConfiguration {
     @ConditionalOnMissingBean
     public ActionCatalogController actionCatalogController(ActionCatalogService actionCatalogService) {
         return new ActionCatalogController(actionCatalogService);
+    }
+
+    @Bean
+    @ConditionalOnBean(SemanticDomainCatalogService.class)
+    @ConditionalOnMissingBean
+    public SemanticDomainCatalogController semanticDomainCatalogController(
+            SemanticDomainCatalogService semanticDomainCatalogService
+    ) {
+        return new SemanticDomainCatalogController(semanticDomainCatalogService);
     }
 }

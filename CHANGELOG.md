@@ -2,6 +2,18 @@
 
 All notable changes to this module will be documented in this file.
 
+## [8.0.0-rc.7] - 2026-04-21
+
+### Added
+- `GET /schemas/domain` as the runtime semantic domain catalog surface.
+- Domain catalog nodes for contexts, concepts, actions, surfaces, states, policy hints and DTO fields.
+- Domain catalog edges, bindings and evidence derived from runtime annotations, option sources and OpenAPI schemas.
+- Field extraction for canonical `/schemas/filtered` references, including wrapper and `$ref` resolution.
+
+### Changed
+- `OptionSourceRegistry` now contributes semantic option-source signals to the domain catalog.
+- Auto-configuration registers the semantic domain catalog service and controller.
+
 ## [8.0.0-rc.6] - 2026-04-20
 
 ### Removed

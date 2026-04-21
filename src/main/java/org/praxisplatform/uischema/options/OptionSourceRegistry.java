@@ -107,6 +107,23 @@ public final class OptionSourceRegistry {
     }
 
     /**
+     * Retorna todos os descritores registrados em ordem estavel de insercao.
+     *
+     * <p>
+     * Esta visao e voltada a superficies documentais e semanticas, como catalogos de dominio e
+     * pipelines de indexacao. Chamadores nao devem assumir que a classe Java do recurso faz parte
+     * do contrato publico; para esse caso use os metadados do proprio descritor.
+     * </p>
+     *
+     * @return colecao imutavel dos descritores conhecidos
+     */
+    public Collection<OptionSourceDescriptor> descriptors() {
+        return descriptorsByResource.values().stream()
+                .flatMap(byKey -> byKey.values().stream())
+                .toList();
+    }
+
+    /**
      * Resolve uma option-source pelo path do recurso e pelo campo efetivo de filtro.
      *
      * <p>
