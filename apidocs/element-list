@@ -7,6 +7,7 @@ org.praxisplatform.uischema.configuration
 org.praxisplatform.uischema.constants
 org.praxisplatform.uischema.controller.base
 org.praxisplatform.uischema.controller.docs
+org.praxisplatform.uischema.domain
 org.praxisplatform.uischema.dto
 org.praxisplatform.uischema.exporting
 org.praxisplatform.uischema.extension
