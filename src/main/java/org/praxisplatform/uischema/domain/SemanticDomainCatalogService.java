@@ -516,6 +516,23 @@ public class SemanticDomainCatalogService {
                     schemaRef, schemaRole, "financial-field-name", 0.72);
         }
 
+        if (containsAny(searchable, "risco", "risk", "ameaca", "threat", "missao", "mission",
+                "objetivo", "objective", "local", "location", "severidade", "severity",
+                "incidente", "incident", "prioridade", "priority")) {
+            return governanceItem(fieldNodeKey, "operational_risk", "confidential", "operational_security",
+                    List.of("INTERNAL_POLICY"), "summarize", "deny", "review_required", "review_required",
+                    schemaRef, schemaRole, "operational-risk-field-name", 0.68);
+        }
+
+        if (containsAny(searchable, "regulatorio", "regulatory", "compliance", "jurisdicao",
+                "jurisdiction", "acordo", "agreement", "licenca", "license", "homologacao",
+                "homologation", "aprovacao", "approval", "bloqueio", "disabled", "blocked",
+                "status")) {
+            return governanceItem(fieldNodeKey, "compliance", "internal", "regulatory",
+                    List.of("INTERNAL_POLICY", "REGULATORY"), "allow", "deny", "review_required", "allow",
+                    schemaRef, schemaRole, "compliance-field-name", 0.66);
+        }
+
         return null;
     }
 

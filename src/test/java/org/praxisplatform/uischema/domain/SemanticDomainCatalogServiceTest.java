@@ -110,6 +110,34 @@ class SemanticDomainCatalogServiceTest {
                             .containsEntry("ruleAuthoring", "review_required")
                             .containsEntry("reasoningUse", "allow");
                 });
+        assertThat(response.governance())
+                .filteredOn(item -> "human-resources.folhas-pagamento.field.risco-operacional".equals(item.nodeKey()))
+                .singleElement()
+                .satisfies(item -> {
+                    assertThat(item.annotationType()).isEqualTo("operational_risk");
+                    assertThat(item.classification()).isEqualTo("confidential");
+                    assertThat(item.dataCategory()).isEqualTo("operational_security");
+                    assertThat(item.complianceTags()).containsExactly("INTERNAL_POLICY");
+                    assertThat(item.aiUsage())
+                            .containsEntry("visibility", "summarize")
+                            .containsEntry("trainingUse", "deny")
+                            .containsEntry("ruleAuthoring", "review_required")
+                            .containsEntry("reasoningUse", "review_required");
+                });
+        assertThat(response.governance())
+                .filteredOn(item -> "human-resources.folhas-pagamento.field.jurisdicao".equals(item.nodeKey()))
+                .singleElement()
+                .satisfies(item -> {
+                    assertThat(item.annotationType()).isEqualTo("compliance");
+                    assertThat(item.classification()).isEqualTo("internal");
+                    assertThat(item.dataCategory()).isEqualTo("regulatory");
+                    assertThat(item.complianceTags()).containsExactly("INTERNAL_POLICY", "REGULATORY");
+                    assertThat(item.aiUsage())
+                            .containsEntry("visibility", "allow")
+                            .containsEntry("trainingUse", "deny")
+                            .containsEntry("ruleAuthoring", "review_required")
+                            .containsEntry("reasoningUse", "allow");
+                });
     }
 
     private OptionSourceRegistry optionSources() {
@@ -280,6 +308,14 @@ class SemanticDomainCatalogServiceTest {
                                                             "type", "number",
                                                             "format", "double",
                                                             "description", "Valor liquido da folha"
+                                                    ),
+                                                    "riscoOperacional", Map.of(
+                                                            "type", "string",
+                                                            "description", "Risco operacional associado ao processamento"
+                                                    ),
+                                                    "jurisdicao", Map.of(
+                                                            "type", "string",
+                                                            "description", "Jurisdicao regulatoria aplicavel"
                                                     )
                                             )
                                     ),

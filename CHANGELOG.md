@@ -11,6 +11,9 @@ All notable changes to this module will be documented in this file.
 - Domain catalog aliases are now materialized from generated labels and stable
   runtime identifiers such as field names, workflow action IDs and UI surface
   IDs.
+- Domain field governance now recognizes operational risk and regulatory
+  compliance vocabulary, so AI context can classify mission, incident,
+  jurisdiction, approval and blocking fields beyond privacy/financial signals.
 
 ## [8.0.0-rc.7] - 2026-04-21
 
