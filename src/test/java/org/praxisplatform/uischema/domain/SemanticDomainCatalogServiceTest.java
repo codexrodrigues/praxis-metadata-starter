@@ -114,7 +114,7 @@ class SemanticDomainCatalogServiceTest {
                 .filteredOn(item -> "human-resources.folhas-pagamento.field.risco-operacional".equals(item.nodeKey()))
                 .singleElement()
                 .satisfies(item -> {
-                    assertThat(item.annotationType()).isEqualTo("operational_risk");
+                    assertThat(item.annotationType()).isEqualTo("security");
                     assertThat(item.classification()).isEqualTo("confidential");
                     assertThat(item.dataCategory()).isEqualTo("operational_security");
                     assertThat(item.complianceTags()).containsExactly("INTERNAL_POLICY");

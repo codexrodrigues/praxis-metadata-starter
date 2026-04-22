@@ -519,7 +519,7 @@ public class SemanticDomainCatalogService {
         if (containsAny(searchable, "risco", "risk", "ameaca", "threat", "missao", "mission",
                 "objetivo", "objective", "local", "location", "severidade", "severity",
                 "incidente", "incident", "prioridade", "priority")) {
-            return governanceItem(fieldNodeKey, "operational_risk", "confidential", "operational_security",
+            return governanceItem(fieldNodeKey, "security", "confidential", "operational_security",
                     List.of("INTERNAL_POLICY"), "summarize_only", "deny", "review_required", "review_required",
                     schemaRef, schemaRole, "operational-risk-field-name", 0.68);
         }
