@@ -46,7 +46,10 @@ public record DomainCatalogResponse(
             String source,
             String status,
             List<String> tags,
-            Double confidence
+            Double confidence,
+            String semanticOwner,
+            String lifecycle,
+            Map<String, Object> businessGlossary
     ) {
     }
 
@@ -61,7 +64,12 @@ public record DomainCatalogResponse(
             Double confidence,
             Map<String, Object> metadata,
             List<String> tags,
-            String owner
+            String owner,
+            String semanticOwner,
+            String lifecycle,
+            Map<String, Object> businessGlossary,
+            Map<String, Object> resolution,
+            List<String> sourceEvidenceKeys
     ) {
     }
 

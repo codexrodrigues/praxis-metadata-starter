@@ -2,6 +2,16 @@
 
 All notable changes to this module will be documented in this file.
 
+## Unreleased
+
+### Changed
+- `GET /schemas/domain` now emits `praxis.domain-catalog/v0.2` with explicit
+  semantic ownership, lifecycle, business glossary, resolution metadata and
+  source evidence keys on generated context/node items.
+- Domain catalog aliases are now materialized from generated labels and stable
+  runtime identifiers such as field names, workflow action IDs and UI surface
+  IDs.
+
 ## [8.0.0-rc.7] - 2026-04-21
 
 ### Added

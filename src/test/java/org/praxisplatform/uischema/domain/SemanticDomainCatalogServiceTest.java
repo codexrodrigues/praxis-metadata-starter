@@ -46,9 +46,15 @@ class SemanticDomainCatalogServiceTest {
 
         DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
 
-        assertThat(response.schemaVersion()).isEqualTo("praxis.domain-catalog/v0.1");
+        assertThat(response.schemaVersion()).isEqualTo("praxis.domain-catalog/v0.2");
         assertThat(response.contexts()).extracting(DomainCatalogResponse.DomainContextItem::contextKey)
                 .containsExactly("human-resources");
+        assertThat(response.contexts()).singleElement()
+                .satisfies(context -> {
+                    assertThat(context.lifecycle()).isEqualTo("active");
+                    assertThat(context.semanticOwner()).isEqualTo("human-resources");
+                    assertThat(context.businessGlossary()).containsEntry("preferredTerm", "Human Resources");
+                });
         assertThat(response.nodes()).extracting(DomainCatalogResponse.DomainNodeItem::nodeKey)
                 .contains(
                         "human-resources.folhas-pagamento",
@@ -66,11 +72,24 @@ class SemanticDomainCatalogServiceTest {
                         .containsEntry("resourcePath", "/api/human-resources/folhas-pagamento"));
         assertThat(response.nodes()).filteredOn(node -> "human-resources.folhas-pagamento.field.valor-liquido".equals(node.nodeKey()))
                 .singleElement()
-                .satisfies(node -> assertThat(node.metadata())
-                        .containsEntry("fieldName", "valorLiquido")
-                        .containsEntry("schemaId", "canonical-response-id")
-                        .containsEntry("type", "number")
-                        .containsEntry("format", "double"));
+                .satisfies(node -> {
+                    assertThat(node.lifecycle()).isEqualTo("active");
+                    assertThat(node.semanticOwner()).isEqualTo("human-resources");
+                    assertThat(node.sourceEvidenceKeys()).containsExactly("evidence:human-resources.folhas-pagamento.field.valor-liquido:canonical-response-id");
+                    assertThat(node.businessGlossary())
+                            .containsEntry("preferredTerm", "Valor Liquido")
+                            .containsEntry("description", "Valor liquido da folha");
+                    assertThat(node.resolution())
+                            .containsEntry("canonicalKey", "human-resources.folhas-pagamento.field.valor-liquido")
+                            .containsEntry("ambiguityPolicy", "exact-key-or-alias");
+                    assertThat(node.metadata())
+                            .containsEntry("fieldName", "valorLiquido")
+                            .containsEntry("schemaId", "canonical-response-id")
+                            .containsEntry("type", "number")
+                            .containsEntry("format", "double");
+                });
+        assertThat(response.aliases()).extracting(DomainCatalogResponse.DomainAliasItem::alias)
+                .contains("valorLiquido", "Valor Liquido", "mark-paid", "Marcar como paga");
         assertThat(response.edges()).extracting(DomainCatalogResponse.DomainEdgeItem::edgeType)
                 .contains("has_action", "has_surface", "has_field", "allowed_in_state", "selectable_when", "blocked_when");
         assertThat(response.bindings()).extracting(DomainCatalogResponse.DomainBindingItem::bindingType)

@@ -38,7 +38,7 @@ import java.util.Set;
  */
 public class SemanticDomainCatalogService {
 
-    public static final String SCHEMA_VERSION = "praxis.domain-catalog/v0.1";
+    public static final String SCHEMA_VERSION = "praxis.domain-catalog/v0.2";
 
     private final ActionDefinitionRegistry actionDefinitionRegistry;
     private final SurfaceDefinitionRegistry surfaceDefinitionRegistry;
@@ -140,7 +140,7 @@ public class SemanticDomainCatalogService {
                 List.copyOf(nodes.values()),
                 List.copyOf(edges.values()),
                 List.copyOf(bindings.values()),
-                List.of(),
+                buildAliases(nodes),
                 List.copyOf(evidence.values()),
                 List.copyOf(governance.values())
         );
@@ -173,7 +173,12 @@ public class SemanticDomainCatalogService {
                         "resourceKey", action.resourceKey()
                 ),
                 nonNullList(action.tags()),
-                null
+                null,
+                action.group(),
+                "active",
+                glossary(firstText(action.title(), action.id()), action.description(), action.tags()),
+                resolution(actionNodeKey, List.of(action.id(), action.title()), "exact-key-or-alias"),
+                List.of(evidenceKey)
         ));
 
         putEdge(edges, resourceNodeKey + ".has-action." + keyPart(action.id()), resourceNodeKey, actionNodeKey,
@@ -233,7 +238,12 @@ public class SemanticDomainCatalogService {
                         "resourceKey", surface.resourceKey()
                 ),
                 nonNullList(surface.tags()),
-                null
+                null,
+                surface.group(),
+                "active",
+                glossary(firstText(surface.title(), surface.id()), surface.description(), surface.tags()),
+                resolution(surfaceNodeKey, List.of(surface.id(), surface.title(), surface.intent()), "exact-key-or-alias"),
+                List.of(evidenceKey)
         ));
 
         putEdge(edges, resourceNodeKey + ".has-surface." + keyPart(surface.id()), resourceNodeKey, surfaceNodeKey,
@@ -289,7 +299,12 @@ public class SemanticDomainCatalogService {
                 0.9,
                 descriptor.toMetadataMap(),
                 List.of("option-source", "lookup", "selection-policy"),
-                null
+                null,
+                contextKey,
+                "active",
+                glossary("Politica de selecao " + descriptor.key(), "Politica documental de selecao publicada por option-source.", List.of("option-source", "selection-policy")),
+                resolution(policyNodeKey, List.of(descriptor.key(), descriptor.resourcePath()), "exact-key-or-alias"),
+                List.of(evidenceKey)
         ));
 
         if (selectionPolicy != null && !selectionPolicy.allowedStatuses().isEmpty()) {
@@ -409,7 +424,12 @@ public class SemanticDomainCatalogService {
                         "pattern", effectiveSchema.path("pattern").asText(null)
                 ),
                 List.of("dto-field", schemaRole),
-                null
+                null,
+                contextKey,
+                "active",
+                glossary(labelFromKey(fieldName), effectiveSchema.path("description").asText(null), List.of("dto-field", schemaRole)),
+                resolution(fieldNodeKey, List.of(fieldName, labelFromKey(fieldName), schemaRef.schemaId()), "exact-key-or-alias"),
+                List.of(evidenceKey)
         ));
 
         putEdge(edges, resourceKey + ".has-field." + keyPart(fieldName), resourceKey, fieldNodeKey,
@@ -552,7 +572,10 @@ public class SemanticDomainCatalogService {
                 StringUtils.hasText(group) ? "openapi-group" : "resource-key",
                 "active",
                 List.of(),
-                0.75
+                0.75,
+                StringUtils.hasText(group) ? group : contextKey,
+                "active",
+                glossary(labelFromKey(contextKey), null, List.of("bounded-context"))
         ));
     }
 
@@ -579,7 +602,12 @@ public class SemanticDomainCatalogService {
                         "group", group
                 ),
                 nonNullList(tags),
-                null
+                null,
+                contextKey,
+                "active",
+                glossary(labelFromKey(lastSegment(resourceKey)), null, tags),
+                resolution(resourceKey, List.of(resourceKey, resourcePath, lastSegment(resourceKey)), "exact-key-or-alias"),
+                List.of()
         ));
     }
 
@@ -602,7 +630,12 @@ public class SemanticDomainCatalogService {
                 0.9,
                 mapOfNonNull("state", state, "evidenceKey", evidenceKey),
                 List.of(),
-                null
+                null,
+                contextKey,
+                "active",
+                glossary(labelFromKey(state), null, List.of("state")),
+                resolution(stateNodeKey, List.of(state, labelFromKey(state)), "exact-key-or-alias"),
+                List.of(evidenceKey)
         ));
     }
 
@@ -635,6 +668,69 @@ public class SemanticDomainCatalogService {
             Double confidence
     ) {
         return new DomainCatalogResponse.DomainEvidenceItem(evidenceKey, evidenceType, sourceRef, summary, confidence);
+    }
+
+    private List<DomainCatalogResponse.DomainAliasItem> buildAliases(
+            Map<String, DomainCatalogResponse.DomainNodeItem> nodes
+    ) {
+        Map<String, DomainCatalogResponse.DomainAliasItem> aliases = new LinkedHashMap<>();
+        for (DomainCatalogResponse.DomainNodeItem node : nodes.values()) {
+            addAlias(aliases, node.nodeKey(), node.label(), "generated-label", node.confidence());
+            Object fieldName = node.metadata() != null ? node.metadata().get("fieldName") : null;
+            if (fieldName instanceof String value) {
+                addAlias(aliases, node.nodeKey(), value, "schema-field-name", node.confidence());
+            }
+            Object actionId = node.metadata() != null ? node.metadata().get("actionId") : null;
+            if (actionId instanceof String value) {
+                addAlias(aliases, node.nodeKey(), value, "workflow-action-id", node.confidence());
+            }
+            Object surfaceId = node.metadata() != null ? node.metadata().get("surfaceId") : null;
+            if (surfaceId instanceof String value) {
+                addAlias(aliases, node.nodeKey(), value, "ui-surface-id", node.confidence());
+            }
+        }
+        return List.copyOf(aliases.values());
+    }
+
+    private void addAlias(
+            Map<String, DomainCatalogResponse.DomainAliasItem> aliases,
+            String nodeKey,
+            String alias,
+            String source,
+            Double confidence
+    ) {
+        if (!StringUtils.hasText(nodeKey) || !StringUtils.hasText(alias)) {
+            return;
+        }
+        String normalizedAlias = alias.trim();
+        if (nodeKey.equals(normalizedAlias)) {
+            return;
+        }
+        String aliasKey = "alias:" + nodeKey + ":" + keyPart(source) + ":" + keyPart(normalizedAlias);
+        aliases.putIfAbsent(aliasKey, new DomainCatalogResponse.DomainAliasItem(
+                aliasKey,
+                nodeKey,
+                normalizedAlias,
+                null,
+                source,
+                confidence
+        ));
+    }
+
+    private Map<String, Object> glossary(String preferredTerm, String description, List<String> examples) {
+        return mapOfNonNull(
+                "preferredTerm", preferredTerm,
+                "description", description,
+                "examples", nonNullList(examples)
+        );
+    }
+
+    private Map<String, Object> resolution(String canonicalKey, List<String> matchKeys, String ambiguityPolicy) {
+        return mapOfNonNull(
+                "canonicalKey", canonicalKey,
+                "matchKeys", nonNullList(matchKeys),
+                "ambiguityPolicy", ambiguityPolicy
+        );
     }
 
     private Map<String, Object> operationTarget(
