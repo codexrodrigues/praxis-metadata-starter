@@ -119,7 +119,7 @@ class SemanticDomainCatalogServiceTest {
                     assertThat(item.dataCategory()).isEqualTo("operational_security");
                     assertThat(item.complianceTags()).containsExactly("INTERNAL_POLICY");
                     assertThat(item.aiUsage())
-                            .containsEntry("visibility", "summarize")
+                            .containsEntry("visibility", "summarize_only")
                             .containsEntry("trainingUse", "deny")
                             .containsEntry("ruleAuthoring", "review_required")
                             .containsEntry("reasoningUse", "review_required");

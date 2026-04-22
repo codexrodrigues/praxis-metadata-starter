@@ -520,7 +520,7 @@ public class SemanticDomainCatalogService {
                 "objetivo", "objective", "local", "location", "severidade", "severity",
                 "incidente", "incident", "prioridade", "priority")) {
             return governanceItem(fieldNodeKey, "operational_risk", "confidential", "operational_security",
-                    List.of("INTERNAL_POLICY"), "summarize", "deny", "review_required", "review_required",
+                    List.of("INTERNAL_POLICY"), "summarize_only", "deny", "review_required", "review_required",
                     schemaRef, schemaRole, "operational-risk-field-name", 0.68);
         }
 
