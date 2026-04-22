@@ -519,7 +519,7 @@ public class SemanticDomainCatalogService {
         if (containsAny(searchable, "risco", "risk", "ameaca", "threat", "missao", "mission",
                 "objetivo", "objective", "local", "location", "severidade", "severity",
                 "incidente", "incident", "prioridade", "priority")) {
-            return governanceItem(fieldNodeKey, "security", "confidential", "operational_security",
+            return governanceItem(fieldNodeKey, "security", "confidential", "operational",
                     List.of("INTERNAL_POLICY"), "summarize_only", "deny", "review_required", "review_required",
                     schemaRef, schemaRole, "operational-risk-field-name", 0.68);
         }
@@ -528,7 +528,7 @@ public class SemanticDomainCatalogService {
                 "jurisdiction", "acordo", "agreement", "licenca", "license", "homologacao",
                 "homologation", "aprovacao", "approval", "bloqueio", "disabled", "blocked",
                 "status")) {
-            return governanceItem(fieldNodeKey, "compliance", "internal", "regulatory",
+            return governanceItem(fieldNodeKey, "compliance", "internal", "legal",
                     List.of("INTERNAL_POLICY", "REGULATORY"), "allow", "deny", "review_required", "allow",
                     schemaRef, schemaRole, "compliance-field-name", 0.66);
         }

@@ -116,7 +116,7 @@ class SemanticDomainCatalogServiceTest {
                 .satisfies(item -> {
                     assertThat(item.annotationType()).isEqualTo("security");
                     assertThat(item.classification()).isEqualTo("confidential");
-                    assertThat(item.dataCategory()).isEqualTo("operational_security");
+                    assertThat(item.dataCategory()).isEqualTo("operational");
                     assertThat(item.complianceTags()).containsExactly("INTERNAL_POLICY");
                     assertThat(item.aiUsage())
                             .containsEntry("visibility", "summarize_only")
@@ -130,7 +130,7 @@ class SemanticDomainCatalogServiceTest {
                 .satisfies(item -> {
                     assertThat(item.annotationType()).isEqualTo("compliance");
                     assertThat(item.classification()).isEqualTo("internal");
-                    assertThat(item.dataCategory()).isEqualTo("regulatory");
+                    assertThat(item.dataCategory()).isEqualTo("legal");
                     assertThat(item.complianceTags()).containsExactly("INTERNAL_POLICY", "REGULATORY");
                     assertThat(item.aiUsage())
                             .containsEntry("visibility", "allow")
