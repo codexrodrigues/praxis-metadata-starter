@@ -4,6 +4,8 @@ All notable changes to this module will be documented in this file.
 
 ## Unreleased
 
+## [8.0.0-rc.13] - 2026-04-22
+
 ### Changed
 - `GET /schemas/domain` now emits `praxis.domain-catalog/v0.2` with explicit
   semantic ownership, lifecycle, business glossary, resolution metadata and
@@ -14,6 +16,16 @@ All notable changes to this module will be documented in this file.
 - Domain field governance now recognizes operational risk and regulatory
   compliance vocabulary, so AI context can classify mission, incident,
   jurisdiction, approval and blocking fields beyond privacy/financial signals.
+
+### Fixed
+- Domain catalog governance now emits config-compatible enum values for
+  `annotationType`, `dataCategory` and `aiUsage.visibility`, including
+  `security`, `operational`, `legal` and `summarize_only`.
+
+### Validated
+- `praxis-api-quickstart` consumes this release with `praxis-config-starter`
+  `0.1.0-rc.6` and validates critical `/schemas/domain` payloads against the
+  config-starter schema contract.
 
 ## [8.0.0-rc.7] - 2026-04-21
 
