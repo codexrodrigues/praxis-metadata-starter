@@ -109,6 +109,7 @@ class SemanticDomainCatalogServiceTest {
                             .containsEntry("trainingUse", "deny")
                             .containsEntry("ruleAuthoring", "review_required")
                             .containsEntry("reasoningUse", "allow");
+                    assertThat(item.source()).isEqualTo("java.annotation");
                 });
         assertThat(response.governance())
                 .filteredOn(item -> "human-resources.folhas-pagamento.field.risco-operacional".equals(item.nodeKey()))
@@ -307,7 +308,22 @@ class SemanticDomainCatalogServiceTest {
                                                     "valorLiquido", Map.of(
                                                             "type", "number",
                                                             "format", "double",
-                                                            "description", "Valor liquido da folha"
+                                                            "description", "Valor liquido da folha",
+                                                            "x-domain-governance", Map.of(
+                                                                    "annotationType", "privacy",
+                                                                    "classification", "confidential",
+                                                                    "dataCategory", "financial",
+                                                                    "complianceTags", List.of("LGPD", "INTERNAL_POLICY"),
+                                                                    "aiUsage", Map.of(
+                                                                            "visibility", "mask",
+                                                                            "trainingUse", "deny",
+                                                                            "ruleAuthoring", "review_required",
+                                                                            "reasoningUse", "allow"
+                                                                    ),
+                                                                    "reason", "Campo financeiro explicitamente marcado.",
+                                                                    "source", "java.annotation",
+                                                                    "confidence", 1.0d
+                                                            )
                                                     ),
                                                     "riscoOperacional", Map.of(
                                                             "type", "string",

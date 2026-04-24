@@ -30,6 +30,7 @@
 - Core (minimo obrigatorio)
   - x-ui por campo segue o schema e utiliza chaves canonicas para tipo, controle e validacoes basicas
   - x-ui.resource presente no payload de `/schemas/filtered` contendo `idField`, `idFieldValid`, `readOnly`, `capabilities`
+  - `/schemas/domain` publica vocabulario, bindings, aliases, evidencias e governanca como superficie semantica derivada, sem substituir `/schemas/filtered`
   - `/schemas/surfaces` e `/schemas/actions` publicam apenas discovery semantico e links para schemas canonicos resolviveis via `/schemas/filtered`
   - ETag forte no `/schemas/filtered` e hash deterministico em `X-Schema-Hash`
   - `schemaId` estavel conforme composicao `path|operation|schemaType|internal|tenant|locale`
@@ -44,6 +45,7 @@
   - popular mensagens de validacao (`*Message`) para melhor UX
   - incluir `capabilities.options|byId|all|filter|cursor` quando aplicavel
   - manter `/schemas/surfaces` e `/schemas/actions` sincronizados com a semantica publicada por `@UiSurface` e `@WorkflowAction`
+  - declarar campos sensiveis com `@DomainGovernance` e politicas de IA tipadas por `AiUsageMode`
   - adotar `custom.*` para extensoes privadas do host
   - publicar `x-ui.optionSource` para fontes derivadas governadas, evitando promover `INPUT` em campos com semantica corporativa clara
   - publicar detalhes de `export` em `/capabilities` com formatos, escopos, limites e async quando o service declarar suporte real a exportacao de colecao
@@ -76,8 +78,13 @@
   - `readOnly` -> bloqueio de edicao
   - `capabilities` -> habilitacao de acoes e utilitarios
 - discovery semantico
+  - `/schemas/domain` -> vocabulario semantico AI-operable, evidencias e governanca de dominio
   - `/schemas/surfaces` -> catalogo semantico de `@UiSurface` e surfaces automaticas do recurso
   - `/schemas/actions` -> catalogo semantico de `@WorkflowAction`
+- x-domain-governance
+  - `annotationType`, `classification`, `dataCategory` -> classificacao canonica do campo
+  - `aiUsage.*` -> politica de visibilidade, treino, authoring e raciocinio assistido por IA
+  - `source`, `confidence`, `reason` -> explicabilidade e auditoria da classificacao
 - exportacao de colecao
   - `/capabilities.operations.export` -> discovery agregado de suporte, formatos, escopos, limites e async
   - `POST /{resource}/export` -> execucao governada pelo service do recurso

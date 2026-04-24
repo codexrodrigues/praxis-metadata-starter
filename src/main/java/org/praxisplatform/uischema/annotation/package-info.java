@@ -10,6 +10,11 @@
  * <ul>
  *   <li>{@link org.praxisplatform.uischema.annotation.ApiResource} fixa identidade e path do recurso;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.ApiGroup} organiza a documentacao OpenAPI publica;</li>
+ *   <li>{@link org.praxisplatform.uischema.annotation.DomainGovernance} declara classificacao semantica e politicas de IA para campos;</li>
+ *   <li>{@link org.praxisplatform.uischema.annotation.DomainGovernanceKind},
+ *       {@link org.praxisplatform.uischema.annotation.DomainClassification},
+ *       {@link org.praxisplatform.uischema.annotation.DomainDataCategory} e
+ *       {@link org.praxisplatform.uischema.annotation.AiUsageMode} fixam os tokens canonicos de governanca;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.UiSurface} publica discovery semantico de experiencias de UI;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.WorkflowAction} publica comandos explicitos de negocio;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.ResourceCapabilities} resume capacidades habilitadas do recurso.</li>

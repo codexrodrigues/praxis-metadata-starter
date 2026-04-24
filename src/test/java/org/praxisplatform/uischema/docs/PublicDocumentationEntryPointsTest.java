@@ -29,6 +29,10 @@ class PublicDocumentationEntryPointsTest {
                         "README.md should mention /schemas/actions"
                 ),
                 () -> assertTrue(
+                        readme.contains("/schemas/domain"),
+                        "README.md should mention /schemas/domain"
+                ),
+                () -> assertTrue(
                         changelog.contains("uisurface") || changelog.contains("/schemas/surfaces"),
                         "CHANGELOG.md should mention the semantic surface rollout"
                 ),
@@ -43,6 +47,10 @@ class PublicDocumentationEntryPointsTest {
                 () -> assertTrue(
                         conformance.contains("/schemas/actions"),
                         "CONFORMANCE.md should mention /schemas/actions"
+                ),
+                () -> assertTrue(
+                        conformance.contains("/schemas/domain"),
+                        "CONFORMANCE.md should mention /schemas/domain"
                 )
         );
     }

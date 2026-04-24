@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Contrato v0.1 do catalogo semantico publicado por {@code /schemas/domain}.
+ * Contrato v0.2 do catalogo semantico publicado por {@code /schemas/domain}.
  *
  * <p>
  * O contrato descreve vocabulario de dominio extraido de metadados ja conhecidos pelo runtime,

@@ -6,6 +6,12 @@ import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.NumericFormat;
+import org.praxisplatform.uischema.annotation.AiUsageMode;
+import org.praxisplatform.uischema.annotation.AiUsagePolicy;
+import org.praxisplatform.uischema.annotation.DomainClassification;
+import org.praxisplatform.uischema.annotation.DomainDataCategory;
+import org.praxisplatform.uischema.annotation.DomainGovernance;
+import org.praxisplatform.uischema.annotation.DomainGovernanceKind;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 
 import java.lang.annotation.Annotation;
@@ -33,6 +39,24 @@ class CustomOpenApiResolverTest {
                 )
         })
         String competencia;
+    }
+
+    private static class GovernanceDummy {
+        @DomainGovernance(
+                kind = DomainGovernanceKind.PRIVACY,
+                classification = DomainClassification.CONFIDENTIAL,
+                dataCategory = DomainDataCategory.PERSONAL,
+                complianceTags = {"LGPD", "GDPR"},
+                aiUsage = @AiUsagePolicy(
+                        visibility = AiUsageMode.MASK,
+                        trainingUse = AiUsageMode.DENY,
+                        ruleAuthoring = AiUsageMode.REVIEW_REQUIRED,
+                        reasoningUse = AiUsageMode.REVIEW_REQUIRED
+                ),
+                reason = "Documento pessoal do colaborador.",
+                confidence = 0.99d
+        )
+        String cpf;
     }
 
     @Test
@@ -166,6 +190,36 @@ class CustomOpenApiResolverTest {
 
         Map<String, Object> xui = getXui(property);
         assertNull(xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
+    }
+
+    @Test
+    void resolverShouldPublishExplicitDomainGovernanceExtension() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("cpf");
+
+        Annotation governance = GovernanceDummy.class.getDeclaredField("cpf").getAnnotation(DomainGovernance.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { governance, TestUISchemaDefaults.instance() }, null, false);
+
+        assertNotNull(property.getExtensions(), "Extensions should not be null");
+        Object rawGovernance = property.getExtensions().get("x-domain-governance");
+        assertNotNull(rawGovernance, "x-domain-governance extension should be present");
+        assertTrue(rawGovernance instanceof Map, "x-domain-governance should be a Map");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> governanceMap = (Map<String, Object>) rawGovernance;
+        assertEquals("privacy", governanceMap.get("annotationType"));
+        assertEquals("confidential", governanceMap.get("classification"));
+        assertEquals("personal", governanceMap.get("dataCategory"));
+        assertEquals("java.annotation", governanceMap.get("source"));
+        assertEquals(0.99d, governanceMap.get("confidence"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> aiUsage = (Map<String, Object>) governanceMap.get("aiUsage");
+        assertEquals("mask", aiUsage.get("visibility"));
+        assertEquals("deny", aiUsage.get("trainingUse"));
+        assertEquals("review_required", aiUsage.get("ruleAuthoring"));
+        assertEquals("review_required", aiUsage.get("reasoningUse"));
     }
 
     @SuppressWarnings("unchecked")

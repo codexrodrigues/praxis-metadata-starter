@@ -6,6 +6,10 @@ Escopo e Heranca
 - Foco deste guia: fronteiras canonicas, validacao minima, arquivos que costumam mudar juntos e artefatos derivados do starter.
 - Nao editar por padrao: `target/`, `docs/apidocs/`, `.m2repo/` e `.flattened-pom.xml`, salvo quando a tarefa for explicitamente sobre artefato gerado ou release.
 
+Premissa Local
+- Neste starter, tratar metadata e discovery como base de grounding para uma plataforma de decisoes semanticas authoradas por IA.
+- O papel do modulo nao e virar rule engine nem editor de config, mas publicar a semantica estrutural, contextual e regulatoria que a IA e os runtimes precisam para authorar, validar e explicar decisoes canônicas.
+
 Classificacao Padrao da Mudanca
 - `docs-apenas`: mudancas restritas a `AGENTS.md`, `README.md`, `CHANGELOG.md` ou `docs/**` sem efeito em contrato ou codigo.
 - `contrato-publico`: qualquer mudanca em `x-ui`, `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `/capabilities`, `_links`, ETag, `X-Schema-Hash`, anotacoes exportadas ou controladores/base publicos.
@@ -49,6 +53,7 @@ Fronteira Canonica Local
   - `src/main/java/org/praxisplatform/uischema/annotation/WorkflowAction.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/ResourceIntent.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/ResourceCapabilities.java`
+- Mudancas semanticas devem privilegiar estruturas que melhorem o grounding de decisoes authoradas por IA, evitando empurrar logica de negocio para `x-ui` incidental ou para convenções locais do host.
 
 Baseline Resource-Oriented
 - O starter publica uma unica hierarquia canonica resource-oriented.

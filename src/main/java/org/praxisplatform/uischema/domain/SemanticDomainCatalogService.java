@@ -37,6 +37,7 @@ import java.util.Set;
  * </p>
  */
 public class SemanticDomainCatalogService {
+    private static final String DOMAIN_GOVERNANCE_EXTENSION = "x-domain-governance";
 
     public static final String SCHEMA_VERSION = "praxis.domain-catalog/v0.2";
 
@@ -481,6 +482,12 @@ public class SemanticDomainCatalogService {
             CanonicalSchemaRef schemaRef,
             String schemaRole
     ) {
+        DomainCatalogResponse.DomainGovernanceItem explicitGovernance =
+                explicitFieldGovernance(fieldNodeKey, effectiveSchema, schemaRef, schemaRole);
+        if (explicitGovernance != null) {
+            return explicitGovernance;
+        }
+
         String searchable = normalizeForSearch(String.join(" ",
                 fieldName,
                 effectiveSchema.path("title").asText(""),
@@ -491,13 +498,13 @@ public class SemanticDomainCatalogService {
         if (containsAny(searchable, "senha", "password", "token", "secret", "credential", "credencial", "api key", "apikey")) {
             return governanceItem(fieldNodeKey, "security", "restricted", "credential",
                     List.of("INTERNAL_POLICY"), "deny", "deny", "deny", "deny",
-                    schemaRef, schemaRole, "security-sensitive-field-name", 0.78);
+                    schemaRef, schemaRole, "security-sensitive-field-name", "dto-field-heuristic", 0.78);
         }
 
         if (containsAny(searchable, "saude", "health", "medical", "medico", "cid", "diagnostico", "diagnosis")) {
             return governanceItem(fieldNodeKey, "privacy", "restricted", "sensitive_personal",
                     List.of("LGPD", "GDPR"), "mask", "deny", "review_required", "review_required",
-                    schemaRef, schemaRole, "sensitive-personal-field-name", 0.72);
+                    schemaRef, schemaRole, "sensitive-personal-field-name", "dto-field-heuristic", 0.72);
         }
 
         if (containsAny(searchable, "cpf", "cnpj", "rg", "documento", "document", "identidade", "passport",
@@ -505,7 +512,7 @@ public class SemanticDomainCatalogService {
                 "nascimento", "birth")) {
             return governanceItem(fieldNodeKey, "privacy", "confidential", "personal",
                     List.of("LGPD", "GDPR"), "mask", "deny", "review_required", "review_required",
-                    schemaRef, schemaRole, "personal-data-field-name", 0.74);
+                    schemaRef, schemaRole, "personal-data-field-name", "dto-field-heuristic", 0.74);
         }
 
         if (containsAny(searchable, "salario", "salary", "remuneracao", "remuneration", "valor liquido",
@@ -513,7 +520,7 @@ public class SemanticDomainCatalogService {
                 "benefit", "custo", "cost")) {
             return governanceItem(fieldNodeKey, "privacy", "confidential", "financial",
                     List.of("LGPD", "INTERNAL_POLICY"), "mask", "deny", "review_required", "allow",
-                    schemaRef, schemaRole, "financial-field-name", 0.72);
+                    schemaRef, schemaRole, "financial-field-name", "dto-field-heuristic", 0.72);
         }
 
         if (containsAny(searchable, "risco", "risk", "ameaca", "threat", "missao", "mission",
@@ -521,7 +528,7 @@ public class SemanticDomainCatalogService {
                 "incidente", "incident", "prioridade", "priority")) {
             return governanceItem(fieldNodeKey, "security", "confidential", "operational",
                     List.of("INTERNAL_POLICY"), "summarize_only", "deny", "review_required", "review_required",
-                    schemaRef, schemaRole, "operational-risk-field-name", 0.68);
+                    schemaRef, schemaRole, "operational-risk-field-name", "dto-field-heuristic", 0.68);
         }
 
         if (containsAny(searchable, "regulatorio", "regulatory", "compliance", "jurisdicao",
@@ -530,10 +537,49 @@ public class SemanticDomainCatalogService {
                 "status")) {
             return governanceItem(fieldNodeKey, "compliance", "internal", "legal",
                     List.of("INTERNAL_POLICY", "REGULATORY"), "allow", "deny", "review_required", "allow",
-                    schemaRef, schemaRole, "compliance-field-name", 0.66);
+                    schemaRef, schemaRole, "compliance-field-name", "dto-field-heuristic", 0.66);
         }
 
         return null;
+    }
+
+    private DomainCatalogResponse.DomainGovernanceItem explicitFieldGovernance(
+            String fieldNodeKey,
+            JsonNode effectiveSchema,
+            CanonicalSchemaRef schemaRef,
+            String schemaRole
+    ) {
+        JsonNode governanceNode = effectiveSchema.path(DOMAIN_GOVERNANCE_EXTENSION);
+        if (!governanceNode.isObject()) {
+            return null;
+        }
+
+        String annotationType = governanceNode.path("annotationType").asText(null);
+        String classification = governanceNode.path("classification").asText(null);
+        String dataCategory = governanceNode.path("dataCategory").asText(null);
+        if (!StringUtils.hasText(annotationType)
+                || !StringUtils.hasText(classification)
+                || !StringUtils.hasText(dataCategory)) {
+            return null;
+        }
+
+        JsonNode aiUsage = governanceNode.path("aiUsage");
+        return governanceItem(
+                fieldNodeKey,
+                annotationType,
+                classification,
+                dataCategory,
+                textValues(governanceNode.path("complianceTags")),
+                firstText(aiUsage.path("visibility").asText(null), "allow"),
+                firstText(aiUsage.path("trainingUse").asText(null), "deny"),
+                firstText(aiUsage.path("ruleAuthoring").asText(null), "review_required"),
+                firstText(aiUsage.path("reasoningUse").asText(null), "allow"),
+                schemaRef,
+                schemaRole,
+                firstText(governanceNode.path("reason").asText(null), "explicit-domain-governance"),
+                firstText(governanceNode.path("source").asText(null), "java.annotation"),
+                governanceNode.path("confidence").isNumber() ? governanceNode.path("confidence").doubleValue() : 1.0d
+        );
     }
 
     private DomainCatalogResponse.DomainGovernanceItem governanceItem(
@@ -549,6 +595,7 @@ public class SemanticDomainCatalogService {
             CanonicalSchemaRef schemaRef,
             String schemaRole,
             String reason,
+            String evidenceSource,
             Double confidence
     ) {
         String governanceKey = "governance:" + fieldNodeKey + ":" + annotationType;
@@ -571,7 +618,7 @@ public class SemanticDomainCatalogService {
                         "schemaId", schemaRef != null ? schemaRef.schemaId() : null,
                         "schemaRole", schemaRole
                 ),
-                "dto-field-heuristic",
+                evidenceSource,
                 confidence
         );
     }

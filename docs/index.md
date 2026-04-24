@@ -9,7 +9,7 @@ plataforma.
 
 - a trilha principal do backend canonico resource-oriented
 - o contrato estrutural e documental publicado pelo starter
-- a semantica de `surfaces`, `actions` e `capabilities`
+- a semantica de `domain`, `surfaces`, `actions` e `capabilities`
 - a operacao canonica de exportacao de colecao
 - referencia tecnica complementar em Javadoc
 
@@ -55,6 +55,7 @@ Isso significa:
 
 - `/schemas/filtered` segue como contrato estrutural
 - `/schemas/catalog` segue como catalogo documental
+- `/schemas/domain` publica vocabulario, aliases, evidencias e governanca AI-operable
 - `/schemas/surfaces` e `/schemas/actions` publicam discovery semantico
 - `/{resource}/capabilities` agrega as capacidades do recurso sem redefinir o contrato estrutural
 - `POST /{resource}/export` executa exportacao de colecao a partir de escopo, selecao, filtros, ordenacao e campos; o resultado pode ser binario inline ou `202 Accepted` com `status=deferred`, `downloadUrl` e `jobId`

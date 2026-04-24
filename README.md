@@ -7,6 +7,7 @@ Ele publica:
 - OpenAPI enriquecido com `x-ui`
 - `/schemas/filtered` como contrato estrutural consumido pelos runtimes
 - `/schemas/catalog` como catalogo documental e de discovery
+- `/schemas/domain` como catalogo semantico AI-operable de dominio, evidencias e governanca
 - `/schemas/surfaces` e `/schemas/actions` como discovery semantico
 - `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities` como snapshot agregado
 - `POST /{resource}/export` como operacao canonica de exportacao de colecao
@@ -63,6 +64,7 @@ Ela entrega:
 
 O baseline atual adiciona discovery orientado a recurso:
 
+- `GET /schemas/domain`
 - `GET /schemas/surfaces`
 - `GET /schemas/actions`
 - `GET /{resource}/capabilities`
@@ -72,9 +74,31 @@ O baseline atual adiciona discovery orientado a recurso:
 Regras importantes:
 
 - `surfaces` e `actions` sao catalogos semanticos; nao redefinem schema inline
+- `domain` agrega vocabulario, aliases, evidencias e governanca derivados de fontes canonicas
 - `capabilities` agrega o que existe agora sem virar uma segunda fonte de verdade do contrato
 - ausencia em `actions` e `capabilities` nao tem a mesma semantica
 - exportacao e uma operacao de colecao; o request preserva escopo, selecao, filtros, ordenacao, campos e limites
+
+### Governanca semantica de dominio
+
+`@DomainGovernance` declara classificacao semantica e politica de uso por IA em
+campos de DTOs publicados pelo starter.
+
+Fluxo canonico:
+
+- o codigo-fonte declara `@DomainGovernance`
+- o resolver OpenAPI materializa `x-domain-governance` no schema do campo
+- `/schemas/domain` republica a governanca como item auditavel ligado ao campo
+
+O contrato Java usa enums publicos para evitar drift de tokens:
+
+- `DomainGovernanceKind`: `privacy`, `security`, `compliance`
+- `DomainClassification`: `public`, `internal`, `confidential`, `restricted`
+- `DomainDataCategory`: `credential`, `sensitive_personal`, `personal`, `financial`, `operational`, `legal`
+- `AiUsageMode`: `allow`, `deny`, `mask`, `review_required`, `summarize_only`
+
+Quando a anotacao nao existir, o catalogo pode aplicar heuristicas de fallback.
+Para hosts e exemplos self-describing, a declaracao explicita deve ser preferida.
 
 ### `capabilities.operations` como semantica minima canonica
 
@@ -281,7 +305,7 @@ Dependencia minima:
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>8.0.0-rc.7</version>
+  <version>8.0.0-rc.14</version>
 </dependency>
 ```
 

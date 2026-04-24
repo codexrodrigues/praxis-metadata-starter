@@ -4,6 +4,23 @@ All notable changes to this module will be documented in this file.
 
 ## Unreleased
 
+## [8.0.0-rc.14] - 2026-04-24
+
+### Added
+- Anotacoes publicas `@DomainGovernance` e `@AiUsagePolicy` para declarar
+  classificacao semantica e politicas de uso por IA diretamente no codigo-fonte
+  dos campos publicados pelo starter.
+- Enums publicos `DomainGovernanceKind`, `DomainClassification`,
+  `DomainDataCategory` e `AiUsageMode` para fixar os tokens canonicos emitidos em
+  `x-domain-governance` e republicados por `/schemas/domain`.
+
+### Changed
+- `SemanticDomainCatalogService` agora prioriza governanca explicita publicada em
+  `x-domain-governance` antes do fallback heuristico por nome ou descricao de
+  campo.
+- A anotacao `@DomainGovernance` usa vocabulario tipado no codigo Java e continua
+  materializando os mesmos valores wire compativeis com o contrato semantico.
+
 ## [8.0.0-rc.13] - 2026-04-22
 
 ### Changed

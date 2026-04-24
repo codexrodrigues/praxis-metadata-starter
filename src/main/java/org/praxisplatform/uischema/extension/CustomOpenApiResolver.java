@@ -7,6 +7,7 @@ import io.swagger.v3.oas.models.media.ArraySchema;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
+import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.numeric.NumberFormatStyle;
@@ -48,6 +49,7 @@ public class CustomOpenApiResolver extends ModelResolver {
     private static final Map<String, String> VALIDATION_PROPERTIES_MAP = new HashMap<>();
     // Constante para o nome da extensão UI
     private static final String UI_EXTENSION_NAME = "x-ui";
+    private static final String DOMAIN_GOVERNANCE_EXTENSION_NAME = "x-domain-governance";
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(CustomOpenApiResolver.class);
 
 
@@ -77,6 +79,10 @@ public class CustomOpenApiResolver extends ModelResolver {
 
             // Centralized validation message population
             OpenApiUiUtils.populateDefaultValidationMessages(getUIExtensionMap(property));
+        }
+
+        if (annotations != null) {
+            applyDomainGovernance(property, annotations);
         }
     }
 
@@ -1730,6 +1736,32 @@ public class CustomOpenApiResolver extends ModelResolver {
                 uiExtension.put(p.name(), p.value());
             }
         }
+    }
+
+    private void applyDomainGovernance(Schema<?> property, Annotation[] annotations) {
+        DomainGovernance governance = ResolverUtils.getAnnotation(DomainGovernance.class, annotations);
+        if (governance == null) {
+            return;
+        }
+
+        if (property.getExtensions() == null) {
+            property.setExtensions(new HashMap<>());
+        }
+        property.getExtensions().put(DOMAIN_GOVERNANCE_EXTENSION_NAME, Map.of(
+                "annotationType", governance.kind().wireValue(),
+                "classification", governance.classification().wireValue(),
+                "dataCategory", governance.dataCategory().wireValue(),
+                "complianceTags", List.of(governance.complianceTags()),
+                "aiUsage", Map.of(
+                        "visibility", governance.aiUsage().visibility().wireValue(),
+                        "trainingUse", governance.aiUsage().trainingUse().wireValue(),
+                        "ruleAuthoring", governance.aiUsage().ruleAuthoring().wireValue(),
+                        "reasoningUse", governance.aiUsage().reasoningUse().wireValue()
+                ),
+                "reason", governance.reason(),
+                "source", "java.annotation",
+                "confidence", governance.confidence()
+        ));
     }
 
     @SuppressWarnings("unchecked")
