@@ -257,6 +257,17 @@ evidencias e governanca de dominio</li>
 <h2 id="versao">Versao</h2>
 <p>O schema atual publicado pelo starter e
 <code>praxis.domain-catalog/v0.2</code>.</p>
+<h2 id="identidade-de-release">Identidade De Release</h2>
+<p><code>release.sourceHash</code> e o SHA-256 canonico do catalogo
+semantico, sem metadados volateis como <code>generatedAt</code>.
+<code>release.releaseKey</code> e derivado de <code>serviceKey</code>,
+escopo semantico e prefixo do hash, mantendo a mesma identidade para
+semanticas iguais em chamadas repetidas ou depois de restart do
+host.</p>
+<p>O catalogo gerado por <code>resourceKey</code> ou <code>group</code>
+e memoizado no runtime do starter para evitar recomputar schemas,
+aliases, evidencias e governanca em leituras repetidas de
+<code>/schemas/domain</code>.</p>
 <h2 id="governanca-explicita">Governanca Explicita</h2>
 <p>Campos podem declarar governanca com
 <code>@DomainGovernance</code>.</p>
