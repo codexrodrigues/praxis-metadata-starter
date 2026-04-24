@@ -19,6 +19,17 @@ canonicas como `x-domain-governance`. Ele nao substitui `/schemas/filtered`,
 
 O schema atual publicado pelo starter e `praxis.domain-catalog/v0.2`.
 
+## Identidade De Release
+
+`release.sourceHash` e o SHA-256 canonico do catalogo semantico, sem metadados
+volateis como `generatedAt`. `release.releaseKey` e derivado de `serviceKey`,
+escopo semantico e prefixo do hash, mantendo a mesma identidade para semanticas
+iguais em chamadas repetidas ou depois de restart do host.
+
+O catalogo gerado por `resourceKey` ou `group` e memoizado no runtime do starter
+para evitar recomputar schemas, aliases, evidencias e governanca em leituras
+repetidas de `/schemas/domain`.
+
 ## Governanca Explicita
 
 Campos podem declarar governanca com `@DomainGovernance`.

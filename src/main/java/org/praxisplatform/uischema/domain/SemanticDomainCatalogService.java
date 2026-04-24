@@ -1,8 +1,11 @@
 package org.praxisplatform.uischema.domain;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.praxisplatform.uischema.action.ActionDefinition;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
+import org.praxisplatform.uischema.hash.SchemaCanonicalizer;
+import org.praxisplatform.uischema.hash.SchemaHashUtil;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.options.EntityLookupDescriptor;
 import org.praxisplatform.uischema.options.LookupSelectionPolicy;
@@ -27,6 +30,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Gera o vocabulario semantico inicial a partir das superficies metadata-driven ja existentes.
@@ -38,6 +43,8 @@ import java.util.Set;
  */
 public class SemanticDomainCatalogService {
     private static final String DOMAIN_GOVERNANCE_EXTENSION = "x-domain-governance";
+    private static final ObjectMapper HASH_OBJECT_MAPPER = new ObjectMapper();
+    private static final SchemaCanonicalizer HASH_CANONICALIZER = new SchemaCanonicalizer();
 
     public static final String SCHEMA_VERSION = "praxis.domain-catalog/v0.2";
 
@@ -49,6 +56,7 @@ public class SemanticDomainCatalogService {
     private final String serviceKey;
     private final String serviceName;
     private final String serviceVersion;
+    private final ConcurrentMap<String, DomainCatalogResponse> catalogCache = new ConcurrentHashMap<>();
 
     public SemanticDomainCatalogService(
             ActionDefinitionRegistry actionDefinitionRegistry,
@@ -71,15 +79,19 @@ public class SemanticDomainCatalogService {
     }
 
     public DomainCatalogResponse findByResourceKey(String resourceKey) {
-        List<ActionDefinition> actions = safe(actionDefinitionRegistry.findByResourceKey(resourceKey));
-        List<SurfaceDefinition> surfaces = safe(surfaceDefinitionRegistry.findByResourceKey(resourceKey));
-        return build(resourceKey, null, actions, surfaces);
+        return catalogCache.computeIfAbsent("resource:" + firstText(resourceKey, ""), ignored -> {
+            List<ActionDefinition> actions = safe(actionDefinitionRegistry.findByResourceKey(resourceKey));
+            List<SurfaceDefinition> surfaces = safe(surfaceDefinitionRegistry.findByResourceKey(resourceKey));
+            return build(resourceKey, null, actions, surfaces);
+        });
     }
 
     public DomainCatalogResponse findByGroup(String group) {
-        List<ActionDefinition> actions = safe(actionDefinitionRegistry.findByGroup(group));
-        List<SurfaceDefinition> surfaces = safe(surfaceDefinitionRegistry.findByGroup(group));
-        return build(null, group, actions, surfaces);
+        return catalogCache.computeIfAbsent("group:" + firstText(group, ""), ignored -> {
+            List<ActionDefinition> actions = safe(actionDefinitionRegistry.findByGroup(group));
+            List<SurfaceDefinition> surfaces = safe(surfaceDefinitionRegistry.findByGroup(group));
+            return build(null, group, actions, surfaces);
+        });
     }
 
     private DomainCatalogResponse build(
@@ -128,22 +140,40 @@ public class SemanticDomainCatalogService {
             addOptionSource(descriptor, resourceKey, contextKey, nodes, edges, bindings, evidence);
         }
 
+        List<DomainCatalogResponse.DomainContextItem> contextItems = List.copyOf(contexts.values());
+        List<DomainCatalogResponse.DomainNodeItem> nodeItems = List.copyOf(nodes.values());
+        List<DomainCatalogResponse.DomainEdgeItem> edgeItems = List.copyOf(edges.values());
+        List<DomainCatalogResponse.DomainBindingItem> bindingItems = List.copyOf(bindings.values());
+        List<DomainCatalogResponse.DomainAliasItem> aliasItems = buildAliases(nodes);
+        List<DomainCatalogResponse.DomainEvidenceItem> evidenceItems = List.copyOf(evidence.values());
+        List<DomainCatalogResponse.DomainGovernanceItem> governanceItems = List.copyOf(governance.values());
+        String sourceHash = sourceHash(
+                requestedResourceKey,
+                requestedGroup,
+                contextItems,
+                nodeItems,
+                edgeItems,
+                bindingItems,
+                aliasItems,
+                evidenceItems,
+                governanceItems
+        );
         Instant generatedAt = Instant.now(clock);
         return new DomainCatalogResponse(
                 SCHEMA_VERSION,
                 new DomainCatalogResponse.DomainServiceInfo(serviceKey, serviceName, blankToNull(serviceVersion)),
                 new DomainCatalogResponse.DomainReleaseInfo(
-                        releaseKey(requestedResourceKey, requestedGroup, generatedAt),
+                        releaseKey(requestedResourceKey, requestedGroup, sourceHash),
                         generatedAt.toString(),
-                        null
+                        sourceHash
                 ),
-                List.copyOf(contexts.values()),
-                List.copyOf(nodes.values()),
-                List.copyOf(edges.values()),
-                List.copyOf(bindings.values()),
-                buildAliases(nodes),
-                List.copyOf(evidence.values()),
-                List.copyOf(governance.values())
+                contextItems,
+                nodeItems,
+                edgeItems,
+                bindingItems,
+                aliasItems,
+                evidenceItems,
+                governanceItems
         );
     }
 
@@ -1239,9 +1269,41 @@ public class SemanticDomainCatalogService {
         return StringUtils.hasText(value) ? value : null;
     }
 
-    private String releaseKey(String resourceKey, String group, Instant generatedAt) {
+    private String sourceHash(
+            String resourceKey,
+            String group,
+            List<DomainCatalogResponse.DomainContextItem> contexts,
+            List<DomainCatalogResponse.DomainNodeItem> nodes,
+            List<DomainCatalogResponse.DomainEdgeItem> edges,
+            List<DomainCatalogResponse.DomainBindingItem> bindings,
+            List<DomainCatalogResponse.DomainAliasItem> aliases,
+            List<DomainCatalogResponse.DomainEvidenceItem> evidence,
+            List<DomainCatalogResponse.DomainGovernanceItem> governance
+    ) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("schemaVersion", SCHEMA_VERSION);
+        payload.put("service", new DomainCatalogResponse.DomainServiceInfo(serviceKey, serviceName, blankToNull(serviceVersion)));
+        payload.put("scope", mapOfNonNull(
+                "resourceKey", resourceKey,
+                "group", group
+        ));
+        payload.put("contexts", contexts);
+        payload.put("nodes", nodes);
+        payload.put("edges", edges);
+        payload.put("bindings", bindings);
+        payload.put("aliases", aliases);
+        payload.put("evidence", evidence);
+        payload.put("governance", governance);
+        JsonNode canonical = HASH_CANONICALIZER.canonicalize(HASH_OBJECT_MAPPER.valueToTree(payload));
+        return SchemaHashUtil.sha256Hex(canonical);
+    }
+
+    private String releaseKey(String resourceKey, String group, String sourceHash) {
         String scope = StringUtils.hasText(resourceKey) ? resourceKey : StringUtils.hasText(group) ? group : "all";
-        return serviceKey + ":" + keyPart(scope) + ":" + generatedAt;
+        String hashPart = StringUtils.hasText(sourceHash) && sourceHash.length() > 16
+                ? sourceHash.substring(0, 16)
+                : firstText(sourceHash, "unknown");
+        return serviceKey + ":" + keyPart(scope) + ":" + hashPart;
     }
 
     private Map<String, Object> mapOfNonNull(Object... keyValues) {
