@@ -222,6 +222,9 @@ controle e validacoes basicas</li>
 <li>x-ui.resource presente no payload de <code>/schemas/filtered</code>
 contendo <code>idField</code>, <code>idFieldValid</code>,
 <code>readOnly</code>, <code>capabilities</code></li>
+<li><code>/schemas/domain</code> publica vocabulario, bindings, aliases,
+evidencias e governanca como superficie semantica derivada, sem
+substituir <code>/schemas/filtered</code></li>
 <li><code>/schemas/surfaces</code> e <code>/schemas/actions</code>
 publicam apenas discovery semantico e links para schemas canonicos
 resolviveis via <code>/schemas/filtered</code></li>
@@ -259,6 +262,8 @@ quando aplicavel</li>
 <li>manter <code>/schemas/surfaces</code> e
 <code>/schemas/actions</code> sincronizados com a semantica publicada
 por <code>@UiSurface</code> e <code>@WorkflowAction</code></li>
+<li>declarar campos sensiveis com <code>@DomainGovernance</code> e
+politicas de IA tipadas por <code>AiUsageMode</code></li>
 <li>adotar <code>custom.*</code> para extensoes privadas do host</li>
 <li>publicar <code>x-ui.optionSource</code> para fontes derivadas
 governadas, evitando promover <code>INPUT</code> em campos com semantica
@@ -329,10 +334,21 @@ utilitarios</li>
 </ul></li>
 <li>discovery semantico
 <ul>
+<li><code>/schemas/domain</code> -&gt; vocabulario semantico
+AI-operable, evidencias e governanca de dominio</li>
 <li><code>/schemas/surfaces</code> -&gt; catalogo semantico de
 <code>@UiSurface</code> e surfaces automaticas do recurso</li>
 <li><code>/schemas/actions</code> -&gt; catalogo semantico de
 <code>@WorkflowAction</code></li>
+</ul></li>
+<li>x-domain-governance
+<ul>
+<li><code>annotationType</code>, <code>classification</code>,
+<code>dataCategory</code> -&gt; classificacao canonica do campo</li>
+<li><code>aiUsage.*</code> -&gt; politica de visibilidade, treino,
+authoring e raciocinio assistido por IA</li>
+<li><code>source</code>, <code>confidence</code>, <code>reason</code>
+-&gt; explicabilidade e auditoria da classificacao</li>
 </ul></li>
 <li>exportacao de colecao
 <ul>

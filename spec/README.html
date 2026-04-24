@@ -192,6 +192,7 @@ valide localmente contra os JSON Schemas desta pasta.</li>
 <code>x-ui-chart.schema.json</code></li>
 <li>checklist de publicacao do draft:
 <code>x-ui-chart-publication-checklist.md</code></li>
+<li>catalogo semantico de dominio: <code>domain-catalog.md</code></li>
 </ul>
 <h2 id="drafts-canonicos-em-andamento">Drafts canonicos em
 andamento</h2>
@@ -227,6 +228,15 @@ dimensoes categoricas derivadas e buckets governados</li>
 <code>/schemas/filtered</code></li>
 <li>permanece em estado <code>draft</code>; a RFC nao implica
 implementacao automatica no starter ou no runtime Angular</li>
+</ul></li>
+<li>Domain catalog AI-operable: <code>domain-catalog.md</code>
+<ul>
+<li>define <code>/schemas/domain</code> como vocabulario semantico
+derivado de actions, surfaces, option sources e schemas</li>
+<li>documenta <code>x-domain-governance</code> como materializacao
+OpenAPI de <code>@DomainGovernance</code></li>
+<li>separa governanca de dominio do contrato estrutural de
+<code>/schemas/filtered</code></li>
 </ul></li>
 </ul>
 <h2 id="vocabulario-resumo">Vocabulario (resumo)</h2>
@@ -323,6 +333,17 @@ e DEVEM ser boolean)</li>
 <li><code>state</code>, <code>events</code>, <code>legend</code>,
 <code>labels</code>, <code>tooltip</code>, <code>theme</code></li>
 </ul></li>
+<li>Domain governance (<code>x-domain-governance</code> por propriedade
+OpenAPI)
+<ul>
+<li><code>annotationType</code>, <code>classification</code>,
+<code>dataCategory</code>, <code>complianceTags</code></li>
+<li><code>aiUsage.visibility</code>, <code>aiUsage.trainingUse</code>,
+<code>aiUsage.ruleAuthoring</code>,
+<code>aiUsage.reasoningUse</code></li>
+<li><code>reason</code>, <code>source</code>,
+<code>confidence</code></li>
+</ul></li>
 </ul>
 <h2 id="tipos-e-enums">Tipos e Enums</h2>
 <ul>
@@ -344,6 +365,14 @@ JSON Schema</li>
 <code>chart | analytic-table | kpi | summary-list</code></li>
 <li><code>x-ui.optionSource.type</code>:
 <code>RESOURCE_ENTITY | DISTINCT_DIMENSION | CATEGORICAL_BUCKET | LIGHT_LOOKUP | STATIC_CANONICAL</code></li>
+<li><code>x-domain-governance.annotationType</code>:
+<code>privacy | security | compliance</code></li>
+<li><code>x-domain-governance.classification</code>:
+<code>public | internal | confidential | restricted</code></li>
+<li><code>x-domain-governance.dataCategory</code>:
+<code>credential | sensitive_personal | personal | financial | operational | legal</code></li>
+<li><code>x-domain-governance.aiUsage.*</code>:
+<code>allow | deny | mask | review_required | summarize_only</code></li>
 </ul>
 <h2 id="obrigatoriedade-e-defaults">Obrigatoriedade e Defaults</h2>
 <ul>
@@ -410,6 +439,9 @@ executaveis do runtime oficial sem criar contrato paralelo.</li>
 <li>SHOULD: publicacoes de <code>x-ui.analytics</code> manterem a
 semantica estritamente analitica, sem reempacotar detalhes especificos
 de chart.</li>
+<li>SHOULD: hosts self-describing declararem governanca sensivel com
+<code>@DomainGovernance</code> em vez de depender apenas de heuristicas
+por nome de campo.</li>
 <li>MAY: incluir <code>specVersion</code> em um envelope/meta do payload
 para auditoria.</li>
 </ul>
@@ -452,6 +484,9 @@ derivadas de options e backend interno de stats/distinct values</li>
 <li><code>x-ui-field.schema.json</code> - ja aceita o bloco draft
 <code>optionSource</code> para validacao documental inicial, sem
 pressupor rollout completo no runtime</li>
+<li><code>domain-catalog.md</code> - contrato narrativo de
+<code>/schemas/domain</code>, incluindo governanca explicita por
+<code>x-domain-governance</code></li>
 </ul>
 <h2 id="exemplos-e-fixtures">Exemplos e Fixtures</h2>
 <ul>

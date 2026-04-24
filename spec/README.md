@@ -13,6 +13,7 @@
 - x-ui.analytics como draft validavel: `x-ui-analytics.schema.json`
 - x-ui.chart como draft validavel: `x-ui-chart.schema.json`
 - checklist de publicacao do draft: `x-ui-chart-publication-checklist.md`
+- catalogo semantico de dominio: `domain-catalog.md`
 
 ## Drafts canonicos em andamento
 
@@ -29,6 +30,10 @@
   - cobre a lacuna entre recursos CRUD com `/options/filter`, dimensoes categoricas derivadas e buckets governados
   - prepara a publicacao futura de `x-ui.optionSource` em `/schemas/filtered`
   - permanece em estado `draft`; a RFC nao implica implementacao automatica no starter ou no runtime Angular
+- Domain catalog AI-operable: `domain-catalog.md`
+  - define `/schemas/domain` como vocabulario semantico derivado de actions, surfaces, option sources e schemas
+  - documenta `x-domain-governance` como materializacao OpenAPI de `@DomainGovernance`
+  - separa governanca de dominio do contrato estrutural de `/schemas/filtered`
 
 ## Vocabulario (resumo)
 
@@ -63,6 +68,10 @@
   - `dimensions`, `metrics`, `aggregations`, `filters`, `sort`, `limit`
   - `metrics[].seriesKind`, `metrics[].axis`, `metrics[].color`
   - `state`, `events`, `legend`, `labels`, `tooltip`, `theme`
+- Domain governance (`x-domain-governance` por propriedade OpenAPI)
+  - `annotationType`, `classification`, `dataCategory`, `complianceTags`
+  - `aiUsage.visibility`, `aiUsage.trainingUse`, `aiUsage.ruleAuthoring`, `aiUsage.reasoningUse`
+  - `reason`, `source`, `confidence`
 
 ## Tipos e Enums
 
@@ -75,6 +84,10 @@
 - `x-ui.analytics.source.operation`: `group-by | timeseries | distribution`
 - `x-ui.analytics.presentationHints.preferredFamilies`: `chart | analytic-table | kpi | summary-list`
 - `x-ui.optionSource.type`: `RESOURCE_ENTITY | DISTINCT_DIMENSION | CATEGORICAL_BUCKET | LIGHT_LOOKUP | STATIC_CANONICAL`
+- `x-domain-governance.annotationType`: `privacy | security | compliance`
+- `x-domain-governance.classification`: `public | internal | confidential | restricted`
+- `x-domain-governance.dataCategory`: `credential | sensitive_personal | personal | financial | operational | legal`
+- `x-domain-governance.aiUsage.*`: `allow | deny | mask | review_required | summarize_only`
 
 ## Obrigatoriedade e Defaults
 
@@ -110,6 +123,7 @@
 - SHOULD: `/schemas/filtered` enviar `ETag` forte e `X-Schema-Hash` e expor via `Access-Control-Expose-Headers`.
 - SHOULD: publicacoes de `x-ui.chart` explicitar restricoes executaveis do runtime oficial sem criar contrato paralelo.
 - SHOULD: publicacoes de `x-ui.analytics` manterem a semantica estritamente analitica, sem reempacotar detalhes especificos de chart.
+- SHOULD: hosts self-describing declararem governanca sensivel com `@DomainGovernance` em vez de depender apenas de heuristicas por nome de campo.
 - MAY: incluir `specVersion` em um envelope/meta do payload para auditoria.
 
 ## Versionamento da especificacao
@@ -134,6 +148,7 @@
 - `x-ui-chart-publication-checklist.md` - gates minimos para publicar o draft `0.1.0` sem drift imediato entre starter, quickstart e `@praxisui/charts`
 - `x-ui-option-source-rfc.md` - proposta canonica para `x-ui.optionSource`, separando recursos CRUD, fontes derivadas de options e backend interno de stats/distinct values
 - `x-ui-field.schema.json` - ja aceita o bloco draft `optionSource` para validacao documental inicial, sem pressupor rollout completo no runtime
+- `domain-catalog.md` - contrato narrativo de `/schemas/domain`, incluindo governanca explicita por `x-domain-governance`
 
 ## Exemplos e Fixtures
 
