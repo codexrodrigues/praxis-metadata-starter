@@ -47,6 +47,12 @@ class SemanticDomainCatalogServiceTest {
         DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
 
         assertThat(response.schemaVersion()).isEqualTo("praxis.domain-catalog/v0.2");
+        assertThat(response.release().sourceHash()).hasSize(64);
+        assertThat(response.release().releaseKey())
+                .startsWith("praxis-api-quickstart:human-resources.folhas-pagamento:")
+                .doesNotContain("2026-04-21T10:30:00Z");
+        assertThat(service.findByResourceKey("human-resources.folhas-pagamento"))
+                .isSameAs(response);
         assertThat(response.contexts()).extracting(DomainCatalogResponse.DomainContextItem::contextKey)
                 .containsExactly("human-resources");
         assertThat(response.contexts()).singleElement()
