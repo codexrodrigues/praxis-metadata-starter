@@ -14,6 +14,8 @@ Para onboarding e narrativa publica atual, use primeiro:
 ### Referencias tecnicas atuais
 
 - [Auto-configuracao](AUTO-CONFIGURACAO.md)
+- [Estudo de mercado e roadmap competitivo](ESTUDO-MERCADO-ROADMAP-METADATA-STARTER.md)
+- [Estudo complementar - Praxis UI Angular metadata-driven](ESTUDO-PRAXIS-UI-ANGULAR-METADATA-DRIVEN.md)
 - [Roadmap de filtros - lotes 2 e 3](FILTROS-ROADMAP.md)
 
 ### Registros tecnicos de rollout e piloto
