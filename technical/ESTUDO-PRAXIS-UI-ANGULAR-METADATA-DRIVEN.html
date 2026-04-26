@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Estudo complementar: Praxis UI Angular como runtime metadata-driven</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Estudo complementar: Praxis UI Angular como runtime
+metadata-driven</h1>
+</header>
+<h1
+id="estudo-complementar-praxis-ui-angular-como-runtime-metadata-driven">Estudo
+complementar: Praxis UI Angular como runtime metadata-driven</h1>
+<p>Data: 2026-04-25</p>
+<p>Classificacao da mudanca: <code>docs-apenas</code>.</p>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este documento complementa o estudo de mercado do
+<code>praxis-metadata-starter</code> incluindo a proxima peca da
+plataforma: o projeto <code>praxis-ui-angular</code>, que fecha as
+pontas da solucao ao materializar contratos, configuracoes e decisoes
+governadas em componentes Angular orientados a metadados.</p>
+<p>A leitura correta e:</p>
+<ul>
+<li><code>praxis-metadata-starter</code> publica grounding estrutural e
+semantico;</li>
+<li><code>praxis-config-starter</code> governa persistencia, authoring,
+simulacao, publicacao e materializacao;</li>
+<li><code>praxis-ui-angular</code> consome essas fontes canonicas como
+runtime/cockpit, sem virar fonte primaria de regra de negocio.</li>
+</ul>
+<h2 id="leitura-executiva">Leitura executiva</h2>
+<p>O <code>praxis-ui-angular</code> nao deve ser vendido apenas como
+“suite de componentes Angular”. Ele e o runtime oficial da plataforma
+Praxis para:</p>
+<ul>
+<li>renderizar interfaces a partir de <code>/schemas/filtered</code>,
+<code>x-ui</code> e discovery semantico;</li>
+<li>consumir <code>_links</code>, <code>surfaces</code>,
+<code>actions</code> e <code>capabilities</code> sem reconstruir
+contratos localmente;</li>
+<li>persistir configuracoes em <code>/api/praxis/config/ui</code>;</li>
+<li>abrir editores, drawers, modais, builders e assistentes de IA como
+cockpit de decisoes materializadas;</li>
+<li>expor catalogos de componentes, capabilities e manifests para
+authoring agentico;</li>
+<li>manter a fronteira do host visivel, sem impor uma suite
+monolitica.</li>
+</ul>
+<p>Essa peca fecha a narrativa competitiva contra SAP/Fiori, ServiceNow,
+Salesforce e low-code: Praxis nao para no backend metadata-driven nem em
+um editor visual. Ela tem runtime, cockpit, configuracao remota,
+authoring, manifests, AI registry e provas E2E.</p>
+<h2 id="papel-canonico-na-plataforma">Papel canonico na plataforma</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Camada</th>
+<th>Dono canonico</th>
+<th>Papel</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Contrato estrutural</td>
+<td><code>praxis-metadata-starter</code></td>
+<td><code>/schemas/filtered</code>, <code>x-ui</code>, schema hash,
+ETag</td>
+</tr>
+<tr class="even">
+<td>Discovery semantico</td>
+<td><code>praxis-metadata-starter</code></td>
+<td><code>/schemas/domain</code>, <code>/schemas/surfaces</code>,
+<code>/schemas/actions</code>, <code>/capabilities</code></td>
+</tr>
+<tr class="odd">
+<td>Authoring/governanca</td>
+<td><code>praxis-config-starter</code></td>
+<td><code>/api/praxis/config/**</code>, <code>ai_registry</code>,
+<code>domain-rules</code>, materializacoes</td>
+</tr>
+<tr class="even">
+<td>Runtime/cockpit</td>
+<td><code>praxis-ui-angular</code></td>
+<td>componentes, editors, page builder, assistant, persistence
+bridge</td>
+</tr>
+<tr class="odd">
+<td>Prova operacional</td>
+<td><code>praxis-api-quickstart</code></td>
+<td>host HTTP real, smokes, exemplos verticais</td>
+</tr>
+<tr class="even">
+<td>Publicacao comercial</td>
+<td><code>praxis-ui-landing-page</code></td>
+<td>docs, demos, playground, narrativa publica</td>
+</tr>
+</tbody>
+</table>
+<p>O Angular deve continuar sendo consumidor e cockpit, nao fonte
+primaria de semantica de negocio. Quando o runtime precisa decidir algo,
+a ordem correta e:</p>
+<ol type="1">
+<li>contrato explicito recebido do backend;</li>
+<li>capabilities/surfaces/actions publicados;</li>
+<li>links operacionais <code>_links</code>;</li>
+<li>configuracao governada em <code>/api/praxis/config/**</code>;</li>
+<li>defaults locais apenas como fallback tecnico.</li>
+</ol>
+<h2 id="recursos-atuais-que-fecham-as-pontas">Recursos atuais que fecham
+as pontas</h2>
+<h3 id="core-contrato-schema-flow-e-discovery">Core: contrato, schema
+flow e discovery</h3>
+<p><code>@praxisui/core</code> e a base compartilhada do workspace. Ele
+concentra:</p>
+<ul>
+<li>clientes de schema com <code>ETag</code>,
+<code>If-None-Match</code>, <code>X-Schema-Hash</code> e
+<code>schemaId</code>;</li>
+<li>normalizacao e reconciliacao de schemas para form/filter;</li>
+<li><code>ResourceDiscoveryService</code> para seguir
+<code>_links</code>, <code>surfaces</code>, <code>actions</code> e
+<code>capabilities</code>;</li>
+<li><code>CrudOperationResolutionService</code> com precedencia
+<code>explicit &gt; capability + surface &gt; capability + link &gt; convention</code>;</li>
+<li>adapters de open para surfaces e workflow actions;</li>
+<li>storage/config remota, global config, i18n, logging, widgets e
+contratos base.</li>
+</ul>
+<p>Isso e uma vantagem competitiva: o frontend nao precisa adivinhar
+schema, action ou path. Ele segue discovery canonico.</p>
+<h3 id="crud-fluxo-operacional-resource-oriented">CRUD: fluxo
+operacional resource-oriented</h3>
+<p><code>@praxisui/crud</code> fecha o primeiro caminho comercial de
+alto valor:</p>
+<ul>
+<li>combina <code>praxis-table</code>, <code>praxis-dynamic-form</code>
+e modos de abertura governados;</li>
+<li>preserva a separacao entre <code>resourcePath</code> operacional e
+<code>resourceKey</code> semantico;</li>
+<li>usa discovery por <code>_links</code>, <code>surfaces</code>,
+<code>actions</code> e <code>capabilities</code>;</li>
+<li>estabiliza <code>crudContext</code> para evitar regressao de change
+detection;</li>
+<li>delega abertura para <code>CrudLauncherService</code>, respeitando
+route/modal/drawer;</li>
+<li>refaz fetch apos save/delete quando o fluxo conclui.</li>
+</ul>
+<p>Comparacao com SAP/Fiori: SAP empacota floorplans fortes; Praxis
+entrega shell CRUD composavel, menos monolitico, mas ainda dirigido por
+contrato.</p>
+<h3 id="dynamic-form-e-dynamic-fields">Dynamic Form e Dynamic
+Fields</h3>
+<p><code>@praxisui/dynamic-form</code> e a superficie canonica de
+formularios schema-driven e edicao de configuracao. Ele materializa:</p>
+<ul>
+<li><code>FormConfig</code>;</li>
+<li>layout runtime;</li>
+<li>reconciliacao de metadata remota;</li>
+<li>hot metadata updates;</li>
+<li>editores de configuracao;</li>
+<li>campos locais/transientes com politica de submit;</li>
+<li>integracao com <code>dynamic-fields</code>,
+<code>settings-panel</code>, <code>metadata-editor</code> e visual
+builders.</li>
+</ul>
+<p><code>@praxisui/dynamic-fields</code> fornece o catalogo de campos e
+a cadeia de descoberta editorial. O ponto importante e que suporte
+runtime de campo nao basta: o campo precisa permanecer descobrivel,
+nomeado corretamente, editavel e coberto pelo tooling.</p>
+<h3 id="table-filters-e-analytics">Table, filters e analytics</h3>
+<p><code>@praxisui/table</code> e a superficie canonica de tabela
+enterprise:</p>
+<ul>
+<li>filtros metadata-driven;</li>
+<li>schema especifico de <code>POST /filter</code>;</li>
+<li>dinamica local/remota com precedencia documentada;</li>
+<li>regras condicionais e JSON Logic;</li>
+<li>adapters de drawer;</li>
+<li>authoring visual e editores especializados.</li>
+</ul>
+<p>Junto de <code>x-ui.analytics</code>, <code>x-ui.chart</code> e libs
+de charts, a tabela deixa de ser apenas grid e passa a ser
+materializacao de leitura operacional, filtros, exports, stats e
+dashboards.</p>
+<h3 id="remote-config-storage">Remote Config Storage</h3>
+<p>O Angular ja possui a ponte para
+<code>praxis-config-starter</code>:</p>
+<ul>
+<li><code>ApiConfigStorage</code>;</li>
+<li><code>RemoteConfigStorage</code>;</li>
+<li><code>ASYNC_CONFIG_STORAGE</code> e
+<code>CONFIG_STORAGE</code>;</li>
+<li><code>providePraxisGlobalConfigBootstrap(...)</code>;</li>
+<li>persistencia em <code>/api/praxis/config/ui</code>;</li>
+<li>suporte a tenant/user/env;</li>
+<li>fluxo com ETag, <code>If-Match</code>, <code>412</code>, reload e
+retry.</li>
+</ul>
+<p>Isso fecha a parte de configuracao governada: as libs nao precisam
+salvar estado em convencoes locais quando o host habilita storage
+remoto.</p>
+<h3 id="page-builder-e-dynamic-page">Page Builder e dynamic page</h3>
+<p><code>@praxisui/page-builder</code> fecha a frente de composicao
+visual:</p>
+<ul>
+<li>edicao de paginas dinamicas baseadas em
+<code>WidgetPageDefinition</code>;</li>
+<li>palette, page settings, widget shell e toolbar;</li>
+<li><code>composition.links</code> como wiring canonico;</li>
+<li><code>nestedPath</code> para component ports internas;</li>
+<li>bridge com <code>SettingsPanel</code>;</li>
+<li>catalogos de capacidades de IA por widget;</li>
+<li>agentic authoring via backend
+<code>praxis-config-starter</code>;</li>
+<li><code>PRAXIS_PAGE_BUILDER_AUTHORING_MANIFEST</code> como contrato
+executavel.</li>
+</ul>
+<p>O ponto arquitetural mais importante: o Page Builder nao deve
+redefinir inputs de widgets filhos nem inventar semantica local. Ele
+delega para manifests, <code>ComponentDocMeta.configEditor</code> e
+contratos canonicos.</p>
+<h3 id="ai-e-authoring-agentico">AI e authoring agentico</h3>
+<p><code>@praxisui/ai</code> fecha a experiencia de assistente:</p>
+<ul>
+<li>nao chama providers externos diretamente;</li>
+<li>usa backend <code>/api/praxis/config/ai/**</code>;</li>
+<li>fornece shell conversacional compartilhado;</li>
+<li>preserva quick replies ricas e <code>contextHints</code>;</li>
+<li>suporta attachments somente como metadados serializaveis;</li>
+<li>usa stream SSE de authoring quando disponivel;</li>
+<li>mantem historico leve com tenant/env/user;</li>
+<li>aplica politicas de risco e confirmacao.</li>
+</ul>
+<p>Essa fronteira e essencial para venda enterprise: IA nao vira sidecar
+local do frontend; ela e orquestrada pelo backend canonico.</p>
+<h3 id="ai-registry-e-component-metadata">AI Registry e Component
+Metadata</h3>
+<p>O workspace tem duas pecas complementares:</p>
+<ul>
+<li><code>ComponentMetadataRegistry</code> e
+<code>ComponentDocMeta</code>, que descrevem componentes, inputs,
+outputs, icones, libs e editores;</li>
+<li><code>tools/ai-registry</code>, que gera, valida e sincroniza
+catalogos AI-ready e artefatos de ingestao para o backend.</li>
+</ul>
+<p>Isso permite que componentes sejam descobertos por builders, settings
+panels, assistentes e RAG sem depender de leitura manual do codigo.</p>
+<h2 id="comparacao-com-mercado">Comparacao com mercado</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Mercado</th>
+<th>Como vende</th>
+<th>Leitura Praxis Angular</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>SAP Fiori Elements</td>
+<td>floorplans gerados por OData annotations</td>
+<td>Praxis tem runtime composavel por OpenAPI/x-ui, surfaces, actions e
+capabilities</td>
+</tr>
+<tr class="even">
+<td>Salesforce</td>
+<td>metadata e AI conectados a configuracoes de negocio</td>
+<td>Praxis conecta runtime Angular a metadata, config, AI registry e
+decisions</td>
+</tr>
+<tr class="odd">
+<td>ServiceNow</td>
+<td>workflow UI + data fabric + AI Platform</td>
+<td>Praxis usa Angular como cockpit de decisions e materializacoes, nao
+como rule engine</td>
+</tr>
+<tr class="even">
+<td>Mendix/OutSystems</td>
+<td>low-code visual/model-driven</td>
+<td>Praxis preserva contratos e codigo, mas permite authoring visual e
+agentico governado</td>
+</tr>
+<tr class="odd">
+<td>Component suites tradicionais</td>
+<td>widgets e temas</td>
+<td>Praxis entrega componentes que entendem schema, config remota,
+authoring, AI e governance</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gaps-reais-do-angular-como-fechamento-da-plataforma">Gaps reais
+do Angular como fechamento da plataforma</h2>
+<h3 id="narrativa-publica-ainda-pode-parecer-component-library">1.
+Narrativa publica ainda pode parecer “component library”</h3>
+<p>O README ainda abre com “suite completa de componentes UI Angular”.
+Isso e verdade, mas fraco para a plataforma. A narrativa comercial
+deveria abrir com:</p>
+<ul>
+<li>runtime metadata-driven;</li>
+<li>cockpit de decisoes materializadas;</li>
+<li>composicao governada;</li>
+<li>AI-assisted authoring sobre backend canonico;</li>
+<li>componentes enterprise como materializadores, nao como widgets
+isolados.</li>
+</ul>
+<h3 id="readiness-por-componente-precisa-virar-produto">2. Readiness por
+componente precisa virar produto</h3>
+<p>Cada componente importante deveria ter um score ou matriz:</p>
+<ul>
+<li>schema-driven support;</li>
+<li>remote config support;</li>
+<li>config editor support;</li>
+<li>AI capabilities;</li>
+<li>authoring manifest;</li>
+<li>domain-rule diagnostics projection;</li>
+<li>E2E coverage;</li>
+<li>public docs synced;</li>
+<li>registry ingestion ready.</li>
+</ul>
+<p>Isso facilita vender maturidade e priorizar roadmap.</p>
+<h3 id="decision-cockpit-precisa-ficar-mais-visivel">3. Decision cockpit
+precisa ficar mais visivel</h3>
+<p>O config starter ja governa domain rules, materializacoes e
+diagnostics. O Angular precisa expor isso como cockpit comercial:</p>
+<ul>
+<li>decisao proposta;</li>
+<li>grounding usado;</li>
+<li>simulacao;</li>
+<li>materializacoes previstas;</li>
+<li>publicacao;</li>
+<li>materializacoes aplicadas/bloqueadas;</li>
+<li>source hash;</li>
+<li>impacto em components/runtime.</li>
+</ul>
+<p>Se essa experiencia ficar escondida em docs tecnicos, o mercado nao
+percebe o diferencial.</p>
+<h3 id="o-round-trip-editorruntime-e-o-principal-risco-de-produto">4. O
+round-trip editor/runtime e o principal risco de produto</h3>
+<p>O workspace ja tem regras fortes: alterou config, precisa revisar
+editor visual. Esse risco deve virar criterio comercial:</p>
+<ul>
+<li>um componente nao esta “enterprise-ready” se suporta JSON mas nao
+editor;</li>
+<li>nao esta “AI-ready” se tem editor mas nao
+manifesto/capabilities;</li>
+<li>nao esta “governance-ready” se materializa rule sem
+diagnostics/source hash;</li>
+<li>nao esta “platform-ready” se quebra storage remoto, ETag ou
+round-trip.</li>
+</ul>
+<h3
+id="documentacao-derivada-precisa-convergir-com-a-historia-integrada">5.
+Documentacao derivada precisa convergir com a historia integrada</h3>
+<p>Ha docs excelentes, mas espalhados por libs. A plataforma precisa de
+uma trilha unificada:</p>
+<ol type="1">
+<li>recurso backend publica schema/domain/actions/capabilities;</li>
+<li>config starter ingere e governa decisions;</li>
+<li>Angular materializa em CRUD/form/table/page;</li>
+<li>Page Builder e AI assistant authoram mudancas;</li>
+<li>settings/storage persistem;</li>
+<li>landing mostra demo vertical por dominio.</li>
+</ol>
+<h2 id="roadmap-recomendado-para-fechar-as-pontas">Roadmap recomendado
+para fechar as pontas</h2>
+<h3 id="horizonte-1-empacotar-a-narrativa-integrada">Horizonte 1:
+empacotar a narrativa integrada</h3>
+<ol type="1">
+<li><strong>Platform Runtime Overview</strong>
+<ul>
+<li>Documento curto em <code>praxis-ui-angular</code> explicando o
+workspace como runtime de metadata, config e decisions.</li>
+<li>Deve apontar para metadata starter, config starter e
+quickstart.</li>
+</ul></li>
+<li><strong>Component Readiness Matrix</strong>
+<ul>
+<li>Matriz por lib: core, table, dynamic-form, dynamic-fields, crud,
+page-builder, ai, settings-panel, list, charts, rich-content, tabs,
+expansion.</li>
+<li>Colunas: schema, remote config, editor, AI catalog, authoring
+manifest, domain-rule projection, E2E, public docs.</li>
+</ul></li>
+<li><strong>Demo vertical integrada</strong>
+<ul>
+<li>Um caso de dominio no quickstart: metadata -&gt; domain catalog
+-&gt; domain rule -&gt; materialization -&gt; Angular
+CRUD/form/table/page builder.</li>
+<li>Deve ter narrativa de venda: “o que a IA decidiu, por que, como
+simulou e onde materializou”.</li>
+</ul></li>
+</ol>
+<h3 id="horizonte-2-cockpit-de-decision-materialization">Horizonte 2:
+cockpit de decision materialization</h3>
+<ol type="1">
+<li><strong>Decision Handoff UI</strong>
+<ul>
+<li>UI padrao para mostrar <code>decisionDiagnostics</code>,
+<code>publicationDiagnostics</code>, materialization outcomes e
+<code>sourceHash</code>.</li>
+<li>Consumida por Page Builder, Dynamic Form, Table e CRUD quando
+aplicavel.</li>
+</ul></li>
+<li><strong>Materialization Inspector</strong>
+<ul>
+<li>Painel para abrir uma config de componente e ver de quais decisions
+ela veio.</li>
+<li>Deve diferenciar config authorada pelo usuario, default do produto,
+materializacao derivada e patch local.</li>
+</ul></li>
+<li><strong>Round-trip Gate</strong>
+<ul>
+<li>Validacao focada: abrir editor -&gt; alterar -&gt; apply/save -&gt;
+runtime refletir -&gt; reabrir sem perda -&gt; persistir remoto quando
+habilitado.</li>
+<li>Deve virar criterio de readiness por componente.</li>
+</ul></li>
+</ol>
+<h3 id="horizonte-3-marketplace-interno-de-materializadores">Horizonte
+3: marketplace interno de materializadores</h3>
+<ol type="1">
+<li><strong>Materializer Catalog</strong>
+<ul>
+<li>Catalogo de quais componentes conseguem materializar quais tipos de
+decisions: validation, visibility, selection eligibility, workflow,
+chart, dashboard, rich content, page shell.</li>
+</ul></li>
+<li><strong>Authoring Manifest Federation</strong>
+<ul>
+<li>Manifestos por componente federados no <code>ai_registry</code>, com
+busca por componente, target, operation e risco.</li>
+</ul></li>
+<li><strong>Open Runtime Certification</strong>
+<ul>
+<li>Certificar hosts Angular ou outros runtimes que consigam consumir a
+mesma cadeia de metadata/config/decision sem usar atalhos locais.</li>
+</ul></li>
+</ol>
+<h2 id="mapa-de-impacto-para-futuras-implementacoes">Mapa de impacto
+para futuras implementacoes</h2>
+<p>Subprojeto canonico afetado:</p>
+<ul>
+<li><code>praxis-ui-angular</code> para runtime, editors, AI shell, page
+builder, storage e manifests.</li>
+</ul>
+<p>Consumidores impactados:</p>
+<ul>
+<li><code>praxis-ui-landing-page</code> para narrativa publica e
+demos;</li>
+<li><code>praxis-api-quickstart</code> para prova operacional;</li>
+<li><code>praxis-config-starter</code> para contratos
+AI/config/domain-rules consumidos pelo Angular;</li>
+<li><code>praxis-metadata-starter</code> quando o runtime exigir novo
+grounding semantico.</li>
+</ul>
+<p>Docs publicas potencialmente afetadas:</p>
+<ul>
+<li>docs de CRUD, Dynamic Form, Table, Page Builder, AI e Settings
+Panel;</li>
+<li>docs de landing e guias “what is x-ui”,
+resource/surface/action/capability;</li>
+<li>docs de authoring e AI registry.</li>
+</ul>
+<p>Exemplos/playgrounds/recipes potencialmente afetados:</p>
+<ul>
+<li><code>quickstart-remote-metadata-lab</code>;</li>
+<li><code>remote-config-storage-persistence-lab</code>;</li>
+<li>Page Builder agentic validation;</li>
+<li>dynamic-page examples;</li>
+<li>AI recipes e registry ingestion.</li>
+</ul>
+<p>Validacoes minimas futuras:</p>
+<ul>
+<li>para docs-only, leitura final e <code>git diff --check</code>;</li>
+<li>para public API ou contratos entre libs, build focal da lib alterada
+e de um consumidor direto;</li>
+<li>para config/editor, round-trip focal de editor/runtime;</li>
+<li>para AI/page-builder, gate focal ou completo de agentic authoring
+conforme risco;</li>
+<li>para registry/capabilities,
+<code>npm run generate:registry:ingestion</code> e
+<code>npm run validate:catalog</code> quando a superficie funcional
+mudar.</li>
+</ul>
+<p>Risco de breaking change:</p>
+<ul>
+<li>alto em <code>@praxisui/core</code>, <code>public-api</code>, schema
+flow, storage e shared models;</li>
+<li>alto em <code>@praxisui/ai</code> e page-builder quando
+endpoints/manifests mudarem;</li>
+<li>medio/alto em form/table/crud quando config/editor/runtime
+divergirem;</li>
+<li>medio em docs/registry se a mudanca alterar descoberta por IA ou
+landing.</li>
+</ul>
+<h2 id="recomendacao-final">Recomendacao final</h2>
+<p>O <code>praxis-ui-angular</code> deve ser apresentado como o
+<strong>runtime/cockpit oficial da plataforma de decisoes semanticas
+Praxis</strong>.</p>
+<p>Ele fecha as pontas porque transforma:</p>
+<ul>
+<li>contrato estrutural em UI;</li>
+<li>discovery semantico em acoes e surfaces;</li>
+<li>config persistida em comportamento runtime;</li>
+<li>domain rules em materializacoes visiveis;</li>
+<li>authoring AI em preview, apply, save e auditoria;</li>
+<li>componentes isolados em materializadores governados.</li>
+</ul>
+<p>Assim, a historia completa fica mais forte que “metadata-driven
+UI”:</p>
+<blockquote>
+<p>Praxis publica semantica, governa decisoes, materializa em
+componentes enterprise e prova tudo por HTTP real.</p>
+</blockquote>
+<p>Essa e a frase que aproxima o conforto enterprise da SAP, a
+governanca de dados da ServiceNow/Salesforce e a produtividade do
+low-code, mas com contratos abertos, runtime composavel e fronteiras
+canonicas claras.</p>
+<h2 id="fontes-internas-consultadas">Fontes internas consultadas</h2>
+<ul>
+<li><code>praxis-ui-angular/AGENTS.md</code></li>
+<li><code>praxis-ui-angular/README.md</code></li>
+<li><code>praxis-ui-angular/docs/README.md</code></li>
+<li><code>praxis-ui-angular/COMPONENT_METADATA.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-core/AGENTS.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-core/docs/schema-flow.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-crud/AGENTS.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-crud/README.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-dynamic-form/AGENTS.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-table/AGENTS.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-page-builder/AGENTS.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-page-builder/README.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-ai/AGENTS.md</code></li>
+<li><code>praxis-ui-angular/projects/praxis-ai/README.md</code></li>
+<li><code>praxis-ui-angular/tools/ai-registry/AGENTS.md</code></li>
+<li><code>praxis-ui-angular/docs/CRUD-REMOTE-BASELINE.md</code></li>
+<li><code>praxis-ui-angular/docs/REMOTE-CONFIG-STORAGE-E2E.md</code></li>
+<li><code>praxis-ui-angular/docs/metadata-editors-architecture.md</code></li>
+<li><code>praxis-ui-angular/docs/GUIDE-AUTHORING-STANDARD.md</code></li>
+</ul>
+</body>
+</html>

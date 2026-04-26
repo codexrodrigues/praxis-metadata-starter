@@ -12,6 +12,8 @@ Material tecnico ainda vivo do `praxis-metadata-starter`.
 
 - [Hub tecnico](README.html)
 - [Auto-configuracao](AUTO-CONFIGURACAO.html)
+- [Estudo de mercado e roadmap competitivo](ESTUDO-MERCADO-ROADMAP-METADATA-STARTER.html)
+- [Estudo complementar - Praxis UI Angular metadata-driven](ESTUDO-PRAXIS-UI-ANGULAR-METADATA-DRIVEN.html)
 - [Roadmap de filtros](FILTROS-ROADMAP.html)
 
 ## Registros de rollout e piloto

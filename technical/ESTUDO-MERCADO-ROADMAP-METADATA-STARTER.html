@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Estudo de mercado e roadmap competitivo do Praxis Metadata Starter</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Estudo de mercado e roadmap competitivo do Praxis
+Metadata Starter</h1>
+</header>
+<h1
+id="estudo-de-mercado-e-roadmap-competitivo-do-praxis-metadata-starter">Estudo
+de mercado e roadmap competitivo do Praxis Metadata Starter</h1>
+<p>Data: 2026-04-25</p>
+<p>Classificacao da mudanca: <code>docs-apenas</code>.</p>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este estudo compara os recursos atuais do
+<code>praxis-metadata-starter</code> com plataformas enterprise de
+referencia, especialmente SAP, para orientar novos recursos que
+posicionem a Praxis como plataforma metadata-driven e AI-operable, nao
+apenas como biblioteca de CRUD dinamico.</p>
+<p>A tese central e simples: SAP, Salesforce, ServiceNow, Mendix e
+OutSystems ja educaram o mercado para aceitar modelos, metadados e
+automacao como fonte de produtividade. A oportunidade da Praxis e ir
+alem: publicar semantica de dominio, governanca, actions, capabilities e
+evidencias para que IA possa authorar, simular, explicar e materializar
+decisoes canonicas com menor drift entre backend, runtime, configuracao
+e documentacao.</p>
+<h2 id="leitura-executiva">Leitura executiva</h2>
+<p>O <code>praxis-metadata-starter</code> ja tem uma base competitiva
+forte:</p>
+<ul>
+<li>contrato estrutural canonico em <code>/schemas/filtered</code>;</li>
+<li>OpenAPI enriquecido com <code>x-ui</code>;</li>
+<li>catalogo documental em <code>/schemas/catalog</code>;</li>
+<li>catalogo semantico AI-operable em <code>/schemas/domain</code>;</li>
+<li>discovery de experiencias e comandos por
+<code>/schemas/surfaces</code> e <code>/schemas/actions</code>;</li>
+<li>snapshots agregados por <code>/{resource}/capabilities</code>;</li>
+<li>HATEOAS efetivo via <code>_links</code>;</li>
+<li>filtros, option sources, stats e exportacao de colecao;</li>
+<li>governanca de dominio por <code>@DomainGovernance</code> e
+<code>x-domain-governance</code>;</li>
+<li>baseline resource-oriented com <code>@ApiResource</code>, services e
+mappers canonicos.</li>
+</ul>
+<p>Comparado ao mercado, a Praxis deve ser analisada como solucao
+integrada entre <code>praxis-metadata-starter</code> e
+<code>praxis-config-starter</code>. Muitos pontos que seriam gaps se o
+metadata starter fosse visto isoladamente ja aparecem cobertos, ou em
+rota canonica clara, pelo config starter:</p>
+<ol type="1">
+<li><strong>Governanca de decisoes semanticas</strong>: ja existe como
+direcao e superficie publica em
+<code>/api/praxis/config/domain-rules/**</code>, com intake, simulacao,
+publicacao, materializacao, diagnostics e lifecycle.</li>
+<li><strong>Modelo operacional de lifecycle</strong>: ja aparece em
+releases imutaveis de catalogo,
+<code>domain_knowledge_change_set</code>, status direcionais de regras e
+materializacoes, <code>sourceHash</code> e diagnostics de
+publicacao/materializacao.</li>
+<li><strong>Materializacao derivada</strong>: ja esta modelada por
+<code>domain_rule_definition</code> e
+<code>domain_rule_materialization</code>, separando decisao canonica de
+payloads concretos como <code>option_source</code>,
+<code>backend_validation</code> e <code>form_config</code>.</li>
+<li><strong>Authoring agentico</strong>: ja existe em
+<code>/api/praxis/config/ai/**</code>, manifests executaveis em
+<code>ai_registry</code>, stream SSE, threads/turns/actions e gates
+reais com quickstart e Angular.</li>
+</ol>
+<p>Portanto, os gaps restantes nao sao “criar tudo isso”. Sao:
+consolidar a narrativa de plataforma integrada, conectar melhor as
+provas comerciais, expor capability/readiness como produto e reduzir a
+distancia entre os contratos ja existentes e a comunicacao publica.</p>
+<h2 id="estado-atual-do-starter">Estado atual do starter</h2>
+<h3 id="recursos-canonicos-ja-existentes">Recursos canonicos ja
+existentes</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Eixo</th>
+<th>Recurso atual</th>
+<th>Valor para o mercado</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Contrato estrutural</td>
+<td><code>/schemas/filtered</code>, <code>ETag</code>,
+<code>X-Schema-Hash</code>, <code>schemaId</code></td>
+<td>Permite UI/runtime dinamico com cache, variacao por contexto e
+contrato testavel</td>
+</tr>
+<tr class="even">
+<td>Vocabulario UI</td>
+<td><code>x-ui</code>, <code>@UISchema</code>, Bean Validation,
+validacoes, tipos e controles</td>
+<td>Reduz cola de frontend e permite formularios/tabelas
+metadata-driven</td>
+</tr>
+<tr class="odd">
+<td>Recurso canonico</td>
+<td><code>@ApiResource(resourceKey)</code>, controllers/services
+resource-oriented</td>
+<td>Padroniza recursos como unidades semanticas estaveis</td>
+</tr>
+<tr class="even">
+<td>Discovery documental</td>
+<td><code>/schemas/catalog</code></td>
+<td>Gera base para docs, playground, RAG e exploracao por
+ferramentas</td>
+</tr>
+<tr class="odd">
+<td>Discovery semantico</td>
+<td><code>/schemas/surfaces</code>, <code>/schemas/actions</code></td>
+<td>Separa experiencia de UI, comando de negocio e contrato
+estrutural</td>
+</tr>
+<tr class="even">
+<td>Capabilities</td>
+<td><code>/{resource}/capabilities</code>,
+<code>/{resource}/{id}/capabilities</code></td>
+<td>Explica o que pode ser feito agora por colecao ou item</td>
+</tr>
+<tr class="odd">
+<td>Governanca AI</td>
+<td><code>/schemas/domain</code>, <code>@DomainGovernance</code>,
+<code>AiUsageMode</code></td>
+<td>Fundamenta uso de IA com classificacao, politica e evidencias</td>
+</tr>
+<tr class="even">
+<td>Options</td>
+<td><code>x-ui.optionSource</code>, registries e endpoints de option
+sources</td>
+<td>Cria selects, lookups e cascatas governadas sem endpoints ad
+hoc</td>
+</tr>
+<tr class="odd">
+<td>Analytics</td>
+<td><code>x-ui.analytics</code>, <code>x-ui.chart</code>,
+<code>/stats/*</code></td>
+<td>Abre caminho para dashboards metadata-driven e indicadores
+governados</td>
+</tr>
+<tr class="even">
+<td>Exportacao</td>
+<td><code>POST /{resource}/export</code>,
+<code>CollectionExportCapability</code>, engines CSV/JSON</td>
+<td>Resolve demanda enterprise de exportacao com filtros, selecao e
+limites</td>
+</tr>
+<tr class="odd">
+<td>HATEOAS</td>
+<td>envelope <code>_links</code></td>
+<td>Liga contrato publicado a affordances HTTP reais</td>
+</tr>
+</tbody>
+</table>
+<h3 id="forca-diferencial-atual">Forca diferencial atual</h3>
+<p>O starter ja e mais proximo de uma camada semantica de plataforma do
+que de um gerador de UI. A separacao entre <code>resource</code>,
+<code>surface</code>, <code>action</code> e <code>capability</code> e
+uma vantagem porque evita o erro comum de transformar a tela em fonte
+primaria da regra de negocio.</p>
+<p>Na narrativa comercial, isso deve ser vendido como:</p>
+<ul>
+<li>“contratos vivos para produtos internos”;</li>
+<li>“metadata que a IA consegue entender e auditar”;</li>
+<li>“UI dinamica com semantica de negocio, nao apenas schema”;</li>
+<li>“governanca antes da materializacao”;</li>
+<li>“menos lock-in que suites monoliticas, com padrao aberto OpenAPI +
+extensoes”.</li>
+</ul>
+<h2 id="praxis-integrada-metadata-starter-config-starter">Praxis
+integrada: metadata starter + config starter</h2>
+<p>O estudo competitivo nao deve tratar o
+<code>praxis-metadata-starter</code> como produto isolado. Ele e o
+publicador canonico de grounding estrutural e semantico; o
+<code>praxis-config-starter</code> e a fronteira canonica de
+persistencia, authoring, governanca, simulacao, publicacao e
+materializacao das decisoes.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Concern</th>
+<th>Dono canonico na Praxis</th>
+<th>Cobertura atual observada</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Grounding estrutural</td>
+<td><code>praxis-metadata-starter</code></td>
+<td><code>/schemas/filtered</code>, OpenAPI enriquecido,
+<code>x-ui</code>, hashes e headers</td>
+</tr>
+<tr class="even">
+<td>Grounding semantico</td>
+<td><code>praxis-metadata-starter</code></td>
+<td><code>/schemas/domain</code>, <code>/schemas/surfaces</code>,
+<code>/schemas/actions</code>, <code>/capabilities</code></td>
+</tr>
+<tr class="odd">
+<td>Persistencia de catalogo</td>
+<td><code>praxis-config-starter</code></td>
+<td><code>domain_catalog_release</code>,
+<code>domain_catalog_item</code>, raw payload, tenant/env</td>
+</tr>
+<tr class="even">
+<td>Knowledge layer governada</td>
+<td><code>praxis-config-starter</code></td>
+<td><code>domain_knowledge_*</code>, aliases, bindings, relationships,
+evidence, change sets</td>
+</tr>
+<tr class="odd">
+<td>Authoring AI</td>
+<td><code>praxis-config-starter</code></td>
+<td><code>/api/praxis/config/ai/**</code>, manifests em
+<code>ai_registry</code>, patch/preview/apply, SSE</td>
+</tr>
+<tr class="even">
+<td>Decisao semantica compartilhada</td>
+<td><code>praxis-config-starter</code></td>
+<td><code>domain_rule_definition</code>, intake, simulation,
+publication, diagnostics</td>
+</tr>
+<tr class="odd">
+<td>Materializacao derivada</td>
+<td><code>praxis-config-starter</code></td>
+<td><code>domain_rule_materialization</code>,
+<code>option_source</code>, <code>backend_validation</code>,
+<code>form_config</code></td>
+</tr>
+<tr class="even">
+<td>Runtime oficial</td>
+<td><code>praxis-ui-angular</code></td>
+<td>CRUD, forms, table, page builder, cockpit/handoff de regras</td>
+</tr>
+<tr class="odd">
+<td>Prova operacional</td>
+<td><code>praxis-api-quickstart</code></td>
+<td>smokes HTTP/SSE, Domain Catalog v2, Page Builder E2E com LLM
+real</td>
+</tr>
+</tbody>
+</table>
+<p>Essa divisao e competitivamente importante: a Praxis nao precisa
+colocar authoring e rule lifecycle dentro do metadata starter. O
+metadata starter deve continuar limpo como produtor de semantica
+confiavel; o config starter deve absorver o ciclo de decisao
+governada.</p>
+<h3
+id="recursos-do-config-starter-que-cobrem-gaps-do-estudo-inicial">Recursos
+do config starter que cobrem gaps do estudo inicial</h3>
+<p>O <code>praxis-config-starter</code> ja cobre, ou documenta como
+fronteira canonica, varios itens que pareciam lacunas:</p>
+<ul>
+<li><strong>Domain Catalog persistido</strong>: ingestao e armazenamento
+de releases imutaveis publicados por <code>/schemas/domain</code>.</li>
+<li><strong>Domain Knowledge Layer</strong>: conceitos, aliases,
+bindings, relationships, evidence, lifecycle, stewardship, AI visibility
+e change sets.</li>
+<li><strong>Shared Rule Definition</strong>:
+<code>domain_rule_definition</code> captura intencao de regra
+reutilizavel, ownership, evidencias, governanca, status, aprovacao e
+versao.</li>
+<li><strong>Rule Materialization</strong>:
+<code>domain_rule_materialization</code> separa a decisao canonica das
+projecoes concretas para <code>form_config</code>,
+<code>option_source</code>, <code>backend_validation</code>, workflow,
+policy engine e outros targets.</li>
+<li><strong>Simulacao/publicacao</strong>:
+<code>/api/praxis/config/domain-rules/**</code> inclui intake,
+simulations, publications, materializations e status transitions.</li>
+<li><strong>Diagnostics de decisao</strong>: responses incluem
+<code>decisionDiagnostics</code>, <code>publicationDiagnostics</code>,
+<code>sourceHash</code>, outcomes e explicabilidade para o host
+renderizar sem reconstruir heuristicas localmente.</li>
+<li><strong>Authoring agentico</strong>: <code>ai_registry</code>,
+authoring manifests, patch orchestration, stream SSE, threads, turns,
+replay, probe e cancelamento.</li>
+<li><strong>Prova real de plataforma</strong>: release decision do
+config starter registra smokes HTTP/SSE, Domain Catalog v2,
+materializacoes de procurement e Page Builder full E2E com provider
+real.</li>
+</ul>
+<p>Em outras palavras: a Praxis ja esta mais perto de “semantic decision
+platform” do que o estudo inicial sugeria. O trabalho agora e vender a
+composicao correta.</p>
+<h2 id="referencias-de-mercado">Referencias de mercado</h2>
+<h3 id="sap-fiori-elements-odata-cds-e-rapcap">SAP Fiori Elements,
+OData, CDS e RAP/CAP</h3>
+<p>SAP Fiori Elements usa OData, metadata e annotations para gerar
+experiencias como list reports e object pages em runtime, com menos
+codigo JavaScript. A documentacao SAP afirma que Fiori Elements gera
+apps usando floorplan especifico, service metadata e annotations em
+runtime. SAP CAP tambem modela dominio e services em CDS e serve APIs
+OData/OpenAPI, incluindo actions/functions, autorizacao, privacidade,
+extensibilidade e multitenancy.</p>
+<p>Leitura para Praxis:</p>
+<ul>
+<li>SAP prova que metadata-driven e vendavel em ambiente
+enterprise.</li>
+<li>OData annotations sao o paralelo comercial mais facil para explicar
+<code>x-ui</code>.</li>
+<li>A lacuna da SAP para a Praxis explorar e composabilidade mais
+aberta, explicabilidade AI-operable e menor dependencia de um stack
+monolitico.</li>
+<li>SAP e forte em floorplans e vocabularios maduros; Praxis deve ser
+forte em contrato semantico aberto, runtime host-aware e governanca de
+decisoes.</li>
+</ul>
+<h3 id="salesforce-einstein-1">Salesforce Einstein 1</h3>
+<p>Salesforce posiciona o Einstein Copilot como assistente unificado,
+grounded em dados da empresa e conectado ao metadata da plataforma,
+entendido como os dados que descrevem configuracoes de negocio do
+cliente.</p>
+<p>Leitura para Praxis:</p>
+<ul>
+<li>A mensagem “AI grounded in trusted data and metadata” ja esta
+validada no mercado.</li>
+<li>Praxis pode ser mais explicita: nao apenas “metadata da
+configuracao”, mas “catalogo semantico, evidencias, governanca, actions
+e capabilities”.</li>
+<li>O starter deve continuar enriquecendo <code>/schemas/domain</code>
+como base de RAG, explicacao, mascaramento e authoring governado.</li>
+</ul>
+<h3 id="servicenow-ai-platform">ServiceNow AI Platform</h3>
+<p>ServiceNow trata metadata como arquivos de aplicacao organizados por
+categorias como AI, automation, data, integrations e UI. Em 2025,
+reforcou a narrativa de Workflow Data Fabric e Workflow Data Network
+para conectar dados, contexto, governanca e AI agents em workflows.</p>
+<p>Leitura para Praxis:</p>
+<ul>
+<li>ServiceNow vende “workflow + data + AI” como tecido
+operacional.</li>
+<li>Praxis deve responder com “semantic decision fabric”: recursos,
+actions, capabilities, surfaces, policies e materializacoes
+versionadas.</li>
+<li>A oportunidade esta em tornar cada endpoint e cada decisao authorada
+pela IA auditavel, simulavel e publicavel como artefato de
+plataforma.</li>
+</ul>
+<h3 id="mendix-e-outsystems">Mendix e OutSystems</h3>
+<p>Mendix vende model-driven development como fundamento de low-code:
+modelos abstraem logica, dados e UI em um IDE visual. OutSystems se
+posiciona como plataforma AI-powered low-code para apps e agents
+enterprise.</p>
+<p>Leitura para Praxis:</p>
+<ul>
+<li>Low-code venceu a narrativa de produtividade, mas frequentemente
+concentra regra em builders visuais dificeis de auditar por codigo.</li>
+<li>Praxis pode se diferenciar mantendo fonte canonica em contratos e
+codigo de plataforma, enquanto oferece materializacao visual e
+AI-assisted authoring.</li>
+<li>O valor comercial nao deve ser “arrastar componentes”; deve ser
+“authorar decisoes semanticas governadas e materializar para varios
+runtimes”.</li>
+</ul>
+<h2 id="comparacao-competitiva">Comparacao competitiva</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Capacidade</th>
+<th>SAP</th>
+<th>Salesforce</th>
+<th>ServiceNow</th>
+<th>Mendix/OutSystems</th>
+<th>Praxis hoje</th>
+<th>Onde Praxis pode liderar</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>UI metadata-driven</td>
+<td>Muito forte com Fiori Elements</td>
+<td>Forte no CRM e builders</td>
+<td>Forte em workspaces/forms</td>
+<td>Forte visual low-code</td>
+<td>Forte em <code>x-ui</code>, forms, tables, CRUD</td>
+<td>Runtime aberto + host-aware sem suite monolitica</td>
+</tr>
+<tr class="even">
+<td>Modelo de dominio</td>
+<td>CDS/RAP/CAP maduro</td>
+<td>Metadata de objetos/config</td>
+<td>Common data/workflow model</td>
+<td>Modelos visuais</td>
+<td><code>resourceKey</code>, <code>/schemas/domain</code>,
+governanca</td>
+<td>Grafo semantico AI-operable versionado</td>
+</tr>
+<tr class="odd">
+<td>Actions/workflows</td>
+<td>Actions/functions e RAP</td>
+<td>Flow/Actions</td>
+<td>Flow/Playbooks</td>
+<td>Process flows</td>
+<td><code>/schemas/actions</code>, capabilities, domain rules</td>
+<td>Simulacao, publicacao e materializacao governada</td>
+</tr>
+<tr class="even">
+<td>Governanca AI</td>
+<td>Crescente com Joule</td>
+<td>Trust Layer e metadata grounding</td>
+<td>Data fabric + governance</td>
+<td>AI governance emergente</td>
+<td><code>@DomainGovernance</code>, <code>AiUsageMode</code>,
+<code>ai_registry</code>, <code>domain-rules</code></td>
+<td>Decision authoring com aprovacao, evidencias, diagnostics e
+rollback</td>
+</tr>
+<tr class="odd">
+<td>Interoperabilidade</td>
+<td>Forte, mas SAP-centric</td>
+<td>Forte dentro Salesforce</td>
+<td>Forte dentro ServiceNow</td>
+<td>Plataforma proprietaria</td>
+<td>OpenAPI + x-* + Spring</td>
+<td>Contrato aberto multi-backend e suite de conformidade</td>
+</tr>
+<tr class="even">
+<td>Prova operacional</td>
+<td>Muito madura</td>
+<td>Muito madura</td>
+<td>Muito madura</td>
+<td>Muito madura</td>
+<td>Quickstart + landing + docs</td>
+<td>Demos verticais com audit trail e IA explicavel</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gaps-reais-da-solucao-integrada">Gaps reais da solucao
+integrada</h2>
+<h3 id="decisao-semantica-ja-existe-mas-a-narrativa-esta-fragmentada">1.
+Decisao semantica ja existe, mas a narrativa esta fragmentada</h3>
+<p>No metadata starter isolado, a entidade explicita de “decisao
+semantica” nao aparece. Mas na solucao integrada ela ja esta modelada no
+config starter como <code>domain_rule_definition</code>,
+<code>domain_rule_materialization</code>, intake, simulation,
+publication, status transitions e diagnostics.</p>
+<p>O gap real e de comunicacao e empacotamento:</p>
+<ul>
+<li>mostrar o fluxo completo metadata -&gt; domain catalog -&gt;
+knowledge layer -&gt; shared rule -&gt; simulation -&gt; publication
+-&gt; materialization -&gt; runtime;</li>
+<li>documentar claramente que metadata starter publica grounding e
+config starter governa a decisao;</li>
+<li>expor exemplos comerciais que atravessem os dois starters.</li>
+</ul>
+<h3
+id="lifecycle-semantico-existe-mas-precisa-virar-experiencia-de-produto">2.
+Lifecycle semantico existe, mas precisa virar experiencia de
+produto</h3>
+<p>O config starter ja registra releases, change sets, status
+direcionais, approved/active/applied timestamps,
+<code>sourceHash</code>, diagnostics e smokes. O que ainda precisa
+amadurecer e a experiencia de produto sobre esse lifecycle:</p>
+<ul>
+<li>comparar duas versoes semanticas;</li>
+<li>explicar breaking changes;</li>
+<li>gerar changelog de contrato para consumidores;</li>
+<li>simular impacto em runtime Angular, examples e quickstart;</li>
+<li>assinar/promover releases de metadata e decisoes com linguagem de
+negocio.</li>
+</ul>
+<h3 id="catalogo-e-knowledge-layer-precisam-de-uma-camada-comercial">3.
+Catalogo e knowledge layer precisam de uma camada comercial</h3>
+<p><code>/schemas/catalog</code>, <code>/schemas/domain</code>,
+<code>/schemas/surfaces</code>, <code>/schemas/actions</code>,
+<code>domain_catalog_release</code>, <code>domain_knowledge_*</code> e
+<code>domain-rules</code> sao poderosos, mas a maior parte da venda
+ainda depende de entender nomes tecnicos.</p>
+<p>A camada comercial deve traduzir isso para:</p>
+<ul>
+<li>catalogo de capabilities por dominio;</li>
+<li>matriz “quem pode fazer o que, quando e por que”;</li>
+<li>exemplos de jornadas reais;</li>
+<li>score de maturidade metadata-driven por recurso;</li>
+<li>explicacao natural language gerada a partir do catalogo e da regra
+governada.</li>
+</ul>
+<h3 id="falta-uma-narrativa-de-extensibilidade-enterprise">4. Falta uma
+narrativa de extensibilidade enterprise</h3>
+<p>SAP tem vocabulos e floorplans. ServiceNow tem app files e workflows.
+Salesforce tem metadata de negocio. Praxis precisa nomear e estabilizar
+seus pontos de extensao como produto:</p>
+<ul>
+<li>vocabulary packs (<code>x-ui</code>, <code>x-ui.chart</code>,
+<code>x-ui.analytics</code>, <code>x-domain-governance</code>);</li>
+<li>capability providers;</li>
+<li>action availability rules;</li>
+<li>surface packs;</li>
+<li>option source executors;</li>
+<li>export engines;</li>
+<li>domain evidence providers;</li>
+<li>conformance suites por backend.</li>
+</ul>
+<h2 id="roadmap-recomendado">Roadmap recomendado</h2>
+<h3 id="horizonte-1-fortalecer-venda-e-confianca-tecnica">Horizonte 1:
+fortalecer venda e confianca tecnica</h3>
+<p>Prioridade alta para curto prazo.</p>
+<ol type="1">
+<li><strong>Metadata Capability Score</strong>
+<ul>
+<li>Endpoint ou relatorio derivado que pontua cada recurso: schema,
+idField, surfaces, actions, capabilities, domain governance, options,
+stats, export, examples e links.</li>
+<li>Valor comercial: mostrar maturidade e gaps de adocao para
+clientes.</li>
+<li>Fonte canonica: metadata starter calcula maturidade de grounding;
+config starter acrescenta maturidade de ingestao, knowledge, regras e
+materializacoes.</li>
+</ul></li>
+<li><strong>Semantic Diff</strong>
+<ul>
+<li>Comparar dois payloads de <code>/schemas/domain</code>,
+<code>/schemas/filtered</code> ou <code>/schemas/catalog</code> e
+classificar impacto: non-breaking, additive, warning, breaking.</li>
+<li>Valor comercial: “governanca de mudanca” para plataformas
+internas.</li>
+<li>Melhor lugar: metadata starter pode definir diff de contrato
+publicado; config starter armazena releases, change sets, publicacoes e
+impacto de decisoes.</li>
+</ul></li>
+<li><strong>AI Explain Contract</strong>
+<ul>
+<li>Gerar uma explicacao estruturada por recurso: “o que e”, “quais
+dados governa”, “quais actions existem”, “quais riscos AI”, “quais links
+executar”.</li>
+<li>Valor comercial: RAG, onboarding e venda para lideranca.</li>
+<li>Deve combinar <code>/schemas/domain</code>,
+<code>/schemas/actions</code>, <code>/schemas/surfaces</code>,
+<code>/capabilities</code>, <code>/schemas/catalog</code>, domain
+knowledge e domain rules.</li>
+</ul></li>
+<li><strong>Conformance Report por recurso</strong>
+<ul>
+<li>Hoje existe guia de conformidade. O proximo passo e um output
+machine-readable por recurso e por backend.</li>
+<li>Valor comercial: certificacao “Praxis-compatible backend”.</li>
+<li>A certificacao deve cobrir os dois lados: produtor de metadata e
+consumidor de config/authoring quando a solucao vender decisao
+governada.</li>
+</ul></li>
+</ol>
+<h3
+id="horizonte-2-avancar-alem-de-sapfiori-em-semantica-operacional">Horizonte
+2: avancar alem de SAP/Fiori em semantica operacional</h3>
+<p>Prioridade alta para diferenciar.</p>
+<ol type="1">
+<li><strong>Decision Readiness Manifest</strong>
+<ul>
+<li>Manifesto que informa se um recurso tem grounding suficiente para IA
+authorar decisoes com seguranca.</li>
+<li>Campos: required evidence, missing governance, risky fields, allowed
+AI modes, approval policy, executable actions, simulation
+endpoints.</li>
+<li>Deve ser agregado pela solucao: metadata starter informa grounding;
+config starter informa knowledge/rules/materialization readiness.</li>
+</ul></li>
+<li><strong>Action Simulation Contract</strong>
+<ul>
+<li>Para <code>@WorkflowAction</code>, publicar metadados de simulacao:
+dry-run supported, input schema, side effects, required approvals,
+expected state transition, rollback hints.</li>
+<li>Importante: nao transformar o metadata starter em rule engine. Ele
+publica contrato e discovery; a simulacao governada ja pertence ao
+config starter quando o assunto e decisao semantica compartilhada.</li>
+</ul></li>
+<li><strong>State Transition Semantics</strong>
+<ul>
+<li>Formalizar transicoes de estado associadas a actions e
+availability.</li>
+<li>SAP/CAP tem status flows e actions; Praxis pode ter fluxo mais
+aberto e AI-operable, ligado a <code>ResourceStateSnapshot</code>.</li>
+<li>Para regras e materializacoes, o config starter ja tem status
+transitions direcionais; o proximo passo e alinhar essa narrativa com
+actions do metadata starter e estados de recursos.</li>
+</ul></li>
+<li><strong>Policy-Aware Capabilities</strong>
+<ul>
+<li>Expandir availability com motivos estruturados, politica aplicada,
+evidencia e proxima acao recomendada.</li>
+<li>Valor: UI explica por que uma action esta bloqueada; IA nao inventa
+execucao.</li>
+<li>Deve consumir diagnostics do config starter quando o bloqueio vier
+de regra governada, e manter capabilities como snapshot agregado, nao
+segunda fonte estrutural de schema.</li>
+</ul></li>
+</ol>
+<h3 id="horizonte-3-plataforma-de-decisoes-e-ecossistema">Horizonte 3:
+plataforma de decisoes e ecossistema</h3>
+<p>Prioridade media, mas estrategica.</p>
+<ol type="1">
+<li><strong>Semantic Decision Registry como produto</strong>
+<ul>
+<li>O registro tecnico ja existe no config starter por domain rules,
+materializacoes, diagnostics, AI turns e registry.</li>
+<li>O roadmap deve transforma-lo em produto: busca, comparacao,
+explicacao, aprovacao, release notes, impacto e auditoria por
+dominio.</li>
+<li>O metadata starter fornece grounding e links de verificacao.</li>
+</ul></li>
+<li><strong>Marketplace interno de resource packs</strong>
+<ul>
+<li>Pacotes por dominio: HR, financeiro, compras, eventos, contratos,
+compliance.</li>
+<li>Cada pack traz recursos, actions, surfaces, governance, examples,
+prompts de IA e testes de conformidade.</li>
+</ul></li>
+<li><strong>Multi-backend certification</strong>
+<ul>
+<li>Java starter como referencia; .NET/Node/outros backends certificados
+por JSON Schema, HTTP smoke e semantic conformance.</li>
+<li>Valor comercial: competir com suites proprietarias sem exigir
+replatforming.</li>
+</ul></li>
+<li><strong>AI Governance Workbench</strong>
+<ul>
+<li>Cockpit para revisar diffs, aprovar decisoes, publicar releases
+semanticos e acompanhar impacto em runtimes.</li>
+<li>Donos: config-starter + ui-angular/landing; metadata starter
+continua como fonte de grounding.</li>
+</ul></li>
+</ol>
+<h2 id="narrativa-comercial-recomendada">Narrativa comercial
+recomendada</h2>
+<h3 id="para-clientes-sapfiori">Para clientes SAP/Fiori</h3>
+<p>“Praxis entrega um modelo familiar a quem conhece Fiori Elements: o
+backend publica metadados semanticos e o runtime materializa
+experiencias. A diferenca e que Praxis usa OpenAPI + extensoes abertas,
+mantem a fronteira do host visivel e leva a semantica alem da tela:
+actions, capabilities, dominio, governanca e IA.”</p>
+<h3 id="para-clientes-salesforceservicenow">Para clientes
+Salesforce/ServiceNow</h3>
+<p>“Praxis traz o principio de metadata como sistema nervoso da
+plataforma, mas sem prender a empresa a um CRM ou workflow suite. Cada
+recurso publica o que e, o que pode fazer, quais dados governa, quais
+actions existem e como a IA pode raciocinar com seguranca.”</p>
+<h3 id="para-clientes-low-code">Para clientes low-code</h3>
+<p>“Praxis nao troca codigo por telas opacas. Ela preserva contratos,
+testes e APIs reais, enquanto permite que IA e runtime materializem
+experiencias dinamicas a partir de decisoes governadas.”</p>
+<h2 id="plano-de-execucao-sugerido">Plano de execucao sugerido</h2>
+<h3 id="fase-1-estudo-em-prova-vendavel">Fase 1: estudo em prova
+vendavel</h3>
+<ul>
+<li>Criar um exemplo vertical no quickstart com 2 ou 3 recursos
+ricos.</li>
+<li>Para cada recurso, publicar <code>/schemas/filtered</code>,
+<code>/schemas/domain</code>, <code>/schemas/surfaces</code>,
+<code>/schemas/actions</code>, <code>/capabilities</code>, stats e
+export.</li>
+<li>Ingerir o catalogo no config starter e demonstrar domain knowledge,
+domain rules, simulation, publication e materialization.</li>
+<li>Na landing, mostrar comparacao com mental model SAP/Fiori e
+diferenca Praxis.</li>
+<li>Entregar um “AI contract + decision explanation” em linguagem
+natural por recurso e por decisao publicada.</li>
+</ul>
+<h3 id="fase-2-produto-de-governanca">Fase 2: produto de governanca</h3>
+<ul>
+<li>Implementar ou expor Semantic Diff e Conformance Report como
+artefatos de produto, reaproveitando releases/change sets/diagnostics ja
+existentes no config starter.</li>
+<li>Criar manifest de readiness para IA agregando metadata readiness e
+decision readiness.</li>
+<li>Publicar guia “de metadata-driven CRUD para semantic decision
+platform”.</li>
+</ul>
+<h3 id="fase-3-authoring-governado">Fase 3: authoring governado</h3>
+<ul>
+<li>Consolidar o config starter como registry de decisoes na narrativa
+publica.</li>
+<li>Expandir cockpit de aprovacao/publicacao sobre
+<code>/domain-rules/**</code> e diagnostics ja existentes.</li>
+<li>Materializar decisions no runtime Angular como projections
+derivadas, mantendo <code>domain_rule_definition</code> como fonte
+canonica da decisao.</li>
+</ul>
+<h2 id="mapa-de-impacto-para-futuras-implementacoes">Mapa de impacto
+para futuras implementacoes</h2>
+<p>Subprojeto canonico afetado:</p>
+<ul>
+<li><code>praxis-metadata-starter</code> para grounding, discovery,
+conformance, diff e readiness derivados.</li>
+<li><code>praxis-config-starter</code> para authoring, persistencia,
+aprovacao e publicacao de decisoes.</li>
+</ul>
+<p>Consumidores impactados:</p>
+<ul>
+<li><code>praxis-ui-angular</code>, especialmente runtime de CRUD,
+dynamic-form, table, charts e clientes de schema/capability.</li>
+<li><code>praxis-api-quickstart</code> como prova operacional por HTTP
+real.</li>
+<li><code>praxis-ui-landing-page</code> como narrativa publica, examples
+e playground.</li>
+</ul>
+<p>Docs publicas potencialmente afetadas:</p>
+<ul>
+<li>guias de <code>x-ui</code>, CRUD,
+resource/surface/action/capability;</li>
+<li><code>LLM_SURFACE</code> e materiais publicos de RAG quando houver
+novos endpoints;</li>
+<li>docs de conformidade e exemplos oficiais.</li>
+</ul>
+<p>Exemplos/playgrounds/recipes potencialmente afetados:</p>
+<ul>
+<li>examples de dynamic-page;</li>
+<li>AI recipes;</li>
+<li>corpus HTTP;</li>
+<li>quickstart pilots.</li>
+</ul>
+<p>Validacoes minimas futuras:</p>
+<ul>
+<li>para mudancas em contrato publico do starter, rodar suite focal de
+docs/schema, capabilities/actions/surfaces conforme
+<code>AGENTS.md</code>;</li>
+<li>para mudancas em <code>/api/praxis/config/**</code>, domain rules,
+authoring ou SSE, rodar validacoes focais do config starter e smoke
+downstream conforme seu <code>AGENTS.md</code>;</li>
+<li>validar quickstart quando houver impacto em consumidor real;</li>
+<li>validar runtime Angular quando <code>capabilities</code>,
+<code>x-ui</code>, <code>schemaUrl</code>,
+<code>requestSchemaUrl</code>, <code>responseSchemaUrl</code>,
+<code>ETag</code> ou <code>X-Schema-Hash</code> mudarem.</li>
+</ul>
+<p>Risco de breaking change:</p>
+<ul>
+<li>baixo para relatorios derivados novos;</li>
+<li>medio para novas chaves em capabilities/actions/surfaces se
+consumidores assumirem shape fechado;</li>
+<li>medio/alto para alteracoes em
+<code>/api/praxis/config/domain-rules/**</code>, diagnostics,
+materialization targets e authoring manifests, pois ja sao contrato
+publico de decisao governada;</li>
+<li>alto se <code>x-ui</code>, <code>/schemas/filtered</code>, headers
+ou semantics de <code>resourceKey</code> forem alterados sem
+compatibilidade.</li>
+</ul>
+<h2 id="recomendacao-final">Recomendacao final</h2>
+<p>O proximo salto da solucao Praxis nao deve ser “mais controles de
+UI”. Isso e necessario, mas nao diferencia o produto.</p>
+<p>O salto competitivo e vender a composicao correta:</p>
+<ul>
+<li><code>praxis-metadata-starter</code> como <strong>grounding
+semantico oficial</strong>;</li>
+<li><code>praxis-config-starter</code> como <strong>fronteira de
+authoring, governanca, publicacao e materializacao de
+decisoes</strong>;</li>
+<li><code>praxis-ui-angular</code> como <strong>cockpit/runtime de
+materializacoes derivadas</strong>;</li>
+<li><code>praxis-api-quickstart</code> como <strong>prova operacional
+por HTTP real</strong>.</li>
+</ul>
+<p>Nessa composicao, o metadata starter diz:</p>
+<ul>
+<li>ele diz quais recursos existem;</li>
+<li>quais dados e politicas importam;</li>
+<li>quais surfaces e actions sao reais;</li>
+<li>quais capabilities estao disponiveis agora;</li>
+<li>quais evidencias sustentam o grounding;</li>
+<li>quais contratos devem ser usados por consumidores e authoring.</li>
+</ul>
+<p>E o config starter governa:</p>
+<ul>
+<li>quais decisoes foram propostas;</li>
+<li>quais evidencias e diagnostics sustentam a decisao;</li>
+<li>quais simulacoes e aprovacoes ocorreram;</li>
+<li>quais materializacoes foram criadas, reutilizadas, bloqueadas ou
+aplicadas;</li>
+<li>qual <code>sourceHash</code> conecta a decisao canonica ao runtime
+derivado.</li>
+</ul>
+<p>Com isso, Praxis fica comparavel a SAP no conforto enterprise do
+metadata-driven, mas com uma historia mais moderna: aberta, AI-operable,
+governada, composavel e centrada em decisoes semanticas.</p>
+<h2 id="fontes-externas-consultadas">Fontes externas consultadas</h2>
+<ul>
+<li>SAP Learning: Fiori Elements usa OData, service metadata e
+annotations em runtime para gerar apps com menos codigo JavaScript:
+https://learning.sap.com/courses/getting-started-with-creating-an-sap-fiori-elements-app-based-on-an-odata-v4-rap-service/getting-started-with-sap-fiori-elements-understanding-odata-and-annotations</li>
+<li>SAP CAP: documentacao de OData APIs, domain modeling, services,
+actions, authorization, privacy, extensibility e multitenancy:
+https://cap.cloud.sap/docs/advanced/odata.html</li>
+<li>Salesforce: Einstein Copilot grounded em dados da empresa e
+conectado ao Salesforce metadata:
+https://www.salesforce.com/news/press-releases/2024/04/25/einstein-copilot-general-availability/</li>
+<li>ServiceNow docs: Studio trabalha com metadata de automations,
+integrations, UI e AI Platform:
+https://www.servicenow.com/docs/r/application-development/servicenow-studio/sn-studio-working-with-metadata.html</li>
+<li>ServiceNow Newsroom: Workflow Data Fabric/Data Network para AI
+agents, workflows, governance e dados conectados:
+https://newsroom.servicenow.com/press-releases/details/2025/ServiceNow-Enhances-Its-Workflow-Data-Fabric-With-New-Ecosystem-to-Power-AI-agents-and-Workflows-With-Real-Time-Intelligence/default.aspx</li>
+<li>Mendix: model-driven development como fundamento de low-code:
+https://www.mendix.com/platform/model-driven-development/</li>
+<li>OutSystems: plataforma AI-powered low-code para apps e agents:
+https://www.outsystems.com/low-code-platform/</li>
+</ul>
+<h2 id="fontes-internas-consultadas">Fontes internas consultadas</h2>
+<ul>
+<li><code>praxis-metadata-starter/README.md</code></li>
+<li><code>praxis-metadata-starter/docs/architecture-overview.md</code></li>
+<li><code>praxis-metadata-starter/docs/spec/CONFORMANCE.md</code></li>
+<li><code>praxis-config-starter/README.md</code></li>
+<li><code>praxis-config-starter/AGENTS.md</code></li>
+<li><code>praxis-config-starter/docs/domain-catalog/governed-semantic-layer-plan.md</code></li>
+<li><code>praxis-config-starter/docs/domain-catalog/domain-knowledge-layer-v1.md</code></li>
+<li><code>praxis-config-starter/docs/ai/agentic-authoring-streaming.md</code></li>
+<li><code>praxis-config-starter/docs/ai-context-runtime-state-decision.md</code></li>
+<li><code>praxis-config-starter/docs/ai/release-decision-2026-04-25-domain-rules.md</code></li>
+</ul>
+</body>
+</html>
