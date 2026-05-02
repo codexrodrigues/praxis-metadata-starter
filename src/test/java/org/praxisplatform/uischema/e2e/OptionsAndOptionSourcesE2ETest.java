@@ -88,6 +88,39 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
         assertEquals(false, employeeLookupByIdsBody.get(0).path("extra").path("selectable").asBoolean());
         assertEquals("Alice", employeeLookupByIdsBody.get(1).path("label").asText());
 
+        ResponseEntity<String> employeeLookupStructuredFilterResponse = postJson(
+                "/employees/option-sources/employeeEntityLookup/options/filter?page=0&size=10",
+                """
+                {
+                  "filter": {},
+                  "filters": [
+                    { "field": "status", "operator": "equals", "value": "ACTIVE" },
+                    { "field": "department.id", "operator": "equals", "value": %d }
+                  ],
+                  "sort": "admissionDateDesc"
+                }
+                """.formatted(state.humanResourcesDepartmentId())
+        );
+        assertEquals(200, employeeLookupStructuredFilterResponse.getStatusCode().value());
+        JsonNode employeeLookupStructuredFilterBody = body(employeeLookupStructuredFilterResponse);
+        assertEquals(2, employeeLookupStructuredFilterBody.path("content").size());
+        assertEquals("Eve", employeeLookupStructuredFilterBody.path("content").get(0).path("label").asText());
+        assertEquals("Alice", employeeLookupStructuredFilterBody.path("content").get(1).path("label").asText());
+
+        ResponseEntity<String> invalidOperatorResponse = postJson(
+                "/employees/option-sources/employeeEntityLookup/options/filter?page=0&size=10",
+                """
+                {
+                  "filter": {},
+                  "filters": [
+                    { "field": "status", "operator": "contains", "value": "ACTIVE" }
+                  ]
+                }
+                """
+        );
+        assertEquals(422, invalidOperatorResponse.getStatusCode().value());
+        assertTrue(invalidOperatorResponse.getBody().contains("Unsupported entity lookup filter operator"));
+
         ResponseEntity<String> unknownSourceResponse = postJson(
                 "/employees/option-sources/unknown-source/options/filter?page=0&size=10",
                 "{}"

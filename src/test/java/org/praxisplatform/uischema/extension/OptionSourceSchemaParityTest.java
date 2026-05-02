@@ -35,6 +35,27 @@ class OptionSourceSchemaParityTest {
     }
 
     @Test
+    void optionSourceSchemaShouldPublishRichFilteringContract() throws Exception {
+        JsonNode schema = readProjectJson("docs/spec/x-ui-field.schema.json");
+        JsonNode optionSource = schema.path("definitions").path("optionSource");
+        JsonNode filtering = optionSource.path("properties").path("filtering");
+        JsonNode filteringDefinition = schema.path("definitions").path("lookupFiltering");
+        JsonNode filterDefinition = schema.path("definitions").path("lookupFilterDefinition");
+        JsonNode sortDefinition = schema.path("definitions").path("lookupSortOption");
+
+        assertTrue(optionSource.path("properties").has("filtering"),
+                "optionSource schema should expose filtering for entity lookups");
+        assertEquals("#/definitions/lookupFiltering", filtering.path("$ref").asText());
+        assertEquals("object", filteringDefinition.path("type").asText());
+        assertEquals("#/definitions/lookupFilterDefinition",
+                filteringDefinition.path("properties").path("availableFilters").path("items").path("$ref").asText());
+        assertEquals("#/definitions/lookupSortOption",
+                filteringDefinition.path("properties").path("sortOptions").path("items").path("$ref").asText());
+        assertEquals("array", filterDefinition.path("properties").path("operators").path("type").asText());
+        assertEquals("asc", sortDefinition.path("properties").path("direction").path("default").asText());
+    }
+
+    @Test
     void resourceEntityOptionSourceExampleShouldOnlyUseDocumentedOptionSourceKeys() throws Exception {
         JsonNode schema = readProjectJson("docs/spec/x-ui-field.schema.json");
         JsonNode example = readProjectJson("docs/spec/examples/x-ui-field-option-source-resource.valid.json");
@@ -44,6 +65,9 @@ class OptionSourceSchemaParityTest {
         assertFalse(optionSource.path("dependencyFilterMap").isMissingNode(),
                 "resource entity example should include dependencyFilterMap");
         assertEquals("tenant.id", optionSource.path("dependencyFilterMap").path("tenantId").asText());
+        assertEquals("contains", optionSource.path("filtering").path("availableFilters").get(1).path("defaultOperator").asText());
+        assertEquals("company-status", optionSource.path("filtering").path("availableFilters").get(0).path("optionsSource").asText());
+        assertEquals("legalNameAsc", optionSource.path("filtering").path("defaultSort").asText());
 
         Iterator<String> fieldNames = optionSource.fieldNames();
         while (fieldNames.hasNext()) {

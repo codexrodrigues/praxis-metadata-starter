@@ -15,8 +15,12 @@ import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Selection;
 import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.options.EntityLookupDescriptor;
+import org.praxisplatform.uischema.options.LookupFilterDefinition;
+import org.praxisplatform.uischema.options.LookupFilterRequest;
+import org.praxisplatform.uischema.options.LookupFilteringDescriptor;
 import org.praxisplatform.uischema.options.LookupDetailDescriptor;
 import org.praxisplatform.uischema.options.LookupSelectionPolicy;
+import org.praxisplatform.uischema.options.LookupSortOption;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceType;
 import org.praxisplatform.uischema.options.service.OptionSourceQueryExecutor;
@@ -34,7 +38,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZonedDateTime;
 
 /**
  * JPA executor for metadata-driven option sources.
@@ -49,6 +61,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             Specification<E> specification,
             OptionSourceDescriptor descriptor,
             String search,
+            List<LookupFilterRequest> filters,
+            String sortKey,
             Pageable pageable,
             Collection<Object> includeIds
     ) {
@@ -60,22 +74,31 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         Path<?> valuePath = resolveValuePath(root, descriptor);
         Path<?> labelPath = resolveLabelPath(root, descriptor);
         boolean richResourceEntity = isRichResourceEntity(descriptor);
+        LookupSortOption explicitSortOption = resolveSortOptionOrNull(descriptor, sortKey);
+        LookupSortOption defaultSortOption = resolveDefaultSortOption(descriptor);
+        Path<?> metadataSortPath = resolveMetadataSortPath(root, descriptor, pageable.getSort(), explicitSortOption, defaultSortOption);
+        boolean relaxDistinctForMetadataSort = metadataSortPath != null;
 
         Predicate predicate = applyPredicate(specification, root, query, cb);
         Predicate notNullPredicate = cb.isNotNull(valuePath);
         Predicate searchPredicate = buildSearchPredicate(cb, root, labelPath, descriptor, search);
-        Predicate mergedPredicate = mergePredicates(cb, mergePredicates(cb, predicate, notNullPredicate), searchPredicate);
+        Predicate structuredFilterPredicate = buildStructuredFilterPredicate(cb, root, descriptor, filters);
+        Predicate mergedPredicate = mergePredicates(
+                cb,
+                mergePredicates(cb, mergePredicates(cb, predicate, notNullPredicate), searchPredicate),
+                structuredFilterPredicate
+        );
         if (mergedPredicate != null) {
             query.where(mergedPredicate);
         }
 
         if (richResourceEntity) {
-            applyEntityLookupSelections(query, root, valuePath, labelPath, descriptor);
+            applyEntityLookupSelections(query, root, valuePath, labelPath, descriptor, metadataSortPath);
         } else {
             applyOptionSelections(query, valuePath, labelPath);
         }
-        query.distinct(true);
-        query.orderBy(resolveOrders(cb, valuePath, labelPath, descriptor, pageable.getSort()));
+        query.distinct(!relaxDistinctForMetadataSort);
+        query.orderBy(resolveOrders(cb, root, valuePath, labelPath, descriptor, pageable.getSort(), sortKey));
 
         TypedQuery<Tuple> typedQuery = entityManager.createQuery(query);
         typedQuery.setFirstResult((int) pageable.getOffset());
@@ -85,8 +108,9 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                 .map(tuple -> richResourceEntity ? toEntityLookupOption(tuple, descriptor) : toOption(tuple))
                 .filter(option -> option.id() != null)
                 .toList();
+        pageContent = dedupeOptions(pageContent);
 
-        long total = countDistinct(entityManager, entityClass, specification, descriptor, search);
+        long total = countDistinct(entityManager, entityClass, specification, descriptor, search, filters);
         List<OptionDTO<Object>> merged = mergeIncludedOptions(
                 pageContent,
                 byIdsOptions(entityManager, entityClass, descriptor, includeIds == null ? List.of() : includeIds)
@@ -122,7 +146,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                 .toList();
 
         if (richResourceEntity) {
-            applyEntityLookupSelections(query, root, valuePath, labelPath, descriptor);
+            applyEntityLookupSelections(query, root, valuePath, labelPath, descriptor, null);
         } else {
             applyOptionSelections(query, valuePath, labelPath);
         }
@@ -161,7 +185,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             Class<E> entityClass,
             Specification<E> specification,
             OptionSourceDescriptor descriptor,
-            String search
+            String search,
+            List<LookupFilterRequest> filters
     ) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
@@ -171,7 +196,12 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         Predicate predicate = applyPredicate(specification, root, countQuery, cb);
         Predicate notNullPredicate = cb.isNotNull(valuePath);
         Predicate searchPredicate = buildSearchPredicate(cb, root, resolveLabelPath(root, descriptor), descriptor, search);
-        Predicate mergedPredicate = mergePredicates(cb, mergePredicates(cb, predicate, notNullPredicate), searchPredicate);
+        Predicate structuredFilterPredicate = buildStructuredFilterPredicate(cb, root, descriptor, filters);
+        Predicate mergedPredicate = mergePredicates(
+                cb,
+                mergePredicates(cb, mergePredicates(cb, predicate, notNullPredicate), searchPredicate),
+                structuredFilterPredicate
+        );
         if (mergedPredicate != null) {
             countQuery.where(mergedPredicate);
         }
@@ -223,6 +253,14 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
 
     private List<Path<?>> resolveSearchPaths(Root<?> root, Path<?> labelPath, OptionSourceDescriptor descriptor) {
         EntityLookupDescriptor lookup = descriptor.entityLookup();
+        LookupFilteringDescriptor filtering = lookup == null ? null : lookup.filtering();
+        if (filtering != null && !filtering.quickFilterFields().isEmpty()) {
+            List<Path<?>> paths = new ArrayList<>();
+            for (String searchPath : filtering.quickFilterFields()) {
+                paths.add(resolvePath(root, searchPath));
+            }
+            return paths;
+        }
         if (lookup == null || lookup.searchPropertyPaths().isEmpty()) {
             return List.of(labelPath);
         }
@@ -236,11 +274,20 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
 
     private Order[] resolveOrders(
             CriteriaBuilder cb,
+            Root<?> root,
             Path<?> valuePath,
             Path<?> labelPath,
             OptionSourceDescriptor descriptor,
-            Sort sort
+            Sort sort,
+            String sortKey
     ) {
+        LookupSortOption sortOption = resolveSortOptionOrNull(descriptor, sortKey);
+        if (sortOption != null) {
+            Path<?> sortPath = resolvePath(root, sortOption.field());
+            return new Order[]{
+                    "desc".equals(sortOption.direction()) ? cb.desc(sortPath) : cb.asc(sortPath)
+            };
+        }
         if (sort != null && sort.isSorted()) {
             List<Order> mapped = sort.stream()
                     .filter(order -> "label".equals(order.getProperty()) || "id".equals(order.getProperty()))
@@ -253,8 +300,170 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                 return mapped.toArray(Order[]::new);
             }
         }
+        LookupSortOption defaultSortOption = resolveDefaultSortOption(descriptor);
+        if (defaultSortOption != null) {
+            Path<?> sortPath = resolvePath(root, defaultSortOption.field());
+            return new Order[]{
+                    "desc".equals(defaultSortOption.direction()) ? cb.desc(sortPath) : cb.asc(sortPath)
+            };
+        }
         Path<?> defaultSortPath = "id".equalsIgnoreCase(descriptor.policy().defaultSort()) ? valuePath : labelPath;
         return new Order[]{cb.asc(defaultSortPath)};
+    }
+
+    private LookupSortOption resolveSortOptionOrNull(OptionSourceDescriptor descriptor, String sortKey) {
+        if (sortKey == null || sortKey.isBlank()) {
+            return null;
+        }
+        LookupFilteringDescriptor filtering = descriptor.entityLookup() == null ? null : descriptor.entityLookup().filtering();
+        if (filtering == null || filtering.sortOptions().isEmpty()) {
+            return null;
+        }
+        return filtering.sortOptions().stream()
+                .filter(option -> sortKey.equals(option.key()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported entity lookup sort key: " + sortKey));
+    }
+
+    private LookupSortOption resolveDefaultSortOption(OptionSourceDescriptor descriptor) {
+        LookupFilteringDescriptor filtering = descriptor.entityLookup() == null ? null : descriptor.entityLookup().filtering();
+        if (filtering == null || filtering.defaultSort() == null) {
+            return null;
+        }
+        return resolveSortOptionOrNull(descriptor, filtering.defaultSort());
+    }
+
+    private Path<?> resolveMetadataSortPath(
+            Root<?> root,
+            OptionSourceDescriptor descriptor,
+            Sort sort,
+            LookupSortOption explicitSortOption,
+            LookupSortOption defaultSortOption
+    ) {
+        LookupSortOption effectiveSortOption = explicitSortOption != null ? explicitSortOption : defaultSortOption;
+        if (effectiveSortOption != null) {
+            return resolvePath(root, effectiveSortOption.field());
+        }
+        if (sort != null && sort.isSorted()) {
+            return null;
+        }
+        return null;
+    }
+
+    private Predicate buildStructuredFilterPredicate(
+            CriteriaBuilder cb,
+            Root<?> root,
+            OptionSourceDescriptor descriptor,
+            List<LookupFilterRequest> filters
+    ) {
+        if (filters == null || filters.isEmpty()) {
+            return null;
+        }
+        EntityLookupDescriptor lookup = descriptor.entityLookup();
+        LookupFilteringDescriptor filtering = lookup == null ? null : lookup.filtering();
+        if (filtering == null || filtering.availableFilters().isEmpty()) {
+            throw new IllegalArgumentException("Structured filters are not supported for option source: " + descriptor.key());
+        }
+        Map<String, LookupFilterDefinition> available = filtering.availableFilters().stream()
+                .collect(Collectors.toMap(LookupFilterDefinition::field, definition -> definition, (left, right) -> left, LinkedHashMap::new));
+        List<Predicate> predicates = new ArrayList<>();
+        for (LookupFilterRequest filter : filters) {
+            LookupFilterDefinition definition = available.get(filter.field());
+            if (definition == null) {
+                throw new IllegalArgumentException("Unsupported entity lookup filter field: " + filter.field());
+            }
+            if (!definition.operators().contains(filter.operator())) {
+                throw new IllegalArgumentException(
+                        "Unsupported entity lookup filter operator '%s' for field '%s'.".formatted(
+                                filter.operator(),
+                                filter.field()
+                        )
+                );
+            }
+            predicates.add(buildPredicateForStructuredFilter(cb, resolvePath(root, definition.field()), definition, filter));
+        }
+        return predicates.isEmpty() ? null : cb.and(predicates.toArray(Predicate[]::new));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Predicate buildPredicateForStructuredFilter(
+            CriteriaBuilder cb,
+            Path<?> path,
+            LookupFilterDefinition definition,
+            LookupFilterRequest filter
+    ) {
+        return switch (filter.operator()) {
+            case "contains" -> cb.like(cb.lower(path.as(String.class)), "%" + requiredTextValue(filter).toLowerCase(Locale.ROOT) + "%");
+            case "startsWith" -> cb.like(cb.lower(path.as(String.class)), requiredTextValue(filter).toLowerCase(Locale.ROOT) + "%");
+            case "equals" -> {
+                Object coerced = coerceValue(requiredSingleValue(filter), path.getJavaType());
+                if ("text".equals(definition.type())) {
+                    yield cb.equal(cb.lower(path.as(String.class)), String.valueOf(coerced).toLowerCase(Locale.ROOT));
+                }
+                yield cb.equal(path, coerced);
+            }
+            case "in" -> {
+                List<Object> values = requireMultipleValues(filter).stream()
+                        .map(value -> coerceValue(value == null ? null : String.valueOf(value), path.getJavaType()))
+                        .toList();
+                yield path.in(values);
+            }
+            case "before" -> cb.lessThan((Expression<? extends Comparable>) path, (Comparable) coerceComparableValue(filter, path));
+            case "after" -> cb.greaterThan((Expression<? extends Comparable>) path, (Comparable) coerceComparableValue(filter, path));
+            case "between" -> {
+                List<Object> values = requireBetweenValues(filter);
+                Comparable from = (Comparable) coerceValue(values.get(0) == null ? null : String.valueOf(values.get(0)), path.getJavaType());
+                Comparable to = (Comparable) coerceValue(values.get(1) == null ? null : String.valueOf(values.get(1)), path.getJavaType());
+                yield cb.between((Expression<? extends Comparable>) path, from, to);
+            }
+            case "gt" -> cb.greaterThan((Expression<? extends Comparable>) path, (Comparable) coerceComparableValue(filter, path));
+            case "gte" -> cb.greaterThanOrEqualTo((Expression<? extends Comparable>) path, (Comparable) coerceComparableValue(filter, path));
+            case "lt" -> cb.lessThan((Expression<? extends Comparable>) path, (Comparable) coerceComparableValue(filter, path));
+            case "lte" -> cb.lessThanOrEqualTo((Expression<? extends Comparable>) path, (Comparable) coerceComparableValue(filter, path));
+            default -> throw new IllegalArgumentException("Unsupported entity lookup filter operator: " + filter.operator());
+        };
+    }
+
+    private Comparable<?> coerceComparableValue(LookupFilterRequest filter, Path<?> path) {
+        Object value = coerceValue(requiredSingleValue(filter), path.getJavaType());
+        if (!(value instanceof Comparable<?> comparable)) {
+            throw new IllegalArgumentException("Entity lookup filter value is not comparable for field: " + filter.field());
+        }
+        return comparable;
+    }
+
+    private String requiredTextValue(LookupFilterRequest filter) {
+        String value = requiredSingleValue(filter);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Entity lookup filter value must not be blank for field: " + filter.field());
+        }
+        return value;
+    }
+
+    private String requiredSingleValue(LookupFilterRequest filter) {
+        List<Object> values = filter.values();
+        if (values.isEmpty() || values.get(0) == null) {
+            throw new IllegalArgumentException("Entity lookup filter value is required for field: " + filter.field());
+        }
+        return String.valueOf(values.get(0));
+    }
+
+    private List<Object> requireMultipleValues(LookupFilterRequest filter) {
+        List<Object> values = filter.values().stream()
+                .filter(Objects::nonNull)
+                .toList();
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("Entity lookup filter values are required for field: " + filter.field());
+        }
+        return values;
+    }
+
+    private List<Object> requireBetweenValues(LookupFilterRequest filter) {
+        List<Object> values = filter.values();
+        if (values.size() < 2 || values.get(0) == null || values.get(1) == null) {
+            throw new IllegalArgumentException("Entity lookup between filter requires two values for field: " + filter.field());
+        }
+        return values;
     }
 
     private Predicate mergePredicates(CriteriaBuilder cb, Predicate left, Predicate right) {
@@ -374,6 +583,15 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         return List.copyOf(ordered.values());
     }
 
+    private List<OptionDTO<Object>> dedupeOptions(List<OptionDTO<Object>> options) {
+        if (options == null || options.isEmpty()) {
+            return List.of();
+        }
+        Map<String, OptionDTO<Object>> ordered = new LinkedHashMap<>();
+        options.forEach(option -> ordered.putIfAbsent(stringify(option.id()), option));
+        return List.copyOf(ordered.values());
+    }
+
     private String stringify(Object value) {
         return value == null ? "null" : String.valueOf(value);
     }
@@ -415,32 +633,50 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             Root<?> root,
             Path<?> valuePath,
             Path<?> labelPath,
-            OptionSourceDescriptor descriptor
+            OptionSourceDescriptor descriptor,
+            Path<?> metadataSortPath
     ) {
         EntityLookupDescriptor lookup = descriptor.entityLookup();
         List<Selection<?>> selections = new ArrayList<>();
+        List<Path<?>> selectedPaths = new ArrayList<>();
         selections.add(valuePath.alias("optionValue"));
+        selectedPaths.add(valuePath);
         selections.add(labelPath.alias("optionLabel"));
-        addSelection(selections, root, lookup.codePropertyPath(), "lookupCode");
-        addSelection(selections, root, lookup.statusPropertyPath(), "lookupStatus");
-        addSelection(selections, root, lookup.disabledPropertyPath(), "lookupDisabled");
-        addSelection(selections, root, lookup.disabledReasonPropertyPath(), "lookupDisabledReason");
+        selectedPaths.add(labelPath);
+        addSelection(selections, selectedPaths, root, lookup.codePropertyPath(), "lookupCode");
+        addSelection(selections, selectedPaths, root, lookup.statusPropertyPath(), "lookupStatus");
+        addSelection(selections, selectedPaths, root, lookup.disabledPropertyPath(), "lookupDisabled");
+        addSelection(selections, selectedPaths, root, lookup.disabledReasonPropertyPath(), "lookupDisabledReason");
         LookupSelectionPolicy policy = lookup.selectionPolicy();
         if (policy != null) {
-            addSelection(selections, root, policy.selectablePropertyPath(), "lookupSelectable");
+            addSelection(selections, selectedPaths, root, policy.selectablePropertyPath(), "lookupSelectable");
             if (lookup.statusPropertyPath() == null) {
-                addSelection(selections, root, policy.statusPropertyPath(), "lookupStatus");
+                addSelection(selections, selectedPaths, root, policy.statusPropertyPath(), "lookupStatus");
             }
         }
         for (int index = 0; index < lookup.descriptionPropertyPaths().size(); index++) {
-            addSelection(selections, root, lookup.descriptionPropertyPaths().get(index), "lookupDescription" + index);
+            addSelection(selections, selectedPaths, root, lookup.descriptionPropertyPaths().get(index), "lookupDescription" + index);
+        }
+        if (metadataSortPath != null && selectedPaths.stream().noneMatch(path -> samePath(path, metadataSortPath))) {
+            selections.add(metadataSortPath.alias("lookupSortField"));
         }
         query.multiselect(selections);
     }
 
-    private void addSelection(List<Selection<?>> selections, Root<?> root, String propertyPath, String alias) {
+    private void addSelection(
+            List<Selection<?>> selections,
+            List<Path<?>> selectedPaths,
+            Root<?> root,
+            String propertyPath,
+            String alias
+    ) {
         if (propertyPath != null && !propertyPath.isBlank()) {
-            selections.add(resolvePath(root, propertyPath).alias(alias));
+            Path<?> resolvedPath = resolvePath(root, propertyPath);
+            if (selectedPaths.stream().anyMatch(path -> samePath(path, resolvedPath))) {
+                return;
+            }
+            selections.add(resolvedPath.alias(alias));
+            selectedPaths.add(resolvedPath);
         }
     }
 
@@ -449,8 +685,23 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     }
 
     private Object coerceValue(String raw, Class<?> targetType) {
+        if (raw == null) {
+            return null;
+        }
         if (targetType == null || targetType == Object.class || targetType == String.class) {
             return raw;
+        }
+        if (targetType == BigDecimal.class) {
+            return new BigDecimal(raw);
+        }
+        if (targetType == BigInteger.class) {
+            return new BigInteger(raw);
+        }
+        if (targetType == Short.class || targetType == short.class) {
+            return Short.valueOf(raw);
+        }
+        if (targetType == Byte.class || targetType == byte.class) {
+            return Byte.valueOf(raw);
         }
         if (targetType == Long.class || targetType == long.class) {
             return Long.valueOf(raw);
@@ -466,6 +717,24 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         }
         if (targetType == Boolean.class || targetType == boolean.class) {
             return Boolean.valueOf(raw);
+        }
+        if (targetType == UUID.class) {
+            return UUID.fromString(raw);
+        }
+        if (targetType == LocalDate.class) {
+            return LocalDate.parse(raw);
+        }
+        if (targetType == LocalDateTime.class) {
+            return LocalDateTime.parse(raw);
+        }
+        if (targetType == Instant.class) {
+            return Instant.parse(raw);
+        }
+        if (targetType == OffsetDateTime.class) {
+            return OffsetDateTime.parse(raw);
+        }
+        if (targetType == ZonedDateTime.class) {
+            return ZonedDateTime.parse(raw);
         }
         if (Enum.class.isAssignableFrom(targetType)) {
             @SuppressWarnings({"rawtypes", "unchecked"})

@@ -46,6 +46,49 @@
       "routeTemplate": "/companies/{id}",
       "openDetailMode": "drawer"
     },
+    "filtering": {
+      "availableFilters": [
+        {
+          "field": "status",
+          "label": "Status",
+          "type": "enum",
+          "operators": ["equals", "in"],
+          "defaultOperator": "in",
+          "optionsSource": "company-status",
+          "required": false,
+          "hidden": false
+        },
+        {
+          "field": "documentNumber",
+          "label": "Documento",
+          "type": "text",
+          "operators": ["contains", "equals"],
+          "defaultOperator": "contains",
+          "required": false,
+          "hidden": false
+        }
+      ],
+      "defaultFilters": {
+        "status": ["ACTIVE"]
+      },
+      "sortOptions": [
+        {
+          "key": "legalNameAsc",
+          "field": "legalName",
+          "direction": "asc",
+          "label": "Nome A-Z"
+        },
+        {
+          "key": "codeAsc",
+          "field": "code",
+          "direction": "asc",
+          "label": "Codigo A-Z"
+        }
+      ],
+      "defaultSort": "legalNameAsc",
+      "quickFilterFields": ["code", "legalName"],
+      "searchPlaceholder": "Buscar empresa por codigo, nome ou documento"
+    },
     "searchMode": "contains",
     "pageSize": 20,
     "includeIds": true,

@@ -350,6 +350,7 @@ Quando o recurso publicar `OptionSourceRegistry`, valide tambem:
 - `POST /{resource}/option-sources/{sourceKey}/options/filter`
 - `GET /{resource}/option-sources/{sourceKey}/options/by-ids`
 - `x-ui.optionSource` em `/schemas/filtered` para os campos governados por essa source
+- quando `RESOURCE_ENTITY` publicar `filtering`, valide tambem `availableFilters`, `defaultFilters`, `sortOptions` e `defaultSort` no schema emitido
 
 ## Internal OpenAPI Base Resolution
 

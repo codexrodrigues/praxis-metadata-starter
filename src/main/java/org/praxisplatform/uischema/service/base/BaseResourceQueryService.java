@@ -7,6 +7,7 @@ import org.praxisplatform.uischema.exporting.CollectionExportRequest;
 import org.praxisplatform.uischema.exporting.CollectionExportResult;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
@@ -77,10 +78,8 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
 
     Page<OptionDTO<Object>> filterOptionSourceOptions(
             String sourceKey,
-            FilterDTO filter,
-            String search,
-            Pageable pageable,
-            Collection<Object> includeIds
+            OptionSourceFilterRequest<FilterDTO> request,
+            Pageable pageable
     );
 
     List<OptionDTO<Object>> byIdsOptionSourceOptions(String sourceKey, Collection<Object> ids);

@@ -18,8 +18,38 @@ public record EntityLookupDescriptor(
         Map<String, String> dependencyFilterMap,
         LookupSelectionPolicy selectionPolicy,
         LookupCapabilities capabilities,
-        LookupDetailDescriptor detail
+        LookupDetailDescriptor detail,
+        LookupFilteringDescriptor filtering
 ) {
+
+    public EntityLookupDescriptor(
+            String entityKey,
+            String codePropertyPath,
+            List<String> descriptionPropertyPaths,
+            String statusPropertyPath,
+            String disabledPropertyPath,
+            String disabledReasonPropertyPath,
+            List<String> searchPropertyPaths,
+            Map<String, String> dependencyFilterMap,
+            LookupSelectionPolicy selectionPolicy,
+            LookupCapabilities capabilities,
+            LookupDetailDescriptor detail
+    ) {
+        this(
+                entityKey,
+                codePropertyPath,
+                descriptionPropertyPaths,
+                statusPropertyPath,
+                disabledPropertyPath,
+                disabledReasonPropertyPath,
+                searchPropertyPaths,
+                dependencyFilterMap,
+                selectionPolicy,
+                capabilities,
+                detail,
+                null
+        );
+    }
 
     public EntityLookupDescriptor {
         entityKey = normalize(entityKey);
@@ -66,6 +96,9 @@ public record EntityLookupDescriptor(
         }
         if (detail != null && !detail.isEmpty()) {
             metadata.put("detail", detail.toMetadataMap());
+        }
+        if (filtering != null && !filtering.isEmpty()) {
+            metadata.put("filtering", filtering.toMetadataMap());
         }
         return metadata;
     }

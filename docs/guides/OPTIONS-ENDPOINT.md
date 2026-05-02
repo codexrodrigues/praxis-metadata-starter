@@ -12,11 +12,44 @@ Endpoints canonicos:
 - `POST /{resource}/option-sources/{sourceKey}/options/filter`
 - `GET /{resource}/option-sources/{sourceKey}/options/by-ids?ids=a&ids=b`
 
+Para `option-sources/{sourceKey}/options/filter`, o contrato canônico de request
+agora é um envelope único que cobre:
+
+- `filter`: filtro legado do recurso hospedeiro
+- `filters`: filtros estruturados do lookup
+- `search`: quick search textual
+- `sort`: chave metadata-driven de ordenação
+- `includeIds`: IDs extras para manter reidratação/seleção fora da página atual
+
 Forma publica de retorno:
 
 - `options/filter` retorna `Page<OptionDTO<...>>`
 - `options/by-ids` retorna `List<OptionDTO<...>>`
 - `option-sources/*` preserva a mesma forma publica de `OptionDTO{id,label,extra?}`
+
+Forma canônica de request para `option-sources/{sourceKey}/options/filter`:
+
+```json
+{
+  "filter": {
+    "companyId": 10
+  },
+  "filters": [
+    { "field": "status", "operator": "in", "values": ["ACTIVE", "APPROVED"] },
+    { "field": "validUntil", "operator": "after", "value": "2026-05-01" }
+  ],
+  "search": "acme",
+  "sort": "validUntilDesc",
+  "includeIds": ["sup_123"]
+}
+```
+
+Compatibilidade transitória:
+
+- payload legado puro do filtro do recurso ainda é aceito
+- o starter o normaliza internamente para `{ "filter": ... }`
+- `search`, `sort` e `includeIds` ainda podem entrar por query string, mas o alvo
+  canônico para Cut B é o envelope acima
 
 ## Quando usar cada superficie
 
@@ -118,6 +151,35 @@ Payload efetivo depois da traducao por `dependencyFilterMap`:
 }
 ```
 
+## Request canônico para filtros ricos de entity lookup
+
+Quando `optionSource.type=RESOURCE_ENTITY` e `optionSource.filtering` existe, a
+busca avançada e a busca inline usam o mesmo endpoint e o mesmo envelope.
+
+Exemplo:
+
+```json
+{
+  "filter": {
+    "departmentId": 22
+  },
+  "filters": [
+    { "field": "status", "operator": "equals", "value": "ACTIVE" },
+    { "field": "department.id", "operator": "equals", "value": 22 }
+  ],
+  "search": "human",
+  "sort": "admissionDateDesc"
+}
+```
+
+Regras operacionais:
+
+- `field` precisa existir em `optionSource.filtering.availableFilters`
+- `operator` precisa ser suportado por aquele campo
+- `sort` precisa corresponder a uma chave de `optionSource.filtering.sortOptions`
+- combinações inválidas retornam `422`
+- `unknown source` retorna `404`
+
 ## Suporte atual e limites
 
 Cobertura confirmada hoje:
@@ -158,6 +220,38 @@ Contrato minimo recomendado para Entity Lookup:
     "descriptionPropertyPaths": ["documentNumber", "city", "state"],
     "statusPropertyPath": "status",
     "searchPropertyPaths": ["code", "legalName", "documentNumber"],
+    "filtering": {
+      "availableFilters": [
+        {
+          "field": "status",
+          "label": "Status",
+          "type": "enum",
+          "operators": ["equals", "in"],
+          "defaultOperator": "in"
+        },
+        {
+          "field": "city",
+          "label": "Cidade",
+          "type": "text",
+          "operators": ["contains", "startsWith", "equals"],
+          "defaultOperator": "contains"
+        }
+      ],
+      "defaultFilters": {
+        "status": ["ACTIVE"]
+      },
+      "sortOptions": [
+        {
+          "key": "legalNameAsc",
+          "field": "legalName",
+          "direction": "asc",
+          "label": "Nome A-Z"
+        }
+      ],
+      "defaultSort": "legalNameAsc",
+      "quickFilterFields": ["code", "legalName", "documentNumber"],
+      "searchPlaceholder": "Buscar fornecedor por codigo, nome ou documento"
+    },
     "selectionPolicy": {
       "selectablePropertyPath": "selectable",
       "statusPropertyPath": "status",

@@ -4,6 +4,14 @@ All notable changes to this module will be documented in this file.
 
 ## Unreleased
 
+### Added
+- Contrato canonico de filtro rico para `RESOURCE_ENTITY` em `x-ui.optionSource.filtering`, com `availableFilters`, `defaultFilters`, `sortOptions`, `defaultSort`, `quickFilterFields` e `searchPlaceholder`.
+- Tipos publicos `LookupFilterDefinition`, `LookupFilteringDescriptor` e `LookupSortOption` para publicar o contrato de filtro rico no starter sem convencoes locais de frontend.
+
+### Changed
+- `EntityLookupDescriptor` agora pode publicar o bloco `filtering` como parte da semantica canonica de `entityLookup`.
+- `x-ui-field.schema.json`, fixtures de exemplo e a RFC de `optionSource` passam a documentar o contrato de filtro rico para buscas corporativas.
+
 ## [8.0.0-rc.14] - 2026-04-24
 
 ### Added

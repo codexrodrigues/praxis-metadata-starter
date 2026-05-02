@@ -12,6 +12,7 @@ import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBui
 import org.praxisplatform.uischema.mapper.base.OptionMapper;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.praxisplatform.uischema.options.OptionSourceEligibility;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.UnknownOptionSourceException;
@@ -298,26 +299,26 @@ public abstract class AbstractBaseQueryResourceService<
     @Transactional(readOnly = true)
     public Page<OptionDTO<Object>> filterOptionSourceOptions(
             String sourceKey,
-            FilterDTO filter,
-            String search,
-            Pageable pageable,
-            Collection<Object> includeIds
+            OptionSourceFilterRequest<FilterDTO> request,
+            Pageable pageable
     ) {
         if (optionSourceQueryExecutor == null) {
             resolveOptionSource(sourceKey);
             throw new UnsupportedOperationException("Option source options not implemented: " + sourceKey);
         }
         OptionSourceDescriptor descriptor = resolveEffectiveOptionSource(sourceKey);
-        FilterDTO effectiveFilter = sanitizeFilter(filter, descriptor);
+        FilterDTO effectiveFilter = sanitizeFilter(request == null ? null : request.filter(), descriptor);
         GenericSpecification<E> specification = getSpecificationsBuilder().buildSpecification(effectiveFilter, pageable);
         return optionSourceQueryExecutor.filterOptions(
                 entityManager,
                 entityClass,
                 specification.spec(),
                 descriptor,
-                search,
+                request == null ? null : request.search(),
+                request == null ? List.of() : request.filters(),
+                request == null ? null : request.sort(),
                 pageable,
-                includeIds
+                request == null ? List.of() : request.includeIds()
         );
     }
 

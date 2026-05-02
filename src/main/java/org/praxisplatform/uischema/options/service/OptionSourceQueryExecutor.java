@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.options.service;
 
 import jakarta.persistence.EntityManager;
 import org.praxisplatform.uischema.dto.OptionDTO;
+import org.praxisplatform.uischema.options.LookupFilterRequest;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +22,8 @@ public interface OptionSourceQueryExecutor {
             Specification<E> specification,
             OptionSourceDescriptor descriptor,
             String search,
+            List<LookupFilterRequest> filters,
+            String sortKey,
             Pageable pageable,
             Collection<Object> includeIds
     );

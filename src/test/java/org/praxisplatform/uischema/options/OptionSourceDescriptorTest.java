@@ -130,7 +130,39 @@ class OptionSourceDescriptorTest {
                                 null
                         ),
                         new LookupCapabilities(true, true, true, false, false, true, false, true, true, true),
-                        new LookupDetailDescriptor("/api/companies/{id}", "/companies/{id}", "drawer")
+                        new LookupDetailDescriptor("/api/companies/{id}", "/companies/{id}", "drawer"),
+                        new LookupFilteringDescriptor(
+                                List.of(
+                                        new LookupFilterDefinition(
+                                                "status",
+                                                "Status",
+                                                "enum",
+                                                List.of("equals", "in"),
+                                                "in",
+                                                "company-status",
+                                                false,
+                                                false
+                                        ),
+                                        new LookupFilterDefinition(
+                                                "documentNumber",
+                                                "Documento",
+                                                "text",
+                                                List.of("contains", "equals"),
+                                                "contains",
+                                                null,
+                                                false,
+                                                false
+                                        )
+                                ),
+                                Map.of("status", List.of("ACTIVE")),
+                                List.of(
+                                        new LookupSortOption("legalNameAsc", "legalName", "asc", "Nome A-Z"),
+                                        new LookupSortOption("codeAsc", "code", "asc", "Codigo A-Z")
+                                ),
+                                "legalNameAsc",
+                                List.of("code", "legalName"),
+                                "Buscar empresa por codigo, nome ou documento"
+                        )
                 )
         );
 
@@ -161,5 +193,10 @@ class OptionSourceDescriptorTest {
         assertEquals("/api/companies/{id}", detail.get("hrefTemplate"));
         assertEquals("/companies/{id}", detail.get("routeTemplate"));
         assertEquals("drawer", detail.get("openDetailMode"));
+
+        Map<String, Object> filtering = (Map<String, Object>) metadata.get("filtering");
+        assertEquals("legalNameAsc", filtering.get("defaultSort"));
+        assertEquals(List.of("code", "legalName"), filtering.get("quickFilterFields"));
+        assertEquals("Buscar empresa por codigo, nome ou documento", filtering.get("searchPlaceholder"));
     }
 }

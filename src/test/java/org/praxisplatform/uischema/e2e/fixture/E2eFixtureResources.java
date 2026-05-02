@@ -14,7 +14,10 @@ import org.praxisplatform.uischema.mapper.base.ResourceMapper;
 import org.praxisplatform.uischema.options.EntityLookupDescriptor;
 import org.praxisplatform.uischema.options.LookupCapabilities;
 import org.praxisplatform.uischema.options.LookupDetailDescriptor;
+import org.praxisplatform.uischema.options.LookupFilterDefinition;
+import org.praxisplatform.uischema.options.LookupFilteringDescriptor;
 import org.praxisplatform.uischema.options.LookupSelectionPolicy;
+import org.praxisplatform.uischema.options.LookupSortOption;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourcePolicy;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
@@ -227,7 +230,22 @@ class EmployeeService extends AbstractBaseResourceService<
                                     null
                             ),
                             new LookupCapabilities(true, true, true, false, false, true, false, false, false, true),
-                            new LookupDetailDescriptor("/employees/{id}", "/employees/{id}", "route")
+                            new LookupDetailDescriptor("/employees/{id}", "/employees/{id}", "route"),
+                            new LookupFilteringDescriptor(
+                                    List.of(
+                                            new LookupFilterDefinition("status", "Status", "enum", List.of("equals", "in"), "in", null, false, false),
+                                            new LookupFilterDefinition("admissionDate", "Admissao", "date", List.of("before", "after", "between"), "after", null, false, false),
+                                            new LookupFilterDefinition("department.id", "Departamento", "reference", List.of("equals", "in"), "equals", null, false, true)
+                                    ),
+                                    Map.of("status", List.of("ACTIVE")),
+                                    List.of(
+                                            new LookupSortOption("nomeAsc", "nome", "asc", "Nome A-Z"),
+                                            new LookupSortOption("admissionDateDesc", "admissionDate", "desc", "Admissao mais recente")
+                                    ),
+                                    "nomeAsc",
+                                    List.of("nome", "matricula", "department.nome"),
+                                    "Buscar funcionario por nome ou matricula"
+                            )
                     )
             ))
             .build();

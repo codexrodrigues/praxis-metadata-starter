@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodPayloadNormalizer;
 import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
+import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
@@ -58,9 +59,12 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
             Type targetType,
             Class<? extends HttpMessageConverter<?>> converterType) {
         Class<?> targetClass = resolveTargetClass(methodParameter, targetType);
+        if (!org.springframework.http.converter.json.MappingJackson2HttpMessageConverter.class.isAssignableFrom(converterType)) {
+            return false;
+        }
         return targetClass != null
-                && GenericFilterDTO.class.isAssignableFrom(targetClass)
-                && org.springframework.http.converter.json.MappingJackson2HttpMessageConverter.class.isAssignableFrom(converterType);
+                && (GenericFilterDTO.class.isAssignableFrom(targetClass)
+                || OptionSourceFilterRequest.class.isAssignableFrom(targetClass));
     }
 
     @Override
@@ -81,12 +85,10 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
 
         try {
             JsonNode tree = objectMapper.readTree(body);
-            if (tree instanceof ObjectNode objectNode) {
-                boolean changed = false;
-                for (FilterPayloadNormalizer normalizer : payloadNormalizers) {
-                    changed = normalizer.normalizeInPlace(objectNode, targetClass) || changed;
-                }
-                if (changed) {
+            JsonNode normalizedTree = maybeWrapOptionSourceFilterRequest(tree, parameter, targetType, targetClass);
+            if (normalizedTree instanceof ObjectNode objectNode) {
+                boolean changed = normalizeObjectNode(objectNode, resolveNestedFilterClass(parameter, targetType, targetClass));
+                if (changed || normalizedTree != tree) {
                     body = objectMapper.writeValueAsBytes(objectNode);
                 }
             }
@@ -117,6 +119,57 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
         }
         Class<?> fallback = parameter != null ? parameter.getParameterType() : null;
         return fallback != null ? fallback : null;
+    }
+
+    private JsonNode maybeWrapOptionSourceFilterRequest(
+            JsonNode tree,
+            MethodParameter parameter,
+            Type targetType,
+            Class<?> targetClass
+    ) {
+        if (!OptionSourceFilterRequest.class.isAssignableFrom(targetClass) || !(tree instanceof ObjectNode objectNode)) {
+            return tree;
+        }
+        if (objectNode.has("filter")
+                || objectNode.has("filters")
+                || objectNode.has("search")
+                || objectNode.has("sort")
+                || objectNode.has("includeIds")) {
+            return objectNode;
+        }
+        ObjectNode wrapped = objectMapper.createObjectNode();
+        wrapped.set("filter", objectNode);
+        return wrapped;
+    }
+
+    private boolean normalizeObjectNode(ObjectNode objectNode, Class<?> targetClass) {
+        boolean changed = false;
+        if (targetClass != null && GenericFilterDTO.class.isAssignableFrom(targetClass)) {
+            for (FilterPayloadNormalizer normalizer : payloadNormalizers) {
+                changed = normalizer.normalizeInPlace(objectNode, targetClass) || changed;
+            }
+        }
+        JsonNode nestedFilter = objectNode.get("filter");
+        if (nestedFilter instanceof ObjectNode nestedFilterObject && targetClass != null
+                && GenericFilterDTO.class.isAssignableFrom(targetClass)) {
+            for (FilterPayloadNormalizer normalizer : payloadNormalizers) {
+                changed = normalizer.normalizeInPlace(nestedFilterObject, targetClass) || changed;
+            }
+        }
+        return changed;
+    }
+
+    private Class<?> resolveNestedFilterClass(MethodParameter parameter, Type targetType, Class<?> targetClass) {
+        if (!OptionSourceFilterRequest.class.isAssignableFrom(targetClass)) {
+            return targetClass;
+        }
+        if (targetType instanceof ParameterizedType parameterizedType) {
+            Type actualType = parameterizedType.getActualTypeArguments()[0];
+            if (actualType instanceof Class<?> actualClass) {
+                return actualClass;
+            }
+        }
+        return null;
     }
 
     private static final class ByteArrayHttpInputMessage implements HttpInputMessage {

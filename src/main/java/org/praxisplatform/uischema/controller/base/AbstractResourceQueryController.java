@@ -14,6 +14,8 @@ import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.exporting.CollectionExportRequest;
 import org.praxisplatform.uischema.exporting.CollectionExportResult;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
+import org.praxisplatform.uischema.options.UnknownOptionSourceException;
 import org.praxisplatform.uischema.rest.response.RestApiResource;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseDistributionStatsResponse;
@@ -693,7 +695,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     @Operation(summary = "Listar opcoes filtradas por fonte derivada")
     public ResponseEntity<Page<OptionDTO<Object>>> filterOptionSourceOptions(
             @PathVariable String sourceKey,
-            @RequestBody FD filterDTO,
+            @RequestBody OptionSourceFilterRequest<FD> request,
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "includeIds", required = false) List<String> includeIds,
             @RequestParam(name = "page", defaultValue = "0") int page,
@@ -708,21 +710,45 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         List<String> sort = queryParams.get("sort");
         Pageable pageable = PageableBuilder.from(page, size, sort, getService().getDefaultSort());
         try {
+            OptionSourceFilterRequest<FD> effectiveRequest = mergeLegacyOptionSourceRequest(request, search, includeIds, sort);
             return withVersion(
                     ResponseEntity.ok(),
                     getService().filterOptionSourceOptions(
                             sourceKey,
-                            filterDTO,
-                            search,
-                            pageable,
-                            includeIds == null ? List.of() : List.copyOf(includeIds)
+                            effectiveRequest,
+                            pageable
                     )
             );
-        } catch (IllegalArgumentException ex) {
+        } catch (UnknownOptionSourceException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), ex);
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), ex);
         }
+    }
+
+    private OptionSourceFilterRequest<FD> mergeLegacyOptionSourceRequest(
+            OptionSourceFilterRequest<FD> request,
+            String search,
+            List<String> includeIds,
+            List<String> sort
+    ) {
+        FD filter = request == null ? null : request.filter();
+        List<?> filters = request == null ? List.of() : request.filters();
+        String effectiveSearch = request != null && StringUtils.hasText(request.search()) ? request.search() : search;
+        String effectiveSort = request != null && StringUtils.hasText(request.sort())
+                ? request.sort()
+                : (sort == null || sort.isEmpty() ? null : sort.get(0));
+        Collection<Object> effectiveIncludeIds = request != null && request.includeIds() != null && !request.includeIds().isEmpty()
+                ? request.includeIds()
+                : (includeIds == null ? List.of() : List.copyOf(includeIds));
+
+        @SuppressWarnings("unchecked")
+        List<org.praxisplatform.uischema.options.LookupFilterRequest> typedFilters =
+                (List<org.praxisplatform.uischema.options.LookupFilterRequest>) filters;
+
+        return new OptionSourceFilterRequest<>(filter, typedFilters, effectiveSearch, effectiveSort, effectiveIncludeIds);
     }
 
     @GetMapping("/options/by-ids")

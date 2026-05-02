@@ -8,6 +8,7 @@ import org.praxisplatform.uischema.NumericFormat;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
@@ -74,12 +75,58 @@ class FilterRequestBodyAdviceTest {
         assertFalse(supported);
     }
 
+    @Test
+    void shouldWrapLegacyOptionSourceFilterPayloadIntoCanonicalEnvelope() throws Exception {
+        FilterRequestBodyAdvice advice = new FilterRequestBodyAdvice(objectMapper);
+        Method method = TestController.class.getDeclaredMethod("optionSourceFilter", OptionSourceFilterRequest.class);
+        MethodParameter parameter = new MethodParameter(method, 0);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        MockHttpInputMessage inputMessage = new MockHttpInputMessage("""
+                {
+                  "valor": { "minPrice": 6500, "maxPrice": 15000 }
+                }
+                """.getBytes());
+        inputMessage.getHeaders().putAll(headers);
+
+        HttpInputMessage result = advice.beforeBodyRead(
+                inputMessage,
+                parameter,
+                method.getGenericParameterTypes()[0],
+                MappingJackson2HttpMessageConverter.class
+        );
+
+        JsonNode normalized = objectMapper.readTree(result.getBody());
+        assertTrue(normalized.has("filter"));
+        assertEquals("6500", normalized.path("filter").path("valorBetween").get(0).asText());
+        assertEquals("15000", normalized.path("filter").path("valorBetween").get(1).asText());
+    }
+
+    @Test
+    void shouldSupportCanonicalOptionSourceFilterEnvelopeTargets() throws Exception {
+        FilterRequestBodyAdvice advice = new FilterRequestBodyAdvice(objectMapper);
+        Method method = TestController.class.getDeclaredMethod("optionSourceFilter", OptionSourceFilterRequest.class);
+        MethodParameter parameter = new MethodParameter(method, 0);
+
+        boolean supported = advice.supports(
+                parameter,
+                method.getGenericParameterTypes()[0],
+                MappingJackson2HttpMessageConverter.class
+        );
+
+        assertTrue(supported);
+    }
+
     @SuppressWarnings("unused")
     static class TestController {
         public void filter(CombinedFilterDTO dto) {
         }
 
         public void plain(PlainPayload dto) {
+        }
+
+        public void optionSourceFilter(OptionSourceFilterRequest<CombinedFilterDTO> dto) {
         }
     }
 
