@@ -243,7 +243,7 @@ class EmployeeService extends AbstractBaseResourceService<
                                             new LookupSortOption("admissionDateDesc", "admissionDate", "desc", "Admissao mais recente")
                                     ),
                                     "nomeAsc",
-                                    List.of("nome", "matricula", "department.nome"),
+                                    List.of("status", "department.id"),
                                     "Buscar funcionario por nome ou matricula"
                             )
                     )

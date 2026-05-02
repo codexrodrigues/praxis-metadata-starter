@@ -253,14 +253,6 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
 
     private List<Path<?>> resolveSearchPaths(Root<?> root, Path<?> labelPath, OptionSourceDescriptor descriptor) {
         EntityLookupDescriptor lookup = descriptor.entityLookup();
-        LookupFilteringDescriptor filtering = lookup == null ? null : lookup.filtering();
-        if (filtering != null && !filtering.quickFilterFields().isEmpty()) {
-            List<Path<?>> paths = new ArrayList<>();
-            for (String searchPath : filtering.quickFilterFields()) {
-                paths.add(resolvePath(root, searchPath));
-            }
-            return paths;
-        }
         if (lookup == null || lookup.searchPropertyPaths().isEmpty()) {
             return List.of(labelPath);
         }
