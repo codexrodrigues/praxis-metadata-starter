@@ -322,6 +322,11 @@ identidade minima da fonte derivada</li>
 <li><code>searchMode</code>, <code>pageSize</code>,
 <code>includeIds</code>, <code>cachePolicy</code> -&gt; politica publica
 minima de consumo</li>
+<li><code>filtering.availableFilters</code>,
+<code>filtering.defaultFilters</code>,
+<code>filtering.sortOptions</code>, <code>filtering.defaultSort</code>
+-&gt; contrato publico de filtro rico para
+<code>entityLookup</code></li>
 </ul></li>
 <li>x-ui.resource
 <ul>
@@ -426,6 +431,9 @@ draft;</li>
 <li>tipos como <code>RESOURCE_ENTITY</code>, <code>LIGHT_LOOKUP</code> e
 <code>STATIC_CANONICAL</code> exigem executor correspondente no
 host.</li>
+<li>quando <code>RESOURCE_ENTITY</code> publicar <code>filtering</code>,
+o backend continua como dono canonico dos operadores e da serializacao
+de filtro; o frontend nao deve inferir combinacoes suportadas.</li>
 </ul>
 <p>Diretriz canonica:</p>
 <ul>

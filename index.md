@@ -21,6 +21,7 @@ plataforma.
 - [Architecture overview](architecture-overview.html)
 - [Conformance](spec/CONFORMANCE.html)
 - [Options e option-sources](guides/OPTIONS-ENDPOINT.html)
+- [RFC - x-ui.optionSource](spec/x-ui-option-source-rfc.html)
 - [Exportacao de colecoes](guides/COLLECTION-EXPORT.html)
 
 ### Quero gerar uma aplicacao nova

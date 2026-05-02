@@ -72,6 +72,7 @@
   - `key`, `type`, `resourcePath` -> identidade minima da fonte derivada
   - `dependsOn`, `dependencyFilterMap`, `excludeSelfField` -> cascata, mapeamento dependencia -> filtro e remocao do proprio predicado
   - `searchMode`, `pageSize`, `includeIds`, `cachePolicy` -> politica publica minima de consumo
+  - `filtering.availableFilters`, `filtering.defaultFilters`, `filtering.sortOptions`, `filtering.defaultSort` -> contrato publico de filtro rico para `entityLookup`
 - x-ui.resource
   - `idField` -> chave primaria no fluxo de CRUD/UI
   - `idFieldValid`/`idFieldMessage` -> diagnostico e alertas
@@ -134,6 +135,7 @@ Limites de cobertura fora do starter:
 
 - consumidores especificos podem declarar subconjuntos de cobertura do draft;
 - tipos como `RESOURCE_ENTITY`, `LIGHT_LOOKUP` e `STATIC_CANONICAL` exigem executor correspondente no host.
+- quando `RESOURCE_ENTITY` publicar `filtering`, o backend continua como dono canonico dos operadores e da serializacao de filtro; o frontend nao deve inferir combinacoes suportadas.
 
 Diretriz canonica:
 

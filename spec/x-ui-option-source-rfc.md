@@ -134,6 +134,17 @@ semantica governada de entidade no proprio `x-ui.optionSource`:
 - `selectionPolicy`
 - `capabilities`
 - `detail`
+- `filtering`
+
+O bloco `filtering` governa busca corporativa rica sem empurrar convencoes de query
+para o frontend. Ele descreve:
+
+- `availableFilters`
+- `defaultFilters`
+- `sortOptions`
+- `defaultSort`
+- `quickFilterFields`
+- `searchPlaceholder`
 
 Esse bloco permite que runtime, formularios, tabelas e editores tratem o lookup como
 selecao de entidade real, com identidade, status, permissao, reidratacao e navegacao,
@@ -171,8 +182,53 @@ Exemplo:
       "hrefTemplate": "/api/companies/{id}",
       "routeTemplate": "/companies/{id}",
       "openDetailMode": "drawer"
+    },
+    "filtering": {
+      "availableFilters": [
+        {
+          "field": "status",
+          "label": "Status",
+          "type": "enum",
+          "operators": ["equals", "in"],
+          "defaultOperator": "in",
+          "optionsSource": "company-status"
+        },
+        {
+          "field": "documentNumber",
+          "label": "Documento",
+          "type": "text",
+          "operators": ["contains", "equals"],
+          "defaultOperator": "contains"
+        }
+      ],
+      "defaultFilters": {
+        "status": ["ACTIVE"]
+      },
+      "sortOptions": [
+        {
+          "key": "legalNameAsc",
+          "field": "legalName",
+          "direction": "asc",
+          "label": "Nome A-Z"
+        }
+      ],
+      "defaultSort": "legalNameAsc",
+      "quickFilterFields": ["code", "legalName"],
+      "searchPlaceholder": "Buscar empresa por codigo, nome ou documento"
     }
   }
+}
+```
+
+Request canonico esperado para filtro rico:
+
+```json
+{
+  "filters": [
+    { "field": "status", "operator": "in", "value": ["ACTIVE"] },
+    { "field": "documentNumber", "operator": "contains", "value": "123" }
+  ],
+  "sort": "legalNameAsc"
 }
 ```
 

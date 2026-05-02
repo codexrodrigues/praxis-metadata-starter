@@ -376,6 +376,9 @@
         "detail": {
           "$ref": "#/definitions/lookupDetail"
         },
+        "filtering": {
+          "$ref": "#/definitions/lookupFiltering"
+        },
         "excludeSelfField": { "type": "boolean" },
         "searchMode": {
           "type": "string",
@@ -441,6 +444,74 @@
           "enum": ["samePage", "newTab", "drawer", "modal"]
         }
       }
+    },
+    "lookupFiltering": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "availableFilters": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/lookupFilterDefinition" }
+        },
+        "defaultFilters": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "sortOptions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/lookupSortOption" }
+        },
+        "defaultSort": { "type": "string", "minLength": 1 },
+        "quickFilterFields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "searchPlaceholder": { "type": "string" }
+      }
+    },
+    "lookupFilterDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["text", "enum", "date", "number", "reference"]
+        },
+        "operators": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["contains", "startsWith", "equals", "in", "before", "after", "between", "gt", "gte", "lt", "lte"]
+          },
+          "uniqueItems": true
+        },
+        "defaultOperator": {
+          "type": "string",
+          "enum": ["contains", "startsWith", "equals", "in", "before", "after", "between", "gt", "gte", "lt", "lte"]
+        },
+        "optionsSource": { "type": "string", "minLength": 1 },
+        "required": { "type": "boolean" },
+        "hidden": { "type": "boolean" }
+      },
+      "required": ["field", "type"]
+    },
+    "lookupSortOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "field": { "type": "string", "minLength": 1 },
+        "direction": {
+          "type": "string",
+          "enum": ["asc", "desc"],
+          "default": "asc"
+        },
+        "label": { "type": "string" }
+      },
+      "required": ["key", "field"]
     },
     "arrayConfig": {
       "type": "object",
