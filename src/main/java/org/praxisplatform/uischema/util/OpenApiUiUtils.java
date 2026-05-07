@@ -266,10 +266,8 @@ public class OpenApiUiUtils {
     }
 
     public static void populateUiDefaultValue(Map<String, Object> xUiMap, Object example) {
-        if (example != null && !xUiMap.containsKey(FieldConfigProperties.DEFAULT_VALUE.getValue())) {
-            // Preserve the original type of the example object
-            xUiMap.put(FieldConfigProperties.DEFAULT_VALUE.getValue(), example);
-        }
+        // OpenAPI examples are documentation/LLM grounding, not operational form seeds.
+        // x-ui.defaultValue must only be published from an explicit UI default contract.
     }
 
     public static void populateUiReadOnly(Map<String, Object> xUiMap, Boolean readOnly) {
