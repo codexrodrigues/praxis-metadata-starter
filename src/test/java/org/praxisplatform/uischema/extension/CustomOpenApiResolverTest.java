@@ -59,6 +59,11 @@ class CustomOpenApiResolverTest {
         String cpf;
     }
 
+    private static class ExplicitDefaultDummy {
+        @UISchema(defaultValue = "DRAFT")
+        String status;
+    }
+
     @Test
     void resolverShouldKeepInputForNomeCompletoWithMax200() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
@@ -70,6 +75,35 @@ class CustomOpenApiResolverTest {
 
         Map<String, Object> xui = getXui(property);
         assertEquals(FieldControlType.INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+    }
+
+    @Test
+    void openApiExampleShouldNotBecomeUiDefaultValue() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("nomeCompleto");
+        property.setExample("Maria Souza");
+
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals("Maria Souza", property.getExample());
+        assertFalse(xui.containsKey(FieldConfigProperties.DEFAULT_VALUE.getValue()));
+    }
+
+    @Test
+    void explicitUiSchemaDefaultValueShouldStillBecomeUiDefaultValue() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("status");
+        property.setExample("EXAMPLE_ONLY");
+
+        Annotation uiSchema = ExplicitDefaultDummy.class.getDeclaredField("status").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema, TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals("EXAMPLE_ONLY", property.getExample());
+        assertEquals("DRAFT", xui.get(FieldConfigProperties.DEFAULT_VALUE.getValue()));
     }
 
     @Test
