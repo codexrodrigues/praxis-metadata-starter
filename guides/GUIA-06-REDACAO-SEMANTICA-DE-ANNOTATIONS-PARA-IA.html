@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Guia 06 - Redacao Semantica de Annotations para IA</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Guia 06 - Redacao Semantica de Annotations para
+IA</h1>
+</header>
+<h1 id="guia-06---redacao-semantica-de-annotations-para-ia">Guia 06 -
+Redacao Semantica de Annotations para IA</h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este guia define como pessoas e LLMs devem preencher textos
+semanticos em annotations e descricoes publicadas pelo
+<code>praxis-metadata-starter</code> e pelos hosts que o consomem.</p>
+<p>Ele complementa:</p>
+<ul>
+<li><code>GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
+<li><code>GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
+<li><code>GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md</code></li>
+<li><code>GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md</code></li>
+</ul>
+<p>O foco aqui nao e decidir se uma operacao deve existir. O foco e
+escrever os campos <code>summary</code>, <code>description</code>,
+<code>title</code>, <code>intent</code>, <code>tags</code>,
+<code>@Schema</code> e metadados equivalentes de forma util para:</p>
+<ul>
+<li>OpenAPI</li>
+<li><code>/schemas/filtered</code></li>
+<li><code>/schemas/catalog</code></li>
+<li><code>/schemas/surfaces</code></li>
+<li><code>/schemas/actions</code></li>
+<li><code>/schemas/domain</code></li>
+<li><code>capabilities</code></li>
+<li>catalogos documentais</li>
+<li>RAG</li>
+<li>assistentes de IA</li>
+<li>geracao futura de UI sob demanda</li>
+</ul>
+<h2 id="regra-central">Regra central</h2>
+<p>Texto semantico e contrato de produto.</p>
+<p>Nao trate <code>description</code> como legenda tecnica, traducao do
+nome do campo, comentario cosmetico ou texto gerado por heuristica. A
+descricao deve explicar o que o elemento representa no dominio, em qual
+contexto e usado, quais limites tem e como se relaciona com o contrato
+real publicado pelo recurso.</p>
+<h2 id="contrato-estrutural-vs-texto-semantico">Contrato estrutural vs
+texto semantico</h2>
+<p>O texto semantico nao muda a fonte da verdade estrutural.</p>
+<p>No baseline atual:</p>
+<ul>
+<li><code>/schemas/filtered</code> e a fonte estrutural canonica de
+request e response.</li>
+<li><code>/schemas/catalog</code> resume operacoes e liga para schemas
+filtrados; serve a discovery documental e a indexacao (por exemplo
+RAG).</li>
+<li><code>/schemas/surfaces</code> publica discovery semantico de
+experiencias de UI.</li>
+<li><code>/schemas/actions</code> publica discovery semantico de
+comandos de negocio.</li>
+<li><code>/schemas/domain</code> agrega vocabulario de dominio derivado
+das fontes acima, em formato orientado a runtime, RAG e LLMs; nao
+substitui o filtrado nem os catalogos de surface/action.</li>
+<li><code>GET /{resource}/capabilities</code> e
+<code>GET /{resource}/{id}/capabilities</code> agregam disponibilidade
+operacional (operacoes canonicas, surfaces e actions referenciadas); nao
+publicam um payload paralelo ao contrato HTTP.</li>
+</ul>
+<h3 id="mapa-rapido-de-superficies">Mapa rapido de superficies</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Superficie</th>
+<th>Papel principal</th>
+<th>Consumo tipico</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>/schemas/filtered</code></td>
+<td>Fragmento estrutural da operacao + <code>x-ui</code></td>
+<td>UI dinamica, validacao de forma, hosts que hidratam schema para
+IA</td>
+</tr>
+<tr class="even">
+<td><code>/schemas/catalog</code></td>
+<td>Lista enxuta de endpoints com links para o filtrado</td>
+<td>Discovery, indice documental, pipelines RAG</td>
+</tr>
+<tr class="odd">
+<td><code>/schemas/surfaces</code></td>
+<td>Metadados de experiencia apontando para operacao e schema
+canonicos</td>
+<td>Navegacao semantica, discovery de UI</td>
+</tr>
+<tr class="even">
+<td><code>/schemas/actions</code></td>
+<td>Metadados de comando apontando para operacao e schemas
+canonicos</td>
+<td>Discovery de workflow</td>
+</tr>
+<tr class="odd">
+<td><code>/schemas/domain</code></td>
+<td>Nos, arestas, evidencias e glossario derivados</td>
+<td>Assistencia semantica, politicas, ingestao em stores de
+conhecimento</td>
+</tr>
+<tr class="even">
+<td><code>.../capabilities</code></td>
+<td>Snapshot de disponibilidade agregada</td>
+<td>Clientes que precisam saber o que e permitido no contexto</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pipeline-de-origem-visao-de-implementacao">Pipeline de origem
+(visao de implementacao)</h3>
+<p>Em alto nivel: Springdoc gera o OpenAPI por <strong>grupo</strong>; o
+starter obtem e cacheia esse JSON (<code>OpenApiDocumentService</code>),
+resolve a operacao canonica (<code>CanonicalOperationResolver</code>) e
+deriva URLs e IDs de schema alinhados ao filtrado
+(<code>SchemaReferenceResolver</code>). As annotations Praxis em metodos
+reais alimentam registries que expoem surfaces e actions. O catalogo de
+dominio junta esse material com propriedades do schema OpenAPI (por
+exemplo <code>description</code> de campos). Ao revisar texto, pense em
+<strong>onde ele entra nesse grafo</strong>, nao apenas no Swagger
+UI.</p>
+<h3 id="fallback-automatico-em-schemascatalog">Fallback automatico em
+<code>/schemas/catalog</code></h3>
+<p>Se <code>summary</code> ou <code>description</code> da operacao
+OpenAPI estiverem vazios, o starter preenche valores genericos a partir
+do verbo HTTP e do path (por exemplo resumos do tipo “Filtrar X” ou
+“Endpoint para …”). Isso <strong>nao</strong> e neutro: entra no mesmo
+payload usado para discovery e pode competir com texto curado em buscas.
+Prefira sempre <code>@Operation(summary=..., description=...)</code>
+conscientes.</p>
+<h3 id="o-que-o-snapshot-de-capabilities-carrega">O que o snapshot de
+<code>capabilities</code> carrega</h3>
+<p>O snapshot agrega <strong>disponibilidade</strong>: operacoes
+canonicas, surfaces e actions. Titulos e descricoes uteis para humanos e
+IA costumam vir dos itens de surface e action embutidos, nao de um campo
+isolado inventado no conceito de capability. Melhorar
+<code>@UiSurface</code>, <code>@WorkflowAction</code> e
+<code>@Operation</code> melhora o que esse endpoint devolve em
+conjunto.</p>
+<p>Consequencias:</p>
+<ul>
+<li>Nunca documente uma <code>surface</code> ou <code>action</code> como
+se ela tivesse payload proprio paralelo.</li>
+<li>Nunca use <code>description</code> para prometer campo, request,
+response ou efeito que nao existe no endpoint real.</li>
+<li>Nunca trate <code>/schemas/catalog</code>,
+<code>/schemas/surfaces</code>, <code>/schemas/actions</code>,
+<code>/schemas/domain</code> ou <code>capabilities</code> como
+substitutos de <code>/schemas/filtered</code>.</li>
+<li>Sempre escreva textos que ajudam discovery sem redefinir
+contrato.</li>
+</ul>
+<h2 id="fontes-obrigatorias-antes-de-escrever">Fontes obrigatorias antes
+de escrever</h2>
+<p>Antes de preencher ou revisar annotations, leia o recurso real.</p>
+<p>No minimo:</p>
+<ol type="1">
+<li>Controller e metodo HTTP real.</li>
+<li>DTO de request.</li>
+<li>DTO de response.</li>
+<li>FilterDTO, quando existir.</li>
+<li>Entidade ou view/projecao.</li>
+<li>Service ou regra de negocio relevante.</li>
+<li>Relacionamentos expostos por <code>...Id</code>, campos
+desnormalizados e options.</li>
+<li>Constraints de validacao.</li>
+<li>Anotacoes de UI, governanca, filtro, analytics ou workflow ja
+existentes.</li>
+</ol>
+<p>Se a descricao nao pode ser defendida a partir dessas fontes, ela nao
+deve ser escrita como fato.</p>
+<h2 id="o-que-nunca-fazer">O que nunca fazer</h2>
+<p>Nao gere descricoes em lote a partir de:</p>
+<ul>
+<li><code>@UISchema(label = "...")</code></li>
+<li>nomes de propriedade em camelCase</li>
+<li>nomes de metodo</li>
+<li>nomes de endpoint</li>
+<li>sinonimos genericos</li>
+<li>listas fixas de palavras-chave por dominio</li>
+</ul>
+<p>Esse padrao produz texto aparentemente rico, mas semanticamente
+fraco. Ele degrada OpenAPI, catalogos, RAG e assistentes, porque aumenta
+o vocabulario sem aumentar a verdade de dominio.</p>
+<h2 id="principios-de-redacao">Principios de redacao</h2>
+<h3 id="preserve-resourcekey-como-identidade-semantica">0. Preserve
+<code>resourceKey</code> como identidade semantica</h3>
+<p>Antes de redigir annotations do recurso, confira se o
+<code>resourceKey</code> representa a semantica canonica do recurso, nao
+apenas a URL.</p>
+<p>Exemplo:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>        value <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">FUNCIONARIOS</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        resourceKey <span class="op">=</span> <span class="st">&quot;human-resources.funcionarios&quot;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
+<p>O <code>resourcePath</code> pode mudar por roteamento, versao
+operacional ou reorganizacao de paths. O <code>resourceKey</code> so
+deve mudar quando a identidade semantica do recurso mudar.</p>
+<p>Isso importa porque <code>@ResourceIntent</code>,
+<code>@UiSurface</code>, <code>@WorkflowAction</code>,
+<code>/schemas/surfaces</code>, <code>/schemas/actions</code> e
+<code>capabilities</code> usam essa identidade para discovery.</p>
+<h3 id="escreva-a-acao-de-negocio-nao-a-tecnica-http">1. Escreva a acao
+de negocio, nao a tecnica HTTP</h3>
+<p>Prefira:</p>
+<pre class="text"><code>Filtrar folhas por competencia, colaborador e valores financeiros</code></pre>
+<p>Evite:</p>
+<pre class="text"><code>Executar POST /filter com paginacao</code></pre>
+<p>O path, verbo HTTP, paginacao e schema ja aparecem no contrato
+tecnico. O texto semantico deve explicar o motivo de negocio.</p>
+<h3 id="seja-especifico-sem-inventar-regra">2. Seja especifico sem
+inventar regra</h3>
+<p>Boa descricao:</p>
+<pre class="text"><code>Lista folhas de pagamento por funcionario, ano, mes, data de pagamento, salario
+bruto, descontos e salario liquido para conferencia mensal, fechamento
+financeiro e acompanhamento operacional da folha.</code></pre>
+<p>Descricao ruim:</p>
+<pre class="text"><code>Lista folhas para auditoria completa, compliance trabalhista, provisoes,
+beneficios e gestao bancaria.</code></pre>
+<p>A segunda pode ate parecer executiva, mas introduz temas que podem
+nao estar no DTO, no filtro ou no service.</p>
+<h3 id="nao-polua-busca-semantica-com-negacoes-fora-de-escopo">3. Nao
+polua busca semantica com negacoes fora de escopo</h3>
+<p>Evite descricoes como:</p>
+<pre class="text"><code>Atualiza contato sem alterar salario, cargo, departamento, lotacao ou vinculo.</code></pre>
+<p>Mesmo sendo uma negacao, a descricao adiciona <code>salario</code>,
+<code>cargo</code>, <code>departamento</code>, <code>lotacao</code> e
+<code>vinculo</code> ao contexto semantico da operacao. Um LLM ou
+buscador vetorial pode recuperar essa operacao para pedidos que nao
+dizem respeito a ela.</p>
+<p>Prefira:</p>
+<pre class="text"><code>Atualiza dados de contato e apresentacao do colaborador para manter canais de
+comunicacao, identificacao visual e informacoes cadastrais de perfil.</code></pre>
+<h3 id="use-o-vocabulario-real-do-contrato">4. Use o vocabulario real do
+contrato</h3>
+<p>Se o DTO possui <code>ativo</code>, nao escreva <code>status</code>
+como se houvesse um enum de status. Use <code>situacao ativa</code>,
+<code>indicador ativo</code> ou <code>flag de atividade</code>, conforme
+o dominio.</p>
+<p>Se o DTO possui <code>pago: Boolean</code>, prefira
+<code>situacao de pagamento</code> ou
+<code>indicador de liquidacao</code>, nao
+<code>workflow de pagamento</code>, a menos que exista fluxo real.</p>
+<h3 id="preserve-a-fronteira-entre-resource-surface-e-action">5.
+Preserve a fronteira entre resource, surface e action</h3>
+<ul>
+<li><code>resource</code> define payload e schema.</li>
+<li><code>@ResourceIntent</code> nomeia uma intencao parcial ainda
+resource-oriented.</li>
+<li><code>@UiSurface</code> descreve uma experiencia de UI descoberta
+semanticamente.</li>
+<li><code>@WorkflowAction</code> descreve comando explicito de
+negocio.</li>
+<li><code>capabilities</code> agrega disponibilidade; nao redefine
+contrato.</li>
+</ul>
+<p>Nao use uma <code>surface</code> para esconder action. Nao use
+<code>WorkflowAction</code> para rotular CRUD comum. Nao descreva
+<code>capability</code> como se fosse fonte de payload.</p>
+<h3 id="escreva-em-linguagem-de-dominio">6. Escreva em linguagem de
+dominio</h3>
+<p>Evite termos internos quando houver termo de negocio:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Evite</th>
+<th>Prefira</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>endpoint</td>
+<td>operacao, consulta, comando</td>
+</tr>
+<tr class="even">
+<td>payload</td>
+<td>dados enviados, contrato de entrada</td>
+</tr>
+<tr class="odd">
+<td>lookup</td>
+<td>selecao, busca, catalogo, opcoes</td>
+</tr>
+<tr class="even">
+<td>dashboard</td>
+<td>painel</td>
+</tr>
+<tr class="odd">
+<td>surface</td>
+<td>experiencia, formulario, visao, area de trabalho</td>
+</tr>
+<tr class="even">
+<td>CRUD</td>
+<td>cadastro, manutencao, consulta, remocao</td>
+</tr>
+</tbody>
+</table>
+<p>Use termos tecnicos apenas quando eles fazem parte do contrato
+publico ou quando a precisao tecnica e necessaria.</p>
+<h3 id="mantenha-pt-br-consistente">7. Mantenha PT-BR consistente</h3>
+<p>Use acentos e portugues correto em textos publicos. O contrato pode
+conter nomes tecnicos em ingles (<code>resourceKey</code>,
+<code>id</code>, enum, path), mas <code>title</code>,
+<code>summary</code> e <code>description</code> devem ser escritos como
+documentacao de produto.</p>
+<h2 id="como-preencher-operation">Como preencher
+<code>@Operation</code></h2>
+<h3 id="summary"><code>summary</code></h3>
+<p>O <code>summary</code> deve ser curto, orientado a acao e especifico
+o bastante para diferenciar operacoes semelhantes.</p>
+<p>Formato recomendado:</p>
+<pre class="text"><code>&lt;verbo de negocio&gt; &lt;objeto de dominio&gt; &lt;recorte relevante&gt;</code></pre>
+<p>Exemplos:</p>
+<pre class="text"><code>Filtrar funcionarios por identificacao, lotacao e situacao ativa
+Obter detalhe analitico de folha de um colaborador
+Agrupar salario liquido por universo, perfil ou composicao de folha
+Aprovar eventos pendentes de folha em lote</code></pre>
+<p>Evite:</p>
+<pre class="text"><code>Buscar por ID
+Listar registros
+Atualizar dados
+Executar action
+Time-series stats</code></pre>
+<h3 id="description"><code>description</code></h3>
+<p>A <code>description</code> deve responder:</p>
+<ol type="1">
+<li>Quais campos ou dimensoes reais participam da operacao?</li>
+<li>Qual caso de uso a operacao atende?</li>
+<li>Quais limites, pre-condicoes ou efeitos reais importam?</li>
+<li>Que leitura de negocio o consumidor pode fazer?</li>
+<li>Ha relacao com outro recurso ou projection?</li>
+</ol>
+<p>Modelo:</p>
+<pre class="text"><code>&lt;O que retorna/altera/executa&gt; com &lt;campos reais relevantes&gt; para
+&lt;casos de uso reais&gt;, &lt;decisoes ou fluxos apoiados&gt; e &lt;contexto operacional&gt;.</code></pre>
+<p>Exemplo:</p>
+<pre class="text"><code>Retorna a folha mensal de um funcionario com competencia, valores consolidados,
+descontos, salario liquido e data de pagamento para inspecao financeira,
+conciliacao e composicao de visoes de RH.</code></pre>
+<h2 id="como-preencher-resourceintent">Como preencher
+<code>@ResourceIntent</code></h2>
+<p>Use <code>@ResourceIntent</code> quando o metodo representa uma
+escrita parcial resource-oriented, com DTO proprio e semantica
+propria.</p>
+<h3 id="id"><code>id</code></h3>
+<p>Deve ser estavel, curto e semanticamente local ao recurso.</p>
+<p>Bom:</p>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;profile&quot;</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;payment-schedule&quot;</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;contact-preferences&quot;</span></span></code></pre></div>
+<p>Ruim:</p>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;patch1&quot;</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;custom-update&quot;</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;form-profile-v2&quot;</span></span></code></pre></div>
+<h3 id="title"><code>title</code></h3>
+<p>Use um titulo humano que indique a finalidade.</p>
+<p>Prefira verbos de negocio claros:</p>
+<pre class="text"><code>Atualizar perfil de contato
+Ajustar agenda de pagamento
+Manter preferencias de notificacao</code></pre>
+<p><code>Manter</code> pode ser usado quando a operacao cobre criacao e
+atualizacao conceitual ou quando o dominio fala em manutencao cadastral.
+Para um <code>PATCH</code> especifico, <code>Atualizar</code> ou
+<code>Ajustar</code> costuma ser mais preciso.</p>
+<h3 id="description-1"><code>description</code></h3>
+<p>Explique a finalidade da escrita parcial sem listar campos fora de
+escopo por negacao.</p>
+<p>Boa:</p>
+<pre class="text"><code>Atualiza dados de contato e apresentacao do colaborador para manter canais de
+comunicacao e informacoes cadastrais de perfil.</code></pre>
+<p>Ruim:</p>
+<pre class="text"><code>Atualiza contato sem alterar salario, cargo ou departamento.</code></pre>
+<p>Nao omita o recorte afetado. A descricao deve deixar claro qual parte
+do mesmo recurso esta sendo mantida, mas sem transformar campos fora de
+escopo em palavras-chave da operacao.</p>
+<h3 id="order"><code>order</code></h3>
+<p>Use um valor estavel quando o recurso expuser varias intencoes de
+escrita parcial. A ordem sugere prioridade em catalogos e discovery
+documental futuros; evite reordenar sem motivo de produto.</p>
+<h2 id="como-preencher-uisurface">Como preencher
+<code>@UiSurface</code></h2>
+<p><code>@UiSurface</code> descreve uma experiencia de UI sobre uma
+operacao real.</p>
+<p>Ela nao define payload. Ela aponta para operacao e schema
+canonicos.</p>
+<h3 id="id-1"><code>id</code></h3>
+<p>Identificador estavel da experiencia dentro do recurso.</p>
+<p>Bom:</p>
+<div class="sourceCode" id="cb18"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;profile&quot;</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;payment-schedule&quot;</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;payroll-history&quot;</span></span></code></pre></div>
+<p>Evite ids que expressem tecnologia, layout temporario ou versao
+visual:</p>
+<div class="sourceCode" id="cb19"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;modal1&quot;</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;new-screen&quot;</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;profile-card-v2&quot;</span></span></code></pre></div>
+<h3 id="kind"><code>kind</code></h3>
+<p>Escolha o tipo semantico real da experiencia:</p>
+<ul>
+<li>formulario parcial</li>
+<li>detalhe</li>
+<li>lista</li>
+<li>projection de leitura</li>
+<li>painel analitico</li>
+</ul>
+<p>Nao use <code>PARTIAL_FORM</code> apenas porque a tela e pequena. Use
+quando a operacao real recebe DTO parcial e altera parte do recurso.</p>
+<h3 id="scope"><code>scope</code></h3>
+<p>Use:</p>
+<ul>
+<li><code>COLLECTION</code> quando a experiencia opera sobre
+colecao.</li>
+<li><code>ITEM</code> quando depende de um recurso especifico.</li>
+</ul>
+<p>Lembre que catalogos de <code>ITEM</code> sao discovery.
+Disponibilidade real por item vem dos endpoints contextuais e de
+<code>capabilities</code>.</p>
+<p>O registry tambem pode derivar <strong>surfaces baseline</strong>
+(por exemplo listagem, detalhe, criacao ou edicao) para controllers na
+hierarquia metadata-driven, alem das explicitamente anotadas com
+<code>@UiSurface</code>. Ao revisar discovery, confira essas entradas
+derivadas: <code>@Operation</code> e <code>@Schema</code> continuam
+sendo a fonte textual principal para a operacao por tras da surface.</p>
+<h3 id="title-1"><code>title</code></h3>
+<p>Titulo curto e orientado a usuario.</p>
+<p>Bom:</p>
+<pre class="text"><code>Atualizar perfil de contato
+Reagendar pagamento
+Consultar historico de folha</code></pre>
+<h3 id="description-2"><code>description</code></h3>
+<p>Descreva a experiencia e a finalidade, nao o layout.</p>
+<p>Boa:</p>
+<pre class="text"><code>Permite ajustar a data operacional de pagamento da folha para alinhamento com
+tesouraria, fechamento financeiro e comunicacao interna.</code></pre>
+<p>Ruim:</p>
+<pre class="text"><code>Surface parcial para editar o campo dataPagamento no formulario.</code></pre>
+<p>Se a experiencia depende de request/response, o texto deve remeter ao
+caso de uso. O schema continua vindo da operacao HTTP real resolvida via
+<code>/schemas/filtered</code>.</p>
+<h3 id="intent"><code>intent</code></h3>
+<p>Use intent como rotulo semantico estavel para descoberta por
+assistentes.</p>
+<p>Bom:</p>
+<div class="sourceCode" id="cb23"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>intent <span class="op">=</span> <span class="st">&quot;profile&quot;</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>intent <span class="op">=</span> <span class="st">&quot;payment-schedule&quot;</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>intent <span class="op">=</span> <span class="st">&quot;payroll-history&quot;</span></span></code></pre></div>
+<p>Nao use frases longas, labels de UI ou nomes acoplados ao
+frontend.</p>
+<h3 id="tags"><code>tags</code></h3>
+<p>Tags devem ajudar agrupamento e discovery, sem virar saco de
+palavras-chave.</p>
+<p>Boas tags:</p>
+<div class="sourceCode" id="cb24"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>tags <span class="op">=</span> <span class="op">{</span><span class="st">&quot;profile&quot;</span><span class="op">,</span> <span class="st">&quot;contact&quot;</span><span class="op">}</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>tags <span class="op">=</span> <span class="op">{</span><span class="st">&quot;payroll&quot;</span><span class="op">,</span> <span class="st">&quot;schedule&quot;</span><span class="op">}</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>tags <span class="op">=</span> <span class="op">{</span><span class="st">&quot;analytics&quot;</span><span class="op">,</span> <span class="st">&quot;read-projection&quot;</span><span class="op">}</span></span></code></pre></div>
+<p>Evite adicionar tags de assuntos que a operacao apenas nega ou
+tangencia.</p>
+<h2 id="como-preencher-workflowaction">Como preencher
+<code>@WorkflowAction</code></h2>
+<p>Use para comandos explicitos de negocio.</p>
+<h3 id="id-2"><code>id</code></h3>
+<p>Verbo estavel de comando:</p>
+<div class="sourceCode" id="cb25"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;approve&quot;</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;reject&quot;</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;resubmit&quot;</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>id <span class="op">=</span> <span class="st">&quot;bulk-approve&quot;</span></span></code></pre></div>
+<h3 id="title-2"><code>title</code></h3>
+<p>Verbo humano claro:</p>
+<pre class="text"><code>Aprovar
+Rejeitar
+Reenviar
+Aprovar eventos pendentes</code></pre>
+<h3 id="description-3"><code>description</code></h3>
+<p>Explique transicao, escopo e efeito observavel.</p>
+<p>Boa:</p>
+<pre class="text"><code>Executa a transicao de aprovacao para eventos de folha selecionados, retornando
+totais e resultado por item para apoiar fechamento de competencia, conferencia
+financeira e tratamento de falhas parciais.</code></pre>
+<p>Ruim:</p>
+<pre class="text"><code>Executa workflow.</code></pre>
+<p>Quando a action tiver <code>allowedStates</code> ou
+<code>requiredAuthorities</code>, confira se a descricao nao contradiz
+essas restricoes. A action pode mencionar condicoes de disponibilidade
+quando elas forem parte relevante do negocio, mas a fonte operacional da
+disponibilidade continua nas propriedades da annotation e no
+runtime.</p>
+<h3 id="successmessage"><code>successMessage</code></h3>
+<p>Deve dizer o resultado esperado sem prometer efeitos que o service
+nao garante.</p>
+<p>Bom:</p>
+<pre class="text"><code>Eventos pendentes aprovados com sucesso.</code></pre>
+<p>Ruim:</p>
+<pre class="text"><code>Folha fechada, contabilizada e enviada ao banco.</code></pre>
+<h3 id="scope-allowedstates-e-requiredauthorities"><code>scope</code>,
+<code>allowedStates</code> e <code>requiredAuthorities</code></h3>
+<p>Ao revisar uma action, valide tambem:</p>
+<ul>
+<li><code>scope</code>: item ou colecao, conforme o endpoint real.</li>
+<li><code>allowedStates</code>: estados reais em que o comando faz
+sentido.</li>
+<li><code>requiredAuthorities</code>: autoridades exigidas pelo dominio
+ou seguranca do host.</li>
+</ul>
+<p>Nao use texto para compensar <code>scope</code>, estado ou autoridade
+mal modelados.</p>
+<h2 id="como-preencher-schema">Como preencher <code>@Schema</code></h2>
+<p>Use <code>@Schema.description</code> em DTOs como documentacao de
+dominio do contrato publico.</p>
+<h3 id="campo">Campo</h3>
+<p>Cada campo deve explicar:</p>
+<ol type="1">
+<li>O que representa.</li>
+<li>Como e usado no dominio.</li>
+<li>Limites ou validacoes importantes.</li>
+<li>Relacoes reais com outros recursos.</li>
+<li>Sensibilidade, quando aplicavel.</li>
+</ol>
+<p>Exemplo:</p>
+<div class="sourceCode" id="cb31"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Schema</span><span class="op">(</span>description <span class="op">=</span> <span class="st">&quot;Data de inicio do vinculo empregaticio; ancora requisitos de experiencia, ferias e historicos de folha.&quot;</span><span class="op">)</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> LocalDate dataAdmissao<span class="op">;</span></span></code></pre></div>
+<p>Evite:</p>
+<div class="sourceCode" id="cb32"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Schema</span><span class="op">(</span>description <span class="op">=</span> <span class="st">&quot;Data de admissao.&quot;</span><span class="op">)</span></span></code></pre></div>
+<h3 id="dto">DTO</h3>
+<p>A descricao do DTO deve explicar o papel do contrato.</p>
+<p>Boa:</p>
+<pre class="text"><code>Cadastro de colaborador no dominio de RH: identificacao civil, contato,
+remuneracao, vinculo funcional e sinalizadores operacionais.</code></pre>
+<p>Ruim:</p>
+<pre class="text"><code>DTO de funcionario.</code></pre>
+<h2 id="como-preencher-uischema">Como preencher
+<code>@UISchema</code></h2>
+<p><code>@UISchema</code> descreve comportamento e apresentacao de
+campo. Ele nao substitui <code>@Schema</code>.</p>
+<p>Use:</p>
+<ul>
+<li><code>label</code> para rotulo curto.</li>
+<li><code>helpText</code> para micro-orientacao de preenchimento.</li>
+<li><code>description</code> quando houver explicacao de apresentacao ou
+uso visual.</li>
+<li><code>controlType</code> quando o controle e conhecido.</li>
+<li><code>group</code>, <code>order</code>, <code>icon</code>,
+<code>tableHidden</code>, <code>formHidden</code> para UX.</li>
+</ul>
+<p>Nao use <code>@UISchema(label)</code> como fonte automatica para
+<code>@Schema.description</code>. Label e rotulo; description e
+semantica.</p>
+<h2 id="governanca-de-dominio-e-dados-sensiveis">Governanca de dominio e
+dados sensiveis</h2>
+<p>Quando o host usar anotacoes de governanca, o texto deve ser ainda
+mais preciso.</p>
+<p>Descreva:</p>
+<ul>
+<li>categoria real do dado</li>
+<li>finalidade legitima</li>
+<li>motivo de restricao</li>
+<li>uso esperado por IA</li>
+<li>relacao com compliance ou politica interna</li>
+</ul>
+<p>Exemplo:</p>
+<pre class="text"><code>Documento pessoal usado para identificacao fiscal do colaborador.</code></pre>
+<p>Evite:</p>
+<pre class="text"><code>Dado sensivel.</code></pre>
+<p>Se o starter ou host publicar catalogo de dominio, essas descricoes
+passam a alimentar descoberta semantica e politicas de uso por IA.</p>
+<h3 id="heuristica-em-schemasdomain-e-texto-em-propriedades">Heuristica
+em <code>/schemas/domain</code> e texto em propriedades</h3>
+<p>No vocabulario agregado em <code>/schemas/domain</code>,
+classificacoes de governanca para campos podem considerar <strong>nome
+do campo</strong>, <strong><code>title</code> e <code>description</code>
+do schema OpenAPI</strong>, <code>format</code> e padroes textuais (por
+exemplo termos que indicam credencial, saude, documento pessoal ou
+financeiro). Isso implica:</p>
+<ul>
+<li>Evite metaforas ou jargao que <strong>acionem</strong> uma classe de
+governanca sem que o dado seja realmente daquela categoria.</li>
+<li>Quando o dado for sensivel, use vocabulario <strong>alinhado ao
+contrato</strong> (o que o campo realmente representa) para que
+classificacao e auditoria facam sentido.</li>
+<li><code>description</code> vazio ou generico reduz explicabilidade no
+grafo de dominio; o nome do campo sozinho pode nao bastar para contexto
+de IA.</li>
+</ul>
+<h2 id="catálogos-sem-schema-inline">Catálogos sem schema inline</h2>
+<p>Surfaces, actions e capabilities devem referenciar operacoes e
+schemas canonicos. Elas nao devem duplicar payload. O mesmo vale para o
+material derivado em <code>/schemas/domain</code>: ele
+<strong>interpreta</strong> schemas e annotations ja publicados, nao
+corrige DTO mal modelado.</p>
+<p>Ao escrever descricoes:</p>
+<ul>
+<li>nao descreva estrutura de request como se ela nascesse em
+<code>/schemas/surfaces</code>, <code>/schemas/actions</code> ou
+<code>/schemas/domain</code></li>
+<li>nao prometa resposta que nao exista no metodo HTTP real</li>
+<li>nao invente contrato alternativo para facilitar UI</li>
+<li>nao use catalogo semantico para corrigir DTO mal modelado</li>
+</ul>
+<p>Se a descricao precisar explicar campos de entrada ou saida, confira
+primeiro o schema real em <code>/schemas/filtered</code> e a operacao
+OpenAPI.</p>
+<h2 id="filtros-e-options">Filtros e options</h2>
+<p>Filtros devem descrever criterio de busca real, nao apenas o tipo
+tecnico.</p>
+<p>Boa:</p>
+<pre class="text"><code>Filtrar funcionarios por cargo atualmente atribuido para recortes de lotacao e
+relatorios de RH.</code></pre>
+<p>Ruim:</p>
+<pre class="text"><code>Filtro por cargoId.</code></pre>
+<p>Options devem explicar a finalidade da selecao:</p>
+<pre class="text"><code>Produz opcoes compactas de departamentos para campos de selecao, busca,
+filtros de estrutura organizacional e composicao de vinculos de funcionarios.</code></pre>
+<h2 id="analytics-e-projections">Analytics e projections</h2>
+<p>Para views read-only, analytics e projections:</p>
+<ul>
+<li>deixe claro que e leitura ou projecao</li>
+<li>cite dimensoes reais</li>
+<li>cite metricas reais</li>
+<li>nao transforme projection em comando</li>
+<li>use nomes de metricas que batem com DTO/anotacao</li>
+</ul>
+<p>Boa:</p>
+<pre class="text"><code>Agrupar salario liquido por universo, perfil ou composicao de folha.</code></pre>
+<p>Ruim:</p>
+<pre class="text"><code>Agrupar analytics.</code></pre>
+<h3 id="uianalytics-e-x-ui.analytics"><code>@UiAnalytics</code> e
+<code>x-ui.analytics</code></h3>
+<p>Operacoes de estatisticas podem ser anotadas com
+<code>@UiAnalytics</code>. O starter publica um bloco
+<strong><code>x-ui.analytics</code></strong> no OpenAPI com projections,
+bindings e hints de apresentacao. O texto em <code>@Operation</code>
+deve estar <strong>coerente</strong> com ids, intents e fontes
+declaradas na anotacao; caso contrario, assistentes e clientes veem
+descricao e metadata tecnica divergentes.</p>
+<h2 id="operationid-tags-e-exemplos-openapi">operationId, tags e
+exemplos OpenAPI</h2>
+<h3 id="operationid"><code>operationId</code></h3>
+<p>Mantenha <strong>estavel e unico</strong> dentro do escopo do grupo
+quando exposto. Ferramentas, clientes gerados e ligacoes entre catalogos
+usam essa identidade. Renomear sem necessidade quebra referencias e
+confunde discovery.</p>
+<h3 id="tags-1"><code>tags</code></h3>
+<p>Use tags como <strong>eixo de agrupamento</strong> no OpenAPI e no
+<code>/schemas/catalog</code>. Evite tags decorativas, duplicadas ou
+excessivamente genericas que nao reflitam dominio ou modulo real.</p>
+<h3 id="exemplos-exampleobject-examples-no-openapi">Exemplos
+(<code>@ExampleObject</code>, <code>examples</code> no OpenAPI)</h3>
+<p>Exemplos entram no payload do <code>/schemas/catalog</code> e embutem
+contexto semantico para humanos e para pipelines que os indexam. Prefira
+exemplos <strong>alinhados a validacao e ao caso de uso</strong>; dados
+ficticios inconsistentes com o DTO geram ruido para IA e para
+conferencia humana.</p>
+<h2 id="checklist-de-revisao-para-llmcodex">Checklist de revisao para
+LLM/Codex</h2>
+<p>Antes de concluir uma alteracao de annotations, responda:</p>
+<ol type="1">
+<li>Li DTO, FilterDTO, controller, service e entidade/projecao?</li>
+<li>O texto menciona somente campos, relacoes e efeitos reais?</li>
+<li>Alguma negacao introduz palavras de outro dominio e pode poluir
+RAG?</li>
+<li>O <code>summary</code> diferencia a operacao de endpoints
+semelhantes?</li>
+<li>A <code>description</code> explica finalidade de negocio, nao apenas
+tecnica HTTP?</li>
+<li><code>ResourceIntent</code>, <code>UiSurface</code> e
+<code>WorkflowAction</code> respeitam suas fronteiras?</li>
+<li><code>title</code> e <code>intent</code> sao estaveis e
+reutilizaveis por assistentes?</li>
+<li><code>tags</code> ajudam discovery sem virar keyword stuffing?</li>
+<li><code>@Schema.description</code> explica o campo no dominio, e nao o
+label?</li>
+<li><code>resourceKey</code> continua representando a identidade
+semantica do recurso?</li>
+<li>O texto preserva <code>/schemas/filtered</code> como fonte
+estrutural canonica?</li>
+<li>O texto evita schema inline em catalogos semanticos e nao confunde
+<code>/schemas/domain</code> com fonte estrutural?</li>
+<li>Revisei se <code>@Operation</code> evita depender só do fallback
+automatico do <code>/schemas/catalog</code>?</li>
+<li>Para campos sensiveis, o texto em <code>@Schema</code> nao dispara
+governanca heuristic incorreta nem mascara o real tipo de dado?</li>
+<li><code>@UiAnalytics</code> (se houver) esta alinhado ao
+<code>summary</code>/<code>description</code> da mesma operacao?</li>
+<li><code>operationId</code> e <code>tags</code> permanecem coerentes
+com agrupamento e ferramentas?</li>
+<li>Exemplos OpenAPI refletem o contrato validado?</li>
+<li>O texto esta em PT-BR correto e coerente com o restante do
+recurso?</li>
+<li>Nao foi usado script ou heuristica de preenchimento em lote?</li>
+<li>A mudanca exige atualizar README, indice, guia ou exemplo
+derivado?</li>
+</ol>
+<h2 id="criterios-objetivos-de-rejeicao">Criterios objetivos de
+rejeicao</h2>
+<p>Nao aprove uma revisao semantica se qualquer item abaixo for
+verdadeiro:</p>
+<ul>
+<li>O texto serviria igualmente para qualquer recurso.</li>
+<li>A descricao apenas repete o nome do campo, label ou metodo.</li>
+<li>O texto contradiz DTO, validacao, mapper, service ou workflow
+real.</li>
+<li>O texto inventa regra, impacto, integracao ou efeito nao
+implementado.</li>
+<li>O texto omite efeito colateral relevante da operacao real.</li>
+<li>O texto menciona dominios fora de escopo por negacao e polui
+discovery.</li>
+<li><code>@ResourceIntent</code> descreve workflow em vez de escrita
+parcial do recurso.</li>
+<li><code>@UiSurface</code> descreve payload ou contrato paralelo.</li>
+<li><code>@WorkflowAction</code> descreve CRUD comum ou patch de
+manutencao.</li>
+<li><code>successMessage</code> promete resultado que o service nao
+garante.</li>
+<li><code>tags</code> foram usadas como lista de palavras-chave para
+melhorar busca.</li>
+<li><code>@Schema.description</code> foi derivado de
+<code>@UISchema(label)</code> ou camelCase.</li>
+<li><code>/schemas/catalog</code>, <code>/schemas/surfaces</code>,
+<code>/schemas/actions</code>, <code>/schemas/domain</code> ou
+<code>capabilities</code> aparecem como fonte estrutural em vez de
+discovery ou agregacao derivada.</li>
+<li><code>resourceKey</code> foi alterado por causa de path, nome de
+controller ou conveniencia local, sem mudanca semantica real do
+recurso.</li>
+</ul>
+<h2 id="padrao-recomendado-de-trabalho-para-agentes">Padrao recomendado
+de trabalho para agentes</h2>
+<ol type="1">
+<li>Classifique a mudanca.</li>
+<li>Identifique a fonte canonica.</li>
+<li>Leia o recurso inteiro antes de editar.</li>
+<li>Escreva ou revise poucos textos por vez.</li>
+<li>Compare cada texto com DTO, filtro e service.</li>
+<li>Faça busca por termos problemáticos:
+<ul>
+<li><code>sem alterar</code></li>
+<li><code>nao altera</code></li>
+<li><code>status</code></li>
+<li><code>lookup</code></li>
+<li><code>dashboard</code></li>
+<li><code>surface</code></li>
+<li><code>CRUD</code></li>
+<li><code>Endpoint para</code> (sinal tipico de fallback do
+<code>/schemas/catalog</code>)</li>
+<li>termos sem acento quando o texto publico deve estar em PT-BR</li>
+</ul></li>
+<li>Peça auditoria de outro agente quando a revisao for ampla.</li>
+<li>Corrija problemas apontados.</li>
+<li>Valide diff e links de documentacao.</li>
+</ol>
+<h2 id="anti-exemplos-comuns">Anti-exemplos comuns</h2>
+<h3 id="texto-generico">Texto generico</h3>
+<p>Ruim:</p>
+<pre class="text"><code>Atualiza o registro informado.</code></pre>
+<p>Bom:</p>
+<pre class="text"><code>Mantem dados cadastrais do dependente, parentesco, data de nascimento e vinculo
+com o funcionario titular para beneficios, conferencia familiar e atendimento
+administrativo.</code></pre>
+<h3 id="texto-tecnicamente-correto-semanticamente-pobre">Texto
+tecnicamente correto, semanticamente pobre</h3>
+<p>Ruim:</p>
+<pre class="text"><code>Retorna dados paginados.</code></pre>
+<p>Bom:</p>
+<pre class="text"><code>Navega por periodos de ausencia usando cursor, preservando filtros por
+funcionario, tipo e janela de datas em calendarios de RH, tabelas operacionais
+e paineis de disponibilidade.</code></pre>
+<h3 id="texto-rico-demais-e-falso">Texto rico demais e falso</h3>
+<p>Ruim:</p>
+<pre class="text"><code>Calcula provisoes, encargos, beneficios, repasses bancarios e conformidade
+trabalhista.</code></pre>
+<p>Bom:</p>
+<pre class="text"><code>Lista folhas de pagamento por funcionario, ano, mes, data de pagamento,
+salario bruto, descontos e salario liquido para conferencia mensal e fechamento
+financeiro.</code></pre>
+<h2 id="relacao-com-os-demais-guias">Relacao com os demais guias</h2>
+<ul>
+<li>Use o Guia 01 para criar uma aplicacao nova.</li>
+<li>Use o Guia 02 para adicionar um recurso metadata-driven.</li>
+<li>Use o Guia 04 para decidir se algo e resource, surface, action ou
+capability.</li>
+<li>Use o Guia 05 para explicar o contrato semantico alem do CRUD.</li>
+<li>Use este Guia 06 para escrever os textos que tornam esse contrato
+legivel por humanos, LLMs e consumidores documentais, incluindo o que
+flui para <code>/schemas/domain</code> e para snapshots de
+<code>capabilities</code> sem substituir o contrato estrutural do
+<code>/schemas/filtered</code>.</li>
+</ul>
+</body>
+</html>

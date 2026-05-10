@@ -11,8 +11,9 @@ Use os guias nesta ordem:
 2. [Guia 02 - Backend - Recurso Metadata-Driven](GUIA-02-AI-BACKEND-CRUD-METADATA.md)
 3. [Guia 04 - Quando usar Resource, Surface, Action e Capability](GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
 4. [Guia 05 - Do CRUD ao Contrato Semantico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
-5. [Guia 03 - Frontend - Angular CRUD Completo](GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
-6. [Checklist de Validacao](CHECKLIST-VALIDACAO-IA.md)
+5. [Guia 06 - Redacao Semantica de Annotations para IA](GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.md)
+6. [Guia 03 - Frontend - Angular CRUD Completo](GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
+7. [Checklist de Validacao](CHECKLIST-VALIDACAO-IA.md)
 
 Essa trilha foi organizada para que a LLM consiga percorrer os passos sem
 depender de app externo nem de conhecimento oral do time.
@@ -43,6 +44,13 @@ Use quando for preciso explicar visualmente a diferenca entre uma leitura CRUD
 simplificada e o contrato semantico canonico, e como `ResourceIntent`, `UiSurface`,
 `WorkflowAction` e `capabilities` se encaixam no mesmo contrato.
 
+### Guia 06
+
+Use quando a tarefa for preencher ou revisar textos publicos de annotations,
+como `@Operation`, `@ResourceIntent`, `@UiSurface`, `@WorkflowAction`,
+`@Schema`, `@UISchema`, `@UiAnalytics`, tags e descricoes consumidas por OpenAPI,
+`/schemas/catalog`, `/schemas/domain`, capabilities, RAG e assistentes.
+
 ### Guia 03
 
 Use apenas quando o backend ja publicar corretamente o contrato metadata-driven
@@ -61,6 +69,7 @@ Use depois da geracao para validar build, endpoints, schemas e consumo.
 - [Views / Somente Leitura](READ-ONLY-VIEWS.md)
 - [Erros e Respostas](ERROS-E-RESPOSTAS.md)
 - [Do CRUD ao Contrato Semantico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
+- [Redacao Semantica de Annotations para IA](GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.md)
 - [Prova Operacional dos Guias de IA](ai-proof/README.md)
 
 ## Papel desta pasta
