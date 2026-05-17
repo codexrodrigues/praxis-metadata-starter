@@ -32,7 +32,9 @@ import org.springframework.data.jpa.domain.Specification;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
@@ -430,6 +432,12 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         if (value instanceof LocalDateTime localDateTime) {
             return localDateTime.toLocalDate();
         }
+        if (value instanceof OffsetDateTime offsetDateTime) {
+            return offsetDateTime.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate();
+        }
+        if (value instanceof ZonedDateTime zonedDateTime) {
+            return zonedDateTime.withZoneSameInstant(ZoneOffset.UTC).toLocalDate();
+        }
         if (value instanceof Instant instant) {
             return instant.atZone(ZoneOffset.UTC).toLocalDate();
         }
@@ -446,7 +454,37 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 return null;
             }
         }
+        if (value instanceof CharSequence text) {
+            return parseLocalDate(text.toString());
+        }
         return null;
+    }
+
+    private LocalDate parseLocalDate(String value) {
+        String text = value == null ? "" : value.trim();
+        if (text.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(text);
+        } catch (Exception ignored) {
+            // Try richer ISO temporal formats below.
+        }
+        try {
+            return OffsetDateTime.parse(text).withOffsetSameInstant(ZoneOffset.UTC).toLocalDate();
+        } catch (Exception ignored) {
+            // Try instant/local date-time formats below.
+        }
+        try {
+            return Instant.parse(text).atZone(ZoneOffset.UTC).toLocalDate();
+        } catch (Exception ignored) {
+            // Try local date-time format below.
+        }
+        try {
+            return LocalDateTime.parse(text).toLocalDate();
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private LocalDate normalizeStart(LocalDate date, TimeSeriesGranularity granularity) {
