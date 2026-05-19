@@ -180,12 +180,12 @@ jobs:
             VERSION="$(normalize_version "$VERSION_INPUT")"
           else
             if [[ "$BUMP_INPUT" == "prerelease" ]]; then
-              BASE="$(latest_stable)"
-              if [[ -z "${BASE:-}" ]]; then
-                BASE="$(latest_any_semver)"
-                if [[ -n "${BASE:-}" ]]; then
-                  BASE="${BASE%%-*}"
-                fi
+              # Continue the highest semantic release line, even when the latest
+              # published artifact is still an rc/beta. Otherwise an old stable
+              # tag such as v0.1.0 can incorrectly anchor new prereleases.
+              BASE="$(latest_any_semver)"
+              if [[ -n "${BASE:-}" ]]; then
+                BASE="${BASE%%-*}"
               fi
               if [[ -z "${BASE:-}" ]]; then
                 BASE="1.0.0"
