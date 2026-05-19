@@ -376,6 +376,9 @@
         "detail": {
           "$ref": "#/definitions/lookupDetail"
         },
+        "display": {
+          "$ref": "#/definitions/lookupDisplay"
+        },
         "filtering": {
           "$ref": "#/definitions/lookupFiltering"
         },
@@ -441,8 +444,87 @@
         "routeTemplate": { "type": "string", "minLength": 1 },
         "openDetailMode": {
           "type": "string",
-          "enum": ["samePage", "newTab", "drawer", "modal"]
-        }
+          "enum": ["samePage", "newTab", "drawer", "modal", "route", "surface"]
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["surface", "route", "href"]
+        },
+        "surfaceId": { "type": "string", "minLength": 1 },
+        "presentation": {
+          "type": "string",
+          "enum": ["drawer", "modal"]
+        },
+        "preferredWidget": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "minLength": 1 }
+      }
+    },
+    "lookupDisplay": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preset": {
+          "type": "string",
+          "enum": ["compact", "rich", "directory", "status", "reference", "hierarchical"]
+        },
+        "usage": {
+          "type": "string",
+          "enum": ["form", "filter", "table-cell", "dashboard", "wizard", "review"]
+        },
+        "density": {
+          "type": "string",
+          "enum": ["compact", "comfortable", "rich"]
+        },
+        "selectedLayout": {
+          "type": "string",
+          "enum": ["card", "inline", "compact", "token"]
+        },
+        "resultLayout": {
+          "type": "string",
+          "enum": ["list", "denseList", "table", "card"]
+        },
+        "primaryPropertyPath": { "type": "string", "minLength": 1 },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/lookupDisplayField" }
+        },
+        "secondaryPropertyPaths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "badgePropertyPaths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "avatarPropertyPath": { "type": "string", "minLength": 1 },
+        "showAvatar": { "type": "boolean" },
+        "showCode": { "type": "boolean" },
+        "showDescription": { "type": "boolean" },
+        "showStatus": { "type": "boolean" },
+        "showBadges": { "type": "boolean" },
+        "showResultCount": { "type": "boolean" },
+        "maxVisibleBadges": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "lookupDisplayField": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "propertyPath": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "icon": { "type": "string", "minLength": 1 },
+        "presentation": {
+          "type": "string",
+          "enum": ["text", "chip", "badge", "date", "currency", "metric"]
+        },
+        "tone": {
+          "type": "string",
+          "enum": ["neutral", "info", "success", "warning", "danger"]
+        },
+        "format": { "type": "string", "minLength": 1 }
       }
     },
     "lookupFiltering": {

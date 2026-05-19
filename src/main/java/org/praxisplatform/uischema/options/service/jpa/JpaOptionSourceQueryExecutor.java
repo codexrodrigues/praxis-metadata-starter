@@ -19,6 +19,8 @@ import org.praxisplatform.uischema.options.LookupFilterDefinition;
 import org.praxisplatform.uischema.options.LookupFilterRequest;
 import org.praxisplatform.uischema.options.LookupFilteringDescriptor;
 import org.praxisplatform.uischema.options.LookupDetailDescriptor;
+import org.praxisplatform.uischema.options.LookupDisplayDescriptor;
+import org.praxisplatform.uischema.options.LookupDisplayFieldDescriptor;
 import org.praxisplatform.uischema.options.LookupSelectionPolicy;
 import org.praxisplatform.uischema.options.LookupSortOption;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
@@ -505,6 +507,14 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         putIfNotBlank(extra, "detailRoute", resolveTemplate(lookup.detail(), value, false));
         putIfNotBlank(extra, "resourcePath", descriptor.resourcePath());
         putIfNotBlank(extra, "entityKey", lookup.entityKey());
+        List<String> badges = buildDisplayBadges(tuple, lookup.display());
+        if (!badges.isEmpty()) {
+            extra.put("badges", badges);
+        }
+        List<Map<String, Object>> richFields = buildDisplayFields(tuple, lookup.display());
+        if (!richFields.isEmpty()) {
+            extra.put("richFields", richFields);
+        }
 
         return new OptionDTO<>(value, stringify(label != null ? label : value), extra);
     }
@@ -526,6 +536,42 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                 .map(this::stringifyNullable)
                 .filter(value -> value != null && !value.isBlank())
                 .collect(Collectors.joining(" - "));
+    }
+
+    private List<String> buildDisplayBadges(Tuple tuple, LookupDisplayDescriptor display) {
+        if (display == null || display.badgePropertyPaths().isEmpty()) {
+            return List.of();
+        }
+        return java.util.stream.IntStream.range(0, display.badgePropertyPaths().size())
+                .mapToObj(index -> tupleValue(tuple, "lookupBadge" + index))
+                .map(this::stringifyNullable)
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .toList();
+    }
+
+    private List<Map<String, Object>> buildDisplayFields(Tuple tuple, LookupDisplayDescriptor display) {
+        if (display == null || display.fields().isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, Object>> fields = new ArrayList<>();
+        for (int index = 0; index < display.fields().size(); index++) {
+            LookupDisplayFieldDescriptor descriptor = display.fields().get(index);
+            String value = stringifyNullable(tupleValue(tuple, "lookupRichField" + index));
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            Map<String, Object> field = new LinkedHashMap<>();
+            putIfNotBlank(field, "key", descriptor.key());
+            putIfNotBlank(field, "label", descriptor.label());
+            putIfNotBlank(field, "icon", descriptor.icon());
+            putIfNotBlank(field, "presentation", descriptor.presentation());
+            putIfNotBlank(field, "tone", descriptor.tone());
+            putIfNotBlank(field, "format", descriptor.format());
+            field.put("value", value);
+            fields.add(field);
+        }
+        return fields;
     }
 
     private boolean resolveSelectable(Tuple tuple, Object status, EntityLookupDescriptor lookup) {
@@ -631,23 +677,35 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         EntityLookupDescriptor lookup = descriptor.entityLookup();
         List<Selection<?>> selections = new ArrayList<>();
         List<Path<?>> selectedPaths = new ArrayList<>();
+        List<String> selectedAliases = new ArrayList<>();
         selections.add(valuePath.alias("optionValue"));
         selectedPaths.add(valuePath);
+        selectedAliases.add("optionValue");
         selections.add(labelPath.alias("optionLabel"));
         selectedPaths.add(labelPath);
-        addSelection(selections, selectedPaths, root, lookup.codePropertyPath(), "lookupCode");
-        addSelection(selections, selectedPaths, root, lookup.statusPropertyPath(), "lookupStatus");
-        addSelection(selections, selectedPaths, root, lookup.disabledPropertyPath(), "lookupDisabled");
-        addSelection(selections, selectedPaths, root, lookup.disabledReasonPropertyPath(), "lookupDisabledReason");
+        selectedAliases.add("optionLabel");
+        addSelection(selections, selectedPaths, selectedAliases, root, lookup.codePropertyPath(), "lookupCode");
+        addSelection(selections, selectedPaths, selectedAliases, root, lookup.statusPropertyPath(), "lookupStatus");
+        addSelection(selections, selectedPaths, selectedAliases, root, lookup.disabledPropertyPath(), "lookupDisabled");
+        addSelection(selections, selectedPaths, selectedAliases, root, lookup.disabledReasonPropertyPath(), "lookupDisabledReason");
         LookupSelectionPolicy policy = lookup.selectionPolicy();
         if (policy != null) {
-            addSelection(selections, selectedPaths, root, policy.selectablePropertyPath(), "lookupSelectable");
+            addSelection(selections, selectedPaths, selectedAliases, root, policy.selectablePropertyPath(), "lookupSelectable");
             if (lookup.statusPropertyPath() == null) {
-                addSelection(selections, selectedPaths, root, policy.statusPropertyPath(), "lookupStatus");
+                addSelection(selections, selectedPaths, selectedAliases, root, policy.statusPropertyPath(), "lookupStatus");
             }
         }
         for (int index = 0; index < lookup.descriptionPropertyPaths().size(); index++) {
-            addSelection(selections, selectedPaths, root, lookup.descriptionPropertyPaths().get(index), "lookupDescription" + index);
+            addSelection(selections, selectedPaths, selectedAliases, root, lookup.descriptionPropertyPaths().get(index), "lookupDescription" + index);
+        }
+        LookupDisplayDescriptor display = lookup.display();
+        if (display != null) {
+            for (int index = 0; index < display.fields().size(); index++) {
+                addSelection(selections, selectedPaths, selectedAliases, root, display.fields().get(index).propertyPath(), "lookupRichField" + index);
+            }
+            for (int index = 0; index < display.badgePropertyPaths().size(); index++) {
+                addSelection(selections, selectedPaths, selectedAliases, root, display.badgePropertyPaths().get(index), "lookupBadge" + index);
+            }
         }
         if (metadataSortPath != null && selectedPaths.stream().noneMatch(path -> samePath(path, metadataSortPath))) {
             selections.add(metadataSortPath.alias("lookupSortField"));
@@ -658,17 +716,19 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     private void addSelection(
             List<Selection<?>> selections,
             List<Path<?>> selectedPaths,
+            List<String> selectedAliases,
             Root<?> root,
             String propertyPath,
             String alias
     ) {
         if (propertyPath != null && !propertyPath.isBlank()) {
             Path<?> resolvedPath = resolvePath(root, propertyPath);
-            if (selectedPaths.stream().anyMatch(path -> samePath(path, resolvedPath))) {
+            if (selectedAliases.contains(alias)) {
                 return;
             }
             selections.add(resolvedPath.alias(alias));
             selectedPaths.add(resolvedPath);
+            selectedAliases.add(alias);
         }
     }
 

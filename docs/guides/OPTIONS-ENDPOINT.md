@@ -202,7 +202,19 @@ Tipos ainda nao implementados de ponta a ponta no executor JPA:
 usa `valuePropertyPath` como identificador, `labelPropertyPath` como label, aplica busca
 nos `searchPropertyPaths`, reidrata por IDs e projeta `OptionDTO.extra` com chaves
 governadas como `code`, `description`, `status`, `selectable`, `disabledReason`,
-`detailHref`, `detailRoute`, `resourcePath` e `entityKey`.
+`detailHref`, `detailRoute`, `resourcePath`, `entityKey` e, quando `display.badgePropertyPaths`
+estiver configurado, `badges`. Quando `display.fields[]` existir, o executor tambem
+materializa `OptionDTO.extra.richFields[]` com `key`, `label`, `icon`, `presentation`,
+`tone`, `format` e `value`, preservando a semantica rica para listas e valores
+selecionados sem exigir convencao local no host.
+
+O bloco `display` e a forma canonica de publicar a UX preferencial do lookup sem
+amarrar a option-source a um componente especifico. Use `preset=directory` para
+pessoas/funcionarios, `reference` para codigo + descricao, `status` quando o
+estado operacional for central, `hierarchical` para arvores/caminhos, `rich` para
+leitura completa generica e `compact` para filtros inline ou celulas densas.
+Use `display.fields[]` para atributos que merecem tratamento visual proprio, como
+cargo com icone, departamento como chip, status como badge ou uma data formatada.
 
 Contrato minimo recomendado para Entity Lookup:
 
@@ -265,9 +277,31 @@ Contrato minimo recomendado para Entity Lookup:
       "create": false
     },
     "detail": {
-      "hrefTemplate": "/api/companies/{id}",
-      "routeTemplate": "/companies/{id}",
-      "openDetailMode": "drawer"
+      "kind": "surface",
+      "surfaceId": "view",
+      "presentation": "drawer",
+      "preferredWidget": "praxis-dynamic-form",
+      "mode": "view"
+    },
+    "display": {
+      "preset": "directory",
+      "usage": "form",
+      "density": "comfortable",
+      "selectedLayout": "compact",
+      "resultLayout": "list",
+      "primaryPropertyPath": "legalName",
+      "fields": [
+        { "key": "document", "propertyPath": "documentNumber", "label": "Documento", "icon": "badge", "presentation": "chip", "tone": "neutral" },
+        { "key": "city", "propertyPath": "city", "label": "Cidade", "icon": "location_on", "presentation": "text", "tone": "info" }
+      ],
+      "secondaryPropertyPaths": ["documentNumber", "city", "state"],
+      "badgePropertyPaths": ["status"],
+      "showAvatar": true,
+      "showCode": true,
+      "showDescription": true,
+      "showStatus": true,
+      "showBadges": true,
+      "showResultCount": true
     }
   }
 }

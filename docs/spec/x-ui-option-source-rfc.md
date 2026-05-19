@@ -134,7 +134,27 @@ semantica governada de entidade no proprio `x-ui.optionSource`:
 - `selectionPolicy`
 - `capabilities`
 - `detail`
+- `display`
 - `filtering`
+
+O bloco `display` descreve a intencao de UX da referencia de entidade. Ele nao
+substitui surface, formulario ou tabela; ele informa ao runtime qual leitura
+semantica aplicar quando a mesma option-source aparecer em formulario, filtro,
+celula editavel, dashboard ou revisao. Presets canonicos iniciais:
+
+- `directory`: pessoas, equipes e cadastros com avatar/iniciais, titulo e subtitulo.
+- `reference`: codigo + descricao, recomendado para centros de custo, contratos e produtos.
+- `status`: entidades em que o estado operacional precisa aparecer como badge.
+- `hierarchical`: entidades com caminho/parent.
+- `rich`: linha rica generica.
+- `compact`: leitura densa para filtros inline e celulas.
+
+`display.fields[]` publica subinformacoes ricas da entidade sem transformar o
+frontend em fonte de regra visual. Cada item declara `propertyPath`, `label`,
+`icon`, `presentation` (`text`, `chip`, `badge`, `date`, `currency`, `metric`),
+`tone` e `format`. O executor de option-source pode materializar esses campos em
+`OptionDTO.extra.richFields[]`, permitindo que runtimes mostrem ícones, chips e
+datas formatadas tanto na lista quanto no item selecionado.
 
 O bloco `filtering` governa busca corporativa rica sem empurrar convencoes de query
 para o frontend. Ele descreve:
@@ -179,9 +199,31 @@ Exemplo:
       "create": false
     },
     "detail": {
-      "hrefTemplate": "/api/companies/{id}",
-      "routeTemplate": "/companies/{id}",
-      "openDetailMode": "drawer"
+      "kind": "surface",
+      "surfaceId": "view",
+      "presentation": "drawer",
+      "preferredWidget": "praxis-dynamic-form",
+      "mode": "view"
+    },
+    "display": {
+      "preset": "directory",
+      "usage": "form",
+      "density": "comfortable",
+      "selectedLayout": "compact",
+      "resultLayout": "list",
+      "primaryPropertyPath": "legalName",
+      "fields": [
+        { "key": "document", "propertyPath": "documentNumber", "label": "Documento", "icon": "badge", "presentation": "chip", "tone": "neutral" },
+        { "key": "city", "propertyPath": "city", "label": "Cidade", "icon": "location_on", "presentation": "text", "tone": "info" }
+      ],
+      "secondaryPropertyPaths": ["documentNumber", "city", "state"],
+      "badgePropertyPaths": ["status"],
+      "showAvatar": true,
+      "showCode": true,
+      "showDescription": true,
+      "showStatus": true,
+      "showBadges": true,
+      "showResultCount": true
     },
     "filtering": {
       "availableFilters": [

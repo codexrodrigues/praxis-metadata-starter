@@ -130,7 +130,30 @@ class OptionSourceDescriptorTest {
                                 null
                         ),
                         new LookupCapabilities(true, true, true, false, false, true, false, true, true, true),
-                        new LookupDetailDescriptor("/api/companies/{id}", "/companies/{id}", "drawer"),
+                        new LookupDetailDescriptor(null, null, null, "surface", "detail", "drawer", "praxis-dynamic-form", "view"),
+                        new LookupDisplayDescriptor(
+                                "directory",
+                                "form",
+                                "comfortable",
+                                "compact",
+                                "list",
+                                "legalName",
+                                List.of(
+                                        new LookupDisplayFieldDescriptor("document", "documentNumber", "Documento", "badge", "chip", "neutral", null),
+                                        new LookupDisplayFieldDescriptor("location", "city", "Cidade", "location_on", "text", "info", null),
+                                        new LookupDisplayFieldDescriptor("status", "status", "Status", "verified", "badge", "success", null)
+                                ),
+                                List.of("documentNumber", "city", "state"),
+                                List.of("status", "city"),
+                                null,
+                                true,
+                                true,
+                                true,
+                                true,
+                                true,
+                                true,
+                                3
+                        ),
                         new LookupFilteringDescriptor(
                                 List.of(
                                         new LookupFilterDefinition(
@@ -190,9 +213,28 @@ class OptionSourceDescriptorTest {
         assertEquals(false, capabilities.get("create"));
 
         Map<String, Object> detail = (Map<String, Object>) metadata.get("detail");
-        assertEquals("/api/companies/{id}", detail.get("hrefTemplate"));
-        assertEquals("/companies/{id}", detail.get("routeTemplate"));
-        assertEquals("drawer", detail.get("openDetailMode"));
+        assertEquals("surface", detail.get("kind"));
+        assertEquals("detail", detail.get("surfaceId"));
+        assertEquals("drawer", detail.get("presentation"));
+        assertEquals("praxis-dynamic-form", detail.get("preferredWidget"));
+        assertEquals("view", detail.get("mode"));
+
+        Map<String, Object> display = (Map<String, Object>) metadata.get("display");
+        assertEquals("directory", display.get("preset"));
+        assertEquals("form", display.get("usage"));
+        assertEquals("comfortable", display.get("density"));
+        assertEquals("compact", display.get("selectedLayout"));
+        assertEquals("list", display.get("resultLayout"));
+        assertEquals("legalName", display.get("primaryPropertyPath"));
+        List<Map<String, Object>> displayFields = (List<Map<String, Object>>) display.get("fields");
+        assertEquals("document", displayFields.get(0).get("key"));
+        assertEquals("documentNumber", displayFields.get(0).get("propertyPath"));
+        assertEquals("badge", displayFields.get(0).get("icon"));
+        assertEquals("chip", displayFields.get(0).get("presentation"));
+        assertEquals(List.of("documentNumber", "city", "state"), display.get("secondaryPropertyPaths"));
+        assertEquals(List.of("status", "city"), display.get("badgePropertyPaths"));
+        assertEquals(true, display.get("showAvatar"));
+        assertEquals(3, display.get("maxVisibleBadges"));
 
         Map<String, Object> filtering = (Map<String, Object>) metadata.get("filtering");
         assertEquals("legalNameAsc", filtering.get("defaultSort"));
