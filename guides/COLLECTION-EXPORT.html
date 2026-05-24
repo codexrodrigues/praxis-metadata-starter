@@ -203,8 +203,14 @@ pagina atual.</li>
 <li><code>query</code>: metadados adicionais de busca.</li>
 <li><code>includeHeaders</code>: controla cabecalho em formatos
 tabulares.</li>
+<li><code>applyFormatting</code>: quando <code>true</code>, solicita
+materializacao de apresentacao governada por campo.</li>
 <li><code>maxRows</code>: limite solicitado pelo cliente.</li>
 <li><code>fileName</code>: nome sugerido para download.</li>
+<li><code>formatOptions</code>: opcoes por formato, como delimitador
+CSV, encoding, BOM e dialeto de planilha.</li>
+<li><code>localization</code>: locale/timezone usados como contexto de
+materializacao.</li>
 </ul>
 <h2 id="responsabilidade-do-recurso">Responsabilidade Do Recurso</h2>
 <p>O starter fornece a infraestrutura comum, mas cada recurso continua
@@ -245,6 +251,14 @@ abrir acesso a dados internos.</p>
 <li>request com campos informados, mas nenhum campo suportado, deve
 falhar com <code>400</code>.</li>
 </ul>
+<p>Campos exportaveis podem declarar apresentacao serializavel por meio
+de <code>CollectionExportFieldPresentation</code>. Essa apresentacao
+inclui semantica como <code>currency</code>, <code>date</code>,
+<code>boolean</code>, <code>format</code>, <code>locale</code>,
+<code>currency</code>, labels booleanos e <code>nullDisplay</code>. A
+apresentacao enviada pelo cliente deve ser tratada como intencao
+materializada e reconciliada contra a allowlist do recurso; ela nao
+autoriza campo nem regra de negocio por si so.</p>
 <h2 id="headers-de-resultado">Headers De Resultado</h2>
 <p>Quando a exportacao e concluida inline, o controller pode publicar
 headers de resultado:</p>
@@ -267,14 +281,32 @@ parcial e apresentar o aviso ao operador.</p>
 contra formula injection. Valores iniciados por formula, inclusive
 depois de whitespace inicial, sao prefixados com apostrofo antes da
 serializacao.</p>
+<p>Quando <code>applyFormatting=true</code>, o CSV usa a apresentacao
+governada dos campos. Para compatibilidade com Excel em pt-BR, o cliente
+pode solicitar <code>formatOptions.csv.delimiter=";"</code>,
+<code>encoding="UTF-8"</code>, <code>includeBom=true</code>,
+<code>lineEnding="crlf"</code> e, quando necessario,
+<code>includeSepDirective=true</code>. Isso produz CSV compativel com
+planilha, nao XLSX real.</p>
 <p>Essa protecao nao substitui allowlist de campos nem politicas de
 seguranca do recurso.</p>
 <h2 id="json">JSON</h2>
 <p>O engine JSON canonico preserva a ordem dos campos exportados e emite
 uma lista de objetos tabulares.</p>
+<p>Quando <code>applyFormatting=true</code>, JSON tambem pode
+materializar apresentacao governada. Quando
+<code>applyFormatting=false</code>, deve preservar valores crus sempre
+que o resolver do recurso os fornecer.</p>
 <p>Use JSON quando o consumidor precisar reprocessar dados ou validar o
 payload de forma estruturada. Use CSV quando o objetivo principal for
 abertura em planilhas.</p>
+<h2 id="excel">Excel</h2>
+<p><code>excel</code> permanece no enum publico para expressar intencao
+de exportacao XLSX, mas o recurso so deve anunciar esse formato em
+<code>/capabilities</code> quando houver engine real registrado. CSV
+compativel com Excel nao deve ser publicado como <code>.xlsx</code>. Uma
+engine XLSX futura deve preservar celulas tipadas e estilos de
+numero/data/moeda, em vez de serializar tudo como texto.</p>
 <h2 id="checklist-minima">Checklist Minima</h2>
 <p>Antes de publicar exportacao em um recurso:</p>
 <ul>

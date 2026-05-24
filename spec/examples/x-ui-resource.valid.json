@@ -10,7 +10,7 @@
     "byId": true,
     "all": true,
     "filter": true,
+    "filterExpression": false,
     "cursor": false
   }
 }
-

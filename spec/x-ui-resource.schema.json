@@ -20,6 +20,7 @@
         "byId": { "type": "boolean" },
         "all": { "type": "boolean" },
         "filter": { "type": "boolean" },
+        "filterExpression": { "type": "boolean" },
         "cursor": { "type": "boolean" }
       }
     }

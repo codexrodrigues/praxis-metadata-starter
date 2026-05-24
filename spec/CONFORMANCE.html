@@ -259,6 +259,10 @@ quando o OpenAPI publicar exemplos uteis</li>
 UX</li>
 <li>incluir <code>capabilities.options|byId|all|filter|cursor</code>
 quando aplicavel</li>
+<li>publicar <code>capabilities.filterExpression=false</code> enquanto o
+recurso nao declarar suporte executavel a expressoes canonicas de filtro
+compostas; <code>capabilities.filter=true</code> sozinho representa
+apenas DTO plano de conjuncao simples</li>
 <li>manter <code>/schemas/surfaces</code> e
 <code>/schemas/actions</code> sincronizados com a semantica publicada
 por <code>@UiSurface</code> e <code>@WorkflowAction</code></li>
