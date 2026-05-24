@@ -53,6 +53,9 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         capabilities.put("byId", hasOperation(pathsNode, basePath + "/{id}", "get"));
         capabilities.put("all", hasOperation(pathsNode, basePath + "/all", "get"));
         capabilities.put("filter", hasOperation(pathsNode, basePath + "/filter", "post"));
+        // Compound query expressions require an explicit platform contract. Flat /filter
+        // presence alone must not imply support for OR or nested boolean groups.
+        capabilities.put("filterExpression", false);
         capabilities.put("cursor", hasOperation(pathsNode, basePath + "/filter/cursor", "post"));
         // Export is service opt-in. The base mapping can exist for every resource,
         // so path presence alone must not advertise runtime availability.

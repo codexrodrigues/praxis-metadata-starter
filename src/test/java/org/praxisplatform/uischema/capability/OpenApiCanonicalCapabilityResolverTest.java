@@ -85,6 +85,7 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertEquals(Boolean.TRUE, capabilities.get("byId"));
         assertEquals(Boolean.TRUE, capabilities.get("all"));
         assertEquals(Boolean.TRUE, capabilities.get("filter"));
+        assertEquals(Boolean.FALSE, capabilities.get("filterExpression"));
         assertEquals(Boolean.TRUE, capabilities.get("cursor"));
         assertEquals(Boolean.FALSE, capabilities.get("export"));
         assertEquals(Boolean.TRUE, capabilities.get("statsGroupBy"));
@@ -134,6 +135,7 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertTrue(capabilities.get("byId"));
         assertTrue(capabilities.get("all"));
         assertTrue(capabilities.get("filter"));
+        assertFalse(capabilities.get("filterExpression"));
         assertFalse(capabilities.get("cursor"));
         assertFalse(capabilities.get("export"));
         assertFalse(capabilities.get("statsGroupBy"));

@@ -30,6 +30,8 @@ public record CollectionExportRequest<FilterDTO extends GenericFilterDTO>(
         Boolean applyFormatting,
         Integer maxRows,
         String fileName,
+        CollectionExportFormatOptions formatOptions,
+        CollectionExportLocalization localization,
         Map<String, Object> metadata
 ) {
     public CollectionExportRequest {
@@ -38,5 +40,45 @@ public record CollectionExportRequest<FilterDTO extends GenericFilterDTO>(
         fields = fields == null ? List.of() : List.copyOf(fields);
         query = query == null ? Map.of() : Map.copyOf(query);
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+    }
+
+    public CollectionExportRequest(
+            String componentType,
+            String componentId,
+            String resourcePath,
+            CollectionExportFormat format,
+            CollectionExportScope scope,
+            CollectionExportSelection selection,
+            List<CollectionExportField> fields,
+            FilterDTO filters,
+            Object sort,
+            CollectionExportPage pagination,
+            Map<String, Object> query,
+            Boolean includeHeaders,
+            Boolean applyFormatting,
+            Integer maxRows,
+            String fileName,
+            Map<String, Object> metadata
+    ) {
+        this(
+                componentType,
+                componentId,
+                resourcePath,
+                format,
+                scope,
+                selection,
+                fields,
+                filters,
+                sort,
+                pagination,
+                query,
+                includeHeaders,
+                applyFormatting,
+                maxRows,
+                fileName,
+                null,
+                null,
+                metadata
+        );
     }
 }

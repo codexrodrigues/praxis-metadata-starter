@@ -160,6 +160,7 @@ O request publica o estado de colecao necessario para uma exportacao correta:
 - `selection`: chaves selecionadas, chave identificadora, selecao de todos os resultados e exclusoes
 - `filters`, `sort`, `pagination` e `query`
 - `fields`, `includeHeaders`, `applyFormatting`, `maxRows` e `fileName`
+- `formatOptions` e `localization` para materializacao governada por formato/locale
 
 A base `AbstractResourceQueryController` publica o endpoint e delega para
 `BaseResourceQueryService.exportCollection(...)`. A implementacao padrao retorna `501 Not Implemented`;
@@ -208,6 +209,12 @@ local apenas sobre consulta, permissao e campos:
 - `CsvCollectionExportEngine`: engine padrao para CSV com headers opcionais e protecao contra formula injection
 - `JsonCollectionExportEngine`: engine padrao para JSON tabular preservando a ordem dos campos
 - `CollectionExportValueResolver`: funcao do recurso para mapear linha + campo em valor exportavel
+
+`applyFormatting=true` usa a apresentacao serializavel declarada em
+`CollectionExportFieldPresentation` e o contexto de `localization`. Para CSV
+compativel com Excel, use `formatOptions.csv` com delimitador `;`, UTF-8/BOM e
+CRLF quando o consumidor alvo exigir esse dialeto. Isso continua sendo CSV; o
+formato `excel` so deve aparecer em capabilities quando existir engine XLSX real.
 
 Os formatos `excel`, `pdf` e `print` permanecem no contrato publico para que consumidores possam expressar
 a intencao, mas exigem engine registrado pelo host ou por versao futura do starter. Na ausencia de engine,

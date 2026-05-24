@@ -26,7 +26,7 @@ public class DefaultCollectionExportExecutor implements CollectionExportExecutor
     ) {
         Objects.requireNonNull(valueResolver, "valueResolver must not be null");
         CollectionExportRequest<?> effectiveRequest = request == null
-                ? new CollectionExportRequest<>(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)
+                ? new CollectionExportRequest<>(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)
                 : request;
         List<CollectionExportField> fields = resolveFields(effectiveRequest.fields(), defaultFields);
         CollectionExportEngine engine = engines.stream()
@@ -50,7 +50,10 @@ public class DefaultCollectionExportExecutor implements CollectionExportExecutor
     ) {
         List<CollectionExportField> defaults = defaultFields == null ? List.of() : defaultFields;
         if (requestedFields == null || requestedFields.isEmpty()) {
-            return defaults;
+            return defaults.stream()
+                    .filter(Objects::nonNull)
+                    .filter(field -> field.exportable() != Boolean.FALSE && field.visible() != Boolean.FALSE)
+                    .toList();
         }
 
         Map<String, CollectionExportField> defaultsByKey = new LinkedHashMap<>();
@@ -65,8 +68,12 @@ public class DefaultCollectionExportExecutor implements CollectionExportExecutor
                 .map(field -> mergeWithDefault(field, defaultsByKey))
                 .filter(Objects::nonNull)
                 .toList();
-        if (resolved.isEmpty()) {
-            throw new IllegalArgumentException("No requested export fields are supported by this resource.");
+        long requestedExportableCount = requestedFields.stream()
+                .filter(Objects::nonNull)
+                .filter(field -> field.exportable() != Boolean.FALSE && field.visible() != Boolean.FALSE)
+                .count();
+        if (resolved.size() != requestedExportableCount) {
+            throw new IllegalArgumentException("One or more requested export fields are not supported by this resource.");
         }
         return resolved;
     }
@@ -84,8 +91,10 @@ public class DefaultCollectionExportExecutor implements CollectionExportExecutor
                 requested.label() == null || requested.label().isBlank() ? canonical.label() : requested.label(),
                 requested.visible(),
                 requested.exportable(),
-                requested.type() == null || requested.type().isBlank() ? canonical.type() : requested.type(),
-                canonical.valuePath()
+                canonical.type(),
+                canonical.valuePath(),
+                canonical.format(),
+                canonical.presentation()
         );
     }
 

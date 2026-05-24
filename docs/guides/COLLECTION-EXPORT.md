@@ -34,8 +34,11 @@ O request de exportacao preserva o estado da colecao:
 - `sort` e `pagination`: estado de ordenacao e pagina atual.
 - `query`: metadados adicionais de busca.
 - `includeHeaders`: controla cabecalho em formatos tabulares.
+- `applyFormatting`: quando `true`, solicita materializacao de apresentacao governada por campo.
 - `maxRows`: limite solicitado pelo cliente.
 - `fileName`: nome sugerido para download.
+- `formatOptions`: opcoes por formato, como delimitador CSV, encoding, BOM e dialeto de planilha.
+- `localization`: locale/timezone usados como contexto de materializacao.
 
 ## Responsabilidade Do Recurso
 
@@ -76,6 +79,13 @@ Regra:
 - request com alguns campos validos exporta apenas os validos;
 - request com campos informados, mas nenhum campo suportado, deve falhar com `400`.
 
+Campos exportaveis podem declarar apresentacao serializavel por meio de
+`CollectionExportFieldPresentation`. Essa apresentacao inclui semantica como
+`currency`, `date`, `boolean`, `format`, `locale`, `currency`, labels booleanos
+e `nullDisplay`. A apresentacao enviada pelo cliente deve ser tratada como
+intencao materializada e reconciliada contra a allowlist do recurso; ela nao
+autoriza campo nem regra de negocio por si so.
+
 ## Headers De Resultado
 
 Quando a exportacao e concluida inline, o controller pode publicar headers de
@@ -96,6 +106,12 @@ O engine CSV canonico serializa linhas tabulares com protecao basica contra
 formula injection. Valores iniciados por formula, inclusive depois de whitespace
 inicial, sao prefixados com apostrofo antes da serializacao.
 
+Quando `applyFormatting=true`, o CSV usa a apresentacao governada dos campos.
+Para compatibilidade com Excel em pt-BR, o cliente pode solicitar
+`formatOptions.csv.delimiter=";"`, `encoding="UTF-8"`, `includeBom=true`,
+`lineEnding="crlf"` e, quando necessario, `includeSepDirective=true`.
+Isso produz CSV compativel com planilha, nao XLSX real.
+
 Essa protecao nao substitui allowlist de campos nem politicas de seguranca do
 recurso.
 
@@ -104,8 +120,20 @@ recurso.
 O engine JSON canonico preserva a ordem dos campos exportados e emite uma lista
 de objetos tabulares.
 
+Quando `applyFormatting=true`, JSON tambem pode materializar apresentacao
+governada. Quando `applyFormatting=false`, deve preservar valores crus sempre
+que o resolver do recurso os fornecer.
+
 Use JSON quando o consumidor precisar reprocessar dados ou validar o payload de
 forma estruturada. Use CSV quando o objetivo principal for abertura em planilhas.
+
+## Excel
+
+`excel` permanece no enum publico para expressar intencao de exportacao XLSX,
+mas o recurso so deve anunciar esse formato em `/capabilities` quando houver
+engine real registrado. CSV compativel com Excel nao deve ser publicado como
+`.xlsx`. Uma engine XLSX futura deve preservar celulas tipadas e estilos de
+numero/data/moeda, em vez de serializar tudo como texto.
 
 ## Checklist Minima
 

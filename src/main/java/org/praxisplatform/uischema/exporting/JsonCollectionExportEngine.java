@@ -34,7 +34,7 @@ public class JsonCollectionExportEngine extends AbstractTabularCollectionExportE
             Map<String, Object> metadata
     ) {
         List<Map<String, Object>> payload = rows.stream()
-                .map(row -> toJsonRow(row, fields, valueResolver))
+                .map(row -> toJsonRow(row, fields, valueResolver, request))
                 .toList();
         try {
             return new CollectionExportResult(
@@ -58,11 +58,12 @@ public class JsonCollectionExportEngine extends AbstractTabularCollectionExportE
     private <T> Map<String, Object> toJsonRow(
             T row,
             List<CollectionExportField> fields,
-            CollectionExportValueResolver<T> valueResolver
+            CollectionExportValueResolver<T> valueResolver,
+            CollectionExportRequest<?> request
     ) {
         Map<String, Object> jsonRow = new LinkedHashMap<>();
         for (CollectionExportField field : fields) {
-            jsonRow.put(columnKey(field), normalizeValue(valueResolver.resolve(row, field)));
+            jsonRow.put(columnKey(field), materializeValue(valueResolver.resolve(row, field), field, request));
         }
         return jsonRow;
     }

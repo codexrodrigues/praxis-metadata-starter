@@ -157,6 +157,7 @@ class ApiDocsControllerReadOnlyMetaTest {
         assertEquals(Boolean.TRUE, caps.get("byId"));
         assertEquals(Boolean.TRUE, caps.get("all"));
         assertEquals(Boolean.TRUE, caps.get("filter"));
+        assertEquals(Boolean.FALSE, caps.get("filterExpression"));
         assertEquals(Boolean.TRUE, caps.get("cursor"));
         assertEquals(Boolean.TRUE, caps.get("optionSources"));
 

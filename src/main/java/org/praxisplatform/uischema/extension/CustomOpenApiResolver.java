@@ -236,7 +236,6 @@ public class CustomOpenApiResolver extends ModelResolver {
             OpenApiUiUtils.populateUiName(uiExtension, fieldName); // Though not strictly used before, good for consistency
             OpenApiUiUtils.populateUiLabel(uiExtension, property.getTitle(), fieldName);
             OpenApiUiUtils.populateUiPlaceholder(uiExtension, property.getTitle());
-            OpenApiUiUtils.populateUiHelpText(uiExtension, property.getDescription());
             OpenApiUiUtils.populateUiDefaultValue(uiExtension, property.getExample()); // Already uses util, ensures it uses updated one
             OpenApiUiUtils.populateUiReadOnly(uiExtension, property.getReadOnly()); // Already uses util, ensures it uses updated one
 
@@ -900,7 +899,6 @@ public class CustomOpenApiResolver extends ModelResolver {
         OpenApiUiUtils.populateUiName(uiExtension, fieldName);
         OpenApiUiUtils.populateUiLabel(uiExtension, property.getTitle(), fieldName);
         OpenApiUiUtils.populateUiPlaceholder(uiExtension, property.getTitle());
-        OpenApiUiUtils.populateUiHelpText(uiExtension, property.getDescription());
         OpenApiUiUtils.populateUiDefaultValue(uiExtension, property.getExample());
         OpenApiUiUtils.populateUiReadOnly(uiExtension, property.getReadOnly());
         OpenApiUiUtils.populateUiMinLength(uiExtension, property.getMinLength(), null);

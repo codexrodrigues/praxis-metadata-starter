@@ -27,6 +27,7 @@ class CapabilityE2ETest extends AbstractE2eH2Test {
         assertTrue(snapshot.path("canonicalOperations").path("update").asBoolean());
         assertTrue(snapshot.path("canonicalOperations").path("delete").asBoolean());
         assertTrue(snapshot.path("canonicalOperations").path("filter").asBoolean());
+        assertFalse(snapshot.path("canonicalOperations").path("filterExpression").asBoolean());
         assertTrue(snapshot.path("operations").path("create").path("supported").asBoolean());
         assertEquals("COLLECTION", snapshot.path("operations").path("create").path("scope").asText());
         assertEquals("POST", snapshot.path("operations").path("create").path("preferredMethod").asText());
@@ -107,6 +108,7 @@ class CapabilityE2ETest extends AbstractE2eH2Test {
         assertTrue(snapshot.path("canonicalOperations").path("byId").asBoolean());
         assertTrue(snapshot.path("canonicalOperations").path("all").asBoolean());
         assertTrue(snapshot.path("canonicalOperations").path("filter").asBoolean());
+        assertFalse(snapshot.path("canonicalOperations").path("filterExpression").asBoolean());
         assertFalse(snapshot.path("operations").path("create").path("supported").asBoolean());
         assertTrue(snapshot.path("operations").path("view").path("supported").asBoolean());
         assertFalse(snapshot.path("operations").path("edit").path("supported").asBoolean());

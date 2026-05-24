@@ -84,7 +84,8 @@
         "delete": true,
         "byId": true,
         "all": true,
-        "filter": true
+        "filter": true,
+        "filterExpression": false
       }
     }
   }
