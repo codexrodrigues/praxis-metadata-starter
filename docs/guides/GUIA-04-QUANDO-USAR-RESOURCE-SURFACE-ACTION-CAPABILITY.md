@@ -54,8 +54,20 @@ Regra:
 - `surface` nao define payload
 - `surface` aponta para operacao real + schema canonico
 - o schema continua vindo de `/schemas/filtered`, nao de `/schemas/surfaces`
+- `responseCardinality` descreve a cardinalidade da resposta da operacao (`OBJECT`,
+  `COLLECTION`, `PAGE`, `VOID` ou `UNKNOWN`), sem criar um segundo schema
 - `ITEM` em `/schemas/surfaces` e discovery-only sem `resourceId`; a availability real vem de
   `GET /{resource}/{id}/surfaces`
+
+Exemplo importante:
+
+- `GET /employees/{id}/hero-profile` pode ser uma surface `ITEM` com
+  `responseCardinality = OBJECT`
+- `GET /employees/{id}/payroll-history` tambem pode ser uma surface `ITEM`, mas com
+  `responseCardinality = COLLECTION`, porque projeta uma colecao relacionada ao funcionario
+
+Essa distincao evita que runtimes precisem inferir se devem renderizar um form de leitura,
+uma tabela, uma lista ou uma pagina a partir apenas de `kind` e `scope`.
 
 ## WorkflowAction
 
@@ -125,4 +137,17 @@ Pergunta 4: a UI so precisa saber o que existe ou o que esta disponivel agora?
 - `GET /employees/{id}/capabilities` -> snapshot agregado contextual
 - `POST /employees/export` -> operacao canonica de colecao, com contrato detalhado em
   [Exportacao de Colecoes](COLLECTION-EXPORT.md)
+
+## Disponibilidade Contextual
+
+O baseline distingue **descoberta** (o que existe) de **disponibilidade** (o que esta permitido agora).
+
+- `allowedStates` e `requiredAuthorities` (nas anotacoes `@UiSurface` e `@WorkflowAction`) declaram restricoes estaticas.
+- Quando a disponibilidade depende de regras dinamicas, datas, motor de regras ou multiplos campos, o host deve fornecer:
+  - Um `ResourceStateSnapshotProvider` (para informar o estado atual do recurso)
+  - Ou `ActionAvailabilityRule` / `SurfaceAvailabilityRule` customizadas
+
+A UI obtem a disponibilidade real via `GET /{resource}/{id}/capabilities` (campo `available` / `availability.decision`) e ajusta a interface (ocultar, desabilitar, tooltip).
+
+Detalhes de implementacao e exemplos estao no `QuickstartResourceStateSnapshotProvider` do `praxis-api-quickstart` e nos Javadocs das classes de availability do starter.
 

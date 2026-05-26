@@ -175,6 +175,7 @@ class SurfaceCatalogServiceTest {
                 "",
                 id,
                 "request",
+                SurfaceResponseCardinality.VOID,
                 new CanonicalOperationRef(group, id, resourcePath + (scope == SurfaceScope.COLLECTION ? "" : "/{id}/" + id), scope == SurfaceScope.COLLECTION ? "POST" : "PATCH"),
                 new CanonicalSchemaRef("schema-id-" + id, "request", "/schemas/filtered?path=" + resourcePath),
                 order,

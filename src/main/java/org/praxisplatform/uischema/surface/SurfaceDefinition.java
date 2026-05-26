@@ -25,6 +25,7 @@ public record SurfaceDefinition(
         String description,
         String intent,
         String schemaType,
+        SurfaceResponseCardinality responseCardinality,
         CanonicalOperationRef operation,
         CanonicalSchemaRef schema,
         int order,

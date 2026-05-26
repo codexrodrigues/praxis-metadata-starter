@@ -26,6 +26,7 @@ public record SurfaceCatalogItem(
         String method,
         String schemaId,
         String schemaUrl,
+        SurfaceResponseCardinality responseCardinality,
         AvailabilityDecision availability,
         int order,
         List<String> tags

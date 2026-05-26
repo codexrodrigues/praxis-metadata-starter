@@ -9,6 +9,7 @@ import org.praxisplatform.uischema.surface.SurfaceAvailabilityEvaluator;
 import org.praxisplatform.uischema.surface.SurfaceAvailabilityRule;
 import org.praxisplatform.uischema.surface.SurfaceDefinition;
 import org.praxisplatform.uischema.surface.SurfaceKind;
+import org.praxisplatform.uischema.surface.SurfaceResponseCardinality;
 import org.praxisplatform.uischema.surface.SurfaceScope;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
@@ -110,6 +111,7 @@ class OpenApiUiSchemaAutoConfigurationSurfaceAvailabilityTest {
                 "",
                 "profile",
                 "request",
+                SurfaceResponseCardinality.VOID,
                 new CanonicalOperationRef("example", "updateProfile", "/employees/{id}/profile", "PATCH"),
                 new CanonicalSchemaRef("schema-id", "request", "/schemas/filtered?path=/employees/{id}/profile"),
                 10,

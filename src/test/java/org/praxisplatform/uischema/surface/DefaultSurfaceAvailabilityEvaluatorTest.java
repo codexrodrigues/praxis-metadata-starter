@@ -191,6 +191,7 @@ class DefaultSurfaceAvailabilityEvaluatorTest {
                 "",
                 id,
                 "request",
+                SurfaceResponseCardinality.VOID,
                 new CanonicalOperationRef("example", id, "/employees/{id}/" + id, "PATCH"),
                 new CanonicalSchemaRef("schema-id", "request", "/schemas/filtered?path=/employees"),
                 10,

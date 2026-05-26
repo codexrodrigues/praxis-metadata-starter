@@ -15,6 +15,7 @@ import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
 import org.praxisplatform.uischema.surface.SurfaceCatalogResponse;
 import org.praxisplatform.uischema.surface.SurfaceCatalogService;
 import org.praxisplatform.uischema.surface.SurfaceKind;
+import org.praxisplatform.uischema.surface.SurfaceResponseCardinality;
 import org.praxisplatform.uischema.surface.SurfaceScope;
 
 import java.util.List;
@@ -404,6 +405,7 @@ class CapabilityServiceTest {
                 scope == SurfaceScope.COLLECTION ? "POST" : "GET",
                 "surface-schema-" + id,
                 "/schemas/filtered?path=/employees",
+                SurfaceResponseCardinality.OBJECT,
                 AvailabilityDecision.allowAll(),
                 10,
                 List.of()

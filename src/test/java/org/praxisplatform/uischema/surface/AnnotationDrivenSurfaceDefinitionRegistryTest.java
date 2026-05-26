@@ -12,15 +12,18 @@ import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
+import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.praxisplatform.uischema.service.base.BaseResourceService;
 import org.praxisplatform.uischema.validation.AnnotationConflictMode;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.web.method.HandlerMethod;
@@ -68,6 +71,10 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                 RequestMappingInfo.paths("/registry-resources/{id}/profile").methods(org.springframework.web.bind.annotation.RequestMethod.PATCH).build(),
                 new HandlerMethod(controller, RegistryTestController.class.getDeclaredMethod("updateProfile", Long.class))
         );
+        handlerMethods.put(
+                RequestMappingInfo.paths("/registry-resources/{id}/payments").methods(org.springframework.web.bind.annotation.RequestMethod.GET).build(),
+                new HandlerMethod(controller, RegistryTestController.class.getDeclaredMethod("payments", Long.class))
+        );
         when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
         when(operationResolver.resolve(any(HandlerMethod.class), any(RequestMappingInfo.class)))
                 .thenAnswer(invocation -> {
@@ -75,11 +82,15 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                     String path = mappingInfo.getPatternValues().iterator().next();
                     String operationId = path.contains("/actions/")
                             ? "approveResource"
+                            : path.contains("/payments")
+                            ? "employeePayments"
                             : path.contains("/profile")
                             ? "updateProfile"
                             : "listResources";
                     String method = path.contains("/actions/")
                             ? "POST"
+                            : path.contains("/payments")
+                            ? "GET"
                             : path.contains("/profile")
                             ? "PATCH"
                             : "GET";
@@ -105,24 +116,32 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
 
         verify(handlerMapping, times(1)).getHandlerMethods();
         assertEquals(firstLookup, secondLookup);
-        assertEquals(2, firstLookup.size());
+        assertEquals(3, firstLookup.size());
         SurfaceDefinition listSurface = firstLookup.stream()
                 .filter(surface -> "list".equals(surface.id()))
                 .findFirst()
                 .orElseThrow();
         assertEquals("list", listSurface.id());
+        assertEquals(SurfaceResponseCardinality.COLLECTION, listSurface.responseCardinality());
         SurfaceDefinition profileSurface = firstLookup.stream()
                 .filter(surface -> "profile".equals(surface.id()))
                 .findFirst()
                 .orElseThrow();
         assertEquals(List.of("employee:profile:update"), profileSurface.requiredAuthorities());
         assertEquals(List.of("ACTIVE"), profileSurface.allowedStates());
+        assertEquals(SurfaceResponseCardinality.VOID, profileSurface.responseCardinality());
+        SurfaceDefinition paymentsSurface = firstLookup.stream()
+                .filter(surface -> "payments".equals(surface.id()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(SurfaceResponseCardinality.COLLECTION, paymentsSurface.responseCardinality());
         assertNull(firstLookup.stream().filter(surface -> "approve".equals(surface.id())).findFirst().orElse(null));
 
         List<SurfaceDefinition> byGroup = registry.findByGroup("registry-group");
-        assertEquals(2, byGroup.size());
+        assertEquals(3, byGroup.size());
         assertNotNull(byGroup.stream().filter(surface -> "list".equals(surface.id())).findFirst().orElse(null));
         assertNotNull(byGroup.stream().filter(surface -> "profile".equals(surface.id())).findFirst().orElse(null));
+        assertNotNull(byGroup.stream().filter(surface -> "payments".equals(surface.id())).findFirst().orElse(null));
     }
 
     @Test
@@ -321,6 +340,18 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                 allowedStates = {"ACTIVE"}
         )
         public void updateProfile(@PathVariable Long id) {
+        }
+
+        @GetMapping("/{id}/payments")
+        @Operation(summary = "Consultar pagamentos")
+        @UiSurface(
+                id = "payments",
+                kind = SurfaceKind.READ_PROJECTION,
+                scope = SurfaceScope.ITEM,
+                title = "Pagamentos"
+        )
+        public ResponseEntity<RestApiResponse<List<TestDto>>> payments(@PathVariable Long id) {
+            return null;
         }
     }
 

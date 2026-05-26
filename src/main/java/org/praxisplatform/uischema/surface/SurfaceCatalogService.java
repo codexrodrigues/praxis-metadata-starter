@@ -124,6 +124,7 @@ public class SurfaceCatalogService {
                 definition.operation().method(),
                 definition.schema().schemaId(),
                 definition.schema().url(),
+                definition.responseCardinality(),
                 availability,
                 definition.order(),
                 definition.tags()

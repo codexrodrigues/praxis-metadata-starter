@@ -352,6 +352,8 @@ Quando houver discovery `ITEM`, valide tambem:
 
 - `GET /{resource}/{id}/surfaces`
 - `GET /{resource}/{id}/actions`
+- `responseCardinality` das surfaces de leitura item-level, especialmente quando a operacao
+  projeta colecoes relacionadas como historicos, eventos, participantes ou linhas analiticas
 
 Quando o recurso publicar `OptionSourceRegistry`, valide tambem:
 

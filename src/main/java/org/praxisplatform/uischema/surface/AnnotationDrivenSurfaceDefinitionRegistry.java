@@ -10,6 +10,7 @@ import org.praxisplatform.uischema.controller.base.AbstractResourceController;
 import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
+import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.praxisplatform.uischema.validation.AnnotationConflictMode;
@@ -17,6 +18,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.core.ResolvableType;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.PagedModel;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.method.HandlerMethod;
@@ -26,6 +32,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -170,6 +177,7 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
         CanonicalOperationRef operationRef = canonicalOperationResolver.resolve(handlerMethod, mappingInfo);
         String schemaType = schemaTypeFor(surface.kind());
         CanonicalSchemaRef schemaRef = resolveSchema(operationRef, schemaType, resource);
+        SurfaceResponseCardinality responseCardinality = responseCardinalityFor(handlerMethod);
 
         return new SurfaceDefinition(
                 surface.id(),
@@ -182,6 +190,7 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                 surface.description(),
                 StringUtils.hasText(surface.intent()) ? surface.intent() : surface.id(),
                 schemaType,
+                responseCardinality,
                 operationRef,
                 schemaRef,
                 surface.order(),
@@ -203,6 +212,7 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
 
         CanonicalOperationRef operationRef = canonicalOperationResolver.resolve(handlerMethod, mappingInfo);
         CanonicalSchemaRef schemaRef = resolveSchema(operationRef, automaticSurface.schemaType(), resource);
+        SurfaceResponseCardinality responseCardinality = responseCardinalityFor(handlerMethod);
         Operation operation = handlerMethod.getMethodAnnotation(Operation.class);
         String title = operation != null && StringUtils.hasText(operation.summary())
                 ? operation.summary()
@@ -222,6 +232,7 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                 description,
                 automaticSurface.intent(),
                 automaticSurface.schemaType(),
+                responseCardinality,
                 operationRef,
                 schemaRef,
                 automaticSurface.order(),
@@ -392,6 +403,45 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
             case FORM, PARTIAL_FORM -> "request";
             case VIEW, READ_PROJECTION -> "response";
         };
+    }
+
+    private SurfaceResponseCardinality responseCardinalityFor(HandlerMethod handlerMethod) {
+        if (handlerMethod == null) {
+            return SurfaceResponseCardinality.UNKNOWN;
+        }
+        return responseCardinalityFor(ResolvableType.forMethodReturnType(handlerMethod.getMethod()));
+    }
+
+    private SurfaceResponseCardinality responseCardinalityFor(ResolvableType type) {
+        if (type == null || type == ResolvableType.NONE) {
+            return SurfaceResponseCardinality.UNKNOWN;
+        }
+        Class<?> rawClass = type.toClass();
+        if (rawClass == Void.TYPE || rawClass == Void.class) {
+            return SurfaceResponseCardinality.VOID;
+        }
+        if (ResponseEntity.class.isAssignableFrom(rawClass) || HttpEntity.class.isAssignableFrom(rawClass)) {
+            return responseCardinalityFor(type.getGeneric(0));
+        }
+        if (RestApiResponse.class.isAssignableFrom(rawClass)) {
+            return responseCardinalityFor(type.getGeneric(0));
+        }
+        if (PagedModel.class.isAssignableFrom(rawClass)) {
+            return SurfaceResponseCardinality.PAGE;
+        }
+        if (CollectionModel.class.isAssignableFrom(rawClass)) {
+            return SurfaceResponseCardinality.COLLECTION;
+        }
+        if (rawClass.isArray() || Collection.class.isAssignableFrom(rawClass)) {
+            return SurfaceResponseCardinality.COLLECTION;
+        }
+        if (rawClass.getName().startsWith("org.springframework.data.domain.Page")) {
+            return SurfaceResponseCardinality.PAGE;
+        }
+        if (rawClass == Object.class && type.hasUnresolvableGenerics()) {
+            return SurfaceResponseCardinality.UNKNOWN;
+        }
+        return SurfaceResponseCardinality.OBJECT;
     }
 
     private static Method resolveControllerMethod(String name) {

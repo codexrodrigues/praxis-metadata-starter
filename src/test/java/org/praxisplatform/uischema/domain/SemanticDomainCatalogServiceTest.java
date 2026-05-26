@@ -18,6 +18,7 @@ import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
 import org.praxisplatform.uischema.surface.SurfaceDefinition;
 import org.praxisplatform.uischema.surface.SurfaceDefinitionRegistry;
 import org.praxisplatform.uischema.surface.SurfaceKind;
+import org.praxisplatform.uischema.surface.SurfaceResponseCardinality;
 import org.praxisplatform.uischema.surface.SurfaceScope;
 
 import java.time.Clock;
@@ -238,6 +239,7 @@ class SemanticDomainCatalogServiceTest {
                     "Reagenda a data de pagamento.",
                     "payroll-scheduling",
                     "request",
+                    SurfaceResponseCardinality.VOID,
                     new CanonicalOperationRef(
                             "human-resources",
                             "schedulePayment",
