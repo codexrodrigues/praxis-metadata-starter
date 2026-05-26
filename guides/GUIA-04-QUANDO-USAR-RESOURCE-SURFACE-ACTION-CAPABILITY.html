@@ -224,10 +224,26 @@ semanticamente uma experiencia sobre uma operacao real.</p>
 canonico</li>
 <li>o schema continua vindo de <code>/schemas/filtered</code>, nao de
 <code>/schemas/surfaces</code></li>
+<li><code>responseCardinality</code> descreve a cardinalidade da
+resposta da operacao (<code>OBJECT</code>, <code>COLLECTION</code>,
+<code>PAGE</code>, <code>VOID</code> ou <code>UNKNOWN</code>), sem criar
+um segundo schema</li>
 <li><code>ITEM</code> em <code>/schemas/surfaces</code> e discovery-only
 sem <code>resourceId</code>; a availability real vem de
 <code>GET /{resource}/{id}/surfaces</code></li>
 </ul>
+<p>Exemplo importante:</p>
+<ul>
+<li><code>GET /employees/{id}/hero-profile</code> pode ser uma surface
+<code>ITEM</code> com <code>responseCardinality = OBJECT</code></li>
+<li><code>GET /employees/{id}/payroll-history</code> tambem pode ser uma
+surface <code>ITEM</code>, mas com
+<code>responseCardinality = COLLECTION</code>, porque projeta uma
+colecao relacionada ao funcionario</li>
+</ul>
+<p>Essa distincao evita que runtimes precisem inferir se devem
+renderizar um form de leitura, uma tabela, uma lista ou uma pagina a
+partir apenas de <code>kind</code> e <code>scope</code>.</p>
 <h2 id="workflowaction">WorkflowAction</h2>
 <p>Use <code>@WorkflowAction</code> quando a operacao e um comando de
 negocio explicito.</p>
@@ -313,5 +329,29 @@ agregado contextual</li>
 colecao, com contrato detalhado em <a
 href="COLLECTION-EXPORT.md">Exportacao de Colecoes</a></li>
 </ul>
+<h2 id="disponibilidade-contextual">Disponibilidade Contextual</h2>
+<p>O baseline distingue <strong>descoberta</strong> (o que existe) de
+<strong>disponibilidade</strong> (o que esta permitido agora).</p>
+<ul>
+<li><code>allowedStates</code> e <code>requiredAuthorities</code> (nas
+anotacoes <code>@UiSurface</code> e <code>@WorkflowAction</code>)
+declaram restricoes estaticas.</li>
+<li>Quando a disponibilidade depende de regras dinamicas, datas, motor
+de regras ou multiplos campos, o host deve fornecer:
+<ul>
+<li>Um <code>ResourceStateSnapshotProvider</code> (para informar o
+estado atual do recurso)</li>
+<li>Ou <code>ActionAvailabilityRule</code> /
+<code>SurfaceAvailabilityRule</code> customizadas</li>
+</ul></li>
+</ul>
+<p>A UI obtem a disponibilidade real via
+<code>GET /{resource}/{id}/capabilities</code> (campo
+<code>available</code> / <code>availability.decision</code>) e ajusta a
+interface (ocultar, desabilitar, tooltip).</p>
+<p>Detalhes de implementacao e exemplos estao no
+<code>QuickstartResourceStateSnapshotProvider</code> do
+<code>praxis-api-quickstart</code> e nos Javadocs das classes de
+availability do starter.</p>
 </body>
 </html>
