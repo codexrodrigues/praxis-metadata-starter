@@ -112,6 +112,8 @@ public class SemanticDomainCatalogService {
             String contextKey = contextKey(resourceKey, action.group());
             ensureContext(contexts, contextKey, action.group());
             ensureConcept(nodes, resourceKey, contextKey, action.resourcePath(), action.group(), action.tags());
+            addAnalyticCapabilities(action.resourceKey(), contextKey, action.group(), action.resourcePath(),
+                    nodes, edges, bindings, evidence);
             addAction(action, contextKey, nodes, edges, bindings, evidence);
             addSchemaFields(action.resourceKey(), contextKey, action.group(), action.requestSchema(), "request",
                     nodes, edges, bindings, evidence, governance);
@@ -124,6 +126,8 @@ public class SemanticDomainCatalogService {
             String contextKey = contextKey(resourceKey, surface.group());
             ensureContext(contexts, contextKey, surface.group());
             ensureConcept(nodes, resourceKey, contextKey, surface.resourcePath(), surface.group(), surface.tags());
+            addAnalyticCapabilities(surface.resourceKey(), contextKey, surface.group(), surface.resourcePath(),
+                    nodes, edges, bindings, evidence);
             addSurface(surface, contextKey, nodes, edges, bindings, evidence);
             addSchemaFields(surface.resourceKey(), contextKey, surface.group(), surface.schema(), surface.schemaType(),
                     nodes, edges, bindings, evidence, governance);
@@ -137,6 +141,8 @@ public class SemanticDomainCatalogService {
             String contextKey = contextKey(resourceKey, requestedGroup);
             ensureContext(contexts, contextKey, requestedGroup);
             ensureConcept(nodes, resourceKey, contextKey, descriptor.resourcePath(), requestedGroup, List.of("option-source"));
+            addAnalyticCapabilities(resourceKey, contextKey, requestedGroup, descriptor.resourcePath(),
+                    nodes, edges, bindings, evidence);
             addOptionSource(descriptor, resourceKey, contextKey, nodes, edges, bindings, evidence);
         }
 
@@ -377,6 +383,92 @@ public class SemanticDomainCatalogService {
                 "Politica derivada de OptionSourceDescriptor para " + descriptor.resourcePath() + ".",
                 0.95
         ));
+    }
+
+    private void addAnalyticCapabilities(
+            String resourceKey,
+            String contextKey,
+            String group,
+            String resourcePath,
+            Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
+            Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
+            Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
+            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence
+    ) {
+        if (!StringUtils.hasText(resourceKey) || !StringUtils.hasText(resourcePath) || openApiDocumentService == null) {
+            return;
+        }
+        JsonNode paths = openApiPaths(group, resourcePath);
+        if (paths == null || !paths.isObject()) {
+            return;
+        }
+        Iterator<Map.Entry<String, JsonNode>> entries = paths.fields();
+        while (entries.hasNext()) {
+            Map.Entry<String, JsonNode> entry = entries.next();
+            String path = entry.getKey();
+            String capabilityKind = statsCapabilityKind(resourcePath, path);
+            if (!StringUtils.hasText(capabilityKind)) {
+                continue;
+            }
+            String method = firstText(firstMethod(entry.getValue()), "POST");
+            String nodeKey = resourceKey + ".stats." + keyPart(capabilityKind);
+            String evidenceKey = "evidence:" + nodeKey + ":openapi-stats";
+            nodes.putIfAbsent(nodeKey, new DomainCatalogResponse.DomainNodeItem(
+                    nodeKey,
+                    contextKey,
+                    "stats",
+                    labelFromKey(capabilityKind),
+                    "Capability analitica publicada pelo endpoint " + path + ".",
+                    "active",
+                    "openapi-stats",
+                    0.9,
+                    mapOfNonNull(
+                            "capabilityKey", "stats." + capabilityKind,
+                            "resourceKey", resourceKey,
+                            "resourcePath", resourcePath,
+                            "path", path,
+                            "method", method,
+                            "group", group
+                    ),
+                    List.of("stats", "analytics", capabilityKind),
+                    null,
+                    contextKey,
+                    "active",
+                    glossary(labelFromKey(capabilityKind), "Capability analitica publicada pelo endpoint " + path + ".", List.of("stats", "analytics")),
+                    resolution(nodeKey, List.of(capabilityKind, "stats", path), "exact-key-or-alias"),
+                    List.of(evidenceKey)
+            ));
+            putEdge(edges, resourceKey + ".has-stats." + keyPart(capabilityKind), resourceKey, nodeKey,
+                    "has_stats", "Possui capability analitica " + labelFromKey(capabilityKind), 0.9, List.of(evidenceKey));
+            bindings.putIfAbsent("binding:" + nodeKey + ":openapi-stats", new DomainCatalogResponse.DomainBindingItem(
+                    "binding:" + nodeKey + ":openapi-stats",
+                    nodeKey,
+                    "stats_endpoint",
+                    mapOfNonNull(
+                            "capabilityKey", "stats." + capabilityKind,
+                            "resourceKey", resourceKey,
+                            "resourcePath", resourcePath,
+                            "path", path,
+                            "method", method,
+                            "group", group
+                    ),
+                    List.of(),
+                    List.of(evidenceKey)
+            ));
+            evidence.putIfAbsent(evidenceKey, evidence(
+                    evidenceKey,
+                    "openapi_stats",
+                    mapOfNonNull(
+                            "kind", "openapi.operation",
+                            "capabilityKey", "stats." + capabilityKind,
+                            "resourceKey", resourceKey,
+                            "path", path,
+                            "method", method
+                    ),
+                    "Capability stats derivada do endpoint OpenAPI " + path + ".",
+                    0.95
+            ));
+        }
     }
 
     private void addSchemaFields(
@@ -961,6 +1053,53 @@ public class SemanticDomainCatalogService {
         } catch (RuntimeException ex) {
             return null;
         }
+    }
+
+    private JsonNode openApiPaths(String group, String resourcePath) {
+        try {
+            String resolvedGroup = StringUtils.hasText(group)
+                    ? group
+                    : openApiDocumentService.resolveGroupFromPath(resourcePath);
+            if (!StringUtils.hasText(resolvedGroup)) {
+                return null;
+            }
+            JsonNode document = openApiDocumentService.getDocumentForGroup(resolvedGroup);
+            return document == null ? null : document.path("paths");
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    private String statsCapabilityKind(String resourcePath, String path) {
+        if (!StringUtils.hasText(resourcePath) || !StringUtils.hasText(path)) {
+            return null;
+        }
+        String normalizedResourcePath = resourcePath.replaceAll("/+$", "");
+        String normalizedPath = path.replaceAll("/+$", "");
+        if (!normalizedPath.startsWith(normalizedResourcePath + "/stats/")) {
+            return null;
+        }
+        String suffix = normalizedPath.substring((normalizedResourcePath + "/stats/").length());
+        if (!List.of("group-by", "timeseries", "distribution").contains(suffix)) {
+            return null;
+        }
+        return switch (suffix) {
+            case "group-by" -> "groupBy";
+            case "timeseries" -> "timeSeries";
+            default -> suffix;
+        };
+    }
+
+    private String firstMethod(JsonNode pathItem) {
+        if (pathItem == null || !pathItem.isObject()) {
+            return null;
+        }
+        for (String method : List.of("post", "get", "put", "patch", "delete")) {
+            if (pathItem.has(method)) {
+                return method.toUpperCase(Locale.ROOT);
+            }
+        }
+        return null;
     }
 
     private JsonNode resolveComponentSchema(JsonNode document, String schemaId) {

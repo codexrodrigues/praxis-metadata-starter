@@ -69,9 +69,23 @@ class SemanticDomainCatalogServiceTest {
                         "human-resources.folhas-pagamento.field.id",
                         "human-resources.folhas-pagamento.field.valor-liquido",
                         "human-resources.folhas-pagamento.surface.payment-schedule",
+                        "human-resources.folhas-pagamento.stats.group-by",
+                        "human-resources.folhas-pagamento.stats.time-series",
                         "human-resources.folhas-pagamento.estado.programada",
                         "human-resources.folhas-pagamento.policy.supplier.selection"
                 );
+        assertThat(response.nodes()).filteredOn(node -> "stats".equals(node.nodeType()))
+                .extracting(DomainCatalogResponse.DomainNodeItem::nodeKey)
+                .containsExactlyInAnyOrder(
+                        "human-resources.folhas-pagamento.stats.group-by",
+                        "human-resources.folhas-pagamento.stats.time-series"
+                );
+        assertThat(response.nodes()).filteredOn(node -> "human-resources.folhas-pagamento.stats.group-by".equals(node.nodeKey()))
+                .singleElement()
+                .satisfies(node -> assertThat(node.metadata())
+                        .containsEntry("capabilityKey", "stats.groupBy")
+                        .containsEntry("path", "/api/human-resources/folhas-pagamento/stats/group-by")
+                        .containsEntry("method", "POST"));
         assertThat(response.nodes()).filteredOn(node -> "policy_hint".equals(node.nodeType()))
                 .singleElement()
                 .satisfies(node -> assertThat(node.metadata())
@@ -98,11 +112,11 @@ class SemanticDomainCatalogServiceTest {
         assertThat(response.aliases()).extracting(DomainCatalogResponse.DomainAliasItem::alias)
                 .contains("valorLiquido", "Valor Liquido", "mark-paid", "Marcar como paga");
         assertThat(response.edges()).extracting(DomainCatalogResponse.DomainEdgeItem::edgeType)
-                .contains("has_action", "has_surface", "has_field", "allowed_in_state", "selectable_when", "blocked_when");
+                .contains("has_action", "has_surface", "has_field", "has_stats", "allowed_in_state", "selectable_when", "blocked_when");
         assertThat(response.bindings()).extracting(DomainCatalogResponse.DomainBindingItem::bindingType)
-                .contains("workflow_action", "ui_surface", "dto_field", "option_source");
+                .contains("workflow_action", "ui_surface", "dto_field", "option_source", "stats_endpoint");
         assertThat(response.evidence()).extracting(DomainCatalogResponse.DomainEvidenceItem::evidenceType)
-                .contains("annotation", "dto_schema", "option_source");
+                .contains("annotation", "dto_schema", "option_source", "openapi_stats");
         assertThat(response.governance())
                 .filteredOn(item -> "human-resources.folhas-pagamento.field.valor-liquido".equals(item.nodeKey()))
                 .singleElement()
@@ -289,6 +303,18 @@ class SemanticDomainCatalogServiceTest {
                                                             )
                                                     )
                                             )
+                                    )
+                            ),
+                            "/api/human-resources/folhas-pagamento/stats/group-by", Map.of(
+                                    "post", Map.of(
+                                            "operationId", "folhasPagamentoGroupBy",
+                                            "responses", Map.of("200", Map.of())
+                                    )
+                            ),
+                            "/api/human-resources/folhas-pagamento/stats/timeseries", Map.of(
+                                    "post", Map.of(
+                                            "operationId", "folhasPagamentoTimeseries",
+                                            "responses", Map.of("200", Map.of())
                                     )
                             )
                     ),
