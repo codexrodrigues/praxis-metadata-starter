@@ -20,10 +20,12 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Resolver OpenAPI que enriquece schemas com a extensao {@code x-ui}.
@@ -52,7 +54,6 @@ public class CustomOpenApiResolver extends ModelResolver {
     private static final String DOMAIN_GOVERNANCE_EXTENSION_NAME = "x-domain-governance";
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(CustomOpenApiResolver.class);
 
-
     // Inicializar o cache estaticamente
     static {
         initializePropertiesMap(FieldConfigProperties.class, FIELD_PROPERTIES_MAP);
@@ -63,6 +64,66 @@ public class CustomOpenApiResolver extends ModelResolver {
         super(mapper);
     }
 
+    @Override
+    public Schema resolve(io.swagger.v3.core.converter.AnnotatedType type, io.swagger.v3.core.converter.ModelConverterContext context, java.util.Iterator<io.swagger.v3.core.converter.ModelConverter> next) {
+        Schema schema = super.resolve(type, context, next);
+        propagateOptionsInSchema(schema, context, java.util.Collections.newSetFromMap(new IdentityHashMap<>()));
+        return schema;
+    }
+
+    private void propagateOptionsInSchema(Schema<?> schema, io.swagger.v3.core.converter.ModelConverterContext context, Set<Schema<?>> visited) {
+        if (schema == null || !visited.add(schema)) {
+            return;
+        }
+
+        if (schema instanceof ArraySchema arraySchema) {
+            Schema<?> items = arraySchema.getItems();
+            if (items != null) {
+                Map<String, Object> parentUi = getExistingUIExtensionMap(arraySchema);
+                if (parentUi == null) {
+                    parentUi = java.util.Collections.emptyMap();
+                }
+                if (!parentUi.containsKey("options")) {
+                    List<?> enumValues = null;
+                    Schema<?> targetSchema = items;
+
+                    if (items.get$ref() != null && context != null) {
+                        String ref = items.get$ref();
+                        String refName = null;
+                        if (ref.startsWith("#/components/schemas/")) {
+                            refName = ref.substring("#/components/schemas/".length());
+                        }
+                        if (refName != null && context.getDefinedModels() != null) {
+                            targetSchema = context.getDefinedModels().get(refName);
+                        }
+                    }
+
+                    if (targetSchema != null && targetSchema.getEnum() != null && !targetSchema.getEnum().isEmpty()) {
+                        enumValues = targetSchema.getEnum();
+                    }
+                    if (enumValues != null) {
+                        parentUi = getUIExtensionMap(arraySchema);
+                        OpenApiUiUtils.populateUiOptionsFromEnum(parentUi, enumValues, this._mapper);
+                        applyArrayEnumUiContract(parentUi, enumValues.size());
+                    } else {
+                        Map<String, Object> childUi = getExistingUIExtensionMap(targetSchema);
+                        if (childUi != null && childUi.containsKey("options")) {
+                            parentUi = getUIExtensionMap(arraySchema);
+                            parentUi.put("options", childUi.get("options"));
+                        }
+                    }
+                }
+            }
+        }
+
+        if (schema.getProperties() != null) {
+            for (Object propObj : schema.getProperties().values()) {
+                if (propObj instanceof Schema<?> prop) {
+                    propagateOptionsInSchema(prop, context, visited);
+                }
+            }
+        }
+    }
 
     @Override
     protected void applyBeanValidatorAnnotations(Schema property, Annotation[] annotations, Schema parent, boolean applyNotNullAnnotations) {
@@ -74,11 +135,22 @@ public class CustomOpenApiResolver extends ModelResolver {
             // 2. Detecção automática baseada no OpenAPI Schema (sobrescreve padrões)
             // 3. Valores explícitos da anotação @UISchema (sobrescreve detecção automática)
             // 4. extraProperties (sobrescreve tudo)
-            
+
             resolveSchemaWithPrecedence(property, annotations);
 
             // Centralized validation message population
             OpenApiUiUtils.populateDefaultValidationMessages(getUIExtensionMap(property));
+
+            // Se o pai for um array e o filho (este schema de item) tiver opções geradas,
+            // propaga as opções para o pai para que componentes como multiselect tenham acesso.
+            if (parent instanceof ArraySchema) {
+                Map<String, Object> parentUi = getUIExtensionMap(parent);
+                Map<String, Object> childUi = getUIExtensionMap(property);
+                if (childUi.containsKey("options") && !parentUi.containsKey("options")) {
+                    parentUi.put("options", childUi.get("options"));
+                    applyArrayEnumUiContract(parentUi, property.getEnum() == null ? 0 : property.getEnum().size());
+                }
+            }
         }
 
         if (annotations != null) {
@@ -92,7 +164,7 @@ public class CustomOpenApiResolver extends ModelResolver {
     private void resolveSchemaWithPrecedence(Schema<?> property, Annotation[] annotations) {
         UISchema annotation = ResolverUtils.getAnnotation(UISchema.class, annotations);
         if (annotation == null) return;
-        
+
         Map<String, Object> uiExtension = getUIExtensionMap(property);
         String fieldName = property.getName(); // Nome do campo para detecção inteligente
 
@@ -207,6 +279,29 @@ public class CustomOpenApiResolver extends ModelResolver {
                 .computeIfAbsent(UI_EXTENSION_NAME, k -> new HashMap<>());
     }
 
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getExistingUIExtensionMap(Schema<?> property) {
+        if (property == null || property.getExtensions() == null) {
+            return null;
+        }
+        Object extension = property.getExtensions().get(UI_EXTENSION_NAME);
+        return extension instanceof Map<?, ?> map ? (Map<String, Object>) map : null;
+    }
+
+    private void applyArrayEnumUiContract(Map<String, Object> uiExtension, int optionCount) {
+        if (uiExtension == null) {
+            return;
+        }
+        Object currentControlType = uiExtension.get(FieldConfigProperties.CONTROL_TYPE.getValue());
+        if (currentControlType == null || FieldControlType.ARRAY.getValue().equals(currentControlType)) {
+            uiExtension.put(
+                    FieldConfigProperties.CONTROL_TYPE.getValue(),
+                    OpenApiUiUtils.determineArrayEnumControlBySize(optionCount)
+            );
+        }
+        uiExtension.remove("array");
+    }
+
     private void setProperties(UISchema annotation, Map<String, Object> uiExtension) {
         Arrays.stream(annotation.extraProperties())
                 .forEach(extensionProperty ->
@@ -243,17 +338,17 @@ public class CustomOpenApiResolver extends ModelResolver {
             String openApiType = property.getType();
             String openApiFormat = property.getFormat();
             boolean hasEnum = property.getEnum() != null && !property.getEnum().isEmpty();
-            
+
             // Priorizar OpenAPI Schema para determinar controlType e dataType corretos
             String schemaBasedControlType = null;
             String schemaBasedDataType = null;
-            
+
             if (openApiType != null) {
                 switch (openApiType) {
                     case "string":
                         schemaBasedDataType = FieldDataType.TEXT.getValue();
                         schemaBasedControlType = FieldControlType.INPUT.getValue();
-                        
+
                         if (hasEnum) {
                             schemaBasedControlType = FieldControlType.SELECT.getValue();
                         } else if (openApiFormat != null) {
@@ -299,20 +394,20 @@ public class CustomOpenApiResolver extends ModelResolver {
                                     break;
                             }
                         }
-                        
+
                         // Verificar maxLength para textarea
                         Integer maxLength = property.getMaxLength();
-                        if (maxLength != null && maxLength > 100 && 
+                        if (maxLength != null && maxLength > 100 &&
                             FieldControlType.INPUT.getValue().equals(schemaBasedControlType)) {
                             schemaBasedControlType = FieldControlType.TEXTAREA.getValue();
                         }
                         break;
-                        
+
                     case "number":
                     case "integer":
                         schemaBasedDataType = FieldDataType.NUMBER.getValue();
                         schemaBasedControlType = FieldControlType.NUMERIC_TEXT_BOX.getValue();
-                        
+
                         if (hasEnum) {
                             schemaBasedControlType = FieldControlType.SELECT.getValue();
                         } else if (openApiFormat != null) {
@@ -323,41 +418,41 @@ public class CustomOpenApiResolver extends ModelResolver {
                             }
                         }
                         break;
-                        
+
                     case "boolean":
                         schemaBasedDataType = FieldDataType.BOOLEAN.getValue();
                         schemaBasedControlType = hasEnum ? FieldControlType.SELECT.getValue() : FieldControlType.CHECKBOX.getValue();
                         break;
-                        
+
                     case "array":
                         schemaBasedDataType = FieldDataType.ARRAY.getValue();
                         if (isObjectArray(property)) {
                             schemaBasedControlType = FieldControlType.ARRAY.getValue();
                             publishArrayContract(property, uiExtension);
-                        } else if (property.getItems() != null && property.getItems().getEnum() != null && 
+                        } else if (property.getItems() != null && property.getItems().getEnum() != null &&
                             !property.getItems().getEnum().isEmpty()) {
                             schemaBasedControlType = FieldControlType.MULTI_SELECT.getValue();
                         } else {
                             schemaBasedControlType = FieldControlType.CHIP_INPUT.getValue();
                         }
                         break;
-                        
+
                     case "object":
                         schemaBasedControlType = null;
                         break;
                 }
-                
+
                 // Aplicar controlType baseado no schema (sobrescreve valor padrão da anotação)
                 if (schemaBasedControlType != null) {
                     uiExtension.put(FieldConfigProperties.CONTROL_TYPE.getValue(), schemaBasedControlType);
                 }
-                
+
                 // Aplicar dataType baseado no schema (sobrescreve valor padrão da anotação)
                 if (schemaBasedDataType != null) {
                     uiExtension.put(FieldConfigProperties.TYPE.getValue(), schemaBasedDataType);
                 }
             }
-            
+
             // Fallback: usar lógica de detecção inteligente baseada no nome do campo se ainda não definido
             if (!uiExtension.containsKey(FieldConfigProperties.CONTROL_TYPE.getValue())) {
                 String smartControlType = OpenApiUiUtils.determineSmartControlTypeByFieldName(fieldName);
@@ -381,7 +476,7 @@ public class CustomOpenApiResolver extends ModelResolver {
             OpenApiUiUtils.populateUiMaxLength(uiExtension, property.getMaxLength(), null); // Pass null for message
             OpenApiUiUtils.populateUiPattern(uiExtension, property.getPattern(), null); // Pass null for message
             // Ensure 'this.mapper' (ObjectMapper from ModelResolver) is passed to the updated method
-            OpenApiUiUtils.populateUiOptionsFromEnum(uiExtension, property.getEnum(), this._mapper);
+            OpenApiUiUtils.populateUiOptionsFromEnum(uiExtension, resolveEnumValues(property), this._mapper);
             OpenApiUiUtils.populateUiRequired(uiExtension, property.getRequired() != null && !property.getRequired().isEmpty());
         }
 
@@ -698,24 +793,24 @@ public class CustomOpenApiResolver extends ModelResolver {
     private void applyUISchemaDefaults(UISchema annotation, Map<String, Object> uiExtension) {
         // Aplicar apenas os valores padrão que são "genéricos"
         // Valores específicos serão aplicados na ETAPA 3
-        
+
         // Não define controlType quando no modo AUTO (sentinela)
         // controlType explícito é tratado na ETAPA 3
-        
+
         if (annotation.type() == FieldDataType.TEXT) {
             uiExtension.put(FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
         }
-        
+
         // Outros valores padrão seguros
         if (annotation.iconPosition() == IconPosition.LEFT) {
             uiExtension.put(FieldConfigProperties.ICON_POSITION.getValue(), IconPosition.LEFT.getValue());
         }
-        
+
         // Valores booleanos padrão
         if (annotation.sortable()) {
             uiExtension.put(FieldConfigProperties.SORTABLE.getValue(), true);
         }
-        
+
         if (annotation.editable()) {
             uiExtension.put(FieldConfigProperties.EDITABLE.getValue(), true);
         }
@@ -733,18 +828,18 @@ public class CustomOpenApiResolver extends ModelResolver {
         String openApiType = property.getType();
         String openApiFormat = property.getFormat();
         boolean hasEnum = property.getEnum() != null && !property.getEnum().isEmpty();
-        
+
         if (openApiType == null) return;
-        
+
         // Determinar controlType e dataType baseado no schema
         String detectedControlType = null;
         String detectedDataType = null;
-        
+
         switch (openApiType) {
             case "string":
                 detectedDataType = FieldDataType.TEXT.getValue();
                 detectedControlType = FieldControlType.INPUT.getValue();
-                
+
                 if (hasEnum) {
                     int count = property.getEnum().size();
                     detectedControlType = OpenApiUiUtils.determineEnumControlBySize(count);
@@ -791,7 +886,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                             break;
                     }
                 }
-                
+
                 // Verificar maxLength para textarea (threshold ajustado)
                 Integer maxLength = property.getMaxLength();
                 if (maxLength != null && maxLength > 300 &&
@@ -799,19 +894,19 @@ public class CustomOpenApiResolver extends ModelResolver {
                     detectedControlType = FieldControlType.TEXTAREA.getValue();
                 }
                 break;
-                
+
             case "number":
             case "integer":
                 detectedDataType = FieldDataType.NUMBER.getValue();
                 detectedControlType = FieldControlType.NUMERIC_TEXT_BOX.getValue();
-                
+
                 if (hasEnum) {
                     detectedControlType = FieldControlType.SELECT.getValue();
                 } else if ("currency".equals(openApiFormat)) {
                     detectedControlType = FieldControlType.CURRENCY_INPUT.getValue();
                 }
                 break;
-                
+
             case "boolean":
                 detectedDataType = FieldDataType.BOOLEAN.getValue();
                 // Evitar SELECT por padrão. Se enum binário estiver presente, preferir RADIO; caso contrário, CHECKBOX.
@@ -822,7 +917,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                     detectedControlType = FieldControlType.CHECKBOX.getValue();
                 }
                 break;
-                
+
             case "array":
                 detectedDataType = FieldDataType.ARRAY.getValue();
                 if (isObjectArray(property)) {
@@ -836,7 +931,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                     detectedControlType = FieldControlType.CHIP_INPUT.getValue();
                 }
                 break;
-                
+
             case "object":
                 detectedControlType = null;
                 break;
@@ -854,7 +949,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                 if ("date".equals(itemFormat)) {
                     detectedControlType = FieldControlType.DATE_RANGE.getValue();
                 } else if ("date-time".equals(itemFormat)) {
-                    detectedControlType = FieldControlType.DATE_TIME_RANGE.getValue();                    
+                    detectedControlType = FieldControlType.DATE_TIME_RANGE.getValue();
                 }
             } else if (isNumericItemType(itemType)) {
                 boolean monetaryRange = isMonetaryRange(fieldName, itemFormat, annotations);
@@ -876,16 +971,16 @@ public class CustomOpenApiResolver extends ModelResolver {
             }
             applyRangeOneOfContract(property, fieldName, itemType, itemFormat, annotations, filterable.operation());
         }
-        
+
         // Aplicar detecções (sobrescreve valores padrão)
         if (detectedControlType != null) {
             uiExtension.put(FieldConfigProperties.CONTROL_TYPE.getValue(), detectedControlType);
         }
-        
+
         if (detectedDataType != null) {
             uiExtension.put(FieldConfigProperties.TYPE.getValue(), detectedDataType);
         }
-        
+
         // Detecção inteligente por nome do campo (precedência sobre INPUT/TEXTAREA gerados por schema)
         String smartControlType = OpenApiUiUtils.determineSmartControlTypeByFieldName(fieldName);
         if (smartControlType != null) {
@@ -894,7 +989,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                 uiExtension.put(FieldConfigProperties.CONTROL_TYPE.getValue(), smartControlType);
             }
         }
-        
+
         // Aplicar outras propriedades do schema
         OpenApiUiUtils.populateUiName(uiExtension, fieldName);
         OpenApiUiUtils.populateUiLabel(uiExtension, property.getTitle(), fieldName);
@@ -906,9 +1001,9 @@ public class CustomOpenApiResolver extends ModelResolver {
         OpenApiUiUtils.populateUiMinimum(uiExtension, property.getMinimum(), null);
         OpenApiUiUtils.populateUiMaximum(uiExtension, property.getMaximum(), null);
         OpenApiUiUtils.populateUiPattern(uiExtension, property.getPattern(), null);
-        OpenApiUiUtils.populateUiOptionsFromEnum(uiExtension, property.getEnum(), this._mapper);
+        OpenApiUiUtils.populateUiOptionsFromEnum(uiExtension, resolveEnumValues(property), this._mapper);
         OpenApiUiUtils.populateUiRequired(uiExtension, property.getRequired() != null && !property.getRequired().isEmpty());
-        
+
         // Adicionar NUMERIC_FORMAT e defaults se o formato for "percent"
         if ("number".equals(openApiType) && "percent".equals(openApiFormat)) {
             if (!uiExtension.containsKey(FieldConfigProperties.NUMERIC_FORMAT.getValue())) {
@@ -1213,17 +1308,17 @@ public class CustomOpenApiResolver extends ModelResolver {
      */
     private void applyUISchemaExplicitValues(Schema<?> property, UISchema annotation, Map<String, Object> uiExtension) {
         // Processar apenas valores NÃO padrão (explicitamente definidos)
-        
+
         // ControlType explícito (diferente do padrão)
         if (annotation.controlType() != FieldControlType.AUTO) {
             uiExtension.put(FieldConfigProperties.CONTROL_TYPE.getValue(), annotation.controlType().getValue());
         }
-        
+
         // DataType explícito (diferente do padrão)
         if (annotation.type() != FieldDataType.TEXT) {
             uiExtension.put(FieldConfigProperties.TYPE.getValue(), annotation.type().getValue());
         }
-        
+
         // Strings não vazias
         if (!annotation.name().isEmpty()) {
             uiExtension.put(FieldConfigProperties.NAME.getValue(), annotation.name());
@@ -1322,7 +1417,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (annotation.maxLength() != 0) {
             uiExtension.put(ValidationProperties.MAX_LENGTH.getValue(), String.valueOf(annotation.maxLength()));
         }
-        
+
         // Booleanos explícitos (diferentes do padrão)
         if (annotation.disabled()) {
             uiExtension.put(FieldConfigProperties.DISABLED.getValue(), true);
@@ -1400,7 +1495,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (!annotation.maxLengthMessage().isEmpty()) {
             uiExtension.put(ValidationProperties.MAX_LENGTH_MESSAGE.getValue(), annotation.maxLengthMessage());
         }
-        
+
         // Pattern explícito (diferente do padrão CUSTOM)
         if (annotation.pattern() != ValidationPattern.CUSTOM) {
             String patternValue = annotation.pattern().getPattern();
@@ -1436,12 +1531,12 @@ public class CustomOpenApiResolver extends ModelResolver {
                 uiExtension.put(FieldConfigProperties.NUMERIC_MAX.getValue(), annotation.max());
             }
         }
-        
+
         // IconPosition explícito (diferente do padrão LEFT)
         if (annotation.iconPosition() != IconPosition.LEFT) {
             uiExtension.put(FieldConfigProperties.ICON_POSITION.getValue(), annotation.iconPosition().getValue());
         }
-        
+
         // NumericFormat explícito (diferente do padrão INTEGER)
         if (annotation.numericFormat() != NumericFormat.INTEGER) {
             uiExtension.put(FieldConfigProperties.NUMERIC_FORMAT.getValue(), annotation.numericFormat().getValue());
@@ -1823,5 +1918,18 @@ public class CustomOpenApiResolver extends ModelResolver {
         return (value.startsWith("{") && value.endsWith("}"))
                 || (value.startsWith("[") && value.endsWith("]"))
                 || (value.startsWith("\"") && value.endsWith("\""));
+    }
+
+    private List<?> resolveEnumValues(Schema<?> property) {
+        if (property == null) {
+            return null;
+        }
+        if (property.getEnum() != null && !property.getEnum().isEmpty()) {
+            return property.getEnum();
+        }
+        if (property.getItems() != null && property.getItems().getEnum() != null && !property.getItems().getEnum().isEmpty()) {
+            return property.getItems().getEnum();
+        }
+        return null;
     }
 }

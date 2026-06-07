@@ -256,6 +256,100 @@ class CustomOpenApiResolverTest {
         assertEquals("review_required", aiUsage.get("reasoningUse"));
     }
 
+    @Test
+    void resolverShouldPopulateOptionsFromItemsEnumForArrayEnumProperty() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<Object> property = new Schema<>().type("array");
+        property.setName("statusIn");
+
+        Schema<Object> itemsSchema = new Schema<>().type("string");
+        java.util.List<Object> options = new java.util.ArrayList<>();
+        options.add("PLANEJADA");
+        options.add("EM_ANDAMENTO");
+        itemsSchema.setEnum(options);
+        property.setItems(itemsSchema);
+
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertNotNull(xui.get(FieldConfigProperties.OPTIONS.getValue()));
+
+        com.fasterxml.jackson.databind.node.ArrayNode uiOptions = (com.fasterxml.jackson.databind.node.ArrayNode) xui.get(FieldConfigProperties.OPTIONS.getValue());
+        assertEquals(2, uiOptions.size());
+    }
+
+    @Test
+    void resolverShouldPropagateChildOptionsToParentArraySchema() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        io.swagger.v3.oas.models.media.ArraySchema parent = new io.swagger.v3.oas.models.media.ArraySchema();
+        parent.setName("statusIn");
+
+        Schema<Object> itemsSchema = new Schema<>().type("string");
+        java.util.List<Object> options = new java.util.ArrayList<>();
+        options.add("PLANEJADA");
+        options.add("EM_ANDAMENTO");
+        itemsSchema.setEnum(options);
+
+        // Chamamos applyBeanValidatorAnnotations passando itemsSchema como a propriedade e parent como o pai
+        resolver.applyBeanValidatorAnnotations(itemsSchema, new Annotation[] { TestUISchemaDefaults.instance() }, parent, false);
+
+        // O pai ArraySchema deve ter recebido a cópia das opções na sua extensão x-ui
+        Map<String, Object> parentXui = getXui(parent);
+        assertNotNull(parentXui.get(FieldConfigProperties.OPTIONS.getValue()));
+
+        com.fasterxml.jackson.databind.node.ArrayNode parentUiOptions = (com.fasterxml.jackson.databind.node.ArrayNode) parentXui.get(FieldConfigProperties.OPTIONS.getValue());
+        assertEquals(2, parentUiOptions.size());
+    }
+
+    @Test
+    void resolverShouldNotCreateXuiForPlainArrayProperty() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        io.swagger.v3.core.converter.ModelConverters converters = new io.swagger.v3.core.converter.ModelConverters();
+        converters.addConverter(resolver);
+
+        io.swagger.v3.core.converter.ResolvedSchema resolved = converters.readAllAsResolvedSchema(PlainArrayDummy.class);
+
+        Schema<?> dummySchema = resolved.referencedSchemas.get("PlainArrayDummy");
+        Schema<?> tagsSchema = (Schema<?>) dummySchema.getProperties().get("tags");
+
+        assertTrue(tagsSchema.getExtensions() == null || !tagsSchema.getExtensions().containsKey("x-ui"));
+    }
+
+    public static enum TestEnum {
+        A, B, C
+    }
+
+    public static class ArrayEnumDummy {
+        @UISchema(controlType = org.praxisplatform.uischema.FieldControlType.MULTI_SELECT)
+        public java.util.List<TestEnum> statuses;
+    }
+
+    public static class PlainArrayDummy {
+        public java.util.List<String> tags;
+    }
+
+    @Test
+    void resolverShouldPropagateOptionsInResolveForArrayEnumProperty() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        io.swagger.v3.core.converter.ModelConverters converters = new io.swagger.v3.core.converter.ModelConverters();
+        converters.addConverter(resolver);
+
+        io.swagger.v3.core.converter.ResolvedSchema resolved = converters.readAllAsResolvedSchema(ArrayEnumDummy.class);
+
+        assertNotNull(resolved);
+        assertNotNull(resolved.referencedSchemas);
+        Schema<?> arrayEnumDummySchema = resolved.referencedSchemas.get("ArrayEnumDummy");
+        assertNotNull(arrayEnumDummySchema);
+        assertNotNull(arrayEnumDummySchema.getProperties());
+
+        Schema<?> statusesSchema = (Schema<?>) arrayEnumDummySchema.getProperties().get("statuses");
+        assertNotNull(statusesSchema);
+
+        Map<String, Object> xui = getXui(statusesSchema);
+        assertNotNull(xui.get(FieldConfigProperties.OPTIONS.getValue()));
+        assertEquals(FieldControlType.MULTI_SELECT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> getXui(Schema<?> property) {
         assertNotNull(property.getExtensions(), "Extensions should not be null");

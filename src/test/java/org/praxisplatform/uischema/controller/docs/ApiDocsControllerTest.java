@@ -39,7 +39,7 @@ class ApiDocsControllerTest {
     private MockRestServiceServer server;
     private ApiDocsController controller;
     private String openApiDoc;
-    
+
     @Mock
     private OpenApiGroupResolver openApiGroupResolver;
 
@@ -121,8 +121,8 @@ class ApiDocsControllerTest {
     void getFilteredSchemaSelectsSchemas() throws Exception {
         // Mock para o OpenApiGroupResolver não retornar nada, forçando derivação do path
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
-        
-        // Mock para resolver grupo baseado no path "/users" → derivação = "users"  
+
+        // Mock para resolver grupo baseado no path "/users" → derivação = "users"
         server.expect(requestTo("http://localhost/v3/api-docs/users"))
                 .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
         var req1 = new MockHttpServletRequest();
@@ -240,6 +240,69 @@ class ApiDocsControllerTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void getFilteredSchemaPropagatesOptionsForArrayEnumReferences() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/missions/filter\": {\n" +
+                "      \"post\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/MissionFilterDTO\"}}}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\"schemas\": {\n" +
+                "    \"MissionFilterDTO\": {\n" +
+                "      \"type\": \"object\",\n" +
+                "      \"properties\": {\n" +
+                "        \"status\": {\n" +
+                "          \"type\": \"array\",\n" +
+                "          \"items\": {\"$ref\": \"#/components/schemas/MissionStatus\"},\n" +
+                "          \"x-ui\": {\"controlType\": \"array\", \"array\": {\"itemSchemaRef\": \"#/components/schemas/MissionStatus\"}}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    },\n" +
+                "    \"MissionStatus\": {\n" +
+                "      \"type\": \"string\",\n" +
+                "      \"enum\": [\"PLANEJADA\", \"EM_ANDAMENTO\", \"CONCLUIDA\"]\n" +
+                "    }\n" +
+                "  }}\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/missions"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        var response = controller.getFilteredSchema(
+                "/missions/filter",
+                "post",
+                false,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH
+        );
+
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+        Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
+        Map<String, Object> status = (Map<String, Object>) properties.get("status");
+        Map<String, Object> xUi = (Map<String, Object>) status.get("x-ui");
+
+        assertEquals("chipInput", xUi.get("controlType"));
+        assertFalse(xUi.containsKey("array"));
+        assertNotNull(xUi.get("options"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void getFilteredSchemaPreservesAnalyticsWithoutOverwritingExistingXUiKeys() {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
 
@@ -283,7 +346,7 @@ class ApiDocsControllerTest {
         assertTrue(((Map<?, ?>) requestSchema.get("properties")).containsKey("name"));
     }
 
-    @Test 
+    @Test
     void getFilteredSchemaHandlesDirectDtoResponse() throws Exception {
         // Mock para o OpenApiGroupResolver não retornar nada, forçando derivação do path
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
@@ -347,7 +410,7 @@ class ApiDocsControllerTest {
     void invalidSchemaTypeThrowsException() {
         // Mock para o OpenApiGroupResolver não retornar nada, forçando derivação do path
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
-        
+
         server.expect(requestTo("http://localhost/v3/api-docs/users"))
                 .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
         var req3 = new MockHttpServletRequest();

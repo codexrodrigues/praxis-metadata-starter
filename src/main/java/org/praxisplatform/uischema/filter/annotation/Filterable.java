@@ -38,21 +38,29 @@ import java.lang.annotation.Target;
  *     @Filterable(operation = FilterOperation.GREATER_THAN)
  *     private LocalDate dataNascimento;
  *
+ *     // Campo aliasado do DTO: filtra uma lista contra o atributo real "status" da entidade.
+ *     // Sem relation, o builder procuraria uma propriedade chamada "statusIn".
+ *     @Filterable(operation = FilterOperation.IN, relation = "status")
+ *     private List<StatusPedido> statusIn;
+ *
  *     @Schema(description = "Filtro por intervalo de datas de verificação",
  *             example = "[\"2019-01-01\", \"2022-12-31\"]")
  *     @Filterable(operation = Filterable.FilterOperation.BETWEEN, relation = "dataVerificacao")
  *     private List<LocalDate> dataVerificacaoFiltro;
  * }
  * }</pre>
- * <p>
- *  * <h2>Validação de Campos de Filtro</h2>
- *  * <p>Certifique-se de que os campos de filtro, como {@code dataVerificacao}, sejam usados apenas para consultas e, se necessário,
- *  * configurados para serem ignorados nos mapeamentos com a entidade principal.</p>
+ *
+ * <h2>Validacao de Campos de Filtro</h2>
+ * <p>Certifique-se de que os campos de filtro, como {@code dataVerificacao}, sejam usados apenas para consultas e,
+ * se necessario, configurados para serem ignorados nos mapeamentos com a entidade principal.</p>
  *
  * <h2>Notas para Relacionamentos</h2>
  * <p>Quando o filtro envolve campos relacionados:</p>
  * <ul>
  *     <li>Use o atributo <b>relation</b> para especificar o caminho até o campo da entidade relacionada.</li>
+ *     <li>Use também <b>relation</b> quando o nome do campo no DTO for um alias operacional que não existe na entidade,
+ *         como {@code statusIn}, {@code statusNotIn}, {@code periodoBetween} ou {@code criadoEmOn}. Nesses casos,
+ *         a relação deve apontar para o atributo real filtrado, por exemplo {@code relation="status"}.</li>
  *     <li>O caminho deve estar no formato <code>"relacao1.relacao2.campo"</code>, onde cada parte do caminho representa
  *         uma associação no modelo JPA.</li>
  *     <li>Exemplo: Para filtrar pelo campo <code>nome</code> de uma entidade <code>tipoSexo</code> relacionada à entidade principal:
@@ -165,10 +173,14 @@ public @interface Filterable {
         LESS_OR_EQUAL,
         /**
          * Filtro de valores dentro de uma lista (e.g., campo IN (valores)).
+         * <p>Quando o campo do DTO for um alias como {@code statusIn}, declare
+         * {@code relation="status"} para apontar ao atributo real da entidade.</p>
          */
         IN,
         /**
          * Filtro de valores fora de uma lista (e.g., campo NOT IN (valores)).
+         * <p>Quando o campo do DTO for um alias como {@code statusNotIn}, declare
+         * {@code relation="status"} para apontar ao atributo real da entidade.</p>
          */
         NOT_IN,
         /**

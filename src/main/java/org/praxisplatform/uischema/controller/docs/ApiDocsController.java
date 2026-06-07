@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.uischema.FieldConfigProperties;
+import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
@@ -146,10 +147,10 @@ public class ApiDocsController {
         String normalizedOperation = operationRef.method().toLowerCase(Locale.ROOT);
         String groupName = operationRef.group();
         LOGGER.info("Path '{}' -> grupo resolvido: '{}'", decodedPath, groupName);
-        
+
         // 2. Obter documento especifico do cache
         JsonNode rootNode = openApiDocumentService.getDocumentForGroup(groupName);
-        
+
         if (rootNode == null) {
             throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + groupName);
         }
@@ -273,6 +274,7 @@ public class ApiDocsController {
         enrichPropertyOptionSources(schemaMap, basePath);
         enrichArrayItemSchemasInline(schemaMap, allSchemas);
         enrichReferencedComponentSchemas(schemaMap, allSchemas);
+        propagateArrayEnumOptionsRecursive(schemaMap, allSchemas);
         schemaMap.put(X_UI, xUiMap);
 
         // 4) Canonicalize and hash the final payload (com cache por schemaId)
@@ -732,15 +734,23 @@ public class ApiDocsController {
 
     @SuppressWarnings("unchecked")
     private void enrichArrayItemSchemasInlineRecursive(Object schemaNode, JsonNode allSchemas) {
+        enrichArrayItemSchemasInlineRecursive(schemaNode, allSchemas, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichArrayItemSchemasInlineRecursive(Object schemaNode, JsonNode allSchemas, Set<Object> visited) {
+        if (schemaNode == null || !visited.add(schemaNode)) {
+            return;
+        }
         if (schemaNode instanceof Map<?, ?> rawSchemaNode) {
             Map<String, Object> typedSchemaNode = (Map<String, Object>) rawSchemaNode;
             enrichArrayItemSchemaInline(typedSchemaNode, allSchemas);
-            typedSchemaNode.values().forEach(value -> enrichArrayItemSchemasInlineRecursive(value, allSchemas));
+            typedSchemaNode.values().forEach(value -> enrichArrayItemSchemasInlineRecursive(value, allSchemas, visited));
             return;
         }
 
         if (schemaNode instanceof Collection<?> values) {
-            values.forEach(value -> enrichArrayItemSchemasInlineRecursive(value, allSchemas));
+            values.forEach(value -> enrichArrayItemSchemasInlineRecursive(value, allSchemas, visited));
         }
     }
 
@@ -1154,7 +1164,7 @@ public class ApiDocsController {
         }
     }
 
-    
+
 
 
 
@@ -1410,7 +1420,7 @@ public class ApiDocsController {
     // ------------------------------------------------------------------------
     // Metodos de resolucao automatica de grupos e cache
     // ------------------------------------------------------------------------
-    
+
     /**
      * Delega a leitura do documento OpenAPI ao servico canonico de documentos.
      *
@@ -1428,6 +1438,82 @@ public class ApiDocsController {
      */
     public void clearDocumentCache() {
         openApiDocumentService.clearCaches();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void propagateArrayEnumOptionsRecursive(Object schemaNode, JsonNode allSchemas) {
+        propagateArrayEnumOptionsRecursive(schemaNode, allSchemas, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void propagateArrayEnumOptionsRecursive(Object schemaNode, JsonNode allSchemas, Set<Object> visited) {
+        if (schemaNode == null || !visited.add(schemaNode)) {
+            return;
+        }
+        if (schemaNode instanceof Map<?, ?> rawSchemaNode) {
+            Map<String, Object> propSchema = (Map<String, Object>) rawSchemaNode;
+
+            String type = (String) propSchema.get("type");
+            if ("array".equals(type)) {
+                Object rawItems = propSchema.get(ITEMS);
+                if (rawItems instanceof Map<?, ?> itemsSchemaMap) {
+                    Map<String, Object> itemsSchema = (Map<String, Object>) itemsSchemaMap;
+                    List<Object> enumValues = null;
+
+                    Object itemsEnum = itemsSchema.get("enum");
+                    if (itemsEnum instanceof List<?> list && !list.isEmpty()) {
+                        enumValues = (List<Object>) list;
+                    }
+
+                    if (enumValues == null && itemsSchema.containsKey(REF)) {
+                        String ref = (String) itemsSchema.get(REF);
+                        String refName = extractSchemaNameFromRef(ref);
+                        if (refName != null && allSchemas != null && !allSchemas.isMissingNode()) {
+                            JsonNode refSchema = allSchemas.path(refName);
+                            if (refSchema != null && !refSchema.isMissingNode()) {
+                                JsonNode enumNode = refSchema.path("enum");
+                                if (enumNode != null && enumNode.isArray() && enumNode.size() > 0) {
+                                    enumValues = new ArrayList<>();
+                                    for (JsonNode val : enumNode) {
+                                        if (val.isTextual()) {
+                                            enumValues.add(val.asText());
+                                        } else {
+                                            enumValues.add(val.toString());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (enumValues != null && !enumValues.isEmpty()) {
+                        Map<String, Object> parentXui = ensureNestedMap(propSchema, X_UI);
+                        if (!parentXui.containsKey("options")) {
+                            OpenApiUiUtils.populateUiOptionsFromEnum(parentXui, enumValues, this.objectMapper);
+                        }
+                        applyArrayEnumUiContract(parentXui, enumValues.size());
+                    }
+                }
+            }
+
+            new ArrayList<>(propSchema.values()).forEach(value -> propagateArrayEnumOptionsRecursive(value, allSchemas, visited));
+            return;
+        }
+
+        if (schemaNode instanceof Collection<?> values) {
+            new ArrayList<>(values).forEach(value -> propagateArrayEnumOptionsRecursive(value, allSchemas, visited));
+        }
+    }
+
+    private void applyArrayEnumUiContract(Map<String, Object> xUi, int optionCount) {
+        Object controlType = xUi.get(FieldConfigProperties.CONTROL_TYPE.getValue());
+        if (controlType == null || FieldControlType.ARRAY.getValue().equals(controlType)) {
+            xUi.put(
+                    FieldConfigProperties.CONTROL_TYPE.getValue(),
+                    OpenApiUiUtils.determineArrayEnumControlBySize(optionCount)
+            );
+        }
+        xUi.remove("array");
     }
 
 }
