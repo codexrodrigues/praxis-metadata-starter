@@ -10,6 +10,13 @@ Premissa Local
 - Neste starter, tratar metadata e discovery como base de grounding para uma plataforma de decisoes semanticas authoradas por IA.
 - O papel do modulo nao e virar rule engine nem editor de config, mas publicar a semantica estrutural, contextual e regulatoria que a IA e os runtimes precisam para authorar, validar e explicar decisoes canônicas.
 
+Inventario Local de Aderencia Antes de Novo Contrato
+- Antes de criar ou alterar semantica publica em `x-ui`, `/schemas/filtered`, catalogos, surfaces, actions, capabilities, anotacoes, `_links`, headers ou resolucao OpenAPI/schema, auditar primeiro o que o starter ja publica.
+- A pergunta obrigatoria e: o que o `praxis-metadata-starter` ja sabe por metadata, schema, discovery, capabilities, actions, surfaces, annotations, OpenAPI, ETag ou `X-Schema-Hash`, mas consumidores ainda nao estao materializando bem?
+- Classificar cada melhoria como `ja-suportado-so-ux`, `ja-suportado-mal-nomeado-ou-mal-materializado`, `suportado-parcialmente` ou `lacuna-real-de-contrato`.
+- So `lacuna-real-de-contrato` autoriza novo contrato. Nesse caso, explicitar dado faltante, fonte canonica, consumidores impactados, artefatos derivados e validacao minima antes de implementar.
+- Nao duplicar semantica em `x-ui`, endpoints paralelos ou helpers locais quando a hierarquia resource-oriented, discovery semantico ou resolucao canonica existente ja cobre a necessidade.
+
 Classificacao Padrao da Mudanca
 - `docs-apenas`: mudancas restritas a `AGENTS.md`, `README.md`, `CHANGELOG.md` ou `docs/**` sem efeito em contrato ou codigo.
 - `contrato-publico`: qualquer mudanca em `x-ui`, `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `/capabilities`, `_links`, ETag, `X-Schema-Hash`, anotacoes exportadas ou controladores/base publicos.
