@@ -169,11 +169,13 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     private void ensureSupported(OptionSourceDescriptor descriptor) {
         if (descriptor.type() == OptionSourceType.DISTINCT_DIMENSION
                 || descriptor.type() == OptionSourceType.CATEGORICAL_BUCKET
+                || descriptor.type() == OptionSourceType.LIGHT_LOOKUP
                 || isRichResourceEntity(descriptor)) {
             return;
         }
         if (descriptor.type() != OptionSourceType.DISTINCT_DIMENSION
-                && descriptor.type() != OptionSourceType.CATEGORICAL_BUCKET) {
+                && descriptor.type() != OptionSourceType.CATEGORICAL_BUCKET
+                && descriptor.type() != OptionSourceType.LIGHT_LOOKUP) {
             throw new UnsupportedOperationException("Option source type not implemented: " + descriptor.type());
         }
     }

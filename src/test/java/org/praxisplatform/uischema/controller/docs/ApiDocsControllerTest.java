@@ -944,6 +944,73 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    void getFilteredSchemaDoesNotWarnWhenStatsResponseLacksResourceIdField(CapturedOutput output) throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("api-human-resources-vw-perfil-heroi");
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/api/human-resources/vw-perfil-heroi/stats/group-by\": {\n" +
+                "      \"post\": {\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/GroupByStatsResponse\"}\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"GroupByStatsResponse\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"field\": {\"type\": \"string\"},\n" +
+                "          \"buckets\": {\"type\": \"array\", \"items\": {\"type\": \"object\"}}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/api-human-resources-vw-perfil-heroi"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema(
+                "/api/human-resources/vw-perfil-heroi/stats/group-by",
+                "post",
+                false,
+                "response",
+                "funcionarioId",
+                true,
+                null,
+                null,
+                java.util.Locale.ENGLISH);
+
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        assertNotNull(xUi);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> resource = (Map<String, Object>) xUi.get("resource");
+        assertNotNull(resource);
+        assertEquals("funcionarioId", resource.get("idField"));
+        assertEquals(Boolean.FALSE, resource.get("idFieldValid"));
+        assertEquals("idField not found in schema properties", resource.get("idFieldMessage"));
+        assertFalse(output.getAll().contains("x-ui.resource.idField='funcionarioId' nao encontrado nas propriedades do schema 'GroupByStatsResponse'"));
+    }
+
+    @Test
     void getFilteredSchemaTreatsPatchIntentAsWritableResourceCapability() throws Exception {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
         String doc = "{\n" +

@@ -54,6 +54,28 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
         assertEquals("SPEC", payrollProfileByIdsBody.get(0).path("id").asText());
         assertEquals("EXEC", payrollProfileByIdsBody.get(1).path("id").asText());
 
+        ResponseEntity<String> departmentLightLookupResponse = postJson(
+                "/employees/option-sources/departmentLightLookup/options/filter?search=Human&page=0&size=10",
+                "{}"
+        );
+        assertEquals(200, departmentLightLookupResponse.getStatusCode().value());
+        JsonNode departmentLightLookupBody = body(departmentLightLookupResponse);
+        assertEquals(1, departmentLightLookupBody.path("content").size());
+        assertEquals(state.humanResourcesDepartmentId().longValue(), departmentLightLookupBody.path("content").get(0).path("id").asLong());
+        assertEquals("Human Resources", departmentLightLookupBody.path("content").get(0).path("label").asText());
+        assertTrue(departmentLightLookupBody.path("content").get(0).path("extra").isNull());
+
+        ResponseEntity<String> departmentLightLookupByIdsResponse = get(
+                "/employees/option-sources/departmentLightLookup/options/by-ids?ids=%d&ids=%d".formatted(
+                        state.operationsDepartmentId(),
+                        state.humanResourcesDepartmentId()
+                )
+        );
+        assertEquals(200, departmentLightLookupByIdsResponse.getStatusCode().value());
+        JsonNode departmentLightLookupByIdsBody = body(departmentLightLookupByIdsResponse);
+        assertEquals("Operations", departmentLightLookupByIdsBody.get(0).path("label").asText());
+        assertEquals("Human Resources", departmentLightLookupByIdsBody.get(1).path("label").asText());
+
         ResponseEntity<String> employeeLookupResponse = postJson(
                 "/employees/option-sources/employeeEntityLookup/options/filter?search=Human&page=0&size=10",
                 "{}"

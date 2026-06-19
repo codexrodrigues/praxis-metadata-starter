@@ -41,8 +41,21 @@ public class OptionSourceEligibility {
             case DISTINCT_DIMENSION -> resolveDistinctDimension(descriptor, statsDescriptor);
             case CATEGORICAL_BUCKET -> resolveCategoricalBucket(descriptor, statsDescriptor);
             case RESOURCE_ENTITY -> resolveResourceEntity(descriptor);
-            case LIGHT_LOOKUP, STATIC_CANONICAL -> descriptor;
+            case LIGHT_LOOKUP -> resolveLightLookup(descriptor);
+            case STATIC_CANONICAL -> descriptor;
         };
+    }
+
+    private OptionSourceDescriptor resolveLightLookup(OptionSourceDescriptor descriptor) {
+        boolean hasValue = !isBlank(descriptor.valuePropertyPath()) || !isBlank(descriptor.propertyPath());
+        boolean hasLabel = !isBlank(descriptor.labelPropertyPath()) || !isBlank(descriptor.propertyPath());
+        if (!hasValue) {
+            throw new IllegalArgumentException("Option source valuePropertyPath or propertyPath is required for LIGHT_LOOKUP: " + descriptor.key());
+        }
+        if (!hasLabel) {
+            throw new IllegalArgumentException("Option source labelPropertyPath or propertyPath is required for LIGHT_LOOKUP: " + descriptor.key());
+        }
+        return descriptor;
     }
 
     private OptionSourceDescriptor resolveResourceEntity(OptionSourceDescriptor descriptor) {

@@ -7,6 +7,9 @@ All notable changes to this module will be documented in this file.
 ### Added
 - Contrato canonico de filtro rico para `RESOURCE_ENTITY` em `x-ui.optionSource.filtering`, com `availableFilters`, `defaultFilters`, `sortOptions`, `defaultSort`, `quickFilterFields` e `searchPlaceholder`.
 - Tipos publicos `LookupFilterDefinition`, `LookupFilteringDescriptor` e `LookupSortOption` para publicar o contrato de filtro rico no starter sem convencoes locais de frontend.
+- Execucao JPA compartilhada para `LIGHT_LOOKUP`, com projeção leve `OptionDTO{id,label}`,
+  busca textual e reidratacao por IDs quando o descriptor publica `propertyPath` ou
+  `valuePropertyPath`/`labelPropertyPath`.
 
 ### Changed
 - `EntityLookupDescriptor` agora pode publicar o bloco `filtering` como parte da semantica canonica de `entityLookup`.
