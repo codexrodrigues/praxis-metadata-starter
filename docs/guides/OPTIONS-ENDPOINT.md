@@ -192,11 +192,21 @@ Execucao atualmente implementada no starter:
 
 - `DISTINCT_DIMENSION`
 - `CATEGORICAL_BUCKET`
+- `LIGHT_LOOKUP` quando o descriptor informa `propertyPath` ou o par
+  `valuePropertyPath`/`labelPropertyPath`
+- `RESOURCE_ENTITY` com `entityLookup` rico
 
 Tipos ainda nao implementados de ponta a ponta no executor JPA:
 
-- `LIGHT_LOOKUP`
 - `STATIC_CANONICAL`
+
+`LIGHT_LOOKUP` usa a mesma projecao leve `OptionDTO{id,label}` dos endpoints de
+options comuns. Use esse tipo para catalogos auxiliares que precisam de uma fonte
+nomeada, busca e reidratacao por IDs, mas nao precisam de `selectionPolicy`,
+`detail`, `display` rico nem metadados de entidade corporativa. Para executar via
+JPA compartilhado, publique `propertyPath` quando valor e label sao o mesmo campo,
+ou `valuePropertyPath` e `labelPropertyPath` quando o ID e o texto vêm de campos
+distintos.
 
 `RESOURCE_ENTITY` com `entityLookup` tambem e executado pelo executor JPA padrao. Ele
 usa `valuePropertyPath` como identificador, `labelPropertyPath` como label, aplica busca

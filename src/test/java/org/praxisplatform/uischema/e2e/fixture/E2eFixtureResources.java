@@ -202,6 +202,17 @@ class EmployeeService extends AbstractBaseResourceService<
                     OptionSourcePolicy.defaults()
             ))
             .add(EmployeeEntity.class, new OptionSourceDescriptor(
+                    "departmentLightLookup",
+                    OptionSourceType.LIGHT_LOOKUP,
+                    "/employees",
+                    "departmentId",
+                    null,
+                    "department.nome",
+                    "department.id",
+                    List.of(),
+                    new OptionSourcePolicy(true, true, "contains", 0, 25, 100, true, false, "label")
+            ))
+            .add(EmployeeEntity.class, new OptionSourceDescriptor(
                     "employeeEntityLookup",
                     OptionSourceType.RESOURCE_ENTITY,
                     "/employees",

@@ -96,6 +96,56 @@ class OptionSourceEligibilityTest {
     }
 
     @Test
+    void acceptsLightLookupWithExecutableValueAndLabelPaths() {
+        OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
+                "departmentLookup",
+                OptionSourceType.LIGHT_LOOKUP,
+                "/api/employees",
+                null,
+                null,
+                "department.nome",
+                "department.id",
+                null,
+                OptionSourcePolicy.defaults()
+        );
+
+        assertEquals(descriptor, eligibility.resolveEffectiveDescriptor(descriptor, StatsFieldRegistry.empty()));
+    }
+
+    @Test
+    void rejectsLightLookupWithoutExecutableValueOrLabelPaths() {
+        OptionSourceDescriptor missingValue = new OptionSourceDescriptor(
+                "departmentLookup",
+                OptionSourceType.LIGHT_LOOKUP,
+                "/api/employees",
+                null,
+                null,
+                "department.nome",
+                null,
+                null,
+                OptionSourcePolicy.defaults()
+        );
+
+        assertThrows(IllegalArgumentException.class, () ->
+                eligibility.resolveEffectiveDescriptor(missingValue, StatsFieldRegistry.empty()));
+
+        OptionSourceDescriptor missingLabel = new OptionSourceDescriptor(
+                "departmentLookup",
+                OptionSourceType.LIGHT_LOOKUP,
+                "/api/employees",
+                null,
+                null,
+                null,
+                "department.id",
+                null,
+                OptionSourcePolicy.defaults()
+        );
+
+        assertThrows(IllegalArgumentException.class, () ->
+                eligibility.resolveEffectiveDescriptor(missingLabel, StatsFieldRegistry.empty()));
+    }
+
+    @Test
     void requiresValueLabelAndEntityKeyForRichResourceEntityLookupMetadata() {
         OptionSourceDescriptor missingValue = new OptionSourceDescriptor(
                 "company",

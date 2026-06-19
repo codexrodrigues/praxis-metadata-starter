@@ -677,11 +677,23 @@ public class ApiDocsController {
             );
             return;
         }
+        if (isStatsAggregateResponseSchema(schemaName)) {
+            LOGGER.debug(
+                    "x-ui.resource.idField='{}' derivado do recurso canonico nao esta presente no schema agregado de stats '{}'",
+                    resolvedIdField,
+                    schemaName
+            );
+            return;
+        }
         LOGGER.warn(
                 "x-ui.resource.idField='{}' nao encontrado nas propriedades do schema '{}'",
                 resolvedIdField,
                 schemaName
         );
+    }
+
+    private boolean isStatsAggregateResponseSchema(String schemaName) {
+        return schemaName != null && schemaName.endsWith("StatsResponse");
     }
 
     @SuppressWarnings("unchecked")
