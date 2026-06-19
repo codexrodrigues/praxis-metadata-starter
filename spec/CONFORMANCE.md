@@ -129,13 +129,15 @@ Estado canonicamente suportado no starter:
 - documentado na RFC: `x-ui-option-source-rfc.md`
 - validado no schema de campo: `x-ui-field.schema.json`
 - publicado em `/schemas/filtered` quando o recurso expoe `OptionSourceRegistry`
-- executado pelos controllers base para `DISTINCT_DIMENSION` e `CATEGORICAL_BUCKET`
+- executado pelos controllers base para `DISTINCT_DIMENSION`, `CATEGORICAL_BUCKET`,
+  `LIGHT_LOOKUP` com paths executaveis e `RESOURCE_ENTITY` rico
 - exposto nas capacidades agregadas e nos endpoints `/{resource}/option-sources/{sourceKey}/options/*`
 
 Limites de cobertura fora do starter:
 
 - consumidores especificos podem declarar subconjuntos de cobertura do draft;
-- tipos como `RESOURCE_ENTITY`, `LIGHT_LOOKUP` e `STATIC_CANONICAL` exigem executor correspondente no host.
+- `STATIC_CANONICAL` exige executor correspondente no host; `RESOURCE_ENTITY` legado sem
+  `entityLookup` rico tambem exige implementacao propria.
 - quando `RESOURCE_ENTITY` publicar `filtering`, o backend continua como dono canonico dos operadores e da serializacao de filtro; o frontend nao deve inferir combinacoes suportadas.
 
 Diretriz canonica:
@@ -178,7 +180,10 @@ Diretriz canonica:
 ## Cobertura atual das anotacoes
 
 - `filterOptions`: a spec define `array`; a serializacao deve seguir esse formato canonico.
-- `optionSource`: o starter publica e executa a superficie base para `DISTINCT_DIMENSION` e `CATEGORICAL_BUCKET`; demais tipos exigem executor correspondente no host.
+- `optionSource`: o starter publica e executa a superficie base para `DISTINCT_DIMENSION`,
+  `CATEGORICAL_BUCKET`, `LIGHT_LOOKUP` com paths executaveis e `RESOURCE_ENTITY` rico;
+  `STATIC_CANONICAL` e `RESOURCE_ENTITY` legado sem `entityLookup` rico exigem executor
+  correspondente no host.
 
 ## Suite de fixtures
 

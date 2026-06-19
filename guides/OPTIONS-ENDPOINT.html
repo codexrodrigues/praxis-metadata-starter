@@ -444,12 +444,25 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb5-1"><a href="
 <ul>
 <li><code>DISTINCT_DIMENSION</code></li>
 <li><code>CATEGORICAL_BUCKET</code></li>
+<li><code>LIGHT_LOOKUP</code> quando o descriptor informa
+<code>propertyPath</code> ou o par
+<code>valuePropertyPath</code>/<code>labelPropertyPath</code></li>
+<li><code>RESOURCE_ENTITY</code> com <code>entityLookup</code> rico</li>
 </ul>
 <p>Tipos ainda nao implementados de ponta a ponta no executor JPA:</p>
 <ul>
-<li><code>LIGHT_LOOKUP</code></li>
 <li><code>STATIC_CANONICAL</code></li>
 </ul>
+<p><code>LIGHT_LOOKUP</code> usa a mesma projecao leve
+<code>OptionDTO{id,label}</code> dos endpoints de options comuns. Use
+esse tipo para catalogos auxiliares que precisam de uma fonte nomeada,
+busca e reidratacao por IDs, mas nao precisam de
+<code>selectionPolicy</code>, <code>detail</code>, <code>display</code>
+rico nem metadados de entidade corporativa. Para executar via JPA
+compartilhado, publique <code>propertyPath</code> quando valor e label
+sao o mesmo campo, ou <code>valuePropertyPath</code> e
+<code>labelPropertyPath</code> quando o ID e o texto vêm de campos
+distintos.</p>
 <p><code>RESOURCE_ENTITY</code> com <code>entityLookup</code> tambem e
 executado pelo executor JPA padrao. Ele usa
 <code>valuePropertyPath</code> como identificador,

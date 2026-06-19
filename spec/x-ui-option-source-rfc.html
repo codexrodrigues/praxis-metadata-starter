@@ -284,8 +284,9 @@ consumidores reconstruam semantica por heuristicas locais.</p>
 <li>endpoints operacionais de filtro e reidratacao por IDs</li>
 <li>runtime Angular com capacidade de consumir
 <code>optionSource</code></li>
-<li>starter com suporte base para <code>DISTINCT_DIMENSION</code> e
-<code>CATEGORICAL_BUCKET</code></li>
+<li>starter com suporte base para <code>DISTINCT_DIMENSION</code>,
+<code>CATEGORICAL_BUCKET</code> e <code>LIGHT_LOOKUP</code> leve, alem
+de <code>RESOURCE_ENTITY</code> rico</li>
 </ul>
 <h3 id="decisoes-canonicas">Decisoes canonicas</h3>
 <ul>
@@ -539,6 +540,14 @@ bruto</li>
 <li>o caso nao exige CRUD proprio</li>
 <li>a opcao continua sendo parte operacional de outro recurso</li>
 </ul>
+<p>No executor JPA compartilhado, <code>LIGHT_LOOKUP</code> materializa
+apenas <code>OptionDTO{id,label}</code>. O descriptor deve informar
+<code>propertyPath</code> quando valor e label sao o mesmo campo, ou
+<code>valuePropertyPath</code> e <code>labelPropertyPath</code> quando o
+identificador e o texto vêm de campos diferentes. Se a fonte precisa de
+status, politica de selecao, rota de detalhe, display rico ou filtros
+corporativos estruturados, use <code>RESOURCE_ENTITY</code> com
+<code>entityLookup</code> em vez de <code>LIGHT_LOOKUP</code>.</p>
 <h3 id="static_canonical"><code>STATIC_CANONICAL</code></h3>
 <p>Fonte governada por catalogo estavel publicado como parte do contrato
 da plataforma.</p>
@@ -609,7 +618,8 @@ paralelos para a mesma semantica.</p>
 <h2 id="limites-deste-contrato">Limites Deste Contrato</h2>
 <p>Esta RFC nao define:</p>
 <ul>
-<li>suporte completo a todos os tipos no executor JPA padrao</li>
+<li>suporte completo a todos os tipos no executor JPA padrao;
+<code>STATIC_CANONICAL</code> segue fora da cobertura compartilhada</li>
 <li>conversao automatica de qualquer campo textual em fonte de
 options</li>
 <li>exposicao de <code>stats/*</code> como API publica de options</li>

@@ -424,7 +424,9 @@ semantica da opcao remota.</p>
 <li>publicado em <code>/schemas/filtered</code> quando o recurso expoe
 <code>OptionSourceRegistry</code></li>
 <li>executado pelos controllers base para
-<code>DISTINCT_DIMENSION</code> e <code>CATEGORICAL_BUCKET</code></li>
+<code>DISTINCT_DIMENSION</code>, <code>CATEGORICAL_BUCKET</code>,
+<code>LIGHT_LOOKUP</code> com paths executaveis e
+<code>RESOURCE_ENTITY</code> rico</li>
 <li>exposto nas capacidades agregadas e nos endpoints
 <code>/{resource}/option-sources/{sourceKey}/options/*</code></li>
 </ul>
@@ -432,9 +434,9 @@ semantica da opcao remota.</p>
 <ul>
 <li>consumidores especificos podem declarar subconjuntos de cobertura do
 draft;</li>
-<li>tipos como <code>RESOURCE_ENTITY</code>, <code>LIGHT_LOOKUP</code> e
-<code>STATIC_CANONICAL</code> exigem executor correspondente no
-host.</li>
+<li><code>STATIC_CANONICAL</code> exige executor correspondente no host;
+<code>RESOURCE_ENTITY</code> legado sem <code>entityLookup</code> rico
+tambem exige implementacao propria.</li>
 <li>quando <code>RESOURCE_ENTITY</code> publicar <code>filtering</code>,
 o backend continua como dono canonico dos operadores e da serializacao
 de filtro; o frontend nao deve inferir combinacoes suportadas.</li>
@@ -497,9 +499,12 @@ anotacoes</h2>
 <li><code>filterOptions</code>: a spec define <code>array</code>; a
 serializacao deve seguir esse formato canonico.</li>
 <li><code>optionSource</code>: o starter publica e executa a superficie
-base para <code>DISTINCT_DIMENSION</code> e
-<code>CATEGORICAL_BUCKET</code>; demais tipos exigem executor
-correspondente no host.</li>
+base para <code>DISTINCT_DIMENSION</code>,
+<code>CATEGORICAL_BUCKET</code>, <code>LIGHT_LOOKUP</code> com paths
+executaveis e <code>RESOURCE_ENTITY</code> rico;
+<code>STATIC_CANONICAL</code> e <code>RESOURCE_ENTITY</code> legado sem
+<code>entityLookup</code> rico exigem executor correspondente no
+host.</li>
 </ul>
 <h2 id="suite-de-fixtures">Suite de fixtures</h2>
 <ul>

@@ -47,7 +47,8 @@ por heuristicas locais.
 - `OptionDTO` como payload publico para opcoes remotas
 - endpoints operacionais de filtro e reidratacao por IDs
 - runtime Angular com capacidade de consumir `optionSource`
-- starter com suporte base para `DISTINCT_DIMENSION` e `CATEGORICAL_BUCKET`
+- starter com suporte base para `DISTINCT_DIMENSION`, `CATEGORICAL_BUCKET` e `LIGHT_LOOKUP`
+  leve, alem de `RESOURCE_ENTITY` rico
 
 ### Decisoes canonicas
 
@@ -304,6 +305,13 @@ Use quando:
 - o caso nao exige CRUD proprio
 - a opcao continua sendo parte operacional de outro recurso
 
+No executor JPA compartilhado, `LIGHT_LOOKUP` materializa apenas `OptionDTO{id,label}`.
+O descriptor deve informar `propertyPath` quando valor e label sao o mesmo campo, ou
+`valuePropertyPath` e `labelPropertyPath` quando o identificador e o texto vêm de
+campos diferentes. Se a fonte precisa de status, politica de selecao, rota de detalhe,
+display rico ou filtros corporativos estruturados, use `RESOURCE_ENTITY` com
+`entityLookup` em vez de `LIGHT_LOOKUP`.
+
 ### `STATIC_CANONICAL`
 
 Fonte governada por catalogo estavel publicado como parte do contrato da plataforma.
@@ -376,7 +384,8 @@ Endpoints de execucao:
 
 Esta RFC nao define:
 
-- suporte completo a todos os tipos no executor JPA padrao
+- suporte completo a todos os tipos no executor JPA padrao; `STATIC_CANONICAL` segue fora
+  da cobertura compartilhada
 - conversao automatica de qualquer campo textual em fonte de options
 - exposicao de `stats/*` como API publica de options
 
