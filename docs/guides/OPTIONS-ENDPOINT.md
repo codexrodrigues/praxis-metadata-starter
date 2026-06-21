@@ -185,6 +185,9 @@ Regras operacionais:
   provider; providers externos nao recebem `Pageable.sort` nao governado
 - `unknown source` retorna `404`
 
+Para fontes executadas por providers externos, veja tambem
+[Implementando OptionSourceProvider externo](OPTION-SOURCE-PROVIDER-SPI.md).
+
 ## Suporte atual e limites
 
 Cobertura confirmada hoje:

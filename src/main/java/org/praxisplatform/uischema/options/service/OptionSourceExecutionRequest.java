@@ -8,7 +8,22 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Internal request passed from the compatibility executor facade to an option-source provider.
+ * Validated execution request passed from Praxis to an option-source provider.
+ *
+ * <p>
+ * The request contains the effective public filter payload, structured filters,
+ * search term, sort key, includeIds or by-ids values, and the private execution
+ * context. For JPA fallback only, {@code hostContext} contains a
+ * {@code JpaOptionSourceHostContext}. External providers should depend on their own
+ * host context type or on {@link OptionSourceExecutionContext#attributes()}.
+ * </p>
+ *
+ * <p>
+ * Praxis validates request policy before provider resolution. Providers may rely on
+ * {@link #sortKey()} and {@link #pageable()} being governed by the descriptor, but
+ * should still avoid interpolating public values directly into backend-specific query
+ * languages.
+ * </p>
  */
 public record OptionSourceExecutionRequest<E>(
         Object hostContext,

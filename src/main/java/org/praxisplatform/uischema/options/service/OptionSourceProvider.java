@@ -7,7 +7,24 @@ import org.springframework.data.domain.Page;
 import java.util.List;
 
 /**
- * Internal provider SPI for option-source execution.
+ * Supported host extension point for option-source execution.
+ *
+ * <p>
+ * Implement this SPI when a host needs to serve a public Praxis option source from a
+ * backend that is not the starter's default JPA path, such as an external catalog,
+ * registered query, table function, remote service, or another host-specific lookup
+ * mechanism. The public contract remains the canonical Praxis endpoint and
+ * {@code x-ui.optionSource}; private execution details stay inside the host provider.
+ * </p>
+ *
+ * <p>
+ * Providers are resolved after Praxis validates public request semantics such as
+ * search policy, page size, includeIds, structured filters, capabilities, dependencies
+ * and sort. Host providers may use {@link OptionSourceExecutionRequest#sortKey()} and
+ * the already validated {@code Pageable}, but must not publish SQL, datasource,
+ * package, bind parameters, provider names, or context attributes through schemas,
+ * OpenAPI, errors, or {@code OptionDTO.extra}.
+ * </p>
  */
 public interface OptionSourceProvider {
 
