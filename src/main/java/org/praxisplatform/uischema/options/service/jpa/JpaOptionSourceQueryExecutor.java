@@ -31,7 +31,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.ArrayList;
@@ -53,7 +52,6 @@ import java.time.ZonedDateTime;
 /**
  * JPA executor for metadata-driven option sources.
  */
-@Component
 public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
 
     @Override
@@ -61,6 +59,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             EntityManager entityManager,
             Class<E> entityClass,
             Specification<E> specification,
+            Object filterPayload,
             OptionSourceDescriptor descriptor,
             String search,
             List<LookupFilterRequest> filters,

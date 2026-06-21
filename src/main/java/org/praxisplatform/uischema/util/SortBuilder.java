@@ -48,13 +48,13 @@ public final class SortBuilder {
             return null;
         }
         String[] parts = entry.split(",", 2);
-        String property = parts[0];
+        String property = parts[0] == null ? null : parts[0].trim();
         Sort.Direction direction = Sort.Direction.ASC;
         if (parts.length > 1) {
             try {
-                direction = Sort.Direction.fromString(parts[1]);
-            } catch (IllegalArgumentException ignored) {
-                // defaults to ASC
+                direction = Sort.Direction.fromString(parts[1].trim());
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException("Unsupported sort direction: " + parts[1], ex);
             }
         }
         if (property == null || property.isBlank()) {

@@ -24,8 +24,38 @@ public record OptionSourceDescriptor(
         List<String> dependsOn,
         Map<String, String> dependencyFilterMap,
         OptionSourcePolicy policy,
-        EntityLookupDescriptor entityLookup
+        EntityLookupDescriptor entityLookup,
+        OptionSourceExecutionMode executionMode
 ) {
+    public OptionSourceDescriptor(
+            String key,
+            OptionSourceType type,
+            String resourcePath,
+            String filterField,
+            String propertyPath,
+            String labelPropertyPath,
+            String valuePropertyPath,
+            List<String> dependsOn,
+            Map<String, String> dependencyFilterMap,
+            OptionSourcePolicy policy,
+            EntityLookupDescriptor entityLookup
+    ) {
+        this(
+                key,
+                type,
+                resourcePath,
+                filterField,
+                propertyPath,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                dependencyFilterMap,
+                policy,
+                entityLookup,
+                OptionSourceExecutionMode.JPA
+        );
+    }
+
     public OptionSourceDescriptor(
             String key,
             OptionSourceType type,
@@ -49,7 +79,8 @@ public record OptionSourceDescriptor(
                 dependsOn,
                 null,
                 policy,
-                entityLookup
+                entityLookup,
+                OptionSourceExecutionMode.JPA
         );
     }
 
@@ -76,7 +107,8 @@ public record OptionSourceDescriptor(
                 dependsOn,
                 dependencyFilterMap,
                 policy,
-                null
+                null,
+                OptionSourceExecutionMode.JPA
         );
     }
 
@@ -102,7 +134,8 @@ public record OptionSourceDescriptor(
                 dependsOn,
                 null,
                 policy,
-                null
+                null,
+                OptionSourceExecutionMode.JPA
         );
     }
 
@@ -126,6 +159,24 @@ public record OptionSourceDescriptor(
         propertyPath = normalize(propertyPath);
         labelPropertyPath = normalize(labelPropertyPath);
         valuePropertyPath = normalize(valuePropertyPath);
+        executionMode = executionMode == null ? OptionSourceExecutionMode.JPA : executionMode;
+    }
+
+    public OptionSourceDescriptor withExecutionMode(OptionSourceExecutionMode mode) {
+        return new OptionSourceDescriptor(
+                key,
+                type,
+                resourcePath,
+                filterField,
+                propertyPath,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                dependencyFilterMap,
+                policy,
+                entityLookup,
+                mode
+        );
     }
 
     /**

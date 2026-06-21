@@ -17,8 +17,10 @@ class SortBuilderTest {
     }
 
     @Test
-    void defaultsToAscOnInvalidDirection() {
-        Sort s = SortBuilder.from(List.of("name,invalid"), Sort.unsorted());
-        assertEquals(Sort.Direction.ASC, s.getOrderFor("name").getDirection());
+    void rejectsInvalidDirection() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> SortBuilder.from(List.of("name,invalid"), Sort.unsorted()));
+
+        assertTrue(ex.getMessage().contains("Unsupported sort direction"));
     }
 }

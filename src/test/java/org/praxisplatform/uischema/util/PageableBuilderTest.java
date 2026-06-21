@@ -23,4 +23,20 @@ class PageableBuilderTest {
         assertEquals(Sort.Direction.DESC, p.getSort().getOrderFor("name").getDirection());
         assertEquals(Sort.Direction.ASC, p.getSort().getOrderFor("id").getDirection());
     }
+
+    @Test
+    void trimsSortProperty() {
+        Pageable p = PageableBuilder.from(0, 10, List.of(" name ,desc"), Sort.unsorted());
+
+        assertNotNull(p.getSort().getOrderFor("name"));
+        assertEquals(Sort.Direction.DESC, p.getSort().getOrderFor("name").getDirection());
+    }
+
+    @Test
+    void rejectsUnsupportedSortDirection() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> PageableBuilder.from(0, 10, List.of("name,sideways"), Sort.unsorted()));
+
+        assertTrue(ex.getMessage().contains("Unsupported sort direction"));
+    }
 }

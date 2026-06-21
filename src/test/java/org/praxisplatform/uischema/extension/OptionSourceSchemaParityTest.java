@@ -27,6 +27,10 @@ class OptionSourceSchemaParityTest {
                 "optionSource schema should stay closed to undocumented keys");
         assertTrue(properties.has("dependsOn"), "optionSource schema should expose dependsOn");
         assertTrue(properties.has("dependencyFilterMap"), "optionSource schema should expose dependencyFilterMap");
+        assertFalse(properties.has("attributes"), "optionSource schema must not expose provider execution attributes");
+        assertFalse(properties.has("hostContext"), "optionSource schema must not expose provider host context");
+        assertFalse(properties.has("providerConfig"), "optionSource schema must not expose provider private config");
+        assertFalse(properties.has("sql"), "optionSource schema must not expose SQL or private execution details");
         assertEquals("\\S", properties.path("dependsOn").path("items").path("pattern").asText());
         assertEquals("object", dependencyFilterMap.path("type").asText());
         assertEquals("string", dependencyFilterMap.path("additionalProperties").path("type").asText());
@@ -53,6 +57,38 @@ class OptionSourceSchemaParityTest {
                 filteringDefinition.path("properties").path("sortOptions").path("items").path("$ref").asText());
         assertEquals("array", filterDefinition.path("properties").path("operators").path("type").asText());
         assertEquals("asc", sortDefinition.path("properties").path("direction").path("default").asText());
+    }
+
+    @Test
+    void optionSourceSchemaShouldPublishAngularEditorPublicLookupContract() throws Exception {
+        JsonNode schema = readProjectJson("docs/spec/x-ui-field.schema.json");
+        JsonNode optionSourceProperties = schema.path("definitions").path("optionSource").path("properties");
+        JsonNode displayProperties = schema.path("definitions").path("lookupDisplay").path("properties");
+        JsonNode createProperties = schema.path("definitions").path("lookupCreate").path("properties");
+        JsonNode actionProperties = schema.path("definitions").path("lookupDisplayActions").path("properties");
+
+        assertTrue(optionSourceProperties.has("create"), "optionSource schema should expose create metadata");
+        assertEquals("#/definitions/lookupCreate", optionSourceProperties.path("create").path("$ref").asText());
+        assertTrue(createProperties.has("hrefTemplate"));
+        assertTrue(createProperties.has("routeTemplate"));
+        assertTrue(createProperties.has("openMode"));
+
+        assertTrue(displayProperties.has("showDisabledReason"));
+        assertTrue(displayProperties.has("statusToneMap"));
+        assertTrue(displayProperties.has("badgeKeys"));
+        assertTrue(displayProperties.has("detailActionLabel"));
+        assertTrue(displayProperties.has("changeActionLabel"));
+        assertTrue(displayProperties.has("copyCodeActionLabel"));
+        assertTrue(displayProperties.has("copyIdActionLabel"));
+        assertTrue(displayProperties.has("createActionLabel"));
+        assertTrue(displayProperties.has("clearActionLabel"));
+        assertEquals("#/definitions/lookupDisplayActions", displayProperties.path("actions").path("$ref").asText());
+        assertTrue(actionProperties.has("showDetail"));
+        assertTrue(actionProperties.has("showChange"));
+        assertTrue(actionProperties.has("showCopyCode"));
+        assertTrue(actionProperties.has("showCopyId"));
+        assertTrue(actionProperties.has("showCreate"));
+        assertTrue(actionProperties.has("showClear"));
     }
 
     @Test

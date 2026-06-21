@@ -500,9 +500,12 @@ O contrato de options derivadas deve respeitar as mesmas guardrails de contrato 
 
 ## Versionamento
 
-Recomendacao:
+Decisao do contrato atual:
 
-- `version` no bloco `x-ui.optionSource`
+- `version` nao faz parte do bloco publico `x-ui.optionSource` em `1.0.0`
+- o schema fechado rejeita chaves nao documentadas no bloco
+- evolucoes de versionamento devem acontecer em revisao explicita do schema, do runtime Angular
+  e dos editores, nao por `extraProperties` ou convencao local
 
 ## Plano de Implementacao
 

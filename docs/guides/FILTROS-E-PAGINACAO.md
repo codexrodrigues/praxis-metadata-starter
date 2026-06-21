@@ -53,6 +53,7 @@ Content-Type: application/json
 
 - Se o parâmetro `sort` não for informado, aplica-se a ordenação padrão definida pela entidade (`@DefaultSortColumn`).
 - Para ordenar explicitamente: `?sort=nome,asc&sort=departamento,desc`.
+- Direcao de sort diferente de `asc` ou `desc` e rejeitada como erro de cliente; ela nao e convertida silenciosamente para `asc`.
 
 </details>
 

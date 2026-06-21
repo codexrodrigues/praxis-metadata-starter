@@ -376,6 +376,9 @@
         "detail": {
           "$ref": "#/definitions/lookupDetail"
         },
+        "create": {
+          "$ref": "#/definitions/lookupCreate"
+        },
         "display": {
           "$ref": "#/definitions/lookupDisplay"
         },
@@ -459,6 +462,18 @@
         "mode": { "type": "string", "minLength": 1 }
       }
     },
+    "lookupCreate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hrefTemplate": { "type": "string", "minLength": 1 },
+        "routeTemplate": { "type": "string", "minLength": 1 },
+        "openMode": {
+          "type": "string",
+          "enum": ["samePage", "newTab", "drawer", "modal", "route"]
+        }
+      }
+    },
     "lookupDisplay": {
       "type": "object",
       "additionalProperties": false,
@@ -504,8 +519,42 @@
         "showDescription": { "type": "boolean" },
         "showStatus": { "type": "boolean" },
         "showBadges": { "type": "boolean" },
+        "showDisabledReason": { "type": "boolean" },
         "showResultCount": { "type": "boolean" },
+        "statusToneMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["neutral", "success", "warning", "danger"]
+          }
+        },
+        "badgeKeys": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "detailActionLabel": { "type": "string" },
+        "changeActionLabel": { "type": "string" },
+        "copyCodeActionLabel": { "type": "string" },
+        "copyIdActionLabel": { "type": "string" },
+        "createActionLabel": { "type": "string" },
+        "clearActionLabel": { "type": "string" },
+        "actions": {
+          "$ref": "#/definitions/lookupDisplayActions"
+        },
         "maxVisibleBadges": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "lookupDisplayActions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "showDetail": { "type": "boolean" },
+        "showChange": { "type": "boolean" },
+        "showCopyCode": { "type": "boolean" },
+        "showCopyId": { "type": "boolean" },
+        "showCreate": { "type": "boolean" },
+        "showClear": { "type": "boolean" }
       }
     },
     "lookupDisplayField": {

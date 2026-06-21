@@ -33,8 +33,14 @@ import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.options.OptionSourceEligibility;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
+import org.praxisplatform.uischema.options.service.CompositeOptionSourceQueryExecutor;
+import org.praxisplatform.uischema.options.service.DefaultOptionSourceProviderRegistry;
+import org.praxisplatform.uischema.options.service.DefaultOptionSourceContextResolver;
+import org.praxisplatform.uischema.options.service.OptionSourceContextResolver;
+import org.praxisplatform.uischema.options.service.OptionSourceProvider;
+import org.praxisplatform.uischema.options.service.OptionSourceProviderRegistry;
 import org.praxisplatform.uischema.options.service.OptionSourceQueryExecutor;
-import org.praxisplatform.uischema.options.service.jpa.JpaOptionSourceQueryExecutor;
+import org.praxisplatform.uischema.options.service.jpa.JpaOptionSourceProvider;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
@@ -71,6 +77,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Value;
@@ -85,7 +92,9 @@ import org.springdoc.core.customizers.OpenApiCustomizer;
 import java.lang.reflect.Method;
 import java.time.Clock;
 import java.time.ZoneId;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Auto-configuracao principal do modulo de OpenAPI e UI Schema.
@@ -225,8 +234,61 @@ public class OpenApiUiSchemaAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public OptionSourceQueryExecutor optionSourceQueryExecutor() {
-        return new JpaOptionSourceQueryExecutor();
+    public JpaOptionSourceProvider jpaOptionSourceProvider() {
+        return new JpaOptionSourceProvider(new org.praxisplatform.uischema.options.service.jpa.JpaOptionSourceQueryExecutor());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OptionSourceProviderRegistry optionSourceProviderRegistry(
+            ObjectProvider<OptionSourceProvider> providers,
+            ListableBeanFactory beanFactory
+    ) {
+        List<OptionSourceProvider> providerList = providers.stream().toList();
+        return new DefaultOptionSourceProviderRegistry(providerList, resolveOptionSourceProviderOrders(providerList, beanFactory));
+    }
+
+    private Map<OptionSourceProvider, Integer> resolveOptionSourceProviderOrders(
+            List<OptionSourceProvider> providers,
+            ListableBeanFactory beanFactory
+    ) {
+        Map<OptionSourceProvider, Integer> orders = new IdentityHashMap<>();
+        if (beanFactory == null || providers == null || providers.isEmpty()) {
+            return orders;
+        }
+        String[] beanNames = beanFactory.getBeanNamesForType(OptionSourceProvider.class, false, false);
+        for (String beanName : beanNames) {
+            OptionSourceProvider provider;
+            try {
+                provider = beanFactory.getBean(beanName, OptionSourceProvider.class);
+            } catch (RuntimeException ex) {
+                continue;
+            }
+            Order order = beanFactory.findAnnotationOnBean(beanName, Order.class);
+            if (order != null && providers.contains(provider)) {
+                orders.put(provider, order.value());
+            }
+        }
+        return orders;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OptionSourceContextResolver optionSourceContextResolver() {
+        return new DefaultOptionSourceContextResolver();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OptionSourceQueryExecutor optionSourceQueryExecutor(
+            OptionSourceProviderRegistry optionSourceProviderRegistry,
+            OptionSourceContextResolver optionSourceContextResolver
+    ) {
+        return new CompositeOptionSourceQueryExecutor(
+                optionSourceProviderRegistry,
+                new org.praxisplatform.uischema.options.service.OptionSourceRequestValidator(),
+                optionSourceContextResolver
+        );
     }
 
     @Bean

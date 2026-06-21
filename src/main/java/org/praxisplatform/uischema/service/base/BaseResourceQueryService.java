@@ -46,6 +46,10 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
 
     Optional<String> getDatasetVersion();
 
+    default Optional<String> getOptionSourceDatasetVersion(String sourceKey) {
+        return getDatasetVersion();
+    }
+
     StatsSupportMode getGroupByStatsSupportMode();
 
     StatsSupportMode getTimeSeriesStatsSupportMode();

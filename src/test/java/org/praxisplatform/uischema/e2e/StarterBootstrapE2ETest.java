@@ -8,7 +8,12 @@ import org.praxisplatform.uischema.e2e.fixture.E2eBootstrapFixtureApplication;
 import org.praxisplatform.uischema.e2e.fixture.E2eFixtureDataSupport;
 import org.praxisplatform.uischema.options.OptionSourceEligibility;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
+import org.praxisplatform.uischema.options.service.CompositeOptionSourceQueryExecutor;
+import org.praxisplatform.uischema.options.service.OptionSourceContextResolver;
+import org.praxisplatform.uischema.options.service.OptionSourceProviderRegistry;
 import org.praxisplatform.uischema.options.service.OptionSourceQueryExecutor;
+import org.praxisplatform.uischema.options.service.jpa.JpaOptionSourceProvider;
+import org.praxisplatform.uischema.options.service.jpa.JpaOptionSourceQueryExecutor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -62,6 +67,11 @@ class StarterBootstrapE2ETest {
     void starterBootstrapsCanonicalDocsAndNewControllersWithoutManualCoreWiring() throws Exception {
         assertTrue(applicationContext.getBeansOfType(E2eFixtureDataSupport.class).containsKey("e2eFixtureDataSupport"));
         assertEquals(1, applicationContext.getBeansOfType(OptionSourceQueryExecutor.class).size());
+        assertEquals(1, applicationContext.getBeansOfType(CompositeOptionSourceQueryExecutor.class).size());
+        assertEquals(0, applicationContext.getBeansOfType(JpaOptionSourceQueryExecutor.class).size());
+        assertEquals(1, applicationContext.getBeansOfType(JpaOptionSourceProvider.class).size());
+        assertEquals(1, applicationContext.getBeansOfType(OptionSourceProviderRegistry.class).size());
+        assertEquals(1, applicationContext.getBeansOfType(OptionSourceContextResolver.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OptionSourceEligibility.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OptionSourceRegistry.class).size());
 

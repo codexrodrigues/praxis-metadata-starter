@@ -3,6 +3,8 @@ package org.praxisplatform.uischema.e2e.fixture;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
+import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 
@@ -269,6 +271,11 @@ class EmployeeFilterDTO implements GenericFilterDTO {
     private String nome;
 
     @Filterable(operation = Filterable.FilterOperation.EQUAL)
+    @UISchema(extraProperties = {
+            @ExtensionProperty(name = "optionSource.sql", value = "select secret from private_table"),
+            @ExtensionProperty(name = "optionSource.providerConfig", value = "{\"package\":\"HADES.FLAG_PACK\"}"),
+            @ExtensionProperty(name = "optionSource.display.showDisabledReason", value = "true")
+    })
     private String payrollProfile;
 
     @Filterable(relation = "department.id")

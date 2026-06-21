@@ -119,7 +119,8 @@ public class OptionSourceEligibility {
                 descriptor.dependsOn(),
                 descriptor.dependencyFilterMap(),
                 descriptor.policy(),
-                descriptor.entityLookup()
+                descriptor.entityLookup(),
+                descriptor.executionMode()
         );
     }
 
