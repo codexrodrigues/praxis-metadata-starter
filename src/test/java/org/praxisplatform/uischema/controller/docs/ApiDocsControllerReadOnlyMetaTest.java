@@ -112,7 +112,41 @@ class ApiDocsControllerReadOnlyMetaTest {
         ObjectNode props = demo.putObject("properties");
         props.putObject("demoId").put("type", "integer");
         props.putObject("name").put("type", "string");
-        props.putObject("payrollProfile").put("type", "string");
+        ObjectNode payrollProfile = props.putObject("payrollProfile");
+        payrollProfile.put("type", "string");
+        ObjectNode payrollOptionSource = payrollProfile.putObject("x-ui").putObject("optionSource");
+        payrollOptionSource.put("sql", "select secret from private_table");
+        payrollOptionSource.put("providerConfig", "{\"package\":\"HADES.FLAG_PACK\"}");
+        ObjectNode payrollDisplay = payrollOptionSource.putObject("display");
+        payrollDisplay.put("showDisabledReason", true);
+        payrollDisplay.put("package", "HADES.FLAG_PACK");
+        payrollDisplay.putArray("fields")
+                .addObject()
+                .put("key", "profile")
+                .put("propertyPath", "payrollProfileCode")
+                .put("sql", "select private_field from private_table")
+                .put("providerConfig", "internal");
+        ObjectNode payrollFiltering = payrollOptionSource.putObject("filtering");
+        payrollFiltering.putArray("availableFilters")
+                .addObject()
+                .put("field", "status")
+                .put("type", "text")
+                .put("providerConfig", "internal");
+        payrollFiltering.putArray("sortOptions")
+                .addObject()
+                .put("key", "labelAsc")
+                .put("field", "payrollProfileLabel")
+                .put("sql", "order by private_field");
+        ObjectNode rogue = props.putObject("rogue");
+        rogue.put("type", "string");
+        ObjectNode rogueOptionSource = rogue.putObject("x-ui").putObject("optionSource");
+        rogueOptionSource.put("key", "manualCatalog");
+        rogueOptionSource.put("type", "LIGHT_LOOKUP");
+        rogueOptionSource.put("resourcePath", "/api/manual-catalog");
+        rogueOptionSource.put("sql", "select private from private_table");
+        rogueOptionSource.putObject("display")
+                .put("showCode", true)
+                .put("providerConfig", "internal");
         ObjectNode supplierId = props.putObject("supplierId");
         supplierId.put("type", "integer");
         supplierId.putObject("x-ui")
@@ -185,6 +219,42 @@ class ApiDocsControllerReadOnlyMetaTest {
         assertEquals("contains", optionSource.get("searchMode"));
         assertEquals(25, optionSource.get("pageSize"));
         assertEquals(Boolean.TRUE, optionSource.get("includeIds"));
+        assertFalse(optionSource.containsKey("sql"));
+        assertFalse(optionSource.containsKey("providerConfig"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> display = (Map<String, Object>) optionSource.get("display");
+        assertNotNull(display);
+        assertEquals(Boolean.TRUE, display.get("showDisabledReason"));
+        assertFalse(display.containsKey("package"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> displayFields = (List<Map<String, Object>>) display.get("fields");
+        assertNotNull(displayFields);
+        assertEquals("profile", displayFields.get(0).get("key"));
+        assertFalse(displayFields.get(0).containsKey("sql"));
+        assertFalse(displayFields.get(0).containsKey("providerConfig"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> filtering = (Map<String, Object>) optionSource.get("filtering");
+        assertNotNull(filtering);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> availableFilters = (List<Map<String, Object>>) filtering.get("availableFilters");
+        assertFalse(availableFilters.get(0).containsKey("providerConfig"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> sortOptions = (List<Map<String, Object>>) filtering.get("sortOptions");
+        assertFalse(sortOptions.get(0).containsKey("sql"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> rogue = (Map<String, Object>) properties.get("rogue");
+        assertNotNull(rogue);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> rogueXUi = (Map<String, Object>) rogue.get("x-ui");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> rogueOptionSource = (Map<String, Object>) rogueXUi.get("optionSource");
+        assertEquals("manualCatalog", rogueOptionSource.get("key"));
+        assertFalse(rogueOptionSource.containsKey("sql"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> rogueDisplay = (Map<String, Object>) rogueOptionSource.get("display");
+        assertEquals(Boolean.TRUE, rogueDisplay.get("showCode"));
+        assertFalse(rogueDisplay.containsKey("providerConfig"));
 
         @SuppressWarnings("unchecked")
         Map<String, Object> supplierId = (Map<String, Object>) properties.get("supplierId");

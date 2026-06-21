@@ -37,6 +37,31 @@ class OptionSourceEligibilityTest {
     }
 
     @Test
+    void preservesExecutionModeWhenEnrichingPropertyPath() {
+        OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
+                "payrollProfile",
+                OptionSourceType.DISTINCT_DIMENSION,
+                "/api/payroll",
+                null,
+                null,
+                null,
+                null,
+                null,
+                OptionSourcePolicy.defaults()
+        ).withExecutionMode(OptionSourceExecutionMode.PROVIDER_REQUIRED);
+
+        OptionSourceDescriptor effective = eligibility.resolveEffectiveDescriptor(
+                descriptor,
+                StatsFieldRegistry.builder()
+                        .categoricalGroupByBucket("payrollProfile", "payrollProfile")
+                        .build()
+        );
+
+        assertEquals(OptionSourceExecutionMode.PROVIDER_REQUIRED, effective.executionMode());
+        assertEquals("payrollProfile", effective.propertyPath());
+    }
+
+    @Test
     void acceptsDistinctDimensionBackedByDistinctCountMetricField() {
         OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
                 "payrollProfile",

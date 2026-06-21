@@ -308,11 +308,14 @@ public abstract class AbstractBaseQueryResourceService<
         }
         OptionSourceDescriptor descriptor = resolveEffectiveOptionSource(sourceKey);
         FilterDTO effectiveFilter = sanitizeFilter(request == null ? null : request.filter(), descriptor);
-        GenericSpecification<E> specification = getSpecificationsBuilder().buildSpecification(effectiveFilter, pageable);
+        GenericSpecification<E> specification = effectiveFilter == null
+                ? null
+                : getSpecificationsBuilder().buildSpecification(effectiveFilter, pageable);
         return optionSourceQueryExecutor.filterOptions(
                 entityManager,
                 entityClass,
-                specification.spec(),
+                specification == null ? null : specification.spec(),
+                effectiveFilter,
                 descriptor,
                 request == null ? null : request.search(),
                 request == null ? List.of() : request.filters(),

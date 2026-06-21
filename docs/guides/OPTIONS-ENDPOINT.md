@@ -51,6 +51,9 @@ Compatibilidade transitória:
 - `search`, `sort` e `includeIds` ainda podem entrar por query string, mas o alvo
   canônico para Cut B é o envelope acima
 
+- direcao invalida em `?sort=...` retorna `422`; o starter nao normaliza valores
+  desconhecidos silenciosamente para `ASC`
+
 ## Quando usar cada superficie
 
 - `/{resource}/options/*`
@@ -178,6 +181,8 @@ Regras operacionais:
 - `operator` precisa ser suportado por aquele campo
 - `sort` precisa corresponder a uma chave de `optionSource.filtering.sortOptions`
 - combinações inválidas retornam `422`
+- quando `sort` vier pela query string, a chave e a direcao sao validadas antes do
+  provider; providers externos nao recebem `Pageable.sort` nao governado
 - `unknown source` retorna `404`
 
 ## Suporte atual e limites

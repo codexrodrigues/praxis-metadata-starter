@@ -77,6 +77,158 @@ public class ApiDocsController {
     private static final String ITEMS = "items";
     private static final String OPERATION_EXAMPLES = "operationExamples";
     private static final Set<String> DOCUMENTATION_X_UI_KEYS = Set.of(OPERATION_EXAMPLES);
+    private static final Set<String> OPTION_SOURCE_PUBLIC_KEYS = Set.of(
+            "key",
+            "type",
+            "resourcePath",
+            "filterField",
+            "propertyPath",
+            "labelPropertyPath",
+            "valuePropertyPath",
+            "dependsOn",
+            "entityKey",
+            "codePropertyPath",
+            "descriptionPropertyPaths",
+            "statusPropertyPath",
+            "disabledPropertyPath",
+            "disabledReasonPropertyPath",
+            "searchPropertyPaths",
+            "dependencyFilterMap",
+            "selectionPolicy",
+            "capabilities",
+            "detail",
+            "create",
+            "display",
+            "filtering",
+            "excludeSelfField",
+            "searchMode",
+            "pageSize",
+            "includeIds",
+            "cachePolicy"
+    );
+    private static final Map<String, Set<String>> OPTION_SOURCE_PUBLIC_NESTED_KEYS = Map.of(
+            "selectionPolicy", Set.of(
+                    "selectablePropertyPath",
+                    "statusPropertyPath",
+                    "allowedStatuses",
+                    "blockedStatuses",
+                    "allowRetainInvalidExistingValue",
+                    "disabledReasonTemplate",
+                    "validationMessageTemplate"
+            ),
+            "capabilities", Set.of(
+                    "filter",
+                    "byIds",
+                    "detail",
+                    "create",
+                    "edit",
+                    "navigateToDetail",
+                    "multiSelect",
+                    "recent",
+                    "favorites",
+                    "auditSnapshot"
+            ),
+            "detail", Set.of(
+                    "hrefTemplate",
+                    "routeTemplate",
+                    "openDetailMode",
+                    "kind",
+                    "surfaceId",
+                    "presentation",
+                    "preferredWidget",
+                    "mode"
+            ),
+            "create", Set.of(
+                    "hrefTemplate",
+                    "routeTemplate",
+                    "openMode"
+            ),
+            "display", Set.of(
+                    "preset",
+                    "usage",
+                    "density",
+                    "selectedLayout",
+                    "resultLayout",
+                    "primaryPropertyPath",
+                    "fields",
+                    "secondaryPropertyPaths",
+                    "badgePropertyPaths",
+                    "avatarPropertyPath",
+                    "showAvatar",
+                    "showCode",
+                    "showDescription",
+                    "showStatus",
+                    "showBadges",
+                    "showDisabledReason",
+                    "showResultCount",
+                    "statusToneMap",
+                    "badgeKeys",
+                    "maxVisibleBadges",
+                    "detailActionLabel",
+                    "changeActionLabel",
+                    "copyCodeActionLabel",
+                    "copyIdActionLabel",
+                    "createActionLabel",
+                    "clearActionLabel",
+                    "actions"
+            ),
+            "filtering", Set.of(
+                    "availableFilters",
+                    "defaultFilters",
+                    "sortOptions",
+                    "defaultSort",
+                    "quickFilterFields",
+                    "searchPlaceholder"
+            )
+    );
+    private static final Map<String, Set<String>> OPTION_SOURCE_PUBLIC_DEEP_KEYS = Map.of(
+            "display.actions", Set.of(
+                    "showDetail",
+                    "showChange",
+                    "showCopyCode",
+                    "showCopyId",
+                    "showCreate",
+                    "showClear"
+            ),
+            "display.fields", Set.of(
+                    "key",
+                    "propertyPath",
+                    "label",
+                    "icon",
+                    "presentation",
+                    "tone",
+                    "format"
+            ),
+            "filtering.availableFilters", Set.of(
+                    "field",
+                    "label",
+                    "type",
+                    "operators",
+                    "defaultOperator",
+                    "optionsSource",
+                    "required",
+                    "hidden"
+            ),
+            "filtering.sortOptions", Set.of(
+                    "key",
+                    "field",
+                    "direction",
+                    "label"
+            )
+    );
+    private static final Set<String> OPTION_SOURCE_PRIVATE_KEYS = Set.of(
+            "attributes",
+            "bindParameters",
+            "context",
+            "function",
+            "hostContext",
+            "package",
+            "providerConfig",
+            "rawEndpoint",
+            "sql",
+            "tenant",
+            "user"
+    );
 
     // Constantes para valores padrao
     private static final String DEFAULT_OPERATION = "get";
@@ -535,9 +687,6 @@ public class ApiDocsController {
         OptionSourceRegistry optionSourceRegistry = optionSourceRegistryProvider != null
                 ? optionSourceRegistryProvider.getIfAvailable()
                 : null;
-        if (optionSourceRegistry == null || basePath == null || basePath.isBlank()) {
-            return;
-        }
         Object rawProperties = schemaMap.get(PROPERTIES);
         if (!(rawProperties instanceof Map<?, ?> properties)) {
             return;
@@ -547,14 +696,119 @@ public class ApiDocsController {
                 continue;
             }
             Map<String, Object> fieldSchema = (Map<String, Object>) rawFieldSchema;
-            OptionSourceDescriptor descriptor = resolveFieldOptionSource(optionSourceRegistry, basePath, fieldName, fieldSchema);
-            if (descriptor == null) {
+            OptionSourceDescriptor descriptor = optionSourceRegistry == null || basePath == null || basePath.isBlank()
+                    ? null
+                    : resolveFieldOptionSource(optionSourceRegistry, basePath, fieldName, fieldSchema);
+            Map<String, Object> fieldXUi = existingNestedMap(fieldSchema, X_UI);
+            Map<String, Object> optionSourceMeta = fieldXUi == null ? null : existingNestedMap(fieldXUi, "optionSource");
+            if (descriptor == null && optionSourceMeta == null) {
                 continue;
             }
-            Map<String, Object> fieldXUi = ensureNestedMap(fieldSchema, X_UI);
-            Map<String, Object> optionSourceMeta = ensureNestedMap(fieldXUi, "optionSource");
-            descriptor.toMetadataMap().forEach(optionSourceMeta::putIfAbsent);
+            fieldXUi = ensureNestedMap(fieldSchema, X_UI);
+            optionSourceMeta = ensureNestedMap(fieldXUi, "optionSource");
+            Map<String, Object> mergedOptionSourceMeta = descriptor == null
+                    ? new LinkedHashMap<>()
+                    : new LinkedHashMap<>(descriptor.toMetadataMap());
+            mergeMissingPublicOptionSourceMetadata(mergedOptionSourceMeta, optionSourceMeta);
+            Map<String, Object> sanitized = sanitizeOptionSourceMetadata(mergedOptionSourceMeta);
+            if (sanitized.isEmpty()) {
+                fieldXUi.remove("optionSource");
+                continue;
+            }
+            optionSourceMeta.clear();
+            optionSourceMeta.putAll(sanitized);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void mergeMissingPublicOptionSourceMetadata(
+            Map<String, Object> target,
+            Map<String, Object> candidate
+    ) {
+        if (candidate == null || candidate.isEmpty()) {
+            return;
+        }
+        candidate.forEach((key, value) -> {
+            if (!OPTION_SOURCE_PUBLIC_KEYS.contains(key)) {
+                return;
+            }
+            Set<String> nestedAllowedKeys = OPTION_SOURCE_PUBLIC_NESTED_KEYS.get(key);
+            if (nestedAllowedKeys != null && value instanceof Map<?, ?> nestedCandidate) {
+                Map<String, Object> sanitizedNested = sanitizeNestedOptionSourceMetadata(nestedCandidate, nestedAllowedKeys);
+                Object existing = target.get(key);
+                if (existing instanceof Map<?, ?> existingMap) {
+                    Map<String, Object> mergedNested = new LinkedHashMap<>((Map<String, Object>) existingMap);
+                    sanitizedNested.forEach(mergedNested::putIfAbsent);
+                    target.put(key, mergedNested);
+                } else if (!sanitizedNested.isEmpty()) {
+                    target.putIfAbsent(key, sanitizedNested);
+                }
+                return;
+            }
+            target.putIfAbsent(key, value);
+        });
+    }
+
+    private Map<String, Object> sanitizeOptionSourceMetadata(Map<String, Object> candidate) {
+        Map<String, Object> sanitized = new LinkedHashMap<>();
+        if (candidate == null || candidate.isEmpty()) {
+            return sanitized;
+        }
+        candidate.forEach((key, value) -> {
+            if (OPTION_SOURCE_PUBLIC_KEYS.contains(key) && !OPTION_SOURCE_PRIVATE_KEYS.contains(key)) {
+                sanitized.put(key, sanitizeOptionSourceValue(key, value, OPTION_SOURCE_PUBLIC_NESTED_KEYS.get(key)));
+            }
+        });
+        sanitized.values().removeIf(Objects::isNull);
+        return sanitized;
+    }
+
+    private Map<String, Object> sanitizeNestedOptionSourceMetadata(
+            Map<?, ?> candidate,
+            Set<String> allowedKeys
+    ) {
+        Map<String, Object> sanitized = new LinkedHashMap<>();
+        candidate.forEach((rawKey, value) -> {
+            if (rawKey instanceof String key && allowedKeys.contains(key)) {
+                sanitized.put(key, sanitizeOptionSourceValue(key, value, null));
+            }
+        });
+        sanitized.values().removeIf(Objects::isNull);
+        return sanitized;
+    }
+
+    private Object sanitizeOptionSourceValue(String path, Object value, Set<String> allowedMapKeys) {
+        if (value instanceof Map<?, ?> mapValue) {
+            Set<String> effectiveAllowedKeys = allowedMapKeys != null ? allowedMapKeys : OPTION_SOURCE_PUBLIC_DEEP_KEYS.get(path);
+            if (effectiveAllowedKeys == null) {
+                Map<String, Object> sanitized = new LinkedHashMap<>();
+                mapValue.forEach((rawKey, nestedValue) -> {
+                    if (rawKey instanceof String key && !OPTION_SOURCE_PRIVATE_KEYS.contains(key)) {
+                        sanitized.put(key, sanitizeOptionSourceValue(path + "." + key, nestedValue, null));
+                    }
+                });
+                sanitized.values().removeIf(Objects::isNull);
+                return sanitized;
+            }
+            Map<String, Object> sanitized = new LinkedHashMap<>();
+            mapValue.forEach((rawKey, nestedValue) -> {
+                if (rawKey instanceof String key
+                        && effectiveAllowedKeys.contains(key)
+                        && !OPTION_SOURCE_PRIVATE_KEYS.contains(key)) {
+                    sanitized.put(key, sanitizeOptionSourceValue(path + "." + key, nestedValue, null));
+                }
+            });
+            sanitized.values().removeIf(Objects::isNull);
+            return sanitized;
+        }
+        if (value instanceof List<?> listValue) {
+            List<Object> sanitized = listValue.stream()
+                    .map(item -> sanitizeOptionSourceValue(path, item, OPTION_SOURCE_PUBLIC_DEEP_KEYS.get(path)))
+                    .filter(Objects::nonNull)
+                    .toList();
+            return sanitized;
+        }
+        return value;
     }
 
     @SuppressWarnings("unchecked")
@@ -655,6 +909,12 @@ public class ApiDocsController {
         Map<String, Object> created = new LinkedHashMap<>();
         parent.put(key, created);
         return created;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> existingNestedMap(Map<String, Object> parent, String key) {
+        Object existing = parent.get(key);
+        return existing instanceof Map<?, ?> existingMap ? (Map<String, Object>) existingMap : null;
     }
 
     /**

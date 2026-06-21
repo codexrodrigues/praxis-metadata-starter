@@ -20,6 +20,7 @@ public interface OptionSourceQueryExecutor {
             EntityManager entityManager,
             Class<E> entityClass,
             Specification<E> specification,
+            Object filterPayload,
             OptionSourceDescriptor descriptor,
             String search,
             List<LookupFilterRequest> filters,

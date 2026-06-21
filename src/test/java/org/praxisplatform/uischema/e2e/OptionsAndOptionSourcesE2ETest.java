@@ -65,6 +65,14 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
         assertEquals("Human Resources", departmentLightLookupBody.path("content").get(0).path("label").asText());
         assertTrue(departmentLightLookupBody.path("content").get(0).path("extra").isNull());
 
+        ResponseEntity<String> departmentLightLookupSortedResponse = postJson(
+                "/employees/option-sources/departmentLightLookup/options/filter?page=0&size=10&sort=label,asc",
+                "{}"
+        );
+        assertEquals(200, departmentLightLookupSortedResponse.getStatusCode().value());
+        JsonNode departmentLightLookupSortedBody = body(departmentLightLookupSortedResponse);
+        assertEquals("Human Resources", departmentLightLookupSortedBody.path("content").get(0).path("label").asText());
+
         ResponseEntity<String> departmentLightLookupByIdsResponse = get(
                 "/employees/option-sources/departmentLightLookup/options/by-ids?ids=%d&ids=%d".formatted(
                         state.operationsDepartmentId(),
@@ -75,6 +83,7 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
         JsonNode departmentLightLookupByIdsBody = body(departmentLightLookupByIdsResponse);
         assertEquals("Operations", departmentLightLookupByIdsBody.get(0).path("label").asText());
         assertEquals("Human Resources", departmentLightLookupByIdsBody.get(1).path("label").asText());
+        assertTrue(departmentLightLookupByIdsBody.isArray());
 
         ResponseEntity<String> employeeLookupResponse = postJson(
                 "/employees/option-sources/employeeEntityLookup/options/filter?search=Human&page=0&size=10",
@@ -109,6 +118,7 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
         assertEquals("Carol", employeeLookupByIdsBody.get(0).path("label").asText());
         assertEquals(false, employeeLookupByIdsBody.get(0).path("extra").path("selectable").asBoolean());
         assertEquals("Alice", employeeLookupByIdsBody.get(1).path("label").asText());
+        assertTrue(employeeLookupByIdsBody.isArray());
 
         ResponseEntity<String> employeeLookupStructuredFilterResponse = postJson(
                 "/employees/option-sources/employeeEntityLookup/options/filter?page=0&size=10",
@@ -155,7 +165,24 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
                 "{}"
         );
         assertEquals(501, unsupportedSourceResponse.getStatusCode().value());
-        assertTrue(unsupportedSourceResponse.getBody().contains("Option source type not implemented"));
+        assertTrue(unsupportedSourceResponse.getBody().contains("Option source provider not found"));
+
+        ResponseEntity<String> unknownSourceByIdsResponse = get(
+                "/employees/option-sources/unknown-source/options/by-ids?ids=1"
+        );
+        assertEquals(404, unknownSourceByIdsResponse.getStatusCode().value());
+        assertTrue(unknownSourceByIdsResponse.getBody().contains("unknown-source"));
+
+        ResponseEntity<String> unknownSourceEmptyByIdsResponse = get(
+                "/employees/option-sources/unknown-source/options/by-ids"
+        );
+        assertEquals(404, unknownSourceEmptyByIdsResponse.getStatusCode().value());
+        assertTrue(unknownSourceEmptyByIdsResponse.getBody().contains("unknown-source"));
+
+        ResponseEntity<String> invalidByIdsPayloadResponse = get(
+                "/employees/option-sources/departmentLightLookup/options/by-ids?ids=not-a-number"
+        );
+        assertEquals(422, invalidByIdsPayloadResponse.getStatusCode().value());
 
         ResponseEntity<String> filterSchemaResponse = get(
                 "/schemas/filtered?path=/employees/filter&operation=post&schemaType=request"
@@ -170,5 +197,8 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
         assertEquals("/employees", optionSourceMeta.path("resourcePath").asText());
         assertEquals("contains", optionSourceMeta.path("searchMode").asText());
         assertTrue(optionSourceMeta.path("excludeSelfField").asBoolean());
+        assertTrue(optionSourceMeta.path("sql").isMissingNode());
+        assertTrue(optionSourceMeta.path("providerConfig").isMissingNode());
+        assertTrue(optionSourceMeta.path("display").path("showDisabledReason").asBoolean());
     }
 }

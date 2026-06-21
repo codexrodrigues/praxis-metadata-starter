@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.annotation.PostConstruct;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.capability.CapabilityService;
@@ -355,7 +356,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         }
 
         List<String> sort = queryParams.get("sort");
-        Pageable pageable = PageableBuilder.from(page, size, sort, getService().getDefaultSort());
+        Pageable pageable = buildPageable(page, size, sort, getService().getDefaultSort());
         Page<ResponseDTO> result = getService().filter(filterDTO, pageable, includeIds);
         if (!isHateoasEnabled()) {
             return successEnvelope(ResponseEntity.ok(), result, null);
@@ -387,7 +388,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         }
 
         List<String> sort = queryParams.get("sort");
-        Sort sortObj = SortBuilder.from(sort, getService().getDefaultSort());
+        Sort sortObj = buildSort(sort, getService().getDefaultSort());
 
         CursorPage<ResponseDTO> result;
         try {
@@ -430,7 +431,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         }
 
         List<String> sort = queryParams.get("sort");
-        Sort sortObj = SortBuilder.from(sort, getService().getDefaultSort());
+        Sort sortObj = buildSort(sort, getService().getDefaultSort());
         OptionalLong position = getService().locate(filterDTO, sortObj, id);
         if (position.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
@@ -687,12 +688,18 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         }
 
         List<String> sort = queryParams.get("sort");
-        Pageable pageable = PageableBuilder.from(page, size, sort, getService().getDefaultSort());
+        Pageable pageable = buildPageable(page, size, sort, getService().getDefaultSort());
         return withVersion(ResponseEntity.ok(), getService().filterOptions(filterDTO, pageable));
     }
 
     @PostMapping("/option-sources/{sourceKey}/options/filter")
     @Operation(summary = "Listar opcoes filtradas por fonte derivada")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Opcoes retornadas sem envelope."),
+            @ApiResponse(responseCode = "404", description = "Option-source inexistente."),
+            @ApiResponse(responseCode = "422", description = "Payload, policy ou filtros invalidos."),
+            @ApiResponse(responseCode = "501", description = "Capability ou provider nao implementado.")
+    })
     public ResponseEntity<Page<OptionDTO<Object>>> filterOptionSourceOptions(
             @PathVariable String sourceKey,
             @RequestBody OptionSourceFilterRequest<FD> request,
@@ -707,12 +714,13 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                     "Maximum page size exceeded: " + paginationMaxSize);
         }
 
-        List<String> sort = queryParams.get("sort");
-        Pageable pageable = PageableBuilder.from(page, size, sort, getService().getDefaultSort());
         try {
+            List<String> sort = queryParams.get("sort");
             OptionSourceFilterRequest<FD> effectiveRequest = mergeLegacyOptionSourceRequest(request, search, includeIds, sort);
-            return withVersion(
+            Pageable pageable = buildPageable(page, size, sort, Sort.unsorted());
+            return withOptionSourceVersion(
                     ResponseEntity.ok(),
+                    sourceKey,
                     getService().filterOptionSourceOptions(
                             sourceKey,
                             effectiveRequest,
@@ -739,7 +747,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         String effectiveSearch = request != null && StringUtils.hasText(request.search()) ? request.search() : search;
         String effectiveSort = request != null && StringUtils.hasText(request.sort())
                 ? request.sort()
-                : (sort == null || sort.isEmpty() ? null : sort.get(0));
+                : firstLegacySortKey(sort);
         Collection<Object> effectiveIncludeIds = request != null && request.includeIds() != null && !request.includeIds().isEmpty()
                 ? request.includeIds()
                 : (includeIds == null ? List.of() : List.copyOf(includeIds));
@@ -749,6 +757,34 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 (List<org.praxisplatform.uischema.options.LookupFilterRequest>) filters;
 
         return new OptionSourceFilterRequest<>(filter, typedFilters, effectiveSearch, effectiveSort, effectiveIncludeIds);
+    }
+
+    private String firstLegacySortKey(List<String> sort) {
+        if (sort == null || sort.isEmpty()) {
+            return null;
+        }
+        return sort.stream()
+                .filter(StringUtils::hasText)
+                .map(entry -> entry.split(",", 2)[0].trim())
+                .filter(StringUtils::hasText)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Pageable buildPageable(int page, int size, List<String> sort, Sort fallback) {
+        try {
+            return PageableBuilder.from(page, size, sort, fallback);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), ex);
+        }
+    }
+
+    private Sort buildSort(List<String> sort, Sort fallback) {
+        try {
+            return SortBuilder.from(sort, fallback);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), ex);
+        }
     }
 
     @GetMapping("/options/by-ids")
@@ -768,21 +804,34 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @GetMapping("/option-sources/{sourceKey}/options/by-ids")
     @Operation(summary = "Buscar opcoes derivadas por IDs")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Opcoes retornadas sem envelope."),
+            @ApiResponse(responseCode = "404", description = "Option-source inexistente."),
+            @ApiResponse(responseCode = "422", description = "Payload ou IDs invalidos."),
+            @ApiResponse(responseCode = "501", description = "Capability ou provider nao implementado.")
+    })
     public ResponseEntity<List<OptionDTO<Object>>> getOptionSourceOptionsByIds(
             @PathVariable String sourceKey,
             @RequestParam(name = "ids", required = false) List<String> ids
     ) {
-        if (ids == null || ids.isEmpty()) {
-            return withVersion(ResponseEntity.ok(), List.of());
-        }
-        if (ids.size() > byIdsMax) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Maximum number of IDs exceeded: " + byIdsMax);
-        }
         try {
-            return withVersion(ResponseEntity.ok(), getService().byIdsOptionSourceOptions(sourceKey, List.copyOf(ids)));
-        } catch (IllegalArgumentException ex) {
+            if (ids == null || ids.isEmpty()) {
+                getService().resolveOptionSource(sourceKey);
+                return withOptionSourceVersion(ResponseEntity.ok(), sourceKey, List.of());
+            }
+            if (ids.size() > byIdsMax) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "Maximum number of IDs exceeded: " + byIdsMax);
+            }
+            return withOptionSourceVersion(
+                    ResponseEntity.ok(),
+                    sourceKey,
+                    getService().byIdsOptionSourceOptions(sourceKey, List.copyOf(ids))
+            );
+        } catch (UnknownOptionSourceException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), ex);
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), ex);
         }
@@ -1049,6 +1098,15 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     protected <T> ResponseEntity<T> withVersion(ResponseEntity.BodyBuilder builder, T body) {
         getService().getDatasetVersion().ifPresent(v -> builder.header(HDR, v));
+        return builder.body(body);
+    }
+
+    protected <T> ResponseEntity<T> withOptionSourceVersion(
+            ResponseEntity.BodyBuilder builder,
+            String sourceKey,
+            T body
+    ) {
+        getService().getOptionSourceDatasetVersion(sourceKey).ifPresent(v -> builder.header(HDR, v));
         return builder.body(body);
     }
 

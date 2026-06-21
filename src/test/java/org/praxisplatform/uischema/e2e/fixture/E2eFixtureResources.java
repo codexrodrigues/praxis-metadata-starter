@@ -19,6 +19,7 @@ import org.praxisplatform.uischema.options.LookupFilteringDescriptor;
 import org.praxisplatform.uischema.options.LookupSelectionPolicy;
 import org.praxisplatform.uischema.options.LookupSortOption;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourceExecutionMode;
 import org.praxisplatform.uischema.options.OptionSourcePolicy;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.OptionSourceType;
@@ -199,8 +200,32 @@ class EmployeeService extends AbstractBaseResourceService<
                     null,
                     null,
                     List.of("departmentId"),
-                    OptionSourcePolicy.defaults()
-            ))
+                    new OptionSourcePolicy(false, true, "contains", 3, 20, 20, true, false, "label")
+            ).withExecutionMode(OptionSourceExecutionMode.PROVIDER_REQUIRED))
+            .add(EmployeeEntity.class, new OptionSourceDescriptor(
+                    "externalFilterOnlyLookup",
+                    OptionSourceType.RESOURCE_ENTITY,
+                    "/employees",
+                    null,
+                    null,
+                    "label",
+                    "id",
+                    List.of("departmentId"),
+                    OptionSourcePolicy.defaults(),
+                    new EntityLookupDescriptor(
+                            "external-filter-only",
+                            null,
+                            List.of(),
+                            null,
+                            null,
+                            null,
+                            List.of("label"),
+                            Map.of("departmentId", "departmentId"),
+                            null,
+                            new LookupCapabilities(true, false, false, false, false, false, false, false, false, false),
+                            null
+                    )
+            ).withExecutionMode(OptionSourceExecutionMode.PROVIDER_REQUIRED))
             .add(EmployeeEntity.class, new OptionSourceDescriptor(
                     "departmentLightLookup",
                     OptionSourceType.LIGHT_LOOKUP,

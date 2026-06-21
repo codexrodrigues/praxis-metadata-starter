@@ -14,6 +14,8 @@ All notable changes to this module will be documented in this file.
 ### Changed
 - `EntityLookupDescriptor` agora pode publicar o bloco `filtering` como parte da semantica canonica de `entityLookup`.
 - `x-ui-field.schema.json`, fixtures de exemplo e a RFC de `optionSource` passam a documentar o contrato de filtro rico para buscas corporativas.
+- Requests com `sort` contendo direcao diferente de `asc` ou `desc` agora retornam erro de cliente em vez de serem normalizadas silenciosamente para `ASC`.
+- `OptionSourceEligibility` preserva `OptionSourceExecutionMode.PROVIDER_REQUIRED` ao enriquecer descriptors derivados por stats, evitando fallback JPA indevido para fontes externas.
 
 ## [8.0.0-rc.14] - 2026-04-24
 
