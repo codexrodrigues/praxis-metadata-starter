@@ -734,9 +734,14 @@ de contrato publico do starter:</p>
 explicitamente</li>
 </ul>
 <h2 id="versionamento">Versionamento</h2>
-<p>Recomendacao:</p>
+<p>Decisao do contrato atual:</p>
 <ul>
-<li><code>version</code> no bloco <code>x-ui.optionSource</code></li>
+<li><code>version</code> nao faz parte do bloco publico
+<code>x-ui.optionSource</code> em <code>1.0.0</code></li>
+<li>o schema fechado rejeita chaves nao documentadas no bloco</li>
+<li>evolucoes de versionamento devem acontecer em revisao explicita do
+schema, do runtime Angular e dos editores, nao por
+<code>extraProperties</code> ou convencao local</li>
 </ul>
 <h2 id="plano-de-implementacao">Plano de Implementacao</h2>
 <h3 id="contrato">Contrato</h3>

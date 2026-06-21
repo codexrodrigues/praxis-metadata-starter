@@ -280,12 +280,15 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>Compatibilidade transitória:</p>
 <ul>
-<li>payload legado puro do filtro do recurso ainda é aceito</li>
-<li>o starter o normaliza internamente para
-<code>{ "filter": ... }</code></li>
-<li><code>search</code>, <code>sort</code> e <code>includeIds</code>
+<li><p>payload legado puro do filtro do recurso ainda é aceito</p></li>
+<li><p>o starter o normaliza internamente para
+<code>{ "filter": ... }</code></p></li>
+<li><p><code>search</code>, <code>sort</code> e <code>includeIds</code>
 ainda podem entrar por query string, mas o alvo canônico para Cut B é o
-envelope acima</li>
+envelope acima</p></li>
+<li><p>direcao invalida em <code>?sort=...</code> retorna
+<code>422</code>; o starter nao normaliza valores desconhecidos
+silenciosamente para <code>ASC</code></p></li>
 </ul>
 <h2 id="quando-usar-cada-superficie">Quando usar cada superficie</h2>
 <ul>
@@ -430,6 +433,9 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb5-1"><a href="
 <li><code>sort</code> precisa corresponder a uma chave de
 <code>optionSource.filtering.sortOptions</code></li>
 <li>combinações inválidas retornam <code>422</code></li>
+<li>quando <code>sort</code> vier pela query string, a chave e a direcao
+sao validadas antes do provider; providers externos nao recebem
+<code>Pageable.sort</code> nao governado</li>
 <li><code>unknown source</code> retorna <code>404</code></li>
 </ul>
 <h2 id="suporte-atual-e-limites">Suporte atual e limites</h2>

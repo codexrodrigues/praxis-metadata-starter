@@ -294,6 +294,9 @@ ordenação padrão definida pela entidade
 (<code>@DefaultSortColumn</code>).</li>
 <li>Para ordenar explicitamente:
 <code>?sort=nome,asc&amp;sort=departamento,desc</code>.</li>
+<li>Direcao de sort diferente de <code>asc</code> ou <code>desc</code> e
+rejeitada como erro de cliente; ela nao e convertida silenciosamente
+para <code>asc</code>.</li>
 </ul>
 </details>
 <a id="boas-praticas"></a>
