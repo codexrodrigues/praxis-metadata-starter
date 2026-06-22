@@ -5,6 +5,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
+import org.praxisplatform.uischema.FieldDataType;
 import org.praxisplatform.uischema.NumericFormat;
 import org.praxisplatform.uischema.annotation.AiUsageMode;
 import org.praxisplatform.uischema.annotation.AiUsagePolicy;
@@ -62,6 +63,16 @@ class CustomOpenApiResolverTest {
     private static class ExplicitDefaultDummy {
         @UISchema(defaultValue = "DRAFT")
         String status;
+    }
+
+    private static class TextualNumericDummy {
+        @UISchema(type = FieldDataType.TEXT, controlType = FieldControlType.INPUT)
+        Integer empresa;
+    }
+
+    private static class NumericInputDummy {
+        @UISchema(type = FieldDataType.NUMBER, controlType = FieldControlType.INPUT)
+        Integer quantidade;
     }
 
     @Test
@@ -131,6 +142,36 @@ class CustomOpenApiResolverTest {
 
         Map<String, Object> xui = getXui(property);
         assertEquals(FieldControlType.INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+    }
+
+    @Test
+    void explicitTextualInputShouldWinForNumericTransportType() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("integer").format("int32");
+        property.setName("empresa");
+
+        Annotation uiSchema = TextualNumericDummy.class.getDeclaredField("empresa").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema, TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals(FieldControlType.INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals(FieldDataType.TEXT.getValue(), xui.get(FieldConfigProperties.TYPE.getValue()));
+        assertNull(xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
+    }
+
+    @Test
+    void explicitNumericTypeShouldNotBecomeTextOnlyBecauseControlIsInput() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("integer").format("int32");
+        property.setName("quantidade");
+
+        Annotation uiSchema = NumericInputDummy.class.getDeclaredField("quantidade").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema, TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals(FieldControlType.INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals(FieldDataType.NUMBER.getValue(), xui.get(FieldConfigProperties.TYPE.getValue()));
+        assertEquals(Map.of(FieldConfigProperties.TYPE.getValue(), "number"), xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
     }
 
     @Test

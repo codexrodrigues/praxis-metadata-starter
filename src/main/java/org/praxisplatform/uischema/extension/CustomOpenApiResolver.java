@@ -158,6 +158,24 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
     }
 
+    private void applyTextualPresentationOverrides(UISchema annotation, Map<String, Object> uiExtension) {
+        if (annotation == null) {
+            return;
+        }
+
+        String controlType = asTrimmedString(uiExtension.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        boolean hasTextMask = annotation.mask() != null && !annotation.mask().isBlank();
+
+        if (hasTextMask && isNumericInputControlType(controlType)) {
+            uiExtension.put(FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.INPUT.getValue());
+            controlType = FieldControlType.INPUT.getValue();
+        }
+
+        if (hasTextMask || (FieldDataType.TEXT.equals(annotation.type()) && isTextualInputControlType(controlType))) {
+            uiExtension.put(FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
+        }
+    }
+
     /**
      * Resolve UI Schema com ordem de precedência clara e bem definida
      */
@@ -179,6 +197,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         // === ETAPA 3: Valores EXPLÍCITOS da anotação @UISchema ===
         // Sobrescreve detecção automática com valores explicitamente definidos
         applyUISchemaExplicitValues(property, annotation, uiExtension);
+        applyTextualPresentationOverrides(annotation, uiExtension);
 
         // === ETAPA 4: Anotações Jakarta Validation ===
         // Adiciona validações baseadas em @NotNull, @Size, etc.
@@ -1727,6 +1746,9 @@ public class CustomOpenApiResolver extends ModelResolver {
         if ("date".equalsIgnoreCase(dataType)) {
             return "date";
         }
+        if ("text".equalsIgnoreCase(dataType)) {
+            return null;
+        }
 
         if ("boolean".equalsIgnoreCase(openApiType)) {
             return "boolean";
@@ -1813,6 +1835,33 @@ public class CustomOpenApiResolver extends ModelResolver {
                 || FieldControlType.INLINE_DATE.getValue().equals(controlType)
                 || FieldControlType.INLINE_TIME.getValue().equals(controlType)
                 || FieldControlType.INLINE_TOGGLE.getValue().equals(controlType);
+    }
+
+    private boolean isTextualInputControlType(String controlType) {
+        if (controlType == null) {
+            return false;
+        }
+
+        return FieldControlType.INPUT.getValue().equals(controlType)
+                || FieldControlType.INLINE_INPUT.getValue().equals(controlType)
+                || FieldControlType.TEXTAREA.getValue().equals(controlType)
+                || FieldControlType.SEARCH_INPUT.getValue().equals(controlType)
+                || FieldControlType.EMAIL_INPUT.getValue().equals(controlType)
+                || FieldControlType.URL_INPUT.getValue().equals(controlType)
+                || FieldControlType.PASSWORD.getValue().equals(controlType)
+                || FieldControlType.PHONE.getValue().equals(controlType)
+                || FieldControlType.CPF_CNPJ_INPUT.getValue().equals(controlType)
+                || FieldControlType.COLOR_INPUT.getValue().equals(controlType)
+                || FieldControlType.COLOR_PICKER.getValue().equals(controlType);
+    }
+
+    private boolean isNumericInputControlType(String controlType) {
+        if (controlType == null) {
+            return false;
+        }
+
+        return FieldControlType.NUMERIC_TEXT_BOX.getValue().equals(controlType)
+                || FieldControlType.INLINE_NUMBER.getValue().equals(controlType);
     }
 
     /**

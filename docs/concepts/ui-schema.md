@@ -14,17 +14,20 @@ A anotação `@UISchema` é o ponto de entrada para descrever **como a UI deve r
 @Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface UISchema {
-    String label();
-    String controlType() default "text";
-    String group() default "default";
+    String label() default "";
+    FieldDataType type() default FieldDataType.TEXT;
+    FieldControlType controlType() default FieldControlType.AUTO;
+    String group() default "";
+    int order() default 0;
     boolean required() default false;
-    FieldDataType dataType() default FieldDataType.TEXT;
-    String numericFormat() default ""; // usa NumberFormatStyle
-    String[] extraProperties() default {};
+    NumericFormat numericFormat() default NumericFormat.INTEGER;
+    ExtensionProperty[] extraProperties() default {};
 }
 ```
 
-*Campos numéricos podem usar enums como `NumberFormatStyle.PERCENT`.*
+*Campos numericos podem usar `NumericFormat` quando a informacao for uma medida
+matematica. Codigos, documentos fiscais, telefones, CEPs e identificadores nao
+devem ser tratados como numero apenas porque o legado usa coluna numerica.*
 
 ## Ordem de precedência aplicada pelo `CustomOpenApiResolver`
 
@@ -43,6 +46,8 @@ public @interface UISchema {
 * **Visibilidade**: utilize `formHidden`, `tableHidden`, `filterable` para controlar cada contexto.
 * **Mensagens**: personalize `requiredMessage`, `rangeMessage` via `ValidationProperties` quando necessário.
 * **Apresentação de valor (`valuePresentation`)**: trate este bloco como o contrato canônico de display/read-only. O starter publica `x-ui.valuePresentation` automaticamente a partir de `type`, `format`, `controlType` e `numericFormat`; quando precisar sobrescrever, prefira `extraProperties` com chaves aninhadas, como `valuePresentation.type`.
+
+* **Identificadores e documentos**: quando o transporte OpenAPI for numerico por legado, mas a informacao for codigo/documento/identificador, declare `@UISchema(type = FieldDataType.TEXT, controlType = FieldControlType.INPUT)` ou um controle textual especifico, como `CPF_CNPJ_INPUT`. Mascaras textuais tambem preservam `x-ui.type=text` e evitam `valuePresentation` numerico automatico.
 
 ## Validations & `ValidationProperties`
 

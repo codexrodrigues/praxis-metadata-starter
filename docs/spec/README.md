@@ -120,6 +120,7 @@
 - MUST: `capabilities` conter apenas valores boolean; chaves adicionais sao permitidas.
 - SHOULD: publicar `x-ui.valuePresentation` para campos escalares de exibicao quando a intencao semantica estiver clara.
 - MUST NOT: publicar `x-ui.valuePresentation` automatico para ranges, selecoes, arrays, objects ou IDs semanticos sem override explicito.
+- MUST: preservar semantica textual para codigos, documentos e identificadores numericos de legado quando o backend declarar `x-ui.type=text`, controle textual ou mascara textual. Nesses casos, o OpenAPI pode continuar publicando transporte numerico, mas a UI nao deve receber `valuePresentation` numerico automatico.
 - SHOULD: `/schemas/filtered` enviar `ETag` forte e `X-Schema-Hash` e expor via `Access-Control-Expose-Headers`.
 - SHOULD: publicacoes de `x-ui.chart` explicitar restricoes executaveis do runtime oficial sem criar contrato paralelo.
 - SHOULD: publicacoes de `x-ui.analytics` manterem a semantica estritamente analitica, sem reempacotar detalhes especificos de chart.

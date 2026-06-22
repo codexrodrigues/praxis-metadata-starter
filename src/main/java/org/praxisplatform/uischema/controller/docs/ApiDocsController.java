@@ -485,8 +485,9 @@ public class ApiDocsController {
      * Resolve o {@code idField} final a ser exposto em {@code x-ui.resource.idField}.
      *
      * <p>
-     * A prioridade atual e: parametro explicito da requisicao, propriedade chamada {@code id} no
-     * schema resolvido e, por fim, fallback para {@code id}.
+     * A prioridade atual e: parametro explicito da requisicao, identificador canonico do schema
+     * de resposta do recurso, propriedade chamada {@code id} no schema resolvido e, por fim,
+     * fallback para {@code id}.
      * </p>
      */
     private String resolveIdField(String requestedIdField,
@@ -559,7 +560,44 @@ public class ApiDocsController {
                 }
             }
         }
+        String requiredIdentifier = resolveSingleRequiredIdentifierField(resourceSchemaMap);
+        if (requiredIdentifier != null) {
+            return requiredIdentifier;
+        }
         return null;
+    }
+
+    private String resolveSingleRequiredIdentifierField(Map<String, Object> schemaMap) {
+        Object requiredValue = schemaMap.get("required");
+        if (!(requiredValue instanceof List<?> requiredFields) || requiredFields.size() != 1) {
+            return null;
+        }
+
+        Object candidateValue = requiredFields.get(0);
+        if (!(candidateValue instanceof String candidate) || candidate.isBlank()) {
+            return null;
+        }
+        if (!hasSchemaProperty(schemaMap, candidate)) {
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> props = (Map<String, Object>) schemaMap.get(PROPERTIES);
+        if (props == null || !isScalarIdentifierProperty(props.get(candidate))) {
+            return null;
+        }
+        return candidate;
+    }
+
+    private boolean isScalarIdentifierProperty(Object propertyValue) {
+        if (!(propertyValue instanceof Map<?, ?> property)) {
+            return false;
+        }
+        Object typeValue = property.get("type");
+        if (!(typeValue instanceof String type)) {
+            return false;
+        }
+        return "integer".equals(type) || "number".equals(type) || "string".equals(type);
     }
 
     private JsonNode findResourceResponseSchema(JsonNode rootNode, String path, String operation) {

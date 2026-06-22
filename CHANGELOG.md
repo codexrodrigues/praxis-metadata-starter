@@ -16,6 +16,11 @@ All notable changes to this module will be documented in this file.
 - `x-ui-field.schema.json`, fixtures de exemplo e a RFC de `optionSource` passam a documentar o contrato de filtro rico para buscas corporativas.
 - Requests com `sort` contendo direcao diferente de `asc` ou `desc` agora retornam erro de cliente em vez de serem normalizadas silenciosamente para `ASC`.
 - `OptionSourceEligibility` preserva `OptionSourceExecutionMode.PROVIDER_REQUIRED` ao enriquecer descriptors derivados por stats, evitando fallback JPA indevido para fontes externas.
+- A documentacao de `@UISchema` foi alinhada ao contrato atual de `type`, `controlType`, `numericFormat` e semantica textual para codigos, documentos e identificadores numericos de legado.
+
+### Fixed
+- `CustomOpenApiResolver` agora preserva `x-ui.type=text` e nao publica `valuePresentation` numerico automatico quando um campo com transporte OpenAPI numerico e declarado como texto, controle textual ou mascara textual.
+- `/schemas/filtered` agora pode derivar `x-ui.resource.idField` de um identificador natural escalar obrigatorio quando o DTO de resposta nao possui `id` ou `*Id`, cobrindo recursos como `EmpresaDTO.empresa`.
 
 ## [8.0.0-rc.14] - 2026-04-24
 

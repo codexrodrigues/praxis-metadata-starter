@@ -944,6 +944,113 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    void getFilteredSchemaResolvesNaturalIdFieldFromRequiredResourceResponse() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/api/administracao-pessoal/empresas/filter\": {\n" +
+                "      \"post\": {\n" +
+                "        \"x-ui\": {\"responseSchema\": \"EmpresaDTO\"},\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"application/json\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/EmpresaFilterDTO\"}\n" +
+                "            }\n" +
+                "          }\n" +
+                "        },\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/EmpresaDTO\"}\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    },\n" +
+                "    \"/api/administracao-pessoal/empresas/{id}\": {\n" +
+                "      \"get\": {\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/EmpresaDTO\"}\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"EmpresaFilterDTO\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\n" +
+                "          \"nome\": {\"type\": \"string\"}\n" +
+                "        }\n" +
+                "      },\n" +
+                "      \"EmpresaDTO\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"required\": [\"empresa\"],\n" +
+                "        \"properties\": {\n" +
+                "          \"empresa\": {\"type\": \"integer\"},\n" +
+                "          \"nome\": {\"type\": \"string\"}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/api-administracao-pessoal-empresas"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var requestResponse = controller.getFilteredSchema(
+                "/api/administracao-pessoal/empresas/filter",
+                "post",
+                false,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH);
+
+        Map<String, Object> requestSchema = requestResponse.getBody();
+        assertNotNull(requestSchema);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> requestXUi = (Map<String, Object>) requestSchema.get("x-ui");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> requestResource = (Map<String, Object>) requestXUi.get("resource");
+        assertEquals("empresa", requestResource.get("idField"));
+        assertEquals(Boolean.FALSE, requestResource.get("idFieldValid"));
+        assertEquals("idField not found in schema properties", requestResource.get("idFieldMessage"));
+
+        var responseResponse = controller.getFilteredSchema(
+                "/api/administracao-pessoal/empresas/filter",
+                "post",
+                false,
+                "response",
+                null,
+                null,
+                java.util.Locale.ENGLISH);
+
+        Map<String, Object> responseSchema = responseResponse.getBody();
+        assertNotNull(responseSchema);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseXUi = (Map<String, Object>) responseSchema.get("x-ui");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseResource = (Map<String, Object>) responseXUi.get("resource");
+        assertEquals("empresa", responseResource.get("idField"));
+        assertEquals(Boolean.TRUE, responseResource.get("idFieldValid"));
+        assertFalse(responseResource.containsKey("idFieldMessage"));
+    }
+
+    @Test
     void getFilteredSchemaDoesNotWarnWhenStatsResponseLacksResourceIdField(CapturedOutput output) throws Exception {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("api-human-resources-vw-perfil-heroi");
         String doc = "{\n" +
