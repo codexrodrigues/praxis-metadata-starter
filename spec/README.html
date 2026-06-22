@@ -431,6 +431,12 @@ escalares de exibicao quando a intencao semantica estiver clara.</li>
 <li>MUST NOT: publicar <code>x-ui.valuePresentation</code> automatico
 para ranges, selecoes, arrays, objects ou IDs semanticos sem override
 explicito.</li>
+<li>MUST: preservar semantica textual para codigos, documentos e
+identificadores numericos de legado quando o backend declarar
+<code>x-ui.type=text</code>, controle textual ou mascara textual. Nesses
+casos, o OpenAPI pode continuar publicando transporte numerico, mas a UI
+nao deve receber <code>valuePresentation</code> numerico
+automatico.</li>
 <li>SHOULD: <code>/schemas/filtered</code> enviar <code>ETag</code>
 forte e <code>X-Schema-Hash</code> e expor via
 <code>Access-Control-Expose-Headers</code>.</li>
