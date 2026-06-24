@@ -21,4 +21,28 @@ public class OpenApiGroupResolverTest {
         String group = resolver.resolveGroup("/api/human-resources/funcionarios/filter");
         assertEquals("funcionarios", group);
     }
+
+    @Test
+    void doesNotMatchSiblingResourceWithSharedPrefix() {
+        GroupedOpenApi vinculos = GroupedOpenApi.builder()
+                .group("vinculos")
+                .pathsToMatch("/api/administracao-pessoal/vinculos/**")
+                .build();
+
+        OpenApiGroupResolver resolver = new OpenApiGroupResolver(List.of(vinculos));
+
+        assertNull(resolver.resolveGroup("/api/administracao-pessoal/vinculos-funcionais/{id}/documentos-legais"));
+    }
+
+    @Test
+    void exactBasePathStillMatches() {
+        GroupedOpenApi employees = GroupedOpenApi.builder()
+                .group("employees")
+                .pathsToMatch("/employees", "/employees/**")
+                .build();
+
+        OpenApiGroupResolver resolver = new OpenApiGroupResolver(List.of(employees));
+
+        assertEquals("employees", resolver.resolveGroup("/employees"));
+    }
 }

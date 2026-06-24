@@ -12,6 +12,8 @@ All notable changes to this module will be documented in this file.
   `valuePropertyPath`/`labelPropertyPath`.
 
 ### Changed
+- `OpenApiGroupResolver` agora respeita fronteira de segmento ao resolver grupos, evitando falso match entre recursos com prefixos comuns, como `/vinculos` e `/vinculos-funcionais`.
+- A documentacao do starter agora explicita a forma canonica de publicar controllers customizados de recursos relacionados com `@ApiGroup` e `@RequestMapping` de classe.
 - `EntityLookupDescriptor` agora pode publicar o bloco `filtering` como parte da semantica canonica de `entityLookup`.
 - `x-ui-field.schema.json`, fixtures de exemplo e a RFC de `optionSource` passam a documentar o contrato de filtro rico para buscas corporativas.
 - Requests com `sort` contendo direcao diferente de `asc` ou `desc` agora retornam erro de cliente em vez de serem normalizadas silenciosamente para `ASC`.

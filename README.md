@@ -243,6 +243,38 @@ Use `@UiSurface` quando a UX precisa descobrir semanticamente uma experiencia re
 
 Use `@WorkflowAction` quando a operacao for um comando de negocio explicito.
 
+### Related Resource Controllers
+
+Recursos relacionados podem ser publicados por controller customizado quando a experiencia nao deve virar
+um recurso raiz artificial. Nesse caso, o controller precisa declarar a identidade documental usada pelos
+grupos OpenAPI do starter:
+
+- `@ApiGroup("<grupo-do-dominio>")`
+- `@RequestMapping("<path-base-do-recurso-pai>")`
+- mappings de metodo relativos ao recurso pai, como `@PostMapping("/{parentId}/certifications")`
+
+Exemplo:
+
+```java
+@RestController
+@ApiGroup("human-resources")
+@RequestMapping("/api/hr/employees")
+class EmployeeCertificationController {
+
+    @PostMapping("/{employeeId}/certifications")
+    ResponseEntity<RestApiResponse<CertificationDTO>> create(
+            @PathVariable Long employeeId,
+            @Valid @RequestBody CertificationCommandDTO command
+    ) {
+        // ...
+    }
+}
+```
+
+Com essa modelagem, o path relacionado entra no documento de grupo correto e continua resolvivel por
+`/schemas/filtered?path=/api/hr/employees/{employeeId}/certifications&operation=post&schemaType=request`.
+Nao crie endpoint raiz apenas para satisfazer discovery de schema.
+
 ## What `resourceKey` Actually Means
 
 `resourceKey` e a identidade semantica estavel do recurso na plataforma.

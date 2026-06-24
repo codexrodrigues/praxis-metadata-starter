@@ -134,6 +134,33 @@ class DynamicSwaggerConfigTest {
         assertFalse(aggregated.getPathsToMatch().contains("/external-employees/**"));
     }
 
+    @Test
+    void createDynamicGroupsIncludesCustomRelatedControllerWithApiGroupAndClassBasePath() throws Exception {
+        DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        DynamicSwaggerConfig config = new DynamicSwaggerConfig();
+
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = new LinkedHashMap<>();
+        handlerMethods.put(
+                RequestMappingInfo.paths("/api/hr/employees/{employeeId}/certifications").methods(RequestMethod.POST).build(),
+                new HandlerMethod(new EmployeeCertificationController(),
+                        EmployeeCertificationController.class.getMethod("createCertification"))
+        );
+        when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
+
+        ReflectionTestUtils.setField(config, "beanFactory", beanFactory);
+        ReflectionTestUtils.setField(config, "handlerMapping", handlerMapping);
+        ReflectionTestUtils.setField(config, "apiResourceValidationMode", "IGNORE");
+        ReflectionTestUtils.setField(config, "applicationContext", null);
+
+        config.createDynamicGroups();
+
+        assertTrue(beanFactory.containsSingleton("hr_ApiGroup"));
+        GroupedOpenApi aggregated = (GroupedOpenApi) beanFactory.getSingleton("hr_ApiGroup");
+        assertEquals("hr", aggregated.getGroup());
+        assertEquals(List.of("/api/hr/employees", "/api/hr/employees/**"), aggregated.getPathsToMatch());
+    }
+
     @ApiResource(value = "/api/test/products", resourceKey = "test.products")
     @ApiGroup("catalog")
     @Profile("dynamic-swagger-config-test")
@@ -167,6 +194,16 @@ class DynamicSwaggerConfigTest {
     @ApiGroup("external")
     @Profile("dynamic-swagger-config-test")
     static final class ExternalCatalogController extends BaseTestController {
+    }
+
+    @ApiGroup("hr")
+    @RequestMapping("/api/hr/employees")
+    @Profile("dynamic-swagger-config-test")
+    static final class EmployeeCertificationController {
+
+        @RequestMapping(path = "/{employeeId}/certifications", method = RequestMethod.POST)
+        public void createCertification() {
+        }
     }
 
     abstract static class BaseTestController extends AbstractResourceQueryController<TestDto, Long, TestFilterDTO> {

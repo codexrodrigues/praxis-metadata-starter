@@ -124,6 +124,14 @@ class StarterBootstrapE2ETest {
         JsonNode patchSchemaBody = body(patchSchemaResponse);
         assertEquals("string", patchSchemaBody.path("properties").path("nome").path("type").asText());
 
+        ResponseEntity<String> certificationSchemaResponse = get(
+                "/schemas/filtered?path=/employees/%7BemployeeId%7D/certifications&operation=post&schemaType=request"
+        );
+        assertEquals(200, certificationSchemaResponse.getStatusCode().value());
+        JsonNode certificationSchemaBody = body(certificationSchemaResponse);
+        assertEquals("string", certificationSchemaBody.path("properties").path("title").path("type").asText());
+        assertEquals("string", certificationSchemaBody.path("properties").path("issuedAt").path("type").asText());
+
         ResponseEntity<String> catalogResponse = get("/schemas/catalog?path=/employees");
         assertEquals(200, catalogResponse.getStatusCode().value());
         JsonNode catalogBody = body(catalogResponse);
@@ -136,6 +144,7 @@ class StarterBootstrapE2ETest {
         assertTrue(openApiGroupBody.path("paths").has("/employees"));
         assertTrue(openApiGroupBody.path("paths").has("/employees/all"));
         assertTrue(openApiGroupBody.path("paths").has("/employees/{id}/profile"));
+        assertTrue(openApiGroupBody.path("paths").has("/employees/{employeeId}/certifications"));
     }
 
     private ResponseEntity<String> get(String path) {

@@ -77,7 +77,7 @@ public class OpenApiGroupResolver {
                 String normalized = normalize(pattern);
                 
                 // ✅ PASSO 3: Verificar se o path faz match com o padrão
-                if (requestPath.startsWith(normalized)) {
+                if (matchesPathBoundary(requestPath, normalized)) {
                     // 🏆 PASSO 4: Priorizar matches mais específicos (padrões mais longos)
                     if (normalized.length() > bestMatchLength) {
                         bestMatch = groupedOpenApi.getGroup();
@@ -113,5 +113,15 @@ public class OpenApiGroupResolver {
         
         // 📋 Retorna padrão inalterado se não tiver wildcards
         return pattern;
+    }
+
+    private boolean matchesPathBoundary(String requestPath, String normalizedPattern) {
+        if (normalizedPattern == null || normalizedPattern.isEmpty()) {
+            return false;
+        }
+        if (requestPath.equals(normalizedPattern)) {
+            return true;
+        }
+        return requestPath.startsWith(normalizedPattern + "/");
     }
 }

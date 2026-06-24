@@ -41,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.nio.charset.StandardCharsets;
@@ -639,6 +640,25 @@ class EmployeeController extends org.praxisplatform.uischema.controller.base.Abs
                 linkToUiSchema("/actions/bulk-approve", "post", "response")
         );
         return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(links)));
+    }
+}
+
+@org.springframework.web.bind.annotation.RestController
+@ApiGroup("human-resources")
+@RequestMapping("/employees")
+class EmployeeCertificationController {
+
+    @PostMapping("/{employeeId}/certifications")
+    @Operation(summary = "Create employee certification")
+    public ResponseEntity<RestApiResponse<EmployeeCertificationDTO>> createCertification(
+            @PathVariable Long employeeId,
+            @Valid @RequestBody EmployeeCertificationCommandDTO command
+    ) {
+        EmployeeCertificationDTO certification = new EmployeeCertificationDTO();
+        certification.setId(employeeId * 1000);
+        certification.setTitle(command.getTitle());
+        certification.setIssuedAt(command.getIssuedAt());
+        return ResponseEntity.ok(RestApiResponse.success(certification, Links.NONE));
     }
 }
 
