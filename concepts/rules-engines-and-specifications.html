@@ -171,12 +171,12 @@
 <h1 id="rules-engines-and-specifications">Rules Engines and
 Specifications</h1>
 <h2 id="definicao-curta">Definicao curta</h2>
-<p>Usar regras e specifications para expressar comportamento,
-visibilidade, validacao e efeitos visuais sem espalhar logica
-imperativa.</p>
+<p>Usar regras canônicas e materializações de runtime para expressar
+comportamento, visibilidade, validacao e efeitos visuais sem espalhar
+logica imperativa.</p>
 <h2 id="onde-aparece-no-praxis">Onde aparece no Praxis</h2>
 <ul>
-<li>Frontend: <code>@praxisui/specification</code></li>
+<li>Frontend: contratos Json Logic em <code>@praxisui/core</code></li>
 <li>Frontend: <code>@praxisui/table</code></li>
 <li>Frontend: <code>@praxisui/visual-builder</code></li>
 <li>Backend: specifications no ecossistema Spring Data</li>
@@ -185,8 +185,14 @@ imperativa.</p>
 <ul>
 <li>repositório público:
 <code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
-<li>pacotes: <code>@praxisui/specification</code>,
-<code>@praxisui/table</code>, <code>@praxisui/visual-builder</code></li>
+<li>pacotes: <code>@praxisui/core</code>, <code>@praxisui/table</code>,
+<code>@praxisui/visual-builder</code>,
+<code>@praxisui/table-rule-builder</code></li>
 </ul>
+<h2 id="pacotes-aposentados">Pacotes aposentados</h2>
+<p><code>@praxisui/specification</code> e
+<code>@praxisui/specification-core</code> foram removidos do inventario
+canônico do workspace Angular. Novas integrações devem usar Json Logic
+serializável e os runtimes/editores ativos.</p>
 </body>
 </html>
