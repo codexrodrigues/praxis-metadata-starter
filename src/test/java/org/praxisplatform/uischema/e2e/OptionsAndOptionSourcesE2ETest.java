@@ -85,6 +85,24 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
         assertEquals("Human Resources", departmentLightLookupByIdsBody.get(1).path("label").asText());
         assertTrue(departmentLightLookupByIdsBody.isArray());
 
+        ResponseEntity<String> departmentLightLookupByIdsPostResponse = postJson(
+                "/employees/option-sources/departmentLightLookup/options/by-ids",
+                """
+                {
+                  "filter": {},
+                  "ids": [%d, %d]
+                }
+                """.formatted(
+                        state.humanResourcesDepartmentId(),
+                        state.operationsDepartmentId()
+                )
+        );
+        assertEquals(200, departmentLightLookupByIdsPostResponse.getStatusCode().value());
+        JsonNode departmentLightLookupByIdsPostBody = body(departmentLightLookupByIdsPostResponse);
+        assertEquals("Human Resources", departmentLightLookupByIdsPostBody.get(0).path("label").asText());
+        assertEquals("Operations", departmentLightLookupByIdsPostBody.get(1).path("label").asText());
+        assertTrue(departmentLightLookupByIdsPostBody.isArray());
+
         ResponseEntity<String> employeeLookupResponse = postJson(
                 "/employees/option-sources/employeeEntityLookup/options/filter?search=Human&page=0&size=10",
                 "{}"

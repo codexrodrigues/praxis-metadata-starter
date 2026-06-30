@@ -71,6 +71,7 @@ class DateFieldUISchemaTest {
             @Override public boolean formHidden() { return false; }
             @Override public boolean filterable() { return false; }
             @Override public String conditionalDisplay() { return ""; }
+            @Override public String dependsOn() { return ""; }
             @Override public String dependentField() { return ""; }
             @Override public boolean resetOnDependentChange() { return false; }
             @Override public boolean inlineEditing() { return false; }

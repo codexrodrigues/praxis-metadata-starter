@@ -36,6 +36,7 @@ class EndpointPropertiesTest {
 
         @UISchema(
                 controlType = FieldControlType.SELECT,
+                dependsOn = "empresaId, filialId",
                 extraProperties = {
                         @ExtensionProperty(name = "optionSource.key", value = "payrollProfile"),
                         @ExtensionProperty(name = "optionSource.type", value = "DISTINCT_DIMENSION"),
@@ -46,6 +47,12 @@ class EndpointPropertiesTest {
                 }
         )
         private String profile;
+
+        @UISchema(
+                controlType = FieldControlType.SELECT,
+                dependsOn = "empresaId, filialId"
+        )
+        private String dependent;
     }
 
     @Test
@@ -91,6 +98,23 @@ class EndpointPropertiesTest {
         assertEquals(25, optionSource.get("pageSize"));
         assertEquals(java.util.List.of("universo"), optionSource.get("dependsOn"));
         assertEquals(Map.of("universo", "empresa.universo"), optionSource.get("dependencyFilterMap"));
+    }
+
+    @Test
+    void publishesAnnotationDependsOnAsOptionSourceDependencies() throws NoSuchFieldException {
+        Schema<?> schema = new Schema<>();
+        schema.setName("dependent");
+
+        Field field = DummyDTO.class.getDeclaredField("dependent");
+        resolver.applyBeanValidatorAnnotations(schema, field.getAnnotations(), null, true);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> xUi = (Map<String, Object>) schema.getExtensions().get("x-ui");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> optionSource = (Map<String, Object>) xUi.get("optionSource");
+
+        assertNotNull(optionSource);
+        assertEquals(java.util.List.of("empresaId", "filialId"), optionSource.get("dependsOn"));
     }
 }
 

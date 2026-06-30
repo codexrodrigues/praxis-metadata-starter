@@ -124,6 +124,7 @@ public @interface UISchema {
 
     // 6. Dependências e Ações Dinâmicas
     String conditionalDisplay() default "";
+    String dependsOn() default "";
     String dependentField() default "";
     boolean resetOnDependentChange() default false;
 

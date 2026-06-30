@@ -5,6 +5,9 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- Endpoint `POST /{resource}/option-sources/{sourceKey}/options/by-ids` com `OptionSourceByIdsRequest` para selected-value reload contextual sem quebrar o `GET .../by-ids` canonico.
+- API publica `OptionSourceByIdsRequest` para extensoes de service provider-backed que precisam tratar selected-value reload por IDs sem criar contrato local no host.
+- Propriedade `@UISchema.dependsOn()` como atalho canonico para publicar dependencias de LOV/options em `x-ui.optionSource.dependsOn`.
 - Contrato canonico de filtro rico para `RESOURCE_ENTITY` em `x-ui.optionSource.filtering`, com `availableFilters`, `defaultFilters`, `sortOptions`, `defaultSort`, `quickFilterFields` e `searchPlaceholder`.
 - Tipos publicos `LookupFilterDefinition`, `LookupFilteringDescriptor` e `LookupSortOption` para publicar o contrato de filtro rico no starter sem convencoes locais de frontend.
 - Execucao JPA compartilhada para `LIGHT_LOOKUP`, com projeção leve `OptionDTO{id,label}`,

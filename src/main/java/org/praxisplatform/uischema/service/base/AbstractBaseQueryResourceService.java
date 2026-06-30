@@ -11,6 +11,7 @@ import org.praxisplatform.uischema.filter.specification.GenericSpecification;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
 import org.praxisplatform.uischema.mapper.base.OptionMapper;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
+import org.praxisplatform.uischema.options.OptionSourceByIdsRequest;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.praxisplatform.uischema.options.OptionSourceEligibility;
@@ -334,6 +335,15 @@ public abstract class AbstractBaseQueryResourceService<
         }
         OptionSourceDescriptor descriptor = resolveEffectiveOptionSource(sourceKey);
         return optionSourceQueryExecutor.byIdsOptions(entityManager, entityClass, descriptor, ids);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OptionDTO<Object>> byIdsOptionSourceOptions(
+            String sourceKey,
+            OptionSourceByIdsRequest<FilterDTO> request
+    ) {
+        return byIdsOptionSourceOptions(sourceKey, request == null ? List.of() : request.ids());
     }
 
     @Override

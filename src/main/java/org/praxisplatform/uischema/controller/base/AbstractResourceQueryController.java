@@ -15,6 +15,7 @@ import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.exporting.CollectionExportRequest;
 import org.praxisplatform.uischema.exporting.CollectionExportResult;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.options.OptionSourceByIdsRequest;
 import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.praxisplatform.uischema.options.UnknownOptionSourceException;
 import org.praxisplatform.uischema.rest.response.RestApiResource;
@@ -827,6 +828,42 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                     ResponseEntity.ok(),
                     sourceKey,
                     getService().byIdsOptionSourceOptions(sourceKey, List.copyOf(ids))
+            );
+        } catch (UnknownOptionSourceException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), ex);
+        } catch (UnsupportedOperationException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), ex);
+        }
+    }
+
+    @PostMapping("/option-sources/{sourceKey}/options/by-ids")
+    @Operation(summary = "Buscar opcoes derivadas por IDs com contexto")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Opcoes retornadas sem envelope."),
+            @ApiResponse(responseCode = "404", description = "Option-source inexistente."),
+            @ApiResponse(responseCode = "422", description = "Payload ou IDs invalidos."),
+            @ApiResponse(responseCode = "501", description = "Capability ou provider nao implementado.")
+    })
+    public ResponseEntity<List<OptionDTO<Object>>> postOptionSourceOptionsByIds(
+            @PathVariable String sourceKey,
+            @RequestBody(required = false) OptionSourceByIdsRequest<FD> request
+    ) {
+        try {
+            Collection<Object> ids = request == null ? List.of() : request.ids();
+            if (ids.isEmpty()) {
+                getService().resolveOptionSource(sourceKey);
+                return withOptionSourceVersion(ResponseEntity.ok(), sourceKey, List.of());
+            }
+            if (ids.size() > byIdsMax) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "Maximum number of IDs exceeded: " + byIdsMax);
+            }
+            return withOptionSourceVersion(
+                    ResponseEntity.ok(),
+                    sourceKey,
+                    getService().byIdsOptionSourceOptions(sourceKey, request)
             );
         } catch (UnknownOptionSourceException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);

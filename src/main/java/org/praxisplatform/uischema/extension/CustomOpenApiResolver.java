@@ -1492,6 +1492,9 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (!annotation.conditionalDisplay().isEmpty()) {
             uiExtension.put(FieldConfigProperties.CONDITIONAL_DISPLAY.getValue(), annotation.conditionalDisplay());
         }
+        if (!annotation.dependsOn().isEmpty()) {
+            putNestedExtraProperty(uiExtension, "optionSource.dependsOn", parseDependsOn(annotation.dependsOn()));
+        }
         if (!annotation.dependentField().isEmpty()) {
             uiExtension.put(FieldConfigProperties.DEPENDENT_FIELD.getValue(), annotation.dependentField());
         }
@@ -1961,6 +1964,21 @@ public class CustomOpenApiResolver extends ModelResolver {
             }
         }
         return trimmed;
+    }
+
+    private Object parseDependsOn(String value) {
+        Object parsed = parseNestedExtraPropertyValue(value);
+        if (parsed instanceof List<?> || parsed instanceof Map<?, ?>) {
+            return parsed;
+        }
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            return List.of();
+        }
+        return Arrays.stream(normalized.split(","))
+                .map(String::trim)
+                .filter(part -> !part.isEmpty())
+                .toList();
     }
 
     private boolean looksLikeStructuredLiteral(String value) {

@@ -6,6 +6,7 @@ import org.praxisplatform.uischema.exporting.CollectionExportCapability;
 import org.praxisplatform.uischema.exporting.CollectionExportRequest;
 import org.praxisplatform.uischema.exporting.CollectionExportResult;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.options.OptionSourceByIdsRequest;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
@@ -87,6 +88,13 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
     );
 
     List<OptionDTO<Object>> byIdsOptionSourceOptions(String sourceKey, Collection<Object> ids);
+
+    default List<OptionDTO<Object>> byIdsOptionSourceOptions(
+            String sourceKey,
+            OptionSourceByIdsRequest<FilterDTO> request
+    ) {
+        return byIdsOptionSourceOptions(sourceKey, request == null ? List.of() : request.ids());
+    }
 
     GroupByStatsResponse groupByStats(GroupByStatsRequest<FilterDTO> request);
 
