@@ -364,6 +364,10 @@ padronizados.</li>
 interfaces dinâmicas; <code>dependentField</code> é legado/condicional e
 não substitui <code>x-ui.optionSource.dependsOn</code> em cascatas de
 option-source.</li>
+<li><strong>Dependências de options</strong>: use <code>dependsOn</code>
+para publicar cascatas de LOV/options. O resolver materializa o valor em
+<code>x-ui.optionSource.dependsOn</code>; valores separados por vírgula
+viram lista, e literais JSON de lista/mapa são preservados.</li>
 <li><strong>Internacionalização</strong>: preencha labels com
 <code>MessageSource</code> e resolva em runtime usando
 <code>LocaleUtils</code>.</li>

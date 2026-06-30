@@ -11,6 +11,23 @@ Endpoints canonicos:
 - `GET /{resource}/options/by-ids?ids=1&ids=2`
 - `POST /{resource}/option-sources/{sourceKey}/options/filter`
 - `GET /{resource}/option-sources/{sourceKey}/options/by-ids?ids=a&ids=b`
+- `POST /{resource}/option-sources/{sourceKey}/options/by-ids`
+
+Para selected-value reload por IDs, o contrato HTTP canonico permanece o
+endpoint `GET .../options/by-ids?ids=...`. Quando a reidratacao precisar de
+contexto/filtro tipado, use o endpoint `POST .../options/by-ids` com
+`OptionSourceByIdsRequest<FilterDTO>`:
+
+```json
+{
+  "filter": {},
+  "ids": ["1", "2"]
+}
+```
+
+Services provider-backed podem sobrescrever a sobrecarga Java com
+`OptionSourceByIdsRequest<FilterDTO>` para tratar esse contexto no mesmo nivel
+de extensao usado por `OptionSourceFilterRequest`.
 
 Para `option-sources/{sourceKey}/options/filter`, o contrato canônico de request
 agora é um envelope único que cobre:
@@ -121,6 +138,7 @@ Importante:
 - `x-ui.optionSource.resourcePath` e o path base do recurso
 - o runtime Angular compoe `.../option-sources/{key}/options/filter`
 - quando `optionSource` existe, ele passa a ser a referencia canonica preferencial sobre o shape `endpoint`
+- dependencias de LOV/options devem ser publicadas em `x-ui.optionSource.dependsOn`; em DTOs, `@UISchema(dependsOn = "empresaId, filialId")` materializa essa chave automaticamente.
 
 ## Como o Angular consome isso
 
