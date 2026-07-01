@@ -106,7 +106,10 @@ Para hosts e exemplos self-describing, a declaracao explicita deve ser preferida
 ### Acesso contextual em nivel de campo
 
 `@UISchema` pode publicar `x-ui.fieldAccess` para declarar authorities requeridas
-para leitura ou edicao de campos corporativos.
+para leitura ou edicao de campos corporativos. Essas authorities usam o mesmo
+vocabulario declarativo das surfaces/actions; elas nao sao automaticamente iguais
+ao bloco `capabilities` de runtime, a menos que o host publique esse mapeamento de
+forma explicita.
 
 Exemplo:
 
@@ -122,7 +125,9 @@ private BigDecimal salario;
 Esse bloco orienta runtimes metadata-driven e assistentes de IA sobre a politica
 esperada, mas nao substitui a autorizacao do host. O backend consumidor deve aplicar
 a mesma politica em services, validators ou filtros de seguranca antes de retornar ou
-persistir dados sensiveis.
+persistir dados sensiveis. `fieldAccessReason` explica a politica para auditoria e
+UX, mas nao define acesso sozinho; ao menos uma lista de authorities deve existir
+quando `x-ui.fieldAccess` for publicado.
 
 ### Authoring semantico de metadata
 
