@@ -268,6 +268,8 @@ apenas DTO plano de conjuncao simples</li>
 por <code>@UiSurface</code> e <code>@WorkflowAction</code></li>
 <li>declarar campos sensiveis com <code>@DomainGovernance</code> e
 politicas de IA tipadas por <code>AiUsageMode</code></li>
+<li>declarar <code>x-ui.fieldAccess</code> para campos cuja visibilidade
+ou editabilidade dependa de authorities do contexto corporativo</li>
 <li>adotar <code>custom.*</code> para extensoes privadas do host</li>
 <li>publicar <code>x-ui.optionSource</code> para fontes derivadas
 governadas, evitando promover <code>INPUT</code> em campos com semantica
@@ -289,6 +291,8 @@ o service declarar suporte real a exportacao de colecao</li>
 -&gt; renderizacao de formulario</li>
 <li><code>readOnly</code>, <code>disabled</code> -&gt;
 <code>field-state.util.ts</code> e componentes</li>
+<li><code>fieldAccess</code> -&gt; UX condicional de leitura/edicao e
+evidencia para validacao backend corporativa</li>
 <li>validacoes (<code>required</code>, <code>minLength</code>,
 <code>maxLength</code>, <code>pattern</code>, <code>min</code>,
 <code>max</code>, <code>range</code>, <code>*Message</code>) -&gt;
