@@ -3,8 +3,10 @@ package org.praxisplatform.uischema.options;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -77,6 +79,32 @@ class OptionSourceRegistryTest {
 
         assertTrue(merged.contains(PayrollView.class, "payrollProfile"));
         assertTrue(merged.contains(HeroView.class, "universo"));
+    }
+
+    @Test
+    void governedCatalogCreatesProviderBackedLookupWithCanonicalRuntimeMetadata() {
+        OptionSourceDescriptor descriptor = GovernedOptionSourceCatalog.providerBackedLookup(
+                "paymentTerms",
+                "/api/procurement/suppliers",
+                null,
+                "label",
+                "id",
+                List.of("companyId"),
+                Map.of("companyId", "companyId"),
+                new OptionSourcePolicy(false, true, "contains", 3, 10, 20, false, false, "label")
+        );
+
+        OptionSourceRegistry registry = GovernedOptionSourceCatalog.registry(PayrollView.class, descriptor);
+        OptionSourceDescriptor resolved = registry.resolve(PayrollView.class, "paymentTerms").orElseThrow();
+
+        assertSame(descriptor, resolved);
+        assertEquals(OptionSourceExecutionMode.PROVIDER_REQUIRED, resolved.executionMode());
+        assertEquals("/api/procurement/suppliers/option-sources/paymentTerms/options/filter",
+                resolved.runtimeContract().filterEndpoint());
+        assertEquals("/api/procurement/suppliers/option-sources/paymentTerms/options/by-ids",
+                resolved.runtimeContract().byIdsEndpoint());
+        assertEquals(OptionSourceSelectedReloadPolicy.REQUIRED, resolved.runtimeContract().selectedReloadPolicy());
+        assertEquals(Map.of("companyId", "companyId"), resolved.dependencyFilterMap());
     }
 
     static final class PayrollView {

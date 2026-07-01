@@ -31,6 +31,7 @@ plataforma.
 3. [Guia 04 - Quando usar Resource, Surface, Action e Capability](guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html)
 4. [Guia 05 - Do CRUD ao Contrato Semantico](guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
 5. [Guia 06 - Redacao Semantica de Annotations para IA](guides/GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html)
+6. [Semantic Metadata Authoring](guides/SEMANTIC-METADATA-AUTHORING.html)
 
 ### Quero integrar um runtime Angular
 

@@ -71,6 +71,17 @@ import static java.lang.annotation.ElementType.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface UISchema {
+    /**
+     * Presentation-only preset for repetitive enterprise field metadata.
+     *
+     * <p>
+     * Presets may set {@code x-ui} presentation keys such as type, control,
+     * width, icon and numeric format. They never generate domain descriptions.
+     * Keep {@code @Schema(description = ...)} explicit and business-specific.
+     * </p>
+     */
+    UISchemaPreset preset() default UISchemaPreset.NONE;
+
     // Propriedades básicas do Schema
     String description() default "";
     String example() default "";

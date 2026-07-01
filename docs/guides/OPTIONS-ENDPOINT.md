@@ -136,7 +136,9 @@ registrada para o `resourcePath`, ele enriquece o schema com `x-ui.optionSource`
 Importante:
 
 - `x-ui.optionSource.resourcePath` e o path base do recurso
-- o runtime Angular compoe `.../option-sources/{key}/options/filter`
+- `x-ui.optionSource.filterEndpoint` e `x-ui.optionSource.byIdsEndpoint` sao os endpoints canonicos quando publicados; runtimes antigos ainda podem compor `.../option-sources/{key}/options/filter`
+- `x-ui.optionSource.selectedReloadPolicy` declara se a reidratacao por IDs e obrigatoria, suportada, dispensada por waiver ou nao aplicavel
+- `x-ui.optionSource.invalidSortPolicy` declara se sort invalido deve ser rejeitado, ignorado ou tratado como nao suportado
 - quando `optionSource` existe, ele passa a ser a referencia canonica preferencial sobre o shape `endpoint`
 - dependencias de LOV/options devem ser publicadas em `x-ui.optionSource.dependsOn`; em DTOs, `@UISchema(dependsOn = "empresaId, filialId")` materializa essa chave automaticamente.
 

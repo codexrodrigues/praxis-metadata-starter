@@ -31,6 +31,7 @@ Use estes entry points primeiro:
 - Conformance: [docs/spec/CONFORMANCE.md](docs/spec/CONFORMANCE.md)
 - Guide 01 - Application setup: [docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
 - Guide 02 - Canonical resource backend: [docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md)
+- Semantic metadata authoring: [docs/guides/SEMANTIC-METADATA-AUTHORING.md](docs/guides/SEMANTIC-METADATA-AUTHORING.md)
 - Options and option-sources: [docs/guides/OPTIONS-ENDPOINT.md](docs/guides/OPTIONS-ENDPOINT.md)
 - Guide 04 - When to use resource, surface, action, capability: [docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
 - GitHub Pages site: [https://codexrodrigues.github.io/praxis-metadata-starter/](https://codexrodrigues.github.io/praxis-metadata-starter/)
@@ -75,6 +76,7 @@ O baseline atual adiciona discovery orientado a recurso:
 Regras importantes:
 
 - `surfaces` e `actions` sao catalogos semanticos; nao redefinem schema inline
+- surfaces relacionadas podem publicar `relatedResource` para explicitar colecao filha, binding com o item pai, selecao e operacoes da colecao filha
 - `domain` agrega vocabulario, aliases, evidencias e governanca derivados de fontes canonicas
 - `capabilities` agrega o que existe agora sem virar uma segunda fonte de verdade do contrato
 - ausencia em `actions` e `capabilities` nao tem a mesma semantica
@@ -101,6 +103,23 @@ O contrato Java usa enums publicos para evitar drift de tokens:
 Quando a anotacao nao existir, o catalogo pode aplicar heuristicas de fallback.
 Para hosts e exemplos self-describing, a declaracao explicita deve ser preferida.
 
+### Authoring semantico de metadata
+
+`@UISchema(preset = ...)` acelera metadados repetitivos de apresentacao, como codigo,
+status, valor monetario, booleano, documento legal, tenant e timestamp de auditoria.
+
+O preset:
+
+- publica `x-ui.presentationPreset`
+- pode preencher `type`, `controlType`, `width`, `icon`, `numericFormat` e metadados visuais similares
+- nao gera `@Schema(description=...)`
+- nao substitui `@DomainGovernance`
+- nao corrige fronteira errada entre DTO publico, comando, filtro ou contexto privado
+
+Use `SemanticMetadataReviewer` em testes, IDEs ou agentes para listar campos que ainda precisam de
+documentacao humana de dominio. O reviewer aponta descricoes ausentes, descricoes copiadas do label,
+texto derivado de camelCase e campos como `tenantId`, `userId` ou `sessionId` publicados sem governanca.
+
 ### `capabilities.operations` como semantica minima canonica
 
 Para o baseline novo de CRUD inferido no frontend oficial, `capabilities` precisa expor um bloco operacional minimo por acao canonica.
@@ -119,6 +138,7 @@ Operacoes canonicas esperadas:
 - `view`
 - `edit`
 - `delete`
+- `duplicate-draft`, quando o recurso publicar suporte explicito
 
 Papel de cada camada:
 
@@ -126,12 +146,14 @@ Papel de cada camada:
 - `/schemas/filtered` continua sendo a fonte estrutural de request/response schema
 - `surfaces` e `actions` continuam sendo discovery semantico rico quando publicados
 - `_links` entram como camada operacional/contextual para escolher o target real de execucao
+- `ResourceOperationAvailabilityProvider` permite ao host aplicar disponibilidade dinamica de operacoes canonicas sem vazar guards legados, tenant, sessao ou permissao privada
 
 Em outras palavras:
 
 - `capabilities` nao substitui schema
 - `capabilities` nao deve carregar schema inline
 - `capabilities` governa operacao; schema continua vindo do contrato estrutural e dos catalogos semanticos
+- `_links` devem permanecer coerentes com `capabilities.operations.*.availability`
 
 ### Regras de delete canonico
 
@@ -226,9 +248,11 @@ o executor rejeita o formato com `400 Bad Request` pela mesma trilha de validaca
 O baseline canonico para recursos metadata-driven e:
 
 - `AbstractResourceController`
+- `AbstractLegacyBackedResourceController`, quando a escrita for delegada a backend legado mantendo contrato publico resource-oriented
 - `AbstractReadOnlyResourceController`
 - `AbstractBaseResourceService`
 - `AbstractReadOnlyResourceService`
+- `LegacyBackedResourceService`, quando create/update/delete/duplicate-draft forem executados por porta/adaptador do host
 - `ResourceMapper`
 - `@ApiResource(value = ..., resourceKey = ...)`
 
@@ -240,6 +264,21 @@ Adote DTOs separados:
 - `FilterDTO`
 
 Use `@UiSurface` quando a UX precisa descobrir semanticamente uma experiencia real.
+
+Para colecoes relacionadas ao item atual, publique uma surface `ITEM` sobre a operacao real e preencha
+os campos `related*` da anotacao:
+
+- `relatedChildResourceKey`
+- `relatedChildResourcePath`
+- `relatedChildParentField`
+- `relatedSelectable`
+- `relatedSelectionKeyField`
+- `relatedChildOperations`
+
+O starter materializa esses campos em `relatedResource` dentro de `/schemas/surfaces` e de
+`GET /{resource}/{id}/surfaces`. Isso permite que o runtime monte listas filhas, selecao e comandos
+da colecao relacionada sem mapa local de frontend. O payload continua vindo da operacao HTTP real e o
+schema continua resolvido por `/schemas/filtered`.
 
 Use `@WorkflowAction` quando a operacao for um comando de negocio explicito.
 
@@ -386,13 +425,21 @@ Quando houver discovery `ITEM`, valide tambem:
 - `GET /{resource}/{id}/actions`
 - `responseCardinality` das surfaces de leitura item-level, especialmente quando a operacao
   projeta colecoes relacionadas como historicos, eventos, participantes ou linhas analiticas
+- `relatedResource.childResourceKey`, `childResourcePath`, `childParentField`, `selectable`,
+  `selectionKeyField` e `childOperations` quando a surface publicar uma colecao filha relacionada
 
 Quando o recurso publicar `OptionSourceRegistry`, valide tambem:
 
 - `POST /{resource}/option-sources/{sourceKey}/options/filter`
 - `GET /{resource}/option-sources/{sourceKey}/options/by-ids`
 - `x-ui.optionSource` em `/schemas/filtered` para os campos governados por essa source
+- `filterEndpoint`, `byIdsEndpoint`, `selectedReloadPolicy` e `invalidSortPolicy` no metadata emitido
 - quando `RESOURCE_ENTITY` publicar `filtering`, valide tambem `availableFilters`, `defaultFilters`, `sortOptions` e `defaultSort` no schema emitido
+
+Para lookups corporativos provider-backed, prefira `GovernedOptionSourceCatalog.providerBackedLookup(...)`
+em vez de remontar manualmente `OptionSourceDescriptor` em cada service. O builder preserva o registry
+canonico existente e apenas materializa endpoints, dependency mapping, reload por IDs e politica de sort
+como contrato publico de runtime.
 
 ## Internal OpenAPI Base Resolution
 

@@ -9,6 +9,7 @@ import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.FieldDataType;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
+import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
 
 import java.lang.annotation.Annotation;
@@ -37,6 +38,7 @@ class FilterableBetweenListDetectionTest {
         return new UISchema() {
             @Override
             public Class<? extends Annotation> annotationType() { return UISchema.class; }
+            @Override public UISchemaPreset preset() { return UISchemaPreset.NONE; }
             @Override public String description() { return ""; }
             @Override public String example() { return ""; }
             @Override public String name() { return ""; }

@@ -5,6 +5,15 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- SPI publica `ResourceOperationAvailabilityProvider` para availability host-neutral de operacoes canonicas de recurso, integrada a `/capabilities` e `_links`.
+- Tipos publicos `ResourceOperationAvailabilityContext` e `NoOpResourceOperationAvailabilityProvider` para hosts corporativos plugar guards legados sem expor detalhes privados no contrato.
+- Base canonica `AbstractLegacyBackedResourceController` e portas `LegacyBackedResourceService` / `LegacyBackedResourceCommandService` para recursos mutaveis resource-oriented com escrita delegada ao host legado.
+- Operacao canonica opcional `duplicate-draft` em `capabilities.operations` quando o recurso publica `POST /{resource}/{id}/duplicate-draft`.
+- Builder publico `GovernedOptionSourceCatalog` para declarar lookups provider-backed com endpoints canonicos, dependency mapping, selected-value reload e politica de sort sem boilerplate por service.
+- Contrato publico `OptionSourceRuntimeContract`, `OptionSourceSelectedReloadPolicy` e `OptionSourceInvalidSortPolicy` para projetar `filterEndpoint`, `byIdsEndpoint`, `selectedReloadPolicy` e `invalidSortPolicy` em `x-ui.optionSource`.
+- Contrato publico `RelatedResourceSurface` e `RelatedResourceChildOperation` para que `@UiSurface` descreva colecoes filhas relacionadas, binding do item pai, selecao e affordances da colecao filha em `/schemas/surfaces`.
+- `@UISchema.preset()` e `UISchemaPreset` para acelerar metadados repetitivos de apresentacao sem gerar texto de dominio; o resolver publica `x-ui.presentationPreset`.
+- API publica `SemanticMetadataReviewer` para gerar relatorio de qualidade de autoria, apontando descricoes ausentes, copiadas de labels, derivadas de nomes de campos e vazamento de contexto privado sem governanca.
 - Endpoint `POST /{resource}/option-sources/{sourceKey}/options/by-ids` com `OptionSourceByIdsRequest` para selected-value reload contextual sem quebrar o `GET .../by-ids` canonico.
 - API publica `OptionSourceByIdsRequest` para extensoes de service provider-backed que precisam tratar selected-value reload por IDs sem criar contrato local no host.
 - Propriedade `@UISchema.dependsOn()` como atalho canonico para publicar dependencias de LOV/options em `x-ui.optionSource.dependsOn`.
@@ -15,6 +24,7 @@ All notable changes to this module will be documented in this file.
   `valuePropertyPath`/`labelPropertyPath`.
 
 ### Changed
+- `_links` de create/edit/delete/export passam a respeitar a availability canonica avaliada pelo `CapabilityService`, evitando divergencia entre HATEOAS e `/capabilities`.
 - `OpenApiGroupResolver` agora respeita fronteira de segmento ao resolver grupos, evitando falso match entre recursos com prefixos comuns, como `/vinculos` e `/vinculos-funcionais`.
 - A documentacao do starter agora explicita a forma canonica de publicar controllers customizados de recursos relacionados com `@ApiGroup` e `@RequestMapping` de classe.
 - `EntityLookupDescriptor` agora pode publicar o bloco `filtering` como parte da semantica canonica de `entityLookup`.
@@ -22,6 +32,8 @@ All notable changes to this module will be documented in this file.
 - Requests com `sort` contendo direcao diferente de `asc` ou `desc` agora retornam erro de cliente em vez de serem normalizadas silenciosamente para `ASC`.
 - `OptionSourceEligibility` preserva `OptionSourceExecutionMode.PROVIDER_REQUIRED` ao enriquecer descriptors derivados por stats, evitando fallback JPA indevido para fontes externas.
 - A documentacao de `@UISchema` foi alinhada ao contrato atual de `type`, `controlType`, `numericFormat` e semantica textual para codigos, documentos e identificadores numericos de legado.
+- `@UiSurface` agora pode publicar `relatedResource` para surfaces `ITEM` que projetam colecoes relacionadas; o schema continua resolvido por `/schemas/filtered` da operacao real.
+- `x-ui-field.schema.json` passa a documentar `presentationPreset` como acelerador visual, explicitamente separado da descricao OpenAPI de dominio.
 
 ### Fixed
 - `CustomOpenApiResolver` agora preserva `x-ui.type=text` e nao publica `valuePresentation` numerico automatico quando um campo com transporte OpenAPI numerico e declarado como texto, controle textual ou mascara textual.

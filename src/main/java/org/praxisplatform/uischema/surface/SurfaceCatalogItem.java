@@ -29,6 +29,45 @@ public record SurfaceCatalogItem(
         SurfaceResponseCardinality responseCardinality,
         AvailabilityDecision availability,
         int order,
-        List<String> tags
+        List<String> tags,
+        RelatedResourceSurface relatedResource
 ) {
+    public SurfaceCatalogItem(
+            String id,
+            String resourceKey,
+            SurfaceKind kind,
+            SurfaceScope scope,
+            String title,
+            String description,
+            String intent,
+            String operationId,
+            String path,
+            String method,
+            String schemaId,
+            String schemaUrl,
+            SurfaceResponseCardinality responseCardinality,
+            AvailabilityDecision availability,
+            int order,
+            List<String> tags
+    ) {
+        this(
+                id,
+                resourceKey,
+                kind,
+                scope,
+                title,
+                description,
+                intent,
+                operationId,
+                path,
+                method,
+                schemaId,
+                schemaUrl,
+                responseCardinality,
+                availability,
+                order,
+                tags,
+                null
+        );
+    }
 }

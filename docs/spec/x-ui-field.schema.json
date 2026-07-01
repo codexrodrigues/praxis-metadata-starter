@@ -102,6 +102,23 @@
         "url"
       ]
     },
+    "presentationPreset": {
+      "type": "string",
+      "description": "Presentation-only authoring accelerator. It may set repetitive UI metadata, but it must not replace explicit domain documentation in OpenAPI Schema descriptions.",
+      "enum": [
+        "none",
+        "enterprise-id",
+        "enterprise-code",
+        "enterprise-name",
+        "enterprise-status",
+        "date-range",
+        "monetary-amount",
+        "boolean-flag",
+        "legal-document-reference",
+        "tenant-label",
+        "audit-timestamp"
+      ]
+    },
     "group": { "type": "string" },
     "order": { "type": "integer" },
     "width": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
@@ -398,6 +415,24 @@
         "cachePolicy": {
           "type": "string",
           "enum": ["none", "request-scope", "session-scope", "etag-aware"]
+        },
+        "filterEndpoint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Canonical endpoint for filtering options from this source."
+        },
+        "byIdsEndpoint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Canonical endpoint for selected-value reload by IDs."
+        },
+        "selectedReloadPolicy": {
+          "type": "string",
+          "enum": ["required", "supported", "unsupported-with-waiver", "not-applicable"]
+        },
+        "invalidSortPolicy": {
+          "type": "string",
+          "enum": ["reject", "ignore", "unsupported"]
         }
       },
       "required": ["key", "type", "resourcePath"]

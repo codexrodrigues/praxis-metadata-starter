@@ -10,6 +10,7 @@ import io.swagger.v3.oas.models.media.StringSchema;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
+import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 import org.praxisplatform.uischema.numeric.NumberFormatStyle;
 import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
@@ -193,6 +194,10 @@ public class CustomOpenApiResolver extends ModelResolver {
         // === ETAPA 2: Detecção AUTOMÁTICA baseada no OpenAPI Schema ===
         // Sobrescreve padrões com detecção inteligente baseada em type/format
         applySchemaBasedDetection(property, uiExtension, fieldName, annotations);
+
+        // === ETAPA 2.5: Preset canônico de apresentação ===
+        // Acelera metadata repetitiva sem gerar descrição de domínio.
+        applyUISchemaPreset(annotation, uiExtension);
 
         // === ETAPA 3: Valores EXPLÍCITOS da anotação @UISchema ===
         // Sobrescreve detecção automática com valores explicitamente definidos
@@ -832,6 +837,91 @@ public class CustomOpenApiResolver extends ModelResolver {
 
         if (annotation.editable()) {
             uiExtension.put(FieldConfigProperties.EDITABLE.getValue(), true);
+        }
+    }
+
+    private void applyUISchemaPreset(UISchema annotation, Map<String, Object> uiExtension) {
+        if (annotation == null || annotation.preset() == UISchemaPreset.NONE) {
+            return;
+        }
+        UISchemaPreset preset = annotation.preset();
+        uiExtension.put(FieldConfigProperties.PRESENTATION_PRESET.getValue(), preset.getValue());
+
+        switch (preset) {
+            case ENTERPRISE_ID -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.INPUT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "10rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "tag");
+                putPreset(uiExtension, FieldConfigProperties.TABLE_HIDDEN.getValue(), true);
+            }
+            case ENTERPRISE_CODE -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.INPUT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "12rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "pin");
+            }
+            case ENTERPRISE_NAME -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.INPUT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "18rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "badge");
+            }
+            case ENTERPRISE_STATUS -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.SELECT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "12rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "toggle_on");
+            }
+            case DATE_RANGE -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.DATE.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.DATE_RANGE.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "16rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "event");
+            }
+            case MONETARY_AMOUNT -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.NUMBER.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.CURRENCY_INPUT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.NUMERIC_FORMAT.getValue(), NumericFormat.CURRENCY.getValue());
+                putPreset(uiExtension, FieldConfigProperties.NUMERIC_STEP.getValue(), "0.01");
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "12rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "payments");
+            }
+            case BOOLEAN_FLAG -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.BOOLEAN.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.TOGGLE.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "8rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "toggle_on");
+            }
+            case LEGAL_DOCUMENT_REFERENCE -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.INPUT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "14rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "gavel");
+            }
+            case TENANT_LABEL -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.INPUT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "14rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "business");
+                putPreset(uiExtension, FieldConfigProperties.READ_ONLY.getValue(), true);
+            }
+            case AUDIT_TIMESTAMP -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.DATE.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.DATE_TIME_PICKER.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "14rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "history");
+                putPreset(uiExtension, FieldConfigProperties.READ_ONLY.getValue(), true);
+            }
+            case NONE -> {
+                // handled above
+            }
+        }
+    }
+
+    private void putPreset(Map<String, Object> uiExtension, String key, Object value) {
+        if (value != null) {
+            uiExtension.put(key, value);
         }
     }
 

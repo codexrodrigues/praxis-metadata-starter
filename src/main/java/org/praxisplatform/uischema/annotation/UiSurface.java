@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.annotation;
 
 import org.praxisplatform.uischema.surface.SurfaceKind;
 import org.praxisplatform.uischema.surface.SurfaceScope;
+import org.praxisplatform.uischema.surface.RelatedResourceChildOperation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -88,4 +89,39 @@ public @interface UiSurface {
      * Tags opcionais de organizacao semantica, navegacao e filtros documentais.
      */
     String[] tags() default {};
+
+    /**
+     * Resource key canonico da colecao filha projetada por uma surface relacionada.
+     */
+    String relatedChildResourceKey() default "";
+
+    /**
+     * Path canonico do recurso filho, quando a surface representa uma colecao relacionada.
+     */
+    String relatedChildResourcePath() default "";
+
+    /**
+     * Nome do path variable que carrega o identificador do item pai.
+     */
+    String relatedParentIdPathVariable() default "id";
+
+    /**
+     * Campo publico do recurso filho que referencia o item pai.
+     */
+    String relatedChildParentField() default "";
+
+    /**
+     * Indica se a surface relacionada suporta selecao de linhas pelo runtime.
+     */
+    boolean relatedSelectable() default false;
+
+    /**
+     * Campo publico usado como chave de selecao das linhas filhas.
+     */
+    String relatedSelectionKeyField() default "id";
+
+    /**
+     * Operacoes canonicas que o runtime pode oferecer sobre a colecao filha.
+     */
+    RelatedResourceChildOperation[] relatedChildOperations() default {};
 }

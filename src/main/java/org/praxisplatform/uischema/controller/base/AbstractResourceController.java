@@ -48,6 +48,7 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
     @PostMapping
     @Operation(summary = "Criar item")
     public ResponseEntity<RestApiResponse<ResponseDTO>> create(@jakarta.validation.Valid @RequestBody CreateDTO dto) {
+        assertCollectionOperationAvailable("create");
         BaseResourceCommandService.SavedResult<ID, ResponseDTO> saved = getService().create(dto);
         ID newId = saved.id();
         ResponseDTO body = saved.body();
@@ -58,8 +59,12 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
         linkList.add(linkToAll());
         linkList.add(linkToFilter());
         linkList.add(linkToFilterCursor());
-        linkList.add(linkToUpdate(newId));
-        linkList.add(linkToDelete(newId));
+        if (isItemOperationAvailable("edit", newId)) {
+            linkList.add(linkToUpdate(newId));
+        }
+        if (isItemOperationAvailable("delete", newId)) {
+            linkList.add(linkToDelete(newId));
+        }
         linkList.addAll(buildItemDiscoveryLinks(newId));
         linkList.add(linkToUiSchema("/", "post", "request"));
 
@@ -75,6 +80,7 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
             @PathVariable ID id,
             @jakarta.validation.Valid @RequestBody UpdateDTO dto
     ) {
+        assertItemOperationAvailable("edit", id);
         ResponseDTO updated = getService().update(id, dto);
 
         List<Link> linkList = new ArrayList<>();
@@ -82,8 +88,12 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
         linkList.add(linkToAll());
         linkList.add(linkToFilter());
         linkList.add(linkToFilterCursor());
-        linkList.add(linkToUpdate(id));
-        linkList.add(linkToDelete(id));
+        if (isItemOperationAvailable("edit", id)) {
+            linkList.add(linkToUpdate(id));
+        }
+        if (isItemOperationAvailable("delete", id)) {
+            linkList.add(linkToDelete(id));
+        }
         linkList.addAll(buildItemDiscoveryLinks(id));
         linkList.add(linkToUiSchema("/{id}", "put", "request"));
 
@@ -93,6 +103,7 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
     @DeleteMapping("/{id}")
     @Operation(summary = "Excluir item")
     public ResponseEntity<Void> delete(@PathVariable ID id) {
+        assertItemOperationAvailable("delete", id);
         getService().deleteById(id);
         return ResponseEntity.noContent().build();
     }
@@ -109,21 +120,34 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
 
     @Override
     protected List<Link> buildItemActionLinks(ID id) {
-        return List.of(linkToUpdate(id), linkToDelete(id));
+        List<Link> links = new ArrayList<>();
+        if (isItemOperationAvailable("edit", id)) {
+            links.add(linkToUpdate(id));
+        }
+        if (isItemOperationAvailable("delete", id)) {
+            links.add(linkToDelete(id));
+        }
+        return links;
     }
 
     @Override
     protected List<Link> buildEntityActionLinks(ID id) {
         List<Link> links = new ArrayList<>();
-        links.add(linkToUpdate(id));
-        links.add(linkToDelete(id));
+        if (isItemOperationAvailable("edit", id)) {
+            links.add(linkToUpdate(id));
+        }
+        if (isItemOperationAvailable("delete", id)) {
+            links.add(linkToDelete(id));
+        }
         return links;
     }
 
     @Override
     protected List<Link> buildCollectionActionLinks() {
         List<Link> links = new ArrayList<>();
-        links.add(linkToCreate());
+        if (isCollectionOperationAvailable("create")) {
+            links.add(linkToCreate());
+        }
         links.addAll(super.buildCollectionActionLinks());
         return links;
     }

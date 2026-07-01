@@ -33,6 +33,8 @@ public class DefaultCapabilityService implements CapabilityService {
     private final SurfaceCatalogService surfaceCatalogService;
     private final ActionCatalogService actionCatalogService;
     private final OpenApiDocumentService openApiDocumentService;
+    private final ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider;
+    private final ResourceStateSnapshotProvider resourceStateSnapshotProvider;
 
     public DefaultCapabilityService(
             CanonicalCapabilityResolver canonicalCapabilityResolver,
@@ -40,10 +42,34 @@ public class DefaultCapabilityService implements CapabilityService {
             ActionCatalogService actionCatalogService,
             OpenApiDocumentService openApiDocumentService
     ) {
+        this(
+                canonicalCapabilityResolver,
+                surfaceCatalogService,
+                actionCatalogService,
+                openApiDocumentService,
+                new NoOpResourceOperationAvailabilityProvider(),
+                new NoOpResourceStateSnapshotProvider()
+        );
+    }
+
+    public DefaultCapabilityService(
+            CanonicalCapabilityResolver canonicalCapabilityResolver,
+            SurfaceCatalogService surfaceCatalogService,
+            ActionCatalogService actionCatalogService,
+            OpenApiDocumentService openApiDocumentService,
+            ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
+            ResourceStateSnapshotProvider resourceStateSnapshotProvider
+    ) {
         this.canonicalCapabilityResolver = canonicalCapabilityResolver;
         this.surfaceCatalogService = surfaceCatalogService;
         this.actionCatalogService = actionCatalogService;
         this.openApiDocumentService = openApiDocumentService;
+        this.resourceOperationAvailabilityProvider = resourceOperationAvailabilityProvider == null
+                ? new NoOpResourceOperationAvailabilityProvider()
+                : resourceOperationAvailabilityProvider;
+        this.resourceStateSnapshotProvider = resourceStateSnapshotProvider == null
+                ? new NoOpResourceStateSnapshotProvider()
+                : resourceStateSnapshotProvider;
     }
 
     @Override
@@ -81,7 +107,7 @@ public class DefaultCapabilityService implements CapabilityService {
         List<SurfaceCatalogItem> collectionSurfaces = collectionSurfaces(resourceKey);
         List<ActionCatalogItem> collectionActions = collectionActions(resourceKey);
         String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
-        return new CapabilitySnapshot(
+        CapabilitySnapshot snapshot = new CapabilitySnapshot(
                 resourceKey,
                 resourcePath,
                 group,
@@ -97,6 +123,7 @@ public class DefaultCapabilityService implements CapabilityService {
                 collectionSurfaces,
                 collectionActions
         );
+        return snapshot.withOperations(applyCollectionAvailability(snapshot.operations(), resourceKey, resourcePath));
     }
 
     @Override
@@ -105,7 +132,8 @@ public class DefaultCapabilityService implements CapabilityService {
         List<SurfaceCatalogItem> itemSurfaces = itemSurfaces(resourceKey, resourceId);
         List<ActionCatalogItem> itemActions = itemActions(resourceKey, resourceId);
         String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
-        return new CapabilitySnapshot(
+        ResourceStateSnapshot stateSnapshot = resourceStateSnapshotProvider.resolve(resourceKey, resourceId).orElse(null);
+        CapabilitySnapshot snapshot = new CapabilitySnapshot(
                 resourceKey,
                 resourcePath,
                 group,
@@ -115,6 +143,99 @@ public class DefaultCapabilityService implements CapabilityService {
                 itemSurfaces,
                 itemActions
         );
+        return snapshot.withOperations(applyItemAvailability(snapshot.operations(), resourceKey, resourcePath, resourceId, stateSnapshot));
+    }
+
+    @Override
+    public AvailabilityDecision collectionOperationAvailability(
+            String resourceKey,
+            String resourcePath,
+            String operationId
+    ) {
+        return evaluateAvailability(ResourceOperationAvailabilityContext.collection(resourceKey, resourcePath, operationId));
+    }
+
+    @Override
+    public AvailabilityDecision itemOperationAvailability(
+            String resourceKey,
+            String resourcePath,
+            String operationId,
+            Object resourceId
+    ) {
+        ResourceStateSnapshot stateSnapshot = resourceStateSnapshotProvider.resolve(resourceKey, resourceId).orElse(null);
+        return evaluateAvailability(ResourceOperationAvailabilityContext.item(
+                resourceKey,
+                resourcePath,
+                operationId,
+                resourceId,
+                stateSnapshot
+        ));
+    }
+
+    private Map<String, CapabilityOperation> applyCollectionAvailability(
+            Map<String, CapabilityOperation> operations,
+            String resourceKey,
+            String resourcePath
+    ) {
+        Map<String, CapabilityOperation> resolved = new LinkedHashMap<>();
+        operations.forEach((id, operation) -> {
+            AvailabilityDecision hostDecision = evaluateAvailability(
+                    ResourceOperationAvailabilityContext.collection(resourceKey, resourcePath, id)
+            );
+            resolved.put(id, operation.withAvailability(combineAvailability(operation.availability(), hostDecision)));
+        });
+        return Map.copyOf(resolved);
+    }
+
+    private Map<String, CapabilityOperation> applyItemAvailability(
+            Map<String, CapabilityOperation> operations,
+            String resourceKey,
+            String resourcePath,
+            Object resourceId,
+            ResourceStateSnapshot stateSnapshot
+    ) {
+        Map<String, CapabilityOperation> resolved = new LinkedHashMap<>();
+        operations.forEach((id, operation) -> {
+            AvailabilityDecision hostDecision = evaluateAvailability(
+                    ResourceOperationAvailabilityContext.item(resourceKey, resourcePath, id, resourceId, stateSnapshot)
+            );
+            resolved.put(id, operation.withAvailability(combineAvailability(operation.availability(), hostDecision)));
+        });
+        return Map.copyOf(resolved);
+    }
+
+    private AvailabilityDecision combineAvailability(
+            AvailabilityDecision baseline,
+            AvailabilityDecision hostDecision
+    ) {
+        AvailabilityDecision first = baseline == null ? AvailabilityDecision.allowAll() : baseline;
+        AvailabilityDecision second = hostDecision == null ? AvailabilityDecision.allowAll() : hostDecision;
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        if (first.metadata() != null) {
+            metadata.putAll(first.metadata());
+        }
+        if (second.metadata() != null) {
+            metadata.putAll(second.metadata());
+        }
+        if (!first.allowed()) {
+            return AvailabilityDecision.deny(first.reason(), metadata);
+        }
+        if (!second.allowed()) {
+            return AvailabilityDecision.deny(second.reason(), metadata);
+        }
+        return AvailabilityDecision.allow(metadata);
+    }
+
+    private AvailabilityDecision evaluateAvailability(ResourceOperationAvailabilityContext context) {
+        try {
+            AvailabilityDecision decision = resourceOperationAvailabilityProvider.evaluate(context);
+            return decision == null ? AvailabilityDecision.allowAll() : decision;
+        } catch (RuntimeException ex) {
+            return AvailabilityDecision.deny(
+                    "availability-provider-error",
+                    Map.of("operationId", context.operationId())
+            );
+        }
     }
 
     private Map<String, CapabilityOperation> resolveCollectionOperations(

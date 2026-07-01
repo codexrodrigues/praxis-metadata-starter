@@ -104,7 +104,11 @@ public class ApiDocsController {
             "searchMode",
             "pageSize",
             "includeIds",
-            "cachePolicy"
+            "cachePolicy",
+            "filterEndpoint",
+            "byIdsEndpoint",
+            "selectedReloadPolicy",
+            "invalidSortPolicy"
     );
     private static final Map<String, Set<String>> OPTION_SOURCE_PUBLIC_NESTED_KEYS = Map.of(
             "selectionPolicy", Set.of(

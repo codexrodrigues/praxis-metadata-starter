@@ -25,7 +25,8 @@ public record OptionSourceDescriptor(
         Map<String, String> dependencyFilterMap,
         OptionSourcePolicy policy,
         EntityLookupDescriptor entityLookup,
-        OptionSourceExecutionMode executionMode
+        OptionSourceExecutionMode executionMode,
+        OptionSourceRuntimeContract runtimeContract
 ) {
     public OptionSourceDescriptor(
             String key,
@@ -52,7 +53,8 @@ public record OptionSourceDescriptor(
                 dependencyFilterMap,
                 policy,
                 entityLookup,
-                OptionSourceExecutionMode.JPA
+                OptionSourceExecutionMode.JPA,
+                null
         );
     }
 
@@ -80,7 +82,8 @@ public record OptionSourceDescriptor(
                 null,
                 policy,
                 entityLookup,
-                OptionSourceExecutionMode.JPA
+                OptionSourceExecutionMode.JPA,
+                null
         );
     }
 
@@ -108,7 +111,8 @@ public record OptionSourceDescriptor(
                 dependencyFilterMap,
                 policy,
                 null,
-                OptionSourceExecutionMode.JPA
+                OptionSourceExecutionMode.JPA,
+                null
         );
     }
 
@@ -135,7 +139,39 @@ public record OptionSourceDescriptor(
                 null,
                 policy,
                 null,
-                OptionSourceExecutionMode.JPA
+                OptionSourceExecutionMode.JPA,
+                null
+        );
+    }
+
+    public OptionSourceDescriptor(
+            String key,
+            OptionSourceType type,
+            String resourcePath,
+            String filterField,
+            String propertyPath,
+            String labelPropertyPath,
+            String valuePropertyPath,
+            List<String> dependsOn,
+            Map<String, String> dependencyFilterMap,
+            OptionSourcePolicy policy,
+            EntityLookupDescriptor entityLookup,
+            OptionSourceExecutionMode executionMode
+    ) {
+        this(
+                key,
+                type,
+                resourcePath,
+                filterField,
+                propertyPath,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                dependencyFilterMap,
+                policy,
+                entityLookup,
+                executionMode,
+                null
         );
     }
 
@@ -160,6 +196,9 @@ public record OptionSourceDescriptor(
         labelPropertyPath = normalize(labelPropertyPath);
         valuePropertyPath = normalize(valuePropertyPath);
         executionMode = executionMode == null ? OptionSourceExecutionMode.JPA : executionMode;
+        runtimeContract = runtimeContract == null
+                ? OptionSourceRuntimeContract.canonical(resourcePath, key)
+                : runtimeContract;
     }
 
     public OptionSourceDescriptor withExecutionMode(OptionSourceExecutionMode mode) {
@@ -175,7 +214,26 @@ public record OptionSourceDescriptor(
                 dependencyFilterMap,
                 policy,
                 entityLookup,
-                mode
+                mode,
+                runtimeContract
+        );
+    }
+
+    public OptionSourceDescriptor withRuntimeContract(OptionSourceRuntimeContract contract) {
+        return new OptionSourceDescriptor(
+                key,
+                type,
+                resourcePath,
+                filterField,
+                propertyPath,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                dependencyFilterMap,
+                policy,
+                entityLookup,
+                executionMode,
+                contract
         );
     }
 
@@ -221,6 +279,7 @@ public record OptionSourceDescriptor(
         metadata.put("pageSize", policy.defaultPageSize());
         metadata.put("includeIds", policy.allowIncludeIds());
         metadata.put("cachePolicy", policy.cacheable() ? "request-scope" : "none");
+        metadata.putAll(runtimeContract.toMetadataMap());
         if (entityLookup != null) {
             metadata.putAll(entityLookup.toMetadataMap());
             if (!dependencyFilterMap.isEmpty()) {

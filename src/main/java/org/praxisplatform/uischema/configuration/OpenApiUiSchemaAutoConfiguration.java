@@ -6,7 +6,9 @@ import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.capability.DefaultCapabilityService;
 import org.praxisplatform.uischema.capability.NoOpResourceStateSnapshotProvider;
+import org.praxisplatform.uischema.capability.NoOpResourceOperationAvailabilityProvider;
 import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
+import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityProvider;
 import org.praxisplatform.uischema.capability.ResourceStateSnapshotProvider;
 import org.praxisplatform.uischema.analytics.UiAnalyticsAnnotationMapper;
 import org.praxisplatform.uischema.analytics.UiAnalyticsOpenApiCustomizer;
@@ -443,6 +445,12 @@ public class OpenApiUiSchemaAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    public ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider() {
+        return new NoOpResourceOperationAvailabilityProvider();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public SurfaceAvailabilityContextResolver surfaceAvailabilityContextResolver(
             ResourceStateSnapshotProvider resourceStateSnapshotProvider
     ) {
@@ -585,13 +593,17 @@ public class OpenApiUiSchemaAutoConfiguration {
             CanonicalCapabilityResolver canonicalCapabilityResolver,
             SurfaceCatalogService surfaceCatalogService,
             ActionCatalogService actionCatalogService,
-            OpenApiDocumentService openApiDocumentService
+            OpenApiDocumentService openApiDocumentService,
+            ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
+            ResourceStateSnapshotProvider resourceStateSnapshotProvider
     ) {
         return new DefaultCapabilityService(
                 canonicalCapabilityResolver,
                 surfaceCatalogService,
                 actionCatalogService,
-                openApiDocumentService
+                openApiDocumentService,
+                resourceOperationAvailabilityProvider,
+                resourceStateSnapshotProvider
         );
     }
 

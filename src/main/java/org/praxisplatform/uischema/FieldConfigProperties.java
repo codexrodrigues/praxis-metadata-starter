@@ -48,6 +48,8 @@ public enum FieldConfigProperties {
     /** Define o controle/componente que será utilizado pelo front-end.
      * Os possíveis valores estão em {@code FieldControlType} */
     CONTROL_TYPE("controlType"),
+    /** Preset canonico de apresentação aplicado ao campo */
+    PRESENTATION_PRESET("presentationPreset"),
     /** Texto exibido como placeholder no campo */
     PLACEHOLDER("placeholder"),
     /** Valor padrão do campo */
