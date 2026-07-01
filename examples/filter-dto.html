@@ -369,6 +369,23 @@ paleta/presets ou picker rico.</li>
 </ul>
 <h2 id="boas-práticas">Boas práticas</h2>
 <ul>
+<li>Mantenha filtros em um <code>FilterDTO</code> dedicado por recurso.
+Não adicione campos operacionais como <code>dataAdmissaoRange</code>,
+<code>dataAdmissaoLastDays</code> ou <code>salarioBetween</code> ao DTO
+principal de criação/edição.</li>
+<li>Use aliases legíveis no <code>FilterDTO</code> quando houver mais de
+uma forma de filtrar o mesmo atributo de domínio. Exemplos:
+<code>dataAdmissaoRange</code> com <code>BETWEEN</code>,
+<code>dataAdmissaoLastDays</code> com <code>IN_LAST_DAYS</code> e
+<code>salarioBetween</code> com <code>BETWEEN</code>.</li>
+<li>Sempre que o alias não existir como atributo real da entidade,
+declare <code>relation</code> apontando para a propriedade canônica
+filtrada, como
+<code>@Filterable(operation = BETWEEN, relation = "dataAdmissao")</code>.</li>
+<li>A semântica do filtro vem de <code>@Filterable(operation=...)</code>
+e de <code>relation</code>; o sufixo do nome do campo é apenas um alias
+humano para DTO/schema/UX, não o mecanismo decisório primário da
+plataforma.</li>
 <li>Ordene os campos (<code>order</code>) para que o frontend mantenha a
 consistência visual.</li>
 <li>Use <code>endpoint</code> para publicar combos dinâmicos no
