@@ -114,6 +114,10 @@ Observações de maturidade do cenário atual:
 
 ## Boas práticas
 
+* Mantenha filtros em um `FilterDTO` dedicado por recurso. Não adicione campos operacionais como `dataAdmissaoRange`, `dataAdmissaoLastDays` ou `salarioBetween` ao DTO principal de criação/edição.
+* Use aliases legíveis no `FilterDTO` quando houver mais de uma forma de filtrar o mesmo atributo de domínio. Exemplos: `dataAdmissaoRange` com `BETWEEN`, `dataAdmissaoLastDays` com `IN_LAST_DAYS` e `salarioBetween` com `BETWEEN`.
+* Sempre que o alias não existir como atributo real da entidade, declare `relation` apontando para a propriedade canônica filtrada, como `@Filterable(operation = BETWEEN, relation = "dataAdmissao")`.
+* A semântica do filtro vem de `@Filterable(operation=...)` e de `relation`; o sufixo do nome do campo é apenas um alias humano para DTO/schema/UX, não o mecanismo decisório primário da plataforma.
 * Ordene os campos (`order`) para que o frontend mantenha a consistência visual.
 * Use `endpoint` para publicar combos dinâmicos no `x-ui`, preferencialmente apontando para `/{resource}/options/filter`; no Angular esse campo será normalizado para `resourcePath`.
 * Declare `valueField` e `displayField` explicitamente para catálogos remotos; a UI Praxis os normaliza para `optionValueKey` e `optionLabelKey`.

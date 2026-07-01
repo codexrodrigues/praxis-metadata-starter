@@ -51,8 +51,24 @@ import java.lang.annotation.Target;
  * }</pre>
  *
  * <h2>Validacao de Campos de Filtro</h2>
- * <p>Certifique-se de que os campos de filtro, como {@code dataVerificacao}, sejam usados apenas para consultas e,
- * se necessario, configurados para serem ignorados nos mapeamentos com a entidade principal.</p>
+ * <p>Campos de filtro operacionais devem viver em DTOs de filtro dedicados, nao no DTO principal
+ * de criacao/edicao do recurso. Quando houver multiplas formas de filtrar o mesmo atributo de
+ * dominio, use aliases legiveis no DTO de filtro e aponte todos para a propriedade canonica com
+ * {@link #relation()}.</p>
+ *
+ * <pre>{@code
+ * public class FuncionarioFilterDTO implements GenericFilterDTO {
+ *     @Filterable(operation = FilterOperation.BETWEEN, relation = "dataAdmissao")
+ *     private List<LocalDate> dataAdmissaoRange;
+ *
+ *     @Filterable(operation = FilterOperation.IN_LAST_DAYS, relation = "dataAdmissao")
+ *     private Integer dataAdmissaoLastDays;
+ * }
+ * }</pre>
+ *
+ * <p>A decisao canonica vem de {@code operation} e {@code relation}; sufixos como {@code Range},
+ * {@code Between} ou {@code LastDays} sao nomes humanos do contrato DTO/schema/UX, nao mecanismo
+ * primario de roteamento de intencao.</p>
  *
  * <h2>Notas para Relacionamentos</h2>
  * <p>Quando o filtro envolve campos relacionados:</p>
