@@ -313,11 +313,13 @@
         "visibleForAuthorities": {
           "type": "array",
           "items": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "minItems": 1,
           "uniqueItems": true
         },
         "editableForAuthorities": {
           "type": "array",
           "items": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "minItems": 1,
           "uniqueItems": true
         },
         "reason": {

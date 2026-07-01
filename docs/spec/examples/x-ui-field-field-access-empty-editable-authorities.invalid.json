@@ -1,0 +1,9 @@
+{
+  "label": "Salario",
+  "type": "number",
+  "controlType": "currency",
+  "fieldAccess": {
+    "editableForAuthorities": [],
+    "reason": "Campo editavel apenas por politica corporativa explicita."
+  }
+}
