@@ -249,10 +249,11 @@ O baseline canonico para recursos metadata-driven e:
 
 - `AbstractResourceController`
 - `AbstractLegacyBackedResourceController`, quando a escrita for delegada a backend legado mantendo contrato publico resource-oriented
+- `AbstractDuplicateDraftLegacyBackedResourceController`, somente quando o recurso realmente publicar `POST /{resource}/{id}/duplicate-draft`
 - `AbstractReadOnlyResourceController`
 - `AbstractBaseResourceService`
 - `AbstractReadOnlyResourceService`
-- `LegacyBackedResourceService`, quando create/update/delete/duplicate-draft forem executados por porta/adaptador do host
+- `LegacyBackedResourceService`, quando create/update/delete e operacoes opcionais forem executados por porta/adaptador do host
 - `ResourceMapper`
 - `@ApiResource(value = ..., resourceKey = ...)`
 
@@ -279,6 +280,11 @@ O starter materializa esses campos em `relatedResource` dentro de `/schemas/surf
 `GET /{resource}/{id}/surfaces`. Isso permite que o runtime monte listas filhas, selecao e comandos
 da colecao relacionada sem mapa local de frontend. O payload continua vindo da operacao HTTP real e o
 schema continua resolvido por `/schemas/filtered`.
+
+`relatedResource` e um bloco atomico: quando uma surface publicar metadado de colecao filha, ela deve
+informar `relatedChildResourceKey`, `relatedChildResourcePath` e `relatedChildParentField`. Liste em
+`relatedChildOperations` apenas operacoes com endpoint HTTP real no recurso filho ou no controller
+relacionado; o starter nao deve anunciar CREATE/DELETE apenas como desejo de UX.
 
 Use `@WorkflowAction` quando a operacao for um comando de negocio explicito.
 
@@ -434,6 +440,7 @@ Quando o recurso publicar `OptionSourceRegistry`, valide tambem:
 - `GET /{resource}/option-sources/{sourceKey}/options/by-ids`
 - `x-ui.optionSource` em `/schemas/filtered` para os campos governados por essa source
 - `filterEndpoint`, `byIdsEndpoint`, `selectedReloadPolicy` e `invalidSortPolicy` no metadata emitido
+- `sourceKey` URL-safe, usando letras, numeros, ponto, underscore ou hifen, porque ele compoe endpoints publicos de runtime
 - quando `RESOURCE_ENTITY` publicar `filtering`, valide tambem `availableFilters`, `defaultFilters`, `sortOptions` e `defaultSort` no schema emitido
 
 Para lookups corporativos provider-backed, prefira `GovernedOptionSourceCatalog.providerBackedLookup(...)`

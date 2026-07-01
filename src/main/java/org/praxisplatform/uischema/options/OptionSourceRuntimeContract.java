@@ -28,7 +28,8 @@ public record OptionSourceRuntimeContract(
         if (base == null || sourceKey == null || sourceKey.isBlank()) {
             return new OptionSourceRuntimeContract(null, null, null, null);
         }
-        String optionSourceBase = base + "/option-sources/" + sourceKey.trim();
+        String normalizedSourceKey = normalizeSourceKey(sourceKey);
+        String optionSourceBase = base + "/option-sources/" + normalizedSourceKey;
         return new OptionSourceRuntimeContract(
                 optionSourceBase + "/options/filter",
                 optionSourceBase + "/options/by-ids",
@@ -74,6 +75,16 @@ public record OptionSourceRuntimeContract(
         }
         if (normalized.length() > 1 && normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
+    }
+
+    private static String normalizeSourceKey(String sourceKey) {
+        String normalized = sourceKey == null ? "" : sourceKey.trim();
+        if (!normalized.matches("[A-Za-z0-9][A-Za-z0-9._-]*")) {
+            throw new IllegalArgumentException(
+                    "Option source key must be URL-safe and match [A-Za-z0-9][A-Za-z0-9._-]*."
+            );
         }
         return normalized;
     }

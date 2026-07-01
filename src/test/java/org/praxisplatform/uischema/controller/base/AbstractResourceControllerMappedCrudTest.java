@@ -1,6 +1,9 @@
 package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.capability.AvailabilityDecision;
+import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.service.base.BaseResourceCommandService;
 import org.praxisplatform.uischema.service.base.BaseResourceService;
@@ -13,10 +16,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -33,6 +39,9 @@ class AbstractResourceControllerMappedCrudTest {
 
     @MockBean
     SimpleService service;
+
+    @MockBean
+    CapabilityService capabilityService;
 
     @Test
     void getByIdUsesResourceQueryService() throws Exception {
@@ -79,6 +88,21 @@ class AbstractResourceControllerMappedCrudTest {
         verify(service).update(eq(15L), any(SimpleUpdateDto.class));
     }
 
+    @Test
+    void deleteBatchRequiresCollectionAndItemAvailabilityBeforeDelegating() throws Exception {
+        when(capabilityService.collectionOperationAvailability("test.simple", "/simple", "delete"))
+                .thenReturn(AvailabilityDecision.allowAll());
+        when(capabilityService.itemOperationAvailability("test.simple", "/simple", "delete", 15L))
+                .thenReturn(AvailabilityDecision.deny("locked", null));
+
+        mockMvc.perform(delete("/simple/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[15]"))
+                .andExpect(status().isForbidden());
+
+        verify(service, never()).deleteAllById(anyList());
+    }
+
     interface SimpleService extends BaseResourceService<
             SimpleResponseDto,
             Long,
@@ -115,7 +139,7 @@ class AbstractResourceControllerMappedCrudTest {
     static class SimpleFilterDTO implements GenericFilterDTO {}
 
     @org.springframework.web.bind.annotation.RestController
-    @org.springframework.web.bind.annotation.RequestMapping("/simple")
+    @ApiResource(value = "/simple", resourceKey = "test.simple")
     static class SimpleController extends AbstractResourceController<
             SimpleResponseDto,
             Long,

@@ -26,6 +26,19 @@ public record RelatedResourceSurface(
             selectionKeyField = "id";
         }
         childOperations = childOperations == null ? List.of() : List.copyOf(childOperations);
+        boolean hasAnyRelatedMetadata = childResourceKey != null
+                || childResourcePath != null
+                || childParentField != null
+                || selectable
+                || !childOperations.isEmpty();
+        boolean hasRequiredBinding = childResourceKey != null
+                && childResourcePath != null
+                && childParentField != null;
+        if (hasAnyRelatedMetadata && !hasRequiredBinding) {
+            throw new IllegalArgumentException(
+                    "Related resource surfaces require childResourceKey, childResourcePath and childParentField."
+            );
+        }
     }
 
     public boolean present() {

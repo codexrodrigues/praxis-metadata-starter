@@ -29,6 +29,10 @@ new OptionSourceDescriptor(
 ).withExecutionMode(OptionSourceExecutionMode.PROVIDER_REQUIRED);
 ```
 
+Use `sourceKey` URL-safe, com letras, numeros, ponto, underscore ou hifen. A chave compoe
+`/{resource}/option-sources/{sourceKey}/options/*`, portanto barras, espacos e outros caracteres
+reservados devem ser modelados como outra chave canonica ou metadata do provider, nao como path.
+
 Se nenhum provider suportar essa fonte e operacao, Praxis retorna erro
 controlado de provider ausente. Ele nao tenta resolver paths JPA por acidente.
 
@@ -193,4 +197,3 @@ public Optional<String> getOptionSourceDatasetVersion(String sourceKey) {
 
 Isso evita que endpoints de option source consultem o repository JPA do recurso
 base apenas para emitir versao.
-

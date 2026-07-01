@@ -81,6 +81,21 @@ class OptionSourceDescriptorTest {
     }
 
     @Test
+    void rejectsOptionSourceKeysThatAreNotUrlSafe() {
+        assertThrows(IllegalArgumentException.class, () -> new OptionSourceDescriptor(
+                "payroll/profile",
+                OptionSourceType.DISTINCT_DIMENSION,
+                "/api/test",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        ));
+    }
+
+    @Test
     void publishesDependencyFilterMapForAnyOptionSourceType() {
         OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
                 "payrollProfile",

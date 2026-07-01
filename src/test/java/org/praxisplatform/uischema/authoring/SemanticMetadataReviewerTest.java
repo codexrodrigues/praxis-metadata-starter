@@ -43,6 +43,17 @@ class SemanticMetadataReviewerTest {
         assertTrue(codes.contains("public-private-context-field-without-governance"));
     }
 
+    @Test
+    void reviewsInheritedDtoFields() {
+        SemanticMetadataReviewReport report = new SemanticMetadataReviewer().review(ChildBadMetadataDTO.class);
+        Set<String> inheritedIssueFields = report.issues().stream()
+                .filter(issue -> issue.code().equals("public-private-context-field-without-governance"))
+                .map(SemanticMetadataReviewIssue::fieldName)
+                .collect(Collectors.toSet());
+
+        assertTrue(inheritedIssueFields.contains("userId"));
+    }
+
     private static class GoodMetadataDTO {
         @Schema(description = "Codigo operacional usado pela folha para vincular a rubrica ao catalogo corporativo de pagamento.")
         @UISchema(label = "Codigo", preset = UISchemaPreset.ENTERPRISE_CODE)
@@ -77,5 +88,16 @@ class SemanticMetadataReviewerTest {
 
         @Schema(description = "User")
         String userId;
+    }
+
+    private static class BaseBadMetadataDTO {
+        @Schema(description = "User")
+        String userId;
+    }
+
+    private static class ChildBadMetadataDTO extends BaseBadMetadataDTO {
+        @Schema(description = "Codigo operacional usado pela folha para vincular a rubrica ao catalogo corporativo de pagamento.")
+        @UISchema(label = "Codigo", preset = UISchemaPreset.ENTERPRISE_CODE)
+        String codigo;
     }
 }
