@@ -1,0 +1,9 @@
+{
+  "label": "Salario",
+  "type": "number",
+  "controlType": "currency",
+  "fieldAccess": {
+    "visibleForAuthorities": [],
+    "reason": "Campo restrito por politica corporativa."
+  }
+}
