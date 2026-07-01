@@ -42,7 +42,7 @@
   - Tipo/Componente: `type` (enum), `controlType` (enum), `placeholder`, `defaultValue`
   - Estado/Validacao: `disabled`, `readOnly`, `editable`, `unique`, `mask`, `sortable`, `filterable`
   - Visibilidade: `hidden`, `tableHidden`, `formHidden`
-  - Acesso contextual: `fieldAccess{ visibleForAuthorities?, editableForAuthorities?, reason? }` declara politica de leitura/edicao por autoridade para renderizacao runtime e validacao backend do host
+  - Acesso contextual: `fieldAccess{ visibleForAuthorities?, editableForAuthorities?, reason? }` declara politica de leitura/edicao por authority canonica para renderizacao runtime e validacao backend do host; `reason` e explicativo e nao e politica suficiente sozinho
   - Dependencias/Condicionais: `conditionalDisplay`, `dependentField`, `resetOnDependentChange`
     - `dependentField` e legado/condicional; cascata de option-source deve usar `optionSource.dependsOn`.
   - Layout/Icone: `hint`, `helpText`, `tooltipOnHover`, `icon*`
@@ -85,7 +85,7 @@
 - `x-ui.analytics.source.operation`: `group-by | timeseries | distribution`
 - `x-ui.analytics.presentationHints.preferredFamilies`: `chart | analytic-table | kpi | summary-list`
 - `x-ui.optionSource.type`: `RESOURCE_ENTITY | DISTINCT_DIMENSION | CATEGORICAL_BUCKET | LIGHT_LOOKUP | STATIC_CANONICAL`
-- `x-ui.fieldAccess.*ForAuthorities`: authorities canonicas do host, alinhadas ao contexto de seguranca usado por surfaces/actions/capabilities
+- `x-ui.fieldAccess.*ForAuthorities`: authorities canonicas do host, alinhadas ao contexto de seguranca usado por surfaces/actions. Elas nao sao automaticamente equivalentes a `x-ui.resource.capabilities` ou ao runtime context `capabilities` sem mapeamento explicito do host
 - `x-domain-governance.annotationType`: `privacy | security | compliance`
 - `x-domain-governance.classification`: `public | internal | confidential | restricted`
 - `x-domain-governance.dataCategory`: `credential | sensitive_personal | personal | financial | operational | legal`
@@ -127,7 +127,8 @@
 - SHOULD: publicacoes de `x-ui.chart` explicitar restricoes executaveis do runtime oficial sem criar contrato paralelo.
 - SHOULD: publicacoes de `x-ui.analytics` manterem a semantica estritamente analitica, sem reempacotar detalhes especificos de chart.
 - SHOULD: hosts self-describing declararem governanca sensivel com `@DomainGovernance` em vez de depender apenas de heuristicas por nome de campo.
-- SHOULD: campos corporativos com restricao de leitura ou edicao publicarem `x-ui.fieldAccess`; o frontend pode usar o bloco para UX condicional, mas o backend continua responsavel por aplicar a autorizacao efetiva.
+- SHOULD: campos corporativos com restricao de leitura ou edicao publicarem `x-ui.fieldAccess`; o frontend pode usar o bloco para UX condicional quando houver evaluator/mapeamento confiavel, mas o backend continua responsavel por aplicar a autorizacao efetiva.
+- MUST: `x-ui.fieldAccess`, quando presente, conter `visibleForAuthorities` ou `editableForAuthorities`; `reason` sozinho e apenas explicacao e nao define politica executavel.
 - MAY: incluir `specVersion` em um envelope/meta do payload para auditoria.
 
 ## Versionamento da especificacao
@@ -162,6 +163,7 @@
 - Fixtures de validacao:
   - `examples/x-ui-field.valid.json`
   - `examples/x-ui-field.invalid.json`
+  - `examples/x-ui-field-field-access-reason-only.invalid.json`
   - `examples/x-ui-field-option-source-resource.valid.json`
   - `examples/x-ui-field-option-source-distinct.valid.json`
   - `examples/x-ui-field-option-source.invalid.json`

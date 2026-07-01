@@ -47,7 +47,7 @@
   - publicar `capabilities.filterExpression=false` enquanto o recurso nao declarar suporte executavel a expressoes canonicas de filtro compostas; `capabilities.filter=true` sozinho representa apenas DTO plano de conjuncao simples
   - manter `/schemas/surfaces` e `/schemas/actions` sincronizados com a semantica publicada por `@UiSurface` e `@WorkflowAction`
   - declarar campos sensiveis com `@DomainGovernance` e politicas de IA tipadas por `AiUsageMode`
-  - declarar `x-ui.fieldAccess` para campos cuja visibilidade ou editabilidade dependa de authorities do contexto corporativo
+  - declarar `x-ui.fieldAccess` para campos cuja visibilidade ou editabilidade dependa de authorities do contexto corporativo, mantendo claro que `capabilities` de runtime nao sao equivalentes sem mapeamento explicito
   - adotar `custom.*` para extensoes privadas do host
   - publicar `x-ui.optionSource` para fontes derivadas governadas, evitando promover `INPUT` em campos com semantica corporativa clara
   - publicar detalhes de `export` em `/capabilities` com formatos, escopos, limites e async quando o service declarar suporte real a exportacao de colecao
@@ -59,7 +59,7 @@
   - `label` -> rotulagem de inputs e colunas
   - `placeholder`, `hint`, `helpText` -> renderizacao de formulario
   - `readOnly`, `disabled` -> `field-state.util.ts` e componentes
-  - `fieldAccess` -> UX condicional de leitura/edicao e evidencia para validacao backend corporativa
+  - `fieldAccess` -> UX condicional de leitura/edicao quando houver evaluator confiavel e evidencia para validacao backend corporativa
   - validacoes (`required`, `minLength`, `maxLength`, `pattern`, `min`, `max`, `range`, `*Message`) -> helpers de validacao
   - selecao (`options`, `endpoint`, `valueField`, `displayField`, `multiple`, `emptyOptionText`) -> componentes de selecao
   - numerico (`numericFormat`, `numeric*`) -> componentes numericos
