@@ -14,12 +14,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class VisibilityFlagsTest {
 
     private static class Dummy {
-        @UISchema(tableHidden = true, formHidden = true)
+        @UISchema(readOnly = true, hidden = true, tableHidden = true, formHidden = true)
         String id;
     }
 
     @Test
-    void resolverShouldApplyTableAndFormHiddenFlags() throws Exception {
+    void resolverShouldApplyReadOnlyAndVisibilityFlags() throws Exception {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
         Schema<?> property = new Schema<>().type("string");
         property.setName("id");
@@ -28,6 +28,8 @@ class VisibilityFlagsTest {
         resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema }, null, false);
 
         Map<String, Object> xui = getXui(property);
+        assertEquals(Boolean.TRUE, xui.get(FieldConfigProperties.READ_ONLY.getValue()));
+        assertEquals(Boolean.TRUE, xui.get(FieldConfigProperties.HIDDEN.getValue()));
         assertEquals(Boolean.TRUE, xui.get(FieldConfigProperties.TABLE_HIDDEN.getValue()));
         assertEquals(Boolean.TRUE, xui.get(FieldConfigProperties.FORM_HIDDEN.getValue()));
     }
@@ -41,4 +43,3 @@ class VisibilityFlagsTest {
         return (Map<String, Object>) xui;
     }
 }
-

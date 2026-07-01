@@ -116,6 +116,14 @@ public @interface UISchema {
 
     // 4. Comportamento e Validação
     boolean disabled() default false;
+    /**
+     * Marca o campo como somente leitura na UI gerada.
+     *
+     * <p>O padrão é permissivo ({@code false}) para formulários de criação/edição.
+     * Use este atributo canônico em vez de {@code extraProperties} com chaves legadas
+     * como {@code readonly}. Campos calculados, espelhos de relacionamento e payloads
+     * de resposta podem declará-lo explicitamente como {@code true}.</p>
+     */
     boolean readOnly() default false;
     boolean multiple() default false;
     boolean editable() default true;
@@ -128,8 +136,22 @@ public @interface UISchema {
     String validationTriggers() default "";
 
     // 5. Visibilidade
+    /**
+     * Oculta o campo em todas as superfícies metadata-driven.
+     *
+     * <p>Prefira {@link #formHidden()} ou {@link #tableHidden()} quando a intenção
+     * for contextual. O padrão é {@code false}; filtros anotados com
+     * {@code @Filterable} não devem redefinir por si só a semântica de criação/edição.</p>
+     */
     boolean hidden() default false;
+    /**
+     * Oculta o campo em tabelas/listagens, preservando seu uso em formulários quando aplicável.
+     */
     boolean tableHidden() default false;
+    /**
+     * Oculta o campo em formulários de criação/edição, preservando seu uso em tabelas,
+     * filtros ou payloads quando aplicável.
+     */
     boolean formHidden() default false;
     boolean filterable() default false;
 
