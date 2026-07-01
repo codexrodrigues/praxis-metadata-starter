@@ -231,6 +231,10 @@ filha; ainda assim nao cria schema paralelo</li>
 <code>childResourceKey</code>, <code>childResourcePath</code> e
 <code>childParentField</code>; <code>childOperations</code> deve listar
 somente operacoes realmente publicadas por HTTP</li>
+<li>ao publicar <code>/schemas/surfaces</code>, o starter filtra
+<code>childOperations</code> contra as capabilities canonicas do
+<code>childResourcePath</code>; operacoes declaradas sem endpoint real
+nao viram affordance disponivel para runtimes</li>
 <li><code>responseCardinality</code> descreve a cardinalidade da
 resposta da operacao (<code>OBJECT</code>, <code>COLLECTION</code>,
 <code>PAGE</code>, <code>VOID</code> ou <code>UNKNOWN</code>), sem criar
