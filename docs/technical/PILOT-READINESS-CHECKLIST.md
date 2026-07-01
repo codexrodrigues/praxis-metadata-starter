@@ -28,6 +28,7 @@ Marque todos os itens abaixo antes de abrir a adocao do piloto.
 
 - [ ] `@ApiResource(value = ..., resourceKey = ...)` definido
 - [ ] DTOs separados de `response`, `create`, `update` e `filter`
+- [ ] DTOs authorados como contrato semantico, nao derivados mecanicamente da entidade JPA
 - [ ] `@ResourceIntent` usado apenas onde a operacao continua sendo manutencao do recurso
 - [ ] `@UiSurface` usado apenas para discovery semantico
 - [ ] `@WorkflowAction` usado apenas para comando de negocio explicito

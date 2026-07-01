@@ -55,6 +55,11 @@ No baseline atual, espere separacao entre:
 - update
 - filter
 
+Esses DTOs sao contratos publicos do recurso, nao espelhos mecanicos da
+entidade de persistencia. A entidade pode ajudar no grounding inicial, mas a
+separacao entre leitura, escrita, filtros, validacao e metadata de UI precisa
+ser authorada como decisao semantica do recurso.
+
 ## `extension`
 
 Corpo do enriquecimento OpenAPI.
@@ -85,6 +90,10 @@ Essas pecas sustentam a superficie publica com HATEOAS e envelopes consistentes.
 ## `mapper`
 
 Configuracoes compartilhadas para mapeamento e integracao com MapStruct.
+
+Mappers materializam a fronteira depois que os DTOs canonicos existem. Eles nao
+devem ser usados como justificativa para inferir o contrato publico apenas a
+partir da entidade JPA.
 
 ## `repository`
 
