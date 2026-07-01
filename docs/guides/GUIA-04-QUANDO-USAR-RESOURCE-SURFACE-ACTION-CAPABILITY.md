@@ -70,8 +70,9 @@ Exemplo importante:
 - `GET /employees/{id}/payroll-history` tambem pode ser uma surface `ITEM`, mas com
   `responseCardinality = COLLECTION`, porque projeta uma colecao relacionada ao funcionario
 - `GET /employees/{id}/certifications` pode publicar `relatedResource.childResourceKey`,
-  `childParentField = employeeId`, `selectable = true` e `childOperations = [LIST, CREATE, DELETE]`
-  para que o runtime saiba quais affordances oferecer sobre a lista filha
+  `childParentField = employeeId`, `selectable = true` e `childOperations = [LIST]`
+  para que o runtime saiba renderizar a lista filha; inclua `CREATE` ou `DELETE` somente quando
+  houver endpoints HTTP reais publicados para esses comandos da colecao relacionada
 
 Essa distincao evita que runtimes precisem inferir se devem renderizar um form de leitura,
 uma tabela, uma lista ou uma pagina a partir apenas de `kind` e `scope`.
