@@ -72,6 +72,9 @@ class DateFieldUISchemaTest {
             @Override public boolean tableHidden() { return false; }
             @Override public boolean formHidden() { return false; }
             @Override public boolean filterable() { return false; }
+            @Override public String[] visibleForAuthorities() { return new String[0]; }
+            @Override public String[] editableForAuthorities() { return new String[0]; }
+            @Override public String fieldAccessReason() { return ""; }
             @Override public String conditionalDisplay() { return ""; }
             @Override public String dependsOn() { return ""; }
             @Override public String dependentField() { return ""; }

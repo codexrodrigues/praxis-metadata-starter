@@ -141,6 +141,10 @@
     "hidden": { "type": "boolean" },
     "tableHidden": { "type": "boolean" },
     "formHidden": { "type": "boolean" },
+    "fieldAccess": {
+      "$ref": "#/definitions/fieldAccess",
+      "description": "Declarative field-level access policy. It guides runtime rendering and backend validation, but does not replace server-side authorization."
+    },
 
     "conditionalDisplay": { "oneOf": [ { "type": "boolean" }, { "type": "string" } ] },
     "dependentField": { "type": "string" },
@@ -301,6 +305,31 @@
         "group": { "type": "string" }
       },
       "required": ["value", "label"]
+    },
+    "fieldAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visibleForAuthorities": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "uniqueItems": true
+        },
+        "editableForAuthorities": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "uniqueItems": true
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "anyOf": [
+        { "required": ["visibleForAuthorities"] },
+        { "required": ["editableForAuthorities"] },
+        { "required": ["reason"] }
+      ]
     },
     "optionSource": {
       "type": "object",

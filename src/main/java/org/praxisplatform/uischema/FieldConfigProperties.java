@@ -109,6 +109,13 @@ public enum FieldConfigProperties {
     /** Especifica se o campo deve ser oculto no formulário */
     FORM_HIDDEN("formHidden"),
     /**
+     * Declara politica contextual de acesso ao campo.
+     *
+     * <p>Essa chave informa autoridades requeridas para leitura/edicao em runtime,
+     * sem substituir a validacao de seguranca do host.</p>
+     */
+    FIELD_ACCESS("fieldAccess"),
+    /**
      * Indica que o campo é filtrável.
      * A presença dessa propriedade (ou o uso da anotação {@code @Filterable})
      * define que o campo deve ser considerado na geração de filtros dinâmicos.

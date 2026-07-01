@@ -133,6 +133,11 @@ public @interface UISchema {
     boolean formHidden() default false;
     boolean filterable() default false;
 
+    // 5.1. Acesso contextual de campo
+    String[] visibleForAuthorities() default {};
+    String[] editableForAuthorities() default {};
+    String fieldAccessReason() default "";
+
     // 6. Dependências e Ações Dinâmicas
     String conditionalDisplay() default "";
     String dependsOn() default "";

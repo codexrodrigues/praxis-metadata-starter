@@ -1544,6 +1544,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (annotation.formHidden()) {
             uiExtension.put(FieldConfigProperties.FORM_HIDDEN.getValue(), true);
         }
+        applyFieldAccess(annotation, uiExtension);
         if (!annotation.editable()) { // padrão é true
             uiExtension.put(FieldConfigProperties.EDITABLE.getValue(), false);
         }
@@ -1679,6 +1680,40 @@ public class CustomOpenApiResolver extends ModelResolver {
                 uiExtension.put(ValidationProperties.MAX_FILE_SIZE.getValue(), annotation.maxFileSize());
             }
         }
+    }
+
+    private void applyFieldAccess(UISchema annotation, Map<String, Object> uiExtension) {
+        List<String> visibleForAuthorities = normalizeAuthorityList(annotation.visibleForAuthorities());
+        List<String> editableForAuthorities = normalizeAuthorityList(annotation.editableForAuthorities());
+        String reason = annotation.fieldAccessReason() == null ? "" : annotation.fieldAccessReason().trim();
+
+        if (visibleForAuthorities.isEmpty() && editableForAuthorities.isEmpty() && reason.isEmpty()) {
+            return;
+        }
+
+        Map<String, Object> fieldAccess = new LinkedHashMap<>();
+        if (!visibleForAuthorities.isEmpty()) {
+            fieldAccess.put("visibleForAuthorities", visibleForAuthorities);
+        }
+        if (!editableForAuthorities.isEmpty()) {
+            fieldAccess.put("editableForAuthorities", editableForAuthorities);
+        }
+        if (!reason.isEmpty()) {
+            fieldAccess.put("reason", reason);
+        }
+        uiExtension.put(FieldConfigProperties.FIELD_ACCESS.getValue(), fieldAccess);
+    }
+
+    private List<String> normalizeAuthorityList(String[] authorities) {
+        if (authorities == null || authorities.length == 0) {
+            return List.of();
+        }
+
+        return Arrays.stream(authorities)
+                .filter(authority -> authority != null && !authority.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
     }
 
     /**
