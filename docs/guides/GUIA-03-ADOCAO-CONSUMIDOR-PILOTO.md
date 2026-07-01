@@ -65,6 +65,13 @@ Modele intencoes explicitamente:
 
 - continua sendo manutencao do recurso -> `@ResourceIntent` e opcionalmente `@UiSurface`
 - vira comando de negocio -> `@WorkflowAction`
+- mudanca de campo que apenas recarrega opcoes -> `x-ui.optionSource.dependsOn`
+  e `dependencyFilterMap`, quando a chave de filtro diferir do campo observado
+
+Nao crie eventos genericos de frontend para decidir intencao. O runtime pode
+observar campos dependentes para executar cascatas declaradas, mas a decisao de
+negocio continua vindo de contratos canonicos: option source para recarga de
+opcoes, workflow action para comando real.
 
 ## Sequencia recomendada de adocao
 
@@ -113,6 +120,7 @@ Para o recurso piloto escolhido:
 - nao manter DTO unico por conveniencia
 - nao criar endpoints espelho so para a UI
 - nao criar dispatcher generico para workflows
+- nao criar callback `onChange` local como fonte primaria de evento de campo
 - nao usar o consumidor como fonte canonica da semantica
 - nao criar contratos paralelos permanentes
 
