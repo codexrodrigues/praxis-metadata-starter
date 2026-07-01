@@ -228,6 +228,21 @@ agora sem virar um schema alternativo</li>
 </ul>
 <p><code>@UISchema</code> continua relevante para metadados de campo,
 mas ele ja nao descreve sozinho a arquitetura publica do starter.</p>
+<h3 id="dtos-nao-sao-gerados-mecanicamente-da-entidade">DTOs Nao Sao
+Gerados Mecanicamente Da Entidade</h3>
+<p>A entidade JPA e uma fonte de grounding operacional importante, mas
+nao e a fonte primaria do contrato publico. Em um recurso Praxis, os
+DTOs representam decisoes de contrato: quais campos sao lidos, escritos,
+filtrados, validados, explicados por <code>@UISchema</code> e publicados
+em surfaces/capabilities.</p>
+<p>Ferramentas de scaffolding ou IA podem acelerar o primeiro desenho
+lendo a entidade, mas somente depois de resolvido o escopo semantico do
+recurso. Elas nao devem inferir, sozinhas, regras de negocio,
+visibilidade, obrigatoriedade, filtros, escrita parcial ou exposicao
+publica a partir dos atributos de persistencia.</p>
+<p><code>ResourceMapper</code> e MapStruct materializam a fronteira
+entre entidade e DTO depois que o contrato foi modelado. Eles nao
+substituem a decisao canonica de contrato.</p>
 <h2 id="camadas-principais">3. Camadas Principais</h2>
 <h3 id="auto-configuracao">Auto-configuracao</h3>
 <ul>

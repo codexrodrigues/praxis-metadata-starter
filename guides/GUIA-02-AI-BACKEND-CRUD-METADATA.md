@@ -117,6 +117,12 @@ Regras que a LLM deve obedecer:
 - DTOs de escrita devem carregar `@Valid` e constraints reais quando houver
 - `ResponseDTO` deve expor o ID retornado pelo controller
 
+A entidade JPA pode orientar nomes, tipos e relacionamentos, mas nao deve ser
+tratada como gerador mecanico do contrato publico. Antes de preencher os DTOs,
+resolva a semantica do recurso: quais campos pertencem a leitura, criacao,
+atualizacao, filtros e discovery. Depois disso, use mapper ou MapStruct para
+materializar a fronteira entre persistencia e contrato.
+
 ## Repository minimo
 
 ```java
@@ -346,6 +352,7 @@ Para recurso read-only, nao espere:
 - payload generico por string
 - duplicacao `v1/v2`
 - DTO unico para leitura e escrita
+- DTO publico derivado mecanicamente da entidade JPA sem decisao semantica
 - classes fora do baseline resource-oriented atual
 
 ## Prompt recomendado para adicionar um recurso novo
@@ -370,6 +377,7 @@ Gere, nesta ordem:
 
 Regras:
 - nao use @RestController junto com @ApiResource
+- nao derive DTO publico mecanicamente da entidade JPA; use a entidade apenas como grounding
 - FilterDTO deve implementar GenericFilterDTO
 - mapper deve implementar toResponse, newEntity, applyUpdate, extractId
 - service deve sobrescrever getResourceMapper()

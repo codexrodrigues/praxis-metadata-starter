@@ -222,6 +222,11 @@ docs/discovery.</p>
 <li>update</li>
 <li>filter</li>
 </ul>
+<p>Esses DTOs sao contratos publicos do recurso, nao espelhos mecanicos
+da entidade de persistencia. A entidade pode ajudar no grounding
+inicial, mas a separacao entre leitura, escrita, filtros, validacao e
+metadata de UI precisa ser authorada como decisao semantica do
+recurso.</p>
 <h2 id="extension"><code>extension</code></h2>
 <p>Corpo do enriquecimento OpenAPI.</p>
 <ul>
@@ -249,6 +254,9 @@ consistentes.</p>
 <h2 id="mapper"><code>mapper</code></h2>
 <p>Configuracoes compartilhadas para mapeamento e integracao com
 MapStruct.</p>
+<p>Mappers materializam a fronteira depois que os DTOs canonicos
+existem. Eles nao devem ser usados como justificativa para inferir o
+contrato publico apenas a partir da entidade JPA.</p>
 <h2 id="repository"><code>repository</code></h2>
 <p>Infraestrutura base de acesso a dados.</p>
 <h2 id="service"><code>service</code></h2>
