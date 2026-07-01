@@ -265,10 +265,13 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    FieldControlType <span class="fu">controlType</span><span class="op">()</span> <span class="kw">default</span> FieldControlType<span class="op">.</span><span class="fu">AUTO</span><span class="op">;</span></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">String</span> <span class="fu">group</span><span class="op">()</span> <span class="kw">default</span> <span class="st">&quot;&quot;</span><span class="op">;</span></span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="fu">order</span><span class="op">()</span> <span class="kw">default</span> <span class="dv">0</span><span class="op">;</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">boolean</span> <span class="fu">required</span><span class="op">()</span> <span class="kw">default</span> <span class="kw">false</span><span class="op">;</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    NumericFormat <span class="fu">numericFormat</span><span class="op">()</span> <span class="kw">default</span> NumericFormat<span class="op">.</span><span class="fu">INTEGER</span><span class="op">;</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    ExtensionProperty<span class="op">[]</span> <span class="fu">extraProperties</span><span class="op">()</span> <span class="kw">default</span> <span class="op">{};</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">boolean</span> <span class="fu">readOnly</span><span class="op">()</span> <span class="kw">default</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">boolean</span> <span class="fu">hidden</span><span class="op">()</span> <span class="kw">default</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">boolean</span> <span class="fu">tableHidden</span><span class="op">()</span> <span class="kw">default</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">boolean</span> <span class="fu">formHidden</span><span class="op">()</span> <span class="kw">default</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    NumericFormat <span class="fu">numericFormat</span><span class="op">()</span> <span class="kw">default</span> NumericFormat<span class="op">.</span><span class="fu">INTEGER</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    ExtensionProperty<span class="op">[]</span> <span class="fu">extraProperties</span><span class="op">()</span> <span class="kw">default</span> <span class="op">{};</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p><em>Campos numericos podem usar <code>NumericFormat</code> quando a
 informacao for uma medida matematica. Codigos, documentos fiscais,
 telefones, CEPs e identificadores nao devem ser tratados como numero
@@ -300,9 +303,26 @@ para manter consistência nos formulários.</p></li>
 <li><p><strong>Agrupamento (<code>group</code>)</strong>: organize
 campos em blocos semânticos (por exemplo, <code>dadosPessoais</code>,
 <code>endereco</code>).</p></li>
-<li><p><strong>Visibilidade</strong>: utilize <code>formHidden</code>,
-<code>tableHidden</code>, <code>filterable</code> para controlar cada
-contexto.</p></li>
+<li><p><strong>Somente leitura</strong>: use
+<code>readOnly = true</code> para campos calculados, espelhos de
+relacionamento, valores preenchidos pelo backend ou DTOs de resposta. O
+padrão é <code>false</code>, preservando formulários de criação/edição
+como editáveis salvo decisão explícita de plataforma.</p></li>
+<li><p><strong>Visibilidade</strong>: use <code>hidden</code> apenas
+quando o campo deve sumir de todas as superfícies metadata-driven. Para
+intenção contextual, prefira <code>formHidden</code> em formulários e
+<code>tableHidden</code> em listagens.</p></li>
+<li><p><strong>Migração de legado</strong>: não use
+<code>extraProperties</code> com chaves como <code>readonly</code> ou
+<code>hidden</code> para modelar estado básico de campo. A forma
+canônica é <code>readOnly</code>, <code>hidden</code>,
+<code>tableHidden</code> e <code>formHidden</code> diretamente em
+<code>@UISchema</code>.</p></li>
+<li><p><strong>Filtros</strong>: <code>@Filterable</code> descreve a
+semântica de busca/filtro. Ele não deve ser usado para inferir se um
+campo é editável, somente leitura ou oculto em formulários de
+criação/edição; essa decisão continua em
+<code>@UISchema</code>.</p></li>
 <li><p><strong>Mensagens</strong>: personalize
 <code>requiredMessage</code>, <code>rangeMessage</code> via
 <code>ValidationProperties</code> quando necessário.</p></li>
