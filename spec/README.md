@@ -45,6 +45,10 @@
   - Acesso contextual: `fieldAccess{ visibleForAuthorities?, editableForAuthorities?, reason? }` declara politica de leitura/edicao por authority canonica para renderizacao runtime e validacao backend do host; `reason` e explicativo e nao e politica suficiente sozinho
   - Dependencias/Condicionais: `conditionalDisplay`, `dependentField`, `resetOnDependentChange`
     - `dependentField` e legado/condicional; cascata de option-source deve usar `optionSource.dependsOn`.
+    - Eventos de campo nao devem virar callbacks genericos ou scripts locais no `x-ui`.
+      Quando a mudanca de um campo precisa recarregar opcoes de outro, publique a
+      cascata como `optionSource.dependsOn` e, quando necessario, `dependencyFilterMap`.
+      Quando a mudanca representa comando de negocio, modele endpoint real e `@WorkflowAction`.
   - Layout/Icone: `hint`, `helpText`, `tooltipOnHover`, `icon*`
   - Selecao/Opcaoes: `options[]`, `endpoint`, `valueField`, `displayField`, `multiple`, `emptyOptionText`
     - No runtime Angular, a UI Praxis normaliza esses campos para `resourcePath`, `optionValueKey` e `optionLabelKey`.

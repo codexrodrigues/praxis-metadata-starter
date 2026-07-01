@@ -142,6 +142,12 @@ Importante:
 - quando `optionSource` existe, ele passa a ser a referencia canonica preferencial sobre o shape `endpoint`
 - dependencias de LOV/options devem ser publicadas em `x-ui.optionSource.dependsOn`; em DTOs, `@UISchema(dependsOn = "empresaId, filialId")` materializa essa chave automaticamente.
 
+Essa cascata e declarativa: o runtime observa os campos dependentes e recarrega
+as opcoes usando o contrato da option source. Nao modele esse fluxo como
+callback `onChange`, script local ou roteamento por nome de campo. Se a mudanca
+do campo aciona uma transicao real de negocio, publique uma operacao HTTP real
+e catalogue-a com `@WorkflowAction`.
+
 ## Como o Angular consome isso
 
 O `praxis-ui-angular` ja tem consumo explicito para `option-sources`.
@@ -353,6 +359,7 @@ Contrato minimo recomendado para Entity Lookup:
 - use `dependencyFilterMap` quando o nome do campo dependente nao for a chave de filtro esperada pelo executor
 - use `excludeSelfField=true` quando a source nao deve se autofiltrar
 - para `OptionDTO`, mantenha `optionLabelKey=label` e `optionValueKey=id`
+- nao use callbacks genericos de campo para recarregar options
 
 ## Troubleshooting e Debugging
 

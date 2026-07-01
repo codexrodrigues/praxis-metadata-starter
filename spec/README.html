@@ -263,6 +263,12 @@ explicativo e nao e politica suficiente sozinho</li>
 <ul>
 <li><code>dependentField</code> e legado/condicional; cascata de
 option-source deve usar <code>optionSource.dependsOn</code>.</li>
+<li>Eventos de campo nao devem virar callbacks genericos ou scripts
+locais no <code>x-ui</code>. Quando a mudanca de um campo precisa
+recarregar opcoes de outro, publique a cascata como
+<code>optionSource.dependsOn</code> e, quando necessario,
+<code>dependencyFilterMap</code>. Quando a mudanca representa comando de
+negocio, modele endpoint real e <code>@WorkflowAction</code>.</li>
 </ul></li>
 <li>Layout/Icone: <code>hint</code>, <code>helpText</code>,
 <code>tooltipOnHover</code>, <code>icon*</code></li>

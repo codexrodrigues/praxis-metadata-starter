@@ -398,6 +398,12 @@ referencia canonica preferencial sobre o shape
 <code>@UISchema(dependsOn = "empresaId, filialId")</code> materializa
 essa chave automaticamente.</li>
 </ul>
+<p>Essa cascata e declarativa: o runtime observa os campos dependentes e
+recarrega as opcoes usando o contrato da option source. Nao modele esse
+fluxo como callback <code>onChange</code>, script local ou roteamento
+por nome de campo. Se a mudanca do campo aciona uma transicao real de
+negocio, publique uma operacao HTTP real e catalogue-a com
+<code>@WorkflowAction</code>.</p>
 <h2 id="como-o-angular-consome-isso">Como o Angular consome isso</h2>
 <p>O <code>praxis-ui-angular</code> ja tem consumo explicito para
 <code>option-sources</code>.</p>
@@ -624,6 +630,7 @@ dependente nao for a chave de filtro esperada pelo executor</li>
 autofiltrar</li>
 <li>para <code>OptionDTO</code>, mantenha
 <code>optionLabelKey=label</code> e <code>optionValueKey=id</code></li>
+<li>nao use callbacks genericos de campo para recarregar options</li>
 </ul>
 <h2 id="troubleshooting-e-debugging">Troubleshooting e Debugging</h2>
 <h3 id="problemas-comuns-e-soluções">Problemas Comuns e Soluções</h3>

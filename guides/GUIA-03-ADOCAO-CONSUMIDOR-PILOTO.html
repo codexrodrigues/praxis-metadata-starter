@@ -240,7 +240,16 @@ update</li>
 <code>@ResourceIntent</code> e opcionalmente
 <code>@UiSurface</code></li>
 <li>vira comando de negocio -&gt; <code>@WorkflowAction</code></li>
+<li>mudanca de campo que apenas recarrega opcoes -&gt;
+<code>x-ui.optionSource.dependsOn</code> e
+<code>dependencyFilterMap</code>, quando a chave de filtro diferir do
+campo observado</li>
 </ul>
+<p>Nao crie eventos genericos de frontend para decidir intencao. O
+runtime pode observar campos dependentes para executar cascatas
+declaradas, mas a decisao de negocio continua vindo de contratos
+canonicos: option source para recarga de opcoes, workflow action para
+comando real.</p>
 <h2 id="sequencia-recomendada-de-adocao">Sequencia recomendada de
 adocao</h2>
 <ol type="1">
@@ -301,6 +310,8 @@ ao final</h2>
 <li>nao manter DTO unico por conveniencia</li>
 <li>nao criar endpoints espelho so para a UI</li>
 <li>nao criar dispatcher generico para workflows</li>
+<li>nao criar callback <code>onChange</code> local como fonte primaria
+de evento de campo</li>
 <li>nao usar o consumidor como fonte canonica da semantica</li>
 <li>nao criar contratos paralelos permanentes</li>
 </ul>

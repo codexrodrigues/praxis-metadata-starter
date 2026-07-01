@@ -339,6 +339,15 @@ minima de consumo</li>
 -&gt; contrato publico de filtro rico para
 <code>entityLookup</code></li>
 </ul></li>
+<li>interacoes de campo
+<ul>
+<li>cascata de opcoes deve ser publicada como
+<code>x-ui.optionSource.dependsOn</code>, nao como callback local</li>
+<li>mudanca que executa comando de negocio deve ser publicada como
+endpoint real e <code>@WorkflowAction</code></li>
+<li>consumidores nao devem inferir roteamento de evento por nome, label,
+sufixo ou heuristica textual</li>
+</ul></li>
 <li>x-ui.resource
 <ul>
 <li><code>idField</code> -&gt; chave primaria no fluxo de CRUD/UI</li>
@@ -457,6 +466,10 @@ de filtro; o frontend nao deve inferir combinacoes suportadas.</li>
 quando <code>x-ui.optionSource</code> estiver presente;</li>
 <li>consumidores nao devem inferir <code>optionSource</code> a partir de
 heuristicas locais.</li>
+<li>consumidores devem tratar <code>dependsOn</code> como dependencia
+declarativa de cascata, nao como script de evento;</li>
+<li>callbacks genericos como <code>onChange</code> ou handlers locais
+equivalentes nao sao contrato canonico do starter.</li>
 </ul>
 <h2
 id="cobertura-do-consumidor-oficial---exportacao-de-colecao">Cobertura

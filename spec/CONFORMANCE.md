@@ -76,6 +76,10 @@
   - `dependsOn`, `dependencyFilterMap`, `excludeSelfField` -> cascata, mapeamento dependencia -> filtro e remocao do proprio predicado
   - `searchMode`, `pageSize`, `includeIds`, `cachePolicy` -> politica publica minima de consumo
   - `filtering.availableFilters`, `filtering.defaultFilters`, `filtering.sortOptions`, `filtering.defaultSort` -> contrato publico de filtro rico para `entityLookup`
+- interacoes de campo
+  - cascata de opcoes deve ser publicada como `x-ui.optionSource.dependsOn`, nao como callback local
+  - mudanca que executa comando de negocio deve ser publicada como endpoint real e `@WorkflowAction`
+  - consumidores nao devem inferir roteamento de evento por nome, label, sufixo ou heuristica textual
 - x-ui.resource
   - `idField` -> chave primaria no fluxo de CRUD/UI
   - `idFieldValid`/`idFieldMessage` -> diagnostico e alertas
@@ -147,6 +151,8 @@ Diretriz canonica:
 - campos com fonte remota devem publicar `x-ui.optionSource`;
 - `endpoint`, `valueField` e `displayField` nao devem redefinir a semantica de fonte quando `x-ui.optionSource` estiver presente;
 - consumidores nao devem inferir `optionSource` a partir de heuristicas locais.
+- consumidores devem tratar `dependsOn` como dependencia declarativa de cascata, nao como script de evento;
+- callbacks genericos como `onChange` ou handlers locais equivalentes nao sao contrato canonico do starter.
 
 ## Cobertura do consumidor oficial - exportacao de colecao
 
