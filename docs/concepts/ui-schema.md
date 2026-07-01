@@ -19,7 +19,10 @@ public @interface UISchema {
     FieldControlType controlType() default FieldControlType.AUTO;
     String group() default "";
     int order() default 0;
-    boolean required() default false;
+    boolean readOnly() default false;
+    boolean hidden() default false;
+    boolean tableHidden() default false;
+    boolean formHidden() default false;
     NumericFormat numericFormat() default NumericFormat.INTEGER;
     ExtensionProperty[] extraProperties() default {};
 }
@@ -43,7 +46,10 @@ devem ser tratados como numero apenas porque o legado usa coluna numerica.*
 
 * **Ordenação (`order`)**: sempre defina para manter consistência nos formulários.
 * **Agrupamento (`group`)**: organize campos em blocos semânticos (por exemplo, `dadosPessoais`, `endereco`).
-* **Visibilidade**: utilize `formHidden`, `tableHidden`, `filterable` para controlar cada contexto.
+* **Somente leitura**: use `readOnly = true` para campos calculados, espelhos de relacionamento, valores preenchidos pelo backend ou DTOs de resposta. O padrão é `false`, preservando formulários de criação/edição como editáveis salvo decisão explícita de plataforma.
+* **Visibilidade**: use `hidden` apenas quando o campo deve sumir de todas as superfícies metadata-driven. Para intenção contextual, prefira `formHidden` em formulários e `tableHidden` em listagens.
+* **Migração de legado**: não use `extraProperties` com chaves como `readonly` ou `hidden` para modelar estado básico de campo. A forma canônica é `readOnly`, `hidden`, `tableHidden` e `formHidden` diretamente em `@UISchema`.
+* **Filtros**: `@Filterable` descreve a semântica de busca/filtro. Ele não deve ser usado para inferir se um campo é editável, somente leitura ou oculto em formulários de criação/edição; essa decisão continua em `@UISchema`.
 * **Mensagens**: personalize `requiredMessage`, `rangeMessage` via `ValidationProperties` quando necessário.
 * **Apresentação de valor (`valuePresentation`)**: trate este bloco como o contrato canônico de display/read-only. O starter publica `x-ui.valuePresentation` automaticamente a partir de `type`, `format`, `controlType` e `numericFormat`; quando precisar sobrescrever, prefira `extraProperties` com chaves aninhadas, como `valuePresentation.type`.
 
