@@ -176,7 +176,8 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
     ) {
         CanonicalOperationRef operationRef = canonicalOperationResolver.resolve(handlerMethod, mappingInfo);
         String schemaType = schemaTypeFor(surface.kind());
-        CanonicalSchemaRef schemaRef = resolveSchema(operationRef, schemaType, resource);
+        RelatedResourceSurface relatedResource = relatedResource(resource, surface);
+        CanonicalSchemaRef schemaRef = resolveSchema(operationRef, schemaType, resource, relatedSchemaIdField(relatedResource));
         SurfaceResponseCardinality responseCardinality = responseCardinalityFor(handlerMethod);
 
         return new SurfaceDefinition(
@@ -196,8 +197,23 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                 surface.order(),
                 List.copyOf(Arrays.asList(surface.requiredAuthorities())),
                 List.copyOf(Arrays.asList(surface.allowedStates())),
-                List.copyOf(Arrays.asList(surface.tags()))
+                List.copyOf(Arrays.asList(surface.tags())),
+                relatedResource
         );
+    }
+
+    private RelatedResourceSurface relatedResource(ResourceDescriptor resource, UiSurface surface) {
+        RelatedResourceSurface related = new RelatedResourceSurface(
+                resource.resourceKey(),
+                surface.relatedParentIdPathVariable(),
+                surface.relatedChildResourceKey(),
+                surface.relatedChildResourcePath(),
+                surface.relatedChildParentField(),
+                surface.relatedSelectable(),
+                surface.relatedSelectionKeyField(),
+                List.copyOf(Arrays.asList(surface.relatedChildOperations()))
+        );
+        return related.present() ? related : null;
     }
 
     private SurfaceDefinition buildAutomaticSurface(
@@ -238,7 +254,8 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                 automaticSurface.order(),
                 List.of(),
                 List.of(),
-                List.of()
+                List.of(),
+                null
         );
     }
 
@@ -262,6 +279,15 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
             String schemaType,
             ResourceDescriptor resource
     ) {
+        return resolveSchema(operationRef, schemaType, resource, null);
+    }
+
+    private CanonicalSchemaRef resolveSchema(
+            CanonicalOperationRef operationRef,
+            String schemaType,
+            ResourceDescriptor resource,
+            String idFieldOverride
+    ) {
         return schemaReferenceResolver.resolve(
                 operationRef.path(),
                 operationRef.method(),
@@ -269,9 +295,16 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                 false,
                 null,
                 null,
-                resource.idField(),
+                StringUtils.hasText(idFieldOverride) ? idFieldOverride : resource.idField(),
                 resource.readOnly()
         );
+    }
+
+    private String relatedSchemaIdField(RelatedResourceSurface relatedResource) {
+        if (relatedResource == null || !relatedResource.selectable()) {
+            return null;
+        }
+        return relatedResource.selectionKeyField();
     }
 
     private ResourceDescriptor resolveResourceDescriptor(HandlerMethod handlerMethod, Class<?> controllerClass) {

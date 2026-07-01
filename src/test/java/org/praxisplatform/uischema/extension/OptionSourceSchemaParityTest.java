@@ -27,6 +27,10 @@ class OptionSourceSchemaParityTest {
                 "optionSource schema should stay closed to undocumented keys");
         assertTrue(properties.has("dependsOn"), "optionSource schema should expose dependsOn");
         assertTrue(properties.has("dependencyFilterMap"), "optionSource schema should expose dependencyFilterMap");
+        assertTrue(properties.has("filterEndpoint"), "optionSource schema should expose canonical filterEndpoint");
+        assertTrue(properties.has("byIdsEndpoint"), "optionSource schema should expose canonical byIdsEndpoint");
+        assertTrue(properties.has("selectedReloadPolicy"), "optionSource schema should expose selected reload policy");
+        assertTrue(properties.has("invalidSortPolicy"), "optionSource schema should expose invalid sort policy");
         assertFalse(properties.has("attributes"), "optionSource schema must not expose provider execution attributes");
         assertFalse(properties.has("hostContext"), "optionSource schema must not expose provider host context");
         assertFalse(properties.has("providerConfig"), "optionSource schema must not expose provider private config");
@@ -36,6 +40,9 @@ class OptionSourceSchemaParityTest {
         assertEquals("string", dependencyFilterMap.path("additionalProperties").path("type").asText());
         assertEquals(1, dependencyFilterMap.path("additionalProperties").path("minLength").asInt());
         assertEquals("\\S", dependencyFilterMap.path("additionalProperties").path("pattern").asText());
+        assertEquals("required", properties.path("selectedReloadPolicy").path("enum").get(0).asText());
+        assertEquals("unsupported-with-waiver", properties.path("selectedReloadPolicy").path("enum").get(2).asText());
+        assertEquals("reject", properties.path("invalidSortPolicy").path("enum").get(0).asText());
     }
 
     @Test

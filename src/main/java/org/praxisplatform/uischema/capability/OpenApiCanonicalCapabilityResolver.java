@@ -46,6 +46,7 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 || hasItemLevelWriteOperation(pathsNode, basePath, "put", "patch"));
         capabilities.put("delete", hasOperation(pathsNode, basePath + "/{id}", "delete")
                 || hasOperation(pathsNode, basePath + "/batch", "delete"));
+        capabilities.put("duplicate-draft", hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post"));
         capabilities.put("options", hasOperation(pathsNode, basePath + "/options/filter", "post")
                 || hasOperation(pathsNode, basePath + "/options/by-ids", "get"));
         capabilities.put("optionSources", hasOperation(pathsNode, basePath + "/option-sources/{sourceKey}/options/filter", "post")
@@ -109,6 +110,14 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 "ITEM",
                 hasOperation(pathsNode, basePath + "/{id}", "delete") ? "DELETE" : null,
                 "delete",
+                AvailabilityDecision.allowAll()
+        ));
+        operations.put("duplicate-draft", new CapabilityOperation(
+                "duplicate-draft",
+                hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post"),
+                "ITEM",
+                hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post") ? "POST" : null,
+                "duplicate-draft",
                 AvailabilityDecision.allowAll()
         ));
         return Map.copyOf(operations);

@@ -54,6 +54,8 @@ Regra:
 - `surface` nao define payload
 - `surface` aponta para operacao real + schema canonico
 - o schema continua vindo de `/schemas/filtered`, nao de `/schemas/surfaces`
+- para colecoes relacionadas, `surface.relatedResource` descreve o filho, o binding do pai,
+  selecao e operacoes da colecao filha; ainda assim nao cria schema paralelo
 - `responseCardinality` descreve a cardinalidade da resposta da operacao (`OBJECT`,
   `COLLECTION`, `PAGE`, `VOID` ou `UNKNOWN`), sem criar um segundo schema
 - `ITEM` em `/schemas/surfaces` e discovery-only sem `resourceId`; a availability real vem de
@@ -65,6 +67,9 @@ Exemplo importante:
   `responseCardinality = OBJECT`
 - `GET /employees/{id}/payroll-history` tambem pode ser uma surface `ITEM`, mas com
   `responseCardinality = COLLECTION`, porque projeta uma colecao relacionada ao funcionario
+- `GET /employees/{id}/certifications` pode publicar `relatedResource.childResourceKey`,
+  `childParentField = employeeId`, `selectable = true` e `childOperations = [LIST, CREATE, DELETE]`
+  para que o runtime saiba quais affordances oferecer sobre a lista filha
 
 Essa distincao evita que runtimes precisem inferir se devem renderizar um form de leitura,
 uma tabela, uma lista ou uma pagina a partir apenas de `kind` e `scope`.
@@ -150,4 +155,3 @@ O baseline distingue **descoberta** (o que existe) de **disponibilidade** (o que
 A UI obtem a disponibilidade real via `GET /{resource}/{id}/capabilities` (campo `available` / `availability.decision`) e ajusta a interface (ocultar, desabilitar, tooltip).
 
 Detalhes de implementacao e exemplos estao no `QuickstartResourceStateSnapshotProvider` do `praxis-api-quickstart` e nos Javadocs das classes de availability do starter.
-

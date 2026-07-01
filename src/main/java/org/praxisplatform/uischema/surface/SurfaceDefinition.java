@@ -31,6 +31,47 @@ public record SurfaceDefinition(
         int order,
         List<String> requiredAuthorities,
         List<String> allowedStates,
-        List<String> tags
+        List<String> tags,
+        RelatedResourceSurface relatedResource
 ) {
+    public SurfaceDefinition(
+            String id,
+            String resourceKey,
+            String resourcePath,
+            String group,
+            SurfaceKind kind,
+            SurfaceScope scope,
+            String title,
+            String description,
+            String intent,
+            String schemaType,
+            SurfaceResponseCardinality responseCardinality,
+            CanonicalOperationRef operation,
+            CanonicalSchemaRef schema,
+            int order,
+            List<String> requiredAuthorities,
+            List<String> allowedStates,
+            List<String> tags
+    ) {
+        this(
+                id,
+                resourceKey,
+                resourcePath,
+                group,
+                kind,
+                scope,
+                title,
+                description,
+                intent,
+                schemaType,
+                responseCardinality,
+                operation,
+                schema,
+                order,
+                requiredAuthorities,
+                allowedStates,
+                tags,
+                null
+        );
+    }
 }

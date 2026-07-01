@@ -391,6 +391,47 @@ class CapabilityServiceTest {
         assertEquals(List.of("archive"), snapshot.actions().stream().map(ActionCatalogItem::id).toList());
     }
 
+    @Test
+    void resourceOperationAvailabilityProviderEnrichesCanonicalOperations() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of("create", true, "delete", true)),
+                emptySurfaceCatalogService(),
+                emptyActionCatalogService(),
+                new StaticOpenApiDocumentService("human-resources"),
+                context -> "delete".equals(context.operationId())
+                        ? AvailabilityDecision.deny("legacy-denied", Map.of("source", "test-guard"))
+                        : AvailabilityDecision.allowAll(),
+                (resourceKey, resourceId) -> java.util.Optional.of(ResourceStateSnapshot.of("LOCKED"))
+        );
+
+        CapabilitySnapshot snapshot = service.itemCapabilities("human-resources.employees", "/employees", 42L);
+
+        assertFalse(snapshot.operations().get("delete").availability().allowed());
+        assertEquals("legacy-denied", snapshot.operations().get("delete").availability().reason());
+        assertEquals("test-guard", snapshot.operations().get("delete").availability().metadata().get("source"));
+        assertTrue(snapshot.operations().get("edit").availability().allowed());
+    }
+
+    @Test
+    void resourceOperationAvailabilityProviderErrorsFailClosed() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of("create", true)),
+                emptySurfaceCatalogService(),
+                emptyActionCatalogService(),
+                new StaticOpenApiDocumentService("human-resources"),
+                context -> {
+                    throw new IllegalStateException("guard unavailable");
+                },
+                (resourceKey, resourceId) -> java.util.Optional.empty()
+        );
+
+        CapabilitySnapshot snapshot = service.collectionCapabilities("human-resources.employees", "/employees");
+
+        assertFalse(snapshot.operations().get("create").availability().allowed());
+        assertEquals("availability-provider-error", snapshot.operations().get("create").availability().reason());
+        assertEquals("create", snapshot.operations().get("create").availability().metadata().get("operationId"));
+    }
+
     private SurfaceCatalogItem surface(String id, SurfaceScope scope) {
         return new SurfaceCatalogItem(
                 id,
@@ -454,6 +495,34 @@ class CapabilityServiceTest {
         );
     }
 
+    private SurfaceCatalogService emptySurfaceCatalogService() {
+        return new SurfaceCatalogService(null, null, null) {
+            @Override
+            public SurfaceCatalogResponse findByResourceKey(String resourceKey) {
+                throw SurfaceCatalogNotFoundException.unknownResourceKey(resourceKey);
+            }
+
+            @Override
+            public SurfaceCatalogResponse findItemSurfaces(String resourceKey, Object resourceId) {
+                throw SurfaceCatalogNotFoundException.missingItemSurfaces(resourceKey);
+            }
+        };
+    }
+
+    private ActionCatalogService emptyActionCatalogService() {
+        return new ActionCatalogService(null, null, null) {
+            @Override
+            public ActionCatalogResponse findCollectionActions(String resourceKey) {
+                throw ActionCatalogNotFoundException.missingCollectionActions(resourceKey);
+            }
+
+            @Override
+            public ActionCatalogResponse findItemActions(String resourceKey, Object resourceId) {
+                throw ActionCatalogNotFoundException.missingItemActions(resourceKey);
+            }
+        };
+    }
+
     private record StaticOpenApiDocumentService(String group) implements OpenApiDocumentService {
 
         @Override
@@ -494,7 +563,8 @@ class CapabilityServiceTest {
                     "create", new CapabilityOperation("create", capabilities.getOrDefault("create", false), "COLLECTION", capabilities.getOrDefault("create", false) ? "POST" : null, "create", AvailabilityDecision.allowAll()),
                     "view", new CapabilityOperation("view", capabilities.getOrDefault("byId", false), "ITEM", capabilities.getOrDefault("byId", false) ? "GET" : null, "self", AvailabilityDecision.allowAll()),
                     "edit", new CapabilityOperation("edit", capabilities.getOrDefault("update", false), "ITEM", capabilities.getOrDefault("update", false) ? "PUT" : null, "edit", AvailabilityDecision.allowAll()),
-                    "delete", new CapabilityOperation("delete", capabilities.getOrDefault("delete", false), "ITEM", capabilities.getOrDefault("delete", false) ? "DELETE" : null, "delete", AvailabilityDecision.allowAll())
+                    "delete", new CapabilityOperation("delete", capabilities.getOrDefault("delete", false), "ITEM", capabilities.getOrDefault("delete", false) ? "DELETE" : null, "delete", AvailabilityDecision.allowAll()),
+                    "duplicate-draft", new CapabilityOperation("duplicate-draft", capabilities.getOrDefault("duplicate-draft", false), "ITEM", capabilities.getOrDefault("duplicate-draft", false) ? "POST" : null, "duplicate-draft", AvailabilityDecision.allowAll())
             );
         }
 

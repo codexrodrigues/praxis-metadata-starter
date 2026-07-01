@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.extension;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import org.praxisplatform.uischema.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
+import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 
 /**
  * Utility to provide a default UISchema annotation instance for tests.
@@ -12,6 +13,7 @@ public final class TestUISchemaDefaults {
     private static final UISchema DEFAULT = new UISchema() {
         @Override public Class<? extends java.lang.annotation.Annotation> annotationType() { return UISchema.class; }
 
+        @Override public UISchemaPreset preset() { return UISchemaPreset.NONE; }
         @Override public String description() { return ""; }
         @Override public String example() { return ""; }
         @Override public String name() { return ""; }

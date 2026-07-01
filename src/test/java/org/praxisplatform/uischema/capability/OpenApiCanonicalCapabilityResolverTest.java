@@ -66,6 +66,9 @@ class OpenApiCanonicalCapabilityResolverTest {
                     },
                     "/employees/{id}/profile": {
                       "patch": {}
+                    },
+                    "/employees/{id}/duplicate-draft": {
+                      "post": {}
                     }
                   }
                 }
@@ -80,6 +83,7 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertEquals(Boolean.TRUE, capabilities.get("create"));
         assertEquals(Boolean.TRUE, capabilities.get("update"));
         assertEquals(Boolean.TRUE, capabilities.get("delete"));
+        assertEquals(Boolean.TRUE, capabilities.get("duplicate-draft"));
         assertEquals(Boolean.TRUE, capabilities.get("options"));
         assertEquals(Boolean.TRUE, capabilities.get("optionSources"));
         assertEquals(Boolean.TRUE, capabilities.get("byId"));
@@ -101,6 +105,8 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertEquals("PATCH", operations.get("edit").preferredMethod());
         assertTrue(operations.get("delete").supported());
         assertEquals("DELETE", operations.get("delete").preferredMethod());
+        assertTrue(operations.get("duplicate-draft").supported());
+        assertEquals("POST", operations.get("duplicate-draft").preferredMethod());
     }
 
     @Test
@@ -130,6 +136,7 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertFalse(capabilities.get("create"));
         assertFalse(capabilities.get("update"));
         assertFalse(capabilities.get("delete"));
+        assertFalse(capabilities.get("duplicate-draft"));
         assertFalse(capabilities.get("options"));
         assertFalse(capabilities.get("optionSources"));
         assertTrue(capabilities.get("byId"));
@@ -147,6 +154,7 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertTrue(operations.get("view").supported());
         assertFalse(operations.get("edit").supported());
         assertFalse(operations.get("delete").supported());
+        assertFalse(operations.get("duplicate-draft").supported());
     }
 
     @Test

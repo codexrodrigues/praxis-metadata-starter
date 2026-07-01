@@ -10,6 +10,7 @@ import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.FieldDataType;
 import org.praxisplatform.uischema.ValidationProperties;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
+import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,6 +43,7 @@ class DateFieldUISchemaTest {
                 return UISchema.class;
             }
             // Implementar outros métodos com valores padrão
+            @Override public UISchemaPreset preset() { return UISchemaPreset.NONE; }
             @Override public String description() { return ""; }
             @Override public String example() { return ""; }
             @Override public String name() { return ""; }

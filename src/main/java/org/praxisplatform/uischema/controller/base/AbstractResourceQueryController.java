@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.annotation.PostConstruct;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.capability.CapabilitySnapshot;
 import org.praxisplatform.uischema.dto.CursorPage;
@@ -305,7 +306,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     protected List<Link> buildCollectionActionLinks() {
-        return supportsCollectionExport() ? List.of(linkToExport()) : List.of();
+        return supportsCollectionExport() && isCollectionOperationAvailable("export")
+                ? List.of(linkToExport())
+                : List.of();
     }
 
     protected List<Link> buildItemDiscoveryLinks(ID id) {
@@ -989,6 +992,46 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         return WebMvcLinkBuilder.linkTo(
                 WebMvcLinkBuilder.methodOn(getControllerClass()).exportCollection(null)
         ).withRel("export");
+    }
+
+    protected boolean isCollectionOperationAvailable(String operationId) {
+        String resourceKey = getResourceKeyOrNull();
+        if (!StringUtils.hasText(resourceKey) || capabilityService == null) {
+            return true;
+        }
+        AvailabilityDecision decision = capabilityService.collectionOperationAvailability(resourceKey, getBasePath(), operationId);
+        return decision == null || decision.allowed();
+    }
+
+    protected boolean isItemOperationAvailable(String operationId, ID id) {
+        String resourceKey = getResourceKeyOrNull();
+        if (!StringUtils.hasText(resourceKey) || capabilityService == null) {
+            return true;
+        }
+        AvailabilityDecision decision = capabilityService.itemOperationAvailability(resourceKey, getBasePath(), operationId, id);
+        return decision == null || decision.allowed();
+    }
+
+    protected void assertCollectionOperationAvailable(String operationId) {
+        String resourceKey = getResourceKeyOrNull();
+        if (!StringUtils.hasText(resourceKey) || capabilityService == null) {
+            return;
+        }
+        AvailabilityDecision decision = capabilityService.collectionOperationAvailability(resourceKey, getBasePath(), operationId);
+        if (decision != null && !decision.allowed()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, decision.reason());
+        }
+    }
+
+    protected void assertItemOperationAvailable(String operationId, ID id) {
+        String resourceKey = getResourceKeyOrNull();
+        if (!StringUtils.hasText(resourceKey) || capabilityService == null) {
+            return;
+        }
+        AvailabilityDecision decision = capabilityService.itemOperationAvailability(resourceKey, getBasePath(), operationId, id);
+        if (decision != null && !decision.allowed()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, decision.reason());
+        }
     }
 
     protected boolean supportsCollectionExport() {

@@ -101,6 +101,7 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                         "schema-" + invocation.getArgument(2, String.class),
                         invocation.getArgument(2, String.class),
                         "/schemas/filtered?path=" + invocation.getArgument(0, String.class)
+                                + "&idField=" + invocation.getArgument(6, String.class)
                 ));
 
         AnnotationDrivenSurfaceDefinitionRegistry registry = new AnnotationDrivenSurfaceDefinitionRegistry(
@@ -135,6 +136,19 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                 .findFirst()
                 .orElseThrow();
         assertEquals(SurfaceResponseCardinality.COLLECTION, paymentsSurface.responseCardinality());
+        assertNotNull(paymentsSurface.relatedResource());
+        assertEquals("registry.resources", paymentsSurface.relatedResource().parentResourceKey());
+        assertEquals("id", paymentsSurface.relatedResource().parentIdPathVariable());
+        assertEquals("registry.payments", paymentsSurface.relatedResource().childResourceKey());
+        assertEquals("/registry-payments", paymentsSurface.relatedResource().childResourcePath());
+        assertEquals("resourceId", paymentsSurface.relatedResource().childParentField());
+        assertTrue(paymentsSurface.relatedResource().selectable());
+        assertEquals("paymentId", paymentsSurface.relatedResource().selectionKeyField());
+        assertEquals(
+                List.of(RelatedResourceChildOperation.LIST, RelatedResourceChildOperation.CREATE, RelatedResourceChildOperation.DELETE),
+                paymentsSurface.relatedResource().childOperations()
+        );
+        assertTrue(paymentsSurface.schema().url().contains("idField=paymentId"));
         assertNull(firstLookup.stream().filter(surface -> "approve".equals(surface.id())).findFirst().orElse(null));
 
         List<SurfaceDefinition> byGroup = registry.findByGroup("registry-group");
@@ -348,7 +362,17 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                 id = "payments",
                 kind = SurfaceKind.READ_PROJECTION,
                 scope = SurfaceScope.ITEM,
-                title = "Pagamentos"
+                title = "Pagamentos",
+                relatedChildResourceKey = "registry.payments",
+                relatedChildResourcePath = "/registry-payments",
+                relatedChildParentField = "resourceId",
+                relatedSelectable = true,
+                relatedSelectionKeyField = "paymentId",
+                relatedChildOperations = {
+                        RelatedResourceChildOperation.LIST,
+                        RelatedResourceChildOperation.CREATE,
+                        RelatedResourceChildOperation.DELETE
+                }
         )
         public ResponseEntity<RestApiResponse<List<TestDto>>> payments(@PathVariable Long id) {
             return null;

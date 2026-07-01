@@ -47,4 +47,27 @@ public interface CapabilityService {
      * Resolve o snapshot de capabilities no escopo de um item especifico do recurso.
      */
     CapabilitySnapshot itemCapabilities(String resourceKey, String resourcePath, Object resourceId);
+
+    /**
+     * Resolve somente a disponibilidade contextual de uma operacao canonica de colecao.
+     */
+    default AvailabilityDecision collectionOperationAvailability(
+            String resourceKey,
+            String resourcePath,
+            String operationId
+    ) {
+        return AvailabilityDecision.allowAll();
+    }
+
+    /**
+     * Resolve somente a disponibilidade contextual de uma operacao canonica de item.
+     */
+    default AvailabilityDecision itemOperationAvailability(
+            String resourceKey,
+            String resourcePath,
+            String operationId,
+            Object resourceId
+    ) {
+        return AvailabilityDecision.allowAll();
+    }
 }

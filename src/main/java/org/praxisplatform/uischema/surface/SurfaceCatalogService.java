@@ -127,7 +127,8 @@ public class SurfaceCatalogService {
                 definition.responseCardinality(),
                 availability,
                 definition.order(),
-                definition.tags()
+                definition.tags(),
+                definition.relatedResource()
         );
     }
 

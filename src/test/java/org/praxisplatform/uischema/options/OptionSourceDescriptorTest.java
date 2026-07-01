@@ -37,6 +37,10 @@ class OptionSourceDescriptorTest {
         assertEquals("contains", descriptor.policy().searchMode());
         assertEquals(25, descriptor.policy().defaultPageSize());
         assertEquals("label", descriptor.policy().defaultSort());
+        assertEquals("/api/human-resources/vw-analytics-folha-pagamento/option-sources/payrollProfile/options/filter",
+                descriptor.runtimeContract().filterEndpoint());
+        assertEquals("/api/human-resources/vw-analytics-folha-pagamento/option-sources/payrollProfile/options/by-ids",
+                descriptor.runtimeContract().byIdsEndpoint());
     }
 
     @Test
@@ -96,6 +100,42 @@ class OptionSourceDescriptorTest {
 
         assertEquals(List.of("universo"), metadata.get("dependsOn"));
         assertEquals(Map.of("universo", "empresa.universo"), metadata.get("dependencyFilterMap"));
+        assertEquals("/api/human-resources/vw-analytics-folha-pagamento/option-sources/payrollProfile/options/filter",
+                metadata.get("filterEndpoint"));
+        assertEquals("/api/human-resources/vw-analytics-folha-pagamento/option-sources/payrollProfile/options/by-ids",
+                metadata.get("byIdsEndpoint"));
+        assertEquals("required", metadata.get("selectedReloadPolicy"));
+        assertEquals("reject", metadata.get("invalidSortPolicy"));
+    }
+
+    @Test
+    void supportsExplicitUnsupportedSelectedReloadPolicy() {
+        OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
+                "legacyStatus",
+                OptionSourceType.LIGHT_LOOKUP,
+                "/api/legacy/statuses",
+                null,
+                null,
+                "label",
+                "id",
+                List.of(),
+                Map.of(),
+                OptionSourcePolicy.defaults(),
+                null,
+                OptionSourceExecutionMode.PROVIDER_REQUIRED,
+                new OptionSourceRuntimeContract(
+                        "/api/legacy/statuses/option-sources/legacyStatus/options/filter",
+                        null,
+                        OptionSourceSelectedReloadPolicy.UNSUPPORTED_WITH_WAIVER,
+                        OptionSourceInvalidSortPolicy.UNSUPPORTED
+                )
+        );
+
+        Map<String, Object> metadata = descriptor.toMetadataMap();
+
+        assertEquals("/api/legacy/statuses/option-sources/legacyStatus/options/filter", metadata.get("filterEndpoint"));
+        assertEquals("unsupported-with-waiver", metadata.get("selectedReloadPolicy"));
+        assertEquals("unsupported", metadata.get("invalidSortPolicy"));
     }
 
     @Test

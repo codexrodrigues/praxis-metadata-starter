@@ -73,6 +73,53 @@ class SurfaceCatalogServiceTest {
     }
 
     @Test
+    void projectsRelatedResourceMetadataIntoCatalogItems() {
+        SurfaceDefinition related = new SurfaceDefinition(
+                "payment-lines",
+                "example.purchase-orders",
+                "/purchase-orders",
+                "example",
+                SurfaceKind.READ_PROJECTION,
+                SurfaceScope.ITEM,
+                "Payment lines",
+                "",
+                "payment-lines",
+                "response",
+                SurfaceResponseCardinality.COLLECTION,
+                new CanonicalOperationRef("example", "listPaymentLines", "/purchase-orders/{id}/payment-lines", "GET"),
+                new CanonicalSchemaRef("payment-line-response", "response", "/schemas/filtered?path=/purchase-orders/{id}/payment-lines"),
+                20,
+                List.of(),
+                List.of(),
+                List.of("related"),
+                new RelatedResourceSurface(
+                        "example.purchase-orders",
+                        "id",
+                        "example.payment-lines",
+                        "/payment-lines",
+                        "purchaseOrderId",
+                        true,
+                        "id",
+                        List.of(RelatedResourceChildOperation.LIST, RelatedResourceChildOperation.CREATE)
+                )
+        );
+        SurfaceDefinitionRegistry registry = new MapSurfaceDefinitionRegistry(
+                Map.of("example.purchase-orders", List.of(related)),
+                Map.of()
+        );
+        SurfaceCatalogService service = new SurfaceCatalogService(registry, allowAllEvaluator(), contextualResolver());
+
+        SurfaceCatalogItem item = service.findItemSurfaces("example.purchase-orders", 7L).surfaces().get(0);
+
+        assertNotNull(item.relatedResource());
+        assertEquals("example.payment-lines", item.relatedResource().childResourceKey());
+        assertEquals("/payment-lines", item.relatedResource().childResourcePath());
+        assertEquals("purchaseOrderId", item.relatedResource().childParentField());
+        assertEquals(List.of(RelatedResourceChildOperation.LIST, RelatedResourceChildOperation.CREATE),
+                item.relatedResource().childOperations());
+    }
+
+    @Test
     void resolvesAvailabilityContextOncePerDistinctResourceInGroupCatalog() {
         AtomicInteger resolverCalls = new AtomicInteger();
         SurfaceDefinitionRegistry registry = new MapSurfaceDefinitionRegistry(

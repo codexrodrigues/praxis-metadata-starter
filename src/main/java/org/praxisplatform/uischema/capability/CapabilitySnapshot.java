@@ -38,4 +38,17 @@ public record CapabilitySnapshot(
         surfaces = surfaces == null ? List.of() : List.copyOf(surfaces);
         actions = actions == null ? List.of() : List.copyOf(actions);
     }
+
+    public CapabilitySnapshot withOperations(Map<String, CapabilityOperation> nextOperations) {
+        return new CapabilitySnapshot(
+                resourceKey,
+                resourcePath,
+                group,
+                resourceId,
+                canonicalOperations,
+                nextOperations,
+                surfaces,
+                actions
+        );
+    }
 }

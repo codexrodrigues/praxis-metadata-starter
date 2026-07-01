@@ -14,6 +14,7 @@ import org.praxisplatform.uischema.annotation.DomainDataCategory;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.annotation.DomainGovernanceKind;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
+import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 
 import java.lang.annotation.Annotation;
 import java.util.Map;
@@ -73,6 +74,16 @@ class CustomOpenApiResolverTest {
     private static class NumericInputDummy {
         @UISchema(type = FieldDataType.NUMBER, controlType = FieldControlType.INPUT)
         Integer quantidade;
+    }
+
+    private static class PresetDummy {
+        @UISchema(preset = UISchemaPreset.MONETARY_AMOUNT)
+        Double valorMensal;
+    }
+
+    private static class PresetOverrideDummy {
+        @UISchema(preset = UISchemaPreset.MONETARY_AMOUNT, controlType = FieldControlType.INPUT, width = "20rem")
+        Double valorMensal;
     }
 
     @Test
@@ -172,6 +183,39 @@ class CustomOpenApiResolverTest {
         assertEquals(FieldControlType.INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
         assertEquals(FieldDataType.NUMBER.getValue(), xui.get(FieldConfigProperties.TYPE.getValue()));
         assertEquals(Map.of(FieldConfigProperties.TYPE.getValue(), "number"), xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
+    }
+
+    @Test
+    void uiSchemaPresetShouldProjectPresentationWithoutDomainDescription() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("number");
+        property.setName("valorMensal");
+
+        Annotation uiSchema = PresetDummy.class.getDeclaredField("valorMensal").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals("monetary-amount", xui.get(FieldConfigProperties.PRESENTATION_PRESET.getValue()));
+        assertEquals(FieldControlType.CURRENCY_INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals(FieldDataType.NUMBER.getValue(), xui.get(FieldConfigProperties.TYPE.getValue()));
+        assertEquals(NumericFormat.CURRENCY.getValue(), xui.get(FieldConfigProperties.NUMERIC_FORMAT.getValue()));
+        assertNull(property.getDescription());
+        assertFalse(xui.containsKey(FieldConfigProperties.DESCRIPTION.getValue()));
+    }
+
+    @Test
+    void explicitUiSchemaValuesShouldOverridePresetPresentation() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("number");
+        property.setName("valorMensal");
+
+        Annotation uiSchema = PresetOverrideDummy.class.getDeclaredField("valorMensal").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals("monetary-amount", xui.get(FieldConfigProperties.PRESENTATION_PRESET.getValue()));
+        assertEquals(FieldControlType.INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals("20rem", xui.get(FieldConfigProperties.WIDTH.getValue()));
     }
 
     @Test
