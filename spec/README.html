@@ -255,8 +255,9 @@ OpenAPI de <code>@DomainGovernance</code></li>
 <code>formHidden</code></li>
 <li>Acesso contextual:
 <code>fieldAccess{ visibleForAuthorities?, editableForAuthorities?, reason? }</code>
-declara politica de leitura/edicao por autoridade para renderizacao
-runtime e validacao backend do host</li>
+declara politica de leitura/edicao por authority canonica para
+renderizacao runtime e validacao backend do host; <code>reason</code> e
+explicativo e nao e politica suficiente sozinho</li>
 <li>Dependencias/Condicionais: <code>conditionalDisplay</code>,
 <code>dependentField</code>, <code>resetOnDependentChange</code>
 <ul>
@@ -370,8 +371,10 @@ JSON Schema</li>
 <li><code>x-ui.optionSource.type</code>:
 <code>RESOURCE_ENTITY | DISTINCT_DIMENSION | CATEGORICAL_BUCKET | LIGHT_LOOKUP | STATIC_CANONICAL</code></li>
 <li><code>x-ui.fieldAccess.*ForAuthorities</code>: authorities canonicas
-do host, alinhadas ao contexto de seguranca usado por
-surfaces/actions/capabilities</li>
+do host, alinhadas ao contexto de seguranca usado por surfaces/actions.
+Elas nao sao automaticamente equivalentes a
+<code>x-ui.resource.capabilities</code> ou ao runtime context
+<code>capabilities</code> sem mapeamento explicito do host</li>
 <li><code>x-domain-governance.annotationType</code>:
 <code>privacy | security | compliance</code></li>
 <li><code>x-domain-governance.classification</code>:
@@ -457,8 +460,12 @@ de chart.</li>
 por nome de campo.</li>
 <li>SHOULD: campos corporativos com restricao de leitura ou edicao
 publicarem <code>x-ui.fieldAccess</code>; o frontend pode usar o bloco
-para UX condicional, mas o backend continua responsavel por aplicar a
-autorizacao efetiva.</li>
+para UX condicional quando houver evaluator/mapeamento confiavel, mas o
+backend continua responsavel por aplicar a autorizacao efetiva.</li>
+<li>MUST: <code>x-ui.fieldAccess</code>, quando presente, conter
+<code>visibleForAuthorities</code> ou
+<code>editableForAuthorities</code>; <code>reason</code> sozinho e
+apenas explicacao e nao define politica executavel.</li>
 <li>MAY: incluir <code>specVersion</code> em um envelope/meta do payload
 para auditoria.</li>
 </ul>
@@ -518,6 +525,7 @@ esperado</li>
 <ul>
 <li><code>examples/x-ui-field.valid.json</code></li>
 <li><code>examples/x-ui-field.invalid.json</code></li>
+<li><code>examples/x-ui-field-field-access-reason-only.invalid.json</code></li>
 <li><code>examples/x-ui-field-option-source-resource.valid.json</code></li>
 <li><code>examples/x-ui-field-option-source-distinct.valid.json</code></li>
 <li><code>examples/x-ui-field-option-source.invalid.json</code></li>
