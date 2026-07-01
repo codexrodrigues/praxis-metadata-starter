@@ -58,6 +58,9 @@ Regra:
   selecao e operacoes da colecao filha; ainda assim nao cria schema paralelo
 - `surface.relatedResource` deve informar o trio `childResourceKey`, `childResourcePath` e
   `childParentField`; `childOperations` deve listar somente operacoes realmente publicadas por HTTP
+- ao publicar `/schemas/surfaces`, o starter filtra `childOperations` contra as capabilities
+  canonicas do `childResourcePath`; operacoes declaradas sem endpoint real nao viram affordance
+  disponivel para runtimes
 - `responseCardinality` descreve a cardinalidade da resposta da operacao (`OBJECT`,
   `COLLECTION`, `PAGE`, `VOID` ou `UNKNOWN`), sem criar um segundo schema
 - `ITEM` em `/schemas/surfaces` e discovery-only sem `resourceId`; a availability real vem de

@@ -482,12 +482,14 @@ public class OpenApiUiSchemaAutoConfiguration {
     public SurfaceCatalogService surfaceCatalogService(
             SurfaceDefinitionRegistry surfaceDefinitionRegistry,
             SurfaceAvailabilityEvaluator surfaceAvailabilityEvaluator,
-            SurfaceAvailabilityContextResolver surfaceAvailabilityContextResolver
+            SurfaceAvailabilityContextResolver surfaceAvailabilityContextResolver,
+            CanonicalCapabilityResolver canonicalCapabilityResolver
     ) {
         return new SurfaceCatalogService(
                 surfaceDefinitionRegistry,
                 surfaceAvailabilityEvaluator,
-                surfaceAvailabilityContextResolver
+                surfaceAvailabilityContextResolver,
+                canonicalCapabilityResolver
         );
     }
 

@@ -1,7 +1,10 @@
 package org.praxisplatform.uischema.surface;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
+import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
+import org.praxisplatform.uischema.capability.CapabilityOperation;
 import org.praxisplatform.uischema.capability.ResourceStateSnapshot;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
@@ -120,6 +123,69 @@ class SurfaceCatalogServiceTest {
     }
 
     @Test
+    void filtersRelatedChildOperationsNotBackedByChildResourceCapabilities() {
+        SurfaceDefinition related = new SurfaceDefinition(
+                "payment-lines",
+                "example.purchase-orders",
+                "/purchase-orders",
+                "example",
+                SurfaceKind.READ_PROJECTION,
+                SurfaceScope.ITEM,
+                "Payment lines",
+                "",
+                "payment-lines",
+                "response",
+                SurfaceResponseCardinality.COLLECTION,
+                new CanonicalOperationRef("example", "listPaymentLines", "/purchase-orders/{id}/payment-lines", "GET"),
+                new CanonicalSchemaRef("payment-line-response", "response", "/schemas/filtered?path=/purchase-orders/{id}/payment-lines"),
+                20,
+                List.of(),
+                List.of(),
+                List.of("related"),
+                new RelatedResourceSurface(
+                        "example.purchase-orders",
+                        "id",
+                        "example.payment-lines",
+                        "/payment-lines",
+                        "purchaseOrderId",
+                        true,
+                        "id",
+                        List.of(
+                                RelatedResourceChildOperation.LIST,
+                                RelatedResourceChildOperation.CREATE,
+                                RelatedResourceChildOperation.DELETE
+                        )
+                )
+        );
+        SurfaceDefinitionRegistry registry = new MapSurfaceDefinitionRegistry(
+                Map.of("example.purchase-orders", List.of(related)),
+                Map.of()
+        );
+        CanonicalCapabilityResolver childCapabilities = new StaticCanonicalCapabilityResolver(
+                Map.of(
+                        "all", true,
+                        "filter", false
+                ),
+                Map.of(
+                        "create", operation("create", false),
+                        "edit", operation("edit", false),
+                        "delete", operation("delete", false),
+                        "duplicate-draft", operation("duplicate-draft", false)
+                )
+        );
+        SurfaceCatalogService service = new SurfaceCatalogService(
+                registry,
+                allowAllEvaluator(),
+                contextualResolver(),
+                childCapabilities
+        );
+
+        SurfaceCatalogItem item = service.findItemSurfaces("example.purchase-orders", 7L).surfaces().get(0);
+
+        assertEquals(List.of(RelatedResourceChildOperation.LIST), item.relatedResource().childOperations());
+    }
+
+    @Test
     void rejectsPartialRelatedResourceMetadata() {
         assertThrows(IllegalArgumentException.class, () -> new RelatedResourceSurface(
                 "example.purchase-orders",
@@ -213,6 +279,10 @@ class SurfaceCatalogServiceTest {
         );
     }
 
+    private CapabilityOperation operation(String id, boolean supported) {
+        return new CapabilityOperation(id, supported, "ITEM", supported ? "GET" : null, id, AvailabilityDecision.allowAll());
+    }
+
     private SurfaceDefinition definition(String id) {
         return definition(id, 10, "example.employees", "/employees", "example", SurfaceScope.ITEM);
     }
@@ -272,6 +342,32 @@ class SurfaceCatalogServiceTest {
         @Override
         public List<SurfaceDefinition> findByGroup(String group) {
             return byGroup.getOrDefault(group, List.of());
+        }
+    }
+
+    private record StaticCanonicalCapabilityResolver(
+            Map<String, Boolean> capabilities,
+            Map<String, CapabilityOperation> operations
+    ) implements CanonicalCapabilityResolver {
+
+        @Override
+        public Map<String, Boolean> resolve(String resourcePath) {
+            return capabilities;
+        }
+
+        @Override
+        public Map<String, Boolean> resolve(JsonNode openApiDocument, String resourcePath) {
+            return capabilities;
+        }
+
+        @Override
+        public Map<String, CapabilityOperation> resolveCrudOperations(String resourcePath) {
+            return operations;
+        }
+
+        @Override
+        public Map<String, CapabilityOperation> resolveCrudOperations(JsonNode openApiDocument, String resourcePath) {
+            return operations;
         }
     }
 }

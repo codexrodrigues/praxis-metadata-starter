@@ -1,6 +1,10 @@
 package org.praxisplatform.uischema.surface;
 
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
+import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
+import org.praxisplatform.uischema.capability.CapabilityOperation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
 import java.util.Comparator;
@@ -24,18 +28,31 @@ import java.util.Map;
  */
 public class SurfaceCatalogService {
 
+    private static final Logger logger = LoggerFactory.getLogger(SurfaceCatalogService.class);
+
     private final SurfaceDefinitionRegistry surfaceDefinitionRegistry;
     private final SurfaceAvailabilityEvaluator availabilityEvaluator;
     private final SurfaceAvailabilityContextResolver contextResolver;
+    private final CanonicalCapabilityResolver canonicalCapabilityResolver;
 
     public SurfaceCatalogService(
             SurfaceDefinitionRegistry surfaceDefinitionRegistry,
             SurfaceAvailabilityEvaluator availabilityEvaluator,
             SurfaceAvailabilityContextResolver contextResolver
     ) {
+        this(surfaceDefinitionRegistry, availabilityEvaluator, contextResolver, null);
+    }
+
+    public SurfaceCatalogService(
+            SurfaceDefinitionRegistry surfaceDefinitionRegistry,
+            SurfaceAvailabilityEvaluator availabilityEvaluator,
+            SurfaceAvailabilityContextResolver contextResolver,
+            CanonicalCapabilityResolver canonicalCapabilityResolver
+    ) {
         this.surfaceDefinitionRegistry = surfaceDefinitionRegistry;
         this.availabilityEvaluator = availabilityEvaluator;
         this.contextResolver = contextResolver;
+        this.canonicalCapabilityResolver = canonicalCapabilityResolver;
     }
 
     /**
@@ -128,8 +145,77 @@ public class SurfaceCatalogService {
                 availability,
                 definition.order(),
                 definition.tags(),
-                definition.relatedResource()
+                resolveRelatedResource(definition)
         );
+    }
+
+    private RelatedResourceSurface resolveRelatedResource(SurfaceDefinition definition) {
+        RelatedResourceSurface related = definition.relatedResource();
+        if (related == null || !related.present() || canonicalCapabilityResolver == null) {
+            return related;
+        }
+
+        List<RelatedResourceChildOperation> supportedOperations = related.childOperations().stream()
+                .filter(operation -> isChildOperationSupported(related.childResourcePath(), operation))
+                .toList();
+        List<RelatedResourceChildOperation> removedOperations = related.childOperations().stream()
+                .filter(operation -> !supportedOperations.contains(operation))
+                .toList();
+
+        if (!removedOperations.isEmpty()) {
+            logger.warn(
+                    "Related resource surface {}.{} declared unsupported child operations {} for childResourcePath {}. "
+                            + "Only operations backed by canonical child capabilities are published.",
+                    definition.resourceKey(),
+                    definition.id(),
+                    removedOperations,
+                    related.childResourcePath()
+            );
+        }
+
+        return new RelatedResourceSurface(
+                related.parentResourceKey(),
+                related.parentIdPathVariable(),
+                related.childResourceKey(),
+                related.childResourcePath(),
+                related.childParentField(),
+                related.selectable(),
+                related.selectionKeyField(),
+                supportedOperations
+        );
+    }
+
+    private boolean isChildOperationSupported(String childResourcePath, RelatedResourceChildOperation operation) {
+        if (!StringUtils.hasText(childResourcePath) || operation == null) {
+            return false;
+        }
+        try {
+            Map<String, Boolean> capabilities = canonicalCapabilityResolver.resolve(childResourcePath);
+            Map<String, CapabilityOperation> crudOperations = canonicalCapabilityResolver.resolveCrudOperations(childResourcePath);
+            return switch (operation) {
+                case LIST -> Boolean.TRUE.equals(capabilities.get("all"))
+                        || Boolean.TRUE.equals(capabilities.get("filter"));
+                case FILTER -> Boolean.TRUE.equals(capabilities.get("filter"));
+                case CREATE -> supported(crudOperations, "create");
+                case UPDATE -> supported(crudOperations, "edit");
+                case DELETE -> supported(crudOperations, "delete");
+                case DUPLICATE_DRAFT -> supported(crudOperations, "duplicate-draft");
+            };
+        } catch (RuntimeException ex) {
+            logger.warn(
+                    "Failed to resolve child capability {} for related childResourcePath {}. "
+                            + "The child operation will not be published.",
+                    operation,
+                    childResourcePath,
+                    ex
+            );
+            return false;
+        }
+    }
+
+    private boolean supported(Map<String, CapabilityOperation> operations, String operationId) {
+        CapabilityOperation operation = operations == null ? null : operations.get(operationId);
+        return operation != null && operation.supported();
     }
 
     private Map<ContextKey, SurfaceAvailabilityContext> availabilityContexts(
