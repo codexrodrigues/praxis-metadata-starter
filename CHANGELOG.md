@@ -25,6 +25,9 @@ All notable changes to this module will be documented in this file.
 
 ### Changed
 - `_links` de create/edit/delete/export passam a respeitar a availability canonica avaliada pelo `CapabilityService`, evitando divergencia entre HATEOAS e `/capabilities`.
+- `duplicate-draft` agora e opt-in via `AbstractDuplicateDraftLegacyBackedResourceController`; `AbstractLegacyBackedResourceController` publica apenas o baseline CRUD legado-backed.
+- `deleteBatch` passa a validar availability de colecao e de cada item antes de delegar exclusao em lote.
+- `SemanticMetadataReviewer` passa a revisar campos herdados de DTOs, evitando que contexto privado em superclasses escape sem governanca.
 - `OpenApiGroupResolver` agora respeita fronteira de segmento ao resolver grupos, evitando falso match entre recursos com prefixos comuns, como `/vinculos` e `/vinculos-funcionais`.
 - A documentacao do starter agora explicita a forma canonica de publicar controllers customizados de recursos relacionados com `@ApiGroup` e `@RequestMapping` de classe.
 - `EntityLookupDescriptor` agora pode publicar o bloco `filtering` como parte da semantica canonica de `entityLookup`.
@@ -32,10 +35,11 @@ All notable changes to this module will be documented in this file.
 - Requests com `sort` contendo direcao diferente de `asc` ou `desc` agora retornam erro de cliente em vez de serem normalizadas silenciosamente para `ASC`.
 - `OptionSourceEligibility` preserva `OptionSourceExecutionMode.PROVIDER_REQUIRED` ao enriquecer descriptors derivados por stats, evitando fallback JPA indevido para fontes externas.
 - A documentacao de `@UISchema` foi alinhada ao contrato atual de `type`, `controlType`, `numericFormat` e semantica textual para codigos, documentos e identificadores numericos de legado.
-- `@UiSurface` agora pode publicar `relatedResource` para surfaces `ITEM` que projetam colecoes relacionadas; o schema continua resolvido por `/schemas/filtered` da operacao real.
+- `@UiSurface` agora pode publicar `relatedResource` para surfaces `ITEM` que projetam colecoes relacionadas; o schema continua resolvido por `/schemas/filtered` da operacao real e metadados parciais de colecao filha sao rejeitados.
 - `x-ui-field.schema.json` passa a documentar `presentationPreset` como acelerador visual, explicitamente separado da descricao OpenAPI de dominio.
 
 ### Fixed
+- `OptionSourceRuntimeContract.canonical(...)` rejeita `sourceKey` nao URL-safe antes de publicar endpoints de runtime.
 - `CustomOpenApiResolver` agora preserva `x-ui.type=text` e nao publica `valuePresentation` numerico automatico quando um campo com transporte OpenAPI numerico e declarado como texto, controle textual ou mascara textual.
 - `/schemas/filtered` agora pode derivar `x-ui.resource.idField` de um identificador natural escalar obrigatorio quando o DTO de resposta nao possui `id` ou `*Id`, cobrindo recursos como `EmpresaDTO.empresa`.
 

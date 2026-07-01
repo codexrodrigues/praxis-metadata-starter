@@ -29,11 +29,15 @@ public class SemanticMetadataReviewer {
         }
 
         List<SemanticMetadataReviewIssue> issues = new ArrayList<>();
-        for (Field field : targetType.getDeclaredFields()) {
-            if (Modifier.isStatic(field.getModifiers())) {
-                continue;
+        Class<?> currentType = targetType;
+        while (currentType != null && currentType != Object.class) {
+            for (Field field : currentType.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                reviewField(targetType, field, issues);
             }
-            reviewField(targetType, field, issues);
+            currentType = currentType.getSuperclass();
         }
         return new SemanticMetadataReviewReport(targetType, issues);
     }

@@ -120,6 +120,20 @@ class SurfaceCatalogServiceTest {
     }
 
     @Test
+    void rejectsPartialRelatedResourceMetadata() {
+        assertThrows(IllegalArgumentException.class, () -> new RelatedResourceSurface(
+                "example.purchase-orders",
+                "id",
+                "example.payment-lines",
+                null,
+                "purchaseOrderId",
+                true,
+                "id",
+                List.of(RelatedResourceChildOperation.LIST)
+        ));
+    }
+
+    @Test
     void resolvesAvailabilityContextOncePerDistinctResourceInGroupCatalog() {
         AtomicInteger resolverCalls = new AtomicInteger();
         SurfaceDefinitionRegistry registry = new MapSurfaceDefinitionRegistry(

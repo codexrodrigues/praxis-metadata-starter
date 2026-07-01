@@ -114,6 +114,8 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
         if (ids == null || ids.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
+        assertCollectionOperationAvailable("delete");
+        ids.forEach(id -> assertItemOperationAvailable("delete", id));
         getService().deleteAllById(ids);
         return ResponseEntity.noContent().build();
     }
