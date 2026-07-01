@@ -8,6 +8,11 @@
   "order": 1,
   "filterable": true,
   "sortable": true,
+  "fieldAccess": {
+    "visibleForAuthorities": ["employee.read", "employee.admin"],
+    "editableForAuthorities": ["employee.admin"],
+    "reason": "Campo governado por perfil corporativo."
+  },
   "required": true,
   "minLength": 3,
   "maxLength": 120,
@@ -15,4 +20,3 @@
   "patternMessage": "Entre 3 e 120 caracteres",
   "hint": "Nome completo do colaborador"
 }
-

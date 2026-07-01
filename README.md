@@ -103,6 +103,27 @@ O contrato Java usa enums publicos para evitar drift de tokens:
 Quando a anotacao nao existir, o catalogo pode aplicar heuristicas de fallback.
 Para hosts e exemplos self-describing, a declaracao explicita deve ser preferida.
 
+### Acesso contextual em nivel de campo
+
+`@UISchema` pode publicar `x-ui.fieldAccess` para declarar authorities requeridas
+para leitura ou edicao de campos corporativos.
+
+Exemplo:
+
+```java
+@UISchema(
+    visibleForAuthorities = {"payroll.read", "payroll.admin"},
+    editableForAuthorities = {"payroll.admin"},
+    fieldAccessReason = "Dados salariais restritos por politica corporativa."
+)
+private BigDecimal salario;
+```
+
+Esse bloco orienta runtimes metadata-driven e assistentes de IA sobre a politica
+esperada, mas nao substitui a autorizacao do host. O backend consumidor deve aplicar
+a mesma politica em services, validators ou filtros de seguranca antes de retornar ou
+persistir dados sensiveis.
+
 ### Authoring semantico de metadata
 
 `@UISchema(preset = ...)` acelera metadados repetitivos de apresentacao, como codigo,

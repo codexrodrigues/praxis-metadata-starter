@@ -61,6 +61,15 @@ class CustomOpenApiResolverTest {
         String cpf;
     }
 
+    private static class FieldAccessDummy {
+        @UISchema(
+                visibleForAuthorities = {"payroll.read", "payroll.admin"},
+                editableForAuthorities = {"payroll.admin"},
+                fieldAccessReason = "Dados salariais restritos por politica corporativa."
+        )
+        String salario;
+    }
+
     private static class ExplicitDefaultDummy {
         @UISchema(defaultValue = "DRAFT")
         String status;
@@ -339,6 +348,27 @@ class CustomOpenApiResolverTest {
         assertEquals("deny", aiUsage.get("trainingUse"));
         assertEquals("review_required", aiUsage.get("ruleAuthoring"));
         assertEquals("review_required", aiUsage.get("reasoningUse"));
+    }
+
+    @Test
+    void resolverShouldPublishFieldAccessPolicyFromUiSchema() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("salario");
+
+        Annotation uiSchema = FieldAccessDummy.class.getDeclaredField("salario").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertTrue(xui.get(FieldConfigProperties.FIELD_ACCESS.getValue()) instanceof Map);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> fieldAccess = (Map<String, Object>) xui.get(FieldConfigProperties.FIELD_ACCESS.getValue());
+        assertEquals(java.util.List.of("payroll.read", "payroll.admin"),
+                fieldAccess.get("visibleForAuthorities"));
+        assertEquals(java.util.List.of("payroll.admin"),
+                fieldAccess.get("editableForAuthorities"));
+        assertEquals("Dados salariais restritos por politica corporativa.", fieldAccess.get("reason"));
     }
 
     @Test
