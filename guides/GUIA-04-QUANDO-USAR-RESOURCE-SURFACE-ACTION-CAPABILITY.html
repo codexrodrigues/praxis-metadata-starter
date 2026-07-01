@@ -227,6 +227,10 @@ canonico</li>
 <li>para colecoes relacionadas, <code>surface.relatedResource</code>
 descreve o filho, o binding do pai, selecao e operacoes da colecao
 filha; ainda assim nao cria schema paralelo</li>
+<li><code>surface.relatedResource</code> deve informar o trio
+<code>childResourceKey</code>, <code>childResourcePath</code> e
+<code>childParentField</code>; <code>childOperations</code> deve listar
+somente operacoes realmente publicadas por HTTP</li>
 <li><code>responseCardinality</code> descreve a cardinalidade da
 resposta da operacao (<code>OBJECT</code>, <code>COLLECTION</code>,
 <code>PAGE</code>, <code>VOID</code> ou <code>UNKNOWN</code>), sem criar
