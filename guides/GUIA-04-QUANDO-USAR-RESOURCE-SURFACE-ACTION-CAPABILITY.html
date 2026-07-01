@@ -250,9 +250,11 @@ colecao relacionada ao funcionario</li>
 <li><code>GET /employees/{id}/certifications</code> pode publicar
 <code>relatedResource.childResourceKey</code>,
 <code>childParentField = employeeId</code>,
-<code>selectable = true</code> e
-<code>childOperations = [LIST, CREATE, DELETE]</code> para que o runtime
-saiba quais affordances oferecer sobre a lista filha</li>
+<code>selectable = true</code> e <code>childOperations = [LIST]</code>
+para que o runtime saiba renderizar a lista filha; inclua
+<code>CREATE</code> ou <code>DELETE</code> somente quando houver
+endpoints HTTP reais publicados para esses comandos da colecao
+relacionada</li>
 </ul>
 <p>Essa distincao evita que runtimes precisem inferir se devem
 renderizar um form de leitura, uma tabela, uma lista ou uma pagina a
