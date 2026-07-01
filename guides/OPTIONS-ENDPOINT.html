@@ -381,8 +381,15 @@ enriquece o schema com <code>x-ui.optionSource</code>.</p>
 <ul>
 <li><code>x-ui.optionSource.resourcePath</code> e o path base do
 recurso</li>
-<li>o runtime Angular compoe
+<li><code>x-ui.optionSource.filterEndpoint</code> e
+<code>x-ui.optionSource.byIdsEndpoint</code> sao os endpoints canonicos
+quando publicados; runtimes antigos ainda podem compor
 <code>.../option-sources/{key}/options/filter</code></li>
+<li><code>x-ui.optionSource.selectedReloadPolicy</code> declara se a
+reidratacao por IDs e obrigatoria, suportada, dispensada por waiver ou
+nao aplicavel</li>
+<li><code>x-ui.optionSource.invalidSortPolicy</code> declara se sort
+invalido deve ser rejeitado, ignorado ou tratado como nao suportado</li>
 <li>quando <code>optionSource</code> existe, ele passa a ser a
 referencia canonica preferencial sobre o shape
 <code>endpoint</code></li>

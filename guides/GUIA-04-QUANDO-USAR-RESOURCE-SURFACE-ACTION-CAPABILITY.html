@@ -224,6 +224,9 @@ semanticamente uma experiencia sobre uma operacao real.</p>
 canonico</li>
 <li>o schema continua vindo de <code>/schemas/filtered</code>, nao de
 <code>/schemas/surfaces</code></li>
+<li>para colecoes relacionadas, <code>surface.relatedResource</code>
+descreve o filho, o binding do pai, selecao e operacoes da colecao
+filha; ainda assim nao cria schema paralelo</li>
 <li><code>responseCardinality</code> descreve a cardinalidade da
 resposta da operacao (<code>OBJECT</code>, <code>COLLECTION</code>,
 <code>PAGE</code>, <code>VOID</code> ou <code>UNKNOWN</code>), sem criar
@@ -240,6 +243,12 @@ sem <code>resourceId</code>; a availability real vem de
 surface <code>ITEM</code>, mas com
 <code>responseCardinality = COLLECTION</code>, porque projeta uma
 colecao relacionada ao funcionario</li>
+<li><code>GET /employees/{id}/certifications</code> pode publicar
+<code>relatedResource.childResourceKey</code>,
+<code>childParentField = employeeId</code>,
+<code>selectable = true</code> e
+<code>childOperations = [LIST, CREATE, DELETE]</code> para que o runtime
+saiba quais affordances oferecer sobre a lista filha</li>
 </ul>
 <p>Essa distincao evita que runtimes precisem inferir se devem
 renderizar um form de leitura, uma tabela, uma lista ou uma pagina a
