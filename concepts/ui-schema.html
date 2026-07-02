@@ -403,6 +403,21 @@ viram lista, e literais JSON de lista/mapa são preservados.</li>
 <code>MessageSource</code> e resolva em runtime usando
 <code>LocaleUtils</code>.</li>
 </ul>
+<p>Exemplo corporativo mínimo:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    label <span class="op">=</span> <span class="st">&quot;Email corporativo&quot;</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    conditionalDisplay <span class="op">=</span> <span class="st">&quot;{</span><span class="sc">\&quot;</span><span class="st">==</span><span class="sc">\&quot;</span><span class="st">:[{</span><span class="sc">\&quot;</span><span class="st">var</span><span class="sc">\&quot;</span><span class="st">:</span><span class="sc">\&quot;</span><span class="st">form.tipoPessoa</span><span class="sc">\&quot;</span><span class="st">},</span><span class="sc">\&quot;</span><span class="st">PJ</span><span class="sc">\&quot;</span><span class="st">]}&quot;</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    conditionalRequired <span class="op">=</span> <span class="st">&quot;{</span><span class="sc">\&quot;</span><span class="st">==</span><span class="sc">\&quot;</span><span class="st">:[{</span><span class="sc">\&quot;</span><span class="st">var</span><span class="sc">\&quot;</span><span class="st">:</span><span class="sc">\&quot;</span><span class="st">form.tipoPessoa</span><span class="sc">\&quot;</span><span class="st">},</span><span class="sc">\&quot;</span><span class="st">PJ</span><span class="sc">\&quot;</span><span class="st">]}&quot;</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    extraProperties <span class="op">=</span> <span class="at">@ExtensionProperty</span><span class="op">(</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        name <span class="op">=</span> <span class="st">&quot;conditionalValidation&quot;</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        value <span class="op">=</span> <span class="st">&quot;[{</span><span class="sc">\&quot;</span><span class="st">condition</span><span class="sc">\&quot;</span><span class="st">:{</span><span class="sc">\&quot;</span><span class="st">==</span><span class="sc">\&quot;</span><span class="st">:[{</span><span class="sc">\&quot;</span><span class="st">var</span><span class="sc">\&quot;</span><span class="st">:</span><span class="sc">\&quot;</span><span class="st">form.tipoPessoa</span><span class="sc">\&quot;</span><span class="st">},</span><span class="sc">\&quot;</span><span class="st">PJ</span><span class="sc">\&quot;</span><span class="st">]},</span><span class="sc">\&quot;</span><span class="st">validators</span><span class="sc">\&quot;</span><span class="st">:{</span><span class="sc">\&quot;</span><span class="st">required</span><span class="sc">\&quot;</span><span class="st">:true,</span><span class="sc">\&quot;</span><span class="st">requiredMessage</span><span class="sc">\&quot;</span><span class="st">:</span><span class="sc">\&quot;</span><span class="st">Email corporativo é obrigatório para pessoa jurídica</span><span class="sc">\&quot;</span><span class="st">}}]&quot;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">)</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">String</span> emailCorporativo<span class="op">;</span></span></code></pre></div>
+<p>Esse exemplo publica objetos Json Logic em <code>x-ui</code> e falha
+cedo no backend se alguém trocar por DSL textual, operador desconhecido,
+aridade inválida ou condicional JSON Schema.</p>
 <h2 id="referências-cruzadas">Referências cruzadas</h2>
 <ul>
 <li><a href="../architecture-overview.md">Visão arquitetural</a></li>
