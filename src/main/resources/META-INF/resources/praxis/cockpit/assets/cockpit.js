@@ -12,6 +12,11 @@
       checked: 0,
       total: 0
     },
+    backgroundActions: {
+      running: false,
+      checked: 0,
+      total: 0
+    },
     health: null,
     endpointStatus: {},
     capabilities: new Map(),
@@ -158,6 +163,7 @@
       selectResource(state.resources[0].key);
       setHostStatus('ok', 'Host conectado ao cockpit.', 'O starter está lendo contratos reais deste serviço.');
       startCapabilityVerification();
+      startActionVerification();
     } else {
       setHostStatus('error', 'Nenhum recurso de domínio encontrado.', 'Verifique /schemas/catalog e os grupos publicados pelo host.');
       renderEmptyDetail();
@@ -217,6 +223,78 @@
         resource.capability = null;
       }
     }
+  }
+
+  async function startActionVerification() {
+    if (state.backgroundActions.running) return;
+    const candidates = state.resources.filter((resource) => canonicalResourceKey(resource, resource.resourcePath || resource.paths?.[0]));
+    state.backgroundActions = {
+      running: true,
+      checked: candidates.filter((resource) => state.actions.has(semanticCacheKey(resource, canonicalResourceKey(resource, resource.resourcePath || resource.paths?.[0])))).length,
+      total: candidates.length
+    };
+    renderOverview();
+    const queue = candidates.slice();
+    const workers = Array.from({ length: Math.min(4, queue.length) }, () => verifyActionQueue(queue));
+    await Promise.all(workers);
+    state.backgroundActions.running = false;
+    renderOverview();
+    renderResourceList();
+    const resource = selectedResource();
+    if (resource) {
+      renderDetail(resource);
+    }
+  }
+
+  async function verifyActionQueue(queue) {
+    while (queue.length) {
+      const resource = queue.shift();
+      if (!resource) {
+        updateActionProgress();
+        continue;
+      }
+      const resourcePath = resource.resourcePath || resource.paths?.[0];
+      const resourceKey = canonicalResourceKey(resource, resourcePath);
+      const cacheKey = semanticCacheKey(resource, resourceKey);
+      if (state.actions.has(cacheKey)) {
+        updateActionProgress();
+        continue;
+      }
+      await verifyResourceActions(resource);
+      updateActionProgress();
+      renderOverview();
+      renderResourceList();
+    }
+  }
+
+  async function verifyResourceActions(resource) {
+    const resourcePath = resource.resourcePath || resource.paths?.[0];
+    const resourceKey = canonicalResourceKey(resource, resourcePath);
+    const cacheKey = semanticCacheKey(resource, resourceKey);
+    if (!resourceKey) return;
+    try {
+      const payload = await fetchJson(`/schemas/actions?resource=${encodeURIComponent(resourceKey)}`);
+      const scopedActions = uniqueBySurface([...actionItems(payload), ...(resource.capability?.actions || [])]);
+      state.actions.set(cacheKey, scopedActions);
+      resource.actions = scopedActions;
+      promoteCanonicalIdentity(resource, payload, 'actions');
+      promoteCanonicalIdentity(resource, scopedActions.find((action) => action?.resourceKey), 'actions');
+    } catch (error) {
+      const fallbackActions = uniqueBySurface(resource.capability?.actions || []);
+      state.actions.set(cacheKey, fallbackActions);
+      resource.actions = fallbackActions;
+      promoteCanonicalIdentity(resource, fallbackActions.find((action) => action?.resourceKey), 'capabilities.actions');
+    }
+  }
+
+  function updateActionProgress() {
+    const total = state.backgroundActions.total || state.resources.length;
+    state.backgroundActions.checked = state.resources.filter((resource) => {
+      const resourcePath = resource.resourcePath || resource.paths?.[0];
+      const resourceKey = canonicalResourceKey(resource, resourcePath);
+      return state.actions.has(semanticCacheKey(resource, resourceKey));
+    }).length;
+    state.backgroundActions.total = total;
   }
 
   function updateCapabilityProgress() {
@@ -627,7 +705,7 @@
       if (path.includes('/filter') || path.endsWith('/filtered')) summary.filter += 1;
       if (path.includes('/stats/')) summary.stats += 1;
       if (path.includes('/options') || path.includes('/option-sources')) summary.options += 1;
-      if (path.includes('/actions')) summary.actions += 1;
+      if (isWorkflowActionEndpoint(path)) summary.actions += 1;
       if (path.endsWith('/export')) summary.export += 1;
     }
     return summary;
@@ -705,10 +783,12 @@
       .map((area) => {
         const areaResources = area.resources.filter((resource) => resources.includes(resource));
         const total = areaResources.length;
-        const totalLayers = areaResources.reduce((sum, resource) => sum + resourceRenderability(resource).score, 0);
+        const renderability = areaResources.map((resource) => resourceRenderability(resource));
+        const totalLayers = renderability.reduce((sum, resource) => sum + resource.score, 0);
         const averageLayers = total ? totalLayers / total : 0;
         const score = Math.round((Math.min(6, averageLayers) / 6) * 100);
-        return { ...area, total, score, averageLayers };
+        const maxLayers = total * 6;
+        return { ...area, total, score, averageLayers, totalLayers, maxLayers, layerCoverage: areaLayerCoverage(renderability) };
       })
       .filter((area) => area.total > 0);
     const renderable = resources.map((resource) => resourceRenderability(resource));
@@ -870,12 +950,41 @@
       <div class="domain-bar-row">
         <span class="domain-bar-label">
           <strong>${escapeHtml(area.label)}</strong>
-          <small>${escapeHtml(area.total)} recurso(s) · média ${escapeHtml(formatDecimal(area.averageLayers))}/6 camada(s)</small>
+          <small>${escapeHtml(area.total)} recurso(s) · ${escapeHtml(area.totalLayers)}/${escapeHtml(area.maxLayers)} camadas · média ${escapeHtml(formatDecimal(area.averageLayers))}/6</small>
         </span>
-        <div class="domain-bar"><i style="--value:${escapeAttr(area.score)}%"></i></div>
-        <strong aria-label="${escapeAttr(area.score)} por cento das camadas materializáveis disponíveis em média">${escapeHtml(area.score)}%</strong>
+        <div class="domain-layer-grid" aria-label="${escapeAttr(area.totalLayers)} de ${escapeAttr(area.maxLayers)} camadas materializáveis em ${escapeAttr(area.label)}">
+          ${renderDomainLayerCoverage(area.layerCoverage, area.total)}
+        </div>
       </div>
     `).join('');
+  }
+
+  function areaLayerCoverage(renderability) {
+    const layers = [
+      { key: 'canTable', label: 'Tabela' },
+      { key: 'canForm', label: 'Form' },
+      { key: 'canFilter', label: 'Filtro' },
+      { key: 'canAnalytics', label: 'Chart' },
+      { key: 'canOptions', label: 'Lookup' },
+      { key: 'canActions', label: 'Action' }
+    ];
+    return layers.map((layer) => ({
+      ...layer,
+      count: renderability.filter((resource) => resource[layer.key]).length
+    }));
+  }
+
+  function renderDomainLayerCoverage(layers, total) {
+    return (layers || []).map((layer) => {
+      const ratio = total ? layer.count / total : 0;
+      const tone = ratio === 1 ? 'ok' : ratio >= .5 ? 'attention' : 'gap';
+      return `
+        <span class="domain-layer-pill ${escapeAttr(tone)}">
+          <b>${escapeHtml(layer.label)}</b>
+          <em>${escapeHtml(layer.count)}/${escapeHtml(total)}</em>
+        </span>
+      `;
+    }).join('');
   }
 
   function renderRenderableStack(metrics) {
@@ -916,7 +1025,7 @@
       filter: capabilitySource(Boolean(ops.filter || ops.cursor), false, Boolean(summary.filter)),
       analytics: capabilitySource(Boolean(ops.statsGroupBy || ops.statsTimeSeries || ops.statsDistribution), false, Boolean(summary.stats)),
       options: capabilitySource(Boolean(ops.options || ops.optionSources), Boolean(ui.optionSources), Boolean(summary.options)),
-      actions: capabilitySource(Boolean((resource.actions || []).length), false, Boolean(summary.actions))
+      actions: capabilitySource(Boolean((resource.actions || []).length), false, false)
     };
     const scoreItems = {
       canTable: evidence.table !== 'missing',
@@ -2768,7 +2877,9 @@
   function classifyEndpointFallback(endpoint) {
     const method = String(endpoint.method || '').toUpperCase();
     const path = endpoint.path || '';
-    if (path.includes('/actions')) return fallbackOperation('actions', 'Ação de negócio', 'Comando inferido pelo path do endpoint.');
+    // Fallback grouping only; canonical action intent comes from /schemas/actions or capabilities.
+    if (isActionDiscoveryEndpoint(path)) return fallbackOperation('other', 'Discovery de actions', 'Endpoint de descoberta contextual; não confirma workflow action publicada.');
+    if (isWorkflowActionEndpoint(path)) return fallbackOperation('actions', 'Ação de negócio', 'Comando inferido pelo path do endpoint; confirme em /schemas/actions.');
     if (path.includes('/stats/')) return fallbackOperation('stats', 'Análise e indicadores', 'Leitura agregada inferida pelo path do endpoint.');
     if (path.includes('/options') || path.includes('/option-sources')) return fallbackOperation('options', 'Fonte de opção', 'Fonte de valores inferida pelo path do endpoint.');
     if (path.includes('/filter') || path.endsWith('/filtered')) return fallbackOperation('filter', 'Busca e filtro', 'Consulta refinada inferida pelo path do endpoint.');
@@ -2776,6 +2887,14 @@
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return fallbackOperation('write', 'Escrita governada', 'Escrita inferida pelo método HTTP.');
     if (method === 'GET') return fallbackOperation('read', 'Leitura', 'Leitura inferida pelo método HTTP.');
     return fallbackOperation('other', 'Operação complementar', 'Endpoint publicado pelo catálogo.');
+  }
+
+  function isActionDiscoveryEndpoint(path) {
+    return /\/actions$/.test(String(path || '')) || /\/\{[^/]+}\/actions$/.test(String(path || ''));
+  }
+
+  function isWorkflowActionEndpoint(path) {
+    return String(path || '').includes('/actions/') && !isActionDiscoveryEndpoint(path);
   }
 
   function sameEndpoint(item, endpoint) {
