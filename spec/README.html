@@ -259,10 +259,17 @@ declara politica de leitura/edicao por authority canonica para
 renderizacao runtime e validacao backend do host; <code>reason</code> e
 explicativo e nao e politica suficiente sozinho</li>
 <li>Dependencias/Condicionais: <code>conditionalDisplay</code>,
-<code>dependentField</code>, <code>resetOnDependentChange</code>
+<code>conditionalValidation[]</code>, <code>dependentField</code>,
+<code>resetOnDependentChange</code>
 <ul>
 <li><code>dependentField</code> e legado/condicional; cascata de
 option-source deve usar <code>optionSource.dependsOn</code>.</li>
+<li><code>conditionalValidation[]</code> e contrato <code>x-ui</code>
+JSON/config-driven: cada regra publica <code>condition</code> em Json
+Logic serializavel e <code>validators</code> declarativos. DTOs Java
+podem materializar esse contrato por <code>extraProperties</code>
+estruturado, mas o starter nao promove uma annotation Java rica como
+fonte primaria para regras Json Logic complexas.</li>
 <li>Eventos de campo nao devem virar callbacks genericos ou scripts
 locais no <code>x-ui</code>. Quando a mudanca de um campo precisa
 recarregar opcoes de outro, publique a cascata como

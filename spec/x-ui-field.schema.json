@@ -265,7 +265,11 @@
     "matchFieldMessage": { "type": "string" },
     "uniqueMessage": { "type": "string" },
     "uniqueValidator": { "type": "string" },
-    "conditionalValidation": { "type": "string" },
+    "conditionalValidation": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/conditionalValidationRule" },
+      "description": "Declarative conditional validation rules. This is a JSON/config-driven x-ui contract consumed by the Angular runtime; Java DTO annotations can materialize it through structured extraProperties, but they are not the primary authoring surface for complex Json Logic."
+    },
     "requiredChecked": { "type": "boolean" },
     "allowedFileTypes": { "type": ["array", "string"] },
     "fileTypeMessage": { "type": "string" },
@@ -331,6 +335,24 @@
         { "required": ["visibleForAuthorities"] },
         { "required": ["editableForAuthorities"] }
       ]
+    },
+    "jsonLogicExpression": {
+      "type": ["object", "null"],
+      "description": "Canonical Json Logic object or null. Textual DSLs and JSON Schema conditionals are not part of this x-ui contract."
+    },
+    "conditionalValidationRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "condition": { "$ref": "#/definitions/jsonLogicExpression" },
+        "validators": {
+          "type": "object",
+          "additionalProperties": true,
+          "minProperties": 1,
+          "description": "Validator options applied when condition evaluates to true. The Angular runtime normalizes this object with the same validator parser used for field-level validation."
+        }
+      },
+      "required": ["condition", "validators"]
     },
     "optionSource": {
       "type": "object",

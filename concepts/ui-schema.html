@@ -384,6 +384,14 @@ padronizados.</li>
 interfaces dinâmicas; <code>dependentField</code> é legado/condicional e
 não substitui <code>x-ui.optionSource.dependsOn</code> em cascatas de
 option-source.</li>
+<li><strong>Validação condicional</strong>: publique
+<code>conditionalValidation[]</code> como contrato <code>x-ui</code>
+JSON/config-driven, com <code>condition</code> em Json Logic
+serializável e <code>validators</code> declarativos. Esse contrato é
+consumido pelo runtime Angular; no backend Java,
+<code>extraProperties</code> estruturado pode materializá-lo, mas regras
+complexas devem ser authoradas pela camada canônica de
+decisão/configuração, não por uma nova DSL local em annotation.</li>
 <li><strong>Dependências de options</strong>: use <code>dependsOn</code>
 para publicar cascatas de LOV/options. O resolver materializa o valor em
 <code>x-ui.optionSource.dependsOn</code>; valores separados por vírgula
