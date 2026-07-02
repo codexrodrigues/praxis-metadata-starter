@@ -44,6 +44,8 @@ Os controllers-base canonicos sao:
 - `AbstractCreateUpdateResourceController`
 - `AbstractReadOnlyResourceController`
 - `AbstractResourceQueryController`
+- `AbstractLegacyBackedResourceController`
+- `AbstractDuplicateDraftLegacyBackedResourceController`
 
 ## `dto`
 
@@ -110,6 +112,10 @@ Camada de servicos base.
 - `BaseResourceQueryService`
 - `BaseResourceCommandService`
 - `BaseResourceService`
+- `LegacyBackedResourceService`
+- `LegacyBackedResourceCommandService`
+- `DuplicateDraftLegacyBackedResourceService`
+- `DuplicateDraftLegacyBackedResourceCommandService`
 
 Essas interfaces e classes sustentam o baseline query/command atual do starter.
 
