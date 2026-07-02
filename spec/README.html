@@ -308,8 +308,11 @@ como contrato canonico de display/read-only para valores escalares</li>
 <li>Apresentacao visual readonly/list/table-cell:
 <code>presentation{ presenter, tone?, appearance?, icon?, label?, tooltip?, valuePresentation?, visualization?, interactions? }</code>;
 consumidores podem materializar como <code>chip</code>,
-<code>badge</code>, <code>iconValue</code> ou microvisualizacao sem
-alterar o valor bruto usado para sort/filter/export</li>
+<code>badge</code>, <code>status</code>, <code>iconValue</code> ou
+microvisualizacao sem alterar o valor bruto usado para
+sort/filter/export. <code>label</code> representa texto fixo opcional da
+apresentacao; omita <code>label</code> quando o consumidor deve exibir o
+valor da linha/campo.</li>
 <li>Validacao (top-level): <code>required</code>,
 <code>minLength</code>, <code>maxLength</code>, <code>min</code>,
 <code>max</code>, <code>pattern</code>, <code>range</code>, mensagens

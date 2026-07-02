@@ -58,7 +58,7 @@
     - `optionSource.dependsOn` e a origem canonica de cascata metadata-driven; `optionSource.dependencyFilterMap` explicita o mapeamento dependencia -> chave de filtro quando necessario.
   - Numerico: `numericFormat` (enum), `numericStep`, `numericMin`, `numericMax`, `numericMaxLength`
   - Apresentacao de valor: `valuePresentation{ type, style?, format?, currency?, number? }` como contrato canonico de display/read-only para valores escalares
-  - Apresentacao visual readonly/list/table-cell: `presentation{ presenter, tone?, appearance?, icon?, label?, tooltip?, valuePresentation?, visualization?, interactions? }`; consumidores podem materializar como `chip`, `badge`, `iconValue` ou microvisualizacao sem alterar o valor bruto usado para sort/filter/export
+  - Apresentacao visual readonly/list/table-cell: `presentation{ presenter, tone?, appearance?, icon?, label?, tooltip?, valuePresentation?, visualization?, interactions? }`; consumidores podem materializar como `chip`, `badge`, `status`, `iconValue` ou microvisualizacao sem alterar o valor bruto usado para sort/filter/export. `label` representa texto fixo opcional da apresentacao; omita `label` quando o consumidor deve exibir o valor da linha/campo.
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`
   - Validacao agrupada: bloco `validation{}` com chaves basicas quando o produtor optar por agrupar regras no mesmo namespace
 - Operacao (x-ui por operacao)
