@@ -379,16 +379,19 @@ ser sobrescritas via <code>extraProperties</code>.</p>
 <li><strong>Schemas externos</strong>: use <code>dataEndpoint</code>
 para conectar combos a endpoints <code>/options</code>
 padronizados.</li>
-<li><strong>Condicionais</strong>: combine
-<code>conditionalDisplay</code> e <code>dependentField</code> para
-interfaces dinâmicas; <code>dependentField</code> é legado/condicional e
-não substitui <code>x-ui.optionSource.dependsOn</code> em cascatas de
+<li><strong>Condicionais</strong>: publique
+<code>conditionalDisplay</code> e <code>conditionalRequired</code> como
+Json Logic canônico; o backend valida operador e aridade contra a matriz
+do runtime Angular antes de expor <code>x-ui</code>.
+<code>dependentField</code> é legado/condicional e não substitui
+<code>x-ui.optionSource.dependsOn</code> em cascatas de
 option-source.</li>
 <li><strong>Validação condicional</strong>: publique
 <code>conditionalValidation[]</code> como contrato <code>x-ui</code>
 JSON/config-driven, com <code>condition</code> em Json Logic
 serializável e <code>validators</code> declarativos. Esse contrato é
-consumido pelo runtime Angular; no backend Java,
+consumido pelo runtime Angular e validado no backend; DSL textual e
+condicionais JSON Schema são rejeitados cedo. No backend Java,
 <code>extraProperties</code> estruturado pode materializá-lo, mas regras
 complexas devem ser authoradas pela camada canônica de
 decisão/configuração, não por uma nova DSL local em annotation.</li>
