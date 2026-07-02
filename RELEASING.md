@@ -45,8 +45,8 @@ git push origin v1.0.0-rc.6
 
 Para publicar as mudancas atuais da plataforma, apos o merge em `main`, use a proxima coordenada nao publicada:
 ```
-git tag v8.0.0-rc.5
-git push origin v8.0.0-rc.5
+git tag v8.0.0-rc.N
+git push origin v8.0.0-rc.N
 ```
 4) Acompanhar o workflow “Release Java Starter (praxis-metadata-starter)”
 - O workflow resolve a versão a partir da tag (`v` é removido → `1.0.0-rc.6`).
