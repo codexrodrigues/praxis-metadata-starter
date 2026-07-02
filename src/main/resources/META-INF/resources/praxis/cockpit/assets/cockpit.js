@@ -355,10 +355,12 @@
     const groupResults = await Promise.allSettled(groups.map((group) =>
       fetchJson(`/schemas/catalog?group=${encodeURIComponent(group)}`, { timeoutMs: 5000 })
     ));
+    const groupCatalogs = [];
     for (const result of groupResults) {
       const catalog = valueOrNull(result);
-      if (catalog) catalogs.push(catalog);
+      if (catalog) groupCatalogs.push(catalog);
     }
+    if (groupCatalogs.length) return [...groupCatalogs, ...catalogs];
     return catalogs;
   }
 
@@ -593,9 +595,9 @@
     return winner;
   }
 
-  function catalogEndpoints(catalogs) {
-    if (Array.isArray(catalogs)) {
-      return catalogs.flatMap((catalog) => catalogEndpoints(catalog));
+  function catalogEndpoints(catalog) {
+    if (Array.isArray(catalog)) {
+      return catalog.flatMap((item) => catalogEndpoints(item));
     }
     if (!catalog) return [];
     if (catalog.group && !state.discovery.catalogGroups.includes(catalog.group)) {
