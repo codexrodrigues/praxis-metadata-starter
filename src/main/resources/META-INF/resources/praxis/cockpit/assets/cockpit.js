@@ -1152,8 +1152,8 @@
         <section class="experience-row ${escapeAttr(part.tone)}" aria-label="${escapeAttr(part.label)}: ${escapeAttr(part.value)} de ${escapeAttr(metrics.resources)} recursos geráveis">
           <div class="experience-row-main">
             <span class="experience-layer">${escapeHtml(part.label)}</span>
-            <strong>${escapeHtml(part.value)}/${escapeHtml(metrics.resources)}</strong>
-            <small>${escapeHtml(status)}</small>
+            <strong class="experience-score">${escapeHtml(part.value)}/${escapeHtml(metrics.resources)}</strong>
+            <small class="experience-status">${escapeHtml(status)}</small>
           </div>
           <div class="experience-row-body">
             <div class="experience-meter" aria-hidden="true"><i style="--value:${escapeAttr(ratio)}%"></i></div>
@@ -1184,7 +1184,7 @@
     return `
       <div class="experience-resource-list" aria-label="Exemplos de recursos geráveis">
         ${visible.map((resource) => `
-          <button type="button" data-key="${escapeAttr(resource.key)}">${escapeHtml(resource.label)}</button>
+          <button class="experience-resource-chip" type="button" data-key="${escapeAttr(resource.key)}">${escapeHtml(resource.label)}</button>
         `).join('')}
         ${overflow > 0 ? `<em>+${escapeHtml(overflow)}</em>` : ''}
       </div>
