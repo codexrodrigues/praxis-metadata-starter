@@ -65,7 +65,24 @@ public final class ApiPaths {
          * Permite resolução automática de grupos OpenAPI.
          */
         public static final String SCHEMAS_FILTERED = SCHEMAS + "/filtered";
-        
+
+        /**
+         * Base path for the semantic host cockpit bundled by the starter.
+         * Hosts with custom security can use these constants to allow the cockpit
+         * without copying static assets into the application.
+         */
+        public static final String COCKPIT = "/praxis/cockpit";
+
+        /**
+         * Static entry point served from META-INF/resources.
+         */
+        public static final String COCKPIT_INDEX = COCKPIT + "/index.html";
+
+        /**
+         * Ant-style matcher for cockpit assets and nested resources.
+         */
+        public static final String COCKPIT_PATTERN = COCKPIT + "/**";
+
         /**
          * Base path para metadados de UI Schema.
          * Futuras extensões de metadados podem usar este prefixo.

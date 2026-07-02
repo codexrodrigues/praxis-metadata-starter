@@ -20,6 +20,8 @@ Para onboarding e narrativa publica atual, use primeiro:
 
 ### Registros tecnicos de rollout e piloto
 
+- [Plano do Semantic Host Cockpit](SEMANTIC-HOST-COCKPIT-PLAN.md)
+- [Spike de composicao do Semantic Host Cockpit](SEMANTIC-HOST-COCKPIT-COMPOSITION-SPIKE.md)
 - [Checklist de prontidao do piloto](PILOT-READINESS-CHECKLIST.md)
 - [Rollback e observabilidade do piloto](ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.md)
 
