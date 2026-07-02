@@ -3,146 +3,260 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Praxis Semantic Host Cockpit</title>
-  <meta name="description" content="Cockpit semantico automatico do host Praxis, publicado pelo praxis-metadata-starter." />
+  <title>Praxis Cockpit de Domínio</title>
+  <meta name="description" content="Cockpit automático do domínio publicado pelo praxis-metadata-starter." />
+  <link rel="icon" type="image/png" href="/praxis/cockpit/assets/brand/praxis-mark-light.png" />
   <link rel="stylesheet" href="/praxis/cockpit/assets/cockpit.css" />
 </head>
 <body>
   <main class="cockpit-shell">
-    <header class="cockpit-topbar" aria-label="Praxis host cockpit">
-      <a class="brand-mark" href="/" aria-label="Voltar para a home do host">
-        <span class="brand-glyph">Px</span>
-        <span>Praxis Host Cockpit</span>
+    <header class="topbar" aria-label="Cockpit Praxis">
+      <a class="brand" href="/" aria-label="Voltar para a home do host">
+        <span class="brand-mark" aria-hidden="true">
+          <img src="/praxis/cockpit/assets/brand/praxis-mark-light.png" alt="" />
+        </span>
+        <span>
+          <strong>Praxis Cockpit</strong>
+          <small>domínio vivo, UI materializável</small>
+        </span>
       </a>
-      <nav class="top-actions" aria-label="Links tecnicos">
+      <nav class="top-links" aria-label="Contratos publicados">
+        <a href="/schemas/catalog">Catálogo</a>
         <a href="/swagger-ui/index.html">Swagger</a>
-        <a href="/schemas/catalog">Catalog</a>
-        <a href="/schemas/domain">Domain</a>
+        <a href="/actuator/health">Health</a>
       </nav>
     </header>
 
-    <section class="hero-grid">
-      <div class="hero-copy">
-        <p class="eyebrow">Bundled by praxis-metadata-starter</p>
-        <h1>O que este host sabe, materializa e entrega para IA.</h1>
-        <p>
-          Esta tela e publicada automaticamente pelo starter. Ela compoe
-          evidencias do proprio host: resource, schema, domain, surfaces,
-          actions, capabilities e runtime readiness.
+    <section class="domain-hero" aria-labelledby="domainTitle">
+      <div class="hero-main">
+        <p class="kicker">Cockpit semântico da plataforma</p>
+        <h1 id="domainTitle">Lendo domínio do host...</h1>
+        <p id="domainSummary">
+          O cockpit reconcilia domínio, schemas, capabilities, surfaces, actions e endpoints para mostrar o que pode ser renderizado, filtrado, analisado e governado.
         </p>
       </div>
-      <div class="signal-panel" aria-live="polite">
-        <span class="status-dot" id="hostStatusDot"></span>
-        <span id="hostStatusText">Conectando ao host...</span>
+      <aside class="hero-status" aria-live="polite">
+        <span class="status-light" id="hostStatusDot"></span>
+        <strong id="hostStatusText">Conectando ao host...</strong>
+        <span id="hostStatusDetail">Aguardando contratos metadata-driven.</span>
+      </aside>
+    </section>
+
+    <section class="intelligence-strip" aria-label="Resumo útil do host">
+      <article>
+        <span>Áreas de domínio</span>
+        <strong id="domainAreaCount">--</strong>
+        <small id="domainAreaHint">grupos publicados</small>
+      </article>
+      <article>
+        <span>Recursos de domínio</span>
+        <strong id="domainResourceCount">--</strong>
+        <small>recursos canônicos, sem endpoints técnicos</small>
+      </article>
+      <article>
+        <span>Operações governadas</span>
+        <strong id="operationCount">--</strong>
+        <small>leitura, escrita, filtros, stats e ações</small>
+      </article>
+      <article>
+        <span>Campos materializáveis</span>
+        <strong id="fieldCount">--</strong>
+        <small>contratos de request/response</small>
+      </article>
+      <article>
+        <span>Prontidão</span>
+        <strong id="readinessScore">--</strong>
+        <small id="readinessHint">saúde e evidências</small>
+      </article>
+    </section>
+
+    <section class="control-plane" aria-label="Painel visual de capacidades da plataforma">
+      <div class="section-heading">
+        <div>
+          <p class="kicker">Control plane</p>
+          <h2>O que o host já consegue materializar</h2>
+        </div>
+        <span id="capabilityMode" class="source-pill">lendo capacidades</span>
+      </div>
+      <div class="platform-grid">
+        <article class="chart-card">
+          <div class="chart-card-header">
+            <span>Prontidão por domínio</span>
+            <strong>Camadas materializáveis</strong>
+            <p>Percentual médio de camadas disponíveis por recurso: tabela, formulário, filtros, charts, opções e actions.</p>
+          </div>
+          <div id="domainCoverageChart" class="domain-chart"></div>
+        </article>
+        <article class="chart-card">
+          <div class="chart-card-header">
+            <span>Camadas renderizáveis</span>
+            <strong>UI, dados e automação</strong>
+          </div>
+          <div id="renderableStackChart" class="stack-chart"></div>
+        </article>
+        <article class="platform-proof">
+          <span>Filtro canônico</span>
+          <strong id="filterPower">--</strong>
+          <p id="filterPowerDetail">Lendo endpoints e schemas publicados.</p>
+        </article>
+      </div>
+      <div class="host-command-grid" aria-label="Atenção operacional do host">
+        <section class="host-scorecards" id="hostScorecards"></section>
+        <section class="host-attention">
+          <div class="chart-card-header">
+            <span>Atenção agora</span>
+            <strong>Onde investigar primeiro</strong>
+          </div>
+          <div id="hostAttention" class="host-attention-list"></div>
+        </section>
       </div>
     </section>
 
-    <section class="metric-grid" aria-label="Resumo do host">
-      <article class="metric-card">
-        <span class="metric-label">Resources</span>
-        <strong id="resourceCount">--</strong>
-        <span id="resourceCountHint">semantic discovery</span>
-      </article>
-      <article class="metric-card">
-        <span class="metric-label">Surfaces</span>
-        <strong id="surfaceCount">--</strong>
-        <span id="surfaceCountHint">semantic UI discovery</span>
-      </article>
-      <article class="metric-card">
-        <span class="metric-label">Actions</span>
-        <strong id="actionCount">--</strong>
-        <span id="actionCountHint">business workflows</span>
-      </article>
-      <article class="metric-card">
-        <span class="metric-label">AI Grounding</span>
-        <strong id="domainCount">--</strong>
-        <span>domain evidence items</span>
-      </article>
+    <section class="domain-map" aria-label="Mapa de áreas de domínio">
+      <div class="section-heading">
+        <div>
+          <p class="kicker">Mapa semântico</p>
+          <h2>Que parte do negócio este serviço governa?</h2>
+        </div>
+        <span id="sourceMode" class="source-pill">starter</span>
+      </div>
+      <div id="domainAreas" class="area-grid"></div>
     </section>
 
     <section class="workbench">
-      <aside class="resource-browser" aria-label="Mapa semantico de resources">
-        <div class="panel-title-row">
+      <aside class="resource-panel" aria-label="Recursos de domínio">
+        <div class="section-heading compact">
           <div>
-            <p class="eyebrow">Semantic Resource Map</p>
-            <h2>Resources</h2>
+            <p class="kicker">Recursos</p>
+            <h2>Entidades e visões</h2>
           </div>
-          <span class="mini-pill" id="sourceMode">live</span>
         </div>
         <label class="search-box">
-          <span>Filtrar</span>
-          <input id="resourceSearch" type="search" placeholder="resourceKey, path ou dominio" />
+          <span>Filtrar por nome, endpoint ou significado</span>
+          <input id="resourceSearch" type="search" placeholder="Ex.: missões, funcionários, ameaças" />
         </label>
-        <div class="resource-list" id="resourceList" role="list"></div>
+        <div id="resourceFilterChips" class="filter-chips" aria-label="Filtros de capacidade">
+          <button class="active" type="button" data-filter="all">Todos</button>
+          <button type="button" data-filter="forms">Formulário</button>
+          <button type="button" data-filter="filters">Filtros</button>
+          <button type="button" data-filter="analytics">Charts</button>
+          <button type="button" data-filter="actions">Actions</button>
+          <button type="button" data-filter="attention">Atenção</button>
+        </div>
+        <div id="resourceList" class="resource-list" role="list"></div>
       </aside>
 
-      <section class="detail-stage" aria-label="Detalhe do resource selecionado">
-        <div class="resource-hero">
+      <section class="detail-panel" aria-label="Detalhe do recurso selecionado">
+        <div class="resource-header">
           <div>
-            <p class="eyebrow" id="selectedDomain">Selecione um resource</p>
-            <h2 id="selectedTitle">Aguardando discovery</h2>
-            <p id="selectedSubtitle">
-              O cockpit reconcilia catalogo, schemas, domain, surfaces, actions
-              e capabilities por resourceKey e path.
-            </p>
+            <p id="selectedDomain" class="kicker">Selecione um recurso</p>
+            <h2 id="selectedTitle">Aguardando leitura do host</h2>
+            <p id="selectedSubtitle">O detalhe mostrará utilidade de negócio, endpoints, campos, workflows e lacunas detectadas.</p>
           </div>
-          <div class="readiness-stack" aria-label="Readiness experimental">
-            <span class="readiness-chip" id="structuralReadiness">Structural --</span>
-            <span class="readiness-chip" id="semanticReadiness">Semantic --</span>
-            <span class="readiness-chip" id="runtimeReadiness">Runtime --</span>
-            <span class="readiness-chip" id="aiReadiness">AI --</span>
+          <div id="resourceReadiness" class="readiness-dial" aria-label="Readiness do recurso">
+            <strong>--</strong>
+            <span>prontidão semântica</span>
           </div>
         </div>
 
-        <div class="chain-strip" aria-label="Cadeia canonica">
-          <span>resource</span>
-          <span>schema</span>
-          <span>domain</span>
-          <span>surface</span>
-          <span>action</span>
-          <span>capability</span>
-          <span>runtime</span>
-          <span>AI</span>
-        </div>
-
-        <div class="insight-grid">
-          <article class="insight-card">
-            <h3>Structural Contract</h3>
-            <dl id="structuralFacts"></dl>
-          </article>
-          <article class="insight-card">
-            <h3>Semantic Discovery</h3>
-            <dl id="semanticFacts"></dl>
-          </article>
-          <article class="insight-card">
-            <h3>Runtime Materialization</h3>
-            <dl id="runtimeFacts"></dl>
-          </article>
-          <article class="insight-card">
-            <h3>AI Grounding</h3>
-            <dl id="aiFacts"></dl>
-          </article>
-        </div>
-
-        <section class="matrix-panel">
-          <div class="panel-title-row">
+        <section class="attention-panel" aria-label="Atenção agora">
+          <div class="section-heading compact">
             <div>
-              <p class="eyebrow">Capabilities Matrix</p>
-              <h2>Operacoes canonicas</h2>
+              <p class="kicker">Atenção agora</p>
+              <h2>Prioridades operacionais deste recurso</h2>
             </div>
-            <button class="ghost-button" id="refreshResourceButton" type="button">Atualizar</button>
           </div>
-          <div class="matrix-table" id="capabilityMatrix"></div>
+          <div id="attentionNow" class="attention-list"></div>
         </section>
 
-        <section class="diagnostics-panel">
-          <div class="panel-title-row">
+        <section class="semantic-readiness-panel">
+          <div class="section-heading compact">
             <div>
-              <p class="eyebrow">Experimental Diagnostics</p>
-              <h2>Leitura de aderencia</h2>
+              <p class="kicker">Prontidão semântica</p>
+              <h2>O que está pronto para IA, runtime e experiência</h2>
             </div>
           </div>
-          <div id="diagnosticsList" class="diagnostics-list"></div>
+          <div id="semanticReadiness" class="semantic-readiness"></div>
+        </section>
+
+        <section class="renderability-panel">
+          <div class="section-heading compact">
+            <div>
+              <p class="kicker">Materialização de UI</p>
+              <h2>O que pode ser montado para este recurso</h2>
+            </div>
+          </div>
+          <div id="renderabilityMatrix" class="renderability-matrix"></div>
+        </section>
+
+        <section class="analytics-panel">
+          <div class="section-heading compact">
+            <div>
+              <p class="kicker">Analytics e filtros</p>
+              <h2>Como este recurso pode ser consultado e visualizado</h2>
+            </div>
+          </div>
+          <div class="analytics-grid">
+            <div id="resourceChart" class="resource-chart"></div>
+            <div id="filterInsights" class="filter-insights"></div>
+          </div>
+        </section>
+
+        <div class="resource-lens">
+          <article>
+            <h3>Para que serve</h3>
+            <p id="businessMeaning">Selecione um recurso para ver sua função no domínio.</p>
+          </article>
+          <article>
+            <h3>Como integra</h3>
+            <p id="integrationMeaning">Os endpoints e contratos aparecem após a seleção.</p>
+          </article>
+          <article>
+            <h3>O que falta melhorar</h3>
+            <p id="gapMeaning">Diagnósticos aparecem com base nas evidências do starter.</p>
+          </article>
+        </div>
+
+        <section class="topology-panel">
+          <div class="section-heading compact">
+            <div>
+              <p class="kicker">Topologia do domínio</p>
+              <h2>Conceitos, relações e evidências do recurso</h2>
+            </div>
+          </div>
+          <div id="domainTopology" class="domain-topology"></div>
+        </section>
+
+        <section class="flow-panel">
+          <div class="section-heading compact">
+            <div>
+              <p class="kicker">Materialização</p>
+              <h2>Surfaces, actions e evidências runtime</h2>
+            </div>
+          </div>
+          <div id="workflowRail" class="workflow-rail"></div>
+        </section>
+
+        <section class="endpoint-panel">
+          <div class="section-heading compact">
+            <div>
+              <p class="kicker">Evidência HTTP</p>
+              <h2>Operações canônicas materializadas por endpoint</h2>
+            </div>
+            <button id="refreshResourceButton" class="ghost-button" type="button">Atualizar</button>
+          </div>
+          <div id="endpointMatrix" class="endpoint-matrix"></div>
+        </section>
+
+        <section class="evidence-panel">
+          <div class="evidence-block">
+            <h3>Campos do schema filtrado</h3>
+            <div id="fieldSummary" class="evidence-list"></div>
+          </div>
+          <div class="evidence-block">
+            <h3>Lacunas e evidências</h3>
+            <div id="diagnosticsList" class="evidence-list"></div>
+          </div>
         </section>
       </section>
     </section>

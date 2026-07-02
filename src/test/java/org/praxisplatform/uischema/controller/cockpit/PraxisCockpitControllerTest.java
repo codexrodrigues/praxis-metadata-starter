@@ -42,15 +42,99 @@ class PraxisCockpitControllerTest {
     }
 
     @Test
+    void bundlesPraxisBrandAssetsInStarterJarResources() {
+        ClassPathResource lightMark = new ClassPathResource(
+                "META-INF/resources/praxis/cockpit/assets/brand/praxis-mark-light.png");
+        ClassPathResource darkMark = new ClassPathResource(
+                "META-INF/resources/praxis/cockpit/assets/brand/praxis-mark-dark.png");
+
+        assertThat(lightMark.exists()).isTrue();
+        assertThat(darkMark.exists()).isTrue();
+    }
+
+    @Test
     void bundledCockpitEntryPointExposesElementsExpectedByScript() throws IOException {
         ClassPathResource resource = new ClassPathResource("META-INF/resources/praxis/cockpit/index.html");
         String html = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
         assertThat(html)
-                .contains("id=\"resourceCount\"")
-                .contains("id=\"surfaceCountHint\"")
-                .contains("id=\"actionCountHint\"")
-                .contains("id=\"capabilityMatrix\"")
+                .contains("/praxis/cockpit/assets/brand/praxis-mark-light.png")
+                .contains("id=\"domainTitle\"")
+                .contains("id=\"domainAreaCount\"")
+                .contains("id=\"domainResourceCount\"")
+                .contains("id=\"domainCoverageChart\"")
+                .contains("id=\"renderableStackChart\"")
+                .contains("id=\"filterPower\"")
+                .contains("id=\"hostScorecards\"")
+                .contains("id=\"hostAttention\"")
+                .contains("id=\"domainAreas\"")
+                .contains("id=\"resourceFilterChips\"")
+                .contains("id=\"attentionNow\"")
+                .contains("id=\"domainTopology\"")
+                .contains("id=\"semanticReadiness\"")
+                .contains("id=\"renderabilityMatrix\"")
+                .contains("id=\"resourceChart\"")
+                .contains("id=\"filterInsights\"")
+                .contains("id=\"workflowRail\"")
+                .contains("id=\"endpointMatrix\"")
+                .contains("id=\"fieldSummary\"")
                 .contains("id=\"diagnosticsList\"");
+    }
+
+    @Test
+    void bundledCockpitScriptUsesScopedSemanticDiscoveryAndDecisionPanels() throws IOException {
+        ClassPathResource resource = new ClassPathResource("META-INF/resources/praxis/cockpit/assets/cockpit.js");
+        String script = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        assertThat(script)
+                .contains("/schemas/domain?resourceKey=")
+                .contains("/schemas/surfaces?resource=")
+                .contains("/schemas/actions?resource=")
+                .contains("function renderAttentionNow")
+                .contains("function renderSemanticReadiness")
+                .contains("function renderPlatformIntelligence")
+                .contains("function renderHostScorecards")
+                .contains("function renderHostAttention")
+                .contains("function catalogDiagnostics")
+                .contains("function startCapabilityVerification")
+                .contains("function verifyResourceCapability")
+                .contains("function hasConfirmedIdentity")
+                .contains("capabilityErrors")
+                .contains("Capabilities retornaram erro")
+                .contains("function renderResourceFilters")
+                .contains("function matchesResourceFilter")
+                .contains("function resourceListSignal")
+                .contains("function resourceRenderability")
+                .contains("function capabilitySource")
+                .contains("function evidenceStatusLabel")
+                .contains("function renderRenderability")
+                .contains("function renderResourceAnalytics")
+                .contains("function groupEndpointsByOperation")
+                .contains("function classifyEndpointFromCapabilities")
+                .contains("function classifyEndpointFallback")
+                .contains("function sourceLabelList")
+                .contains("function groupIntent")
+                .contains("function canonicalResourceKey")
+                .contains("function semanticCacheKey")
+                .contains("resourceKey = canonicalResourceKey(resource, resourcePath);")
+                .contains("state.selectionToken")
+                .contains("endpoint.operation.sourceLabel")
+                .contains("fallback inferido")
+                .contains("enrichmentState = 'loading'")
+                .contains("schema de request")
+                .contains("semantic-graph-open-resource")
+                .contains("data-graph-resource-key")
+                .doesNotContain("fetchJson('/schemas/domain')")
+                .doesNotContain("fetchJson('/schemas/surfaces')")
+                .doesNotContain("fetchJson('/schemas/actions')")
+                .doesNotContain("""
+                        const linkedResource = resourceFromTopologyNode(data);
+                                  if (linkedResource && linkedResource.key !== state.selectedKey) {
+                                    selectResource(linkedResource.key);
+                                  }
+                        """);
+
+        assertThat(script.indexOf("const fromCapability = classifyEndpointFromCapabilities(resource, endpoint);"))
+                .isLessThan(script.indexOf("const fromSurface = classifyEndpointFromMaterialization(resource.surfaces, endpoint, 'surface');"));
     }
 }

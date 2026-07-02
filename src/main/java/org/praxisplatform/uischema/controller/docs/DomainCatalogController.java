@@ -2,12 +2,14 @@ package org.praxisplatform.uischema.controller.docs;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -15,6 +17,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
@@ -78,6 +83,10 @@ public class DomainCatalogController {
     @Autowired
     private SchemaReferenceResolver schemaReferenceResolver;
 
+    @Autowired(required = false)
+    @Qualifier("requestMappingHandlerMapping")
+    private RequestMappingHandlerMapping handlerMapping;
+
     @PostConstruct
     void initExcludedPaths() {
         if (!StringUtils.hasText(excludedPathsRaw)) {
@@ -116,6 +125,7 @@ public class DomainCatalogController {
 
         JsonNode pathsNode = doc.path("paths");
         JsonNode components = doc.path("components").path("schemas");
+        List<ResourceMetadata> resourceMetadata = resourceMetadata();
         List<EndpointSummary> endpoints = new ArrayList<>();
 
         if (!pathsNode.isObject()) {
@@ -168,6 +178,7 @@ public class DomainCatalogController {
                     String rawSummary = op.path("summary").asText(null);
                     String rawDescription = op.path("description").asText(null);
                     String resourceLabel = inferResourceLabel(path);
+                    ResourceMetadata resource = resolveResourceMetadata(resourceMetadata, path);
                     String summary = firstNonBlank(rawSummary, rawDescription, buildFallbackSummary(method, path, resourceLabel));
                     String description = StringUtils.hasText(rawDescription)
                             ? rawDescription
@@ -180,6 +191,8 @@ public class DomainCatalogController {
                             summary,
                             description,
                             op.path("operationId").asText(null),
+                            resource != null ? resource.resourceKey() : null,
+                            resource != null ? resource.visual() : null,
                             request,
                             response,
                             extractParameters(op),
@@ -212,6 +225,58 @@ public class DomainCatalogController {
     private JsonNode fetchOpenApiDocument(String group) {
         LOGGER.info("Fetching OpenAPI doc for group {}", group);
         return openApiDocumentService.getDocumentForGroup(group);
+    }
+
+    private List<ResourceMetadata> resourceMetadata() {
+        if (handlerMapping == null) {
+            return List.of();
+        }
+        Map<String, ResourceMetadata> byPath = new LinkedHashMap<>();
+        for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : handlerMapping.getHandlerMethods().entrySet()) {
+            Class<?> controllerClass = entry.getValue().getBeanType();
+            ApiResource apiResource = org.springframework.core.annotation.AnnotationUtils.findAnnotation(controllerClass, ApiResource.class);
+            if (apiResource == null) {
+                continue;
+            }
+            String basePath = firstNonBlank(first(apiResource.value()), first(apiResource.path()));
+            if (!StringUtils.hasText(basePath)) {
+                continue;
+            }
+            String normalizedPath = normalizePath(basePath);
+            byPath.putIfAbsent(normalizedPath, new ResourceMetadata(
+                    normalizedPath,
+                    blankToNull(apiResource.resourceKey()),
+                    new ResourceVisual(
+                            blankToNull(apiResource.title()),
+                            blankToNull(apiResource.description()),
+                            blankToNull(apiResource.icon()),
+                            blankToNull(apiResource.visualTone())
+                    )
+            ));
+        }
+        return new ArrayList<>(byPath.values());
+    }
+
+    private ResourceMetadata resolveResourceMetadata(List<ResourceMetadata> metadata, String path) {
+        String normalizedPath = normalizePath(path);
+        ResourceMetadata best = null;
+        for (ResourceMetadata candidate : metadata) {
+            if (normalizedPath.equals(candidate.resourcePath())
+                    || normalizedPath.startsWith(candidate.resourcePath() + "/")) {
+                if (best == null || candidate.resourcePath().length() > best.resourcePath().length()) {
+                    best = candidate;
+                }
+            }
+        }
+        return best;
+    }
+
+    private String first(String[] values) {
+        return values != null && values.length > 0 ? values[0] : null;
+    }
+
+    private String blankToNull(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 
     private List<String> toStringList(JsonNode node) {
@@ -640,6 +705,8 @@ public class DomainCatalogController {
         private final String summary;
         private final String description;
         private final String operationId;
+        private final String resourceKey;
+        private final ResourceVisual resourceVisual;
         private final SchemaRef requestSchema;
         private final SchemaRef responseSchema;
         private final List<ParameterSummary> parameters;
@@ -647,7 +714,8 @@ public class DomainCatalogController {
         private final SchemaLinks schemaLinks;
 
         public EndpointSummary(String path, String method, List<String> tags, String summary, String description,
-                               String operationId, SchemaRef requestSchema, SchemaRef responseSchema,
+                               String operationId, String resourceKey, ResourceVisual resourceVisual,
+                               SchemaRef requestSchema, SchemaRef responseSchema,
                                List<ParameterSummary> parameters,
                                Map<String, Map<String, Object>> operationExamples,
                                SchemaLinks schemaLinks) {
@@ -657,6 +725,8 @@ public class DomainCatalogController {
             this.summary = summary;
             this.description = description;
             this.operationId = operationId;
+            this.resourceKey = resourceKey;
+            this.resourceVisual = resourceVisual;
             this.requestSchema = requestSchema;
             this.responseSchema = responseSchema;
             this.parameters = parameters;
@@ -688,6 +758,14 @@ public class DomainCatalogController {
             return operationId;
         }
 
+        public String getResourceKey() {
+            return resourceKey;
+        }
+
+        public ResourceVisual getResourceVisual() {
+            return resourceVisual != null && resourceVisual.isEmpty() ? null : resourceVisual;
+        }
+
         public SchemaRef getRequestSchema() {
             return requestSchema;
         }
@@ -706,6 +784,46 @@ public class DomainCatalogController {
 
         public SchemaLinks getSchemaLinks() {
             return schemaLinks;
+        }
+    }
+
+    private record ResourceMetadata(String resourcePath, String resourceKey, ResourceVisual visual) {
+    }
+
+    public static class ResourceVisual {
+        private final String title;
+        private final String description;
+        private final String icon;
+        private final String tone;
+
+        public ResourceVisual(String title, String description, String icon, String tone) {
+            this.title = title;
+            this.description = description;
+            this.icon = icon;
+            this.tone = tone;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public String getIcon() {
+            return icon;
+        }
+
+        public String getTone() {
+            return tone;
+        }
+
+        private boolean isEmpty() {
+            return !StringUtils.hasText(title)
+                    && !StringUtils.hasText(description)
+                    && !StringUtils.hasText(icon)
+                    && !StringUtils.hasText(tone);
         }
     }
 

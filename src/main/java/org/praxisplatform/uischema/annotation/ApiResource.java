@@ -103,6 +103,51 @@ public @interface ApiResource {
     String resourceKey();
 
     /**
+     * Titulo humano opcional do recurso para superficies de discovery e cockpits.
+     *
+     * <p>
+     * Este valor descreve a identidade semantica do recurso, nao o label de um componente
+     * especifico. Runtimes consumidores podem usa-lo como preferencia antes de derivar nomes de
+     * {@link #resourceKey()} ou do path.
+     * </p>
+     *
+     * @return titulo humano do recurso
+     */
+    String title() default "";
+
+    /**
+     * Descricao opcional do recurso para superficies de discovery e cockpits.
+     *
+     * @return descricao humana do recurso
+     */
+    String description() default "";
+
+    /**
+     * Icone semantico opcional do recurso.
+     *
+     * <p>
+     * O valor deve ser um token estavel de biblioteca/runtime, por exemplo {@code groups},
+     * {@code inventory_2} ou {@code analytics}. O starter apenas publica o token; a materializacao
+     * visual cabe ao runtime consumidor.
+     * </p>
+     *
+     * @return token de icone do recurso
+     */
+    String icon() default "";
+
+    /**
+     * Token opcional de tom visual do recurso.
+     *
+     * <p>
+     * Use quando o dominio precisar sugerir um acento visual sem authorar CSS. Consumidores podem
+     * mapear o token para paletas proprias.
+     * </p>
+     *
+     * @return token de tom visual
+     */
+    String visualTone() default "";
+
+    /**
      * Define os content types produzidos pelo recurso.
      * Por padrao, produz JSON.
      *

@@ -530,7 +530,14 @@ class PayrollViewService extends AbstractReadOnlyResourceService<
 }
 
 @org.springframework.web.bind.annotation.RestController
-@ApiResource(value = "/employees", resourceKey = "human-resources.employees")
+@ApiResource(
+        value = "/employees",
+        resourceKey = "human-resources.employees",
+        title = "Employees",
+        description = "People and HR records governed by the host service.",
+        icon = "groups",
+        visualTone = "human-resources"
+)
 @ApiGroup("human-resources")
 class EmployeeController extends org.praxisplatform.uischema.controller.base.AbstractResourceController<
         EmployeeResponseDTO,
@@ -713,4 +720,3 @@ class PayrollViewController extends org.praxisplatform.uischema.controller.base.
         return dto.getId();
     }
 }
-

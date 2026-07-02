@@ -23,6 +23,11 @@ class CatalogDiscoveryE2ETest extends AbstractE2eH2Test {
         JsonNode createEmployeeEndpoint = findEndpoint(employeeCatalog.path("endpoints"), "/employees", "POST");
         assertNotNull(createEmployeeEndpoint);
         assertEquals("POST", createEmployeeEndpoint.path("method").asText());
+        assertEquals("human-resources.employees", createEmployeeEndpoint.path("resourceKey").asText());
+        assertEquals("Employees", createEmployeeEndpoint.path("resourceVisual").path("title").asText());
+        assertEquals("People and HR records governed by the host service.", createEmployeeEndpoint.path("resourceVisual").path("description").asText());
+        assertEquals("groups", createEmployeeEndpoint.path("resourceVisual").path("icon").asText());
+        assertEquals("human-resources", createEmployeeEndpoint.path("resourceVisual").path("tone").asText());
         assertTrue(createEmployeeEndpoint.path("schemaLinks").hasNonNull("request"));
         assertTrue(createEmployeeEndpoint.path("schemaLinks").hasNonNull("response"));
         assertResolvable(createEmployeeEndpoint.path("schemaLinks").path("request").asText());

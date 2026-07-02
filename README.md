@@ -383,6 +383,18 @@ Por isso, `@ApiResource(value = ..., resourceKey = ...)` nao e so decoracao. Ele
 - a URL operacional do recurso
 - a identidade semantica que o restante da plataforma usa para discovery
 
+Opcionalmente, `@ApiResource` tambem pode publicar identidade humana para
+superficies de discovery e cockpit:
+
+- `title`: nome humano preferencial do recurso
+- `description`: significado operacional do recurso
+- `icon`: token semantico de icone, materializado pelo runtime consumidor
+- `visualTone`: token de tom visual para agrupamento ou acento de dominio
+
+Esses campos nao authoram CSS nem regras de negocio. Eles ajudam o starter a
+explicar melhor o dominio em `/schemas/catalog` e `/praxis/cockpit`, preservando
+`resourceKey` como identidade canonica.
+
 ## Spring HATEOAS Is Part Of The Contract
 
 O starter usa HATEOAS de forma efetiva, nao ornamental.
