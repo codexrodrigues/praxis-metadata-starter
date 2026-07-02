@@ -109,8 +109,16 @@
   document.addEventListener('DOMContentLoaded', init);
 
   async function init() {
-    wireEvents();
-    await loadHost();
+    try {
+      wireEvents();
+      await loadHost();
+    } catch (error) {
+      const detail = error?.message || 'erro inesperado durante a leitura do host';
+      console.error('[Praxis Cockpit] Falha ao carregar host', error);
+      setHostStatus('error', 'Falha ao carregar contratos do host.', detail);
+      els.domainTitle.textContent = 'Não foi possível materializar o domínio do host';
+      els.domainSummary.textContent = 'O cockpit recebeu uma falha durante a leitura ou renderização dos contratos publicados.';
+    }
   }
 
   function wireEvents() {
@@ -139,19 +147,26 @@
 
   async function loadHost() {
     setHostStatus('loading', 'Lendo contratos publicados pelo host...', 'Catálogo, health e endpoints metadata-driven.');
-    const [health, catalog, frontendResources] = await Promise.allSettled([
-      fetchJson('/actuator/health'),
-      fetchJson('/schemas/catalog'),
-      fetchJson('/assets/frontend-resources.json')
+    const [health, catalog, swaggerConfig, frontendResources] = await Promise.allSettled([
+      fetchJson('/actuator/health', { timeoutMs: 10000 }),
+      fetchJson('/schemas/catalog', { timeoutMs: 15000 }),
+      fetchJson('/v3/api-docs/swagger-config', { timeoutMs: 10000 }),
+      fetchJson('/assets/frontend-resources.json', { timeoutMs: 10000 })
     ]);
+    const catalogs = await discoverCatalogs(valueOrNull(catalog), valueOrNull(swaggerConfig));
 
     state.health = valueOrNull(health);
     state.frontendResources = frontendResourceIndex(valueOrNull(frontendResources));
     state.endpointStatus = {
       health: endpointStatus(health),
-      catalog: endpointStatus(catalog)
+      catalog: endpointStatus(catalog),
+      openApiGroups: endpointStatus(swaggerConfig),
+      groupCatalogs: {
+        ok: catalogs.length > 1 || endpointStatus(catalog).ok,
+        message: catalogs.length > 1 ? `${catalogs.length - 1} catálogo(s) por grupo lido(s)` : 'catálogo default'
+      }
     };
-    state.resources = composeResources(valueOrNull(catalog));
+    state.resources = composeResources(catalogs);
     state.areas = composeAreas(state.resources);
 
     renderOverview();
@@ -303,15 +318,22 @@
     state.backgroundCapabilities.total = total;
   }
 
-  async function fetchJson(url) {
-    const response = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      credentials: 'same-origin'
-    });
-    if (!response.ok) {
-      throw new Error(`${response.status} ${response.statusText}`);
+  async function fetchJson(url, options = {}) {
+    const controller = options.timeoutMs ? new AbortController() : null;
+    const timeoutId = controller ? window.setTimeout(() => controller.abort(), options.timeoutMs) : null;
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+        signal: controller?.signal
+      });
+      if (!response.ok) {
+        throw new Error(`${response.status} ${response.statusText}`);
+      }
+      return response.json();
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
     }
-    return response.json();
   }
 
   function valueOrNull(result) {
@@ -325,11 +347,41 @@
     return { ok: false, message: result.reason?.message || 'indisponível' };
   }
 
-  function composeResources(catalog) {
-    const index = new Map();
-    state.discovery = { frameworkEndpoints: [], derivedEndpoints: [], partialEndpoints: [] };
+  async function discoverCatalogs(defaultCatalog, swaggerConfig) {
+    const catalogs = [defaultCatalog].filter(Boolean);
+    const groups = openApiGroupNames(swaggerConfig);
+    if (!groups.length) return catalogs;
 
-    for (const endpoint of catalogEndpoints(catalog)) {
+    const groupResults = await Promise.allSettled(groups.map((group) =>
+      fetchJson(`/schemas/catalog?group=${encodeURIComponent(group)}`, { timeoutMs: 5000 })
+    ));
+    for (const result of groupResults) {
+      const catalog = valueOrNull(result);
+      if (catalog) catalogs.push(catalog);
+    }
+    return catalogs;
+  }
+
+  function openApiGroupNames(swaggerConfig) {
+    const entries = Array.isArray(swaggerConfig?.urls) ? swaggerConfig.urls : [];
+    const groups = Array.from(new Set(entries
+      .map((entry) => entry?.name || groupNameFromOpenApiUrl(entry?.url))
+      .filter((name) => name && name !== 'application')
+    ));
+    const aggregateGroups = groups.filter((name) => !name.startsWith('api-'));
+    return aggregateGroups.length ? aggregateGroups : groups;
+  }
+
+  function groupNameFromOpenApiUrl(url) {
+    const match = String(url || '').match(/\/v3\/api-docs\/([^/?#]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  function composeResources(catalogs) {
+    const index = new Map();
+    state.discovery = { frameworkEndpoints: [], derivedEndpoints: [], partialEndpoints: [], catalogGroups: [] };
+
+    for (const endpoint of catalogEndpoints(catalogs)) {
       const path = endpoint.path || '';
       if (isFrameworkEndpoint(path)) {
         state.discovery.frameworkEndpoints.push(endpoint);
@@ -352,7 +404,9 @@
         icon: endpoint.resourceVisual?.icon || null,
         sourceConfidence: endpoint.resourceKey ? 'resourceKey' : 'path-fallback'
       });
-      resource.endpoints.push(endpoint);
+      if (!resource.endpoints.some((current) => endpointKey(current) === endpointKey(endpoint))) {
+        resource.endpoints.push(endpoint);
+      }
       if (endpoint.schemaLinks) {
         resource.schemaLinks.push(endpoint.schemaLinks);
       }
@@ -539,9 +593,20 @@
     return winner;
   }
 
-  function catalogEndpoints(catalog) {
+  function catalogEndpoints(catalogs) {
+    if (Array.isArray(catalogs)) {
+      return catalogs.flatMap((catalog) => catalogEndpoints(catalog));
+    }
     if (!catalog) return [];
-    if (Array.isArray(catalog.endpoints)) return catalog.endpoints;
+    if (catalog.group && !state.discovery.catalogGroups.includes(catalog.group)) {
+      state.discovery.catalogGroups.push(catalog.group);
+    }
+    if (Array.isArray(catalog.endpoints)) {
+      return catalog.endpoints.map((endpoint) => ({
+        ...endpoint,
+        group: endpoint.group || catalog.group
+      }));
+    }
     if (Array.isArray(catalog.groups)) {
       return catalog.groups.flatMap((group) => (group.endpoints || []).map((endpoint) => ({
         ...endpoint,
@@ -549,6 +614,10 @@
       })));
     }
     return [];
+  }
+
+  function endpointKey(endpoint) {
+    return `${endpoint?.method || 'GET'} ${endpoint?.path || ''}`;
   }
 
   function surfaceItems(payload) {
