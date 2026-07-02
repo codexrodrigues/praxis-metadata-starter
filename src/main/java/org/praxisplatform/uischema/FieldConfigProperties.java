@@ -188,6 +188,8 @@ public enum FieldConfigProperties {
     OPTIONS("options"),
     /** Contrato canônico de apresentação de valor para display/read-only */
     VALUE_PRESENTATION("valuePresentation"),
+    /** Contrato canônico de apresentação visual para células/listas somente leitura */
+    PRESENTATION("presentation"),
 
     // ----------------------------------------------------------
     // 10. Propriedades Específicas para Filtros

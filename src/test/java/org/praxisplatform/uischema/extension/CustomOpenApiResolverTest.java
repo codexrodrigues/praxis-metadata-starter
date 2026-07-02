@@ -43,6 +43,28 @@ class CustomOpenApiResolverTest {
         String competencia;
     }
 
+    private static class PresentationDummy {
+        @UISchema(extraProperties = {
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                        name = "presentation.presenter",
+                        value = "chip"
+                ),
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                        name = "presentation.tone",
+                        value = "info"
+                ),
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                        name = "presentation.appearance",
+                        value = "soft"
+                ),
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                        name = "presentation.icon",
+                        value = "sell"
+                )
+        })
+        String mnemonico;
+    }
+
     private static class GovernanceDummy {
         @DomainGovernance(
                 kind = DomainGovernanceKind.PRIVACY,
@@ -263,6 +285,26 @@ class CustomOpenApiResolverTest {
 
         Map<String, Object> xui = getXui(property);
         assertEquals(Map.of(FieldConfigProperties.TYPE.getValue(), "currency"), xui.get(FieldConfigProperties.VALUE_PRESENTATION.getValue()));
+    }
+
+    @Test
+    void extraPropertiesShouldPublishCanonicalFieldPresentation() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("mnemonico");
+
+        Annotation uiSchema = PresentationDummy.class.getDeclaredField("mnemonico").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema, TestUISchemaDefaults.instance() }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertTrue(xui.get(FieldConfigProperties.PRESENTATION.getValue()) instanceof Map);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> presentation = (Map<String, Object>) xui.get(FieldConfigProperties.PRESENTATION.getValue());
+        assertEquals("chip", presentation.get("presenter"));
+        assertEquals("info", presentation.get("tone"));
+        assertEquals("soft", presentation.get("appearance"));
+        assertEquals("sell", presentation.get("icon"));
     }
 
     @Test

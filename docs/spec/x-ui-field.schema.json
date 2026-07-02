@@ -234,6 +234,45 @@
       },
       "required": ["type"]
     },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Canonical readonly/list/table-cell visual presentation metadata. It complements valuePresentation and may be materialized by consumers as chips, badges, icon+value or compact visualizations without changing the raw field value used for sort, filter and export.",
+      "properties": {
+        "presenter": {
+          "type": "string",
+          "enum": ["text", "badge", "chip", "status", "iconValue", "progress", "rating", "microVisualization"]
+        },
+        "variant": {
+          "type": "string",
+          "enum": ["text", "badge", "chip", "status", "iconValue", "progress", "rating", "microVisualization"]
+        },
+        "tone": {
+          "type": "string",
+          "enum": ["neutral", "info", "success", "warning", "danger"]
+        },
+        "icon": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "badge": { "type": "string", "minLength": 1 },
+        "tooltip": { "type": "string", "minLength": 1 },
+        "appearance": {
+          "type": "string",
+          "enum": ["plain", "soft", "outlined", "filled"]
+        },
+        "valuePresentation": { "$ref": "#/properties/valuePresentation" },
+        "visualization": { "type": "object", "additionalProperties": true },
+        "interactions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "copy": { "type": "boolean" },
+            "details": { "type": "boolean" },
+            "expand": { "type": "boolean" },
+            "link": { "type": "boolean" }
+          }
+        }
+      }
+    },
     "numericStep": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
     "numericMin": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
     "numericMax": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
