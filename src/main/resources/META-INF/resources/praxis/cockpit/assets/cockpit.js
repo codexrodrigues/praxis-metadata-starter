@@ -7,7 +7,13 @@
     surfaces: null,
     actions: null,
     capabilities: new Map(),
-    filteredSchemas: new Map()
+    filteredSchemas: new Map(),
+    endpointStatus: {},
+    discovery: {
+      frameworkEndpoints: [],
+      derivedEndpoints: [],
+      partialEndpoints: []
+    }
   };
 
   const els = {
@@ -16,7 +22,9 @@
     resourceCount: document.getElementById('resourceCount'),
     resourceCountHint: document.getElementById('resourceCountHint'),
     surfaceCount: document.getElementById('surfaceCount'),
+    surfaceCountHint: document.getElementById('surfaceCountHint'),
     actionCount: document.getElementById('actionCount'),
+    actionCountHint: document.getElementById('actionCountHint'),
     domainCount: document.getElementById('domainCount'),
     sourceMode: document.getElementById('sourceMode'),
     resourceSearch: document.getElementById('resourceSearch'),
@@ -85,9 +93,16 @@
     state.domain = valueOrNull(domain);
     state.surfaces = valueOrNull(surfaces);
     state.actions = valueOrNull(actions);
+    state.endpointStatus = {
+      health: endpointStatus(health),
+      catalog: endpointStatus(catalog),
+      domain: endpointStatus(domain),
+      surfaces: endpointStatus(surfaces),
+      actions: endpointStatus(actions)
+    };
     state.resources = composeResources(state.catalog, state.domain, state.surfaces, state.actions);
 
-    renderMetrics(health);
+    renderMetrics();
     renderResourceList();
 
     if (state.resources.length > 0) {
@@ -114,17 +129,43 @@
     return result.status === 'fulfilled' ? result.value : null;
   }
 
+  function endpointStatus(result) {
+    if (result.status === 'fulfilled') {
+      return { ok: true, message: 'ok' };
+    }
+    return {
+      ok: false,
+      message: result.reason?.message || 'indisponivel'
+    };
+  }
+
   function composeResources(catalog, domain, surfaces, actions) {
     const index = new Map();
+    state.discovery = {
+      frameworkEndpoints: [],
+      derivedEndpoints: [],
+      partialEndpoints: []
+    };
 
     for (const endpoint of catalogEndpoints(catalog)) {
       const path = endpoint.path || '';
       const method = (endpoint.method || '').toLowerCase();
+      if (isFrameworkEndpoint(path)) {
+        state.discovery.frameworkEndpoints.push(endpoint);
+        continue;
+      }
       const resourcePath = normalizeResourcePath(path);
+      if (!resourcePath) {
+        state.discovery.partialEndpoints.push(endpoint);
+        continue;
+      }
+      if (resourcePath !== path) {
+        state.discovery.derivedEndpoints.push(endpoint);
+      }
       const key = resourcePath || path || endpoint.operationId;
       const resource = ensureResource(index, key, {
         resourcePath,
-        group: catalog?.group || domainFromPath(resourcePath),
+        group: endpoint.group || catalog?.group || domainFromPath(resourcePath),
         sourceConfidence: resourcePath ? 'path-derived' : 'partial'
       });
       resource.endpoints.push(endpoint);
@@ -137,22 +178,30 @@
     }
 
     for (const item of surfaceItems(surfaces)) {
-      const key = item.resourceKey || item.resourcePath || item.path || item.id;
+      const resourcePath = normalizeResourcePath(item.resourcePath || item.path);
+      if (!item.resourceKey && !resourcePath) {
+        continue;
+      }
+      const key = item.resourceKey || resourcePath || item.id;
       const resource = ensureResource(index, key, {
         resourceKey: item.resourceKey,
-        resourcePath: item.resourcePath || normalizeResourcePath(item.path),
-        group: item.group || domainFromPath(item.resourcePath || item.path),
+        resourcePath,
+        group: item.group || domainFromPath(resourcePath),
         sourceConfidence: item.resourceKey ? 'resourceKey' : 'partial'
       });
       resource.surfaces.push(item);
     }
 
     for (const item of actionItems(actions)) {
-      const key = item.resourceKey || item.resourcePath || item.path || item.id;
+      const resourcePath = normalizeResourcePath(item.resourcePath || item.path);
+      if (!item.resourceKey && !resourcePath) {
+        continue;
+      }
+      const key = item.resourceKey || resourcePath || item.id;
       const resource = ensureResource(index, key, {
         resourceKey: item.resourceKey,
-        resourcePath: item.resourcePath || normalizeResourcePath(item.path),
-        group: item.group || domainFromPath(item.resourcePath || item.path),
+        resourcePath,
+        group: item.group || domainFromPath(resourcePath),
         sourceConfidence: item.resourceKey ? 'resourceKey' : 'partial'
       });
       resource.actions.push(item);
@@ -261,7 +310,10 @@
       return catalog.endpoints;
     }
     if (Array.isArray(catalog.groups)) {
-      return catalog.groups.flatMap((group) => group.endpoints || []);
+      return catalog.groups.flatMap((group) => (group.endpoints || []).map((endpoint) => ({
+        ...endpoint,
+        group: endpoint.group || group.group || group.name || group.id
+      })));
     }
     return [];
   }
@@ -326,13 +378,38 @@
     if (!path) {
       return null;
     }
-    return path
+    if (isFrameworkEndpoint(path) || !path.startsWith('/api/')) {
+      return null;
+    }
+    const normalized = path
       .replace(/\/\{[^}]+}/g, '')
-      .replace(/\/(all|filter|filtered|locate|capabilities|export)$/g, '')
+      .replace(/\/(all|filter|filtered|locate|capabilities|export|batch|schemas?)$/g, '')
       .replace(/\/filter\/cursor$/g, '')
-      .replace(/\/options\/(filter|by-ids)$/g, '')
-      .replace(/\/option-sources\/\{sourceKey}\/options\/(filter|by-ids)$/g, '')
-      .replace(/\/stats\/(group-by|timeseries|distribution)$/g, '');
+      .replace(/\/actions(?:\/.*)?$/g, '')
+      .replace(/\/batch(?:\/.*)?$/g, '')
+      .replace(/\/schema(?:s)?(?:\/.*)?$/g, '')
+      .replace(/\/options(?:\/.*)?$/g, '')
+      .replace(/\/option-sources(?:\/.*)?$/g, '')
+      .replace(/\/stats(?:\/.*)?$/g, '');
+    return normalized === '/api' ? null : normalized;
+  }
+
+  function isFrameworkEndpoint(path) {
+    return !path
+      || path === '/'
+      || path === '/index.html'
+      || path === '/favicon.ico'
+      || path.startsWith('/auth/')
+      || path.startsWith('/actuator/')
+      || path.startsWith('/assets/')
+      || path === '/swagger-ui.html'
+      || path.startsWith('/swagger-ui/')
+      || path.startsWith('/v3/api-docs')
+      || path === '/schemas'
+      || path.startsWith('/schemas/')
+      || path.startsWith('/praxis/cockpit')
+      || path === '/api/praxis/config'
+      || path.startsWith('/api/praxis/config/');
   }
 
   function trimApiPrefix(path) {
@@ -355,17 +432,31 @@
     return endpoint?.description || endpoint?.summary || surface?.description || action?.description || 'Resource descoberto por contratos metadata-driven.';
   }
 
-  function renderMetrics(healthResult) {
-    const health = valueOrNull(healthResult);
+  function renderMetrics() {
     const surfaces = surfaceItems(state.surfaces);
     const actions = actionItems(state.actions);
     const domain = domainItems(state.domain);
+    const infrastructureCount = state.discovery.frameworkEndpoints.length + state.discovery.partialEndpoints.length;
+    const derivedCount = state.discovery.derivedEndpoints.length;
     els.resourceCount.textContent = String(state.resources.length);
     els.surfaceCount.textContent = String(surfaces.length);
     els.actionCount.textContent = String(actions.length);
     els.domainCount.textContent = String(domain.length || '--');
-    els.resourceCountHint.textContent = health?.status ? `health ${health.status}` : 'catalog + semantic discovery';
+    els.resourceCountHint.textContent = `${derivedCount} derived, ${infrastructureCount} infra filtered`;
+    els.surfaceCountHint.textContent = discoveryHint('surfaces', surfaces.length, 'semantic UI discovery');
+    els.actionCountHint.textContent = discoveryHint('actions', actions.length, 'business workflows');
     els.sourceMode.textContent = 'starter';
+  }
+
+  function discoveryHint(endpointKey, count, label) {
+    const status = state.endpointStatus[endpointKey];
+    if (!status?.ok) {
+      return `${endpointKey} endpoint ${status?.message || 'indisponivel'}`;
+    }
+    if (count === 0) {
+      return `${label}: sem itens publicados`;
+    }
+    return label;
   }
 
   function renderResourceList() {
@@ -580,6 +671,25 @@
       body: 'A fonte estrutural continua sendo /schemas/filtered; catalogos apenas referenciam schemas.'
     });
     diagnostics.push({
+      level: state.discovery.frameworkEndpoints.length ? 'good' : 'warn',
+      title: state.discovery.frameworkEndpoints.length ? 'Endpoints tecnicos separados do mapa semantico' : 'Nenhum endpoint tecnico detectado no catalogo',
+      body: `${state.discovery.frameworkEndpoints.length} endpoint(s) de framework e ${state.discovery.derivedEndpoints.length} operacao(oes) derivada(s) nao inflaram o contador de resources.`
+    });
+    diagnostics.push(discoveryDiagnostic(
+      'surfaces',
+      resource.surfaces.length,
+      'Surfaces semanticas publicadas',
+      'Surface discovery ausente ou vazio',
+      '/schemas/surfaces deve publicar experiencias de UI quando o host tiver modelo semantico de tela.'
+    ));
+    diagnostics.push(discoveryDiagnostic(
+      'actions',
+      resource.actions.length,
+      'Actions semanticas publicadas',
+      'Action discovery ausente ou vazio',
+      '/schemas/actions deve publicar workflows de negocio quando o host tiver acoes governadas.'
+    ));
+    diagnostics.push({
       level: resource.capability ? 'good' : 'bad',
       title: resource.capability ? 'Capabilities lidas no recurso' : 'Capabilities indisponiveis nesta leitura',
       body: 'Capabilities governam operacao atual, mas nao substituem schema.'
@@ -596,6 +706,22 @@
         <span>${escapeHtml(item.body)}</span>
       </article>
     `).join('');
+  }
+
+  function discoveryDiagnostic(endpointKey, count, okTitle, emptyTitle, body) {
+    const status = state.endpointStatus[endpointKey];
+    if (!status?.ok) {
+      return {
+        level: 'bad',
+        title: `${endpointKey} indisponivel`,
+        body: `${body} A leitura atual recebeu: ${status?.message || 'indisponivel'}.`
+      };
+    }
+    return {
+      level: count > 0 ? 'good' : 'bad',
+      title: count > 0 ? okTitle : emptyTitle,
+      body: count > 0 ? `${count} item(ns) encontrados para este resource.` : body
+    };
   }
 
   function optionSourceCount(resource) {
