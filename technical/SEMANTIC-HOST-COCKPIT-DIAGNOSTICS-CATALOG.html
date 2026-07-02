@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Semantic Host Cockpit Diagnostics Catalog</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Semantic Host Cockpit Diagnostics Catalog</h1>
+</header>
+<h1 id="semantic-host-cockpit-diagnostics-catalog">Semantic Host Cockpit
+Diagnostics Catalog</h1>
+<h2 id="status">Status</h2>
+<p>Catalogo experimental para a issue #39.</p>
+<p>Classificacao: <code>transversal</code>.</p>
+<p>Este documento nao cria endpoint, DTO, schema ou contrato canonico
+novo. As regras abaixo sao diagnosticos derivados no cockpit a partir de
+superficies ja publicadas pelo <code>praxis-metadata-starter</code>. Uma
+promocao futura para <code>/schemas/diagnostics</code>, readiness score
+versionado ou outro contrato publico deve ocorrer em issue separada, com
+mapa de impacto proprio.</p>
+<h2 id="premissa">Premissa</h2>
+<p>O cockpit deve ensinar se um host esta pronto para materializacao
+runtime e grounding de IA. Ele nao deve sugerir remendo em consumidor
+quando a origem correta e recurso, schema, domain catalog, surface,
+action, capability, HATEOAS ou governanca canonica.</p>
+<h2 id="shape-experimental">Shape Experimental</h2>
+<p>Cada diagnostico experimental deve publicar, no minimo:</p>
+<ul>
+<li><code>id</code></li>
+<li><code>title</code></li>
+<li><code>severity</code>: <code>info</code>, <code>warn</code> ou
+<code>error</code></li>
+<li><code>category</code>: <code>structural</code>,
+<code>semantic</code>, <code>runtime</code>, <code>ai</code> ou
+<code>governance</code></li>
+<li><code>resourceKey/path</code></li>
+<li><code>canonical source</code></li>
+<li><code>evidence</code></li>
+<li><code>impact</code></li>
+<li><code>recommended canonical fix</code></li>
+<li><code>minimal validation</code></li>
+<li><code>experimental: true</code></li>
+</ul>
+<h2 id="regras-iniciais">Regras Iniciais</h2>
+<table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>ID</th>
+<th>Categoria</th>
+<th>Severidade</th>
+<th>Fonte canonica</th>
+<th>Evidencia</th>
+<th>Impacto</th>
+<th>Fix canonico</th>
+<th>Validacao minima</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>semantic.resource-key-pivot</code></td>
+<td>semantic</td>
+<td><code>error</code> quando ausente</td>
+<td><code>/schemas/domain</code>, <code>/schemas/surfaces</code>,
+<code>/schemas/actions</code>,
+<code>@ApiResource(resourceKey=...)</code></td>
+<td><code>resourceKey</code> estavel ou fallback por path</td>
+<td>Sem <code>resourceKey</code>, cockpit, runtime e IA dependem de
+path/operationId menos estavel</td>
+<td>Publicar <code>resourceKey</code> no recurso canonico</td>
+<td>Confirmar o mesmo <code>resourceKey</code> em
+domain/surfaces/actions</td>
+</tr>
+<tr class="even">
+<td><code>structural.filtered-schema-resolvable</code></td>
+<td>structural</td>
+<td><code>error</code> quando sem schema/link</td>
+<td><code>/schemas/filtered</code></td>
+<td>schema filtrado resolvido ou links de request/response</td>
+<td>Forms, tabelas e option sources ficam incompletos sem schema
+estrutural</td>
+<td>Corrigir operacao/schema no controller resource-oriented ou no
+starter</td>
+<td>Abrir
+<code>/schemas/filtered?path=...&amp;operation=...&amp;schemaType=...</code></td>
+</tr>
+<tr class="odd">
+<td><code>semantic.framework-endpoints-separated</code></td>
+<td>semantic</td>
+<td><code>warn</code> quando sem evidencia de separacao</td>
+<td><code>/schemas/catalog</code></td>
+<td>endpoints infra filtrados e operacoes derivadas colapsadas</td>
+<td>Auth, actuator, swagger, config infra ou helpers nao devem inflar
+recursos de dominio</td>
+<td>Manter classificacao derivada no cockpit; promover contrato apenas
+se houver lacuna real</td>
+<td>Confirmar que <code>/auth/**</code> nao aparece como resource
+top-level</td>
+</tr>
+<tr class="even">
+<td><code>semantic.surface-discovery</code></td>
+<td>semantic</td>
+<td><code>error</code> quando indisponivel/vazio para recurso rico</td>
+<td><code>/schemas/surfaces</code></td>
+<td>surfaces por <code>resourceKey</code>/path</td>
+<td>Runtime UI perde materializacao explicita</td>
+<td>Publicar <code>@UiSurface</code> ou surfaces automaticas no recurso
+canonico</td>
+<td>Chamar <code>/schemas/surfaces?resource={resourceKey}</code></td>
+</tr>
+<tr class="odd">
+<td><code>semantic.action-discovery</code></td>
+<td>semantic</td>
+<td><code>error</code> quando indisponivel/vazio para recurso com
+workflow</td>
+<td><code>/schemas/actions</code></td>
+<td>actions por <code>resourceKey</code>/path e schema URLs</td>
+<td>Workflows ficam invisiveis para runtime e IA</td>
+<td>Publicar <code>@WorkflowAction</code> e schemas de payload quando
+aplicavel</td>
+<td>Chamar <code>/schemas/actions?resource={resourceKey}</code></td>
+</tr>
+<tr class="even">
+<td><code>runtime.capabilities-readable</code></td>
+<td>runtime</td>
+<td><code>error</code> quando indisponivel</td>
+<td><code>GET {resource}/capabilities</code></td>
+<td>snapshot de operations, surfaces e actions</td>
+<td>Operacoes atuais nao podem ser reconciliadas com UI, HATEOAS e
+OpenAPI</td>
+<td>Corrigir controller resource-oriented ou composicao de
+capabilities</td>
+<td>Comparar capabilities com OpenAPI do recurso</td>
+</tr>
+<tr class="odd">
+<td><code>ai.domain-grounding-evidence</code></td>
+<td>ai</td>
+<td><code>error</code> quando sem domain/governance</td>
+<td><code>/schemas/domain</code>, <code>x-domain-governance</code></td>
+<td>itens de dominio e sinais de governanca</td>
+<td>IA tem menos contexto governado para explicar, simular e authorar
+decisoes</td>
+<td>Melhorar catalogo de dominio, descricoes e governanca na fonte
+canonica</td>
+<td>Consultar <code>/schemas/domain</code> e schema filtrado do
+recurso</td>
+</tr>
+</tbody>
+</table>
+<h2 id="recursos-de-prova">Recursos De Prova</h2>
+<h3 id="recurso-rico">Recurso Rico</h3>
+<p>Usar <code>operations.missoes</code> no
+<code>praxis-api-quickstart</code> como recurso rico quando disponivel.
+Ele deve exercitar:</p>
+<ul>
+<li>resource-oriented controller;</li>
+<li>surfaces/actions;</li>
+<li>capabilities;</li>
+<li>schemas filtrados;</li>
+<li>operacoes derivadas como actions, stats ou export quando
+publicadas.</li>
+</ul>
+<h3 id="recurso-simples">Recurso Simples</h3>
+<p>Usar um recurso CRUD simples do quickstart, como
+<code>human-resources.habilidades</code> ou equivalente publicado pelo
+host, para validar que diagnosticos opcionais nao geram falso positivo
+de arquitetura quando o recurso legitimamente nao possui workflows
+ricos.</p>
+<h2 id="tratamento-de-falsos-positivos">Tratamento De Falsos
+Positivos</h2>
+<ul>
+<li>Surface/action vazia e erro apenas quando a ausencia impede
+materializacao esperada para aquele tipo de recurso.</li>
+<li>Recurso CRUD simples pode receber warning didatico, mas nao deve ser
+tratado como defeito canonico por nao ter workflow.</li>
+<li>Endpoint protegido deve ser diagnosticado como policy/readiness do
+host, nao como falha do contrato de metadata.</li>
+<li>Catalogo documental ruidoso deve ser corrigido na composicao do
+cockpit antes de criar novo endpoint agregado.</li>
+</ul>
+<h2 id="validacao">Validacao</h2>
+<p>Validacao minima no starter:</p>
+<ul>
+<li><code>node --check src/main/resources/META-INF/resources/praxis/cockpit/assets/cockpit.js</code></li>
+<li><code>mvn -q -Dtest=PraxisCockpitControllerTest test</code></li>
+</ul>
+<p>Validacao downstream recomendada no quickstart:</p>
+<ul>
+<li>consumir a versao publicada do starter;</li>
+<li>abrir <code>/praxis/cockpit</code> em host real;</li>
+<li>confirmar que <code>/auth/**</code> e endpoints tecnicos nao
+aparecem como resources;</li>
+<li>selecionar um recurso rico e um simples;</li>
+<li>registrar falsos positivos antes de estabilizar qualquer regra.</li>
+</ul>
+</body>
+</html>

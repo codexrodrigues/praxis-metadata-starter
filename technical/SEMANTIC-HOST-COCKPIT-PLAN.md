@@ -491,6 +491,11 @@ Entregaveis:
 - links de correcao;
 - smokes de resources ricos e simples.
 
+Status: catalogo experimental documentado em
+[Semantic Host Cockpit Diagnostics Catalog](SEMANTIC-HOST-COCKPIT-DIAGNOSTICS-CATALOG.md).
+Os diagnostics continuam sendo composicao derivada do cockpit, sem endpoint
+publico novo.
+
 ### Fase 4. Integracao com documentacao publica
 
 Entregaveis:
