@@ -53,6 +53,31 @@ class PraxisCockpitControllerTest {
     }
 
     @Test
+    void bundlesCockpitGraphRuntimeWithoutExternalNetworkDependency() throws IOException {
+        ClassPathResource cytoscape = new ClassPathResource(
+                "META-INF/resources/praxis/cockpit/assets/vendor/cytoscape/cytoscape.min.js");
+        ClassPathResource cytoscapeLicense = new ClassPathResource(
+                "META-INF/resources/praxis/cockpit/assets/vendor/cytoscape/LICENSE.txt");
+        ClassPathResource scriptResource = new ClassPathResource(
+                "META-INF/resources/praxis/cockpit/assets/cockpit.js");
+        ClassPathResource styleResource = new ClassPathResource(
+                "META-INF/resources/praxis/cockpit/assets/cockpit.css");
+        String script = new String(scriptResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        String style = new String(styleResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        assertThat(cytoscape.exists()).isTrue();
+        assertThat(cytoscapeLicense.exists()).isTrue();
+        assertThat(script)
+                .contains("./assets/vendor/cytoscape/cytoscape.min.js")
+                .doesNotContain("cdn.jsdelivr.net")
+                .doesNotContain("unpkg.com");
+        assertThat(style)
+                .doesNotContain("fonts.googleapis.com")
+                .doesNotContain("fonts.gstatic.com")
+                .doesNotContain("@import url(");
+    }
+
+    @Test
     void bundledCockpitEntryPointExposesElementsExpectedByScript() throws IOException {
         ClassPathResource resource = new ClassPathResource("META-INF/resources/praxis/cockpit/index.html");
         String html = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
@@ -137,6 +162,10 @@ class PraxisCockpitControllerTest {
                 .contains("function canonicalResourceKey")
                 .contains("function semanticCacheKey")
                 .contains("resourceKey = canonicalResourceKey(resource, resourcePath);")
+                .contains("sourceConfidence: endpoint.resourceKey ? 'resourceKey' : 'path-fallback'")
+                .contains("resource.inferredResourceKey = resource.resourceKey ? null : resourceKeyFromPath(resource.resourcePath);")
+                .contains("return resource.resourceKey || null;")
+                .contains("Identidade inferida por path")
                 .contains("state.selectionToken")
                 .contains("endpoint.operation.sourceLabel")
                 .contains("fallback inferido")
@@ -147,6 +176,7 @@ class PraxisCockpitControllerTest {
                 .doesNotContain("fetchJson('/schemas/domain')")
                 .doesNotContain("fetchJson('/schemas/surfaces')")
                 .doesNotContain("fetchJson('/schemas/actions')")
+                .doesNotContain("resource.resourceKey = resource.resourceKey || resourceKeyFromPath(resource.resourcePath)")
                 .doesNotContain("actions: capabilitySource(Boolean((resource.actions || []).length), false, Boolean(summary.actions))")
                 .doesNotContain("por cento das camadas materializáveis disponíveis em média")
                 .doesNotContain("""

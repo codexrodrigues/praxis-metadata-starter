@@ -25,6 +25,13 @@ import java.util.List;
  * package, bind parameters, provider names, or context attributes through schemas,
  * OpenAPI, errors, or {@code OptionDTO.extra}.
  * </p>
+ *
+ * <p>
+ * For {@link #byIds(OptionSourceExecutionRequest)}, providers should return concrete
+ * {@link OptionDTO} instances for found ids and omit ids that were not found. The
+ * canonical executor also normalizes provider output before publishing the HTTP
+ * response, removing {@code null} items and options without ids.
+ * </p>
  */
 public interface OptionSourceProvider {
 

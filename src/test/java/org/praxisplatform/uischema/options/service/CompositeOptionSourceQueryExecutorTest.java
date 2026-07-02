@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +64,30 @@ class CompositeOptionSourceQueryExecutorTest {
         assertEquals("departments", provider.lastContext.sourceKey());
         assertEquals(List.of(10L, 11L), provider.lastRequest.ids());
         assertEquals("byIds", result.getFirst().label());
+    }
+
+    @Test
+    void normalizesByIdsProviderResponseWithoutNullItemsAndPreservesRequestedOrder() {
+        OptionSourceDescriptor descriptor = descriptor("departments");
+        FixedByIdsProvider provider = new FixedByIdsProvider(Arrays.asList(
+                null,
+                new OptionDTO<>(11L, "People", Map.of("rank", 2)),
+                new OptionDTO<>(null, "Broken", null),
+                new OptionDTO<>(10L, "Operations", Map.of("rank", 1))
+        ));
+        CompositeOptionSourceQueryExecutor executor = new CompositeOptionSourceQueryExecutor(
+                new DefaultOptionSourceProviderRegistry(List.of(provider))
+        );
+
+        List<OptionDTO<Object>> result = executor.byIdsOptions(
+                null,
+                TestEntity.class,
+                descriptor,
+                List.of(10L, 11L, 12L)
+        );
+
+        assertEquals(List.of(10L, 11L), result.stream().map(OptionDTO::id).toList());
+        assertEquals(List.of("Operations", "People"), result.stream().map(OptionDTO::label).toList());
     }
 
     @Test
@@ -355,7 +380,7 @@ class CompositeOptionSourceQueryExecutorTest {
         @Override
         public List<OptionDTO<Object>> byIds(OptionSourceExecutionRequest<?> request) {
             this.lastRequest = request;
-            return List.of(new OptionDTO<>(1L, "byIds", null));
+            return List.of(new OptionDTO<>(10L, "byIds", null));
         }
     }
 
@@ -380,6 +405,28 @@ class CompositeOptionSourceQueryExecutorTest {
         @Override
         public List<OptionDTO<Object>> byIds(OptionSourceExecutionRequest<?> request) {
             throw new AssertionError("Provider should not be called");
+        }
+    }
+
+    private record FixedByIdsProvider(List<OptionDTO<Object>> options) implements OptionSourceProvider {
+
+        @Override
+        public boolean supports(
+                OptionSourceDescriptor descriptor,
+                OptionSourceExecutionContext context,
+                OptionSourceOperation operation
+        ) {
+            return true;
+        }
+
+        @Override
+        public Page<OptionDTO<Object>> filter(OptionSourceExecutionRequest<?> request) {
+            throw new AssertionError("Filter should not be called");
+        }
+
+        @Override
+        public List<OptionDTO<Object>> byIds(OptionSourceExecutionRequest<?> request) {
+            return options;
         }
     }
 

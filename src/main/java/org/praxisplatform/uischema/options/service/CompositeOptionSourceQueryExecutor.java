@@ -10,7 +10,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Compatibility executor facade that delegates option-source execution to providers.
@@ -93,7 +96,36 @@ public class CompositeOptionSourceQueryExecutor implements OptionSourceQueryExec
                 context
         );
         requestValidator.validate(request);
-        return providerRegistry.resolve(descriptor, context, OptionSourceOperation.BY_IDS).byIds(request);
+        List<OptionDTO<Object>> options = providerRegistry
+                .resolve(descriptor, context, OptionSourceOperation.BY_IDS)
+                .byIds(request);
+        return normalizeByIdsResponse(ids, options);
+    }
+
+    private List<OptionDTO<Object>> normalizeByIdsResponse(
+            Collection<Object> requestedIds,
+            List<OptionDTO<Object>> options
+    ) {
+        if (requestedIds == null || requestedIds.isEmpty() || options == null || options.isEmpty()) {
+            return List.of();
+        }
+        Map<String, OptionDTO<Object>> byId = options.stream()
+                .filter(Objects::nonNull)
+                .filter(option -> option.id() != null)
+                .collect(
+                        LinkedHashMap::new,
+                        (index, option) -> index.putIfAbsent(stringify(option.id()), option),
+                        Map::putAll
+                );
+        return requestedIds.stream()
+                .filter(Objects::nonNull)
+                .map(id -> byId.get(stringify(id)))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private String stringify(Object value) {
+        return value == null ? "" : value.toString();
     }
 
 }

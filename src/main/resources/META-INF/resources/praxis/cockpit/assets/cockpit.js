@@ -350,7 +350,7 @@
         group: endpoint.group || domainFromResourceKey(endpoint.resourceKey) || domainFromPath(resourcePath),
         frontendResource: frontendResourceForPath(resourcePath),
         icon: endpoint.resourceVisual?.icon || null,
-        sourceConfidence: 'catálogo'
+        sourceConfidence: endpoint.resourceKey ? 'resourceKey' : 'path-fallback'
       });
       resource.endpoints.push(endpoint);
       if (endpoint.schemaLinks) {
@@ -447,7 +447,7 @@
 
   function finalizeResource(resource) {
     const visual = resource.catalogVisual || {};
-    resource.resourceKey = resource.resourceKey || resourceKeyFromPath(resource.resourcePath);
+    resource.inferredResourceKey = resource.resourceKey ? null : resourceKeyFromPath(resource.resourcePath);
     resource.key = resource.resourceKey || resource.key;
     resource.group = resource.group || visual.tone || domainFromResourceKey(resource.resourceKey) || domainFromPath(resource.resourcePath) || 'domínio';
     resource.domain = labelForArea(resource.group);
@@ -899,6 +899,13 @@
         impact: 'Não há campos nem link de schema para explicar payloads.'
       });
     }
+    if (!resource.resourceKey && resource.inferredResourceKey) {
+      diagnostics.push({
+        level: 'attention',
+        title: 'Identidade inferida por path',
+        impact: `O cockpit inferiu ${resource.inferredResourceKey} apenas como diagnóstico; publique resourceKey para confirmar a identidade canônica.`
+      });
+    }
     if (state.capabilityErrors.has(resource.key)) {
       diagnostics.push({
         level: 'blocking',
@@ -1337,7 +1344,7 @@
   }
 
   function canonicalResourceKey(resource, resourcePath) {
-    return resource.resourceKey || resourceKeyFromPath(resourcePath);
+    return resource.resourceKey || null;
   }
 
   function semanticCacheKey(resource, resourceKey) {
@@ -2232,8 +2239,7 @@
     if (window.cytoscape) return Promise.resolve(window.cytoscape);
     if (state.cytoscapeLoader) return state.cytoscapeLoader;
     state.cytoscapeLoader = loadScriptSequence([
-      './assets/vendor/cytoscape/cytoscape.min.js',
-      'https://cdn.jsdelivr.net/npm/cytoscape@3.33.1/dist/cytoscape.min.js'
+      './assets/vendor/cytoscape/cytoscape.min.js'
     ], 'cytoscape');
     return state.cytoscapeLoader;
   }
