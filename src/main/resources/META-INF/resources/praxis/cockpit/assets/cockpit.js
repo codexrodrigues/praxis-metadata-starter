@@ -154,6 +154,7 @@
       fetchJson('/assets/frontend-resources.json', { timeoutMs: 10000 })
     ]);
     const catalogs = await discoverCatalogs(valueOrNull(catalog), valueOrNull(swaggerConfig));
+    const groupCatalogCount = catalogs.filter((item) => item?.group && item.group !== 'application').length;
 
     state.health = valueOrNull(health);
     state.frontendResources = frontendResourceIndex(valueOrNull(frontendResources));
@@ -162,8 +163,8 @@
       catalog: endpointStatus(catalog),
       openApiGroups: endpointStatus(swaggerConfig),
       groupCatalogs: {
-        ok: catalogs.length > 1 || endpointStatus(catalog).ok,
-        message: catalogs.length > 1 ? `${catalogs.length - 1} catálogo(s) por grupo lido(s)` : 'catálogo default'
+        ok: groupCatalogCount > 0 || endpointStatus(catalog).ok,
+        message: groupCatalogCount > 0 ? `${groupCatalogCount} catálogo(s) por grupo lido(s)` : 'catálogo default'
       }
     };
     state.resources = composeResources(catalogs);
@@ -287,6 +288,13 @@
     const resourceKey = canonicalResourceKey(resource, resourcePath);
     const cacheKey = semanticCacheKey(resource, resourceKey);
     if (!resourceKey) return;
+    if (!hasPublishedActionSignal(resource)) {
+      const fallbackActions = uniqueBySurface(resource.capability?.actions || []);
+      state.actions.set(cacheKey, fallbackActions);
+      resource.actions = fallbackActions;
+      promoteCanonicalIdentity(resource, fallbackActions.find((action) => action?.resourceKey), 'capabilities.actions');
+      return;
+    }
     try {
       const payload = await fetchJson(`/schemas/actions?resource=${encodeURIComponent(resourceKey)}`);
       const scopedActions = uniqueBySurface([...actionItems(payload), ...(resource.capability?.actions || [])]);
@@ -360,7 +368,7 @@
       const catalog = valueOrNull(result);
       if (catalog) groupCatalogs.push(catalog);
     }
-    if (groupCatalogs.length) return [...groupCatalogs, ...catalogs];
+    if (groupCatalogs.length) return groupCatalogs;
     return catalogs;
   }
 
@@ -642,6 +650,13 @@
     return [];
   }
 
+  function hasPublishedActionSignal(resource) {
+    if ((resource.capability?.actions || []).length) return true;
+    if ((resource.actions || []).length) return true;
+    if ((resource.operationSummary?.actions || 0) > 0) return true;
+    return (resource.endpoints || []).some((endpoint) => isWorkflowActionEndpoint(endpoint.path));
+  }
+
   function domainItems(payload) {
     if (!payload) return [];
     if (Array.isArray(payload.resources)) return payload.resources;
@@ -798,7 +813,10 @@
     els.fieldCount.textContent = String(fieldCount || '--');
     els.readinessScore.textContent = readiness.label;
     els.readinessHint.textContent = readiness.hint;
-    els.sourceMode.textContent = `${state.discovery.frameworkEndpoints.length} endpoints técnicos isolados da leitura de domínio`;
+    const domainCatalogCount = state.discovery.catalogGroups.filter((group) => group !== 'application').length;
+    els.sourceMode.textContent = domainCatalogCount
+      ? `${domainCatalogCount} catálogo(s) de domínio · ${state.discovery.frameworkEndpoints.length} endpoints técnicos isolados`
+      : `${state.discovery.frameworkEndpoints.length} endpoints técnicos isolados da leitura de domínio`;
     renderPlatformIntelligence(resourcesForMetrics);
   }
 
@@ -1380,18 +1398,25 @@
 
     const actionCacheKey = semanticCacheKey(resource, resourceKey);
     if (resourceKey && (force || !state.actions.has(actionCacheKey))) {
-      try {
-        const payload = await fetchJson(`/schemas/actions?resource=${encodeURIComponent(resourceKey)}`);
-        const scopedActions = uniqueBySurface([...actionItems(payload), ...(resource.capability?.actions || [])]);
-        state.actions.set(actionCacheKey, scopedActions);
-        resource.actions = scopedActions;
-        promoteCanonicalIdentity(resource, payload, 'actions');
-        promoteCanonicalIdentity(resource, scopedActions.find((action) => action?.resourceKey), 'actions');
-      } catch (error) {
+      if (!hasPublishedActionSignal(resource)) {
         const fallbackActions = uniqueBySurface(resource.capability?.actions || []);
         state.actions.set(actionCacheKey, fallbackActions);
         resource.actions = fallbackActions;
         promoteCanonicalIdentity(resource, fallbackActions.find((action) => action?.resourceKey), 'capabilities.actions');
+      } else {
+        try {
+          const payload = await fetchJson(`/schemas/actions?resource=${encodeURIComponent(resourceKey)}`);
+          const scopedActions = uniqueBySurface([...actionItems(payload), ...(resource.capability?.actions || [])]);
+          state.actions.set(actionCacheKey, scopedActions);
+          resource.actions = scopedActions;
+          promoteCanonicalIdentity(resource, payload, 'actions');
+          promoteCanonicalIdentity(resource, scopedActions.find((action) => action?.resourceKey), 'actions');
+        } catch (error) {
+          const fallbackActions = uniqueBySurface(resource.capability?.actions || []);
+          state.actions.set(actionCacheKey, fallbackActions);
+          resource.actions = fallbackActions;
+          promoteCanonicalIdentity(resource, fallbackActions.find((action) => action?.resourceKey), 'capabilities.actions');
+        }
       }
     } else if (state.actions.has(actionCacheKey)) {
       resource.actions = state.actions.get(actionCacheKey) || [];

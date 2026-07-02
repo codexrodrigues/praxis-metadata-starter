@@ -73,10 +73,19 @@ recurso legitimamente nao possui workflows ricos.
   esperada para aquele tipo de recurso.
 - Recurso CRUD simples pode receber warning didatico, mas nao deve ser tratado
   como defeito canonico por nao ter workflow.
+- Quando `/schemas/actions?resource=...` nao tiver sinal previo em catalogo,
+  capabilities ou endpoints de workflow, o cockpit deve materializar "sem
+  workflow action publicada" sem disparar chamada que gere 404 no console. Em
+  uso corporativo, ausencia opcional de action nao deve parecer falha tecnica.
 - Endpoint protegido deve ser diagnosticado como policy/readiness do host, nao
   como falha do contrato de metadata.
 - Catalogo documental ruidoso deve ser corrigido na composicao do cockpit antes
   de criar novo endpoint agregado.
+- Quando `swagger-config` publicar catalogos agregados de dominio, eles
+  prevalecem sobre o catalogo default `application` na composicao de areas e
+  resources. O catalogo default pode servir como fallback quando nao houver
+  grupos de dominio, mas nao deve reintroduzir endpoints tecnicos ou bucket
+  "Application" em cockpit executivo de dominio.
 
 ## Validacao
 
@@ -90,5 +99,9 @@ Validacao downstream recomendada no quickstart:
 - consumir a versao publicada do starter;
 - abrir `/praxis/cockpit` em host real;
 - confirmar que `/auth/**` e endpoints tecnicos nao aparecem como resources;
+- confirmar que catalogos agregados do host resultam apenas nas areas de
+  dominio reais, sem area default "Application";
+- confirmar console limpo, sem 404 para actions ausentes em recursos CRUD
+  simples;
 - selecionar um recurso rico e um simples;
 - registrar falsos positivos antes de estabilizar qualquer regra.
