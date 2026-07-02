@@ -1,12 +1,14 @@
 package org.praxisplatform.uischema.extension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 
 import java.lang.annotation.Annotation;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -57,7 +59,11 @@ class ExplicitAdvancedPropsTest {
                 asyncValidator = "asyncFn",
                 minWords = 5,
                 allowedFileTypes = AllowedFileTypes.PDF,
-                maxFileSize = "12345"
+                maxFileSize = "12345",
+                extraProperties = @ExtensionProperty(
+                        name = "conditionalValidation",
+                        value = "[{\"condition\":{\"==\":[{\"var\":\"form.accountType\"},\"business\"]},\"validators\":{\"required\":true,\"requiredMessage\":\"Business email is required\"}}]"
+                )
         )
         String campo;
     }
@@ -129,6 +135,13 @@ class ExplicitAdvancedPropsTest {
         assertEquals("5", String.valueOf(xui.get(ValidationProperties.MIN_WORDS.getValue())));
         // conditionalRequired também em validation namespace
         assertEquals("someExpr", xui.get(ValidationProperties.CONDITIONAL_REQUIRED.getValue()));
+        assertTrue(xui.get(ValidationProperties.CONDITIONAL_VALIDATION.getValue()) instanceof List<?>);
+        List<?> conditionalValidation = (List<?>) xui.get(ValidationProperties.CONDITIONAL_VALIDATION.getValue());
+        assertEquals(1, conditionalValidation.size());
+        assertTrue(conditionalValidation.get(0) instanceof Map<?, ?>);
+        Map<?, ?> conditionalRule = (Map<?, ?>) conditionalValidation.get(0);
+        assertTrue(conditionalRule.get("condition") instanceof Map<?, ?>);
+        assertTrue(conditionalRule.get("validators") instanceof Map<?, ?>);
 
         // Arquivos
         assertEquals(AllowedFileTypes.PDF.getValue(), xui.get(ValidationProperties.ALLOWED_FILE_TYPES.getValue()));

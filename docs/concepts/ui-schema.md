@@ -72,6 +72,7 @@ Essas chaves são preenchidas automaticamente pelo resolver, mas podem ser sobre
 
 * **Schemas externos**: use `dataEndpoint` para conectar combos a endpoints `/options` padronizados.
 * **Condicionais**: combine `conditionalDisplay` e `dependentField` para interfaces dinâmicas; `dependentField` é legado/condicional e não substitui `x-ui.optionSource.dependsOn` em cascatas de option-source.
+* **Validação condicional**: publique `conditionalValidation[]` como contrato `x-ui` JSON/config-driven, com `condition` em Json Logic serializável e `validators` declarativos. Esse contrato é consumido pelo runtime Angular; no backend Java, `extraProperties` estruturado pode materializá-lo, mas regras complexas devem ser authoradas pela camada canônica de decisão/configuração, não por uma nova DSL local em annotation.
 * **Dependências de options**: use `dependsOn` para publicar cascatas de LOV/options. O resolver materializa o valor em `x-ui.optionSource.dependsOn`; valores separados por vírgula viram lista, e literais JSON de lista/mapa são preservados.
 * **Internacionalização**: preencha labels com `MessageSource` e resolva em runtime usando `LocaleUtils`.
 

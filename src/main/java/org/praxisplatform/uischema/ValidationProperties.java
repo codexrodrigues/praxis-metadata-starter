@@ -29,6 +29,7 @@ public enum ValidationProperties {
     CUSTOM_VALIDATOR("customValidator"),
     ASYNC_VALIDATOR("asyncValidator"),
     CONDITIONAL_REQUIRED("conditionalRequired"),
+    CONDITIONAL_VALIDATION("conditionalValidation"),
     MIN_WORDS("minWords"),
     ALLOWED_FILE_TYPES("allowedFileTypes"),
     FILE_TYPE_MESSAGE("fileTypeMessage"),
