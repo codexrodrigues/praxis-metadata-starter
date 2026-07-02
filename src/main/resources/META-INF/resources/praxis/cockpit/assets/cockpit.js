@@ -1642,6 +1642,15 @@
               <button type="button" data-graph-filter="field">Campos</button>
               <button type="button" data-graph-filter="stats">Analytics</button>
             </div>
+            <div class="semantic-graph-view-modes" aria-label="Modos do grafo semântico">
+              <button type="button" class="active" data-graph-mode="clean">Limpo</button>
+              <button type="button" data-graph-mode="evidence">Evidência</button>
+            </div>
+            <label class="semantic-graph-search">
+              <span>Buscar no grafo</span>
+              <input type="search" data-graph-search placeholder="Campo, UI, action..." autocomplete="off">
+              <small data-graph-search-status>Digite para localizar campos, UI, workflow ou analytics.</small>
+            </label>
             <div class="semantic-graph-viewport-tools" aria-label="Controles de visualização do grafo">
               <button type="button" data-graph-zoom="out" aria-label="Reduzir zoom do grafo" title="Reduzir zoom">-</button>
               <span data-graph-scale>100%</span>
@@ -1740,6 +1749,7 @@
         });
         bindTopologyGraphControls(shell, state.topologyGraph, model, inspector);
         bindTopologyRelationCards(state.topologyGraph, model, inspector);
+        applyTopologyGraphMode(state.topologyGraph, shell, 'clean');
         applyTopologyGraphFilter(state.topologyGraph, 'all');
         state.topologyGraph.fit(undefined, 34);
       })
@@ -1839,6 +1849,8 @@
   function bindTopologyGraphControls(shell, cy, model, inspector) {
     if (!shell || !cy) return;
     const scale = shell.querySelector('[data-graph-scale]');
+    let currentFilter = 'all';
+    let currentMode = 'clean';
     const updateScale = () => {
       if (scale) scale.textContent = `${Math.round((cy.zoom() || 1) * 100)}%`;
     };
@@ -1849,10 +1861,21 @@
       updateScale();
     };
     const runFilter = (filter) => {
+      currentFilter = filter || 'all';
       syncTopologyFilterState(shell, filter);
       cy.elements().removeClass('graph-focus graph-muted');
-      applyTopologyGraphFilter(cy, filter);
+      applyTopologyGraphMode(cy, shell, currentMode);
+      applyTopologyGraphFilter(cy, currentFilter);
       updateTopologyInspector(inspector, topologyFilterSummary(filter, model));
+      updateScale();
+    };
+    const runMode = (mode) => {
+      currentMode = mode || 'clean';
+      syncTopologyModeState(shell, currentMode);
+      cy.elements().removeClass('graph-focus graph-muted');
+      applyTopologyGraphMode(cy, shell, currentMode);
+      applyTopologyGraphFilter(cy, currentFilter);
+      updateTopologyInspector(inspector, topologyModeSummary(currentMode, model));
       updateScale();
     };
     cy.on('zoom pan', updateScale);
@@ -1861,6 +1884,11 @@
       if (!button || !shell.contains(button)) return;
       const filter = button.getAttribute('data-graph-filter') || button.getAttribute('data-graph-route-filter') || 'all';
       runFilter(filter);
+    });
+    shell.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-graph-mode]');
+      if (!button || !shell.contains(button)) return;
+      runMode(button.getAttribute('data-graph-mode') || 'clean');
     });
     shell.addEventListener('click', (event) => {
       const button = event.target.closest('[data-graph-resource-key]');
@@ -1891,6 +1919,8 @@
       cy.fit(cy.elements(':visible'), shell.classList.contains('is-fullscreen') ? 72 : 34);
       updateScale();
     });
+    bindTopologySearchControl(shell, cy, model, inspector);
+    runMode(currentMode);
     updateScale();
   }
 
@@ -1934,6 +1964,12 @@
     for (const item of shell.querySelectorAll('[data-graph-filter], [data-graph-route-filter]')) {
       const itemFilter = item.getAttribute('data-graph-filter') || item.getAttribute('data-graph-route-filter') || 'all';
       item.classList.toggle('active', itemFilter === filter);
+    }
+  }
+
+  function syncTopologyModeState(shell, mode) {
+    for (const item of shell.querySelectorAll('[data-graph-mode]')) {
+      item.classList.toggle('active', item.getAttribute('data-graph-mode') === mode);
     }
   }
 
@@ -1982,6 +2018,95 @@
     cy.fit(cy.elements(':visible'), 34);
   }
 
+  function applyTopologyGraphMode(cy, shell, mode) {
+    if (!cy) return;
+    cy.elements().removeClass('graph-mode-hidden');
+    if (mode === 'evidence') return;
+    cy.nodes().forEach((node) => {
+      if (node.data('type') === 'field' && !node.data('isPriority')) node.addClass('graph-mode-hidden');
+    });
+    cy.edges().forEach((edge) => {
+      if (edge.source().hasClass('graph-mode-hidden') || edge.target().hasClass('graph-mode-hidden')) edge.addClass('graph-mode-hidden');
+    });
+    const visible = cy.elements(':visible');
+    if (visible.length) cy.fit(visible, 34);
+    const hiddenCount = cy.nodes('.graph-mode-hidden').length;
+    shell?.querySelector('[data-graph-mode="clean"]')?.setAttribute('aria-label', hiddenCount ? `Modo limpo, ${hiddenCount} campo(s) secundário(s) oculto(s)` : 'Modo limpo');
+  }
+
+  function bindTopologySearchControl(shell, cy, model, inspector) {
+    const input = shell?.querySelector('[data-graph-search]');
+    if (!input || !cy) return;
+    const search = () => {
+      const query = normalizeSearch(input.value);
+      cy.elements().removeClass('graph-search-match graph-muted graph-focus');
+      if (!query) {
+        updateTopologySearchStatus(shell, 'Digite para localizar campos, UI, workflow ou analytics.');
+        updateTopologyInspector(inspector, topologyModeSummary(activeTopologyMode(shell), model));
+        return;
+      }
+      const matches = cy.nodes().filter((node) => topologySearchText(node.data()).includes(query));
+      if (!matches.length) {
+        cy.elements().addClass('graph-muted');
+        updateTopologySearchStatus(shell, `Nenhum resultado para "${input.value}".`, 'empty');
+        updateTopologyInspector(inspector, {
+          type: 'relation',
+          label: 'Nada encontrado',
+          detail: `Nenhum nó visível ou oculto corresponde a "${input.value}".`,
+          evidence: [{ label: 'Busca', detail: 'Tente parte do nome canônico, campo, surface, action ou tipo semântico.' }]
+        });
+        return;
+      }
+      matches.removeClass('graph-hidden graph-mode-hidden').addClass('graph-search-match graph-focus');
+      const connected = matches.connectedEdges().union(matches.neighborhood('node'));
+      connected.removeClass('graph-hidden graph-mode-hidden');
+      cy.elements().difference(matches.union(connected)).addClass('graph-muted');
+      cy.fit(matches.union(connected), 72);
+      updateTopologySearchStatus(shell, `${matches.length} resultado(s); vizinhos e relações foram preservados.`, 'found');
+      updateTopologyInspector(inspector, matches.first().data());
+    };
+    input.addEventListener('input', debounce(search, 180));
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        input.value = '';
+        search();
+      }
+    });
+  }
+
+  function activeTopologyMode(shell) {
+    return shell?.querySelector('[data-graph-mode].active')?.getAttribute('data-graph-mode') || 'clean';
+  }
+
+  function updateTopologySearchStatus(shell, text, tone = 'neutral') {
+    const status = shell?.querySelector('[data-graph-search-status]');
+    if (!status) return;
+    status.textContent = text;
+    status.dataset.tone = tone;
+  }
+
+  function topologySearchText(data) {
+    return normalizeSearch([
+      data?.label,
+      data?.detail,
+      data?.type,
+      data?.resourceKey,
+      data?.id
+    ].filter(Boolean).join(' '));
+  }
+
+  function normalizeSearch(value) {
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  }
+
+  function debounce(fn, waitMs) {
+    let timer;
+    return (...args) => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => fn(...args), waitMs);
+    };
+  }
+
   function topologyFilterSummary(filter, model) {
     const nodes = model.elements.filter((item) => !item.data.source).map((item) => item.data);
     const edges = model.elements.filter((item) => item.data.source).map((item) => item.data);
@@ -2008,6 +2133,33 @@
       label: labels[filter] || nodeTypeLabel(filter),
       detail: `${filteredNodes.length} nó(s) ligados ao recurso central nesta camada. Use os nós para inspecionar significado, origem e possível navegação.`,
       evidence: topologyFilterBlueprint(filter, filteredNodes, nodes)
+    };
+  }
+
+  function topologyModeSummary(mode, model) {
+    const nodes = model.elements.filter((item) => !item.data.source).map((item) => item.data);
+    const fields = nodes.filter((node) => node.type === 'field');
+    const secondaryFields = fields.filter((node) => !node.isPriority);
+    const primaryNodes = nodes.length - secondaryFields.length;
+    if (mode === 'evidence') {
+      return {
+        type: 'relation',
+        label: 'Modo evidência',
+        detail: `${nodes.length} nó(s) visíveis para rastrear campos, UI, workflow, analytics e grounding do recurso.`,
+        evidence: [
+          { label: 'Leitura', detail: 'Use este modo para auditoria detalhada e rastreabilidade.' },
+          { label: 'Busca', detail: 'Digite parte de um campo, action, surface ou conceito para centralizar no grafo.' }
+        ]
+      };
+    }
+    return {
+      type: 'relation',
+      label: 'Modo limpo',
+      detail: `${Math.max(0, primaryNodes)} nó(s) principais em foco; ${secondaryFields.length} campo(s) secundário(s) ficam disponíveis por busca ou pelo modo Evidência.`,
+      evidence: [
+        { label: 'Leitura inicial', detail: 'Reduz a densidade para mostrar primeiro UI, workflow, analytics e conceitos principais.' },
+        { label: 'Detalhe', detail: 'Campos obrigatórios permanecem visíveis; campos secundários entram quando você busca ou ativa Evidência.' }
+      ]
     };
   }
 
@@ -2133,7 +2285,7 @@
       const position = positions.get(node.id);
       const radius = node.type === 'root' ? 38 : Math.max(16, Math.min(26, 12 + (node.weight || 2) * 2));
       return `
-        <g class="svg-node ${escapeAttr(node.type || 'concept')}" data-node-id="${escapeAttr(node.id)}" tabindex="0">
+        <g class="svg-node ${escapeAttr(node.type || 'concept')}" data-node-id="${escapeAttr(node.id)}" data-node-priority="${node.isPriority ? 'true' : 'false'}" tabindex="0">
           <circle cx="${position.x}" cy="${position.y}" r="${radius}"></circle>
           <text x="${position.x}" y="${position.y + radius + 17}">${escapeHtml(shortGraphLabel(node.label))}</text>
         </g>
@@ -2157,19 +2309,35 @@
 
   function bindTopologySvgControls(shell, container, model, inspector) {
     if (!shell || !container) return;
+    let currentFilter = 'all';
+    let currentMode = 'clean';
     const runFilter = (filter) => {
+      currentFilter = filter || 'all';
       syncTopologyFilterState(shell, filter);
+      applyTopologySvgMode(shell, container, currentMode);
       for (const element of container.querySelectorAll('.svg-node')) {
         const type = Array.from(element.classList).find((item) => ['root', 'concept', 'field', 'surface', 'action', 'stats', 'capability'].includes(item));
         element.classList.toggle('graph-hidden', filter !== 'all' && type !== 'root' && type !== filter);
       }
       updateTopologyInspector(inspector, topologyFilterSummary(filter, model));
     };
+    const runMode = (mode) => {
+      currentMode = mode || 'clean';
+      syncTopologyModeState(shell, currentMode);
+      applyTopologySvgMode(shell, container, currentMode);
+      runFilter(currentFilter);
+      updateTopologyInspector(inspector, topologyModeSummary(currentMode, model));
+    };
     shell.addEventListener('click', (event) => {
       const button = event.target.closest('[data-graph-filter], [data-graph-route-filter]');
       if (!button || !shell.contains(button)) return;
       const filter = button.getAttribute('data-graph-filter') || button.getAttribute('data-graph-route-filter') || 'all';
       runFilter(filter);
+    });
+    shell.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-graph-mode]');
+      if (!button || !shell.contains(button)) return;
+      runMode(button.getAttribute('data-graph-mode') || 'clean');
     });
     shell.addEventListener('click', (event) => {
       const button = event.target.closest('[data-graph-resource-key]');
@@ -2189,7 +2357,66 @@
         if (data) updateTopologyInspector(inspector, data);
       });
     }
+    bindTopologySvgSearchControl(shell, container, model, inspector);
     bindTopologyFullscreenControl(shell);
+    runMode(currentMode);
+  }
+
+  function applyTopologySvgMode(shell, container, mode) {
+    for (const element of container.querySelectorAll('.svg-node')) {
+      const isField = element.classList.contains('field');
+      const isPriority = element.getAttribute('data-node-priority') === 'true';
+      element.classList.toggle('graph-mode-hidden', mode === 'clean' && isField && !isPriority);
+    }
+    const hiddenCount = container.querySelectorAll('.svg-node.graph-mode-hidden').length;
+    shell?.querySelector('[data-graph-mode="clean"]')?.setAttribute('aria-label', hiddenCount ? `Modo limpo, ${hiddenCount} campo(s) secundário(s) oculto(s)` : 'Modo limpo');
+  }
+
+  function bindTopologySvgSearchControl(shell, container, model, inspector) {
+    const input = shell?.querySelector('[data-graph-search]');
+    if (!input) return;
+    const nodes = model.elements.filter((item) => !item.data.source).map((item) => item.data);
+    const search = () => {
+      const query = normalizeSearch(input.value);
+      for (const element of container.querySelectorAll('.svg-node')) {
+        element.classList.remove('graph-search-match');
+      }
+      if (!query) {
+        updateTopologySearchStatus(shell, 'Digite para localizar campos, UI, workflow ou analytics.');
+        updateTopologyInspector(inspector, topologyModeSummary(activeTopologyMode(shell), model));
+        return;
+      }
+      const matches = nodes.filter((node) => topologySearchText(node).includes(query));
+      if (!matches.length) {
+        updateTopologySearchStatus(shell, `Nenhum resultado para "${input.value}".`, 'empty');
+        updateTopologyInspector(inspector, {
+          type: 'relation',
+          label: 'Nada encontrado',
+          detail: `Nenhum nó corresponde a "${input.value}".`,
+          evidence: [{ label: 'Busca', detail: 'Tente parte do nome canônico, campo, surface, action ou tipo semântico.' }]
+        });
+        return;
+      }
+      for (const match of matches) {
+        const element = findSvgNodeElement(container, match.id);
+        element?.classList.remove('graph-hidden', 'graph-mode-hidden');
+        element?.classList.add('graph-search-match');
+      }
+      updateTopologySearchStatus(shell, `${matches.length} resultado(s) no fallback visual.`, 'found');
+      updateTopologyInspector(inspector, matches[0]);
+    };
+    input.addEventListener('input', debounce(search, 180));
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        input.value = '';
+        search();
+      }
+    });
+  }
+
+  function findSvgNodeElement(container, id) {
+    return Array.from(container.querySelectorAll('.svg-node'))
+      .find((element) => element.getAttribute('data-node-id') === String(id));
   }
 
   function shortGraphLabel(label) {
@@ -2216,6 +2443,7 @@
         color: patch.color || current.color || topologyNodeTheme(patch.type || current.type || 'concept').color,
         borderColor: patch.borderColor || current.borderColor || topologyNodeTheme(patch.type || current.type || 'concept').border,
         glowColor: patch.glowColor || current.glowColor || topologyNodeTheme(patch.type || current.type || 'concept').glow,
+        isPriority: Boolean(patch.isPriority || current.isPriority),
         weight: Math.max(current.weight || 1, patch.weight || 1)
       });
     };
@@ -2325,6 +2553,7 @@
         label: normalizePortugueseLabel(field.name),
         detail: `${field.type || 'campo'} · ${field.required ? 'obrigatório' : 'opcional'}`,
         type: 'field',
+        isPriority: Boolean(field.required),
         weight: field.required ? 4 : 3
       });
       addEdge(rootKey, id, {
@@ -2370,11 +2599,6 @@
           label: 'data(label)',
           'min-zoomed-font-size': 7,
           'overlay-opacity': 0,
-          'shadow-blur': 16,
-          'shadow-color': 'data(glowColor)',
-          'shadow-opacity': .24,
-          'shadow-offset-x': 0,
-          'shadow-offset-y': 0,
           'text-background-color': 'rgba(7, 9, 13, .68)',
           'text-background-opacity': .92,
           'text-background-padding': 3,
@@ -2387,7 +2611,7 @@
           width: 'mapData(weight, 1, 10, 28, 76)'
         }
       },
-      { selector: 'node[type = "root"]', style: { 'background-color': '#3cc8ff', 'border-color': '#aeeaff', 'border-width': 4, height: 88, width: 88, 'shadow-blur': 28, 'shadow-opacity': .48 } },
+      { selector: 'node[type = "root"]', style: { 'background-color': '#3cc8ff', 'border-color': '#aeeaff', 'border-width': 4, height: 88, width: 88 } },
       {
         selector: 'edge',
         style: {
@@ -2409,9 +2633,11 @@
       },
       { selector: 'node:selected', style: { 'border-color': '#ffffff', 'border-width': 4 } },
       { selector: 'edge:selected', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', width: 2.6 } },
-      { selector: 'node.graph-focus', style: { 'border-color': '#ffffff', 'border-width': 4, opacity: 1, 'shadow-blur': 28, 'shadow-opacity': .58 } },
+      { selector: 'node.graph-focus', style: { 'border-color': '#ffffff', 'border-width': 4, opacity: 1 } },
       { selector: 'edge.graph-focus', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', opacity: 1, width: 3.2 } },
+      { selector: 'node.graph-search-match', style: { 'border-color': '#ffd166', 'border-width': 5, 'background-color': '#ffd166' } },
       { selector: '.graph-muted', style: { opacity: .18 } },
+      { selector: '.graph-mode-hidden', style: { display: 'none' } },
       { selector: '.graph-hidden', style: { display: 'none' } }
     ];
   }

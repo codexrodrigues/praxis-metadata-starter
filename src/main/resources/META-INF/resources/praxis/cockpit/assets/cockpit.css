@@ -1337,6 +1337,7 @@ a { color: inherit; }
 .semantic-graph-legend .stats::before { background: var(--amber); }
 
 .semantic-graph-filters,
+.semantic-graph-view-modes,
 .semantic-graph-viewport-tools,
 .semantic-graph-summary {
   display: flex;
@@ -1346,6 +1347,7 @@ a { color: inherit; }
 }
 
 .semantic-graph-filters button,
+.semantic-graph-view-modes button,
 .semantic-graph-viewport-tools button,
 .semantic-graph-viewport-tools span {
   align-items: center;
@@ -1363,6 +1365,7 @@ a { color: inherit; }
 }
 
 .semantic-graph-filters button,
+.semantic-graph-view-modes button,
 .semantic-graph-viewport-tools button {
   cursor: pointer;
 }
@@ -1388,14 +1391,72 @@ a { color: inherit; }
 
 .semantic-graph-filters button:hover,
 .semantic-graph-filters button.active,
+.semantic-graph-view-modes button:hover,
+.semantic-graph-view-modes button.active,
 .semantic-graph-viewport-tools button:hover {
   border-color: rgba(115, 239, 181, .72);
   box-shadow: 0 0 18px rgba(115, 239, 181, .14);
   color: #fff;
 }
 
+.semantic-graph-view-modes button.active {
+  background:
+    linear-gradient(135deg, rgba(115, 239, 181, .16), rgba(98, 216, 255, .08)),
+    rgba(7, 12, 18, .86);
+}
+
 .semantic-graph-filters button.is-empty {
   opacity: .62;
+}
+
+.semantic-graph-search {
+  align-items: center;
+  display: grid;
+  gap: 4px;
+  justify-self: stretch;
+  min-width: min(100%, 280px);
+}
+
+.semantic-graph-search span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.semantic-graph-search input {
+  border: 1px solid rgba(126, 211, 255, .24);
+  border-radius: 8px;
+  background: rgba(2, 6, 10, .72);
+  color: var(--soft);
+  font: inherit;
+  font-size: 12px;
+  min-height: 34px;
+  outline: none;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.semantic-graph-search input:focus {
+  border-color: rgba(115, 239, 181, .72);
+  box-shadow: 0 0 0 3px rgba(115, 239, 181, .08);
+}
+
+.semantic-graph-search small {
+  color: rgba(154, 172, 194, .78);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.semantic-graph-search small[data-tone="found"] {
+  color: rgba(115, 239, 181, .88);
+}
+
+.semantic-graph-search small[data-tone="empty"] {
+  color: rgba(255, 209, 102, .92);
 }
 
 .semantic-graph-summary span {
@@ -1557,6 +1618,16 @@ a { color: inherit; }
 
 .semantic-graph-svg .svg-node.graph-hidden {
   display: none;
+}
+
+.semantic-graph-svg .svg-node.graph-mode-hidden {
+  display: none;
+}
+
+.semantic-graph-svg .svg-node.graph-search-match circle {
+  filter: drop-shadow(0 0 18px rgba(255, 209, 102, .62));
+  stroke: rgba(255, 209, 102, .95);
+  stroke-width: 3;
 }
 
 .semantic-graph-svg .svg-node:hover circle,
@@ -2048,6 +2119,7 @@ a { color: inherit; }
     justify-content: flex-start;
   }
   .semantic-graph-filters,
+  .semantic-graph-view-modes,
   .semantic-graph-viewport-tools,
   .semantic-graph-summary {
     justify-content: flex-start;
