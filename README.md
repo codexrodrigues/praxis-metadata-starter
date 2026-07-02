@@ -274,11 +274,13 @@ o executor rejeita o formato com `400 Bad Request` pela mesma trilha de validaca
 O baseline canonico para recursos metadata-driven e:
 
 - `AbstractResourceController`
+- `AbstractCreateUpdateResourceController`, quando o recurso publica create/update sem delete
 - `AbstractLegacyBackedResourceController`, quando a escrita for delegada a backend legado mantendo contrato publico resource-oriented
 - `AbstractDuplicateDraftLegacyBackedResourceController`, somente quando o recurso realmente publicar `POST /{resource}/{id}/duplicate-draft`
 - `AbstractReadOnlyResourceController`
 - `AbstractBaseResourceService`
 - `AbstractReadOnlyResourceService`
+- `BaseCreateUpdateResourceService`, quando a porta de comando publica create/update sem delete
 - `LegacyBackedResourceService`, quando create/update/delete e operacoes opcionais forem executados por porta/adaptador do host
 - `ResourceMapper`
 - `@ApiResource(value = ..., resourceKey = ...)`

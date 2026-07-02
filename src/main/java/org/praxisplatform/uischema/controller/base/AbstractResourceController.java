@@ -2,17 +2,12 @@ package org.praxisplatform.uischema.controller.base;
 
 import io.swagger.v3.oas.annotations.Operation;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
-import org.praxisplatform.uischema.rest.response.RestApiResponse;
-import org.praxisplatform.uischema.service.base.BaseResourceCommandService;
 import org.praxisplatform.uischema.service.base.BaseResourceService;
 import org.springframework.hateoas.Link;
-import org.springframework.hateoas.Links;
 import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.ArrayList;
@@ -33,9 +28,11 @@ import java.util.List;
  * query-only, a variante correta continua sendo {@link AbstractReadOnlyResourceController}, sem
  * expor endpoints de escrita que retornariam {@code 405}.
  * </p>
+ *
+ * @see AbstractCreateUpdateResourceController
  */
 public abstract class AbstractResourceController<ResponseDTO, ID, FD extends GenericFilterDTO, CreateDTO, UpdateDTO>
-        extends AbstractResourceQueryController<ResponseDTO, ID, FD> {
+        extends AbstractCreateUpdateResourceController<ResponseDTO, ID, FD, CreateDTO, UpdateDTO> {
 
     @Override
     protected abstract BaseResourceService<ResponseDTO, ID, FD, CreateDTO, UpdateDTO> getService();
@@ -43,61 +40,6 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
     @SuppressWarnings("unchecked")
     protected Class<? extends AbstractResourceController<ResponseDTO, ID, FD, CreateDTO, UpdateDTO>> getResourceControllerClass() {
         return (Class<? extends AbstractResourceController<ResponseDTO, ID, FD, CreateDTO, UpdateDTO>>) getClass();
-    }
-
-    @PostMapping
-    @Operation(summary = "Criar item")
-    public ResponseEntity<RestApiResponse<ResponseDTO>> create(@jakarta.validation.Valid @RequestBody CreateDTO dto) {
-        assertCollectionOperationAvailable("create");
-        BaseResourceCommandService.SavedResult<ID, ResponseDTO> saved = getService().create(dto);
-        ID newId = saved.id();
-        ResponseDTO body = saved.body();
-        Link selfLink = linkToSelf(newId);
-
-        List<Link> linkList = new ArrayList<>();
-        linkList.add(selfLink);
-        linkList.add(linkToAll());
-        linkList.add(linkToFilter());
-        linkList.add(linkToFilterCursor());
-        if (isItemOperationAvailable("edit", newId)) {
-            linkList.add(linkToUpdate(newId));
-        }
-        if (isItemOperationAvailable("delete", newId)) {
-            linkList.add(linkToDelete(newId));
-        }
-        linkList.addAll(buildItemDiscoveryLinks(newId));
-        linkList.add(linkToUiSchema("/", "post", "request"));
-
-        return withVersion(
-                ResponseEntity.created(selfLink.toUri()),
-                RestApiResponse.success(body, hateoasOrNull(Links.of(linkList)))
-        );
-    }
-
-    @PutMapping("/{id}")
-    @Operation(summary = "Editar item")
-    public ResponseEntity<RestApiResponse<ResponseDTO>> update(
-            @PathVariable ID id,
-            @jakarta.validation.Valid @RequestBody UpdateDTO dto
-    ) {
-        assertItemOperationAvailable("edit", id);
-        ResponseDTO updated = getService().update(id, dto);
-
-        List<Link> linkList = new ArrayList<>();
-        linkList.add(linkToSelf(id));
-        linkList.add(linkToAll());
-        linkList.add(linkToFilter());
-        linkList.add(linkToFilterCursor());
-        if (isItemOperationAvailable("edit", id)) {
-            linkList.add(linkToUpdate(id));
-        }
-        if (isItemOperationAvailable("delete", id)) {
-            linkList.add(linkToDelete(id));
-        }
-        linkList.addAll(buildItemDiscoveryLinks(id));
-        linkList.add(linkToUiSchema("/{id}", "put", "request"));
-
-        return withVersion(ResponseEntity.ok(), RestApiResponse.success(updated, hateoasOrNull(Links.of(linkList))));
     }
 
     @DeleteMapping("/{id}")
@@ -122,10 +64,7 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
 
     @Override
     protected List<Link> buildItemActionLinks(ID id) {
-        List<Link> links = new ArrayList<>();
-        if (isItemOperationAvailable("edit", id)) {
-            links.add(linkToUpdate(id));
-        }
+        List<Link> links = new ArrayList<>(super.buildItemActionLinks(id));
         if (isItemOperationAvailable("delete", id)) {
             links.add(linkToDelete(id));
         }
@@ -134,10 +73,7 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
 
     @Override
     protected List<Link> buildEntityActionLinks(ID id) {
-        List<Link> links = new ArrayList<>();
-        if (isItemOperationAvailable("edit", id)) {
-            links.add(linkToUpdate(id));
-        }
+        List<Link> links = new ArrayList<>(super.buildEntityActionLinks(id));
         if (isItemOperationAvailable("delete", id)) {
             links.add(linkToDelete(id));
         }
@@ -145,25 +81,12 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
     }
 
     @Override
-    protected List<Link> buildCollectionActionLinks() {
-        List<Link> links = new ArrayList<>();
-        if (isCollectionOperationAvailable("create")) {
-            links.add(linkToCreate());
+    protected List<Link> buildWriteResponseActionLinks(ID id) {
+        List<Link> links = new ArrayList<>(super.buildWriteResponseActionLinks(id));
+        if (isItemOperationAvailable("delete", id)) {
+            links.add(linkToDelete(id));
         }
-        links.addAll(super.buildCollectionActionLinks());
         return links;
-    }
-
-    protected Link linkToCreate() {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getResourceControllerClass()).create(null)
-        ).withRel("create");
-    }
-
-    protected Link linkToUpdate(ID id) {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getResourceControllerClass()).update(id, null)
-        ).withRel("update");
     }
 
     protected Link linkToDelete(ID id) {

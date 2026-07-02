@@ -5,6 +5,7 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- Base canonica `AbstractCreateUpdateResourceController` e portas `BaseCreateUpdateResourceService` / `BaseCreateUpdateResourceCommandService` para recursos `read + create/update` que nao publicam `delete`.
 - SPI publica `ResourceOperationAvailabilityProvider` para availability host-neutral de operacoes canonicas de recurso, integrada a `/capabilities` e `_links`.
 - Tipos publicos `ResourceOperationAvailabilityContext` e `NoOpResourceOperationAvailabilityProvider` para hosts corporativos plugar guards legados sem expor detalhes privados no contrato.
 - Base canonica `AbstractLegacyBackedResourceController` e portas `LegacyBackedResourceService` / `LegacyBackedResourceCommandService` para recursos mutaveis resource-oriented com escrita delegada ao host legado.

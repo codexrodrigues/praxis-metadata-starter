@@ -41,6 +41,7 @@ Camada HTTP do starter.
 Os controllers-base canonicos sao:
 
 - `AbstractResourceController`
+- `AbstractCreateUpdateResourceController`
 - `AbstractReadOnlyResourceController`
 - `AbstractResourceQueryController`
 

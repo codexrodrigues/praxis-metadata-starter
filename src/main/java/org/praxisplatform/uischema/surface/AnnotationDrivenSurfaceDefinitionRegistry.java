@@ -5,6 +5,7 @@ import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.UiSurface;
 import org.praxisplatform.uischema.annotation.WorkflowAction;
+import org.praxisplatform.uischema.controller.base.AbstractCreateUpdateResourceController;
 import org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController;
 import org.praxisplatform.uischema.controller.base.AbstractResourceController;
 import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
@@ -264,10 +265,10 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
         return switch (methodName) {
             case "getAll" -> new AutomaticSurface("list", SurfaceKind.VIEW, SurfaceScope.COLLECTION, "list", "response", 20, "Listar");
             case "getById" -> new AutomaticSurface("detail", SurfaceKind.VIEW, SurfaceScope.ITEM, "detail", "response", 30, "Detalhar");
-            case "create" -> readOnly || !AbstractResourceController.class.isAssignableFrom(handlerMethod.getBeanType())
+            case "create" -> readOnly || !AbstractCreateUpdateResourceController.class.isAssignableFrom(handlerMethod.getBeanType())
                     ? null
                     : new AutomaticSurface("create", SurfaceKind.FORM, SurfaceScope.COLLECTION, "create", "request", 10, "Criar");
-            case "update" -> readOnly || !AbstractResourceController.class.isAssignableFrom(handlerMethod.getBeanType())
+            case "update" -> readOnly || !AbstractCreateUpdateResourceController.class.isAssignableFrom(handlerMethod.getBeanType())
                     ? null
                     : new AutomaticSurface("edit", SurfaceKind.FORM, SurfaceScope.ITEM, "edit", "request", 40, "Editar");
             default -> null;
