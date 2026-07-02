@@ -76,6 +76,23 @@ Essas chaves são preenchidas automaticamente pelo resolver, mas podem ser sobre
 * **Dependências de options**: use `dependsOn` para publicar cascatas de LOV/options. O resolver materializa o valor em `x-ui.optionSource.dependsOn`; valores separados por vírgula viram lista, e literais JSON de lista/mapa são preservados.
 * **Internacionalização**: preencha labels com `MessageSource` e resolva em runtime usando `LocaleUtils`.
 
+Exemplo corporativo mínimo:
+
+```java
+@UISchema(
+    label = "Email corporativo",
+    conditionalDisplay = "{\"==\":[{\"var\":\"form.tipoPessoa\"},\"PJ\"]}",
+    conditionalRequired = "{\"==\":[{\"var\":\"form.tipoPessoa\"},\"PJ\"]}",
+    extraProperties = @ExtensionProperty(
+        name = "conditionalValidation",
+        value = "[{\"condition\":{\"==\":[{\"var\":\"form.tipoPessoa\"},\"PJ\"]},\"validators\":{\"required\":true,\"requiredMessage\":\"Email corporativo é obrigatório para pessoa jurídica\"}}]"
+    )
+)
+private String emailCorporativo;
+```
+
+Esse exemplo publica objetos Json Logic em `x-ui` e falha cedo no backend se alguém trocar por DSL textual, operador desconhecido, aridade inválida ou condicional JSON Schema.
+
 ## Referências cruzadas
 
 * [Visão arquitetural](../architecture-overview.md)
