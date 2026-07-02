@@ -37,6 +37,7 @@ Use estes entry points primeiro:
 - Guide 04 - When to use resource, surface, action, capability: [docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
 - GitHub Pages site: [https://codexrodrigues.github.io/praxis-metadata-starter/](https://codexrodrigues.github.io/praxis-metadata-starter/)
 - Public Javadoc: [https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
+- Official cockpit demo: [https://praxis-api-quickstart.onrender.com/praxis/cockpit](https://praxis-api-quickstart.onrender.com/praxis/cockpit)
 - Assisted repository exploration (complementary, not normative): [CodeWiki](https://codewiki.google/github.com/codexrodrigues/praxis-metadata-starter/)
 
 ## What The Starter Actually Publishes
@@ -79,6 +80,12 @@ O cockpit e empacotado pelo starter em `META-INF/resources/praxis/cockpit`.
 Hosts com politica propria de Spring Security devem permitir `GET /praxis/cockpit`,
 `GET /praxis/cockpit/` e `GET /praxis/cockpit/**`; o `praxis-api-quickstart`
 e a referencia operacional dessa exposicao.
+
+Na referencia publica do Quickstart, o cockpit mostra o que um host Spring Boot
+ja publica para humanos, runtimes e IA: areas de dominio, recursos, endpoints,
+filtros, formularios, tabelas, graficos, workflow actions, readiness semantica e
+relacionamentos entre recursos. A URL publica fica em
+[https://praxis-api-quickstart.onrender.com/praxis/cockpit](https://praxis-api-quickstart.onrender.com/praxis/cockpit).
 
 Regras importantes:
 
