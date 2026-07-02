@@ -188,7 +188,8 @@ Schema), suíte de conformidade e uma PoC mínima em .NET.</p>
 <code>schemaId</code> inclui:
 <code>path|operation|schemaType|internal|tenant|locale</code>. - Grupos
 OpenAPI (documento por grupo com fallback para documento completo). -
-x‑ui (campo, validações) e x‑ui (operação) com precedência: defaults
+x‑ui (campo, validações e <code>presentation</code>
+readonly/list/table-cell) e x‑ui (operação) com precedência: defaults
 <span class="citation" data-cites="UISchema">@UISchema</span> → detecção
 (type/format/heurísticas) → valores explícitos <span class="citation"
 data-cites="UISchema">@UISchema</span> → Bean Validation →
@@ -232,9 +233,10 @@ quando <code>includeInternalSchemas=true</code>.</p>
 <p>Critérios de Aceitação - O host Angular baseado nos pacotes públicos
 <code>@praxisui/*</code> consome o backend .NET mudando apenas
 <code>baseUrl</code>. - Renderização dinâmica de tabela/form a partir do
-contrato (x‑ui), com <code>displayColumns</code>, validações e options.
-- ETag/304 operativo; schemaId/headers corretos;
-<code>x-ui.resource</code> completo.</p>
+contrato (x‑ui), com <code>displayColumns</code>, validações, options e
+<code>presentation</code> materializável em células ricas sem
+configuração local de coluna. - ETag/304 operativo; schemaId/headers
+corretos; <code>x-ui.resource</code> completo.</p>
 <p>Fases do Plano (sugestão) 1) Inventário detalhado (starter + runtime
 Angular público) 2) Fechar JSON Schemas + README (SemVer, precedência)
 3) Design técnico .NET + POCs de cada requisito 4) Implementação PoC

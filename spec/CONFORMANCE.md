@@ -63,6 +63,8 @@
   - validacoes (`required`, `minLength`, `maxLength`, `pattern`, `min`, `max`, `range`, `*Message`) -> helpers de validacao
   - selecao (`options`, `endpoint`, `valueField`, `displayField`, `multiple`, `emptyOptionText`) -> componentes de selecao
   - numerico (`numericFormat`, `numeric*`) -> componentes numericos
+  - `valuePresentation` -> formatacao escalar readonly/display
+  - `presentation` -> materializacao visual readonly/list/table-cell; no runtime Angular oficial, `presenter: chip|badge|status|iconValue|microVisualization` pode virar renderer de coluna sem alterar o valor bruto da linha
 - x-ui por operacao
   - `displayColumns` -> padrao de colunas iniciais
   - `operationExamples.<schemaType>` -> exemplos operacionais para catalogo, playgrounds e documentacao contextual

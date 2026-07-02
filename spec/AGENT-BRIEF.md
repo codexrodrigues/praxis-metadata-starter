@@ -10,7 +10,7 @@ Escopo de Alinhamento (minimo)
 - ETag forte e 304 com `If-None-Match`; headers: `ETag`, `X-Schema-Hash`, `Access-Control-Expose-Headers: ETag,X-Schema-Hash`.
 - `schemaId` inclui: `path|operation|schemaType|internal|tenant|locale`.
 - Grupos OpenAPI (documento por grupo com fallback para documento completo).
-- x‑ui (campo, validações) e x‑ui (operação) com precedência: defaults @UISchema → detecção (type/format/heurísticas) → valores explícitos @UISchema → Bean Validation → extraProperties (máxima).
+- x‑ui (campo, validações e `presentation` readonly/list/table-cell) e x‑ui (operação) com precedência: defaults @UISchema → detecção (type/format/heurísticas) → valores explícitos @UISchema → Bean Validation → extraProperties (máxima).
 - Recursos do controller base: CRUD, `POST /filter`, `POST /filter/cursor`, `POST /locate`, `POST /options/filter`, `GET /options/by-ids`, `GET /all`, `GET /{id}`; ordenação padrão e heurística de `idField`.
 - i18n/tenant: `Accept-Language` e `X-Tenant` compõem o `schemaId` (ETag varia por idioma/tenant).
 - Segurança fora do starter (configurar no host; JWT/OIDC, CORS, CSRF conforme política).
@@ -40,7 +40,7 @@ PoC .NET (esperada)
 
 Critérios de Aceitação
 - O host Angular baseado nos pacotes públicos `@praxisui/*` consome o backend .NET mudando apenas `baseUrl`.
-- Renderização dinâmica de tabela/form a partir do contrato (x‑ui), com `displayColumns`, validações e options.
+- Renderização dinâmica de tabela/form a partir do contrato (x‑ui), com `displayColumns`, validações, options e `presentation` materializável em células ricas sem configuração local de coluna.
 - ETag/304 operativo; schemaId/headers corretos; `x-ui.resource` completo.
 
 Fases do Plano (sugestão)

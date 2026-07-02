@@ -13,6 +13,13 @@
     "editableForAuthorities": ["employee.admin"],
     "reason": "Campo governado por perfil corporativo."
   },
+  "presentation": {
+    "presenter": "chip",
+    "tone": "info",
+    "appearance": "soft",
+    "icon": "badge",
+    "tooltip": "Identificação curta em tabelas e listas"
+  },
   "required": true,
   "minLength": 3,
   "maxLength": 120,

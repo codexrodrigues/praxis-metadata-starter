@@ -305,6 +305,11 @@ o mapeamento dependencia -&gt; chave de filtro quando necessario.</li>
 <li>Apresentacao de valor:
 <code>valuePresentation{ type, style?, format?, currency?, number? }</code>
 como contrato canonico de display/read-only para valores escalares</li>
+<li>Apresentacao visual readonly/list/table-cell:
+<code>presentation{ presenter, tone?, appearance?, icon?, label?, tooltip?, valuePresentation?, visualization?, interactions? }</code>;
+consumidores podem materializar como <code>chip</code>,
+<code>badge</code>, <code>iconValue</code> ou microvisualizacao sem
+alterar o valor bruto usado para sort/filter/export</li>
 <li>Validacao (top-level): <code>required</code>,
 <code>minLength</code>, <code>maxLength</code>, <code>min</code>,
 <code>max</code>, <code>pattern</code>, <code>range</code>, mensagens
@@ -443,9 +448,10 @@ validacao no <code>x-ui</code>)</li>
 maxima)</li>
 </ol>
 <ul>
-<li>Para display/read-only, <code>valuePresentation</code> define a
-intencao canonica de exibicao; <code>format</code> permanece como
-override explicito quando presente no consumidor.</li>
+<li>Para display/read-only, <code>valuePresentation</code> define
+formatacao escalar; <code>presentation</code> define a semantica visual
+readonly/list/table-cell; <code>format</code> permanece como override
+explicito quando presente no consumidor.</li>
 </ul>
 <h2 id="normas-mustshouldmay">Normas (MUST/SHOULD/MAY)</h2>
 <ul>
@@ -457,9 +463,19 @@ Schemas.</li>
 chaves adicionais sao permitidas.</li>
 <li>SHOULD: publicar <code>x-ui.valuePresentation</code> para campos
 escalares de exibicao quando a intencao semantica estiver clara.</li>
+<li>SHOULD: publicar <code>x-ui.presentation</code> quando a semantica
+canonica do campo exigir materializacao visual em listas ou tabelas,
+como siglas em chip, categorias em badge ou codigo com prefixo
+visual.</li>
 <li>MUST NOT: publicar <code>x-ui.valuePresentation</code> automatico
 para ranges, selecoes, arrays, objects ou IDs semanticos sem override
 explicito.</li>
+<li>MUST NOT: usar <code>x-ui.icon</code> isolado como instrucao global
+para renderizar icone em celula; icone de celula deve vir de
+<code>x-ui.presentation.icon</code> combinado com
+<code>presentation.presenter</code>.</li>
+<li>MUST NOT: sobrecarregar <code>x-ui.valuePresentation</code> para
+chips, badges ou prefixos visuais.</li>
 <li>MUST: preservar semantica textual para codigos, documentos e
 identificadores numericos de legado quando o backend declarar
 <code>x-ui.type=text</code>, controle textual ou mascara textual. Nesses

@@ -58,6 +58,7 @@
     - `optionSource.dependsOn` e a origem canonica de cascata metadata-driven; `optionSource.dependencyFilterMap` explicita o mapeamento dependencia -> chave de filtro quando necessario.
   - Numerico: `numericFormat` (enum), `numericStep`, `numericMin`, `numericMax`, `numericMaxLength`
   - Apresentacao de valor: `valuePresentation{ type, style?, format?, currency?, number? }` como contrato canonico de display/read-only para valores escalares
+  - Apresentacao visual readonly/list/table-cell: `presentation{ presenter, tone?, appearance?, icon?, label?, tooltip?, valuePresentation?, visualization?, interactions? }`; consumidores podem materializar como `chip`, `badge`, `iconValue` ou microvisualizacao sem alterar o valor bruto usado para sort/filter/export
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`
   - Validacao agrupada: bloco `validation{}` com chaves basicas quando o produtor optar por agrupar regras no mesmo namespace
 - Operacao (x-ui por operacao)
@@ -119,7 +120,7 @@
 4. Bean Validation (ex.: NotBlank/Size/Pattern -> chaves de validacao no `x-ui`)
 5. `extraProperties`/`custom.*` (precedencia maxima)
 
-- Para display/read-only, `valuePresentation` define a intencao canonica de exibicao; `format` permanece como override explicito quando presente no consumidor.
+- Para display/read-only, `valuePresentation` define formatacao escalar; `presentation` define a semantica visual readonly/list/table-cell; `format` permanece como override explicito quando presente no consumidor.
 
 ## Normas (MUST/SHOULD/MAY)
 
@@ -127,7 +128,10 @@
 - SHOULD: extensoes privadas usarem o prefixo `custom.`.
 - MUST: `capabilities` conter apenas valores boolean; chaves adicionais sao permitidas.
 - SHOULD: publicar `x-ui.valuePresentation` para campos escalares de exibicao quando a intencao semantica estiver clara.
+- SHOULD: publicar `x-ui.presentation` quando a semantica canonica do campo exigir materializacao visual em listas ou tabelas, como siglas em chip, categorias em badge ou codigo com prefixo visual.
 - MUST NOT: publicar `x-ui.valuePresentation` automatico para ranges, selecoes, arrays, objects ou IDs semanticos sem override explicito.
+- MUST NOT: usar `x-ui.icon` isolado como instrucao global para renderizar icone em celula; icone de celula deve vir de `x-ui.presentation.icon` combinado com `presentation.presenter`.
+- MUST NOT: sobrecarregar `x-ui.valuePresentation` para chips, badges ou prefixos visuais.
 - MUST: preservar semantica textual para codigos, documentos e identificadores numericos de legado quando o backend declarar `x-ui.type=text`, controle textual ou mascara textual. Nesses casos, o OpenAPI pode continuar publicando transporte numerico, mas a UI nao deve receber `valuePresentation` numerico automatico.
 - SHOULD: `/schemas/filtered` enviar `ETag` forte e `X-Schema-Hash` e expor via `Access-Control-Expose-Headers`.
 - SHOULD: publicacoes de `x-ui.chart` explicitar restricoes executaveis do runtime oficial sem criar contrato paralelo.
