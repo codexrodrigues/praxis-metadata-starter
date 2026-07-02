@@ -45,7 +45,7 @@
   - Acesso contextual: `fieldAccess{ visibleForAuthorities?, editableForAuthorities?, reason? }` declara politica de leitura/edicao por authority canonica para renderizacao runtime e validacao backend do host; `reason` e explicativo e nao e politica suficiente sozinho
   - Dependencias/Condicionais: `conditionalDisplay`, `conditionalValidation[]`, `dependentField`, `resetOnDependentChange`
     - `dependentField` e legado/condicional; cascata de option-source deve usar `optionSource.dependsOn`.
-    - `conditionalDisplay`, `conditionalRequired` e `conditionalValidation[].condition` publicam Json Logic canonico, validado no backend contra a matriz de operadores do runtime Angular. DSL textual e condicionais JSON Schema nao fazem parte do contrato `x-ui`.
+    - `conditionalDisplay`, `conditionalRequired` e `conditionalValidation[].condition` publicam Json Logic canonico, validado no backend contra a matriz de operadores do runtime Angular, incluindo aridade e shape basico de argumentos literais. DSL textual e condicionais JSON Schema nao fazem parte do contrato `x-ui`.
     - `conditionalValidation[]` e contrato `x-ui` JSON/config-driven: cada regra publica `condition` em Json Logic serializavel e `validators` declarativos. DTOs Java podem materializar esse contrato por `extraProperties` estruturado, mas o starter nao promove uma annotation Java rica como fonte primaria para regras Json Logic complexas.
     - Eventos de campo nao devem virar callbacks genericos ou scripts locais no `x-ui`.
       Quando a mudanca de um campo precisa recarregar opcoes de outro, publique a

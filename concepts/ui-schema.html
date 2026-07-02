@@ -381,10 +381,10 @@ para conectar combos a endpoints <code>/options</code>
 padronizados.</li>
 <li><strong>Condicionais</strong>: publique
 <code>conditionalDisplay</code> e <code>conditionalRequired</code> como
-Json Logic canônico; o backend valida operador e aridade contra a matriz
-do runtime Angular antes de expor <code>x-ui</code>.
-<code>dependentField</code> é legado/condicional e não substitui
-<code>x-ui.optionSource.dependsOn</code> em cascatas de
+Json Logic canônico; o backend valida operador, aridade e shape básico
+de argumentos literais contra a matriz do runtime Angular antes de expor
+<code>x-ui</code>. <code>dependentField</code> é legado/condicional e
+não substitui <code>x-ui.optionSource.dependsOn</code> em cascatas de
 option-source.</li>
 <li><strong>Validação condicional</strong>: publique
 <code>conditionalValidation[]</code> como contrato <code>x-ui</code>
