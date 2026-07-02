@@ -84,7 +84,7 @@ class PraxisCockpitControllerTest {
 
         assertThat(html)
                 .contains("/praxis/cockpit/assets/brand/praxis-mark-light.png")
-                .contains("/praxis/cockpit/assets/cockpit.js?v=20260702-domain-actions")
+                .contains("/praxis/cockpit/assets/cockpit.js?v=20260702-renderable-experiences")
                 .contains("id=\"domainTitle\"")
                 .contains("id=\"domainAreaCount\"")
                 .contains("id=\"domainResourceCount\"")
@@ -121,6 +121,9 @@ class PraxisCockpitControllerTest {
                 .contains("function renderAttentionNow")
                 .contains("function renderSemanticReadiness")
                 .contains("function renderPlatformIntelligence")
+                .contains("function renderRenderableStack")
+                .contains("function layerEvidenceSummary")
+                .contains("function renderExperienceResourceChips")
                 .contains("function renderHostScorecards")
                 .contains("function renderHostAttention")
                 .contains("function catalogDiagnostics")
