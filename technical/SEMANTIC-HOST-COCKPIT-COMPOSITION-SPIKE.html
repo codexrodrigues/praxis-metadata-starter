@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Semantic Host Cockpit Composition Spike</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Semantic Host Cockpit Composition Spike</h1>
+</header>
+<h1 id="semantic-host-cockpit-composition-spike">Semantic Host Cockpit
+Composition Spike</h1>
+<h2 id="status">Status</h2>
+<p>Spike arquitetural para a issue #40.</p>
+<p>Este documento nao altera contrato publico. Ele define como montar
+uma visao resource-centric do host usando superficies existentes antes
+de propor qualquer endpoint agregado.</p>
+<p>Classificacao: <code>arquitetural</code>.</p>
+<h2 id="pergunta-do-spike">Pergunta do spike</h2>
+<p>O cockpit consegue montar uma experiencia util e coerente usando
+apenas os contratos atuais?</p>
+<p>Resposta curta: sim, para um primeiro corte. O modelo atual tem
+pivots suficientes em <code>resourceKey</code>,
+<code>resourcePath</code>, <code>path</code>, <code>method</code>,
+<code>operationId</code> e <code>schemaUrl</code>. A composicao inicial
+deve continuar derivada e empacotada pelo starter. Um endpoint agregado
+de dados como <code>/schemas/host-cockpit</code> ainda nao esta
+justificado como <code>lacuna-real-de-contrato</code>.</p>
+<h2 id="fontes-existentes">Fontes existentes</h2>
+<h3 id="health-e-operacao-do-host">Health e operacao do host</h3>
+<p>Fonte:</p>
+<ul>
+<li><code>/actuator/health</code></li>
+<li><code>/actuator/info</code>, quando exposto pelo host</li>
+</ul>
+<p>Uso no cockpit:</p>
+<ul>
+<li>status do host;</li>
+<li>baseline operacional;</li>
+<li>contexto de ambiente quando publicado.</li>
+</ul>
+<p>Classificacao: <code>ja-suportado-so-ux</code>.</p>
+<h3 id="openapi-e-catalogo-documental">OpenAPI e catalogo
+documental</h3>
+<p>Fontes:</p>
+<ul>
+<li><code>/v3/api-docs</code></li>
+<li><code>/v3/api-docs/{group}</code></li>
+<li><code>/schemas/catalog</code></li>
+</ul>
+<p>Evidencia no starter:</p>
+<ul>
+<li><code>DomainCatalogController.CatalogResponse</code></li>
+<li><code>DomainCatalogController.EndpointSummary</code></li>
+<li><code>EndpointSummary.path</code></li>
+<li><code>EndpointSummary.method</code></li>
+<li><code>EndpointSummary.operationId</code></li>
+<li><code>EndpointSummary.requestSchema</code></li>
+<li><code>EndpointSummary.responseSchema</code></li>
+<li><code>EndpointSummary.schemaLinks</code></li>
+</ul>
+<p>Uso no cockpit:</p>
+<ul>
+<li>descobrir endpoints;</li>
+<li>listar operacoes por path/metodo;</li>
+<li>localizar schemas request/response;</li>
+<li>exibir summaries/descriptions/examples;</li>
+<li>compor links para <code>/schemas/filtered</code>.</li>
+</ul>
+<p>Classificacao: <code>ja-suportado-so-ux</code>.</p>
+<p>Observacao: apesar do nome historico
+<code>DomainCatalogController</code>, o endpoint
+<code>/schemas/catalog</code> e catalogo documental. O dominio
+AI-operable fica em <code>/schemas/domain</code>.</p>
+<h3 id="contrato-estrutural">Contrato estrutural</h3>
+<p>Fonte:</p>
+<ul>
+<li><code>/schemas/filtered?path={path}&amp;operation={method}&amp;schemaType=request|response</code></li>
+</ul>
+<p>Uso no cockpit:</p>
+<ul>
+<li>schema estrutural canonico;</li>
+<li><code>properties.*.x-ui</code>;</li>
+<li><code>x-ui.resource.idField</code>;</li>
+<li><code>x-ui.resource.readOnly</code>;</li>
+<li><code>x-ui.resource.capabilities</code>;</li>
+<li><code>x-ui.optionSource</code>;</li>
+<li><code>x-ui.analytics</code>;</li>
+<li><code>fieldAccess</code>;</li>
+<li><code>x-domain-governance</code>;</li>
+<li>ETag e <code>X-Schema-Hash</code>.</li>
+</ul>
+<p>Classificacao: <code>ja-suportado-so-ux</code>.</p>
+<p>Risco:</p>
+<ul>
+<li>a consulta e path/operation/schemaType centric. O cockpit precisa
+derivar os links corretos a partir do catalogo, surfaces, actions ou
+capabilities.</li>
+</ul>
+<h3 id="dominio-ai-operable">Dominio AI-operable</h3>
+<p>Fonte:</p>
+<ul>
+<li><code>/schemas/domain</code></li>
+<li><code>/schemas/domain?resourceKey={resourceKey}</code>, quando usado
+pelo host</li>
+</ul>
+<p>Uso no cockpit:</p>
+<ul>
+<li>vocabulario;</li>
+<li>aliases;</li>
+<li>evidencias;</li>
+<li>governanca de campos;</li>
+<li>sinais para AI grounding readiness.</li>
+</ul>
+<p>Classificacao: <code>ja-suportado-so-ux</code> para exibicao basica e
+<code>suportado-parcialmente</code> para readiness score.</p>
+<h3 id="surfaces">Surfaces</h3>
+<p>Fonte:</p>
+<ul>
+<li><code>/schemas/surfaces</code></li>
+<li><code>/schemas/surfaces?resource={resourceKey}</code></li>
+<li><code>GET /{resource}/{id}/surfaces</code>, quando houver contexto
+item-level</li>
+</ul>
+<p>Evidencia no starter:</p>
+<ul>
+<li><code>SurfaceCatalogResponse.resourceKey</code></li>
+<li><code>SurfaceCatalogResponse.resourcePath</code></li>
+<li><code>SurfaceCatalogResponse.group</code></li>
+<li><code>SurfaceCatalogItem.path</code></li>
+<li><code>SurfaceCatalogItem.method</code></li>
+<li><code>SurfaceCatalogItem.operationId</code></li>
+<li><code>SurfaceCatalogItem.schemaUrl</code></li>
+<li><code>SurfaceCatalogItem.relatedResource</code></li>
+<li><code>SurfaceCatalogItem.availability</code></li>
+</ul>
+<p>Uso no cockpit:</p>
+<ul>
+<li>discovery semantico de experiencias reais;</li>
+<li>preview de surfaces de item/collection;</li>
+<li>child collections por <code>relatedResource</code>;</li>
+<li>matriz surface -&gt; schema -&gt; runtime.</li>
+</ul>
+<p>Classificacao: <code>ja-suportado-so-ux</code>.</p>
+<h3 id="actions">Actions</h3>
+<p>Fonte:</p>
+<ul>
+<li><code>/schemas/actions</code></li>
+<li><code>/schemas/actions?resource={resourceKey}</code></li>
+<li><code>GET /{resource}/{id}/actions</code>, quando houver contexto
+item-level</li>
+</ul>
+<p>Evidencia no starter:</p>
+<ul>
+<li><code>ActionCatalogResponse.resourceKey</code></li>
+<li><code>ActionCatalogResponse.resourcePath</code></li>
+<li><code>ActionCatalogItem.path</code></li>
+<li><code>ActionCatalogItem.method</code></li>
+<li><code>ActionCatalogItem.operationId</code></li>
+<li><code>ActionCatalogItem.requestSchemaUrl</code></li>
+<li><code>ActionCatalogItem.responseSchemaUrl</code></li>
+<li><code>ActionCatalogItem.availability</code></li>
+</ul>
+<p>Uso no cockpit:</p>
+<ul>
+<li>workflow affordances;</li>
+<li>command preview;</li>
+<li>diferenciar CRUD canonico de comando de negocio;</li>
+<li>explicar pre-condicoes e availability.</li>
+</ul>
+<p>Classificacao: <code>ja-suportado-so-ux</code>.</p>
+<h3 id="capabilities">Capabilities</h3>
+<p>Fontes:</p>
+<ul>
+<li><code>GET /{resource}/capabilities</code></li>
+<li><code>GET /{resource}/{id}/capabilities</code></li>
+</ul>
+<p>Evidencia no starter:</p>
+<ul>
+<li><code>CapabilitySnapshot.resourceKey</code></li>
+<li><code>CapabilitySnapshot.resourcePath</code></li>
+<li><code>CapabilitySnapshot.canonicalOperations</code></li>
+<li><code>CapabilitySnapshot.operations</code></li>
+<li><code>CapabilitySnapshot.surfaces</code></li>
+<li><code>CapabilitySnapshot.actions</code></li>
+<li><code>CapabilityOperation.supported</code></li>
+<li><code>CapabilityOperation.scope</code></li>
+<li><code>CapabilityOperation.preferredMethod</code></li>
+<li><code>CapabilityOperation.preferredRel</code></li>
+<li><code>CapabilityOperation.availability</code></li>
+<li><code>CapabilityOperation.formats</code></li>
+<li><code>CapabilityOperation.scopes</code></li>
+<li><code>CapabilityOperation.maxRows</code></li>
+<li><code>CapabilityOperation.async</code></li>
+</ul>
+<p>Uso no cockpit:</p>
+<ul>
+<li>matriz de operacoes;</li>
+<li>comparacao collection vs item;</li>
+<li>export readiness;</li>
+<li>coerencia com <code>_links</code>;</li>
+<li>disponibilidade contextual.</li>
+</ul>
+<p>Classificacao: <code>ja-suportado-so-ux</code> para exibir e
+<code>suportado-parcialmente</code> para diagnosticar coerencia.</p>
+<h3 id="option-sources">Option sources</h3>
+<p>Fontes:</p>
+<ul>
+<li><code>x-ui.optionSource</code> em
+<code>/schemas/filtered</code></li>
+<li><code>POST /{resource}/option-sources/{sourceKey}/options/filter</code></li>
+<li><code>GET /{resource}/option-sources/{sourceKey}/options/by-ids</code></li>
+<li><code>POST /{resource}/option-sources/{sourceKey}/options/by-ids</code></li>
+</ul>
+<p>Uso no cockpit:</p>
+<ul>
+<li>indicar campos com lookup remoto;</li>
+<li>mostrar endpoints de hidratacao;</li>
+<li>diferenciar select simples de <code>RESOURCE_ENTITY</code>;</li>
+<li>explicar dependency mapping, reload policy e selection policy.</li>
+</ul>
+<p>Classificacao: <code>ja-suportado-so-ux</code> para campos e
+endpoints publicados; <code>suportado-parcialmente</code> para
+inventario global por host.</p>
+<h3 id="stats-e-analytics">Stats e analytics</h3>
+<p>Fontes:</p>
+<ul>
+<li>endpoints <code>/stats/group-by</code></li>
+<li>endpoints <code>/stats/timeseries</code></li>
+<li>endpoints <code>/stats/distribution</code></li>
+<li><code>x-ui.analytics</code> e
+<code>source.kind = "praxis.stats"</code> quando publicados</li>
+<li>exemplos operacionais no corpus HTTP</li>
+</ul>
+<p>Uso no cockpit:</p>
+<ul>
+<li>readiness de dashboards;</li>
+<li>preview de graficos;</li>
+<li>exemplos de materializacao analitica.</li>
+</ul>
+<p>Classificacao: <code>suportado-parcialmente</code>, porque a UX
+precisa compor evidencias de schema, endpoint e exemplos
+operacionais.</p>
+<h3 id="corpus-operacional-e-llm-surface">Corpus operacional e LLM
+surface</h3>
+<p>Fontes:</p>
+<ul>
+<li><code>praxisui-http-examples/examples.manifest.json</code></li>
+<li><code>praxisui-http-examples/LLM_SURFACE.md</code></li>
+</ul>
+<p>Uso no cockpit:</p>
+<ul>
+<li>exemplos recomendados por resource;</li>
+<li>lane publica/auth-light/protected;</li>
+<li>prova operacional de stats, options, actions e capabilities.</li>
+</ul>
+<p>Classificacao: <code>ja-suportado-so-ux</code> como referencia
+documental externa ao starter, mas nao fonte primaria de contrato.</p>
+<h2 id="modelo-de-composicao-resource-centric">Modelo de composicao
+resource-centric</h2>
+<h3 id="hostcockpitview"><code>HostCockpitView</code></h3>
+<pre class="text"><code>HostCockpitView
+  host
+  readiness
+  resources[]
+  diagnostics[]
+  corpusReferences[]</code></pre>
+<p>Campos:</p>
+<ul>
+<li><code>host</code>: status operacional e metadados de ambiente;</li>
+<li><code>readiness</code>: score derivado e experimental;</li>
+<li><code>resources</code>: lista de
+<code>ResourceCockpitView</code>;</li>
+<li><code>diagnostics</code>: diagnosticos agregados;</li>
+<li><code>corpusReferences</code>: exemplos HTTP/LLM quando
+disponiveis.</li>
+</ul>
+<h3 id="resourcecockpitview"><code>ResourceCockpitView</code></h3>
+<pre class="text"><code>ResourceCockpitView
+  identity
+  structural
+  domain
+  surfaces
+  actions
+  capabilities
+  options
+  stats
+  export
+  runtimePreview
+  diagnostics
+  rawSources</code></pre>
+<h4 id="identity"><code>identity</code></h4>
+<p>Campos:</p>
+<ul>
+<li><code>resourceKey</code></li>
+<li><code>resourcePath</code></li>
+<li><code>group</code></li>
+<li><code>domainSegment</code></li>
+<li><code>displayName</code></li>
+<li><code>readOnly</code></li>
+<li><code>sourceConfidence</code></li>
+</ul>
+<p>Fontes:</p>
+<ul>
+<li><code>SurfaceCatalogResponse.resourceKey/resourcePath/group</code></li>
+<li><code>ActionCatalogResponse.resourceKey/resourcePath/group</code></li>
+<li><code>CapabilitySnapshot.resourceKey/resourcePath/group</code></li>
+<li><code>@ApiResource</code> materializado indiretamente nos
+catalogos;</li>
+<li><code>/schemas/catalog</code> por path/metodo;</li>
+<li><code>/schemas/filtered</code> em <code>x-ui.resource</code>.</li>
+</ul>
+<p>Classificacao:</p>
+<ul>
+<li><code>resourceKey</code>: <code>ja-suportado-so-ux</code>;</li>
+<li><code>displayName</code>: <code>suportado-parcialmente</code>, pois
+pode precisar de label melhor a partir de schema/catalog/domain;</li>
+<li><code>sourceConfidence</code>:
+<code>suportado-parcialmente</code>.</li>
+</ul>
+<h4 id="structural"><code>structural</code></h4>
+<p>Campos:</p>
+<ul>
+<li><code>operations[]</code></li>
+<li><code>requestSchemaUrl</code></li>
+<li><code>responseSchemaUrl</code></li>
+<li><code>idField</code></li>
+<li><code>xuiCoverage</code></li>
+<li><code>etag</code></li>
+<li><code>schemaHash</code></li>
+</ul>
+<p>Fontes:</p>
+<ul>
+<li><code>/schemas/catalog</code>;</li>
+<li><code>/schemas/filtered</code>;</li>
+<li><code>schemaLinks</code>;</li>
+<li>headers de schema.</li>
+</ul>
+<p>Classificacao:</p>
+<ul>
+<li>URLs e schema refs: <code>ja-suportado-so-ux</code>;</li>
+<li><code>xuiCoverage</code>: <code>suportado-parcialmente</code>,
+calculado pela UX;</li>
+<li>schema headers em overview agregado:
+<code>suportado-parcialmente</code>.</li>
+</ul>
+<h4 id="domain"><code>domain</code></h4>
+<p>Campos:</p>
+<ul>
+<li><code>vocabulary</code></li>
+<li><code>aliases</code></li>
+<li><code>evidence</code></li>
+<li><code>governanceFields</code></li>
+<li><code>aiUsageModes</code></li>
+<li><code>domainCoverage</code></li>
+</ul>
+<p>Fontes:</p>
+<ul>
+<li><code>/schemas/domain</code>;</li>
+<li><code>x-domain-governance</code> em schema filtrado.</li>
+</ul>
+<p>Classificacao:</p>
+<ul>
+<li>dados brutos: <code>ja-suportado-so-ux</code>;</li>
+<li>coverage/readiness: <code>suportado-parcialmente</code>.</li>
+</ul>
+<h4 id="surfaces-1"><code>surfaces</code></h4>
+<p>Campos:</p>
+<ul>
+<li><code>items[]</code></li>
+<li><code>relatedResources[]</code></li>
+<li><code>availabilitySummary</code></li>
+<li><code>schemaResolutionStatus</code></li>
+</ul>
+<p>Fontes:</p>
+<ul>
+<li><code>/schemas/surfaces?resource={resourceKey}</code>;</li>
+<li>item-level surfaces;</li>
+<li><code>/schemas/filtered</code> via <code>schemaUrl</code>.</li>
+</ul>
+<p>Classificacao:</p>
+<ul>
+<li>itens: <code>ja-suportado-so-ux</code>;</li>
+<li>schema resolution status: <code>suportado-parcialmente</code>.</li>
+</ul>
+<h4 id="actions-1"><code>actions</code></h4>
+<p>Campos:</p>
+<ul>
+<li><code>items[]</code></li>
+<li><code>workflowCount</code></li>
+<li><code>availabilitySummary</code></li>
+<li><code>schemaResolutionStatus</code></li>
+</ul>
+<p>Fontes:</p>
+<ul>
+<li><code>/schemas/actions?resource={resourceKey}</code>;</li>
+<li>item-level actions;</li>
+<li>request/response schema URLs nos action items.</li>
+</ul>
+<p>Classificacao:</p>
+<ul>
+<li>itens: <code>ja-suportado-so-ux</code>;</li>
+<li>workflow/runtime readiness:
+<code>suportado-parcialmente</code>.</li>
+</ul>
+<h4 id="capabilities-1"><code>capabilities</code></h4>
+<p>Campos:</p>
+<ul>
+<li><code>canonicalOperations</code></li>
+<li><code>operations</code></li>
+<li><code>collectionSnapshot</code></li>
+<li><code>itemSnapshotSample</code></li>
+<li><code>linkConsistency</code></li>
+</ul>
+<p>Fontes:</p>
+<ul>
+<li><code>/{resource}/capabilities</code>;</li>
+<li><code>/{resource}/{id}/capabilities</code>;</li>
+<li><code>_links</code> em respostas reais quando o cockpit fizer smokes
+opcionais.</li>
+</ul>
+<p>Classificacao:</p>
+<ul>
+<li>snapshot: <code>ja-suportado-so-ux</code>;</li>
+<li>item sample: <code>suportado-parcialmente</code>, pois exige id
+real;</li>
+<li>link consistency: <code>suportado-parcialmente</code>.</li>
+</ul>
+<h4 id="options"><code>options</code></h4>
+<p>Campos:</p>
+<ul>
+<li><code>fields[]</code></li>
+<li><code>sourceKey</code></li>
+<li><code>type</code></li>
+<li><code>filterEndpoint</code></li>
+<li><code>byIdsEndpoint</code></li>
+<li><code>selectedReloadPolicy</code></li>
+<li><code>invalidSortPolicy</code></li>
+<li><code>dependencyFilterMap</code></li>
+<li><code>selectionPolicy</code></li>
+</ul>
+<p>Fontes:</p>
+<ul>
+<li><code>/schemas/filtered</code> em
+<code>properties.*.x-ui.optionSource</code>.</li>
+</ul>
+<p>Classificacao:</p>
+<ul>
+<li>por schema: <code>ja-suportado-so-ux</code>;</li>
+<li>inventario global por resource:
+<code>suportado-parcialmente</code>.</li>
+</ul>
+<h4 id="stats"><code>stats</code></h4>
+<p>Campos:</p>
+<ul>
+<li><code>groupBy</code></li>
+<li><code>timeseries</code></li>
+<li><code>distribution</code></li>
+<li><code>analyticsHints</code></li>
+<li><code>corpusExamples</code></li>
+</ul>
+<p>Fontes:</p>
+<ul>
+<li>capabilities;</li>
+<li><code>/schemas/catalog</code>;</li>
+<li><code>/schemas/filtered</code>;</li>
+<li>corpus HTTP.</li>
+</ul>
+<p>Classificacao:</p>
+<ul>
+<li>existencia de endpoints: <code>ja-suportado-so-ux</code>;</li>
+<li>preview visual: <code>suportado-parcialmente</code>.</li>
+</ul>
+<h4 id="export"><code>export</code></h4>
+<p>Campos:</p>
+<ul>
+<li><code>supported</code></li>
+<li><code>formats</code></li>
+<li><code>scopes</code></li>
+<li><code>maxRows</code></li>
+<li><code>async</code></li>
+<li><code>serviceBacked</code></li>
+</ul>
+<p>Fontes:</p>
+<ul>
+<li><code>CapabilityOperation export</code>;</li>
+<li><code>POST /{resource}/export</code>, quando validado em smoke.</li>
+</ul>
+<p>Classificacao:</p>
+<ul>
+<li>capability: <code>ja-suportado-so-ux</code>;</li>
+<li>serviceBacked proof: <code>suportado-parcialmente</code>.</li>
+</ul>
+<h2 id="ordem-de-chamadas-recomendada">Ordem de chamadas
+recomendada</h2>
+<h3 id="host-overview">Host overview</h3>
+<ol type="1">
+<li><code>GET /actuator/health</code>.</li>
+<li><code>GET /schemas/catalog</code>.</li>
+<li><code>GET /schemas/domain</code>.</li>
+<li><code>GET /schemas/surfaces</code>.</li>
+<li><code>GET /schemas/actions</code>.</li>
+</ol>
+<p>Resultado:</p>
+<ul>
+<li>lista inicial de resources;</li>
+<li>contagens;</li>
+<li>dominios;</li>
+<li>coverage superficial;</li>
+<li>primeiros diagnostics experimentais.</li>
+</ul>
+<p>Observacao: evitar chamar <code>/schemas/filtered</code> para todos
+os endpoints no primeiro viewport. Isso deve acontecer sob demanda ou
+com cache.</p>
+<h3 id="resource-detail">Resource detail</h3>
+<ol type="1">
+<li>Resolver <code>resourceKey</code> e <code>resourcePath</code> a
+partir do item selecionado.</li>
+<li><code>GET /schemas/surfaces?resource={resourceKey}</code>.</li>
+<li><code>GET /schemas/actions?resource={resourceKey}</code>.</li>
+<li><code>GET {resourcePath}/capabilities</code>.</li>
+<li>Para operacoes principais, chamar <code>/schemas/filtered</code> via
+<code>schemaLinks</code>, <code>schemaUrl</code>,
+<code>requestSchemaUrl</code> ou <code>responseSchemaUrl</code>.</li>
+<li>Opcionalmente carregar exemplos do corpus HTTP relacionados.</li>
+<li>Se houver id amostral aprovado, chamar item
+capabilities/surfaces/actions.</li>
+</ol>
+<h3 id="raw-json">Raw JSON</h3>
+<p>Guardar <code>rawSources</code> por aba:</p>
+<ul>
+<li>catalog;</li>
+<li>domain;</li>
+<li>surfaces;</li>
+<li>actions;</li>
+<li>capabilities;</li>
+<li>filtered schemas;</li>
+<li>corpus reference.</li>
+</ul>
+<p>Isso protege transparencia sem tornar JSON a UX primaria.</p>
+<h2 id="join-keys-e-regras-de-reconciliacao">Join keys e regras de
+reconciliacao</h2>
+<h3 id="ordem-de-confianca">Ordem de confianca</h3>
+<ol type="1">
+<li><code>resourceKey</code>, quando publicado por
+surfaces/actions/capabilities/domain.</li>
+<li><code>resourcePath</code>, quando publicado junto com
+<code>resourceKey</code>.</li>
+<li><code>path + method + operationId</code>, para endpoint/schema.</li>
+<li><code>schemaUrl</code>, para resolver
+<code>/schemas/filtered</code>.</li>
+<li>Tags/grupo OpenAPI apenas como apoio visual, nao como identidade
+canonica.</li>
+</ol>
+<h3 id="regras">Regras</h3>
+<ul>
+<li>Nunca tratar tag OpenAPI como resource identity primaria.</li>
+<li>Nunca inferir resource por palavra-chave quando
+<code>resourceKey</code> existir.</li>
+<li>Quando so houver path, marcar
+<code>sourceConfidence = partial</code>.</li>
+<li>Quando path e <code>resourceKey</code> divergirem, mostrar
+diagnostico em vez de escolher silenciosamente.</li>
+<li>Quando <code>schemaUrl</code> existir, usar o link publicado em vez
+de reconstruir query localmente.</li>
+<li>Quando action/surface publica schema URL, ela continua referencia; o
+schema estrutural vem de <code>/schemas/filtered</code>.</li>
+</ul>
+<h2 id="diagnosticos-derivados-do-spike">Diagnosticos derivados do
+spike</h2>
+<h3
+id="resource-key-missing-from-structural-only-view"><code>resource-key-missing-from-structural-only-view</code></h3>
+<p>Quando um endpoint aparece no catalogo, mas nao ha resourceKey
+associado em surfaces/actions/capabilities/domain.</p>
+<p>Classificacao: <code>suportado-parcialmente</code>.</p>
+<p>Acao recomendada: confirmar se o endpoint deve ser um recurso Praxis
+ou apenas operacao auxiliar.</p>
+<h3 id="schema-url-unresolved"><code>schema-url-unresolved</code></h3>
+<p>Quando <code>schemaUrl</code>, <code>requestSchemaUrl</code> ou
+<code>responseSchemaUrl</code> existe, mas
+<code>/schemas/filtered</code> falha.</p>
+<p>Classificacao: <code>suportado-parcialmente</code>.</p>
+<p>Acao recomendada: corrigir schema resolution, operationId ou
+path/metodo na fonte canonica.</p>
+<h3
+id="capability-without-runtime-target"><code>capability-without-runtime-target</code></h3>
+<p>Quando uma capability suportada nao encontra link, schema, action ou
+endpoint coerente para materializacao.</p>
+<p>Classificacao: <code>suportado-parcialmente</code>.</p>
+<p>Acao recomendada: corrigir capability/link/catalogo no starter ou no
+host.</p>
+<h3
+id="action-without-structural-schema"><code>action-without-structural-schema</code></h3>
+<p>Quando uma action de negocio tem payload esperado, mas nao publica
+schema request/response resolvivel.</p>
+<p>Classificacao: <code>suportado-parcialmente</code>.</p>
+<p>Acao recomendada: corrigir anotacao/DTO/OpenAPI da operacao.</p>
+<h3
+id="option-source-incomplete-runtime-contract"><code>option-source-incomplete-runtime-contract</code></h3>
+<p>Quando <code>x-ui.optionSource</code> existe, mas faltam endpoints,
+sourceKey ou policy publica necessaria.</p>
+<p>Classificacao: <code>suportado-parcialmente</code>.</p>
+<p>Acao recomendada: corrigir <code>OptionSourceRegistry</code> ou
+publicacao do descriptor.</p>
+<h2 id="candidatos-de-teste">Candidatos de teste</h2>
+<h3 id="resource-rico-operations.missoes">Resource rico:
+<code>operations.missoes</code></h3>
+<p>Por que usar:</p>
+<ul>
+<li>surfaces;</li>
+<li>actions;</li>
+<li>item capabilities;</li>
+<li>exemplos no LLM surface;</li>
+<li>workflow affordances.</li>
+</ul>
+<p>Provas esperadas:</p>
+<ul>
+<li><code>/schemas/surfaces?resource=operations.missoes</code>;</li>
+<li><code>/schemas/actions?resource=operations.missoes</code>;</li>
+<li><code>/api/operations/missoes/{id}/capabilities</code>;</li>
+<li>schema filtrado de action quando publicado.</li>
+</ul>
+<h3 id="resource-crud-comum-human-resources.funcionarios">Resource CRUD
+comum: <code>human-resources.funcionarios</code></h3>
+<p>Por que usar:</p>
+<ul>
+<li>CRUD;</li>
+<li>filtered schemas request/response;</li>
+<li>options;</li>
+<li>export;</li>
+<li>forms/tables runtime.</li>
+</ul>
+<p>Provas esperadas:</p>
+<ul>
+<li>create/edit/view/delete capabilities quando suportadas;</li>
+<li><code>x-ui.resource.idField</code>;</li>
+<li>option sources em campos;</li>
+<li>export capability.</li>
+</ul>
+<h3 id="resource-lookup-governado-procurement.suppliers">Resource lookup
+governado: <code>procurement.suppliers</code></h3>
+<p>Por que usar:</p>
+<ul>
+<li>entity lookup;</li>
+<li>option source com selection policy;</li>
+<li>prova de materializacao governada por config/domain rules no
+quickstart.</li>
+</ul>
+<p>Provas esperadas:</p>
+<ul>
+<li><code>RESOURCE_ENTITY</code> option source;</li>
+<li>filter/by-ids;</li>
+<li>dependency/selection policy quando publicada.</li>
+</ul>
+<h3
+id="view-analitica-human-resources.vw-analytics-folha-pagamento">View
+analitica:
+<code>human-resources.vw-analytics-folha-pagamento</code></h3>
+<p>Por que usar:</p>
+<ul>
+<li>read-only;</li>
+<li>stats group-by/timeseries;</li>
+<li>dashboard preview.</li>
+</ul>
+<p>Provas esperadas:</p>
+<ul>
+<li>read-only capabilities;</li>
+<li>stats endpoints no catalogo;</li>
+<li>exemplos operacionais no corpus.</li>
+</ul>
+<h2 id="resultado-do-spike">Resultado do spike</h2>
+<h3 id="o-que-ja-da-para-fazer">O que ja da para fazer</h3>
+<ul>
+<li>Host overview derivado.</li>
+<li>Resource map por <code>resourceKey</code>.</li>
+<li>Resource detail com raw sources.</li>
+<li>Contract chain didatico.</li>
+<li>Schema explorer sob demanda.</li>
+<li>Capability/action/surface matrix.</li>
+<li>AI grounding readiness experimental.</li>
+<li>Runtime preview experimental.</li>
+<li>Diagnostics experimentais.</li>
+</ul>
+<h3 id="o-que-ainda-nao-justifica-contrato-novo">O que ainda nao
+justifica contrato novo</h3>
+<ul>
+<li><code>HostCockpitView</code> agregado canonico.</li>
+<li>readiness score canonico versionado.</li>
+<li>diagnostics canonicos publicados pelo starter.</li>
+<li>indice global de option sources por host.</li>
+</ul>
+<p>Esses itens podem se tornar <code>lacuna-real-de-contrato</code>
+depois do prototipo se houver evidencia de custo, duplicacao ou
+inconsistencia real.</p>
+<h3 id="recomendacao">Recomendacao</h3>
+<p>Seguir para o prototipo #38 com composicao derivada empacotada no
+<code>praxis-metadata-starter</code> e servida por
+<code>/praxis/cockpit</code>.</p>
+<p>Nao implementar endpoint agregado de dados no starter neste
+momento.</p>
+<p>Nao implementar cockpit como HTML local do quickstart. O quickstart
+deve apenas receber a URL automaticamente ao instalar o starter.</p>
+<p>Durante o prototipo, medir:</p>
+<ul>
+<li>numero de chamadas para overview;</li>
+<li>numero de chamadas para resource detail;</li>
+<li>custo de resolver schemas sob demanda;</li>
+<li>ambiguidades entre <code>resourceKey</code>, path e
+operationId;</li>
+<li>falsos positivos dos diagnostics;</li>
+<li>campos que a UX precisa mas nenhuma fonte canonica publica
+hoje.</li>
+</ul>
+<p>Se os dados mostrarem lacuna real, abrir uma issue
+<code>contrato-publico</code> especifica para um endpoint agregado, com
+mapa de impacto e validacao focal.</p>
+</body>
+</html>

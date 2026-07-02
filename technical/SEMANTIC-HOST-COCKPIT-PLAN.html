@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Semantic Host Cockpit Plan</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Semantic Host Cockpit Plan</h1>
+</header>
+<h1 id="semantic-host-cockpit-plan">Semantic Host Cockpit Plan</h1>
+<h2 id="status">Status</h2>
+<p>Plano de produto e arquitetura para um dashboard didatico e futurista
+do host Praxis metadata-driven.</p>
+<p>Este documento nao altera contrato publico. Ele orienta a evolucao de
+uma superficie derivada dos contratos atuais do
+<code>praxis-metadata-starter</code>.</p>
+<p>Classificacao da iniciativa: <code>arquitetural</code>.</p>
+<p>Classificacao de uma implementacao inicial autoexposta pelo starter:
+<code>contrato-publico</code>, porque a URL <code>/praxis/cockpit</code>
+passa a ser superficie publica automaticamente disponivel em hosts que
+instalam o starter.</p>
+<p>Classificacao de qualquer endpoint agregado novo:
+<code>contrato-publico</code>.</p>
+<h2 id="principio-do-produto">Principio do produto</h2>
+<p>O cockpit deve responder rapidamente:</p>
+<ul>
+<li>o que este host Praxis sabe semanticamente;</li>
+<li>o que ele consegue materializar em runtime;</li>
+<li>o que a IA consegue entender com seguranca;</li>
+<li>onde ha incoerencia, baixa aderencia ou lacuna real;</li>
+<li>qual correcao canonica melhora o host.</li>
+</ul>
+<p>O dashboard nao deve ser uma copia de Swagger, Spring Boot Admin ou
+admin CRUD. Ele deve mostrar a cadeia Praxis:</p>
+<pre class="text"><code>resource -&gt; schema -&gt; domain -&gt; surface -&gt; action -&gt; capability -&gt; HATEOAS -&gt; runtime -&gt; AI grounding</code></pre>
+<h2 id="premissas-canonicas">Premissas canonicas</h2>
+<ul>
+<li><code>/schemas/filtered</code> permanece a fonte estrutural
+canonica.</li>
+<li><code>/schemas/catalog</code> permanece catalogo documental e de
+discovery.</li>
+<li><code>/schemas/domain</code> publica vocabulario, aliases,
+evidencias e governanca AI-operable.</li>
+<li><code>/schemas/surfaces</code> e <code>/schemas/actions</code> sao
+discovery semantico; nao substituem schema inline.</li>
+<li><code>GET /{resource}/capabilities</code> e
+<code>GET /{resource}/{id}/capabilities</code> sao snapshots agregados;
+nao redefinem schema.</li>
+<li><code>_links</code> fazem parte do contrato operacional quando
+HATEOAS esta habilitado.</li>
+<li><code>POST /{resource}/export</code> so deve aparecer como
+capacidade real quando houver suporte publicado pelo service.</li>
+<li>UI, forms, tables, dashboards, agents e docs devem materializar a
+semantica publicada, nao redefinir regra de negocio localmente.</li>
+</ul>
+<h2 id="inspiracoes-externas">Inspiracoes externas</h2>
+<p>As referencias abaixo inspiram padroes de apresentacao, nao contratos
+Praxis.</p>
+<ul>
+<li>Spring Boot Admin: health, status operacional e management
+endpoints.</li>
+<li>Swagger UI: explorer interativo de contrato HTTP.</li>
+<li>Backstage Software Catalog: catalogo de entidades, ownership e
+descoberta.</li>
+<li>Hasura Console: metadata como ativo operacional, com reload,
+export/import e inconsistencias.</li>
+<li>Strapi Content-type Builder: modelagem visual de tipos, campos,
+relacoes e status de mudanca.</li>
+<li>Directus Data Studio e Insights: modelo de dados, permissoes, flows
+e paineis.</li>
+<li>Retool Resources: recursos operacionais como conexoes reutilizaveis
+por apps e workflows.</li>
+</ul>
+<p>Uso correto dessas inspiracoes no Praxis:</p>
+<ul>
+<li>copiar a clareza do catalogo, nao a fonte de verdade;</li>
+<li>copiar a navegabilidade, nao a semantica;</li>
+<li>copiar a didatica visual, nao um editor local de schema;</li>
+<li>preservar o starter como publicador de semantica e o config-starter
+como fronteira de authoring governado.</li>
+</ul>
+<h2 id="inventario-de-aderencia">Inventario de aderencia</h2>
+<h3 id="ja-suportado-so-ux"><code>ja-suportado-so-ux</code></h3>
+<p>Dados que a plataforma ja publica e que podem ser exibidos por uma UX
+derivada:</p>
+<ul>
+<li>health do host;</li>
+<li>OpenAPI por grupo;</li>
+<li><code>/schemas/filtered</code>;</li>
+<li><code>/schemas/catalog</code>;</li>
+<li><code>/schemas/domain</code>;</li>
+<li><code>/schemas/surfaces</code>;</li>
+<li><code>/schemas/actions</code>;</li>
+<li>collection e item capabilities;</li>
+<li><code>_links</code> no envelope <code>RestApiResponse</code>;</li>
+<li>option sources;</li>
+<li>stats;</li>
+<li>export capabilities;</li>
+<li>ETag e <code>X-Schema-Hash</code>;</li>
+<li>exemplos operacionais do corpus HTTP e LLM surface.</li>
+</ul>
+<h3
+id="ja-suportado-mal-nomeado-ou-mal-materializado"><code>ja-suportado-mal-nomeado-ou-mal-materializado</code></h3>
+<p>Conceitos que existem, mas precisam de melhor explicacao visual:</p>
+<ul>
+<li>diferenca entre schema estrutural, catalogo documental e discovery
+semantico;</li>
+<li>diferenca entre <code>resourceKey</code> e path operacional;</li>
+<li>diferenca entre surface, workflow action e capability;</li>
+<li>diferenca entre capability atual e schema da operacao;</li>
+<li>relacao entre field-level <code>x-ui</code>,
+<code>fieldAccess</code> e governanca de dominio;</li>
+<li>relacao entre option source, endpoint de options e runtime
+form/table;</li>
+<li>coerencia esperada entre capability e <code>_links</code>.</li>
+</ul>
+<h3 id="suportado-parcialmente"><code>suportado-parcialmente</code></h3>
+<p>Experiencias que podem ser montadas com dados atuais, mas precisam de
+camada de composicao, scoring ou diagnostico:</p>
+<ul>
+<li>host readiness score;</li>
+<li>AI grounding readiness;</li>
+<li>runtime materialization preview;</li>
+<li>semantic resource graph;</li>
+<li>capability/action/surface consistency matrix;</li>
+<li>diagnostics acionaveis por resource;</li>
+<li>resumo de maturidade por dominio;</li>
+<li>seletor de exemplos do corpus operacional mais representativos por
+resource.</li>
+</ul>
+<h3
+id="lacuna-real-de-contrato"><code>lacuna-real-de-contrato</code></h3>
+<p>So devem virar contrato publico se a implementacao provar que chamar
+os endpoints atuais gera custo, duplicacao ou inconsistencia
+relevante:</p>
+<ul>
+<li>endpoint agregado de host cockpit;</li>
+<li>diagnosticos canonicos emitidos pelo starter em vez de calculados
+apenas na UX;</li>
+<li>readiness score canonico versionado;</li>
+<li>indice oficial resource-centric que conecte, em um unico payload,
+schema, domain, surfaces, actions, capabilities, links, option sources,
+stats e export.</li>
+</ul>
+<h2 id="experiencia-alvo">Experiencia alvo</h2>
+<h3 id="host-overview">1. Host Overview</h3>
+<p>Objetivo: mostrar em poucos segundos se o host esta vivo, rico e
+coerente.</p>
+<p>Exibir:</p>
+<ul>
+<li>app name, version, profile e environment;</li>
+<li>base URL publica e OpenAPI internal base URL, quando
+disponivel;</li>
+<li>status de health;</li>
+<li>versao do starter;</li>
+<li>contagem de resources, schemas, domain items, surfaces, actions,
+option sources, stats e exports;</li>
+<li>HATEOAS enabled/disabled;</li>
+<li>ultima leitura de ETag/hash quando disponivel;</li>
+<li>readiness resumida: structural, semantic, runtime, AI,
+governance.</li>
+</ul>
+<p>Como exibir:</p>
+<ul>
+<li>scorecards compactos;</li>
+<li>trilha de readiness por eixo;</li>
+<li>alertas de divergencia de alto impacto;</li>
+<li>link direto para docs, Swagger e JSON tecnico.</li>
+</ul>
+<h3 id="semantic-resource-map">2. Semantic Resource Map</h3>
+<p>Objetivo: transformar o host em um mapa mental navegavel.</p>
+<p>Exibir por resource:</p>
+<ul>
+<li><code>resourceKey</code>;</li>
+<li>path operacional;</li>
+<li>dominio/grupo OpenAPI;</li>
+<li>controller baseline detectavel;</li>
+<li>read-only/mutable;</li>
+<li>schemas request/response principais;</li>
+<li>surfaces;</li>
+<li>actions;</li>
+<li>capabilities collection/item;</li>
+<li>option sources;</li>
+<li>stats;</li>
+<li>export;</li>
+<li>governanca de dominio;</li>
+<li>links contextuais.</li>
+</ul>
+<p>Como exibir:</p>
+<ul>
+<li>grafo por dominio;</li>
+<li>lista densa filtravel;</li>
+<li>cores por maturidade;</li>
+<li>badges <code>structural</code>, <code>semantic</code>,
+<code>runtime</code>, <code>ai</code>, <code>governance</code>;</li>
+<li>drill-down para resource detail.</li>
+</ul>
+<h3 id="resource-detail">3. Resource Detail</h3>
+<p>Objetivo: explicar um resource como unidade canonica da
+plataforma.</p>
+<p>Abas recomendadas:</p>
+<ul>
+<li>Overview;</li>
+<li>Contract Chain;</li>
+<li>Schemas;</li>
+<li>Domain;</li>
+<li>Surfaces;</li>
+<li>Actions;</li>
+<li>Capabilities;</li>
+<li>Options;</li>
+<li>Stats;</li>
+<li>Runtime Preview;</li>
+<li>Diagnostics;</li>
+<li>Raw JSON.</li>
+</ul>
+<p>Regra de UX: JSON cru e detalhe tecnico devem estar disponiveis, mas
+nao podem ser a experiencia primaria.</p>
+<h3 id="contract-chain">4. Contract Chain</h3>
+<p>Objetivo: mostrar como uma anotacao e um DTO viram runtime e
+grounding.</p>
+<p>Exibir fluxo:</p>
+<pre class="text"><code>DTO + annotations + validation
+  -&gt; OpenAPI + x-ui
+  -&gt; /schemas/filtered
+  -&gt; /schemas/catalog
+  -&gt; /schemas/domain
+  -&gt; /schemas/surfaces + /schemas/actions
+  -&gt; /capabilities + _links
+  -&gt; praxis-ui runtime
+  -&gt; AI grounding and governed authoring</code></pre>
+<p>Cada etapa deve indicar:</p>
+<ul>
+<li>fonte canonica;</li>
+<li>payload/endpoint;</li>
+<li>consumidor;</li>
+<li>riscos comuns;</li>
+<li>evidencia real no host.</li>
+</ul>
+<h3 id="schema-explorer-praxis">5. Schema Explorer Praxis</h3>
+<p>Objetivo: substituir leitura bruta de JSON por entendimento de
+contrato.</p>
+<p>Exibir:</p>
+<ul>
+<li>propriedades e tipos;</li>
+<li><code>properties.*.x-ui</code>;</li>
+<li><code>x-ui.resource.idField</code>;</li>
+<li><code>readOnly</code>;</li>
+<li>validacoes;</li>
+<li><code>controlType</code>;</li>
+<li><code>presentationPreset</code>;</li>
+<li><code>fieldAccess</code>;</li>
+<li><code>optionSource</code>;</li>
+<li><code>x-domain-governance</code>;</li>
+<li><code>schemaUrl</code>;</li>
+<li>ETag e hash.</li>
+</ul>
+<p>Como exibir:</p>
+<ul>
+<li>arvore de campos;</li>
+<li>painel de significado runtime;</li>
+<li>painel de governanca;</li>
+<li>preview de form/table quando possivel;</li>
+<li>link para schema filtrado bruto.</li>
+</ul>
+<h3 id="ai-grounding-readiness">6. AI Grounding Readiness</h3>
+<p>Objetivo: avaliar se a IA consegue entender e agir com seguranca.</p>
+<p>Exibir:</p>
+<ul>
+<li>recursos com <code>/schemas/domain</code>;</li>
+<li>vocabulario, aliases e evidencias;</li>
+<li>campos sem descricao semantica suficiente;</li>
+<li>campos sensiveis sem <code>@DomainGovernance</code> explicita;</li>
+<li><code>AiUsageMode</code> por campo;</li>
+<li>actions que exigem confirmacao;</li>
+<li>exemplos seguros do LLM surface;</li>
+<li>riscos de roteamento por texto local em vez de intencao
+semantica.</li>
+</ul>
+<p>Como exibir:</p>
+<ul>
+<li>score por resource;</li>
+<li>lista de gaps acionaveis;</li>
+<li>explicacao do impacto em authoring, RAG e runtime.</li>
+</ul>
+<h3 id="runtime-materialization-preview">7. Runtime Materialization
+Preview</h3>
+<p>Objetivo: mostrar o que o <code>praxis-ui-angular</code> conseguiria
+montar.</p>
+<p>Exibir:</p>
+<ul>
+<li>tabela inferida;</li>
+<li>form create/edit/view;</li>
+<li>filtros;</li>
+<li>options remotas;</li>
+<li>row actions;</li>
+<li>toolbar actions;</li>
+<li>child collections via <code>relatedResource</code>;</li>
+<li>charts ou analytics derivados de stats;</li>
+<li>export;</li>
+<li>estados vazios e warning states.</li>
+</ul>
+<p>Regra: preview deve declarar a evidencia usada. Se a UX inferir algo,
+deve dizer qual contrato sustentou a inferencia.</p>
+<h3 id="capabilities-and-action-matrix">8. Capabilities And Action
+Matrix</h3>
+<p>Objetivo: tornar visivel a coerencia operacional.</p>
+<p>Linhas:</p>
+<ul>
+<li>create;</li>
+<li>view;</li>
+<li>edit;</li>
+<li>delete;</li>
+<li>duplicate-draft;</li>
+<li>export;</li>
+<li>filter;</li>
+<li>cursor;</li>
+<li>options;</li>
+<li>optionSources;</li>
+<li>stats group-by;</li>
+<li>stats timeseries;</li>
+<li>stats distribution;</li>
+<li>workflow actions.</li>
+</ul>
+<p>Colunas:</p>
+<ul>
+<li>supported;</li>
+<li>scope;</li>
+<li>preferredMethod;</li>
+<li>preferredRel;</li>
+<li>availability;</li>
+<li>schema resolvivel;</li>
+<li><code>_links</code> coerentes;</li>
+<li>surface associada;</li>
+<li>action associada;</li>
+<li>consumidor esperado.</li>
+</ul>
+<h3 id="diagnostics-and-conformance">9. Diagnostics And Conformance</h3>
+<p>Objetivo: fazer o dashboard ensinar e orientar correcao canonica.</p>
+<p>Diagnosticos iniciais:</p>
+<ul>
+<li>resource sem <code>resourceKey</code> estavel;</li>
+<li>path operacional sem schema filtrado resolvivel;</li>
+<li><code>idField</code> ausente no schema esperado;</li>
+<li>schema publicado sem <code>x-ui</code> util;</li>
+<li>surface sem operacao real;</li>
+<li>action sem schema request/response resolvivel;</li>
+<li>capability suportada sem <code>_links</code> coerentes;</li>
+<li><code>_links</code> publicados sem capability correspondente;</li>
+<li>option source sem endpoints de filter/by-ids;</li>
+<li><code>RESOURCE_ENTITY</code> sem politica de selecao adequada;</li>
+<li>field sensivel sem governanca explicita;</li>
+<li>export anunciado sem engine real;</li>
+<li>stats publicados sem contrato visual ou sem exemplos
+operacionais;</li>
+<li>endpoint legacy aparecendo como baseline canonico.</li>
+</ul>
+<p>Cada diagnostico deve conter:</p>
+<ul>
+<li>severidade;</li>
+<li>resource;</li>
+<li>fonte canonica;</li>
+<li>evidencia;</li>
+<li>impacto;</li>
+<li>correcao recomendada;</li>
+<li>validacao minima.</li>
+</ul>
+<h3 id="llm-operational-surface">10. LLM Operational Surface</h3>
+<p>Objetivo: conectar o dashboard ao uso real por IA.</p>
+<p>Exibir:</p>
+<ul>
+<li>caminho seguro de descoberta;</li>
+<li>exemplos publicos;</li>
+<li>exemplos auth-light;</li>
+<li>headers recomendados;</li>
+<li>exemplos protegidos/reference-only;</li>
+<li>status de smoke quando disponivel;</li>
+<li>relacao entre exemplo e resource/surface/action/capability.</li>
+</ul>
+<p>Isso deve usar o corpus operacional como materializacao derivada, nao
+como fonte primaria do contrato.</p>
+<h2 id="arquitetura-de-dados-recomendada">Arquitetura de dados
+recomendada</h2>
+<h3 id="corte-1-cockpit-autoexposto-sem-contrato-de-dados-novo">Corte 1:
+cockpit autoexposto, sem contrato de dados novo</h3>
+<p>O primeiro corte deve ser empacotado pelo
+<code>praxis-metadata-starter</code> e compor a experiencia a partir de
+endpoints existentes:</p>
+<ul>
+<li><code>/actuator/health</code>;</li>
+<li><code>/v3/api-docs</code>;</li>
+<li><code>/schemas/catalog</code>;</li>
+<li><code>/schemas/domain</code>;</li>
+<li><code>/schemas/surfaces</code>;</li>
+<li><code>/schemas/actions</code>;</li>
+<li><code>/schemas/filtered</code>;</li>
+<li><code>/{resource}/capabilities</code>;</li>
+<li><code>/{resource}/{id}/capabilities</code>, quando houver amostra
+contextual;</li>
+<li>endpoints de options/stats/export quando descobertos;</li>
+<li>corpus HTTP/LLM surface como referencia operacional opcional.</li>
+</ul>
+<p>Vantagens:</p>
+<ul>
+<li>nao cria contrato de dados prematuro;</li>
+<li>nao exige que cada host copie HTML, CSS ou JavaScript;</li>
+<li>prova o que ja existe;</li>
+<li>revela lacunas reais;</li>
+<li>respeita a hierarquia canonica.</li>
+</ul>
+<h3 id="corte-2-composition-service-local">Corte 2: composition service
+local</h3>
+<p>Se a UX ficar pesada, criar uma camada de composicao no host de
+referencia ou no runtime, ainda sem promover contrato publico do
+starter.</p>
+<p>Responsabilidade:</p>
+<ul>
+<li>cachear leituras;</li>
+<li>normalizar view models;</li>
+<li>calcular diagnostics experimentais;</li>
+<li>preservar links para fontes canonicas.</li>
+</ul>
+<h3 id="corte-3-contrato-agregado-se-comprovado">Corte 3: contrato
+agregado, se comprovado</h3>
+<p>So depois de evidencia real considerar endpoint como:</p>
+<pre class="text"><code>GET /schemas/host-cockpit
+GET /schemas/resources/summary
+GET /schemas/diagnostics</code></pre>
+<p>Qualquer endpoint desse tipo deve declarar:</p>
+<ul>
+<li>fonte canonica de cada campo;</li>
+<li>consumidores;</li>
+<li>versao do contrato;</li>
+<li>headers/cache;</li>
+<li>relacao com ETag/schema hash;</li>
+<li>testes focais;</li>
+<li>docs e exemplos derivados.</li>
+</ul>
+<h2 id="proposta-de-implementacao-por-fases">Proposta de implementacao
+por fases</h2>
+<h3 id="fase-0.-inventario-canonico">Fase 0. Inventario canonico</h3>
+<p>Entregaveis:</p>
+<ul>
+<li>matriz de aderencia;</li>
+<li>lista de endpoints usados;</li>
+<li>lista de resources ricos para prova;</li>
+<li>lista de resources simples para contraste;</li>
+<li>decisao explicita sobre ausencia de contrato novo.</li>
+</ul>
+<p>Resources candidatos:</p>
+<ul>
+<li><code>operations.missoes</code> para actions, surfaces e item
+capabilities;</li>
+<li><code>human-resources.funcionarios</code> para CRUD e
+forms/tables;</li>
+<li><code>procurement.suppliers</code> para option source
+governada;</li>
+<li>views analiticas para stats/dashboard preview.</li>
+</ul>
+<h3 id="fase-1.-product-spec-e-design-system">Fase 1. Product spec e
+design system</h3>
+<p>Entregaveis:</p>
+<ul>
+<li>wireframes;</li>
+<li>vocabulary visual;</li>
+<li>estados vazios;</li>
+<li>estados de erro;</li>
+<li>criterios de qualidade visual;</li>
+<li>criterio de primeiro viewport.</li>
+</ul>
+<h3 id="fase-2.-prototype-navegavel">Fase 2. Prototype navegavel</h3>
+<p>Local recomendado:</p>
+<ul>
+<li><code>praxis-metadata-starter</code>, em assets estaticos
+empacotados no jar e URL automatica <code>/praxis/cockpit</code>;</li>
+<li><code>praxis-api-quickstart</code> apenas como host consumidor para
+provar com HTTP real;</li>
+<li>extracao futura para <code>praxis-ui-angular</code> somente quando
+os componentes estabilizarem como runtime oficial.</li>
+</ul>
+<h3 id="fase-3.-diagnostics-experimentais">Fase 3. Diagnostics
+experimentais</h3>
+<p>Entregaveis:</p>
+<ul>
+<li>regras de diagnostico documentadas;</li>
+<li>severidades;</li>
+<li>links de correcao;</li>
+<li>smokes de resources ricos e simples.</li>
+</ul>
+<h3 id="fase-4.-integracao-com-documentacao-publica">Fase 4. Integracao
+com documentacao publica</h3>
+<p>Entregaveis:</p>
+<ul>
+<li>guia de uso do cockpit;</li>
+<li>exemplos no quickstart;</li>
+<li>referencias na landing page;</li>
+<li>exemplos HTTP atualizados quando houver nova superficie.</li>
+</ul>
+<h3 id="fase-5.-avaliacao-de-contrato-agregado">Fase 5. Avaliacao de
+contrato agregado</h3>
+<p>So iniciar se a fase 2/3 provar uma lacuna real.</p>
+<h2 id="mapa-de-impacto">Mapa de impacto</h2>
+<p>Subprojeto canonico afetado:</p>
+<ul>
+<li><code>praxis-metadata-starter</code>, como fonte semantica.</li>
+</ul>
+<p>Consumidores impactados:</p>
+<ul>
+<li><code>praxis-api-quickstart</code>, como host de prova que recebe o
+cockpit automaticamente;</li>
+<li><code>praxis-ui-angular</code>, como runtime oficial;</li>
+<li><code>praxis-ui-landing-page</code>, como docs/playground
+publico;</li>
+<li><code>praxisui-http-examples</code>, como corpus operacional e LLM
+surface.</li>
+</ul>
+<p>Docs publicas potencialmente afetadas:</p>
+<ul>
+<li>README do starter;</li>
+<li>architecture overview;</li>
+<li>guides de consumo Angular;</li>
+<li>conformance;</li>
+<li>quickstart README;</li>
+<li>landing page oficial.</li>
+</ul>
+<p>Examples/playgrounds potencialmente afetados:</p>
+<ul>
+<li>cockpit automatico publicado pelo starter;</li>
+<li>quickstart como host consumidor;</li>
+<li>corpus HTTP metadata;</li>
+<li>LLM surface;</li>
+<li>demos Angular de metadata/runtime.</li>
+</ul>
+<p>Validacao minima para o primeiro corte:</p>
+<ul>
+<li>inspecao dos endpoints metadata usados;</li>
+<li>build/test focal do subprojeto onde a UI for implementada;</li>
+<li>smoke visual em desktop e mobile;</li>
+<li>smoke com um resource rico e um resource simples;</li>
+<li>validacao de estados de erro com endpoint ausente ou host
+parcial.</li>
+</ul>
+<p>Risco de breaking change:</p>
+<ul>
+<li>baixo para contratos de dados se a primeira entrega for apenas UX
+derivada;</li>
+<li>medio para superficie publica porque <code>/praxis/cockpit</code>
+passa a existir em todo host;</li>
+<li>medio se houver composition service local;</li>
+<li>alto se houver endpoint publico agregado sem inventario previo.</li>
+</ul>
+<h2 id="criterios-de-qualidade-surpreendente">Criterios de qualidade
+surpreendente</h2>
+<ul>
+<li>O primeiro viewport deve explicar o valor do Praxis sem texto de
+marketing.</li>
+<li>A pessoa deve conseguir responder “o que este host sabe?” em menos
+de 10 segundos.</li>
+<li>A pessoa deve conseguir localizar uma incoerencia de contrato em
+menos de 30 segundos.</li>
+<li>A IA deve poder usar a pagina como mapa de grounding, nao como lista
+solta de endpoints.</li>
+<li>A UI deve ensinar a diferenca entre structural contract, semantic
+discovery, capability snapshot e runtime materialization.</li>
+<li>Cada diagnostico deve apontar a fonte canonica correta, nao sugerir
+remendo no consumidor.</li>
+<li>O design deve ser futurista, mas denso, legivel e operacional.</li>
+</ul>
+<h2 id="antiobjetivos">Antiobjetivos</h2>
+<ul>
+<li>Nao criar editor local de schema dentro do metadata starter.</li>
+<li>Nao transformar o dashboard em fonte primaria de regra de
+negocio.</li>
+<li>Nao rotear intencao por keywords ou regexes no cockpit.</li>
+<li>Nao duplicar semantica de <code>/api/praxis/config/**</code>.</li>
+<li>Nao institucionalizar aliases ou contratos paralelos por
+conveniencia visual.</li>
+<li>Nao esconder JSON tecnico; apenas deixa-lo como detalhe, nao como UX
+primaria.</li>
+</ul>
+<h2 id="proximas-issues-recomendadas">Proximas issues recomendadas</h2>
+<ol type="1">
+<li>Criar prototipo navegavel do Semantic Host Cockpit empacotado no
+starter, usando contratos existentes.</li>
+<li>Definir diagnostics experimentais para readiness e conformance do
+host.</li>
+<li>Criar spike de composition model derivado para conectar resource,
+schemas, domain, surfaces, actions, capabilities e exemplos
+operacionais.</li>
+<li>Avaliar, apos o spike, se existe lacuna real para endpoint agregado
+publico no starter.</li>
+</ol>
+<h2 id="spike-concluido">Spike concluido</h2>
+<p>O spike resource-centric esta documentado em <a
+href="SEMANTIC-HOST-COCKPIT-COMPOSITION-SPIKE.md">Semantic Host Cockpit
+Composition Spike</a>.</p>
+<p>Conclusao atual:</p>
+<ul>
+<li>ha pivots suficientes em <code>resourceKey</code>,
+<code>resourcePath</code>, <code>path</code>, <code>method</code>,
+<code>operationId</code> e <code>schemaUrl</code> para um primeiro
+cockpit derivado;</li>
+<li>o prototipo deve seguir sem endpoint agregado de dados novo;</li>
+<li>a URL automatica do cockpit deve ser
+<code>/praxis/cockpit</code>;</li>
+<li><code>HostCockpitView</code>, diagnostics canonicos e readiness
+score versionado ainda nao estao justificados como
+<code>lacuna-real-de-contrato</code>;</li>
+<li>o quickstart deve provar o consumo por HTTP real, sem copiar assets
+locais.</li>
+</ul>
+</body>
+</html>
