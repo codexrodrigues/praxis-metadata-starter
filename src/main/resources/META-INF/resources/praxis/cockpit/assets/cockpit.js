@@ -1641,7 +1641,13 @@
               <button type="button" data-graph-filter="action">Workflow</button>
               <button type="button" data-graph-filter="field">Campos</button>
               <button type="button" data-graph-filter="stats">Analytics</button>
-              <button type="button" data-graph-fit>Centralizar</button>
+            </div>
+            <div class="semantic-graph-viewport-tools" aria-label="Controles de visualização do grafo">
+              <button type="button" data-graph-zoom="out" aria-label="Reduzir zoom do grafo" title="Reduzir zoom">-</button>
+              <span data-graph-scale>100%</span>
+              <button type="button" data-graph-zoom="in" aria-label="Aumentar zoom do grafo" title="Aumentar zoom">+</button>
+              <button type="button" data-graph-fit aria-label="Ajustar grafo à tela" title="Ajustar grafo à tela">Centralizar</button>
+              <button type="button" data-graph-fullscreen aria-label="Abrir grafo em tela cheia" title="Tela cheia">Expandir</button>
             </div>
             <div class="semantic-graph-summary" aria-label="Resumo do grafo"></div>
           </div>
@@ -1706,7 +1712,6 @@
         state.topologyGraph = cytoscape({
           container,
           elements: model.elements,
-          wheelSensitivity: 0.24,
           minZoom: 0.55,
           maxZoom: 2.2,
           style: topologyGraphStyle(),
@@ -1725,6 +1730,8 @@
           const data = event.target.data();
           state.topologyGraph.elements().removeClass('graph-focus graph-muted');
           event.target.addClass('graph-focus');
+          event.target.connectedEdges().addClass('graph-focus');
+          state.topologyGraph.elements().difference(event.target.union(event.target.connectedEdges()).union(event.target.neighborhood('node'))).addClass('graph-muted');
           updateTopologyInspector(inspector, data);
         });
         state.topologyGraph.on('tap', 'edge', (event) => {
@@ -1831,12 +1838,24 @@
 
   function bindTopologyGraphControls(shell, cy, model, inspector) {
     if (!shell || !cy) return;
+    const scale = shell.querySelector('[data-graph-scale]');
+    const updateScale = () => {
+      if (scale) scale.textContent = `${Math.round((cy.zoom() || 1) * 100)}%`;
+    };
+    const zoomBy = (factor) => {
+      const current = cy.zoom() || 1;
+      const next = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), current * factor));
+      cy.zoom({ level: next, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+      updateScale();
+    };
     const runFilter = (filter) => {
       syncTopologyFilterState(shell, filter);
       cy.elements().removeClass('graph-focus graph-muted');
       applyTopologyGraphFilter(cy, filter);
       updateTopologyInspector(inspector, topologyFilterSummary(filter, model));
+      updateScale();
     };
+    cy.on('zoom pan', updateScale);
     shell.addEventListener('click', (event) => {
       const button = event.target.closest('[data-graph-filter], [data-graph-route-filter]');
       if (!button || !shell.contains(button)) return;
@@ -1860,6 +1879,54 @@
       cy.fit(cy.elements(':visible'), 34);
       const root = cy.nodes('[type = "root"]').first();
       if (root?.length) updateTopologyInspector(inspector, root.data());
+      updateScale();
+    });
+    for (const button of shell.querySelectorAll('[data-graph-zoom]')) {
+      button.addEventListener('click', () => {
+        zoomBy(button.getAttribute('data-graph-zoom') === 'in' ? 1.18 : 1 / 1.18);
+      });
+    }
+    bindTopologyFullscreenControl(shell, () => {
+      cy.resize();
+      cy.fit(cy.elements(':visible'), shell.classList.contains('is-fullscreen') ? 72 : 34);
+      updateScale();
+    });
+    updateScale();
+  }
+
+  function bindTopologyFullscreenControl(shell, afterToggle) {
+    const button = shell?.querySelector('[data-graph-fullscreen]');
+    if (!shell || !button) return;
+    const sync = () => {
+      const active = document.fullscreenElement === shell || shell.classList.contains('is-fullscreen');
+      shell.classList.toggle('is-fullscreen', active);
+      button.textContent = active ? 'Fechar' : 'Expandir';
+      button.setAttribute('aria-label', active ? 'Fechar grafo em tela cheia' : 'Abrir grafo em tela cheia');
+      button.setAttribute('title', active ? 'Fechar tela cheia' : 'Tela cheia');
+      if (typeof afterToggle === 'function') window.setTimeout(afterToggle, 90);
+    };
+    button.addEventListener('click', async () => {
+      if (document.fullscreenElement === shell || shell.classList.contains('is-fullscreen')) {
+        if (document.fullscreenElement === shell && document.exitFullscreen) {
+          await document.exitFullscreen().catch(() => {});
+        }
+        shell.classList.remove('is-fullscreen');
+        sync();
+        return;
+      }
+      if (shell.requestFullscreen) {
+        await shell.requestFullscreen().catch(() => shell.classList.add('is-fullscreen'));
+      } else {
+        shell.classList.add('is-fullscreen');
+      }
+      sync();
+    });
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && shell.classList.contains('is-fullscreen') && !document.fullscreenElement) {
+        shell.classList.remove('is-fullscreen');
+        sync();
+      }
     });
   }
 
@@ -2122,6 +2189,7 @@
         if (data) updateTopologyInspector(inspector, data);
       });
     }
+    bindTopologyFullscreenControl(shell);
   }
 
   function shortGraphLabel(label) {
@@ -2145,6 +2213,9 @@
         type: patch.type || current.type || 'concept',
         resourceKey: patch.resourceKey || current.resourceKey || null,
         confidence: patch.confidence || current.confidence || null,
+        color: patch.color || current.color || topologyNodeTheme(patch.type || current.type || 'concept').color,
+        borderColor: patch.borderColor || current.borderColor || topologyNodeTheme(patch.type || current.type || 'concept').border,
+        glowColor: patch.glowColor || current.glowColor || topologyNodeTheme(patch.type || current.type || 'concept').glow,
         weight: Math.max(current.weight || 1, patch.weight || 1)
       });
     };
@@ -2162,6 +2233,8 @@
         detail: patch.detail || null,
         evidenceKeys: patch.evidenceKeys || [],
         evidence: patch.evidence || [],
+        edgeColor: patch.edgeColor || topologyEdgeColor(patch.type),
+        edgeStyle: topologyEdgeStyle(patch.type),
         sourceLabel: nodeIndex.get(source)?.label,
         targetLabel: nodeIndex.get(target)?.label
       });
@@ -2286,9 +2359,9 @@
       {
         selector: 'node',
         style: {
-          'background-color': '#62d8ff',
-          'border-color': 'rgba(237, 243, 251, .65)',
-          'border-width': 1,
+          'background-color': 'data(color)',
+          'border-color': 'data(borderColor)',
+          'border-width': 2,
           color: '#edf3fb',
           'font-family': 'Inter, sans-serif',
           'font-size': 10,
@@ -2297,9 +2370,16 @@
           label: 'data(label)',
           'min-zoomed-font-size': 7,
           'overlay-opacity': 0,
+          'shadow-blur': 16,
+          'shadow-color': 'data(glowColor)',
+          'shadow-opacity': .24,
+          'shadow-offset-x': 0,
+          'shadow-offset-y': 0,
           'text-background-color': 'rgba(7, 9, 13, .68)',
           'text-background-opacity': .92,
           'text-background-padding': 3,
+          'text-outline-color': 'rgba(2, 6, 10, .88)',
+          'text-outline-width': 2,
           'text-margin-y': 8,
           'text-max-width': 90,
           'text-valign': 'bottom',
@@ -2307,20 +2387,17 @@
           width: 'mapData(weight, 1, 10, 28, 76)'
         }
       },
-      { selector: 'node[type = "root"]', style: { 'background-color': '#73efb5', 'border-color': '#62d8ff', 'border-width': 3, height: 88, width: 88 } },
-      { selector: 'node[type = "field"]', style: { 'background-color': '#62d8ff' } },
-      { selector: 'node[type = "surface"]', style: { 'background-color': '#73efb5' } },
-      { selector: 'node[type = "action"]', style: { 'background-color': '#b7a5ff' } },
-      { selector: 'node[type = "stats"]', style: { 'background-color': '#ffd166' } },
-      { selector: 'node[type = "capability"]', style: { 'background-color': '#ff6d91' } },
+      { selector: 'node[type = "root"]', style: { 'background-color': '#3cc8ff', 'border-color': '#aeeaff', 'border-width': 4, height: 88, width: 88, 'shadow-blur': 28, 'shadow-opacity': .48 } },
       {
         selector: 'edge',
         style: {
           'curve-style': 'bezier',
-          'line-color': 'rgba(126, 211, 255, .42)',
-          'target-arrow-color': 'rgba(126, 211, 255, .72)',
+          'line-color': 'data(edgeColor)',
+          'line-style': 'data(edgeStyle)',
+          'target-arrow-color': 'data(edgeColor)',
           'target-arrow-shape': 'triangle',
-          width: 1.4,
+          opacity: .62,
+          width: 1.5,
           label: 'data(label)',
           color: '#9eacbd',
           'font-size': 8,
@@ -2332,11 +2409,37 @@
       },
       { selector: 'node:selected', style: { 'border-color': '#ffffff', 'border-width': 4 } },
       { selector: 'edge:selected', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', width: 2.6 } },
-      { selector: 'node.graph-focus', style: { 'border-color': '#ffffff', 'border-width': 4, opacity: 1 } },
+      { selector: 'node.graph-focus', style: { 'border-color': '#ffffff', 'border-width': 4, opacity: 1, 'shadow-blur': 28, 'shadow-opacity': .58 } },
       { selector: 'edge.graph-focus', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', opacity: 1, width: 3.2 } },
       { selector: '.graph-muted', style: { opacity: .18 } },
       { selector: '.graph-hidden', style: { display: 'none' } }
     ];
+  }
+
+  function topologyNodeTheme(type) {
+    const themes = {
+      root: { color: '#3cc8ff', border: '#aeeaff', glow: '#62d8ff' },
+      concept: { color: '#5267ff', border: '#b7a5ff', glow: '#7a68ff' },
+      field: { color: '#4bbdf4', border: '#bdefff', glow: '#62d8ff' },
+      surface: { color: '#35d4ad', border: '#a8ffe0', glow: '#73efb5' },
+      action: { color: '#9b7cff', border: '#e2d7ff', glow: '#b7a5ff' },
+      stats: { color: '#e2b84d', border: '#ffe7a8', glow: '#ffd166' },
+      capability: { color: '#e85c86', border: '#ffc4d2', glow: '#ff6d91' }
+    };
+    return themes[type] || themes.concept;
+  }
+
+  function topologyEdgeColor(type) {
+    if (type === 'has_surface') return 'rgba(115, 239, 181, .72)';
+    if (type === 'has_action') return 'rgba(183, 165, 255, .76)';
+    if (type === 'has_stats') return 'rgba(255, 209, 102, .76)';
+    if (type === 'has_field') return 'rgba(98, 216, 255, .68)';
+    if (type === 'has_capability') return 'rgba(255, 109, 145, .68)';
+    return 'rgba(126, 211, 255, .48)';
+  }
+
+  function topologyEdgeStyle(type) {
+    return ['has_surface', 'has_action', 'has_stats', 'has_field', 'has_capability'].includes(type) ? 'solid' : 'dashed';
   }
 
   function updateTopologyInspector(inspector, data) {

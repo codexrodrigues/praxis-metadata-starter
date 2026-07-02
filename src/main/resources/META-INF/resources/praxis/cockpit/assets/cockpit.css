@@ -1229,19 +1229,34 @@ a { color: inherit; }
 .semantic-graph-shell {
   border: 1px solid rgba(126, 211, 255, .28);
   background:
+    radial-gradient(circle at 46% 52%, rgba(98, 216, 255, .16), transparent 34%),
     linear-gradient(145deg, rgba(98, 216, 255, .10), rgba(183, 165, 255, .06) 42%, rgba(115, 239, 181, .07)),
     #070c12;
   overflow: hidden;
   position: relative;
 }
 
+.semantic-graph-shell.is-fullscreen {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(98, 216, 255, .18), transparent 30%),
+    linear-gradient(145deg, rgba(7, 12, 18, .96), rgba(12, 17, 28, .98));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100dvh;
+  inset: 0;
+  padding: 14px;
+  position: fixed;
+  width: 100dvw;
+  z-index: 80;
+}
+
 .semantic-graph-shell::before {
   background:
-    linear-gradient(90deg, rgba(98, 216, 255, .16) 0 1px, transparent 1px 42px),
-    linear-gradient(0deg, rgba(115, 239, 181, .10) 0 1px, transparent 1px 42px);
+    linear-gradient(90deg, rgba(98, 216, 255, .14) 0 1px, transparent 1px 46px),
+    linear-gradient(0deg, rgba(115, 239, 181, .08) 0 1px, transparent 1px 46px);
   content: "";
   inset: 0;
-  opacity: .42;
+  opacity: .34;
   pointer-events: none;
   position: absolute;
 }
@@ -1322,6 +1337,7 @@ a { color: inherit; }
 .semantic-graph-legend .stats::before { background: var(--amber); }
 
 .semantic-graph-filters,
+.semantic-graph-viewport-tools,
 .semantic-graph-summary {
   display: flex;
   flex-wrap: wrap;
@@ -1329,13 +1345,14 @@ a { color: inherit; }
   justify-content: flex-end;
 }
 
-.semantic-graph-filters button {
+.semantic-graph-filters button,
+.semantic-graph-viewport-tools button,
+.semantic-graph-viewport-tools span {
   align-items: center;
   border: 1px solid rgba(126, 211, 255, .24);
   border-radius: 8px;
   background: rgba(7, 12, 18, .74);
   color: var(--soft);
-  cursor: pointer;
   display: inline-flex;
   gap: 6px;
   font: inherit;
@@ -1343,6 +1360,19 @@ a { color: inherit; }
   font-weight: 800;
   min-height: 32px;
   padding: 6px 9px;
+}
+
+.semantic-graph-filters button,
+.semantic-graph-viewport-tools button {
+  cursor: pointer;
+}
+
+.semantic-graph-viewport-tools span {
+  color: var(--muted);
+  cursor: default;
+  font-family: var(--font-mono);
+  justify-content: center;
+  min-width: 54px;
 }
 
 .semantic-graph-filters button small {
@@ -1357,7 +1387,8 @@ a { color: inherit; }
 }
 
 .semantic-graph-filters button:hover,
-.semantic-graph-filters button.active {
+.semantic-graph-filters button.active,
+.semantic-graph-viewport-tools button:hover {
   border-color: rgba(115, 239, 181, .72);
   box-shadow: 0 0 18px rgba(115, 239, 181, .14);
   color: #fff;
@@ -1385,6 +1416,11 @@ a { color: inherit; }
   grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
   min-height: 430px;
   padding: 12px;
+}
+
+.semantic-graph-shell.is-fullscreen .semantic-graph-stage {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  min-height: 0;
 }
 
 .semantic-graph-routes {
@@ -1462,9 +1498,16 @@ a { color: inherit; }
 .semantic-graph-canvas {
   border: 1px solid rgba(126, 211, 255, .22);
   background:
-    radial-gradient(circle at 50% 50%, rgba(98, 216, 255, .11), transparent 54%),
+    radial-gradient(circle at 50% 50%, rgba(98, 216, 255, .18), transparent 38%),
+    radial-gradient(circle at 74% 22%, rgba(183, 165, 255, .10), transparent 26%),
+    radial-gradient(circle at 28% 78%, rgba(115, 239, 181, .10), transparent 30%),
     rgba(2, 6, 10, .64);
+  box-shadow: inset 0 0 0 1px rgba(237, 243, 251, .02), inset 0 0 42px rgba(2, 6, 10, .62);
   min-height: 406px;
+}
+
+.semantic-graph-shell.is-fullscreen .semantic-graph-canvas {
+  min-height: min(72dvh, 760px);
 }
 
 .semantic-graph-svg {
@@ -1475,27 +1518,29 @@ a { color: inherit; }
 }
 
 .semantic-graph-svg line {
-  stroke: rgba(126, 211, 255, .42);
+  stroke: rgba(126, 211, 255, .48);
   stroke-width: 1.4;
 }
 
 .semantic-graph-svg circle {
-  fill: rgba(98, 216, 255, .86);
+  fill: rgba(75, 189, 244, .88);
   filter: drop-shadow(0 0 10px rgba(98, 216, 255, .32));
   stroke: rgba(237, 243, 251, .72);
   stroke-width: 1.2;
 }
 
 .semantic-graph-svg .root circle {
-  fill: rgba(115, 239, 181, .94);
-  stroke: rgba(98, 216, 255, .95);
+  fill: rgba(60, 200, 255, .96);
+  filter: drop-shadow(0 0 22px rgba(98, 216, 255, .50));
+  stroke: rgba(174, 234, 255, .95);
   stroke-width: 3;
 }
 
-.semantic-graph-svg .surface circle { fill: rgba(115, 239, 181, .88); }
-.semantic-graph-svg .action circle { fill: rgba(183, 165, 255, .90); }
-.semantic-graph-svg .stats circle { fill: rgba(255, 209, 102, .92); }
-.semantic-graph-svg .capability circle { fill: rgba(255, 109, 145, .88); }
+.semantic-graph-svg .concept circle { fill: rgba(82, 103, 255, .88); }
+.semantic-graph-svg .surface circle { fill: rgba(53, 212, 173, .88); }
+.semantic-graph-svg .action circle { fill: rgba(155, 124, 255, .90); }
+.semantic-graph-svg .stats circle { fill: rgba(226, 184, 77, .92); }
+.semantic-graph-svg .capability circle { fill: rgba(232, 92, 134, .88); }
 
 .semantic-graph-svg text {
   fill: var(--soft);
@@ -2002,8 +2047,19 @@ a { color: inherit; }
   .semantic-graph-legend {
     justify-content: flex-start;
   }
+  .semantic-graph-filters,
+  .semantic-graph-viewport-tools,
+  .semantic-graph-summary {
+    justify-content: flex-start;
+  }
   .semantic-graph-canvas {
     min-height: 340px;
+  }
+  .semantic-graph-shell.is-fullscreen {
+    padding: 10px;
+  }
+  .semantic-graph-shell.is-fullscreen .semantic-graph-stage {
+    grid-template-columns: 1fr;
   }
   .intelligence-strip,
   .area-grid,
