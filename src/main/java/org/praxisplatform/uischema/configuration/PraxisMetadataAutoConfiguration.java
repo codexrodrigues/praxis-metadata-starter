@@ -9,6 +9,7 @@ import io.swagger.v3.oas.models.media.NumberSchema;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
+import org.praxisplatform.uischema.constants.ApiPaths;
 import org.praxisplatform.uischema.rest.response.RestApiResource;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springdoc.core.customizers.OpenApiCustomizer;
@@ -35,6 +36,7 @@ import java.util.Map;
  */
 @AutoConfiguration
 @ComponentScan(basePackages = {
+    "org.praxisplatform.uischema.controller.cockpit",
     "org.praxisplatform.uischema.controller.docs",
     "org.praxisplatform.uischema.rest.exceptionhandler",
     "org.praxisplatform.uischema.service",
@@ -81,7 +83,7 @@ public class PraxisMetadataAutoConfiguration {
      * 
      * <h4>🔄 Padrão de Matching:</h4>
      * <pre>
-     * pathsToMatch("/schemas/**")
+     * pathsToMatch("/schemas/**", "/praxis/cockpit/**")
      * 
      * ✅ Incluídos:
      * /schemas/filtered?path=/api/funcionarios
@@ -126,7 +128,7 @@ public class PraxisMetadataAutoConfiguration {
     public GroupedOpenApi praxisMetadataInfraOpenApi() {
         return GroupedOpenApi.builder()
             .group("praxis-metadata-infra")
-            .pathsToMatch("/schemas/**")
+            .pathsToMatch(ApiPaths.Framework.SCHEMAS + "/**", ApiPaths.Framework.COCKPIT_PATTERN)
             .build();
     }
 
@@ -224,7 +226,7 @@ public class PraxisMetadataAutoConfiguration {
         return GroupedOpenApi.builder()
             .group("application")
             .pathsToMatch("/**")
-            .pathsToExclude("/schemas/**")
+            .pathsToExclude(ApiPaths.Framework.SCHEMAS + "/**", ApiPaths.Framework.COCKPIT_PATTERN)
             .build();
     }
 

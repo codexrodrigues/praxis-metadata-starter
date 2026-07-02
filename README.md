@@ -11,6 +11,7 @@ Ele publica:
 - `/schemas/surfaces` e `/schemas/actions` como discovery semantico
 - `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities` como snapshot agregado
 - `POST /{resource}/export` como operacao canonica de exportacao de colecao
+- `/praxis/cockpit` como cockpit automatico do host, derivado das superficies metadata-driven existentes
 - envelopes `RestApiResponse` com suporte efetivo a Spring HATEOAS
 
 Nao e apenas um gerador de CRUD. O baseline atual da plataforma e:
@@ -72,6 +73,12 @@ O baseline atual adiciona discovery orientado a recurso:
 - `GET /{resource}/capabilities`
 - `GET /{resource}/{id}/capabilities`
 - `POST /{resource}/export`
+- `GET /praxis/cockpit`
+
+O cockpit e empacotado pelo starter em `META-INF/resources/praxis/cockpit`.
+Hosts com politica propria de Spring Security devem permitir `GET /praxis/cockpit`,
+`GET /praxis/cockpit/` e `GET /praxis/cockpit/**`; o `praxis-api-quickstart`
+e a referencia operacional dessa exposicao.
 
 Regras importantes:
 

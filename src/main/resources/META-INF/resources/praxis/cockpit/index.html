@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Praxis Semantic Host Cockpit</title>
+  <meta name="description" content="Cockpit semantico automatico do host Praxis, publicado pelo praxis-metadata-starter." />
+  <link rel="stylesheet" href="/praxis/cockpit/assets/cockpit.css" />
+</head>
+<body>
+  <main class="cockpit-shell">
+    <header class="cockpit-topbar" aria-label="Praxis host cockpit">
+      <a class="brand-mark" href="/" aria-label="Voltar para a home do host">
+        <span class="brand-glyph">Px</span>
+        <span>Praxis Host Cockpit</span>
+      </a>
+      <nav class="top-actions" aria-label="Links tecnicos">
+        <a href="/swagger-ui/index.html">Swagger</a>
+        <a href="/schemas/catalog">Catalog</a>
+        <a href="/schemas/domain">Domain</a>
+      </nav>
+    </header>
+
+    <section class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Bundled by praxis-metadata-starter</p>
+        <h1>O que este host sabe, materializa e entrega para IA.</h1>
+        <p>
+          Esta tela e publicada automaticamente pelo starter. Ela compoe
+          evidencias do proprio host: resource, schema, domain, surfaces,
+          actions, capabilities e runtime readiness.
+        </p>
+      </div>
+      <div class="signal-panel" aria-live="polite">
+        <span class="status-dot" id="hostStatusDot"></span>
+        <span id="hostStatusText">Conectando ao host...</span>
+      </div>
+    </section>
+
+    <section class="metric-grid" aria-label="Resumo do host">
+      <article class="metric-card">
+        <span class="metric-label">Resources</span>
+        <strong id="resourceCount">--</strong>
+        <span id="resourceCountHint">catalog + semantic discovery</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Surfaces</span>
+        <strong id="surfaceCount">--</strong>
+        <span>semantic UI discovery</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Actions</span>
+        <strong id="actionCount">--</strong>
+        <span>business workflows</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">AI Grounding</span>
+        <strong id="domainCount">--</strong>
+        <span>domain evidence items</span>
+      </article>
+    </section>
+
+    <section class="workbench">
+      <aside class="resource-browser" aria-label="Mapa semantico de resources">
+        <div class="panel-title-row">
+          <div>
+            <p class="eyebrow">Semantic Resource Map</p>
+            <h2>Resources</h2>
+          </div>
+          <span class="mini-pill" id="sourceMode">live</span>
+        </div>
+        <label class="search-box">
+          <span>Filtrar</span>
+          <input id="resourceSearch" type="search" placeholder="resourceKey, path ou dominio" />
+        </label>
+        <div class="resource-list" id="resourceList" role="list"></div>
+      </aside>
+
+      <section class="detail-stage" aria-label="Detalhe do resource selecionado">
+        <div class="resource-hero">
+          <div>
+            <p class="eyebrow" id="selectedDomain">Selecione um resource</p>
+            <h2 id="selectedTitle">Aguardando discovery</h2>
+            <p id="selectedSubtitle">
+              O cockpit reconcilia catalogo, schemas, domain, surfaces, actions
+              e capabilities por resourceKey e path.
+            </p>
+          </div>
+          <div class="readiness-stack" aria-label="Readiness experimental">
+            <span class="readiness-chip" id="structuralReadiness">Structural --</span>
+            <span class="readiness-chip" id="semanticReadiness">Semantic --</span>
+            <span class="readiness-chip" id="runtimeReadiness">Runtime --</span>
+            <span class="readiness-chip" id="aiReadiness">AI --</span>
+          </div>
+        </div>
+
+        <div class="chain-strip" aria-label="Cadeia canonica">
+          <span>resource</span>
+          <span>schema</span>
+          <span>domain</span>
+          <span>surface</span>
+          <span>action</span>
+          <span>capability</span>
+          <span>runtime</span>
+          <span>AI</span>
+        </div>
+
+        <div class="insight-grid">
+          <article class="insight-card">
+            <h3>Structural Contract</h3>
+            <dl id="structuralFacts"></dl>
+          </article>
+          <article class="insight-card">
+            <h3>Semantic Discovery</h3>
+            <dl id="semanticFacts"></dl>
+          </article>
+          <article class="insight-card">
+            <h3>Runtime Materialization</h3>
+            <dl id="runtimeFacts"></dl>
+          </article>
+          <article class="insight-card">
+            <h3>AI Grounding</h3>
+            <dl id="aiFacts"></dl>
+          </article>
+        </div>
+
+        <section class="matrix-panel">
+          <div class="panel-title-row">
+            <div>
+              <p class="eyebrow">Capabilities Matrix</p>
+              <h2>Operacoes canonicas</h2>
+            </div>
+            <button class="ghost-button" id="refreshResourceButton" type="button">Atualizar</button>
+          </div>
+          <div class="matrix-table" id="capabilityMatrix"></div>
+        </section>
+
+        <section class="diagnostics-panel">
+          <div class="panel-title-row">
+            <div>
+              <p class="eyebrow">Experimental Diagnostics</p>
+              <h2>Leitura de aderencia</h2>
+            </div>
+          </div>
+          <div id="diagnosticsList" class="diagnostics-list"></div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script src="/praxis/cockpit/assets/cockpit.js" defer></script>
+</body>
+</html>
