@@ -2,7 +2,7 @@ package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
-import org.praxisplatform.uischema.service.base.BaseResourceCommandService;
+import org.praxisplatform.uischema.service.base.DuplicateDraftLegacyBackedResourceService;
 import org.praxisplatform.uischema.service.base.LegacyBackedResourceService;
 import org.springframework.hateoas.Link;
 import org.springframework.http.HttpStatus;
@@ -19,9 +19,8 @@ import static org.mockito.Mockito.when;
 class AbstractLegacyBackedResourceControllerTest {
 
     @Test
-    void legacyBackedControllerDoesNotPublishDuplicateDraftEvenWhenServiceSupportsIt() {
+    void legacyBackedControllerDoesNotPublishDuplicateDraft() {
         SimpleLegacyService service = mock(SimpleLegacyService.class);
-        when(service.supportsDuplicateDraft()).thenReturn(true);
         SimpleLegacyController controller = controllerWith(service);
 
         assertEquals(List.of("update", "delete"), controller.exposeEntityActionRels(10L));
@@ -29,10 +28,11 @@ class AbstractLegacyBackedResourceControllerTest {
 
     @Test
     void duplicateDraftControllerPublishesDuplicateDraftOnlyWhenServiceSupportsIt() {
-        SimpleLegacyService unsupported = mock(SimpleLegacyService.class);
+        SimpleDuplicateDraftLegacyService unsupported = mock(SimpleDuplicateDraftLegacyService.class);
+        when(unsupported.supportsDuplicateDraft()).thenReturn(false);
         SimpleDuplicateDraftLegacyController unsupportedController = duplicateDraftControllerWith(unsupported);
 
-        SimpleLegacyService supported = mock(SimpleLegacyService.class);
+        SimpleDuplicateDraftLegacyService supported = mock(SimpleDuplicateDraftLegacyService.class);
         when(supported.supportsDuplicateDraft()).thenReturn(true);
         SimpleDuplicateDraftLegacyController supportedController = duplicateDraftControllerWith(supported);
 
@@ -42,22 +42,23 @@ class AbstractLegacyBackedResourceControllerTest {
 
     @Test
     void duplicateDraftDelegatesToLegacyCommandPort() {
-        SimpleLegacyService service = mock(SimpleLegacyService.class);
+        SimpleDuplicateDraftLegacyService service = mock(SimpleDuplicateDraftLegacyService.class);
         when(service.getDatasetVersion()).thenReturn(java.util.Optional.of("legacy-1"));
         when(service.supportsDuplicateDraft()).thenReturn(true);
-        when(service.duplicateDraft(7L))
-                .thenReturn(new BaseResourceCommandService.SavedResult<>(17L, new SimpleResponseDto(17L)));
+        when(service.duplicateDraft(7L)).thenReturn(new SimpleCreateDto("copied"));
         SimpleDuplicateDraftLegacyController controller = duplicateDraftControllerWith(service);
 
         var response = controller.duplicateDraft(7L);
 
-        assertEquals(201, response.getStatusCode().value());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals("legacy-1", response.getHeaders().getFirst("X-Data-Version"));
+        assertEquals("copied", response.getBody().getData().getName());
     }
 
     @Test
     void duplicateDraftEndpointReturnsNotFoundWhenServiceDoesNotSupportCommand() {
-        SimpleLegacyService service = mock(SimpleLegacyService.class);
+        SimpleDuplicateDraftLegacyService service = mock(SimpleDuplicateDraftLegacyService.class);
+        when(service.supportsDuplicateDraft()).thenReturn(false);
         SimpleDuplicateDraftLegacyController controller = duplicateDraftControllerWith(service);
 
         ResponseStatusException exception = assertThrows(
@@ -74,7 +75,7 @@ class AbstractLegacyBackedResourceControllerTest {
         return controller;
     }
 
-    private static SimpleDuplicateDraftLegacyController duplicateDraftControllerWith(SimpleLegacyService service) {
+    private static SimpleDuplicateDraftLegacyController duplicateDraftControllerWith(SimpleDuplicateDraftLegacyService service) {
         SimpleDuplicateDraftLegacyController controller = new SimpleDuplicateDraftLegacyController();
         ReflectionTestUtils.setField(controller, "service", service);
         return controller;
@@ -87,6 +88,14 @@ class AbstractLegacyBackedResourceControllerTest {
             SimpleCreateDto,
             SimpleUpdateDto> {}
 
+    interface SimpleDuplicateDraftLegacyService extends DuplicateDraftLegacyBackedResourceService<
+            SimpleResponseDto,
+            Long,
+            SimpleFilterDTO,
+            SimpleCreateDto,
+            SimpleUpdateDto,
+            SimpleCreateDto> {}
+
     static class SimpleResponseDto {
         private Long id;
         SimpleResponseDto() {}
@@ -95,7 +104,13 @@ class AbstractLegacyBackedResourceControllerTest {
         public void setId(Long id) { this.id = id; }
     }
 
-    static class SimpleCreateDto {}
+    static class SimpleCreateDto {
+        private String name;
+        SimpleCreateDto() {}
+        SimpleCreateDto(String name) { this.name = name; }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+    }
 
     static class SimpleUpdateDto {}
 
@@ -144,12 +159,13 @@ class AbstractLegacyBackedResourceControllerTest {
             Long,
             SimpleFilterDTO,
             SimpleCreateDto,
-            SimpleUpdateDto> {
+            SimpleUpdateDto,
+            SimpleCreateDto> {
 
-        SimpleLegacyService service;
+        SimpleDuplicateDraftLegacyService service;
 
         @Override
-        protected SimpleLegacyService getService() {
+        protected SimpleDuplicateDraftLegacyService getService() {
             return service;
         }
 

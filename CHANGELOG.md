@@ -9,6 +9,7 @@ All notable changes to this module will be documented in this file.
 - SPI publica `ResourceOperationAvailabilityProvider` para availability host-neutral de operacoes canonicas de recurso, integrada a `/capabilities` e `_links`.
 - Tipos publicos `ResourceOperationAvailabilityContext` e `NoOpResourceOperationAvailabilityProvider` para hosts corporativos plugar guards legados sem expor detalhes privados no contrato.
 - Base canonica `AbstractLegacyBackedResourceController` e portas `LegacyBackedResourceService` / `LegacyBackedResourceCommandService` para recursos mutaveis resource-oriented com escrita delegada ao host legado.
+- Portas opcionais `DuplicateDraftLegacyBackedResourceService` / `DuplicateDraftLegacyBackedResourceCommandService` para `duplicate-draft` nao mutante, retornando DTO de rascunho editavel separado do DTO de resposta persistida.
 - Operacao canonica opcional `duplicate-draft` em `capabilities.operations` quando o recurso publica `POST /{resource}/{id}/duplicate-draft`.
 - Builder publico `GovernedOptionSourceCatalog` para declarar lookups provider-backed com endpoints canonicos, dependency mapping, selected-value reload e politica de sort sem boilerplate por service.
 - Contrato publico `OptionSourceRuntimeContract`, `OptionSourceSelectedReloadPolicy` e `OptionSourceInvalidSortPolicy` para projetar `filterEndpoint`, `byIdsEndpoint`, `selectedReloadPolicy` e `invalidSortPolicy` em `x-ui.optionSource`.
@@ -26,7 +27,7 @@ All notable changes to this module will be documented in this file.
 
 ### Changed
 - `_links` de create/edit/delete/export passam a respeitar a availability canonica avaliada pelo `CapabilityService`, evitando divergencia entre HATEOAS e `/capabilities`.
-- `duplicate-draft` agora e opt-in via `AbstractDuplicateDraftLegacyBackedResourceController`; `AbstractLegacyBackedResourceController` publica apenas o baseline CRUD legado-backed.
+- `duplicate-draft` agora e opt-in via `AbstractDuplicateDraftLegacyBackedResourceController`; `AbstractLegacyBackedResourceController` publica apenas o baseline CRUD legado-backed, e o endpoint de rascunho retorna `200 OK` sem criar item persistido.
 - `deleteBatch` passa a validar availability de colecao e de cada item antes de delegar exclusao em lote.
 - `SemanticMetadataReviewer` passa a revisar campos herdados de DTOs, evitando que contexto privado em superclasses escape sem governanca.
 - `OpenApiGroupResolver` agora respeita fronteira de segmento ao resolver grupos, evitando falso match entre recursos com prefixos comuns, como `/vinculos` e `/vinculos-funcionais`.

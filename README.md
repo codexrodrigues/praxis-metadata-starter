@@ -164,7 +164,7 @@ Operacoes canonicas esperadas:
 - `view`
 - `edit`
 - `delete`
-- `duplicate-draft`, quando o recurso publicar suporte explicito
+- `duplicate-draft`, quando o recurso publicar suporte explicito para preparar rascunho editavel sem persistir dados
 
 Papel de cada camada:
 
@@ -276,12 +276,13 @@ O baseline canonico para recursos metadata-driven e:
 - `AbstractResourceController`
 - `AbstractCreateUpdateResourceController`, quando o recurso publica create/update sem delete
 - `AbstractLegacyBackedResourceController`, quando a escrita for delegada a backend legado mantendo contrato publico resource-oriented
-- `AbstractDuplicateDraftLegacyBackedResourceController`, somente quando o recurso realmente publicar `POST /{resource}/{id}/duplicate-draft`
+- `AbstractDuplicateDraftLegacyBackedResourceController`, somente quando o recurso realmente publicar `POST /{resource}/{id}/duplicate-draft` como rascunho nao mutante
 - `AbstractReadOnlyResourceController`
 - `AbstractBaseResourceService`
 - `AbstractReadOnlyResourceService`
 - `BaseCreateUpdateResourceService`, quando a porta de comando publica create/update sem delete
-- `LegacyBackedResourceService`, quando create/update/delete e operacoes opcionais forem executados por porta/adaptador do host
+- `LegacyBackedResourceService`, quando create/update/delete forem executados por porta/adaptador do host
+- `DuplicateDraftLegacyBackedResourceService`, quando `duplicate-draft` preparar um DTO editavel para posterior `POST`
 - `ResourceMapper`
 - `@ApiResource(value = ..., resourceKey = ...)`
 
@@ -290,6 +291,7 @@ Adote DTOs separados:
 - `ResponseDTO`
 - `CreateDTO`
 - `UpdateDTO`
+- `DraftDTO`, quando `duplicate-draft` precisar retornar um rascunho diferente do `ResponseDTO`
 - `FilterDTO`
 
 Use `@UiSurface` quando a UX precisa descobrir semanticamente uma experiencia real.
