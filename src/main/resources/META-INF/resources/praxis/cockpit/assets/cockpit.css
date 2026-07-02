@@ -424,6 +424,7 @@ dd {
 }
 
 .diagnostic-item.good { border-left-color: var(--green); }
+.diagnostic-item.warn { border-left-color: var(--amber); }
 .diagnostic-item.bad { border-left-color: var(--rose); }
 
 .diagnostic-item strong {
