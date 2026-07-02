@@ -17,7 +17,27 @@ Este documento descreve como publicar um Release Candidate (RC) e versões finai
 ./mvnw -B -DskipTests -T 1C clean verify
 ./mvnw -B javadoc:javadoc && test -d target/site/apidocs
 ```
-2) Criar a tag do RC e enviar:
+2) Para qualquer mudanca de contrato publico, executar o gate corporativo antes
+   da tag:
+```
+scripts/check-public-contract-gate.sh --base origin/main
+```
+
+Esse gate e obrigatorio quando a mudanca toca `x-ui`, `/schemas/filtered`,
+`/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `/capabilities`,
+anotacoes publicas, enriquecimento OpenAPI, headers, ETag, `X-Schema-Hash` ou
+controladores/base publicos.
+
+Checklist minima para esse caso:
+- usar nova tag/versao do starter ou instalar localmente o artefato alterado de
+  forma controlada antes de validar consumidores;
+- validar `praxis-api-quickstart` contra exatamente esse artefato;
+- revisar docs/examples que espelham o contrato publico;
+- registrar comandos executados e escopo nao validado;
+- garantir que `target/**`, `.flattened-pom.xml`, `.m2repo/` e artefatos
+  gerados de release nao entram no change set.
+
+3) Criar a tag do RC e enviar:
 ```
 git tag v1.0.0-rc.6
 git push origin v1.0.0-rc.6
@@ -28,15 +48,15 @@ Para publicar as mudancas atuais da plataforma, apos o merge em `main`, use a pr
 git tag v8.0.0-rc.5
 git push origin v8.0.0-rc.5
 ```
-3) Acompanhar o workflow “Release Java Starter (praxis-metadata-starter)”
+4) Acompanhar o workflow “Release Java Starter (praxis-metadata-starter)”
 - O workflow resolve a versão a partir da tag (`v` é removido → `1.0.0-rc.6`).
 - Passos: importar GPG → `versions:set` → `clean verify` com perfil `release` (assina) → publicar via Central Plugin.
 
-4) Verificar artefatos assinados no job:
+5) Verificar artefatos assinados no job:
 - `target/praxis-metadata-starter-1.0.0-rc.6.jar(.asc)`
 - `*-sources.jar(.asc)` e `*-javadoc.jar(.asc)`
 
-5) Acompanhar aprovação no Sonatype Central Portal
+6) Acompanhar aprovação no Sonatype Central Portal
 - O Central Publishing geralmente finaliza em minutos.
 
 ## Fluxo (Versão Final)
