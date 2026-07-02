@@ -58,6 +58,9 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Public contract hygiene gate
+        run: scripts/check-public-contract-gate.sh
+
       - name: Build (verify)
         run: ./mvnw -B -T 1C clean verify
 
@@ -258,6 +261,9 @@ jobs:
           server-id: central
           server-username: CENTRAL_TOKEN_USER
           server-password: CENTRAL_TOKEN_PASS
+
+      - name: Public contract hygiene gate
+        run: scripts/check-public-contract-gate.sh
 
       - name: Import GPG private key (sanitize + import)
         env:
