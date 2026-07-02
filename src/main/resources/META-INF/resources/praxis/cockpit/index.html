@@ -42,6 +42,36 @@
       </aside>
     </section>
 
+    <section class="decision-summary" aria-labelledby="hostDecisionTitle" aria-live="polite">
+      <div class="decision-main">
+        <p class="kicker">Conclusão do host</p>
+        <h2 id="hostDecisionTitle">Aguardando evidências do host</h2>
+        <p id="hostDecisionSummary">O cockpit está reunindo inventário, capacidades, lacunas e fontes de evidência.</p>
+      </div>
+      <div class="decision-facts" aria-label="Capacidades principais do host">
+        <article>
+          <span>Recursos analisados</span>
+          <strong id="decisionResourceCount">--</strong>
+        </article>
+        <article>
+          <span>Formulários geráveis</span>
+          <strong id="decisionFormCount">--</strong>
+        </article>
+        <article>
+          <span>Consulta e filtros</span>
+          <strong id="decisionFilterCount">--</strong>
+        </article>
+        <article>
+          <span>Workflows acionáveis</span>
+          <strong id="decisionWorkflowCount">--</strong>
+        </article>
+      </div>
+      <div class="decision-attention" id="hostDecisionAttention">
+        <span class="status-token status-neutral">Em auditoria</span>
+        <p>As ressalvas aparecem assim que o host publicar dados suficientes.</p>
+      </div>
+    </section>
+
     <section class="intelligence-strip" aria-label="Resumo útil do host">
       <article>
         <span>Áreas de domínio</span>
@@ -81,9 +111,9 @@
       <div class="platform-grid">
         <article class="chart-card">
           <div class="chart-card-header">
-            <span>Cobertura por domínio</span>
-            <strong>Camadas por recurso</strong>
-            <p>Cada célula mostra quantos recursos do domínio publicam a camada necessária para tabela, formulário, filtro, chart, lookup ou workflow.</p>
+            <span>Materialização por domínio</span>
+            <strong>Onde a UI pode ser gerada</strong>
+            <p>Cada célula mostra confirmados/total e estado textual para tabela, formulário, filtro, chart, lookup ou workflow.</p>
           </div>
           <div id="domainCoverageChart" class="domain-chart"></div>
         </article>
@@ -263,6 +293,6 @@
     </section>
   </main>
 
-  <script src="/praxis/cockpit/assets/cockpit.js?v=20260702-renderable-experiences" defer></script>
+  <script src="/praxis/cockpit/assets/cockpit.js?v=20260702-decision-summary" defer></script>
 </body>
 </html>

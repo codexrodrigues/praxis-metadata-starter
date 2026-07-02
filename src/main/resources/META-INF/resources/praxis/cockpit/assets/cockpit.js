@@ -39,6 +39,13 @@
     hostStatusDetail: document.getElementById('hostStatusDetail'),
     domainTitle: document.getElementById('domainTitle'),
     domainSummary: document.getElementById('domainSummary'),
+    hostDecisionTitle: document.getElementById('hostDecisionTitle'),
+    hostDecisionSummary: document.getElementById('hostDecisionSummary'),
+    decisionResourceCount: document.getElementById('decisionResourceCount'),
+    decisionFormCount: document.getElementById('decisionFormCount'),
+    decisionFilterCount: document.getElementById('decisionFilterCount'),
+    decisionWorkflowCount: document.getElementById('decisionWorkflowCount'),
+    hostDecisionAttention: document.getElementById('hostDecisionAttention'),
     domainAreaCount: document.getElementById('domainAreaCount'),
     domainAreaHint: document.getElementById('domainAreaHint'),
     domainResourceCount: document.getElementById('domainResourceCount'),
@@ -871,6 +878,7 @@
     els.renderableStackChart.innerHTML = renderRenderableStack(metrics);
     els.hostScorecards.innerHTML = renderHostScorecards(metrics);
     els.hostAttention.innerHTML = renderHostAttention(resources);
+    renderHostDecision(metrics);
   }
 
   function platformMetrics(resources) {
@@ -915,6 +923,53 @@
     };
   }
 
+  function renderHostDecision(metrics) {
+    const hasResources = metrics.resources > 0;
+    const formComplete = hasResources && metrics.formResources === metrics.resources;
+    const filterComplete = hasResources && metrics.filterResources === metrics.resources;
+    const tableComplete = hasResources && metrics.tableResources === metrics.resources;
+    const analyticsComplete = hasResources && metrics.statsResources === metrics.resources;
+    const workflowComplete = hasResources && metrics.actionResources === metrics.resources;
+    const uiOperational = hasResources && tableComplete && filterComplete && metrics.formResources > 0;
+    const decisionTone = !hasResources || metrics.schemaGaps ? 'danger' : workflowComplete && formComplete ? 'success' : 'warning';
+    const decisionLabel = !hasResources
+      ? 'Sem domínio materializável'
+      : uiOperational
+        ? workflowComplete
+          ? 'Apto para UI operacional e automação'
+          : 'Apto para UI operacional com ressalva em automação'
+        : 'Materialização parcial exige atenção';
+    const readyParts = [];
+    if (tableComplete) readyParts.push('tabelas');
+    if (filterComplete) readyParts.push('consultas e filtros');
+    if (analyticsComplete) readyParts.push('analytics');
+    if (metrics.formResources) readyParts.push(`${metrics.formResources}/${metrics.resources} formulários`);
+    const readyText = readyParts.length ? `${joinHuman(readyParts)} disponíveis.` : 'Ainda não há experiência de UI suficiente para uma conclusão operacional.';
+    const workflowText = workflowComplete
+      ? 'Workflows acionáveis publicados para todos os recursos avaliados.'
+      : `${metrics.actionResources}/${metrics.resources || 0} workflows acionáveis publicados; CRUD e exploração não são bloqueados, mas automações governadas ainda não ficam disponíveis.`;
+    els.hostDecisionTitle.textContent = decisionLabel;
+    els.hostDecisionSummary.textContent = hasResources
+      ? `${metrics.resources} recurso(s) analisado(s). ${readyText}`
+      : 'O host ainda não publicou recursos de domínio suficientes para auditoria de materialização.';
+    els.decisionResourceCount.textContent = String(metrics.resources || '--');
+    els.decisionFormCount.textContent = `${metrics.formResources}/${metrics.resources || 0}`;
+    els.decisionFilterCount.textContent = `${metrics.filterResources}/${metrics.resources || 0}`;
+    els.decisionWorkflowCount.textContent = `${metrics.actionResources}/${metrics.resources || 0}`;
+    els.hostDecisionAttention.innerHTML = `
+      <span class="status-token status-${escapeAttr(decisionTone)}">${escapeHtml(statusDecisionLabel(decisionTone))}</span>
+      <p><strong>Próxima atenção:</strong> ${escapeHtml(workflowText)}</p>
+      <small>Base: schemas, capabilities, surfaces, actions, x-ui e catálogo HTTP do host.</small>
+    `;
+  }
+
+  function statusDecisionLabel(tone) {
+    if (tone === 'success') return 'Pronto';
+    if (tone === 'danger') return 'Bloqueio';
+    if (tone === 'warning') return 'Atenção';
+    return 'Informativo';
+  }
+
   function hasConfirmedIdentity(resource) {
     return Boolean(resource.capability?.resourceKey)
       || ['resourceKey', 'capabilities', 'surfaces', 'actions', 'capabilities.surfaces', 'capabilities.actions'].includes(resource.sourceConfidence);
@@ -942,19 +997,20 @@
       },
       {
         tone: metrics.estimatedLayers ? 'attention' : 'ok',
-        label: 'Camadas confirmadas',
+        label: 'Evidência das camadas',
         value: String(metrics.confirmedLayers),
         detail: metrics.estimatedLayers ? `${metrics.estimatedLayers} camada(s) são possibilidade estimada pelo catálogo.` : 'Capacidades visíveis estão confirmadas por fonte forte.'
       },
       {
         tone: metrics.actionGaps ? 'optional' : 'ok',
-        label: 'Automação acionável',
+        label: 'Workflows acionáveis',
         value: `${metrics.actionResources}/${metrics.resources || 0}`,
-        detail: metrics.actionGaps ? `${metrics.actionGaps} recurso(s) sem workflow action publicada.` : 'Recursos visíveis publicam ações de workflow.'
+        detail: metrics.actionGaps ? `${metrics.actionGaps} recurso(s) sem workflow publicado; CRUD não é bloqueado.` : 'Recursos visíveis publicam ações de workflow.'
       }
     ];
     return cards.map((card) => `
       <article class="host-scorecard ${escapeAttr(card.tone)}">
+        <em class="status-token ${escapeAttr(statusClassForTone(card.tone))}">${escapeHtml(statusTextForTone(card.tone))}</em>
         <span>${escapeHtml(card.label)}</span>
         <strong>${escapeHtml(card.value)}</strong>
         <small>${escapeHtml(card.detail)}</small>
@@ -1054,7 +1110,7 @@
       <div class="domain-bar-row">
         <span class="domain-bar-label">
           <strong>${escapeHtml(area.label)}</strong>
-          <small>${escapeHtml(area.total)} recurso(s) · ${escapeHtml(area.totalLayers)}/${escapeHtml(area.maxLayers)} camadas · média ${escapeHtml(formatDecimal(area.averageLayers))}/6</small>
+          <small>${escapeHtml(area.total)} recurso(s) · ${escapeHtml(area.totalLayers)}/${escapeHtml(area.maxLayers)} experiências · média ${escapeHtml(formatDecimal(area.averageLayers))}/6</small>
         </span>
         <div class="domain-layer-grid" aria-label="${escapeAttr(area.totalLayers)} de ${escapeAttr(area.maxLayers)} camadas materializáveis em ${escapeAttr(area.label)}">
           ${renderDomainLayerCoverage(area.layerCoverage, area.total)}
@@ -1070,7 +1126,7 @@
       { key: 'canFilter', label: 'Filtro' },
       { key: 'canAnalytics', label: 'Chart' },
       { key: 'canOptions', label: 'Lookup' },
-      { key: 'canActions', label: 'Action' }
+      { key: 'canActions', label: 'Workflow' }
     ];
     return layers.map((layer) => ({
       ...layer,
@@ -1082,10 +1138,12 @@
     return (layers || []).map((layer) => {
       const ratio = total ? layer.count / total : 0;
       const tone = ratio === 1 ? 'ok' : ratio >= .5 ? 'attention' : 'gap';
+      const status = ratio === 1 ? 'Completo' : layer.count > 0 ? 'Parcial' : 'Ausente';
       return `
-        <span class="domain-layer-pill ${escapeAttr(tone)}">
+        <span class="domain-layer-pill ${escapeAttr(tone)}" aria-label="${escapeAttr(layer.label)}: ${escapeAttr(status)}, ${escapeAttr(layer.count)} de ${escapeAttr(total)} recursos">
           <b>${escapeHtml(layer.label)}</b>
           <em>${escapeHtml(layer.count)}/${escapeHtml(total)}</em>
+          <small>${escapeHtml(status)}</small>
         </span>
       `;
     }).join('');
@@ -1147,13 +1205,14 @@
       const evidence = layerEvidenceSummary(metrics.renderableProfiles, part.flag, part.evidence);
       const missing = Math.max(0, metrics.resources - part.value);
       const ratio = Math.round((part.value / total) * 100);
+      const stateLabel = part.value === metrics.resources ? 'Completo' : part.value > 0 ? 'Parcial' : 'Ausente';
       const status = part.value === metrics.resources ? 'Pronto em todo o domínio' : `${missing} recurso(s) sem sinal suficiente`;
       return `
         <section class="experience-row ${escapeAttr(part.tone)}" aria-label="${escapeAttr(part.label)}: ${escapeAttr(part.value)} de ${escapeAttr(metrics.resources)} recursos geráveis">
           <div class="experience-row-main">
             <span class="experience-layer">${escapeHtml(part.label)}</span>
             <strong class="experience-score">${escapeHtml(part.value)}/${escapeHtml(metrics.resources)}</strong>
-            <small class="experience-status">${escapeHtml(status)}</small>
+            <small class="experience-status"><span class="status-token ${escapeAttr(statusClassFromCount(part.value, metrics.resources))}">${escapeHtml(stateLabel)}</span>${escapeHtml(status)}</small>
           </div>
           <div class="experience-row-body">
             <div class="experience-meter" aria-hidden="true"><i style="--value:${escapeAttr(ratio)}%"></i></div>
@@ -1339,7 +1398,9 @@
 
   function renderResourceFilters() {
     els.resourceFilterChips.querySelectorAll('button[data-filter]').forEach((button) => {
-      button.classList.toggle('active', button.dataset.filter === state.resourceFilter);
+      const active = button.dataset.filter === state.resourceFilter;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
   }
 
@@ -1364,7 +1425,7 @@
     }
 
     els.resourceList.innerHTML = filtered.map((resource) => `
-      <button class="resource-button ${resource.key === state.selectedKey ? 'active' : ''}" type="button" data-key="${escapeAttr(resource.key)}" data-area="${escapeAttr(resource.group)}" style="${areaStyleVars(resource.group)}">
+      <button class="resource-button ${resource.key === state.selectedKey ? 'active' : ''}" type="button" data-key="${escapeAttr(resource.key)}" data-area="${escapeAttr(resource.group)}" aria-current="${resource.key === state.selectedKey ? 'true' : 'false'}" style="${areaStyleVars(resource.group)}">
         <strong>${escapeHtml(resource.label)}</strong>
         <span>${escapeHtml(resource.domain)} · ${escapeHtml(resource.endpoints.length)} operações · ${escapeHtml(resource.fieldList.length)} campos</span>
         <span>${escapeHtml(resourceListSignal(resource))}</span>
@@ -1395,6 +1456,27 @@
     if (profile.canActions) parts.push(`action ${evidenceStatusLabel(profile.evidence.actions)}`);
     if (!parts.length) return 'sem camada de UI confirmada';
     return parts.slice(0, 3).join(' · ');
+  }
+
+  function statusClassFromCount(value, total) {
+    if (!total || !value) return 'status-danger';
+    if (value === total) return 'status-success';
+    return 'status-warning';
+  }
+
+  function statusClassForTone(tone) {
+    if (tone === 'ok') return 'status-success';
+    if (tone === 'attention' || tone === 'optional') return 'status-warning';
+    if (tone === 'blocking') return 'status-danger';
+    return 'status-info';
+  }
+
+  function statusTextForTone(tone) {
+    if (tone === 'ok') return 'Pronto';
+    if (tone === 'attention') return 'Atenção';
+    if (tone === 'optional') return 'Parcial';
+    if (tone === 'blocking') return 'Bloqueio';
+    return 'Info';
   }
 
   async function selectResource(key) {
