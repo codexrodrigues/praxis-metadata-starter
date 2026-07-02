@@ -129,6 +129,12 @@
         selectResource(button.dataset.key);
       }
     });
+    els.renderableStackChart.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-key]');
+      if (button) {
+        selectResource(button.dataset.key);
+      }
+    });
     els.resourceFilterChips.querySelectorAll('button[data-filter]').forEach((button) => {
       button.addEventListener('click', () => {
         state.resourceFilter = button.dataset.filter || 'all';
@@ -880,7 +886,8 @@
         return { ...area, total, score, averageLayers, totalLayers, maxLayers, layerCoverage: areaLayerCoverage(renderability) };
       })
       .filter((area) => area.total > 0);
-    const renderable = resources.map((resource) => resourceRenderability(resource));
+    const renderableProfiles = resources.map((resource) => ({ resource, profile: resourceRenderability(resource) }));
+    const renderable = renderableProfiles.map((item) => item.profile);
     const capabilityChecked = resources.filter((resource) => state.capabilities.has(resource.key)).length;
     const capabilityFailures = resources.filter((resource) => state.capabilityErrors.has(resource.key)).length;
     const identityConfirmed = resources.filter((resource) => hasConfirmedIdentity(resource)).length;
@@ -888,6 +895,7 @@
     return {
       resources: resources.length,
       areas: areaRows,
+      renderableProfiles,
       capabilityChecked,
       capabilityFailures,
       identityConfirmed,
@@ -1085,20 +1093,102 @@
 
   function renderRenderableStack(metrics) {
     const parts = [
-      { label: 'Tabelas', value: metrics.tableResources, tone: 'cyan' },
-      { label: 'Formulários', value: metrics.formResources, tone: 'mint' },
-      { label: 'Filtros', value: metrics.filterResources, tone: 'amber' },
-      { label: 'Charts', value: metrics.statsResources, tone: 'violet' },
-      { label: 'Lookups', value: metrics.optionResources, tone: 'rose' }
+      {
+        key: 'table',
+        flag: 'canTable',
+        evidence: 'table',
+        label: 'Tabelas',
+        value: metrics.tableResources,
+        tone: 'cyan',
+        impact: 'Listagens, detalhes e grades operacionais para navegação dos dados.'
+      },
+      {
+        key: 'form',
+        flag: 'canForm',
+        evidence: 'form',
+        label: 'Formulários',
+        value: metrics.formResources,
+        tone: 'mint',
+        impact: 'Criação e edição quando há contrato de escrita ou surface de formulário.'
+      },
+      {
+        key: 'filter',
+        flag: 'canFilter',
+        evidence: 'filter',
+        label: 'Filtros',
+        value: metrics.filterResources,
+        tone: 'amber',
+        impact: 'Busca, segmentação e exploração segura dos recursos publicados.'
+      },
+      {
+        key: 'chart',
+        flag: 'canAnalytics',
+        evidence: 'analytics',
+        label: 'Charts',
+        value: metrics.statsResources,
+        tone: 'violet',
+        impact: 'Indicadores, distribuições e séries para leitura executiva.'
+      },
+      {
+        key: 'lookup',
+        flag: 'canOptions',
+        evidence: 'options',
+        label: 'Lookups',
+        value: metrics.optionResources,
+        tone: 'rose',
+        impact: 'Seletores e fontes de opção para compor telas relacionais.'
+      }
     ];
-    const max = Math.max(1, metrics.resources);
-    return parts.map((part) => `
-      <div class="stack-row">
-        <span>${escapeHtml(part.label)}</span>
-        <div class="stack-track ${escapeAttr(part.tone)}"><i style="--value:${escapeAttr(Math.round(part.value / max * 100))}%"></i></div>
-        <strong>${escapeHtml(part.value)}</strong>
+    const total = Math.max(1, metrics.resources);
+    return parts.map((part) => {
+      const readyResources = metrics.renderableProfiles
+        .filter((item) => item.profile[part.flag])
+        .map((item) => item.resource);
+      const evidence = layerEvidenceSummary(metrics.renderableProfiles, part.flag, part.evidence);
+      const missing = Math.max(0, metrics.resources - part.value);
+      const ratio = Math.round((part.value / total) * 100);
+      const status = part.value === metrics.resources ? 'Pronto em todo o domínio' : `${missing} recurso(s) sem sinal suficiente`;
+      return `
+        <section class="experience-row ${escapeAttr(part.tone)}" aria-label="${escapeAttr(part.label)}: ${escapeAttr(part.value)} de ${escapeAttr(metrics.resources)} recursos geráveis">
+          <div class="experience-row-main">
+            <span class="experience-layer">${escapeHtml(part.label)}</span>
+            <strong>${escapeHtml(part.value)}/${escapeHtml(metrics.resources)}</strong>
+            <small>${escapeHtml(status)}</small>
+          </div>
+          <div class="experience-row-body">
+            <div class="experience-meter" aria-hidden="true"><i style="--value:${escapeAttr(ratio)}%"></i></div>
+            <p>${escapeHtml(part.impact)}</p>
+            <div class="experience-evidence">
+              <span>${escapeHtml(evidence)}</span>
+              ${renderExperienceResourceChips(readyResources)}
+            </div>
+          </div>
+        </section>
+      `;
+    }).join('');
+  }
+
+  function layerEvidenceSummary(items, flag, evidenceKey) {
+    const scoped = items.filter((item) => item.profile[flag]);
+    if (!scoped.length) return 'Sem recursos prontos nesta camada.';
+    const confirmed = scoped.filter((item) => ['confirmed', 'schema'].includes(item.profile.evidence[evidenceKey])).length;
+    const estimated = scoped.filter((item) => item.profile.evidence[evidenceKey] === 'catalog').length;
+    if (estimated) return `${confirmed} confirmado(s) · ${estimated} estimado(s) pelo catálogo`;
+    return `${confirmed} confirmado(s) por capabilities, surfaces, schema ou x-ui`;
+  }
+
+  function renderExperienceResourceChips(resources) {
+    const visible = resources.slice(0, 3);
+    const overflow = resources.length - visible.length;
+    if (!visible.length) return '<em>Nenhum exemplo disponível.</em>';
+    return `
+      <div class="experience-resource-list" aria-label="Exemplos de recursos geráveis">
+        ${visible.map((resource) => `
+          <button type="button" data-key="${escapeAttr(resource.key)}">${escapeHtml(resource.label)}</button>
+        `).join('')}
+        ${overflow > 0 ? `<em>+${escapeHtml(overflow)}</em>` : ''}
       </div>
-    `).join('');
+    `;
   }
 
   function formatDecimal(value) {
