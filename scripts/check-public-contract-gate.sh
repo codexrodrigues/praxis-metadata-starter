@@ -69,7 +69,7 @@ fi
 
 public_contract_pattern='(^docs/spec/'
 public_contract_pattern+='|^src/main/java/org/praxisplatform/uischema/'
-public_contract_pattern+='(annotation|extension/annotation|controller/(base|docs)'
+public_contract_pattern+='(annotation|extension/(annotation|CustomOpenApiResolver.java)|controller/(base|docs)'
 public_contract_pattern+='|service/base|rest/response|openapi|schema|surface|action'
 public_contract_pattern+='|capability|configuration|FieldConfigProperties.java'
 public_contract_pattern+='|ValidationProperties.java)'

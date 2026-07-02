@@ -1998,12 +1998,13 @@ public class CustomOpenApiResolver extends ModelResolver {
     private void applyExtraProperties(UISchema annotation, Map<String, Object> uiExtension) {
         if (annotation.extraProperties() != null && annotation.extraProperties().length > 0) {
             for (ExtensionProperty p : annotation.extraProperties()) {
+                Object parsedValue = parseNestedExtraPropertyValue(p.value());
                 // extraProperties sobrescreve TUDO (precedência máxima)
                 if (p.name() != null && p.name().contains(".")) {
-                    putNestedExtraProperty(uiExtension, p.name(), parseNestedExtraPropertyValue(p.value()));
+                    putNestedExtraProperty(uiExtension, p.name(), parsedValue);
                     continue;
                 }
-                uiExtension.put(p.name(), p.value());
+                uiExtension.put(p.name(), parsedValue);
             }
         }
     }
