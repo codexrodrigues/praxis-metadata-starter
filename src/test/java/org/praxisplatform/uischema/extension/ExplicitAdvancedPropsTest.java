@@ -174,6 +174,41 @@ class ExplicitAdvancedPropsTest {
     }
 
     @Test
+    void resolverShouldRejectLiteralTypeThatAngularRuntimeRejects() throws Exception {
+        assertInvalidCondition(InvalidLiteralTypeConditionalDisplay.class, "must be a string, array literal, or expression");
+    }
+
+    @Test
+    void resolverShouldRejectStructuredLiteralWhereStringIsRequired() throws Exception {
+        assertInvalidCondition(InvalidStringLiteralConditionalDisplay.class, "must be a string literal or expression");
+    }
+
+    @Test
+    void resolverShouldRejectStructuredLiteralWhereObjectIsRequired() throws Exception {
+        assertInvalidCondition(InvalidObjectLiteralConditionalDisplay.class, "must be an object literal or expression");
+    }
+
+    @Test
+    void resolverShouldRejectMalformedJsonWithActionableMessage() throws Exception {
+        assertInvalidCondition(MalformedJsonConditionalDisplay.class, "must contain valid JSON");
+    }
+
+    @Test
+    void resolverShouldAllowNullConditionalValidationCondition() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("campo");
+
+        Annotation uiSchema = NullConditionalValidation.class.getDeclaredField("campo").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[]{ uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        List<?> conditionalValidation = (List<?>) xui.get(ValidationProperties.CONDITIONAL_VALIDATION.getValue());
+        Map<?, ?> conditionalRule = (Map<?, ?>) conditionalValidation.get(0);
+        assertNull(conditionalRule.get("condition"));
+    }
+
+    @Test
     void resolverShouldPublishValidJsonLogicObjectInConditionalDisplay() throws Exception {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
         Schema<?> property = new Schema<>().type("string");
@@ -213,6 +248,34 @@ class ExplicitAdvancedPropsTest {
 
     private static class ExcessiveArityConditionalDisplay {
         @UISchema(conditionalDisplay = "{\"in\":[\"A\",[\"A\",\"B\"],\"extra\"]}")
+        String campo;
+    }
+
+    private static class InvalidLiteralTypeConditionalDisplay {
+        @UISchema(conditionalDisplay = "{\"in\":[\"A\",42]}")
+        String campo;
+    }
+
+    private static class InvalidStringLiteralConditionalDisplay {
+        @UISchema(conditionalDisplay = "{\"startsWith\":[[\"A\"],\"A\"]}")
+        String campo;
+    }
+
+    private static class InvalidObjectLiteralConditionalDisplay {
+        @UISchema(conditionalDisplay = "{\"jsonGet\":[[],\"path\"]}")
+        String campo;
+    }
+
+    private static class MalformedJsonConditionalDisplay {
+        @UISchema(conditionalDisplay = "{\"==\":[{\"var\":\"form.status\"},\"active\"")
+        String campo;
+    }
+
+    private static class NullConditionalValidation {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "conditionalValidation",
+                value = "[{\"condition\":null,\"validators\":{\"required\":true}}]"
+        ))
         String campo;
     }
 

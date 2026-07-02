@@ -40,6 +40,7 @@ All notable changes to this module will be documented in this file.
 - `@UiSurface` agora pode publicar `relatedResource` para surfaces `ITEM` que projetam colecoes relacionadas; o schema continua resolvido por `/schemas/filtered` da operacao real e metadados parciais de colecao filha sao rejeitados.
 - `x-ui-field.schema.json` passa a documentar `presentationPreset` como acelerador visual, explicitamente separado da descricao OpenAPI de dominio.
 - `conditionalDisplay`, `conditionalRequired` e `conditionalValidation[].condition` agora sao validados no backend como Json Logic canonico contra a matriz de operadores do runtime Angular antes de serem publicados em `x-ui`.
+- Mensagens de erro para condicionais Json Logic malformados agora distinguem JSON invalido de contrato Json Logic invalido, e a validacao bloqueia literais com shape basico incompatível com o runtime Angular.
 
 ### Fixed
 - `OptionSourceRuntimeContract.canonical(...)` rejeita `sourceKey` nao URL-safe antes de publicar endpoints de runtime.

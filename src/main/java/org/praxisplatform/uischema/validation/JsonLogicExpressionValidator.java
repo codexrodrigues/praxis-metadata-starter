@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.validation;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Validates the canonical Praxis Json Logic operator matrix consumed by the
@@ -14,6 +15,11 @@ public final class JsonLogicExpressionValidator {
     }
 
     private static final Map<String, OperatorArity> OPERATOR_ARITIES = createOperatorArities();
+    private static final Set<String> ORDERED_COMPARISON_OPERATORS = Set.of(">", ">=", "<", "<=");
+    private static final Set<String> NUMERIC_OPERATORS = Set.of("+", "-", "*", "/", "%", "min", "max",
+            "round", "ceil", "floor", "abs");
+    private static final Set<String> STRING_BINARY_OPERATORS = Set.of("startsWith", "endsWith", "matches");
+    private static final Set<String> ARRAY_SOURCE_OPERATORS = Set.of("map", "filter", "reduce", "all", "some", "none");
 
     public void validateCondition(Object expression, String propertyPath, boolean allowNull) {
         if (expression == null) {
@@ -80,6 +86,7 @@ public final class JsonLogicExpressionValidator {
 
         List<?> args = toArgumentList(entry.getValue());
         validateArity(operator, args.size(), arity, path);
+        validateLiteralArgumentShape(operator, args, path);
         for (int index = 0; index < args.size(); index++) {
             validateValue(args.get(index), path + "." + operator + "[" + index + "]", false);
         }
@@ -114,6 +121,158 @@ public final class JsonLogicExpressionValidator {
             throw invalid(path, "operator `" + operator + "` accepts at most "
                     + arity.maxArgs() + " arguments");
         }
+    }
+
+    private void validateLiteralArgumentShape(String operator, List<?> args, String path) {
+        if (ORDERED_COMPARISON_OPERATORS.contains(operator)) {
+            validateComparableLiteralPair(operator, args, path);
+            return;
+        }
+        if (NUMERIC_OPERATORS.contains(operator)) {
+            validateNumericLiteralArguments(operator, args, path);
+            return;
+        }
+        if ("substr".equals(operator)) {
+            validateStringLiteralArgument(operator, args.get(0), path, 0);
+            validateNumericLiteralArgument(operator, args.get(1), path, 1);
+            if (args.size() == 3) {
+                validateNumericLiteralArgument(operator, args.get(2), path, 2);
+            }
+            return;
+        }
+        if ("in".equals(operator)) {
+            validateInLiteralArguments(args, path);
+            return;
+        }
+        if ("contains".equals(operator)) {
+            validateContainsLiteralArguments(args, path);
+            return;
+        }
+        if (STRING_BINARY_OPERATORS.contains(operator)) {
+            validateStringLiteralArgument(operator, args.get(0), path, 0);
+            validateStringLiteralArgument(operator, args.get(1), path, 1);
+            return;
+        }
+        if ("len".equals(operator)) {
+            validateLenLiteralArgument(args.get(0), path);
+            return;
+        }
+        if ("jsonGet".equals(operator) || "hasKey".equals(operator)) {
+            validateObjectLiteralArgument(operator, args.get(0), path, 0);
+            validateStringLiteralArgument(operator, args.get(1), path, 1);
+            return;
+        }
+        if (ARRAY_SOURCE_OPERATORS.contains(operator)) {
+            validateArrayLiteralArgument(operator, args.get(0), path, 0);
+            return;
+        }
+        if ("weekdayIn".equals(operator)) {
+            validateArrayLiteralArgument(operator, args.get(1), path, 1);
+            return;
+        }
+        if ("inLast".equals(operator)) {
+            validateNumericLiteralArgument(operator, args.get(1), path, 1);
+            validateStringLiteralArgument(operator, args.get(2), path, 2);
+        }
+    }
+
+    private void validateComparableLiteralPair(String operator, List<?> args, String path) {
+        Object left = args.get(0);
+        Object right = args.get(1);
+        if (isDynamicExpression(left) || isDynamicExpression(right)) {
+            return;
+        }
+        boolean comparable = (left instanceof Number && right instanceof Number)
+                || (left instanceof String && right instanceof String);
+        if (!comparable) {
+            throw invalid(path, "operator `" + operator + "` requires comparable literal operands");
+        }
+    }
+
+    private void validateNumericLiteralArguments(String operator, List<?> args, String path) {
+        for (int index = 0; index < args.size(); index++) {
+            validateNumericLiteralArgument(operator, args.get(index), path, index);
+        }
+    }
+
+    private void validateNumericLiteralArgument(String operator, Object arg, String path, int index) {
+        if (isDynamicExpression(arg)) {
+            return;
+        }
+        if (!(arg instanceof Number number) || !Double.isFinite(number.doubleValue())) {
+            throw invalid(path + "." + operator + "[" + index + "]",
+                    "must be a finite numeric literal or expression");
+        }
+    }
+
+    private void validateStringLiteralArgument(String operator, Object arg, String path, int index) {
+        if (isDynamicExpression(arg)) {
+            return;
+        }
+        if (!(arg instanceof String)) {
+            throw invalid(path + "." + operator + "[" + index + "]",
+                    "must be a string literal or expression");
+        }
+    }
+
+    private void validateArrayLiteralArgument(String operator, Object arg, String path, int index) {
+        if (isDynamicExpression(arg)) {
+            return;
+        }
+        if (!(arg instanceof List<?>)) {
+            throw invalid(path + "." + operator + "[" + index + "]",
+                    "must be an array literal or expression");
+        }
+    }
+
+    private void validateObjectLiteralArgument(String operator, Object arg, String path, int index) {
+        if (isDynamicExpression(arg)) {
+            return;
+        }
+        if (!(arg instanceof Map<?, ?> map) || isExpressionObject(map)) {
+            throw invalid(path + "." + operator + "[" + index + "]",
+                    "must be an object literal or expression");
+        }
+    }
+
+    private void validateInLiteralArguments(List<?> args, String path) {
+        Object needle = args.get(0);
+        Object haystack = args.get(1);
+        if (haystack instanceof String && !isDynamicExpression(needle) && !(needle instanceof String)) {
+            throw invalid(path + ".in[0]", "must be a string literal when haystack is a string literal");
+        }
+        if (!isDynamicExpression(haystack) && !(haystack instanceof String) && !(haystack instanceof List<?>)) {
+            throw invalid(path + ".in[1]", "must be a string, array literal, or expression");
+        }
+    }
+
+    private void validateContainsLiteralArguments(List<?> args, String path) {
+        Object container = args.get(0);
+        Object candidate = args.get(1);
+        if (container instanceof String && !isDynamicExpression(candidate) && !(candidate instanceof String)) {
+            throw invalid(path + ".contains[1]", "must be a string literal when container is a string literal");
+        }
+        if (!isDynamicExpression(container) && !(container instanceof String) && !(container instanceof List<?>)) {
+            throw invalid(path + ".contains[0]", "must be a string, array literal, or expression");
+        }
+    }
+
+    private void validateLenLiteralArgument(Object arg, String path) {
+        if (isDynamicExpression(arg)) {
+            return;
+        }
+        if (!(arg instanceof String) && !(arg instanceof List<?>) && !(arg instanceof Map<?, ?> map && !isExpressionObject(map))) {
+            throw invalid(path + ".len[0]", "must be a string, array, object literal, or expression");
+        }
+    }
+
+    private boolean isDynamicExpression(Object value) {
+        return value instanceof Map<?, ?> map && isExpressionObject(map);
+    }
+
+    private boolean isExpressionObject(Map<?, ?> value) {
+        return value.size() == 1 && value.keySet().iterator().next() instanceof String operator
+                && OPERATOR_ARITIES.containsKey(operator);
     }
 
     private IllegalArgumentException invalid(String path, String reason) {

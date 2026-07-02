@@ -2009,7 +2009,7 @@ public class CustomOpenApiResolver extends ModelResolver {
     private void applyExtraProperties(UISchema annotation, Map<String, Object> uiExtension) {
         if (annotation.extraProperties() != null && annotation.extraProperties().length > 0) {
             for (ExtensionProperty p : annotation.extraProperties()) {
-                Object parsedValue = normalizeXuiExtraProperty(p.name(), parseNestedExtraPropertyValue(p.value()));
+                Object parsedValue = parseXuiExtraPropertyValue(p.name(), p.value());
                 // extraProperties sobrescreve TUDO (precedência máxima)
                 if (p.name() != null && p.name().contains(".")) {
                     putNestedExtraProperty(uiExtension, p.name(), parsedValue);
@@ -2079,6 +2079,9 @@ public class CustomOpenApiResolver extends ModelResolver {
                 // Fallback to the raw string when the literal is not valid JSON.
             }
         }
+        if ("null".equalsIgnoreCase(trimmed)) {
+            return null;
+        }
         if ("true".equalsIgnoreCase(trimmed) || "false".equalsIgnoreCase(trimmed)) {
             return Boolean.parseBoolean(trimmed);
         }
@@ -2104,9 +2107,48 @@ public class CustomOpenApiResolver extends ModelResolver {
     }
 
     private Object parseJsonLogicCondition(String rawValue, String propertyPath, boolean allowNull) {
-        Object parsed = parseNestedExtraPropertyValue(rawValue);
+        Object parsed = parseStrictStructuredValue(rawValue, propertyPath);
         validateJsonLogicCondition(parsed, propertyPath, allowNull);
         return parsed;
+    }
+
+    private Object parseXuiExtraPropertyValue(String propertyName, String rawValue) {
+        if (propertyName == null || propertyName.isBlank()) {
+            return parseNestedExtraPropertyValue(rawValue);
+        }
+
+        String normalizedName = propertyName.trim();
+        Object parsedValue = isJsonLogicConditionProperty(normalizedName)
+                || isConditionalValidationProperty(normalizedName)
+                ? parseStrictStructuredValue(rawValue, normalizedName)
+                : parseNestedExtraPropertyValue(rawValue);
+        return normalizeXuiExtraProperty(normalizedName, parsedValue);
+    }
+
+    private Object parseStrictStructuredValue(String rawValue, String propertyPath) {
+        if (rawValue == null) {
+            return null;
+        }
+        String trimmed = rawValue.trim();
+        if (trimmed.isEmpty()) {
+            return trimmed;
+        }
+        if ("null".equalsIgnoreCase(trimmed)) {
+            return null;
+        }
+        if (startsLikeStructuredLiteral(trimmed)) {
+            try {
+                return _mapper.readValue(trimmed, Object.class);
+            } catch (Exception ex) {
+                throw new IllegalArgumentException(propertyPath
+                        + " must contain valid JSON before it can be validated as canonical Json Logic.", ex);
+            }
+        }
+        return parseNestedExtraPropertyValue(rawValue);
+    }
+
+    private boolean startsLikeStructuredLiteral(String value) {
+        return value.startsWith("{") || value.startsWith("[") || value.startsWith("\"");
     }
 
     private Object normalizeXuiExtraProperty(String propertyName, Object parsedValue) {
@@ -2120,7 +2162,7 @@ public class CustomOpenApiResolver extends ModelResolver {
             return parsedValue;
         }
 
-        if (ValidationProperties.CONDITIONAL_VALIDATION.getValue().equals(normalizedName)) {
+        if (isConditionalValidationProperty(normalizedName)) {
             validateConditionalValidationRules(parsedValue, normalizedName);
         }
         return parsedValue;
@@ -2131,6 +2173,10 @@ public class CustomOpenApiResolver extends ModelResolver {
                 || FieldConfigProperties.CONDITIONAL_REQUIRED.getValue().equals(propertyName)
                 || ValidationProperties.CONDITIONAL_REQUIRED.getValue().equals(propertyName)
                 || ("validation." + ValidationProperties.CONDITIONAL_REQUIRED.getValue()).equals(propertyName);
+    }
+
+    private boolean isConditionalValidationProperty(String propertyName) {
+        return ValidationProperties.CONDITIONAL_VALIDATION.getValue().equals(propertyName);
     }
 
     private void validateConditionalValidationRules(Object parsedValue, String propertyPath) {
