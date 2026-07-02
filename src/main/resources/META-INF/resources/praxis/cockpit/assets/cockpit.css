@@ -432,9 +432,37 @@ dd {
   margin-bottom: 4px;
 }
 
+.diagnostic-item small {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .diagnostic-item span {
+  display: block;
   color: var(--muted);
   font-size: 13px;
+}
+
+.diagnostic-item dl {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 5px 10px;
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+
+.diagnostic-item dt {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.diagnostic-item dd {
+  margin: 0;
+  color: var(--text);
 }
 
 .empty-state {

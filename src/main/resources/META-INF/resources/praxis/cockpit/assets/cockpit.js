@@ -660,68 +660,156 @@
 
   function renderDiagnostics(resource, scores) {
     const diagnostics = [];
-    diagnostics.push({
-      level: resource.resourceKey ? 'good' : 'bad',
+    diagnostics.push(diagnostic({
+      id: 'semantic.resource-key-pivot',
+      category: 'semantic',
+      severity: resource.resourceKey ? 'info' : 'error',
       title: resource.resourceKey ? 'resourceKey usado como pivot canonico' : 'resourceKey ausente na composicao atual',
+      evidence: resource.resourceKey || resource.resourcePath || resource.key,
+      canonicalSource: '/schemas/domain, /schemas/surfaces, /schemas/actions',
+      impact: resource.resourceKey
+        ? 'A identidade semantica pode ser reconciliada entre discovery, runtime e AI grounding.'
+        : 'O cockpit precisou usar path ou operationId como apoio estrutural, o que reduz estabilidade para consumidores corporativos.',
+      recommendedFix: 'Publicar resourceKey no dono canonico do recurso, preferencialmente via @ApiResource(resourceKey=...).',
+      validation: 'Consultar /schemas/domain, /schemas/surfaces ou /schemas/actions e confirmar o mesmo resourceKey.',
       body: resource.resourceKey ? 'Surfaces, actions ou domain publicaram identidade semantica estavel.' : 'O cockpit precisou usar path ou operationId como apoio estrutural.'
-    });
-    diagnostics.push({
-      level: scores.structural === 'bad' ? 'bad' : 'good',
+    }));
+    diagnostics.push(diagnostic({
+      id: 'structural.filtered-schema-resolvable',
+      category: 'structural',
+      severity: scores.structural === 'bad' ? 'error' : 'info',
       title: scores.structural === 'bad' ? 'Schema estrutural ainda nao resolvido' : 'Contrato estrutural tem evidencia',
+      evidence: resource.filteredSchema ? 'filtered schema resolvido' : `${resource.schemaLinks.length} schema link(s), ${resource.endpoints.length} endpoint(s)`,
+      canonicalSource: '/schemas/filtered',
+      impact: 'Forms, tabelas, option sources e materializacoes runtime dependem de schema estrutural confiavel.',
+      recommendedFix: 'Corrigir a operacao/schema canonica no starter ou no controller resource-oriented; nao remendar no consumidor.',
+      validation: 'Abrir o schema via /schemas/filtered para o path/metodo do recurso.',
       body: 'A fonte estrutural continua sendo /schemas/filtered; catalogos apenas referenciam schemas.'
-    });
-    diagnostics.push({
-      level: state.discovery.frameworkEndpoints.length ? 'good' : 'warn',
+    }));
+    diagnostics.push(diagnostic({
+      id: 'semantic.framework-endpoints-separated',
+      category: 'semantic',
+      severity: state.discovery.frameworkEndpoints.length ? 'info' : 'warn',
       title: state.discovery.frameworkEndpoints.length ? 'Endpoints tecnicos separados do mapa semantico' : 'Nenhum endpoint tecnico detectado no catalogo',
+      evidence: `${state.discovery.frameworkEndpoints.length} framework, ${state.discovery.derivedEndpoints.length} derived`,
+      canonicalSource: '/schemas/catalog',
+      impact: 'O contador de resources fica didatico e nao mistura auth, actuator, swagger, config infra ou helpers com dominio.',
+      recommendedFix: 'Manter a classificacao no cockpit derivada de paths canonicos e promover contrato apenas se houver lacuna real.',
+      validation: 'Comparar resources do cockpit com /schemas/catalog e confirmar que /auth/** nao aparece como resource.',
       body: `${state.discovery.frameworkEndpoints.length} endpoint(s) de framework e ${state.discovery.derivedEndpoints.length} operacao(oes) derivada(s) nao inflaram o contador de resources.`
-    });
+    }));
     diagnostics.push(discoveryDiagnostic(
       'surfaces',
       resource.surfaces.length,
+      'semantic.surface-discovery',
+      'semantic',
       'Surfaces semanticas publicadas',
       'Surface discovery ausente ou vazio',
-      '/schemas/surfaces deve publicar experiencias de UI quando o host tiver modelo semantico de tela.'
+      '/schemas/surfaces',
+      '/schemas/surfaces deve publicar experiencias de UI quando o host tiver modelo semantico de tela.',
+      'Experiencias runtime podem ficar implicitas ou depender de convencao local se a surface nao estiver publicada.',
+      'Publicar @UiSurface ou garantir surfaces automaticas no recurso canonico.'
     ));
     diagnostics.push(discoveryDiagnostic(
       'actions',
       resource.actions.length,
+      'semantic.action-discovery',
+      'semantic',
       'Actions semanticas publicadas',
       'Action discovery ausente ou vazio',
-      '/schemas/actions deve publicar workflows de negocio quando o host tiver acoes governadas.'
+      '/schemas/actions',
+      '/schemas/actions deve publicar workflows de negocio quando o host tiver acoes governadas.',
+      'Workflows de negocio podem ficar invisiveis para runtime materialization e grounding de IA.',
+      'Publicar @WorkflowAction no controller/resource canonico e schemas de request/response quando houver payload.'
     ));
-    diagnostics.push({
-      level: resource.capability ? 'good' : 'bad',
+    diagnostics.push(diagnostic({
+      id: 'runtime.capabilities-readable',
+      category: 'runtime',
+      severity: resource.capability ? 'info' : 'error',
       title: resource.capability ? 'Capabilities lidas no recurso' : 'Capabilities indisponiveis nesta leitura',
+      evidence: resource.capability ? 'snapshot lido' : resource.resourcePath || 'sem resourcePath',
+      canonicalSource: 'GET {resource}/capabilities',
+      impact: 'Capabilities governam operacoes atuais e devem alinhar schema, actions, surfaces e links HATEOAS.',
+      recommendedFix: 'Corrigir o controller resource-oriented ou a composicao de capabilities no starter.',
+      validation: 'Chamar GET {resource}/capabilities no host e comparar operations com o OpenAPI.',
       body: 'Capabilities governam operacao atual, mas nao substituem schema.'
-    });
-    diagnostics.push({
-      level: scores.ai === 'bad' ? 'bad' : 'good',
+    }));
+    diagnostics.push(diagnostic({
+      id: 'ai.domain-grounding-evidence',
+      category: 'ai',
+      severity: scores.ai === 'bad' ? 'error' : 'info',
       title: scores.ai === 'bad' ? 'Grounding AI parcial' : 'Grounding AI com evidencia',
+      evidence: `${resource.domainItems.length} domain item(s), ${governanceSignalCount(resource)} governance signal(s)`,
+      canonicalSource: '/schemas/domain + x-domain-governance',
+      impact: 'IA tem menos contexto governado para explicar, simular e authorar decisoes semanticas.',
+      recommendedFix: 'Melhorar catalogo de dominio, descricoes de negocio e governanca no recurso canonico.',
+      validation: 'Consultar /schemas/domain e verificar vocabulario, evidencias e governanca do resourceKey.',
       body: 'O cockpit procura /schemas/domain e governanca derivada do schema.'
-    });
+    }));
 
     els.diagnosticsList.innerHTML = diagnostics.map((item) => `
       <article class="diagnostic-item ${item.level}">
+        <small>${escapeHtml(item.id)} · ${escapeHtml(item.category)} · experimental</small>
         <strong>${escapeHtml(item.title)}</strong>
         <span>${escapeHtml(item.body)}</span>
+        <dl>
+          <dt>Fonte</dt><dd>${escapeHtml(item.canonicalSource)}</dd>
+          <dt>Evidencia</dt><dd>${escapeHtml(item.evidence)}</dd>
+          <dt>Impacto</dt><dd>${escapeHtml(item.impact)}</dd>
+          <dt>Fix canonico</dt><dd>${escapeHtml(item.recommendedFix)}</dd>
+          <dt>Validacao</dt><dd>${escapeHtml(item.validation)}</dd>
+        </dl>
       </article>
     `).join('');
   }
 
-  function discoveryDiagnostic(endpointKey, count, okTitle, emptyTitle, body) {
+  function diagnostic(item) {
+    return {
+      experimental: true,
+      level: diagnosticLevel(item.severity),
+      evidence: item.evidence || '--',
+      ...item
+    };
+  }
+
+  function diagnosticLevel(severity) {
+    if (severity === 'error') {
+      return 'bad';
+    }
+    if (severity === 'warn') {
+      return 'warn';
+    }
+    return 'good';
+  }
+
+  function discoveryDiagnostic(endpointKey, count, id, category, okTitle, emptyTitle, canonicalSource, body, impact, recommendedFix) {
     const status = state.endpointStatus[endpointKey];
     if (!status?.ok) {
-      return {
-        level: 'bad',
+      return diagnostic({
+        id,
+        category,
+        severity: 'error',
         title: `${endpointKey} indisponivel`,
+        evidence: status?.message || 'indisponivel',
+        canonicalSource,
+        impact,
+        recommendedFix: 'Garantir que a superficie canonica esteja publicada e acessivel pela politica de seguranca do host.',
+        validation: `Chamar ${canonicalSource} no host e confirmar resposta 2xx.`,
         body: `${body} A leitura atual recebeu: ${status?.message || 'indisponivel'}.`
-      };
+      });
     }
-    return {
-      level: count > 0 ? 'good' : 'bad',
+    return diagnostic({
+      id,
+      category,
+      severity: count > 0 ? 'info' : 'error',
       title: count > 0 ? okTitle : emptyTitle,
+      evidence: `${count} item(ns)`,
+      canonicalSource,
+      impact,
+      recommendedFix,
+      validation: `Chamar ${canonicalSource} e conferir itens associados ao resourceKey.`,
       body: count > 0 ? `${count} item(ns) encontrados para este resource.` : body
-    };
+    });
   }
 
   function optionSourceCount(resource) {

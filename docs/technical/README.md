@@ -22,6 +22,7 @@ Para onboarding e narrativa publica atual, use primeiro:
 
 - [Plano do Semantic Host Cockpit](SEMANTIC-HOST-COCKPIT-PLAN.md)
 - [Spike de composicao do Semantic Host Cockpit](SEMANTIC-HOST-COCKPIT-COMPOSITION-SPIKE.md)
+- [Catalogo experimental de diagnostics do Semantic Host Cockpit](SEMANTIC-HOST-COCKPIT-DIAGNOSTICS-CATALOG.md)
 - [Checklist de prontidao do piloto](PILOT-READINESS-CHECKLIST.md)
 - [Rollback e observabilidade do piloto](ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.md)
 
