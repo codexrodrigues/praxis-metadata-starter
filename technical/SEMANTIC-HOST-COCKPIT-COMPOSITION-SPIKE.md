@@ -21,6 +21,15 @@ suficientes em `resourceKey`, `resourcePath`, `path`, `method`, `operationId` e
 starter. Um endpoint agregado de dados como `/schemas/host-cockpit` ainda nao
 esta justificado como `lacuna-real-de-contrato`.
 
+Atualizacao de materializacao: a leitura do cockpit deve separar endpoints de
+framework/infraestrutura e operacoes derivadas antes de contar resources
+semanticos. Paths como `/auth/**`, `/actuator/**`, `/swagger-ui/**`,
+`/v3/api-docs/**`, `/schemas/**`, `/praxis/cockpit/**`,
+`/api/praxis/config/**`, assets estaticos e home do host nao entram no contador
+de resources de dominio. Subpaths como `/actions/**`, `/batch/**`, `/stats/**`,
+`/filter`, `/options/**`, `/option-sources/**`, `/schema/**` e `/schemas/**`
+enriquecem o recurso canonico pai, em vez de virarem resources top-level.
+
 ## Fontes existentes
 
 ### Health e operacao do host

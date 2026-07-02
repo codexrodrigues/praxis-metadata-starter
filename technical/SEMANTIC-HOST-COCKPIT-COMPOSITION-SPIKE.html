@@ -186,6 +186,18 @@ pivots suficientes em <code>resourceKey</code>,
 deve continuar derivada e empacotada pelo starter. Um endpoint agregado
 de dados como <code>/schemas/host-cockpit</code> ainda nao esta
 justificado como <code>lacuna-real-de-contrato</code>.</p>
+<p>Atualizacao de materializacao: a leitura do cockpit deve separar
+endpoints de framework/infraestrutura e operacoes derivadas antes de
+contar resources semanticos. Paths como <code>/auth/**</code>,
+<code>/actuator/**</code>, <code>/swagger-ui/**</code>,
+<code>/v3/api-docs/**</code>, <code>/schemas/**</code>,
+<code>/praxis/cockpit/**</code>, <code>/api/praxis/config/**</code>,
+assets estaticos e home do host nao entram no contador de resources de
+dominio. Subpaths como <code>/actions/**</code>, <code>/batch/**</code>,
+<code>/stats/**</code>, <code>/filter</code>, <code>/options/**</code>,
+<code>/option-sources/**</code>, <code>/schema/**</code> e
+<code>/schemas/**</code> enriquecem o recurso canonico pai, em vez de
+virarem resources top-level.</p>
 <h2 id="fontes-existentes">Fontes existentes</h2>
 <h3 id="health-e-operacao-do-host">Health e operacao do host</h3>
 <p>Fonte:</p>
