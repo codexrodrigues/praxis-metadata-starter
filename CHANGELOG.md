@@ -39,6 +39,7 @@ All notable changes to this module will be documented in this file.
 - A documentacao de `@UISchema` foi alinhada ao contrato atual de `type`, `controlType`, `numericFormat` e semantica textual para codigos, documentos e identificadores numericos de legado.
 - `@UiSurface` agora pode publicar `relatedResource` para surfaces `ITEM` que projetam colecoes relacionadas; o schema continua resolvido por `/schemas/filtered` da operacao real e metadados parciais de colecao filha sao rejeitados.
 - `x-ui-field.schema.json` passa a documentar `presentationPreset` como acelerador visual, explicitamente separado da descricao OpenAPI de dominio.
+- `conditionalDisplay`, `conditionalRequired` e `conditionalValidation[].condition` agora sao validados no backend como Json Logic canonico contra a matriz de operadores do runtime Angular antes de serem publicados em `x-ui`.
 
 ### Fixed
 - `OptionSourceRuntimeContract.canonical(...)` rejeita `sourceKey` nao URL-safe antes de publicar endpoints de runtime.

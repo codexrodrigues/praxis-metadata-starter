@@ -14,6 +14,7 @@ import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 import org.praxisplatform.uischema.numeric.NumberFormatStyle;
 import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
+import org.praxisplatform.uischema.validation.JsonLogicExpressionValidator;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -53,6 +54,7 @@ public class CustomOpenApiResolver extends ModelResolver {
     // Constante para o nome da extensão UI
     private static final String UI_EXTENSION_NAME = "x-ui";
     private static final String DOMAIN_GOVERNANCE_EXTENSION_NAME = "x-domain-governance";
+    private static final JsonLogicExpressionValidator JSON_LOGIC_VALIDATOR = new JsonLogicExpressionValidator();
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(CustomOpenApiResolver.class);
 
     // Inicializar o cache estaticamente
@@ -1571,8 +1573,12 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
         if (!annotation.conditionalRequired().isEmpty()) {
             // Publica conditionalRequired nos espacos reconhecidos pelo contrato atual.
-            uiExtension.put(FieldConfigProperties.CONDITIONAL_REQUIRED.getValue(), annotation.conditionalRequired());
-            uiExtension.put(ValidationProperties.CONDITIONAL_REQUIRED.getValue(), annotation.conditionalRequired());
+            Object condition = parseJsonLogicCondition(
+                    annotation.conditionalRequired(),
+                    FieldConfigProperties.CONDITIONAL_REQUIRED.getValue(),
+                    true);
+            uiExtension.put(FieldConfigProperties.CONDITIONAL_REQUIRED.getValue(), condition);
+            uiExtension.put(ValidationProperties.CONDITIONAL_REQUIRED.getValue(), condition);
         }
         if (!annotation.viewOnlyStyle().isEmpty()) {
             uiExtension.put(FieldConfigProperties.VIEW_ONLY_STYLE.getValue(), annotation.viewOnlyStyle());
@@ -1581,7 +1587,12 @@ public class CustomOpenApiResolver extends ModelResolver {
             uiExtension.put(FieldConfigProperties.VALIDATION_TRIGGERS.getValue(), annotation.validationTriggers());
         }
         if (!annotation.conditionalDisplay().isEmpty()) {
-            uiExtension.put(FieldConfigProperties.CONDITIONAL_DISPLAY.getValue(), annotation.conditionalDisplay());
+            uiExtension.put(
+                    FieldConfigProperties.CONDITIONAL_DISPLAY.getValue(),
+                    parseJsonLogicCondition(
+                            annotation.conditionalDisplay(),
+                            FieldConfigProperties.CONDITIONAL_DISPLAY.getValue(),
+                            true));
         }
         if (!annotation.dependsOn().isEmpty()) {
             putNestedExtraProperty(uiExtension, "optionSource.dependsOn", parseDependsOn(annotation.dependsOn()));
@@ -1998,7 +2009,7 @@ public class CustomOpenApiResolver extends ModelResolver {
     private void applyExtraProperties(UISchema annotation, Map<String, Object> uiExtension) {
         if (annotation.extraProperties() != null && annotation.extraProperties().length > 0) {
             for (ExtensionProperty p : annotation.extraProperties()) {
-                Object parsedValue = parseNestedExtraPropertyValue(p.value());
+                Object parsedValue = normalizeXuiExtraProperty(p.name(), parseNestedExtraPropertyValue(p.value()));
                 // extraProperties sobrescreve TUDO (precedência máxima)
                 if (p.name() != null && p.name().contains(".")) {
                     putNestedExtraProperty(uiExtension, p.name(), parsedValue);
@@ -2090,6 +2101,62 @@ public class CustomOpenApiResolver extends ModelResolver {
             }
         }
         return trimmed;
+    }
+
+    private Object parseJsonLogicCondition(String rawValue, String propertyPath, boolean allowNull) {
+        Object parsed = parseNestedExtraPropertyValue(rawValue);
+        validateJsonLogicCondition(parsed, propertyPath, allowNull);
+        return parsed;
+    }
+
+    private Object normalizeXuiExtraProperty(String propertyName, Object parsedValue) {
+        if (propertyName == null || propertyName.isBlank()) {
+            return parsedValue;
+        }
+
+        String normalizedName = propertyName.trim();
+        if (isJsonLogicConditionProperty(normalizedName)) {
+            validateJsonLogicCondition(parsedValue, normalizedName, true);
+            return parsedValue;
+        }
+
+        if (ValidationProperties.CONDITIONAL_VALIDATION.getValue().equals(normalizedName)) {
+            validateConditionalValidationRules(parsedValue, normalizedName);
+        }
+        return parsedValue;
+    }
+
+    private boolean isJsonLogicConditionProperty(String propertyName) {
+        return FieldConfigProperties.CONDITIONAL_DISPLAY.getValue().equals(propertyName)
+                || FieldConfigProperties.CONDITIONAL_REQUIRED.getValue().equals(propertyName)
+                || ValidationProperties.CONDITIONAL_REQUIRED.getValue().equals(propertyName)
+                || ("validation." + ValidationProperties.CONDITIONAL_REQUIRED.getValue()).equals(propertyName);
+    }
+
+    private void validateConditionalValidationRules(Object parsedValue, String propertyPath) {
+        if (!(parsedValue instanceof List<?> rules)) {
+            throw new IllegalArgumentException(propertyPath + " must be an array of conditional validation rules.");
+        }
+
+        for (int index = 0; index < rules.size(); index++) {
+            Object rule = rules.get(index);
+            String rulePath = propertyPath + "[" + index + "]";
+            if (!(rule instanceof Map<?, ?> ruleMap)) {
+                throw new IllegalArgumentException(rulePath + " must be an object.");
+            }
+            if (!ruleMap.containsKey("condition")) {
+                throw new IllegalArgumentException(rulePath + ".condition is required.");
+            }
+            validateJsonLogicCondition(ruleMap.get("condition"), rulePath + ".condition", true);
+            Object validators = ruleMap.get("validators");
+            if (!(validators instanceof Map<?, ?> validatorMap) || validatorMap.isEmpty()) {
+                throw new IllegalArgumentException(rulePath + ".validators must be a non-empty object.");
+            }
+        }
+    }
+
+    private void validateJsonLogicCondition(Object expression, String propertyPath, boolean allowNull) {
+        JSON_LOGIC_VALIDATOR.validateCondition(expression, propertyPath, allowNull);
     }
 
     private Object parseDependsOn(String value) {

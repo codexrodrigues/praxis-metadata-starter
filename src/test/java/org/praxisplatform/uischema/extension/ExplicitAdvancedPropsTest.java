@@ -22,10 +22,10 @@ class ExplicitAdvancedPropsTest {
                 validationMode = "onBlur",
                 unique = true,
                 mask = "999.999.999-99",
-                conditionalRequired = "someExpr",
+                conditionalRequired = "{\"!!\":[{\"var\":\"form.someExpr\"}]}",
                 viewOnlyStyle = "muted",
                 validationTriggers = "change",
-                conditionalDisplay = "otherField == 'x'",
+                conditionalDisplay = "{\"==\":[{\"var\":\"form.otherField\"},\"x\"]}",
                 dependentField = "otherField",
                 resetOnDependentChange = true,
                 inlineEditing = true,
@@ -93,12 +93,12 @@ class ExplicitAdvancedPropsTest {
         assertEquals("onBlur", xui.get(FieldConfigProperties.VALIDATION_MODE.getValue()));
         assertEquals(Boolean.TRUE, xui.get(FieldConfigProperties.UNIQUE.getValue()));
         assertEquals("999.999.999-99", xui.get(FieldConfigProperties.MASK.getValue()));
-        assertEquals("someExpr", xui.get(FieldConfigProperties.CONDITIONAL_REQUIRED.getValue()));
+        assertTrue(xui.get(FieldConfigProperties.CONDITIONAL_REQUIRED.getValue()) instanceof Map<?, ?>);
         assertEquals("muted", xui.get(FieldConfigProperties.VIEW_ONLY_STYLE.getValue()));
         assertEquals("change", xui.get(FieldConfigProperties.VALIDATION_TRIGGERS.getValue()));
 
         // Dependências e condicionais
-        assertEquals("otherField == 'x'", xui.get(FieldConfigProperties.CONDITIONAL_DISPLAY.getValue()));
+        assertTrue(xui.get(FieldConfigProperties.CONDITIONAL_DISPLAY.getValue()) instanceof Map<?, ?>);
         assertEquals("otherField", xui.get(FieldConfigProperties.DEPENDENT_FIELD.getValue()));
         assertEquals(Boolean.TRUE, xui.get(FieldConfigProperties.RESET_ON_DEPENDENT_CHANGE.getValue()));
 
@@ -134,7 +134,7 @@ class ExplicitAdvancedPropsTest {
         assertEquals("asyncFn", xui.get(ValidationProperties.ASYNC_VALIDATOR.getValue()));
         assertEquals("5", String.valueOf(xui.get(ValidationProperties.MIN_WORDS.getValue())));
         // conditionalRequired também em validation namespace
-        assertEquals("someExpr", xui.get(ValidationProperties.CONDITIONAL_REQUIRED.getValue()));
+        assertTrue(xui.get(ValidationProperties.CONDITIONAL_REQUIRED.getValue()) instanceof Map<?, ?>);
         assertTrue(xui.get(ValidationProperties.CONDITIONAL_VALIDATION.getValue()) instanceof List<?>);
         List<?> conditionalValidation = (List<?>) xui.get(ValidationProperties.CONDITIONAL_VALIDATION.getValue());
         assertEquals(1, conditionalValidation.size());
@@ -146,6 +146,90 @@ class ExplicitAdvancedPropsTest {
         // Arquivos
         assertEquals(AllowedFileTypes.PDF.getValue(), xui.get(ValidationProperties.ALLOWED_FILE_TYPES.getValue()));
         assertEquals("12345", String.valueOf(xui.get(ValidationProperties.MAX_FILE_SIZE.getValue())));
+    }
+
+    @Test
+    void resolverShouldRejectTextualConditionalDisplayDsl() throws Exception {
+        assertInvalidCondition(TextualConditionalDisplay.class, "conditionalDisplay");
+    }
+
+    @Test
+    void resolverShouldRejectUnknownJsonLogicOperator() throws Exception {
+        assertInvalidCondition(UnknownOperatorConditionalDisplay.class, "unsupported Json Logic operator `unknownOp`");
+    }
+
+    @Test
+    void resolverShouldRejectJsonSchemaConditionalObject() throws Exception {
+        assertInvalidCondition(JsonSchemaConditionalValidation.class, "must contain exactly one Json Logic operator");
+    }
+
+    @Test
+    void resolverShouldRejectInsufficientOperatorArity() throws Exception {
+        assertInvalidCondition(InsufficientArityConditionalDisplay.class, "requires at least 2 arguments");
+    }
+
+    @Test
+    void resolverShouldRejectExcessiveOperatorArity() throws Exception {
+        assertInvalidCondition(ExcessiveArityConditionalDisplay.class, "accepts at most 2 arguments");
+    }
+
+    @Test
+    void resolverShouldPublishValidJsonLogicObjectInConditionalDisplay() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("campo");
+
+        Annotation uiSchema = ValidJsonLogicConditionalDisplay.class.getDeclaredField("campo").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[]{ uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        Object condition = xui.get(FieldConfigProperties.CONDITIONAL_DISPLAY.getValue());
+        assertTrue(condition instanceof Map<?, ?>);
+        assertTrue(((Map<?, ?>) condition).containsKey("=="));
+    }
+
+    private static class TextualConditionalDisplay {
+        @UISchema(conditionalDisplay = "otherField == 'x'")
+        String campo;
+    }
+
+    private static class UnknownOperatorConditionalDisplay {
+        @UISchema(conditionalDisplay = "{\"unknownOp\":[{\"var\":\"form.status\"},\"active\"]}")
+        String campo;
+    }
+
+    private static class JsonSchemaConditionalValidation {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "conditionalValidation",
+                value = "[{\"condition\":{\"if\":{\"properties\":{\"status\":{\"const\":\"active\"}}},\"then\":{\"required\":[\"name\"]}},\"validators\":{\"required\":true}}]"
+        ))
+        String campo;
+    }
+
+    private static class InsufficientArityConditionalDisplay {
+        @UISchema(conditionalDisplay = "{\"==\":[{\"var\":\"form.status\"}]}")
+        String campo;
+    }
+
+    private static class ExcessiveArityConditionalDisplay {
+        @UISchema(conditionalDisplay = "{\"in\":[\"A\",[\"A\",\"B\"],\"extra\"]}")
+        String campo;
+    }
+
+    private static class ValidJsonLogicConditionalDisplay {
+        @UISchema(conditionalDisplay = "{\"==\":[{\"var\":\"form.status\"},\"active\"]}")
+        String campo;
+    }
+
+    private void assertInvalidCondition(Class<?> source, String expectedMessageFragment) throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("campo");
+
+        Annotation uiSchema = source.getDeclaredField("campo").getAnnotation(UISchema.class);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> resolver.applyBeanValidatorAnnotations(property, new Annotation[]{ uiSchema }, null, false));
+        assertTrue(ex.getMessage().contains(expectedMessageFragment), ex.getMessage());
     }
 
     @SuppressWarnings("unchecked")
