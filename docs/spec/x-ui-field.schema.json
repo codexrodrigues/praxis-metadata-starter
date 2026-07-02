@@ -146,7 +146,10 @@
       "description": "Declarative field-level access policy. It guides runtime rendering and backend validation, but does not replace server-side authorization."
     },
 
-    "conditionalDisplay": { "oneOf": [ { "type": "boolean" }, { "type": "string" } ] },
+    "conditionalDisplay": {
+      "$ref": "#/definitions/jsonLogicExpression",
+      "description": "Canonical Json Logic condition validated against the Praxis runtime operator matrix. Textual DSLs and JSON Schema conditionals are rejected by the backend."
+    },
     "dependentField": { "type": "string" },
     "resetOnDependentChange": { "type": "boolean" },
 
@@ -265,10 +268,14 @@
     "matchFieldMessage": { "type": "string" },
     "uniqueMessage": { "type": "string" },
     "uniqueValidator": { "type": "string" },
+    "conditionalRequired": {
+      "$ref": "#/definitions/jsonLogicExpression",
+      "description": "Canonical Json Logic condition validated against the Praxis runtime operator matrix. The same value is also mirrored into validation.conditionalRequired when materialized from @UISchema."
+    },
     "conditionalValidation": {
       "type": "array",
       "items": { "$ref": "#/definitions/conditionalValidationRule" },
-      "description": "Declarative conditional validation rules. This is a JSON/config-driven x-ui contract consumed by the Angular runtime; Java DTO annotations can materialize it through structured extraProperties, but they are not the primary authoring surface for complex Json Logic."
+      "description": "Declarative conditional validation rules. Each condition is a canonical Json Logic object/null validated against the Praxis runtime operator matrix. This is a JSON/config-driven x-ui contract consumed by the Angular runtime; Java DTO annotations can materialize it through structured extraProperties, but they are not the primary authoring surface for complex Json Logic."
     },
     "requiredChecked": { "type": "boolean" },
     "allowedFileTypes": { "type": ["array", "string"] },
@@ -294,7 +301,8 @@
         "max": { "oneOf": [ {"type": "number"}, {"type": "string"} ] },
         "pattern": { "type": "string" },
         "patternMessage": { "type": "string" },
-        "rangeMessage": { "type": "string" }
+        "rangeMessage": { "type": "string" },
+        "conditionalRequired": { "$ref": "#/definitions/jsonLogicExpression" }
       }
     }
   },
