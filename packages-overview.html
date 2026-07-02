@@ -210,8 +210,11 @@ docs/discovery.</p>
 <p>Os controllers-base canonicos sao:</p>
 <ul>
 <li><code>AbstractResourceController</code></li>
+<li><code>AbstractCreateUpdateResourceController</code></li>
 <li><code>AbstractReadOnlyResourceController</code></li>
 <li><code>AbstractResourceQueryController</code></li>
+<li><code>AbstractLegacyBackedResourceController</code></li>
+<li><code>AbstractDuplicateDraftLegacyBackedResourceController</code></li>
 </ul>
 <h2 id="dto"><code>dto</code></h2>
 <p>Objetos de transporte usados por controllers e services.</p>
@@ -268,6 +271,10 @@ contrato publico apenas a partir da entidade JPA.</p>
 <li><code>BaseResourceQueryService</code></li>
 <li><code>BaseResourceCommandService</code></li>
 <li><code>BaseResourceService</code></li>
+<li><code>LegacyBackedResourceService</code></li>
+<li><code>LegacyBackedResourceCommandService</code></li>
+<li><code>DuplicateDraftLegacyBackedResourceService</code></li>
+<li><code>DuplicateDraftLegacyBackedResourceCommandService</code></li>
 </ul>
 <p>Essas interfaces e classes sustentam o baseline query/command atual
 do starter.</p>
