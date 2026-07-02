@@ -1,7 +1,5 @@
 package org.praxisplatform.uischema.service.base;
 
-import java.util.Collection;
-
 /**
  * Boundary canonico de escrita para resources metadata-driven.
  *
@@ -10,18 +8,10 @@ import java.util.Collection;
  * cada intencao sem reintroduzir um DTO monolitico de CRUD.
  * </p>
  */
-public interface BaseResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO> {
-
-    /**
-     * Resultado de criacao que devolve simultaneamente o ID persistido e o DTO de resposta.
-     */
-    record SavedResult<ID, R>(ID id, R body) {}
-
-    SavedResult<ID, ResponseDTO> create(CreateDTO dto);
-
-    ResponseDTO update(ID id, UpdateDTO dto);
+public interface BaseResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO>
+        extends BaseCreateUpdateResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO> {
 
     void deleteById(ID id);
 
-    void deleteAllById(Collection<ID> ids);
+    void deleteAllById(java.util.Collection<ID> ids);
 }

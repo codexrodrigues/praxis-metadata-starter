@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.options;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Builder helpers for declaring governed option-source catalogs without per-service boilerplate.
@@ -51,6 +52,60 @@ public final class GovernedOptionSourceCatalog {
                 dependencyFilterMap,
                 policy,
                 null,
+                OptionSourceExecutionMode.PROVIDER_REQUIRED,
+                OptionSourceRuntimeContract.canonical(resourcePath, key)
+        );
+    }
+
+    public static OptionSourceDescriptor providerBackedLookup(
+            String key,
+            String resourcePath,
+            String filterField,
+            String labelPropertyPath,
+            String valuePropertyPath,
+            List<String> dependsOn,
+            Map<String, String> dependencyFilterMap,
+            OptionSourcePolicy policy,
+            EntityLookupDescriptor entityLookup
+    ) {
+        return providerBackedLookup(
+                key,
+                resourcePath,
+                filterField,
+                null,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                dependencyFilterMap,
+                policy,
+                entityLookup
+        );
+    }
+
+    public static OptionSourceDescriptor providerBackedLookup(
+            String key,
+            String resourcePath,
+            String filterField,
+            String propertyPath,
+            String labelPropertyPath,
+            String valuePropertyPath,
+            List<String> dependsOn,
+            Map<String, String> dependencyFilterMap,
+            OptionSourcePolicy policy,
+            EntityLookupDescriptor entityLookup
+    ) {
+        return new OptionSourceDescriptor(
+                key,
+                OptionSourceType.RESOURCE_ENTITY,
+                resourcePath,
+                filterField,
+                propertyPath,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                dependencyFilterMap,
+                policy,
+                Objects.requireNonNull(entityLookup, "entityLookup is required for a rich provider-backed lookup."),
                 OptionSourceExecutionMode.PROVIDER_REQUIRED,
                 OptionSourceRuntimeContract.canonical(resourcePath, key)
         );
