@@ -71,10 +71,10 @@ input:focus-visible,
 }
 
 .topbar {
-  display: flex;
+  display: grid;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(180px, 260px);
   margin-bottom: 12px;
   padding: 10px;
 }
@@ -149,6 +149,44 @@ input:focus-visible,
 .ghost-button:hover {
   border-color: var(--line-strong);
   color: #fff;
+}
+
+.release-marker {
+  border: 1px solid rgba(126, 211, 255, .24);
+  background:
+    linear-gradient(135deg, rgba(98, 216, 255, .10), rgba(115, 239, 181, .06)),
+    rgba(8, 16, 23, .76);
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.release-marker span,
+.release-marker small {
+  color: var(--muted);
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .05em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.release-marker strong {
+  color: var(--mint);
+  display: block;
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.release-marker small {
+  color: var(--soft);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .domain-hero {
@@ -2516,7 +2554,17 @@ input:focus-visible,
 
 @media (max-width: 720px) {
   .cockpit-shell { padding: 12px; }
-  .topbar { align-items: stretch; flex-direction: column; }
+  .topbar {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+  .top-links {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .top-links a {
+    text-align: center;
+  }
   .resource-brief-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

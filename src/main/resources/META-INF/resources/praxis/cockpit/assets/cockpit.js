@@ -18,6 +18,7 @@
       total: 0
     },
     health: null,
+    info: null,
     endpointStatus: {},
     capabilities: new Map(),
     capabilityErrors: new Map(),
@@ -37,6 +38,7 @@
     hostStatusDot: document.getElementById('hostStatusDot'),
     hostStatusText: document.getElementById('hostStatusText'),
     hostStatusDetail: document.getElementById('hostStatusDetail'),
+    releaseMarker: document.getElementById('releaseMarker'),
     domainTitle: document.getElementById('domainTitle'),
     domainSummary: document.getElementById('domainSummary'),
     hostDecisionTitle: document.getElementById('hostDecisionTitle'),
@@ -160,8 +162,10 @@
 
   async function loadHost() {
     setHostStatus('loading', 'Lendo contratos publicados pelo host...', 'Catálogo, health e endpoints metadata-driven.');
-    const [health, catalog, swaggerConfig, frontendResources] = await Promise.allSettled([
+    renderReleaseMarker();
+    const [health, info, catalog, swaggerConfig, frontendResources] = await Promise.allSettled([
       fetchJson('/actuator/health', { timeoutMs: 10000 }),
+      fetchJson('/actuator/info', { timeoutMs: 10000 }),
       fetchJson('/schemas/catalog', { timeoutMs: 15000 }),
       fetchJson('/v3/api-docs/swagger-config', { timeoutMs: 10000 }),
       fetchJson('/assets/frontend-resources.json', { timeoutMs: 10000 })
@@ -170,6 +174,8 @@
     const groupCatalogCount = catalogs.filter((item) => item?.group && item.group !== 'application').length;
 
     state.health = valueOrNull(health);
+    state.info = valueOrNull(info);
+    renderReleaseMarker(state.info);
     state.frontendResources = frontendResourceIndex(valueOrNull(frontendResources));
     state.endpointStatus = {
       health: endpointStatus(health),
@@ -3779,6 +3785,39 @@
     els.hostStatusDot.className = `status-light ${status === 'ok' ? 'ok' : status === 'error' ? 'error' : ''}`;
     els.hostStatusText.textContent = text;
     els.hostStatusDetail.textContent = detail || '';
+  }
+
+  function renderReleaseMarker(info) {
+    if (!els.releaseMarker) return;
+    const params = new URLSearchParams(window.location.search);
+    const release = params.get('release') || info?.build?.version || 'runtime';
+    const published = params.get('published') === '1';
+    const qa = params.get('qa');
+    const buildTime = formatBuildTime(info?.build?.time);
+    const buildVersion = info?.build?.version;
+    const details = [
+      buildVersion ? `host ${buildVersion}` : null,
+      buildTime ? `build ${buildTime}` : null,
+      published ? 'snapshot público' : null,
+      qa ? `qa ${qa}` : null
+    ].filter(Boolean);
+    els.releaseMarker.innerHTML = `
+      <span>${published ? 'Publicado' : 'Publicação'}</span>
+      <strong>${escapeHtml(release)}</strong>
+      <small>${escapeHtml(details.join(' · ') || 'build ainda não informado')}</small>
+    `;
+  }
+
+  function formatBuildTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   function escapeHtml(value) {
