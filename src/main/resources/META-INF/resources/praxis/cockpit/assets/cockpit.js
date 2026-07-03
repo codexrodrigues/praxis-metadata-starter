@@ -877,7 +877,7 @@
   }
 
   function hostTitle(areas) {
-    const labels = areas.slice(0, 4).map((area) => area.label);
+    const labels = Array.from(new Set(areas.map((area) => area.label))).slice(0, 4);
     if (!labels.length) return 'Serviço metadata-driven ainda sem domínio publicado';
     return `Serviço de ${joinHuman(labels)}`;
   }
