@@ -77,6 +77,10 @@ class PraxisCockpitControllerTest {
                 .doesNotContain("@import url(")
                 .contains(".release-marker")
                 .contains(".resource-brief")
+                .contains(".domain-map { order: 4; }")
+                .contains(".workbench { order: 5; }")
+                .contains(".control-plane { order: 7; }")
+                .contains("grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);")
                 .contains(".semantic-graph-routes p {\n    display: none;")
                 .contains(".endpoint-row {\n    gap: 2px;\n    grid-template-columns: 1fr;");
     }

@@ -44,10 +44,21 @@ input:focus-visible,
 }
 
 .cockpit-shell {
+  display: flex;
+  flex-direction: column;
   width: min(1520px, 100%);
   margin: 0 auto;
   padding: 16px;
 }
+
+.topbar { order: 1; }
+.domain-hero { order: 2; }
+.decision-summary { order: 3; }
+.domain-map { order: 4; }
+.workbench { order: 5; }
+.intelligence-strip { order: 6; }
+.control-plane { order: 7; }
+.topology-panel { order: 8; }
 
 .topbar,
 .domain-hero,
@@ -990,13 +1001,14 @@ input:focus-visible,
 .workbench {
   align-items: stretch;
   display: grid;
-  gap: 16px;
-  grid-template-columns: 390px minmax(0, 1fr);
+  gap: 12px;
+  grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+  margin-bottom: 12px;
 }
 
 .resource-panel,
 .detail-panel {
-  min-height: 680px;
+  min-height: 560px;
   padding: 14px;
 }
 
