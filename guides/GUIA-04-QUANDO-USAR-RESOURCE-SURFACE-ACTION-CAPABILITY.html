@@ -195,6 +195,24 @@ recurso</li>
 <li><code>/schemas/filtered</code> e a superficie estrutural canonica
 desse contrato</li>
 </ul>
+<h3 id="identidade-visual-de-dominio-e-recurso">Identidade visual de
+dominio e recurso</h3>
+<p>Use <code>@ApiGroup</code> para publicar identidade visual de dominio
+ou bounded context, como titulo, descricao, icone e tom visual. Use
+<code>@ApiResource</code> para publicar a identidade visual do recurso
+especifico. Esses valores sao tokens canonicos de discovery; nao sao
+CSS, classes de frontend nem instrucao de layout.</p>
+<p>Precedencia recomendada para consumidores:</p>
+<ol type="1">
+<li><code>@ApiGroup</code> materializado como <code>groupVisual</code>
+em <code>/schemas/catalog</code></li>
+<li><code>@ApiResource</code> materializado como
+<code>resourceVisual</code> em cada endpoint</li>
+<li>inferencia governada por <code>resourceKey</code></li>
+<li>manifesto derivado ou fallback local do runtime</li>
+</ol>
+<p>Assim, o cockpit e outros runtimes nao precisam manter tabelas
+proprias de cores e icones para cada microservico.</p>
 <h2 id="resourceintent">ResourceIntent</h2>
 <p>Use <code>@ResourceIntent</code> quando um <code>PATCH</code>
 continua sendo resource-oriented, mas com semantica propria.</p>

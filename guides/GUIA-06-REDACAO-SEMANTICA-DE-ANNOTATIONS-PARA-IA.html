@@ -428,8 +428,19 @@ apenas a URL.</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>        value <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">FUNCIONARIOS</span><span class="op">,</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        resourceKey <span class="op">=</span> <span class="st">&quot;human-resources.funcionarios&quot;</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        resourceKey <span class="op">=</span> <span class="st">&quot;human-resources.funcionarios&quot;</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        title <span class="op">=</span> <span class="st">&quot;Funcionarios&quot;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        description <span class="op">=</span> <span class="st">&quot;Pessoas contratadas, seus vinculos e dados funcionais governados pelo dominio de RH.&quot;</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        icon <span class="op">=</span> <span class="st">&quot;groups&quot;</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        visualTone <span class="op">=</span> <span class="st">&quot;human-resources&quot;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        value <span class="op">=</span> <span class="st">&quot;human-resources&quot;</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        title <span class="op">=</span> <span class="st">&quot;Pessoas e RH&quot;</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        description <span class="op">=</span> <span class="st">&quot;Contexto de pessoas, vinculos, folha e operacao de RH.&quot;</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        icon <span class="op">=</span> <span class="st">&quot;diversity_3&quot;</span><span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        visualTone <span class="op">=</span> <span class="st">&quot;people&quot;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
 <p>O <code>resourcePath</code> pode mudar por roteamento, versao
 operacional ou reorganizacao de paths. O <code>resourceKey</code> so
 deve mudar quando a identidade semantica do recurso mudar.</p>
@@ -437,6 +448,12 @@ deve mudar quando a identidade semantica do recurso mudar.</p>
 <code>@UiSurface</code>, <code>@WorkflowAction</code>,
 <code>/schemas/surfaces</code>, <code>/schemas/actions</code> e
 <code>capabilities</code> usam essa identidade para discovery.</p>
+<p><code>@ApiGroup</code> publica a identidade visual e textual do
+bounded context em <code>/schemas/catalog.groupVisual</code>.
+<code>@ApiResource</code> publica a identidade do recurso em
+<code>resourceVisual</code>. Use esses campos para decisoes semanticas
+de discovery; deixe cor exata, gradiente e layout para o runtime
+oficial.</p>
 <h3 id="escreva-a-acao-de-negocio-nao-a-tecnica-http">1. Escreva a acao
 de negocio, nao a tecnica HTTP</h3>
 <p>Prefira:</p>

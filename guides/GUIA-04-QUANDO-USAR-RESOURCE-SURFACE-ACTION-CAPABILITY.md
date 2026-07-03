@@ -25,6 +25,23 @@ Regra:
 - `resource` e a fonte da verdade de payload e schema
 - `/schemas/filtered` e a superficie estrutural canonica desse contrato
 
+### Identidade visual de dominio e recurso
+
+Use `@ApiGroup` para publicar identidade visual de dominio ou bounded context,
+como titulo, descricao, icone e tom visual. Use `@ApiResource` para publicar a
+identidade visual do recurso especifico. Esses valores sao tokens canonicos de
+discovery; nao sao CSS, classes de frontend nem instrucao de layout.
+
+Precedencia recomendada para consumidores:
+
+1. `@ApiGroup` materializado como `groupVisual` em `/schemas/catalog`
+2. `@ApiResource` materializado como `resourceVisual` em cada endpoint
+3. inferencia governada por `resourceKey`
+4. manifesto derivado ou fallback local do runtime
+
+Assim, o cockpit e outros runtimes nao precisam manter tabelas proprias de cores
+e icones para cada microservico.
+
 ## ResourceIntent
 
 Use `@ResourceIntent` quando um `PATCH` continua sendo resource-oriented, mas com semantica propria.
