@@ -424,7 +424,7 @@
         resourcePath,
         resourceKey: endpoint.resourceKey || null,
         catalogVisual: endpoint.resourceVisual || null,
-        group: endpoint.group || domainFromResourceKey(endpoint.resourceKey) || domainFromPath(resourcePath),
+        group: canonicalAreaKey(endpoint.resourceKey, endpoint.group, resourcePath, endpoint.resourceVisual),
         frontendResource: frontendResourceForPath(resourcePath),
         icon: endpoint.resourceVisual?.icon || null,
         sourceConfidence: endpoint.resourceKey ? 'resourceKey' : 'path-fallback'
@@ -491,7 +491,10 @@
   function mergeResource(resource, patch) {
     resource.resourceKey = resource.resourceKey || patch.resourceKey || null;
     resource.resourcePath = resource.resourcePath || patch.resourcePath || null;
-    resource.group = resource.group || patch.group || null;
+    resource.group = canonicalAreaKey(resource.resourceKey, resource.group, resource.resourcePath, resource.catalogVisual)
+      || canonicalAreaKey(patch.resourceKey, patch.group, patch.resourcePath, patch.catalogVisual)
+      || resource.group
+      || null;
     resource.catalogVisual = resource.catalogVisual || patch.catalogVisual || null;
     resource.frontendResource = resource.frontendResource || patch.frontendResource || null;
     resource.icon = resource.icon || patch.icon || patch.catalogVisual?.icon || patch.frontendResource?.icon || null;
@@ -528,7 +531,7 @@
     const visual = resource.catalogVisual || {};
     resource.inferredResourceKey = resource.resourceKey ? null : resourceKeyFromPath(resource.resourcePath);
     resource.key = resource.resourceKey || resource.key;
-    resource.group = resource.group || visual.tone || domainFromResourceKey(resource.resourceKey) || domainFromPath(resource.resourcePath) || 'domínio';
+    resource.group = canonicalAreaKey(resource.resourceKey, resource.group, resource.resourcePath, visual) || 'domínio';
     resource.domain = labelForArea(resource.group);
     resource.icon = visual.icon || resource.icon || resource.frontendResource?.icon || iconFromResourceFields(resource);
     resource.label = visual.title || resource.frontendResource?.title || readableResourceName(resource);
@@ -722,6 +725,22 @@
 
   function domainFromResourceKey(resourceKey) {
     return resourceKey ? resourceKey.split('.')[0] : null;
+  }
+
+  function canonicalAreaKey(resourceKey, group, path, visual) {
+    return domainFromResourceKey(resourceKey)
+      || nonGenericGroup(group)
+      || nonGenericGroup(visual?.tone)
+      || domainFromPath(path)
+      || null;
+  }
+
+  function nonGenericGroup(group) {
+    const normalized = String(group || '').trim();
+    if (!normalized || ['application', 'default', 'api', 'apis', 'openapi'].includes(normalized.toLowerCase())) {
+      return null;
+    }
+    return normalized;
   }
 
   function resourceKeyFromPath(path) {
@@ -2017,6 +2036,7 @@
           state.topologyGraph.elements().removeClass('graph-focus graph-muted');
           event.target.addClass('graph-focus');
           event.target.connectedEdges().addClass('graph-focus');
+          event.target.union(event.target.neighborhood('node')).removeClass('graph-label-muted');
           state.topologyGraph.elements().difference(event.target.union(event.target.connectedEdges()).union(event.target.neighborhood('node'))).addClass('graph-muted');
           updateTopologyInspector(inspector, data);
         });
@@ -2297,13 +2317,15 @@
 
   function applyTopologyGraphMode(cy, shell, mode) {
     if (!cy) return;
-    cy.elements().removeClass('graph-mode-hidden');
+    cy.elements().removeClass('graph-mode-hidden graph-label-muted');
     if (mode === 'evidence') return;
     cy.nodes().forEach((node) => {
       if (node.data('type') === 'field' && !node.data('isPriority')) node.addClass('graph-mode-hidden');
+      if (node.data('type') !== 'root' && !node.data('isPriority')) node.addClass('graph-label-muted');
     });
     cy.edges().forEach((edge) => {
       if (edge.source().hasClass('graph-mode-hidden') || edge.target().hasClass('graph-mode-hidden')) edge.addClass('graph-mode-hidden');
+      edge.addClass('graph-label-muted');
     });
     const visible = cy.elements(':visible');
     if (visible.length) cy.fit(visible, 34);
@@ -2334,9 +2356,9 @@
         });
         return;
       }
-      matches.removeClass('graph-hidden graph-mode-hidden').addClass('graph-search-match graph-focus');
+      matches.removeClass('graph-hidden graph-mode-hidden graph-label-muted').addClass('graph-search-match graph-focus');
       const connected = matches.connectedEdges().union(matches.neighborhood('node'));
-      connected.removeClass('graph-hidden graph-mode-hidden');
+      connected.removeClass('graph-hidden graph-mode-hidden graph-label-muted');
       cy.elements().difference(matches.union(connected)).addClass('graph-muted');
       cy.fit(matches.union(connected), 72);
       updateTopologySearchStatus(shell, `${matches.length} resultado(s); vizinhos e relações foram preservados.`, 'found');
@@ -2434,8 +2456,8 @@
       label: 'Modo limpo',
       detail: `${Math.max(0, primaryNodes)} nó(s) principais em foco; ${secondaryFields.length} campo(s) secundário(s) ficam disponíveis por busca ou pelo modo Evidência.`,
       evidence: [
-        { label: 'Leitura inicial', detail: 'Reduz a densidade para mostrar primeiro UI, workflow, analytics e conceitos principais.' },
-        { label: 'Detalhe', detail: 'Campos obrigatórios permanecem visíveis; campos secundários entram quando você busca ou ativa Evidência.' }
+        { label: 'Leitura inicial', detail: 'Reduz a densidade visual para mostrar primeiro o mapa de nós e relações principais.' },
+        { label: 'Detalhe', detail: 'Rótulos secundários entram quando você busca, clica em um nó ou ativa Evidência.' }
       ]
     };
   }
@@ -2643,7 +2665,9 @@
       const isField = element.classList.contains('field');
       const isPriority = element.getAttribute('data-node-priority') === 'true';
       element.classList.toggle('graph-mode-hidden', mode === 'clean' && isField && !isPriority);
+      element.classList.toggle('graph-label-muted', mode === 'clean' && !element.classList.contains('root') && !isPriority);
     }
+    container.classList.toggle('is-clean-mode', mode === 'clean');
     const hiddenCount = container.querySelectorAll('.svg-node.graph-mode-hidden').length;
     shell?.querySelector('[data-graph-mode="clean"]')?.setAttribute('aria-label', hiddenCount ? `Modo limpo, ${hiddenCount} campo(s) secundário(s) oculto(s)` : 'Modo limpo');
   }
@@ -2912,6 +2936,7 @@
       { selector: 'node.graph-focus', style: { 'border-color': '#ffffff', 'border-width': 4, opacity: 1 } },
       { selector: 'edge.graph-focus', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', opacity: 1, width: 3.2 } },
       { selector: 'node.graph-search-match', style: { 'border-color': '#ffd166', 'border-width': 5, 'background-color': '#ffd166' } },
+      { selector: '.graph-label-muted', style: { label: '' } },
       { selector: '.graph-muted', style: { opacity: .18 } },
       { selector: '.graph-mode-hidden', style: { display: 'none' } },
       { selector: '.graph-hidden', style: { display: 'none' } }

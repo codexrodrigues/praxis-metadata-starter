@@ -1894,6 +1894,10 @@ input:focus-visible,
   display: none;
 }
 
+.semantic-graph-svg .svg-node.graph-label-muted text {
+  display: none;
+}
+
 .semantic-graph-svg .svg-node.graph-search-match circle {
   filter: drop-shadow(0 0 18px rgba(255, 209, 102, .62));
   stroke: rgba(255, 209, 102, .95);
