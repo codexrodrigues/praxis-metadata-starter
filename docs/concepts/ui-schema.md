@@ -53,6 +53,8 @@ devem ser tratados como numero apenas porque o legado usa coluna numerica.*
 * **Mensagens**: personalize `requiredMessage`, `rangeMessage` via `ValidationProperties` quando necessário.
 * **Apresentação de valor (`valuePresentation`)**: trate este bloco como o contrato canônico de display/read-only. O starter publica `x-ui.valuePresentation` automaticamente a partir de `type`, `format`, `controlType` e `numericFormat`; quando precisar sobrescrever, prefira `extraProperties` com chaves aninhadas, como `valuePresentation.type`.
 
+* **Apresentacao rica de leitura/lista (`presentation`)**: use este bloco para descrever o involucro visual de campos read-only ou de tabela, como `chip`, `badge`, `status` e `iconValue`. Prefixos e sufixos em `presentation` sao somente visuais e nao alteram o valor bruto usado por filtros, ordenacao, exportacao ou persistencia. Nao use `icon` sozinho como renderer de celula; ele continua sendo metadado de campo/label.
+
 * **Identificadores e documentos**: quando o transporte OpenAPI for numerico por legado, mas a informacao for codigo/documento/identificador, declare `@UISchema(type = FieldDataType.TEXT, controlType = FieldControlType.INPUT)` ou um controle textual especifico, como `CPF_CNPJ_INPUT`. Mascaras textuais tambem preservam `x-ui.type=text` e evitam `valuePresentation` numerico automatico.
 
 ## Validations & `ValidationProperties`

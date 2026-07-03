@@ -253,6 +253,8 @@
         },
         "icon": { "type": "string", "minLength": 1 },
         "label": { "type": "string", "minLength": 1 },
+        "prefix": { "type": "string" },
+        "suffix": { "type": "string" },
         "badge": { "type": "string", "minLength": 1 },
         "tooltip": { "type": "string", "minLength": 1 },
         "appearance": {
