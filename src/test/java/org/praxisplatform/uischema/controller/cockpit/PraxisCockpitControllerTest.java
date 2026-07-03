@@ -220,6 +220,8 @@ class PraxisCockpitControllerTest {
                 .contains("data-graph-filter=\"journey\"")
                 .contains("function domainJourneyForResource")
                 .contains("business_journey")
+                .contains("current?.group !== nextArea")
+                .contains("selectResource(firstResourceInArea.key)")
                 .doesNotContain("fetchJson('/schemas/domain')")
                 .doesNotContain("fetchJson('/schemas/surfaces')")
                 .doesNotContain("fetchJson('/schemas/actions')")

@@ -1424,7 +1424,16 @@
     `).join('');
     els.domainAreas.querySelectorAll('button[data-area]').forEach((button) => {
       button.addEventListener('click', () => {
-        state.selectedArea = state.selectedArea === button.dataset.area ? null : button.dataset.area;
+        const nextArea = state.selectedArea === button.dataset.area ? null : button.dataset.area;
+        state.selectedArea = nextArea;
+        const current = selectedResource();
+        const firstResourceInArea = nextArea && current?.group !== nextArea
+          ? state.resources.find((resource) => resource.group === nextArea)
+          : null;
+        if (firstResourceInArea) {
+          selectResource(firstResourceInArea.key);
+          return;
+        }
         renderAreas();
         renderResourceList();
       });
