@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.controller.docs;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
@@ -126,11 +127,12 @@ public class DomainCatalogController {
         JsonNode pathsNode = doc.path("paths");
         JsonNode components = doc.path("components").path("schemas");
         List<ResourceMetadata> resourceMetadata = resourceMetadata();
+        Map<String, ResourceVisual> groupVisuals = groupVisuals(resourceMetadata);
         List<EndpointSummary> endpoints = new ArrayList<>();
 
         if (!pathsNode.isObject()) {
             LOGGER.warn("OpenAPI document has no paths object; returning empty catalog");
-            return ResponseEntity.ok(new CatalogResponse(groupToUse, endpoints));
+            return ResponseEntity.ok(new CatalogResponse(groupToUse, groupVisuals.get(groupToUse), endpoints));
         }
 
         Iterator<Map.Entry<String, JsonNode>> pathIt = pathsNode.fields();
@@ -207,7 +209,7 @@ public class DomainCatalogController {
             }
         }
 
-        CatalogResponse response = new CatalogResponse(groupToUse, endpoints);
+        CatalogResponse response = new CatalogResponse(groupToUse, groupVisuals.get(groupToUse), endpoints);
 
         return ResponseEntity.ok(response);
     }
@@ -238,6 +240,7 @@ public class DomainCatalogController {
             if (apiResource == null) {
                 continue;
             }
+            ApiGroup apiGroup = org.springframework.core.annotation.AnnotationUtils.findAnnotation(controllerClass, ApiGroup.class);
             String basePath = firstNonBlank(first(apiResource.value()), first(apiResource.path()));
             if (!StringUtils.hasText(basePath)) {
                 continue;
@@ -250,11 +253,55 @@ public class DomainCatalogController {
                             blankToNull(apiResource.title()),
                             blankToNull(apiResource.description()),
                             blankToNull(apiResource.icon()),
-                            blankToNull(apiResource.visualTone())
-                    )
+                            blankToNull(apiResource.visualTone()),
+                            "api-resource"
+                    ),
+                    groupVisual(apiGroup, apiResource)
             ));
         }
         return new ArrayList<>(byPath.values());
+    }
+
+    private ResourceVisual groupVisual(ApiGroup apiGroup, ApiResource apiResource) {
+        if (apiGroup != null) {
+            ResourceVisual visual = new ResourceVisual(
+                    blankToNull(apiGroup.title()),
+                    blankToNull(apiGroup.description()),
+                    blankToNull(apiGroup.icon()),
+                    blankToNull(apiGroup.visualTone()),
+                    "api-group"
+            );
+            if (!visual.isEmpty()) {
+                return visual;
+            }
+        }
+        String domainKey = domainFromResourceKey(apiResource.resourceKey());
+        if (!StringUtils.hasText(domainKey)) {
+            return null;
+        }
+        return new ResourceVisual(null, null, null, domainKey, "resource-key");
+    }
+
+    private Map<String, ResourceVisual> groupVisuals(List<ResourceMetadata> metadata) {
+        Map<String, ResourceVisual> visuals = new LinkedHashMap<>();
+        for (ResourceMetadata resource : metadata) {
+            String group = domainFromResourceKey(resource.resourceKey());
+            if (StringUtils.hasText(group)) {
+                ResourceVisual current = visuals.get(group);
+                if (current == null || resource.groupVisual().isMoreCanonicalThan(current)) {
+                    visuals.put(group, resource.groupVisual());
+                }
+            }
+        }
+        return visuals;
+    }
+
+    private String domainFromResourceKey(String resourceKey) {
+        if (!StringUtils.hasText(resourceKey)) {
+            return null;
+        }
+        int idx = resourceKey.indexOf('.');
+        return idx > 0 ? resourceKey.substring(0, idx) : null;
     }
 
     private ResourceMetadata resolveResourceMetadata(List<ResourceMetadata> metadata, String path) {
@@ -682,15 +729,21 @@ public class DomainCatalogController {
 
     public static class CatalogResponse {
         private final String group;
+        private final ResourceVisual groupVisual;
         private final List<EndpointSummary> endpoints;
 
-        public CatalogResponse(String group, List<EndpointSummary> endpoints) {
+        public CatalogResponse(String group, ResourceVisual groupVisual, List<EndpointSummary> endpoints) {
             this.group = group;
+            this.groupVisual = groupVisual;
             this.endpoints = endpoints;
         }
 
         public String getGroup() {
             return group;
+        }
+
+        public ResourceVisual getGroupVisual() {
+            return groupVisual != null && groupVisual.isEmpty() ? null : groupVisual;
         }
 
         public List<EndpointSummary> getEndpoints() {
@@ -787,7 +840,8 @@ public class DomainCatalogController {
         }
     }
 
-    private record ResourceMetadata(String resourcePath, String resourceKey, ResourceVisual visual) {
+    private record ResourceMetadata(String resourcePath, String resourceKey, ResourceVisual visual,
+                                    ResourceVisual groupVisual) {
     }
 
     public static class ResourceVisual {
@@ -795,12 +849,14 @@ public class DomainCatalogController {
         private final String description;
         private final String icon;
         private final String tone;
+        private final String source;
 
-        public ResourceVisual(String title, String description, String icon, String tone) {
+        public ResourceVisual(String title, String description, String icon, String tone, String source) {
             this.title = title;
             this.description = description;
             this.icon = icon;
             this.tone = tone;
+            this.source = source;
         }
 
         public String getTitle() {
@@ -819,11 +875,35 @@ public class DomainCatalogController {
             return tone;
         }
 
+        public String getSource() {
+            return source;
+        }
+
         private boolean isEmpty() {
             return !StringUtils.hasText(title)
                     && !StringUtils.hasText(description)
                     && !StringUtils.hasText(icon)
-                    && !StringUtils.hasText(tone);
+                    && !StringUtils.hasText(tone)
+                    && !StringUtils.hasText(source);
+        }
+
+        private boolean isMoreCanonicalThan(ResourceVisual other) {
+            if (other == null) {
+                return true;
+            }
+            if ("api-group".equals(source) && !"api-group".equals(other.source)) {
+                return true;
+            }
+            if ("api-resource".equals(source) && "resource-key".equals(other.source)) {
+                return true;
+            }
+            return !other.hasHumanMetadata() && hasHumanMetadata();
+        }
+
+        private boolean hasHumanMetadata() {
+            return StringUtils.hasText(title)
+                    || StringUtils.hasText(description)
+                    || StringUtils.hasText(icon);
         }
     }
 

@@ -538,7 +538,13 @@ class PayrollViewService extends AbstractReadOnlyResourceService<
         icon = "groups",
         visualTone = "human-resources"
 )
-@ApiGroup("human-resources")
+@ApiGroup(
+        value = "human-resources",
+        title = "People and HR",
+        description = "Workforce context published by the host service.",
+        icon = "diversity_3",
+        visualTone = "people"
+)
 class EmployeeController extends org.praxisplatform.uischema.controller.base.AbstractResourceController<
         EmployeeResponseDTO,
         Long,

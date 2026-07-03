@@ -42,6 +42,12 @@ import java.lang.annotation.Target;
  * de grupos feita pela infraestrutura OpenAPI do starter.
  * </p>
  *
+ * <p>
+ * Os metadados visuais opcionais descrevem a identidade semantica do grupo para superficies de
+ * discovery. Eles nao authoram CSS nem layout; apenas publicam tokens estaveis que runtimes como o
+ * cockpit podem materializar antes de recorrer a fallbacks locais.
+ * </p>
+ *
  * @see org.praxisplatform.uischema.annotation.ApiResource
  * @see org.praxisplatform.uischema.configuration.DynamicSwaggerConfig
  * @see org.praxisplatform.uischema.controller.base.AbstractResourceController
@@ -68,4 +74,32 @@ public @interface ApiGroup {
      * @return o nome do grupo OpenAPI publicado para o controller
      */
     String value();
+
+    /**
+     * Titulo humano opcional do grupo ou bounded context.
+     *
+     * @return titulo humano do grupo
+     */
+    String title() default "";
+
+    /**
+     * Descricao opcional do grupo ou bounded context.
+     *
+     * @return descricao humana do grupo
+     */
+    String description() default "";
+
+    /**
+     * Token opcional de icone semantico do grupo.
+     *
+     * @return token de icone do grupo
+     */
+    String icon() default "";
+
+    /**
+     * Token opcional de tom visual do grupo.
+     *
+     * @return token de tom visual do grupo
+     */
+    String visualTone() default "";
 }

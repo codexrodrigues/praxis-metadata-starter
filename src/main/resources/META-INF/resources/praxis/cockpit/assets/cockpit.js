@@ -438,7 +438,8 @@
         resourcePath,
         resourceKey: endpoint.resourceKey || null,
         catalogVisual: endpoint.resourceVisual || null,
-        group: canonicalAreaKey(endpoint.resourceKey, endpoint.group, resourcePath, endpoint.resourceVisual),
+        groupVisual: endpoint.groupVisual || null,
+        group: canonicalAreaKey(endpoint.resourceKey, endpoint.group, resourcePath, endpoint.resourceVisual, endpoint.groupVisual),
         frontendResource: frontendResourceForPath(resourcePath),
         icon: endpoint.resourceVisual?.icon || null,
         sourceConfidence: endpoint.resourceKey ? 'resourceKey' : 'path-fallback'
@@ -480,6 +481,7 @@
       actions: [],
       domainItems: [],
       catalogVisual: patch.catalogVisual || null,
+      groupVisual: patch.groupVisual || null,
       frontendResource: patch.frontendResource || null,
       icon: patch.icon || null,
       fields: new Map(),
@@ -505,11 +507,12 @@
   function mergeResource(resource, patch) {
     resource.resourceKey = resource.resourceKey || patch.resourceKey || null;
     resource.resourcePath = resource.resourcePath || patch.resourcePath || null;
-    resource.group = canonicalAreaKey(resource.resourceKey, resource.group, resource.resourcePath, resource.catalogVisual)
-      || canonicalAreaKey(patch.resourceKey, patch.group, patch.resourcePath, patch.catalogVisual)
+    resource.group = canonicalAreaKey(resource.resourceKey, resource.group, resource.resourcePath, resource.catalogVisual, resource.groupVisual)
+      || canonicalAreaKey(patch.resourceKey, patch.group, patch.resourcePath, patch.catalogVisual, patch.groupVisual)
       || resource.group
       || null;
     resource.catalogVisual = resource.catalogVisual || patch.catalogVisual || null;
+    resource.groupVisual = resource.groupVisual || patch.groupVisual || null;
     resource.frontendResource = resource.frontendResource || patch.frontendResource || null;
     resource.icon = resource.icon || patch.icon || patch.catalogVisual?.icon || patch.frontendResource?.icon || null;
     if (resource.sourceConfidence !== 'resourceKey' && patch.sourceConfidence) {
@@ -543,10 +546,11 @@
 
   function finalizeResource(resource) {
     const visual = resource.catalogVisual || {};
+    const groupVisual = resource.groupVisual || {};
     resource.inferredResourceKey = resource.resourceKey ? null : resourceKeyFromPath(resource.resourcePath);
     resource.key = resource.resourceKey || resource.key;
-    resource.group = canonicalAreaKey(resource.resourceKey, resource.group, resource.resourcePath, visual) || 'domínio';
-    resource.domain = labelForArea(resource.group);
+    resource.group = canonicalAreaKey(resource.resourceKey, resource.group, resource.resourcePath, visual, groupVisual) || 'domínio';
+    resource.domain = groupVisual.title || labelForArea(resource.group);
     resource.icon = visual.icon || resource.icon || resource.frontendResource?.icon || iconFromResourceFields(resource);
     resource.label = visual.title || resource.frontendResource?.title || readableResourceName(resource);
     resource.description = visual.description || resource.frontendResource?.description || describeResource(resource);
@@ -566,9 +570,11 @@
     for (const resource of resources) {
       const area = byGroup.get(resource.group) || {
         key: resource.group,
-        label: labelForArea(resource.group),
-        description: areaDescriptions[resource.group] || 'Área publicada pelo catálogo metadata-driven do host.',
-        icon: null,
+        label: resource.groupVisual?.title || labelForArea(resource.group),
+        description: resource.groupVisual?.description || areaDescriptions[resource.group] || 'Área publicada pelo catálogo metadata-driven do host.',
+        icon: resource.groupVisual?.icon || null,
+        tone: resource.groupVisual?.tone || null,
+        visualSource: resource.groupVisual?.source || null,
         resources: [],
         endpoints: 0,
         fields: 0
@@ -646,7 +652,8 @@
     if (Array.isArray(catalog.endpoints)) {
       return catalog.endpoints.map((endpoint) => ({
         ...endpoint,
-        group: endpoint.group || catalog.group
+        group: endpoint.group || catalog.group,
+        groupVisual: endpoint.groupVisual || catalog.groupVisual || null
       }));
     }
     if (Array.isArray(catalog.groups)) {
@@ -741,9 +748,10 @@
     return resourceKey ? resourceKey.split('.')[0] : null;
   }
 
-  function canonicalAreaKey(resourceKey, group, path, visual) {
+  function canonicalAreaKey(resourceKey, group, path, visual, groupVisual) {
     return domainFromResourceKey(resourceKey)
       || nonGenericGroup(group)
+      || nonGenericGroup(groupVisual?.tone)
       || nonGenericGroup(visual?.tone)
       || domainFromPath(path)
       || null;

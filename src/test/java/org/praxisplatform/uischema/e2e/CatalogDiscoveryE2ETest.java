@@ -28,6 +28,7 @@ class CatalogDiscoveryE2ETest extends AbstractE2eH2Test {
         assertEquals("People and HR records governed by the host service.", createEmployeeEndpoint.path("resourceVisual").path("description").asText());
         assertEquals("groups", createEmployeeEndpoint.path("resourceVisual").path("icon").asText());
         assertEquals("human-resources", createEmployeeEndpoint.path("resourceVisual").path("tone").asText());
+        assertEquals("api-resource", createEmployeeEndpoint.path("resourceVisual").path("source").asText());
         assertTrue(createEmployeeEndpoint.path("schemaLinks").hasNonNull("request"));
         assertTrue(createEmployeeEndpoint.path("schemaLinks").hasNonNull("response"));
         assertResolvable(createEmployeeEndpoint.path("schemaLinks").path("request").asText());
@@ -37,6 +38,11 @@ class CatalogDiscoveryE2ETest extends AbstractE2eH2Test {
         assertEquals(200, humanResourcesCatalogResponse.getStatusCode().value());
         JsonNode humanResourcesCatalog = body(humanResourcesCatalogResponse);
         assertEquals("human-resources", humanResourcesCatalog.path("group").asText());
+        assertEquals("People and HR", humanResourcesCatalog.path("groupVisual").path("title").asText());
+        assertEquals("Workforce context published by the host service.", humanResourcesCatalog.path("groupVisual").path("description").asText());
+        assertEquals("diversity_3", humanResourcesCatalog.path("groupVisual").path("icon").asText());
+        assertEquals("people", humanResourcesCatalog.path("groupVisual").path("tone").asText());
+        assertEquals("api-group", humanResourcesCatalog.path("groupVisual").path("source").asText());
         assertNotNull(findEndpoint(humanResourcesCatalog.path("endpoints"), "/employees", "POST"));
         assertNotNull(findEndpoint(humanResourcesCatalog.path("endpoints"), "/employees/all", "GET"));
         assertNotNull(findEndpoint(humanResourcesCatalog.path("endpoints"), "/departments", "POST"));

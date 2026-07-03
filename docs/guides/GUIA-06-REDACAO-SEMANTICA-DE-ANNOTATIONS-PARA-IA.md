@@ -150,7 +150,18 @@ Exemplo:
 ```java
 @ApiResource(
         value = ApiPaths.HumanResources.FUNCIONARIOS,
-        resourceKey = "human-resources.funcionarios"
+        resourceKey = "human-resources.funcionarios",
+        title = "Funcionarios",
+        description = "Pessoas contratadas, seus vinculos e dados funcionais governados pelo dominio de RH.",
+        icon = "groups",
+        visualTone = "human-resources"
+)
+@ApiGroup(
+        value = "human-resources",
+        title = "Pessoas e RH",
+        description = "Contexto de pessoas, vinculos, folha e operacao de RH.",
+        icon = "diversity_3",
+        visualTone = "people"
 )
 ```
 
@@ -161,6 +172,11 @@ mudar.
 Isso importa porque `@ResourceIntent`, `@UiSurface`, `@WorkflowAction`,
 `/schemas/surfaces`, `/schemas/actions` e `capabilities` usam essa identidade
 para discovery.
+
+`@ApiGroup` publica a identidade visual e textual do bounded context em
+`/schemas/catalog.groupVisual`. `@ApiResource` publica a identidade do recurso em
+`resourceVisual`. Use esses campos para decisoes semanticas de discovery; deixe
+cor exata, gradiente e layout para o runtime oficial.
 
 ### 1. Escreva a acao de negocio, nao a tecnica HTTP
 
