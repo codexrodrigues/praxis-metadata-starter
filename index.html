@@ -249,6 +249,10 @@ evidencias e governanca AI-operable</li>
 publicam discovery semantico</li>
 <li><code>/{resource}/capabilities</code> agrega as capacidades do
 recurso sem redefinir o contrato estrutural</li>
+<li><code>/{resource}/capabilities</code> tambem publica
+<code>stats.fields</code> quando o service declara
+<code>StatsFieldRegistry</code>, permitindo que runtimes escolham
+dimensoes e metricas de charts antes de executar stats</li>
 <li><code>POST /{resource}/export</code> executa exportacao de colecao a
 partir de escopo, selecao, filtros, ordenacao e campos; o resultado pode
 ser binario inline ou <code>202 Accepted</code> com
