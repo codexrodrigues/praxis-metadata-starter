@@ -26,9 +26,48 @@ public record ActionCatalogItem(
         String requestSchemaUrl,
         String responseSchemaId,
         String responseSchemaUrl,
+        List<String> allowedStates,
         AvailabilityDecision availability,
         int order,
         String successMessage,
         List<String> tags
 ) {
+    public ActionCatalogItem(
+            String id,
+            String resourceKey,
+            ActionScope scope,
+            String title,
+            String description,
+            String operationId,
+            String path,
+            String method,
+            String requestSchemaId,
+            String requestSchemaUrl,
+            String responseSchemaId,
+            String responseSchemaUrl,
+            AvailabilityDecision availability,
+            int order,
+            String successMessage,
+            List<String> tags
+    ) {
+        this(
+                id,
+                resourceKey,
+                scope,
+                title,
+                description,
+                operationId,
+                path,
+                method,
+                requestSchemaId,
+                requestSchemaUrl,
+                responseSchemaId,
+                responseSchemaUrl,
+                null,
+                availability,
+                order,
+                successMessage,
+                tags
+        );
+    }
 }

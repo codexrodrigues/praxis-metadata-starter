@@ -38,6 +38,7 @@ class ActionCatalogE2ETest extends AbstractE2eH2Test {
         assertEquals("approval", approve.path("tags").get(1).asText());
         assertTrue(approve.path("requestSchemaUrl").asText().contains("schemaType=request"));
         assertTrue(approve.path("responseSchemaUrl").asText().contains("schemaType=response"));
+        assertEquals("INACTIVE", approve.path("allowedStates").get(0).asText());
         assertFalse(approve.path("availability").path("allowed").asBoolean());
         assertEquals("resource-context-required", approve.path("availability").path("reason").asText());
         assertFalse(approve.has("fields"));
@@ -47,6 +48,7 @@ class ActionCatalogE2ETest extends AbstractE2eH2Test {
         assertNotNull(bulkApprove);
         assertEquals("COLLECTION", bulkApprove.path("scope").asText());
         assertEquals("/employees/actions/bulk-approve", bulkApprove.path("path").asText());
+        assertTrue(bulkApprove.path("allowedStates").isNull());
         assertFalse(bulkApprove.path("availability").path("allowed").asBoolean());
         assertEquals("missing-authority", bulkApprove.path("availability").path("reason").asText());
         assertEquals("employee:bulk-approve", bulkApprove.path("availability").path("metadata").path("requiredAuthorities").get(0).asText());
@@ -126,6 +128,7 @@ class ActionCatalogE2ETest extends AbstractE2eH2Test {
         assertEquals("missing-authority", approve.path("availability").path("reason").asText());
         assertEquals("employee:approve", approve.path("availability").path("metadata").path("requiredAuthorities").get(0).asText());
         assertEquals("employee:approve", approve.path("availability").path("metadata").path("missingAuthorities").get(0).asText());
+        assertEquals("INACTIVE", approve.path("allowedStates").get(0).asText());
         assertFalse(approve.path("availability").path("metadata").has("allowedStates"));
         assertFalse(approve.path("availability").path("metadata").has("resourceState"));
     }

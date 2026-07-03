@@ -144,11 +144,16 @@ public class ActionCatalogService {
                 definition.requestSchema() != null ? definition.requestSchema().url() : null,
                 definition.responseSchema() != null ? definition.responseSchema().schemaId() : null,
                 definition.responseSchema() != null ? definition.responseSchema().url() : null,
+                emptyToNull(definition.allowedStates()),
                 availability,
                 definition.order(),
                 definition.successMessage(),
                 definition.tags()
         );
+    }
+
+    private List<String> emptyToNull(List<String> values) {
+        return values == null || values.isEmpty() ? null : List.copyOf(values);
     }
 
     private Map<ContextKey, ActionAvailabilityContext> availabilityContexts(

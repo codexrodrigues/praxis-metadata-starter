@@ -74,6 +74,31 @@ class ActionCatalogServiceTest {
     }
 
     @Test
+    void materializesDeclaredAllowedStatesOnActionCatalogItem() {
+        ActionDefinitionRegistry registry = new MapActionDefinitionRegistry(
+                Map.of(
+                        "example.employees", List.of(
+                                definition(
+                                        "approve",
+                                        10,
+                                        "example.employees",
+                                        "/employees",
+                                        "example",
+                                        ActionScope.ITEM,
+                                        List.of("INACTIVE")
+                                )
+                        )
+                ),
+                Map.of()
+        );
+        ActionCatalogService service = new ActionCatalogService(registry, allowAllEvaluator(), contextualResolver());
+
+        ActionCatalogResponse response = service.findByResourceKey("example.employees");
+
+        assertEquals(List.of("INACTIVE"), response.actions().get(0).allowedStates());
+    }
+
+    @Test
     void rejectsUnknownResourceKeyAndMissingItemActions() {
         ActionDefinitionRegistry emptyRegistry = new MapActionDefinitionRegistry(Map.of(), Map.of());
         ActionCatalogService emptyService = new ActionCatalogService(emptyRegistry, allowAllEvaluator(), contextualResolver());
@@ -186,6 +211,18 @@ class ActionCatalogServiceTest {
             String group,
             ActionScope scope
     ) {
+        return definition(id, order, resourceKey, resourcePath, group, scope, List.of());
+    }
+
+    private ActionDefinition definition(
+            String id,
+            int order,
+            String resourceKey,
+            String resourcePath,
+            String group,
+            ActionScope scope,
+            List<String> allowedStates
+    ) {
         String path = scope == ActionScope.COLLECTION
                 ? resourcePath + "/actions/" + id
                 : resourcePath + "/{id}/actions/" + id;
@@ -203,7 +240,7 @@ class ActionCatalogServiceTest {
                 order,
                 "ok",
                 List.of(),
-                List.of(),
+                allowedStates,
                 List.of()
         );
     }
