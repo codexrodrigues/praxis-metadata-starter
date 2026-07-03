@@ -46,6 +46,7 @@ All notable changes to this module will be documented in this file.
 - `OptionSourceRuntimeContract.canonical(...)` rejeita `sourceKey` nao URL-safe antes de publicar endpoints de runtime.
 - `CustomOpenApiResolver` agora preserva `x-ui.type=text` e nao publica `valuePresentation` numerico automatico quando um campo com transporte OpenAPI numerico e declarado como texto, controle textual ou mascara textual.
 - `/schemas/filtered` agora pode derivar `x-ui.resource.idField` de um identificador natural escalar obrigatorio quando o DTO de resposta nao possui `id` ou `*Id`, cobrindo recursos como `EmpresaDTO.empresa`.
+- O cockpit empacotado em `/praxis/cockpit` agora mescla o catalogo default com catalogos por grupo, evitando leitura parcial quando um grupo demora ou falha, e reorganiza endpoints em uma coluna no mobile para impedir linhas largas no painel do recurso.
 
 ## [8.0.0-rc.14] - 2026-04-24
 

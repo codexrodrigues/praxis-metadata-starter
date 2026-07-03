@@ -381,7 +381,9 @@
       const catalog = valueOrNull(result);
       if (catalog) groupCatalogs.push(catalog);
     }
-    if (groupCatalogs.length) return groupCatalogs;
+    if (groupCatalogs.length) {
+      return [...catalogs, ...groupCatalogs];
+    }
     return catalogs;
   }
 

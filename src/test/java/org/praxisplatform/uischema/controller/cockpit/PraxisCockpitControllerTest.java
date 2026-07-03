@@ -74,7 +74,8 @@ class PraxisCockpitControllerTest {
         assertThat(style)
                 .doesNotContain("fonts.googleapis.com")
                 .doesNotContain("fonts.gstatic.com")
-                .doesNotContain("@import url(");
+                .doesNotContain("@import url(")
+                .contains(".endpoint-row {\n    gap: 2px;\n    grid-template-columns: 1fr;");
     }
 
     @Test
@@ -139,7 +140,7 @@ class PraxisCockpitControllerTest {
                 .contains("function discoverCatalogs")
                 .contains("function openApiGroupNames")
                 .contains("fetchJson(`/schemas/catalog?group=${encodeURIComponent(group)}`, { timeoutMs: 5000 })")
-                .contains("if (groupCatalogs.length) return groupCatalogs;")
+                .contains("return [...catalogs, ...groupCatalogs];")
                 .contains("const aggregateGroups = groups.filter((name) => !name.startsWith('api-'));")
                 .contains("return aggregateGroups.length ? aggregateGroups : groups;")
                 .contains("function catalogEndpoints(catalog)")
@@ -201,6 +202,7 @@ class PraxisCockpitControllerTest {
                 .doesNotContain("fetchJson('/schemas/surfaces')")
                 .doesNotContain("fetchJson('/schemas/actions')")
                 .doesNotContain("state.resources = composeResources(valueOrNull(catalog))")
+                .doesNotContain("if (groupCatalogs.length) return groupCatalogs;")
                 .doesNotContain("resource.resourceKey = resource.resourceKey || resourceKeyFromPath(resource.resourcePath)")
                 .doesNotContain("actions: capabilitySource(Boolean((resource.actions || []).length), false, Boolean(summary.actions))")
                 .doesNotContain("por cento das camadas materializáveis disponíveis em média")

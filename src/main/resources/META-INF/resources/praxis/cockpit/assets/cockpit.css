@@ -2236,6 +2236,7 @@ input:focus-visible,
 }
 
 .endpoint-row > * {
+  min-width: 0;
   padding: 11px 12px;
 }
 
@@ -2432,5 +2433,31 @@ input:focus-visible,
   .domain-layer-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .endpoint-row { grid-template-columns: 72px minmax(190px, .8fr) minmax(240px, 1.2fr) minmax(132px, .45fr); }
+  .operation-group {
+    overflow: hidden;
+  }
+  .operation-group header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+  }
+  .endpoint-row {
+    gap: 2px;
+    grid-template-columns: 1fr;
+    min-width: 0;
+    padding: 10px 12px;
+  }
+  .endpoint-row > * {
+    padding: 0;
+  }
+  .endpoint-row .method {
+    margin-bottom: 4px;
+    padding: 3px 7px;
+  }
+  .endpoint-row code,
+  .endpoint-row span,
+  .endpoint-row small {
+    overflow-wrap: anywhere;
+  }
 }
