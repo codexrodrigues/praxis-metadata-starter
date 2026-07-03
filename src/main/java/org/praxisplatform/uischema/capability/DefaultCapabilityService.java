@@ -453,6 +453,6 @@ public class DefaultCapabilityService implements CapabilityService {
     }
 
     private boolean isReadable(SurfaceKind kind) {
-        return kind == SurfaceKind.VIEW || kind == SurfaceKind.READ_PROJECTION;
+        return kind == SurfaceKind.VIEW || kind == SurfaceKind.READ_PROJECTION || kind == SurfaceKind.CHART;
     }
 }

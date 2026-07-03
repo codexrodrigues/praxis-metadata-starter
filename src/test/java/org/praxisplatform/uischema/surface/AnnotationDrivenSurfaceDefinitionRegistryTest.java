@@ -75,6 +75,10 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                 RequestMappingInfo.paths("/registry-resources/{id}/payments").methods(org.springframework.web.bind.annotation.RequestMethod.GET).build(),
                 new HandlerMethod(controller, RegistryTestController.class.getDeclaredMethod("payments", Long.class))
         );
+        handlerMethods.put(
+                RequestMappingInfo.paths("/registry-resources/stats/timeseries").methods(org.springframework.web.bind.annotation.RequestMethod.POST).build(),
+                new HandlerMethod(controller, RegistryTestController.class.getDeclaredMethod("incidentTrend"))
+        );
         when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
         when(operationResolver.resolve(any(HandlerMethod.class), any(RequestMappingInfo.class)))
                 .thenAnswer(invocation -> {
@@ -82,12 +86,16 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                     String path = mappingInfo.getPatternValues().iterator().next();
                     String operationId = path.contains("/actions/")
                             ? "approveResource"
+                            : path.contains("/stats/timeseries")
+                            ? "incidentTrend"
                             : path.contains("/payments")
                             ? "employeePayments"
                             : path.contains("/profile")
                             ? "updateProfile"
                             : "listResources";
                     String method = path.contains("/actions/")
+                            ? "POST"
+                            : path.contains("/stats/timeseries")
                             ? "POST"
                             : path.contains("/payments")
                             ? "GET"
@@ -117,7 +125,7 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
 
         verify(handlerMapping, times(1)).getHandlerMethods();
         assertEquals(firstLookup, secondLookup);
-        assertEquals(3, firstLookup.size());
+        assertEquals(4, firstLookup.size());
         SurfaceDefinition listSurface = firstLookup.stream()
                 .filter(surface -> "list".equals(surface.id()))
                 .findFirst()
@@ -149,13 +157,21 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                 paymentsSurface.relatedResource().childOperations()
         );
         assertTrue(paymentsSurface.schema().url().contains("idField=paymentId"));
+        SurfaceDefinition chartSurface = firstLookup.stream()
+                .filter(surface -> "incident-trend-chart".equals(surface.id()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(SurfaceKind.CHART, chartSurface.kind());
+        assertEquals("response", chartSurface.schemaType());
+        assertEquals(SurfaceResponseCardinality.OBJECT, chartSurface.responseCardinality());
         assertNull(firstLookup.stream().filter(surface -> "approve".equals(surface.id())).findFirst().orElse(null));
 
         List<SurfaceDefinition> byGroup = registry.findByGroup("registry-group");
-        assertEquals(3, byGroup.size());
+        assertEquals(4, byGroup.size());
         assertNotNull(byGroup.stream().filter(surface -> "list".equals(surface.id())).findFirst().orElse(null));
         assertNotNull(byGroup.stream().filter(surface -> "profile".equals(surface.id())).findFirst().orElse(null));
         assertNotNull(byGroup.stream().filter(surface -> "payments".equals(surface.id())).findFirst().orElse(null));
+        assertNotNull(byGroup.stream().filter(surface -> "incident-trend-chart".equals(surface.id())).findFirst().orElse(null));
     }
 
     @Test
@@ -375,6 +391,18 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                 }
         )
         public ResponseEntity<RestApiResponse<List<TestDto>>> payments(@PathVariable Long id) {
+            return null;
+        }
+
+        @PostMapping("/stats/timeseries")
+        @Operation(summary = "Projetar serie temporal")
+        @UiSurface(
+                id = "incident-trend-chart",
+                kind = SurfaceKind.CHART,
+                scope = SurfaceScope.COLLECTION,
+                title = "Evolucao de incidentes"
+        )
+        public ResponseEntity<RestApiResponse<TestDto>> incidentTrend() {
             return null;
         }
     }

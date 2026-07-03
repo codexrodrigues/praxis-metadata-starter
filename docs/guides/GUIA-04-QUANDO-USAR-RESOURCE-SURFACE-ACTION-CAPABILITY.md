@@ -76,6 +76,9 @@ Exemplo importante:
   `childParentField = employeeId`, `selectable = true` e `childOperations = [LIST]`
   para que o runtime saiba renderizar a lista filha; inclua `CREATE` ou `DELETE` somente quando
   houver endpoints HTTP reais publicados para esses comandos da colecao relacionada
+- `POST /indicadores/stats/timeseries` pode ser uma surface `COLLECTION` com
+  `kind = CHART` quando a experiencia primaria for uma visualizacao analitica; use
+  `@UiAnalytics` para declarar projection, dimensoes, metricas e families
 
 Essa distincao evita que runtimes precisem inferir se devem renderizar um form de leitura,
 uma tabela, uma lista ou uma pagina a partir apenas de `kind` e `scope`.

@@ -435,7 +435,7 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
     private String schemaTypeFor(SurfaceKind kind) {
         return switch (kind) {
             case FORM, PARTIAL_FORM -> "request";
-            case VIEW, READ_PROJECTION -> "response";
+            case VIEW, READ_PROJECTION, CHART -> "response";
         };
     }
 

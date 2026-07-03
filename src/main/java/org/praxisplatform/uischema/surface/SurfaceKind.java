@@ -7,5 +7,6 @@ public enum SurfaceKind {
     FORM,
     PARTIAL_FORM,
     VIEW,
-    READ_PROJECTION
+    READ_PROJECTION,
+    CHART
 }
