@@ -23,6 +23,8 @@
     capabilities: new Map(),
     capabilityErrors: new Map(),
     filteredSchemas: new Map(),
+    statsPreviews: new Map(),
+    optionLabelCache: new Map(),
     domains: new Map(),
     surfaces: new Map(),
     actions: new Map(),
@@ -348,9 +350,15 @@
   async function fetchJson(url, options = {}) {
     const controller = options.timeoutMs ? new AbortController() : null;
     const timeoutId = controller ? window.setTimeout(() => controller.abort(), options.timeoutMs) : null;
+    const headers = { Accept: 'application/json', ...(options.headers || {}) };
+    if (options.body !== undefined && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
     try {
       const response = await fetch(url, {
-        headers: { Accept: 'application/json' },
+        method: options.method || 'GET',
+        headers,
+        body: options.body === undefined ? undefined : (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)),
         credentials: 'same-origin',
         signal: controller?.signal
       });
@@ -3422,21 +3430,187 @@
       { label: 'Action', value: profile.canActions ? 1 : 0, source: profile.evidence.actions }
     ];
     const total = profile.confirmedScore;
-    els.resourceChart.innerHTML = `
-      <div class="radial-score" style="--score:${escapeAttr(Math.round(total / rings.length * 100))}">
-        <strong>${escapeHtml(total)}/${escapeHtml(rings.length)}</strong>
-        <span>camadas confirmadas</span>
-      </div>
-      <div class="radial-legend">
-        ${rings.map((item) => `<span class="${item.value ? 'on' : ''} ${escapeAttr(item.source)}">${escapeHtml(item.label)}</span>`).join('')}
-      </div>
-    `;
+    const dimension = preferredStatsDimension(resource);
+    if (profile.canAnalytics && dimension && resource.resourcePath) {
+      els.resourceChart.classList.add('has-stats-preview');
+      els.resourceChart.innerHTML = renderStatsPreview(resource, dimension);
+      loadStatsPreview(resource, dimension);
+    } else {
+      els.resourceChart.classList.remove('has-stats-preview');
+      els.resourceChart.innerHTML = `
+        <div class="radial-score" style="--score:${escapeAttr(Math.round(total / rings.length * 100))}">
+          <strong>${escapeHtml(total)}/${escapeHtml(rings.length)}</strong>
+          <span>camadas confirmadas</span>
+        </div>
+        <div class="radial-legend">
+          ${rings.map((item) => `<span class="${item.value ? 'on' : ''} ${escapeAttr(item.source)}">${escapeHtml(item.label)}</span>`).join('')}
+        </div>
+      `;
+    }
     els.filterInsights.innerHTML = filterInsightItems(resource, profile).map((item) => `
       <article class="filter-insight ${escapeAttr(item.level)}">
         <strong>${escapeHtml(item.title)}</strong>
         <span>${escapeHtml(item.body)}</span>
       </article>
     `).join('');
+  }
+
+  function preferredStatsDimension(resource) {
+    const fields = filteredSchemaFields(resource);
+    const candidates = fields
+      .map((field) => ({ ...field, optionSource: field.xui?.optionSource || null }))
+      .filter((field) => field.name && !isEnvelopeField(field.name));
+    return candidates.find((field) => field.optionSource?.byIdsEndpoint)
+      || candidates.find((field) => field.optionSource)
+      || candidates.find((field) => field.enumValues?.size)
+      || candidates.find((field) => ['integer', 'number', 'string', 'boolean'].includes(String(field.type || '').toLowerCase()))
+      || null;
+  }
+
+  function statsPreviewKey(resource, dimension) {
+    return `${resource.key || resource.resourcePath}:${dimension?.name || 'stats'}`;
+  }
+
+  function renderStatsPreview(resource, dimension) {
+    const cacheKey = statsPreviewKey(resource, dimension);
+    const preview = state.statsPreviews.get(cacheKey);
+    const title = `Distribuição por ${fieldLabel(dimension)}`;
+    if (!preview || preview.status === 'loading') {
+      return `
+        <section class="stats-preview loading">
+          <header>
+            <span>Chart real do host</span>
+            <strong>${escapeHtml(title)}</strong>
+            <small>Consultando ${escapeHtml(resource.resourcePath || 'endpoint do recurso')}/stats/group-by.</small>
+          </header>
+          <div class="stats-skeleton" aria-hidden="true"><i></i><i></i><i></i></div>
+        </section>
+      `;
+    }
+    if (preview.status === 'error') {
+      return `
+        <section class="stats-preview warning">
+          <header>
+            <span>Chart indisponível</span>
+            <strong>${escapeHtml(title)}</strong>
+            <small>${escapeHtml(preview.message || 'O endpoint de stats não retornou buckets para visualização.')}</small>
+          </header>
+          <p>Fallback: o recurso continua marcado como analítico por capabilities/catálogo, mas o cockpit não conseguiu montar uma amostra operacional agora.</p>
+        </section>
+      `;
+    }
+    const buckets = preview.buckets || [];
+    const max = Math.max(1, ...buckets.map((bucket) => Number(bucket.value ?? bucket.count ?? 0)));
+    return `
+      <section class="stats-preview">
+        <header>
+          <span>Chart real do host</span>
+          <strong>${escapeHtml(title)}</strong>
+          <small>${escapeHtml(statsHydrationSummary(preview, dimension))}</small>
+        </header>
+        <div class="stats-bars">
+          ${buckets.map((bucket) => {
+            const value = Number(bucket.value ?? bucket.count ?? 0);
+            const width = Math.max(6, Math.round((value / max) * 100));
+            const label = bucket.hydratedLabel || bucket.label || String(bucket.key ?? 'sem valor');
+            const technical = bucket.hydratedLabel && String(bucket.hydratedLabel) !== String(bucket.key) ? `ID ${bucket.key}` : '';
+            return `
+              <article class="stats-bar-row">
+                <div>
+                  <strong>${escapeHtml(label)}</strong>
+                  ${technical ? `<small>${escapeHtml(technical)}</small>` : ''}
+                </div>
+                <span class="stats-bar-track" aria-hidden="true"><i style="--value:${escapeAttr(width)}%"></i></span>
+                <b>${escapeHtml(value)}</b>
+              </article>
+            `;
+          }).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  function fieldLabel(field) {
+    return readableText(field?.xui?.label || field?.name || 'campo');
+  }
+
+  function statsHydrationSummary(preview, dimension) {
+    if (preview.hydrated) return `Buckets hidratados via option source ${dimension.optionSource?.key || 'publicada'}; ID técnico preservado como contexto.`;
+    if (dimension.optionSource) return 'Option source encontrada, mas o fallback por ID cru foi usado nesta amostra.';
+    return 'Dimensão sem option source; labels vêm diretamente do retorno de stats.';
+  }
+
+  async function loadStatsPreview(resource, dimension) {
+    const cacheKey = statsPreviewKey(resource, dimension);
+    const current = state.statsPreviews.get(cacheKey);
+    if (current && current.status !== 'error') return;
+    state.statsPreviews.set(cacheKey, { status: 'loading' });
+    try {
+      const response = await fetchJson(`${resource.resourcePath}/stats/group-by`, {
+        method: 'POST',
+        timeoutMs: 12000,
+        body: {
+          filter: {},
+          field: dimension.name,
+          metric: { operation: 'COUNT' },
+          limit: 6,
+          orderBy: 'VALUE_DESC'
+        }
+      });
+      const data = response?.data || response;
+      const buckets = await hydrateStatsBuckets(dimension, data?.buckets || []);
+      state.statsPreviews.set(cacheKey, {
+        status: 'ready',
+        field: data?.field || dimension.name,
+        buckets,
+        hydrated: buckets.some((bucket) => bucket.hydratedLabel)
+      });
+    } catch (error) {
+      state.statsPreviews.set(cacheKey, {
+        status: 'error',
+        message: error?.message || 'stats indisponível'
+      });
+    }
+    if (selectedResource()?.key === resource.key) {
+      els.resourceChart.innerHTML = renderStatsPreview(resource, dimension);
+    }
+  }
+
+  async function hydrateStatsBuckets(dimension, buckets) {
+    const source = dimension?.optionSource;
+    const endpoint = source?.byIdsEndpoint;
+    if (!endpoint || !buckets.length) return buckets;
+    const ids = Array.from(new Set(buckets.map((bucket) => bucket.key).filter((value) => value !== null && value !== undefined && value !== '')));
+    if (!ids.length) return buckets;
+    const cacheKey = `${endpoint}:${ids.join(',')}`;
+    let labelMap = state.optionLabelCache.get(cacheKey);
+    if (!labelMap) {
+      try {
+        const separator = endpoint.includes('?') ? '&' : '?';
+        const options = await fetchJson(`${endpoint}${separator}ids=${encodeURIComponent(ids.join(','))}`, { timeoutMs: 10000 });
+        labelMap = optionLabelsById(options?.data || options || []);
+        state.optionLabelCache.set(cacheKey, labelMap);
+      } catch (error) {
+        state.optionLabelCache.set(cacheKey, new Map());
+        labelMap = new Map();
+      }
+    }
+    return buckets.map((bucket) => {
+      const label = labelMap.get(String(bucket.key));
+      return label ? { ...bucket, hydratedLabel: label } : bucket;
+    });
+  }
+
+  function optionLabelsById(options) {
+    const map = new Map();
+    for (const option of Array.isArray(options) ? options : []) {
+      const id = option?.id ?? option?.value ?? option?.key;
+      const label = option?.label ?? option?.text ?? option?.name;
+      if (id !== null && id !== undefined && label) {
+        map.set(String(id), String(label));
+      }
+    }
+    return map;
   }
 
   function filterInsightItems(resource, profile) {

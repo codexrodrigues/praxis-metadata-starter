@@ -91,6 +91,14 @@ como `release`, `published` e `qa` sao apenas cache-busters temporarios de valid
 o cockpit mostra no topo o release solicitado e o `build.time` real do host para
 diagnosticar rollout sem transformar links de QA em links permanentes.
 
+Quando um recurso publica stats e o schema filtrado aponta `x-ui.optionSource`
+com `byIdsEndpoint`, o cockpit pode montar uma amostra de chart real via
+`POST /{resource}/stats/group-by` e hidratar buckets relacionais por
+`GET /{lookupResource}/option-sources/{sourceKey}/options/by-ids`. Assim,
+dimensoes como `veiculoId`, `missaoId` ou `funcionarioId` aparecem com label
+humano e ID tecnico secundario. Se a consulta de stats ou de labels falhar, o
+cockpit preserva fallback explicito para o valor cru retornado pelo endpoint.
+
 Regras importantes:
 
 - `surfaces` e `actions` sao catalogos semanticos; nao redefinem schema inline
