@@ -126,6 +126,11 @@ O provider recebe:
 - `request.includeIds()` apenas quando a policy permitir;
 - `request.ids()` em `byIds`, preservando IDs string e a ordem solicitada.
 
+Em `byIds`, retorne somente `OptionDTO` concretos para IDs encontrados. IDs
+inexistentes devem ser omitidos; nao retorne itens `null`. O executor canonico
+tambem normaliza a resposta antes do HTTP publico, removendo `null`, descartando
+opcoes sem `id` e reordenando os itens pela ordem dos IDs solicitados.
+
 Toda chave de `dependencyFilterMap` precisa existir em `dependsOn`. Quando a
 fonte publica dependencias, o provider deve aplicar o payload efetivo
 correspondente. Nao publique `dependsOn` ou `dependencyFilterMap` se o provider

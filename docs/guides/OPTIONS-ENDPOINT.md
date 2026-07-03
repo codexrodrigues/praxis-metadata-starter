@@ -389,7 +389,9 @@ Use ferramentas como Postman ou curl para testar endpoints:
   ```bash
   curl "http://localhost:8080/api/resource/option-sources/universo/options/by-ids?ids=1&ids=2"
   ```
-  Esperado: `List<OptionDTO>` para IDs específicos.
+  Esperado: array JSON top-level `List<OptionDTO>` para IDs encontrados,
+  preservando a ordem solicitada. IDs inexistentes sao omitidos; respostas 200
+  nao devem conter itens `null`.
 
 - **Verificar Schema**:
   ```bash
