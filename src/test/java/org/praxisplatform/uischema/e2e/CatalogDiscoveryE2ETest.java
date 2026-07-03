@@ -54,6 +54,7 @@ class CatalogDiscoveryE2ETest extends AbstractE2eH2Test {
         assertEquals("payroll-view", payrollCatalog.path("group").asText());
         JsonNode payrollByIdEndpoint = findEndpoint(payrollCatalog.path("endpoints"), "/payroll-view/{id}", "GET");
         assertNotNull(payrollByIdEndpoint);
+        assertFalse(payrollByIdEndpoint.hasNonNull("resourceVisual"));
         assertTrue(payrollByIdEndpoint.path("schemaLinks").hasNonNull("response"));
         assertResolvable(payrollByIdEndpoint.path("schemaLinks").path("response").asText());
 

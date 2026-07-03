@@ -883,8 +883,7 @@ public class DomainCatalogController {
             return !StringUtils.hasText(title)
                     && !StringUtils.hasText(description)
                     && !StringUtils.hasText(icon)
-                    && !StringUtils.hasText(tone)
-                    && !StringUtils.hasText(source);
+                    && !StringUtils.hasText(tone);
         }
 
         private boolean isMoreCanonicalThan(ResourceVisual other) {
