@@ -1025,6 +1025,132 @@ input:focus-visible,
   padding-right: 4px;
 }
 
+.resource-brief {
+  border: 1px solid color-mix(in srgb, var(--cyan) 34%, var(--line));
+  background:
+    radial-gradient(circle at 12% 18%, rgba(98, 216, 255, .16), transparent 30%),
+    linear-gradient(150deg, rgba(98, 216, 255, .08), rgba(115, 239, 181, .06) 52%, rgba(183, 165, 255, .06)),
+    rgba(8, 16, 23, .90);
+  box-shadow: inset 0 1px 0 rgba(237, 243, 251, .05);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.resource-brief-header span,
+.resource-brief-focus > span {
+  color: var(--mint);
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.resource-brief-header strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1.12;
+  margin-top: 5px;
+}
+
+.resource-brief-header p {
+  color: var(--soft);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 7px 0 0;
+}
+
+.resource-brief-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.resource-brief-grid button,
+.resource-brief-focus button {
+  border: 1px solid rgba(126, 211, 255, .20);
+  background: rgba(2, 6, 10, .52);
+  color: var(--soft);
+  cursor: pointer;
+  font: inherit;
+  min-width: 0;
+  text-align: left;
+}
+
+.resource-brief-grid button {
+  min-height: 54px;
+  padding: 8px;
+}
+
+.resource-brief-grid button:hover,
+.resource-brief-grid button.active,
+.resource-brief-focus button:hover {
+  border-color: rgba(115, 239, 181, .64);
+  color: #fff;
+}
+
+.resource-brief-grid span,
+.resource-brief-grid strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.resource-brief-grid span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.resource-brief-grid strong {
+  font-size: 20px;
+  line-height: 1;
+  margin-top: 6px;
+}
+
+.resource-brief-focus {
+  display: grid;
+  gap: 7px;
+}
+
+.resource-brief-focus > div {
+  display: grid;
+  gap: 6px;
+}
+
+.resource-brief-focus button {
+  --area-a: var(--cyan);
+  --area-b: var(--mint);
+  border-color: color-mix(in srgb, var(--area-a) 32%, var(--line));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--area-a) 16%, transparent), transparent 44%),
+    rgba(2, 6, 10, .52);
+  padding: 9px 10px;
+}
+
+.resource-brief-focus strong,
+.resource-brief-focus small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.resource-brief-focus strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.resource-brief-focus small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  margin-top: 3px;
+}
+
 .resource-button {
   --area-a: var(--cyan);
   --area-b: var(--mint);
@@ -2391,12 +2517,27 @@ input:focus-visible,
 @media (max-width: 720px) {
   .cockpit-shell { padding: 12px; }
   .topbar { align-items: stretch; flex-direction: column; }
+  .resource-brief-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .resource-brief-grid button {
+    min-height: 48px;
+  }
+  .resource-brief-header strong {
+    font-size: 16px;
+  }
   .semantic-graph-toolbar {
     align-items: stretch;
     flex-direction: column;
+    gap: 9px;
+    padding: 10px;
+  }
+  .semantic-graph-tools {
+    justify-items: stretch;
+    min-width: 0;
   }
   .semantic-graph-legend {
-    justify-content: flex-start;
+    display: none;
   }
   .semantic-graph-filters,
   .semantic-graph-view-modes,
@@ -2404,8 +2545,41 @@ input:focus-visible,
   .semantic-graph-summary {
     justify-content: flex-start;
   }
+  .semantic-graph-filters button,
+  .semantic-graph-view-modes button,
+  .semantic-graph-viewport-tools button,
+  .semantic-graph-viewport-tools span {
+    min-height: 28px;
+    padding: 5px 7px;
+  }
+  .semantic-graph-stage {
+    gap: 8px;
+    min-height: 0;
+    padding: 10px;
+  }
   .semantic-graph-canvas {
-    min-height: 340px;
+    min-height: 260px;
+  }
+  .semantic-graph-svg {
+    min-height: 260px;
+  }
+  .semantic-graph-inspector {
+    max-height: 190px;
+    overflow: auto;
+  }
+  .semantic-graph-routes {
+    padding: 0 10px 10px;
+  }
+  .semantic-graph-routes button {
+    min-height: 0;
+    padding: 10px;
+  }
+  .semantic-graph-routes strong {
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .semantic-graph-routes p {
+    display: none;
   }
   .semantic-graph-shell.is-fullscreen {
     padding: 10px;

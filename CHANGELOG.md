@@ -48,6 +48,7 @@ All notable changes to this module will be documented in this file.
 - `/schemas/filtered` agora pode derivar `x-ui.resource.idField` de um identificador natural escalar obrigatorio quando o DTO de resposta nao possui `id` ou `*Id`, cobrindo recursos como `EmpresaDTO.empresa`.
 - O cockpit empacotado em `/praxis/cockpit` agora mescla o catalogo default com catalogos por grupo, evitando leitura parcial quando um grupo demora ou falha, e reorganiza endpoints em uma coluna no mobile para impedir linhas largas no painel do recurso.
 - O cockpit agora prioriza o prefixo semantico de `resourceKey` antes de grupos tecnicos genericos como `application`, e reduz rotulos secundarios no modo limpo do grafo para melhorar a leitura da constelacao de relacoes.
+- O cockpit agora inclui uma leitura rapida acionavel na lista de recursos e compacta o grafo semantico no mobile, reduzindo rolagem cega antes de escolher recursos, charts, formularios e workflows.
 
 ## [8.0.0-rc.14] - 2026-04-24
 

@@ -75,6 +75,8 @@ class PraxisCockpitControllerTest {
                 .doesNotContain("fonts.googleapis.com")
                 .doesNotContain("fonts.gstatic.com")
                 .doesNotContain("@import url(")
+                .contains(".resource-brief")
+                .contains(".semantic-graph-routes p {\n    display: none;")
                 .contains(".endpoint-row {\n    gap: 2px;\n    grid-template-columns: 1fr;");
     }
 
@@ -166,6 +168,10 @@ class PraxisCockpitControllerTest {
                 .contains("capabilityErrors")
                 .contains("Capabilities retornaram erro")
                 .contains("function renderResourceFilters")
+                .contains("function renderResourceExecutiveSummary")
+                .contains("data-resource-filter-shortcut")
+                .contains("Leitura rápida")
+                .contains("Investigar agora")
                 .contains("function matchesResourceFilter")
                 .contains("function resourceListSignal")
                 .contains("function resourceRenderability")

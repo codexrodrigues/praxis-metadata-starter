@@ -1427,7 +1427,8 @@
 
   function renderResourceList() {
     const query = els.resourceSearch.value.trim().toLowerCase();
-    const filtered = state.resources.filter((resource) => {
+    const scopedResources = state.resources.filter((resource) => !state.selectedArea || resource.group === state.selectedArea);
+    const filtered = scopedResources.filter((resource) => {
       if (state.selectedArea && resource.group !== state.selectedArea) return false;
       if (!matchesResourceFilter(resource, state.resourceFilter)) return false;
       const haystack = [
@@ -1439,23 +1440,108 @@
       ].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(query);
     });
+    const summary = renderResourceExecutiveSummary(scopedResources, filtered);
 
     if (!filtered.length) {
-      els.resourceList.innerHTML = '<div class="empty-state">Nenhum recurso encontrado com esse filtro.</div>';
+      els.resourceList.innerHTML = `${summary}<div class="empty-state">Nenhum recurso encontrado com esse filtro.</div>`;
+      bindResourceListControls();
       return;
     }
 
-    els.resourceList.innerHTML = filtered.map((resource) => `
+    els.resourceList.innerHTML = `${summary}${filtered.map((resource) => `
       <button class="resource-button ${resource.key === state.selectedKey ? 'active' : ''}" type="button" data-key="${escapeAttr(resource.key)}" data-area="${escapeAttr(resource.group)}" aria-current="${resource.key === state.selectedKey ? 'true' : 'false'}" style="${areaStyleVars(resource.group)}">
         <strong>${escapeHtml(resource.label)}</strong>
         <span>${escapeHtml(resource.domain)} · ${escapeHtml(resource.endpoints.length)} operações · ${escapeHtml(resource.fieldList.length)} campos</span>
         <span>${escapeHtml(resourceListSignal(resource))}</span>
         <span>${escapeHtml(resource.resourcePath || 'sem path publicado')}</span>
       </button>
-    `).join('');
+    `).join('')}`;
+    bindResourceListControls();
+  }
+
+  function bindResourceListControls() {
     els.resourceList.querySelectorAll('button[data-key]').forEach((button) => {
       button.addEventListener('click', () => selectResource(button.dataset.key));
     });
+    els.resourceList.querySelectorAll('button[data-resource-filter-shortcut]').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.resourceFilter = button.dataset.resourceFilterShortcut || 'all';
+        renderResourceFilters();
+        renderResourceList();
+      });
+    });
+  }
+
+  function renderResourceExecutiveSummary(scopedResources, filteredResources) {
+    const total = scopedResources.length;
+    const countByFilter = (filter) => scopedResources.filter((resource) => matchesResourceFilter(resource, filter)).length;
+    const attentionCount = countByFilter('attention');
+    const shortcuts = [
+      { key: 'all', label: 'Todos', value: total },
+      { key: 'attention', label: 'Atenção', value: attentionCount },
+      { key: 'forms', label: 'Formulários', value: countByFilter('forms') },
+      { key: 'analytics', label: 'Charts', value: countByFilter('analytics') },
+      { key: 'actions', label: 'Workflow', value: countByFilter('actions') }
+    ];
+    const recommended = scopedResources
+      .map((resource) => ({
+        resource,
+        attention: catalogDiagnostics(resource).filter((item) => item.level === 'blocking' || item.level === 'attention').length,
+        renderability: resourceRenderability(resource)
+      }))
+      .sort((left, right) => {
+        const leftScore = left.attention * 20 + Number(left.renderability.canActions) * 5 + Number(left.renderability.canAnalytics) * 3;
+        const rightScore = right.attention * 20 + Number(right.renderability.canActions) * 5 + Number(right.renderability.canAnalytics) * 3;
+        return rightScore - leftScore || right.resource.endpoints.length - left.resource.endpoints.length;
+      })
+      .slice(0, 3);
+
+    return `
+      <section class="resource-brief" aria-label="Leitura rápida dos recursos">
+        <div class="resource-brief-header">
+          <span>Leitura rápida</span>
+          <strong>${escapeHtml(filteredResources.length)} de ${escapeHtml(total)} recursos neste recorte</strong>
+          <p>${escapeHtml(resourceBriefText(total, attentionCount))}</p>
+        </div>
+        <div class="resource-brief-grid" aria-label="Atalhos por capacidade">
+          ${shortcuts.map((shortcut) => `
+            <button class="${shortcut.key === state.resourceFilter ? 'active' : ''}" type="button" data-resource-filter-shortcut="${escapeAttr(shortcut.key)}" aria-pressed="${shortcut.key === state.resourceFilter ? 'true' : 'false'}">
+              <span>${escapeHtml(shortcut.label)}</span>
+              <strong>${escapeHtml(shortcut.value)}</strong>
+            </button>
+          `).join('')}
+        </div>
+        <div class="resource-brief-focus">
+          <span>Investigar agora</span>
+          <div>
+            ${recommended.map((item) => `
+              <button type="button" data-key="${escapeAttr(item.resource.key)}" style="${areaStyleVars(item.resource.group)}">
+                <strong>${escapeHtml(item.resource.label)}</strong>
+                <small>${escapeHtml(resourceBriefSignal(item.resource, item.attention))}</small>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function resourceBriefText(total, attentionCount) {
+    if (!total) return 'Nenhum recurso foi materializado para este recorte.';
+    if (attentionCount) return `${attentionCount} recurso(s) pedem revisão de contrato, identidade ou capability antes de virarem experiência confiável.`;
+    return 'O recorte atual está pronto para exploração por UI, filtros, charts e workflows publicados.';
+  }
+
+  function resourceBriefSignal(resource, attentionCount) {
+    const profile = resourceRenderability(resource);
+    const layers = [
+      profile.canForm ? 'form' : null,
+      profile.canFilter ? 'filtros' : null,
+      profile.canAnalytics ? 'charts' : null,
+      profile.canActions ? 'workflow' : null
+    ].filter(Boolean);
+    if (attentionCount) return `${attentionCount} ponto(s) de atenção · ${layers.join(', ') || 'sem camada confirmada'}`;
+    return `${resource.endpoints.length} operações · ${layers.join(', ') || 'sem camada confirmada'}`;
   }
 
   function matchesResourceFilter(resource, filter) {
