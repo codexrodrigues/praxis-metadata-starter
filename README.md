@@ -86,6 +86,10 @@ ja publica para humanos, runtimes e IA: areas de dominio, recursos, endpoints,
 filtros, formularios, tabelas, graficos, workflow actions, readiness semantica e
 relacionamentos entre recursos. A URL publica fica em
 [https://praxis-api-quickstart.onrender.com/praxis/cockpit](https://praxis-api-quickstart.onrender.com/praxis/cockpit).
+Use essa URL canonica em README, landing pages e materiais publicos. Parametros
+como `release`, `published` e `qa` sao apenas cache-busters temporarios de validacao;
+o cockpit mostra no topo o release solicitado e o `build.time` real do host para
+diagnosticar rollout sem transformar links de QA em links permanentes.
 
 Regras importantes:
 
