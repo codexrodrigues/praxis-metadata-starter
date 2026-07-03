@@ -862,6 +862,10 @@ filtros de estrutura organizacional e composicao de vinculos de funcionarios.</c
 <li>cite metricas reais</li>
 <li>nao transforme projection em comando</li>
 <li>use nomes de metricas que batem com DTO/anotacao</li>
+<li>quando a experiencia primaria for visualizacao analitica, use
+<code>@UiSurface(kind = SurfaceKind.CHART)</code> e mantenha
+<code>@UiAnalytics</code> como fonte dos detalhes de projection,
+dimensoes, metricas e apresentacao</li>
 </ul>
 <p>Boa:</p>
 <pre class="text"><code>Agrupar salario liquido por universo, perfil ou composicao de folha.</code></pre>

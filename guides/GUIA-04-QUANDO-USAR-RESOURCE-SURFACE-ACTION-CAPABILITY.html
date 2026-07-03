@@ -259,6 +259,11 @@ para que o runtime saiba renderizar a lista filha; inclua
 <code>CREATE</code> ou <code>DELETE</code> somente quando houver
 endpoints HTTP reais publicados para esses comandos da colecao
 relacionada</li>
+<li><code>POST /indicadores/stats/timeseries</code> pode ser uma surface
+<code>COLLECTION</code> com <code>kind = CHART</code> quando a
+experiencia primaria for uma visualizacao analitica; use
+<code>@UiAnalytics</code> para declarar projection, dimensoes, metricas
+e families</li>
 </ul>
 <p>Essa distincao evita que runtimes precisem inferir se devem
 renderizar um form de leitura, uma tabela, uma lista ou uma pagina a

@@ -733,6 +733,9 @@ Para views read-only, analytics e projections:
 - cite metricas reais
 - nao transforme projection em comando
 - use nomes de metricas que batem com DTO/anotacao
+- quando a experiencia primaria for visualizacao analitica, use
+  `@UiSurface(kind = SurfaceKind.CHART)` e mantenha `@UiAnalytics` como fonte
+  dos detalhes de projection, dimensoes, metricas e apresentacao
 
 Boa:
 
