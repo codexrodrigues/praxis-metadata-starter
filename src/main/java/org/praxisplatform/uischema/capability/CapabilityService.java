@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.capability;
 
 import org.praxisplatform.uischema.exporting.CollectionExportCapability;
+import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 
 /**
  * Agrega operacoes canonicas, surfaces e actions para uma colecao ou instancia.
@@ -43,10 +44,29 @@ public interface CapabilityService {
         return collectionCapabilities(resourceKey, resourcePath, collectionExportSupported);
     }
 
+    default CapabilitySnapshot collectionCapabilities(
+            String resourceKey,
+            String resourcePath,
+            boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability,
+            StatsFieldRegistry statsFieldRegistry
+    ) {
+        return collectionCapabilities(resourceKey, resourcePath, collectionExportSupported, collectionExportCapability);
+    }
+
     /**
      * Resolve o snapshot de capabilities no escopo de um item especifico do recurso.
      */
     CapabilitySnapshot itemCapabilities(String resourceKey, String resourcePath, Object resourceId);
+
+    default CapabilitySnapshot itemCapabilities(
+            String resourceKey,
+            String resourcePath,
+            Object resourceId,
+            StatsFieldRegistry statsFieldRegistry
+    ) {
+        return itemCapabilities(resourceKey, resourcePath, resourceId);
+    }
 
     /**
      * Resolve somente a disponibilidade contextual de uma operacao canonica de colecao.

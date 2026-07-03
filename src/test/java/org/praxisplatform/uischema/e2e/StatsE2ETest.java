@@ -20,6 +20,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class StatsE2ETest extends AbstractE2eH2Test {
 
     @Test
+    void employeesCapabilitiesExposeStatsFieldDiscovery() throws Exception {
+        ResponseEntity<String> response = get("/employees/capabilities");
+        assertEquals(200, response.getStatusCode().value());
+
+        JsonNode body = body(response);
+        JsonNode fields = body.path("stats").path("fields");
+        assertEquals(4, fields.size());
+        assertEquals("status", fields.get(0).path("field").asText());
+        assertEquals("Status", fields.get(0).path("label").asText());
+        assertEquals("COUNT", fields.get(0).path("metrics").get(0).asText());
+        assertEquals("GROUP_BY", fields.get(0).path("modes").get(0).asText());
+        assertEquals("DISTRIBUTION_TERMS", fields.get(0).path("modes").get(1).asText());
+        assertTrue(fields.get(0).path("groupByEligible").asBoolean());
+        assertTrue(fields.get(0).path("distributionTermsEligible").asBoolean());
+
+        assertEquals("admissionDate", fields.get(1).path("field").asText());
+        assertEquals("TIME_SERIES", fields.get(1).path("modes").get(0).asText());
+        assertTrue(fields.get(1).path("timeSeriesEligible").asBoolean());
+
+        assertEquals("salario", fields.get(3).path("field").asText());
+        assertEquals("DISTRIBUTION_HISTOGRAM", fields.get(3).path("modes").get(0).asText());
+        assertEquals("METRIC_FIELD", fields.get(3).path("modes").get(1).asText());
+    }
+
+    @Test
     void employeesExposeCanonicalStatsPayloads() throws Exception {
         ResponseEntity<String> groupByResponse = postJson("/employees/stats/group-by", """
                 {

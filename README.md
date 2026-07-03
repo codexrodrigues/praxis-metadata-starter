@@ -99,6 +99,22 @@ dimensoes como `veiculoId`, `missaoId` ou `funcionarioId` aparecem com label
 humano e ID tecnico secundario. Se a consulta de stats ou de labels falhar, o
 cockpit preserva fallback explicito para o valor cru retornado pelo endpoint.
 
+Para hosts em `8.0.0-rc.52+`, o cockpit nao precisa tentar campos aleatorios para
+descobrir charts. `GET /{resource}/capabilities` publica `stats.fields`, uma
+projecao do `StatsFieldRegistry` do servico com:
+
+- `field` e `propertyPath`, preservando a ponte entre campo publico e agregacao interna
+- `label`, como rotulo sugerido quando `/schemas/filtered` nao tiver um titulo melhor
+- `metrics`, como `COUNT`, `SUM`, `AVG`, `MIN`, `MAX` ou `DISTINCT_COUNT`
+- `modes`, como `GROUP_BY`, `TIME_SERIES`, `DISTRIBUTION_TERMS`, `DISTRIBUTION_HISTOGRAM` e `METRIC_FIELD`
+- flags booleanas de elegibilidade para consumidores que preferem leitura direta
+
+`StatsFieldRegistry` continua sendo a fonte canonica da elegibilidade; `capabilities.stats`
+e apenas discovery publico. O schema estrutural, labels ricas e `x-ui.optionSource`
+continuam em `/schemas/filtered`, e o cockpit cruza ambos por `field` antes de
+hidratar labels relacionais. Em cenarios corporativos isso evita tentativa e erro,
+reduz consultas invalidas e deixa dashboards auditaveis antes da execucao de stats.
+
 Regras importantes:
 
 - `surfaces` e `actions` sao catalogos semanticos; nao redefinem schema inline
@@ -195,6 +211,7 @@ Operacoes canonicas esperadas:
 Papel de cada camada:
 
 - `capabilities.operations` governa se a operacao existe agora e como ela deve ser tratada semanticamente
+- `capabilities.stats.fields` governa quais dimensoes e metricas estatisticas podem alimentar charts reais
 - `/schemas/filtered` continua sendo a fonte estrutural de request/response schema
 - `surfaces` e `actions` continuam sendo discovery semantico rico quando publicados
 - `_links` entram como camada operacional/contextual para escolher o target real de execucao

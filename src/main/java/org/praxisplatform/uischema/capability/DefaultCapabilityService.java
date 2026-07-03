@@ -7,6 +7,8 @@ import org.praxisplatform.uischema.action.ActionCatalogService;
 import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.exporting.CollectionExportCapability;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
+import org.praxisplatform.uischema.stats.StatsCapability;
+import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.surface.SurfaceCatalogItem;
 import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
 import org.praxisplatform.uischema.surface.SurfaceCatalogResponse;
@@ -102,6 +104,23 @@ public class DefaultCapabilityService implements CapabilityService {
             boolean collectionExportSupported,
             CollectionExportCapability collectionExportCapability
     ) {
+        return collectionCapabilities(
+                resourceKey,
+                resourcePath,
+                collectionExportSupported,
+                collectionExportCapability,
+                StatsFieldRegistry.empty()
+        );
+    }
+
+    @Override
+    public CapabilitySnapshot collectionCapabilities(
+            String resourceKey,
+            String resourcePath,
+            boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability,
+            StatsFieldRegistry statsFieldRegistry
+    ) {
         Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
         canonicalOperations.put("export", collectionExportSupported);
         List<SurfaceCatalogItem> collectionSurfaces = collectionSurfaces(resourceKey);
@@ -121,13 +140,24 @@ public class DefaultCapabilityService implements CapabilityService {
                         collectionExportCapability
                 ),
                 collectionSurfaces,
-                collectionActions
+                collectionActions,
+                StatsCapability.from(statsFieldRegistry)
         );
         return snapshot.withOperations(applyCollectionAvailability(snapshot.operations(), resourceKey, resourcePath));
     }
 
     @Override
     public CapabilitySnapshot itemCapabilities(String resourceKey, String resourcePath, Object resourceId) {
+        return itemCapabilities(resourceKey, resourcePath, resourceId, StatsFieldRegistry.empty());
+    }
+
+    @Override
+    public CapabilitySnapshot itemCapabilities(
+            String resourceKey,
+            String resourcePath,
+            Object resourceId,
+            StatsFieldRegistry statsFieldRegistry
+    ) {
         Map<String, Boolean> canonicalOperations = canonicalCapabilityResolver.resolve(resourcePath);
         List<SurfaceCatalogItem> itemSurfaces = itemSurfaces(resourceKey, resourceId);
         List<ActionCatalogItem> itemActions = itemActions(resourceKey, resourceId);
@@ -141,7 +171,8 @@ public class DefaultCapabilityService implements CapabilityService {
                 canonicalOperations,
                 resolveOperations(resourcePath, itemSurfaces, itemActions),
                 itemSurfaces,
-                itemActions
+                itemActions,
+                StatsCapability.from(statsFieldRegistry)
         );
         return snapshot.withOperations(applyItemAvailability(snapshot.operations(), resourceKey, resourcePath, resourceId, stateSnapshot));
     }

@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.capability;
 
 import org.praxisplatform.uischema.action.ActionCatalogItem;
+import org.praxisplatform.uischema.stats.StatsCapability;
 import org.praxisplatform.uischema.surface.SurfaceCatalogItem;
 
 import java.util.List;
@@ -29,7 +30,8 @@ public record CapabilitySnapshot(
         Map<String, Boolean> canonicalOperations,
         Map<String, CapabilityOperation> operations,
         List<SurfaceCatalogItem> surfaces,
-        List<ActionCatalogItem> actions
+        List<ActionCatalogItem> actions,
+        StatsCapability stats
 ) {
 
     public CapabilitySnapshot {
@@ -37,6 +39,7 @@ public record CapabilitySnapshot(
         operations = operations == null ? Map.of() : Map.copyOf(operations);
         surfaces = surfaces == null ? List.of() : List.copyOf(surfaces);
         actions = actions == null ? List.of() : List.copyOf(actions);
+        stats = stats == null ? StatsCapability.empty() : stats;
     }
 
     public CapabilitySnapshot withOperations(Map<String, CapabilityOperation> nextOperations) {
@@ -48,7 +51,8 @@ public record CapabilitySnapshot(
                 canonicalOperations,
                 nextOperations,
                 surfaces,
-                actions
+                actions,
+                stats
         );
     }
 }

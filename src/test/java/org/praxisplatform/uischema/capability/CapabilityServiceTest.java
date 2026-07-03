@@ -10,6 +10,8 @@ import org.praxisplatform.uischema.exporting.CollectionExportCapability;
 import org.praxisplatform.uischema.exporting.CollectionExportFormat;
 import org.praxisplatform.uischema.exporting.CollectionExportScope;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
+import org.praxisplatform.uischema.stats.StatsFieldCapability;
+import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.surface.SurfaceCatalogItem;
 import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
 import org.praxisplatform.uischema.surface.SurfaceCatalogResponse;
@@ -147,6 +149,44 @@ class CapabilityServiceTest {
         assertEquals(List.of(CollectionExportScope.SELECTED, CollectionExportScope.FILTERED), export.scopes());
         assertEquals(500, export.maxRows().get(CollectionExportFormat.CSV.value()));
         assertFalse(export.async());
+    }
+
+    @Test
+    void collectionCapabilitiesExposeStatsDiscoveryFromRegistry() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of("statsGroupBy", true, "statsTimeSeries", true)),
+                emptySurfaceCatalogService(),
+                emptyActionCatalogService(),
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        CapabilitySnapshot snapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                false,
+                null,
+                StatsFieldRegistry.builder()
+                        .categoricalGroupByBucket("status", "status")
+                        .temporalTimeSeriesField("admissionDate", "admissionDate")
+                        .numericHistogramMeasureField("salario", "salario")
+                        .build()
+        );
+
+        assertEquals(3, snapshot.stats().fields().size());
+        StatsFieldCapability status = snapshot.stats().fields().get(0);
+        assertEquals("status", status.field());
+        assertEquals("status", status.propertyPath());
+        assertEquals("Status", status.label());
+        assertEquals(List.of("COUNT"), status.metrics());
+        assertEquals(List.of("GROUP_BY", "DISTRIBUTION_TERMS"), status.modes());
+        assertTrue(status.groupByEligible());
+        assertTrue(status.distributionTermsEligible());
+        assertFalse(status.timeSeriesEligible());
+
+        StatsFieldCapability salario = snapshot.stats().fields().get(2);
+        assertEquals("salario", salario.field());
+        assertEquals(List.of("COUNT", "DISTINCT_COUNT", "SUM", "AVG", "MIN", "MAX"), salario.metrics());
+        assertEquals(List.of("DISTRIBUTION_HISTOGRAM", "METRIC_FIELD"), salario.modes());
     }
 
     @Test

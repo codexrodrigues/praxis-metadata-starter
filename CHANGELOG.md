@@ -5,6 +5,9 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- `GET /{resource}/capabilities` agora publica `stats.fields` como discovery publico
+  derivado de `StatsFieldRegistry`, incluindo campo, `propertyPath`, label sugerido,
+  metricas e modos elegiveis para dashboards e cockpits metadata-driven.
 - Base canonica `AbstractCreateUpdateResourceController` e portas `BaseCreateUpdateResourceService` / `BaseCreateUpdateResourceCommandService` para recursos `read + create/update` que nao publicam `delete`.
 - SPI publica `ResourceOperationAvailabilityProvider` para availability host-neutral de operacoes canonicas de recurso, integrada a `/capabilities` e `_links`.
 - Tipos publicos `ResourceOperationAvailabilityContext` e `NoOpResourceOperationAvailabilityProvider` para hosts corporativos plugar guards legados sem expor detalhes privados no contrato.

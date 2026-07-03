@@ -3457,6 +3457,26 @@
 
   function preferredStatsDimension(resource) {
     const fields = filteredSchemaFields(resource);
+    const schemaByName = new Map(fields.map((field) => [field.name, field]));
+    const statsDimensions = (((resource.capability || {}).stats || {}).fields || [])
+      .filter((field) => field && field.field && (field.groupByEligible || (field.modes || []).includes('GROUP_BY')))
+      .map((field) => {
+        const schemaField = schemaByName.get(field.field) || {};
+        return {
+          ...schemaField,
+          name: field.field,
+          type: schemaField.type || 'string',
+          label: schemaField.xui?.label || field.label || field.field,
+          optionSource: schemaField.xui?.optionSource || null,
+          stats: field
+        };
+      });
+    if (statsDimensions.length) {
+      return statsDimensions.find((field) => field.optionSource?.byIdsEndpoint)
+        || statsDimensions.find((field) => field.optionSource)
+        || statsDimensions.find((field) => (field.stats?.metrics || []).includes('COUNT'))
+        || statsDimensions[0];
+    }
     const candidates = fields
       .map((field) => ({ ...field, optionSource: field.xui?.optionSource || null }))
       .filter((field) => field.name && !isEnvelopeField(field.name));
@@ -3531,12 +3551,13 @@
   }
 
   function fieldLabel(field) {
-    return readableText(field?.xui?.label || field?.name || 'campo');
+    return readableText(field?.xui?.label || field?.label || field?.stats?.label || field?.name || 'campo');
   }
 
   function statsHydrationSummary(preview, dimension) {
     if (preview.hydrated) return `Buckets hidratados via option source ${dimension.optionSource?.key || 'publicada'}; ID técnico preservado como contexto.`;
     if (dimension.optionSource) return 'Option source encontrada, mas o fallback por ID cru foi usado nesta amostra.';
+    if (dimension.stats) return 'Dimensão declarada em capabilities.stats; labels vêm diretamente do retorno de stats.';
     return 'Dimensão sem option source; labels vêm diretamente do retorno de stats.';
   }
 

@@ -937,7 +937,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 getResourceKey(),
                 getBasePath(),
                 supportsCollectionExport(),
-                exportCapability
+                exportCapability,
+                getService().getStatsFieldRegistry()
         );
         return withVersion(
                 ResponseEntity.ok(),
@@ -952,7 +953,10 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             throw new IllegalStateException("CapabilityService is not configured for contextual discovery.");
         }
         getService().findById(id);
-        return withVersion(ResponseEntity.ok(), capabilityService.itemCapabilities(getResourceKey(), getBasePath(), id));
+        return withVersion(
+                ResponseEntity.ok(),
+                capabilityService.itemCapabilities(getResourceKey(), getBasePath(), id, getService().getStatsFieldRegistry())
+        );
     }
 
     @GetMapping(SCHEMAS_PATH)
