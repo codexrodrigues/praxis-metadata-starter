@@ -97,6 +97,8 @@ Regra:
 - `action` nao e patch de manutencao do recurso
 - execucao sempre por endpoint tipado real
 - `/schemas/actions` faz discovery semantico; nao publica um segundo contrato de payload
+- quando `@WorkflowAction.allowedStates` for declarado, `/schemas/actions` publica esses
+  estados como restricao estatica da action para runtimes e cockpit
 - `ITEM` em `/schemas/actions` e discovery-only sem `resourceId`; a availability real vem de
   `GET /{resource}/{id}/actions`
 

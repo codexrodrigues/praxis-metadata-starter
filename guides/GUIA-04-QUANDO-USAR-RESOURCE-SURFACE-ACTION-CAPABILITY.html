@@ -280,6 +280,9 @@ negocio explicito.</p>
 <li>execucao sempre por endpoint tipado real</li>
 <li><code>/schemas/actions</code> faz discovery semantico; nao publica
 um segundo contrato de payload</li>
+<li>quando <code>@WorkflowAction.allowedStates</code> for declarado,
+<code>/schemas/actions</code> publica esses estados como restricao
+estatica da action para runtimes e cockpit</li>
 <li><code>ITEM</code> em <code>/schemas/actions</code> e discovery-only
 sem <code>resourceId</code>; a availability real vem de
 <code>GET /{resource}/{id}/actions</code></li>
