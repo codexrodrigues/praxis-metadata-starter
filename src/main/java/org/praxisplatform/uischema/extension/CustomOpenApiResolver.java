@@ -862,6 +862,12 @@ public class CustomOpenApiResolver extends ModelResolver {
                 putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.INPUT.getValue());
                 putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "12rem");
                 putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "pin");
+                putPreset(uiExtension, FieldConfigProperties.PRESENTATION.getValue(), new LinkedHashMap<>(Map.of(
+                        "presenter", "iconValue",
+                        "icon", "pin",
+                        "prefix", "#",
+                        "appearance", "soft"
+                )));
             }
             case ENTERPRISE_NAME -> {
                 putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
@@ -874,6 +880,11 @@ public class CustomOpenApiResolver extends ModelResolver {
                 putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.SELECT.getValue());
                 putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "12rem");
                 putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "toggle_on");
+                putPreset(uiExtension, FieldConfigProperties.PRESENTATION.getValue(), new LinkedHashMap<>(Map.of(
+                        "presenter", "status",
+                        "icon", "toggle_on",
+                        "appearance", "soft"
+                )));
             }
             case DATE_RANGE -> {
                 putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.DATE.getValue());

@@ -33,8 +33,9 @@ Exemplo:
 private String code;
 ```
 
-O schema publicado inclui `x-ui.presentationPreset = "enterprise-code"`, mas a descricao continua
-vindo do texto humano em `@Schema`.
+O schema publicado inclui `x-ui.presentationPreset = "enterprise-code"` e a apresentacao
+semantica de leitura/lista em `x-ui.presentation`, mas a descricao continua vindo do texto humano
+em `@Schema`.
 
 ## Review
 

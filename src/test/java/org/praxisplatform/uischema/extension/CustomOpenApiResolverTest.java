@@ -117,6 +117,28 @@ class CustomOpenApiResolverTest {
         Double valorMensal;
     }
 
+    private static class EnterpriseCodePresetDummy {
+        @UISchema(preset = UISchemaPreset.ENTERPRISE_CODE)
+        String codigo;
+    }
+
+    private static class PresentationOverrideDummy {
+        @UISchema(
+                preset = UISchemaPreset.ENTERPRISE_CODE,
+                extraProperties = {
+                        @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                                name = "presentation.presenter",
+                                value = "chip"
+                        ),
+                        @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                                name = "presentation.appearance",
+                                value = "outlined"
+                        )
+                }
+        )
+        String codigo;
+    }
+
     @Test
     void resolverShouldKeepInputForNomeCompletoWithMax200() {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
@@ -247,6 +269,44 @@ class CustomOpenApiResolverTest {
         assertEquals("monetary-amount", xui.get(FieldConfigProperties.PRESENTATION_PRESET.getValue()));
         assertEquals(FieldControlType.INPUT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
         assertEquals("20rem", xui.get(FieldConfigProperties.WIDTH.getValue()));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void enterpriseCodePresetShouldPublishSemanticCellPresentation() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("codigo");
+
+        Annotation uiSchema = EnterpriseCodePresetDummy.class.getDeclaredField("codigo").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertEquals("enterprise-code", xui.get(FieldConfigProperties.PRESENTATION_PRESET.getValue()));
+        assertEquals(FieldDataType.TEXT.getValue(), xui.get(FieldConfigProperties.TYPE.getValue()));
+
+        Map<String, Object> presentation = (Map<String, Object>) xui.get(FieldConfigProperties.PRESENTATION.getValue());
+        assertEquals("iconValue", presentation.get("presenter"));
+        assertEquals("pin", presentation.get("icon"));
+        assertEquals("#", presentation.get("prefix"));
+        assertEquals("soft", presentation.get("appearance"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void extraPropertiesShouldOverrideNestedPresentationPreset() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("codigo");
+
+        Annotation uiSchema = PresentationOverrideDummy.class.getDeclaredField("codigo").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        Map<String, Object> presentation = (Map<String, Object>) xui.get(FieldConfigProperties.PRESENTATION.getValue());
+        assertEquals("chip", presentation.get("presenter"));
+        assertEquals("outlined", presentation.get("appearance"));
+        assertEquals("#", presentation.get("prefix"));
     }
 
     @Test
