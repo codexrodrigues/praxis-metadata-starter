@@ -677,8 +677,10 @@ class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="
 <li><p><strong>Reidratação por IDs</strong>:</p>
 <div class="sourceCode" id="cb9"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="st">&quot;http://localhost:8080/api/resource/option-sources/universo/options/by-ids?ids=1&amp;ids=2&quot;</span></span></code></pre></div>
-<p>Esperado: <code>List&lt;OptionDTO&gt;</code> para IDs
-específicos.</p></li>
+<p>Esperado: array JSON top-level <code>List&lt;OptionDTO&gt;</code>
+para IDs encontrados, preservando a ordem solicitada. IDs inexistentes
+sao omitidos; respostas 200 nao devem conter itens
+<code>null</code>.</p></li>
 <li><p><strong>Verificar Schema</strong>:</p>
 <div class="sourceCode" id="cb10"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="st">&quot;http://localhost:8080/schemas/filtered&quot;</span></span></code></pre></div>
