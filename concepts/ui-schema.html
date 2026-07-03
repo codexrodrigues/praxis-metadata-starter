@@ -334,6 +334,15 @@ contrato canônico de display/read-only. O starter publica
 <code>numericFormat</code>; quando precisar sobrescrever, prefira
 <code>extraProperties</code> com chaves aninhadas, como
 <code>valuePresentation.type</code>.</p></li>
+<li><p><strong>Apresentacao rica de leitura/lista
+(<code>presentation</code>)</strong>: use este bloco para descrever o
+involucro visual de campos read-only ou de tabela, como
+<code>chip</code>, <code>badge</code>, <code>status</code> e
+<code>iconValue</code>. Prefixos e sufixos em <code>presentation</code>
+sao somente visuais e nao alteram o valor bruto usado por filtros,
+ordenacao, exportacao ou persistencia. Nao use <code>icon</code> sozinho
+como renderer de celula; ele continua sendo metadado de
+campo/label.</p></li>
 <li><p><strong>Identificadores e documentos</strong>: quando o
 transporte OpenAPI for numerico por legado, mas a informacao for
 codigo/documento/identificador, declare

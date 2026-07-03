@@ -266,8 +266,10 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>label <span class="op">=</span> <span class="st">&quot;Codigo&quot;</span><span class="op">,</span> preset <span class="op">=</span> UISchemaPreset<span class="op">.</span><span class="fu">ENTERPRISE_CODE</span><span class="op">)</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">String</span> code<span class="op">;</span></span></code></pre></div>
 <p>O schema publicado inclui
-<code>x-ui.presentationPreset = "enterprise-code"</code>, mas a
-descricao continua vindo do texto humano em <code>@Schema</code>.</p>
+<code>x-ui.presentationPreset = "enterprise-code"</code> e a
+apresentacao semantica de leitura/lista em
+<code>x-ui.presentation</code>, mas a descricao continua vindo do texto
+humano em <code>@Schema</code>.</p>
 <h2 id="review">Review</h2>
 <p>Use <code>SemanticMetadataReviewer</code> para produzir relatorios de
 autoria:</p>

@@ -306,13 +306,14 @@ o mapeamento dependencia -&gt; chave de filtro quando necessario.</li>
 <code>valuePresentation{ type, style?, format?, currency?, number? }</code>
 como contrato canonico de display/read-only para valores escalares</li>
 <li>Apresentacao visual readonly/list/table-cell:
-<code>presentation{ presenter, tone?, appearance?, icon?, label?, tooltip?, valuePresentation?, visualization?, interactions? }</code>;
+<code>presentation{ presenter, tone?, appearance?, icon?, label?, prefix?, suffix?, tooltip?, valuePresentation?, visualization?, interactions? }</code>;
 consumidores podem materializar como <code>chip</code>,
 <code>badge</code>, <code>status</code>, <code>iconValue</code> ou
 microvisualizacao sem alterar o valor bruto usado para
 sort/filter/export. <code>label</code> representa texto fixo opcional da
 apresentacao; omita <code>label</code> quando o consumidor deve exibir o
-valor da linha/campo.</li>
+valor da linha/campo. <code>prefix</code> e <code>suffix</code> sao
+afixos visuais, como <code>#</code> em codigos corporativos.</li>
 <li>Validacao (top-level): <code>required</code>,
 <code>minLength</code>, <code>maxLength</code>, <code>min</code>,
 <code>max</code>, <code>pattern</code>, <code>range</code>, mensagens
