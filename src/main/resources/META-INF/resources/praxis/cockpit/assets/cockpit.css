@@ -1887,6 +1887,7 @@ input:focus-visible,
 .semantic-graph-legend .surface::before { background: var(--mint); }
 .semantic-graph-legend .action::before { background: var(--violet); }
 .semantic-graph-legend .stats::before { background: var(--amber); }
+.semantic-graph-legend .journey::before { background: linear-gradient(135deg, var(--mint), var(--cyan)); }
 
 .semantic-graph-filters,
 .semantic-graph-view-modes,
@@ -2040,7 +2041,7 @@ input:focus-visible,
   border-top: 1px solid rgba(126, 211, 255, .18);
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   padding: 0 12px 12px;
   position: relative;
   z-index: 1;
@@ -2153,6 +2154,12 @@ input:focus-visible,
 .semantic-graph-svg .surface circle { fill: rgba(53, 212, 173, .88); }
 .semantic-graph-svg .action circle { fill: rgba(155, 124, 255, .90); }
 .semantic-graph-svg .stats circle { fill: rgba(226, 184, 77, .92); }
+.semantic-graph-svg .journey circle {
+  fill: rgba(40, 224, 196, .94);
+  filter: drop-shadow(0 0 18px rgba(115, 239, 181, .48));
+  stroke: rgba(214, 255, 246, .96);
+  stroke-width: 2.6;
+}
 .semantic-graph-svg .capability circle { fill: rgba(232, 92, 134, .88); }
 
 .semantic-graph-svg text {

@@ -2030,9 +2030,11 @@
               <span class="surface">UI</span>
               <span class="action">Workflow</span>
               <span class="stats">Analytics</span>
+              <span class="journey">Jornada</span>
             </div>
             <div class="semantic-graph-filters" aria-label="Filtros do grafo semântico">
               <button type="button" class="active" data-graph-filter="all">Tudo</button>
+              <button type="button" data-graph-filter="journey">Jornada</button>
               <button type="button" data-graph-filter="surface">UI</button>
               <button type="button" data-graph-filter="action">Workflow</button>
               <button type="button" data-graph-filter="field">Campos</button>
@@ -2167,12 +2169,14 @@
     summary.innerHTML = `
       <span>${nodes.length} nós</span>
       <span>${edges.length} relações</span>
+      <span>${byType.journey || 0} jornada</span>
       <span>${byType.surface || 0} UI</span>
       <span>${byType.action || 0} workflow</span>
       <span>${byType.field || 0} campos</span>
     `;
     const labels = {
       all: 'Tudo',
+      journey: 'Jornada',
       surface: 'UI',
       action: 'Workflow',
       field: 'Campos',
@@ -2198,10 +2202,19 @@
 
   function topologyMaterializationRoutes(byType) {
     const fields = byType.field || 0;
+    const journey = byType.journey || 0;
     const surfaces = byType.surface || 0;
     const stats = byType.stats || 0;
     const actions = byType.action || 0;
     return [
+      {
+        filter: 'journey',
+        title: 'Jornada do domínio',
+        body: journey
+          ? `${journey} recurso(s) formam uma cadeia navegável de negócio ao redor deste recurso.`
+          : 'Sem cadeia suficiente entre recursos do mesmo domínio para materializar uma jornada.',
+        ...routeStatus(journey >= 3, journey > 0)
+      },
       {
         filter: 'surface',
         title: 'Tela operacional',
@@ -2404,7 +2417,7 @@
       cy.elements().removeClass('graph-hidden');
       return;
     }
-    const visibleNodes = cy.nodes().filter((node) => node.data('type') === 'root' || node.data('type') === filter);
+    const visibleNodes = cy.nodes().filter((node) => node.data('type') === 'root' || node.data('type') === filter || (filter === 'journey' && node.data('isJourney')));
     const visibleNodeIds = new Set(visibleNodes.map((node) => node.id()));
     cy.nodes().forEach((node) => {
       if (!visibleNodeIds.has(node.id())) node.addClass('graph-hidden');
@@ -2683,7 +2696,7 @@
       const position = positions.get(node.id);
       const radius = node.type === 'root' ? 38 : Math.max(16, Math.min(26, 12 + (node.weight || 2) * 2));
       return `
-        <g class="svg-node ${escapeAttr(node.type || 'concept')}" data-node-id="${escapeAttr(node.id)}" data-node-priority="${node.isPriority ? 'true' : 'false'}" tabindex="0">
+        <g class="svg-node ${escapeAttr(node.type || 'concept')}" data-node-id="${escapeAttr(node.id)}" data-node-priority="${node.isPriority ? 'true' : 'false'}" data-node-journey="${node.isJourney ? 'true' : 'false'}" tabindex="0">
           <circle cx="${position.x}" cy="${position.y}" r="${radius}"></circle>
           <text x="${position.x}" y="${position.y + radius + 17}">${escapeHtml(shortGraphLabel(node.label))}</text>
         </g>
@@ -2714,8 +2727,9 @@
       syncTopologyFilterState(shell, filter);
       applyTopologySvgMode(shell, container, currentMode);
       for (const element of container.querySelectorAll('.svg-node')) {
-        const type = Array.from(element.classList).find((item) => ['root', 'concept', 'field', 'surface', 'action', 'stats', 'capability'].includes(item));
-        element.classList.toggle('graph-hidden', filter !== 'all' && type !== 'root' && type !== filter);
+        const type = Array.from(element.classList).find((item) => ['root', 'concept', 'field', 'surface', 'action', 'stats', 'capability', 'journey'].includes(item));
+        const isJourney = element.getAttribute('data-node-journey') === 'true';
+        element.classList.toggle('graph-hidden', filter !== 'all' && type !== 'root' && type !== filter && !(filter === 'journey' && isJourney));
       }
       updateTopologyInspector(inspector, topologyFilterSummary(filter, model));
     };
@@ -2833,17 +2847,25 @@
     const addNode = (id, patch) => {
       if (!id) return;
       const current = nodeIndex.get(id) || {};
+      const nextType = current.type === 'root'
+        ? 'root'
+        : current.type === 'journey' && patch.type === 'concept'
+          ? 'journey'
+          : patch.type || current.type || 'concept';
       nodeIndex.set(id, {
         id,
         label: patch.label || current.label || id,
         detail: patch.detail || current.detail || '',
-        type: patch.type || current.type || 'concept',
+        type: nextType,
         resourceKey: patch.resourceKey || current.resourceKey || null,
         confidence: patch.confidence || current.confidence || null,
-        color: patch.color || current.color || topologyNodeTheme(patch.type || current.type || 'concept').color,
-        borderColor: patch.borderColor || current.borderColor || topologyNodeTheme(patch.type || current.type || 'concept').border,
-        glowColor: patch.glowColor || current.glowColor || topologyNodeTheme(patch.type || current.type || 'concept').glow,
+        color: patch.color || current.color || topologyNodeTheme(nextType).color,
+        borderColor: patch.borderColor || current.borderColor || topologyNodeTheme(nextType).border,
+        glowColor: patch.glowColor || current.glowColor || topologyNodeTheme(nextType).glow,
         isPriority: Boolean(patch.isPriority || current.isPriority),
+        isJourney: Boolean(patch.isJourney || current.isJourney),
+        journeyOrder: patch.journeyOrder ?? current.journeyOrder ?? null,
+        journeyRole: patch.journeyRole || current.journeyRole || null,
         weight: Math.max(current.weight || 1, patch.weight || 1)
       });
     };
@@ -2863,6 +2885,7 @@
         evidence: patch.evidence || [],
         edgeColor: patch.edgeColor || topologyEdgeColor(patch.type),
         edgeStyle: topologyEdgeStyle(patch.type),
+        isJourney: Boolean(patch.isJourney),
         sourceLabel: nodeIndex.get(source)?.label,
         targetLabel: nodeIndex.get(target)?.label
       });
@@ -2874,8 +2897,37 @@
       type: 'root',
       resourceKey: resource.resourceKey,
       confidence: root?.confidence || graph?.governance?.confidence,
+      isJourney: false,
       weight: 10
     });
+
+    const journey = domainJourneyForResource(resource);
+    if (journey?.steps?.length) {
+      for (const step of journey.steps) {
+        const id = journeyNodeId(step.resource);
+        addNode(id, {
+          label: step.resource.label,
+          detail: step.detail,
+          type: step.resource.key === resource.key ? 'root' : 'journey',
+          resourceKey: step.resource.resourceKey || step.resource.key,
+          isJourney: true,
+          isPriority: true,
+          journeyOrder: step.order,
+          journeyRole: step.role,
+          weight: step.resource.key === resource.key ? 10 : 7
+        });
+      }
+      for (const edge of journey.edges) {
+        addEdge(journeyNodeId(edge.from), journeyNodeId(edge.to), {
+          id: `journey:${journeyNodeId(edge.from)}->${journeyNodeId(edge.to)}`,
+          type: 'business_journey',
+          label: 'jornada',
+          detail: edge.detail,
+          isJourney: true,
+          evidence: edge.evidence
+        });
+      }
+    }
 
     for (const node of graphNodes) {
       const nodeKey = node.nodeKey;
@@ -2972,6 +3024,164 @@
     };
   }
 
+  function domainJourneyForResource(resource) {
+    const scoped = state.resources.filter((candidate) =>
+      candidate.group === resource.group && (candidate.resourceKey || candidate.key) && candidate.resourcePath
+    );
+    if (scoped.length < 3) return null;
+
+    const edges = inferResourceJourneyEdges(scoped);
+    if (!edges.length) return null;
+
+    const chains = longestResourceChains(scoped, edges)
+      .filter((chain) => chain.some((item) => item.key === resource.key))
+      .sort((a, b) => b.length - a.length);
+    const chain = chains[0];
+    if (!chain || chain.length < 3) return null;
+
+    const edgeKey = (from, to) => `${from.key}->${to.key}`;
+    const edgeIndex = new Map(edges.map((edge) => [edgeKey(edge.from, edge.to), edge]));
+    const selectedIndex = chain.findIndex((item) => item.key === resource.key);
+    const chainEdges = [];
+    for (let index = 0; index < chain.length - 1; index += 1) {
+      const from = chain[index];
+      const to = chain[index + 1];
+      const edge = edgeIndex.get(edgeKey(from, to));
+      chainEdges.push({
+        from,
+        to,
+        detail: edge?.detail || `${from.label} alimenta ou contextualiza ${to.label} nesta cadeia de negócio.`,
+        evidence: edge?.evidence || [{ label: 'inferência', detail: 'Relação derivada de campos, lookup, option source ou path publicado.' }]
+      });
+    }
+    return {
+      steps: chain.map((item, index) => ({
+        resource: item,
+        order: index + 1,
+        role: index === selectedIndex ? 'recurso selecionado' : index < selectedIndex ? 'contexto anterior' : 'etapa posterior',
+        detail: `${index + 1}/${chain.length} na jornada inferida de ${labelForArea(resource.group)}. ${item.description || 'Recurso de domínio publicado pelo host.'}`
+      })),
+      edges: chainEdges
+    };
+  }
+
+  function inferResourceJourneyEdges(resources) {
+    const edges = [];
+    const byKey = new Map(resources.map((resource) => [resource.key, resource]));
+    for (const owner of resources) {
+      const filtered = filteredSchemaFields(owner);
+      const fields = filtered.length ? filtered : owner.fieldList || [];
+      for (const target of resources) {
+        if (target.key === owner.key) continue;
+        const evidence = [];
+        for (const field of fields) {
+          const hit = fieldReferencesResource(field, target);
+          if (hit) evidence.push(hit);
+        }
+        const endpointHit = endpointReferencesResource(owner, target);
+        if (endpointHit) evidence.push(endpointHit);
+        if (!evidence.length) continue;
+        edges.push({
+          from: byKey.get(target.key),
+          to: byKey.get(owner.key),
+          score: evidence.length,
+          detail: `${target.label} aparece como referência, filtro ou fonte de opção em ${owner.label}.`,
+          evidence: evidence.slice(0, 3)
+        });
+      }
+    }
+    return edges.sort((a, b) => b.score - a.score);
+  }
+
+  function fieldReferencesResource(field, target) {
+    const fieldName = normalizeSearch(field?.name).replace(/[^a-z0-9]/g, '');
+    const targetAliases = resourceReferenceAliases(target);
+    if (fieldName) {
+      for (const alias of targetAliases) {
+        if (!alias || alias.length < 3) continue;
+        if (fieldName === `${alias}id` || fieldName === `${alias}key` || fieldName === `${alias}codigo` || fieldName === `${alias}code`) {
+          return { label: 'campo de referência', detail: `${field.name} referencia ${target.label}.` };
+        }
+      }
+    }
+    const optionText = normalizeSearch(JSON.stringify(field?.xui?.optionSource || field?.xui?.endpoint || ''));
+    if (optionText) {
+      for (const alias of targetAliases) {
+        if (alias.length >= 4 && optionText.includes(alias)) {
+          return { label: 'option source', detail: `${field.name} usa fonte de opção compatível com ${target.label}.` };
+        }
+      }
+    }
+    return null;
+  }
+
+  function endpointReferencesResource(owner, target) {
+    const text = normalizeSearch([
+      owner.resourcePath,
+      ...(owner.endpoints || []).map((endpoint) => endpoint.path),
+      ...(owner.surfaces || []).map((surface) => [surface.path, surface.description, surface.title].filter(Boolean).join(' ')),
+      ...(owner.actions || []).map((action) => [action.path, action.description, action.title].filter(Boolean).join(' '))
+    ].filter(Boolean).join(' '));
+    const targetPath = normalizeSearch(target.resourcePath || '');
+    if (targetPath && text.includes(targetPath)) {
+      return { label: 'path publicado', detail: `${owner.label} publica caminho que referencia ${target.label}.` };
+    }
+    return null;
+  }
+
+  function resourceReferenceAliases(resource) {
+    const segments = [
+      resource.resourceKey?.split('.').pop(),
+      resource.resourcePath?.split('/').filter(Boolean).pop(),
+      resource.key?.split('.').pop(),
+      resource.label
+    ].filter(Boolean);
+    const aliases = new Set();
+    for (const segment of segments) {
+      const normalized = normalizeSearch(segment).replace(/[^a-z0-9]/g, '');
+      if (!normalized) continue;
+      aliases.add(normalized);
+      aliases.add(singularReferenceAlias(normalized));
+    }
+    return Array.from(aliases).filter(Boolean);
+  }
+
+  function singularReferenceAlias(value) {
+    if (value.endsWith('ies')) return `${value.slice(0, -3)}y`;
+    if (value.endsWith('oes')) return value.slice(0, -3);
+    if (value.endsWith('s') && value.length > 3) return value.slice(0, -1);
+    return value;
+  }
+
+  function longestResourceChains(resources, edges) {
+    const outgoing = new Map();
+    for (const edge of edges) {
+      const list = outgoing.get(edge.from.key) || [];
+      list.push(edge.to);
+      outgoing.set(edge.from.key, list);
+    }
+    const chains = [];
+    const maxDepth = Math.min(resources.length, 8);
+    const visit = (resource, path) => {
+      if (path.length >= maxDepth) {
+        chains.push(path);
+        return;
+      }
+      const next = (outgoing.get(resource.key) || []).filter((candidate) => !path.some((item) => item.key === candidate.key));
+      if (!next.length) {
+        chains.push(path);
+        return;
+      }
+      for (const candidate of next) visit(candidate, [...path, candidate]);
+    };
+    for (const resource of resources) visit(resource, [resource]);
+    return chains.sort((a, b) => b.length - a.length);
+  }
+
+  function journeyNodeId(resource) {
+    return resource.resourceKey || resource.key;
+  }
+
   function topologyNodeWeight(type) {
     return {
       concept: 6,
@@ -2979,7 +3189,8 @@
       surface: 4,
       action: 4,
       stats: 4,
-      field: 3
+      field: 3,
+      journey: 7
     }[type] || 2;
   }
 
@@ -3012,6 +3223,7 @@
         }
       },
       { selector: 'node[type = "root"]', style: { 'background-color': '#3cc8ff', 'border-color': '#aeeaff', 'border-width': 4, height: 88, width: 88 } },
+      { selector: 'node[type = "journey"]', style: { 'background-color': '#28e0c4', 'border-color': '#d6fff6', 'border-width': 3 } },
       {
         selector: 'edge',
         style: {
@@ -3033,6 +3245,8 @@
       },
       { selector: 'node:selected', style: { 'border-color': '#ffffff', 'border-width': 4 } },
       { selector: 'edge:selected', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', width: 2.6 } },
+      { selector: 'node[isJourney]', style: { 'border-color': '#d6fff6', 'border-width': 4 } },
+      { selector: 'edge[isJourney]', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', opacity: .95, width: 3, label: 'data(label)' } },
       { selector: 'node.graph-focus', style: { 'border-color': '#ffffff', 'border-width': 4, opacity: 1 } },
       { selector: 'edge.graph-focus', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', opacity: 1, width: 3.2 } },
       { selector: 'node.graph-search-match', style: { 'border-color': '#ffd166', 'border-width': 5, 'background-color': '#ffd166' } },
@@ -3051,6 +3265,7 @@
       surface: { color: '#35d4ad', border: '#a8ffe0', glow: '#73efb5' },
       action: { color: '#9b7cff', border: '#e2d7ff', glow: '#b7a5ff' },
       stats: { color: '#e2b84d', border: '#ffe7a8', glow: '#ffd166' },
+      journey: { color: '#28e0c4', border: '#d6fff6', glow: '#73efb5' },
       capability: { color: '#e85c86', border: '#ffc4d2', glow: '#ff6d91' }
     };
     return themes[type] || themes.concept;
@@ -3062,11 +3277,12 @@
     if (type === 'has_stats') return 'rgba(255, 209, 102, .76)';
     if (type === 'has_field') return 'rgba(98, 216, 255, .68)';
     if (type === 'has_capability') return 'rgba(255, 109, 145, .68)';
+    if (type === 'business_journey') return 'rgba(115, 239, 181, .92)';
     return 'rgba(126, 211, 255, .48)';
   }
 
   function topologyEdgeStyle(type) {
-    return ['has_surface', 'has_action', 'has_stats', 'has_field', 'has_capability'].includes(type) ? 'solid' : 'dashed';
+    return ['has_surface', 'has_action', 'has_stats', 'has_field', 'has_capability', 'business_journey'].includes(type) ? 'solid' : 'dashed';
   }
 
   function updateTopologyInspector(inspector, data) {
@@ -3213,6 +3429,7 @@
       field: 'Campos de contrato',
       surface: 'Experiências de UI',
       stats: 'Capacidades analíticas',
+      journey: 'Jornada de negócio',
       action: 'Ações de workflow',
       capability: 'Capabilities',
       relation: 'Relações'
@@ -3227,6 +3444,7 @@
       has_stats: 'possui analytics',
       has_action: 'possui ação',
       has_capability: 'possui capability',
+      business_journey: 'encadeia jornada',
       relation: 'relação semântica'
     };
     return labels[type] || titleize(type || 'relação');
