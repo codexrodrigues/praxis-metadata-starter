@@ -871,8 +871,8 @@
     els.readinessHint.textContent = readiness.hint;
     const domainCatalogCount = state.discovery.catalogGroups.filter((group) => group !== 'application').length;
     els.sourceMode.textContent = domainCatalogCount
-      ? `${domainCatalogCount} catálogo(s) de domínio · ${state.discovery.frameworkEndpoints.length} endpoints técnicos isolados`
-      : `${state.discovery.frameworkEndpoints.length} endpoints técnicos isolados da leitura de domínio`;
+      ? `${domainCatalogCount} catálogos de domínio · ${state.discovery.frameworkEndpoints.length} endpoints técnicos`
+      : `${state.discovery.frameworkEndpoints.length} endpoints técnicos fora do recorte`;
     renderPlatformIntelligence(resourcesForMetrics);
   }
 
