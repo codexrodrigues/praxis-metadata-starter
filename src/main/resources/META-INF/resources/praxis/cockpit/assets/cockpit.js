@@ -2152,11 +2152,13 @@
         });
         state.topologyGraph.on('tap', 'node', (event) => {
           const data = event.target.data();
+          const focusElements = topologyNodeFocusElements(event.target);
           state.topologyGraph.elements().removeClass('graph-focus graph-muted');
           event.target.addClass('graph-focus');
-          event.target.connectedEdges().addClass('graph-focus');
-          event.target.union(event.target.neighborhood('node')).removeClass('graph-label-muted');
-          state.topologyGraph.elements().difference(event.target.union(event.target.connectedEdges()).union(event.target.neighborhood('node'))).addClass('graph-muted');
+          focusElements.addClass('graph-focus');
+          focusElements.removeClass('graph-hidden graph-mode-hidden graph-label-muted');
+          state.topologyGraph.elements().difference(focusElements).addClass('graph-muted');
+          state.topologyGraph.fit(focusElements, 72);
           updateTopologyInspector(inspector, data);
         });
         state.topologyGraph.on('tap', 'edge', (event) => {
@@ -2407,6 +2409,22 @@
         focusTopologyEdge(cy, button.getAttribute('data-graph-edge-id'), inspector, model);
       });
     }
+  }
+
+  function topologyNodeFocusElements(node) {
+    if (!node?.length) return node;
+    const data = node.data();
+    let focus = node.union(node.connectedEdges()).union(node.neighborhood('node'));
+    if (data.type === 'surface' || data.type === 'stats') {
+      focus = focus.union(node.successors());
+    }
+    if (data.type === 'action') {
+      focus = focus.union(node.successors()).union(node.incomers());
+    }
+    if (data.type === 'journey') {
+      focus = focus.union(node.successors()).union(node.incomers());
+    }
+    return focus;
   }
 
   function focusTopologyEdge(cy, edgeId, inspector, model) {
@@ -3000,13 +3018,15 @@
       });
     }
 
+    const materializableFields = (resource.fieldList || []).slice(0, 8);
+
     for (const surface of (resource.surfaces || []).slice(0, 8)) {
-      const id = `surface:${surface.id || surface.title || surface.path || surface.schemaUrl}`;
+      const id = topologySurfaceId(surface);
       addNode(id, {
         label: normalizePortugueseLabel(surface.title || surface.id || surface.kind || 'Surface'),
         detail: readableText(surface.description || surface.path || surface.schemaUrl || 'Experiência metadata-driven publicada.'),
         type: surface.kind === 'stats' ? 'stats' : 'surface',
-        weight: 4
+        weight: 5
       });
       addEdge(rootKey, id, {
         type: 'has_surface',
@@ -3014,15 +3034,16 @@
         detail: `Surface publicada pelo starter para ${surface.path || surface.schemaUrl || surface.id || 'este recurso'}.`,
         evidence: [{ label: 'surface', detail: readableText(surface.description || surface.path || surface.schemaUrl || 'Experiência metadata-driven publicada.') }]
       });
+      addSurfaceHierarchy(surface, id, materializableFields, addNode, addEdge);
     }
 
     for (const action of (resource.actions || []).slice(0, 8)) {
-      const id = `action:${action.id || action.title || action.path || action.operationId}`;
+      const id = topologyActionId(action);
       addNode(id, {
         label: normalizePortugueseLabel(action.title || action.id || action.intent || 'Action'),
         detail: readableText(action.description || action.path || action.operationId || 'Comando de negócio acionável.'),
         type: 'action',
-        weight: 4
+        weight: 5
       });
       addEdge(rootKey, id, {
         type: 'has_action',
@@ -3030,10 +3051,11 @@
         detail: `Action publicada para ${action.path || action.operationId || action.id || 'este recurso'}.`,
         evidence: [{ label: 'action', detail: readableText(action.description || action.path || action.operationId || 'Comando de negócio acionável.') }]
       });
+      addActionHierarchy(action, id, addNode, addEdge);
     }
 
-    for (const field of (resource.fieldList || []).slice(0, 10)) {
-      const id = `field:${field.name}`;
+    for (const field of materializableFields.slice(0, 10)) {
+      const id = topologyFieldId(field);
       addNode(id, {
         label: normalizePortugueseLabel(field.name),
         detail: `${field.type || 'campo'} · ${field.required ? 'obrigatório' : 'opcional'}`,
@@ -3049,12 +3071,148 @@
       });
     }
 
+    for (const edge of edgeIndex.values()) {
+      edge.sourceLabel = edge.sourceLabel || nodeIndex.get(edge.source)?.label;
+      edge.targetLabel = edge.targetLabel || nodeIndex.get(edge.target)?.label;
+    }
+
     return {
       elements: [
         ...Array.from(nodeIndex.values()).map((data) => ({ data })),
         ...Array.from(edgeIndex.values()).map((data) => ({ data }))
       ]
     };
+  }
+
+  function addSurfaceHierarchy(surface, surfaceId, fields, addNode, addEdge) {
+    const schemaUrl = surface.schemaUrl || surface.schemaId;
+    if (schemaUrl) {
+      const schemaId = `schema:${surfaceId}`;
+      addNode(schemaId, {
+        label: schemaLabel(surface),
+        detail: `Contrato ${surface.schemaUrl ? 'filtrado' : 'referenciado'} usado por ${surface.title || surface.id || 'esta surface'}.`,
+        type: 'capability',
+        weight: 3,
+        isPriority: true
+      });
+      addEdge(surfaceId, schemaId, {
+        type: 'uses_schema',
+        label: 'usa contrato',
+        detail: schemaUrl,
+        evidence: [{ label: 'schema', detail: schemaUrl }]
+      });
+      for (const field of fields.slice(0, 5)) {
+        const fieldId = topologyFieldId(field);
+        addEdge(schemaId, fieldId, {
+          id: `${schemaId}->${fieldId}:materializes_field`,
+          type: 'materializes_field',
+          label: field.required ? 'campo obrigatório' : 'campo de UI',
+          detail: `${field.name} participa do contrato materializado por esta surface.`,
+          evidence: [{ label: 'campo', detail: `${field.type || 'campo'} · ${field.required ? 'obrigatório' : 'opcional'}` }]
+        });
+      }
+    }
+
+    const related = surface.relatedResource;
+    if (related?.childResourceKey || related?.childResourcePath) {
+      const childId = `related:${surfaceId}`;
+      addNode(childId, {
+        label: normalizePortugueseLabel(related.childResourceKey || related.childResourcePath),
+        detail: `Coleção filha ligada por ${related.childParentField || 'campo de vínculo'}; seleção ${related.selectable ? 'habilitada' : 'não declarada'}.`,
+        type: 'journey',
+        resourceKey: related.childResourceKey || null,
+        isJourney: true,
+        isPriority: true,
+        weight: 6
+      });
+      addEdge(surfaceId, childId, {
+        type: 'related_resource',
+        label: 'abre recurso filho',
+        detail: `Surface relacionada projeta ${related.childResourcePath || related.childResourceKey}.`,
+        evidence: [{ label: 'vínculo', detail: `${related.childParentField || 'parent field'} -> ${related.childResourceKey || related.childResourcePath}` }]
+      });
+      for (const operation of (related.childOperations || []).slice(0, 4)) {
+        const operationId = `related-op:${surfaceId}:${operation}`;
+        addNode(operationId, {
+          label: normalizePortugueseLabel(operation),
+          detail: 'Operação canônica disponível na coleção filha desta surface.',
+          type: 'action',
+          weight: 3
+        });
+        addEdge(childId, operationId, {
+          type: 'has_action',
+          label: 'operação filha',
+          detail: `${operation} em ${related.childResourceKey || related.childResourcePath}.`
+        });
+      }
+    }
+  }
+
+  function addActionHierarchy(action, actionId, addNode, addEdge) {
+    if (action.requestSchemaUrl || action.requestSchemaId) {
+      const requestId = `action-request:${actionId}`;
+      addNode(requestId, {
+        label: 'Payload de entrada',
+        detail: action.requestSchemaUrl || action.requestSchemaId,
+        type: 'capability',
+        weight: 3,
+        isPriority: true
+      });
+      addEdge(actionId, requestId, {
+        type: 'uses_schema',
+        label: 'recebe payload',
+        detail: action.requestSchemaUrl || action.requestSchemaId,
+        evidence: [{ label: 'request schema', detail: action.requestSchemaUrl || action.requestSchemaId }]
+      });
+    }
+    if (action.responseSchemaUrl || action.responseSchemaId) {
+      const responseId = `action-response:${actionId}`;
+      addNode(responseId, {
+        label: 'Resultado do workflow',
+        detail: action.responseSchemaUrl || action.responseSchemaId,
+        type: 'capability',
+        weight: 3
+      });
+      addEdge(actionId, responseId, {
+        type: 'emits_result',
+        label: 'retorna resultado',
+        detail: action.responseSchemaUrl || action.responseSchemaId,
+        evidence: [{ label: 'response schema', detail: action.responseSchemaUrl || action.responseSchemaId }]
+      });
+    }
+    for (const stateName of (action.allowedStates || []).slice(0, 5)) {
+      const stateId = `state:${actionId}:${stateName}`;
+      addNode(stateId, {
+        label: normalizePortugueseLabel(stateName),
+        detail: `Estado em que ${action.title || action.id || 'a action'} pode ser acionada.`,
+        type: 'capability',
+        weight: 2,
+        isPriority: true
+      });
+      addEdge(stateId, actionId, {
+        type: 'allows_action',
+        label: 'habilita workflow',
+        detail: `${stateName} permite acionar ${action.title || action.id || action.operationId}.`
+      });
+    }
+  }
+
+  function topologySurfaceId(surface) {
+    return `surface:${surface.id || surface.title || surface.path || surface.schemaUrl}`;
+  }
+
+  function topologyActionId(action) {
+    return `action:${action.id || action.title || action.path || action.operationId}`;
+  }
+
+  function topologyFieldId(field) {
+    return `field:${field.name}`;
+  }
+
+  function schemaLabel(surface) {
+    if (surface.kind === 'FORM') return surface.scope === 'ITEM' ? 'Contrato de edição' : 'Contrato de criação';
+    if (surface.kind === 'STATS') return 'Contrato analítico';
+    return surface.responseCardinality ? `Contrato ${String(surface.responseCardinality).toLowerCase()}` : 'Contrato da surface';
   }
 
   function domainJourneyForResource(resource) {
@@ -3311,11 +3469,28 @@
     if (type === 'has_field') return 'rgba(98, 216, 255, .68)';
     if (type === 'has_capability') return 'rgba(255, 109, 145, .68)';
     if (type === 'business_journey') return 'rgba(115, 239, 181, .92)';
+    if (type === 'uses_schema') return 'rgba(255, 109, 145, .74)';
+    if (type === 'materializes_field') return 'rgba(98, 216, 255, .56)';
+    if (type === 'related_resource') return 'rgba(115, 239, 181, .84)';
+    if (type === 'allows_action') return 'rgba(255, 209, 102, .78)';
+    if (type === 'emits_result') return 'rgba(183, 165, 255, .70)';
     return 'rgba(126, 211, 255, .48)';
   }
 
   function topologyEdgeStyle(type) {
-    return ['has_surface', 'has_action', 'has_stats', 'has_field', 'has_capability', 'business_journey'].includes(type) ? 'solid' : 'dashed';
+    return [
+      'has_surface',
+      'has_action',
+      'has_stats',
+      'has_field',
+      'has_capability',
+      'business_journey',
+      'uses_schema',
+      'materializes_field',
+      'related_resource',
+      'allows_action',
+      'emits_result'
+    ].includes(type) ? 'solid' : 'dashed';
   }
 
   function updateTopologyInspector(inspector, data) {
@@ -3478,6 +3653,11 @@
       has_action: 'possui ação',
       has_capability: 'possui capability',
       business_journey: 'encadeia jornada',
+      uses_schema: 'usa contrato',
+      materializes_field: 'materializa campo',
+      related_resource: 'abre recurso filho',
+      allows_action: 'estado habilita ação',
+      emits_result: 'retorna resultado',
       relation: 'relação semântica'
     };
     return labels[type] || titleize(type || 'relação');
