@@ -285,9 +285,11 @@ class CustomOpenApiResolverTest {
         assertEquals("enterprise-code", xui.get(FieldConfigProperties.PRESENTATION_PRESET.getValue()));
         assertEquals(FieldDataType.TEXT.getValue(), xui.get(FieldConfigProperties.TYPE.getValue()));
 
+        assertEquals("tag", xui.get(FieldConfigProperties.ICON.getValue()));
+
         Map<String, Object> presentation = (Map<String, Object>) xui.get(FieldConfigProperties.PRESENTATION.getValue());
         assertEquals("iconValue", presentation.get("presenter"));
-        assertEquals("pin", presentation.get("icon"));
+        assertEquals("tag", presentation.get("icon"));
         assertEquals("#", presentation.get("prefix"));
         assertEquals("soft", presentation.get("appearance"));
     }

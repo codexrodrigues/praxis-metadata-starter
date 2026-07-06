@@ -45,6 +45,7 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 || hasOperation(pathsNode, basePath + "/{id}", "patch")
                 || hasItemLevelWriteOperation(pathsNode, basePath, "put", "patch"));
         capabilities.put("delete", hasOperation(pathsNode, basePath + "/{id}", "delete")
+                || hasItemLevelWriteOperation(pathsNode, basePath, "delete")
                 || hasOperation(pathsNode, basePath + "/batch", "delete"));
         capabilities.put("duplicate-draft", hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post"));
         capabilities.put("options", hasOperation(pathsNode, basePath + "/options/filter", "post")
@@ -52,7 +53,8 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         capabilities.put("optionSources", hasOperation(pathsNode, basePath + "/option-sources/{sourceKey}/options/filter", "post")
                 || hasOperation(pathsNode, basePath + "/option-sources/{sourceKey}/options/by-ids", "get"));
         capabilities.put("byId", hasOperation(pathsNode, basePath + "/{id}", "get"));
-        capabilities.put("all", hasOperation(pathsNode, basePath + "/all", "get"));
+        capabilities.put("all", hasOperation(pathsNode, basePath, "get")
+                || hasOperation(pathsNode, basePath + "/all", "get"));
         capabilities.put("filter", hasOperation(pathsNode, basePath + "/filter", "post"));
         // Compound query expressions require an explicit platform contract. Flat /filter
         // presence alone must not imply support for OR or nested boolean groups.
@@ -106,9 +108,9 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         ));
         operations.put("delete", new CapabilityOperation(
                 "delete",
-                hasOperation(pathsNode, basePath + "/{id}", "delete"),
+                resolveDeleteSupported(pathsNode, basePath),
                 "ITEM",
-                hasOperation(pathsNode, basePath + "/{id}", "delete") ? "DELETE" : null,
+                resolveDeleteSupported(pathsNode, basePath) ? "DELETE" : null,
                 "delete",
                 AvailabilityDecision.allowAll()
         ));
@@ -160,6 +162,11 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
 
     private boolean resolveEditSupported(JsonNode pathsNode, String basePath) {
         return resolveEditPreferredMethod(pathsNode, basePath) != null;
+    }
+
+    private boolean resolveDeleteSupported(JsonNode pathsNode, String basePath) {
+        return hasOperation(pathsNode, basePath + "/{id}", "delete")
+                || hasItemLevelWriteOperation(pathsNode, basePath, "delete");
     }
 
     private String resolveEditPreferredMethod(JsonNode pathsNode, String basePath) {

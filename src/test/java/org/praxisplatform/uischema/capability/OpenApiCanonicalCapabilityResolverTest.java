@@ -217,6 +217,44 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertNull(operations.get("delete").preferredMethod());
     }
 
+    @Test
+    void resolvesContextualRelatedCollectionOperationsWithCustomItemVariable() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {
+                  "paths": {
+                    "/codigos-frequencia/{id}/documentos-legais": {
+                      "get": {},
+                      "post": {}
+                    },
+                    "/codigos-frequencia/{id}/documentos-legais/{documentoId}": {
+                      "put": {},
+                      "delete": {}
+                    }
+                  }
+                }
+                """);
+
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
+                new StaticOpenApiDocumentService("administracao-pessoal", document)
+        );
+
+        String childResourcePath = "/codigos-frequencia/{id}/documentos-legais";
+        Map<String, Boolean> capabilities = resolver.resolve(childResourcePath);
+
+        assertTrue(capabilities.get("all"));
+        assertTrue(capabilities.get("create"));
+        assertTrue(capabilities.get("update"));
+        assertTrue(capabilities.get("delete"));
+
+        Map<String, CapabilityOperation> operations = resolver.resolveCrudOperations(document, childResourcePath);
+        assertTrue(operations.get("create").supported());
+        assertEquals("POST", operations.get("create").preferredMethod());
+        assertTrue(operations.get("edit").supported());
+        assertEquals("PUT", operations.get("edit").preferredMethod());
+        assertTrue(operations.get("delete").supported());
+        assertEquals("DELETE", operations.get("delete").preferredMethod());
+    }
+
     private record StaticOpenApiDocumentService(String group, JsonNode document) implements OpenApiDocumentService {
 
         @Override

@@ -861,10 +861,10 @@ public class CustomOpenApiResolver extends ModelResolver {
                 putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
                 putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.INPUT.getValue());
                 putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "12rem");
-                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "pin");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "tag");
                 putPreset(uiExtension, FieldConfigProperties.PRESENTATION.getValue(), new LinkedHashMap<>(Map.of(
                         "presenter", "iconValue",
-                        "icon", "pin",
+                        "icon", "tag",
                         "prefix", "#",
                         "appearance", "soft"
                 )));
