@@ -158,7 +158,7 @@ class PraxisCockpitControllerTest {
                 .contains("return aggregateGroups.length ? aggregateGroups : groups;")
                 .contains("function catalogEndpoints(catalog)")
                 .contains("return catalog.flatMap((item) => catalogEndpoints(item));")
-                .contains("catálogo(s) de domínio")
+                .contains("catálogos de domínio")
                 .contains("function hasPublishedActionSignal")
                 .contains("function endpointKey")
                 .contains("function startCapabilityVerification")
