@@ -2946,9 +2946,18 @@
       }
     }
 
+    const directEdges = graphEdges
+      .filter((edge) => edge.sourceNodeKey === rootKey || edge.targetNodeKey === rootKey)
+      .slice(0, 22);
+    const visibleGraphNodeKeys = new Set([rootKey]);
+    for (const edge of directEdges) {
+      if (edge.sourceNodeKey) visibleGraphNodeKeys.add(edge.sourceNodeKey);
+      if (edge.targetNodeKey) visibleGraphNodeKeys.add(edge.targetNodeKey);
+    }
+
     for (const node of graphNodes) {
       const nodeKey = node.nodeKey;
-      if (!nodeKey) continue;
+      if (!nodeKey || !visibleGraphNodeKeys.has(nodeKey)) continue;
       addNode(nodeKey, {
         label: normalizePortugueseLabel(node.businessGlossary?.preferredTerm || node.label || nodeKey),
         detail: readableText(node.description || node.businessGlossary?.description || topologyNodeDetail(node)),
@@ -2959,9 +2968,16 @@
       });
     }
 
-    const directEdges = graphEdges
-      .filter((edge) => edge.sourceNodeKey === rootKey || edge.targetNodeKey === rootKey)
-      .slice(0, 22);
+    for (const nodeKey of visibleGraphNodeKeys) {
+      if (!nodeKey || nodeIndex.has(nodeKey)) continue;
+      addNode(nodeKey, {
+        label: normalizePortugueseLabel(nodeKey),
+        detail: 'Nó referenciado por relação publicada no grafo de domínio.',
+        type: 'concept',
+        weight: topologyNodeWeight('concept')
+      });
+    }
+
     const evidenceByKey = new Map((Array.isArray(graph.evidence) ? graph.evidence : []).map((item) => [item.evidenceKey, item]));
     for (const edge of directEdges) {
       const edgeEvidence = (edge.evidenceKeys || [])
