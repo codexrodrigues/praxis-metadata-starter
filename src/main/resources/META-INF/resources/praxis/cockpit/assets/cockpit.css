@@ -2632,10 +2632,10 @@ input:focus-visible,
   .topbar { order: 1; }
   .domain-hero { order: 2; }
   .decision-summary { order: 3; }
-  .workbench { order: 4; }
-  .domain-map { order: 5; }
-  .intelligence-strip { order: 6; }
-  .control-plane { order: 7; }
+  .intelligence-strip { order: 4; }
+  .control-plane { order: 5; }
+  .domain-map { order: 6; }
+  .workbench { order: 7; }
   .topology-panel { order: 8; }
 
   .attention-list,
@@ -2718,6 +2718,18 @@ input:focus-visible,
 
   .decision-facts {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .operation-group {
+    overflow: hidden;
+  }
+
+  .operation-group header {
+    min-width: 0;
+  }
+
+  .endpoint-row {
+    min-width: 0;
   }
 }
 

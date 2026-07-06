@@ -81,7 +81,10 @@ class PraxisCockpitControllerTest {
                 .contains(".domain-map {\n  grid-column: 1;\n  grid-row: 4;")
                 .contains(".workbench {\n  grid-column: 2;\n  grid-row: 4;")
                 .contains("grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);")
-                .contains(".workbench { order: 4; }")
+                .contains(".intelligence-strip { order: 4; }")
+                .contains(".control-plane { order: 5; }")
+                .contains(".domain-map { order: 6; }")
+                .contains(".workbench { order: 7; }")
                 .contains(".semantic-graph-routes p {\n    display: none;")
                 .contains(".endpoint-row {\n    gap: 2px;\n    grid-template-columns: 1fr;");
     }
