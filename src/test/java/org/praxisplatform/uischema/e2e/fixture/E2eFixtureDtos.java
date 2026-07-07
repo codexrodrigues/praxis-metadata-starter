@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
@@ -39,6 +40,7 @@ class EmployeeResponseDTO {
     private String nome;
     private String matricula;
     private String status;
+    @Schema(description = "Remuneracao mensal usada para exemplos de campos monetarios preservados no contrato OpenAPI.")
     private BigDecimal salario;
     private LocalDate admissionDate;
     private Long departmentId;
@@ -451,6 +453,7 @@ class PayrollViewResponseDTO {
     private Long id;
     private String employeeNome;
     private String departmentNome;
+    @Schema(description = "Valor liquido agregado da folha usado para validar campos decimais em schemas somente leitura.")
     private BigDecimal netAmount;
     private String payrollStatus;
 

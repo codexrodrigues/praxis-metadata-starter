@@ -311,7 +311,7 @@ public class ApiDocsController {
             throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + groupName);
         }
 
-        String canonicalPath = resolveDocumentPath(rootNode.path(PATHS), decodedPath);
+        String canonicalPath = openApiDocumentService.resolveDocumentPath(rootNode.path(PATHS), decodedPath);
 
         // Procura o caminho especificado no JSON
         JsonNode pathsNode = rootNode.path(PATHS).path(canonicalPath).path(normalizedOperation);
@@ -666,46 +666,6 @@ public class ApiDocsController {
         }
 
         return p; // ja e base
-    }
-
-    private String resolveDocumentPath(JsonNode pathsNode, String requestedPath) {
-        if (pathsNode == null || pathsNode.isMissingNode()) {
-            return requestedPath;
-        }
-
-        LinkedHashSet<String> candidates = new LinkedHashSet<>();
-        candidates.add(requestedPath);
-
-        String normalized = normalizeOpenApiPath(requestedPath);
-        candidates.add(normalized);
-        if ("/".equals(normalized)) {
-            candidates.add("/");
-        } else {
-            candidates.add(normalized + "/");
-        }
-
-        for (String candidate : candidates) {
-            if (candidate != null && !candidate.isBlank() && !pathsNode.path(candidate).isMissingNode()) {
-                return candidate;
-            }
-        }
-
-        return normalized;
-    }
-
-    private String normalizeOpenApiPath(String path) {
-        if (!StringUtils.hasText(path)) {
-            return "/";
-        }
-
-        String normalized = path.trim().replaceAll("/+", "/");
-        if (!normalized.startsWith("/")) {
-            normalized = "/" + normalized;
-        }
-        if (normalized.length() > 1 && normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        return normalized;
     }
 
     /**

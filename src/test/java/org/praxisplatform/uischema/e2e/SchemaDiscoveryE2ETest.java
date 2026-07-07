@@ -58,10 +58,24 @@ class SchemaDiscoveryE2ETest extends AbstractE2eH2Test {
         ResponseEntity<String> readOnlySchema = get("/schemas/filtered?path=/payroll-view/all&operation=get&schemaType=response");
         JsonNode readOnlyBody = body(readOnlySchema);
         assertTrue(readOnlyBody.path("x-ui").path("resource").path("readOnly").asBoolean());
+        JsonNode netAmount = readOnlyBody.path("properties").path("netAmount");
+        assertEquals("number", netAmount.path("type").asText());
+        assertEquals("decimal", netAmount.path("format").asText());
+        assertEquals(
+                "Valor liquido agregado da folha usado para validar campos decimais em schemas somente leitura.",
+                netAmount.path("description").asText()
+        );
 
         ResponseEntity<String> createSchemaLinkFromController = get("/employees/schemas");
         assertEquals(200, createSchemaLinkFromController.getStatusCode().value());
         JsonNode redirectedSchemaBody = body(createSchemaLinkFromController);
         assertEquals("id", redirectedSchemaBody.path("x-ui").path("resource").path("idField").asText());
+        JsonNode salario = redirectedSchemaBody.path("properties").path("salario");
+        assertEquals("number", salario.path("type").asText());
+        assertEquals("decimal", salario.path("format").asText());
+        assertEquals(
+                "Remuneracao mensal usada para exemplos de campos monetarios preservados no contrato OpenAPI.",
+                salario.path("description").asText()
+        );
     }
 }

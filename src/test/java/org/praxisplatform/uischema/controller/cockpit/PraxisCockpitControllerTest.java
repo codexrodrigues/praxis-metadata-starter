@@ -63,7 +63,8 @@ class PraxisCockpitControllerTest {
         ClassPathResource styleResource = new ClassPathResource(
                 "META-INF/resources/praxis/cockpit/assets/cockpit.css");
         String script = new String(scriptResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        String style = new String(styleResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        String style = new String(styleResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8)
+                .replace("\r\n", "\n");
 
         assertThat(cytoscape.exists()).isTrue();
         assertThat(cytoscapeLicense.exists()).isTrue();
@@ -159,6 +160,11 @@ class PraxisCockpitControllerTest {
                 .contains("function renderHostScorecards")
                 .contains("function renderHostAttention")
                 .contains("function catalogDiagnostics")
+                .contains("function expectsFormMaterialization")
+                .contains("function expectsWorkflowAction")
+                .contains("formExpectedResources")
+                .contains("Apto para UI operacional metadata-driven")
+                .contains("os demais ficam como CRUD, consulta ou analytics sem bloquear")
                 .contains("fetchJson('/actuator/health', { timeoutMs: 10000 })")
                 .contains("fetchJson('/actuator/info', { timeoutMs: 10000 })")
                 .contains("fetchJson('/schemas/catalog', { timeoutMs: 15000 })")
@@ -166,7 +172,7 @@ class PraxisCockpitControllerTest {
                 .contains("const catalogs = await discoverCatalogs(valueOrNull(catalog), valueOrNull(swaggerConfig));")
                 .contains("function discoverCatalogs")
                 .contains("function openApiGroupNames")
-                .contains("fetchJson(`/schemas/catalog?group=${encodeURIComponent(group)}`, { timeoutMs: 5000 })")
+                .contains("fetchJson(`/schemas/catalog?group=${encodeURIComponent(group)}`, { timeoutMs: 15000 })")
                 .contains("return [...catalogs, ...groupCatalogs];")
                 .contains("const aggregateGroups = groups.filter((name) => !name.startsWith('api-'));")
                 .contains("return aggregateGroups.length ? aggregateGroups : groups;")
@@ -174,8 +180,11 @@ class PraxisCockpitControllerTest {
                 .contains("return catalog.flatMap((item) => catalogEndpoints(item));")
                 .contains("catálogos de domínio")
                 .contains("function hasPublishedActionSignal")
+                .contains("function knownActionsForResource")
                 .contains("function endpointKey")
                 .contains("function startCapabilityVerification")
+                .contains("function shouldVerifyCapabilities")
+                .contains("return Boolean(resource?.resourceKey)")
                 .contains("function verifyResourceCapability")
                 .contains("function startActionVerification")
                 .contains("function verifyResourceActions")
@@ -202,6 +211,7 @@ class PraxisCockpitControllerTest {
                 .contains("function matchesResourceFilter")
                 .contains("function resourceListSignal")
                 .contains("function resourceRenderability")
+                .contains("const actions = knownActionsForResource(resource)")
                 .contains("function areaLayerCoverage")
                 .contains("function renderDomainLayerCoverage")
                 .contains("function topologyNodeTheme")
@@ -215,11 +225,14 @@ class PraxisCockpitControllerTest {
                 .contains("function classifyEndpointFallback")
                 .contains("function isActionDiscoveryEndpoint")
                 .contains("function isWorkflowActionEndpoint")
+                .contains("duplicate-draft")
                 .contains("function sourceLabelList")
                 .contains("function groupIntent")
                 .contains("function canonicalResourceKey")
                 .contains("function semanticCacheKey")
                 .contains("function canonicalAreaKey")
+                .contains("if (!endpoint.resourceKey)")
+                .contains("sourceConfidence: 'resourceKey'")
                 .contains("function nonGenericGroup")
                 .contains("group: canonicalAreaKey(endpoint.resourceKey, endpoint.group, resourcePath, endpoint.resourceVisual, endpoint.groupVisual)")
                 .contains("groupVisual: endpoint.groupVisual || catalog.groupVisual || null")
@@ -230,7 +243,6 @@ class PraxisCockpitControllerTest {
                 .contains("{ selector: '.graph-label-muted', style: { label: '' } }")
                 .contains("Rótulos secundários entram quando você busca")
                 .contains("resourceKey = canonicalResourceKey(resource, resourcePath);")
-                .contains("sourceConfidence: endpoint.resourceKey ? 'resourceKey' : 'path-fallback'")
                 .contains("resource.inferredResourceKey = resource.resourceKey ? null : resourceKeyFromPath(resource.resourcePath);")
                 .contains("return resource.resourceKey || null;")
                 .contains("Identidade inferida por path")
@@ -254,6 +266,7 @@ class PraxisCockpitControllerTest {
                 .doesNotContain("group: endpoint.group || domainFromResourceKey(endpoint.resourceKey)")
                 .doesNotContain("resource.resourceKey = resource.resourceKey || resourceKeyFromPath(resource.resourcePath)")
                 .doesNotContain("actions: capabilitySource(Boolean((resource.actions || []).length), false, Boolean(summary.actions))")
+                .doesNotContain("const workflowComplete = hasResources && metrics.actionResources === metrics.resources")
                 .doesNotContain("por cento das camadas materializáveis disponíveis em média")
                 .doesNotContain("""
                         const linkedResource = resourceFromTopologyNode(data);

@@ -106,12 +106,14 @@ public class SemanticDomainCatalogService {
         Map<String, DomainCatalogResponse.DomainBindingItem> bindings = new LinkedHashMap<>();
         Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence = new LinkedHashMap<>();
         Map<String, DomainCatalogResponse.DomainGovernanceItem> governance = new LinkedHashMap<>();
+        Map<String, String> resourceDescriptions = resourceDescriptions(actions, surfaces);
 
         for (ActionDefinition action : sortActions(actions)) {
             String resourceKey = action.resourceKey();
             String contextKey = contextKey(resourceKey, action.group());
             ensureContext(contexts, contextKey, action.group());
-            ensureConcept(nodes, resourceKey, contextKey, action.resourcePath(), action.group(), action.tags());
+            ensureConcept(nodes, resourceKey, contextKey, action.resourcePath(), action.group(), action.tags(),
+                    resourceDescriptions.get(resourceKey));
             addAnalyticCapabilities(action.resourceKey(), contextKey, action.group(), action.resourcePath(),
                     nodes, edges, bindings, evidence);
             addAction(action, contextKey, nodes, edges, bindings, evidence);
@@ -125,7 +127,8 @@ public class SemanticDomainCatalogService {
             String resourceKey = surface.resourceKey();
             String contextKey = contextKey(resourceKey, surface.group());
             ensureContext(contexts, contextKey, surface.group());
-            ensureConcept(nodes, resourceKey, contextKey, surface.resourcePath(), surface.group(), surface.tags());
+            ensureConcept(nodes, resourceKey, contextKey, surface.resourcePath(), surface.group(), surface.tags(),
+                    resourceDescriptions.get(resourceKey));
             addAnalyticCapabilities(surface.resourceKey(), contextKey, surface.group(), surface.resourcePath(),
                     nodes, edges, bindings, evidence);
             addSurface(surface, contextKey, nodes, edges, bindings, evidence);
@@ -140,7 +143,8 @@ public class SemanticDomainCatalogService {
             }
             String contextKey = contextKey(resourceKey, requestedGroup);
             ensureContext(contexts, contextKey, requestedGroup);
-            ensureConcept(nodes, resourceKey, contextKey, descriptor.resourcePath(), requestedGroup, List.of("option-source"));
+            ensureConcept(nodes, resourceKey, contextKey, descriptor.resourcePath(), requestedGroup,
+                    List.of("option-source"), null);
             addAnalyticCapabilities(resourceKey, contextKey, requestedGroup, descriptor.resourcePath(),
                     nodes, edges, bindings, evidence);
             addOptionSource(descriptor, resourceKey, contextKey, nodes, edges, bindings, evidence);
@@ -771,14 +775,40 @@ public class SemanticDomainCatalogService {
             String contextKey,
             String resourcePath,
             String group,
-            List<String> tags
+            List<String> tags,
+            String description
     ) {
-        nodes.putIfAbsent(resourceKey, new DomainCatalogResponse.DomainNodeItem(
+        DomainCatalogResponse.DomainNodeItem existing = nodes.get(resourceKey);
+        if (existing != null) {
+            if (!StringUtils.hasText(existing.description()) && StringUtils.hasText(description)) {
+                nodes.put(resourceKey, new DomainCatalogResponse.DomainNodeItem(
+                        existing.nodeKey(),
+                        existing.contextKey(),
+                        existing.nodeType(),
+                        existing.label(),
+                        description,
+                        existing.status(),
+                        existing.source(),
+                        existing.confidence(),
+                        existing.metadata(),
+                        existing.tags(),
+                        existing.owner(),
+                        existing.semanticOwner(),
+                        existing.lifecycle(),
+                        glossary(existing.label(), description, existing.tags()),
+                        existing.resolution(),
+                        existing.sourceEvidenceKeys()
+                ));
+            }
+            return;
+        }
+
+        nodes.put(resourceKey, new DomainCatalogResponse.DomainNodeItem(
                 resourceKey,
                 contextKey,
                 "concept",
                 labelFromKey(lastSegment(resourceKey)),
-                null,
+                blankToNull(description),
                 "active",
                 "api-resource",
                 0.85,
@@ -791,7 +821,7 @@ public class SemanticDomainCatalogService {
                 null,
                 contextKey,
                 "active",
-                glossary(labelFromKey(lastSegment(resourceKey)), null, tags),
+                glossary(labelFromKey(lastSegment(resourceKey)), blankToNull(description), tags),
                 resolution(resourceKey, List.of(resourceKey, resourcePath, lastSegment(resourceKey)), "exact-key-or-alias"),
                 List.of()
         ));
@@ -854,6 +884,54 @@ public class SemanticDomainCatalogService {
             Double confidence
     ) {
         return new DomainCatalogResponse.DomainEvidenceItem(evidenceKey, evidenceType, sourceRef, summary, confidence);
+    }
+
+    private Map<String, String> resourceDescriptions(
+            List<ActionDefinition> actions,
+            List<SurfaceDefinition> surfaces
+    ) {
+        Map<String, String> descriptions = new LinkedHashMap<>();
+        for (SurfaceDefinition surface : sortSurfaces(surfaces)) {
+            if ("response".equalsIgnoreCase(surface.schemaType())) {
+                putResourceDescriptionIfAbsent(descriptions, surface.resourceKey(), surface.group(), surface.schema());
+            }
+        }
+        for (ActionDefinition action : sortActions(actions)) {
+            putResourceDescriptionIfAbsent(descriptions, action.resourceKey(), action.group(), action.responseSchema());
+        }
+        for (SurfaceDefinition surface : sortSurfaces(surfaces)) {
+            putResourceDescriptionIfAbsent(descriptions, surface.resourceKey(), surface.group(), surface.schema());
+        }
+        for (ActionDefinition action : sortActions(actions)) {
+            putResourceDescriptionIfAbsent(descriptions, action.resourceKey(), action.group(), action.requestSchema());
+        }
+        return descriptions;
+    }
+
+    private void putResourceDescriptionIfAbsent(
+            Map<String, String> descriptions,
+            String resourceKey,
+            String group,
+            CanonicalSchemaRef schemaRef
+    ) {
+        if (!StringUtils.hasText(resourceKey) || descriptions.containsKey(resourceKey)) {
+            return;
+        }
+        String description = schemaDescription(group, schemaRef);
+        if (StringUtils.hasText(description)) {
+            descriptions.put(resourceKey, description);
+        }
+    }
+
+    private String schemaDescription(String group, CanonicalSchemaRef schemaRef) {
+        if (schemaRef == null || !StringUtils.hasText(schemaRef.schemaId()) || openApiDocumentService == null) {
+            return null;
+        }
+        JsonNode schema = resolveSchema(group, schemaRef);
+        if (schema == null || schema.isMissingNode()) {
+            return null;
+        }
+        return unwrapArray(schema).path("description").asText(null);
     }
 
     private List<DomainCatalogResponse.DomainAliasItem> buildAliases(
@@ -1119,7 +1197,9 @@ public class SemanticDomainCatalogService {
             return null;
         }
 
-        JsonNode operationNode = document.path("paths").path(resolveDocumentPath(document.path("paths"), path)).path(operation);
+        JsonNode operationNode = document.path("paths")
+                .path(openApiDocumentService.resolveDocumentPath(document.path("paths"), path))
+                .path(operation);
         if (operationNode.isMissingNode()) {
             return null;
         }
@@ -1228,39 +1308,6 @@ public class SemanticDomainCatalogService {
         }
         Iterator<JsonNode> values = contentRoot.elements();
         return values.hasNext() ? values.next() : contentRoot;
-    }
-
-    private String resolveDocumentPath(JsonNode pathsNode, String requestedPath) {
-        if (pathsNode == null || pathsNode.isMissingNode()) {
-            return requestedPath;
-        }
-        LinkedHashSet<String> candidates = new LinkedHashSet<>();
-        candidates.add(requestedPath);
-        String normalized = normalizeOpenApiPath(requestedPath);
-        candidates.add(normalized);
-        if (!"/".equals(normalized)) {
-            candidates.add(normalized + "/");
-        }
-        for (String candidate : candidates) {
-            if (StringUtils.hasText(candidate) && !pathsNode.path(candidate).isMissingNode()) {
-                return candidate;
-            }
-        }
-        return normalized;
-    }
-
-    private String normalizeOpenApiPath(String path) {
-        if (!StringUtils.hasText(path)) {
-            return "/";
-        }
-        String normalized = path.trim().replaceAll("/+", "/");
-        if (!normalized.startsWith("/")) {
-            normalized = "/" + normalized;
-        }
-        if (normalized.length() > 1 && normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        return normalized;
     }
 
     private Map<String, String> parseQuery(String url) {

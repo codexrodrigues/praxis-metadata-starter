@@ -96,6 +96,7 @@ Content-Type: application/json
 
 #### Enums em SELECTs (sem endpoint)
 - Campos `enum` não precisam de `endpoint`: as opções são derivadas diretamente do schema OpenAPI (o array `enum`).
+- Quando o campo `enum` declarar `@UISchema.options`, os valores aceitos continuam vindo do `enum`; a anotação serve para enriquecer labels/metadados das opções cujo `value` corresponde ao valor canônico.
 - Para `array` de `enum`, o schema é “array de enum” e a UI renderiza multi‑select automaticamente.
 - Use `endpoint` (`/options/filter`) apenas para catálogos dinâmicos/relacionais (`id/label`), não para `enum` estático.
 - No Angular, `endpoint` é normalizado para `resourcePath`, e `displayField`/`valueField` são normalizados para `optionLabelKey`/`optionValueKey`.

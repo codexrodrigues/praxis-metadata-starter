@@ -5,7 +5,6 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.media.ArraySchema;
 import io.swagger.v3.oas.models.media.BooleanSchema;
 import io.swagger.v3.oas.models.media.ComposedSchema;
-import io.swagger.v3.oas.models.media.NumberSchema;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
@@ -20,10 +19,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.hateoas.EntityModel;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Auto-configuracao principal do `praxis-metadata-starter`.
@@ -48,15 +49,6 @@ public class PraxisMetadataAutoConfiguration {
     static {
         // Alinha o schema bruto ao JSON real dos itens de colecao antes da geracao do OpenAPI.
         SpringDocUtils.getConfig().replaceWithClass(EntityModel.class, RestApiResource.class);
-    }
-
-    /**
-     * Ajusta o mapeamento global de {@link BigDecimal} para schema OpenAPI decimal.
-     */
-    @Bean
-    public OpenApiCustomizer bigDecimalOpenApiCustomizer() {
-        return openApi -> SpringDocUtils.getConfig()
-            .replaceWithSchema(BigDecimal.class, new NumberSchema().type("number").format("decimal"));
     }
 
     @Bean
@@ -238,6 +230,7 @@ public class PraxisMetadataAutoConfiguration {
 
         Map<String, Schema> schemas = components.getSchemas();
         customizeRestApiLinksSchema(schemas);
+        schemas.values().forEach(schema -> applyDefaultDecimalFormat(schema, Collections.newSetFromMap(new IdentityHashMap<>())));
         for (String schemaName : new ArrayList<>(schemas.keySet())) {
             if (schemaName.startsWith("PageEntityModel")) {
                 rewriteArrayItemRef(schemas, schemaName, "content", schemaName.substring("PageEntityModel".length()));
@@ -275,6 +268,39 @@ public class PraxisMetadataAutoConfiguration {
         linksSchema.setDescription("Mapa canonico de `_links` por rel. Cada rel aponta para um objeto unico ou para uma lista quando houver multiplas ocorrencias.");
         linksSchema.setAdditionalProperties(linkValue);
         schemas.put("RestApiLinks", linksSchema);
+    }
+
+    private void applyDefaultDecimalFormat(Schema<?> schema, Set<Schema<?>> visited) {
+        if (schema == null || !visited.add(schema)) {
+            return;
+        }
+
+        if ("number".equals(schema.getType()) && (schema.getFormat() == null || schema.getFormat().isBlank())) {
+            schema.setFormat("decimal");
+        }
+
+        if (schema.getProperties() != null) {
+            schema.getProperties().values().forEach(property -> applyDefaultDecimalFormat(property, visited));
+        }
+        if (schema instanceof ArraySchema arraySchema) {
+            applyDefaultDecimalFormat(arraySchema.getItems(), visited);
+        }
+        Object additionalProperties = schema.getAdditionalProperties();
+        if (additionalProperties instanceof Schema<?> additionalPropertiesSchema) {
+            applyDefaultDecimalFormat(additionalPropertiesSchema, visited);
+        }
+        if (schema.getAllOf() != null) {
+            schema.getAllOf().forEach(child -> applyDefaultDecimalFormat(child, visited));
+        }
+        if (schema.getAnyOf() != null) {
+            schema.getAnyOf().forEach(child -> applyDefaultDecimalFormat(child, visited));
+        }
+        if (schema.getOneOf() != null) {
+            schema.getOneOf().forEach(child -> applyDefaultDecimalFormat(child, visited));
+        }
+        if (schema.getNot() != null) {
+            applyDefaultDecimalFormat(schema.getNot(), visited);
+        }
     }
 
     private void rewriteArrayItemRef(Map<String, Schema> schemas, String containerSchemaName, String arrayProperty, String dtoSchemaName) {

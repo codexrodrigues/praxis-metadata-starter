@@ -143,6 +143,51 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    void getFilteredSchemaResolvesTemplatedPathByStructureWhenParameterNamesDiffer() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("administracao-pessoal");
+
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/api/administracao-pessoal/codigos-frequencia/{id}/documentos-legais/{documentoId}\": {\n" +
+                "      \"put\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/DocumentoLegalCommandDTO\"}}}\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\"schemas\": {\n" +
+                "    \"DocumentoLegalCommandDTO\": {\n" +
+                "      \"type\": \"object\",\n" +
+                "      \"properties\": {\"tipoDocumento\": {\"type\": \"string\"}}\n" +
+                "    }\n" +
+                "  }}\n" +
+                "}";
+        server.expect(requestTo("http://localhost/v3/api-docs/administracao-pessoal"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        var response = controller.getFilteredSchema(
+                "/api/administracao-pessoal/codigos-frequencia/{id}/documentos-legais/{id}",
+                "put",
+                false,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH
+        );
+
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+        assertTrue(((Map<?, ?>) schema.get("properties")).containsKey("tipoDocumento"));
+    }
+
+    @Test
     void getFilteredSchemaIncludesReferencedComponentSchemasForEditableCollections() throws Exception {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
 

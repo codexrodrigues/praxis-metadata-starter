@@ -2,6 +2,8 @@ package org.praxisplatform.uischema.openapi;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.function.Supplier;
 
 /**
@@ -60,4 +62,81 @@ public interface OpenApiDocumentService {
      * </p>
      */
     void clearCaches();
+
+    /**
+     * Resolve o path real dentro de {@code paths}, aceitando equivalencia estrutural entre
+     * templates OpenAPI que usam nomes diferentes para parametros posicionais.
+     */
+    default String resolveDocumentPath(JsonNode pathsNode, String requestedPath) {
+        if (pathsNode == null || pathsNode.isMissingNode()) {
+            return requestedPath;
+        }
+
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        candidates.add(requestedPath);
+
+        String normalized = normalizeOpenApiPath(requestedPath);
+        candidates.add(normalized);
+        if ("/".equals(normalized)) {
+            candidates.add("/");
+        } else {
+            candidates.add(normalized + "/");
+        }
+
+        for (String candidate : candidates) {
+            if (hasText(candidate) && !pathsNode.path(candidate).isMissingNode()) {
+                return candidate;
+            }
+        }
+
+        String structurallyEquivalentPath = findStructurallyEquivalentPath(pathsNode, normalized);
+        if (hasText(structurallyEquivalentPath)) {
+            return structurallyEquivalentPath;
+        }
+
+        return normalized;
+    }
+
+    default String normalizeOpenApiPath(String path) {
+        if (!hasText(path)) {
+            return "/";
+        }
+
+        String normalized = path.trim().replaceAll("/+", "/");
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+        if (normalized.length() > 1 && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
+    }
+
+    private String findStructurallyEquivalentPath(JsonNode pathsNode, String requestedPath) {
+        String requestedSignature = templatedPathSignature(requestedPath);
+        if (!hasText(requestedSignature)) {
+            return null;
+        }
+
+        Iterator<String> pathIterator = pathsNode.fieldNames();
+        while (pathIterator.hasNext()) {
+            String candidatePath = pathIterator.next();
+            if (requestedSignature.equals(templatedPathSignature(candidatePath))) {
+                return candidatePath;
+            }
+        }
+        return null;
+    }
+
+    private String templatedPathSignature(String path) {
+        String normalized = normalizeOpenApiPath(path);
+        if (!hasText(normalized)) {
+            return null;
+        }
+        return normalized.replaceAll("\\{[^}/]+}", "{}");
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
 }

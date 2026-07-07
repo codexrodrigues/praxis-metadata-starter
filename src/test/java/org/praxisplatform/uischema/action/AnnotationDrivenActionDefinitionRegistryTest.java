@@ -215,6 +215,50 @@ class AnnotationDrivenActionDefinitionRegistryTest {
     }
 
     @Test
+    void acceptsStarterDuplicateDraftCommandShapeUnderFailMode() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        ApplicationContext applicationContext = mock(ApplicationContext.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+        SchemaReferenceResolver schemaResolver = mock(SchemaReferenceResolver.class);
+
+        DuplicateDraftActionController controller = new DuplicateDraftActionController();
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = new LinkedHashMap<>();
+        handlerMethods.put(
+                RequestMappingInfo.paths("/duplicate-draft-actions/{id}/duplicate-draft").methods(RequestMethod.POST).build(),
+                new HandlerMethod(controller, DuplicateDraftActionController.class.getDeclaredMethod("duplicateDraft", Long.class))
+        );
+        when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
+        when(operationResolver.resolve(any(HandlerMethod.class), any(RequestMappingInfo.class)))
+                .thenReturn(new CanonicalOperationRef(
+                        "registry-group",
+                        "duplicateDraftAction",
+                        "/duplicate-draft-actions/{id}/duplicate-draft",
+                        "POST"
+                ));
+        when(schemaResolver.resolve(any(String.class), eq("POST"), any(String.class), anyBoolean(), any(), any(), any(String.class), any(Boolean.class)))
+                .thenAnswer(invocation -> new CanonicalSchemaRef(
+                        invocation.getArgument(2, String.class) + "-duplicate-draft",
+                        invocation.getArgument(2, String.class),
+                        "/schemas/filtered?path=" + invocation.getArgument(0, String.class)
+                ));
+
+        AnnotationDrivenActionDefinitionRegistry registry = new AnnotationDrivenActionDefinitionRegistry(
+                handlerMapping,
+                applicationContext,
+                operationResolver,
+                schemaResolver,
+                AnnotationConflictMode.WARN,
+                AnnotationConflictMode.FAIL
+        );
+
+        List<ActionDefinition> actions = registry.findByResourceKey("duplicate.draft.actions");
+
+        assertEquals(1, actions.size());
+        assertEquals("duplicate-draft", actions.get(0).id());
+        assertEquals("/duplicate-draft-actions/{id}/duplicate-draft", actions.get(0).operation().path());
+    }
+
+    @Test
     void buildsCachedSnapshotOnlyOnceUnderConcurrentLookupLoad() throws Exception {
         RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
         ApplicationContext applicationContext = mock(ApplicationContext.class);
@@ -362,6 +406,26 @@ class AnnotationDrivenActionDefinitionRegistryTest {
         @PostMapping("/{id}/approve")
         @WorkflowAction(id = "approve", title = "Approve", scope = ActionScope.ITEM)
         public void approve(@PathVariable Long id) {
+        }
+    }
+
+    @ApiResource(value = "/duplicate-draft-actions", resourceKey = "duplicate.draft.actions")
+    @ApiGroup("registry-group")
+    static class DuplicateDraftActionController extends AbstractResourceController<TestDto, Long, TestFilterDTO, TestCreateDTO, TestUpdateDTO> {
+
+        @Override
+        protected BaseResourceService<TestDto, Long, TestFilterDTO, TestCreateDTO, TestUpdateDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(TestDto dto) {
+            return dto.id();
+        }
+
+        @PostMapping("/{id}/duplicate-draft")
+        @WorkflowAction(id = "duplicate-draft", title = "Duplicate Draft", scope = ActionScope.ITEM)
+        public void duplicateDraft(@PathVariable Long id) {
         }
     }
 

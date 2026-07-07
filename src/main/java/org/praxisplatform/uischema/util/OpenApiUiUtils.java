@@ -11,6 +11,7 @@ import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.FieldDataType;
 import org.praxisplatform.uischema.ValidationProperties;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -320,7 +321,7 @@ public class OpenApiUiUtils {
     public static void populateUiOptionsFromString(Map<String, Object> xUiMap,
                                                   String options,
                                                   ObjectMapper objectMapper) {
-        if (options == null || options.isEmpty() || xUiMap.containsKey(FieldConfigProperties.OPTIONS.getValue())) {
+        if (options == null || options.isEmpty()) {
             return;
         }
 
@@ -343,7 +344,7 @@ public class OpenApiUiUtils {
                     arrayNode.add(optionNode);
                 }
             }
-            xUiMap.put(FieldConfigProperties.OPTIONS.getValue(), arrayNode);
+            putOrMergeUiOptions(xUiMap, arrayNode, objectMapper);
         } catch (Exception e) {
             // Fallback: options pode estar "duplamente escapado" (ex.: [{\"label\":\"...\"}])
             // Estratégia: tratar como string JSON literal para desserializar escapes e tentar novamente
@@ -367,11 +368,79 @@ public class OpenApiUiUtils {
                         arrayNode.add(optionNode);
                     }
                 }
-                xUiMap.put(FieldConfigProperties.OPTIONS.getValue(), arrayNode);
+                putOrMergeUiOptions(xUiMap, arrayNode, objectMapper);
             } catch (Exception ex) {
-                LOGGER.warn("Invalid options JSON: {}", options, ex);
+                ArrayNode legacyOptions = parsePipeDelimitedOptions(options, objectMapper);
+                if (legacyOptions != null) {
+                    putOrMergeUiOptions(xUiMap, legacyOptions, objectMapper);
+                } else {
+                    LOGGER.warn("Invalid options metadata: {}", options, ex);
+                }
             }
         }
+    }
+
+    private static ArrayNode parsePipeDelimitedOptions(String options, ObjectMapper objectMapper) {
+        ArrayNode arrayNode = objectMapper.createArrayNode();
+        for (String rawOption : options.split(",")) {
+            String token = rawOption == null ? "" : rawOption.trim();
+            if (token.isEmpty()) {
+                continue;
+            }
+            int separator = token.indexOf('|');
+            String value = separator >= 0 ? token.substring(0, separator).trim() : token;
+            String label = separator >= 0 ? token.substring(separator + 1).trim() : token;
+            if (value.isEmpty()) {
+                continue;
+            }
+            ObjectNode optionNode = objectMapper.createObjectNode();
+            optionNode.put("value", value);
+            optionNode.put("label", label.isEmpty() ? value : label);
+            arrayNode.add(optionNode);
+        }
+        return arrayNode.isEmpty() ? null : arrayNode;
+    }
+
+    private static void putOrMergeUiOptions(Map<String, Object> xUiMap, ArrayNode explicitOptions, ObjectMapper objectMapper) {
+        String key = FieldConfigProperties.OPTIONS.getValue();
+        Object existingOptions = xUiMap.get(key);
+        if (existingOptions == null) {
+            xUiMap.put(key, explicitOptions);
+            return;
+        }
+
+        JsonNode existingNode = objectMapper.valueToTree(existingOptions);
+        if (!existingNode.isArray()) {
+            return;
+        }
+
+        Map<String, JsonNode> explicitByValue = new LinkedHashMap<>();
+        for (JsonNode explicitOption : explicitOptions) {
+            JsonNode valueNode = explicitOption.path("value");
+            if (!valueNode.isMissingNode() && !valueNode.isNull()) {
+                explicitByValue.put(valueNode.asText(), explicitOption);
+            }
+        }
+
+        ArrayNode mergedOptions = objectMapper.createArrayNode();
+        for (JsonNode existingOption : existingNode) {
+            JsonNode valueNode = existingOption.path("value");
+            JsonNode explicitOption = !valueNode.isMissingNode() && !valueNode.isNull()
+                    ? explicitByValue.get(valueNode.asText())
+                    : null;
+            if (existingOption.isObject() && explicitOption != null && explicitOption.isObject()) {
+                ObjectNode mergedOption = ((ObjectNode) existingOption).deepCopy();
+                explicitOption.fields().forEachRemaining(entry -> {
+                    if (!"value".equals(entry.getKey())) {
+                        mergedOption.set(entry.getKey(), entry.getValue());
+                    }
+                });
+                mergedOptions.add(mergedOption);
+            } else {
+                mergedOptions.add(existingOption);
+            }
+        }
+        xUiMap.put(key, mergedOptions);
     }
 
     public static void populateUiMinLength(Map<String, Object> xUiMap, Integer minLength, String message) {

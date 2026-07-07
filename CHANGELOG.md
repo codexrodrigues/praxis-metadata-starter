@@ -29,7 +29,11 @@ All notable changes to this module will be documented in this file.
   `valuePropertyPath`/`labelPropertyPath`.
 
 ### Changed
+- `@UISchema.options` agora pode enriquecer labels/metadados de opcoes derivadas de `enum` em `x-ui.options`, preservando os valores canonicos do schema OpenAPI e ignorando valores extras que nao pertencem ao enum.
 - `_links` de create/edit/delete/export passam a respeitar a availability canonica avaliada pelo `CapabilityService`, evitando divergencia entre HATEOAS e `/capabilities`.
+- `/schemas/domain` agora preenche a descricao do no conceitual de recurso a partir da
+  descricao OpenAPI do schema raiz, priorizando schemas de resposta para o Cockpit
+  materializar contexto de negocio sem convencoes locais no host.
 - `duplicate-draft` agora e opt-in via `AbstractDuplicateDraftLegacyBackedResourceController`; `AbstractLegacyBackedResourceController` publica apenas o baseline CRUD legado-backed, e o endpoint de rascunho retorna `200 OK` sem criar item persistido.
 - `deleteBatch` passa a validar availability de colecao e de cada item antes de delegar exclusao em lote.
 - `SemanticMetadataReviewer` passa a revisar campos herdados de DTOs, evitando que contexto privado em superclasses escape sem governanca.
@@ -46,6 +50,22 @@ All notable changes to this module will be documented in this file.
 - Mensagens de erro para condicionais Json Logic malformados agora distinguem JSON invalido de contrato Json Logic invalido, e a validacao bloqueia literais com shape basico incompatível com o runtime Angular.
 
 ### Fixed
+- `/schemas/filtered` agora preserva descricoes `@Schema` de campos `BigDecimal`
+  ao manter o formato `decimal`, evitando que metricas monetarias ou agregadas
+  percam semantica de negocio no Cockpit e em consumidores AI.
+- O cockpit agora calcula formularios esperados e workflows acionaveis como
+  cobertura contextual, evitando tratar recursos read-only ou analiticos como
+  lacunas operacionais por nao publicarem formulario ou action.
+- O cockpit agora verifica `/capabilities` apenas para recursos com `resourceKey`
+  canonico publicado, evitando 404 falso-positivo em endpoints tecnicos isolados
+  descobertos pelo catalogo OpenAPI.
+- O cockpit agora materializa o mapa de dominio apenas a partir de endpoints com
+  `resourceKey` canonico, mantendo endpoints tecnicos ou custom sem `@ApiResource`
+  fora da contagem de recursos de negocio.
+- O cockpit agora usa timeout maior ao ler catalogos por grupo, evitando falso
+  "sem dominio materializavel" em hosts grandes durante inicializacao fria do OpenAPI.
+- O cockpit e o catalogo de actions agora reconhecem `POST /{resource}/{id}/duplicate-draft`
+  como workflow action canonica opt-in do starter, sem exigir aliases locais em `/actions/...`.
 - `OptionSourceRuntimeContract.canonical(...)` rejeita `sourceKey` nao URL-safe antes de publicar endpoints de runtime.
 - `CustomOpenApiResolver` agora preserva `x-ui.type=text` e nao publica `valuePresentation` numerico automatico quando um campo com transporte OpenAPI numerico e declarado como texto, controle textual ou mascara textual.
 - `/schemas/filtered` agora pode derivar `x-ui.resource.idField` de um identificador natural escalar obrigatorio quando o DTO de resposta nao possui `id` ou `*Id`, cobrindo recursos como `EmpresaDTO.empresa`.
@@ -53,6 +73,9 @@ All notable changes to this module will be documented in this file.
 - O cockpit agora prioriza o prefixo semantico de `resourceKey` antes de grupos tecnicos genericos como `application`, e reduz rotulos secundarios no modo limpo do grafo para melhorar a leitura da constelacao de relacoes.
 - O cockpit agora inclui uma leitura rapida acionavel na lista de recursos e compacta o grafo semantico no mobile, reduzindo rolagem cega antes de escolher recursos, charts, formularios e workflows.
 - O cockpit agora exibe um marcador de publicacao no topo, combinando `release`/`published`/`qa` da URL com `build.version` e `build.time` do host para reduzir ambiguidade durante validacao publica.
+- O cockpit agora calcula workflows acionaveis a partir do cache canonico de
+  `/schemas/actions`, evitando ressalva falsa quando a verificacao assíncrona ja
+  carregou a action mas o objeto de recurso renderizado ainda esta desatualizado.
 
 ## [8.0.0-rc.14] - 2026-04-24
 

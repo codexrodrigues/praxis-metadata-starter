@@ -92,6 +92,35 @@ class CustomOpenApiResolverTest {
         String salario;
     }
 
+    private enum OperationalState {
+        OK,
+        ATTENTION
+    }
+
+    private static class EnumOptionsDummy {
+        @UISchema(
+                controlType = FieldControlType.SELECT,
+                options = "OK|Disponivel,ATTENTION|Exige atencao,UNKNOWN|Nao deve ser publicado"
+        )
+        OperationalState state;
+    }
+
+    private static class JsonOptionsDummy {
+        @UISchema(
+                controlType = FieldControlType.SELECT,
+                options = "[{\"value\":\"OK\",\"label\":\"Disponivel\"},{\"value\":\"ATTENTION\",\"label\":\"Exige atencao\",\"disabled\":true}]"
+        )
+        OperationalState state;
+    }
+
+    private static class NumericEnumOptionsDummy {
+        @UISchema(
+                controlType = FieldControlType.SELECT,
+                options = "1|Prioridade baixa,2|Prioridade alta"
+        )
+        Integer prioridade;
+    }
+
     private static class ExplicitDefaultDummy {
         @UISchema(defaultValue = "DRAFT")
         String status;
@@ -518,6 +547,70 @@ class CustomOpenApiResolverTest {
 
         com.fasterxml.jackson.databind.node.ArrayNode parentUiOptions = (com.fasterxml.jackson.databind.node.ArrayNode) parentXui.get(FieldConfigProperties.OPTIONS.getValue());
         assertEquals(2, parentUiOptions.size());
+    }
+
+    @Test
+    void resolverShouldMergePipeDelimitedUiSchemaLabelsIntoEnumOptionsWithoutAddingValues() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<Object> property = new Schema<>().type("string");
+        property.setName("state");
+        property.setEnum(new java.util.ArrayList<>(java.util.List.of("OK", "ATTENTION")));
+
+        Annotation uiSchema = EnumOptionsDummy.class.getDeclaredField("state").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        com.fasterxml.jackson.databind.node.ArrayNode options =
+                (com.fasterxml.jackson.databind.node.ArrayNode) xui.get(FieldConfigProperties.OPTIONS.getValue());
+
+        assertEquals(2, options.size());
+        assertEquals("OK", options.get(0).path("value").asText());
+        assertEquals("Disponivel", options.get(0).path("label").asText());
+        assertEquals("ATTENTION", options.get(1).path("value").asText());
+        assertEquals("Exige atencao", options.get(1).path("label").asText());
+    }
+
+    @Test
+    void resolverShouldMergeJsonUiSchemaOptionMetadataIntoEnumOptions() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<Object> property = new Schema<>().type("string");
+        property.setName("state");
+        property.setEnum(new java.util.ArrayList<>(java.util.List.of("OK", "ATTENTION")));
+
+        Annotation uiSchema = JsonOptionsDummy.class.getDeclaredField("state").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        com.fasterxml.jackson.databind.node.ArrayNode options =
+                (com.fasterxml.jackson.databind.node.ArrayNode) xui.get(FieldConfigProperties.OPTIONS.getValue());
+
+        assertEquals(2, options.size());
+        assertEquals("Disponivel", options.get(0).path("label").asText());
+        assertEquals("Exige atencao", options.get(1).path("label").asText());
+        assertTrue(options.get(1).path("disabled").asBoolean());
+    }
+
+    @Test
+    void resolverShouldPreserveCanonicalEnumValueTypeWhenMergingUiSchemaLabels() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<Object> property = new Schema<>().type("integer").format("int32");
+        property.setName("prioridade");
+        property.setEnum(new java.util.ArrayList<>(java.util.List.of(1, 2)));
+
+        Annotation uiSchema = NumericEnumOptionsDummy.class.getDeclaredField("prioridade").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[] { uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        com.fasterxml.jackson.databind.node.ArrayNode options =
+                (com.fasterxml.jackson.databind.node.ArrayNode) xui.get(FieldConfigProperties.OPTIONS.getValue());
+
+        assertEquals(2, options.size());
+        assertTrue(options.get(0).path("value").isInt());
+        assertEquals(1, options.get(0).path("value").asInt());
+        assertEquals("Prioridade baixa", options.get(0).path("label").asText());
+        assertTrue(options.get(1).path("value").isInt());
+        assertEquals(2, options.get(1).path("value").asInt());
+        assertEquals("Prioridade alta", options.get(1).path("label").asText());
     }
 
     @Test

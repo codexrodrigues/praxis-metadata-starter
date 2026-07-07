@@ -86,6 +86,13 @@ class SemanticDomainCatalogServiceTest {
                         .containsEntry("capabilityKey", "stats.groupBy")
                         .containsEntry("path", "/api/human-resources/folhas-pagamento/stats/group-by")
                         .containsEntry("method", "POST"));
+        assertThat(response.nodes()).filteredOn(node -> "human-resources.folhas-pagamento".equals(node.nodeKey()))
+                .singleElement()
+                .satisfies(node -> {
+                    assertThat(node.description()).isEqualTo("Folha de pagamento calculada para acompanhamento financeiro.");
+                    assertThat(node.businessGlossary())
+                            .containsEntry("description", "Folha de pagamento calculada para acompanhamento financeiro.");
+                });
         assertThat(response.nodes()).filteredOn(node -> "policy_hint".equals(node.nodeType()))
                 .singleElement()
                 .satisfies(node -> assertThat(node.metadata())
@@ -290,7 +297,7 @@ class SemanticDomainCatalogServiceTest {
         public JsonNode getDocumentForGroup(String groupName) {
             return objectMapper.valueToTree(Map.of(
                     "paths", Map.of(
-                            "/api/human-resources/folhas-pagamento/{id}/actions/mark-paid", Map.of(
+                            "/api/human-resources/folhas-pagamento/{folhaId}/actions/mark-paid", Map.of(
                                     "post", Map.of(
                                             "responses", Map.of(
                                                     "200", Map.of(
@@ -337,6 +344,7 @@ class SemanticDomainCatalogServiceTest {
                                     ),
                                     "WorkflowResponse", Map.of(
                                             "type", "object",
+                                            "description", "Folha de pagamento calculada para acompanhamento financeiro.",
                                             "properties", Map.of(
                                                     "id", Map.of("type", "integer", "format", "int32"),
                                                     "valorLiquido", Map.of(

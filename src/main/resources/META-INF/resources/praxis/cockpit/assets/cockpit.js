@@ -209,7 +209,7 @@
 
   async function startCapabilityVerification() {
     if (state.backgroundCapabilities.running) return;
-    const candidates = state.resources.filter((resource) => resource.resourcePath || resource.paths?.[0]);
+    const candidates = capabilityVerificationCandidates();
     state.backgroundCapabilities = {
       running: true,
       checked: candidates.filter((resource) => state.capabilities.has(resource.key)).length,
@@ -244,7 +244,7 @@
 
   async function verifyResourceCapability(resource) {
     const resourcePath = resource.resourcePath || resource.paths?.[0];
-    if (!resourcePath) return;
+    if (!shouldVerifyCapabilities(resource, resourcePath)) return;
     try {
       const capability = await fetchJson(`${resourcePath}/capabilities`);
       state.capabilities.set(resource.key, capability);
@@ -342,9 +342,20 @@
   }
 
   function updateCapabilityProgress() {
-    const total = state.backgroundCapabilities.total || state.resources.length;
-    state.backgroundCapabilities.checked = state.resources.filter((resource) => state.capabilities.has(resource.key)).length;
+    const candidates = capabilityVerificationCandidates();
+    const total = state.backgroundCapabilities.total || candidates.length;
+    state.backgroundCapabilities.checked = candidates.filter((resource) => state.capabilities.has(resource.key)).length;
     state.backgroundCapabilities.total = total;
+  }
+
+  function capabilityVerificationCandidates() {
+    return state.resources.filter((resource) => shouldVerifyCapabilities(resource));
+  }
+
+  function shouldVerifyCapabilities(resource, resourcePath = resource?.resourcePath || resource?.paths?.[0]) {
+    return Boolean(resource?.resourceKey)
+      && Boolean(resourcePath)
+      && !isFrameworkEndpoint(resourcePath);
   }
 
   async function fetchJson(url, options = {}) {
@@ -388,7 +399,7 @@
     if (!groups.length) return catalogs;
 
     const groupResults = await Promise.allSettled(groups.map((group) =>
-      fetchJson(`/schemas/catalog?group=${encodeURIComponent(group)}`, { timeoutMs: 5000 })
+      fetchJson(`/schemas/catalog?group=${encodeURIComponent(group)}`, { timeoutMs: 15000 })
     ));
     const groupCatalogs = [];
     for (const result of groupResults) {
@@ -431,18 +442,22 @@
         state.discovery.partialEndpoints.push(endpoint);
         continue;
       }
+      if (!endpoint.resourceKey) {
+        state.discovery.partialEndpoints.push(endpoint);
+        continue;
+      }
       if (resourcePath !== path) {
         state.discovery.derivedEndpoints.push(endpoint);
       }
       const resource = ensureResource(index, resourcePath, {
         resourcePath,
-        resourceKey: endpoint.resourceKey || null,
+        resourceKey: endpoint.resourceKey,
         catalogVisual: endpoint.resourceVisual || null,
         groupVisual: endpoint.groupVisual || null,
         group: canonicalAreaKey(endpoint.resourceKey, endpoint.group, resourcePath, endpoint.resourceVisual, endpoint.groupVisual),
         frontendResource: frontendResourceForPath(resourcePath),
         icon: endpoint.resourceVisual?.icon || null,
-        sourceConfidence: endpoint.resourceKey ? 'resourceKey' : 'path-fallback'
+        sourceConfidence: 'resourceKey'
       });
       if (!resource.endpoints.some((current) => endpointKey(current) === endpointKey(endpoint))) {
         resource.endpoints.push(endpoint);
@@ -690,10 +705,22 @@
   }
 
   function hasPublishedActionSignal(resource) {
+    if (knownActionsForResource(resource).length) return true;
     if ((resource.capability?.actions || []).length) return true;
     if ((resource.actions || []).length) return true;
     if ((resource.operationSummary?.actions || 0) > 0) return true;
     return (resource.endpoints || []).some((endpoint) => isWorkflowActionEndpoint(endpoint.path));
+  }
+
+  function knownActionsForResource(resource) {
+    const resourcePath = resource?.resourcePath || resource?.paths?.[0];
+    const resourceKey = canonicalResourceKey(resource, resourcePath);
+    const cacheKey = semanticCacheKey(resource || {}, resourceKey);
+    return uniqueBySurface([
+      ...(state.actions.get(cacheKey) || []),
+      ...(resource?.actions || []),
+      ...(resource?.capability?.actions || [])
+    ]);
   }
 
   function domainItems(payload) {
@@ -914,7 +941,7 @@
 
   function renderPlatformIntelligence(resources) {
     const metrics = platformMetrics(resources);
-    els.capabilityMode.textContent = `${metrics.renderableResources} experiências possíveis · ${metrics.capabilityChecked}/${metrics.resources} capabilities verificadas`;
+    els.capabilityMode.textContent = `${metrics.renderableResources} experiências possíveis · ${metrics.capabilityChecked}/${metrics.capabilityEligible || 0} capabilities verificadas`;
     els.filterPower.textContent = `${metrics.filterResources}/${metrics.resources}`;
     els.filterPowerDetail.textContent = `${metrics.filterResources} recurso(s) com consulta, ${metrics.statsResources} com analytics e ${metrics.optionResources} com fontes de opção. Sinais confirmados vêm de capabilities, surfaces, schemas e x-ui; o catálogo entra como possibilidade estimada.`;
     els.domainCoverageChart.innerHTML = renderDomainCoverageChart(metrics);
@@ -939,14 +966,17 @@
       .filter((area) => area.total > 0);
     const renderableProfiles = resources.map((resource) => ({ resource, profile: resourceRenderability(resource) }));
     const renderable = renderableProfiles.map((item) => item.profile);
-    const capabilityChecked = resources.filter((resource) => state.capabilities.has(resource.key)).length;
+    const formExpectedProfiles = renderableProfiles.filter((item) => expectsFormMaterialization(item.resource, item.profile));
+    const capabilityEligible = resources.filter((resource) => shouldVerifyCapabilities(resource)).length;
+    const capabilityChecked = resources.filter((resource) => shouldVerifyCapabilities(resource) && state.capabilities.has(resource.key)).length;
     const capabilityFailures = resources.filter((resource) => state.capabilityErrors.has(resource.key)).length;
     const identityConfirmed = resources.filter((resource) => hasConfirmedIdentity(resource)).length;
-    const identityPending = resources.filter((resource) => !state.capabilities.has(resource.key)).length;
+    const identityPending = resources.filter((resource) => shouldVerifyCapabilities(resource) && !state.capabilities.has(resource.key)).length;
     return {
       resources: resources.length,
       areas: areaRows,
       renderableProfiles,
+      capabilityEligible,
       capabilityChecked,
       capabilityFailures,
       identityConfirmed,
@@ -954,6 +984,8 @@
       filterResources: renderable.filter((item) => item.canFilter).length,
       tableResources: renderable.filter((item) => item.canTable).length,
       formResources: renderable.filter((item) => item.canForm).length,
+      formExpectedResources: formExpectedProfiles.length,
+      formExpectedReadyResources: formExpectedProfiles.filter((item) => item.profile.canForm).length,
       statsResources: renderable.filter((item) => item.canAnalytics).length,
       optionResources: renderable.filter((item) => item.canOptions).length,
       actionResources: renderable.filter((item) => item.canActions).length,
@@ -962,43 +994,49 @@
       estimatedLayers: renderable.reduce((sum, item) => sum + Object.values(item.evidence).filter((source) => source === 'catalog').length, 0),
       schemaGaps: resources.filter((resource) => !resource.fieldList.length && !resource.schemaLinks.length).length,
       identityGaps: resources.filter((resource) => state.capabilities.has(resource.key) && !hasConfirmedIdentity(resource)).length,
-      actionGaps: renderable.filter((item) => !item.canActions).length
+      actionGaps: renderable.filter((item, index) => !item.canActions && expectsWorkflowAction(resources[index], item)).length,
+      actionOptionalResources: renderable.filter((item) => !item.canActions).length
     };
   }
 
   function renderHostDecision(metrics) {
     const hasResources = metrics.resources > 0;
-    const formComplete = hasResources && metrics.formResources === metrics.resources;
+    const formComplete = hasResources && metrics.formExpectedReadyResources === metrics.formExpectedResources;
     const filterComplete = hasResources && metrics.filterResources === metrics.resources;
     const tableComplete = hasResources && metrics.tableResources === metrics.resources;
     const analyticsComplete = hasResources && metrics.statsResources === metrics.resources;
-    const workflowComplete = hasResources && metrics.actionResources === metrics.resources;
-    const uiOperational = hasResources && tableComplete && filterComplete && metrics.formResources > 0;
-    const decisionTone = !hasResources || metrics.schemaGaps ? 'danger' : workflowComplete && formComplete ? 'success' : 'warning';
+    const workflowBlocking = metrics.actionGaps > 0;
+    const uiOperational = hasResources && tableComplete && filterComplete && formComplete;
+    const decisionTone = !hasResources || metrics.schemaGaps ? 'danger' : workflowBlocking || !formComplete ? 'warning' : 'success';
     const decisionLabel = !hasResources
       ? 'Sem domínio materializável'
       : uiOperational
-        ? workflowComplete
-          ? 'Apto para UI operacional e automação'
+        ? !workflowBlocking
+          ? 'Apto para UI operacional metadata-driven'
           : 'Apto para UI operacional com ressalva em automação'
         : 'Materialização parcial exige atenção';
     const readyParts = [];
     if (tableComplete) readyParts.push('tabelas');
     if (filterComplete) readyParts.push('consultas e filtros');
     if (analyticsComplete) readyParts.push('analytics');
-    if (metrics.formResources) readyParts.push(`${metrics.formResources}/${metrics.resources} formulários`);
+    if (metrics.formExpectedResources) readyParts.push(`${metrics.formExpectedReadyResources}/${metrics.formExpectedResources} formularios esperados`);
+    else readyParts.push('recursos read-only sem formulario obrigatorio');
     const readyText = readyParts.length ? `${joinHuman(readyParts)} disponíveis.` : 'Ainda não há experiência de UI suficiente para uma conclusão operacional.';
-    const workflowText = workflowComplete
-      ? 'Automações publicadas para todos os recursos avaliados.'
-      : `${metrics.actionResources}/${metrics.resources || 0} automações publicadas; CRUD e exploração não são bloqueados, mas decisões governadas ainda não ficam disponíveis.`;
+    const workflowText = workflowBlocking
+      ? `${metrics.actionGaps} recurso(s) parecem exigir comando de negócio sem action publicada.`
+      : metrics.actionResources
+        ? `${metrics.actionResources} recurso(s) publicam workflows acionáveis; os demais ficam como CRUD, consulta ou analytics sem bloquear a materialização.`
+        : 'Nenhum workflow acionável publicado; trate como lacuna apenas quando houver comando de negócio explícito.';
     els.hostDecisionTitle.textContent = decisionLabel;
     els.hostDecisionSummary.textContent = hasResources
       ? `${metrics.resources} recurso(s) analisado(s). ${readyText}`
       : 'O host ainda não publicou recursos de domínio suficientes para auditoria de materialização.';
     els.decisionResourceCount.textContent = String(metrics.resources || '--');
-    els.decisionFormCount.textContent = `${metrics.formResources}/${metrics.resources || 0}`;
+    els.decisionFormCount.textContent = `${metrics.formExpectedReadyResources}/${metrics.formExpectedResources || 0}`;
     els.decisionFilterCount.textContent = `${metrics.filterResources}/${metrics.resources || 0}`;
-    els.decisionWorkflowCount.textContent = `${metrics.actionResources}/${metrics.resources || 0}`;
+    els.decisionWorkflowCount.textContent = metrics.actionGaps
+      ? `${metrics.actionResources}/${metrics.actionResources + metrics.actionGaps}`
+      : String(metrics.actionResources);
     els.hostDecisionAttention.innerHTML = `
       <span class="status-token status-${escapeAttr(decisionTone)}">${escapeHtml(statusDecisionLabel(decisionTone))}</span>
       <p><strong>Próxima atenção:</strong> ${escapeHtml(workflowText)}</p>
@@ -1046,9 +1084,13 @@
       },
       {
         tone: metrics.actionGaps ? 'optional' : 'ok',
-        label: 'Automações publicadas',
-        value: `${metrics.actionResources}/${metrics.resources || 0}`,
-        detail: metrics.actionGaps ? `${metrics.actionGaps} recurso(s) sem workflow publicado; CRUD não é bloqueado.` : 'Recursos visíveis publicam ações de workflow.'
+        label: 'Workflows acionáveis',
+        value: metrics.actionGaps ? `${metrics.actionResources}/${metrics.actionResources + metrics.actionGaps}` : String(metrics.actionResources),
+        detail: metrics.actionGaps
+          ? `${metrics.actionGaps} recurso(s) parecem exigir action; CRUD não é bloqueado.`
+          : metrics.actionResources
+            ? `${metrics.actionResources} recurso(s) publicam comandos explícitos; ausência nos demais é opcional.`
+            : 'Nenhum comando explícito publicado; não é falha para recursos CRUD/read-only.'
       }
     ];
     return cards.map((card) => `
@@ -1102,19 +1144,20 @@
         impact: `O cockpit inferiu ${resource.inferredResourceKey} apenas como diagnóstico; publique resourceKey para confirmar a identidade canônica.`
       });
     }
+    const shouldProbeCapabilities = shouldVerifyCapabilities(resource);
     if (state.capabilityErrors.has(resource.key)) {
       diagnostics.push({
         level: 'blocking',
         title: 'Capabilities retornaram erro',
         impact: `O endpoint /capabilities falhou: ${state.capabilityErrors.get(resource.key)}.`
       });
-    } else if (state.capabilities.has(resource.key) && !hasConfirmedIdentity(resource)) {
+    } else if (shouldProbeCapabilities && state.capabilities.has(resource.key) && !hasConfirmedIdentity(resource)) {
       diagnostics.push({
         level: 'attention',
         title: 'Identidade ainda não canônica',
         impact: 'Capabilities foram lidas, mas não confirmaram resourceKey canônico.'
       });
-    } else if (!state.capabilities.has(resource.key)) {
+    } else if (shouldProbeCapabilities && !state.capabilities.has(resource.key)) {
       diagnostics.push({
         level: 'optional',
         title: 'Capabilities aguardando verificação',
@@ -1135,7 +1178,7 @@
         impact: 'Stats existem no catálogo, mas ainda não foram confirmadas como capability.'
       });
     }
-    if (!profile.canActions) {
+    if (!profile.canActions && expectsWorkflowAction(resource, profile)) {
       diagnostics.push({
         level: 'optional',
         title: 'Sem action de workflow',
@@ -1307,13 +1350,14 @@
     const fieldSource = fields.length ? fields : resource.fieldList || [];
     const ui = uiFieldSummary(resource);
     const surfaces = resource.surfaces || [];
+    const actions = knownActionsForResource(resource);
     const evidence = {
       table: capabilitySource(Boolean(ops.all), Boolean(surfaces.some((surface) => isViewSurface(surface))), Boolean(fieldSource.length || summary.read)),
       form: capabilitySource(Boolean(ops.create || ops.update), Boolean(surfaces.some((surface) => isFormSurface(surface)) || ui.editableFields), Boolean(hasFormEndpoint(resource))),
       filter: capabilitySource(Boolean(ops.filter || ops.cursor), false, Boolean(summary.filter)),
       analytics: capabilitySource(Boolean(ops.statsGroupBy || ops.statsTimeSeries || ops.statsDistribution), false, Boolean(summary.stats)),
       options: capabilitySource(Boolean(ops.options || ops.optionSources), Boolean(ui.optionSources), Boolean(summary.options)),
-      actions: capabilitySource(Boolean((resource.actions || []).length), false, false)
+      actions: capabilitySource(Boolean(actions.length), false, false)
     };
     const scoreItems = {
       canTable: evidence.table !== 'missing',
@@ -1338,6 +1382,20 @@
       optionSources: ui.optionSources,
       filterOperators: ui.filterOperators
     };
+  }
+
+  function expectsFormMaterialization(resource, profile) {
+    const ops = resource.capability?.canonicalOperations || {};
+    return Boolean(profile?.canForm
+      || ops.create
+      || ops.update
+      || ops.delete
+      || hasFormEndpoint(resource)
+      || (resource.surfaces || []).some((surface) => isFormSurface(surface)));
+  }
+
+  function expectsWorkflowAction(resource, profile) {
+    return Boolean(profile?.canActions || (resource.actions || []).length || hasPublishedActionSignal(resource));
   }
 
   function capabilitySource(capability, schemaOrSurface, catalog) {
@@ -4645,7 +4703,9 @@
   }
 
   function isWorkflowActionEndpoint(path) {
-    return String(path || '').includes('/actions/') && !isActionDiscoveryEndpoint(path);
+    const value = String(path || '');
+    return (value.includes('/actions/') && !isActionDiscoveryEndpoint(value))
+      || /\/\{[^/]+}\/duplicate-draft$/.test(value);
   }
 
   function sameEndpoint(item, endpoint) {

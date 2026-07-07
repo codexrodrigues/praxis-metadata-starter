@@ -174,7 +174,7 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
         }
 
         String message = "Method %s#%s declares @WorkflowAction on a non-canonical command shape. "
-                + "Expected explicit POST/PATCH mapping under /actions/... or alias path ':action'. "
+                + "Expected explicit POST/PATCH mapping under /actions/..., alias path ':action', or the starter duplicate-draft command. "
                 + "Resolved methods=%s, paths=%s."
                 .formatted(
                         handlerMethod.getBeanType().getName(),
@@ -217,7 +217,9 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
             return false;
         }
         String normalized = normalizePath(path);
-        return normalized.contains("/actions/") || normalized.matches(".+:[A-Za-z][A-Za-z0-9-]*$");
+        return normalized.contains("/actions/")
+                || normalized.matches(".+:[A-Za-z][A-Za-z0-9-]*$")
+                || normalized.matches(".+/\\{[^/]+}/duplicate-draft$");
     }
 
     private ResourceDescriptor resolveResourceDescriptor(HandlerMethod handlerMethod, Class<?> controllerClass) {

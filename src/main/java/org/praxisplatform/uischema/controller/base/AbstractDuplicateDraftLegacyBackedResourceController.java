@@ -1,6 +1,8 @@
 package org.praxisplatform.uischema.controller.base;
 
 import io.swagger.v3.oas.annotations.Operation;
+import org.praxisplatform.uischema.action.ActionScope;
+import org.praxisplatform.uischema.annotation.WorkflowAction;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.service.base.DuplicateDraftLegacyBackedResourceService;
@@ -38,6 +40,15 @@ public abstract class AbstractDuplicateDraftLegacyBackedResourceController<Respo
 
     @PostMapping("/{id}/duplicate-draft")
     @Operation(summary = "Duplicar item como rascunho")
+    @WorkflowAction(
+            id = "duplicate-draft",
+            title = "Duplicar como rascunho",
+            description = "Prepara um rascunho editavel a partir do registro atual, sem gravar alteracao ate que o usuario confirme a criacao.",
+            scope = ActionScope.ITEM,
+            order = 90,
+            successMessage = "Rascunho de duplicacao preparado",
+            tags = {"duplicate-draft", "draft", "business-command"}
+    )
     public ResponseEntity<RestApiResponse<DraftDTO>> duplicateDraft(@PathVariable ID id) {
         if (!getService().supportsDuplicateDraft()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "duplicate-draft is not supported by this resource.");
