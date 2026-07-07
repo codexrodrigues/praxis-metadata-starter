@@ -3307,6 +3307,90 @@ input:focus-visible,
 .method.patch { background: var(--amber); }
 .method.delete { background: var(--rose); color: #fff; }
 
+.contract-links {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.contract-link {
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(150deg, rgba(98, 216, 255, .06), rgba(7, 9, 13, .78)),
+    rgba(8, 16, 23, .72);
+  color: var(--soft);
+  display: grid;
+  gap: 8px;
+  min-height: 142px;
+  padding: 13px;
+  text-decoration: none;
+}
+
+.contract-link:hover {
+  border-color: rgba(98, 216, 255, .48);
+  box-shadow: 0 14px 34px rgba(98, 216, 255, .10);
+  transform: translateY(-1px);
+}
+
+.contract-link.primary {
+  border-color: rgba(115, 239, 181, .42);
+}
+
+.contract-link.attention {
+  border-color: rgba(255, 209, 102, .42);
+}
+
+.contract-link > span {
+  align-items: center;
+  border: 1px solid rgba(98, 216, 255, .24);
+  color: var(--cyan);
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.contract-link.primary > span {
+  border-color: rgba(115, 239, 181, .32);
+  color: var(--mint);
+}
+
+.contract-link.attention > span {
+  border-color: rgba(255, 209, 102, .32);
+  color: var(--amber);
+}
+
+.contract-link svg {
+  height: 18px;
+  width: 18px;
+}
+
+.contract-link strong,
+.contract-link small,
+.contract-link code {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.contract-link strong {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.contract-link small {
+  color: var(--soft);
+  font-size: 12px;
+  line-height: 1.38;
+}
+
+.contract-link code {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .evidence-panel {
   display: block;
 }
@@ -3362,7 +3446,8 @@ input:focus-visible,
 
   .attention-list,
   .semantic-readiness,
-  .renderability-matrix {
+  .renderability-matrix,
+  .contract-links {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3424,6 +3509,7 @@ input:focus-visible,
   .semantic-graph-routes,
   .topology-canvas,
   .topology-evidence-grid,
+  .contract-links,
   .evidence-panel {
     grid-template-columns: 1fr;
   }

@@ -20,6 +20,7 @@
     health: null,
     info: null,
     endpointStatus: {},
+    swaggerConfig: null,
     capabilities: new Map(),
     capabilityErrors: new Map(),
     filteredSchemas: new Map(),
@@ -84,6 +85,7 @@
     filterInsights: document.getElementById('filterInsights'),
     workflowRail: document.getElementById('workflowRail'),
     endpointMatrix: document.getElementById('endpointMatrix'),
+    contractLinks: document.getElementById('contractLinks'),
     fieldSummary: document.getElementById('fieldSummary'),
     diagnosticsList: document.getElementById('diagnosticsList'),
     refreshResourceButton: document.getElementById('refreshResourceButton')
@@ -177,6 +179,7 @@
 
     state.health = valueOrNull(health);
     state.info = valueOrNull(info);
+    state.swaggerConfig = valueOrNull(swaggerConfig);
     renderReleaseMarker(state.info);
     state.frontendResources = frontendResourceIndex(valueOrNull(frontendResources));
     state.endpointStatus = {
@@ -1879,6 +1882,7 @@
     renderResourceAnalytics(resource);
     renderWorkflow(resource);
     renderEndpoints(resource);
+    renderContractLinks(resource);
     renderFields(resource);
     renderDiagnostics(resource);
   }
@@ -4183,7 +4187,12 @@
       chart: '<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-7"/>',
       form: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M8 13h8"/><path d="M8 17h5"/><path d="M8 9h2"/>',
       layers: '<path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/>',
-      workflow: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8.5 6h7"/><path d="M17 8.2 13.2 16"/><path d="M7 8.2 10.8 16"/>'
+      workflow: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8.5 6h7"/><path d="M17 8.2 13.2 16"/><path d="M7 8.2 10.8 16"/>',
+      swagger: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8"/><path d="M8 12h8"/>',
+      json: '<path d="m8 7-4 5 4 5"/><path d="m16 7 4 5-4 5"/><path d="m13 5-2 14"/>',
+      catalog: '<path d="M5 4h14v4H5z"/><path d="M5 10h14v4H5z"/><path d="M5 16h14v4H5z"/><path d="M8 6h.01"/><path d="M8 12h.01"/><path d="M8 18h.01"/>',
+      domain: '<path d="M12 4a3 3 0 0 0-3 3v1H8a4 4 0 0 0 0 8h8a4 4 0 0 0 0-8h-1V7a3 3 0 0 0-3-3Z"/><path d="M12 16v4"/><path d="M8 20h8"/>',
+      surface: '<rect x="4" y="5" width="16" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 17v3"/><path d="M8 9h8"/><path d="M8 13h5"/>'
     };
     return `<svg ${common} aria-hidden="true">${paths[icon] || paths.layers}</svg>`;
   }
@@ -4635,6 +4644,157 @@
     `;
   }
 
+  function renderContractLinks(resource) {
+    if (!els.contractLinks) return;
+    const links = resourceContractLinks(resource);
+    if (!links.length) {
+      els.contractLinks.innerHTML = '<div class="empty-state">Selecione um recurso com resourceKey, grupo OpenAPI ou schema publicado para abrir os contratos brutos.</div>';
+      return;
+    }
+    els.contractLinks.innerHTML = links.map((link) => `
+      <a class="contract-link ${escapeAttr(link.level || '')}" href="${escapeAttr(link.href)}" target="_blank" rel="noopener noreferrer">
+        <span>${cockpitIcon(link.icon)}</span>
+        <strong>${escapeHtml(link.title)}</strong>
+        <small>${escapeHtml(link.description)}</small>
+        <code>${escapeHtml(link.display || link.href)}</code>
+      </a>
+    `).join('');
+  }
+
+  function resourceContractLinks(resource) {
+    const resourcePath = resource.resourcePath || resource.paths?.[0];
+    const resourceKey = canonicalResourceKey(resource, resourcePath);
+    const group = resource.group || domainFromResourceKey(resourceKey);
+    const areaOpenApi = openApiGroupForArea(group);
+    const resourceOpenApi = openApiGroupForResource(resource);
+    const links = [
+      {
+        title: 'Swagger do host',
+        description: areaOpenApi ? `Interface interativa posicionada no grupo ${labelForArea(group)}.` : 'Interface interativa do OpenAPI publicado pelo host.',
+        href: swaggerUiUrl(areaOpenApi?.name),
+        display: areaOpenApi ? `/swagger-ui/index.html?urls.primaryName=${areaOpenApi.name}` : '/swagger-ui/index.html',
+        icon: 'swagger',
+        level: 'primary'
+      },
+      {
+        title: areaOpenApi ? 'OpenAPI JSON da área' : 'OpenAPI JSON',
+        description: areaOpenApi ? 'Documento OpenAPI bruto da área deste recurso.' : 'Documento OpenAPI bruto do host.',
+        href: areaOpenApi?.url || '/v3/api-docs',
+        display: areaOpenApi?.url || '/v3/api-docs',
+        icon: 'json',
+        level: 'primary'
+      },
+      {
+        title: group ? 'Catálogo do grupo' : 'Catálogo global',
+        description: group ? 'Inventário de recursos e endpoints desta área.' : 'Inventário metadata-driven publicado pelo starter.',
+        href: group ? `/schemas/catalog?group=${encodeURIComponent(group)}` : '/schemas/catalog',
+        icon: 'catalog'
+      }
+    ];
+    if (resourceOpenApi && resourceOpenApi.url !== areaOpenApi?.url) {
+      links.push({
+        title: 'OpenAPI JSON do recurso',
+        description: 'Documento OpenAPI isolado para este recurso, útil em auditoria de endpoints e DTOs.',
+        href: resourceOpenApi.url,
+        display: resourceOpenApi.url,
+        icon: 'json',
+        level: 'primary'
+      });
+    }
+    if (resourceKey) {
+      links.push(
+        {
+          title: 'Domínio do recurso',
+          description: 'Grafo semântico escopado com conceitos, relações e evidências.',
+          href: `/schemas/domain?resourceKey=${encodeURIComponent(resourceKey)}`,
+          icon: 'domain'
+        },
+        {
+          title: 'Surfaces do recurso',
+          description: 'Experiências de UI publicadas para runtime e materialização.',
+          href: `/schemas/surfaces?resource=${encodeURIComponent(resourceKey)}`,
+          icon: 'surface'
+        },
+        {
+          title: 'Actions do recurso',
+          description: 'Comandos de workflow acionáveis declarados para o domínio.',
+          href: `/schemas/actions?resource=${encodeURIComponent(resourceKey)}`,
+          icon: 'workflow'
+        }
+      );
+    }
+    if (resourcePath) {
+      links.push({
+        title: 'Capabilities',
+        description: 'Snapshot agregado de operações, links, surfaces e actions disponíveis.',
+        href: `${resourcePath}/capabilities`,
+        icon: 'layers'
+      });
+    }
+    if (resource.schemaSource?.url) {
+      links.push({
+        title: resource.schemaSource.canonical ? 'Schema filtrado canônico' : `Schema publicado: ${resource.schemaSource.label}`,
+        description: resource.schemaSource.canonical ? 'Fonte estrutural preferencial para UI, IA e runtime.' : 'Schema disponível usado como fallback de inspeção.',
+        href: resource.schemaSource.url,
+        icon: 'form',
+        level: resource.schemaSource.canonical ? 'primary' : 'attention'
+      });
+    }
+    return uniqueContractLinks(links);
+  }
+
+  function swaggerUiUrl(group) {
+    if (!group) return '/swagger-ui/index.html';
+    return `/swagger-ui/index.html?urls.primaryName=${encodeURIComponent(group)}`;
+  }
+
+  function openApiGroupForArea(group) {
+    return openApiGroupByName(group) || null;
+  }
+
+  function openApiGroupForResource(resource) {
+    const candidates = [
+      resource.openapiGroup,
+      resource.openApiGroup,
+      resource.group && resource.resourcePath ? `api-${resource.resourcePath.replace(/^\/api\//, '').replace(/\//g, '-')}` : null,
+      resource.resourcePath ? `api-${resource.resourcePath.replace(/^\/api\//, '').replace(/\//g, '-')}` : null,
+      resource.resourceKey ? `api-${resource.resourceKey.replace(/[._]/g, '-')}` : null
+    ].filter(Boolean);
+    for (const candidate of candidates) {
+      const match = openApiGroupByName(candidate);
+      if (match) return match;
+    }
+    const resourcePath = resource.resourcePath || resource.paths?.[0];
+    if (!resourcePath) return null;
+    const normalizedPath = resourcePath.replace(/^\/api\//, '').replace(/\//g, '-');
+    return openApiGroups().find((entry) => entry.name?.endsWith(normalizedPath)) || null;
+  }
+
+  function openApiGroupByName(name) {
+    const target = String(name || '');
+    if (!target) return null;
+    return openApiGroups().find((entry) => entry.name === target) || null;
+  }
+
+  function openApiGroups() {
+    const entries = Array.isArray(state.swaggerConfig?.urls) ? state.swaggerConfig.urls : [];
+    return entries
+      .map((entry) => ({
+        name: entry?.name || groupNameFromOpenApiUrl(entry?.url),
+        url: entry?.url || (entry?.name ? `/v3/api-docs/${encodeURIComponent(entry.name)}` : null)
+      }))
+      .filter((entry) => entry.name && entry.url);
+  }
+
+  function uniqueContractLinks(links) {
+    const byHref = new Map();
+    for (const link of links) {
+      if (!link?.href) continue;
+      byHref.set(link.href, link);
+    }
+    return Array.from(byHref.values());
+  }
+
   function groupEndpointsByOperation(resource, endpoints) {
     const groups = new Map();
     for (const endpoint of endpoints) {
@@ -4887,6 +5047,9 @@
     els.filterInsights.innerHTML = '<div class="empty-state">Filtros e analytics aparecem quando um recurso é selecionado.</div>';
     els.workflowRail.innerHTML = '<div class="empty-state">O workflow aparece quando um recurso é selecionado.</div>';
     els.endpointMatrix.innerHTML = '<div class="empty-state">Endpoints aparecem quando um recurso é selecionado.</div>';
+    if (els.contractLinks) {
+      els.contractLinks.innerHTML = '<div class="empty-state">Links para Swagger e JSONs canônicos aparecem quando um recurso é selecionado.</div>';
+    }
     els.fieldSummary.innerHTML = '<div class="empty-state">Campos aparecem quando um recurso é selecionado.</div>';
     els.diagnosticsList.innerHTML = '<div class="empty-state">Diagnósticos aparecem com evidências do host.</div>';
   }
