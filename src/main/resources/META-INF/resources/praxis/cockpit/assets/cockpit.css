@@ -1417,15 +1417,6 @@ input:focus-visible,
   color: var(--mint);
 }
 
-.resource-brief-label {
-  clip-path: inset(50%);
-  height: 1px;
-  overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
-}
-
 .resource-brief-grid strong {
   font-size: 20px;
   line-height: 1;

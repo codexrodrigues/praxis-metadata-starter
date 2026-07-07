@@ -181,6 +181,8 @@ class PraxisCockpitControllerTest {
                 .contains("Identidade publicada")
                 .contains("Identidade verificada")
                 .contains("formulários esperados")
+                .contains("const readySentence")
+                .doesNotContain("resource-brief-label")
                 .contains("os demais ficam como CRUD, consulta ou analytics sem bloquear")
                 .contains("fetchJson('/actuator/health', { timeoutMs: 10000 })")
                 .contains("fetchJson('/actuator/info', { timeoutMs: 10000 })")

@@ -1029,6 +1029,7 @@
     if (metrics.formExpectedResources) readyParts.push(`${metrics.formExpectedReadyResources}/${metrics.formExpectedResources} formulários esperados`);
     else readyParts.push('recursos read-only sem formulário obrigatório');
     const readyText = readyParts.length ? `${joinHuman(readyParts)} disponíveis.` : 'Ainda não há experiência de UI suficiente para uma conclusão operacional.';
+    const readySentence = readyText ? `${readyText.charAt(0).toUpperCase()}${readyText.slice(1)}` : readyText;
     const workflowText = workflowBlocking
       ? `${metrics.actionGaps} recurso(s) parecem exigir comando de negócio sem action publicada.`
       : metrics.actionResources
@@ -1036,7 +1037,7 @@
         : 'Nenhum workflow acionável publicado; trate como lacuna apenas quando houver comando de negócio explícito.';
     els.hostDecisionTitle.textContent = decisionLabel;
     els.hostDecisionSummary.textContent = hasResources
-      ? `${metrics.resources} recurso(s) analisado(s). ${readyText}`
+      ? `${metrics.resources} recurso(s) analisado(s). ${readySentence}`
       : 'O host ainda não publicou recursos de domínio suficientes para auditoria de materialização.';
     els.decisionResourceCount.textContent = String(metrics.resources || '--');
     els.decisionFormCount.textContent = `${metrics.formExpectedReadyResources}/${metrics.formExpectedResources || 0}`;
@@ -1613,7 +1614,6 @@
           ${shortcuts.map((shortcut) => `
             <button class="${shortcut.key === state.resourceFilter ? 'active' : ''}" type="button" data-resource-filter-shortcut="${escapeAttr(shortcut.key)}" aria-label="${escapeAttr(`${shortcut.label}: ${shortcut.value}`)}" aria-pressed="${shortcut.key === state.resourceFilter ? 'true' : 'false'}" title="${escapeAttr(shortcut.label)}" data-tooltip="${escapeAttr(shortcut.label)}">
               <span class="resource-brief-icon" aria-hidden="true">${cockpitIcon(shortcut.icon)}</span>
-              <span class="resource-brief-label">${escapeHtml(shortcut.shortLabel)}</span>
               <strong>${escapeHtml(shortcut.value)}</strong>
             </button>
           `).join('')}
