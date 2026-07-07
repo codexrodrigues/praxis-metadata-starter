@@ -1,7 +1,10 @@
 package org.praxisplatform.uischema.controller.base;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.praxisplatform.uischema.action.ActionScope;
+import org.praxisplatform.uischema.action.EmptyWorkflowActionRequest;
 import org.praxisplatform.uischema.annotation.WorkflowAction;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
@@ -39,7 +42,17 @@ public abstract class AbstractDuplicateDraftLegacyBackedResourceController<Respo
     }
 
     @PostMapping("/{id}/duplicate-draft")
-    @Operation(summary = "Duplicar item como rascunho")
+    @Operation(
+            summary = "Duplicar item como rascunho",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = false,
+                    description = "Sem payload de entrada; o rascunho e preparado a partir do identificador do recurso no path.",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = EmptyWorkflowActionRequest.class)
+                    )
+            )
+    )
     @WorkflowAction(
             id = "duplicate-draft",
             title = "Duplicar como rascunho",

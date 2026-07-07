@@ -386,6 +386,7 @@ public class ApiDocsController {
 
         // Converte o esquema para um Map
         Map<String, Object> schemaMap = objectMapper.convertValue(schemaNodeForResponse, new TypeReference<Map<String, Object>>() { });
+        normalizeEmptyObjectProperties(schemaMap);
 
         String basePath = deriveBasePathFrom(canonicalPath);
 
@@ -928,6 +929,16 @@ public class ApiDocsController {
         Object propsObj = schemaMap.get("properties");
         if (!(propsObj instanceof Map)) return false;
         return ((Map<String, Object>) propsObj).containsKey(prop);
+    }
+
+    private void normalizeEmptyObjectProperties(Map<String, Object> schemaMap) {
+        if (schemaMap == null || schemaMap.containsKey(PROPERTIES)) {
+            return;
+        }
+        Object type = schemaMap.get("type");
+        if ("object".equals(type)) {
+            schemaMap.put(PROPERTIES, new LinkedHashMap<>());
+        }
     }
 
     private void logMissingIdField(String schemaType, String resolvedIdField, String schemaName) {
