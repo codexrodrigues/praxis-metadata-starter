@@ -84,23 +84,23 @@
     <section class="exploration-journey" aria-label="Trilha de exploração do cockpit">
       <a href="#controlPlane">
         <span>1</span>
-        <strong>Entenda a capacidade</strong>
-        <small>Gráficos mostram o que o host já consegue materializar.</small>
+        <strong>Capacidade</strong>
+        <small>Leia cobertura e lacunas.</small>
       </a>
       <a href="#domainMap">
         <span>2</span>
-        <strong>Escolha um domínio</strong>
-        <small>Áreas de negócio filtram recursos, workflows e evidências.</small>
+        <strong>Domínios</strong>
+        <small>Filtre o recorte do negócio.</small>
       </a>
       <a href="#resourceWorkbench">
         <span>3</span>
-        <strong>Investigue um recurso</strong>
-        <small>Aprofunde só quando houver uma pergunta operacional.</small>
+        <strong>Recursos</strong>
+        <small>Abra o detalhe operacional.</small>
       </a>
       <a href="#domainTopology">
         <span>4</span>
-        <strong>Navegue relações</strong>
-        <small>Topologia revela surfaces, actions, campos e jornada.</small>
+        <strong>Relações</strong>
+        <small>Navegue surfaces e actions.</small>
       </a>
     </section>
 
@@ -143,17 +143,17 @@
       <div class="platform-grid">
         <article class="chart-card">
           <div class="chart-card-header">
-            <span>Materialização por domínio</span>
-            <strong>Onde a UI pode ser gerada</strong>
-            <p>Cada célula mostra confirmados/total e estado textual para tabela, formulário, filtro, chart, lookup ou workflow.</p>
+            <span>Heatmap domínio x capacidade</span>
+            <strong>Onde o host está pronto e onde falta evidência</strong>
+            <p>Cada célula mostra quantos recursos daquele domínio sustentam tabela, formulário, filtro, chart, lookup ou workflow.</p>
           </div>
           <div id="domainCoverageChart" class="domain-chart"></div>
         </article>
         <article class="chart-card">
           <div class="chart-card-header">
-            <span>Experiências geráveis</span>
-            <strong>UI materializável</strong>
-            <p>Cada linha mostra quantos recursos podem gerar uma experiência visual, a força da evidência e exemplos para inspeção.</p>
+            <span>Distribuição de capacidades</span>
+            <strong>O que pode virar produto agora</strong>
+            <p>Barras sempre mostram recurso(s) confirmados ou estimados sobre o total analisado.</p>
           </div>
           <div id="renderableStackChart" class="stack-chart"></div>
         </article>
@@ -358,6 +358,6 @@
     </section>
   </main>
 
-  <script src="/praxis/cockpit/assets/cockpit.js?v=20260707-progressive-cockpit" defer></script>
+  <script src="/praxis/cockpit/assets/cockpit.js?v=20260707-executive-cockpit" defer></script>
 </body>
 </html>

@@ -1192,28 +1192,40 @@
     if (!metrics.areas.length) {
       return '<div class="empty-state">Nenhuma área de domínio para calcular cobertura.</div>';
     }
-    return metrics.areas.slice(0, 6).map((area) => `
-      <div class="domain-bar-row">
-        <span class="domain-bar-label">
-          <strong>${escapeHtml(area.label)}</strong>
-          <small>${escapeHtml(area.total)} recurso(s) · ${escapeHtml(area.totalLayers)}/${escapeHtml(area.maxLayers)} experiências · média ${escapeHtml(formatDecimal(area.averageLayers))}/6</small>
-        </span>
-        <div class="domain-layer-grid" aria-label="${escapeAttr(area.totalLayers)} de ${escapeAttr(area.maxLayers)} camadas materializáveis em ${escapeAttr(area.label)}">
-          ${renderDomainLayerCoverage(area.layerCoverage, area.total)}
+    const visibleAreas = metrics.areas.slice(0, 7);
+    const columns = areaLayerLabels();
+    return `
+      <div class="domain-heatmap" role="table" aria-label="Heatmap de capacidades por domínio">
+        <div class="domain-heatmap-row domain-heatmap-head" role="row">
+          <span role="columnheader">Domínio</span>
+          ${columns.map((column) => `<span role="columnheader">${escapeHtml(column.shortLabel)}</span>`).join('')}
         </div>
+        ${visibleAreas.map((area) => `
+          <div class="domain-heatmap-row" role="row">
+            <span class="domain-heatmap-domain" role="rowheader">
+              <strong>${escapeHtml(area.label)}</strong>
+              <small>${escapeHtml(area.total)} recurso(s) · média ${escapeHtml(formatDecimal(area.averageLayers))}/6</small>
+            </span>
+            ${renderDomainLayerCoverage(area.layerCoverage, area.total)}
+          </div>
+        `).join('')}
       </div>
-    `).join('');
+    `;
+  }
+
+  function areaLayerLabels() {
+    return [
+      { key: 'canTable', label: 'Tabela', shortLabel: 'Tabela' },
+      { key: 'canForm', label: 'Formulário', shortLabel: 'Form' },
+      { key: 'canFilter', label: 'Filtro', shortLabel: 'Filtro' },
+      { key: 'canAnalytics', label: 'Chart', shortLabel: 'Chart' },
+      { key: 'canOptions', label: 'Lookup', shortLabel: 'Lookup' },
+      { key: 'canActions', label: 'Workflow', shortLabel: 'Workflow' }
+    ];
   }
 
   function areaLayerCoverage(renderability) {
-    const layers = [
-      { key: 'canTable', label: 'Tabela' },
-      { key: 'canForm', label: 'Form' },
-      { key: 'canFilter', label: 'Filtro' },
-      { key: 'canAnalytics', label: 'Chart' },
-      { key: 'canOptions', label: 'Lookup' },
-      { key: 'canActions', label: 'Workflow' }
-    ];
+    const layers = areaLayerLabels();
     return layers.map((layer) => ({
       ...layer,
       count: renderability.filter((resource) => resource[layer.key]).length
@@ -1226,8 +1238,7 @@
       const tone = ratio === 1 ? 'ok' : ratio >= .5 ? 'attention' : 'gap';
       const status = ratio === 1 ? 'Completo' : layer.count > 0 ? 'Parcial' : 'Ausente';
       return `
-        <span class="domain-layer-pill ${escapeAttr(tone)}" aria-label="${escapeAttr(layer.label)}: ${escapeAttr(status)}, ${escapeAttr(layer.count)} de ${escapeAttr(total)} recursos">
-          <b>${escapeHtml(layer.label)}</b>
+        <span class="domain-heatmap-cell ${escapeAttr(tone)}" role="cell" aria-label="${escapeAttr(layer.label)}: ${escapeAttr(status)}, ${escapeAttr(layer.count)} de ${escapeAttr(total)} recursos">
           <em>${escapeHtml(layer.count)}/${escapeHtml(total)}</em>
           <small>${escapeHtml(status)}</small>
         </span>
@@ -1292,20 +1303,20 @@
       const missing = Math.max(0, metrics.resources - part.value);
       const ratio = Math.round((part.value / total) * 100);
       const stateLabel = part.value === metrics.resources ? 'Completo' : part.value > 0 ? 'Parcial' : 'Ausente';
-      const status = part.value === metrics.resources ? 'Pronto em todo o domínio' : `${missing} recurso(s) sem sinal suficiente`;
+      const status = part.value === metrics.resources ? 'Todos os recursos analisados têm sinal suficiente.' : `${missing} de ${metrics.resources} recurso(s) ainda sem sinal suficiente.`;
       return `
         <section class="experience-row ${escapeAttr(part.tone)}" aria-label="${escapeAttr(part.label)}: ${escapeAttr(part.value)} de ${escapeAttr(metrics.resources)} recursos geráveis">
           <div class="experience-row-main">
             <span class="experience-layer">${escapeHtml(part.label)}</span>
             <strong class="experience-score">${escapeHtml(part.value)}/${escapeHtml(metrics.resources)}</strong>
-            <small class="experience-status"><span class="status-token ${escapeAttr(statusClassFromCount(part.value, metrics.resources))}">${escapeHtml(stateLabel)}</span>${escapeHtml(status)}</small>
+            <small class="experience-status"><span class="status-token ${escapeAttr(statusClassFromCount(part.value, metrics.resources))}">${escapeHtml(stateLabel)}</span>${escapeHtml(ratio)}% dos recursos</small>
           </div>
           <div class="experience-row-body">
-            <div class="experience-meter" aria-hidden="true"><i style="--value:${escapeAttr(ratio)}%"></i></div>
-            <p>${escapeHtml(part.impact)}</p>
+            <div class="experience-meter" aria-label="${escapeAttr(part.value)} de ${escapeAttr(metrics.resources)} recursos em ${escapeAttr(part.label)}"><i style="--value:${escapeAttr(ratio)}%"></i></div>
+            <p><strong>${escapeHtml(status)}</strong> ${escapeHtml(part.impact)}</p>
             <div class="experience-evidence">
               <span>${escapeHtml(evidence)}</span>
-              ${renderExperienceResourceChips(readyResources)}
+              ${renderExperienceResourceSummary(readyResources, metrics.resources)}
             </div>
           </div>
         </section>
@@ -1322,17 +1333,14 @@
     return `${confirmed} confirmado(s) por capabilities, surfaces, schema ou x-ui`;
   }
 
-  function renderExperienceResourceChips(resources) {
+  function renderExperienceResourceSummary(resources, total) {
     const visible = resources.slice(0, 3);
     const overflow = resources.length - visible.length;
-    if (!visible.length) return '<em>Nenhum exemplo disponível.</em>';
+    if (!visible.length) return '<em>Nenhum recurso com evidência nesta capacidade.</em>';
     return `
-      <div class="experience-resource-list" aria-label="Exemplos de recursos geráveis">
-        ${visible.map((resource) => `
-          <button class="experience-resource-chip" type="button" data-key="${escapeAttr(resource.key)}">${escapeHtml(resource.label)}</button>
-        `).join('')}
-        ${overflow > 0 ? `<em>+${escapeHtml(overflow)}</em>` : ''}
-      </div>
+      <span class="experience-resource-summary">
+        Exemplos: ${escapeHtml(visible.map((resource) => resource.label).join(', '))}${overflow > 0 ? ` e mais ${escapeHtml(overflow)} de ${escapeHtml(total)}` : ''}.
+      </span>
     `;
   }
 
