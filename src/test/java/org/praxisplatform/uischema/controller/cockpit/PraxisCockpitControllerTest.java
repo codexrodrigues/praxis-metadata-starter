@@ -8,6 +8,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -320,5 +321,53 @@ class PraxisCockpitControllerTest {
 
         assertThat(script.indexOf("const fromCapability = classifyEndpointFromCapabilities(resource, endpoint);"))
                 .isLessThan(script.indexOf("const fromSurface = classifyEndpointFromMaterialization(resource.surfaces, endpoint, 'surface');"));
+    }
+
+    @Test
+    void cockpitReadinessUsesMaterializedFieldsAsSemanticBaseEvidence() throws IOException {
+        ClassPathResource resource = new ClassPathResource("META-INF/resources/praxis/cockpit/assets/cockpit.js");
+        String script = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        assertThat(script)
+                .contains("function computeHostReadiness")
+                .contains("resources.some((resource) => resource.schemaLinks.length || resource.fieldList.length)")
+                .doesNotContain("resources.some((resource) => resource.schemaLinks.length),");
+
+        HostReadiness readiness = hostReadinessFor(
+                true,
+                List.of(new ReadinessResource(false, true, true)),
+                "UP");
+
+        assertThat(readiness.score()).isEqualTo(100);
+        assertThat(readiness.label()).isEqualTo("base semântica operacional");
+        assertThat(readiness.hint())
+                .isEqualTo("Prontidão metadata-driven; Saúde operacional do host: UP. "
+                        + "O health não entra no score semântico.");
+    }
+
+    private HostReadiness hostReadinessFor(
+            boolean catalogOk,
+            List<ReadinessResource> resources,
+            String healthStatus) {
+        List<Boolean> semanticChecks = List.of(
+                catalogOk,
+                !resources.isEmpty(),
+                resources.stream().anyMatch(resource -> resource.hasSchemaLinks() || resource.hasFieldList()),
+                resources.stream().anyMatch(ReadinessResource::hasResourceKey));
+        long passedChecks = semanticChecks.stream().filter(Boolean::booleanValue).count();
+        int score = Math.round((passedChecks / (float) semanticChecks.size()) * 100);
+        String healthHint = healthStatus == null || healthStatus.isBlank()
+                ? "Saúde operacional do host indisponível."
+                : "Saúde operacional do host: " + healthStatus + ".";
+        return new HostReadiness(
+                score,
+                score == 100 ? "base semântica operacional" : score + "%",
+                "Prontidão metadata-driven; " + healthHint + " O health não entra no score semântico.");
+    }
+
+    private record ReadinessResource(boolean hasSchemaLinks, boolean hasFieldList, boolean hasResourceKey) {
+    }
+
+    private record HostReadiness(int score, String label, String hint) {
     }
 }
