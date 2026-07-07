@@ -92,12 +92,13 @@ o cockpit mostra no topo o release solicitado e o `build.time` real do host para
 diagnosticar rollout sem transformar links de QA em links permanentes.
 
 No detalhe de cada recurso, o cockpit tambem oferece uma gaveta de contratos
-publicados para auditoria tecnica. Ela aponta para Swagger UI, OpenAPI JSON do
-grupo ou do recurso quando o `swagger-config` publica essa granularidade, catalogo
-do grupo, `/schemas/domain`, `/schemas/surfaces`, `/schemas/actions`,
-`/{resource}/capabilities` e o melhor schema estrutural encontrado. Esses links
-nao criam fonte paralela de verdade; apenas abrem as superficies canonicas que o
-cockpit ja usa para explicar o host.
+publicados para auditoria tecnica. Ela organiza os atalhos por intencao de uso:
+explorar a API no Swagger, auditar contratos tecnicos em OpenAPI/catalogo/schema
+e entender a semantica em `/schemas/domain`, `/schemas/surfaces`,
+`/schemas/actions` e `/{resource}/capabilities`. Quando o `swagger-config`
+publica granularidade por grupo ou recurso, o cockpit aponta para o JSON mais
+especifico disponivel. Esses links nao criam fonte paralela de verdade; apenas
+abrem as superficies canonicas que o cockpit ja usa para explicar o host.
 
 Quando um recurso publica stats e o schema filtrado aponta `x-ui.optionSource`
 com `byIdsEndpoint`, o cockpit pode montar uma amostra de chart real via

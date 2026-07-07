@@ -4651,14 +4651,58 @@
       els.contractLinks.innerHTML = '<div class="empty-state">Selecione um recurso com resourceKey, grupo OpenAPI ou schema publicado para abrir os contratos brutos.</div>';
       return;
     }
-    els.contractLinks.innerHTML = links.map((link) => `
-      <a class="contract-link ${escapeAttr(link.level || '')}" href="${escapeAttr(link.href)}" target="_blank" rel="noopener noreferrer">
-        <span>${cockpitIcon(link.icon)}</span>
-        <strong>${escapeHtml(link.title)}</strong>
-        <small>${escapeHtml(link.description)}</small>
-        <code>${escapeHtml(link.display || link.href)}</code>
-      </a>
+    els.contractLinks.innerHTML = contractLinkGroups(links).map((group) => `
+      <section class="contract-group">
+        <div class="contract-group-heading">
+          <span>${cockpitIcon(group.icon)}</span>
+          <div>
+            <strong>${escapeHtml(group.title)}</strong>
+            <small>${escapeHtml(group.description)}</small>
+          </div>
+        </div>
+        <div class="contract-group-links">
+          ${group.links.map((link) => `
+            <a class="contract-link ${escapeAttr(link.level || '')}" href="${escapeAttr(link.href)}" target="_blank" rel="noopener noreferrer">
+              <span>${cockpitIcon(link.icon)}</span>
+              <strong>${escapeHtml(link.title)}</strong>
+              <small>${escapeHtml(link.description)}</small>
+              <code>${escapeHtml(link.display || link.href)}</code>
+            </a>
+          `).join('')}
+        </div>
+      </section>
     `).join('');
+  }
+
+  function contractLinkGroups(links) {
+    const groups = [
+      {
+        key: 'explore',
+        title: 'Explorar API',
+        description: 'Use quando quiser navegar, testar ou abrir a documentação operacional do host.',
+        icon: 'swagger',
+        links: []
+      },
+      {
+        key: 'contract',
+        title: 'Auditar contrato',
+        description: 'Use para conferir DTOs, paths, schema filtrado e catálogo técnico publicado.',
+        icon: 'json',
+        links: []
+      },
+      {
+        key: 'semantic',
+        title: 'Entender semântica',
+        description: 'Use para investigar domínio, surfaces, actions e capabilities que materializam o recurso.',
+        icon: 'domain',
+        links: []
+      }
+    ];
+    links.forEach((link) => {
+      const target = groups.find((group) => group.key === (link.group || 'semantic')) || groups[2];
+      target.links.push(link);
+    });
+    return groups.filter((group) => group.links.length);
   }
 
   function resourceContractLinks(resource) {
@@ -4674,7 +4718,8 @@
         href: swaggerUiUrl(areaOpenApi?.name),
         display: areaOpenApi ? `/swagger-ui/index.html?urls.primaryName=${areaOpenApi.name}` : '/swagger-ui/index.html',
         icon: 'swagger',
-        level: 'primary'
+        level: 'primary',
+        group: 'explore'
       },
       {
         title: areaOpenApi ? 'OpenAPI JSON da área' : 'OpenAPI JSON',
@@ -4682,13 +4727,15 @@
         href: areaOpenApi?.url || '/v3/api-docs',
         display: areaOpenApi?.url || '/v3/api-docs',
         icon: 'json',
-        level: 'primary'
+        level: 'primary',
+        group: 'contract'
       },
       {
         title: group ? 'Catálogo do grupo' : 'Catálogo global',
         description: group ? 'Inventário de recursos e endpoints desta área.' : 'Inventário metadata-driven publicado pelo starter.',
         href: group ? `/schemas/catalog?group=${encodeURIComponent(group)}` : '/schemas/catalog',
-        icon: 'catalog'
+        icon: 'catalog',
+        group: 'contract'
       }
     ];
     if (resourceOpenApi && resourceOpenApi.url !== areaOpenApi?.url) {
@@ -4698,7 +4745,8 @@
         href: resourceOpenApi.url,
         display: resourceOpenApi.url,
         icon: 'json',
-        level: 'primary'
+        level: 'primary',
+        group: 'contract'
       });
     }
     if (resourceKey) {
@@ -4707,19 +4755,22 @@
           title: 'Domínio do recurso',
           description: 'Grafo semântico escopado com conceitos, relações e evidências.',
           href: `/schemas/domain?resourceKey=${encodeURIComponent(resourceKey)}`,
-          icon: 'domain'
+          icon: 'domain',
+          group: 'semantic'
         },
         {
           title: 'Surfaces do recurso',
           description: 'Experiências de UI publicadas para runtime e materialização.',
           href: `/schemas/surfaces?resource=${encodeURIComponent(resourceKey)}`,
-          icon: 'surface'
+          icon: 'surface',
+          group: 'semantic'
         },
         {
           title: 'Actions do recurso',
           description: 'Comandos de workflow acionáveis declarados para o domínio.',
           href: `/schemas/actions?resource=${encodeURIComponent(resourceKey)}`,
-          icon: 'workflow'
+          icon: 'workflow',
+          group: 'semantic'
         }
       );
     }
@@ -4728,7 +4779,8 @@
         title: 'Capabilities',
         description: 'Snapshot agregado de operações, links, surfaces e actions disponíveis.',
         href: `${resourcePath}/capabilities`,
-        icon: 'layers'
+        icon: 'layers',
+        group: 'semantic'
       });
     }
     if (resource.schemaSource?.url) {
@@ -4737,7 +4789,8 @@
         description: resource.schemaSource.canonical ? 'Fonte estrutural preferencial para UI, IA e runtime.' : 'Schema disponível usado como fallback de inspeção.',
         href: resource.schemaSource.url,
         icon: 'form',
-        level: resource.schemaSource.canonical ? 'primary' : 'attention'
+        level: resource.schemaSource.canonical ? 'primary' : 'attention',
+        group: 'contract'
       });
     }
     return uniqueContractLinks(links);

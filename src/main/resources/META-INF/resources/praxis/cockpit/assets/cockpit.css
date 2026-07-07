@@ -3309,8 +3309,66 @@ input:focus-visible,
 
 .contract-links {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.contract-group {
+  border: 1px solid rgba(134, 159, 186, .18);
+  background:
+    linear-gradient(160deg, rgba(98, 216, 255, .04), rgba(7, 9, 13, .68)),
+    rgba(8, 16, 23, .66);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.contract-group-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.contract-group-heading > span {
+  align-items: center;
+  border: 1px solid rgba(98, 216, 255, .26);
+  color: var(--cyan);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.contract-group-heading svg {
+  height: 17px;
+  width: 17px;
+}
+
+.contract-group-heading strong,
+.contract-group-heading small {
+  display: block;
+  min-width: 0;
+}
+
+.contract-group-heading strong {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.contract-group-heading small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+
+.contract-group-links {
+  display: grid;
+  gap: 8px;
 }
 
 .contract-link {
@@ -3320,9 +3378,10 @@ input:focus-visible,
     rgba(8, 16, 23, .72);
   color: var(--soft);
   display: grid;
-  gap: 8px;
-  min-height: 142px;
-  padding: 13px;
+  gap: 6px;
+  grid-template-columns: 34px minmax(0, 1fr);
+  min-height: 116px;
+  padding: 12px;
   text-decoration: none;
 }
 
@@ -3345,6 +3404,7 @@ input:focus-visible,
   border: 1px solid rgba(98, 216, 255, .24);
   color: var(--cyan);
   display: inline-flex;
+  grid-row: 1 / span 3;
   height: 34px;
   justify-content: center;
   width: 34px;
@@ -3388,6 +3448,7 @@ input:focus-visible,
 .contract-link code {
   color: var(--muted);
   font-size: 11px;
+  grid-column: 2;
   line-height: 1.35;
 }
 
@@ -3446,9 +3507,12 @@ input:focus-visible,
 
   .attention-list,
   .semantic-readiness,
-  .renderability-matrix,
-  .contract-links {
+  .renderability-matrix {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .contract-links {
+    grid-template-columns: 1fr;
   }
 
   .workflow-rail {
