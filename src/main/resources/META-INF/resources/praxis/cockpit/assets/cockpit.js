@@ -930,7 +930,7 @@
     const semanticChecks = [
       state.endpointStatus.catalog?.ok,
       resources.length > 0,
-      resources.some((resource) => resource.schemaLinks.length),
+      resources.some((resource) => resource.schemaLinks.length || resource.fieldList.length),
       resources.some((resource) => resource.resourceKey)
     ];
     const score = Math.round((semanticChecks.filter(Boolean).length / semanticChecks.length) * 100);

@@ -182,6 +182,7 @@ class PraxisCockpitControllerTest {
                 .contains("Apto para UI operacional metadata-driven")
                 .contains("Prontidão metadata-driven")
                 .contains("O health não entra no score semântico")
+                .contains("resource.schemaLinks.length || resource.fieldList.length")
                 .contains("Identidade publicada")
                 .contains("Identidade verificada")
                 .contains("formulários esperados")
