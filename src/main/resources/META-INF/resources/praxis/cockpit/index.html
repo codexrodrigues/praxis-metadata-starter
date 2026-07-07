@@ -52,6 +52,10 @@
         <p class="kicker">Conclusão do host</p>
         <h2 id="hostDecisionTitle">Aguardando evidências do host</h2>
         <p id="hostDecisionSummary">O cockpit está reunindo inventário, capacidades, lacunas e fontes de evidência.</p>
+        <div class="decision-actions" aria-label="Ações principais do cockpit">
+          <a class="primary-action" href="#resourceWorkbench">Explorar recursos</a>
+          <a class="secondary-action" href="#controlPlane">Ver lacunas</a>
+        </div>
       </div>
       <div class="decision-facts" aria-label="Capacidades principais do host">
         <article>
@@ -67,7 +71,7 @@
           <strong id="decisionFilterCount">--</strong>
         </article>
         <article>
-          <span>Workflows acionáveis</span>
+          <span>Automações publicadas</span>
           <strong id="decisionWorkflowCount">--</strong>
         </article>
       </div>
@@ -75,6 +79,29 @@
         <span class="status-token status-neutral">Em auditoria</span>
         <p>As ressalvas aparecem assim que o host publicar dados suficientes.</p>
       </div>
+    </section>
+
+    <section class="exploration-journey" aria-label="Trilha de exploração do cockpit">
+      <a href="#controlPlane">
+        <span>1</span>
+        <strong>Entenda a capacidade</strong>
+        <small>Gráficos mostram o que o host já consegue materializar.</small>
+      </a>
+      <a href="#domainMap">
+        <span>2</span>
+        <strong>Escolha um domínio</strong>
+        <small>Áreas de negócio filtram recursos, workflows e evidências.</small>
+      </a>
+      <a href="#resourceWorkbench">
+        <span>3</span>
+        <strong>Investigue um recurso</strong>
+        <small>Aprofunde só quando houver uma pergunta operacional.</small>
+      </a>
+      <a href="#domainTopology">
+        <span>4</span>
+        <strong>Navegue relações</strong>
+        <small>Topologia revela surfaces, actions, campos e jornada.</small>
+      </a>
     </section>
 
     <section class="intelligence-strip" aria-label="Resumo útil do host">
@@ -105,11 +132,11 @@
       </article>
     </section>
 
-    <section class="control-plane" aria-label="Painel visual de capacidades da plataforma">
+    <section class="control-plane" id="controlPlane" aria-label="Painel visual de capacidades da plataforma">
       <div class="section-heading">
         <div>
-          <p class="kicker">Control plane</p>
-          <h2>O que o host já consegue materializar</h2>
+          <p class="kicker">Cobertura da plataforma</p>
+          <h2>O que já pode virar experiência de produto</h2>
         </div>
         <span id="capabilityMode" class="source-pill">lendo capacidades</span>
       </div>
@@ -125,7 +152,7 @@
         <article class="chart-card">
           <div class="chart-card-header">
             <span>Experiências geráveis</span>
-            <strong>O que a UI pode materializar</strong>
+            <strong>UI materializável</strong>
             <p>Cada linha mostra quantos recursos podem gerar uma experiência visual, a força da evidência e exemplos para inspeção.</p>
           </div>
           <div id="renderableStackChart" class="stack-chart"></div>
@@ -148,7 +175,7 @@
       </div>
     </section>
 
-    <section class="domain-map" aria-label="Mapa de áreas de domínio">
+    <section class="domain-map" id="domainMap" aria-label="Mapa de áreas de domínio">
       <div class="section-heading">
         <div>
           <p class="kicker">Mapa semântico</p>
@@ -160,7 +187,7 @@
       <div id="domainAreas" class="area-grid"></div>
     </section>
 
-    <section class="workbench">
+    <section class="workbench" id="resourceWorkbench">
       <aside class="resource-panel" aria-label="Recursos de domínio">
         <div class="section-heading compact">
           <div>
@@ -196,7 +223,11 @@
           </div>
         </div>
 
-        <section class="attention-panel" aria-label="Atenção agora">
+        <details class="detail-module attention-panel" open>
+          <summary>
+            <span>Atenção agora</span>
+            <strong>Prioridades operacionais deste recurso</strong>
+          </summary>
           <div class="section-heading compact">
             <div>
               <p class="kicker">Atenção agora</p>
@@ -204,19 +235,27 @@
             </div>
           </div>
           <div id="attentionNow" class="attention-list"></div>
-        </section>
+        </details>
 
-        <section class="semantic-readiness-panel">
+        <details class="detail-module semantic-readiness-panel">
+          <summary>
+            <span>Pronto para IA e runtime</span>
+            <strong>IA, runtime e experiência</strong>
+          </summary>
           <div class="section-heading compact">
             <div>
-              <p class="kicker">Prontidão semântica</p>
+              <p class="kicker">Pronto para IA e runtime</p>
               <h2>O que está pronto para IA, runtime e experiência</h2>
             </div>
           </div>
           <div id="semanticReadiness" class="semantic-readiness"></div>
-        </section>
+        </details>
 
-        <section class="renderability-panel">
+        <details class="detail-module renderability-panel" open>
+          <summary>
+            <span>Materialização de UI</span>
+            <strong>Tabelas, forms, filtros e charts</strong>
+          </summary>
           <div class="section-heading compact">
             <div>
               <p class="kicker">Materialização de UI</p>
@@ -224,9 +263,13 @@
             </div>
           </div>
           <div id="renderabilityMatrix" class="renderability-matrix"></div>
-        </section>
+        </details>
 
-        <section class="analytics-panel">
+        <details class="detail-module analytics-panel" open>
+          <summary>
+            <span>Analytics e filtros</span>
+            <strong>Consulta visual do recurso</strong>
+          </summary>
           <div class="section-heading compact">
             <div>
               <p class="kicker">Analytics e filtros</p>
@@ -237,7 +280,7 @@
             <div id="resourceChart" class="resource-chart"></div>
             <div id="filterInsights" class="filter-insights"></div>
           </div>
-        </section>
+        </details>
 
         <div class="resource-lens">
           <article>
@@ -254,7 +297,11 @@
           </article>
         </div>
 
-        <section class="topology-panel">
+        <details class="detail-module topology-panel" open>
+          <summary>
+            <span>Topologia do domínio</span>
+            <strong>Relações navegáveis</strong>
+          </summary>
           <div class="section-heading compact">
             <div>
               <p class="kicker">Topologia do domínio</p>
@@ -262,9 +309,13 @@
             </div>
           </div>
           <div id="domainTopology" class="domain-topology"></div>
-        </section>
+        </details>
 
-        <section class="flow-panel">
+        <details class="detail-module flow-panel">
+          <summary>
+            <span>Materialização</span>
+            <strong>Surfaces, actions e runtime</strong>
+          </summary>
           <div class="section-heading compact">
             <div>
               <p class="kicker">Materialização</p>
@@ -272,9 +323,13 @@
             </div>
           </div>
           <div id="workflowRail" class="workflow-rail"></div>
-        </section>
+        </details>
 
-        <section class="endpoint-panel">
+        <details class="detail-module endpoint-panel">
+          <summary>
+            <span>Evidência HTTP</span>
+            <strong>Endpoints canônicos</strong>
+          </summary>
           <div class="section-heading compact">
             <div>
               <p class="kicker">Evidência HTTP</p>
@@ -283,9 +338,13 @@
             <button id="refreshResourceButton" class="ghost-button" type="button">Atualizar</button>
           </div>
           <div id="endpointMatrix" class="endpoint-matrix"></div>
-        </section>
+        </details>
 
-        <section class="evidence-panel">
+        <details class="detail-module evidence-panel">
+          <summary>
+            <span>Evidências brutas</span>
+            <strong>Campos, lacunas e diagnósticos</strong>
+          </summary>
           <div class="evidence-block">
             <h3>Campos do schema filtrado</h3>
             <div id="fieldSummary" class="evidence-list"></div>
@@ -294,11 +353,11 @@
             <h3>Lacunas e evidências</h3>
             <div id="diagnosticsList" class="evidence-list"></div>
           </div>
-        </section>
+        </details>
       </section>
     </section>
   </main>
 
-  <script src="/praxis/cockpit/assets/cockpit.js?v=20260702-decision-summary" defer></script>
+  <script src="/praxis/cockpit/assets/cockpit.js?v=20260707-progressive-cockpit" defer></script>
 </body>
 </html>

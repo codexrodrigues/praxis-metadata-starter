@@ -989,8 +989,8 @@
     if (metrics.formResources) readyParts.push(`${metrics.formResources}/${metrics.resources} formulários`);
     const readyText = readyParts.length ? `${joinHuman(readyParts)} disponíveis.` : 'Ainda não há experiência de UI suficiente para uma conclusão operacional.';
     const workflowText = workflowComplete
-      ? 'Workflows acionáveis publicados para todos os recursos avaliados.'
-      : `${metrics.actionResources}/${metrics.resources || 0} workflows acionáveis publicados; CRUD e exploração não são bloqueados, mas automações governadas ainda não ficam disponíveis.`;
+      ? 'Automações publicadas para todos os recursos avaliados.'
+      : `${metrics.actionResources}/${metrics.resources || 0} automações publicadas; CRUD e exploração não são bloqueados, mas decisões governadas ainda não ficam disponíveis.`;
     els.hostDecisionTitle.textContent = decisionLabel;
     els.hostDecisionSummary.textContent = hasResources
       ? `${metrics.resources} recurso(s) analisado(s). ${readyText}`
@@ -1046,7 +1046,7 @@
       },
       {
         tone: metrics.actionGaps ? 'optional' : 'ok',
-        label: 'Workflows acionáveis',
+        label: 'Automações publicadas',
         value: `${metrics.actionResources}/${metrics.resources || 0}`,
         detail: metrics.actionGaps ? `${metrics.actionGaps} recurso(s) sem workflow publicado; CRUD não é bloqueado.` : 'Recursos visíveis publicam ações de workflow.'
       }
@@ -2859,7 +2859,7 @@
     const filteredNodes = nodes.filter((node) => node.type === filter);
     const labels = {
       surface: 'UI materializável',
-      action: 'Workflows acionáveis',
+      action: 'Automações publicadas',
       field: 'Campos materializáveis',
       stats: 'Analytics publicados'
     };
@@ -4800,7 +4800,7 @@
     els.integrationMeaning.textContent = 'Sem endpoints catalogados.';
     els.gapMeaning.textContent = 'Sem evidências suficientes.';
     els.domainTopology.innerHTML = '<div class="empty-state">A topologia aparece quando um recurso é selecionado.</div>';
-    els.semanticReadiness.innerHTML = '<div class="empty-state">Prontidão semântica aparece quando um recurso é selecionado.</div>';
+    els.semanticReadiness.innerHTML = '<div class="empty-state">Prontidão para IA e runtime aparece quando um recurso é selecionado.</div>';
     els.renderabilityMatrix.innerHTML = '<div class="empty-state">Capacidades renderizáveis aparecem quando um recurso é selecionado.</div>';
     els.resourceChart.innerHTML = '<div class="empty-state">Gráfico operacional aparece quando um recurso é selecionado.</div>';
     els.filterInsights.innerHTML = '<div class="empty-state">Filtros e analytics aparecem quando um recurso é selecionado.</div>';
