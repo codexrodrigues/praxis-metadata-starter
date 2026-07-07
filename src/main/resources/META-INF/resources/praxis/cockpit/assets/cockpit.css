@@ -2473,13 +2473,36 @@ input:focus-visible,
   font: inherit;
   min-height: 126px;
   padding: 12px;
+  position: relative;
   text-align: left;
+}
+
+.semantic-graph-routes button::after {
+  background: linear-gradient(90deg, rgba(115, 239, 181, .86), rgba(98, 216, 255, .62));
+  bottom: -1px;
+  content: "";
+  height: 2px;
+  left: 12px;
+  opacity: .34;
+  position: absolute;
+  right: 12px;
 }
 
 .semantic-graph-routes button:hover,
 .semantic-graph-routes button.active {
   border-color: rgba(115, 239, 181, .62);
   box-shadow: 0 0 22px rgba(115, 239, 181, .12);
+}
+
+.semantic-graph-routes button.active {
+  background:
+    linear-gradient(160deg, rgba(115, 239, 181, .16), rgba(98, 216, 255, .12)),
+    rgba(7, 12, 18, .90);
+}
+
+.semantic-graph-routes button.active::after {
+  height: 3px;
+  opacity: 1;
 }
 
 .semantic-graph-routes button.partial {
@@ -2510,6 +2533,14 @@ input:focus-visible,
 
 .semantic-graph-routes button.partial span { color: var(--amber); }
 .semantic-graph-routes button.missing span { color: var(--rose); }
+
+.semantic-graph-routes button.partial::after {
+  background: linear-gradient(90deg, rgba(255, 209, 102, .86), rgba(98, 216, 255, .42));
+}
+
+.semantic-graph-routes button.missing::after {
+  background: linear-gradient(90deg, rgba(255, 109, 145, .72), rgba(154, 172, 194, .32));
+}
 
 .semantic-graph-routes strong {
   font-family: var(--font-display);

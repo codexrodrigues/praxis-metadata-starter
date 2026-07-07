@@ -2164,7 +2164,8 @@
         state.topologyGraph.on('tap', 'node', (event) => {
           const data = event.target.data();
           const focusElements = topologyNodeFocusElements(event.target);
-          state.topologyGraph.elements().removeClass('graph-focus graph-muted');
+          syncTopologyRouteState(shell, null);
+          state.topologyGraph.elements().removeClass('graph-focus graph-muted graph-route');
           event.target.addClass('graph-focus');
           focusElements.addClass('graph-focus');
           focusElements.removeClass('graph-hidden graph-mode-hidden graph-label-muted');
@@ -2247,7 +2248,7 @@
     const routes = shell.querySelector('.semantic-graph-routes');
     if (routes) {
       routes.innerHTML = topologyMaterializationRoutes(byType).map((route) => `
-        <button type="button" class="${route.status}" data-graph-route-filter="${escapeAttr(route.filter)}" onclick="this.closest('.semantic-graph-shell')?.querySelector('[data-graph-filter=&quot;${escapeAttr(route.filter)}&quot;]')?.click()">
+        <button type="button" class="${route.status}" data-graph-route="${escapeAttr(route.filter)}">
           <span>${escapeHtml(route.statusLabel)}</span>
           <strong>${escapeHtml(route.title)}</strong>
           <p>${escapeHtml(route.body)}</p>
@@ -2501,6 +2502,7 @@
     };
     const runFilter = (filter) => {
       currentFilter = filter || 'all';
+      clearTopologyGuidedRoute(shell, cy);
       syncTopologyFilterState(shell, filter);
       cy.elements().removeClass('graph-focus graph-muted');
       applyTopologyGraphMode(cy, shell, currentMode);
@@ -2510,6 +2512,7 @@
     };
     const runMode = (mode) => {
       currentMode = mode || 'clean';
+      clearTopologyGuidedRoute(shell, cy);
       syncTopologyModeState(shell, currentMode);
       cy.elements().removeClass('graph-focus graph-muted');
       applyTopologyGraphMode(cy, shell, currentMode);
@@ -2519,10 +2522,15 @@
     };
     cy.on('zoom pan', updateScale);
     shell.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-graph-filter], [data-graph-route-filter]');
+      const button = event.target.closest('[data-graph-filter]');
       if (!button || !shell.contains(button)) return;
-      const filter = button.getAttribute('data-graph-filter') || button.getAttribute('data-graph-route-filter') || 'all';
-      runFilter(filter);
+      runFilter(button.getAttribute('data-graph-filter') || 'all');
+    });
+    shell.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-graph-route]');
+      if (!button || !shell.contains(button)) return;
+      currentFilter = 'all';
+      focusTopologyGuidedRoute(shell, cy, button.getAttribute('data-graph-route') || 'surface', model, inspector);
     });
     shell.addEventListener('click', (event) => {
       const button = event.target.closest('[data-graph-mode]');
@@ -2536,11 +2544,6 @@
       const linkedResource = state.resources.find((resource) => resource.resourceKey === resourceKey || resource.key === resourceKey);
       if (linkedResource) selectResource(linkedResource.key);
     });
-    for (const button of shell.querySelectorAll('[data-graph-route-filter]')) {
-      button.addEventListener('click', () => {
-        runFilter(button.getAttribute('data-graph-route-filter') || 'all');
-      });
-    }
     const fitButton = shell.querySelector('[data-graph-fit]');
     fitButton?.addEventListener('click', () => {
       cy.fit(cy.elements(':visible'), 34);
@@ -2600,9 +2603,15 @@
   }
 
   function syncTopologyFilterState(shell, filter) {
-    for (const item of shell.querySelectorAll('[data-graph-filter], [data-graph-route-filter]')) {
-      const itemFilter = item.getAttribute('data-graph-filter') || item.getAttribute('data-graph-route-filter') || 'all';
+    for (const item of shell.querySelectorAll('[data-graph-filter]')) {
+      const itemFilter = item.getAttribute('data-graph-filter') || 'all';
       item.classList.toggle('active', itemFilter === filter);
+    }
+  }
+
+  function syncTopologyRouteState(shell, route) {
+    for (const item of shell.querySelectorAll('[data-graph-route]')) {
+      item.classList.toggle('active', item.getAttribute('data-graph-route') === route);
     }
   }
 
@@ -2645,7 +2654,8 @@
       if (data) updateTopologyInspector(inspector, data);
       return;
     }
-    cy.elements().removeClass('graph-focus graph-muted');
+    cy.elements().removeClass('graph-focus graph-muted graph-route');
+    syncTopologyRouteState(cy.container()?.closest('.semantic-graph-shell'), null);
     const endpoints = edge.connectedNodes();
     edge.union(endpoints).removeClass('graph-hidden');
     cy.elements().difference(edge.union(endpoints)).addClass('graph-muted');
@@ -2671,6 +2681,68 @@
       if (!visibleNodeIds.has(edge.source().id()) || !visibleNodeIds.has(edge.target().id())) edge.addClass('graph-hidden');
     });
     cy.fit(cy.elements(':visible'), 34);
+  }
+
+  function clearTopologyGuidedRoute(shell, cy) {
+    syncTopologyRouteState(shell, null);
+    cy?.elements().removeClass('graph-route graph-muted graph-focus');
+  }
+
+  function focusTopologyGuidedRoute(shell, cy, route, model, inspector) {
+    if (!cy || !route) return;
+    clearTopologyGuidedRoute(shell, cy);
+    syncTopologyFilterState(shell, 'all');
+    applyTopologyGraphMode(cy, shell, activeTopologyMode(shell));
+    applyTopologyGraphFilter(cy, 'all');
+
+    const path = topologyGuidedRouteElements(cy, route);
+    syncTopologyRouteState(shell, route);
+    if (!path?.length) {
+      updateTopologyInspector(inspector, topologyGuidedRouteSummary(route, model, 0));
+      return;
+    }
+    path.removeClass('graph-hidden graph-mode-hidden graph-label-muted');
+    path.addClass('graph-route graph-focus');
+    cy.elements().difference(path).addClass('graph-muted');
+    cy.fit(path, 76);
+    updateTopologyInspector(inspector, topologyGuidedRouteSummary(route, model, path.nodes().length));
+  }
+
+  function topologyGuidedRouteElements(cy, route) {
+    const root = cy.nodes('[type = "root"]').first();
+    const typed = (type) => cy.nodes().filter((node) => node.data('type') === type);
+    const typedEdges = (...types) => cy.edges().filter((edge) => types.includes(edge.data('type')));
+    let nodes = root;
+    let edges = cy.collection();
+
+    if (route === 'journey') {
+      nodes = nodes.union(cy.nodes().filter((node) => node.data('isJourney') || node.data('type') === 'journey'));
+      edges = typedEdges('business_journey', 'related_resource', 'has_action');
+    } else if (route === 'surface') {
+      const surfaces = typed('surface').union(typed('stats'));
+      const contracts = surfaces.successors().filter((node) => node.data('type') === 'capability' || node.data('type') === 'field' || node.data('type') === 'journey');
+      nodes = nodes.union(surfaces).union(contracts);
+      edges = typedEdges('has_surface', 'has_stats', 'uses_schema', 'materializes_field', 'related_resource');
+    } else if (route === 'field') {
+      const fields = typed('field');
+      const contracts = fields.incomers().filter((item) => item.isNode && item.isNode());
+      nodes = nodes.union(fields).union(contracts);
+      edges = typedEdges('has_field', 'materializes_field', 'uses_schema');
+    } else if (route === 'stats') {
+      const stats = typed('stats');
+      nodes = nodes.union(stats).union(stats.successors());
+      edges = typedEdges('has_stats', 'uses_schema', 'materializes_field');
+    } else if (route === 'action') {
+      const actions = typed('action');
+      nodes = nodes.union(actions).union(actions.successors()).union(actions.incomers().filter((item) => item.isNode && item.isNode()));
+      edges = typedEdges('has_action', 'uses_schema', 'allows_action', 'emits_result');
+    } else {
+      return cy.collection();
+    }
+
+    const nodeIds = new Set(nodes.map((node) => node.id()));
+    edges = edges.filter((edge) => nodeIds.has(edge.source().id()) && nodeIds.has(edge.target().id()));
+    return nodes.union(edges);
   }
 
   function applyTopologyGraphMode(cy, shell, mode) {
@@ -2701,6 +2773,7 @@
     if (!input || !cy) return;
     const search = () => {
       const query = normalizeSearch(input.value);
+      clearTopologyGuidedRoute(shell, cy);
       cy.elements().removeClass('graph-search-match graph-muted graph-focus');
       if (!query) {
         updateTopologySearchStatus(shell, 'Digite para localizar campos, UI, workflow ou analytics.');
@@ -2795,6 +2868,61 @@
       label: labels[filter] || nodeTypeLabel(filter),
       detail: `${filteredNodes.length} nó(s) ligados ao recurso central nesta camada. Use os nós para inspecionar significado, origem e possível navegação.`,
       evidence: topologyFilterBlueprint(filter, filteredNodes, nodes)
+    };
+  }
+
+  function topologyGuidedRouteSummary(route, model, visibleCount) {
+    const nodes = model.elements.filter((item) => !item.data.source).map((item) => item.data);
+    const countByType = (type) => nodes.filter((node) => node.type === type || (type === 'journey' && node.isJourney)).length;
+    const summaries = {
+      journey: {
+        label: 'Trilha de jornada',
+        detail: `${visibleCount || countByType('journey')} nó(s) mostram como este recurso se conecta a outros recursos do domínio.`,
+        evidence: [
+          { label: 'Leitura rápida', detail: 'Siga a linha principal para entender contexto anterior, recurso selecionado e etapas posteriores.' },
+          { label: 'Uso corporativo', detail: 'Ajuda a localizar impacto operacional antes de alterar contrato, tela ou automação.' }
+        ]
+      },
+      surface: {
+        label: 'Trilha de UI operacional',
+        detail: `${countByType('surface') + countByType('stats')} surface(s) conectadas ao contrato e aos campos que podem materializar tela, tabela, detalhe ou analytics.`,
+        evidence: [
+          { label: 'Leitura rápida', detail: 'Comece no recurso central, passe pela surface e veja quais contratos ou campos sustentam a experiência.' },
+          { label: 'Uso corporativo', detail: 'Mostra o que pode virar UI governada sem depender de interpretação manual do endpoint.' }
+        ]
+      },
+      field: {
+        label: 'Trilha de contrato e formulário',
+        detail: `${countByType('field')} campo(s) mostram a base materializável para colunas, formulários, filtros e validações visuais.`,
+        evidence: [
+          { label: 'Leitura rápida', detail: 'Campos obrigatórios e contratos aparecem em destaque para reduzir ambiguidade de DTO.' },
+          { label: 'Uso corporativo', detail: 'Ajuda squads a revisar exposição de dados, obrigatoriedade e consistência de schema.' }
+        ]
+      },
+      stats: {
+        label: 'Trilha de analytics',
+        detail: `${countByType('stats')} nó(s) indicam leituras analíticas que podem virar chart, métrica, série ou distribuição.`,
+        evidence: [
+          { label: 'Leitura rápida', detail: 'Procure quais capabilities analíticas saem do recurso e quais campos sustentam o gráfico.' },
+          { label: 'Uso corporativo', detail: 'Separa dashboard governado de visualização meramente decorativa.' }
+        ]
+      },
+      action: {
+        label: 'Trilha de workflow',
+        detail: `${countByType('action')} action(s) conectam o recurso a comandos de negócio, payload, estados permitidos e resultado.`,
+        evidence: [
+          { label: 'Leitura rápida', detail: 'A linha mostra pré-condição, action e resultado quando o host publicou essa semântica.' },
+          { label: 'Uso corporativo', detail: 'Permite validar se uma automação é realmente governada ou apenas CRUD com botão.' }
+        ]
+      }
+    };
+    return {
+      type: route,
+      ...(summaries[route] || {
+        label: 'Trilha guiada',
+        detail: `${visibleCount || 0} nó(s) em foco nesta trilha.`,
+        evidence: [{ label: 'Leitura', detail: 'A trilha destaca relações principais e reduz o restante do grafo.' }]
+      })
     };
   }
 
@@ -2991,10 +3119,14 @@
       updateTopologyInspector(inspector, topologyModeSummary(currentMode, model));
     };
     shell.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-graph-filter], [data-graph-route-filter]');
+      const button = event.target.closest('[data-graph-filter]');
       if (!button || !shell.contains(button)) return;
-      const filter = button.getAttribute('data-graph-filter') || button.getAttribute('data-graph-route-filter') || 'all';
-      runFilter(filter);
+      runFilter(button.getAttribute('data-graph-filter') || 'all');
+    });
+    shell.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-graph-route]');
+      if (!button || !shell.contains(button)) return;
+      runFilter(button.getAttribute('data-graph-route') || 'all');
     });
     shell.addEventListener('click', (event) => {
       const button = event.target.closest('[data-graph-mode]');
@@ -3008,11 +3140,6 @@
       const linkedResource = state.resources.find((resource) => resource.resourceKey === resourceKey || resource.key === resourceKey);
       if (linkedResource) selectResource(linkedResource.key);
     });
-    for (const button of shell.querySelectorAll('[data-graph-route-filter]')) {
-      button.addEventListener('click', () => {
-        runFilter(button.getAttribute('data-graph-route-filter') || 'all');
-      });
-    }
     for (const button of els.domainTopology.querySelectorAll('[data-graph-edge-id]')) {
       button.addEventListener('click', () => {
         const data = (model?.elements || []).find((item) => item.data.id === button.getAttribute('data-graph-edge-id'))?.data;
@@ -3712,6 +3839,8 @@
       { selector: 'edge:selected', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', width: 2.6 } },
       { selector: 'node[isJourney]', style: { 'border-color': '#d6fff6', 'border-width': 4 } },
       { selector: 'edge[isJourney]', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', opacity: .95, width: 3, label: 'data(label)' } },
+      { selector: 'node.graph-route', style: { 'border-color': '#ffffff', 'border-width': 5, opacity: 1 } },
+      { selector: 'edge.graph-route', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', opacity: 1, width: 4, label: 'data(label)' } },
       { selector: 'node.graph-focus', style: { 'border-color': '#ffffff', 'border-width': 4, opacity: 1 } },
       { selector: 'edge.graph-focus', style: { 'line-color': '#73efb5', 'target-arrow-color': '#73efb5', opacity: 1, width: 3.2 } },
       { selector: 'node.graph-search-match', style: { 'border-color': '#ffd166', 'border-width': 5, 'background-color': '#ffd166' } },
