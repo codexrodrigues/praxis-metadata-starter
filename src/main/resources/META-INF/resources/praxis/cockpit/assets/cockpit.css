@@ -1428,6 +1428,7 @@ input:focus-visible,
   box-shadow: 0 14px 34px rgba(0, 0, 0, .36);
   color: var(--fg);
   content: attr(data-tooltip);
+  display: none;
   font-size: 11px;
   left: 50%;
   line-height: 1.25;
@@ -1445,6 +1446,7 @@ input:focus-visible,
 
 .resource-brief-grid button:hover::after,
 .resource-brief-grid button:focus-visible::after {
+  display: block;
   opacity: 1;
   transform: translate(-50%, 0);
 }
