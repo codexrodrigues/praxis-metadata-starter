@@ -2150,18 +2150,15 @@
         state.topologyGraph = cytoscape({
           container,
           elements: model.elements,
-          minZoom: 0.55,
+          minZoom: 0.22,
           maxZoom: 2.2,
           style: topologyGraphStyle(),
           layout: {
-            name: 'concentric',
+            name: 'preset',
             animate: true,
-            animationDuration: 420,
-            avoidOverlap: true,
-            concentric: (node) => node.data('weight') || 1,
-            levelWidth: () => 1,
-            minNodeSpacing: 38,
-            padding: 36
+            animationDuration: 360,
+            fit: true,
+            padding: 42
           }
         });
         state.topologyGraph.on('tap', 'node', (event) => {
@@ -2684,8 +2681,13 @@
       if (node.data('type') === 'field' && !node.data('isPriority')) node.addClass('graph-mode-hidden');
       if (node.data('type') !== 'root' && !node.data('isPriority')) node.addClass('graph-label-muted');
     });
+    const inventoryEdges = new Set(['has_field', 'has_action']);
     cy.edges().forEach((edge) => {
-      if (edge.source().hasClass('graph-mode-hidden') || edge.target().hasClass('graph-mode-hidden')) edge.addClass('graph-mode-hidden');
+      if (
+        edge.source().hasClass('graph-mode-hidden')
+        || edge.target().hasClass('graph-mode-hidden')
+        || inventoryEdges.has(edge.data('type'))
+      ) edge.addClass('graph-mode-hidden');
       edge.addClass('graph-label-muted');
     });
     const visible = cy.elements(':visible');
@@ -3289,12 +3291,71 @@
       edge.targetLabel = edge.targetLabel || nodeIndex.get(edge.target)?.label;
     }
 
+    const nodeData = Array.from(nodeIndex.values());
+    const edgeData = Array.from(edgeIndex.values());
+    const positions = topologyPresetPositions(nodeData, edgeData, rootKey);
+
     return {
       elements: [
-        ...Array.from(nodeIndex.values()).map((data) => ({ data })),
-        ...Array.from(edgeIndex.values()).map((data) => ({ data }))
+        ...nodeData.map((data) => ({ data, position: positions.get(data.id) })),
+        ...edgeData.map((data) => ({ data }))
       ]
     };
+  }
+
+  function topologyPresetPositions(nodes, edges, rootKey) {
+    const edgeByTarget = new Map();
+    const edgeBySource = new Map();
+    for (const edge of edges) {
+      edgeByTarget.set(edge.target, [...(edgeByTarget.get(edge.target) || []), edge]);
+      edgeBySource.set(edge.source, [...(edgeBySource.get(edge.source) || []), edge]);
+    }
+    const laneForNode = (node) => {
+      if (node.id === rootKey || node.type === 'root') return 0;
+      const incoming = edgeByTarget.get(node.id) || [];
+      const outgoing = edgeBySource.get(node.id) || [];
+      if (incoming.some((edge) => edge.type === 'related_resource')) return 4;
+      if (incoming.some((edge) => edge.type === 'emits_result')) return 4;
+      if (node.type === 'action') return 3;
+      if (node.type === 'field' || node.type === 'capability') return 2;
+      if (incoming.some((edge) => edge.type === 'uses_schema' || edge.type === 'materializes_field')) return 2;
+      if (outgoing.some((edge) => edge.type === 'allows_action')) return 2;
+      if (node.type === 'surface' || node.type === 'stats') return 1;
+      if (node.type === 'journey') return node.isJourney ? 4 : 1;
+      return 1;
+    };
+    const lanes = new Map();
+    for (const node of nodes) {
+      const lane = laneForNode(node);
+      lanes.set(lane, [...(lanes.get(lane) || []), node]);
+    }
+    const typeOrder = { root: 0, surface: 1, stats: 2, capability: 3, field: 4, action: 5, journey: 6, concept: 7 };
+    for (const [lane, laneNodes] of lanes) {
+      laneNodes.sort((a, b) => {
+        if (a.id === rootKey) return -1;
+        if (b.id === rootKey) return 1;
+        if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
+        return (typeOrder[a.type] || 9) - (typeOrder[b.type] || 9)
+          || String(a.label || a.id).localeCompare(String(b.label || b.id));
+      });
+      lanes.set(lane, laneNodes);
+    }
+    const maxLaneSize = Math.max(1, ...Array.from(lanes.values()).map((laneNodes) => laneNodes.length));
+    const horizontal = 210;
+    const vertical = 88;
+    const originX = 80;
+    const originY = Math.max(160, ((maxLaneSize - 1) * vertical) / 2 + 52);
+    const positions = new Map();
+    for (const [lane, laneNodes] of lanes) {
+      const laneCenterOffset = ((laneNodes.length - 1) * vertical) / 2;
+      laneNodes.forEach((node, index) => {
+        positions.set(node.id, {
+          x: originX + lane * horizontal,
+          y: originY - laneCenterOffset + index * vertical
+        });
+      });
+    }
+    return positions;
   }
 
   function addSurfaceHierarchy(surface, surfaceId, fields, addNode, addEdge) {

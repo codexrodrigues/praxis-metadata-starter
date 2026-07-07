@@ -2231,9 +2231,15 @@ input:focus-visible,
   align-items: center;
   border-bottom: 1px solid rgba(126, 211, 255, .20);
   display: flex;
+  flex-wrap: wrap;
   gap: 14px;
   justify-content: space-between;
   padding: 12px;
+}
+
+.semantic-graph-toolbar > div:first-child {
+  flex: 1 1 220px;
+  min-width: 180px;
 }
 
 .semantic-graph-toolbar span,
@@ -2266,9 +2272,11 @@ input:focus-visible,
 
 .semantic-graph-tools {
   display: grid;
+  flex: 1 1 430px;
   gap: 8px;
   justify-items: end;
-  min-width: min(100%, 560px);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .semantic-graph-legend span {
@@ -2435,7 +2443,7 @@ input:focus-visible,
 .semantic-graph-stage {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
   min-height: 430px;
   padding: 12px;
 }
