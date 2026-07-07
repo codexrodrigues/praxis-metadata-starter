@@ -51,6 +51,14 @@ git push origin v8.0.0-rc.N
 4) Acompanhar o workflow “Release Java Starter (praxis-metadata-starter)”
 - O workflow resolve a versão a partir da tag (`v` é removido → `1.0.0-rc.6`).
 - Passos: importar GPG → `versions:set` → `clean verify` com perfil `release` (assina) → publicar via Central Plugin.
+- O passo `Publish to Central` aguarda até o upload ser aceito pelo Central
+  Portal. Em seguida, o passo `Verify Maven Central availability` tenta resolver
+  o POM em `repo1.maven.org` e executa `mvn dependency:get` para confirmar que a
+  versão já pode ser consumida por hosts como o `praxis-api-quickstart`.
+- Atualize consumidores apenas depois que `Verify Maven Central availability`
+  terminar com sucesso. Se essa etapa falhar por propagação lenta, a publicação
+  pode ter sido enviada ao Central Portal, mas ainda não deve ser tratada como
+  disponível para consumo.
 
 5) Verificar artefatos assinados no job:
 - `target/praxis-metadata-starter-1.0.0-rc.6.jar(.asc)`
@@ -58,6 +66,9 @@ git push origin v8.0.0-rc.N
 
 6) Acompanhar aprovação no Sonatype Central Portal
 - O Central Publishing geralmente finaliza em minutos.
+- Quando a publicação/propagação demorar, use o log periódico do passo
+  `Verify Maven Central availability` para distinguir fila/propagação de uma
+  versão já consumível pelo Maven Central público.
 
 ## Fluxo (Versão Final)
 - Mesmo processo, usando tag sem sufixo RC, por exemplo:
@@ -77,5 +88,11 @@ git push origin v1.0.0
   - Garanta que `GPG_PRIVATE_KEY` está sem BOM/CRLF. O workflow já sanitiza; ver logs da etapa “Import GPG private key”.
 - Falha na publicação (no goal `publish`):
   - Verifique `CENTRAL_TOKEN_USER/PASS` e se o server `central` foi injetado pelo `actions/setup-java` (logs).
+- `Verify Maven Central availability` falhou:
+  - O artefato não respondeu HTTP 200 em `repo1.maven.org` dentro da janela do
+    workflow. Não atualize consumidores ainda.
+  - Confira o Central Portal e reexecute apenas a verificação quando houver sinal
+    de publicação concluída; se a versão continuar ausente, trate como falha de
+    release.
 - Assinaturas ausentes:
   - Confirme execução com `-P release -Dgpg.skip=false`; o job usa isso por padrão.

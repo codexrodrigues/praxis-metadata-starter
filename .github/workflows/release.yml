@@ -236,6 +236,7 @@ jobs:
     name: Publish to Maven Central
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: write
     env:
@@ -338,5 +339,52 @@ jobs:
 
       - name: Publish to Central
         run: |
-          ./mvnw -B -P release -Dmaven.test.skip=true -Dgpg.skip=false -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -DautoPublish=true -DwaitUntil=PUBLISHED -DwaitMaxTime=7200 -T 1C \
+          V='${{ steps.ver.outputs.resolved }}'
+          echo "Publishing praxis-metadata-starter ${V} to Sonatype Central Portal."
+          echo "The plugin waits until upload is accepted; the next step performs explicit Maven Central availability checks."
+          ./mvnw -B -P release -Dmaven.test.skip=true -Dgpg.skip=false -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -DautoPublish=true -DwaitUntil=uploaded -DwaitMaxTime=1800 -T 1C \
             clean verify org.sonatype.central:central-publishing-maven-plugin:publish
+          {
+            echo "### Central Publish Submitted"
+            echo "- Version: \`${V}\`"
+            echo "- Plugin wait: \`uploaded\` for up to 1800 seconds"
+            echo "- Next: Maven Central availability probe"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify Maven Central availability
+        shell: bash
+        run: |
+          set -euo pipefail
+          V='${{ steps.ver.outputs.resolved }}'
+          GROUP_PATH="io/github/codexrodrigues"
+          ARTIFACT="praxis-metadata-starter"
+          POM_URL="https://repo1.maven.org/maven2/${GROUP_PATH}/${ARTIFACT}/${V}/${ARTIFACT}-${V}.pom"
+          ATTEMPTS=40
+          DELAY_SECONDS=30
+
+          echo "Checking Maven Central availability for ${ARTIFACT}:${V}."
+          echo "POM URL: ${POM_URL}"
+          for attempt in $(seq 1 "${ATTEMPTS}"); do
+            status="$(curl -L -sS -o /tmp/central-pom.xml -w '%{http_code}' "${POM_URL}" || true)"
+            timestamp="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            if [ "${status}" = "200" ]; then
+              echo "[${timestamp}] Maven Central is serving ${ARTIFACT}:${V} (attempt ${attempt}/${ATTEMPTS})."
+              ./mvnw -B -q dependency:get -Dartifact="io.github.codexrodrigues:${ARTIFACT}:${V}" -Dtransitive=false
+              {
+                echo "### Maven Central Availability"
+                echo "- Version: \`${V}\`"
+                echo "- POM URL: ${POM_URL}"
+                echo "- Status: consumable by Maven Central"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            echo "[${timestamp}] Maven Central not ready yet for ${ARTIFACT}:${V}; HTTP ${status} (attempt ${attempt}/${ATTEMPTS})."
+            if [ "${attempt}" -lt "${ATTEMPTS}" ]; then
+              sleep "${DELAY_SECONDS}"
+            fi
+          done
+
+          echo "::error::Maven Central did not serve ${ARTIFACT}:${V} after $((ATTEMPTS * DELAY_SECONDS / 60)) minutes."
+          echo "::error::The Central Portal publish may still be processing, but consumers should not be updated until the artifact resolves."
+          exit 1
