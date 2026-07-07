@@ -359,6 +359,10 @@ endpoint)</h4>
 <li>Campos <code>enum</code> não precisam de <code>endpoint</code>: as
 opções são derivadas diretamente do schema OpenAPI (o array
 <code>enum</code>).</li>
+<li>Quando o campo <code>enum</code> declarar
+<code>@UISchema.options</code>, os valores aceitos continuam vindo do
+<code>enum</code>; a anotação serve para enriquecer labels/metadados das
+opções cujo <code>value</code> corresponde ao valor canônico.</li>
 <li>Para <code>array</code> de <code>enum</code>, o schema é “array de
 enum” e a UI renderiza multi‑select automaticamente.</li>
 <li>Use <code>endpoint</code> (<code>/options/filter</code>) apenas para
