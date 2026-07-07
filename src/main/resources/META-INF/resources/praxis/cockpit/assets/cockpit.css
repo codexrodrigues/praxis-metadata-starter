@@ -1372,8 +1372,14 @@ input:focus-visible,
 }
 
 .resource-brief-grid button {
+  align-items: center;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
   min-height: 54px;
   padding: 8px;
+  position: relative;
+  text-align: center;
 }
 
 .resource-brief-grid button:hover,
@@ -1386,22 +1392,73 @@ input:focus-visible,
 .resource-brief-grid span,
 .resource-brief-grid strong {
   display: block;
-  overflow-wrap: anywhere;
 }
 
-.resource-brief-grid span {
+.resource-brief-icon {
+  align-items: center;
+  border: 1px solid rgba(126, 211, 255, .22);
+  color: var(--cyan);
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.resource-brief-icon svg {
+  height: 15px;
+  width: 15px;
+}
+
+.resource-brief-grid button.active .resource-brief-icon,
+.resource-brief-grid button:hover .resource-brief-icon {
+  border-color: rgba(115, 239, 181, .62);
+  color: var(--mint);
+}
+
+.resource-brief-label {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 850;
-  letter-spacing: .04em;
+  letter-spacing: .03em;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .resource-brief-grid strong {
-  font-size: 20px;
+  font-size: 21px;
   line-height: 1;
-  margin-top: 6px;
+}
+
+.resource-brief-grid button::after {
+  background: rgba(2, 8, 13, .96);
+  border: 1px solid rgba(126, 211, 255, .36);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .36);
+  color: var(--fg);
+  content: attr(data-tooltip);
+  font-size: 11px;
+  left: 50%;
+  line-height: 1.25;
+  max-width: 190px;
+  opacity: 0;
+  padding: 7px 9px;
+  pointer-events: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  transform: translate(-50%, -4px);
+  transition: opacity .16s ease, transform .16s ease;
+  width: max-content;
+  z-index: 20;
+}
+
+.resource-brief-grid button:hover::after,
+.resource-brief-grid button:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .resource-brief-focus {

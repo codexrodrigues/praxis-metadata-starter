@@ -1574,11 +1574,11 @@
     const countByFilter = (filter) => scopedResources.filter((resource) => matchesResourceFilter(resource, filter)).length;
     const attentionCount = countByFilter('attention');
     const shortcuts = [
-      { key: 'all', label: 'Todos', value: total },
-      { key: 'attention', label: 'Atenção', value: attentionCount },
-      { key: 'forms', label: 'Formulários', value: countByFilter('forms') },
-      { key: 'analytics', label: 'Charts', value: countByFilter('analytics') },
-      { key: 'actions', label: 'Workflow', value: countByFilter('actions') }
+      { key: 'all', label: 'Todos os recursos', shortLabel: 'Todos', icon: 'layers', value: total },
+      { key: 'attention', label: 'Recursos que precisam de atenção', shortLabel: 'Atenção', icon: 'alert', value: attentionCount },
+      { key: 'forms', label: 'Recursos com formulário gerável', shortLabel: 'Formulários', icon: 'form', value: countByFilter('forms') },
+      { key: 'analytics', label: 'Recursos com gráfico ou analytics', shortLabel: 'Gráficos', icon: 'chart', value: countByFilter('analytics') },
+      { key: 'actions', label: 'Recursos com workflow acionável', shortLabel: 'Workflow', icon: 'workflow', value: countByFilter('actions') }
     ];
     const recommended = scopedResources
       .map((resource) => ({
@@ -1602,8 +1602,9 @@
         </div>
         <div class="resource-brief-grid" aria-label="Atalhos por capacidade">
           ${shortcuts.map((shortcut) => `
-            <button class="${shortcut.key === state.resourceFilter ? 'active' : ''}" type="button" data-resource-filter-shortcut="${escapeAttr(shortcut.key)}" aria-pressed="${shortcut.key === state.resourceFilter ? 'true' : 'false'}">
-              <span>${escapeHtml(shortcut.label)}</span>
+            <button class="${shortcut.key === state.resourceFilter ? 'active' : ''}" type="button" data-resource-filter-shortcut="${escapeAttr(shortcut.key)}" aria-label="${escapeAttr(`${shortcut.label}: ${shortcut.value}`)}" aria-pressed="${shortcut.key === state.resourceFilter ? 'true' : 'false'}" title="${escapeAttr(shortcut.label)}" data-tooltip="${escapeAttr(shortcut.label)}">
+              <span class="resource-brief-icon" aria-hidden="true">${cockpitIcon(shortcut.icon)}</span>
+              <span class="resource-brief-label">${escapeHtml(shortcut.shortLabel)}</span>
               <strong>${escapeHtml(shortcut.value)}</strong>
             </button>
           `).join('')}
@@ -4173,6 +4174,18 @@
       node: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.9 7.6-3.8"/><path d="m8.2 13.1 7.6 3.8"/>'
     };
     return `<svg ${common} aria-hidden="true">${paths[icon] || paths.node}</svg>`;
+  }
+
+  function cockpitIcon(icon) {
+    const common = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"';
+    const paths = {
+      alert: '<path d="M12 8v4"/><path d="M12 16h.01"/><path d="M10.3 4.6 2.9 17.2A2 2 0 0 0 4.6 20h14.8a2 2 0 0 0 1.7-2.8L13.7 4.6a2 2 0 0 0-3.4 0Z"/>',
+      chart: '<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-7"/>',
+      form: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M8 13h8"/><path d="M8 17h5"/><path d="M8 9h2"/>',
+      layers: '<path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/>',
+      workflow: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8.5 6h7"/><path d="M17 8.2 13.2 16"/><path d="M7 8.2 10.8 16"/>'
+    };
+    return `<svg ${common} aria-hidden="true">${paths[icon] || paths.layers}</svg>`;
   }
 
   function normalizeIconName(icon) {
