@@ -2032,13 +2032,15 @@
     const selectedEvidence = evidence
       .filter((item) => relationEvidenceKeys.has(item.evidenceKey) || item.sourceRef?.resourceKey === resource.resourceKey)
       .slice(0, 5);
+    const topologyModel = buildTopologyGraphModel(resource, graph, root);
 
     els.domainTopology.innerHTML = `
+      ${renderTopologyFlowBoard(topologyModel, resource, root)}
       <div class="semantic-graph-shell">
         <div class="semantic-graph-toolbar">
           <div>
-            <span>Constelação navegável</span>
-            <strong>Como este recurso se conecta ao domínio</strong>
+            <span>Exploração profunda</span>
+            <strong>Grafo navegável de evidências e relações</strong>
           </div>
           <div class="semantic-graph-tools">
             <div class="semantic-graph-legend" aria-label="Legenda do grafo">
@@ -2107,7 +2109,7 @@
         </div>
       </div>
     `;
-    mountTopologyGraph(resource, graph, root);
+    mountTopologyGraph(resource, graph, root, topologyModel);
   }
 
   function destroyTopologyGraph() {
@@ -2117,12 +2119,12 @@
     }
   }
 
-  function mountTopologyGraph(resource, graph, root) {
+  function mountTopologyGraph(resource, graph, root, model = null) {
     const container = document.getElementById('semanticGraphCanvas');
     const inspector = document.getElementById('semanticGraphInspector');
     const shell = container?.closest('.semantic-graph-shell');
     if (!container) return;
-    const model = buildTopologyGraphModel(resource, graph, root);
+    model = model || buildTopologyGraphModel(resource, graph, root);
     if (!model.elements.length) {
       container.innerHTML = '<div class="empty-state">Sem relações suficientes para desenhar o grafo.</div>';
       return;
@@ -2217,6 +2219,179 @@
         </button>
       `).join('');
     }
+  }
+
+  function renderTopologyFlowBoard(model, resource, root) {
+    const nodes = model.elements.filter((item) => !item.data.source).map((item) => item.data);
+    const edges = model.elements.filter((item) => item.data.source).map((item) => item.data);
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+    const byType = nodes.reduce((acc, node) => {
+      acc[node.type] = [...(acc[node.type] || []), node];
+      return acc;
+    }, {});
+    const rootNode = nodes.find((node) => node.type === 'root') || {
+      id: root?.nodeKey || resource.resourceKey || resource.key,
+      label: normalizePortugueseLabel(root?.businessGlossary?.preferredTerm || root?.label || resource.label),
+      detail: readableText(root?.description || resource.description || 'Recurso central analisado pelo cockpit.')
+    };
+    const schemaNodes = nodes.filter((node) =>
+      node.type === 'capability' && edges.some((edge) => edge.target === node.id && edge.type === 'uses_schema')
+    );
+    const relatedNodes = nodes.filter((node) =>
+      node.type === 'journey' && edges.some((edge) => edge.target === node.id && edge.type === 'related_resource')
+    );
+    const laneDefinitions = [
+      {
+        key: 'resource',
+        label: 'Recurso',
+        title: 'O que está sendo governado',
+        nodes: [rootNode],
+        metric: 'núcleo'
+      },
+      {
+        key: 'surface',
+        label: 'UI',
+        title: 'Experiências renderizáveis',
+        nodes: [...(byType.surface || []), ...(byType.stats || [])],
+        metric: `${((byType.surface || []).length + (byType.stats || []).length) || 0} surfaces`
+      },
+      {
+        key: 'contract',
+        label: 'Contrato',
+        title: 'Schemas e campos',
+        nodes: [...schemaNodes, ...(byType.field || [])],
+        metric: `${(byType.field || []).length || 0} campos`
+      },
+      {
+        key: 'action',
+        label: 'Workflow',
+        title: 'Comandos acionáveis',
+        nodes: byType.action || [],
+        metric: `${(byType.action || []).length || 0} actions`
+      },
+      {
+        key: 'related',
+        label: 'Relações',
+        title: 'Recursos e impactos',
+        nodes: relatedNodes.length ? relatedNodes : (byType.journey || []),
+        metric: `${(relatedNodes.length || (byType.journey || []).length) || 0} relações`
+      }
+    ];
+    const insightRoutes = topologyFlowInsights(nodes, edges, byId);
+    return `
+      <section class="semantic-flow-board" aria-label="Mapa de materialização do recurso">
+        <div class="semantic-flow-heading">
+          <div>
+            <span>Mapa de materialização</span>
+            <h3>Da decisão de domínio até UI, contrato e automação</h3>
+          </div>
+          <p>${escapeHtml(flowBoardSummary(laneDefinitions, insightRoutes))}</p>
+        </div>
+        <div class="semantic-flow-insights">
+          ${insightRoutes.map(renderTopologyFlowInsight).join('')}
+        </div>
+        <div class="semantic-flow-lanes">
+          ${laneDefinitions.map(renderTopologyFlowLane).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  function topologyFlowInsights(nodes, edges, byId) {
+    const surfaceCount = nodes.filter((node) => node.type === 'surface' || node.type === 'stats').length;
+    const fieldCount = nodes.filter((node) => node.type === 'field').length;
+    const actionCount = nodes.filter((node) => node.type === 'action').length;
+    const schemaCount = edges.filter((edge) => edge.type === 'uses_schema').length;
+    const relatedCount = edges.filter((edge) => edge.type === 'related_resource').length;
+    const analyticsCount = nodes.filter((node) => node.type === 'stats').length;
+    const strongestRelated = edges
+      .filter((edge) => edge.type === 'related_resource')
+      .map((edge) => byId.get(edge.target)?.label)
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(', ');
+    return [
+      {
+        status: surfaceCount && fieldCount ? 'ready' : surfaceCount || fieldCount ? 'partial' : 'missing',
+        label: 'UI operacional',
+        value: `${surfaceCount}/${fieldCount}`,
+        body: surfaceCount && fieldCount
+          ? `${surfaceCount} surface(s) usam ${fieldCount} campo(s) para materializar tela, tabela, detalhe ou analytics.`
+          : 'Faltam surfaces ou campos suficientes para uma leitura completa de UI.'
+      },
+      {
+        status: schemaCount ? 'ready' : 'missing',
+        label: 'Contrato explicável',
+        value: `${schemaCount}`,
+        body: schemaCount
+          ? `${schemaCount} vínculo(s) mostram qual contrato sustenta a experiência.`
+          : 'Nenhum vínculo explícito de schema apareceu no mapa atual.'
+      },
+      {
+        status: actionCount ? 'ready' : 'missing',
+        label: 'Automação',
+        value: `${actionCount}`,
+        body: actionCount
+          ? `${actionCount} action(s) podem ser lidas como comandos de negócio acionáveis.`
+          : 'Este recurso ainda se comporta mais como consulta do que automação.'
+      },
+      {
+        status: relatedCount ? 'ready' : analyticsCount ? 'partial' : 'missing',
+        label: 'Impacto e relação',
+        value: `${relatedCount}`,
+        body: relatedCount
+          ? `Conecta a ${strongestRelated || `${relatedCount} recurso(s) relacionado(s)`}.`
+          : analyticsCount
+            ? 'Há analytics, mas sem recurso filho explícito nesta surface.'
+            : 'Sem relação de recurso filho ou impacto materializado no mapa.'
+      }
+    ];
+  }
+
+  function renderTopologyFlowInsight(route) {
+    return `
+      <article class="semantic-flow-insight ${escapeAttr(route.status)}">
+        <span>${escapeHtml(route.label)}</span>
+        <strong>${escapeHtml(route.value)}</strong>
+        <p>${escapeHtml(route.body)}</p>
+      </article>
+    `;
+  }
+
+  function renderTopologyFlowLane(lane) {
+    const visible = lane.nodes.slice(0, 4);
+    const overflow = Math.max(0, lane.nodes.length - visible.length);
+    return `
+      <article class="semantic-flow-lane ${escapeAttr(lane.key)}">
+        <header>
+          <span>${escapeHtml(lane.label)}</span>
+          <strong>${escapeHtml(lane.title)}</strong>
+          <small>${escapeHtml(lane.metric)}</small>
+        </header>
+        <div class="semantic-flow-node-list">
+          ${visible.map((node) => renderTopologyFlowNode(node)).join('') || '<div class="semantic-flow-empty">Sem evidência publicada</div>'}
+          ${overflow ? `<div class="semantic-flow-more">+${overflow} itens no grafo</div>` : ''}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderTopologyFlowNode(node) {
+    const detail = readableText(node.detail || node.resourceKey || node.id || '');
+    return `
+      <div class="semantic-flow-node ${escapeAttr(node.type || 'concept')}">
+        <strong>${escapeHtml(normalizePortugueseLabel(node.label || node.id))}</strong>
+        <span>${escapeHtml(detail || nodeTypeLabel(node.type || 'concept'))}</span>
+      </div>
+    `;
+  }
+
+  function flowBoardSummary(lanes, routes) {
+    const ready = routes.filter((route) => route.status === 'ready').length;
+    const partial = routes.filter((route) => route.status === 'partial').length;
+    const surfaceLane = lanes.find((lane) => lane.key === 'surface');
+    const actionLane = lanes.find((lane) => lane.key === 'action');
+    return `${ready} dimensão(ões) prontas e ${partial} parcial(is); ${surfaceLane?.metric || '0 surfaces'} e ${actionLane?.metric || '0 actions'} aparecem como caminhos de materialização.`;
   }
 
   function topologyMaterializationRoutes(byType) {
