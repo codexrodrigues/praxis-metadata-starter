@@ -74,6 +74,7 @@ public abstract class AbstractDuplicateDraftLegacyBackedResourceController<Respo
         if (isCollectionOperationAvailable("create")) {
             linkList.add(linkToCreate());
         }
+        linkList.add(linkToUiSchema("/{id}/duplicate-draft", "post", "request"));
         linkList.add(linkToUiSchema("/{id}/duplicate-draft", "post", "response"));
 
         return withVersion(ResponseEntity.ok(), RestApiResponse.success(draft, hateoasOrNull(Links.of(linkList))));

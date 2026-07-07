@@ -10,9 +10,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -53,6 +55,31 @@ class AbstractLegacyBackedResourceControllerTest {
         assertEquals(200, response.getStatusCode().value());
         assertEquals("legacy-1", response.getHeaders().getFirst("X-Data-Version"));
         assertEquals("copied", response.getBody().getData().getName());
+    }
+
+    @Test
+    void duplicateDraftResponsePublishesRequestAndResponseSchemaLinks() {
+        SimpleDuplicateDraftLegacyService service = mock(SimpleDuplicateDraftLegacyService.class);
+        when(service.supportsDuplicateDraft()).thenReturn(true);
+        when(service.duplicateDraft(7L)).thenReturn(new SimpleCreateDto("copied"));
+        SimpleDuplicateDraftLegacyController controller = duplicateDraftControllerWith(service);
+
+        var response = controller.duplicateDraft(7L);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> schemaLinks = (List<Map<String, Object>>) response.getBody()
+                .getLinks()
+                .asMap()
+                .get("schema");
+        List<String> hrefs = schemaLinks.stream()
+                .map(link -> String.valueOf(link.get("href")))
+                .toList();
+        assertTrue(hrefs.stream().anyMatch(href ->
+                href.contains("duplicate-draft")
+                        && href.contains("schemaType=request")));
+        assertTrue(hrefs.stream().anyMatch(href ->
+                href.contains("duplicate-draft")
+                        && href.contains("schemaType=response")));
     }
 
     @Test

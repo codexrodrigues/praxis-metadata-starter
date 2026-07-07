@@ -215,6 +215,7 @@ Papel de cada camada:
 - `/schemas/filtered` continua sendo a fonte estrutural de request/response schema
 - `surfaces` e `actions` continuam sendo discovery semantico rico quando publicados
 - `_links` entram como camada operacional/contextual para escolher o target real de execucao
+- actions devem apontar para request/response schema canonicos; respostas HATEOAS de actions devem manter esses links quando houver contrato estrutural associado
 - `ResourceOperationAvailabilityProvider` permite ao host aplicar disponibilidade dinamica de operacoes canonicas sem vazar guards legados, tenant, sessao ou permissao privada
 
 Em outras palavras:
