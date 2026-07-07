@@ -61,7 +61,7 @@ Isso significa:
 - `/schemas/domain` publica vocabulario, aliases, evidencias e governanca AI-operable
 - `/schemas/surfaces` e `/schemas/actions` publicam discovery semantico
 - `/{resource}/capabilities` agrega as capacidades do recurso sem redefinir o contrato estrutural
-- `/{resource}/capabilities` tambem publica `stats.fields` quando o service declara `StatsFieldRegistry`, permitindo que runtimes escolham dimensoes e metricas de charts antes de executar stats
+- `/{resource}/capabilities` tambem publica `stats.fields` quando o service declara `StatsFieldRegistry` e habilita `StatsSupportMode`, permitindo que runtimes escolham dimensoes e metricas de charts antes de executar stats
 - `POST /{resource}/export` executa exportacao de colecao a partir de escopo, selecao, filtros, ordenacao e campos; o resultado pode ser binario inline ou `202 Accepted` com `status=deferred`, `downloadUrl` e `jobId`
 - detalhes de exportacao em `/capabilities` sao derivados do suporte real do service e podem publicar `formats`, `scopes`, `maxRows` e `async`
 - resultados inline podem publicar headers de linhas, truncamento, limite efetivo e warnings para UI corporativa
