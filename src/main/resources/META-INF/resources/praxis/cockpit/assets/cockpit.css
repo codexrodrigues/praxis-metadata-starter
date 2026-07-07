@@ -976,7 +976,7 @@ input:focus-visible,
 .host-scorecards {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
 }
 
 .host-scorecard,
@@ -990,6 +990,7 @@ input:focus-visible,
 }
 
 .host-scorecard {
+  min-width: 0;
   position: relative;
 }
 
@@ -1022,6 +1023,7 @@ input:focus-visible,
   display: block;
   font-size: 12px;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .host-scorecard span {
@@ -1357,7 +1359,7 @@ input:focus-visible,
 .resource-brief-grid {
   display: grid;
   gap: 6px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(44px, 1fr));
 }
 
 .resource-brief-grid button,
@@ -1377,7 +1379,7 @@ input:focus-visible,
   gap: 4px;
   justify-items: center;
   min-height: 54px;
-  padding: 8px;
+  padding: 7px 5px;
   position: relative;
   text-align: center;
 }
@@ -1425,7 +1427,7 @@ input:focus-visible,
 }
 
 .resource-brief-grid strong {
-  font-size: 21px;
+  font-size: 20px;
   line-height: 1;
 }
 

@@ -927,18 +927,20 @@
   }
 
   function computeHostReadiness(resources) {
-    const checks = [
-      state.endpointStatus.health?.ok,
+    const semanticChecks = [
       state.endpointStatus.catalog?.ok,
       resources.length > 0,
       resources.some((resource) => resource.schemaLinks.length),
       resources.some((resource) => resource.resourceKey)
     ];
-    const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
+    const score = Math.round((semanticChecks.filter(Boolean).length / semanticChecks.length) * 100);
+    const healthHint = state.health?.status
+      ? `Saúde operacional do host: ${state.health.status}.`
+      : 'Saúde operacional do host indisponível.';
     return {
       score,
       label: score === 100 ? 'base semântica operacional' : `${score}%`,
-      hint: state.health?.status ? `health ${state.health.status}; detalhe semântico por recurso` : 'health indisponível'
+      hint: `Prontidão metadata-driven; ${healthHint} O health não entra no score semântico.`
     };
   }
 
@@ -974,6 +976,7 @@
     const capabilityChecked = resources.filter((resource) => shouldVerifyCapabilities(resource) && state.capabilities.has(resource.key)).length;
     const capabilityFailures = resources.filter((resource) => state.capabilityErrors.has(resource.key)).length;
     const identityConfirmed = resources.filter((resource) => hasConfirmedIdentity(resource)).length;
+    const identityVerified = resources.filter((resource) => state.capabilities.has(resource.key) && hasConfirmedIdentity(resource)).length;
     const identityPending = resources.filter((resource) => shouldVerifyCapabilities(resource) && !state.capabilities.has(resource.key)).length;
     return {
       resources: resources.length,
@@ -983,6 +986,7 @@
       capabilityChecked,
       capabilityFailures,
       identityConfirmed,
+      identityVerified,
       identityPending,
       filterResources: renderable.filter((item) => item.canFilter).length,
       tableResources: renderable.filter((item) => item.canTable).length,
@@ -1021,9 +1025,9 @@
     const readyParts = [];
     if (tableComplete) readyParts.push('tabelas');
     if (filterComplete) readyParts.push('consultas e filtros');
-    if (analyticsComplete) readyParts.push('analytics');
-    if (metrics.formExpectedResources) readyParts.push(`${metrics.formExpectedReadyResources}/${metrics.formExpectedResources} formularios esperados`);
-    else readyParts.push('recursos read-only sem formulario obrigatorio');
+    if (analyticsComplete) readyParts.push('indicadores/analytics');
+    if (metrics.formExpectedResources) readyParts.push(`${metrics.formExpectedReadyResources}/${metrics.formExpectedResources} formulários esperados`);
+    else readyParts.push('recursos read-only sem formulário obrigatório');
     const readyText = readyParts.length ? `${joinHuman(readyParts)} disponíveis.` : 'Ainda não há experiência de UI suficiente para uma conclusão operacional.';
     const workflowText = workflowBlocking
       ? `${metrics.actionGaps} recurso(s) parecem exigir comando de negócio sem action publicada.`
@@ -1069,15 +1073,15 @@
       },
       {
         tone: metrics.capabilityFailures ? 'blocking' : metrics.identityGaps ? 'attention' : metrics.identityPending ? 'optional' : 'ok',
-        label: 'Identidade semântica',
+        label: metrics.identityPending && !metrics.identityGaps && !metrics.capabilityFailures ? 'Identidade publicada' : 'Identidade verificada',
         value: `${metrics.identityConfirmed}/${metrics.resources || 0}`,
         detail: metrics.capabilityFailures
           ? `${metrics.capabilityFailures} recurso(s) falharam ao consultar capabilities.`
           : metrics.identityGaps
           ? `${metrics.identityGaps} recurso(s) verificados ainda dependem de evidência derivada.`
           : metrics.identityPending
-            ? `${metrics.identityPending} recurso(s) aguardam verificação em segundo plano.`
-            : 'resourceKey confirmado no conjunto visível.'
+            ? `${metrics.identityPending} aguardam confirmação por capabilities; ${metrics.identityVerified}/${metrics.capabilityEligible || 0} já verificados.`
+            : 'resourceKey confirmado por capabilities no conjunto visível.'
       },
       {
         tone: metrics.estimatedLayers ? 'attention' : 'ok',
