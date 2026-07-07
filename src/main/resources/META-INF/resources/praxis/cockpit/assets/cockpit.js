@@ -2035,81 +2035,93 @@
     const topologyModel = buildTopologyGraphModel(resource, graph, root);
 
     els.domainTopology.innerHTML = `
-      ${renderTopologyFlowBoard(topologyModel, resource, root)}
-      <div class="semantic-graph-shell">
-        <div class="semantic-graph-toolbar">
+      <div class="topology-view-switcher" role="tablist" aria-label="Visões da topologia do recurso">
+        <button type="button" class="active" role="tab" aria-selected="true" data-topology-view="flow">Mapa</button>
+        <button type="button" role="tab" aria-selected="false" data-topology-view="graph">Grafo</button>
+        <button type="button" role="tab" aria-selected="false" data-topology-view="evidence">Evidências</button>
+      </div>
+      <section class="topology-view-panel active" data-topology-panel="flow">
+        ${renderTopologyFlowBoard(topologyModel, resource, root)}
+      </section>
+      <section class="topology-view-panel" data-topology-panel="graph" hidden>
+        <div class="semantic-graph-shell">
+          <div class="semantic-graph-toolbar">
+            <div>
+              <span>Exploração profunda</span>
+              <strong>Grafo navegável de evidências e relações</strong>
+            </div>
+            <div class="semantic-graph-tools">
+              <div class="semantic-graph-legend" aria-label="Legenda do grafo">
+                <span class="concept">Conceito</span>
+                <span class="field">Campo</span>
+                <span class="surface">UI</span>
+                <span class="action">Workflow</span>
+                <span class="stats">Analytics</span>
+                <span class="journey">Jornada</span>
+              </div>
+              <div class="semantic-graph-filters" aria-label="Filtros do grafo semântico">
+                <button type="button" class="active" data-graph-filter="all">Tudo</button>
+                <button type="button" data-graph-filter="journey">Jornada</button>
+                <button type="button" data-graph-filter="surface">UI</button>
+                <button type="button" data-graph-filter="action">Workflow</button>
+                <button type="button" data-graph-filter="field">Campos</button>
+                <button type="button" data-graph-filter="stats">Analytics</button>
+              </div>
+              <div class="semantic-graph-view-modes" aria-label="Modos do grafo semântico">
+                <button type="button" class="active" data-graph-mode="clean">Limpo</button>
+                <button type="button" data-graph-mode="evidence">Evidência</button>
+              </div>
+              <label class="semantic-graph-search">
+                <span>Buscar no grafo</span>
+                <input type="search" data-graph-search placeholder="Campo, UI, action..." autocomplete="off">
+                <small data-graph-search-status>Digite para localizar campos, UI, workflow ou analytics.</small>
+              </label>
+              <div class="semantic-graph-viewport-tools" aria-label="Controles de visualização do grafo">
+                <button type="button" data-graph-zoom="out" aria-label="Reduzir zoom do grafo" title="Reduzir zoom">-</button>
+                <span data-graph-scale>100%</span>
+                <button type="button" data-graph-zoom="in" aria-label="Aumentar zoom do grafo" title="Aumentar zoom">+</button>
+                <button type="button" data-graph-fit aria-label="Ajustar grafo à tela" title="Ajustar grafo à tela">Centralizar</button>
+                <button type="button" data-graph-fullscreen aria-label="Abrir grafo em tela cheia" title="Tela cheia">Expandir</button>
+              </div>
+              <div class="semantic-graph-summary" aria-label="Resumo do grafo"></div>
+            </div>
+          </div>
+          <div class="semantic-graph-stage">
+            <div id="semanticGraphCanvas" class="semantic-graph-canvas" role="img" aria-label="Grafo navegável de relações do recurso"></div>
+            <aside id="semanticGraphInspector" class="semantic-graph-inspector">
+              <span>Recurso central</span>
+              <strong>${escapeHtml(normalizePortugueseLabel(root?.businessGlossary?.preferredTerm || root?.label || resource.label))}</strong>
+              <p>${escapeHtml(readableText(root?.description || root?.businessGlossary?.description || resource.description || 'Conceito central do recurso selecionado.'))}</p>
+            </aside>
+          </div>
+          <div class="semantic-graph-routes" aria-label="Trilhas de materialização do recurso"></div>
+        </div>
+      </section>
+      <section class="topology-view-panel" data-topology-panel="evidence" hidden>
+        <div class="topology-canvas">
+          ${renderRootNode(root, resource, graph)}
+          <div class="topology-groups">
+            ${nodeGroups.map(renderNodeGroup).join('') || '<div class="empty-state">Nenhum nó relacionado foi publicado para este recurso.</div>'}
+          </div>
+        </div>
+        <div class="topology-evidence-grid">
           <div>
-            <span>Exploração profunda</span>
-            <strong>Grafo navegável de evidências e relações</strong>
+            <h3>Relações explicadas</h3>
+            <div class="relation-list">
+              ${relatedEdges.map((edge) => renderRelation(edge, nodes)).join('') || '<div class="empty-state">Nenhuma relação explícita publicada.</div>'}
+            </div>
           </div>
-          <div class="semantic-graph-tools">
-            <div class="semantic-graph-legend" aria-label="Legenda do grafo">
-              <span class="concept">Conceito</span>
-              <span class="field">Campo</span>
-              <span class="surface">UI</span>
-              <span class="action">Workflow</span>
-              <span class="stats">Analytics</span>
-              <span class="journey">Jornada</span>
+          <div>
+            <h3>Evidências de grounding</h3>
+            <div class="relation-list">
+              ${selectedEvidence.map(renderEvidence).join('') || '<div class="empty-state">Nenhuma evidência vinculada às relações principais.</div>'}
             </div>
-            <div class="semantic-graph-filters" aria-label="Filtros do grafo semântico">
-              <button type="button" class="active" data-graph-filter="all">Tudo</button>
-              <button type="button" data-graph-filter="journey">Jornada</button>
-              <button type="button" data-graph-filter="surface">UI</button>
-              <button type="button" data-graph-filter="action">Workflow</button>
-              <button type="button" data-graph-filter="field">Campos</button>
-              <button type="button" data-graph-filter="stats">Analytics</button>
-            </div>
-            <div class="semantic-graph-view-modes" aria-label="Modos do grafo semântico">
-              <button type="button" class="active" data-graph-mode="clean">Limpo</button>
-              <button type="button" data-graph-mode="evidence">Evidência</button>
-            </div>
-            <label class="semantic-graph-search">
-              <span>Buscar no grafo</span>
-              <input type="search" data-graph-search placeholder="Campo, UI, action..." autocomplete="off">
-              <small data-graph-search-status>Digite para localizar campos, UI, workflow ou analytics.</small>
-            </label>
-            <div class="semantic-graph-viewport-tools" aria-label="Controles de visualização do grafo">
-              <button type="button" data-graph-zoom="out" aria-label="Reduzir zoom do grafo" title="Reduzir zoom">-</button>
-              <span data-graph-scale>100%</span>
-              <button type="button" data-graph-zoom="in" aria-label="Aumentar zoom do grafo" title="Aumentar zoom">+</button>
-              <button type="button" data-graph-fit aria-label="Ajustar grafo à tela" title="Ajustar grafo à tela">Centralizar</button>
-              <button type="button" data-graph-fullscreen aria-label="Abrir grafo em tela cheia" title="Tela cheia">Expandir</button>
-            </div>
-            <div class="semantic-graph-summary" aria-label="Resumo do grafo"></div>
           </div>
         </div>
-        <div class="semantic-graph-stage">
-          <div id="semanticGraphCanvas" class="semantic-graph-canvas" role="img" aria-label="Grafo navegável de relações do recurso"></div>
-          <aside id="semanticGraphInspector" class="semantic-graph-inspector">
-            <span>Recurso central</span>
-            <strong>${escapeHtml(normalizePortugueseLabel(root?.businessGlossary?.preferredTerm || root?.label || resource.label))}</strong>
-            <p>${escapeHtml(readableText(root?.description || root?.businessGlossary?.description || resource.description || 'Conceito central do recurso selecionado.'))}</p>
-          </aside>
-        </div>
-        <div class="semantic-graph-routes" aria-label="Trilhas de materialização do recurso"></div>
-      </div>
-      <div class="topology-canvas">
-        ${renderRootNode(root, resource, graph)}
-        <div class="topology-groups">
-          ${nodeGroups.map(renderNodeGroup).join('') || '<div class="empty-state">Nenhum nó relacionado foi publicado para este recurso.</div>'}
-        </div>
-      </div>
-      <div class="topology-evidence-grid">
-        <div>
-          <h3>Relações explicadas</h3>
-          <div class="relation-list">
-            ${relatedEdges.map((edge) => renderRelation(edge, nodes)).join('') || '<div class="empty-state">Nenhuma relação explícita publicada.</div>'}
-          </div>
-        </div>
-        <div>
-          <h3>Evidências de grounding</h3>
-          <div class="relation-list">
-            ${selectedEvidence.map(renderEvidence).join('') || '<div class="empty-state">Nenhuma evidência vinculada às relações principais.</div>'}
-          </div>
-        </div>
-      </div>
+      </section>
     `;
     mountTopologyGraph(resource, graph, root, topologyModel);
+    bindTopologyViewSwitcher(els.domainTopology);
   }
 
   function destroyTopologyGraph() {
@@ -2176,6 +2188,32 @@
       .catch(() => {
         renderTopologySvgFallback(container, model, inspector, shell);
       });
+  }
+
+  function bindTopologyViewSwitcher(root) {
+    const switcher = root?.querySelector('.topology-view-switcher');
+    if (!switcher) return;
+    switcher.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-topology-view]');
+      if (!button) return;
+      const view = button.getAttribute('data-topology-view') || 'flow';
+      for (const item of switcher.querySelectorAll('[data-topology-view]')) {
+        const active = item.getAttribute('data-topology-view') === view;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+      for (const panel of root.querySelectorAll('[data-topology-panel]')) {
+        const active = panel.getAttribute('data-topology-panel') === view;
+        panel.classList.toggle('active', active);
+        panel.hidden = !active;
+      }
+      if (view === 'graph' && state.topologyGraph) {
+        window.requestAnimationFrame(() => {
+          state.topologyGraph.resize();
+          state.topologyGraph.fit(undefined, 34);
+        });
+      }
+    });
   }
 
   function renderTopologyGraphSummary(shell, model) {

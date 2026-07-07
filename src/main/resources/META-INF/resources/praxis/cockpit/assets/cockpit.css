@@ -1866,6 +1866,48 @@ input:focus-visible,
   gap: 14px;
 }
 
+.topology-view-switcher {
+  align-items: center;
+  border: 1px solid rgba(126, 211, 255, .22);
+  background: rgba(2, 6, 10, .66);
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 6px;
+}
+
+.topology-view-switcher button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .04em;
+  min-height: 34px;
+  padding: 8px 10px;
+  text-transform: uppercase;
+}
+
+.topology-view-switcher button:hover,
+.topology-view-switcher button.active {
+  border-color: rgba(115, 239, 181, .64);
+  background:
+    linear-gradient(135deg, rgba(115, 239, 181, .14), rgba(98, 216, 255, .08)),
+    rgba(7, 12, 18, .76);
+  color: #fff;
+}
+
+.topology-view-panel {
+  min-width: 0;
+}
+
+.topology-view-panel[hidden] {
+  display: none !important;
+}
+
 .semantic-flow-board {
   border: 1px solid rgba(126, 211, 255, .24);
   background:
