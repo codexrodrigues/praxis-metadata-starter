@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.capability;
 
 import org.praxisplatform.uischema.exporting.CollectionExportCapability;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
+import org.praxisplatform.uischema.stats.StatsSupportMode;
 
 /**
  * Agrega operacoes canonicas, surfaces e actions para uma colecao ou instancia.
@@ -54,6 +55,25 @@ public interface CapabilityService {
         return collectionCapabilities(resourceKey, resourcePath, collectionExportSupported, collectionExportCapability);
     }
 
+    default CapabilitySnapshot collectionCapabilities(
+            String resourceKey,
+            String resourcePath,
+            boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability,
+            StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode
+    ) {
+        return collectionCapabilities(
+                resourceKey,
+                resourcePath,
+                collectionExportSupported,
+                collectionExportCapability,
+                statsFieldRegistry
+        );
+    }
+
     /**
      * Resolve o snapshot de capabilities no escopo de um item especifico do recurso.
      */
@@ -66,6 +86,18 @@ public interface CapabilityService {
             StatsFieldRegistry statsFieldRegistry
     ) {
         return itemCapabilities(resourceKey, resourcePath, resourceId);
+    }
+
+    default CapabilitySnapshot itemCapabilities(
+            String resourceKey,
+            String resourcePath,
+            Object resourceId,
+            StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode
+    ) {
+        return itemCapabilities(resourceKey, resourcePath, resourceId, statsFieldRegistry);
     }
 
     /**

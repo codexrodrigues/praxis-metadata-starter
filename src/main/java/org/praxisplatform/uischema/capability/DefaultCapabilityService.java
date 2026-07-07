@@ -8,7 +8,9 @@ import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.exporting.CollectionExportCapability;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.stats.StatsCapability;
+import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
+import org.praxisplatform.uischema.stats.StatsSupportMode;
 import org.praxisplatform.uischema.surface.SurfaceCatalogItem;
 import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
 import org.praxisplatform.uischema.surface.SurfaceCatalogResponse;
@@ -121,8 +123,38 @@ public class DefaultCapabilityService implements CapabilityService {
             CollectionExportCapability collectionExportCapability,
             StatsFieldRegistry statsFieldRegistry
     ) {
+        return collectionCapabilities(
+                resourceKey,
+                resourcePath,
+                collectionExportSupported,
+                collectionExportCapability,
+                statsFieldRegistry,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO
+        );
+    }
+
+    @Override
+    public CapabilitySnapshot collectionCapabilities(
+            String resourceKey,
+            String resourcePath,
+            boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability,
+            StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode
+    ) {
         Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
         canonicalOperations.put("export", collectionExportSupported);
+        applyStatsSupport(
+                canonicalOperations,
+                statsFieldRegistry,
+                groupByStatsSupportMode,
+                timeSeriesStatsSupportMode,
+                distributionStatsSupportMode
+        );
         List<SurfaceCatalogItem> collectionSurfaces = collectionSurfaces(resourceKey);
         List<ActionCatalogItem> collectionActions = collectionActions(resourceKey);
         String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
@@ -141,7 +173,12 @@ public class DefaultCapabilityService implements CapabilityService {
                 ),
                 collectionSurfaces,
                 collectionActions,
-                StatsCapability.from(statsFieldRegistry)
+                StatsCapability.from(
+                        statsFieldRegistry,
+                        groupByStatsSupportMode,
+                        timeSeriesStatsSupportMode,
+                        distributionStatsSupportMode
+                )
         );
         return snapshot.withOperations(applyCollectionAvailability(snapshot.operations(), resourceKey, resourcePath));
     }
@@ -158,7 +195,35 @@ public class DefaultCapabilityService implements CapabilityService {
             Object resourceId,
             StatsFieldRegistry statsFieldRegistry
     ) {
-        Map<String, Boolean> canonicalOperations = canonicalCapabilityResolver.resolve(resourcePath);
+        return itemCapabilities(
+                resourceKey,
+                resourcePath,
+                resourceId,
+                statsFieldRegistry,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO
+        );
+    }
+
+    @Override
+    public CapabilitySnapshot itemCapabilities(
+            String resourceKey,
+            String resourcePath,
+            Object resourceId,
+            StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode
+    ) {
+        Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
+        applyStatsSupport(
+                canonicalOperations,
+                statsFieldRegistry,
+                groupByStatsSupportMode,
+                timeSeriesStatsSupportMode,
+                distributionStatsSupportMode
+        );
         List<SurfaceCatalogItem> itemSurfaces = itemSurfaces(resourceKey, resourceId);
         List<ActionCatalogItem> itemActions = itemActions(resourceKey, resourceId);
         String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
@@ -172,9 +237,50 @@ public class DefaultCapabilityService implements CapabilityService {
                 resolveOperations(resourcePath, itemSurfaces, itemActions),
                 itemSurfaces,
                 itemActions,
-                StatsCapability.from(statsFieldRegistry)
+                StatsCapability.from(
+                        statsFieldRegistry,
+                        groupByStatsSupportMode,
+                        timeSeriesStatsSupportMode,
+                        distributionStatsSupportMode
+                )
         );
         return snapshot.withOperations(applyItemAvailability(snapshot.operations(), resourceKey, resourcePath, resourceId, stateSnapshot));
+    }
+
+    private void applyStatsSupport(
+            Map<String, Boolean> canonicalOperations,
+            StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode
+    ) {
+        StatsFieldRegistry registry = statsFieldRegistry == null ? StatsFieldRegistry.empty() : statsFieldRegistry;
+        boolean supportsGroupBy = groupByStatsSupportMode != StatsSupportMode.DISABLED
+                && registry.descriptors().stream().anyMatch(StatsFieldDescriptorPredicates::groupBy);
+        boolean supportsTimeSeries = timeSeriesStatsSupportMode != StatsSupportMode.DISABLED
+                && registry.descriptors().stream().anyMatch(StatsFieldDescriptorPredicates::timeSeries);
+        boolean supportsDistribution = distributionStatsSupportMode != StatsSupportMode.DISABLED
+                && registry.descriptors().stream().anyMatch(StatsFieldDescriptorPredicates::distribution);
+        canonicalOperations.computeIfPresent("statsGroupBy", (key, present) -> present && supportsGroupBy);
+        canonicalOperations.computeIfPresent("statsTimeSeries", (key, present) -> present && supportsTimeSeries);
+        canonicalOperations.computeIfPresent("statsDistribution", (key, present) -> present && supportsDistribution);
+    }
+
+    private static final class StatsFieldDescriptorPredicates {
+        private StatsFieldDescriptorPredicates() {
+        }
+
+        static boolean groupBy(StatsFieldDescriptor descriptor) {
+            return descriptor.groupByEligible();
+        }
+
+        static boolean timeSeries(StatsFieldDescriptor descriptor) {
+            return descriptor.timeSeriesEligible();
+        }
+
+        static boolean distribution(StatsFieldDescriptor descriptor) {
+            return descriptor.distributionTermsEligible() || descriptor.distributionHistogramEligible();
+        }
     }
 
     @Override

@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.stats;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Discovery publico das dimensoes estatisticas declaradas por um recurso.
@@ -33,6 +34,64 @@ public record StatsCapability(
                 registry.descriptors().stream()
                         .map(StatsFieldCapability::from)
                         .toList()
+        );
+    }
+
+    public static StatsCapability from(
+            StatsFieldRegistry registry,
+            StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode
+    ) {
+        if (registry == null || registry.isEmpty()) {
+            return empty();
+        }
+        boolean groupByEnabled = groupByStatsSupportMode != StatsSupportMode.DISABLED;
+        boolean timeSeriesEnabled = timeSeriesStatsSupportMode != StatsSupportMode.DISABLED;
+        boolean distributionEnabled = distributionStatsSupportMode != StatsSupportMode.DISABLED;
+        if (!groupByEnabled && !timeSeriesEnabled && !distributionEnabled) {
+            return empty();
+        }
+        return new StatsCapability(
+                registry.descriptors().stream()
+                        .map(descriptor -> restrictDescriptor(
+                                descriptor,
+                                groupByEnabled,
+                                timeSeriesEnabled,
+                                distributionEnabled
+                        ))
+                        .filter(descriptor -> descriptor.groupByEligible()
+                                || descriptor.timeSeriesEligible()
+                                || descriptor.distributionTermsEligible()
+                                || descriptor.distributionHistogramEligible()
+                                || descriptor.metricFieldEligible())
+                        .map(StatsFieldCapability::from)
+                        .toList()
+        );
+    }
+
+    private static StatsFieldDescriptor restrictDescriptor(
+            StatsFieldDescriptor descriptor,
+            boolean groupByEnabled,
+            boolean timeSeriesEnabled,
+            boolean distributionEnabled
+    ) {
+        boolean hasBucketMode = groupByEnabled && descriptor.groupByEligible();
+        boolean hasTimeSeriesMode = timeSeriesEnabled && descriptor.timeSeriesEligible();
+        boolean hasTermsMode = distributionEnabled && descriptor.distributionTermsEligible();
+        boolean hasHistogramMode = distributionEnabled && descriptor.distributionHistogramEligible();
+        boolean hasAnyStatsMode = hasBucketMode || hasTimeSeriesMode || hasTermsMode || hasHistogramMode;
+        boolean hasMetricMode = descriptor.metricFieldEligible()
+                && (groupByEnabled || timeSeriesEnabled || distributionEnabled);
+        return new StatsFieldDescriptor(
+                descriptor.field(),
+                descriptor.propertyPath(),
+                hasAnyStatsMode || hasMetricMode ? descriptor.metrics() : Set.of(),
+                hasBucketMode,
+                hasTimeSeriesMode,
+                hasTermsMode,
+                hasHistogramMode,
+                hasMetricMode
         );
     }
 }

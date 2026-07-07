@@ -938,7 +938,10 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 getBasePath(),
                 supportsCollectionExport(),
                 exportCapability,
-                getService().getStatsFieldRegistry()
+                getService().getStatsFieldRegistry(),
+                getService().getGroupByStatsSupportMode(),
+                getService().getTimeSeriesStatsSupportMode(),
+                getService().getDistributionStatsSupportMode()
         );
         return withVersion(
                 ResponseEntity.ok(),
@@ -955,7 +958,15 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         getService().findById(id);
         return withVersion(
                 ResponseEntity.ok(),
-                capabilityService.itemCapabilities(getResourceKey(), getBasePath(), id, getService().getStatsFieldRegistry())
+                capabilityService.itemCapabilities(
+                        getResourceKey(),
+                        getBasePath(),
+                        id,
+                        getService().getStatsFieldRegistry(),
+                        getService().getGroupByStatsSupportMode(),
+                        getService().getTimeSeriesStatsSupportMode(),
+                        getService().getDistributionStatsSupportMode()
+                )
         );
     }
 

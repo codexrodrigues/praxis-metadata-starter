@@ -118,11 +118,15 @@ projecao do `StatsFieldRegistry` do servico com:
 - `modes`, como `GROUP_BY`, `TIME_SERIES`, `DISTRIBUTION_TERMS`, `DISTRIBUTION_HISTOGRAM` e `METRIC_FIELD`
 - flags booleanas de elegibilidade para consumidores que preferem leitura direta
 
-`StatsFieldRegistry` continua sendo a fonte canonica da elegibilidade; `capabilities.stats`
-e apenas discovery publico. O schema estrutural, labels ricas e `x-ui.optionSource`
-continuam em `/schemas/filtered`, e o cockpit cruza ambos por `field` antes de
-hidratar labels relacionais. Em cenarios corporativos isso evita tentativa e erro,
-reduz consultas invalidas e deixa dashboards auditaveis antes da execucao de stats.
+`StatsFieldRegistry` e `StatsSupportMode` continuam sendo a fonte canonica da
+elegibilidade; `capabilities.stats` e apenas discovery publico. Endpoints `/stats/*`
+herdados pelo controller nao bastam para anunciar analytics: `canonicalOperations.stats*`
+so fica habilitado quando o service publica modo diferente de `DISABLED` e registry
+com campo elegivel para aquele modo. O schema estrutural, labels ricas e
+`x-ui.optionSource` continuam em `/schemas/filtered`, e o cockpit cruza ambos por
+`field` antes de hidratar labels relacionais. Em cenarios corporativos isso evita
+tentativa e erro, reduz consultas invalidas e deixa dashboards auditaveis antes da
+execucao de stats.
 
 Regras importantes:
 
@@ -220,7 +224,7 @@ Operacoes canonicas esperadas:
 Papel de cada camada:
 
 - `capabilities.operations` governa se a operacao existe agora e como ela deve ser tratada semanticamente
-- `capabilities.stats.fields` governa quais dimensoes e metricas estatisticas podem alimentar charts reais
+- `capabilities.stats.fields` governa quais dimensoes e metricas estatisticas podem alimentar charts reais quando o service tambem habilita `StatsSupportMode`
 - `/schemas/filtered` continua sendo a fonte estrutural de request/response schema
 - `surfaces` e `actions` continuam sendo discovery semantico rico quando publicados
 - `_links` entram como camada operacional/contextual para escolher o target real de execucao

@@ -1362,11 +1362,13 @@
     const ui = uiFieldSummary(resource);
     const surfaces = resource.surfaces || [];
     const actions = knownActionsForResource(resource);
+    const hasCapabilitySnapshot = Boolean(resource.capability);
+    const hasStatsOperation = Boolean(ops.statsGroupBy || ops.statsTimeSeries || ops.statsDistribution);
     const evidence = {
       table: capabilitySource(Boolean(ops.all), Boolean(surfaces.some((surface) => isViewSurface(surface))), Boolean(fieldSource.length || summary.read)),
       form: capabilitySource(Boolean(ops.create || ops.update), Boolean(surfaces.some((surface) => isFormSurface(surface)) || ui.editableFields), Boolean(hasFormEndpoint(resource))),
       filter: capabilitySource(Boolean(ops.filter || ops.cursor), false, Boolean(summary.filter)),
-      analytics: capabilitySource(Boolean(ops.statsGroupBy || ops.statsTimeSeries || ops.statsDistribution), false, Boolean(summary.stats)),
+      analytics: capabilitySource(hasStatsOperation, false, !hasCapabilitySnapshot && Boolean(summary.stats)),
       options: capabilitySource(Boolean(ops.options || ops.optionSources), Boolean(ui.optionSources), Boolean(summary.options)),
       actions: capabilitySource(Boolean(actions.length), false, false)
     };
@@ -4353,7 +4355,7 @@
     ];
     const total = profile.confirmedScore;
     const dimension = preferredStatsDimension(resource);
-    if (profile.canAnalytics && dimension && resource.resourcePath) {
+    if (profile.evidence.analytics === 'confirmed' && dimension && resource.resourcePath) {
       els.resourceChart.classList.add('has-stats-preview');
       els.resourceChart.innerHTML = renderStatsPreview(resource, dimension);
       loadStatsPreview(resource, dimension);

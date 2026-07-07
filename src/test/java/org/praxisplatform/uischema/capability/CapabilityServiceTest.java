@@ -12,6 +12,7 @@ import org.praxisplatform.uischema.exporting.CollectionExportScope;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.stats.StatsFieldCapability;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
+import org.praxisplatform.uischema.stats.StatsSupportMode;
 import org.praxisplatform.uischema.surface.SurfaceCatalogItem;
 import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
 import org.praxisplatform.uischema.surface.SurfaceCatalogResponse;
@@ -187,6 +188,70 @@ class CapabilityServiceTest {
         assertEquals("salario", salario.field());
         assertEquals(List.of("COUNT", "DISTINCT_COUNT", "SUM", "AVG", "MIN", "MAX"), salario.metrics());
         assertEquals(List.of("DISTRIBUTION_HISTOGRAM", "METRIC_FIELD"), salario.modes());
+    }
+
+    @Test
+    void collectionCapabilitiesRespectDisabledStatsSupportModes() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of(
+                        "statsGroupBy", true,
+                        "statsTimeSeries", true,
+                        "statsDistribution", true
+                )),
+                emptySurfaceCatalogService(),
+                emptyActionCatalogService(),
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        CapabilitySnapshot snapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                false,
+                null,
+                StatsFieldRegistry.builder()
+                        .categoricalGroupByBucket("status", "status")
+                        .temporalTimeSeriesField("admissionDate", "admissionDate")
+                        .numericHistogramMeasureField("salario", "salario")
+                        .build(),
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED
+        );
+
+        assertFalse(snapshot.canonicalOperations().get("statsGroupBy"));
+        assertFalse(snapshot.canonicalOperations().get("statsTimeSeries"));
+        assertFalse(snapshot.canonicalOperations().get("statsDistribution"));
+        assertTrue(snapshot.stats().fields().isEmpty());
+    }
+
+    @Test
+    void collectionCapabilitiesRequireEligibleStatsFieldsBeforeAdvertisingStatsOperations() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of(
+                        "statsGroupBy", true,
+                        "statsTimeSeries", true,
+                        "statsDistribution", true
+                )),
+                emptySurfaceCatalogService(),
+                emptyActionCatalogService(),
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        CapabilitySnapshot snapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                false,
+                null,
+                StatsFieldRegistry.empty(),
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO
+        );
+
+        assertFalse(snapshot.canonicalOperations().get("statsGroupBy"));
+        assertFalse(snapshot.canonicalOperations().get("statsTimeSeries"));
+        assertFalse(snapshot.canonicalOperations().get("statsDistribution"));
+        assertTrue(snapshot.stats().fields().isEmpty());
     }
 
     @Test
