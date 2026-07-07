@@ -79,6 +79,7 @@ class PraxisCockpitControllerTest {
                 .contains(".release-marker")
                 .contains(".resource-brief")
                 .contains(".contract-links")
+                .contains("align-items: start")
                 .contains(".contract-group")
                 .contains(".contract-group-heading")
                 .contains(".contract-link")
