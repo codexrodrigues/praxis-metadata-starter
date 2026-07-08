@@ -303,6 +303,17 @@ public abstract class AbstractBaseQueryResourceService<
             OptionSourceFilterRequest<FilterDTO> request,
             Pageable pageable
     ) {
+        return filterOptionSourceOptions(sourceKey, request, pageable, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OptionDTO<Object>> filterOptionSourceOptions(
+            String sourceKey,
+            OptionSourceFilterRequest<FilterDTO> request,
+            Pageable pageable,
+            Object providerFilterPayload
+    ) {
         if (optionSourceQueryExecutor == null) {
             resolveOptionSource(sourceKey);
             throw new UnsupportedOperationException("Option source options not implemented: " + sourceKey);
@@ -316,7 +327,7 @@ public abstract class AbstractBaseQueryResourceService<
                 entityManager,
                 entityClass,
                 specification == null ? null : specification.spec(),
-                effectiveFilter,
+                providerFilterPayload == null ? effectiveFilter : providerFilterPayload,
                 descriptor,
                 request == null ? null : request.search(),
                 request == null ? List.of() : request.filters(),

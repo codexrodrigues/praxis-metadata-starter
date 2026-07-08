@@ -87,6 +87,15 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
             Pageable pageable
     );
 
+    default Page<OptionDTO<Object>> filterOptionSourceOptions(
+            String sourceKey,
+            OptionSourceFilterRequest<FilterDTO> request,
+            Pageable pageable,
+            Object providerFilterPayload
+    ) {
+        return filterOptionSourceOptions(sourceKey, request, pageable);
+    }
+
     List<OptionDTO<Object>> byIdsOptionSourceOptions(String sourceKey, Collection<Object> ids);
 
     default List<OptionDTO<Object>> byIdsOptionSourceOptions(

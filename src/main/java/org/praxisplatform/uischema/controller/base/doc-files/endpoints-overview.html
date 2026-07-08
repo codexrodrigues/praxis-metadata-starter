@@ -343,6 +343,7 @@ Content-Type: application/json
   </code></pre>
   <ul>
     <li><strong>Retorno</strong>: pagina de <code>OptionDTO&lt;Object&gt;</code> da fonte solicitada.</li>
+    <li><strong>Dependencias</strong>: fontes <code>PROVIDER_REQUIRED</code> podem receber, em <code>filter</code>, dependencias publicas declaradas por <code>dependsOn</code>/<code>dependencyFilterMap</code> mesmo quando esses campos nao fazem parte do <code>FilterDTO</code> do recurso host. Fontes JPA preservam essas dependencias no filtro estrutural do recurso.</li>
     <li><strong>Erros</strong>: 404 para fonte inexistente, 422 para payload/policy/sort invalidos, 501 para capability ou provider ausente.</li>
   </ul>
 

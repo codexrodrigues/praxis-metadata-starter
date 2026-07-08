@@ -5,12 +5,6 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
-- Hooks protegidos de lifecycle em `AbstractBaseResourceService` para customizar
-  create, update, delete individual e delete em lote sem sobrescrever o fluxo
-  canonico de mapper, save, refresh e response.
-- Helpers protegidos em `AbstractBaseResourceService` para resolver referencias
-  JPA de entidades relacionadas por ID e substituir colecoes relacionais mutaveis,
-  evitando boilerplate de `EntityManager#getReference` em updates de aggregates.
 - Engine canonico `ExcelCollectionExportEngine` para exportacao XLSX real em
   `POST /{resource}/export`, registrado por auto-configuracao junto aos engines
   CSV/JSON e governado pela mesma allowlist de campos, `applyFormatting`,
@@ -60,6 +54,11 @@ All notable changes to this module will be documented in this file.
 - Mensagens de erro para condicionais Json Logic malformados agora distinguem JSON invalido de contrato Json Logic invalido, e a validacao bloqueia literais com shape basico incompatível com o runtime Angular.
 
 ### Fixed
+- `POST /{resource}/option-sources/{sourceKey}/options/filter` agora aceita
+  dependencias publicas declaradas em `dependsOn`/`dependencyFilterMap` para
+  fontes `PROVIDER_REQUIRED` mesmo quando esses campos nao existem no
+  `FilterDTO` do recurso host, preservando o payload publico governado antes da
+  conversao do filtro estrutural.
 - `/schemas/filtered` agora preserva descricoes `@Schema` de campos `BigDecimal`
   ao manter o formato `decimal`, evitando que metricas monetarias ou agregadas
   percam semantica de negocio no Cockpit e em consumidores AI.
@@ -103,6 +102,18 @@ All notable changes to this module will be documented in this file.
   campo.
 - A anotacao `@DomainGovernance` usa vocabulario tipado no codigo Java e continua
   materializando os mesmos valores wire compativeis com o contrato semantico.
+
+## [8.0.0-rc.80] - 2026-07-08
+
+### Added
+- Hooks protegidos de lifecycle em `AbstractBaseResourceService` para customizar
+  create, update, delete individual e delete em lote sem sobrescrever o fluxo
+  canonico de mapper, save, refresh e response.
+- Helpers protegidos em `AbstractBaseResourceService` para resolver referencias
+  JPA de entidades relacionadas por ID e substituir colecoes relacionais mutaveis,
+  evitando boilerplate de `EntityManager#getReference` em updates de aggregates.
+- RFC publica de suporte GraphQL, posicionando GraphQL como adapter derivado e
+  nao como segunda fonte primaria da semantica metadata-driven.
 
 ## [8.0.0-rc.13] - 2026-04-22
 

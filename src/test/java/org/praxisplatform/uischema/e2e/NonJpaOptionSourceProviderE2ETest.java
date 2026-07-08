@@ -19,8 +19,10 @@ import org.springframework.http.ResponseEntity;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Import(NonJpaOptionSourceProviderE2ETest.NonJpaOptionSourceProviderTestConfiguration.class)
@@ -52,6 +54,29 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         assertEquals("External Operations", byIdsBody.get(0).path("label").asText());
         assertEquals("EXT-1", byIdsBody.get(1).path("id").asText());
         assertEquals("External Human Resources", byIdsBody.get(1).path("label").asText());
+    }
+
+    @Test
+    void providerBackedOptionSourceAcceptsDeclaredDependencyOutsideResourceFilterDto() throws Exception {
+        ExternalCatalogOptionSourceProvider.resetCounters();
+
+        ResponseEntity<String> response = postJson(
+                "/employees/option-sources/externalDependencyLookup/options/filter?page=0&size=10",
+                """
+                {
+                  "filter": {
+                    "tipoEvento": "SUBST FG"
+                  }
+                }
+                """
+        );
+
+        assertEquals(200, response.getStatusCode().value());
+        JsonNode body = body(response);
+        assertEquals(2, body.path("content").size());
+        assertEquals(1, ExternalCatalogOptionSourceProvider.filterCalls());
+        Map<?, ?> payload = assertInstanceOf(Map.class, ExternalCatalogOptionSourceProvider.lastFilterPayload());
+        assertEquals("SUBST FG", payload.get("tipoEvento"));
     }
 
     @Test
@@ -171,6 +196,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         private static final AtomicInteger SUPPORT_CALLS = new AtomicInteger();
         private static final AtomicInteger FILTER_CALLS = new AtomicInteger();
         private static final AtomicInteger BY_IDS_CALLS = new AtomicInteger();
+        private static final AtomicReference<Object> LAST_FILTER_PAYLOAD = new AtomicReference<>();
         private static final List<OptionDTO<Object>> OPTIONS = List.of(
                 option("EXT-1", "External Human Resources"),
                 option("EXT-2", "External Operations")
@@ -189,6 +215,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
             SUPPORT_CALLS.incrementAndGet();
             return descriptor != null
                     && ("externalDepartmentLookup".equals(descriptor.key())
+                    || "externalDependencyLookup".equals(descriptor.key())
                     || "externalFilterOnlyLookup".equals(descriptor.key()))
                     && operation == context.operation();
         }
@@ -196,6 +223,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         @Override
         public Page<OptionDTO<Object>> filter(OptionSourceExecutionRequest<?> request) {
             FILTER_CALLS.incrementAndGet();
+            LAST_FILTER_PAYLOAD.set(request.filterPayload());
             return new PageImpl<>(OPTIONS, request.pageable(), OPTIONS.size());
         }
 
@@ -222,6 +250,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
             SUPPORT_CALLS.set(0);
             FILTER_CALLS.set(0);
             BY_IDS_CALLS.set(0);
+            LAST_FILTER_PAYLOAD.set(null);
         }
 
         private static int supportCalls() {
@@ -234,6 +263,10 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
 
         private static int byIdsCalls() {
             return BY_IDS_CALLS.get();
+        }
+
+        private static Object lastFilterPayload() {
+            return LAST_FILTER_PAYLOAD.get();
         }
     }
 }

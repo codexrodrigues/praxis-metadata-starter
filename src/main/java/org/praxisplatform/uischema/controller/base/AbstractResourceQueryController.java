@@ -1,5 +1,9 @@
 package org.praxisplatform.uischema.controller.base;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -16,7 +20,11 @@ import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.exporting.CollectionExportRequest;
 import org.praxisplatform.uischema.exporting.CollectionExportResult;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.options.EntityLookupDescriptor;
+import org.praxisplatform.uischema.options.LookupFilterRequest;
 import org.praxisplatform.uischema.options.OptionSourceByIdsRequest;
+import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourceExecutionMode;
 import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.praxisplatform.uischema.options.UnknownOptionSourceException;
 import org.praxisplatform.uischema.rest.response.RestApiResource;
@@ -44,6 +52,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
@@ -71,9 +80,12 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
+import java.util.Set;
 
 /**
  * Base canonica de leitura do novo core resource-oriented.
@@ -190,6 +202,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @Autowired
     private Environment environment;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired(required = false)
     private SurfaceCatalogService surfaceCatalogService;
@@ -706,7 +721,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     })
     public ResponseEntity<Page<OptionDTO<Object>>> filterOptionSourceOptions(
             @PathVariable String sourceKey,
-            @RequestBody OptionSourceFilterRequest<FD> request,
+            @RequestBody(required = false) JsonNode request,
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "includeIds", required = false) List<String> includeIds,
             @RequestParam(name = "page", defaultValue = "0") int page,
@@ -720,15 +735,23 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
         try {
             List<String> sort = queryParams.get("sort");
-            OptionSourceFilterRequest<FD> effectiveRequest = mergeLegacyOptionSourceRequest(request, search, includeIds, sort);
+            OptionSourceDescriptor descriptor = getService().resolveOptionSource(sourceKey);
+            OptionSourceFilterEnvelope<FD> envelope = parseOptionSourceFilterRequest(
+                    request,
+                    descriptor,
+                    search,
+                    includeIds,
+                    sort
+            );
             Pageable pageable = buildPageable(page, size, sort, Sort.unsorted());
             return withOptionSourceVersion(
                     ResponseEntity.ok(),
                     sourceKey,
                     getService().filterOptionSourceOptions(
                             sourceKey,
-                            effectiveRequest,
-                            pageable
+                            envelope.request(),
+                            pageable,
+                            envelope.providerFilterPayload()
                     )
             );
         } catch (UnknownOptionSourceException ex) {
@@ -740,27 +763,147 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         }
     }
 
-    private OptionSourceFilterRequest<FD> mergeLegacyOptionSourceRequest(
-            OptionSourceFilterRequest<FD> request,
+    private OptionSourceFilterEnvelope<FD> parseOptionSourceFilterRequest(
+            JsonNode request,
+            OptionSourceDescriptor descriptor,
             String search,
             List<String> includeIds,
             List<String> sort
     ) {
-        FD filter = request == null ? null : request.filter();
-        List<?> filters = request == null ? List.of() : request.filters();
-        String effectiveSearch = request != null && StringUtils.hasText(request.search()) ? request.search() : search;
-        String effectiveSort = request != null && StringUtils.hasText(request.sort())
-                ? request.sort()
+        JsonNode body = request == null || request.isNull() ? objectMapper.createObjectNode() : request;
+        if (!body.isObject()) {
+            throw new IllegalArgumentException("Option source filter request must be a JSON object.");
+        }
+
+        boolean envelopeBody = hasOptionSourceEnvelopeShape(body);
+        JsonNode filterNode = envelopeBody ? body.get("filter") : body;
+        OptionSourceFilterParts<FD> filterParts = parseOptionSourceFilterParts(filterNode, descriptor);
+        List<LookupFilterRequest> filters = parseLookupFilters(body.get("filters"));
+        String bodySearch = textOrNull(body.get("search"));
+        String bodySort = textOrNull(body.get("sort"));
+        Collection<Object> bodyIncludeIds = parseIncludeIds(body.get("includeIds"));
+
+        String effectiveSearch = StringUtils.hasText(bodySearch) ? bodySearch : search;
+        String effectiveSort = StringUtils.hasText(bodySort)
+                ? bodySort
                 : firstLegacySortKey(sort);
-        Collection<Object> effectiveIncludeIds = request != null && request.includeIds() != null && !request.includeIds().isEmpty()
-                ? request.includeIds()
+        Collection<Object> effectiveIncludeIds = !bodyIncludeIds.isEmpty()
+                ? bodyIncludeIds
                 : (includeIds == null ? List.of() : List.copyOf(includeIds));
 
-        @SuppressWarnings("unchecked")
-        List<org.praxisplatform.uischema.options.LookupFilterRequest> typedFilters =
-                (List<org.praxisplatform.uischema.options.LookupFilterRequest>) filters;
+        OptionSourceFilterRequest<FD> effectiveRequest = new OptionSourceFilterRequest<>(
+                filterParts.filter(),
+                filters,
+                effectiveSearch,
+                effectiveSort,
+                effectiveIncludeIds
+        );
+        return new OptionSourceFilterEnvelope<>(effectiveRequest, filterParts.providerFilterPayload());
+    }
 
-        return new OptionSourceFilterRequest<>(filter, typedFilters, effectiveSearch, effectiveSort, effectiveIncludeIds);
+    private boolean hasOptionSourceEnvelopeShape(JsonNode body) {
+        return body.has("filter")
+                || body.has("filters")
+                || body.has("search")
+                || body.has("sort")
+                || body.has("includeIds");
+    }
+
+    private OptionSourceFilterParts<FD> parseOptionSourceFilterParts(
+            JsonNode filterNode,
+            OptionSourceDescriptor descriptor
+    ) {
+        if (filterNode == null || filterNode.isNull()) {
+            return new OptionSourceFilterParts<>(null, null);
+        }
+        if (!filterNode.isObject()) {
+            throw new IllegalArgumentException("Option source filter must be a JSON object.");
+        }
+
+        Set<String> dependencyKeys = optionSourceDependencyKeys(descriptor);
+        ObjectNode resourceFilterNode = objectMapper.createObjectNode();
+        Map<String, Object> dependencyPayload = new LinkedHashMap<>();
+        filterNode.fields().forEachRemaining(entry -> {
+            String field = entry.getKey();
+            JsonNode value = entry.getValue();
+            if (dependencyKeys.contains(field)) {
+                dependencyPayload.put(field, objectMapper.convertValue(value, Object.class));
+            } else {
+                resourceFilterNode.set(field, value);
+            }
+        });
+
+        FD filter = resourceFilterNode.isEmpty()
+                ? null
+                : objectMapper.convertValue(resourceFilterNode, resolveFilterDtoClass());
+        Object providerPayload = dependencyPayload.isEmpty() ? null : Map.copyOf(dependencyPayload);
+        return new OptionSourceFilterParts<>(filter, providerPayload);
+    }
+
+    private Set<String> optionSourceDependencyKeys(OptionSourceDescriptor descriptor) {
+        Set<String> keys = new LinkedHashSet<>();
+        if (descriptor == null || descriptor.executionMode() == OptionSourceExecutionMode.JPA) {
+            return keys;
+        }
+        keys.addAll(descriptor.dependsOn());
+        keys.addAll(descriptor.dependencyFilterMap().keySet());
+        EntityLookupDescriptor lookup = descriptor.entityLookup();
+        if (lookup != null) {
+            keys.addAll(lookup.dependencyFilterMap().keySet());
+        }
+        keys.removeIf(key -> key == null || key.isBlank());
+        return keys;
+    }
+
+    private List<LookupFilterRequest> parseLookupFilters(JsonNode filtersNode) {
+        if (filtersNode == null || filtersNode.isNull()) {
+            return List.of();
+        }
+        if (!filtersNode.isArray()) {
+            throw new IllegalArgumentException("Option source structured filters must be a JSON array.");
+        }
+        return objectMapper.convertValue(filtersNode, new TypeReference<>() {});
+    }
+
+    private Collection<Object> parseIncludeIds(JsonNode includeIdsNode) {
+        if (includeIdsNode == null || includeIdsNode.isNull()) {
+            return List.of();
+        }
+        if (!includeIdsNode.isArray()) {
+            throw new IllegalArgumentException("Option source includeIds must be a JSON array.");
+        }
+        return objectMapper.convertValue(includeIdsNode, new TypeReference<>() {});
+    }
+
+    private String textOrNull(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        return node.asText(null);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Class<FD> resolveFilterDtoClass() {
+        Class<?> filterType = ResolvableType.forClass(getClass())
+                .as(AbstractResourceQueryController.class)
+                .getGeneric(2)
+                .resolve();
+        if (filterType == null || !GenericFilterDTO.class.isAssignableFrom(filterType)) {
+            throw new IllegalStateException("Unable to resolve resource FilterDTO type.");
+        }
+        return (Class<FD>) filterType;
+    }
+
+    private record OptionSourceFilterEnvelope<FD extends GenericFilterDTO>(
+            OptionSourceFilterRequest<FD> request,
+            Object providerFilterPayload
+    ) {
+    }
+
+    private record OptionSourceFilterParts<FD extends GenericFilterDTO>(
+            FD filter,
+            Object providerFilterPayload
+    ) {
     }
 
     private String firstLegacySortKey(List<String> sort) {

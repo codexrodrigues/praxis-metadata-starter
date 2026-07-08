@@ -506,7 +506,7 @@ Dependencia minima:
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>8.0.0-rc.37</version>
+  <version>8.0.0-rc.81</version>
 </dependency>
 ```
 
@@ -563,6 +563,10 @@ Para lookups corporativos provider-backed, prefira `GovernedOptionSourceCatalog.
 em vez de remontar manualmente `OptionSourceDescriptor` em cada service. O builder preserva o registry
 canonico existente e apenas materializa endpoints, dependency mapping, reload por IDs e politica de sort
 como contrato publico de runtime.
+Em `POST /{resource}/option-sources/{sourceKey}/options/filter`, dependencias publicas declaradas por
+`dependsOn`/`dependencyFilterMap` podem ser enviadas em `filter` para fontes `PROVIDER_REQUIRED` mesmo
+quando nao existem no `FilterDTO` do recurso host; fontes JPA continuam tratando essas dependencias como
+parte do filtro estrutural do recurso.
 
 ## Internal OpenAPI Base Resolution
 
