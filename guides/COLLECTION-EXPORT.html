@@ -189,8 +189,8 @@ assincrona.</li>
 <h2 id="request-canonico">Request Canonico</h2>
 <p>O request de exportacao preserva o estado da colecao:</p>
 <ul>
-<li><code>format</code>: formato solicitado, como <code>csv</code> ou
-<code>json</code>.</li>
+<li><code>format</code>: formato solicitado, como <code>csv</code>,
+<code>json</code> ou <code>excel</code>.</li>
 <li><code>scope</code>: <code>auto</code>, <code>selected</code>,
 <code>filtered</code>, <code>currentPage</code> ou
 <code>all</code>.</li>
@@ -208,7 +208,7 @@ materializacao de apresentacao governada por campo.</li>
 <li><code>maxRows</code>: limite solicitado pelo cliente.</li>
 <li><code>fileName</code>: nome sugerido para download.</li>
 <li><code>formatOptions</code>: opcoes por formato, como delimitador
-CSV, encoding, BOM e dialeto de planilha.</li>
+CSV, encoding, BOM, aba XLSX e celulas tipadas.</li>
 <li><code>localization</code>: locale/timezone usados como contexto de
 materializacao.</li>
 </ul>
@@ -301,12 +301,41 @@ que o resolver do recurso os fornecer.</p>
 payload de forma estruturada. Use CSV quando o objetivo principal for
 abertura em planilhas.</p>
 <h2 id="excel">Excel</h2>
-<p><code>excel</code> permanece no enum publico para expressar intencao
-de exportacao XLSX, mas o recurso so deve anunciar esse formato em
-<code>/capabilities</code> quando houver engine real registrado. CSV
-compativel com Excel nao deve ser publicado como <code>.xlsx</code>. Uma
-engine XLSX futura deve preservar celulas tipadas e estilos de
-numero/data/moeda, em vez de serializar tudo como texto.</p>
+<p>O engine XLSX canonico produz arquivo <code>.xlsx</code> real com o
+content type
+<code>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</code>.
+Ele preserva a ordem de campos resolvida pelo executor, respeita
+<code>includeHeaders</code>, aplica
+<code>CollectionExportFieldPresentation</code> quando
+<code>applyFormatting=true</code> e neutraliza formula injection em
+textos iniciados por <code>=</code>, <code>+</code>, <code>-</code> ou
+<code>@</code>, inclusive depois de whitespace inicial.</p>
+<p>Quando <code>applyFormatting=true</code>, a prioridade e fidelidade
+visual ao contrato de apresentacao ja publicado pelo recurso; nesse
+modo, valores sao materializados como texto. Quando
+<code>formatOptions.excel.typedCells=true</code> e
+<code>applyFormatting=false</code>, o engine pode escrever celulas
+numericas, booleanas e de data como tipos nativos do Excel.</p>
+<p>Opcoes XLSX suportadas:</p>
+<ul>
+<li><code>sheetName</code>: nome da aba, sanitizado e limitado a 31
+caracteres.</li>
+<li><code>freezeHeaders</code>: congela a primeira linha quando headers
+sao emitidos.</li>
+<li><code>autoFitColumns</code>: ajusta a largura das primeiras colunas
+em volumes pequenos.</li>
+<li><code>typedCells</code>: usa tipos nativos quando formatacao visual
+esta desativada.</li>
+<li><code>includeFormulas</code>: reservado para evolucao governada;
+valores de usuario nao sao tratados como formulas livres por
+padrao.</li>
+</ul>
+<p>CSV compativel com Excel continua sendo CSV e nao deve ser publicado
+como <code>.xlsx</code>. Para volumes grandes, a governanca atual
+continua sendo <code>maxRows</code>, truncamento ou resultado assincrono
+do recurso. Streaming real de ponta a ponta exige evolucao do contrato
+de consulta/exportacao, porque o executor atual recebe linhas ja
+resolvidas em memoria pelo service.</p>
 <h2 id="checklist-minima">Checklist Minima</h2>
 <p>Antes de publicar exportacao em um recurso:</p>
 <ul>
@@ -322,6 +351,8 @@ servidor.</li>
 <li>campos desconhecidos nao caem silenciosamente para defaults.</li>
 <li>truncamento publica metadados e headers.</li>
 <li>CSV protege contra formula injection.</li>
+<li>XLSX protege contra formula injection e so aparece em capabilities
+quando o recurso suporta exportacao Excel real.</li>
 <li>teste HTTP cobre sucesso, limite/truncamento e campo rejeitado.</li>
 </ul>
 </body>

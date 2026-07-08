@@ -71,7 +71,7 @@ existentes e a comunicacao publica.
 | Governanca AI | `/schemas/domain`, `@DomainGovernance`, `AiUsageMode` | Fundamenta uso de IA com classificacao, politica e evidencias |
 | Options | `x-ui.optionSource`, registries e endpoints de option sources | Cria selects, lookups e cascatas governadas sem endpoints ad hoc |
 | Analytics | `x-ui.analytics`, `x-ui.chart`, `/stats/*` | Abre caminho para dashboards metadata-driven e indicadores governados |
-| Exportacao | `POST /{resource}/export`, `CollectionExportCapability`, engines CSV/JSON | Resolve demanda enterprise de exportacao com filtros, selecao e limites |
+| Exportacao | `POST /{resource}/export`, `CollectionExportCapability`, engines CSV/JSON/XLSX | Resolve demanda enterprise de exportacao com filtros, selecao e limites |
 | HATEOAS | envelope `_links` | Liga contrato publicado a affordances HTTP reais |
 
 ### Forca diferencial atual
