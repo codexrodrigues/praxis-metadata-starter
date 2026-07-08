@@ -353,6 +353,13 @@ update, delete individual e delete em lote. Use esses hooks para validacoes,
 normalizacoes e efeitos de dominio que precisam participar do fluxo transacional
 canonico sem sobrescrever `create`, `update` ou `deleteById` por inteiro.
 
+Para updates com relacionamentos JPA, `AbstractBaseResourceService` tambem oferece
+helpers protegidos para resolver referencias relacionadas por ID (`relatedReference`,
+`relatedReferences`, `relatedReferenceSet`) e substituir colecoes mutaveis
+(`replaceRelationshipCollection`). Esses helpers reduzem boilerplate sem inferir
+automaticamente a semantica do aggregate: o service continua decidindo quais IDs
+do DTO representam relacoes validas e como back-references/orphan removal devem ser tratados.
+
 Adote DTOs separados:
 
 - `ResponseDTO`

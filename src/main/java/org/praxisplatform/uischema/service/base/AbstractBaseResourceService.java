@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.service.base;
 
+import jakarta.persistence.EntityManager;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
@@ -7,6 +8,10 @@ import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Base transacional mutante do novo core resource-oriented.
@@ -140,6 +145,68 @@ public abstract class AbstractBaseResourceService<
      * Hook transacional chamado depois da exclusao em lote por IDs.
      */
     protected void afterDeleteAllById(Collection<ID> ids) {
+    }
+
+    /**
+     * Resolve uma referencia JPA para entidade relacionada sem executar busca completa.
+     */
+    protected <RelatedEntity, RelatedID> RelatedEntity relatedReference(
+            Class<RelatedEntity> relatedEntityClass,
+            RelatedID id
+    ) {
+        if (id == null) {
+            return null;
+        }
+        return requireEntityManagerForRelationships().getReference(relatedEntityClass, id);
+    }
+
+    /**
+     * Resolve referencias JPA para uma colecao de IDs relacionados, preservando a ordem recebida.
+     */
+    protected <RelatedEntity, RelatedID> List<RelatedEntity> relatedReferences(
+            Class<RelatedEntity> relatedEntityClass,
+            Collection<RelatedID> ids
+    ) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return ids.stream()
+                .filter(Objects::nonNull)
+                .map(id -> relatedReference(relatedEntityClass, id))
+                .toList();
+    }
+
+    /**
+     * Resolve referencias JPA para uma colecao de IDs relacionados, preservando ordem e removendo duplicatas.
+     */
+    protected <RelatedEntity, RelatedID> Set<RelatedEntity> relatedReferenceSet(
+            Class<RelatedEntity> relatedEntityClass,
+            Collection<RelatedID> ids
+    ) {
+        return new LinkedHashSet<>(relatedReferences(relatedEntityClass, ids));
+    }
+
+    /**
+     * Substitui uma colecao relacional mutavel por referencias ja resolvidas.
+     */
+    protected <RelatedEntity> void replaceRelationshipCollection(
+            Collection<RelatedEntity> target,
+            Collection<? extends RelatedEntity> relatedEntities
+    ) {
+        if (target == null) {
+            throw new IllegalArgumentException("target relationship collection must not be null");
+        }
+        target.clear();
+        if (relatedEntities != null && !relatedEntities.isEmpty()) {
+            target.addAll(relatedEntities);
+        }
+    }
+
+    private EntityManager requireEntityManagerForRelationships() {
+        if (getEntityManager() == null) {
+            throw new IllegalStateException("EntityManager is required to resolve related entity references");
+        }
+        return getEntityManager();
     }
 
     private E refreshManaged(E entity) {

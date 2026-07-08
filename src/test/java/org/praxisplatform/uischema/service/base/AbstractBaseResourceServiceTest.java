@@ -185,6 +185,42 @@ class AbstractBaseResourceServiceTest {
     }
 
     @Test
+    void relationshipHelpersResolveReferencesAndReplaceMutableCollections() {
+        BaseCrudRepository<TestEntity, Long> repository = mockRepository();
+        LifecycleHookService service = new LifecycleHookService(repository);
+        EntityManager entityManager = mock(EntityManager.class);
+        ReflectionTestUtils.setField(service, "entityManager", entityManager);
+        RelatedEntity first = relatedEntity(1L, "First");
+        RelatedEntity second = relatedEntity(2L, "Second");
+        RelatedEntity third = relatedEntity(3L, "Third");
+
+        when(entityManager.getReference(RelatedEntity.class, 1L)).thenReturn(first);
+        when(entityManager.getReference(RelatedEntity.class, 2L)).thenReturn(second);
+        when(entityManager.getReference(RelatedEntity.class, 3L)).thenReturn(third);
+
+        List<Long> idsWithNull = new ArrayList<>(List.of(1L, 2L, 3L));
+        idsWithNull.add(2, null);
+
+        assertEquals(first, service.related(1L));
+        assertEquals(List.of(first, second, third), service.relatedList(idsWithNull));
+        assertEquals(List.of(first, second), service.relatedSet(List.of(1L, 2L, 1L)).stream().toList());
+
+        List<RelatedEntity> target = new ArrayList<>(List.of(first));
+        service.replaceRelated(target, List.of(second, third));
+
+        assertEquals(List.of(second, third), target);
+        verify(entityManager).getReference(RelatedEntity.class, 3L);
+    }
+
+    @Test
+    void relationshipHelpersRequireEntityManagerWhenReferenceIsRequested() {
+        BaseCrudRepository<TestEntity, Long> repository = mockRepository();
+        LifecycleHookService service = new LifecycleHookService(repository);
+
+        assertThrows(IllegalStateException.class, () -> service.related(1L));
+    }
+
+    @Test
     void filterOptionsUsesResourceOptionProjection() {
         BaseCrudRepository<TestEntity, Long> repository = mockRepository();
         TestService service = new TestService(repository);
@@ -283,6 +319,13 @@ class AbstractBaseResourceServiceTest {
         GetterLabeledEntity entity = new GetterLabeledEntity();
         entity.setId(id);
         entity.setLabel(label);
+        entity.setName(name);
+        return entity;
+    }
+
+    private static RelatedEntity relatedEntity(Long id, String name) {
+        RelatedEntity entity = new RelatedEntity();
+        entity.setId(id);
         entity.setName(name);
         return entity;
     }
@@ -397,6 +440,22 @@ class AbstractBaseResourceServiceTest {
         @Override
         protected void afterDeleteAllById(Collection<Long> ids) {
             events.add("afterDeleteAll:%s".formatted(String.join(",", ids.stream().map(String::valueOf).toList())));
+        }
+
+        private RelatedEntity related(Long id) {
+            return relatedReference(RelatedEntity.class, id);
+        }
+
+        private List<RelatedEntity> relatedList(Collection<Long> ids) {
+            return relatedReferences(RelatedEntity.class, ids);
+        }
+
+        private Collection<RelatedEntity> relatedSet(Collection<Long> ids) {
+            return relatedReferenceSet(RelatedEntity.class, ids);
+        }
+
+        private void replaceRelated(Collection<RelatedEntity> target, Collection<RelatedEntity> related) {
+            replaceRelationshipCollection(target, related);
         }
     }
 
@@ -598,6 +657,18 @@ class AbstractBaseResourceServiceTest {
         public void setLabel(String label) {
             this.label = label;
         }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+    }
+
+    private static final class RelatedEntity extends BaseIdEntity {
+        private String name;
 
         public String getName() {
             return name;

@@ -8,6 +8,9 @@ All notable changes to this module will be documented in this file.
 - Hooks protegidos de lifecycle em `AbstractBaseResourceService` para customizar
   create, update, delete individual e delete em lote sem sobrescrever o fluxo
   canonico de mapper, save, refresh e response.
+- Helpers protegidos em `AbstractBaseResourceService` para resolver referencias
+  JPA de entidades relacionadas por ID e substituir colecoes relacionais mutaveis,
+  evitando boilerplate de `EntityManager#getReference` em updates de aggregates.
 - Engine canonico `ExcelCollectionExportEngine` para exportacao XLSX real em
   `POST /{resource}/export`, registrado por auto-configuracao junto aos engines
   CSV/JSON e governado pela mesma allowlist de campos, `applyFormatting`,
