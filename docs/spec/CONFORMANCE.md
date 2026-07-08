@@ -166,7 +166,7 @@ Estado canonicamente suportado no starter:
 - request canonico `CollectionExportRequest`, preservando formato, escopo, selecao,
   filtros, sort, paginacao, campos, limite e metadados;
 - executor reutilizavel para reconciliar campos e delegar para engine por formato;
-- engines tabulares CSV e JSON;
+- engines tabulares CSV, JSON e XLSX;
 - discovery agregado por `/capabilities.operations.export`;
 - headers `X-Export-Row-Count`, `X-Export-Truncated`, `X-Export-Max-Rows`,
   `X-Export-Candidate-Row-Count` e `X-Export-Warnings` quando o resultado inline
@@ -178,7 +178,7 @@ Diretriz canonica:
 - `maxRows` do cliente e sugestao limitada pela politica do servidor;
 - campos desconhecidos nao devem abrir fallback silencioso para dados default quando
   nenhum campo solicitado for suportado;
-- CSV deve aplicar protecao contra formula injection.
+- CSV e XLSX devem aplicar protecao contra formula injection.
 
 ## Boas praticas e notas
 

@@ -26,7 +26,7 @@ suporte a exportacao de colecao. O resultado pode ser:
 
 O request de exportacao preserva o estado da colecao:
 
-- `format`: formato solicitado, como `csv` ou `json`.
+- `format`: formato solicitado, como `csv`, `json` ou `excel`.
 - `scope`: `auto`, `selected`, `filtered`, `currentPage` ou `all`.
 - `selection`: chaves selecionadas, `allMatchingSelected` e exclusoes.
 - `fields`: campos solicitados pelo cliente.
@@ -37,7 +37,7 @@ O request de exportacao preserva o estado da colecao:
 - `applyFormatting`: quando `true`, solicita materializacao de apresentacao governada por campo.
 - `maxRows`: limite solicitado pelo cliente.
 - `fileName`: nome sugerido para download.
-- `formatOptions`: opcoes por formato, como delimitador CSV, encoding, BOM e dialeto de planilha.
+- `formatOptions`: opcoes por formato, como delimitador CSV, encoding, BOM, aba XLSX e celulas tipadas.
 - `localization`: locale/timezone usados como contexto de materializacao.
 
 ## Responsabilidade Do Recurso
@@ -129,11 +129,33 @@ forma estruturada. Use CSV quando o objetivo principal for abertura em planilhas
 
 ## Excel
 
-`excel` permanece no enum publico para expressar intencao de exportacao XLSX,
-mas o recurso so deve anunciar esse formato em `/capabilities` quando houver
-engine real registrado. CSV compativel com Excel nao deve ser publicado como
-`.xlsx`. Uma engine XLSX futura deve preservar celulas tipadas e estilos de
-numero/data/moeda, em vez de serializar tudo como texto.
+O engine XLSX canonico produz arquivo `.xlsx` real com o content type
+`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`. Ele preserva
+a ordem de campos resolvida pelo executor, respeita `includeHeaders`, aplica
+`CollectionExportFieldPresentation` quando `applyFormatting=true` e neutraliza
+formula injection em textos iniciados por `=`, `+`, `-` ou `@`, inclusive depois
+de whitespace inicial.
+
+Quando `applyFormatting=true`, a prioridade e fidelidade visual ao contrato de
+apresentacao ja publicado pelo recurso; nesse modo, valores sao materializados
+como texto. Quando `formatOptions.excel.typedCells=true` e `applyFormatting=false`,
+o engine pode escrever celulas numericas, booleanas e de data como tipos nativos
+do Excel.
+
+Opcoes XLSX suportadas:
+
+- `sheetName`: nome da aba, sanitizado e limitado a 31 caracteres.
+- `freezeHeaders`: congela a primeira linha quando headers sao emitidos.
+- `autoFitColumns`: ajusta a largura das primeiras colunas em volumes pequenos.
+- `typedCells`: usa tipos nativos quando formatacao visual esta desativada.
+- `includeFormulas`: reservado para evolucao governada; valores de usuario nao
+  sao tratados como formulas livres por padrao.
+
+CSV compativel com Excel continua sendo CSV e nao deve ser publicado como `.xlsx`.
+Para volumes grandes, a governanca atual continua sendo `maxRows`, truncamento ou
+resultado assincrono do recurso. Streaming real de ponta a ponta exige evolucao do
+contrato de consulta/exportacao, porque o executor atual recebe linhas ja resolvidas
+em memoria pelo service.
 
 ## Checklist Minima
 
@@ -147,4 +169,6 @@ Antes de publicar exportacao em um recurso:
 - campos desconhecidos nao caem silenciosamente para defaults.
 - truncamento publica metadados e headers.
 - CSV protege contra formula injection.
+- XLSX protege contra formula injection e so aparece em capabilities quando o recurso
+  suporta exportacao Excel real.
 - teste HTTP cobre sucesso, limite/truncamento e campo rejeitado.

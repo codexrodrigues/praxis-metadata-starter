@@ -5,6 +5,10 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- Engine canonico `ExcelCollectionExportEngine` para exportacao XLSX real em
+  `POST /{resource}/export`, registrado por auto-configuracao junto aos engines
+  CSV/JSON e governado pela mesma allowlist de campos, `applyFormatting`,
+  `localization`, headers, ordem tabular e protecao contra formula injection.
 - `GET /{resource}/capabilities` agora publica `stats.fields` como discovery publico
   derivado de `StatsFieldRegistry`, incluindo campo, `propertyPath`, label sugerido,
   metricas e modos elegiveis para dashboards e cockpits metadata-driven.

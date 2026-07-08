@@ -22,6 +22,7 @@ import org.praxisplatform.uischema.exporting.CollectionExportEngine;
 import org.praxisplatform.uischema.exporting.CollectionExportExecutor;
 import org.praxisplatform.uischema.exporting.CsvCollectionExportEngine;
 import org.praxisplatform.uischema.exporting.DefaultCollectionExportExecutor;
+import org.praxisplatform.uischema.exporting.ExcelCollectionExportEngine;
 import org.praxisplatform.uischema.exporting.JsonCollectionExportEngine;
 import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
 import org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodPayloadNormalizer;
@@ -200,6 +201,12 @@ public class OpenApiUiSchemaAutoConfiguration {
     @ConditionalOnMissingBean
     public JsonCollectionExportEngine jsonCollectionExportEngine(ObjectMapper objectMapper) {
         return new JsonCollectionExportEngine(objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ExcelCollectionExportEngine excelCollectionExportEngine() {
+        return new ExcelCollectionExportEngine();
     }
 
     @Bean

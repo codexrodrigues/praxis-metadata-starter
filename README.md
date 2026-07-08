@@ -314,17 +314,22 @@ local apenas sobre consulta, permissao e campos:
 - `CollectionExportEngine`: contrato de serializacao por formato
 - `CsvCollectionExportEngine`: engine padrao para CSV com headers opcionais e protecao contra formula injection
 - `JsonCollectionExportEngine`: engine padrao para JSON tabular preservando a ordem dos campos
+- `ExcelCollectionExportEngine`: engine padrao para XLSX tabular, com headers, ordem de campos,
+  protecao contra formula injection e opcoes de aba/celulas para volumes governados por `maxRows`
 - `CollectionExportValueResolver`: funcao do recurso para mapear linha + campo em valor exportavel
 
 `applyFormatting=true` usa a apresentacao serializavel declarada em
 `CollectionExportFieldPresentation` e o contexto de `localization`. Para CSV
 compativel com Excel, use `formatOptions.csv` com delimitador `;`, UTF-8/BOM e
 CRLF quando o consumidor alvo exigir esse dialeto. Isso continua sendo CSV; o
-formato `excel` so deve aparecer em capabilities quando existir engine XLSX real.
+formato `excel` deve aparecer em capabilities apenas quando o recurso tambem
+publicar politica de exportacao XLSX real.
 
-Os formatos `excel`, `pdf` e `print` permanecem no contrato publico para que consumidores possam expressar
-a intencao, mas exigem engine registrado pelo host ou por versao futura do starter. Na ausencia de engine,
-o executor rejeita o formato com `400 Bad Request` pela mesma trilha de validacao do endpoint base.
+O starter registra engines CSV, JSON e XLSX por padrao. Os formatos `pdf` e `print`
+permanecem no contrato publico para que consumidores possam expressar a intencao,
+mas exigem engine registrado pelo host ou por versao futura do starter. Na ausencia
+de engine, o executor rejeita o formato com `400 Bad Request` pela mesma trilha de
+validacao do endpoint base.
 
 ## Canonical Backend Baseline
 
