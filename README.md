@@ -506,7 +506,7 @@ Dependencia minima:
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>8.0.0-rc.81</version>
+  <version>8.0.0-rc.82</version>
 </dependency>
 ```
 
@@ -567,6 +567,9 @@ Em `POST /{resource}/option-sources/{sourceKey}/options/filter`, dependencias pu
 `dependsOn`/`dependencyFilterMap` podem ser enviadas em `filter` para fontes `PROVIDER_REQUIRED` mesmo
 quando nao existem no `FilterDTO` do recurso host; fontes JPA continuam tratando essas dependencias como
 parte do filtro estrutural do recurso.
+Quando o `FilterDTO` tiver campos chamados `search`, `sort`, `filters` ou `includeIds`, use o envelope
+explicito (`{ "filter": { ... }, "search": "..." }`) para diferenciar filtro estrutural de metadados de
+execucao da option-source.
 
 ## Internal OpenAPI Base Resolution
 

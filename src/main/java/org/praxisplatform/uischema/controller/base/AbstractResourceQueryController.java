@@ -77,15 +77,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Base canonica de leitura do novo core resource-oriented.
@@ -802,11 +805,17 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     private boolean hasOptionSourceEnvelopeShape(JsonNode body) {
-        return body.has("filter")
-                || body.has("filters")
-                || body.has("search")
-                || body.has("sort")
-                || body.has("includeIds");
+        if (body.has("filter")) {
+            return true;
+        }
+        Set<String> bodyFields = fieldNames(body);
+        Set<String> envelopeFields = Set.of("filters", "search", "sort", "includeIds");
+        boolean hasEnvelopeField = bodyFields.stream().anyMatch(envelopeFields::contains);
+        if (!hasEnvelopeField) {
+            return false;
+        }
+        Set<String> filterFields = filterDtoFieldNames();
+        return !filterFields.containsAll(bodyFields);
     }
 
     private OptionSourceFilterParts<FD> parseOptionSourceFilterParts(
@@ -836,7 +845,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         FD filter = resourceFilterNode.isEmpty()
                 ? null
                 : objectMapper.convertValue(resourceFilterNode, resolveFilterDtoClass());
-        Object providerPayload = dependencyPayload.isEmpty() ? null : Map.copyOf(dependencyPayload);
+        Object providerPayload = dependencyPayload.isEmpty()
+                ? null
+                : Collections.unmodifiableMap(new LinkedHashMap<>(dependencyPayload));
         return new OptionSourceFilterParts<>(filter, providerPayload);
     }
 
@@ -892,6 +903,22 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             throw new IllegalStateException("Unable to resolve resource FilterDTO type.");
         }
         return (Class<FD>) filterType;
+    }
+
+    private Set<String> fieldNames(JsonNode node) {
+        Set<String> names = new LinkedHashSet<>();
+        node.fieldNames().forEachRemaining(names::add);
+        return names;
+    }
+
+    private Set<String> filterDtoFieldNames() {
+        List<Field> fields = new ArrayList<>();
+        Class<?> current = resolveFilterDtoClass();
+        while (current != null && current != Object.class) {
+            fields.addAll(List.of(current.getDeclaredFields()));
+            current = current.getSuperclass();
+        }
+        return fields.stream().map(Field::getName).collect(Collectors.toUnmodifiableSet());
     }
 
     private record OptionSourceFilterEnvelope<FD extends GenericFilterDTO>(

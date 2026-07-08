@@ -342,6 +342,9 @@ class EmployeeFilterDTO implements GenericFilterDTO {
     @Filterable
     private EmployeeStatus status;
 
+    @Filterable(operation = Filterable.FilterOperation.LIKE, relation = "nome")
+    private String search;
+
     public String getNome() {
         return nome;
     }
@@ -372,6 +375,14 @@ class EmployeeFilterDTO implements GenericFilterDTO {
 
     public void setStatus(EmployeeStatus status) {
         this.status = status;
+    }
+
+    public String getSearch() {
+        return search;
+    }
+
+    public void setSearch(String search) {
+        this.search = search;
     }
 }
 
@@ -511,4 +522,3 @@ class PayrollViewFilterDTO implements GenericFilterDTO {
         this.employeeNome = employeeNome;
     }
 }
-

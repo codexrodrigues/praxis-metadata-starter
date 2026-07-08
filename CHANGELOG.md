@@ -58,7 +58,9 @@ All notable changes to this module will be documented in this file.
   dependencias publicas declaradas em `dependsOn`/`dependencyFilterMap` para
   fontes `PROVIDER_REQUIRED` mesmo quando esses campos nao existem no
   `FilterDTO` do recurso host, preservando o payload publico governado antes da
-  conversao do filtro estrutural.
+  conversao do filtro estrutural e sem interpretar campos legados chamados
+  `search`, `sort`, `filters` ou `includeIds` como envelope quando eles existem
+  no `FilterDTO`.
 - `/schemas/filtered` agora preserva descricoes `@Schema` de campos `BigDecimal`
   ao manter o formato `decimal`, evitando que metricas monetarias ou agregadas
   percam semantica de negocio no Cockpit e em consumidores AI.

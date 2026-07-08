@@ -80,6 +80,46 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
     }
 
     @Test
+    void providerBackedOptionSourceAcceptsNullDeclaredDependency() throws Exception {
+        ExternalCatalogOptionSourceProvider.resetCounters();
+
+        ResponseEntity<String> response = postJson(
+                "/employees/option-sources/externalDependencyLookup/options/filter?page=0&size=10",
+                """
+                {
+                  "filter": {
+                    "tipoEvento": null
+                  }
+                }
+                """
+        );
+
+        assertEquals(200, response.getStatusCode().value());
+        Map<?, ?> payload = assertInstanceOf(Map.class, ExternalCatalogOptionSourceProvider.lastFilterPayload());
+        assertTrue(payload.containsKey("tipoEvento"));
+        assertEquals(null, payload.get("tipoEvento"));
+    }
+
+    @Test
+    void providerBackedOptionSourcePreservesLegacyFilterFieldNamedSearch() throws Exception {
+        ExternalCatalogOptionSourceProvider.resetCounters();
+
+        ResponseEntity<String> response = postJson(
+                "/employees/option-sources/externalDepartmentLookup/options/filter?page=0&size=10",
+                """
+                {
+                  "search": "Alice"
+                }
+                """
+        );
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(1, ExternalCatalogOptionSourceProvider.filterCalls());
+        Object payload = ExternalCatalogOptionSourceProvider.lastFilterPayload();
+        assertEquals("EmployeeFilterDTO", payload.getClass().getSimpleName());
+    }
+
+    @Test
     void invalidPayloadIsRejectedBeforeCustomProviderResolution() {
         ExternalCatalogOptionSourceProvider.resetCounters();
 
