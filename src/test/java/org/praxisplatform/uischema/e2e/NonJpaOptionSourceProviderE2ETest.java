@@ -57,6 +57,27 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
     }
 
     @Test
+    void providerBackedOptionSourcePublishesStableFilterRequestSchema() throws Exception {
+        ResponseEntity<String> openApiResponse = get("/v3/api-docs/employees");
+
+        assertEquals(200, openApiResponse.getStatusCode().value());
+        JsonNode openApi = body(openApiResponse);
+        String openApiText = openApi.toString();
+
+        assertTrue(openApi.path("paths").has("/employees/option-sources/{sourceKey}/options/filter"));
+        assertTrue(openApiText.contains("OptionSourceFilterRequest"), openApiText);
+
+        ResponseEntity<String> requestSchemaResponse = get(
+                "/schemas/filtered?path=/employees/option-sources/%7BsourceKey%7D/options/filter"
+                        + "&operation=post&schemaType=request"
+        );
+
+        assertEquals(200, requestSchemaResponse.getStatusCode().value());
+        JsonNode requestSchema = body(requestSchemaResponse);
+        assertTrue(requestSchema.path("properties").has("filter"), requestSchema.toPrettyString());
+    }
+
+    @Test
     void providerBackedOptionSourceAcceptsDeclaredDependencyOutsideResourceFilterDto() throws Exception {
         ExternalCatalogOptionSourceProvider.resetCounters();
 

@@ -61,6 +61,9 @@ All notable changes to this module will be documented in this file.
   conversao do filtro estrutural e sem interpretar campos legados chamados
   `search`, `sort`, `filters` ou `includeIds` como envelope quando eles existem
   no `FilterDTO`.
+- O mesmo endpoint provider-backed volta a publicar `OptionSourceFilterRequest`
+  como schema OpenAPI de request, mantendo a documentacao publica estavel mesmo
+  com parsing interno por JSON bruto para preservar dependencias governadas.
 - `/schemas/filtered` agora preserva descricoes `@Schema` de campos `BigDecimal`
   ao manter o formato `decimal`, evitando que metricas monetarias ou agregadas
   percam semantica de negocio no Cockpit e em consumidores AI.

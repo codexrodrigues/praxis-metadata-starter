@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.annotation.PostConstruct;
@@ -716,6 +717,13 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @PostMapping("/option-sources/{sourceKey}/options/filter")
     @Operation(summary = "Listar opcoes filtradas por fonte derivada")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = false,
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = OptionSourceFilterRequest.class)
+            )
+    )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Opcoes retornadas sem envelope."),
             @ApiResponse(responseCode = "404", description = "Option-source inexistente."),
