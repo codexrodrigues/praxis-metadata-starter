@@ -56,7 +56,9 @@ public abstract class AbstractBaseResourceService<
     @Transactional
     public BaseResourceCommandService.SavedResult<ID, ResponseDTO> create(CreateDTO dto) {
         E entity = getResourceMapper().newEntity(dto);
+        beforeCreate(dto, entity);
         E saved = refreshManaged(getRepository().save(entity));
+        afterCreate(dto, saved);
         return new BaseResourceCommandService.SavedResult<>(extractId(saved), getResourceMapper().toResponse(saved));
     }
 
@@ -64,15 +66,21 @@ public abstract class AbstractBaseResourceService<
     @Transactional
     public ResponseDTO update(ID id, UpdateDTO dto) {
         E existing = findEntityById(id);
+        beforeUpdate(id, existing, dto);
         getResourceMapper().applyUpdate(existing, dto);
         E saved = refreshManaged(getRepository().save(existing));
+        afterUpdate(id, saved, dto);
         return getResourceMapper().toResponse(saved);
     }
 
     @Override
     @Transactional
     public void deleteById(ID id) {
-        getRepository().findById(id).ifPresent(getRepository()::delete);
+        getRepository().findById(id).ifPresent(entity -> {
+            beforeDelete(id, entity);
+            getRepository().delete(entity);
+            afterDelete(id, entity);
+        });
     }
 
     @Override
@@ -81,7 +89,57 @@ public abstract class AbstractBaseResourceService<
         if (ids == null) {
             throw new IllegalArgumentException("ids must not be null");
         }
+        beforeDeleteAllById(ids);
         getRepository().deleteAllById(ids);
+        afterDeleteAllById(ids);
+    }
+
+    /**
+     * Hook transacional chamado depois que o mapper cria a entidade e antes do primeiro save.
+     */
+    protected void beforeCreate(CreateDTO dto, E entity) {
+    }
+
+    /**
+     * Hook transacional chamado depois do save/refresh e antes da conversao para response DTO.
+     */
+    protected void afterCreate(CreateDTO dto, E entity) {
+    }
+
+    /**
+     * Hook transacional chamado depois da carga da entidade existente e antes do mapper aplicar o update.
+     */
+    protected void beforeUpdate(ID id, E entity, UpdateDTO dto) {
+    }
+
+    /**
+     * Hook transacional chamado depois do save/refresh e antes da conversao para response DTO.
+     */
+    protected void afterUpdate(ID id, E entity, UpdateDTO dto) {
+    }
+
+    /**
+     * Hook transacional chamado antes da exclusao individual, quando a entidade existe.
+     */
+    protected void beforeDelete(ID id, E entity) {
+    }
+
+    /**
+     * Hook transacional chamado depois da exclusao individual, quando a entidade existe.
+     */
+    protected void afterDelete(ID id, E entity) {
+    }
+
+    /**
+     * Hook transacional chamado antes da exclusao em lote por IDs.
+     */
+    protected void beforeDeleteAllById(Collection<ID> ids) {
+    }
+
+    /**
+     * Hook transacional chamado depois da exclusao em lote por IDs.
+     */
+    protected void afterDeleteAllById(Collection<ID> ids) {
     }
 
     private E refreshManaged(E entity) {

@@ -348,6 +348,11 @@ O baseline canonico para recursos metadata-driven e:
 - `ResourceMapper`
 - `@ApiResource(value = ..., resourceKey = ...)`
 
+`AbstractBaseResourceService` publica hooks protegidos de lifecycle para create,
+update, delete individual e delete em lote. Use esses hooks para validacoes,
+normalizacoes e efeitos de dominio que precisam participar do fluxo transacional
+canonico sem sobrescrever `create`, `update` ou `deleteById` por inteiro.
+
 Adote DTOs separados:
 
 - `ResponseDTO`

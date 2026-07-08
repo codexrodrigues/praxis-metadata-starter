@@ -5,6 +5,9 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- Hooks protegidos de lifecycle em `AbstractBaseResourceService` para customizar
+  create, update, delete individual e delete em lote sem sobrescrever o fluxo
+  canonico de mapper, save, refresh e response.
 - Engine canonico `ExcelCollectionExportEngine` para exportacao XLSX real em
   `POST /{resource}/export`, registrado por auto-configuracao junto aos engines
   CSV/JSON e governado pela mesma allowlist de campos, `applyFormatting`,

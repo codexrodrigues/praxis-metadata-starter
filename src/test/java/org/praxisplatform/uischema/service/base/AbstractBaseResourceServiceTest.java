@@ -21,6 +21,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -146,6 +148,40 @@ class AbstractBaseResourceServiceTest {
         assertEquals(9L, response.id());
         assertEquals("After", response.name());
         assertEquals("After", existing.getName());
+    }
+
+    @Test
+    void createUpdateAndDeleteExposeTransactionalLifecycleHooks() {
+        BaseCrudRepository<TestEntity, Long> repository = mockRepository();
+        LifecycleHookService service = new LifecycleHookService(repository);
+
+        when(repository.save(any(TestEntity.class))).thenAnswer(invocation -> {
+            TestEntity entity = invocation.getArgument(0);
+            if (entity.getId() == null) {
+                entity.setId(31L);
+            }
+            return entity;
+        });
+        TestEntity existing = entity(31L, "Before");
+        when(repository.findById(31L)).thenReturn(Optional.of(existing));
+
+        service.create(new TestCreateDTO("Created"));
+        service.update(31L, new TestUpdateDTO("Updated"));
+        service.deleteById(31L);
+        service.deleteAllById(List.of(31L, 32L));
+
+        assertEquals(List.of(
+                "beforeCreate:Created:null",
+                "afterCreate:Created:31",
+                "beforeUpdate:31:Before:Updated",
+                "afterUpdate:31:Updated:Updated",
+                "beforeDelete:31:Updated",
+                "afterDelete:31:Updated",
+                "beforeDeleteAll:31,32",
+                "afterDeleteAll:31,32"
+        ), service.events);
+        verify(repository).delete(existing);
+        verify(repository).deleteAllById(List.of(31L, 32L));
     }
 
     @Test
@@ -300,6 +336,67 @@ class AbstractBaseResourceServiceTest {
         @Override
         protected ResourceMapper<TestEntity, TestResponseDTO, TestCreateDTO, TestUpdateDTO, Long> getResourceMapper() {
             return RESOURCE_MAPPER;
+        }
+    }
+
+    private static final class LifecycleHookService extends AbstractBaseResourceService<
+            TestEntity,
+            TestResponseDTO,
+            Long,
+            TestFilterDTO,
+            TestCreateDTO,
+            TestUpdateDTO
+            > {
+
+        private final List<String> events = new ArrayList<>();
+
+        private LifecycleHookService(BaseCrudRepository<TestEntity, Long> repository) {
+            super(repository, new GenericSpecificationsBuilder<>(), TestEntity.class);
+        }
+
+        @Override
+        protected ResourceMapper<TestEntity, TestResponseDTO, TestCreateDTO, TestUpdateDTO, Long> getResourceMapper() {
+            return TestService.RESOURCE_MAPPER;
+        }
+
+        @Override
+        protected void beforeCreate(TestCreateDTO dto, TestEntity entity) {
+            events.add("beforeCreate:%s:%s".formatted(dto.name(), entity.getId()));
+        }
+
+        @Override
+        protected void afterCreate(TestCreateDTO dto, TestEntity entity) {
+            events.add("afterCreate:%s:%s".formatted(dto.name(), entity.getId()));
+        }
+
+        @Override
+        protected void beforeUpdate(Long id, TestEntity entity, TestUpdateDTO dto) {
+            events.add("beforeUpdate:%s:%s:%s".formatted(id, entity.getName(), dto.name()));
+        }
+
+        @Override
+        protected void afterUpdate(Long id, TestEntity entity, TestUpdateDTO dto) {
+            events.add("afterUpdate:%s:%s:%s".formatted(id, entity.getName(), dto.name()));
+        }
+
+        @Override
+        protected void beforeDelete(Long id, TestEntity entity) {
+            events.add("beforeDelete:%s:%s".formatted(id, entity.getName()));
+        }
+
+        @Override
+        protected void afterDelete(Long id, TestEntity entity) {
+            events.add("afterDelete:%s:%s".formatted(id, entity.getName()));
+        }
+
+        @Override
+        protected void beforeDeleteAllById(Collection<Long> ids) {
+            events.add("beforeDeleteAll:%s".formatted(String.join(",", ids.stream().map(String::valueOf).toList())));
+        }
+
+        @Override
+        protected void afterDeleteAllById(Collection<Long> ids) {
+            events.add("afterDeleteAll:%s".formatted(String.join(",", ids.stream().map(String::valueOf).toList())));
         }
     }
 
