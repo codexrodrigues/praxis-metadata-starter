@@ -23,6 +23,7 @@ plataforma.
 - [Options e option-sources](guides/OPTIONS-ENDPOINT.html)
 - [RFC - x-ui.optionSource](spec/x-ui-option-source-rfc.html)
 - [Exportacao de colecoes](guides/COLLECTION-EXPORT.html)
+- [RFC - GraphQL Support](technical/GRAPHQL-SUPPORT-RFC.html)
 
 ### Quero gerar uma aplicacao nova
 
