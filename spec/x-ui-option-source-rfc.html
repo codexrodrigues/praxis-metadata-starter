@@ -638,12 +638,17 @@ Propostos</h2>
 selecionados por source</h3>
 <ul>
 <li><code>GET /{resource}/option-sources/{sourceKey}/options/by-ids</code></li>
+<li><code>POST /{resource}/option-sources/{sourceKey}/options/by-ids</code>
+quando a source precisar do filtro/contexto publico</li>
 </ul>
 <p>Regras:</p>
 <ul>
 <li>o payload de resposta converge para <code>OptionDTO</code></li>
 <li>o contrato da fonte vive em <code>x-ui.optionSource</code></li>
 <li>o endpoint operacional nao vira a fonte primaria da semantica</li>
+<li>o <code>POST .../by-ids</code> reutiliza o filtro estrutural
+governado da source para evitar selected-value reload fora de
+contexto</li>
 </ul>
 <h2 id="request-e-cascata">Request e Cascata</h2>
 <p>Quando a source depender de outros campos:</p>
