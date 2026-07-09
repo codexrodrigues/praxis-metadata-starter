@@ -42,6 +42,7 @@ Os controllers-base canonicos sao:
 
 - `AbstractResourceController`
 - `AbstractCreateUpdateResourceController`
+- `AbstractUnitDeleteResourceController`
 - `AbstractReadOnlyResourceController`
 - `AbstractResourceQueryController`
 - `AbstractLegacyBackedResourceController`
