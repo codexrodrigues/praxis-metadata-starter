@@ -10,12 +10,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
-import java.util.Objects;
 
 /**
  * Componente de suporte para resolucao e leitura de documentos OpenAPI do starter.
@@ -194,8 +196,31 @@ public class OpenApiDocsSupport {
         if (StringUtils.hasText(openApiInternalBaseUrl)) {
             return openApiInternalBaseUrl.replaceAll("/+$", "");
         }
-        return Objects.requireNonNull(
-                ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-        );
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
+        HttpServletRequest request = attributes.getRequest();
+        int localPort = request.getLocalPort() > 0 ? request.getLocalPort() : request.getServerPort();
+        UriComponentsBuilder builder = UriComponentsBuilder.newInstance()
+                .scheme("http")
+                .host(resolveLocalHost(request));
+        if (localPort > 0 && localPort != 80) {
+            builder.port(localPort);
+        }
+        String contextPath = request.getContextPath();
+        if (StringUtils.hasText(contextPath)) {
+            builder.path(contextPath);
+        }
+        return builder.build().toUriString();
+    }
+
+    private String resolveLocalHost(HttpServletRequest request) {
+        String localName = request.getLocalName();
+        if (StringUtils.hasText(localName) && !"0:0:0:0:0:0:0:1".equals(localName)) {
+            return localName;
+        }
+        String localAddress = request.getLocalAddr();
+        if (StringUtils.hasText(localAddress) && !"0:0:0:0:0:0:0:1".equals(localAddress)) {
+            return localAddress;
+        }
+        return "localhost";
     }
 }

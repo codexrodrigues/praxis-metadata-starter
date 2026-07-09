@@ -58,6 +58,10 @@ All notable changes to this module will be documented in this file.
 - Links HATEOAS absolutos agora respeitam headers `Forwarded` e
   `X-Forwarded-*`, preservando host, porta e protocolo de proxies e dev servers
   ao publicar affordances como `capabilities`, `actions` e discovery contextual.
+- Resolucao interna de documentos OpenAPI agora usa a origem local do backend
+  ao rodar atras de proxy/forwarded headers, evitando que `/schemas/*`,
+  `/capabilities`, actions e surfaces tentem consumir `/v3/api-docs` pela
+  origem publica sem porta do proxy local.
 - `/schemas/filtered` agora resolve paths OpenAPI template-equivalentes apenas
   quando a operacao HTTP solicitada tambem existe no candidato estrutural, mantendo
   match exato como prioridade e rejeitando ambiguidades em vez de escolher um schema
