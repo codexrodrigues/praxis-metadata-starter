@@ -13,6 +13,7 @@ All notable changes to this module will be documented in this file.
   derivado de `StatsFieldRegistry`, incluindo campo, `propertyPath`, label sugerido,
   metricas e modos elegiveis para dashboards e cockpits metadata-driven.
 - Base canonica `AbstractCreateUpdateResourceController` e portas `BaseCreateUpdateResourceService` / `BaseCreateUpdateResourceCommandService` para recursos `read + create/update` que nao publicam `delete`.
+- Base canonica `AbstractUnitDeleteResourceController` e portas `BaseUnitDeleteResourceService` / `BaseUnitDeleteResourceCommandService` para recursos `read + create/update + delete unitario` que nao publicam `DELETE /batch`.
 - SPI publica `ResourceOperationAvailabilityProvider` para availability host-neutral de operacoes canonicas de recurso, integrada a `/capabilities` e `_links`.
 - Tipos publicos `ResourceOperationAvailabilityContext` e `NoOpResourceOperationAvailabilityProvider` para hosts corporativos plugar guards legados sem expor detalhes privados no contrato.
 - Base canonica `AbstractLegacyBackedResourceController` e portas `LegacyBackedResourceService` / `LegacyBackedResourceCommandService` para recursos mutaveis resource-oriented com escrita delegada ao host legado.

@@ -337,12 +337,14 @@ O baseline canonico para recursos metadata-driven e:
 
 - `AbstractResourceController`
 - `AbstractCreateUpdateResourceController`, quando o recurso publica create/update sem delete
+- `AbstractUnitDeleteResourceController`, quando o recurso publica create/update e `DELETE /{id}` sem `DELETE /batch`
 - `AbstractLegacyBackedResourceController`, quando a escrita for delegada a backend legado mantendo contrato publico resource-oriented
 - `AbstractDuplicateDraftLegacyBackedResourceController`, somente quando o recurso realmente publicar `POST /{resource}/{id}/duplicate-draft` como rascunho nao mutante
 - `AbstractReadOnlyResourceController`
 - `AbstractBaseResourceService`
 - `AbstractReadOnlyResourceService`
 - `BaseCreateUpdateResourceService`, quando a porta de comando publica create/update sem delete
+- `BaseUnitDeleteResourceService`, quando a porta de comando publica create/update e delete individual sem delete em lote
 - `LegacyBackedResourceService`, quando create/update/delete forem executados por porta/adaptador do host
 - `DuplicateDraftLegacyBackedResourceService`, quando `duplicate-draft` preparar um DTO editavel para posterior `POST`
 - `ResourceMapper`
@@ -538,6 +540,7 @@ Quando o frontend oficial for consumir CRUD inferido, valide tambem no payload d
 Para `delete`, confira explicitamente:
 
 - item-level real publica `operations.delete.scope = ITEM`
+- recursos baseados em `AbstractUnitDeleteResourceController` publicam `DELETE /{id}` sem anunciar `DELETE /batch`
 - um endpoint `DELETE /batch` isolado nao promove `operations.delete`
 - workflow `DELETE` continua em `actions`, nao redefine `operations.delete`
 

@@ -20,7 +20,7 @@
 
   <h2>Visão Geral</h2>
   <ul>
-    <li><strong>Controllers</strong>: estenda <code>AbstractResourceController</code> (CRUD completo), <code>AbstractCreateUpdateResourceController</code> (create/update sem delete) ou <code>AbstractReadOnlyResourceController</code> (somente leitura).</li>
+    <li><strong>Controllers</strong>: estenda <code>AbstractResourceController</code> (CRUD completo), <code>AbstractUnitDeleteResourceController</code> (create/update/delete unitario sem batch), <code>AbstractCreateUpdateResourceController</code> (create/update sem delete) ou <code>AbstractReadOnlyResourceController</code> (somente leitura).</li>
     <li><strong>Anotações</strong>: use <code>@ApiResource</code> para declarar o path e <code>@ApiGroup</code> para organização do OpenAPI.</li>
     <li><strong>Service</strong>: para integracoes JPA com relacionamentos <code>LAZY</code>, herde de <code>AbstractBaseResourceService</code>. Recursos somente leitura devem usar <code>AbstractReadOnlyResourceService</code>.</li>
     <li><strong>HATEOAS (opt‑in)</strong>: controlado por <code>praxis.hateoas.enabled=true</code>. Itens trazem <code>self</code>, <code>create</code>, <code>update</code>, <code>delete</code> quando aplicável; respostas agregadas incluem links úteis (<code>all</code>, <code>filter</code>, <code>filter-cursor</code>, <code>schema</code>).</li>

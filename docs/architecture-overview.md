@@ -40,6 +40,7 @@ O contrato estrutural e o discovery semantico tem papeis diferentes:
 Para aplicacoes novas, o baseline correto e:
 
 - `AbstractResourceController`
+- `AbstractUnitDeleteResourceController`, quando o recurso precisar de delete unitario sem delete em lote
 - `AbstractReadOnlyResourceController`
 - `AbstractBaseResourceService`
 - `AbstractReadOnlyResourceService`

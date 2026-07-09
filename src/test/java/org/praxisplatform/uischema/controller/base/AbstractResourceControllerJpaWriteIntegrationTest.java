@@ -233,6 +233,46 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
     }
 
     @Test
+    void unitDeleteResourcePublishesUnitDeleteWithoutBatchDelete() throws Exception {
+        Long aliceId = createEmployee("Alice", hrId).getId();
+
+        mockMvc.perform(delete("/integration-employees-unit-delete/{id}", aliceId))
+                .andExpect(status().isNoContent());
+        assertFalse(employeeRepository.findById(aliceId).isPresent());
+
+        mockMvc.perform(delete("/integration-employees-unit-delete/batch")
+                        .contentType("application/json")
+                        .content("[" + aliceId + "]"))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    void unitDeleteResourceOpenApiDoesNotPublishBatchDeletePath() throws Exception {
+        MvcResult result = mockMvc.perform(get("/v3/api-docs/integration-employees-unit-delete"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode paths = root.path("paths");
+
+        assertTrue(paths.path("/integration-employees-unit-delete/{id}").has("delete"));
+        assertFalse(paths.has("/integration-employees-unit-delete/batch"));
+    }
+
+    @Test
+    void fullCrudResourceOpenApiStillPublishesBatchDeletePath() throws Exception {
+        MvcResult result = mockMvc.perform(get("/v3/api-docs/integration-employees"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode paths = root.path("paths");
+
+        assertTrue(paths.path("/integration-employees/{id}").has("delete"));
+        assertTrue(paths.path("/integration-employees/batch").has("delete"));
+    }
+
+    @Test
     void schemasEndpointRedirectsToCanonicalFilteredResponseSchema() throws Exception {
         mockMvc.perform(get("/integration-employees/schemas"))
                 .andExpect(status().isFound())
@@ -602,7 +642,12 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
             considerNestedRepositories = true,
             basePackageClasses = AbstractResourceControllerJpaWriteIntegrationTest.class
     )
-    @Import({EmployeeController.class, EmployeeService.class, EmployeeResourceMapper.class})
+    @Import({
+            EmployeeController.class,
+            UnitDeleteEmployeeController.class,
+            EmployeeService.class,
+            EmployeeResourceMapper.class
+    })
     static class TestConfig {
     }
 }
@@ -930,5 +975,30 @@ class EmployeeController extends AbstractResourceController<
                 linkToUiSchema("/{id}/profile", "patch", "request")
         );
         return withVersion(ResponseEntity.ok(), RestApiResponse.success(updated, hateoasOrNull(links)));
+    }
+}
+
+@ApiResource(value = "/integration-employees-unit-delete", resourceKey = "integration.employees.unit-delete")
+class UnitDeleteEmployeeController extends AbstractUnitDeleteResourceController<
+        EmployeeResponseDto,
+        Long,
+        EmployeeFilterDto,
+        CreateEmployeeDto,
+        UpdateEmployeeDto> {
+
+    private final EmployeeService service;
+
+    UnitDeleteEmployeeController(EmployeeService service) {
+        this.service = service;
+    }
+
+    @Override
+    protected EmployeeService getService() {
+        return service;
+    }
+
+    @Override
+    protected Long getResponseId(EmployeeResponseDto dto) {
+        return dto.getId();
     }
 }

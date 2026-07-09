@@ -15,7 +15,8 @@
  * <ul>
  *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractResourceQueryController}: superficie canonica de leitura, options, stats e schema discovery.</li>
  *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractCreateUpdateResourceController}: superficie mutante parcial com create e update, sem delete.</li>
- *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractResourceController}: superficie mutante canonica com create, update e delete.</li>
+ *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractUnitDeleteResourceController}: superficie mutante parcial com create, update e delete unitario.</li>
+ *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractResourceController}: superficie mutante canonica com create, update, delete unitario e delete em lote.</li>
  *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController}: variante query-only para recursos somente leitura.</li>
  * </ul>
  *

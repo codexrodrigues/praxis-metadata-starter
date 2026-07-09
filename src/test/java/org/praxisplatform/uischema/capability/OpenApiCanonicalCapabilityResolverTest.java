@@ -218,6 +218,41 @@ class OpenApiCanonicalCapabilityResolverTest {
     }
 
     @Test
+    void resolvesUnitDeleteWithoutBatchDeleteAsItemDeleteCapability() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {
+                  "paths": {
+                    "/employees": {
+                      "post": {}
+                    },
+                    "/employees/{id}": {
+                      "get": {},
+                      "put": {},
+                      "delete": {}
+                    },
+                    "/employees/filter": {
+                      "post": {}
+                    }
+                  }
+                }
+                """);
+
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
+                new StaticOpenApiDocumentService("human-resources", document)
+        );
+
+        Map<String, Boolean> capabilities = resolver.resolve("/employees");
+        assertTrue(capabilities.get("create"));
+        assertTrue(capabilities.get("update"));
+        assertTrue(capabilities.get("delete"));
+
+        Map<String, CapabilityOperation> operations = resolver.resolveCrudOperations(document, "/employees");
+        assertTrue(operations.get("delete").supported());
+        assertEquals("ITEM", operations.get("delete").scope());
+        assertEquals("DELETE", operations.get("delete").preferredMethod());
+    }
+
+    @Test
     void resolvesContextualRelatedCollectionOperationsWithCustomItemVariable() throws Exception {
         JsonNode document = objectMapper.readTree("""
                 {

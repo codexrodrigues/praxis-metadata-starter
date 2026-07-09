@@ -3,16 +3,16 @@ package org.praxisplatform.uischema.service.base;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 
 /**
- * Contrato agregado do novo core resource-oriented.
+ * Contrato agregado para resources que publicam leitura, criacao, atualizacao e exclusao unitaria,
+ * sem exclusao em lote.
  */
-public interface BaseResourceService<
+public interface BaseUnitDeleteResourceService<
         ResponseDTO,
         ID,
         FilterDTO extends GenericFilterDTO,
         CreateDTO,
         UpdateDTO
 > extends BaseResourceQueryService<ResponseDTO, ID, FilterDTO>,
-        BaseResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO>,
-        BaseUnitDeleteResourceService<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>,
+        BaseUnitDeleteResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO>,
         BaseCreateUpdateResourceService<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> {
 }

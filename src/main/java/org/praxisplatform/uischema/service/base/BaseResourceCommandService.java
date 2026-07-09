@@ -9,9 +9,7 @@ package org.praxisplatform.uischema.service.base;
  * </p>
  */
 public interface BaseResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO>
-        extends BaseCreateUpdateResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO> {
-
-    void deleteById(ID id);
+        extends BaseUnitDeleteResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO> {
 
     void deleteAllById(java.util.Collection<ID> ids);
 }
