@@ -55,6 +55,9 @@ All notable changes to this module will be documented in this file.
 - Mensagens de erro para condicionais Json Logic malformados agora distinguem JSON invalido de contrato Json Logic invalido, e a validacao bloqueia literais com shape basico incompatível com o runtime Angular.
 
 ### Fixed
+- Links HATEOAS absolutos agora respeitam headers `Forwarded` e
+  `X-Forwarded-*`, preservando host, porta e protocolo de proxies e dev servers
+  ao publicar affordances como `capabilities`, `actions` e discovery contextual.
 - `/schemas/filtered` agora resolve paths OpenAPI template-equivalentes apenas
   quando a operacao HTTP solicitada tambem existe no candidato estrutural, mantendo
   match exato como prioridade e rejeitando ambiguidades em vez de escolher um schema

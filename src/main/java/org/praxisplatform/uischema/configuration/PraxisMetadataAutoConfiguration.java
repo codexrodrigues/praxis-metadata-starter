@@ -15,9 +15,11 @@ import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.web.servlet.ConditionalOnMissingFilterBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.hateoas.EntityModel;
+import org.springframework.web.filter.ForwardedHeaderFilter;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,6 +56,16 @@ public class PraxisMetadataAutoConfiguration {
     @Bean
     public GlobalOpenApiCustomizer restApiResourceComponentCustomizer() {
         return this::customizeRestApiResourceSchemas;
+    }
+
+    /**
+     * Ensures Spring HATEOAS link builders honor standard proxy headers from hosts
+     * and Angular dev-server proxies before materializing absolute `_links`.
+     */
+    @Bean
+    @ConditionalOnMissingFilterBean(ForwardedHeaderFilter.class)
+    public ForwardedHeaderFilter praxisForwardedHeaderFilter() {
+        return new ForwardedHeaderFilter();
     }
 
     /**

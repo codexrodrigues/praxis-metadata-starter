@@ -479,6 +479,13 @@ Isso aparece em:
 
 Quando `praxis.hateoas.enabled=false`, a semantica de links e suprimida do envelope, mas o contrato estrutural de schema continua existindo.
 
+Em hosts atras de proxy, ingress ou dev-server Angular, o starter registra suporte
+padrao a headers `Forwarded` e `X-Forwarded-*`. Assim, links absolutos
+materializados por Spring HATEOAS preservam origem, protocolo e porta
+encaminhados, sem exigir que cada App Host reescreva URLs de capabilities,
+actions ou discovery localmente. O host ainda pode substituir esse filtro com um
+bean proprio quando precisar de politica operacional especifica.
+
 ## Quick Mental Model
 
 ```mermaid
