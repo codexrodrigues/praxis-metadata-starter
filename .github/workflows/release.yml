@@ -359,10 +359,13 @@ jobs:
           GROUP_PATH="io/github/codexrodrigues"
           ARTIFACT="praxis-metadata-starter"
           POM_URL="https://repo1.maven.org/maven2/${GROUP_PATH}/${ARTIFACT}/${V}/${ARTIFACT}-${V}.pom"
-          ATTEMPTS=40
+          # Central propagation is usually fast, but recent releases took just over
+          # 20 minutes after an accepted upload. Keep this as a release-only gate.
+          ATTEMPTS=80
           DELAY_SECONDS=30
+          MAX_WAIT_MINUTES=$((ATTEMPTS * DELAY_SECONDS / 60))
 
-          echo "Checking Maven Central availability for ${ARTIFACT}:${V}."
+          echo "Checking Maven Central availability for ${ARTIFACT}:${V} for up to ${MAX_WAIT_MINUTES} minutes."
           echo "POM URL: ${POM_URL}"
           for attempt in $(seq 1 "${ATTEMPTS}"); do
             status="$(curl -L -sS -o /tmp/central-pom.xml -w '%{http_code}' "${POM_URL}" || true)"
@@ -375,6 +378,7 @@ jobs:
                 echo "- Version: \`${V}\`"
                 echo "- POM URL: ${POM_URL}"
                 echo "- Status: consumable by Maven Central"
+                echo "- Wait window: ${MAX_WAIT_MINUTES} minutes"
               } >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
@@ -385,6 +389,6 @@ jobs:
             fi
           done
 
-          echo "::error::Maven Central did not serve ${ARTIFACT}:${V} after $((ATTEMPTS * DELAY_SECONDS / 60)) minutes."
+          echo "::error::Maven Central did not serve ${ARTIFACT}:${V} after ${MAX_WAIT_MINUTES} minutes."
           echo "::error::The Central Portal publish may still be processing, but consumers should not be updated until the artifact resolves."
           exit 1
