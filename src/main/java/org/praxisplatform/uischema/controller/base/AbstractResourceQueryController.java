@@ -894,6 +894,16 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         return objectMapper.convertValue(includeIdsNode, new TypeReference<>() {});
     }
 
+    private Collection<Object> parseIds(JsonNode idsNode) {
+        if (idsNode == null || idsNode.isNull()) {
+            return List.of();
+        }
+        if (!idsNode.isArray()) {
+            throw new IllegalArgumentException("Option source ids must be a JSON array.");
+        }
+        return objectMapper.convertValue(idsNode, new TypeReference<>() {});
+    }
+
     private String textOrNull(JsonNode node) {
         if (node == null || node.isNull()) {
             return null;
@@ -931,6 +941,12 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     private record OptionSourceFilterEnvelope<FD extends GenericFilterDTO>(
             OptionSourceFilterRequest<FD> request,
+            Object providerFilterPayload
+    ) {
+    }
+
+    private record OptionSourceByIdsEnvelope<FD extends GenericFilterDTO>(
+            OptionSourceByIdsRequest<FD> request,
             Object providerFilterPayload
     ) {
     }
@@ -1021,6 +1037,13 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @PostMapping("/option-sources/{sourceKey}/options/by-ids")
     @Operation(summary = "Buscar opcoes derivadas por IDs com contexto")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = false,
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = OptionSourceByIdsRequest.class)
+            )
+    )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Opcoes retornadas sem envelope."),
             @ApiResponse(responseCode = "404", description = "Option-source inexistente."),
@@ -1029,12 +1052,13 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     })
     public ResponseEntity<List<OptionDTO<Object>>> postOptionSourceOptionsByIds(
             @PathVariable String sourceKey,
-            @RequestBody(required = false) OptionSourceByIdsRequest<FD> request
+            @RequestBody(required = false) JsonNode request
     ) {
         try {
-            Collection<Object> ids = request == null ? List.of() : request.ids();
+            OptionSourceDescriptor descriptor = getService().resolveOptionSource(sourceKey);
+            OptionSourceByIdsEnvelope<FD> envelope = parseOptionSourceByIdsRequest(request, descriptor);
+            Collection<Object> ids = envelope.request().ids();
             if (ids.isEmpty()) {
-                getService().resolveOptionSource(sourceKey);
                 return withOptionSourceVersion(ResponseEntity.ok(), sourceKey, List.of());
             }
             if (ids.size() > byIdsMax) {
@@ -1044,7 +1068,11 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return withOptionSourceVersion(
                     ResponseEntity.ok(),
                     sourceKey,
-                    getService().byIdsOptionSourceOptions(sourceKey, request)
+                    getService().byIdsOptionSourceOptions(
+                            sourceKey,
+                            envelope.request(),
+                            envelope.providerFilterPayload()
+                    )
             );
         } catch (UnknownOptionSourceException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
@@ -1053,6 +1081,22 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), ex);
         }
+    }
+
+    private OptionSourceByIdsEnvelope<FD> parseOptionSourceByIdsRequest(
+            JsonNode request,
+            OptionSourceDescriptor descriptor
+    ) {
+        JsonNode body = request == null || request.isNull() ? objectMapper.createObjectNode() : request;
+        if (!body.isObject()) {
+            throw new IllegalArgumentException("Option source by-ids request must be a JSON object.");
+        }
+        OptionSourceFilterParts<FD> filterParts = parseOptionSourceFilterParts(body.get("filter"), descriptor);
+        OptionSourceByIdsRequest<FD> effectiveRequest = new OptionSourceByIdsRequest<>(
+                filterParts.filter(),
+                parseIds(body.get("ids"))
+        );
+        return new OptionSourceByIdsEnvelope<>(effectiveRequest, filterParts.providerFilterPayload());
     }
 
     @GetMapping("/{id}")

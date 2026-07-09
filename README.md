@@ -103,7 +103,9 @@ abrem as superficies canonicas que o cockpit ja usa para explicar o host.
 Quando um recurso publica stats e o schema filtrado aponta `x-ui.optionSource`
 com `byIdsEndpoint`, o cockpit pode montar uma amostra de chart real via
 `POST /{resource}/stats/group-by` e hidratar buckets relacionais por
-`GET /{lookupResource}/option-sources/{sourceKey}/options/by-ids`. Assim,
+`GET /{lookupResource}/option-sources/{sourceKey}/options/by-ids` quando os IDs
+sao autossuficientes, ou por `POST .../by-ids` quando a source exige contexto
+publico em `filter`. Assim,
 dimensoes como `veiculoId`, `missaoId` ou `funcionarioId` aparecem com label
 humano e ID tecnico secundario. Se a consulta de stats ou de labels falhar, o
 cockpit preserva fallback explicito para o valor cru retornado pelo endpoint.
@@ -499,7 +501,7 @@ flowchart LR
 2. Siga [docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md).
 3. Modele o primeiro recurso com `@ApiResource(value = ..., resourceKey = ...)`.
 4. Valide `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities`.
-5. Se o recurso publicar `OptionSourceRegistry`, valide tambem `POST /{resource}/option-sources/{sourceKey}/options/filter` e `GET /{resource}/option-sources/{sourceKey}/options/by-ids`.
+5. Se o recurso publicar `OptionSourceRegistry`, valide tambem `POST /{resource}/option-sources/{sourceKey}/options/filter`, `GET /{resource}/option-sources/{sourceKey}/options/by-ids` e `POST /{resource}/option-sources/{sourceKey}/options/by-ids` quando a source depender de contexto.
 6. Integre o host oficial com `praxis-ui-angular`.
 
 Dependencia minima:
@@ -557,6 +559,7 @@ Quando o recurso publicar `OptionSourceRegistry`, valide tambem:
 
 - `POST /{resource}/option-sources/{sourceKey}/options/filter`
 - `GET /{resource}/option-sources/{sourceKey}/options/by-ids`
+- `POST /{resource}/option-sources/{sourceKey}/options/by-ids` para selected-value reload contextual com `filter`
 - `x-ui.optionSource` em `/schemas/filtered` para os campos governados por essa source
 - `filterEndpoint`, `byIdsEndpoint`, `selectedReloadPolicy` e `invalidSortPolicy` no metadata emitido
 - `sourceKey` URL-safe, usando letras, numeros, ponto, underscore ou hifen, porque ele compoe endpoints publicos de runtime
@@ -570,6 +573,8 @@ Em `POST /{resource}/option-sources/{sourceKey}/options/filter`, dependencias pu
 `dependsOn`/`dependencyFilterMap` podem ser enviadas em `filter` para fontes `PROVIDER_REQUIRED` mesmo
 quando nao existem no `FilterDTO` do recurso host; fontes JPA continuam tratando essas dependencias como
 parte do filtro estrutural do recurso.
+Em `POST /{resource}/option-sources/{sourceKey}/options/by-ids`, o mesmo filtro estrutural e usado para
+reidratar valores selecionados de sources dependentes sem devolver IDs validos apenas em outro contexto.
 Quando o `FilterDTO` tiver campos chamados `search`, `sort`, `filters` ou `includeIds`, use o envelope
 explicito (`{ "filter": { ... }, "search": "..." }`) para diferenciar filtro estrutural de metadados de
 execucao da option-source.

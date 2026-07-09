@@ -105,6 +105,14 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
         return byIdsOptionSourceOptions(sourceKey, request == null ? List.of() : request.ids());
     }
 
+    default List<OptionDTO<Object>> byIdsOptionSourceOptions(
+            String sourceKey,
+            OptionSourceByIdsRequest<FilterDTO> request,
+            Object providerFilterPayload
+    ) {
+        return byIdsOptionSourceOptions(sourceKey, request);
+    }
+
     GroupByStatsResponse groupByStats(GroupByStatsRequest<FilterDTO> request);
 
     TimeSeriesStatsResponse timeSeriesStats(TimeSeriesStatsRequest<FilterDTO> request);

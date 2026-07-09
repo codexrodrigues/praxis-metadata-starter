@@ -82,10 +82,22 @@ public class CompositeOptionSourceQueryExecutor implements OptionSourceQueryExec
             OptionSourceDescriptor descriptor,
             Collection<Object> ids
     ) {
+        return byIdsOptions(entityManager, entityClass, null, null, descriptor, ids);
+    }
+
+    @Override
+    public <E> List<OptionDTO<Object>> byIdsOptions(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            Object filterPayload,
+            OptionSourceDescriptor descriptor,
+            Collection<Object> ids
+    ) {
         OptionSourceExecutionContext context = contextResolver.resolve(descriptor, OptionSourceOperation.BY_IDS);
         OptionSourceExecutionRequest<E> request = new OptionSourceExecutionRequest<>(
-                new JpaOptionSourceHostContext<>(entityManager, entityClass, null),
-                null,
+                new JpaOptionSourceHostContext<>(entityManager, entityClass, specification),
+                filterPayload,
                 descriptor,
                 null,
                 List.of(),

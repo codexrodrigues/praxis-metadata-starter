@@ -67,6 +67,29 @@ class CompositeOptionSourceQueryExecutorTest {
     }
 
     @Test
+    void delegatesContextualByIdsFilterPayloadToProvider() {
+        OptionSourceDescriptor descriptor = descriptor("departments");
+        CapturingProvider provider = new CapturingProvider();
+        CompositeOptionSourceQueryExecutor executor = new CompositeOptionSourceQueryExecutor(
+                new DefaultOptionSourceProviderRegistry(List.of(provider))
+        );
+
+        List<OptionDTO<Object>> result = executor.byIdsOptions(
+                null,
+                TestEntity.class,
+                null,
+                Map.of("departmentId", 7L),
+                descriptor,
+                List.of(10L)
+        );
+
+        assertEquals(OptionSourceOperation.BY_IDS, provider.lastContext.operation());
+        assertEquals(Map.of("departmentId", 7L), provider.lastRequest.filterPayload());
+        assertEquals(List.of(10L), provider.lastRequest.ids());
+        assertEquals("byIds", result.getFirst().label());
+    }
+
+    @Test
     void normalizesByIdsProviderResponseWithoutNullItemsAndPreservesRequestedOrder() {
         OptionSourceDescriptor descriptor = descriptor("departments");
         FixedByIdsProvider provider = new FixedByIdsProvider(Arrays.asList(

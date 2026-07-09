@@ -127,6 +127,18 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             OptionSourceDescriptor descriptor,
             Collection<Object> ids
     ) {
+        return byIdsOptions(entityManager, entityClass, null, null, descriptor, ids);
+    }
+
+    @Override
+    public <E> List<OptionDTO<Object>> byIdsOptions(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            Object filterPayload,
+            OptionSourceDescriptor descriptor,
+            Collection<Object> ids
+    ) {
         ensureSupported(descriptor);
         if (ids == null || ids.isEmpty()) {
             return List.of();
@@ -151,7 +163,10 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         } else {
             applyOptionSelections(query, valuePath, labelPath);
         }
-        query.where(valuePath.in(coercedIds)).distinct(true);
+        Predicate idPredicate = valuePath.in(coercedIds);
+        Predicate filterPredicate = applyPredicate(specification, root, query, cb);
+        Predicate mergedPredicate = mergePredicates(cb, idPredicate, filterPredicate);
+        query.where(mergedPredicate).distinct(true);
 
         Map<String, OptionDTO<Object>> byKey = entityManager.createQuery(query)
                 .getResultList()

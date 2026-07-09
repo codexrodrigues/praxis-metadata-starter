@@ -8,10 +8,11 @@ import java.util.List;
 /**
  * Canonical request envelope for option-source selected-value reload by IDs.
  *
- * <p>The public HTTP endpoint remains
- * {@code GET /{resource}/option-sources/{sourceKey}/options/by-ids?ids=...}.
- * This envelope gives provider-backed services the same typed extension point
- * used by filter requests, while keeping ID order stable.</p>
+ * <p>{@code GET /{resource}/option-sources/{sourceKey}/options/by-ids?ids=...}
+ * remains the lightweight reload path for self-sufficient IDs. The contextual
+ * {@code POST /{resource}/option-sources/{sourceKey}/options/by-ids} path uses
+ * this envelope to pass the same governed filter context used by filter
+ * requests, while keeping ID order stable.</p>
  */
 public record OptionSourceByIdsRequest<FD extends GenericFilterDTO>(
         FD filter,

@@ -35,4 +35,15 @@ public interface OptionSourceQueryExecutor {
             OptionSourceDescriptor descriptor,
             Collection<Object> ids
     );
+
+    default <E> List<OptionDTO<Object>> byIdsOptions(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            Object filterPayload,
+            OptionSourceDescriptor descriptor,
+            Collection<Object> ids
+    ) {
+        return byIdsOptions(entityManager, entityClass, descriptor, ids);
+    }
 }

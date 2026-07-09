@@ -65,7 +65,9 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         String openApiText = openApi.toString();
 
         assertTrue(openApi.path("paths").has("/employees/option-sources/{sourceKey}/options/filter"));
+        assertTrue(openApi.path("paths").has("/employees/option-sources/{sourceKey}/options/by-ids"));
         assertTrue(openApiText.contains("OptionSourceFilterRequest"), openApiText);
+        assertTrue(openApiText.contains("OptionSourceByIdsRequest"), openApiText);
 
         ResponseEntity<String> requestSchemaResponse = get(
                 "/schemas/filtered?path=/employees/option-sources/%7BsourceKey%7D/options/filter"
@@ -97,6 +99,31 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         assertEquals(2, body.path("content").size());
         assertEquals(1, ExternalCatalogOptionSourceProvider.filterCalls());
         Map<?, ?> payload = assertInstanceOf(Map.class, ExternalCatalogOptionSourceProvider.lastFilterPayload());
+        assertEquals("SUBST FG", payload.get("tipoEvento"));
+    }
+
+    @Test
+    void providerBackedOptionSourceByIdsAcceptsDeclaredDependencyOutsideResourceFilterDto() throws Exception {
+        ExternalCatalogOptionSourceProvider.resetCounters();
+
+        ResponseEntity<String> response = postJson(
+                "/employees/option-sources/externalDependencyLookup/options/by-ids",
+                """
+                {
+                  "filter": {
+                    "tipoEvento": "SUBST FG"
+                  },
+                  "ids": ["EXT-2", "EXT-1"]
+                }
+                """
+        );
+
+        assertEquals(200, response.getStatusCode().value());
+        JsonNode body = body(response);
+        assertEquals("EXT-2", body.get(0).path("id").asText());
+        assertEquals("EXT-1", body.get(1).path("id").asText());
+        assertEquals(1, ExternalCatalogOptionSourceProvider.byIdsCalls());
+        Map<?, ?> payload = assertInstanceOf(Map.class, ExternalCatalogOptionSourceProvider.lastByIdsPayload());
         assertEquals("SUBST FG", payload.get("tipoEvento"));
     }
 
@@ -258,6 +285,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         private static final AtomicInteger FILTER_CALLS = new AtomicInteger();
         private static final AtomicInteger BY_IDS_CALLS = new AtomicInteger();
         private static final AtomicReference<Object> LAST_FILTER_PAYLOAD = new AtomicReference<>();
+        private static final AtomicReference<Object> LAST_BY_IDS_PAYLOAD = new AtomicReference<>();
         private static final List<OptionDTO<Object>> OPTIONS = List.of(
                 option("EXT-1", "External Human Resources"),
                 option("EXT-2", "External Operations")
@@ -291,6 +319,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         @Override
         public List<OptionDTO<Object>> byIds(OptionSourceExecutionRequest<?> request) {
             BY_IDS_CALLS.incrementAndGet();
+            LAST_BY_IDS_PAYLOAD.set(request.filterPayload());
             return request.ids().stream()
                     .map(String::valueOf)
                     .map(OPTIONS_BY_ID::get)
@@ -312,6 +341,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
             FILTER_CALLS.set(0);
             BY_IDS_CALLS.set(0);
             LAST_FILTER_PAYLOAD.set(null);
+            LAST_BY_IDS_PAYLOAD.set(null);
         }
 
         private static int supportCalls() {
@@ -328,6 +358,10 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
 
         private static Object lastFilterPayload() {
             return LAST_FILTER_PAYLOAD.get();
+        }
+
+        private static Object lastByIdsPayload() {
+            return LAST_BY_IDS_PAYLOAD.get();
         }
     }
 }

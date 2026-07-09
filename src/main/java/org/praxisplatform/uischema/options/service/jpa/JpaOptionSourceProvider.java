@@ -62,6 +62,8 @@ public class JpaOptionSourceProvider implements OptionSourceProvider {
         return delegate.byIdsOptions(
                 hostContext.entityManager(),
                 hostContext.entityClass(),
+                hostContext.specification(),
+                request.filterPayload(),
                 request.descriptor(),
                 request.ids()
         );

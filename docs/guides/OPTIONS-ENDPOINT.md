@@ -13,9 +13,10 @@ Endpoints canonicos:
 - `GET /{resource}/option-sources/{sourceKey}/options/by-ids?ids=a&ids=b`
 - `POST /{resource}/option-sources/{sourceKey}/options/by-ids`
 
-Para selected-value reload por IDs, o contrato HTTP canonico permanece o
-endpoint `GET .../options/by-ids?ids=...`. Quando a reidratacao precisar de
-contexto/filtro tipado, use o endpoint `POST .../options/by-ids` com
+Para selected-value reload por IDs autossuficientes, use
+`GET .../options/by-ids?ids=...`. Quando a reidratacao precisar de contexto
+publico, dependencias declaradas ou filtro tipado, use
+`POST .../option-sources/{sourceKey}/options/by-ids` com
 `OptionSourceByIdsRequest<FilterDTO>`:
 
 ```json
@@ -25,9 +26,10 @@ contexto/filtro tipado, use o endpoint `POST .../options/by-ids` com
 }
 ```
 
-Services provider-backed podem sobrescrever a sobrecarga Java com
-`OptionSourceByIdsRequest<FilterDTO>` para tratar esse contexto no mesmo nivel
-de extensao usado por `OptionSourceFilterRequest`.
+O service base propaga esse `filter` para o executor JPA e para providers
+externos no mesmo nivel de extensao usado por `OptionSourceFilterRequest`,
+preservando a ordem dos IDs e omitindo valores que nao pertencem ao contexto
+solicitado.
 
 Para `option-sources/{sourceKey}/options/filter`, o contrato canônico de request
 agora é um envelope único que cobre:
@@ -159,7 +161,8 @@ Fluxo real:
 - o mapper normaliza `optionSource.resourcePath` e deriva `dependencyFields` para o runtime Angular quando nao houver `dependencyFields` explicito
 - o select remoto passa a chamar:
   - `filterOptionSourceOptions(sourceKey, ...)`
-  - `getOptionSourceOptionsByIds(sourceKey, ids)`
+  - `getOptionSourceOptionsByIds(sourceKey, ids)` para IDs autossuficientes
+  - `POST .../option-sources/{sourceKey}/options/by-ids` quando a metadata exigir reload contextual
 
 Exemplo real do quickstart:
 
@@ -392,6 +395,15 @@ Use ferramentas como Postman ou curl para testar endpoints:
   Esperado: array JSON top-level `List<OptionDTO>` para IDs encontrados,
   preservando a ordem solicitada. IDs inexistentes sao omitidos; respostas 200
   nao devem conter itens `null`.
+
+- **Reidratação contextual por IDs**:
+  ```bash
+  curl -X POST "http://localhost:8080/api/resource/option-sources/universo/options/by-ids" \
+    -H "Content-Type: application/json" \
+    -d '{"filter": {"empresaId": 10}, "ids": ["1", "2"]}'
+  ```
+  Esperado: `List<OptionDTO>` preservando a ordem dos IDs encontrados dentro do
+  contexto publico informado em `filter`.
 
 - **Verificar Schema**:
   ```bash

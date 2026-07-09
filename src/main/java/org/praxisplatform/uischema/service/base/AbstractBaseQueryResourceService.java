@@ -354,7 +354,33 @@ public abstract class AbstractBaseQueryResourceService<
             String sourceKey,
             OptionSourceByIdsRequest<FilterDTO> request
     ) {
-        return byIdsOptionSourceOptions(sourceKey, request == null ? List.of() : request.ids());
+        return byIdsOptionSourceOptions(sourceKey, request, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OptionDTO<Object>> byIdsOptionSourceOptions(
+            String sourceKey,
+            OptionSourceByIdsRequest<FilterDTO> request,
+            Object providerFilterPayload
+    ) {
+        if (optionSourceQueryExecutor == null) {
+            resolveOptionSource(sourceKey);
+            throw new UnsupportedOperationException("Option source by-ids not implemented: " + sourceKey);
+        }
+        OptionSourceDescriptor descriptor = resolveEffectiveOptionSource(sourceKey);
+        FilterDTO effectiveFilter = sanitizeFilter(request == null ? null : request.filter(), descriptor);
+        GenericSpecification<E> specification = effectiveFilter == null
+                ? null
+                : getSpecificationsBuilder().buildSpecification(effectiveFilter, Pageable.unpaged());
+        return optionSourceQueryExecutor.byIdsOptions(
+                entityManager,
+                entityClass,
+                specification == null ? null : specification.spec(),
+                providerFilterPayload == null ? effectiveFilter : providerFilterPayload,
+                descriptor,
+                request == null ? List.of() : request.ids()
+        );
     }
 
     @Override

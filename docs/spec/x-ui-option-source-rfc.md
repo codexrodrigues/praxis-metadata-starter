@@ -402,12 +402,14 @@ Esta RFC nao define:
 ### Reidratacao de selecionados por source
 
 - `GET /{resource}/option-sources/{sourceKey}/options/by-ids`
+- `POST /{resource}/option-sources/{sourceKey}/options/by-ids` quando a source precisar do filtro/contexto publico
 
 Regras:
 
 - o payload de resposta converge para `OptionDTO`
 - o contrato da fonte vive em `x-ui.optionSource`
 - o endpoint operacional nao vira a fonte primaria da semantica
+- o `POST .../by-ids` reutiliza o filtro estrutural governado da source para evitar selected-value reload fora de contexto
 
 ## Request e Cascata
 
