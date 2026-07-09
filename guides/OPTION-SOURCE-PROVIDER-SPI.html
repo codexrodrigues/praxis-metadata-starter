@@ -390,6 +390,43 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="
 <li>mensagens de erro;</li>
 <li><code>OptionDTO.extra</code>.</li>
 </ul>
+<h2 id="diagnostico-de-publicacao">Diagnostico de publicacao</h2>
+<p>Quando o provider possui um catalogo privado de sourceKeys
+configuradas, publique tambem um inventario sanitizado para testes ou
+startup diagnostics:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Bean</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>OptionSourcePublicationInventory <span class="fu">folhasEmpOptionSourceInventory</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> OptionSourcePublicationInventory<span class="op">.</span><span class="fu">of</span><span class="op">(</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        OptionSourcePublicationCandidate<span class="op">.</span><span class="fu">of</span><span class="op">(</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>            <span class="st">&quot;administracao-pessoal.folhas-emp.mes-ano-visivel&quot;</span><span class="op">,</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>            ApiPaths<span class="op">.</span><span class="fu">EMPRESAS</span><span class="op">,</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>            <span class="st">&quot;folhas-emp-catalog&quot;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="op">)</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">);</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>O bean auto-configurado
+<code>OptionSourcePublicationDiagnostics</code> compara esse inventario
+com o <code>OptionSourceRegistry</code> publico e aponta:</p>
+<ul>
+<li><code>UNPUBLISHED</code>, quando a sourceKey configurada nao foi
+publicada por nenhum recurso;</li>
+<li><code>RESOURCE_MISMATCH</code>, quando a sourceKey foi publicada por
+recurso diferente do esperado;</li>
+<li><code>PUBLISHED</code>, quando o resource owner canonico publicou o
+descriptor esperado.</li>
+</ul>
+<p>Esse diagnostico nao cria endpoint paralelo e nao executa o provider.
+Ele existe para detectar falso progresso: a configuracao privada conhece
+a fonte, mas o contrato publico
+<code>/{resource}/option-sources/{sourceKey}/options/*</code> ainda nao
+esta publicado. Corrija sempre o <code>OptionSourceRegistry</code> do
+resource owner canonico.</p>
+<p>O inventario deve conter somente identidade publica segura:
+sourceKey, resourcePath esperado e uma chave de catalogo nao sensivel.
+Nao inclua SQL, HADES, datasource, tenant, usuario, perfil, senha,
+headers, ROWID, locators, bind parameters ou nomes internos de
+adapter.</p>
 <h2 id="chaves-proibidas-em-contratos-publicos">Chaves proibidas em
 contratos publicos</h2>
 <p>Nao publique detalhes tecnicos como:</p>
@@ -416,14 +453,14 @@ falhe em teste quando uma chave privada aparecer.</p>
 <h2 id="dataset-version">Dataset version</h2>
 <p>Se a fonte externa nao depende da tabela JPA do recurso base,
 sobrescreva:</p>
-<div class="sourceCode" id="cb5"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> Optional<span class="op">&lt;</span><span class="bu">String</span><span class="op">&gt;</span> <span class="fu">getOptionSourceDatasetVersion</span><span class="op">(</span><span class="bu">String</span> sourceKey<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="st">&quot;externalLookup&quot;</span><span class="op">.</span><span class="fu">equals</span><span class="op">(</span>sourceKey<span class="op">))</span> <span class="op">{</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> Optional<span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;externalLookup:v1&quot;</span><span class="op">);</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">super</span><span class="op">.</span><span class="fu">getOptionSourceDatasetVersion</span><span class="op">(</span>sourceKey<span class="op">);</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> Optional<span class="op">&lt;</span><span class="bu">String</span><span class="op">&gt;</span> <span class="fu">getOptionSourceDatasetVersion</span><span class="op">(</span><span class="bu">String</span> sourceKey<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="st">&quot;externalLookup&quot;</span><span class="op">.</span><span class="fu">equals</span><span class="op">(</span>sourceKey<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> Optional<span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;externalLookup:v1&quot;</span><span class="op">);</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">super</span><span class="op">.</span><span class="fu">getOptionSourceDatasetVersion</span><span class="op">(</span>sourceKey<span class="op">);</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>Isso evita que endpoints de option source consultem o repository JPA
 do recurso base apenas para emitir versao.</p>
 </body>

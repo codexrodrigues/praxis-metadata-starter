@@ -372,6 +372,18 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="
 <span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> OptionSourceRegistry <span class="fu">getOptionSourceRegistry</span><span class="op">()</span> <span class="op">{</span></span>
 <span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> OPTION_SOURCES<span class="op">;</span></span>
 <span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Para lookups provider-backed configurados fora do registry publico,
+use <code>OptionSourcePublicationInventory</code> em testes ou startup
+diagnostics para declarar quais sourceKeys deveriam estar publicadas por
+qual resource owner. O <code>OptionSourcePublicationDiagnostics</code>
+auto-configurado compara esse inventario com o
+<code>OptionSourceRegistry</code> e aponta sources
+<code>UNPUBLISHED</code> ou <code>RESOURCE_MISMATCH</code>.</p>
+<p>Esse diagnostico nao substitui o registry. Se uma source configurada
+pelo provider nao aparecer em
+<code>/{resource}/option-sources/{sourceKey}/options/*</code>, corrija a
+publicacao no <code>OptionSourceRegistry</code> do recurso canonico, nao
+criando endpoint local paralelo.</p>
 <h2 id="o-que-vai-para-o-schema-em-schemasfiltered">O que vai para o
 schema em <code>/schemas/filtered</code></h2>
 <p>Quando o <code>ApiDocsController</code> encontra um campo cujo nome

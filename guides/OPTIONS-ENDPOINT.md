@@ -130,6 +130,18 @@ public OptionSourceRegistry getOptionSourceRegistry() {
 }
 ```
 
+Para lookups provider-backed configurados fora do registry publico, use
+`OptionSourcePublicationInventory` em testes ou startup diagnostics para declarar
+quais sourceKeys deveriam estar publicadas por qual resource owner. O
+`OptionSourcePublicationDiagnostics` auto-configurado compara esse inventario com
+o `OptionSourceRegistry` e aponta sources `UNPUBLISHED` ou
+`RESOURCE_MISMATCH`.
+
+Esse diagnostico nao substitui o registry. Se uma source configurada pelo
+provider nao aparecer em `/{resource}/option-sources/{sourceKey}/options/*`,
+corrija a publicacao no `OptionSourceRegistry` do recurso canonico, nao criando
+endpoint local paralelo.
+
 ## O que vai para o schema em `/schemas/filtered`
 
 Quando o `ApiDocsController` encontra um campo cujo nome coincide com a source
