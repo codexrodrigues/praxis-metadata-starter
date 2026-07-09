@@ -311,7 +311,11 @@ public class ApiDocsController {
             throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + groupName);
         }
 
-        String canonicalPath = openApiDocumentService.resolveDocumentPath(rootNode.path(PATHS), decodedPath);
+        String canonicalPath = openApiDocumentService.resolveDocumentPath(
+                rootNode.path(PATHS),
+                decodedPath,
+                normalizedOperation
+        );
 
         // Procura o caminho especificado no JSON
         JsonNode pathsNode = rootNode.path(PATHS).path(canonicalPath).path(normalizedOperation);

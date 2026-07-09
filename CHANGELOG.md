@@ -54,6 +54,10 @@ All notable changes to this module will be documented in this file.
 - Mensagens de erro para condicionais Json Logic malformados agora distinguem JSON invalido de contrato Json Logic invalido, e a validacao bloqueia literais com shape basico incompatível com o runtime Angular.
 
 ### Fixed
+- `/schemas/filtered` agora resolve paths OpenAPI template-equivalentes apenas
+  quando a operacao HTTP solicitada tambem existe no candidato estrutural, mantendo
+  match exato como prioridade e rejeitando ambiguidades em vez de escolher um schema
+  incorreto para recursos relacionados nested.
 - `POST /{resource}/option-sources/{sourceKey}/options/filter` agora aceita
   dependencias publicas declaradas em `dependsOn`/`dependencyFilterMap` para
   fontes `PROVIDER_REQUIRED` mesmo quando esses campos nao existem no

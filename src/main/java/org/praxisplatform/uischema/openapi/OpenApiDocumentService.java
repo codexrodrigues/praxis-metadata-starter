@@ -2,8 +2,8 @@ package org.praxisplatform.uischema.openapi;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 /**
@@ -68,6 +68,21 @@ public interface OpenApiDocumentService {
      * templates OpenAPI que usam nomes diferentes para parametros posicionais.
      */
     default String resolveDocumentPath(JsonNode pathsNode, String requestedPath) {
+        return resolveDocumentPath(pathsNode, requestedPath, null);
+    }
+
+    /**
+     * Resolve o path real dentro de {@code paths}, aceitando equivalencia estrutural entre
+     * templates OpenAPI que usam nomes diferentes para parametros posicionais quando a operacao
+     * HTTP tambem e compativel.
+     *
+     * <p>
+     * Matches exatos continuam tendo precedencia. A equivalencia estrutural so e usada quando
+     * existe um unico candidato compativel; multiplos candidatos indicam ambiguidade canonica e
+     * devem ser corrigidos na publicacao OpenAPI em vez de inferidos por heuristica local.
+     * </p>
+     */
+    default String resolveDocumentPath(JsonNode pathsNode, String requestedPath, String operation) {
         if (pathsNode == null || pathsNode.isMissingNode()) {
             return requestedPath;
         }
@@ -76,6 +91,7 @@ public interface OpenApiDocumentService {
         candidates.add(requestedPath);
 
         String normalized = normalizeOpenApiPath(requestedPath);
+        String normalizedOperation = normalizeOperation(operation);
         candidates.add(normalized);
         if ("/".equals(normalized)) {
             candidates.add("/");
@@ -84,12 +100,12 @@ public interface OpenApiDocumentService {
         }
 
         for (String candidate : candidates) {
-            if (hasText(candidate) && !pathsNode.path(candidate).isMissingNode()) {
+            if (hasText(candidate) && hasOperation(pathsNode, candidate, normalizedOperation)) {
                 return candidate;
             }
         }
 
-        String structurallyEquivalentPath = findStructurallyEquivalentPath(pathsNode, normalized);
+        String structurallyEquivalentPath = findStructurallyEquivalentPath(pathsNode, normalized, operation);
         if (hasText(structurallyEquivalentPath)) {
             return structurallyEquivalentPath;
         }
@@ -112,20 +128,29 @@ public interface OpenApiDocumentService {
         return normalized;
     }
 
-    private String findStructurallyEquivalentPath(JsonNode pathsNode, String requestedPath) {
+    private String findStructurallyEquivalentPath(JsonNode pathsNode, String requestedPath, String operation) {
         String requestedSignature = templatedPathSignature(requestedPath);
         if (!hasText(requestedSignature)) {
             return null;
         }
 
-        Iterator<String> pathIterator = pathsNode.fieldNames();
-        while (pathIterator.hasNext()) {
-            String candidatePath = pathIterator.next();
-            if (requestedSignature.equals(templatedPathSignature(candidatePath))) {
-                return candidatePath;
+        String normalizedOperation = normalizeOperation(operation);
+        LinkedHashSet<String> matches = new LinkedHashSet<>();
+        pathsNode.fieldNames().forEachRemaining(candidatePath -> {
+            if (!requestedSignature.equals(templatedPathSignature(candidatePath))) {
+                return;
             }
+            if (!hasOperation(pathsNode, candidatePath, normalizedOperation)) {
+                return;
+            }
+            matches.add(candidatePath);
+        });
+        if (matches.size() > 1) {
+            throw new IllegalArgumentException(
+                    "Ambiguous OpenAPI template path resolution for '" + requestedPath + "'."
+            );
         }
-        return null;
+        return matches.stream().findFirst().orElse(null);
     }
 
     private String templatedPathSignature(String path) {
@@ -138,5 +163,17 @@ public interface OpenApiDocumentService {
 
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private static String normalizeOperation(String operation) {
+        return hasText(operation) ? operation.trim().toLowerCase(Locale.ROOT) : null;
+    }
+
+    private static boolean hasOperation(JsonNode pathsNode, String candidate, String normalizedOperation) {
+        JsonNode pathNode = pathsNode.path(candidate);
+        if (pathNode.isMissingNode()) {
+            return false;
+        }
+        return !hasText(normalizedOperation) || !pathNode.path(normalizedOperation).isMissingNode();
     }
 }
