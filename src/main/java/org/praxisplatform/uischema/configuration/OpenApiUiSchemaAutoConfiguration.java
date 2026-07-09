@@ -36,6 +36,8 @@ import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.options.OptionSourceEligibility;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
+import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationDiagnostics;
+import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationInventory;
 import org.praxisplatform.uischema.options.service.CompositeOptionSourceQueryExecutor;
 import org.praxisplatform.uischema.options.service.DefaultOptionSourceProviderRegistry;
 import org.praxisplatform.uischema.options.service.DefaultOptionSourceContextResolver;
@@ -310,6 +312,15 @@ public class OpenApiUiSchemaAutoConfiguration {
                 .filter(registry -> registry != null && !registry.isEmpty())
                 .toArray(OptionSourceRegistry[]::new);
         return registries.length == 0 ? OptionSourceRegistry.empty() : OptionSourceRegistry.merge(registries);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OptionSourcePublicationDiagnostics optionSourcePublicationDiagnostics(
+            OptionSourceRegistry optionSourceRegistry,
+            ObjectProvider<OptionSourcePublicationInventory> inventories
+    ) {
+        return new OptionSourcePublicationDiagnostics(optionSourceRegistry, inventories.orderedStream().toList());
     }
 
     private OptionSourceRegistry resolveRegistryForAggregation(BaseResourceQueryService<?, ?, ?> service) {

@@ -163,6 +163,44 @@ Esses atributos sao privados. Eles nao podem aparecer em:
 - mensagens de erro;
 - `OptionDTO.extra`.
 
+## Diagnostico de publicacao
+
+Quando o provider possui um catalogo privado de sourceKeys configuradas, publique
+tambem um inventario sanitizado para testes ou startup diagnostics:
+
+```java
+@Bean
+OptionSourcePublicationInventory folhasEmpOptionSourceInventory() {
+    return OptionSourcePublicationInventory.of(
+        OptionSourcePublicationCandidate.of(
+            "administracao-pessoal.folhas-emp.mes-ano-visivel",
+            ApiPaths.EMPRESAS,
+            "folhas-emp-catalog"
+        )
+    );
+}
+```
+
+O bean auto-configurado `OptionSourcePublicationDiagnostics` compara esse
+inventario com o `OptionSourceRegistry` publico e aponta:
+
+- `UNPUBLISHED`, quando a sourceKey configurada nao foi publicada por nenhum
+  recurso;
+- `RESOURCE_MISMATCH`, quando a sourceKey foi publicada por recurso diferente do
+  esperado;
+- `PUBLISHED`, quando o resource owner canonico publicou o descriptor esperado.
+
+Esse diagnostico nao cria endpoint paralelo e nao executa o provider. Ele existe
+para detectar falso progresso: a configuracao privada conhece a fonte, mas o
+contrato publico `/{resource}/option-sources/{sourceKey}/options/*` ainda nao
+esta publicado. Corrija sempre o `OptionSourceRegistry` do resource owner
+canonico.
+
+O inventario deve conter somente identidade publica segura: sourceKey,
+resourcePath esperado e uma chave de catalogo nao sensivel. Nao inclua SQL,
+HADES, datasource, tenant, usuario, perfil, senha, headers, ROWID, locators,
+bind parameters ou nomes internos de adapter.
+
 ## Chaves proibidas em contratos publicos
 
 Nao publique detalhes tecnicos como:

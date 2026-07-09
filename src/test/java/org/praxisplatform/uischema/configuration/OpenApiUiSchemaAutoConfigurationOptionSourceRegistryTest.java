@@ -8,8 +8,14 @@ import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourcePolicy;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.OptionSourceType;
+import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationCandidate;
+import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationDiagnostics;
+import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationInventory;
+import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationStatus;
 import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
 import org.praxisplatform.uischema.service.base.AbstractReadOnlyResourceService;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -19,6 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 class OpenApiUiSchemaAutoConfigurationOptionSourceRegistryTest {
+
+    private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(OpenApiUiSchemaAutoConfiguration.class));
 
     @Test
     void resolveRegistryForAggregationHonorsConcreteOverrideWithoutCallingSharedFallback() {
@@ -46,6 +55,33 @@ class OpenApiUiSchemaAutoConfigurationOptionSourceRegistryTest {
         );
 
         assertTrue(registry.isEmpty());
+    }
+
+    @Test
+    void autoConfiguresOptionSourcePublicationDiagnosticsFromRegistryAndInventory() {
+        OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
+                "externalLookup",
+                OptionSourceType.LIGHT_LOOKUP,
+                "/employees",
+                null,
+                null,
+                "label",
+                "id",
+                List.of(),
+                OptionSourcePolicy.defaults()
+        );
+        contextRunner
+                .withBean(OptionSourceRegistry.class, () -> OptionSourceRegistry.builder()
+                        .add(TestEntity.class, descriptor)
+                        .build())
+                .withBean(OptionSourcePublicationInventory.class, () -> OptionSourcePublicationInventory.of(
+                        OptionSourcePublicationCandidate.of("externalLookup", "/employees", "external-catalog")
+                ))
+                .run(context -> {
+                    OptionSourcePublicationDiagnostics diagnostics = context.getBean(OptionSourcePublicationDiagnostics.class);
+
+                    assertEquals(OptionSourcePublicationStatus.PUBLISHED, diagnostics.diagnose().getFirst().status());
+                });
     }
 
     static class ConcreteOverrideOptionSourceService extends AbstractReadOnlyResourceService<
