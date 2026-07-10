@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>RFC - Governed Resource Command Execution</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">RFC - Governed Resource Command Execution</h1>
+</header>
+<h1 id="rfc---governed-resource-command-execution">RFC - Governed
+Resource Command Execution</h1>
+<p>Data: 2026-07-10</p>
+<p>Status: <code>spike-1-implemented</code></p>
+<p>Classificacao da mudanca atual: <code>contrato-publico</code>
+restrito a Java API; sem alteracao de HTTP, <code>/schemas</code>,
+<code>/actions</code>, <code>/surfaces</code> ou
+<code>/capabilities</code></p>
+<p>Owner canonico proposto: <code>praxis-metadata-starter</code></p>
+<h2 id="objetivo">Objetivo</h2>
+<p>Investigar uma capacidade host-neutral para execucao governada de
+comandos de recurso corporativos, reduzindo decisoes repetidas em hosts
+consumidores sem amarrar o Praxis a um backend privado especifico.</p>
+<p>O caso Ergon e evidencia de recorrencia, nao fonte de semantica
+publica. O contrato Praxis nao deve conhecer HADES, Oracle, Archon,
+nomes de procedures, locators privados, tabelas privadas ou convencoes
+de erro de um host.</p>
+<h2 id="problema-observado">Problema Observado</h2>
+<p>O Praxis ja publica uma borda resource-oriented forte para recursos
+mutaveis:</p>
+<ul>
+<li><code>AbstractCreateUpdateResourceController</code>;</li>
+<li><code>AbstractResourceController</code>;</li>
+<li><code>AbstractLegacyBackedResourceController</code>;</li>
+<li><code>BaseResourceCommandService</code>;</li>
+<li><code>LegacyBackedResourceCommandService</code>;</li>
+<li><code>DuplicateDraftLegacyBackedResourceCommandService</code>;</li>
+<li><code>ResourceOperationAvailabilityProvider</code>;</li>
+<li><code>AvailabilityDecision</code>;</li>
+<li><code>@ResourceIntent</code>, <code>@WorkflowAction</code>, actions,
+surfaces e capabilities.</li>
+</ul>
+<p>Esse baseline cobre a borda publica: endpoints, schemas, links,
+capabilities, availability e discovery semantico.</p>
+<p>Ainda assim, consumidores corporativos que delegam mutacoes a
+backends privados tendem a repetir decisoes imperativas por recurso:</p>
+<ul>
+<li>resolver se o comando existe e esta disponivel;</li>
+<li>montar contexto privado de execucao;</li>
+<li>chamar guard ou autorizacao do host;</li>
+<li>executar procedure, mainframe, workflow engine, fila, SaaS ou
+servico interno;</li>
+<li>mapear resultado privado para outcome publico;</li>
+<li>reler o recurso apos escrita quando necessario;</li>
+<li>decidir como tratar rowcount zero, conflito, dependencia, validacao
+e erro;</li>
+<li>gerar evidencias de smoke, cleanup, read-after-write e nao vazamento
+de locators privados.</li>
+</ul>
+<p>O gap nao e “criar CRUD” nem “Praxis saber escrever no backend do
+consumidor”. O gap e padronizar o lifecycle publico e governado de
+comandos cuja execucao real pertence a uma fronteira privada do
+host.</p>
+<h2 id="classificacao-de-produto">Classificacao De Produto</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Necessidade</th>
+<th>Classificacao</th>
+<th>Decisao</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Endpoints resource-oriented, DTOs, schemas, HATEOAS,
+create/update/delete</td>
+<td><code>already-supported</code></td>
+<td>Usar o baseline existente do starter.</td>
+</tr>
+<tr class="even">
+<td>Disponibilidade dinamica de operacoes</td>
+<td><code>already-supported</code></td>
+<td>Usar <code>ResourceOperationAvailabilityProvider</code> e
+catalogs/capabilities.</td>
+</tr>
+<tr class="odd">
+<td>Actions e comandos de negocio explicitos</td>
+<td><code>already-supported</code></td>
+<td>Usar <code>@WorkflowAction</code> com endpoint e schemas reais.</td>
+</tr>
+<tr class="even">
+<td>Execucao privada com outcome, response policy, error policy e
+evidencia</td>
+<td><code>supported-partially</code></td>
+<td>Definir uma SPI neutra, se a recorrencia for confirmada.</td>
+</tr>
+<tr class="odd">
+<td>Guard/checker contra locators privados e evidencias incompletas</td>
+<td><code>platform-gap</code> + <code>migration-skill-gap</code></td>
+<td>Evoluir tooling/skills junto com a SPI.</td>
+</tr>
+<tr class="even">
+<td>Regras, rotas, sessoes, procedures ou erros privados de um host</td>
+<td><code>application-domain</code></td>
+<td>Implementar em provider do host, fora do contrato Praxis.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="proposta">Proposta</h2>
+<p>Criar uma capacidade conceitual chamada <strong>Governed Resource
+Command Execution</strong>.</p>
+<p>Ela deve modelar comandos corporativos de recurso como decisao
+semantica governada:</p>
+<ol type="1">
+<li>o Praxis publica a existencia do comando, seu escopo, schemas,
+links, disponibilidade, response policy e categorias publicas de
+erro;</li>
+<li>o host implementa a execucao privada por provider;</li>
+<li>o resultado privado e convertido para um outcome publico
+estavel;</li>
+<li>a IA, Cockpit, docs e runtime consomem somente o contrato
+publico.</li>
+</ol>
+<h2 id="superficie-conceitual">Superficie Conceitual</h2>
+<p>O primeiro spike implementou uma superficie Java host-neutral pequena
+em <code>org.praxisplatform.uischema.command</code>, sem expor ainda
+nova metadata HTTP.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">interface</span> ResourceCommandExecutionProvider <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    ResourceCommandExecutionResult <span class="fu">execute</span><span class="op">(</span>ResourceCommandExecutionRequest request<span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">record</span> <span class="fu">ResourceCommandExecutionRequest</span><span class="op">(</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">String</span> resourceKey<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">String</span> resourcePath<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">String</span> commandId<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        ResourceCommandScope scope<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Object</span> resourceId<span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Object</span> payload<span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        ResourceCommandResponsePolicy responsePolicy<span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Map</span><span class="op">&lt;</span><span class="bu">String</span><span class="op">,</span> <span class="bu">Object</span><span class="op">&gt;</span> publicMetadata</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">record</span> <span class="fu">ResourceCommandExecutionResult</span><span class="op">(</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        ResourceCommandOutcome outcome<span class="op">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        ResourceCommandResponsePolicy responsePolicy<span class="op">,</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Object</span> publicId<span class="op">,</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Object</span> body<span class="op">,</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">List</span><span class="op">&lt;</span>ResourceCommandMessage<span class="op">&gt;</span> messages<span class="op">,</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Map</span><span class="op">&lt;</span><span class="bu">String</span><span class="op">,</span> <span class="bu">Object</span><span class="op">&gt;</span> evidence</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="op">)</span> <span class="op">{}</span></span></code></pre></div>
+<p>Tipos do spike:</p>
+<ul>
+<li><code>GovernedResourceCommandExecutor</code>;</li>
+<li><code>ResourceCommandHttpResponseAdapter</code>;</li>
+<li>helpers protegidos <code>executeCollectionCommand</code> e
+<code>executeItemCommand</code> em
+<code>AbstractResourceQueryController</code>;</li>
+<li><code>ResourceCommandExecutionProvider</code>;</li>
+<li><code>ResourceCommandExecutionRequest</code>;</li>
+<li><code>ResourceCommandExecutionResult</code>;</li>
+<li><code>ResourceCommandExecutionException</code>;</li>
+<li><code>ResourceCommandMessage</code>;</li>
+<li><code>ResourceCommandOutcome</code>;</li>
+<li><code>ResourceCommandResponsePolicy</code>;</li>
+<li><code>ResourceCommandScope</code>;</li>
+<li><code>ResourceCommandErrorCategory</code>;</li>
+<li><code>ResourceCommandEvidenceSanitizer</code>.</li>
+</ul>
+<p>Politicas publicas:</p>
+<ul>
+<li><code>READ_AFTER_WRITE</code>;</li>
+<li><code>RETURN_COMMAND_RESULT</code>;</li>
+<li><code>NO_CONTENT</code>;</li>
+<li><code>ACCEPTED_ASYNC</code>.</li>
+</ul>
+<p>Categorias publicas de erro:</p>
+<ul>
+<li><code>VALIDATION</code>;</li>
+<li><code>PERMISSION</code>;</li>
+<li><code>NOT_FOUND</code>;</li>
+<li><code>CONFLICT_DUPLICATE</code>;</li>
+<li><code>CONFLICT_DEPENDENCY</code>;</li>
+<li><code>PRECONDITION</code>;</li>
+<li><code>UNEXPECTED_SANITIZED</code>.</li>
+</ul>
+<p>O executor ja integra com
+<code>ResourceOperationAvailabilityProvider</code>: se a availability do
+host negar a operacao, o provider privado nao e executado e o resultado
+publico volta como <code>PERMISSION_DENIED</code>.</p>
+<p>O executor tambem aplica
+<code>ResourceCommandEvidenceSanitizer</code> sobre evidencias do
+provider e sobre metadata de availability, removendo chaves/valores com
+tokens privados como <code>rowid</code>, <code>sql</code>,
+<code>procedure</code>, <code>package</code>, <code>session</code>,
+<code>token</code>, <code>authorization</code>, <code>cookie</code>,
+<code>secret</code> e <code>password</code>.</p>
+<p>Excecoes inesperadas do provider sao convertidas para
+<code>UNEXPECTED_SANITIZED</code>, preservando apenas o tipo publico da
+excecao. Excecoes controladas usam
+<code>ResourceCommandExecutionException</code> para retornar outcome,
+mensagem publica e evidence sanitizada.</p>
+<p>Para reduzir adaptacao em hosts Spring existentes,
+<code>ResponseStatusException</code> tambem e tratada como falha publica
+governada:</p>
+<ul>
+<li><code>400</code> -&gt; <code>VALIDATION_FAILED</code>;</li>
+<li><code>403</code> -&gt; <code>PERMISSION_DENIED</code>;</li>
+<li><code>404</code> -&gt; <code>NOT_FOUND</code>;</li>
+<li><code>409</code> -&gt; <code>CONFLICT_DEPENDENCY</code>;</li>
+<li><code>412</code> -&gt; <code>PRECONDITION_FAILED</code>;</li>
+<li>demais status -&gt; <code>UNEXPECTED_SANITIZED</code>.</li>
+</ul>
+<p>Isso permite que services de dominio ja existentes migrem para
+<code>executeCollectionCommand</code>/<code>executeItemCommand</code>
+sem envolver cada fluxo em try/catch local apenas para preservar
+mensagens publicas e status HTTP.</p>
+<p><code>ResourceCommandHttpResponseAdapter</code> converte outcomes e
+response policies para o envelope HTTP canonico da plataforma:</p>
+<ul>
+<li><code>READ_AFTER_WRITE</code> e <code>RETURN_COMMAND_RESULT</code>
+-&gt; <code>200 OK</code> com <code>RestApiResponse.success</code>;</li>
+<li><code>NO_CONTENT</code> -&gt; <code>204 No Content</code> sem
+envelope ad hoc;</li>
+<li><code>ACCEPTED_ASYNC</code> -&gt; <code>202 Accepted</code> com
+envelope de sucesso carregando resultado publico ou job id;</li>
+<li><code>VALIDATION_FAILED</code>, <code>PERMISSION_DENIED</code>,
+<code>NOT_FOUND</code>, <code>CONFLICT_DUPLICATE</code>,
+<code>CONFLICT_DEPENDENCY</code>, <code>PRECONDITION_FAILED</code> e
+<code>UNEXPECTED_SANITIZED</code> -&gt;
+<code>RestApiResponse.failure</code> com
+<code>CustomProblemDetail</code> publico.</li>
+</ul>
+<p><code>AbstractResourceQueryController</code> publica helpers
+protegidos opt-in para actions reais de controllers
+resource-oriented:</p>
+<ul>
+<li><code>executeCollectionCommand(...)</code>;</li>
+<li><code>executeItemCommand(...)</code>.</li>
+</ul>
+<p>Esses helpers montam <code>ResourceCommandExecutionRequest</code> com
+<code>resourceKey</code>, <code>resourcePath</code>,
+<code>commandId</code>, escopo, payload e metadata publica, reutilizam a
+availability de <code>CapabilityService</code> antes de executar o
+provider privado e devolvem a resposta pelo adapter canonico. Em
+respostas de sucesso, tambem preservam links HATEOAS de colecao/item e
+links <code>schema</code> de request/response derivados da forma
+canonica de action. Eles nao criam endpoint generico nem alteram
+discovery: o controller consumidor continua declarando uma operacao HTTP
+real, normalmente anotada com <code>@WorkflowAction</code>.</p>
+<h2 id="o-que-entra-no-praxis">O Que Entra No Praxis</h2>
+<ul>
+<li>envelope neutro de comando;</li>
+<li>outcome neutro de comando;</li>
+<li>politica publica de resposta;</li>
+<li>vocabulario publico de erro;</li>
+<li>binding com resource/action/capability existente;</li>
+<li>availability integrada a
+<code>ResourceOperationAvailabilityProvider</code>;</li>
+<li>introspeccao para Cockpit e IA;</li>
+<li>hooks de evidencia sanitizada;</li>
+<li>checker de contrato publico para evitar locators privados em schema,
+payload e metadata publica.</li>
+</ul>
+<h2 id="o-que-nao-entra-no-praxis">O Que Nao Entra No Praxis</h2>
+<ul>
+<li>nomes de rotas privadas do consumidor;</li>
+<li>sessoes, usuarios, empresas ou contexto operacional privado;</li>
+<li>SQL, procedure, package, trigger, mainframe transaction ou fila
+especifica;</li>
+<li>locators privados como ids internos nao publicos;</li>
+<li>nomes privados de parametros de erro;</li>
+<li>regras de negocio de um dominio consumidor.</li>
+</ul>
+<p>Esses itens pertencem ao provider do host ou aos contratos de dominio
+do consumidor.</p>
+<h2 id="aderencia-antes-de-novo-contrato">Aderencia Antes De Novo
+Contrato</h2>
+<p>Antes de criar qualquer classe, anotacao ou metadata publica, a
+implementacao deve responder:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Pergunta</th>
+<th>Classificacao esperada</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>O comando ja pode ser expresso por <code>POST</code>,
+<code>PUT</code>, <code>DELETE</code>, <code>@ResourceIntent</code> ou
+<code>@WorkflowAction</code>?</td>
+<td><code>ja-suportado-so-ux</code> ou
+<code>ja-suportado-mal-nomeado-ou-mal-materializado</code></td>
+</tr>
+<tr class="even">
+<td>A lacuna e apenas documentar melhor response/read-after-write nos
+guias?</td>
+<td><code>suportado-parcialmente</code></td>
+</tr>
+<tr class="odd">
+<td>A availability ja pode ser expressa pelo provider atual?</td>
+<td><code>ja-suportado-so-ux</code></td>
+</tr>
+<tr class="even">
+<td>Falta um outcome publico estavel para execucao privada?</td>
+<td><code>lacuna-real-de-contrato</code></td>
+</tr>
+<tr class="odd">
+<td>Falta evidence/checker para impedir uso inseguro em escala?</td>
+<td><code>lacuna-real-de-contrato</code> ou
+<code>migration-skill-gap</code></td>
+</tr>
+</tbody>
+</table>
+<p>Novo contrato so deve nascer para lacuna real comprovada.</p>
+<h2 id="impacto-esperado">Impacto Esperado</h2>
+<p>Subprojeto canonico afetado:</p>
+<ul>
+<li><code>praxis-metadata-starter</code>.</li>
+</ul>
+<p>Consumidores impactados em caso de implementacao futura:</p>
+<ul>
+<li><code>praxis-api-quickstart</code>, como prova operacional com
+provider fake ou host de referencia;</li>
+<li><code>praxis-ui-angular</code>, se Cockpit/runtime precisar mostrar
+command policies;</li>
+<li><code>praxis-ui-landing-page</code>, se a documentacao publica
+passar a ensinar a capacidade;</li>
+<li>hosts corporativos que hoje implementam mutacoes privadas atras de
+recursos Praxis.</li>
+</ul>
+<p>Artefatos derivados a revisar em implementacao futura:</p>
+<ul>
+<li><code>README.md</code>;</li>
+<li><code>CHANGELOG.md</code>;</li>
+<li><code>docs/guides/**</code>;</li>
+<li><code>docs/spec/**</code>, se houver metadata publica nova;</li>
+<li>exemplos HTTP e playgrounds, se a superficie for publicada para
+consumo externo;</li>
+<li>skills Praxis e skills de migracao que orientam comandos de
+escrita.</li>
+</ul>
+<p>Risco de breaking change:</p>
+<ul>
+<li>baixo para este RFC documental;</li>
+<li>medio/alto para uma implementacao futura se alterar shape de
+capabilities, schemas, actions ou public APIs. A estrategia recomendada
+em beta e migracao canonica limpa, com consumers atualizados no mesmo
+ciclo.</li>
+</ul>
+<h2 id="roadmap-recomendado">Roadmap Recomendado</h2>
+<h3 id="fase-0---rfc-e-inventario">Fase 0 - RFC e inventario</h3>
+<ul>
+<li>Registrar este RFC no owner canonico.</li>
+<li>Inventariar mais dois consumidores ou casos equivalentes alem do
+caso original.</li>
+<li>Confirmar se a lacuna e SPI, guia, checker ou combinacao dos
+tres.</li>
+</ul>
+<h3 id="fase-1---spike-java-neutro">Fase 1 - Spike Java neutro</h3>
+<ul>
+<li>Criar um provider fake em teste ou fixture interna.
+<strong>Feito.</strong></li>
+<li>Provar <code>READ_AFTER_WRITE</code>, <code>NO_CONTENT</code>, erro
+publico e availability dinamica. <strong>Feito em teste unitario
+focal.</strong></li>
+<li>Provar sanitizacao de evidence privada. <strong>Feito.</strong></li>
+<li>Nao alterar shape HTTP/discovery antes de aceite operacional.
+<strong>Mantido.</strong></li>
+</ul>
+<h3 id="fase-2---integracao-resource-oriented-minima">Fase 2 -
+Integracao resource-oriented minima</h3>
+<ul>
+<li>Criar adaptador de response publica para outcomes/policies.
+<strong>Feito como building block opt-in.</strong></li>
+<li>Criar helper opt-in no controller resource-oriented para reduzir
+boilerplate de actions reais sem publicar dispatcher generico.
+<strong>Feito.</strong></li>
+<li>Avaliar se <code>Abstract*ResourceController</code> deve delegar
+create/update/delete a <code>GovernedResourceCommandExecutor</code> por
+composicao opcional ou se o executor deve permanecer como building block
+para hosts. <strong>Mantido como opt-in para evitar migracao automatica
+prematura do CRUD canonico.</strong></li>
+<li>Integrar ao baseline
+<code>resource + surfaces + actions + capabilities</code> somente se
+houver metadata publica nova necessaria. <strong>Sem metadata nova nesta
+fase.</strong></li>
+<li>Garantir que actions/workflows continuem apontando para endpoints
+reais e schemas canonicos. <strong>Provado com controller piloto em
+teste.</strong></li>
+</ul>
+<h3 id="fase-3---prova-operacional">Fase 3 - Prova operacional</h3>
+<ul>
+<li>Validar no <code>praxis-api-quickstart</code> com provider fake ou
+host de referencia.</li>
+<li>Validar impacto no Angular somente se houver metadata nova consumida
+pelo runtime.</li>
+<li>Publicar guia e exemplo apenas depois da prova operacional.</li>
+</ul>
+<h3 id="fase-4---tooling-e-skills">Fase 4 - Tooling e skills</h3>
+<ul>
+<li>Atualizar checkers para detectar locators privados e evidence
+faltante.</li>
+<li>Atualizar skills canônicas para orientar migradores por command
+contract, provider e evidence, em vez de repetir plumbing por tela.</li>
+</ul>
+<h2 id="criterios-de-aceite">Criterios De Aceite</h2>
+<p>Um agente Praxis sem acesso a qualquer backend privado deve conseguir
+validar:</p>
+<ol type="1">
+<li>um recurso publica create/update/delete ou workflow action com
+schemas, links e capabilities canonicos;</li>
+<li>a disponibilidade muda por provider sem vazar detalhe privado;</li>
+<li>uma execucao <code>READ_AFTER_WRITE</code> devolve DTO publico;</li>
+<li>uma execucao <code>NO_CONTENT</code> nao cria resposta ad hoc;</li>
+<li>validation, permission, conflict, not-found e unexpected retornam
+shape publico estavel;</li>
+<li>Cockpit/IA conseguem explicar a operacao sem conhecer o backend
+privado;</li>
+<li>o schema publico nao expoe locators privados;</li>
+<li>um host externo consegue implementar provider sem alterar o contrato
+publico Praxis.</li>
+</ol>
+<h2 id="validacao-desta-entrega">Validacao Desta Entrega</h2>
+<p>Validacao executada:</p>
+<ul>
+<li>leitura do <code>AGENTS.md</code> local do
+<code>praxis-metadata-starter</code>;</li>
+<li>leitura das superficies existentes de command service, legacy-backed
+command, duplicate draft, operation availability e workflow action;</li>
+<li>criacao deste RFC documental no owner canonico;</li>
+<li>implementacao do spike Java neutro em
+<code>org.praxisplatform.uischema.command</code>;</li>
+<li>testes focais de availability, response policy, outcomes publicos,
+sanitizacao de evidence e excecoes inesperadas;</li>
+<li>testes focais do adapter HTTP para <code>200</code>,
+<code>202</code>, <code>204</code>, <code>400</code>, <code>403</code>,
+<code>404</code>, <code>409</code>, <code>412</code> e <code>500</code>
+derivados dos outcomes governados.</li>
+</ul>
+<p>Validacao nao executada:</p>
+<ul>
+<li>nenhuma suite Angular, HTTP ou browser;</li>
+<li>nenhuma alteracao em shape HTTP, <code>/schemas</code>,
+<code>/actions</code>, <code>/surfaces</code> ou
+<code>/capabilities</code>;</li>
+<li>nenhuma prova ainda no <code>praxis-api-quickstart</code>.</li>
+<li>nenhum teste com provider fake.</li>
+</ul>
+<p>Motivo: esta entrega e uma formalizacao documental do P0 antes de
+qualquer alteracao de contrato ou codigo.</p>
+</body>
+</html>

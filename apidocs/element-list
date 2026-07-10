@@ -4,6 +4,7 @@ org.praxisplatform.uischema.analytics
 org.praxisplatform.uischema.annotation
 org.praxisplatform.uischema.authoring
 org.praxisplatform.uischema.capability
+org.praxisplatform.uischema.command
 org.praxisplatform.uischema.configuration
 org.praxisplatform.uischema.constants
 org.praxisplatform.uischema.controller.base
