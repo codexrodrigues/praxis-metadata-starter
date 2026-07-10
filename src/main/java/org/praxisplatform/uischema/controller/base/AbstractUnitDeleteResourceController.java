@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.service.base.BaseUnitDeleteResourceService;
 import org.springframework.hateoas.Link;
-import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -71,8 +70,6 @@ public abstract class AbstractUnitDeleteResourceController<ResponseDTO, ID, FD e
     }
 
     protected Link linkToDelete(ID id) {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getUnitDeleteResourceControllerClass()).delete(id)
-        ).withRel("delete");
+        return Link.of(resourcePath(id), "delete");
     }
 }

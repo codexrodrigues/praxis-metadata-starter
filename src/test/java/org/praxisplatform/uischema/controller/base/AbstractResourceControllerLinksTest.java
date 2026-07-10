@@ -145,6 +145,31 @@ class AbstractResourceControllerLinksTest {
         assertEquals(List.of("surfaces", "actions", "capabilities"), controller.exposeItemDiscoveryRels(10L));
     }
 
+    @Test
+    void resourceOperationalAndDiscoveryLinksUseRelativeSameOriginPaths() {
+        SimpleController controller = new SimpleController();
+        ReflectionTestUtils.setField(controller, "contextPath", "/ergon");
+        ReflectionTestUtils.setField(controller, "surfaceCatalogService", mock(SurfaceCatalogService.class));
+        ReflectionTestUtils.setField(controller, "capabilityService", mock(CapabilityService.class));
+        ReflectionTestUtils.setField(controller, "actionCatalogService", mock(org.praxisplatform.uischema.action.ActionCatalogService.class));
+        ActionDefinitionRegistry registry = mock(ActionDefinitionRegistry.class);
+        ReflectionTestUtils.setField(controller, "actionDefinitionRegistry", registry);
+        when(registry.findByResourceKey("test.simple")).thenReturn(List.of(collectionAction(), itemAction()));
+
+        assertEquals("/ergon/simple/10", controller.exposeSelfLink(10L).getHref());
+        assertEquals("/ergon/simple/all", controller.exposeAllLink().getHref());
+        assertEquals("/ergon/simple/filter", controller.exposeFilterLink().getHref());
+        assertEquals("/ergon/simple/filter/cursor", controller.exposeFilterCursorLink().getHref());
+        assertEquals("/ergon/simple", controller.exposeCreateLink().getHref());
+        assertEquals("/ergon/simple/10", controller.exposeUpdateLink(10L).getHref());
+        assertEquals("/ergon/simple/10", controller.exposeDeleteLink(10L).getHref());
+        assertEquals("/ergon/simple/actions", controller.exposeCollectionActionsLink().getHref());
+        assertEquals("/ergon/simple/capabilities", controller.exposeCollectionCapabilitiesLink().getHref());
+        assertEquals("/ergon/simple/10/surfaces", controller.exposeItemSurfacesLink(10L).getHref());
+        assertEquals("/ergon/simple/10/actions", controller.exposeItemActionsLink(10L).getHref());
+        assertEquals("/ergon/simple/10/capabilities", controller.exposeItemCapabilitiesLink(10L).getHref());
+    }
+
     private static ActionDefinition collectionAction() {
         return new ActionDefinition(
                 "bulk-approve",
@@ -262,6 +287,54 @@ class AbstractResourceControllerLinksTest {
 
         List<String> exposeItemDiscoveryRels(Long id) {
             return buildItemDiscoveryLinks(id).stream().map(link -> link.getRel().value()).toList();
+        }
+
+        Link exposeSelfLink(Long id) {
+            return linkToSelf(id);
+        }
+
+        Link exposeAllLink() {
+            return linkToAll();
+        }
+
+        Link exposeFilterLink() {
+            return linkToFilter();
+        }
+
+        Link exposeFilterCursorLink() {
+            return linkToFilterCursor();
+        }
+
+        Link exposeCreateLink() {
+            return linkToCreate();
+        }
+
+        Link exposeUpdateLink(Long id) {
+            return linkToUpdate(id);
+        }
+
+        Link exposeDeleteLink(Long id) {
+            return linkToDelete(id);
+        }
+
+        Link exposeCollectionActionsLink() {
+            return linkToCollectionActionsIfAvailable();
+        }
+
+        Link exposeCollectionCapabilitiesLink() {
+            return linkToCollectionCapabilitiesIfAvailable();
+        }
+
+        Link exposeItemSurfacesLink(Long id) {
+            return linkToItemSurfacesIfAvailable(id);
+        }
+
+        Link exposeItemActionsLink(Long id) {
+            return linkToItemActionsIfAvailable(id);
+        }
+
+        Link exposeItemCapabilitiesLink(Long id) {
+            return linkToItemCapabilitiesIfAvailable(id);
         }
     }
 }

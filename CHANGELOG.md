@@ -58,6 +58,10 @@ All notable changes to this module will be documented in this file.
 - Links HATEOAS absolutos agora respeitam headers `Forwarded` e
   `X-Forwarded-*`, preservando host, porta e protocolo de proxies e dev servers
   ao publicar affordances como `capabilities`, `actions` e discovery contextual.
+- `_links` operacionais resource-local (`self`, `all`, `filter`,
+  `filter-cursor`, `create`, `update`, `delete`, `export` e
+  `duplicate-draft`) agora publicam paths relativos com `contextPath`, mantendo
+  o mesmo origin do consumidor atras de proxy Angular ou headers forwarded.
 - Resolucao interna de documentos OpenAPI agora usa a origem local do backend
   ao rodar atras de proxy/forwarded headers, evitando que `/schemas/*`,
   `/capabilities`, actions e surfaces tentem consumir `/v3/api-docs` pela

@@ -143,7 +143,7 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
     }
 
     @Test
-    void forwardedProxyHeadersArePreservedInAbsoluteHateoasLinks() throws Exception {
+    void forwardedProxyHeadersDoNotLeakBackendOriginInResourceLocalHateoasLinks() throws Exception {
         HttpHeaders headers = new HttpHeaders();
         headers.add("Forwarded", "proto=http;host=\"127.0.0.1:4302\"");
         headers.add("X-Forwarded-Proto", "http");
@@ -154,13 +154,9 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
         String capabilitiesHref = findLinkHref(collectionEnvelope, "capabilities");
 
         assertNotNull(capabilitiesHref);
-        assertTrue(
-                capabilitiesHref.startsWith("http://127.0.0.1:4302/"),
-                "Expected capabilities link to preserve forwarded dev-server origin: " + capabilitiesHref
-        );
+        assertEquals("/employees/capabilities", capabilitiesHref);
         assertFalse(capabilitiesHref.startsWith("http://127.0.0.1/api/"));
         assertFalse(capabilitiesHref.contains("127.0.0.1:4301"));
-        assertTrue(capabilitiesHref.endsWith("/employees/capabilities"));
     }
 
     private void assertFilteredSchemaUrl(String href, String path, String operation, String schemaType) {

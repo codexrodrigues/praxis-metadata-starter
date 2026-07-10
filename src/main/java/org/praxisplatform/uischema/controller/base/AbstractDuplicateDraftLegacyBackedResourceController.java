@@ -11,7 +11,6 @@ import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.service.base.DuplicateDraftLegacyBackedResourceService;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.Links;
-import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -99,8 +98,6 @@ public abstract class AbstractDuplicateDraftLegacyBackedResourceController<Respo
     }
 
     protected Link linkToDuplicateDraft(ID id) {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getDuplicateDraftResourceControllerClass()).duplicateDraft(id)
-        ).withRel("duplicate-draft");
+        return Link.of(resourcePath(id, "duplicate-draft"), "duplicate-draft");
     }
 }
