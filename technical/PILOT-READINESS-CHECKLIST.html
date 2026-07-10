@@ -236,6 +236,47 @@ validado</label></li>
 <code>getCollectionExportCapability()</code>, quando
 aplicavel</label></li>
 </ul>
+<h2 id="availability-enterprise">Availability enterprise</h2>
+<ul class="task-list">
+<li><label><input
+type="checkbox" /><code>ResourceOperationAvailabilityProvider</code>
+usado para disponibilidade de operacoes canonicas, quando houver regra
+contextual</label></li>
+<li><label><input type="checkbox" /><code>ActionAvailabilityRule</code>
+usado apenas para workflow actions explicitas</label></li>
+<li><label><input type="checkbox" /><code>SurfaceAvailabilityRule</code>
+usado apenas para experiences publicadas por
+<code>@UiSurface</code></label></li>
+<li><label><input
+type="checkbox" /><code>ResourceStateSnapshotProvider</code> usado
+quando action, surface e operation dependem do mesmo estado de
+item</label></li>
+<li><label><input type="checkbox" />collection capabilities e item
+capabilities validadas separadamente quando a decisao depende de
+<code>resourceId</code></label></li>
+<li><label><input type="checkbox" /><code>_links</code> e
+<code>/capabilities.operations</code> concordam para
+create/edit/delete/export</label></li>
+<li><label><input type="checkbox" /><code>/actions</code> e
+<code>capabilities.actions</code> concordam para actions collection e
+item</label></li>
+<li><label><input type="checkbox" /><code>/surfaces</code> e
+<code>capabilities.surfaces</code> concordam para surfaces collection e
+item</label></li>
+<li><label><input type="checkbox" />metadata de denial publica apenas
+<code>policy</code>, <code>publicReason</code>,
+<code>blockedOperation</code>, <code>contextual</code>,
+<code>resourceState</code>, <code>requiredAuthorities</code>,
+<code>missingAuthorities</code> ou <code>allowedStates</code>
+seguros</label></li>
+<li><label><input type="checkbox" />metadata de denial nao expoe SQL,
+HADES, Oracle, ROWID, package, procedure, usuario tecnico, tenant
+privado, sessao ou locator interno</label></li>
+<li><label><input type="checkbox" />falha do provider testada como
+fail-closed para operacoes protegidas</label></li>
+<li><label><input type="checkbox" />teste focal prova pelo menos um
+allow e um deny item-level</label></li>
+</ul>
 <h2 id="testes-e-validacao">Testes e validacao</h2>
 <ul class="task-list">
 <li><label><input type="checkbox" />suite focal do host

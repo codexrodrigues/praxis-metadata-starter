@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Enterprise Availability Adoption</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Enterprise Availability Adoption</h1>
+</header>
+<h1 id="enterprise-availability-adoption">Enterprise Availability
+Adoption</h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este guia transforma a SPI de availability do
+<code>praxis-metadata-starter</code> em um trilho canonico de adocao
+corporativa. Ele nao cria um novo contrato: organiza como hosts devem
+usar <code>ResourceOperationAvailabilityProvider</code>,
+<code>ActionAvailabilityRule</code>,
+<code>SurfaceAvailabilityRule</code> e
+<code>ResourceStateSnapshotProvider</code> sem espalhar regras por
+controllers, services ou clientes.</p>
+<p>Classificacao de aderencia: <code>suportado-parcialmente</code>.</p>
+<p>O starter ja sabe publicar availability em operacoes, surfaces,
+actions, <code>/capabilities</code> e <code>_links</code>. A lacuna nao
+e uma nova SPI; e a disciplina de uso, evidencia e explicacao para que
+cada host pluge suas regras privadas atras da fronteira publica
+correta.</p>
+<h2 id="regra-canonica">Regra canonica</h2>
+<p>Use cada eixo para o tipo de decisao que ele governa:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Necessidade</th>
+<th>Fonte canonica</th>
+<th>Exemplo</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Disponibilidade de operacao CRUD canonica</td>
+<td><code>ResourceOperationAvailabilityProvider</code></td>
+<td><code>create</code>, <code>edit</code>, <code>delete</code>,
+<code>duplicate-draft</code>, <code>export</code>,
+<code>stats</code></td>
+</tr>
+<tr class="even">
+<td>Disponibilidade de comando de negocio</td>
+<td><code>ActionAvailabilityRule</code></td>
+<td><code>approve</code>, <code>reject</code>,
+<code>bulk-approve</code></td>
+</tr>
+<tr class="odd">
+<td>Disponibilidade de experiencia UI discoverable</td>
+<td><code>SurfaceAvailabilityRule</code></td>
+<td><code>profile</code>, <code>detail</code>, <code>wizard</code>,
+<code>related-list</code></td>
+</tr>
+<tr class="even">
+<td>Estado compartilhado do item</td>
+<td><code>ResourceStateSnapshotProvider</code></td>
+<td><code>ACTIVE</code>, <code>INACTIVE</code>, <code>LOCKED</code>,
+<code>CLOSED</code></td>
+</tr>
+<tr class="odd">
+<td>Snapshot agregado para runtime/IA</td>
+<td><code>GET /{resource}/capabilities</code> e
+<code>GET /{resource}/{id}/capabilities</code></td>
+<td>operacoes, actions, surfaces e stats atuais</td>
+</tr>
+</tbody>
+</table>
+<p>Nao use services locais como segunda fonte de permissao publica. Se o
+service precisa chamar um guard privado, ele deve chama-lo atras da SPI
+correta e publicar apenas uma decisao segura.</p>
+<h2 id="operacoes-de-recurso">Operacoes de recurso</h2>
+<p>Use <code>ResourceOperationAvailabilityProvider</code> quando a
+pergunta for:</p>
+<ul>
+<li>o recurso pode criar agora?</li>
+<li>este item pode ser editado agora?</li>
+<li>este item pode ser excluido agora?</li>
+<li>este item pode gerar um rascunho editavel?</li>
+<li>a colecao pode exportar ou calcular stats agora?</li>
+</ul>
+<p>O provider recebe <code>ResourceOperationAvailabilityContext</code>
+com:</p>
+<ul>
+<li><code>resourceKey</code></li>
+<li><code>resourcePath</code></li>
+<li><code>operationId</code></li>
+<li><code>scope</code></li>
+<li><code>resourceId</code>, quando item-level</li>
+<li><code>resourceState</code>, quando houver snapshot</li>
+<li><code>metadata</code> publica do contexto</li>
+</ul>
+<p>O provider deve encapsular policy privada, motor legado, autorizacao,
+agenda, tenant, sessao ou regra regulatoria. Ele nao deve publicar nomes
+internos de package, SQL, HADES, ROWID, usuario tecnico, locators ou
+detalhes de banco.</p>
+<h2 id="workflow-actions">Workflow actions</h2>
+<p>Use <code>ActionAvailabilityRule</code> quando a decisao pertencer a
+uma action publicada por <code>@WorkflowAction</code>.</p>
+<p>Exemplos:</p>
+<ul>
+<li><code>POST /employees/{id}/actions/approve</code></li>
+<li><code>POST /employees/actions/bulk-approve</code></li>
+<li><code>POST /orders/{id}/actions/cancel</code></li>
+</ul>
+<p><code>@WorkflowAction.allowedStates</code> e
+<code>requiredAuthorities</code> cobrem restricoes declarativas simples.
+Regras dinamicas devem ficar em uma <code>ActionAvailabilityRule</code>
+customizada, usando <code>ActionAvailabilityContext</code> e
+<code>ResourceStateSnapshot</code> quando a decisao depender do
+item.</p>
+<p>Nao transforme action em CRUD por causa do metodo HTTP. O eixo
+canonico e a intencao de negocio, nao o verbo.</p>
+<h2 id="surfaces">Surfaces</h2>
+<p>Use <code>SurfaceAvailabilityRule</code> quando a decisao pertencer a
+uma experiencia UI publicada por <code>@UiSurface</code>.</p>
+<p>Exemplos:</p>
+<ul>
+<li>form parcial <code>profile</code></li>
+<li>detalhe contextual <code>detail</code></li>
+<li>wizard de item</li>
+<li>related-list ou surface analitica</li>
+</ul>
+<p><code>@UiSurface</code> descreve a experiencia sobre uma operacao
+real. Ela nao cria payload, schema ou permissao paralela. O schema
+continua em <code>/schemas/filtered</code>; a disponibilidade contextual
+vem de <code>/surfaces</code> e <code>/capabilities</code>.</p>
+<h2 id="collection-vs-item">Collection vs item</h2>
+<p>Collection capabilities respondem “o que existe ou esta disponivel
+para a colecao agora”. Item capabilities respondem “o que este registro
+pode fazer agora”.</p>
+<p>Regras:</p>
+<ul>
+<li><code>GET /{resource}/capabilities</code> nao substitui
+<code>GET /{resource}/{id}/capabilities</code> quando a decisao depende
+de estado do item.</li>
+<li>catalogos globais de <code>/schemas/actions</code> e
+<code>/schemas/surfaces</code> sao discovery. Para decisao real de item,
+use endpoints item-level.</li>
+<li>quando uma action ou surface <code>ITEM</code> aparece como
+<code>resource-context-required</code>, isso significa que ela existe,
+mas precisa de <code>resourceId</code> para decidir.</li>
+</ul>
+<h2 id="metadata-publica-recomendada">Metadata publica recomendada</h2>
+<p>Use <code>AvailabilityDecision.metadata</code> para explicar a
+decisao sem vazar a policy privada.</p>
+<p>Chaves recomendadas:</p>
+<ul>
+<li><code>policy</code>: nome publico e estavel da politica, como
+<code>employee-operation-policy</code></li>
+<li><code>publicReason</code>: texto seguro para UI, cockpit ou
+auditoria</li>
+<li><code>blockedOperation</code>: operacao canonica bloqueada</li>
+<li><code>contextual</code>: <code>true</code> quando a decisao depende
+de contexto ou item</li>
+<li><code>resourceState</code>: estado publico do recurso, quando
+seguro</li>
+<li><code>requiredAuthorities</code>: authorities publicas quando ja
+forem parte do contrato</li>
+<li><code>missingAuthorities</code>: authorities ausentes quando puderem
+ser exibidas</li>
+<li><code>allowedStates</code>: estados publicos aceitos quando
+declarados na annotation</li>
+</ul>
+<p>Evite:</p>
+<ul>
+<li>SQL, package, stack trace ou procedure</li>
+<li>HADES, Oracle, ROWID, Archon, locators internos ou nomes de guards
+privados</li>
+<li>identificadores de tenant, usuario, sessao ou empresa que nao sejam
+parte do contrato publico</li>
+<li>mensagem interna de exception</li>
+</ul>
+<h2 id="explicacao-para-cockpit-e-ia">Explicacao para Cockpit e IA</h2>
+<p>Clientes semanticos devem distinguir:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Estado</th>
+<th>Como interpretar</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>unsupported</code></td>
+<td>a operacao/action/surface nao existe para o recurso</td>
+</tr>
+<tr class="even">
+<td><code>supported-but-denied</code></td>
+<td>existe, mas <code>availability.allowed=false</code> no contexto
+atual</td>
+</tr>
+<tr class="odd">
+<td><code>collection-scope</code></td>
+<td>decisao feita sem <code>resourceId</code></td>
+</tr>
+<tr class="even">
+<td><code>item-scope</code></td>
+<td>decisao feita para um item concreto</td>
+</tr>
+<tr class="odd">
+<td><code>requires-resource-context</code></td>
+<td>existe, mas a consulta global nao tem item suficiente</td>
+</tr>
+</tbody>
+</table>
+<p>O Cockpit e assistentes devem explicar primeiro a decisao publica e,
+depois, apontar a superficie canonica para investigacao:</p>
+<ul>
+<li>operacao de recurso: <code>/capabilities.operations</code></li>
+<li>workflow: <code>/actions</code> ou
+<code>/capabilities.actions</code></li>
+<li>experiencia UI: <code>/surfaces</code> ou
+<code>/capabilities.surfaces</code></li>
+<li>schema estrutural: <code>/schemas/filtered</code></li>
+</ul>
+<h2 id="evitando-n1">Evitando N+1</h2>
+<p>Quando availability de action, surface e operation depender do mesmo
+estado do item, publique um <code>ResourceStateSnapshotProvider</code>
+por recurso. O starter usa o snapshot compartilhado no fluxo contextual
+para evitar que cada rule recarregue o mesmo registro.</p>
+<p>Boas praticas:</p>
+<ul>
+<li>o snapshot deve carregar somente estado publico e metadata
+minima</li>
+<li>rules devem ler o snapshot em vez de chamar repository
+diretamente</li>
+<li>providers privados podem consultar sistemas externos, mas devem
+cachear ou agrupar no host quando a consulta puder ser repetida por
+item</li>
+<li>testes de host devem cobrir uma colecao com varios itens para
+detectar N+1 evitavel</li>
+</ul>
+<h2 id="exemplo-non-ergon">Exemplo non-Ergon</h2>
+<p>A fixture E2E do starter demonstra o padrao sem depender de
+Ergon:</p>
+<ul>
+<li><code>EmployeeSurfaceStateSnapshotProvider</code> publica estado
+publico de employee</li>
+<li><code>EmployeeResourceOperationAvailabilityProvider</code> bloqueia
+<code>delete</code> quando o employee esta em <code>LEAVE</code></li>
+<li><code>@WorkflowAction(id = "approve")</code> usa estado
+<code>INACTIVE</code></li>
+<li><code>@UiSurface(id = "profile")</code> usa estado
+<code>ACTIVE</code></li>
+<li><code>CapabilityConsistencyE2ETest</code> prova que
+<code>/capabilities</code> e <code>_links</code> concordam para a
+operacao negada</li>
+<li><code>ActionCatalogE2ETest</code>,
+<code>SurfaceCatalogE2ETest</code> e
+<code>HypermediaDiscoveryE2ETest</code> provam que actions e surfaces
+mantem a mesma disponibilidade publica nos endpoints dedicados e no
+snapshot agregado</li>
+</ul>
+<p>Esse exemplo e propositalmente host-neutral. Em um host corporativo,
+HADES, Oracle, Archon, IAM ou motor regulatorio ficam atras da SPI.
+Nenhum desses nomes deve virar semantica publica do Praxis.</p>
+<h2 id="checklist-de-aceite-para-hosts">Checklist de aceite para
+hosts</h2>
+<p>Antes de declarar um recurso pronto para migracao assistida por
+IA:</p>
+<ul>
+<li><code>_links</code> e <code>/capabilities.operations</code>
+concordam para create/edit/delete/export</li>
+<li>action catalog e <code>capabilities.actions</code> concordam no
+mesmo contexto</li>
+<li>surface catalog e <code>capabilities.surfaces</code> concordam no
+mesmo contexto</li>
+<li>item-level availability foi testada com pelo menos um allow e um
+deny</li>
+<li>denial usa metadata publica segura</li>
+<li>provider falhando resulta em fail-closed para operacoes
+protegidas</li>
+<li>collection capabilities nao sao usadas como substituto de item
+capabilities</li>
+<li>testes focais cobrem o host sem depender de regra privada especifica
+no contrato</li>
+</ul>
+</body>
+</html>
