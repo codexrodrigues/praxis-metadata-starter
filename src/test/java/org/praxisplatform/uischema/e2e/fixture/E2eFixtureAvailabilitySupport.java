@@ -5,6 +5,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
+import org.praxisplatform.uischema.capability.AvailabilityDecision;
+import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
+import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityProvider;
 import org.praxisplatform.uischema.capability.ResourceStateSnapshot;
 import org.praxisplatform.uischema.capability.ResourceStateSnapshotProvider;
 import org.springframework.stereotype.Component;
@@ -17,6 +20,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -40,6 +44,37 @@ class EmployeeSurfaceStateSnapshotProvider implements ResourceStateSnapshotProvi
                         employee.getStatus().name(),
                         java.util.Map.of("employeeId", employee.getId())
                 ));
+    }
+}
+
+@Component
+class EmployeeResourceOperationAvailabilityProvider implements ResourceOperationAvailabilityProvider {
+
+    @Override
+    public AvailabilityDecision evaluate(ResourceOperationAvailabilityContext context) {
+        if (!"human-resources.employees".equals(context.resourceKey())) {
+            return AvailabilityDecision.allowAll();
+        }
+        if (!"delete".equals(context.operationId()) || context.resourceState() == null) {
+            return AvailabilityDecision.allow(Map.of(
+                    "contextual", context.resourceId() != null,
+                    "policy", "employee-operation-policy"
+            ));
+        }
+        if (!"LEAVE".equals(context.resourceState().state())) {
+            return AvailabilityDecision.allow(Map.of(
+                    "contextual", true,
+                    "policy", "employee-operation-policy",
+                    "resourceState", context.resourceState().state()
+            ));
+        }
+        return AvailabilityDecision.deny("resource-state-blocked", Map.of(
+                "contextual", true,
+                "policy", "employee-operation-policy",
+                "publicReason", "Employees on leave cannot be deleted.",
+                "blockedOperation", "delete",
+                "resourceState", context.resourceState().state()
+        ));
     }
 }
 

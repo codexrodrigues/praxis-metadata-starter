@@ -11,6 +11,12 @@ All notable changes to this module will be documented in this file.
   `controllerEndpointHandlerMapping`.
 
 ### Added
+- Guia canonico `docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md`,
+  checklist de readiness e fixture E2E non-Ergon para orientar availability
+  enterprise entre `ResourceOperationAvailabilityProvider`,
+  `ActionAvailabilityRule`, `SurfaceAvailabilityRule`,
+  `ResourceStateSnapshotProvider`, `_links`, `/capabilities`, `/actions` e
+  `/surfaces` sem expor politicas privadas do host.
 - API Java inicial de **Governed Resource Command Execution** em
   `org.praxisplatform.uischema.command`, com executor host-neutral, provider,
   request/result, response policies, outcomes publicos, error categories e

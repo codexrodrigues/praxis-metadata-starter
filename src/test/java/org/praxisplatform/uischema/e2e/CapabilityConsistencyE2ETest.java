@@ -10,6 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
@@ -62,6 +64,29 @@ class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
         assertEquals("GET", capabilitySnapshot.path("operations").path("view").path("preferredMethod").asText());
         assertEquals("ITEM", capabilitySnapshot.path("operations").path("edit").path("scope").asText());
         assertTrue(capabilitySnapshot.path("operations").path("edit").path("supported").asBoolean());
+    }
+
+    @Test
+    void itemOperationAvailabilityStaysConsistentBetweenCapabilitiesAndHateoasLinks() throws Exception {
+        Long frankId = state.employeeIdsByName().get("Frank");
+
+        JsonNode capabilitySnapshot = body(get("/employees/" + frankId + "/capabilities"));
+        JsonNode itemEnvelope = body(get("/employees/" + frankId));
+        JsonNode deleteAvailability = capabilitySnapshot
+                .path("operations")
+                .path("delete")
+                .path("availability");
+
+        assertTrue(capabilitySnapshot.path("operations").path("delete").path("supported").asBoolean());
+        assertFalse(deleteAvailability.path("allowed").asBoolean());
+        assertEquals("resource-state-blocked", deleteAvailability.path("reason").asText());
+        assertEquals("employee-operation-policy", deleteAvailability.path("metadata").path("policy").asText());
+        assertEquals("delete", deleteAvailability.path("metadata").path("blockedOperation").asText());
+        assertEquals("Employees on leave cannot be deleted.", deleteAvailability.path("metadata").path("publicReason").asText());
+        assertFalse(deleteAvailability.path("metadata").has("sql"));
+        assertFalse(deleteAvailability.path("metadata").has("hades"));
+        assertFalse(deleteAvailability.path("metadata").has("rowId"));
+        assertNull(findLinkHref(itemEnvelope, "delete"));
     }
 
     private JsonNode filterByScope(JsonNode items, String scope) {
