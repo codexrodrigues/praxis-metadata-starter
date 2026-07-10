@@ -176,10 +176,20 @@ Pergunta 4: a UI so precisa saber o que existe ou o que esta disponivel agora?
 O baseline distingue **descoberta** (o que existe) de **disponibilidade** (o que esta permitido agora).
 
 - `allowedStates` e `requiredAuthorities` (nas anotacoes `@UiSurface` e `@WorkflowAction`) declaram restricoes estaticas.
-- Quando a disponibilidade depende de regras dinamicas, datas, motor de regras ou multiplos campos, o host deve fornecer:
-  - Um `ResourceStateSnapshotProvider` (para informar o estado atual do recurso)
-  - Ou `ActionAvailabilityRule` / `SurfaceAvailabilityRule` customizadas
+- Quando a disponibilidade depende de operacoes canonicas como `create`, `edit`,
+  `delete`, `duplicate-draft`, `export` ou `stats`, o host deve plugar
+  `ResourceOperationAvailabilityProvider`.
+- Quando a disponibilidade depende de workflow action publicada por
+  `@WorkflowAction`, use `ActionAvailabilityRule`.
+- Quando a disponibilidade depende de experiencia publicada por `@UiSurface`, use
+  `SurfaceAvailabilityRule`.
+- Quando action, surface e operation dependem do mesmo estado do item, use
+  `ResourceStateSnapshotProvider` para compartilhar o estado sem N+1.
 
-A UI obtem a disponibilidade real via `GET /{resource}/{id}/capabilities` (campo `available` / `availability.decision`) e ajusta a interface (ocultar, desabilitar, tooltip).
+A UI obtem a disponibilidade real via `GET /{resource}/capabilities`,
+`GET /{resource}/{id}/capabilities`, `GET /{resource}/{id}/actions` e
+`GET /{resource}/{id}/surfaces`. Collection capabilities nao substituem item
+capabilities quando a decisao depende de `resourceId` ou estado do registro.
 
-Detalhes de implementacao e exemplos estao no `QuickstartResourceStateSnapshotProvider` do `praxis-api-quickstart` e nos Javadocs das classes de availability do starter.
+Para adocao corporativa, metadata publica segura e criterios de aceite, siga
+[Enterprise Availability Adoption](ENTERPRISE-AVAILABILITY-ADOPTION.md).

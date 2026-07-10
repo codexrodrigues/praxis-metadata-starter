@@ -233,6 +233,13 @@ Papel de cada camada:
 - actions devem apontar para request/response schema canonicos; respostas HATEOAS de actions devem manter esses links quando houver contrato estrutural associado
 - `ResourceOperationAvailabilityProvider` permite ao host aplicar disponibilidade dinamica de operacoes canonicas sem vazar guards legados, tenant, sessao ou permissao privada
 
+Para adocao corporativa, use
+[`docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md`](docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md).
+Esse guia define quando a decisao pertence a `ResourceOperationAvailabilityProvider`,
+`ActionAvailabilityRule`, `SurfaceAvailabilityRule` ou `ResourceStateSnapshotProvider`,
+como publicar metadata segura de denial e quais testes provam consistencia entre
+`_links`, `/capabilities`, `/actions` e `/surfaces`.
+
 Em outras palavras:
 
 - `capabilities` nao substitui schema

@@ -43,6 +43,21 @@ Marque todos os itens abaixo antes de abrir a adocao do piloto.
 - [ ] `GET /{resource}/{id}/capabilities` validado
 - [ ] detalhes de `export` em `/capabilities` coerentes com `supportsCollectionExport()` e `getCollectionExportCapability()`, quando aplicavel
 
+## Availability enterprise
+
+- [ ] `ResourceOperationAvailabilityProvider` usado para disponibilidade de operacoes canonicas, quando houver regra contextual
+- [ ] `ActionAvailabilityRule` usado apenas para workflow actions explicitas
+- [ ] `SurfaceAvailabilityRule` usado apenas para experiences publicadas por `@UiSurface`
+- [ ] `ResourceStateSnapshotProvider` usado quando action, surface e operation dependem do mesmo estado de item
+- [ ] collection capabilities e item capabilities validadas separadamente quando a decisao depende de `resourceId`
+- [ ] `_links` e `/capabilities.operations` concordam para create/edit/delete/export
+- [ ] `/actions` e `capabilities.actions` concordam para actions collection e item
+- [ ] `/surfaces` e `capabilities.surfaces` concordam para surfaces collection e item
+- [ ] metadata de denial publica apenas `policy`, `publicReason`, `blockedOperation`, `contextual`, `resourceState`, `requiredAuthorities`, `missingAuthorities` ou `allowedStates` seguros
+- [ ] metadata de denial nao expoe SQL, HADES, Oracle, ROWID, package, procedure, usuario tecnico, tenant privado, sessao ou locator interno
+- [ ] falha do provider testada como fail-closed para operacoes protegidas
+- [ ] teste focal prova pelo menos um allow e um deny item-level
+
 ## Testes e validacao
 
 - [ ] suite focal do host verde
