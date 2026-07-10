@@ -4,6 +4,12 @@ All notable changes to this module will be documented in this file.
 
 ## Unreleased
 
+### Fixed
+- `ApiResourceIdentityResolver` agora injeta explicitamente o
+  `requestMappingHandlerMapping` canonico do Spring MVC, evitando falha de
+  auto-configuracao em hosts que tambem publicam mappings auxiliares, como
+  `controllerEndpointHandlerMapping`.
+
 ### Added
 - API Java inicial de **Governed Resource Command Execution** em
   `org.praxisplatform.uischema.command`, com executor host-neutral, provider,

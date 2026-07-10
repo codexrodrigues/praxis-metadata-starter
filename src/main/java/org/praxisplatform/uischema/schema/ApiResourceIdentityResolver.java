@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.schema;
 
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.ResourceIdentity;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
@@ -18,7 +19,9 @@ public class ApiResourceIdentityResolver {
 
     private final RequestMappingHandlerMapping handlerMapping;
 
-    public ApiResourceIdentityResolver(RequestMappingHandlerMapping handlerMapping) {
+    public ApiResourceIdentityResolver(
+            @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping handlerMapping
+    ) {
         this.handlerMapping = handlerMapping;
     }
 
