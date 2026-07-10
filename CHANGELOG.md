@@ -5,6 +5,17 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- API Java inicial de **Governed Resource Command Execution** em
+  `org.praxisplatform.uischema.command`, com executor host-neutral, provider,
+  request/result, response policies, outcomes publicos, error categories e
+  sanitizacao de evidence privada, alem de adapter opt-in para converter
+  outcomes governados em `RestApiResponse`/`CustomProblemDetail` canonicos e
+  helpers protegidos em `AbstractResourceQueryController` para actions reais
+  executarem comandos governados preservando `X-Data-Version` e links de
+  schema sem criar dispatcher generico nem alterar endpoints/discovery
+  existentes; o executor tambem converte `ResponseStatusException` publica de
+  providers Spring em outcomes governados para reduzir adaptacao local nos
+  hosts.
 - Engine canonico `ExcelCollectionExportEngine` para exportacao XLSX real em
   `POST /{resource}/export`, registrado por auto-configuracao junto aos engines
   CSV/JSON e governado pela mesma allowlist de campos, `applyFormatting`,

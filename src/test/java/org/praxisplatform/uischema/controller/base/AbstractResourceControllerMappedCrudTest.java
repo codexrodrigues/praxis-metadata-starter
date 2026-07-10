@@ -2,8 +2,11 @@ package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.annotation.WorkflowAction;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CapabilityService;
+import org.praxisplatform.uischema.command.ResourceCommandExecutionResult;
+import org.praxisplatform.uischema.command.ResourceCommandResponsePolicy;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.service.base.BaseResourceCommandService;
 import org.praxisplatform.uischema.service.base.BaseResourceService;
@@ -12,8 +15,13 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.anyList;
@@ -107,6 +115,46 @@ class AbstractResourceControllerMappedCrudTest {
         verify(service, never()).deleteAllById(anyList());
     }
 
+    @Test
+    void workflowActionCanUseGovernedCommandHelper() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
+        when(capabilityService.itemOperationAvailability("test.simple", "/simple", "archive", 15L))
+                .thenReturn(AvailabilityDecision.allowAll());
+        when(service.archive(eq(15L), any())).thenReturn(new SimpleResponseDto(15L));
+
+        mockMvc.perform(post("/simple/15/actions/archive")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"done\"}"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Data-Version", "1"))
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data.id").value(15))
+                .andExpect(jsonPath("$._links.schema[0].href").exists())
+                .andExpect(jsonPath("$._links.schema[1].href").exists());
+
+        verify(service).archive(eq(15L), any());
+        verify(capabilityService).itemOperationAvailability("test.simple", "/simple", "archive", 15L);
+    }
+
+    @Test
+    void workflowActionDenialDoesNotExecuteProvider() throws Exception {
+        when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
+        when(capabilityService.itemOperationAvailability("test.simple", "/simple", "archive", 15L))
+                .thenReturn(AvailabilityDecision.deny("locked", Map.of("safe", "visible")));
+
+        mockMvc.perform(post("/simple/15/actions/archive")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"done\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().string("X-Data-Version", "1"))
+                .andExpect(jsonPath("$.status").value("failure"))
+                .andExpect(jsonPath("$.message").value("locked"))
+                .andExpect(jsonPath("$.errors[0].category").value("SECURITY"))
+                .andExpect(jsonPath("$.errors[0].outcome").value("PERMISSION_DENIED"));
+
+        verify(service, never()).archive(eq(15L), any());
+    }
+
     interface SimpleService extends BaseResourceService<
             SimpleResponseDto,
             Long,
@@ -118,6 +166,8 @@ class AbstractResourceControllerMappedCrudTest {
         default Optional<String> getDatasetVersion() {
             return Optional.of("1");
         }
+
+        SimpleResponseDto archive(Long id, Map<String, Object> payload);
     }
 
     static class SimpleResponseDto {
@@ -167,6 +217,26 @@ class AbstractResourceControllerMappedCrudTest {
         @Override
         protected String getBasePath() {
             return "/simple";
+        }
+
+        @PostMapping("/{id}/actions/archive")
+        @WorkflowAction(id = "archive", title = "Arquivar item")
+        public ResponseEntity<?> archive(
+                @PathVariable Long id,
+                @RequestBody(required = false) Map<String, Object> payload
+        ) {
+            return executeItemCommand(
+                    "archive",
+                    id,
+                    payload,
+                    ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT,
+                    request -> ResourceCommandExecutionResult.success(
+                            request,
+                            id,
+                            service.archive(id, payload),
+                            Map.of("result", "archived")
+                    )
+            );
         }
     }
 }

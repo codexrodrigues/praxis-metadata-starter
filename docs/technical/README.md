@@ -17,6 +17,7 @@ Para onboarding e narrativa publica atual, use primeiro:
 - [Estudo de mercado e roadmap competitivo](ESTUDO-MERCADO-ROADMAP-METADATA-STARTER.md)
 - [Estudo complementar - Praxis UI Angular metadata-driven](ESTUDO-PRAXIS-UI-ANGULAR-METADATA-DRIVEN.md)
 - [Roadmap de filtros - lotes 2 e 3](FILTROS-ROADMAP.md)
+- [RFC - Governed Resource Command Execution](GOVERNED-RESOURCE-COMMAND-EXECUTION-RFC.md)
 
 ### Registros tecnicos de rollout e piloto
 
