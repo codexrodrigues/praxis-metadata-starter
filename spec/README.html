@@ -353,6 +353,13 @@ namespace</li>
 <code>options</code>, <code>byId</code>, <code>all</code>,
 <code>filter</code>, <code>cursor</code>; valores adicionais MAY existir
 e DEVEM ser boolean)</li>
+<li><code>identity?</code> declara a identidade estruturada do registro:
+<code>keyField?</code>, <code>titleField?</code>,
+<code>metadataFields?</code>, <code>displayLabelField?</code> e
+diagnostico <code>valid/invalidFields/message</code></li>
+<li>os campos de <code>identity</code> referenciam propriedades reais do
+schema; runtimes MUST NOT inferir esses papeis por nome de propriedade
+nem decompor <code>displayLabel</code></li>
 </ul></li>
 <li>Chart (x-ui.chart)
 <ul>
@@ -429,7 +436,10 @@ renderizacao.</li>
 <li>Recurso (x-ui.resource): MUST conter <code>idField</code>,
 <code>idFieldValid</code>, <code>readOnly</code>,
 <code>capabilities</code>; <code>idFieldMessage</code> e opcional e
-presente quando <code>idFieldValid=false</code>.</li>
+presente quando <code>idFieldValid=false</code>. <code>identity</code> e
+opt-in e, quando presente, MUST conter <code>valid</code> e ao menos
+<code>keyField</code>, <code>titleField</code> ou
+<code>displayLabelField</code>.</li>
 <li>Chart (x-ui.chart):
 <ul>
 <li>MUST conter <code>version</code>, <code>kind</code> e
