@@ -11,6 +11,7 @@ import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
 import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
+import org.praxisplatform.uischema.schema.ApiResourceIdentityResolver;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -370,6 +371,41 @@ class ApiDocsControllerTest {
         Map<String, Object> analytics = (Map<String, Object>) xUi.get("analytics");
         assertNotNull(analytics);
         assertNotNull(analytics.get("projections"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getFilteredSchemaPublishesStructuredResourceIdentityWithDiagnostics() {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        ApiResourceIdentityResolver identityResolver = org.mockito.Mockito.mock(ApiResourceIdentityResolver.class);
+        when(identityResolver.resolve("/users")).thenReturn(java.util.Optional.of(Map.of(
+                "keyField", "code",
+                "titleField", "email",
+                "metadataFields", java.util.List.of("status"),
+                "displayLabelField", "displayLabel"
+        )));
+        ReflectionTestUtils.setField(controller, "apiResourceIdentityResolver", identityResolver);
+
+        server.expect(requestTo("http://localhost/v3/api-docs/users"))
+                .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        Map<String, Object> schema = controller
+                .getFilteredSchema("/users", "post", false, "response", null, null, java.util.Locale.ENGLISH)
+                .getBody();
+
+        assertNotNull(schema);
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        Map<String, Object> resource = (Map<String, Object>) xUi.get("resource");
+        Map<String, Object> identity = (Map<String, Object>) resource.get("identity");
+        assertEquals("email", identity.get("titleField"));
+        assertEquals(false, identity.get("valid"));
+        assertTrue(((java.util.List<String>) identity.get("invalidFields"))
+                .containsAll(java.util.List.of("code", "status", "displayLabel")));
     }
 
     @Test

@@ -13,6 +13,7 @@ import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
+import org.praxisplatform.uischema.schema.ApiResourceIdentityResolver;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.slf4j.Logger;
@@ -185,6 +186,9 @@ public class ApiDocsController {
                     "searchPlaceholder"
             )
     );
+
+    @Autowired(required = false)
+    private ApiResourceIdentityResolver apiResourceIdentityResolver;
     private static final Map<String, Set<String>> OPTION_SOURCE_PUBLIC_DEEP_KEYS = Map.of(
             "display.actions", Set.of(
                     "showDetail",
@@ -412,13 +416,13 @@ public class ApiDocsController {
                 !(Boolean.TRUE.equals(caps.getOrDefault("create", false))
                         || Boolean.TRUE.equals(caps.getOrDefault("update", false))
                         || Boolean.TRUE.equals(caps.getOrDefault("delete", false)));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> resourceMeta = (Map<String, Object>) xUiMap.get("resource");
+        if (resourceMeta == null) {
+            resourceMeta = new java.util.LinkedHashMap<>();
+            xUiMap.put("resource", resourceMeta);
+        }
         if (resolvedIdField != null && !resolvedIdField.isBlank()) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> resourceMeta = (Map<String, Object>) xUiMap.get("resource");
-            if (resourceMeta == null) {
-                resourceMeta = new java.util.HashMap<>();
-                xUiMap.put("resource", resourceMeta);
-            }
             resourceMeta.put("idField", resolvedIdField);
 
             boolean valid = hasSchemaProperty(schemaMap, resolvedIdField);
@@ -430,6 +434,28 @@ public class ApiDocsController {
 
             resourceMeta.put("readOnly", computedReadOnly);
             resourceMeta.put("capabilities", caps);
+        }
+
+        if (apiResourceIdentityResolver != null) {
+            Optional<Map<String, Object>> resolvedIdentity = apiResourceIdentityResolver.resolve(basePath);
+            if (resolvedIdentity.isPresent()) {
+                Map<String, Object> identity = resolvedIdentity.get();
+                Map<String, Object> publishedIdentity = new java.util.LinkedHashMap<>(identity);
+                java.util.List<String> invalidFields = identity.values().stream()
+                        .flatMap(value -> value instanceof java.util.Collection<?> collection
+                                ? collection.stream()
+                                : java.util.stream.Stream.of(value))
+                        .map(String::valueOf)
+                        .filter(field -> !hasSchemaProperty(schemaMap, field))
+                        .distinct()
+                        .toList();
+                publishedIdentity.put("valid", invalidFields.isEmpty());
+                if (!invalidFields.isEmpty()) {
+                    publishedIdentity.put("invalidFields", invalidFields);
+                    publishedIdentity.put("message", "Resource identity references fields not found in schema properties");
+                }
+                resourceMeta.put("identity", publishedIdentity);
+            }
         }
 
         enrichPropertyOptionSources(schemaMap, basePath);
