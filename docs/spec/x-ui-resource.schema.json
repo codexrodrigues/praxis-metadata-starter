@@ -9,6 +9,33 @@
     "idFieldValid": { "type": "boolean" },
     "idFieldMessage": { "type": "string" },
     "readOnly": { "type": "boolean" },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "keyField": { "type": "string", "minLength": 1 },
+        "titleField": { "type": "string", "minLength": 1 },
+        "metadataFields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "displayLabelField": { "type": "string", "minLength": 1 },
+        "valid": { "type": "boolean" },
+        "invalidFields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "message": { "type": "string" }
+      },
+      "required": ["valid"],
+      "anyOf": [
+        { "required": ["keyField"] },
+        { "required": ["titleField"] },
+        { "required": ["displayLabelField"] }
+      ]
+    },
     "capabilities": {
       "type": "object",
       "additionalProperties": { "type": "boolean" },

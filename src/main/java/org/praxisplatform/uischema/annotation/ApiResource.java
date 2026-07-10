@@ -148,6 +148,16 @@ public @interface ApiResource {
     String visualTone() default "";
 
     /**
+     * Identidade visual estruturada dos registros deste recurso.
+     *
+     * <p>O runtime usa esta declaracao para compor cabecalhos, selecoes e resumos de registro
+     * sem inferir semantica por nomes de propriedade ou decompor labels concatenados.</p>
+     *
+     * @return contrato de identidade dos registros
+     */
+    ResourceIdentity identity() default @ResourceIdentity;
+
+    /**
      * Define os content types produzidos pelo recurso.
      * Por padrao, produz JSON.
      *
