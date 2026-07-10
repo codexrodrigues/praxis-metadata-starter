@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.ResourceIdentity;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -43,6 +44,19 @@ class ApiResourceIdentityResolverTest {
         ApiResourceIdentityResolver resolver = new ApiResourceIdentityResolver(handlerMapping);
 
         assertTrue(resolver.resolve("/api/unconfigured").isEmpty());
+    }
+
+    @Test
+    void usesCanonicalMvcHandlerMappingWhenAdditionalMappingsExist() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class, RequestMappingHandlerMapping::new);
+            context.registerBean("controllerEndpointHandlerMapping", RequestMappingHandlerMapping.class, RequestMappingHandlerMapping::new);
+            context.registerBean(ApiResourceIdentityResolver.class);
+
+            context.refresh();
+
+            assertTrue(context.containsBean("apiResourceIdentityResolver"));
+        }
     }
 
     @ApiResource(
