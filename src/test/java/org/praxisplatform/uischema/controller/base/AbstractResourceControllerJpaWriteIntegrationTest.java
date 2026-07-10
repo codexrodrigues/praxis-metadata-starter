@@ -134,7 +134,7 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
         JsonNode responseNode = objectMapper.readTree(body);
         long employeeId = responseNode.path("data").path("id").asLong(-1);
         assertTrue(employeeId > 0, "Response body does not contain employee id: " + body);
-        assertEquals("http://localhost/integration-employees/" + employeeId, result.getResponse().getHeader("Location"));
+        assertEquals("/integration-employees/" + employeeId, result.getResponse().getHeader("Location"));
     }
 
     @Test

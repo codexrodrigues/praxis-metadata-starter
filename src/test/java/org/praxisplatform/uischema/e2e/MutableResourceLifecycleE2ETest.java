@@ -42,7 +42,7 @@ class MutableResourceLifecycleE2ETest extends AbstractE2eH2Test {
         JsonNode createBody = body(createResponse);
         long createdId = createBody.path("data").path("id").asLong();
         assertTrue(createdId > 0);
-        assertEquals(url("/employees/" + createdId), createResponse.getHeaders().getLocation().toString());
+        assertEquals("/employees/" + createdId, createResponse.getHeaders().getLocation().toString());
         assertEquals("Grace", createBody.path("data").path("nome").asText());
         assertEquals("Human Resources", createBody.path("data").path("departmentNome").asText());
 

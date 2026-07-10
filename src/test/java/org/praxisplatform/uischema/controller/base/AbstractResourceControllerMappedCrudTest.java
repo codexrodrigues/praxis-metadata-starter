@@ -66,7 +66,7 @@ class AbstractResourceControllerMappedCrudTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\":11}"))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "http://localhost/simple/11"))
+                .andExpect(header().string("Location", "/simple/11"))
                 .andExpect(header().string("X-Data-Version", "1"))
                 .andExpect(jsonPath("$.data.id").value(11))
                 .andExpect(jsonPath("$._links.update").exists())
