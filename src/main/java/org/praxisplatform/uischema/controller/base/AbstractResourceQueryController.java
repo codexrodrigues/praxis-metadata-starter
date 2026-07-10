@@ -15,6 +15,14 @@ import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.capability.CapabilitySnapshot;
+import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
+import org.praxisplatform.uischema.command.GovernedResourceCommandExecutor;
+import org.praxisplatform.uischema.command.ResourceCommandEvidenceSanitizer;
+import org.praxisplatform.uischema.command.ResourceCommandExecutionProvider;
+import org.praxisplatform.uischema.command.ResourceCommandExecutionRequest;
+import org.praxisplatform.uischema.command.ResourceCommandHttpResponseAdapter;
+import org.praxisplatform.uischema.command.ResourceCommandResponsePolicy;
+import org.praxisplatform.uischema.command.ResourceCommandScope;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.LocateResponse;
 import org.praxisplatform.uischema.dto.OptionDTO;
@@ -1258,6 +1266,131 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (decision != null && !decision.allowed()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, decision.reason());
         }
+    }
+
+    protected ResponseEntity<?> executeCollectionCommand(
+            String commandId,
+            Object payload,
+            ResourceCommandResponsePolicy responsePolicy,
+            ResourceCommandExecutionProvider provider
+    ) {
+        return executeCollectionCommand(commandId, payload, responsePolicy, provider, Map.of());
+    }
+
+    protected ResponseEntity<?> executeCollectionCommand(
+            String commandId,
+            Object payload,
+            ResourceCommandResponsePolicy responsePolicy,
+            ResourceCommandExecutionProvider provider,
+            Map<String, Object> publicMetadata
+    ) {
+        ResourceCommandExecutionRequest request = new ResourceCommandExecutionRequest(
+                getResourceKey(),
+                getBasePath(),
+                commandId,
+                ResourceCommandScope.COLLECTION,
+                null,
+                payload,
+                responsePolicy,
+                publicMetadata
+        );
+        return executeGovernedCommand(request, provider, collectionCommandLinks(commandId));
+    }
+
+    protected ResponseEntity<?> executeItemCommand(
+            String commandId,
+            ID id,
+            Object payload,
+            ResourceCommandResponsePolicy responsePolicy,
+            ResourceCommandExecutionProvider provider
+    ) {
+        return executeItemCommand(commandId, id, payload, responsePolicy, provider, Map.of());
+    }
+
+    protected ResponseEntity<?> executeItemCommand(
+            String commandId,
+            ID id,
+            Object payload,
+            ResourceCommandResponsePolicy responsePolicy,
+            ResourceCommandExecutionProvider provider,
+            Map<String, Object> publicMetadata
+    ) {
+        ResourceCommandExecutionRequest request = new ResourceCommandExecutionRequest(
+                getResourceKey(),
+                getBasePath(),
+                commandId,
+                ResourceCommandScope.ITEM,
+                id,
+                payload,
+                responsePolicy,
+                publicMetadata
+        );
+        return executeGovernedCommand(request, provider, itemCommandLinks(commandId, id));
+    }
+
+    private ResponseEntity<?> executeGovernedCommand(
+            ResourceCommandExecutionRequest request,
+            ResourceCommandExecutionProvider provider,
+            Links successLinks
+    ) {
+        GovernedResourceCommandExecutor executor = new GovernedResourceCommandExecutor(
+                provider,
+                this::evaluateResourceCommandAvailability,
+                ResourceCommandEvidenceSanitizer.defaults()
+        );
+        return withCommandDatasetVersion(new ResourceCommandHttpResponseAdapter().toResponse(
+                executor.execute(request),
+                hateoasOrNull(successLinks)
+        ));
+    }
+
+    private AvailabilityDecision evaluateResourceCommandAvailability(ResourceOperationAvailabilityContext context) {
+        if (context == null || capabilityService == null || !StringUtils.hasText(context.resourceKey())) {
+            return AvailabilityDecision.allowAll();
+        }
+        if (ResourceCommandScope.ITEM.name().equals(context.scope())) {
+            return capabilityService.itemOperationAvailability(
+                    context.resourceKey(),
+                    context.resourcePath(),
+                    context.operationId(),
+                    context.resourceId()
+            );
+        }
+        return capabilityService.collectionOperationAvailability(
+                context.resourceKey(),
+                context.resourcePath(),
+                context.operationId()
+        );
+    }
+
+    private ResponseEntity<?> withCommandDatasetVersion(ResponseEntity<?> response) {
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(response.getStatusCode());
+        builder.headers(response.getHeaders());
+        getService().getDatasetVersion().ifPresent(v -> builder.header(HDR, v));
+        return response.getBody() == null ? builder.build() : builder.body(response.getBody());
+    }
+
+    private Links collectionCommandLinks(String commandId) {
+        String operationPath = "/actions/" + commandId;
+        return Links.of(
+                linkToAll(),
+                linkToFilter(),
+                linkToFilterCursor(),
+                linkToUiSchema(operationPath, "post", "request"),
+                linkToUiSchema(operationPath, "post", "response")
+        );
+    }
+
+    private Links itemCommandLinks(String commandId, ID id) {
+        String operationPath = "/{id}/actions/" + commandId;
+        return Links.of(
+                linkToSelf(id),
+                linkToAll(),
+                linkToFilter(),
+                linkToFilterCursor(),
+                linkToUiSchema(operationPath, "post", "request"),
+                linkToUiSchema(operationPath, "post", "response")
+        );
     }
 
     protected boolean supportsCollectionExport() {
