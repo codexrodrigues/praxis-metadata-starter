@@ -9,17 +9,17 @@ import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
 import org.praxisplatform.uischema.constants.ApiPaths;
+import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
 import org.praxisplatform.uischema.rest.response.RestApiResource;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.web.servlet.ConditionalOnMissingFilterBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.hateoas.EntityModel;
-import org.springframework.web.filter.ForwardedHeaderFilter;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,6 +48,14 @@ import java.util.Set;
 })
 public class PraxisMetadataAutoConfiguration {
 
+    @Bean
+    @ConditionalOnProperty(prefix = "praxis.resource-version.etag", name = "secret")
+    public ResourceVersionEtagService resourceVersionEtagService(
+            @org.springframework.beans.factory.annotation.Value("${praxis.resource-version.etag.secret}") String secret
+    ) {
+        return new ResourceVersionEtagService(secret);
+    }
+
     static {
         // Alinha o schema bruto ao JSON real dos itens de colecao antes da geracao do OpenAPI.
         SpringDocUtils.getConfig().replaceWithClass(EntityModel.class, RestApiResource.class);
@@ -56,16 +64,6 @@ public class PraxisMetadataAutoConfiguration {
     @Bean
     public GlobalOpenApiCustomizer restApiResourceComponentCustomizer() {
         return this::customizeRestApiResourceSchemas;
-    }
-
-    /**
-     * Ensures Spring HATEOAS link builders honor standard proxy headers from hosts
-     * and Angular dev-server proxies before materializing absolute `_links`.
-     */
-    @Bean
-    @ConditionalOnMissingFilterBean(ForwardedHeaderFilter.class)
-    public ForwardedHeaderFilter praxisForwardedHeaderFilter() {
-        return new ForwardedHeaderFilter();
     }
 
     /**
