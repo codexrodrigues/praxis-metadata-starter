@@ -47,6 +47,14 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
 
     Optional<String> getDatasetVersion();
 
+    /**
+     * Versao persistida de um item, quando este recurso opta pelo contrato de concorrencia de
+     * registro. A ausencia preserva recursos que ainda nao publicam ETag de item.
+     */
+    default OptionalLong getResourceVersion(ID id) {
+        return OptionalLong.empty();
+    }
+
     default Optional<String> getOptionSourceDatasetVersion(String sourceKey) {
         return getDatasetVersion();
     }

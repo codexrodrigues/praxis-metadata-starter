@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.EOFException;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
@@ -132,6 +133,22 @@ class GlobalExceptionHandlerTest {
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
         assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getProperties().get("code"));
+    }
+
+    @Test
+    void shouldPublishCanonicalResourceVersionPrecondition() {
+        WebRequest request = webRequest("/api/human-resources/funcionarios/42/actions/deactivate");
+
+        var response = handler.handleResourceVersionPrecondition(
+                ResourceVersionPreconditionException.stale(),
+                request
+        );
+
+        assertEquals(HttpStatus.PRECONDITION_FAILED, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("The resource has changed since it was read.", body.getMessage());
+        assertEquals("STALE_RESOURCE_VERSION", body.getErrors().get(0).getProperties().get("code"));
     }
 
     @Test
