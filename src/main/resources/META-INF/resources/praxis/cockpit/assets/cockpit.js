@@ -142,6 +142,7 @@
   }
 
   function wireEvents() {
+    wireExplorationJourney();
     els.resourceSearch.addEventListener('input', renderResourceList);
     els.hostAttention.addEventListener('click', (event) => {
       const button = event.target.closest('button[data-key]');
@@ -178,6 +179,39 @@
     window.addEventListener('resize', () => syncCompactWorkspace(compactWorkspace));
     syncCompactWorkspace(compactWorkspace);
     renderWorkspaceControls();
+  }
+
+  function wireExplorationJourney() {
+    const journey = document.querySelector('.exploration-journey');
+    if (!journey) return;
+    const links = [...journey.querySelectorAll('a[href^="#"]')];
+    const entries = links
+      .map((link) => ({ link, target: document.querySelector(link.getAttribute('href')) }))
+      .filter((entry) => entry.target);
+    if (!entries.length) return;
+
+    const setActive = (target) => {
+      for (const entry of entries) {
+        const active = entry.target === target;
+        entry.link.classList.toggle('is-active', active);
+        if (active) entry.link.setAttribute('aria-current', 'location');
+        else entry.link.removeAttribute('aria-current');
+      }
+    };
+    const syncActive = () => {
+      const railHeight = journey.getBoundingClientRect().height;
+      const marker = Math.max(railHeight + 18, 96);
+      let current = entries[0];
+      for (const entry of entries) {
+        if (entry.target.getBoundingClientRect().top <= marker) current = entry;
+      }
+      setActive(current.target);
+    };
+
+    for (const entry of entries) entry.link.addEventListener('click', () => setActive(entry.target));
+    window.addEventListener('scroll', syncActive, { passive: true });
+    window.addEventListener('resize', syncActive);
+    syncActive();
   }
 
   function syncCompactWorkspace(query) {

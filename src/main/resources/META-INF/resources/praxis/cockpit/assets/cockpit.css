@@ -397,6 +397,18 @@ input:focus-visible,
   transform: translateY(-1px);
 }
 
+.exploration-journey a.is-active {
+  border-color: var(--line-strong);
+  background:
+    linear-gradient(135deg, rgba(98, 216, 255, .18), rgba(115, 239, 181, .10)),
+    rgba(8, 20, 28, .88);
+  color: #fff;
+}
+
+.exploration-journey a.is-active span {
+  box-shadow: 0 0 0 3px rgba(98, 216, 255, .15);
+}
+
 .exploration-journey span {
   align-items: center;
   aspect-ratio: 1;
