@@ -47,9 +47,9 @@ input:focus-visible,
   display: grid;
   grid-auto-flow: row dense;
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-  width: min(1520px, 100%);
-  margin: 0 auto;
-  padding: 16px;
+  width: 100%;
+  margin: 0;
+  padding: clamp(16px, 1.6vw, 36px);
 }
 
 .cockpit-shell > *,
@@ -80,14 +80,18 @@ input:focus-visible,
 .exploration-journey { grid-row: 4; }
 .intelligence-strip { grid-row: 5; }
 .control-plane { grid-row: 6; }
+.workspace-toolbar {
+  grid-column: 1 / -1;
+  grid-row: 7;
+}
 .domain-map {
   grid-column: 1;
-  grid-row: 7;
+  grid-row: 8;
   align-self: start;
 }
 .workbench {
   grid-column: 2;
-  grid-row: 7;
+  grid-row: 8;
   align-self: start;
 }
 .topology-panel { grid-row: auto; }
@@ -604,6 +608,92 @@ input:focus-visible,
 .control-plane {
   margin-bottom: 12px;
   padding: 14px;
+}
+
+.workspace-toolbar {
+  align-items: center;
+  border-top: 1px solid rgba(154, 172, 194, .14);
+  border-bottom: 1px solid rgba(154, 172, 194, .14);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin: 4px 0 12px;
+  padding: 10px 2px;
+}
+
+.workspace-toolbar strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.workspace-toolbar .kicker {
+  margin-bottom: 4px;
+}
+
+.workspace-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.workspace-control {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(8, 16, 23, .66);
+  color: var(--soft);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 10px;
+}
+
+.workspace-control-icon {
+  color: var(--cyan);
+  display: inline-flex;
+  height: 16px;
+  width: 16px;
+}
+
+.workspace-control-icon svg {
+  height: 100%;
+  width: 100%;
+}
+
+.workspace-control:hover,
+.workspace-control:focus-visible,
+.workspace-control[aria-pressed="true"] {
+  border-color: var(--line-strong);
+  background: rgba(98, 216, 255, .12);
+  color: var(--text);
+}
+
+.workspace-control[aria-expanded="false"] {
+  border-color: rgba(154, 172, 194, .12);
+  color: var(--muted);
+}
+
+.cockpit-shell.is-domain-map-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cockpit-shell.is-domain-map-collapsed .domain-map {
+  display: none;
+}
+
+.cockpit-shell.is-resource-panel-collapsed .workbench {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cockpit-shell.is-resource-panel-collapsed .resource-panel {
+  display: none;
 }
 
 .platform-grid {
@@ -1246,6 +1336,23 @@ input:focus-visible,
   gap: 12px;
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
   margin-bottom: 12px;
+}
+
+@media (min-width: 1760px) {
+  .cockpit-shell {
+    grid-template-columns: clamp(260px, 14vw, 340px) minmax(0, 1fr);
+  }
+
+  .workbench {
+    gap: 16px;
+    grid-template-columns: clamp(320px, 17vw, 420px) minmax(720px, 1fr);
+  }
+
+  .domain-map,
+  .resource-panel,
+  .detail-panel {
+    padding: 16px;
+  }
 }
 
 .resource-panel,
@@ -3497,6 +3604,7 @@ input:focus-visible,
   .exploration-journey { order: 4; }
   .intelligence-strip { order: 5; }
   .control-plane { order: 6; }
+  .workspace-toolbar { display: none; }
   .domain-map { order: 7; }
   .workbench { order: 8; }
   .topology-panel { order: 9; }

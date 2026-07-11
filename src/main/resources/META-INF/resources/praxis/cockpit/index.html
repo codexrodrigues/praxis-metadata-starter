@@ -176,6 +176,27 @@
       </div>
     </section>
 
+    <section class="workspace-toolbar" aria-label="Organização da estação de trabalho">
+      <div>
+        <p class="kicker">Estação de investigação</p>
+        <strong>Contexto, inventário e detalhe no mesmo plano</strong>
+      </div>
+      <div id="workspaceControls" class="workspace-controls" aria-label="Visibilidade dos painéis">
+        <button type="button" class="workspace-control" data-workspace-toggle="domain" aria-controls="domainMap" aria-expanded="true" title="Ocultar contexto do domínio">
+          <span class="workspace-control-icon" aria-hidden="true"></span>
+          <span>Contexto</span>
+        </button>
+        <button type="button" class="workspace-control" data-workspace-toggle="resources" aria-controls="resourcePanel" aria-expanded="true" title="Ocultar inventário de recursos">
+          <span class="workspace-control-icon" aria-hidden="true"></span>
+          <span>Recursos</span>
+        </button>
+        <button type="button" class="workspace-control" data-workspace-toggle="focus" aria-controls="resourceWorkbench" aria-pressed="false" title="Abrir foco no detalhe selecionado">
+          <span class="workspace-control-icon" aria-hidden="true"></span>
+          <span>Foco</span>
+        </button>
+      </div>
+    </section>
+
     <section class="domain-map" id="domainMap" aria-label="Mapa de áreas de domínio">
       <div class="section-heading">
         <div>
@@ -189,7 +210,7 @@
     </section>
 
     <section class="workbench" id="resourceWorkbench">
-      <aside class="resource-panel" aria-label="Recursos de domínio">
+      <aside class="resource-panel" id="resourcePanel" aria-label="Recursos de domínio">
         <div class="section-heading compact">
           <div>
             <p class="kicker">Recursos</p>
@@ -373,6 +394,6 @@
     </section>
   </main>
 
-  <script src="/praxis/cockpit/assets/cockpit.js?v=20260707-executive-cockpit" defer></script>
+  <script src="/praxis/cockpit/assets/cockpit.js?v=20260710-workspace-layout" defer></script>
 </body>
 </html>

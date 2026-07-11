@@ -5,6 +5,11 @@
     selectedKey: null,
     selectedArea: null,
     resourceFilter: 'all',
+    workspace: {
+      domainCollapsed: false,
+      resourcesCollapsed: false,
+      focus: false
+    },
     topologyGraph: null,
     cytoscapeLoader: null,
     backgroundCapabilities: {
@@ -38,6 +43,8 @@
   };
 
   const els = {
+    cockpitShell: document.querySelector('.cockpit-shell'),
+    workspaceControls: document.getElementById('workspaceControls'),
     hostStatusDot: document.getElementById('hostStatusDot'),
     hostStatusText: document.getElementById('hostStatusText'),
     hostStatusDetail: document.getElementById('hostStatusDetail'),
@@ -155,6 +162,10 @@
         renderResourceList();
       });
     });
+    els.workspaceControls?.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-workspace-toggle]');
+      if (button) toggleWorkspace(button.dataset.workspaceToggle || '');
+    });
     els.refreshResourceButton.addEventListener('click', async () => {
       const resource = selectedResource();
       if (resource) {
@@ -162,6 +173,53 @@
         renderDetail(resource);
       }
     });
+    renderWorkspaceControls();
+  }
+
+  function toggleWorkspace(target) {
+    if (target === 'focus') {
+      const nextFocus = !state.workspace.focus;
+      state.workspace.focus = nextFocus;
+      state.workspace.domainCollapsed = nextFocus;
+      state.workspace.resourcesCollapsed = nextFocus;
+      renderWorkspaceControls();
+      return;
+    }
+    if (target === 'domain') {
+      state.workspace.domainCollapsed = !state.workspace.domainCollapsed;
+    }
+    if (target === 'resources') {
+      state.workspace.resourcesCollapsed = !state.workspace.resourcesCollapsed;
+    }
+    state.workspace.focus = state.workspace.domainCollapsed && state.workspace.resourcesCollapsed;
+    renderWorkspaceControls();
+  }
+
+  function renderWorkspaceControls() {
+    const shell = els.cockpitShell;
+    if (!shell || !els.workspaceControls) return;
+    const workspace = state.workspace;
+    shell.classList.toggle('is-domain-map-collapsed', workspace.domainCollapsed);
+    shell.classList.toggle('is-resource-panel-collapsed', workspace.resourcesCollapsed);
+    for (const button of els.workspaceControls.querySelectorAll('button[data-workspace-toggle]')) {
+      const target = button.dataset.workspaceToggle;
+      const icon = button.querySelector('.workspace-control-icon');
+      if (target === 'domain') {
+        button.setAttribute('aria-expanded', workspace.domainCollapsed ? 'false' : 'true');
+        button.title = workspace.domainCollapsed ? 'Mostrar contexto do domínio' : 'Ocultar contexto do domínio';
+        if (icon) icon.innerHTML = cockpitIcon('domain');
+      }
+      if (target === 'resources') {
+        button.setAttribute('aria-expanded', workspace.resourcesCollapsed ? 'false' : 'true');
+        button.title = workspace.resourcesCollapsed ? 'Mostrar inventário de recursos' : 'Ocultar inventário de recursos';
+        if (icon) icon.innerHTML = cockpitIcon('layers');
+      }
+      if (target === 'focus') {
+        button.setAttribute('aria-pressed', workspace.focus ? 'true' : 'false');
+        button.title = workspace.focus ? 'Restaurar contexto e inventário' : 'Abrir foco no detalhe selecionado';
+        if (icon) icon.innerHTML = cockpitIcon('surface');
+      }
+    }
   }
 
   async function loadHost() {
