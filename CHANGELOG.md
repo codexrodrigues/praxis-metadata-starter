@@ -5,6 +5,9 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Fixed
+- `/schemas/filtered` publica `x-ui.resource.identity` somente para schemas de
+  resposta; schemas de request representam filtros e comandos, nao registros
+  materializados.
 - `ApiResourceIdentityResolver` agora injeta explicitamente o
   `requestMappingHandlerMapping` canonico do Spring MVC, evitando falha de
   auto-configuracao em hosts que tambem publicam mappings auxiliares, como
