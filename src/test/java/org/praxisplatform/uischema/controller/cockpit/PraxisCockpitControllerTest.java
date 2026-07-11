@@ -122,7 +122,7 @@ class PraxisCockpitControllerTest {
 
         assertThat(html)
                 .contains("/praxis/cockpit/assets/brand/praxis-mark-light.png")
-                .contains("/praxis/cockpit/assets/cockpit.js?v=20260710-workspace-layout")
+                .contains("/praxis/cockpit/assets/cockpit.js?v=20260710-compact-workspace-nav")
                 .contains("href=\"/v3/api-docs\"")
                 .contains("id=\"domainTitle\"")
                 .contains("id=\"releaseMarker\"")
