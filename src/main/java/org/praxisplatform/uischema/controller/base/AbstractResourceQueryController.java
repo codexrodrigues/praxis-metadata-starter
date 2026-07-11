@@ -9,6 +9,8 @@ import jakarta.annotation.PostConstruct;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CapabilityService;
+import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
+import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditions;
 import org.praxisplatform.uischema.capability.CapabilitySnapshot;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.LocateResponse;
@@ -201,6 +203,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @Autowired(required = false)
     private CapabilityService capabilityService;
+
+    @Autowired(required = false)
+    private ResourceVersionEtagService resourceVersionEtagService;
 
     private String detectedBasePath;
 
@@ -898,8 +903,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         linkList.addAll(buildItemDiscoveryLinks(id));
         linkList.add(linkToUiSchema("/{id}", "get", "response"));
 
-        return withVersion(
+        return withResourceVersion(
                 ResponseEntity.ok(),
+                id,
                 RestApiResponse.success(dto, hateoasOrNull(Links.of(linkList)))
         );
     }
@@ -1191,6 +1197,38 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     protected <T> ResponseEntity<T> withVersion(ResponseEntity.BodyBuilder builder, T body) {
         getService().getDatasetVersion().ifPresent(v -> builder.header(HDR, v));
         return builder.body(body);
+    }
+
+    /**
+     * Adds a record ETag only for resources that explicitly expose a persisted item version.
+     * This is intentionally distinct from {@code X-Data-Version}, which describes collection data.
+     */
+    protected <T> ResponseEntity<T> withResourceVersion(ResponseEntity.BodyBuilder builder, ID id, T body) {
+        if (resourceVersionEtagService != null) {
+            getService().getResourceVersion(id).ifPresent(version -> builder.eTag(
+                    resourceVersionEtagService.create(getResourceKey(), id, version)
+            ));
+        }
+        return withVersion(builder, body);
+    }
+
+    /**
+     * Enforces the canonical record-version precondition for a business action.
+     * Controllers call this after resolving the item and before changing domain state.
+     */
+    protected void requireMatchingResourceVersion(ID id, String ifMatch) {
+        if (resourceVersionEtagService == null) {
+            throw new IllegalStateException(
+                    "Resource version ETag support is not configured. Set praxis.resource-version.etag.secret."
+            );
+        }
+        OptionalLong version = getService().getResourceVersion(id);
+        if (version.isEmpty()) {
+            throw new IllegalStateException(
+                    "Resource " + getResourceKey() + " does not expose a persisted record version."
+            );
+        }
+        ResourceVersionPreconditions.requireMatch(resourceVersionEtagService, ifMatch, getResourceKey(), id, version.getAsLong());
     }
 
     protected <T> ResponseEntity<T> withOptionSourceVersion(

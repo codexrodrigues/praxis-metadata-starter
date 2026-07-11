@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.rest.exceptionhandler;
 import lombok.extern.slf4j.Slf4j;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.BusinessException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
+import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
 import org.praxisplatform.uischema.rest.response.CustomProblemDetail;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseStatus;
@@ -138,6 +139,14 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(ResourceVersionPreconditionException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleResourceVersionPrecondition(
+            ResourceVersionPreconditionException ex,
+            WebRequest request
+    ) {
+        return buildStatusResponse(ex.status(), ex.getMessage(), request, ex.code());
     }
 
     @ExceptionHandler(ResponseStatusException.class)
