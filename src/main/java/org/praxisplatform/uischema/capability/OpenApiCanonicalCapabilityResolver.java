@@ -44,8 +44,7 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         capabilities.put("update", hasOperation(pathsNode, basePath + "/{id}", "put")
                 || hasOperation(pathsNode, basePath + "/{id}", "patch")
                 || hasItemLevelWriteOperation(pathsNode, basePath, "put", "patch"));
-        capabilities.put("delete", hasOperation(pathsNode, basePath + "/{id}", "delete")
-                || hasItemLevelWriteOperation(pathsNode, basePath, "delete")
+        capabilities.put("delete", hasDirectItemOperation(pathsNode, basePath, "delete")
                 || hasOperation(pathsNode, basePath + "/batch", "delete"));
         capabilities.put("duplicate-draft", hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post"));
         capabilities.put("options", hasOperation(pathsNode, basePath + "/options/filter", "post")
@@ -165,8 +164,28 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
     }
 
     private boolean resolveDeleteSupported(JsonNode pathsNode, String basePath) {
-        return hasOperation(pathsNode, basePath + "/{id}", "delete")
-                || hasItemLevelWriteOperation(pathsNode, basePath, "delete");
+        return hasDirectItemOperation(pathsNode, basePath, "delete");
+    }
+
+    private boolean hasDirectItemOperation(JsonNode pathsNode, String basePath, String method) {
+        if (pathsNode == null || pathsNode.isMissingNode() || !StringUtils.hasText(basePath) || !StringUtils.hasText(method)) {
+            return false;
+        }
+        String itemPrefix = normalizePath(basePath) + "/{";
+        Iterator<String> pathIterator = pathsNode.fieldNames();
+        while (pathIterator.hasNext()) {
+            String candidatePath = pathIterator.next();
+            if (!StringUtils.hasText(candidatePath) || !candidatePath.startsWith(itemPrefix)) {
+                continue;
+            }
+            int itemMarkerEnd = candidatePath.indexOf('}', itemPrefix.length());
+            if (itemMarkerEnd >= 0
+                    && itemMarkerEnd == candidatePath.length() - 1
+                    && pathsNode.path(candidatePath).has(method)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String resolveEditPreferredMethod(JsonNode pathsNode, String basePath) {
