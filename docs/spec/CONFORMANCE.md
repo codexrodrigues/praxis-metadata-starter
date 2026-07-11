@@ -62,6 +62,7 @@
   - `fieldAccess` -> UX condicional de leitura/edicao quando houver evaluator confiavel e evidencia para validacao backend corporativa
   - validacoes (`required`, `minLength`, `maxLength`, `pattern`, `min`, `max`, `range`, `*Message`) -> helpers de validacao
   - selecao (`options`, `endpoint`, `valueField`, `displayField`, `multiple`, `emptyOptionText`) -> componentes de selecao
+  - atalhos de periodo (`shortcuts`, `inlineQuickPresets`, `inlineOverlay`) -> `dateRange` e `inlineDateRange`; o backend publica ids built-in ou periodos corporativos estaticos ja resolvidos, e o runtime Angular materializa sem executar `calculateRange` vindo de JSON
   - numerico (`numericFormat`, `numeric*`) -> componentes numericos
   - `valuePresentation` -> formatacao escalar readonly/display
   - `presentation` -> materializacao visual readonly/list/table-cell; no runtime Angular oficial, `presenter: chip|badge|status|iconValue|microVisualization` pode virar renderer de coluna sem alterar o valor bruto da linha

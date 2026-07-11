@@ -1,0 +1,15 @@
+{
+  "label": "Periodo",
+  "name": "periodo",
+  "type": "date",
+  "controlType": "inlineDateRange",
+  "shortcuts": [
+    {
+      "id": "periodo-dinamico",
+      "label": "Periodo dinamico calculado no frontend",
+      "startDate": "2026-07-06",
+      "endDate": "2026-10-04",
+      "calculateRange": "return resolveElectionWindow();"
+    }
+  ]
+}

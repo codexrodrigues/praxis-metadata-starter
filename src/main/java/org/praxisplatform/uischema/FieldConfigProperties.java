@@ -186,6 +186,12 @@ public enum FieldConfigProperties {
     EMPTY_OPTION_TEXT("emptyOptionText"),
     /** Lista de opções disponíveis para o campo, usado em campos de listas como combobox */
     OPTIONS("options"),
+    /** Catalogo ordenado de atalhos de periodo para controles dateRange e inlineDateRange */
+    SHORTCUTS("shortcuts"),
+    /** Configuracao de materializacao inline do catalogo de atalhos de periodo */
+    INLINE_QUICK_PRESETS("inlineQuickPresets"),
+    /** Configuracao do overlay inline, incluindo modo de aplicacao e acoes */
+    INLINE_OVERLAY("inlineOverlay"),
     /** Contrato canônico de apresentação de valor para display/read-only */
     VALUE_PRESENTATION("valuePresentation"),
     /** Contrato canônico de apresentação visual para células/listas somente leitura */
