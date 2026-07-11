@@ -264,6 +264,13 @@ semantico, sem metadados volateis como <code>generatedAt</code>.
 escopo semantico e prefixo do hash, mantendo a mesma identidade para
 semanticas iguais em chamadas repetidas ou depois de restart do
 host.</p>
+<p>Quando a consulta usa <code>resourceKey</code>, o envelope tambem
+publica esse valor no campo top-level <code>resourceKey</code>.
+Consumidores que persistem releases devem usar esse campo estrutural
+para escopo e indexacao; <code>release.releaseKey</code> continua sendo
+a identidade imutavel da release, e nao deve ser analisada para
+recuperar o recurso. Em catalogos solicitados por <code>group</code>,
+<code>resourceKey</code> e nulo.</p>
 <p>O catalogo gerado por <code>resourceKey</code> ou <code>group</code>
 e memoizado no runtime do starter para evitar recomputar schemas,
 aliases, evidencias e governanca em leituras repetidas de
