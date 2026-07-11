@@ -23,6 +23,9 @@
       checked: 0,
       total: 0
     },
+    loading: {
+      steps: new Map()
+    },
     health: null,
     info: null,
     endpointStatus: {},
@@ -50,6 +53,11 @@
     hostStatusDot: document.getElementById('hostStatusDot'),
     hostStatusText: document.getElementById('hostStatusText'),
     hostStatusDetail: document.getElementById('hostStatusDetail'),
+    contractLoadingProgress: document.getElementById('contractLoadingProgress'),
+    contractLoadingPhase: document.getElementById('contractLoadingPhase'),
+    contractLoadingDetail: document.getElementById('contractLoadingDetail'),
+    contractLoadingBar: document.getElementById('contractLoadingBar'),
+    contractLoadingSteps: document.getElementById('contractLoadingSteps'),
     releaseMarker: document.getElementById('releaseMarker'),
     domainTitle: document.getElementById('domainTitle'),
     domainSummary: document.getElementById('domainSummary'),
@@ -300,14 +308,15 @@
   }
 
   async function loadHost() {
-    setHostStatus('loading', 'Lendo contratos publicados pelo host...', 'Catálogo, health e endpoints metadata-driven.');
+    beginContractLoadingProgress();
+    setHostStatus('loading', 'Lendo contratos publicados pelo host...', 'Consultando saúde, inventário e fontes metadata-driven.');
     renderReleaseMarker();
     const [health, info, catalog, swaggerConfig, frontendResources] = await Promise.allSettled([
-      fetchJson('/actuator/health', { timeoutMs: 10000 }),
-      fetchJson('/actuator/info', { timeoutMs: 10000 }),
-      fetchJson('/schemas/catalog', { timeoutMs: 15000 }),
-      fetchJson('/v3/api-docs/swagger-config', { timeoutMs: 10000 }),
-      fetchJson('/assets/frontend-resources.json', { timeoutMs: 10000 })
+      trackContractRead('health', '/actuator/health', { timeoutMs: 10000 }),
+      trackContractRead('build', '/actuator/info', { timeoutMs: 10000 }),
+      trackContractRead('catalog', '/schemas/catalog', { timeoutMs: 15000 }),
+      trackContractRead('openApi', '/v3/api-docs/swagger-config', { timeoutMs: 10000 }),
+      trackContractRead('frontend', '/assets/frontend-resources.json', { timeoutMs: 10000 })
     ]);
     const catalogs = await discoverCatalogs(valueOrNull(catalog), valueOrNull(swaggerConfig));
     const groupCatalogCount = catalogs.filter((item) => item?.group && item.group !== 'application').length;
@@ -336,7 +345,7 @@
 
     if (state.resources.length) {
       selectResource(state.resources[0].key, { keepView: true });
-      setHostStatus('ok', 'Host conectado ao cockpit.', 'O starter está lendo contratos reais deste serviço.');
+      setHostStatus('ok', 'Inventário inicial disponível.', `${state.resources.length} recurso(s) catalogado(s). Confirmando capabilities e actions em segundo plano.`);
       startCapabilityVerification();
       startActionVerification();
     } else {
@@ -353,11 +362,14 @@
       checked: candidates.filter((resource) => state.capabilities.has(resource.key)).length,
       total: candidates.length
     };
+    updateBackgroundLoadingProgress('capabilities');
     renderOverview();
     const queue = candidates.slice();
     const workers = Array.from({ length: Math.min(4, queue.length) }, () => verifyCapabilityQueue(queue));
     await Promise.all(workers);
     state.backgroundCapabilities.running = false;
+    updateBackgroundLoadingProgress('capabilities');
+    settleBackgroundContractReading();
     renderOverview();
     renderResourceList();
     const resource = selectedResource();
@@ -375,6 +387,7 @@
       }
       await verifyResourceCapability(resource);
       updateCapabilityProgress();
+      updateBackgroundLoadingProgress('capabilities');
       renderOverview();
       renderResourceList();
     }
@@ -408,11 +421,14 @@
       checked: candidates.filter((resource) => state.actions.has(semanticCacheKey(resource, canonicalResourceKey(resource, resource.resourcePath || resource.paths?.[0])))).length,
       total: candidates.length
     };
+    updateBackgroundLoadingProgress('actions');
     renderOverview();
     const queue = candidates.slice();
     const workers = Array.from({ length: Math.min(4, queue.length) }, () => verifyActionQueue(queue));
     await Promise.all(workers);
     state.backgroundActions.running = false;
+    updateBackgroundLoadingProgress('actions');
+    settleBackgroundContractReading();
     renderOverview();
     renderResourceList();
     const resource = selectedResource();
@@ -437,6 +453,7 @@
       }
       await verifyResourceActions(resource);
       updateActionProgress();
+      updateBackgroundLoadingProgress('actions');
       renderOverview();
       renderResourceList();
     }
@@ -490,6 +507,93 @@
     return state.resources.filter((resource) => shouldVerifyCapabilities(resource));
   }
 
+  function beginContractLoadingProgress() {
+    state.loading.steps = new Map([
+      ['health', { label: 'Saúde do host', detail: '/actuator/health', status: 'running' }],
+      ['build', { label: 'Identidade da publicação', detail: '/actuator/info', status: 'running' }],
+      ['catalog', { label: 'Catálogo do domínio', detail: '/schemas/catalog', status: 'running' }],
+      ['openApi', { label: 'Grupos OpenAPI', detail: '/v3/api-docs/swagger-config', status: 'running' }],
+      ['frontend', { label: 'Recursos de UI do host', detail: '/assets/frontend-resources.json', status: 'running' }],
+      ['groupCatalogs', { label: 'Catálogos por grupo', detail: 'aguardando grupos publicados', status: 'pending' }],
+      ['capabilities', { label: 'Capabilities por recurso', detail: 'aguardando inventário', status: 'pending' }],
+      ['actions', { label: 'Actions por recurso', detail: 'aguardando inventário', status: 'pending' }]
+    ]);
+    renderContractLoadingProgress();
+  }
+
+  async function trackContractRead(key, url, options) {
+    updateContractLoadingStep(key, { status: 'running', detail: `consultando ${url}` });
+    try {
+      const payload = await fetchJson(url, options);
+      updateContractLoadingStep(key, { status: 'complete', detail: `${url} confirmado` });
+      return payload;
+    } catch (error) {
+      updateContractLoadingStep(key, {
+        status: key === 'catalog' ? 'error' : 'warning',
+        detail: `${url} indisponível: ${error?.message || 'erro de leitura'}`
+      });
+      throw error;
+    }
+  }
+
+  function updateBackgroundLoadingProgress(kind) {
+    const progress = kind === 'capabilities' ? state.backgroundCapabilities : state.backgroundActions;
+    const label = kind === 'capabilities' ? 'capability(s)' : 'catálogo(s) de actions';
+    const failures = kind === 'capabilities' ? state.capabilityErrors.size : 0;
+    const total = progress.total || 0;
+    const checked = Math.min(progress.checked || 0, total);
+    updateContractLoadingStep(kind, {
+      status: progress.running ? 'running' : (failures ? 'warning' : 'complete'),
+      detail: total
+        ? `${checked}/${total} ${label}${failures ? ` · ${failures} indisponível(eis)` : ''}`
+        : 'não aplicável ao inventário atual'
+    });
+  }
+
+  function settleBackgroundContractReading() {
+    if (state.backgroundCapabilities.running || state.backgroundActions.running || !state.resources.length) return;
+    const capabilityFailures = state.capabilityErrors.size;
+    const failureHint = capabilityFailures
+      ? ` ${capabilityFailures} leitura(s) de capabilities ficaram indisponíveis e aparecem como ressalva.`
+      : '';
+    setHostStatus(
+      'ok',
+      'Leitura dos contratos concluída.',
+      `${state.resources.length} recurso(s) reconciliado(s) entre catálogo, schemas, capabilities, surfaces e actions.${failureHint}`
+    );
+  }
+
+  function updateContractLoadingStep(key, patch) {
+    const step = state.loading.steps.get(key);
+    if (!step) return;
+    state.loading.steps.set(key, { ...step, ...patch });
+    renderContractLoadingProgress();
+  }
+
+  function renderContractLoadingProgress() {
+    if (!els.contractLoadingSteps || !els.contractLoadingPhase || !els.contractLoadingDetail || !els.contractLoadingBar) return;
+    const steps = [...state.loading.steps.values()];
+    const settled = steps.filter((step) => ['complete', 'warning', 'error'].includes(step.status)).length;
+    const running = steps.filter((step) => step.status === 'running');
+    const visibleStep = running[0] || steps.find((step) => step.status === 'pending') || steps[steps.length - 1];
+    const percent = steps.length ? Math.round((settled / steps.length) * 100) : 0;
+    const isComplete = steps.length > 0 && settled === steps.length;
+    els.contractLoadingProgress?.classList.toggle('is-complete', isComplete);
+    els.contractLoadingPhase.textContent = running.length
+      ? `Lendo contratos: ${visibleStep.label}`
+      : 'Leitura dos contratos concluída';
+    els.contractLoadingDetail.textContent = running.length
+      ? visibleStep.detail
+      : `${settled}/${steps.length} etapas concluídas. O cockpit pode ser explorado.`;
+    els.contractLoadingBar.style.width = `${percent}%`;
+    els.contractLoadingSteps.innerHTML = steps.map((step) => `
+      <li class="is-${escapeAttr(step.status)}">
+        <span>${escapeHtml(step.label)}</span>
+        <small>${escapeHtml(step.detail)}</small>
+      </li>
+    `).join('');
+  }
+
   function shouldVerifyCapabilities(resource, resourcePath = resource?.resourcePath || resource?.paths?.[0]) {
     return Boolean(resource?.resourceKey)
       && Boolean(resourcePath)
@@ -534,10 +638,27 @@
   async function discoverCatalogs(defaultCatalog, swaggerConfig) {
     const catalogs = [defaultCatalog].filter(Boolean);
     const groups = openApiGroupNames(swaggerConfig);
-    if (!groups.length) return catalogs;
+    if (!groups.length) {
+      updateContractLoadingStep('groupCatalogs', { status: 'complete', detail: 'catálogo padrão em uso' });
+      return catalogs;
+    }
 
+    let completedGroups = 0;
+    let successfulGroups = 0;
+    updateContractLoadingStep('groupCatalogs', { status: 'running', detail: `0/${groups.length} grupos lidos` });
     const groupResults = await Promise.allSettled(groups.map((group) =>
       fetchJson(`/schemas/catalog?group=${encodeURIComponent(group)}`, { timeoutMs: 15000 })
+        .then((payload) => {
+          successfulGroups += 1;
+          return payload;
+        })
+        .finally(() => {
+          completedGroups += 1;
+          updateContractLoadingStep('groupCatalogs', {
+            status: completedGroups === groups.length ? (successfulGroups ? 'complete' : 'warning') : 'running',
+            detail: `${completedGroups}/${groups.length} grupos lidos${successfulGroups ? ` · ${successfulGroups} confirmado(s)` : ''}`
+          });
+        })
     ));
     const groupCatalogs = [];
     for (const result of groupResults) {

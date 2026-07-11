@@ -6,7 +6,7 @@
   <title>Praxis Cockpit de Domínio</title>
   <meta name="description" content="Cockpit automático do domínio publicado pelo praxis-metadata-starter." />
   <link rel="icon" type="image/png" href="/praxis/cockpit/assets/brand/praxis-mark-light.png" />
-  <link rel="stylesheet" href="/praxis/cockpit/assets/cockpit.css?v=20260711-active-journey" />
+  <link rel="stylesheet" href="/praxis/cockpit/assets/cockpit.css?v=20260711-contract-feedback" />
 </head>
 <body>
   <main class="cockpit-shell">
@@ -45,6 +45,14 @@
         <span class="status-light" id="hostStatusDot"></span>
         <strong id="hostStatusText">Conectando ao host...</strong>
         <span id="hostStatusDetail">Aguardando contratos metadata-driven.</span>
+        <div class="contract-loading-progress" id="contractLoadingProgress" role="status" aria-live="polite">
+          <div class="contract-loading-copy">
+            <strong id="contractLoadingPhase">Preparando leitura dos contratos</strong>
+            <span id="contractLoadingDetail">Nenhuma fonte consultada ainda.</span>
+          </div>
+          <div class="contract-loading-bar" aria-hidden="true"><span id="contractLoadingBar"></span></div>
+          <ol class="contract-loading-steps" id="contractLoadingSteps" aria-label="Etapas da leitura dos contratos"></ol>
+        </div>
       </aside>
     </section>
 
@@ -400,6 +408,6 @@
     </section>
   </main>
 
-  <script src="/praxis/cockpit/assets/cockpit.js?v=20260711-active-journey" defer></script>
+  <script src="/praxis/cockpit/assets/cockpit.js?v=20260711-contract-feedback" defer></script>
 </body>
 </html>
