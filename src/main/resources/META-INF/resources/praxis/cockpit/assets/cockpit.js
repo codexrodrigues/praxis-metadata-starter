@@ -173,6 +173,18 @@
         renderDetail(resource);
       }
     });
+    const compactWorkspace = window.matchMedia('(max-width: 1180px)');
+    compactWorkspace.addEventListener('change', syncCompactWorkspace);
+    window.addEventListener('resize', () => syncCompactWorkspace(compactWorkspace));
+    syncCompactWorkspace(compactWorkspace);
+    renderWorkspaceControls();
+  }
+
+  function syncCompactWorkspace(query) {
+    if (!query.matches || (!state.workspace.domainCollapsed && !state.workspace.resourcesCollapsed)) return;
+    state.workspace.domainCollapsed = false;
+    state.workspace.resourcesCollapsed = false;
+    state.workspace.focus = false;
     renderWorkspaceControls();
   }
 

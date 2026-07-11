@@ -3605,6 +3605,8 @@ input:focus-visible,
   .intelligence-strip { order: 5; }
   .control-plane { order: 6; }
   .workspace-toolbar { display: none; }
+  .cockpit-shell.is-domain-map-collapsed .domain-map { display: block; }
+  .cockpit-shell.is-resource-panel-collapsed .resource-panel { display: grid; }
   .domain-map { order: 7; }
   .workbench { order: 8; }
   .topology-panel { order: 9; }
