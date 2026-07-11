@@ -55,6 +55,49 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
     }
 
     @Test
+    void customNonJpaProviderReceivesPublishedDependenciesOutsideHostFilterDto() throws Exception {
+        ExternalCatalogOptionSourceProvider.resetCounters();
+
+        ResponseEntity<String> filterResponse = postJson(
+                "/employees/option-sources/externalContextLookup/options/filter?page=0&size=10",
+                """
+                {
+                  "filter": {
+                    "externalContext": "HR"
+                  }
+                }
+                """
+        );
+
+        assertEquals(200, filterResponse.getStatusCode().value(), filterResponse.getBody());
+        JsonNode filterBody = body(filterResponse);
+        assertEquals(1, filterBody.path("content").size());
+        assertEquals("EXT-1", filterBody.path("content").get(0).path("id").asText());
+        assertEquals(1, ExternalCatalogOptionSourceProvider.filterCalls());
+
+        ResponseEntity<String> negativeFilterResponse = postJson(
+                "/employees/option-sources/externalContextLookup/options/filter?page=0&size=10",
+                """
+                {
+                  "filter": {
+                    "externalContext": "NONE"
+                  }
+                }
+                """
+        );
+
+        assertEquals(200, negativeFilterResponse.getStatusCode().value());
+        assertEquals(0, body(negativeFilterResponse).path("content").size());
+
+        ResponseEntity<String> byIdsResponse = get(
+                "/employees/option-sources/externalContextLookup/options/by-ids?ids=EXT-1"
+        );
+
+        assertEquals(200, byIdsResponse.getStatusCode().value());
+        assertEquals("EXT-1", body(byIdsResponse).get(0).path("id").asText());
+    }
+
+    @Test
     void invalidPayloadIsRejectedBeforeCustomProviderResolution() {
         ExternalCatalogOptionSourceProvider.resetCounters();
 
@@ -189,6 +232,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
             SUPPORT_CALLS.incrementAndGet();
             return descriptor != null
                     && ("externalDepartmentLookup".equals(descriptor.key())
+                    || "externalContextLookup".equals(descriptor.key())
                     || "externalFilterOnlyLookup".equals(descriptor.key()))
                     && operation == context.operation();
         }
@@ -196,6 +240,13 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         @Override
         public Page<OptionDTO<Object>> filter(OptionSourceExecutionRequest<?> request) {
             FILTER_CALLS.incrementAndGet();
+            if ("externalContextLookup".equals(request.descriptor().key())) {
+                if (!(request.filterPayload() instanceof Map<?, ?> filters)
+                        || !"HR".equals(filters.get("catalogContext"))) {
+                    return new PageImpl<>(List.of(), request.pageable(), 0);
+                }
+                return new PageImpl<>(List.of(OPTIONS.get(0)), request.pageable(), 1);
+            }
             return new PageImpl<>(OPTIONS, request.pageable(), OPTIONS.size());
         }
 

@@ -7,7 +7,6 @@ import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceCommandS
 import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceService;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.Links;
-import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -107,14 +106,10 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
     }
 
     protected Link linkToCreate() {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getCreateUpdateResourceControllerClass()).create(null)
-        ).withRel("create");
+        return Link.of(resourcePath(), "create");
     }
 
     protected Link linkToUpdate(ID id) {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getCreateUpdateResourceControllerClass()).update(id, null)
-        ).withRel("update");
+        return Link.of(resourcePath(id), "update");
     }
 }

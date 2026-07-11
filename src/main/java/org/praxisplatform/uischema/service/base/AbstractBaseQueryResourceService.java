@@ -50,6 +50,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -309,6 +310,7 @@ public abstract class AbstractBaseQueryResourceService<
         }
         OptionSourceDescriptor descriptor = resolveEffectiveOptionSource(sourceKey);
         FilterDTO effectiveFilter = sanitizeFilter(request == null ? null : request.filter(), descriptor);
+        Object providerFilterPayload = buildOptionSourceProviderFilterPayload(effectiveFilter, request, descriptor);
         GenericSpecification<E> specification = effectiveFilter == null
                 ? null
                 : getSpecificationsBuilder().buildSpecification(effectiveFilter, pageable);
@@ -316,7 +318,7 @@ public abstract class AbstractBaseQueryResourceService<
                 entityManager,
                 entityClass,
                 specification == null ? null : specification.spec(),
-                effectiveFilter,
+                providerFilterPayload,
                 descriptor,
                 request == null ? null : request.search(),
                 request == null ? List.of() : request.filters(),
@@ -324,6 +326,71 @@ public abstract class AbstractBaseQueryResourceService<
                 pageable,
                 request == null ? List.of() : request.includeIds()
         );
+    }
+
+    protected Object buildOptionSourceProviderFilterPayload(
+            FilterDTO effectiveFilter,
+            OptionSourceFilterRequest<FilterDTO> request,
+            OptionSourceDescriptor descriptor
+    ) {
+        Map<String, Object> dependencyPayload = extractDependencyPayload(request, descriptor);
+        if (dependencyPayload.isEmpty()) {
+            return effectiveFilter;
+        }
+        Map<String, Object> effectivePayload = new LinkedHashMap<>();
+        effectivePayload.putAll(nonNullFieldValues(effectiveFilter));
+        effectivePayload.putAll(dependencyPayload);
+        return effectivePayload;
+    }
+
+    private Map<String, Object> extractDependencyPayload(
+            OptionSourceFilterRequest<FilterDTO> request,
+            OptionSourceDescriptor descriptor
+    ) {
+        if (request == null || descriptor == null || descriptor.dependsOn().isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> rawDependencies = request.dependencyFilters();
+        if (rawDependencies == null || rawDependencies.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> dependencyFilterMap = effectiveDependencyFilterMap(descriptor);
+        Map<String, Object> dependencyPayload = new LinkedHashMap<>();
+        for (String dependency : descriptor.dependsOn()) {
+            if (!rawDependencies.containsKey(dependency)) {
+                continue;
+            }
+            String filterKey = dependencyFilterMap.getOrDefault(dependency, dependency);
+            dependencyPayload.put(filterKey, rawDependencies.get(dependency));
+        }
+        return dependencyPayload;
+    }
+
+    private Map<String, String> effectiveDependencyFilterMap(OptionSourceDescriptor descriptor) {
+        Map<String, String> dependencyFilterMap = new LinkedHashMap<>(descriptor.dependencyFilterMap());
+        if (descriptor.entityLookup() != null) {
+            dependencyFilterMap.putAll(descriptor.entityLookup().dependencyFilterMap());
+        }
+        return dependencyFilterMap;
+    }
+
+    private Map<String, Object> nonNullFieldValues(FilterDTO filter) {
+        if (filter == null) {
+            return Map.of();
+        }
+        Map<String, Object> values = new LinkedHashMap<>();
+        try {
+            for (Field field : getAllFields(filter.getClass())) {
+                field.setAccessible(true);
+                Object value = field.get(filter);
+                if (value != null) {
+                    values.put(field.getName(), value);
+                }
+            }
+            return values;
+        } catch (IllegalAccessException ex) {
+            throw new IllegalArgumentException("Option source filter could not be inspected.", ex);
+        }
     }
 
     @Override

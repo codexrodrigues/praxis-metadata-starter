@@ -9,6 +9,7 @@ import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
 import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.MethodParameter;
+import org.springframework.core.ResolvableType;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.MediaType;
@@ -23,7 +24,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Normaliza payloads de filtros de range antes da desserialização de DTOs.
@@ -135,10 +140,17 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
                 || objectNode.has("search")
                 || objectNode.has("sort")
                 || objectNode.has("includeIds")) {
+            JsonNode filterNode = objectNode.get("filter");
+            if (!objectNode.has("dependencyFilters") && filterNode instanceof ObjectNode) {
+                ObjectNode copy = objectNode.deepCopy();
+                copy.set("dependencyFilters", filterNode.deepCopy());
+                return copy;
+            }
             return objectNode;
         }
         ObjectNode wrapped = objectMapper.createObjectNode();
         wrapped.set("filter", objectNode);
+        wrapped.set("dependencyFilters", objectNode.deepCopy());
         return wrapped;
     }
 
@@ -155,13 +167,48 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
             for (FilterPayloadNormalizer normalizer : payloadNormalizers) {
                 changed = normalizer.normalizeInPlace(nestedFilterObject, targetClass) || changed;
             }
+            if (objectNode.has("dependencyFilters")) {
+                changed = pruneUnknownFilterFields(nestedFilterObject, targetClass) || changed;
+            }
         }
         return changed;
+    }
+
+    private boolean pruneUnknownFilterFields(ObjectNode filterObject, Class<?> targetClass) {
+        Set<String> knownFields = filterFieldNames(targetClass);
+        boolean changed = false;
+        List<String> fieldNames = new ArrayList<>();
+        filterObject.fieldNames().forEachRemaining(fieldNames::add);
+        for (String fieldName : fieldNames) {
+            if (!knownFields.contains(fieldName)) {
+                filterObject.remove(fieldName);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private Set<String> filterFieldNames(Class<?> targetClass) {
+        Set<String> names = new LinkedHashSet<>();
+        Class<?> current = targetClass;
+        while (current != null && current != Object.class) {
+            for (Field field : current.getDeclaredFields()) {
+                names.add(field.getName());
+            }
+            current = current.getSuperclass();
+        }
+        return names;
     }
 
     private Class<?> resolveNestedFilterClass(MethodParameter parameter, Type targetType, Class<?> targetClass) {
         if (!OptionSourceFilterRequest.class.isAssignableFrom(targetClass)) {
             return targetClass;
+        }
+        if (parameter != null) {
+            Class<?> resolved = ResolvableType.forMethodParameter(parameter).getGeneric(0).resolve();
+            if (resolved != null) {
+                return resolved;
+            }
         }
         if (targetType instanceof ParameterizedType parameterizedType) {
             Type actualType = parameterizedType.getActualTypeArguments()[0];

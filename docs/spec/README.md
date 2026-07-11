@@ -71,7 +71,7 @@
   - `idField` (string), `idFieldValid` (boolean), `idFieldMessage?` (string, opcional)
   - `readOnly` (boolean)
   - `capabilities` (mapa boolean com chaves conhecidas: `create`, `update`, `delete`, `options`, `byId`, `all`, `filter`, `cursor`; valores adicionais MAY existir e DEVEM ser boolean)
-  - `identity?` declara a identidade estruturada do registro: `keyField?`, `titleField?`, `metadataFields?`, `displayLabelField?` e diagnostico `valid/invalidFields/message`
+  - `identity?` declara, somente em schemas de resposta, a identidade estruturada do registro: `keyField?`, `titleField?`, `metadataFields?`, `displayLabelField?` e diagnostico `valid/invalidFields/message`
   - os campos de `identity` referenciam propriedades reais do schema; runtimes MUST NOT inferir esses papeis por nome de propriedade nem decompor `displayLabel`
 - Chart (x-ui.chart)
   - `version`, `kind`, `preset`, `source`, `orientation`
@@ -108,7 +108,7 @@
   - MUST conter `projections[]`
   - cada projection MUST conter `id`, `intent`, `source` e `bindings.primaryMetrics`
   - MUST NOT fixar renderer, engine ou layout
-- Recurso (x-ui.resource): MUST conter `idField`, `idFieldValid`, `readOnly`, `capabilities`; `idFieldMessage` e opcional e presente quando `idFieldValid=false`. `identity` e opt-in e, quando presente, MUST conter `valid` e ao menos `keyField`, `titleField` ou `displayLabelField`.
+- Recurso (x-ui.resource): MUST conter `idField`, `idFieldValid`, `readOnly`, `capabilities`; `idFieldMessage` e opcional e presente quando `idFieldValid=false`. Em schemas de resposta, `identity` e opt-in e, quando presente, MUST conter `valid` e ao menos `keyField`, `titleField` ou `displayLabelField`. Schemas de requisicao MUST NOT publicar identidade de registro.
 - Chart (x-ui.chart):
   - MUST conter `version`, `kind` e `source`
   - quando `source.kind = "praxis.stats"`, MUST conter `source.resource` e `source.operation`

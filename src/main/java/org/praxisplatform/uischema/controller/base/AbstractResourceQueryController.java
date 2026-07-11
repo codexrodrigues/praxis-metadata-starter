@@ -52,7 +52,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.Links;
-import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
@@ -760,7 +759,15 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         List<org.praxisplatform.uischema.options.LookupFilterRequest> typedFilters =
                 (List<org.praxisplatform.uischema.options.LookupFilterRequest>) filters;
 
-        return new OptionSourceFilterRequest<>(filter, typedFilters, effectiveSearch, effectiveSort, effectiveIncludeIds);
+        Map<String, Object> dependencyFilters = request == null ? Map.of() : request.dependencyFilters();
+        return new OptionSourceFilterRequest<>(
+                filter,
+                typedFilters,
+                effectiveSearch,
+                effectiveSort,
+                effectiveIncludeIds,
+                dependencyFilters
+        );
     }
 
     private String firstLegacySortKey(List<String> sort) {
@@ -969,33 +976,23 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     protected Link linkToSelf(ID id) {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getControllerClass()).getById(id)
-        ).withSelfRel();
+        return Link.of(resourcePath(id)).withSelfRel();
     }
 
     protected Link linkToAll() {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getControllerClass()).getAll()
-        ).withRel("all");
+        return Link.of(resourcePath("all"), "all");
     }
 
     protected Link linkToFilter() {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getControllerClass()).filter(null, 0, 0, null, null)
-        ).withRel("filter");
+        return Link.of(resourcePath("filter"), "filter");
     }
 
     protected Link linkToFilterCursor() {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getControllerClass()).filterByCursor(null, null, null, 0, null)
-        ).withRel("filter-cursor");
+        return Link.of(resourcePath("filter", "cursor"), "filter-cursor");
     }
 
     protected Link linkToExport() {
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getControllerClass()).exportCollection(null)
-        ).withRel("export");
+        return Link.of(resourcePath("export"), "export");
     }
 
     protected boolean isCollectionOperationAvailable(String operationId) {
@@ -1059,45 +1056,56 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (!StringUtils.hasText(getResourceKeyOrNull()) || surfaceCatalogService == null) {
             return null;
         }
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getControllerClass()).getItemSurfaces(id)
-        ).withRel("surfaces");
+        return Link.of(resourceDiscoveryPath(id, "surfaces"), "surfaces");
     }
 
     protected Link linkToCollectionActionsIfAvailable() {
         if (!hasWorkflowActions(ActionScope.COLLECTION) || actionCatalogService == null) {
             return null;
         }
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getControllerClass()).getCollectionActions()
-        ).withRel("actions");
+        return Link.of(resourceDiscoveryPath("actions"), "actions");
     }
 
     protected Link linkToItemActionsIfAvailable(ID id) {
         if (!hasWorkflowActions(ActionScope.ITEM) || actionCatalogService == null) {
             return null;
         }
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getControllerClass()).getItemActions(id)
-        ).withRel("actions");
+        return Link.of(resourceDiscoveryPath(id, "actions"), "actions");
     }
 
     protected Link linkToCollectionCapabilitiesIfAvailable() {
         if (!StringUtils.hasText(getResourceKeyOrNull()) || capabilityService == null) {
             return null;
         }
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getControllerClass()).getCollectionCapabilities()
-        ).withRel("capabilities");
+        return Link.of(resourceDiscoveryPath("capabilities"), "capabilities");
     }
 
     protected Link linkToItemCapabilitiesIfAvailable(ID id) {
         if (!StringUtils.hasText(getResourceKeyOrNull()) || capabilityService == null) {
             return null;
         }
-        return WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(getControllerClass()).getItemCapabilities(id)
-        ).withRel("capabilities");
+        return Link.of(resourceDiscoveryPath(id, "capabilities"), "capabilities");
+    }
+
+    private String resourceDiscoveryPath(String discoverySegment) {
+        return resourcePath(discoverySegment);
+    }
+
+    private String resourceDiscoveryPath(ID id, String discoverySegment) {
+        return resourcePath(id, discoverySegment);
+    }
+
+    protected String resourcePath(Object... segments) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromPath(StringUtils.hasText(contextPath) ? contextPath : "")
+                .path(getBasePath());
+        if (segments != null) {
+            for (Object segment : segments) {
+                if (segment != null) {
+                    builder.pathSegment(String.valueOf(segment));
+                }
+            }
+        }
+        return builder.build().toUriString();
     }
 
     protected Link linkToDocs() {

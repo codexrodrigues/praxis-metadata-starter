@@ -255,6 +255,35 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertEquals("DELETE", operations.get("delete").preferredMethod());
     }
 
+    @Test
+    void doesNotPromoteRelatedResourceDeleteToParentDeleteCapability() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {
+                  "paths": {
+                    "/codigos-frequencia/{id}": {
+                      "get": {},
+                      "put": {}
+                    },
+                    "/codigos-frequencia/{id}/documentos-legais/{documentoId}": {
+                      "put": {},
+                      "delete": {}
+                    }
+                  }
+                }
+                """);
+
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
+                new StaticOpenApiDocumentService("administracao-pessoal", document)
+        );
+
+        Map<String, Boolean> capabilities = resolver.resolve("/codigos-frequencia");
+        assertFalse(capabilities.get("delete"));
+
+        Map<String, CapabilityOperation> operations = resolver.resolveCrudOperations(document, "/codigos-frequencia");
+        assertFalse(operations.get("delete").supported());
+        assertNull(operations.get("delete").preferredMethod());
+    }
+
     private record StaticOpenApiDocumentService(String group, JsonNode document) implements OpenApiDocumentService {
 
         @Override

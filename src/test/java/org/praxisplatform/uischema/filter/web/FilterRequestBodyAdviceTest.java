@@ -101,6 +101,37 @@ class FilterRequestBodyAdviceTest {
         assertTrue(normalized.has("filter"));
         assertEquals("6500", normalized.path("filter").path("valorBetween").get(0).asText());
         assertEquals("15000", normalized.path("filter").path("valorBetween").get(1).asText());
+        assertEquals(6500, normalized.path("dependencyFilters").path("valor").path("minPrice").asInt());
+    }
+
+    @Test
+    void shouldPreserveCanonicalOptionSourceFilterAsDependencyFilters() throws Exception {
+        FilterRequestBodyAdvice advice = new FilterRequestBodyAdvice(objectMapper);
+        Method method = TestController.class.getDeclaredMethod("optionSourceFilter", OptionSourceFilterRequest.class);
+        MethodParameter parameter = new MethodParameter(method, 0);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        MockHttpInputMessage inputMessage = new MockHttpInputMessage("""
+                {
+                  "filter": {
+                    "tipoEvento": "SUBST FG"
+                  },
+                  "search": "EVENTUAL"
+                }
+                """.getBytes());
+        inputMessage.getHeaders().putAll(headers);
+
+        HttpInputMessage result = advice.beforeBodyRead(
+                inputMessage,
+                parameter,
+                method.getGenericParameterTypes()[0],
+                MappingJackson2HttpMessageConverter.class
+        );
+
+        JsonNode normalized = objectMapper.readTree(result.getBody());
+        assertTrue(normalized.path("filter").path("tipoEvento").isMissingNode());
+        assertEquals("SUBST FG", normalized.path("dependencyFilters").path("tipoEvento").asText());
     }
 
     @Test

@@ -71,6 +71,13 @@ Compatibilidade transitória:
 - direcao invalida em `?sort=...` retorna `422`; o starter nao normaliza valores
   desconhecidos silenciosamente para `ASC`
 
+Dependencias publicadas por `x-ui.optionSource.dependsOn` devem ser enviadas em
+`filter`. O starter preserva esse payload publico antes da desserializacao do
+`FilterDTO` hospedeiro e entrega ao provider somente as dependencias declaradas
+no descriptor, aplicando `dependencyFilterMap` quando a chave observada pela UI
+for diferente da chave efetiva esperada pelo backend. `filters` continua reservado
+para filtros estruturados publicados em `optionSource.filtering.availableFilters`.
+
 ## Quando usar cada superficie
 
 - `/{resource}/options/*`

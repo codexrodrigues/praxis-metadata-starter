@@ -126,6 +126,12 @@ O provider recebe:
 - `request.includeIds()` apenas quando a policy permitir;
 - `request.ids()` em `byIds`, preservando IDs string e a ordem solicitada.
 
+Dependencias de cascata publicadas por `dependsOn` chegam pelo envelope publico
+`filter`, nao por `filters`. Antes de chamar o provider, o starter preserva esse
+payload bruto e monta `request.filterPayload()` com as chaves efetivas de
+`dependencyFilterMap`. Use `request.filters()` somente para filtros estruturados
+declarados em `optionSource.filtering.availableFilters`.
+
 Em `byIds`, retorne somente `OptionDTO` concretos para IDs encontrados. IDs
 inexistentes devem ser omitidos; nao retorne itens `null`. O executor canonico
 tambem normaliza a resposta antes do HTTP publico, removendo `null`, descartando

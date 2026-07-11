@@ -204,6 +204,18 @@ class EmployeeService extends AbstractBaseResourceService<
                     new OptionSourcePolicy(false, true, "contains", 3, 20, 20, true, false, "label")
             ).withExecutionMode(OptionSourceExecutionMode.PROVIDER_REQUIRED))
             .add(EmployeeEntity.class, new OptionSourceDescriptor(
+                    "externalContextLookup",
+                    OptionSourceType.RESOURCE_ENTITY,
+                    "/employees",
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of("externalContext"),
+                    Map.of("externalContext", "catalogContext"),
+                    new OptionSourcePolicy(false, true, "contains", 0, 20, 20, true, false, "label")
+            ).withExecutionMode(OptionSourceExecutionMode.PROVIDER_REQUIRED))
+            .add(EmployeeEntity.class, new OptionSourceDescriptor(
                     "externalFilterOnlyLookup",
                     OptionSourceType.RESOURCE_ENTITY,
                     "/employees",

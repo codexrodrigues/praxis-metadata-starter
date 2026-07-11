@@ -7,8 +7,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -32,6 +35,33 @@ class OpenApiDocsSupportTest {
         server = MockRestServiceServer.createServer(restTemplate);
         support = new OpenApiDocsSupport();
         ReflectionTestUtils.setField(support, "openApiInternalBaseUrl", "http://localhost");
+        RequestContextHolder.resetRequestAttributes();
+    }
+
+    @Test
+    void fetchOpenApiDocumentUsesLocalBackendPortWhenForwardedHostOmitsPort() {
+        ReflectionTestUtils.setField(support, "openApiInternalBaseUrl", "");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/employees/capabilities");
+        request.setScheme("http");
+        request.setServerName("127.0.0.1");
+        request.setServerPort(80);
+        request.setLocalName("localhost");
+        request.setLocalPort(8091);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        server.expect(once(), requestTo("http://localhost:8091/v3/api-docs/stats"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"paths\":{\"/stats/group-by\":{}}}", MediaType.APPLICATION_JSON));
+
+        JsonNode result = support.fetchOpenApiDocument(
+                restTemplate,
+                "/v3/api-docs",
+                "stats",
+                LoggerFactory.getLogger(OpenApiDocsSupportTest.class)
+        );
+
+        assertEquals(true, result.path("paths").has("/stats/group-by"));
+        server.verify();
     }
 
     @Test

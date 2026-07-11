@@ -29,6 +29,7 @@ All notable changes to this module will be documented in this file.
   `valuePropertyPath`/`labelPropertyPath`.
 
 ### Changed
+- `option-sources/{sourceKey}/options/filter` agora preserva dependencias publicas enviadas em `filter` antes da desserializacao do `FilterDTO` hospedeiro e entrega ao `OptionSourceProvider` o payload efetivo mapeado por `dependencyFilterMap`; `filters` permanece exclusivo para filtros estruturados publicados em `optionSource.filtering.availableFilters`.
 - `@UISchema.options` agora pode enriquecer labels/metadados de opcoes derivadas de `enum` em `x-ui.options`, preservando os valores canonicos do schema OpenAPI e ignorando valores extras que nao pertencem ao enum.
 - `_links` de create/edit/delete/export passam a respeitar a availability canonica avaliada pelo `CapabilityService`, evitando divergencia entre HATEOAS e `/capabilities`.
 - `/schemas/domain` agora preenche a descricao do no conceitual de recurso a partir da
@@ -50,6 +51,15 @@ All notable changes to this module will be documented in this file.
 - Mensagens de erro para condicionais Json Logic malformados agora distinguem JSON invalido de contrato Json Logic invalido, e a validacao bloqueia literais com shape basico incompatível com o runtime Angular.
 
 ### Fixed
+- `_links` operacionais resource-local (`self`, `all`, `filter`, `filter-cursor`,
+  `create`, `update`, `delete`, `export` e `duplicate-draft`) agora tambem
+  publicam paths relativos com `contextPath`, mantendo o mesmo origin do
+  consumidor atras de proxy Angular ou headers `Forwarded`/`X-Forwarded-*`.
+- Resolucao interna de documentos OpenAPI agora usa a origem local do backend
+  ao rodar atras de proxy/forwarded headers, evitando que `/schemas/*`,
+  `/capabilities`, actions e surfaces tentem consumir `/v3/api-docs` pela
+  origem publica sem porta do proxy local.
+- `_links` de discovery resource-local (`actions`, `surfaces` de item e `capabilities`) agora publicam paths relativos com `contextPath`, evitando perda de porta em hosts locais/proxy com `Forwarded` ou `X-Forwarded-*`.
 - `/schemas/filtered` agora preserva descricoes `@Schema` de campos `BigDecimal`
   ao manter o formato `decimal`, evitando que metricas monetarias ou agregadas
   percam semantica de negocio no Cockpit e em consumidores AI.

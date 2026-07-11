@@ -409,6 +409,35 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void getFilteredSchemaDoesNotPublishRecordIdentityForRequestSchemas() {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        ApiResourceIdentityResolver identityResolver = org.mockito.Mockito.mock(ApiResourceIdentityResolver.class);
+        when(identityResolver.resolve("/users")).thenReturn(java.util.Optional.of(Map.of(
+                "keyField", "code",
+                "titleField", "email"
+        )));
+        ReflectionTestUtils.setField(controller, "apiResourceIdentityResolver", identityResolver);
+
+        server.expect(requestTo("http://localhost/v3/api-docs/users"))
+                .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        Map<String, Object> schema = controller
+                .getFilteredSchema("/users", "post", false, "request", null, null, java.util.Locale.ENGLISH)
+                .getBody();
+
+        assertNotNull(schema);
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        Map<String, Object> resource = (Map<String, Object>) xUi.get("resource");
+        assertFalse(resource.containsKey("identity"));
+    }
+
+    @Test
     void getFilteredSchemaNormalizesTrailingSlashBeforeOpenApiPathLookup() throws Exception {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("users");
 

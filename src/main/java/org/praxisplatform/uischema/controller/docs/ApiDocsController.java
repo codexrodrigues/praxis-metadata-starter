@@ -431,7 +431,9 @@ public class ApiDocsController {
             resourceMeta.put("capabilities", caps);
         }
 
-        if (apiResourceIdentityResolver != null) {
+        // Record identity describes materialized resources. Request schemas model
+        // filters/commands and must not publish an identity that their DTO cannot satisfy.
+        if ("response".equalsIgnoreCase(schemaType) && apiResourceIdentityResolver != null) {
             Optional<Map<String, Object>> resolvedIdentity = apiResourceIdentityResolver.resolve(basePath);
             if (resolvedIdentity.isPresent()) {
                 Map<String, Object> identity = resolvedIdentity.get();
