@@ -177,6 +177,7 @@ public class SemanticDomainCatalogService {
                         generatedAt.toString(),
                         sourceHash
                 ),
+                blankToNull(requestedResourceKey),
                 contextItems,
                 nodeItems,
                 edgeItems,
