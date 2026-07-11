@@ -85,7 +85,7 @@
 - x-ui.resource
   - `idField` -> chave primaria no fluxo de CRUD/UI
   - `idFieldValid`/`idFieldMessage` -> diagnostico e alertas
-  - `identity` -> chave visual, titulo humano, metadados secundarios e fallback textual declarados por `@ApiResource`; todos os campos referenciados devem existir no schema
+  - `identity` -> somente em schemas de resposta, chave visual, titulo humano, metadados secundarios e fallback textual declarados por `@ApiResource`; todos os campos referenciados devem existir no schema
   - `readOnly` -> bloqueio de edicao
   - `capabilities` -> habilitacao de acoes e utilitarios
 - discovery semantico
