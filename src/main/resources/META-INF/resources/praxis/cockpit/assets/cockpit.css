@@ -688,6 +688,10 @@ input:focus-visible,
   display: none;
 }
 
+.cockpit-shell.is-domain-map-collapsed .workbench {
+  grid-column: 1;
+}
+
 .cockpit-shell.is-resource-panel-collapsed .workbench {
   grid-template-columns: minmax(0, 1fr);
 }

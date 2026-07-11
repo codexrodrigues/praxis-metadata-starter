@@ -98,6 +98,7 @@ class PraxisCockpitControllerTest {
                 .contains(".workspace-toolbar")
                 .contains(".cockpit-shell.is-domain-map-collapsed")
                 .contains(".cockpit-shell.is-resource-panel-collapsed")
+                .contains(".cockpit-shell.is-domain-map-collapsed .workbench {\n  grid-column: 1;\n}")
                 .contains(".cockpit-shell.is-domain-map-collapsed .domain-map { display: block; }")
                 .contains(".cockpit-shell.is-resource-panel-collapsed .resource-panel { display: grid; }")
                 .contains("@media (min-width: 1760px)")
@@ -122,6 +123,7 @@ class PraxisCockpitControllerTest {
 
         assertThat(html)
                 .contains("/praxis/cockpit/assets/brand/praxis-mark-light.png")
+                .contains("/praxis/cockpit/assets/cockpit.css?v=20260710-focus-grid")
                 .contains("/praxis/cockpit/assets/cockpit.js?v=20260710-compact-workspace-nav")
                 .contains("href=\"/v3/api-docs\"")
                 .contains("id=\"domainTitle\"")
