@@ -5,6 +5,7 @@
     selectedKey: null,
     selectedArea: null,
     resourceFilter: 'all',
+    view: 'overview',
     workspace: {
       domainCollapsed: false,
       resourcesCollapsed: false,
@@ -44,6 +45,7 @@
 
   const els = {
     cockpitShell: document.querySelector('.cockpit-shell'),
+    cockpitViewSwitcher: document.getElementById('cockpitViewSwitcher'),
     workspaceControls: document.getElementById('workspaceControls'),
     hostStatusDot: document.getElementById('hostStatusDot'),
     hostStatusText: document.getElementById('hostStatusText'),
@@ -142,6 +144,10 @@
   }
 
   function wireEvents() {
+    els.cockpitViewSwitcher?.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-cockpit-view]');
+      if (button) setCockpitView(button.dataset.cockpitView || 'overview');
+    });
     wireExplorationJourney();
     els.resourceSearch.addEventListener('input', renderResourceList);
     els.hostAttention.addEventListener('click', (event) => {
@@ -155,6 +161,16 @@
       if (button) {
         selectResource(button.dataset.key);
       }
+    });
+    els.domainCoverageChart.addEventListener('click', (event) => {
+      const cell = event.target.closest('button[data-area][data-layer]');
+      if (!cell) return;
+      state.selectedArea = cell.dataset.area || null;
+      state.resourceFilter = heatmapFilter(cell.dataset.layer || '');
+      setCockpitView('explore');
+      renderAreas();
+      renderResourceFilters();
+      renderResourceList();
     });
     els.resourceFilterChips.querySelectorAll('button[data-filter]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -179,6 +195,21 @@
     window.addEventListener('resize', () => syncCompactWorkspace(compactWorkspace));
     syncCompactWorkspace(compactWorkspace);
     renderWorkspaceControls();
+    renderCockpitView();
+  }
+
+  function setCockpitView(view) {
+    state.view = ['overview', 'explore', 'detail'].includes(view) ? view : 'overview';
+    renderCockpitView();
+  }
+
+  function renderCockpitView() {
+    if (!els.cockpitShell || !els.cockpitViewSwitcher) return;
+    els.cockpitShell.classList.remove('is-cockpit-view-overview', 'is-cockpit-view-explore', 'is-cockpit-view-detail');
+    els.cockpitShell.classList.add(`is-cockpit-view-${state.view}`);
+    for (const button of els.cockpitViewSwitcher.querySelectorAll('button[data-cockpit-view]')) {
+      button.setAttribute('aria-pressed', button.dataset.cockpitView === state.view ? 'true' : 'false');
+    }
   }
 
   function wireExplorationJourney() {
@@ -304,7 +335,7 @@
     renderResourceList();
 
     if (state.resources.length) {
-      selectResource(state.resources[0].key);
+      selectResource(state.resources[0].key, { keepView: true });
       setHostStatus('ok', 'Host conectado ao cockpit.', 'O starter está lendo contratos reais deste serviço.');
       startCapabilityVerification();
       startActionVerification();
@@ -1318,7 +1349,7 @@
               <strong>${escapeHtml(area.label)}</strong>
               <small>${escapeHtml(area.total)} recurso(s) · média ${escapeHtml(formatDecimal(area.averageLayers))}/6</small>
             </span>
-            ${renderDomainLayerCoverage(area.layerCoverage, area.total)}
+            ${renderDomainLayerCoverage(area.layerCoverage, area.total, area.key)}
           </div>
         `).join('')}
       </div>
@@ -1344,18 +1375,31 @@
     }));
   }
 
-  function renderDomainLayerCoverage(layers, total) {
+  function renderDomainLayerCoverage(layers, total, areaKey) {
     return (layers || []).map((layer) => {
       const ratio = total ? layer.count / total : 0;
       const tone = ratio === 1 ? 'ok' : ratio >= .5 ? 'attention' : 'gap';
       const status = ratio === 1 ? 'Completo' : layer.count > 0 ? 'Parcial' : 'Ausente';
+      const filter = heatmapFilter(layer.key);
+      const content = `
+        <em>${escapeHtml(layer.count)}/${escapeHtml(total)}</em>
+        <small>${escapeHtml(status)}</small>
+      `;
+      if (!filter) {
+        return `<span class="domain-heatmap-cell ${escapeAttr(tone)}" role="cell" aria-label="${escapeAttr(layer.label)}: ${escapeAttr(status)}, ${escapeAttr(layer.count)} de ${escapeAttr(total)} recursos">${content}</span>`;
+      }
       return `
-        <span class="domain-heatmap-cell ${escapeAttr(tone)}" role="cell" aria-label="${escapeAttr(layer.label)}: ${escapeAttr(status)}, ${escapeAttr(layer.count)} de ${escapeAttr(total)} recursos">
-          <em>${escapeHtml(layer.count)}/${escapeHtml(total)}</em>
-          <small>${escapeHtml(status)}</small>
-        </span>
+        <button class="domain-heatmap-cell ${escapeAttr(tone)}" type="button" role="cell" data-area="${escapeAttr(areaKey || '')}" data-layer="${escapeAttr(layer.key)}" aria-label="Explorar ${escapeAttr(areaKey || 'domínio')} por ${escapeAttr(layer.label)}: ${escapeAttr(status)}, ${escapeAttr(layer.count)} de ${escapeAttr(total)} recursos">${content}</button>
       `;
     }).join('');
+  }
+
+  function heatmapFilter(layer) {
+    if (layer === 'canForm') return 'forms';
+    if (layer === 'canFilter') return 'filters';
+    if (layer === 'canAnalytics') return 'analytics';
+    if (layer === 'canActions') return 'actions';
+    return '';
   }
 
   function renderRenderableStack(metrics) {
@@ -1619,7 +1663,7 @@
           ? state.resources.find((resource) => resource.group === nextArea)
           : null;
         if (firstResourceInArea) {
-          selectResource(firstResourceInArea.key);
+          selectResource(firstResourceInArea.key, { view: 'explore' });
           return;
         }
         renderAreas();
@@ -1797,7 +1841,9 @@
     return 'Info';
   }
 
-  async function selectResource(key) {
+  async function selectResource(key, options = {}) {
+    if (options.view) setCockpitView(options.view);
+    else if (!options.keepView) setCockpitView('detail');
     state.selectedKey = key;
     const selectionToken = `${key}:${Date.now()}`;
     state.selectionToken = selectionToken;

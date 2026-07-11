@@ -78,20 +78,21 @@ input:focus-visible,
 .domain-hero { grid-row: 2; }
 .decision-summary { grid-row: 3; }
 .exploration-journey { grid-row: 4; }
-.intelligence-strip { grid-row: 5; }
-.control-plane { grid-row: 6; }
+.cockpit-view-switcher { grid-column: 1 / -1; grid-row: 5; }
+.intelligence-strip { grid-row: 6; }
+.control-plane { grid-row: 7; }
 .workspace-toolbar {
   grid-column: 1 / -1;
-  grid-row: 7;
+  grid-row: 8;
 }
 .domain-map {
   grid-column: 1;
-  grid-row: 8;
+  grid-row: 9;
   align-self: start;
 }
 .workbench {
   grid-column: 2;
-  grid-row: 8;
+  grid-row: 9;
   align-self: start;
 }
 .topology-panel { grid-row: auto; }
@@ -370,6 +371,8 @@ input:focus-visible,
   padding: 7px;
 }
 
+.exploration-journey { display: none; }
+
 .exploration-journey a {
   align-items: center;
   border: 1px solid transparent;
@@ -429,6 +432,45 @@ input:focus-visible,
   display: block;
   min-width: 0;
 }
+
+.cockpit-view-switcher {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 8px;
+}
+
+.cockpit-view-switcher button {
+  border: 1px solid rgba(154, 172, 194, .18);
+  background: rgba(7, 14, 20, .72);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.cockpit-view-switcher button[aria-pressed="true"] {
+  border-color: var(--line-strong);
+  background: rgba(98, 216, 255, .12);
+  color: var(--text);
+}
+
+.cockpit-shell.is-cockpit-view-overview .workspace-toolbar,
+.cockpit-shell.is-cockpit-view-overview .domain-map,
+.cockpit-shell.is-cockpit-view-overview .workbench,
+.cockpit-shell.is-cockpit-view-overview .topology-panel { display: none; }
+
+.cockpit-shell.is-cockpit-view-explore .topology-panel { display: none; }
+.cockpit-shell.is-cockpit-view-explore .detail-panel { display: none; }
+.cockpit-shell.is-cockpit-view-explore .workbench { grid-template-columns: minmax(0, 1fr); }
+
+.cockpit-shell.is-cockpit-view-detail .control-plane,
+.cockpit-shell.is-cockpit-view-detail .domain-map,
+.cockpit-shell.is-cockpit-view-detail .resource-panel { display: none; }
+.cockpit-shell.is-cockpit-view-detail .workbench { grid-template-columns: minmax(0, 1fr); }
 
 .exploration-journey strong {
   color: var(--text);
@@ -920,6 +962,17 @@ input:focus-visible,
   padding: 8px 7px;
   place-content: center;
   text-align: center;
+}
+
+button.domain-heatmap-cell {
+  cursor: pointer;
+  font: inherit;
+}
+
+button.domain-heatmap-cell:hover,
+button.domain-heatmap-cell:focus-visible {
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
 }
 
 .domain-heatmap-cell.ok,
@@ -3635,14 +3688,15 @@ input:focus-visible,
   .domain-hero { order: 2; }
   .decision-summary { order: 3; }
   .exploration-journey { order: 4; }
-  .intelligence-strip { order: 5; }
-  .control-plane { order: 6; }
+  .cockpit-view-switcher { order: 5; }
+  .intelligence-strip { order: 6; }
+  .control-plane { order: 7; }
   .workspace-toolbar { display: none; }
   .cockpit-shell.is-domain-map-collapsed .domain-map { display: block; }
   .cockpit-shell.is-resource-panel-collapsed .resource-panel { display: grid; }
-  .domain-map { order: 7; }
-  .workbench { order: 8; }
-  .topology-panel { order: 9; }
+  .domain-map { order: 8; }
+  .workbench { order: 9; }
+  .topology-panel { order: 10; }
 
   .attention-list,
   .semantic-readiness,
