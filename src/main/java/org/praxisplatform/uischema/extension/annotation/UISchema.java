@@ -14,10 +14,17 @@ import static java.lang.annotation.ElementType.*;
 /**
  * Anotação usada para definir metadata para renderização de UI e geração de formulários.
  *
- * <h3>Referenciando endpoints de Options em DTOs</h3>
- * <p>Para campos que exibem opções dinâmicas (combos, autocomplete, multi‑select),
- * use {@link #endpoint()}, {@link #valueField()} e {@link #displayField()} para
- * conectar a um endpoint REST e mapear o par id/label.</p>
+ * <h3>Option sources canonicas em DTOs</h3>
+ * <p>Para campos que exibem opcoes dinamicas (combos, autocomplete, entity lookup,
+ * multi-select), prefira declarar a fonte no {@code OptionSourceRegistry} do host com
+ * {@code OptionSourceDescriptor}. O starter materializa esse contrato em
+ * {@code x-ui.optionSource}, incluindo chave, tipo, dependencias, politicas, endpoints
+ * canonicos de filtro e recarga por IDs.</p>
+ *
+ * <p>{@link #endpoint()}, {@link #valueField()} e {@link #displayField()} continuam
+ * existindo para compatibilidade e para apontar explicitamente um endpoint ja publicado,
+ * mas nao devem substituir o contrato governado de option-source quando a fonte precisar
+ * ser consumida por IA, Page Builder, formularios metadata-driven ou runtimes corporativos.</p>
  *
  * <h4>Padrões suportados</h4>
  * <ol>
@@ -25,7 +32,7 @@ import static java.lang.annotation.ElementType.*;
  *   <pre>{@code
  * @UISchema(
  *   controlType = FieldControlType.SELECT,
- *   endpoint = ApiPaths.Catalog.CATEGORIAS + "/options/filter",
+ *   endpoint = ApiPaths.Catalog.CATEGORIAS + "/option-sources/categorias/options/filter",
  *   valueField = "id",     // org.praxisplatform.uischema.dto.OptionDTO.id
  *   displayField = "label" // org.praxisplatform.uischema.dto.OptionDTO.label
  * )
@@ -38,7 +45,7 @@ import static java.lang.annotation.ElementType.*;
  *   <pre>{@code
  * @UISchema(
  *   controlType = FieldControlType.SELECT,
- *   endpoint = ApiPaths.Catalog.CATEGORIAS + "/filter", // ✅ sempre /filter
+ *   endpoint = ApiPaths.Catalog.CATEGORIAS + "/option-sources/categorias/options/filter",
  *   valueField = "id",            // campo do DTO usado como value
  *   displayField = "nome"         // campo do DTO usado como label
  * )
@@ -47,15 +54,18 @@ import static java.lang.annotation.ElementType.*;
  *   </li>
  * </ol>
  *
- * <h4>Combos dependentes (interpolação)</h4>
- * <p>O {@code endpoint} suporta interpolação de parâmetros usando o valor atual
- * de outros campos (ex.: {@code ${estado}}) para combos em cascata:</p>
+ * <h4>Combos dependentes</h4>
+ * <p>Declare dependencias de cascata em {@link #dependsOn()} ou, preferencialmente,
+ * no {@code OptionSourceDescriptor.dependsOn()} junto do
+ * {@code dependencyFilterMap}. O resolver publica isso como
+ * {@code x-ui.optionSource.dependsOn}; a UI nao deve inferir cascata por interpolacao
+ * local de URL.</p>
  * <pre>{@code
  * @UISchema(
  *   name = "cidade",
  *   controlType = FieldControlType.SELECT,
- *   endpoint = "/api/cidades?estado=${estado}",
- *   dependentField = "estado",
+ *   endpoint = "/api/cidades/option-sources/cidades/options/filter",
+ *   dependsOn = "estado",
  *   resetOnDependentChange = true
  * )
  * private String cidade;
@@ -63,9 +73,9 @@ import static java.lang.annotation.ElementType.*;
  * </pre>
  *
  * <h4>Reidratação inicial</h4>
- * <p>Para preencher selects com valores previamente salvos, consulte também
- * <code>GET {base}/options/by-ids?ids=...</code> que retorna a lista
- * <code>OptionDTO</code> na mesma ordem dos IDs.</p>
+ * <p>Para preencher selects com valores previamente salvos, use o endpoint canonico
+ * publicado em {@code x-ui.optionSource.byIdsEndpoint}. O contrato padrao e
+ * <code>{resourcePath}/option-sources/{sourceKey}/options/by-ids</code>.</p>
  */
 @Target({FIELD, METHOD, PARAMETER, TYPE, ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
