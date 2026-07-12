@@ -19,6 +19,8 @@ plataforma.
 
 - [Guides hub](guides/index.html)
 - [Architecture overview](architecture-overview.html)
+- [Java package overview](packages-overview.html)
+- [UI Schema concept](concepts/ui-schema.html)
 - [Conformance](spec/CONFORMANCE.html)
 - [Options e option-sources](guides/OPTIONS-ENDPOINT.html)
 - [RFC - x-ui.optionSource](spec/x-ui-option-source-rfc.html)

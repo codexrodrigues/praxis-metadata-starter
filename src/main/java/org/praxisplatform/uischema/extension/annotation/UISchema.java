@@ -14,6 +14,15 @@ import static java.lang.annotation.ElementType.*;
 /**
  * Anotação usada para definir metadata para renderização de UI e geração de formulários.
  *
+ * <p>
+ * This is the field-level input for Java annotations for UI metadata.
+ * {@link org.praxisplatform.uischema.extension.CustomOpenApiResolver} combines
+ * it with OpenAPI and Jakarta Bean Validation to publish {@code x-ui}, and
+ * {@code /schemas/filtered} exposes the resulting structural contract.
+ * It describes presentation and input intent; keep domain meaning in
+ * {@link Schema#description()} and enforce authorization in the host.
+ * </p>
+ *
  * <h3>Option sources canonicas em DTOs</h3>
  * <p>Para campos que exibem opcoes dinamicas (combos, autocomplete, entity lookup,
  * multi-select), prefira declarar a fonte no {@code OptionSourceRegistry} do host com
@@ -76,6 +85,10 @@ import static java.lang.annotation.ElementType.*;
  * <p>Para preencher selects com valores previamente salvos, use o endpoint canonico
  * publicado em {@code x-ui.optionSource.byIdsEndpoint}. O contrato padrao e
  * <code>{resourcePath}/option-sources/{sourceKey}/options/by-ids</code>.</p>
+ *
+ * @see org.praxisplatform.uischema.FieldConfigProperties
+ * @see org.praxisplatform.uischema.ValidationProperties
+ * @since 1.0.0
  */
 @Target({FIELD, METHOD, PARAMETER, TYPE, ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
