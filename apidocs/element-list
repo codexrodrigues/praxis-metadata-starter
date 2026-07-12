@@ -8,6 +8,7 @@ org.praxisplatform.uischema.command
 org.praxisplatform.uischema.concurrency
 org.praxisplatform.uischema.configuration
 org.praxisplatform.uischema.constants
+org.praxisplatform.uischema.controller
 org.praxisplatform.uischema.controller.base
 org.praxisplatform.uischema.controller.cockpit
 org.praxisplatform.uischema.controller.docs
@@ -16,6 +17,7 @@ org.praxisplatform.uischema.dto
 org.praxisplatform.uischema.exporting
 org.praxisplatform.uischema.extension
 org.praxisplatform.uischema.extension.annotation
+org.praxisplatform.uischema.filter
 org.praxisplatform.uischema.filter.annotation
 org.praxisplatform.uischema.filter.dto
 org.praxisplatform.uischema.filter.range
@@ -25,6 +27,7 @@ org.praxisplatform.uischema.filter.web
 org.praxisplatform.uischema.hash
 org.praxisplatform.uischema.http
 org.praxisplatform.uischema.id
+org.praxisplatform.uischema.mapper
 org.praxisplatform.uischema.mapper.base
 org.praxisplatform.uischema.mapper.config
 org.praxisplatform.uischema.numeric
@@ -33,11 +36,14 @@ org.praxisplatform.uischema.options
 org.praxisplatform.uischema.options.diagnostics
 org.praxisplatform.uischema.options.service
 org.praxisplatform.uischema.options.service.jpa
+org.praxisplatform.uischema.repository
 org.praxisplatform.uischema.repository.base
+org.praxisplatform.uischema.rest
 org.praxisplatform.uischema.rest.exceptionhandler
 org.praxisplatform.uischema.rest.exceptionhandler.exception
 org.praxisplatform.uischema.rest.response
 org.praxisplatform.uischema.schema
+org.praxisplatform.uischema.service
 org.praxisplatform.uischema.service.base
 org.praxisplatform.uischema.service.base.annotation
 org.praxisplatform.uischema.stats

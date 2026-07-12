@@ -1,136 +1,34 @@
-# Visao dos Pacotes do Praxis Metadata Starter
+# Praxis Metadata Starter package overview
 
-Esta referencia resume os pacotes Java disponibilizados pelo starter e como
-eles se conectam ao baseline canonico atual da plataforma.
+This guide maps the Java packages to the architectural responsibilities of the
+starter. It is intended for developers, documentation tools and AI assistants
+that need to navigate the source without mistaking a derived endpoint for the
+canonical contract.
 
-> Importante: esta pagina descreve apenas a superficie viva do starter.
-> Para onboarding, a fonte de verdade continua sendo
-> `resource + surfaces + actions + capabilities + HATEOAS`, conforme
-> `architecture-overview.md` e os guias principais.
+## Read the packages by responsibility
 
-## `annotation`
+| Package | Responsibility | Use it when |
+| --- | --- | --- |
+| `annotation` | Declares resource identity, semantic governance, UI surfaces and explicit workflow actions. | Authoring the public meaning of a resource or field. |
+| `extension` | Converts Java annotations and Bean Validation into OpenAPI `x-ui`. | Extending OpenAPI enrichment or field-level metadata resolution. |
+| `schema` and `openapi` | Resolve a canonical operation and extract the structural request or response schema. | Working on `/schemas/filtered`, schema references or OpenAPI groups. |
+| `controller.docs` | Publishes the structural schema and documentary or semantic catalogs. | Exposing discovery HTTP endpoints; it must not redefine schema semantics. |
+| `controller.base` and `service.base` | Provide the resource-oriented HTTP and service baseline. | Creating mutable or read-only resources. |
+| `surface`, `action`, `capability` | Publish UX surfaces, explicit business commands and contextual availability snapshots. | Modelling experiences beyond generic CRUD. |
+| `filter`, `options`, `stats`, `exporting` | Provide focused operational capabilities derived from the resource contract. | Adding filtering, lookup options, analytics or collection export. |
+| `configuration` | Registers the starter with Spring Boot and Springdoc. | Changing auto-configuration or bootstrap behaviour. |
+| `rest`, `http`, `concurrency` | Standardize HTTP envelopes, links and conditional resource versions. | Working with responses, HATEOAS, ETag or preconditions. |
+| `domain`, `authoring`, `validation` | Support semantic domain discovery and validate authoring quality. | Publishing governed metadata or validating declarative rules. |
+| `id`, `mapper`, `repository`, `util` | Support identity, DTO mapping, persistence integration and small shared operations. | Implementing infrastructure without creating a second public contract. |
 
-Anotacoes que expressam semantica do backend publicado.
+## Canonical flow
 
-- `@ApiResource`
-- `@ApiGroup`
-- `@ResourceIntent`
-- `@UiSurface`
-- `@WorkflowAction`
+`@UISchema` and Bean Validation are interpreted by `extension`, which enriches
+the OpenAPI document with `x-ui`. `openapi` and `schema` resolve that document
+for an operation; `controller.docs.ApiDocsController` then publishes the
+filtered structural result. `surface`, `action` and `capability` add semantic
+discovery around the same resource, rather than alternative schema sources.
 
-`@UISchema` continua existindo para metadados de campo, mas nao descreve sozinha
-o baseline arquitetural atual.
-
-## `configuration`
-
-Auto-configuracoes do starter.
-
-- `PraxisMetadataAutoConfiguration`
-- `OpenApiUiSchemaAutoConfiguration`
-- `DynamicSwaggerConfig`
-
-Essas pecas ligam resolvers, grouped OpenAPI e os controllers de docs/discovery.
-
-## `controller`
-
-Camada HTTP do starter.
-
-- `controller.docs` publica `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces` e `/schemas/actions`
-- `controller.base` concentra o core resource-oriented
-
-Os controllers-base canonicos sao:
-
-- `AbstractResourceController`
-- `AbstractCreateUpdateResourceController`
-- `AbstractUnitDeleteResourceController`
-- `AbstractReadOnlyResourceController`
-- `AbstractResourceQueryController`
-- `AbstractLegacyBackedResourceController`
-- `AbstractDuplicateDraftLegacyBackedResourceController`
-
-## `dto`
-
-Objetos de transporte usados por controllers e services.
-
-No baseline atual, espere separacao entre:
-
-- response
-- create
-- update
-- filter
-
-Esses DTOs sao contratos publicos do recurso, nao espelhos mecanicos da
-entidade de persistencia. A entidade pode ajudar no grounding inicial, mas a
-separacao entre leitura, escrita, filtros, validacao e metadata de UI precisa
-ser authorada como decisao semantica do recurso.
-
-## `extension`
-
-Corpo do enriquecimento OpenAPI.
-
-- `CustomOpenApiResolver`
-- utilitarios de resolucao e anotacoes
-
-Aqui DTOs, validacoes e metadata de recurso viram `x-ui` e metadata de operacao.
-
-## `filter`
-
-Infraestrutura de filtros dinamicos baseada em Specification.
-
-- `filter.annotation`
-- `filter.dto`
-- `filter.specification`
-
-## `http` e `rest`
-
-Infraestrutura de resposta e semantica HTTP.
-
-- `RestApiResponse`
-- builders de link
-- tratamento de excecao
-
-Essas pecas sustentam a superficie publica com HATEOAS e envelopes consistentes.
-
-## `mapper`
-
-Configuracoes compartilhadas para mapeamento e integracao com MapStruct.
-
-Mappers materializam a fronteira depois que os DTOs canonicos existem. Eles nao
-devem ser usados como justificativa para inferir o contrato publico apenas a
-partir da entidade JPA.
-
-## `repository`
-
-Infraestrutura base de acesso a dados.
-
-## `service`
-
-Camada de servicos base.
-
-- `AbstractBaseQueryResourceService`
-- `AbstractBaseResourceService`
-- `AbstractReadOnlyResourceService`
-- `BaseResourceQueryService`
-- `BaseResourceCommandService`
-- `BaseResourceService`
-- `LegacyBackedResourceService`
-- `LegacyBackedResourceCommandService`
-- `DuplicateDraftLegacyBackedResourceService`
-- `DuplicateDraftLegacyBackedResourceCommandService`
-
-Essas interfaces e classes sustentam o baseline query/command atual do starter.
-
-## `util`
-
-Utilitarios de suporte, incluindo:
-
-- `OpenApiGroupResolver`
-- `OpenApiUiUtils`
-- localizacao e helpers gerais
-
-## Como usar esta visao
-
-1. identifique o pacote relevante
-2. confira `architecture-overview.md` para entender o papel dele no baseline atual
-3. use os guias principais para onboarding
-4. use o Javadoc publicado quando precisar aprofundar detalhes de API Java
+See [the architecture overview](architecture-overview.md),
+[the UI Schema concept](concepts/ui-schema.md), and the public
+[Javadoc](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/).
