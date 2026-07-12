@@ -8,11 +8,11 @@ Escopo de Alinhamento (minimo)
 - Endpoint `GET /schemas/filtered` com parâmetros: `path`, `operation`, `schemaType` (response|request), `includeInternalSchemas` (bool), `idField` (opcional), `readOnly` (opcional).
 - Resposta mescla `x-ui` e inclui `x-ui.resource` { `idField`, `idFieldValid`, `readOnly`, `capabilities` }.
 - ETag forte e 304 com `If-None-Match`; headers: `ETag`, `X-Schema-Hash`, `Access-Control-Expose-Headers: ETag,X-Schema-Hash`.
-- `schemaId` inclui: `path|operation|schemaType|internal|tenant|locale`.
+- `schemaId` inclui as dimensoes estruturais atuais: `path|operation|schemaType|internal|idField|readOnly`.
 - Grupos OpenAPI (documento por grupo com fallback para documento completo).
 - x‑ui (campo, validações e `presentation` readonly/list/table-cell) e x‑ui (operação) com precedência: defaults @UISchema → detecção (type/format/heurísticas) → valores explícitos @UISchema → Bean Validation → extraProperties (máxima).
 - Recursos do controller base: CRUD, `POST /filter`, `POST /filter/cursor`, `POST /locate`, `POST /options/filter`, `GET /options/by-ids`, `GET /all`, `GET /{id}`; ordenação padrão e heurística de `idField`.
-- i18n/tenant: `Accept-Language` e `X-Tenant` compõem o `schemaId` (ETag varia por idioma/tenant).
+- i18n/tenant: `Accept-Language` e `X-Tenant` ficam no boundary canonico, mas sao neutros para a estrutura nesta lane. Nao devem compor `schemaId` nem variar ETag enquanto nao alterarem o payload de `/schemas/filtered`.
 - Segurança fora do starter (configurar no host; JWT/OIDC, CORS, CSRF conforme política).
 
 Referências públicas
@@ -30,7 +30,7 @@ Especificação (machine‑readable)
 
 Suíte de Conformidade (esperado)
 - Validar `/schemas/filtered` contra os JSON Schemas deste diretório.
-- Testar ETag/304, expose headers, variação por `X-Tenant`/`Accept-Language`.
+- Testar ETag/304, expose headers e estabilidade de `schemaId`/ETag quando apenas `X-Tenant` ou `Accept-Language` mudarem sem alterar o payload estrutural.
 - Testes de `filter`/`filter/cursor`/`locate`/`options/by-ids` mínimos.
 
 PoC .NET (esperada)
