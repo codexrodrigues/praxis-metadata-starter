@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Roadmap Reconciliado De Skills Java E Praxis</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Roadmap Reconciliado De Skills Java E Praxis</h1>
+</header>
+<h1 id="roadmap-reconciliado-de-skills-java-e-praxis">Roadmap
+Reconciliado De Skills Java E Praxis</h1>
+<p>Data: 2026-07-12</p>
+<p>Classificacao: <code>docs-apenas</code></p>
+<p>Status:
+<code>reconciliado-com-repositorio-canonico-de-skills</code></p>
+<h2 id="objetivo">Objetivo</h2>
+<p>Registrar como o <code>praxis-metadata-starter</code> deve
+interpretar o roadmap de skills Codex para desenvolvimento Java/Praxis,
+sem transformar este repositorio na fonte canonica das skills.</p>
+<p>O objetivo nao e criar documentacao adicional por volume. O objetivo
+e garantir que o conhecimento operacional do starter seja codificado em
+skills, scripts, referencias e gates repetiveis no repositorio canonico
+<code>praxis-codex-skills</code>, para que um Codex novo consiga:</p>
+<ul>
+<li>descobrir dominio, recurso, operacoes e contratos sem depender de
+tentativa;</li>
+<li>criar APIs Java obrigatorias com
+<code>praxis-metadata-starter</code>;</li>
+<li>preencher annotations semanticas com evidencia de negocio;</li>
+<li>publicar metadata, schemas, surfaces, actions, capabilities,
+options, stats, export, erros e governanca sem vazamento de detalhes
+privados;</li>
+<li>provar localmente que o contrato esta pronto para consumo
+runtime;</li>
+<li>em migracoes corporativas, expor uma borda Java/Praxis correta mesmo
+quando a regra de negocio ainda permanece em um legado privado durante a
+primeira fase.</li>
+</ul>
+<h2 id="premissa-corrigida">Premissa Corrigida</h2>
+<p>O roadmap anterior era util como inventario, mas ficou obsoleto ao
+afirmar que o agregador de skills possuia apenas poucas skills e nenhuma
+familia Java/Praxis central versionada.</p>
+<p>Em 2026-07-12, o repositorio canonico
+<code>praxis-codex-skills</code> ja possui uma familia Java/Praxis
+substancial. Portanto, a classificacao correta para a lacuna observada
+e:</p>
+<p><code>ja-suportado-mal-nomeado-ou-mal-materializado</code></p>
+<p>A acao correta nao e abrir uma nova onda numerica de skills Java. A
+acao correta e usar a familia existente em implementacoes reais,
+registrar falhas no ledger de evidencia e promover ajustes apenas quando
+houver drift de plataforma ou uma lacuna repetivel comprovada.</p>
+<h2 id="fonte-canonica">Fonte Canonica</h2>
+<p>Este documento e uma referencia tecnica do
+<code>praxis-metadata-starter</code>. Ele nao redefine o portfolio de
+skills.</p>
+<p>Use como fonte canonica:</p>
+<ul>
+<li><code>praxis-codex-skills/codex-skills/praxis-skills.manifest.json</code></li>
+<li><code>praxis-codex-skills/docs/praxis-java-skill-coverage-reconciliation-2026-07.md</code></li>
+<li>o ledger ativo de evidencias
+<code>praxis-codex-skills#254</code></li>
+</ul>
+<h2 id="familia-javapraxis-atual">Familia Java/Praxis Atual</h2>
+<p>A familia canonica atual ja cobre:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Skill</th>
+<th>Uso principal</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>praxis-java-host-project</code></td>
+<td>Bootstrap de host Java/Spring e composicao de starters</td>
+</tr>
+<tr class="even">
+<td><code>praxis-java-resource-authoring</code></td>
+<td>Authoring completo de APIs Java/Praxis resource-oriented</td>
+</tr>
+<tr class="odd">
+<td><code>praxis-dto-annotations</code></td>
+<td>DTOs, filtros, comandos, <code>x-ui</code>, governanca e annotations
+semanticas</td>
+</tr>
+<tr class="even">
+<td><code>praxis-java-filter-query-authoring</code></td>
+<td>Filtros, predicates, cursor, locate, sort e schemas filtrados</td>
+</tr>
+<tr class="odd">
+<td><code>praxis-java-option-source-provider-authoring</code></td>
+<td>Option sources provider-backed por contrato canonico</td>
+</tr>
+<tr class="even">
+<td><code>praxis-resource-entity-lookup-backend</code></td>
+<td><code>RESOURCE_ENTITY</code> option sources e contratos de
+lookup</td>
+</tr>
+<tr class="odd">
+<td><code>praxis-java-availability-discovery-authoring</code></td>
+<td>Actions, surfaces, capabilities e availability contextual</td>
+</tr>
+<tr class="even">
+<td><code>praxis-java-command-concurrency-authoring</code></td>
+<td>Commands governados, idempotencia, ETag e conflitos</td>
+</tr>
+<tr class="odd">
+<td><code>praxis-java-error-response-contracts</code></td>
+<td>Falhas estruturadas de API Java/Praxis</td>
+</tr>
+<tr class="even">
+<td><code>praxis-java-stats-export-authoring</code></td>
+<td>Stats, export, analytics, filtros e capabilities</td>
+</tr>
+<tr class="odd">
+<td><code>praxis-java-domain-governance-field-access</code></td>
+<td>Governanca de dominio, field access, mascaramento e AI policy</td>
+</tr>
+<tr class="even">
+<td><code>praxis-java-autoconfiguration-starter-maintenance</code></td>
+<td>Auto-configuracao e extension points do starter</td>
+</tr>
+<tr class="odd">
+<td><code>praxis-java-config-boundary-integration</code></td>
+<td>Fronteira metadata/config e materializacoes governadas</td>
+</tr>
+<tr class="even">
+<td><code>praxis-java-quickstart-proof</code></td>
+<td>Prova operacional no quickstart</td>
+</tr>
+<tr class="odd">
+<td><code>praxis-java-http-corpus-publication</code></td>
+<td>Publicacao de corpus HTTP apos prova Java</td>
+</tr>
+<tr class="even">
+<td><code>praxis-java-contract-conformance</code></td>
+<td>Evidence pack final antes de handoff de API ou migracao</td>
+</tr>
+</tbody>
+</table>
+<h2 id="como-usar-este-roadmap">Como Usar Este Roadmap</h2>
+<p>Antes de propor nova skill ou contrato, um agente deve perguntar:</p>
+<ul>
+<li>o que o starter ja sabe e o consumidor ainda nao materializou
+bem?</li>
+<li>a lacuna e apenas UX, nome/materializacao ruim, suporte parcial ou
+contrato real?</li>
+<li>qual e a fonte canonica?</li>
+<li>qual prova local demonstra o contrato?</li>
+</ul>
+<p>Novas follow-ups devem nascer apenas quando uma implementacao real
+provar que:</p>
+<ul>
+<li>uma tarefa Java roteia consistentemente para a skill ou dono
+canonico errado;</li>
+<li>uma skill deixa uma API Java fechar sem provar
+<code>/schemas/filtered</code>, actions, surfaces, capabilities,
+options, errors, stats/export ou fronteiras config;</li>
+<li>uma mudanca real em <code>praxis-metadata-starter</code> ou
+<code>praxis-config-starter</code> diverge da guidance atual;</li>
+<li>uma tarefa recorrente de migracao precisa de guidance Java/Praxis
+reutilizavel que nao seja especifica de um legado privado e nao esteja
+coberta pela familia atual.</li>
+</ul>
+<h2 id="regras-de-fronteira">Regras De Fronteira</h2>
+<p><code>praxis-metadata-starter</code> publica a fronteira semantica e
+estrutural que runtimes, Cockpit, IA e consumidores usam para
+materializar decisoes. Ele nao e apenas um gerador de JSON para
+Angular.</p>
+<p>Skills <code>praxis-java-*</code> devem permanecer genericas de
+plataforma corporativa. Elas podem apoiar migracoes, mas nao devem
+incorporar semantica de um legado privado como contrato publico.</p>
+<p>Quando a necessidade for especifica de uma fabrica de migracao,
+discovery legado, ponte privada de dados, paridade com sistema antigo ou
+cleanup de massa, a guidance deve ficar em skills de migracao dedicadas,
+consumindo Praxis sem amarrar Praxis ao legado.</p>
+<h2 id="proximo-passo-operacional">Proximo Passo Operacional</h2>
+<p>Manter o ledger <code>praxis-codex-skills#254</code> como mecanismo
+ativo de evidencia.</p>
+<p>Nao criar uma nova onda de skills Java por contagem. Usar a familia
+atual contra mudancas reais de plataforma e abrir PR focado somente
+quando o uso revelar drift, prova ausente ou lacuna concreta de
+contrato.</p>
+</body>
+</html>
