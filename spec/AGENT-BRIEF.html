@@ -185,10 +185,10 @@ Schema), suíte de conformidade e uma PoC mínima em .NET.</p>
 <code>If-None-Match</code>; headers: <code>ETag</code>,
 <code>X-Schema-Hash</code>,
 <code>Access-Control-Expose-Headers: ETag,X-Schema-Hash</code>. -
-<code>schemaId</code> inclui:
-<code>path|operation|schemaType|internal|tenant|locale</code>. - Grupos
-OpenAPI (documento por grupo com fallback para documento completo). -
-x‑ui (campo, validações e <code>presentation</code>
+<code>schemaId</code> inclui as dimensoes estruturais atuais:
+<code>path|operation|schemaType|internal|idField|readOnly</code>. -
+Grupos OpenAPI (documento por grupo com fallback para documento
+completo). - x‑ui (campo, validações e <code>presentation</code>
 readonly/list/table-cell) e x‑ui (operação) com precedência: defaults
 <span class="citation" data-cites="UISchema">@UISchema</span> → detecção
 (type/format/heurísticas) → valores explícitos <span class="citation"
@@ -199,9 +199,11 @@ extraProperties (máxima). - Recursos do controller base: CRUD,
 <code>GET /options/by-ids</code>, <code>GET /all</code>,
 <code>GET /{id}</code>; ordenação padrão e heurística de
 <code>idField</code>. - i18n/tenant: <code>Accept-Language</code> e
-<code>X-Tenant</code> compõem o <code>schemaId</code> (ETag varia por
-idioma/tenant). - Segurança fora do starter (configurar no host;
-JWT/OIDC, CORS, CSRF conforme política).</p>
+<code>X-Tenant</code> ficam no boundary canonico, mas sao neutros para a
+estrutura nesta lane. Nao devem compor <code>schemaId</code> nem variar
+ETag enquanto nao alterarem o payload de <code>/schemas/filtered</code>.
+- Segurança fora do starter (configurar no host; JWT/OIDC, CORS, CSRF
+conforme política).</p>
 <p>Referências públicas - Starter Java (referência):
 <code>praxis-metadata-starter/</code> - UI Angular pública:
 <code>https://github.com/codexrodrigues/praxis-ui-angular</code> -
@@ -222,8 +224,10 @@ Schemas: - <code>x-ui-field.schema.json</code> — valida
 SemVer.</p>
 <p>Suíte de Conformidade (esperado) - Validar
 <code>/schemas/filtered</code> contra os JSON Schemas deste diretório. -
-Testar ETag/304, expose headers, variação por
-<code>X-Tenant</code>/<code>Accept-Language</code>. - Testes de
+Testar ETag/304, expose headers e estabilidade de
+<code>schemaId</code>/ETag quando apenas <code>X-Tenant</code> ou
+<code>Accept-Language</code> mudarem sem alterar o payload estrutural. -
+Testes de
 <code>filter</code>/<code>filter/cursor</code>/<code>locate</code>/<code>options/by-ids</code>
 mínimos.</p>
 <p>PoC .NET (esperada) - ASP.NET Core 8+, Swashbuckle, filtros para

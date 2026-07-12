@@ -230,8 +230,8 @@ publicam apenas discovery semantico e links para schemas canonicos
 resolviveis via <code>/schemas/filtered</code></li>
 <li>ETag forte no <code>/schemas/filtered</code> e hash deterministico
 em <code>X-Schema-Hash</code></li>
-<li><code>schemaId</code> estavel conforme composicao
-<code>path|operation|schemaType|internal|tenant|locale</code></li>
+<li><code>schemaId</code> estavel conforme composicao estrutural atual:
+<code>path|operation|schemaType|internal|idField|readOnly</code></li>
 <li>quando <code>x-ui.chart.source.kind = "praxis.stats"</code>, o
 contrato publicado exige <code>source.resource</code> e
 <code>source.operation</code></li>
@@ -520,8 +520,9 @@ fornecedores/hosts</li>
 schema</li>
 <li>o backend deve separar payload estrutural e payload documental antes
 de calcular o hash</li>
-<li>locale/tenant variam <code>schemaId</code> e os headers de
-cache</li>
+<li>locale/tenant permanecem no boundary canonico, mas nao variam
+<code>schemaId</code> nem headers de cache enquanto nao alterarem o
+payload estrutural</li>
 </ul>
 <h2 id="cobertura-atual-das-anotacoes">Cobertura atual das
 anotacoes</h2>
