@@ -52,6 +52,8 @@ Marque todos os itens abaixo antes de abrir a adocao do piloto.
 - [ ] collection capabilities e item capabilities validadas separadamente quando a decisao depende de `resourceId`
 - [ ] `_links` e `/capabilities.operations` concordam para create/edit/delete/export
 - [ ] `/actions` e `capabilities.actions` concordam para actions collection e item
+- [ ] recursos exclusivamente orientados a comandos usam `AbstractCollectionCommandResourceController`,
+      sem herdar query/CRUD nem criar armazenamento ficticio apenas para obter discovery
 - [ ] `/surfaces` e `capabilities.surfaces` concordam para surfaces collection e item
 - [ ] metadata de denial publica apenas `policy`, `publicReason`, `blockedOperation`, `contextual`, `resourceState`, `requiredAuthorities`, `missingAuthorities` ou `allowedStates` seguros
 - [ ] metadata de denial nao expoe SQL, HADES, Oracle, ROWID, package, procedure, usuario tecnico, tenant privado, sessao ou locator interno
