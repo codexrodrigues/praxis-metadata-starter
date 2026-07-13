@@ -7,6 +7,7 @@ import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.UiSurface;
 import org.praxisplatform.uischema.annotation.WorkflowAction;
 import org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController;
+import org.praxisplatform.uischema.controller.base.AbstractCollectionCommandResourceController;
 import org.praxisplatform.uischema.controller.base.AbstractResourceController;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
@@ -49,6 +50,50 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AnnotationDrivenActionDefinitionRegistryTest {
+
+    @Test
+    void discoversCollectionActionFromCommandOnlyResource() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        ApplicationContext applicationContext = mock(ApplicationContext.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+        SchemaReferenceResolver schemaResolver = mock(SchemaReferenceResolver.class);
+        CommandOnlyActionController controller = new CommandOnlyActionController();
+        RequestMappingInfo mapping = RequestMappingInfo
+                .paths("/evaluation-requests/actions/evaluate")
+                .methods(RequestMethod.POST)
+                .build();
+        when(handlerMapping.getHandlerMethods()).thenReturn(Map.of(
+                mapping,
+                new HandlerMethod(controller, CommandOnlyActionController.class.getDeclaredMethod("evaluate"))
+        ));
+        when(operationResolver.resolve(any(HandlerMethod.class), eq(mapping))).thenReturn(new CanonicalOperationRef(
+                "evaluation-requests", "evaluateRequest", "/evaluation-requests/actions/evaluate", "POST"
+        ));
+        when(schemaResolver.resolve(
+                eq("/evaluation-requests/actions/evaluate"), eq("POST"), any(String.class),
+                eq(false), eq(null), eq(null), eq("id"), eq(false)
+        )).thenAnswer(invocation -> new CanonicalSchemaRef(
+                invocation.getArgument(2, String.class) + "-evaluateRequest",
+                invocation.getArgument(2, String.class),
+                "/schemas/filtered?schemaType=" + invocation.getArgument(2, String.class)
+        ));
+
+        AnnotationDrivenActionDefinitionRegistry registry = new AnnotationDrivenActionDefinitionRegistry(
+                handlerMapping,
+                applicationContext,
+                operationResolver,
+                schemaResolver,
+                AnnotationConflictMode.WARN,
+                AnnotationConflictMode.FAIL
+        );
+
+        List<ActionDefinition> actions = registry.findByResourceKey("example.evaluation-requests");
+
+        assertEquals(1, actions.size());
+        assertEquals("evaluate", actions.getFirst().id());
+        assertEquals(ActionScope.COLLECTION, actions.getFirst().scope());
+        assertEquals("request-evaluateRequest", actions.getFirst().requestSchema().schemaId());
+    }
 
     @Test
     void cachesDiscoveredDefinitionsAndIndexesByResourceAndGroup() throws Exception {
@@ -469,5 +514,15 @@ class AnnotationDrivenActionDefinitionRegistryTest {
     }
 
     static final class TestFilterDTO implements GenericFilterDTO {
+    }
+
+    @ApiResource(value = "/evaluation-requests", resourceKey = "example.evaluation-requests")
+    @ApiGroup("evaluation-requests")
+    static final class CommandOnlyActionController extends AbstractCollectionCommandResourceController {
+
+        @PostMapping("/actions/evaluate")
+        @WorkflowAction(id = "evaluate", title = "Evaluate", scope = ActionScope.COLLECTION)
+        public void evaluate() {
+        }
     }
 }

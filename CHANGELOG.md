@@ -14,6 +14,10 @@ All notable changes to this module will be documented in this file.
   `controllerEndpointHandlerMapping`.
 
 ### Added
+- Base publica `AbstractCollectionCommandResourceController` para recursos que possuem somente
+  actions no escopo da colecao: publica `/actions` e `/capabilities`, integra a execucao ao
+  boundary governado e aos schemas filtrados da operacao real, sem expor CRUD, filtros ou
+  persistencia ficticios.
 - Guia canonico `docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md`,
   checklist de readiness e fixture E2E non-Ergon para orientar availability
   enterprise entre `ResourceOperationAvailabilityProvider`,

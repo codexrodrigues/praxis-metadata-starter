@@ -18,6 +18,7 @@
  *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractUnitDeleteResourceController}: superficie mutante parcial com create, update e delete unitario.</li>
  *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractResourceController}: superficie mutante canonica com create, update, delete unitario e delete em lote.</li>
  *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController}: variante query-only para recursos somente leitura.</li>
+ *   <li>{@link org.praxisplatform.uischema.controller.base.AbstractCollectionCommandResourceController}: recurso collection-level somente de comandos, sem query ou persistencia ficticia.</li>
  * </ul>
  *
  * <p>

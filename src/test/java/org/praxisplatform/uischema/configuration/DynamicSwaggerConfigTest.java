@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
+import org.praxisplatform.uischema.controller.base.AbstractCollectionCommandResourceController;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
 import org.springdoc.core.models.GroupedOpenApi;
@@ -28,6 +29,31 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class DynamicSwaggerConfigTest {
+
+    @Test
+    void createDynamicGroupsIncludesCommandOnlyResourceController() throws Exception {
+        DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        DynamicSwaggerConfig config = new DynamicSwaggerConfig();
+        CommandOnlyController controller = new CommandOnlyController();
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = Map.of(
+                RequestMappingInfo.paths("/api/evaluation-requests/actions/evaluate")
+                        .methods(RequestMethod.POST)
+                        .build(),
+                new HandlerMethod(controller, CommandOnlyController.class.getMethod("evaluate"))
+        );
+        when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
+        ReflectionTestUtils.setField(config, "beanFactory", beanFactory);
+        ReflectionTestUtils.setField(config, "handlerMapping", handlerMapping);
+        ReflectionTestUtils.setField(config, "apiResourceValidationMode", "IGNORE");
+        ReflectionTestUtils.setField(config, "applicationContext", null);
+
+        config.createDynamicGroups();
+
+        assertTrue(beanFactory.containsSingleton("api_evaluation_requests_ApiGroup"));
+        GroupedOpenApi group = (GroupedOpenApi) beanFactory.getSingleton("api_evaluation_requests_ApiGroup");
+        assertEquals(List.of("/api/evaluation-requests", "/api/evaluation-requests/**"), group.getPathsToMatch());
+    }
 
     @Test
     void createDynamicGroupsRegistersIndividualAndAggregatedGroupsForCanonicalResourceController() throws Exception {
@@ -227,5 +253,12 @@ class DynamicSwaggerConfigTest {
     }
 
     static final class TestFilterDTO implements GenericFilterDTO {
+    }
+
+    @ApiResource(value = "/api/evaluation-requests", resourceKey = "example.evaluation-requests")
+    @Profile("dynamic-swagger-config-test")
+    static final class CommandOnlyController extends AbstractCollectionCommandResourceController {
+        public void evaluate() {
+        }
     }
 }

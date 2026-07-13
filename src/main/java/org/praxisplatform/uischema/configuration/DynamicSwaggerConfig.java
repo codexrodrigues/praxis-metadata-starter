@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.configuration;
 import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
+import org.praxisplatform.uischema.controller.base.AbstractCollectionCommandResourceController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springdoc.core.models.GroupedOpenApi;
@@ -329,7 +330,8 @@ public class DynamicSwaggerConfig {
     }
 
     private boolean isCanonicalResourceController(Class<?> controllerClass) {
-        return AbstractResourceQueryController.class.isAssignableFrom(controllerClass);
+        return AbstractResourceQueryController.class.isAssignableFrom(controllerClass)
+                || AbstractCollectionCommandResourceController.class.isAssignableFrom(controllerClass);
     }
 
     /**
