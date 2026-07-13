@@ -4,6 +4,7 @@ import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.WorkflowAction;
 import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
+import org.praxisplatform.uischema.controller.base.AbstractCollectionCommandResourceController;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
@@ -108,7 +109,7 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
     private List<ActionDefinition> toDefinitions(Map.Entry<RequestMappingInfo, HandlerMethod> entry) {
         HandlerMethod handlerMethod = entry.getValue();
         Class<?> controllerClass = handlerMethod.getBeanType();
-        if (!AbstractResourceQueryController.class.isAssignableFrom(controllerClass)) {
+        if (!isCanonicalActionResourceController(controllerClass)) {
             return List.of();
         }
 
@@ -255,7 +256,7 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
     }
 
     private String resolveIdField(Object controllerBean) {
-        if (controllerBean == null) {
+        if (!(controllerBean instanceof AbstractResourceQueryController<?, ?, ?>)) {
             return "id";
         }
         if (!GET_ID_FIELD_METHOD.canAccess(controllerBean)) {
@@ -334,6 +335,11 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
         Map<String, List<ActionDefinition>> immutableIndex = new LinkedHashMap<>();
         index.forEach((key, value) -> immutableIndex.put(key, List.copyOf(value)));
         return java.util.Collections.unmodifiableMap(immutableIndex);
+    }
+
+    private boolean isCanonicalActionResourceController(Class<?> controllerClass) {
+        return AbstractResourceQueryController.class.isAssignableFrom(controllerClass)
+                || AbstractCollectionCommandResourceController.class.isAssignableFrom(controllerClass);
     }
 
     private String normalizePath(String path) {
