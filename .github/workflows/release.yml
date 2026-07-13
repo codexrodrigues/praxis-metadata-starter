@@ -281,7 +281,7 @@ jobs:
           perl -i -pe 's/^\x{FEFF}//;' /tmp/gpg.key.raw
           tr -d '\r' < /tmp/gpg.key.raw > /tmp/gpg.key.nocrlf
           if grep -q "BEGIN PGP PRIVATE KEY BLOCK" /tmp/gpg.key.nocrlf; then
-            awk 'found{print} /BEGIN PGP PRIVATE KEY BLOCK/{found=1} /END PGP PRIVATE KEY BLOCK/{print; exit}' /tmp/gpg.key.nocrlf > /tmp/gpg.key
+            awk '/BEGIN PGP PRIVATE KEY BLOCK/{found=1} found{print} /END PGP PRIVATE KEY BLOCK/{exit}' /tmp/gpg.key.nocrlf > /tmp/gpg.key
           else
             tr -d ' \t\n\r' < /tmp/gpg.key.nocrlf > /tmp/gpg.key.b64
             base64 -d /tmp/gpg.key.b64 > /tmp/gpg.key
