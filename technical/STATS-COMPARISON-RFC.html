@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>RFC - `POST /{resource}/stats/comparison`</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">RFC - `POST /{resource}/stats/comparison`</h1>
+</header>
+<h1 id="rfc---post-resourcestatscomparison">RFC -
+<code>POST /{resource}/stats/comparison</code></h1>
+<h2 id="status">Status</h2>
+<ul>
+<li>estado: <code>proposed</code></li>
+<li>issue: #99</li>
+<li>dependencia: #98</li>
+<li>classe:
+<code>arquitetural + transversal + contrato-publico</code></li>
+<li>aderencia: <code>lacuna-real-de-contrato</code></li>
+</ul>
+<h2 id="objetivo">Objetivo</h2>
+<p>Publicar uma unica operacao governada que compara as mesmas metricas
+agrupadas pela mesma dimensao em dois periodos relacionados. A operacao
+pertence ao <code>praxis-metadata-starter</code>; hosts provam dados e
+regras de dominio, e runtimes somente materializam o envelope
+retornado.</p>
+<pre class="http"><code>POST /{resource}/stats/comparison</code></pre>
+<h2 id="request-canonico">Request canonico</h2>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;filter&quot;</span><span class="fu">:</span> <span class="fu">{},</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;departamento&quot;</span><span class="fu">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;metrics&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;operation&quot;</span><span class="fu">:</span> <span class="st">&quot;DISTINCT_COUNT&quot;</span><span class="fu">,</span> <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;funcionarioId&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;funcionariosAfastados&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;operation&quot;</span><span class="fu">:</span> <span class="st">&quot;SUM&quot;</span><span class="fu">,</span> <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;diasAfastado&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;diasAfastado&quot;</span> <span class="fu">}</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;period&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;competencia&quot;</span><span class="fu">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;preset&quot;</span><span class="fu">:</span> <span class="st">&quot;THIS_MONTH&quot;</span><span class="fu">,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;mode&quot;</span><span class="fu">:</span> <span class="st">&quot;PREVIOUS_CALENDAR_PERIOD&quot;</span><span class="fu">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;timezone&quot;</span><span class="fu">:</span> <span class="st">&quot;America/Sao_Paulo&quot;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;limit&quot;</span><span class="fu">:</span> <span class="dv">20</span><span class="fu">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;orderBy&quot;</span><span class="fu">:</span> <span class="st">&quot;CURRENT_VALUE_DESC&quot;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p><code>metrics[]</code> e obrigatorio, nao vazio e tem aliases
+efetivos unicos. O primeiro alias e a metrica primaria para ordenacao. O
+primeiro corte aceita somente <code>COUNT</code>,
+<code>DISTINCT_COUNT</code> e <code>SUM</code>; <code>AVG</code>,
+<code>MIN</code> e <code>MAX</code> respondem <code>400</code> ate que
+exista semantica publica para ausencia de observacao.</p>
+<p>O periodo aceita exatamente um de <code>preset</code> ou
+<code>from</code> + <code>to</code>; enviar ambos e erro
+<code>400</code>. Presets aceitos: <code>TODAY</code>,
+<code>YESTERDAY</code>, <code>LAST_7_DAYS</code>,
+<code>LAST_30_DAYS</code>, <code>THIS_MONTH</code>,
+<code>LAST_MONTH</code>, <code>THIS_QUARTER</code> e
+<code>THIS_YEAR</code>. Preset exige timezone IANA valida.
+<code>Clock</code> deve ser injetavel. O response devolve as duas
+janelas resolvidas como datas inclusivas.</p>
+<p>Para campos timestamp (<code>Instant</code>,
+<code>OffsetDateTime</code>, <code>LocalDateTime</code> ou
+<code>ZonedDateTime</code>), a execucao converte a janela resolvida para
+<code>[inicioDaData, inicioDoDiaSeguinte)</code> na timezone declarada.
+Para <code>LocalDate</code>, usa limite inclusivo.
+<code>PREVIOUS_ALIGNED</code> desloca a janela atual pelo mesmo numero
+de dias; <code>PREVIOUS_CALENDAR_PERIOD</code> usa a unidade de
+calendario do preset. Custom ranges usam somente
+<code>PREVIOUS_ALIGNED</code> no primeiro corte; combinar custom range
+com <code>PREVIOUS_CALENDAR_PERIOD</code> retorna <code>400</code>.</p>
+<h2 id="response-canonico">Response canonico</h2>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;departamento&quot;</span><span class="fu">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;periodField&quot;</span><span class="fu">:</span> <span class="st">&quot;competencia&quot;</span><span class="fu">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;metrics&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="fu">{</span> <span class="dt">&quot;operation&quot;</span><span class="fu">:</span> <span class="st">&quot;SUM&quot;</span><span class="fu">,</span> <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;diasAfastado&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;diasAfastado&quot;</span> <span class="fu">}</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;currentPeriod&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;from&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-07-01&quot;</span><span class="fu">,</span> <span class="dt">&quot;to&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-07-31&quot;</span><span class="fu">,</span> <span class="dt">&quot;timezone&quot;</span><span class="fu">:</span> <span class="st">&quot;America/Sao_Paulo&quot;</span> <span class="fu">},</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;previousPeriod&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;from&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-06-01&quot;</span><span class="fu">,</span> <span class="dt">&quot;to&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-06-30&quot;</span><span class="fu">,</span> <span class="dt">&quot;timezone&quot;</span><span class="fu">:</span> <span class="st">&quot;America/Sao_Paulo&quot;</span> <span class="fu">},</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;buckets&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="fu">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;D-ENG&quot;</span><span class="fu">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Engenharia&quot;</span><span class="fu">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;values&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;diasAfastado&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;current&quot;</span><span class="fu">:</span> <span class="dv">18</span><span class="fu">,</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;previous&quot;</span><span class="fu">:</span> <span class="dv">9</span><span class="fu">,</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;delta&quot;</span><span class="fu">:</span> <span class="dv">9</span><span class="fu">,</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;deltaPercent&quot;</span><span class="fu">:</span> <span class="fl">100.0</span><span class="fu">,</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;baselineMissing&quot;</span><span class="fu">:</span> <span class="kw">false</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span><span class="ot">]</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Para cada alias: buckets das duas janelas sao unidos por key, valores
+ausentes sao zero, <code>delta = current - previous</code>, e
+<code>deltaPercent = delta / previous * 100</code>. Se
+<code>previous</code> for zero, <code>deltaPercent</code> e
+<code>null</code> e <code>baselineMissing</code> e <code>true</code>.
+Nunca sao emitidos <code>NaN</code>, <code>Infinity</code> ou numeros
+serializados como texto. Empates de ordenacao usam key ascendente.</p>
+<h2 id="execucao-limites-e-seguranca">Execucao, limites e seguranca</h2>
+<p>As duas agregacoes usam o mesmo <code>Specification</code>, acesso a
+campos, row scope e transacao/dataset version quando essa evidencia
+existir. A uniao, zero-fill, calculo e ordenacao acontecem no starter; o
+Angular nao realiza merge ou delta.</p>
+<p><code>limit</code> e aplicado somente apos a ordenacao global. Para
+evitar um top-N falso, o executor nunca limita cada janela pelo
+<code>limit</code> solicitado. Cada agregacao le no maximo
+<code>praxis.stats.max-comparison-candidates + 1</code> grupos; exceder
+esse teto responde erro de politica/limite em vez de truncar
+silenciosamente. A janela atual tambem nao pode exceder
+<code>praxis.stats.max-comparison-period-days</code>. Os padroes sao,
+respectivamente, <code>1000</code> candidatos e <code>366</code> dias; o
+host pode reduzi-los conforme capacidade e politica de retencao.</p>
+<p>Comparison nao amplia o que a colecao pode revelar. Um bucket
+removido pelo row scope nao reaparece por zero-fill. Erros, schemas e
+logs nao expõem SQL ou paths internos; observabilidade registra apenas
+resource key, operacao, schema hash, janelas resolvidas, cardinalidade e
+duracao.</p>
+<h2 id="discovery-e-schema">Discovery e schema</h2>
+<p>O recurso e opt-in por <code>getComparisonStatsSupportMode()</code>,
+inicialmente <code>DISABLED</code>. A capability
+<code>statsComparison</code> so e verdadeira quando endpoint, support
+mode e registry permitem dimensao, periodo e metricas. A capability pode
+anunciar os papeis publicos <code>COMPARISON_DIMENSION</code> e
+<code>COMPARISON_PERIOD</code>, sem redefinir payloads que pertencem a
+<code>/schemas/filtered</code>.</p>
+<p>O endpoint deve publicar <code>RestApiResponse</code>, links de
+filter/request schema/response schema, OpenAPI, catalogo, ETag e
+<code>X-Schema-Hash</code> coerentes. <code>AnalyticsOperation</code>
+ganha <code>COMPARISON</code>; <code>x-ui.analytics</code> recebe
+bindings explicitos de periodo, preset e estrategia, sem fixar
+componente ou engine de chart.</p>
+<h2 id="provas-obrigatorias-e-rollout">Provas obrigatorias e
+rollout</h2>
+<ol type="1">
+<li>H2 no starter: periodo, eligibility, key/label, uniao, zero-fill,
+baseline, ordenacao e top-N divergente.</li>
+<li>Quickstart: folha por departamento e afastamentos multi-metrica com
+lotacao historica, ambos por HTTP real.</li>
+<li>Angular: uma chamada comparison; label para display; key para
+cross-filter; estados de baseline, 400, 403 e 501.</li>
+<li>Config: planejamento por capability e campos elegiveis, sem keyword
+routing.</li>
+<li>Corpus e Landing: somente apos a versao publicada estar
+disponivel.</li>
+</ol>
+<p>A ordem de release e #98, depois #99 no starter, Quickstart, Angular,
+Config, corpus HTTP e Landing. Cada consumidor deve registrar a
+coordenada publicada que consome; nenhum exemplo ou playground antecipa
+um endpoint ainda indisponivel.</p>
+</body>
+</html>

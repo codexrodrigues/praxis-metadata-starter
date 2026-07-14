@@ -1,0 +1,41 @@
+{
+  "label": "Periodo",
+  "name": "periodo",
+  "type": "date",
+  "controlType": "inlineDateRange",
+  "shortcuts": [
+    "today",
+    {
+      "id": "periodo-votacao-2026",
+      "label": "Periodo de votacao 2026",
+      "description": "Janela oficial resolvida pelo dominio eleitoral.",
+      "startDate": "2026-07-06",
+      "endDate": "2026-10-04",
+      "timeZone": "America/Sao_Paulo",
+      "icon": "how_to_vote",
+      "tone": "info",
+      "effectiveFrom": "2026-06-01",
+      "effectiveTo": "2026-10-04"
+    }
+  ],
+  "inlineQuickPresets": {
+    "enabled": true,
+    "maxVisible": 4,
+    "position": "auto"
+  },
+  "inlineOverlay": {
+    "applyMode": "explicit",
+    "actions": {
+      "apply": {
+        "label": "Aplicar",
+        "appearance": "filled",
+        "colorRole": "primary"
+      },
+      "cancel": {
+        "label": "Cancelar",
+        "appearance": "text",
+        "colorRole": "neutral"
+      }
+    }
+  }
+}

@@ -299,6 +299,31 @@ como contrato de options remotas diretas.</li>
 metadata-driven; <code>optionSource.dependencyFilterMap</code> explicita
 o mapeamento dependencia -&gt; chave de filtro quando necessario.</li>
 </ul></li>
+<li>Atalhos de periodo: <code>shortcuts[]</code>,
+<code>inlineQuickPresets</code> e <code>inlineOverlay</code>
+<ul>
+<li><code>shortcuts[]</code> aceita identificadores built-in oficiais
+(<code>today</code>, <code>yesterday</code>, <code>thisWeek</code>,
+<code>lastWeek</code>, <code>thisMonth</code>, <code>lastMonth</code>,
+<code>thisYear</code>, <code>lastYear</code>) e presets estaticos
+resolvidos pelo backend/dominio para <code>dateRange</code> e
+<code>inlineDateRange</code>.</li>
+<li>Presets estaticos usam <code>id</code>, <code>label</code>,
+<code>startDate</code>, <code>endDate</code>, <code>timeZone?</code>,
+<code>icon?</code>, <code>description?</code>, <code>tone?</code>,
+<code>effectiveFrom?</code> e <code>effectiveTo?</code>.</li>
+<li><code>startDate</code>, <code>endDate</code>,
+<code>effectiveFrom</code> e <code>effectiveTo</code> usam data civil
+<code>YYYY-MM-DD</code>; regras fiscais, legais, eleitorais, feriados e
+dias contaveis devem ser resolvidas antes da publicacao.</li>
+<li><code>inlineQuickPresets.position</code> aceita <code>auto</code>,
+<code>footer</code>, <code>start</code> e <code>end</code>;
+<code>start/end</code> sao posicoes logicas e devem respeitar RTL no
+consumidor.</li>
+<li>O JSON publicado pelo backend MUST NOT conter
+<code>calculateRange</code>, callbacks, scripts ou expressoes de regra
+de negocio executadas no frontend.</li>
+</ul></li>
 <li>Numerico: <code>numericFormat</code> (enum),
 <code>numericStep</code>, <code>numericMin</code>,
 <code>numericMax</code>, <code>numericMaxLength</code></li>
@@ -401,7 +426,7 @@ JSON Schema</li>
 <li><code>x-ui.analytics.intent</code>:
 <code>ranking | trend | distribution | composition | comparison | correlation</code></li>
 <li><code>x-ui.analytics.source.operation</code>:
-<code>group-by | timeseries | distribution</code></li>
+<code>group-by | timeseries | distribution | comparison</code></li>
 <li><code>x-ui.analytics.presentationHints.preferredFamilies</code>:
 <code>chart | analytic-table | kpi | summary-list</code></li>
 <li><code>x-ui.optionSource.type</code>:
@@ -411,6 +436,12 @@ do host, alinhadas ao contexto de seguranca usado por surfaces/actions.
 Elas nao sao automaticamente equivalentes a
 <code>x-ui.resource.capabilities</code> ou ao runtime context
 <code>capabilities</code> sem mapeamento explicito do host</li>
+<li><code>x-ui.shortcuts[].tone</code>:
+<code>neutral | info | success | warning</code></li>
+<li><code>x-ui.inlineQuickPresets.position</code>:
+<code>auto | footer | start | end</code></li>
+<li><code>x-ui.inlineOverlay.applyMode</code>:
+<code>auto | explicit</code></li>
 <li><code>x-domain-governance.annotationType</code>:
 <code>privacy | security | compliance</code></li>
 <li><code>x-domain-governance.classification</code>:
@@ -517,6 +548,17 @@ backend continua responsavel por aplicar a autorizacao efetiva.</li>
 <code>visibleForAuthorities</code> ou
 <code>editableForAuthorities</code>; <code>reason</code> sozinho e
 apenas explicacao e nao define politica executavel.</li>
+<li>MUST: atalhos corporativos de <code>dateRange</code> e
+<code>inlineDateRange</code> publicarem apenas periodos estaticos
+resolvidos ou ids built-in oficiais (<code>today</code>,
+<code>yesterday</code>, <code>thisWeek</code>, <code>lastWeek</code>,
+<code>thisMonth</code>, <code>lastMonth</code>, <code>thisYear</code>,
+<code>lastYear</code>); callbacks como <code>calculateRange</code>
+pertencem a composicao TypeScript local e nao ao JSON
+<code>x-ui</code>.</li>
+<li>MUST: o payload de filtro continuar representado por datas
+resolvidas (<code>startDate</code>, <code>endDate</code>); um id de
+atalho pode apoiar observabilidade, mas nao substitui o intervalo.</li>
 <li>MAY: incluir <code>specVersion</code> em um envelope/meta do payload
 para auditoria.</li>
 </ul>
@@ -580,6 +622,8 @@ esperado</li>
 <li><code>examples/x-ui-field-option-source-resource.valid.json</code></li>
 <li><code>examples/x-ui-field-option-source-distinct.valid.json</code></li>
 <li><code>examples/x-ui-field-option-source.invalid.json</code></li>
+<li><code>examples/x-ui-field-date-range-shortcuts.valid.json</code></li>
+<li><code>examples/x-ui-field-date-range-shortcuts.invalid.json</code></li>
 <li><code>examples/x-ui-operation.valid.json</code></li>
 <li><code>examples/x-ui-operation.invalid.json</code></li>
 <li><code>examples/x-ui-resource.valid.json</code></li>

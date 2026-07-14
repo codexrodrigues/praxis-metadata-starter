@@ -56,6 +56,12 @@
     - No runtime Angular, a UI Praxis normaliza esses campos para `resourcePath`, `optionValueKey` e `optionLabelKey`.
     - Quando publicado, `optionSource` e a forma canonica de descrever fontes derivadas de options; `endpoint` permanece como contrato de options remotas diretas.
     - `optionSource.dependsOn` e a origem canonica de cascata metadata-driven; `optionSource.dependencyFilterMap` explicita o mapeamento dependencia -> chave de filtro quando necessario.
+  - Atalhos de periodo: `shortcuts[]`, `inlineQuickPresets` e `inlineOverlay`
+    - `shortcuts[]` aceita identificadores built-in oficiais (`today`, `yesterday`, `thisWeek`, `lastWeek`, `thisMonth`, `lastMonth`, `thisYear`, `lastYear`) e presets estaticos resolvidos pelo backend/dominio para `dateRange` e `inlineDateRange`.
+    - Presets estaticos usam `id`, `label`, `startDate`, `endDate`, `timeZone?`, `icon?`, `description?`, `tone?`, `effectiveFrom?` e `effectiveTo?`.
+    - `startDate`, `endDate`, `effectiveFrom` e `effectiveTo` usam data civil `YYYY-MM-DD`; regras fiscais, legais, eleitorais, feriados e dias contaveis devem ser resolvidas antes da publicacao.
+    - `inlineQuickPresets.position` aceita `auto`, `footer`, `start` e `end`; `start/end` sao posicoes logicas e devem respeitar RTL no consumidor.
+    - O JSON publicado pelo backend MUST NOT conter `calculateRange`, callbacks, scripts ou expressoes de regra de negocio executadas no frontend.
   - Numerico: `numericFormat` (enum), `numericStep`, `numericMin`, `numericMax`, `numericMaxLength`
   - Apresentacao de valor: `valuePresentation{ type, style?, format?, currency?, number? }` como contrato canonico de display/read-only para valores escalares
   - Apresentacao visual readonly/list/table-cell: `presentation{ presenter, tone?, appearance?, icon?, label?, prefix?, suffix?, tooltip?, valuePresentation?, visualization?, interactions? }`; consumidores podem materializar como `chip`, `badge`, `status`, `iconValue` ou microvisualizacao sem alterar o valor bruto usado para sort/filter/export. `label` representa texto fixo opcional da apresentacao; omita `label` quando o consumidor deve exibir o valor da linha/campo. `prefix` e `suffix` sao afixos visuais, como `#` em codigos corporativos.
@@ -91,10 +97,13 @@
 - `x-ui.chart.kind`: `bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter`
 - `x-ui.chart.source.kind`: `praxis.stats | derived`
 - `x-ui.analytics.intent`: `ranking | trend | distribution | composition | comparison | correlation`
-- `x-ui.analytics.source.operation`: `group-by | timeseries | distribution`
+- `x-ui.analytics.source.operation`: `group-by | timeseries | distribution | comparison`
 - `x-ui.analytics.presentationHints.preferredFamilies`: `chart | analytic-table | kpi | summary-list`
 - `x-ui.optionSource.type`: `RESOURCE_ENTITY | DISTINCT_DIMENSION | CATEGORICAL_BUCKET | LIGHT_LOOKUP | STATIC_CANONICAL`
 - `x-ui.fieldAccess.*ForAuthorities`: authorities canonicas do host, alinhadas ao contexto de seguranca usado por surfaces/actions. Elas nao sao automaticamente equivalentes a `x-ui.resource.capabilities` ou ao runtime context `capabilities` sem mapeamento explicito do host
+- `x-ui.shortcuts[].tone`: `neutral | info | success | warning`
+- `x-ui.inlineQuickPresets.position`: `auto | footer | start | end`
+- `x-ui.inlineOverlay.applyMode`: `auto | explicit`
 - `x-domain-governance.annotationType`: `privacy | security | compliance`
 - `x-domain-governance.classification`: `public | internal | confidential | restricted`
 - `x-domain-governance.dataCategory`: `credential | sensitive_personal | personal | financial | operational | legal`
@@ -141,6 +150,8 @@
 - SHOULD: hosts self-describing declararem governanca sensivel com `@DomainGovernance` em vez de depender apenas de heuristicas por nome de campo.
 - SHOULD: campos corporativos com restricao de leitura ou edicao publicarem `x-ui.fieldAccess`; o frontend pode usar o bloco para UX condicional quando houver evaluator/mapeamento confiavel, mas o backend continua responsavel por aplicar a autorizacao efetiva.
 - MUST: `x-ui.fieldAccess`, quando presente, conter `visibleForAuthorities` ou `editableForAuthorities`; `reason` sozinho e apenas explicacao e nao define politica executavel.
+- MUST: atalhos corporativos de `dateRange` e `inlineDateRange` publicarem apenas periodos estaticos resolvidos ou ids built-in oficiais (`today`, `yesterday`, `thisWeek`, `lastWeek`, `thisMonth`, `lastMonth`, `thisYear`, `lastYear`); callbacks como `calculateRange` pertencem a composicao TypeScript local e nao ao JSON `x-ui`.
+- MUST: o payload de filtro continuar representado por datas resolvidas (`startDate`, `endDate`); um id de atalho pode apoiar observabilidade, mas nao substitui o intervalo.
 - MAY: incluir `specVersion` em um envelope/meta do payload para auditoria.
 
 ## Versionamento da especificacao
@@ -179,6 +190,8 @@
   - `examples/x-ui-field-option-source-resource.valid.json`
   - `examples/x-ui-field-option-source-distinct.valid.json`
   - `examples/x-ui-field-option-source.invalid.json`
+  - `examples/x-ui-field-date-range-shortcuts.valid.json`
+  - `examples/x-ui-field-date-range-shortcuts.invalid.json`
   - `examples/x-ui-operation.valid.json`
   - `examples/x-ui-operation.invalid.json`
   - `examples/x-ui-resource.valid.json`

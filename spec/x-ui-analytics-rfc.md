@@ -3,7 +3,7 @@
 ## Status
 
 - estado: `draft`
-- versao proposta: `0.1.0`
+- versao proposta: `0.2.0`
 - classe: `contrato-publico`
 
 ## Objetivo
@@ -14,7 +14,7 @@ apresentacao no runtime consumidor.
 
 ## Problema
 
-Os endpoints `stats/group-by`, `stats/timeseries` e `stats/distribution` ja publicam capacidade
+Os endpoints `stats/group-by`, `stats/timeseries`, `stats/distribution` e `stats/comparison` ja publicam capacidade
 analitica reutilizavel, mas o schema estrutural sozinho nao informa com seguranca:
 
 - qual e a leitura analitica principal da operacao;
@@ -86,6 +86,38 @@ uma unica leitura editorial.
 }
 ```
 
+## Projection de comparison
+
+Uma projection de comparison acrescenta o binding temporal que o runtime precisa
+para montar o request sem deduzir campo, fuso ou estrategia localmente.
+
+```json
+{
+  "id": "monthly-department-comparison",
+  "intent": "comparison",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/human-resources/funcionarios",
+    "operation": "comparison"
+  },
+  "bindings": {
+    "primaryDimension": { "field": "departamento", "role": "category" },
+    "primaryMetrics": [{ "field": "funcionarioId", "aggregation": "count", "label": "Funcionarios" }],
+    "comparisonPeriod": {
+      "field": "dataAdmissao",
+      "timezone": "America/Sao_Paulo",
+      "preset": "LAST_30_DAYS",
+      "mode": "PREVIOUS_ALIGNED"
+    }
+  }
+}
+```
+
+`comparisonPeriod` representa defaults de execucao da projection. A elegibilidade
+de campos e metricas continua no `StatsFieldRegistry` e em `capabilities.stats`;
+esse bloco nao cria uma segunda fonte de verdade nem autoriza o runtime a trocar
+o periodo publicado por heuristica.
+
 ## Regras
 
 - `MUST`: publicar `projections[]`
@@ -93,6 +125,10 @@ uma unica leitura editorial.
 - `SHOULD`: publicar `defaults` e `preferredFamilies` quando a leitura canonica estiver clara
 - `SHOULD`: projections `timeseries` publicar `defaults.granularity` quando o runtime depender da granularidade para executar a consulta sem heuristica local
 - `MUST`: `defaults.granularity`, quando publicado para `praxis.stats`, usar `day`, `week` ou `month`
+- `MUST`: projection com `source.operation = "comparison"` publicar `bindings.comparisonPeriod`
+- `MUST`: `comparisonPeriod` declarar `field`, `timezone`, `preset` e `mode`, usando os mesmos enums
+  do request HTTP de comparison; o runtime pode oferecer intervalo customizado, mas nao deve trocar
+  silenciosamente os defaults publicados
 - `MAY`: metricas publicar `aggregation = "distinct-count"` quando a fonte `praxis.stats` governar o campo de metrica
 - `MUST NOT`: fixar componente Angular, engine, layout ou detalhes visuais de chart
 
