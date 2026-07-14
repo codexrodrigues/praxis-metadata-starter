@@ -65,6 +65,7 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         capabilities.put("statsGroupBy", hasOperation(pathsNode, basePath + "/stats/group-by", "post"));
         capabilities.put("statsTimeSeries", hasOperation(pathsNode, basePath + "/stats/timeseries", "post"));
         capabilities.put("statsDistribution", hasOperation(pathsNode, basePath + "/stats/distribution", "post"));
+        capabilities.put("statsComparison", hasOperation(pathsNode, basePath + "/stats/comparison", "post"));
         return Map.copyOf(capabilities);
     }
 

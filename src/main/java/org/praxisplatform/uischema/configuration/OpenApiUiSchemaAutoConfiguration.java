@@ -359,9 +359,11 @@ public class OpenApiUiSchemaAutoConfiguration {
             @Value("${praxis.stats.enabled:false}") boolean enabled,
             @Value("${praxis.stats.max-buckets:20}") int maxBuckets,
             @Value("${praxis.stats.max-series-points:100}") int maxSeriesPoints,
-            @Value("${praxis.stats.default-mode:DISABLED}") StatsSupportMode defaultMode
+            @Value("${praxis.stats.default-mode:DISABLED}") StatsSupportMode defaultMode,
+            @Value("${praxis.stats.max-comparison-candidates:1000}") int maxComparisonCandidates,
+            @Value("${praxis.stats.max-comparison-period-days:366}") int maxComparisonPeriodDays
     ) {
-        return new StatsProperties(enabled, maxBuckets, maxSeriesPoints, defaultMode);
+        return new StatsProperties(enabled, maxBuckets, maxSeriesPoints, defaultMode, maxComparisonCandidates, maxComparisonPeriodDays);
     }
 
     /**

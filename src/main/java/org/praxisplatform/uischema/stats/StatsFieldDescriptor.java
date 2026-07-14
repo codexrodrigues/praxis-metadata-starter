@@ -6,13 +6,14 @@ import java.util.Set;
  * Descreve um campo elegivel para stats filtrados.
  *
  * <p>
- * O descritor conecta o nome canonico exposto na API ao {@code propertyPath} usado internamente
+ * O descritor conecta o nome canonico exposto na API aos paths usados internamente
  * nas agregacoes, e declara em quais superficies estatisticas o campo pode aparecer: buckets,
  * eixo temporal, distribuicao ou campo de metrica.
  * </p>
  *
  * @param field campo canonico exposto pela API
- * @param propertyPath caminho de propriedade usado nas agregacoes internas
+ * @param keyPropertyPath caminho da identidade do bucket ou do valor do campo
+ * @param labelPropertyPath caminho opcional do label do bucket; usa a key quando ausente
  * @param metrics metricas agregadas permitidas para o campo
  * @param groupByEligible indica se o campo pode ser usado como bucket de group-by
  * @param timeSeriesEligible indica se o campo pode ser usado como eixo temporal
@@ -22,7 +23,8 @@ import java.util.Set;
  */
 public record StatsFieldDescriptor(
         String field,
-        String propertyPath,
+        String keyPropertyPath,
+        String labelPropertyPath,
         Set<StatsMetric> metrics,
         boolean groupByEligible,
         boolean timeSeriesEligible,
@@ -35,6 +37,9 @@ public record StatsFieldDescriptor(
      */
     public StatsFieldDescriptor {
         metrics = metrics == null ? Set.of() : Set.copyOf(metrics);
+        labelPropertyPath = labelPropertyPath == null || labelPropertyPath.isBlank()
+                ? keyPropertyPath
+                : labelPropertyPath;
     }
 
     public StatsFieldDescriptor(
@@ -42,7 +47,7 @@ public record StatsFieldDescriptor(
             String propertyPath,
             Set<StatsMetric> metrics
     ) {
-        this(field, propertyPath, metrics, true, true, true, true, true);
+        this(field, propertyPath, propertyPath, metrics, true, true, true, true, true);
     }
 
     public static StatsFieldDescriptor groupByBucket(
@@ -50,14 +55,33 @@ public record StatsFieldDescriptor(
             String propertyPath,
             Set<StatsMetric> metrics
     ) {
-        return new StatsFieldDescriptor(field, propertyPath, metrics, true, false, true, false, false);
+        return new StatsFieldDescriptor(field, propertyPath, propertyPath, metrics, true, false, true, false, false);
+    }
+
+    public static StatsFieldDescriptor labeledGroupByBucket(
+            String field,
+            String keyPropertyPath,
+            String labelPropertyPath,
+            Set<StatsMetric> metrics
+    ) {
+        return new StatsFieldDescriptor(
+                field,
+                keyPropertyPath,
+                labelPropertyPath,
+                metrics,
+                true,
+                false,
+                true,
+                false,
+                false
+        );
     }
 
     public static StatsFieldDescriptor timeSeriesField(
             String field,
             String propertyPath
     ) {
-        return new StatsFieldDescriptor(field, propertyPath, Set.of(StatsMetric.COUNT), false, true, false, false, false);
+        return new StatsFieldDescriptor(field, propertyPath, propertyPath, Set.of(StatsMetric.COUNT), false, true, false, false, false);
     }
 
     public static StatsFieldDescriptor metricField(
@@ -65,7 +89,7 @@ public record StatsFieldDescriptor(
             String propertyPath,
             Set<StatsMetric> metrics
     ) {
-        return new StatsFieldDescriptor(field, propertyPath, metrics, false, false, false, false, true);
+        return new StatsFieldDescriptor(field, propertyPath, propertyPath, metrics, false, false, false, false, true);
     }
 
     public static StatsFieldDescriptor histogramField(
@@ -73,7 +97,7 @@ public record StatsFieldDescriptor(
             String propertyPath,
             Set<StatsMetric> metrics
     ) {
-        return new StatsFieldDescriptor(field, propertyPath, metrics, false, false, false, true, true);
+        return new StatsFieldDescriptor(field, propertyPath, propertyPath, metrics, false, false, false, true, true);
     }
 
     public static StatsFieldDescriptor distributionTermsBucket(
@@ -81,7 +105,7 @@ public record StatsFieldDescriptor(
             String propertyPath,
             Set<StatsMetric> metrics
     ) {
-        return new StatsFieldDescriptor(field, propertyPath, metrics, false, false, true, false, false);
+        return new StatsFieldDescriptor(field, propertyPath, propertyPath, metrics, false, false, true, false, false);
     }
 
     public static StatsFieldDescriptor categoricalGroupByBucket(

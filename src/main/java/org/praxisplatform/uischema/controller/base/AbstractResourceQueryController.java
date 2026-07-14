@@ -43,9 +43,12 @@ import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseDistributionStatsResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseGroupByStatsResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseTimeSeriesStatsResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseComparisonStatsResponse;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
+import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
+import org.praxisplatform.uischema.stats.dto.ComparisonStatsResponse;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
@@ -519,6 +522,35 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                     linkToFilter(),
                     linkToUiSchema("/stats/group-by", "post", "request"),
                     linkToUiSchema("/stats/group-by", "post", "response")
+            );
+            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(links)));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        } catch (UnsupportedOperationException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+        }
+    }
+
+    @PostMapping("/stats/comparison")
+    @Operation(summary = "Comparacao de stats entre dois periodos governados")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Comparacao calculada com sucesso",
+                    content = @Content(schema = @Schema(implementation = RestApiResponseComparisonStatsResponse.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "Request de comparacao invalido"),
+            @ApiResponse(responseCode = "501", description = "Comparacao nao suportada pelo recurso")
+    })
+    public ResponseEntity<RestApiResponse<ComparisonStatsResponse>> comparisonStats(
+            @RequestBody ComparisonStatsRequest<FD> request
+    ) {
+        try {
+            ComparisonStatsResponse result = getService().comparisonStats(request);
+            Links links = Links.of(
+                    linkToFilter(),
+                    linkToUiSchema("/stats/comparison", "post", "request"),
+                    linkToUiSchema("/stats/comparison", "post", "response")
             );
             return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(links)));
         } catch (IllegalArgumentException ex) {
@@ -1176,7 +1208,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 getService().getStatsFieldRegistry(),
                 getService().getGroupByStatsSupportMode(),
                 getService().getTimeSeriesStatsSupportMode(),
-                getService().getDistributionStatsSupportMode()
+                getService().getDistributionStatsSupportMode(),
+                getService().getComparisonStatsSupportMode()
         );
         return withVersion(
                 ResponseEntity.ok(),
@@ -1200,7 +1233,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                         getService().getStatsFieldRegistry(),
                         getService().getGroupByStatsSupportMode(),
                         getService().getTimeSeriesStatsSupportMode(),
-                        getService().getDistributionStatsSupportMode()
+                        getService().getDistributionStatsSupportMode(),
+                        getService().getComparisonStatsSupportMode()
                 )
         );
     }

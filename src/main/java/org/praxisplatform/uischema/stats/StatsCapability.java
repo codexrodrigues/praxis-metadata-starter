@@ -85,7 +85,8 @@ public record StatsCapability(
                 && (groupByEnabled || timeSeriesEnabled || distributionEnabled);
         return new StatsFieldDescriptor(
                 descriptor.field(),
-                descriptor.propertyPath(),
+                descriptor.keyPropertyPath(),
+                descriptor.labelPropertyPath(),
                 hasAnyStatsMode || hasMetricMode ? descriptor.metrics() : Set.of(),
                 hasBucketMode,
                 hasTimeSeriesMode,

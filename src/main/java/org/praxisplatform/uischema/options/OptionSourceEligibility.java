@@ -103,7 +103,7 @@ public class OptionSourceEligibility {
     ) {
         String propertyPath = descriptor.propertyPath();
         if ((propertyPath == null || propertyPath.isBlank()) && statsDescriptor != null) {
-            propertyPath = statsDescriptor.propertyPath();
+            propertyPath = statsDescriptor.keyPropertyPath();
         }
         if (propertyPath == null || propertyPath.isBlank()) {
             throw new IllegalArgumentException("Option source propertyPath is required: " + descriptor.key());

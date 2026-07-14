@@ -8,8 +8,8 @@ import java.util.List;
  * Campo estatistico materializado para discovery em capabilities.
  *
  * @param field campo canonico aceito nos payloads de stats
- * @param propertyPath caminho interno usado pelo executor de stats
  * @param label rotulo sugerido para UX quando o schema filtrado nao tiver titulo melhor
+ * @param keyAndLabelDistinct indica se a dimensao publica identidade e display separados
  * @param metrics metricas agregadas aceitas para o campo
  * @param modes modos estatisticos em que o campo pode participar
  * @param groupByEligible indica se o campo pode ser bucket de group-by
@@ -20,8 +20,8 @@ import java.util.List;
  */
 public record StatsFieldCapability(
         String field,
-        String propertyPath,
         String label,
+        boolean keyAndLabelDistinct,
         List<String> metrics,
         List<String> modes,
         boolean groupByEligible,
@@ -42,8 +42,8 @@ public record StatsFieldCapability(
         }
         return new StatsFieldCapability(
                 descriptor.field(),
-                descriptor.propertyPath(),
                 humanize(descriptor.field()),
+                !java.util.Objects.equals(descriptor.keyPropertyPath(), descriptor.labelPropertyPath()),
                 descriptor.metrics().stream()
                         .sorted(Comparator.comparing(Enum::ordinal))
                         .map(Enum::name)

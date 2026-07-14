@@ -79,4 +79,7 @@ public @interface ResourceCapabilities {
      * Indica se o recurso publica distribution stats.
      */
     boolean statsDistribution() default true;
+
+    /** Indica se o recurso publica comparacao de stats por periodo. */
+    boolean statsComparison() default true;
 }

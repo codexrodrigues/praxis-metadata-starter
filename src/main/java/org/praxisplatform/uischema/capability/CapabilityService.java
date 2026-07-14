@@ -74,6 +74,16 @@ public interface CapabilityService {
         );
     }
 
+    default CapabilitySnapshot collectionCapabilities(
+            String resourceKey, String resourcePath, boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability, StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
+    ) {
+        return collectionCapabilities(resourceKey, resourcePath, collectionExportSupported, collectionExportCapability,
+                statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode);
+    }
+
     /**
      * Resolve o snapshot de capabilities no escopo de um item especifico do recurso.
      */
@@ -98,6 +108,15 @@ public interface CapabilityService {
             StatsSupportMode distributionStatsSupportMode
     ) {
         return itemCapabilities(resourceKey, resourcePath, resourceId, statsFieldRegistry);
+    }
+
+    default CapabilitySnapshot itemCapabilities(
+            String resourceKey, String resourcePath, Object resourceId, StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
+    ) {
+        return itemCapabilities(resourceKey, resourcePath, resourceId, statsFieldRegistry,
+                groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode);
     }
 
     /**

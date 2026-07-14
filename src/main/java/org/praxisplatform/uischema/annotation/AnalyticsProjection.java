@@ -19,6 +19,8 @@ public @interface AnalyticsProjection {
 
     AnalyticsDimensionBinding primaryDimension() default @AnalyticsDimensionBinding(field = "");
 
+    AnalyticsComparisonPeriodBinding comparisonPeriod() default @AnalyticsComparisonPeriodBinding(field = "", timezone = "");
+
     AnalyticsMetricBinding[] primaryMetrics();
 
     AnalyticsMetricBinding[] secondaryMetrics() default {};

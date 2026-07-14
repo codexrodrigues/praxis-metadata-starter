@@ -6,7 +6,8 @@ package org.praxisplatform.uischema.annotation;
 public enum AnalyticsOperation {
     GROUP_BY("group-by"),
     TIMESERIES("timeseries"),
-    DISTRIBUTION("distribution");
+    DISTRIBUTION("distribution"),
+    COMPARISON("comparison");
 
     private final String wireValue;
 
