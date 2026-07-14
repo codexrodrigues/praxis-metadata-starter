@@ -1,8 +1,10 @@
 package org.praxisplatform.uischema.analytics;
 
 import org.praxisplatform.uischema.annotation.AnalyticsDimensionBinding;
+import org.praxisplatform.uischema.annotation.AnalyticsComparisonPeriodBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsGranularity;
 import org.praxisplatform.uischema.annotation.AnalyticsMetricBinding;
+import org.praxisplatform.uischema.annotation.AnalyticsOperation;
 import org.praxisplatform.uischema.annotation.AnalyticsProjection;
 import org.praxisplatform.uischema.annotation.AnalyticsPresentationFamily;
 import org.praxisplatform.uischema.annotation.AnalyticsSort;
@@ -72,7 +74,7 @@ public class UiAnalyticsAnnotationMapper {
         }
 
         String normalizedPath = operationPath == null ? "" : operationPath.trim();
-        for (String suffix : List.of("/stats/group-by", "/stats/timeseries", "/stats/distribution")) {
+        for (String suffix : List.of("/stats/group-by", "/stats/timeseries", "/stats/distribution", "/stats/comparison")) {
             if (normalizedPath.endsWith(suffix)) {
                 return normalizedPath.substring(0, normalizedPath.length() - suffix.length());
             }
@@ -92,7 +94,22 @@ public class UiAnalyticsAnnotationMapper {
         if (!secondaryMetrics.isEmpty()) {
             bindings.put("secondaryMetrics", secondaryMetrics);
         }
+        if (projection.sourceOperation() == AnalyticsOperation.COMPARISON) {
+            bindings.put("comparisonPeriod", buildComparisonPeriod(projection.comparisonPeriod()));
+        }
         return bindings;
+    }
+
+    private Map<String, Object> buildComparisonPeriod(AnalyticsComparisonPeriodBinding binding) {
+        if (binding == null || binding.field().isBlank() || binding.timezone().isBlank()) {
+            throw new IllegalArgumentException("Comparison analytics projections require comparisonPeriod.field and comparisonPeriod.timezone.");
+        }
+        Map<String, Object> period = new LinkedHashMap<>();
+        period.put("field", binding.field());
+        period.put("timezone", binding.timezone());
+        period.put("preset", binding.preset().name());
+        period.put("mode", binding.mode().name());
+        return period;
     }
 
     private Map<String, Object> buildDimension(AnalyticsDimensionBinding binding) {

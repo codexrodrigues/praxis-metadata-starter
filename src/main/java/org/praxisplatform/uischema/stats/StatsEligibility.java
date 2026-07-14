@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.stats;
 
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
+import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.StatsMetricRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
@@ -141,6 +142,41 @@ public class StatsEligibility {
         }
         if (request.mode() == DistributionMode.HISTOGRAM && !descriptor.distributionHistogramEligible()) {
             throw new IllegalArgumentException("Stats field is not eligible for histogram distribution: " + request.field());
+        }
+        return descriptor;
+    }
+
+    public <FD extends GenericFilterDTO> StatsFieldDescriptor validateComparison(
+            ComparisonStatsRequest<FD> request,
+            StatsFieldRegistry registry,
+            int maxBuckets
+    ) {
+        if (request == null || request.filter() == null) {
+            throw new IllegalArgumentException("Stats filter is required.");
+        }
+        if (request.period() == null) {
+            throw new IllegalArgumentException("Comparison period is required.");
+        }
+        for (StatsMetricRequest metric : requireMetrics(request.metrics())) {
+            if (metric.operation() != StatsMetric.COUNT
+                    && metric.operation() != StatsMetric.DISTINCT_COUNT
+                    && metric.operation() != StatsMetric.SUM) {
+                throw new IllegalArgumentException("Stats metric is not supported in comparison: " + metric.operation());
+            }
+            resolveMetricField(metric, registry, "comparison");
+        }
+        StatsFieldDescriptor descriptor = registry.resolve(request.field())
+                .orElseThrow(() -> new IllegalArgumentException("Stats field is not allowed: " + request.field()));
+        if (!descriptor.groupByEligible()) {
+            throw new IllegalArgumentException("Stats field is not eligible for comparison: " + request.field());
+        }
+        StatsFieldDescriptor periodDescriptor = registry.resolve(request.periodField())
+                .orElseThrow(() -> new IllegalArgumentException("Comparison period field is not allowed: " + request.periodField()));
+        if (!periodDescriptor.timeSeriesEligible()) {
+            throw new IllegalArgumentException("Stats field is not eligible as comparison period field: " + request.periodField());
+        }
+        if (request.limit() != null && (request.limit() <= 0 || request.limit() > maxBuckets)) {
+            throw new IllegalArgumentException("Comparison limit must be between 1 and " + maxBuckets + ".");
         }
         return descriptor;
     }

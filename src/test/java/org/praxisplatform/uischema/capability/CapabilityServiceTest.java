@@ -176,8 +176,8 @@ class CapabilityServiceTest {
         assertEquals(3, snapshot.stats().fields().size());
         StatsFieldCapability status = snapshot.stats().fields().get(0);
         assertEquals("status", status.field());
-        assertEquals("status", status.propertyPath());
         assertEquals("Status", status.label());
+        assertFalse(status.keyAndLabelDistinct());
         assertEquals(List.of("COUNT"), status.metrics());
         assertEquals(List.of("GROUP_BY", "DISTRIBUTION_TERMS"), status.modes());
         assertTrue(status.groupByEligible());

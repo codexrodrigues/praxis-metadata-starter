@@ -146,6 +146,18 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode
     ) {
+        return collectionCapabilities(resourceKey, resourcePath, collectionExportSupported, collectionExportCapability,
+                statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
+                StatsSupportMode.AUTO);
+    }
+
+    @Override
+    public CapabilitySnapshot collectionCapabilities(
+            String resourceKey, String resourcePath, boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability, StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
+    ) {
         Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
         canonicalOperations.put("export", collectionExportSupported);
         applyStatsSupport(
@@ -153,7 +165,8 @@ public class DefaultCapabilityService implements CapabilityService {
                 statsFieldRegistry,
                 groupByStatsSupportMode,
                 timeSeriesStatsSupportMode,
-                distributionStatsSupportMode
+                distributionStatsSupportMode,
+                comparisonStatsSupportMode
         );
         List<SurfaceCatalogItem> collectionSurfaces = collectionSurfaces(resourceKey);
         List<ActionCatalogItem> collectionActions = collectionActions(resourceKey);
@@ -216,13 +229,24 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode
     ) {
+        return itemCapabilities(resourceKey, resourcePath, resourceId, statsFieldRegistry,
+                groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode, StatsSupportMode.AUTO);
+    }
+
+    @Override
+    public CapabilitySnapshot itemCapabilities(
+            String resourceKey, String resourcePath, Object resourceId, StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
+    ) {
         Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
         applyStatsSupport(
                 canonicalOperations,
                 statsFieldRegistry,
                 groupByStatsSupportMode,
                 timeSeriesStatsSupportMode,
-                distributionStatsSupportMode
+                distributionStatsSupportMode,
+                comparisonStatsSupportMode
         );
         List<SurfaceCatalogItem> itemSurfaces = itemSurfaces(resourceKey, resourceId);
         List<ActionCatalogItem> itemActions = itemActions(resourceKey, resourceId);
@@ -252,7 +276,8 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsFieldRegistry statsFieldRegistry,
             StatsSupportMode groupByStatsSupportMode,
             StatsSupportMode timeSeriesStatsSupportMode,
-            StatsSupportMode distributionStatsSupportMode
+            StatsSupportMode distributionStatsSupportMode,
+            StatsSupportMode comparisonStatsSupportMode
     ) {
         StatsFieldRegistry registry = statsFieldRegistry == null ? StatsFieldRegistry.empty() : statsFieldRegistry;
         boolean supportsGroupBy = groupByStatsSupportMode != StatsSupportMode.DISABLED
@@ -261,9 +286,11 @@ public class DefaultCapabilityService implements CapabilityService {
                 && registry.descriptors().stream().anyMatch(StatsFieldDescriptorPredicates::timeSeries);
         boolean supportsDistribution = distributionStatsSupportMode != StatsSupportMode.DISABLED
                 && registry.descriptors().stream().anyMatch(StatsFieldDescriptorPredicates::distribution);
+        boolean supportsComparison = comparisonStatsSupportMode != StatsSupportMode.DISABLED && supportsGroupBy && supportsTimeSeries;
         canonicalOperations.computeIfPresent("statsGroupBy", (key, present) -> present && supportsGroupBy);
         canonicalOperations.computeIfPresent("statsTimeSeries", (key, present) -> present && supportsTimeSeries);
         canonicalOperations.computeIfPresent("statsDistribution", (key, present) -> present && supportsDistribution);
+        canonicalOperations.computeIfPresent("statsComparison", (key, present) -> present && supportsComparison);
     }
 
     private static final class StatsFieldDescriptorPredicates {

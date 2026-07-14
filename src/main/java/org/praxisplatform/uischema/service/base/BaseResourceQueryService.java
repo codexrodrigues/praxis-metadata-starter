@@ -14,6 +14,8 @@ import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
+import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
+import org.praxisplatform.uischema.stats.dto.ComparisonStatsResponse;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
@@ -64,6 +66,10 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
     StatsSupportMode getTimeSeriesStatsSupportMode();
 
     StatsSupportMode getDistributionStatsSupportMode();
+
+    default StatsSupportMode getComparisonStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
 
     StatsFieldRegistry getStatsFieldRegistry();
 
@@ -126,6 +132,8 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
     TimeSeriesStatsResponse timeSeriesStats(TimeSeriesStatsRequest<FilterDTO> request);
 
     DistributionStatsResponse distributionStats(DistributionStatsRequest<FilterDTO> request);
+
+    ComparisonStatsResponse comparisonStats(ComparisonStatsRequest<FilterDTO> request);
 
     default boolean supportsCollectionExport() {
         return false;

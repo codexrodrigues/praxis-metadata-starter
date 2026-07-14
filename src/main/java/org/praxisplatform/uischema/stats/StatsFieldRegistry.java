@@ -141,6 +141,20 @@ public final class StatsFieldRegistry {
             return add(StatsFieldDescriptor.groupByBucket(field, propertyPath, metrics));
         }
 
+        public Builder labeledGroupByBucket(
+                String field,
+                String keyPropertyPath,
+                String labelPropertyPath,
+                java.util.Set<StatsMetric> metrics
+        ) {
+            return add(StatsFieldDescriptor.labeledGroupByBucket(
+                    field,
+                    keyPropertyPath,
+                    labelPropertyPath,
+                    metrics
+            ));
+        }
+
         public Builder distributionTermsBucket(String field, String propertyPath, java.util.Set<StatsMetric> metrics) {
             return add(StatsFieldDescriptor.distributionTermsBucket(field, propertyPath, metrics));
         }

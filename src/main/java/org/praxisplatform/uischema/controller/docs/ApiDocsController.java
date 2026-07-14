@@ -674,6 +674,7 @@ public class ApiDocsController {
         String[] suffixes = new String[]{
                 "/stats/distribution",
                 "/stats/timeseries",
+                "/stats/comparison",
                 "/stats/group-by",
                 "/options/by-ids",
                 "/options/filter",

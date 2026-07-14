@@ -119,21 +119,18 @@ publica granularidade por grupo ou recurso, o cockpit aponta para o JSON mais
 especifico disponivel. Esses links nao criam fonte paralela de verdade; apenas
 abrem as superficies canonicas que o cockpit ja usa para explicar o host.
 
-Quando um recurso publica stats e o schema filtrado aponta `x-ui.optionSource`
-com `byIdsEndpoint`, o cockpit pode montar uma amostra de chart real via
-`POST /{resource}/stats/group-by` e hidratar buckets relacionais por
-`GET /{lookupResource}/option-sources/{sourceKey}/options/by-ids` quando os IDs
-sao autossuficientes, ou por `POST .../by-ids` quando a source exige contexto
-publico em `filter`. Assim,
-dimensoes como `veiculoId`, `missaoId` ou `funcionarioId` aparecem com label
-humano e ID tecnico secundario. Se a consulta de stats ou de labels falhar, o
-cockpit preserva fallback explicito para o valor cru retornado pelo endpoint.
+Quando uma dimensao categorica declara key e label distintos no
+`StatsFieldRegistry`, `POST /{resource}/stats/group-by` devolve ambos no mesmo
+bucket. O cockpit usa `key` para selecao e cross-filter, e `label` somente para
+apresentacao. Para dimensoes sem label governado, um `x-ui.optionSource` com
+`byIdsEndpoint` ainda pode hidratar valores relacionais de forma explicita;
+isso e fallback de materializacao, nao a fonte primaria de identidade do bucket.
 
 Para hosts em `8.0.0-rc.52+`, o cockpit nao precisa tentar campos aleatorios para
 descobrir charts. `GET /{resource}/capabilities` publica `stats.fields`, uma
 projecao do `StatsFieldRegistry` do servico com:
 
-- `field` e `propertyPath`, preservando a ponte entre campo publico e agregacao interna
+- `field` e `keyAndLabelDistinct`, sem expor paths internos do executor
 - `label`, como rotulo sugerido quando `/schemas/filtered` nao tiver um titulo melhor
 - `metrics`, como `COUNT`, `SUM`, `AVG`, `MIN`, `MAX` ou `DISTINCT_COUNT`
 - `modes`, como `GROUP_BY`, `TIME_SERIES`, `DISTRIBUTION_TERMS`, `DISTRIBUTION_HISTOGRAM` e `METRIC_FIELD`
@@ -148,6 +145,14 @@ com campo elegivel para aquele modo. O schema estrutural, labels ricas e
 `field` antes de hidratar labels relacionais. Em cenarios corporativos isso evita
 tentativa e erro, reduz consultas invalidas e deixa dashboards auditaveis antes da
 execucao de stats.
+
+Para `POST /{resource}/stats/comparison`, o host tambem deve manter limites
+operacionais explicitos: `praxis.stats.max-comparison-candidates` limita a
+cardinalidade de grupos lida em cada janela (padrao `1000`) e
+`praxis.stats.max-comparison-period-days` limita a janela solicitada (padrao
+`366`). `preset` e intervalo customizado (`from` + `to`) sao mutuamente
+exclusivos; a API retorna `400` para uma solicitacao ambigua. Esses limites sao
+guardrails de capacidade, nao uma forma de truncamento silencioso.
 
 Regras importantes:
 

@@ -28,7 +28,10 @@
         "defaults": { "$ref": "#/$defs/defaults" },
         "presentationHints": { "$ref": "#/$defs/presentationHints" },
         "interactions": { "$ref": "#/$defs/interactions" }
-      }
+      },
+      "allOf": [
+        { "$ref": "#/$defs/comparisonProjection" }
+      ]
     },
     "source": {
       "type": "object",
@@ -42,7 +45,7 @@
         "resource": { "type": "string", "minLength": 1 },
         "operation": {
           "type": "string",
-          "enum": ["group-by", "timeseries", "distribution"]
+          "enum": ["group-by", "timeseries", "distribution", "comparison"]
         }
       }
     },
@@ -60,6 +63,24 @@
         "secondaryMetrics": {
           "type": "array",
           "items": { "$ref": "#/$defs/metric" }
+        },
+        "comparisonPeriod": { "$ref": "#/$defs/comparisonPeriod" }
+      }
+    },
+    "comparisonPeriod": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "timezone", "preset", "mode"],
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "timezone": { "type": "string", "minLength": 1 },
+        "preset": {
+          "type": "string",
+          "enum": ["TODAY", "YESTERDAY", "LAST_7_DAYS", "LAST_30_DAYS", "THIS_MONTH", "LAST_MONTH", "THIS_QUARTER", "THIS_YEAR"]
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["PREVIOUS_ALIGNED", "PREVIOUS_CALENDAR_PERIOD"]
         }
       }
     },
@@ -137,6 +158,22 @@
         "drillDown": { "type": "boolean" },
         "pointSelection": { "type": "boolean" },
         "crossFilter": { "type": "boolean" }
+      }
+    },
+    "comparisonProjection": {
+      "if": {
+        "properties": {
+          "source": {
+            "properties": { "operation": { "const": "comparison" } },
+            "required": ["operation"]
+          }
+        },
+        "required": ["source"]
+      },
+      "then": {
+        "properties": {
+          "bindings": { "required": ["comparisonPeriod"] }
+        }
       }
     }
   }

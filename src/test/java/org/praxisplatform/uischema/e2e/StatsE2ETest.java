@@ -25,8 +25,9 @@ class StatsE2ETest extends AbstractE2eH2Test {
         assertEquals(200, response.getStatusCode().value());
 
         JsonNode body = body(response);
+        assertTrue(body.path("canonicalOperations").path("statsComparison").asBoolean());
         JsonNode fields = body.path("stats").path("fields");
-        assertEquals(4, fields.size());
+        assertEquals(5, fields.size());
         assertEquals("status", fields.get(0).path("field").asText());
         assertEquals("Status", fields.get(0).path("label").asText());
         assertEquals("COUNT", fields.get(0).path("metrics").get(0).asText());
@@ -35,13 +36,17 @@ class StatsE2ETest extends AbstractE2eH2Test {
         assertTrue(fields.get(0).path("groupByEligible").asBoolean());
         assertTrue(fields.get(0).path("distributionTermsEligible").asBoolean());
 
-        assertEquals("admissionDate", fields.get(1).path("field").asText());
-        assertEquals("TIME_SERIES", fields.get(1).path("modes").get(0).asText());
-        assertTrue(fields.get(1).path("timeSeriesEligible").asBoolean());
+        assertEquals("department", fields.get(1).path("field").asText());
+        assertTrue(fields.get(1).path("keyAndLabelDistinct").asBoolean());
+        assertFalse(fields.get(1).has("propertyPath"));
 
-        assertEquals("salario", fields.get(3).path("field").asText());
-        assertEquals("DISTRIBUTION_HISTOGRAM", fields.get(3).path("modes").get(0).asText());
-        assertEquals("METRIC_FIELD", fields.get(3).path("modes").get(1).asText());
+        assertEquals("admissionDate", fields.get(2).path("field").asText());
+        assertEquals("TIME_SERIES", fields.get(2).path("modes").get(0).asText());
+        assertTrue(fields.get(2).path("timeSeriesEligible").asBoolean());
+
+        assertEquals("salario", fields.get(4).path("field").asText());
+        assertEquals("DISTRIBUTION_HISTOGRAM", fields.get(4).path("modes").get(0).asText());
+        assertEquals("METRIC_FIELD", fields.get(4).path("modes").get(1).asText());
     }
 
     @Test
@@ -66,6 +71,22 @@ class StatsE2ETest extends AbstractE2eH2Test {
         assertEquals(2, groupByBody.path("data").path("buckets").get(0).path("value").asInt());
         assertEquals("INACTIVE", groupByBody.path("data").path("buckets").get(1).path("key").asText());
         assertEquals(1, groupByBody.path("data").path("buckets").get(1).path("value").asInt());
+
+        ResponseEntity<String> departmentGroupByResponse = postJson("/employees/stats/group-by", """
+                {
+                  "filter": {},
+                  "field": "department",
+                  "metric": {
+                    "operation": "COUNT"
+                  },
+                  "orderBy": "KEY_ASC"
+                }
+                """);
+        assertEquals(200, departmentGroupByResponse.getStatusCode().value());
+        JsonNode departmentGroupByBody = body(departmentGroupByResponse);
+        assertEquals(2, departmentGroupByBody.path("data").path("buckets").size());
+        assertEquals(state.humanResourcesDepartmentId().longValue(), departmentGroupByBody.path("data").path("buckets").get(0).path("key").asLong());
+        assertEquals("Human Resources", departmentGroupByBody.path("data").path("buckets").get(0).path("label").asText());
 
         ResponseEntity<String> timeSeriesResponse = postJson("/employees/stats/timeseries", """
                 {
@@ -117,6 +138,37 @@ class StatsE2ETest extends AbstractE2eH2Test {
         assertEquals(7000.0, distributionBody.path("data").path("buckets").get(2).path("from").asDouble());
         assertEquals(8000.0, distributionBody.path("data").path("buckets").get(2).path("to").asDouble());
         assertEquals(1, distributionBody.path("data").path("buckets").get(2).path("value").asInt());
+    }
+
+    @Test
+    void employeesCompareUnionedBucketsAcrossCustomPeriods() throws Exception {
+        ResponseEntity<String> response = postJson("/employees/stats/comparison", """
+                {
+                  "filter": {},
+                  "field": "department",
+                  "periodField": "admissionDate",
+                  "metrics": [{ "operation": "COUNT", "alias": "employees" }],
+                  "period": { "from": "2023-02-01", "to": "2023-02-28", "timezone": "UTC" },
+                  "orderBy": "KEY_ASC"
+                }
+                """);
+
+        assertEquals(200, response.getStatusCode().value());
+        JsonNode comparison = body(response).path("data");
+        assertEquals("2023-02-01", comparison.path("currentPeriod").path("from").asText());
+        assertEquals("2023-02-28", comparison.path("currentPeriod").path("to").asText());
+        assertEquals("UTC", comparison.path("currentPeriod").path("timezone").asText());
+        assertEquals("2023-01-04", comparison.path("previousPeriod").path("from").asText());
+        assertEquals("2023-01-31", comparison.path("previousPeriod").path("to").asText());
+        JsonNode buckets = comparison.path("buckets");
+        assertEquals(2, buckets.size());
+        assertEquals("Human Resources", buckets.get(0).path("label").asText());
+        assertEquals(0, buckets.get(0).path("values").path("employees").path("current").asInt());
+        assertEquals(1, buckets.get(0).path("values").path("employees").path("previous").asInt());
+        assertEquals("Operations", buckets.get(1).path("label").asText());
+        assertEquals(1, buckets.get(1).path("values").path("employees").path("current").asInt());
+        assertEquals(0, buckets.get(1).path("values").path("employees").path("previous").asInt());
+        assertTrue(buckets.get(1).path("values").path("employees").path("baselineMissing").asBoolean());
     }
 
     @Test
@@ -375,6 +427,21 @@ class StatsE2ETest extends AbstractE2eH2Test {
         assertNotNull(timeSeriesExpandedSchema.getHeaders().getETag());
         assertNotNull(timeSeriesExpandedSchema.getHeaders().getFirst("X-Schema-Hash"));
         assertFalse(timeSeriesExpandedSchema.getHeaders().getETag().equals(timeSeriesResponseSchema.getHeaders().getETag()));
+
+        ResponseEntity<String> comparisonRequestSchema = get("/schemas/filtered?path=/employees/stats/comparison&operation=post&schemaType=request");
+        assertEquals(200, comparisonRequestSchema.getStatusCode().value());
+        JsonNode comparisonRequestBody = body(comparisonRequestSchema);
+        assertTrue(comparisonRequestBody.path("properties").has("field"));
+        assertTrue(comparisonRequestBody.path("properties").has("periodField"));
+        assertTrue(comparisonRequestBody.path("properties").has("period"));
+
+        ResponseEntity<String> comparisonResponseSchema = get("/schemas/filtered?path=/employees/stats/comparison&operation=post&schemaType=response");
+        assertEquals(200, comparisonResponseSchema.getStatusCode().value());
+        JsonNode comparisonResponseBody = body(comparisonResponseSchema);
+        assertTrue(comparisonResponseBody.path("properties").has("field"));
+        assertTrue(comparisonResponseBody.path("properties").has("currentPeriod"));
+        assertTrue(comparisonResponseBody.path("properties").has("previousPeriod"));
+        assertTrue(comparisonResponseBody.path("properties").has("buckets"));
 
         ResponseEntity<String> payrollStatsRequestSchema = get("/schemas/filtered?path=/payroll-view/stats/group-by&operation=post&schemaType=request");
         assertEquals(200, payrollStatsRequestSchema.getStatusCode().value());

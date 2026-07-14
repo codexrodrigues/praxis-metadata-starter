@@ -27,6 +27,7 @@ import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.service.base.AbstractBaseResourceService;
 import org.praxisplatform.uischema.service.base.AbstractReadOnlyResourceService;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
+import org.praxisplatform.uischema.stats.StatsMetric;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
 import org.praxisplatform.uischema.surface.SurfaceKind;
 import org.praxisplatform.uischema.surface.SurfaceScope;
@@ -51,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 @Component
 @Primary
@@ -314,6 +316,7 @@ class EmployeeService extends AbstractBaseResourceService<
 
     private static final StatsFieldRegistry EMPLOYEE_STATS_FIELDS = StatsFieldRegistry.builder()
             .categoricalGroupByBucket("status", "status")
+            .labeledGroupByBucket("department", "department.id", "department.nome", Set.of(StatsMetric.COUNT))
             .temporalTimeSeriesField("admissionDate", "admissionDate")
             .distinctCountField("payrollProfile", "payrollProfile")
             .numericHistogramMeasureField("salario", "salario")
@@ -348,6 +351,11 @@ class EmployeeService extends AbstractBaseResourceService<
 
     @Override
     public StatsSupportMode getDistributionStatsSupportMode() {
+        return StatsSupportMode.AUTO;
+    }
+
+    @Override
+    public StatsSupportMode getComparisonStatsSupportMode() {
         return StatsSupportMode.AUTO;
     }
 

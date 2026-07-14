@@ -5,6 +5,7 @@ import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.Paths;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.annotation.AnalyticsComparisonPeriodBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsDimensionBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsGranularity;
 import org.praxisplatform.uischema.annotation.AnalyticsIntent;
@@ -17,6 +18,8 @@ import org.praxisplatform.uischema.annotation.AnalyticsSortDirection;
 import org.praxisplatform.uischema.annotation.UiAnalytics;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
+import org.praxisplatform.uischema.stats.ComparisonPeriodMode;
+import org.praxisplatform.uischema.stats.ComparisonPeriodPreset;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
@@ -29,6 +32,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -101,6 +105,36 @@ class UiAnalyticsOpenApiCustomizerTest {
         assertNull(openAPI.getPaths().get("/reports/stats/group-by").getPost().getExtensions());
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void mapsComparisonPeriodBindingWithCanonicalRequestValues() throws Exception {
+        UiAnalytics annotation = ComparisonController.class.getDeclaredMethod("comparison")
+                .getAnnotation(UiAnalytics.class);
+
+        Map<String, Object> analytics = new UiAnalyticsAnnotationMapper()
+                .toXUiAnalytics(annotation, "/reports/stats/comparison");
+        Map<String, Object> projection = ((java.util.List<Map<String, Object>>) analytics.get("projections")).get(0);
+        Map<String, Object> source = (Map<String, Object>) projection.get("source");
+        Map<String, Object> bindings = (Map<String, Object>) projection.get("bindings");
+        Map<String, Object> period = (Map<String, Object>) bindings.get("comparisonPeriod");
+
+        assertEquals("comparison", source.get("operation"));
+        assertEquals("/reports", source.get("resource"));
+        assertEquals("competencia", period.get("field"));
+        assertEquals("America/Sao_Paulo", period.get("timezone"));
+        assertEquals("LAST_30_DAYS", period.get("preset"));
+        assertEquals("PREVIOUS_ALIGNED", period.get("mode"));
+    }
+
+    @Test
+    void rejectsComparisonProjectionWithoutCanonicalPeriodBinding() throws Exception {
+        UiAnalytics annotation = InvalidComparisonController.class.getDeclaredMethod("comparison")
+                .getAnnotation(UiAnalytics.class);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(annotation, "/reports/stats/comparison"));
+    }
+
     static class SampleController {
 
         @PostMapping("/reports/stats/group-by")
@@ -134,6 +168,51 @@ class UiAnalyticsOpenApiCustomizerTest {
     static class UnannotatedController {
         @PostMapping("/reports/stats/group-by")
         public void groupBy() {
+        }
+    }
+
+    static class ComparisonController {
+
+        @PostMapping("/reports/stats/comparison")
+        @UiAnalytics(
+                projections = {
+                        @AnalyticsProjection(
+                                id = "monthly-comparison",
+                                intent = AnalyticsIntent.COMPARISON,
+                                sourceOperation = AnalyticsOperation.COMPARISON,
+                                primaryDimension = @AnalyticsDimensionBinding(field = "department", label = "Department"),
+                                comparisonPeriod = @AnalyticsComparisonPeriodBinding(
+                                        field = "competencia",
+                                        timezone = "America/Sao_Paulo",
+                                        preset = ComparisonPeriodPreset.LAST_30_DAYS,
+                                        mode = ComparisonPeriodMode.PREVIOUS_ALIGNED
+                                ),
+                                primaryMetrics = {
+                                        @AnalyticsMetricBinding(field = "total", aggregation = "sum", label = "Total")
+                                }
+                        )
+                }
+        )
+        public void comparison() {
+        }
+    }
+
+    static class InvalidComparisonController {
+
+        @PostMapping("/reports/stats/comparison")
+        @UiAnalytics(
+                projections = {
+                        @AnalyticsProjection(
+                                id = "invalid-comparison",
+                                intent = AnalyticsIntent.COMPARISON,
+                                sourceOperation = AnalyticsOperation.COMPARISON,
+                                primaryMetrics = {
+                                        @AnalyticsMetricBinding(field = "total", aggregation = "sum")
+                                }
+                        )
+                }
+        )
+        public void comparison() {
         }
     }
 }

@@ -25,6 +25,15 @@ import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.stats.StatsProperties;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
+import org.praxisplatform.uischema.stats.ComparisonPeriodResolver;
+import org.praxisplatform.uischema.stats.StatsBucketOrder;
+import org.praxisplatform.uischema.stats.dto.ComparisonBucket;
+import org.praxisplatform.uischema.stats.dto.ComparisonMetricValue;
+import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
+import org.praxisplatform.uischema.stats.dto.ComparisonStatsResponse;
+import org.praxisplatform.uischema.stats.dto.ComparisonPeriodWindow;
+import org.praxisplatform.uischema.stats.dto.GroupByBucket;
+import org.praxisplatform.uischema.stats.dto.ResolvedComparisonPeriod;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
@@ -51,6 +60,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,6 +69,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
+import java.time.Clock;
 
 /**
  * Base query-only do novo core resource-oriented.
@@ -87,6 +99,9 @@ public abstract class AbstractBaseQueryResourceService<
 
     @Autowired(required = false)
     private StatsProperties statsProperties;
+
+    @Autowired(required = false)
+    private Clock statsClock;
 
     @Autowired(required = false)
     private ObjectProvider<OptionSourceRegistry> optionSourceRegistryProvider;
@@ -188,6 +203,10 @@ public abstract class AbstractBaseQueryResourceService<
 
     @Override
     public StatsSupportMode getDistributionStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
+
+    public StatsSupportMode getComparisonStatsSupportMode() {
         return StatsSupportMode.DISABLED;
     }
 
@@ -464,6 +483,93 @@ public abstract class AbstractBaseQueryResourceService<
                 request,
                 properties.maxBuckets()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ComparisonStatsResponse comparisonStats(ComparisonStatsRequest<FilterDTO> request) {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        if (!properties.enabled() || getComparisonStatsSupportMode() == StatsSupportMode.DISABLED
+                || statsQueryExecutor == null || statsEligibility == null) {
+            throw new UnsupportedOperationException("Comparison stats not implemented");
+        }
+        StatsFieldDescriptor descriptor = statsEligibility.validateComparison(request, getStatsFieldRegistry(), properties.maxBuckets());
+        StatsFieldDescriptor periodDescriptor = getStatsFieldRegistry().resolve(request.periodField()).orElseThrow();
+        ResolvedComparisonPeriod period = new ComparisonPeriodResolver(statsClock == null ? Clock.systemUTC() : statsClock).resolve(request.period());
+        long periodDays = java.time.temporal.ChronoUnit.DAYS.between(period.currentFrom(), period.currentTo()) + 1;
+        if (periodDays > properties.maxComparisonPeriodDays()) {
+            throw new IllegalArgumentException("Maximum comparison period exceeded: " + properties.maxComparisonPeriodDays() + " days.");
+        }
+        List<ResolvedStatsMetric> metrics = resolveMetrics(request.metrics(), "comparison");
+        GenericSpecification<E> base = getSpecificationsBuilder().buildSpecification(request.filter(), Pageable.unpaged());
+        int candidateLimit = properties.maxComparisonCandidates();
+        GroupByStatsRequest<FilterDTO> groupRequest = new GroupByStatsRequest<>(
+                request.filter(), request.field(), request.metrics().get(0), candidateLimit + 1,
+                StatsBucketOrder.KEY_ASC, request.metrics()
+        );
+        GroupByStatsResponse current = statsQueryExecutor.executeGroupBy(entityManager, entityClass,
+                base.spec().and(ComparisonPeriodSpecifications.forPeriod(periodDescriptor.keyPropertyPath(), period.currentFrom(), period.currentTo(), period.timezone())),
+                descriptor, metrics, groupRequest, candidateLimit + 1);
+        GroupByStatsResponse previous = statsQueryExecutor.executeGroupBy(entityManager, entityClass,
+                base.spec().and(ComparisonPeriodSpecifications.forPeriod(periodDescriptor.keyPropertyPath(), period.previousFrom(), period.previousTo(), period.timezone())),
+                descriptor, metrics, groupRequest, candidateLimit + 1);
+        if (current.buckets().size() > candidateLimit || previous.buckets().size() > candidateLimit) {
+            throw new IllegalArgumentException("Comparison candidate limit exceeded: " + candidateLimit);
+        }
+        return new ComparisonStatsResponse(request.field(), request.periodField(), request.metrics(),
+                new ComparisonPeriodWindow(period.currentFrom(), period.currentTo(), period.timezone()),
+                new ComparisonPeriodWindow(period.previousFrom(), period.previousTo(), period.timezone()),
+                mergeComparisonBuckets(current.buckets(), previous.buckets(), request.metrics(), request.orderBy(), request.limit(), properties.maxBuckets()));
+    }
+
+    private List<ComparisonBucket> mergeComparisonBuckets(List<GroupByBucket> current, List<GroupByBucket> previous,
+                                                            List<StatsMetricRequest> metrics, StatsBucketOrder order,
+                                                            Integer requestedLimit, int maxBuckets) {
+        Map<Object, GroupByBucket> currentByKey = current.stream().collect(Collectors.toMap(GroupByBucket::key, Function.identity(), (a, b) -> a, LinkedHashMap::new));
+        Map<Object, GroupByBucket> previousByKey = previous.stream().collect(Collectors.toMap(GroupByBucket::key, Function.identity(), (a, b) -> a, LinkedHashMap::new));
+        Set<Object> keys = new LinkedHashSet<>(); keys.addAll(currentByKey.keySet()); keys.addAll(previousByKey.keySet());
+        List<ComparisonBucket> buckets = keys.stream().map(key -> {
+            GroupByBucket now = currentByKey.get(key); GroupByBucket before = previousByKey.get(key);
+            Map<String, ComparisonMetricValue> values = new LinkedHashMap<>();
+            for (StatsMetricRequest metric : metrics) {
+                String alias = metric.effectiveAlias();
+                Number nowValue = value(now, alias); Number beforeValue = value(before, alias);
+                BigDecimal currentValue = decimal(nowValue); BigDecimal previousValue = decimal(beforeValue);
+                BigDecimal delta = currentValue.subtract(previousValue);
+                boolean baselineMissing = previousValue.signum() == 0;
+                values.put(alias, new ComparisonMetricValue(currentValue, previousValue, delta,
+                        baselineMissing ? null : delta.divide(previousValue, 8, java.math.RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).doubleValue(), baselineMissing));
+            }
+            String label = now != null ? now.label() : before.label();
+            return new ComparisonBucket(key, label, Map.copyOf(values));
+        }).sorted(comparisonOrder(metrics.get(0).effectiveAlias(), order)).toList();
+        int limit = requestedLimit == null ? maxBuckets : Math.min(requestedLimit, maxBuckets);
+        return buckets.stream().limit(limit).toList();
+    }
+
+    private Number value(GroupByBucket bucket, String alias) {
+        if (bucket == null) return BigDecimal.ZERO;
+        if (bucket.values() != null && bucket.values().containsKey(alias)) return bucket.values().get(alias);
+        return bucket.value() == null ? BigDecimal.ZERO : bucket.value();
+    }
+    private BigDecimal decimal(Number value) { return value == null ? BigDecimal.ZERO : new BigDecimal(value.toString()); }
+    private Comparator<ComparisonBucket> comparisonOrder(String alias, StatsBucketOrder order) {
+        Comparator<ComparisonBucket> key = (left, right) -> compareBucketKeys(left.key(), right.key());
+        Comparator<ComparisonBucket> value = Comparator.comparing(bucket -> decimal(bucket.values().get(alias).current()));
+        if (order == StatsBucketOrder.KEY_DESC) return key.reversed();
+        if (order == StatsBucketOrder.VALUE_ASC) return value.thenComparing(key);
+        if (order == StatsBucketOrder.VALUE_DESC) return value.reversed().thenComparing(key);
+        return key;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private int compareBucketKeys(Object left, Object right) {
+        if (left == right) return 0;
+        if (left == null) return -1;
+        if (right == null) return 1;
+        if (left instanceof Number && right instanceof Number) return decimal((Number) left).compareTo(decimal((Number) right));
+        if (left instanceof Comparable comparable && left.getClass().isInstance(right)) return comparable.compareTo(right);
+        return String.valueOf(left).compareTo(String.valueOf(right));
     }
 
     protected CursorPage<E> filterEntitiesByCursor(FilterDTO filter, Sort sort, String after, String before, int size) {

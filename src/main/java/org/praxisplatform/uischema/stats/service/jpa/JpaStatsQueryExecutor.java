@@ -64,7 +64,11 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<E> root = query.from(entityClass);
-        Path<?> groupPath = resolvePath(root, groupDescriptor.propertyPath());
+        Path<?> groupKeyPath = resolvePath(root, groupDescriptor.keyPropertyPath());
+        boolean hasDistinctLabelPath = !Objects.equals(groupDescriptor.keyPropertyPath(), groupDescriptor.labelPropertyPath());
+        Path<?> groupLabelPath = hasDistinctLabelPath
+                ? resolvePath(root, groupDescriptor.labelPropertyPath())
+                : groupKeyPath;
         Expression<Long> countExpression = cb.count(root);
         ResolvedStatsMetric primaryMetric = primaryMetric(request, resolvedMetrics);
         Expression<? extends Number> valueExpression = resolveValueExpression(cb, root, primaryMetric);
@@ -75,7 +79,10 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         }
 
         List<jakarta.persistence.criteria.Selection<?>> selections = new java.util.ArrayList<>();
-        selections.add(groupPath.alias("groupKey"));
+        selections.add(groupKeyPath.alias("groupKey"));
+        if (hasDistinctLabelPath) {
+            selections.add(groupLabelPath.alias("groupLabel"));
+        }
         selections.add(valueExpression.alias("groupValue"));
         selections.add(countExpression.alias("groupCount"));
         for (int index = 0; index < resolvedMetrics.size(); index++) {
@@ -83,8 +90,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             selections.add(resolveValueExpression(cb, root, resolvedMetric).alias(metricTupleAlias(index)));
         }
         query.multiselect(selections);
-        query.groupBy(groupPath);
-        query.orderBy(resolveOrder(cb, groupPath, valueExpression, request.orderBy()));
+        query.groupBy(hasDistinctLabelPath ? List.of(groupKeyPath, groupLabelPath) : List.of(groupKeyPath));
+        query.orderBy(resolveOrder(cb, groupKeyPath, valueExpression, request.orderBy()));
 
         TypedQuery<Tuple> typedQuery = entityManager.createQuery(query);
         int limit = request.limit() == null ? maxBuckets : Math.min(request.limit(), maxBuckets);
@@ -94,11 +101,12 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         List<GroupByBucket> buckets = typedQuery.getResultList().stream()
                 .map(tuple -> {
                     Object key = tuple.get("groupKey");
+                    Object labelValue = hasDistinctLabelPath ? tuple.get("groupLabel") : key;
                     Number value = (Number) tuple.get("groupValue");
                     long count = ((Number) tuple.get("groupCount")).longValue();
                     return new GroupByBucket(
                             key,
-                            key == null ? "null" : String.valueOf(key),
+                            labelValue == null ? (key == null ? "null" : String.valueOf(key)) : String.valueOf(labelValue),
                             value,
                             count,
                             exposeMultiMetricShape ? extractMetricValues(tuple, resolvedMetrics) : null
@@ -127,7 +135,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<E> root = query.from(entityClass);
-        Path<?> timePath = resolvePath(root, timeDescriptor.propertyPath());
+        Path<?> timePath = resolvePath(root, timeDescriptor.keyPropertyPath());
 
         Predicate predicate = specification == null ? null : specification.toPredicate(root, query, cb);
         if (predicate != null) {
@@ -140,7 +148,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             if (resolvedMetric.descriptor() == null) {
                 continue;
             }
-            selections.add(resolvePath(root, resolvedMetric.descriptor().propertyPath()).alias(metricTupleAlias(index)));
+            selections.add(resolvePath(root, resolvedMetric.descriptor().keyPropertyPath()).alias(metricTupleAlias(index)));
         }
         query.multiselect(selections);
 
@@ -208,7 +216,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<E> root = query.from(entityClass);
-        Path<?> groupPath = resolvePath(root, distributionDescriptor.propertyPath());
+        Path<?> groupPath = resolvePath(root, distributionDescriptor.keyPropertyPath());
         Expression<Long> countExpression = cb.count(root);
         Expression<? extends Number> valueExpression = resolveValueExpression(cb, root, request.metric(), metricDescriptor);
 
@@ -247,9 +255,9 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
     ) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         @SuppressWarnings({"rawtypes", "unchecked"})
-        CriteriaQuery query = cb.createQuery(numberPathJavaType(entityManager, entityClass, descriptor.propertyPath()));
+        CriteriaQuery query = cb.createQuery(numberPathJavaType(entityManager, entityClass, descriptor.keyPropertyPath()));
         Root<E> root = query.from(entityClass);
-        Path<?> valuePath = resolvePath(root, descriptor.propertyPath());
+        Path<?> valuePath = resolvePath(root, descriptor.keyPropertyPath());
 
         Predicate predicate = specification == null ? null : specification.toPredicate(root, query, cb);
         if (predicate != null) {
@@ -321,10 +329,10 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             return cb.count(root);
         }
         if (metric.operation() == org.praxisplatform.uischema.stats.StatsMetric.DISTINCT_COUNT) {
-            Path<?> metricPath = resolvePath(root, Objects.requireNonNull(resolvedMetric.descriptor()).propertyPath());
+            Path<?> metricPath = resolvePath(root, Objects.requireNonNull(resolvedMetric.descriptor()).keyPropertyPath());
             return cb.countDistinct(metricPath);
         }
-        Path<Number> metricPath = resolveNumericPath(root, Objects.requireNonNull(resolvedMetric.descriptor()).propertyPath());
+        Path<Number> metricPath = resolveNumericPath(root, Objects.requireNonNull(resolvedMetric.descriptor()).keyPropertyPath());
         if (metric.operation() == org.praxisplatform.uischema.stats.StatsMetric.SUM) {
             return cb.sum(metricPath);
         }
