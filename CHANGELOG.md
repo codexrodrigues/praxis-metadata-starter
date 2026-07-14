@@ -14,6 +14,10 @@ All notable changes to this module will be documented in this file.
   `controllerEndpointHandlerMapping`.
 
 ### Added
+- `x-ui-field.schema.json` agora publica o contrato de atalhos de periodo para
+  `dateRange` e `inlineDateRange`, incluindo `shortcuts[]`,
+  `inlineQuickPresets`, `inlineOverlay`, fixtures valid/invalid e cobertura para
+  impedir callbacks como `calculateRange` em metadata JSON.
 - Base publica `AbstractCollectionCommandResourceController` para recursos que possuem somente
   actions no escopo da colecao: publica `/actions` e `/capabilities`, integra a execucao ao
   boundary governado e aos schemas filtrados da operacao real, sem expor CRUD, filtros ou

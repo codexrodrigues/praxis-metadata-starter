@@ -189,6 +189,22 @@
       "type": "array",
       "items": { "$ref": "#/definitions/optionItem" }
     },
+    "shortcuts": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/dateRangeShortcut" },
+      "description": "Ordered date-range shortcut catalog for dateRange and inlineDateRange. Backend/domain services publish built-in ids or static resolved business periods. JSON metadata must not contain calculateRange, callbacks, scripts or frontend-executed business rules."
+    },
+    "inlineQuickPresets": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "$ref": "#/definitions/inlineQuickPresets" }
+      ],
+      "description": "Inline date-range shortcut composition. position uses logical start/end and may fall back to footer in narrow or touch layouts."
+    },
+    "inlineOverlay": {
+      "$ref": "#/definitions/inlineOverlay",
+      "description": "Inline date-range overlay commit/action metadata. It controls UI materialization only; submitted filters still use startDate and endDate."
+    },
     "optionGroups": {
       "type": "array",
       "items": { "$ref": "#/definitions/optionItem" }
@@ -358,6 +374,96 @@
         "group": { "type": "string" }
       },
       "required": ["value", "label"]
+    },
+    "dateRangeShortcut": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "enum": ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "thisYear", "lastYear"],
+          "description": "Built-in shortcut id understood by the Angular runtime. Domain-specific business periods must be published as staticDateRangePreset objects."
+        },
+        { "$ref": "#/definitions/staticDateRangePreset" }
+      ]
+    },
+    "staticDateRangePreset": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Static, serializable, backend-resolved business period. The backend/domain owns fiscal, legal, electoral, holiday and countable-day rules before publication.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "label": { "type": "string", "minLength": 1 },
+        "startDate": { "$ref": "#/definitions/isoDateOnly" },
+        "endDate": { "$ref": "#/definitions/isoDateOnly" },
+        "timeZone": {
+          "type": "string",
+          "minLength": 1,
+          "description": "IANA timezone used by the domain when resolving the date-only period."
+        },
+        "icon": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "tone": {
+          "type": "string",
+          "enum": ["neutral", "info", "success", "warning"],
+          "description": "Semantic tone resolved by Praxis/host tokens, never an arbitrary color."
+        },
+        "effectiveFrom": { "$ref": "#/definitions/isoDateOnly" },
+        "effectiveTo": { "$ref": "#/definitions/isoDateOnly" }
+      },
+      "required": ["id", "label", "startDate", "endDate"]
+    },
+    "inlineQuickPresets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "maxVisible": { "type": "integer", "minimum": 1 },
+        "position": {
+          "type": "string",
+          "enum": ["auto", "footer", "start", "end"],
+          "description": "Logical placement; start/end honor RTL and auto may fall back to footer."
+        }
+      }
+    },
+    "inlineOverlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "applyMode": {
+          "type": "string",
+          "enum": ["auto", "explicit"]
+        },
+        "actions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "apply": { "$ref": "#/definitions/inlineOverlayAction" },
+            "cancel": { "$ref": "#/definitions/inlineOverlayAction" }
+          }
+        }
+      }
+    },
+    "inlineOverlayAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "ariaLabel": { "type": "string", "minLength": 1 },
+        "appearance": {
+          "type": "string",
+          "enum": ["text", "outlined", "filled", "elevated"]
+        },
+        "colorRole": {
+          "type": "string",
+          "enum": ["primary", "neutral", "warning", "danger"]
+        }
+      }
+    },
+    "isoDateOnly": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "ISO date-only value (YYYY-MM-DD). Business-day, legal, fiscal and electoral calculations must be resolved before publishing metadata."
     },
     "fieldAccess": {
       "type": "object",
