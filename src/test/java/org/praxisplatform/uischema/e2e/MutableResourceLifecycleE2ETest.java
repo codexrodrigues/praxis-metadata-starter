@@ -61,6 +61,24 @@ class MutableResourceLifecycleE2ETest extends AbstractE2eH2Test {
         assertEquals("Grace Updated", updateBody.path("data").path("nome").asText());
         assertEquals("Operations", updateBody.path("data").path("departmentNome").asText());
 
+        ResponseEntity<String> blockedDeleteResponse = delete("/employees/" + createdId);
+        assertEquals(403, blockedDeleteResponse.getStatusCode().value());
+        assertEquals("resource-state-blocked", body(blockedDeleteResponse).path("message").asText());
+        assertEquals(200, get("/employees/" + createdId).getStatusCode().value());
+
+        ResponseEntity<String> reactivationResponse = putJson("/employees/" + createdId, """
+                {
+                  "nome": "Grace Updated",
+                  "matricula": "OPS-909",
+                  "status": "ACTIVE",
+                  "salario": 9000.00,
+                  "admissionDate": "2025-02-10",
+                  "departmentId": %d
+                }
+                """.formatted(state.operationsDepartmentId()));
+        assertEquals(200, reactivationResponse.getStatusCode().value());
+        assertEquals("ACTIVE", body(reactivationResponse).path("data").path("status").asText());
+
         ResponseEntity<String> deleteResponse = delete("/employees/" + createdId);
         assertEquals(204, deleteResponse.getStatusCode().value());
         ResponseEntity<String> deletedLookup = get("/employees/" + createdId);

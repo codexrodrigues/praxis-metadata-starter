@@ -41,9 +41,10 @@ import java.lang.annotation.Target;
  *
  * <p>
  * No core atual do starter, esta e a forma recomendada de expor controllers que herdam
- * {@code AbstractResourceController}, {@code AbstractResourceQueryController} ou
- * {@code AbstractReadOnlyResourceController}. Ela evita que path e identidade do recurso fiquem
- * espalhados por convencoes paralelas.
+ * {@code AbstractResourceController}, {@code AbstractResourceQueryController},
+ * {@code AbstractReadOnlyResourceController} ou
+ * {@code AbstractCollectionCommandResourceController}. Ela evita que path e identidade do
+ * recurso fiquem espalhados por convencoes paralelas.
  * </p>
  *
  * <h3>Exemplo recomendado</h3>

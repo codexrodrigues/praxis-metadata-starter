@@ -15,6 +15,7 @@ public record DomainCatalogResponse(
         String schemaVersion,
         DomainServiceInfo service,
         DomainReleaseInfo release,
+        String resourceKey,
         List<DomainContextItem> contexts,
         List<DomainNodeItem> nodes,
         List<DomainEdgeItem> edges,

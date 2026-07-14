@@ -33,7 +33,7 @@
   - `/schemas/domain` publica vocabulario, bindings, aliases, evidencias e governanca como superficie semantica derivada, sem substituir `/schemas/filtered`
   - `/schemas/surfaces` e `/schemas/actions` publicam apenas discovery semantico e links para schemas canonicos resolviveis via `/schemas/filtered`
   - ETag forte no `/schemas/filtered` e hash deterministico em `X-Schema-Hash`
-  - `schemaId` estavel conforme composicao `path|operation|schemaType|internal|tenant|locale`
+  - `schemaId` estavel conforme composicao estrutural atual: `path|operation|schemaType|internal|idField|readOnly`
   - quando `x-ui.chart.source.kind = "praxis.stats"`, o contrato publicado exige `source.resource` e `source.operation`
   - quando um campo publicar `x-ui.optionSource`, o bloco deve obedecer o schema draft e representar a fonte de opcoes como contrato canonico
   - quando um recurso publicar exportacao de colecao, `POST /{resource}/export` deve aplicar filtros, selecao, allowlist de campos e limite efetivo do servidor
@@ -187,7 +187,7 @@ Diretriz canonica:
 - `custom.*`: prefixo reservado para extensoes de fornecedores/hosts
 - o backend deve canonicalizar o payload antes de calcular o hash do schema
 - o backend deve separar payload estrutural e payload documental antes de calcular o hash
-- locale/tenant variam `schemaId` e os headers de cache
+- locale/tenant permanecem no boundary canonico, mas nao variam `schemaId` nem headers de cache enquanto nao alterarem o payload estrutural
 
 ## Cobertura atual das anotacoes
 

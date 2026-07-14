@@ -14,6 +14,7 @@ Material tecnico ainda vivo do `praxis-metadata-starter`.
 - [Auto-configuracao](AUTO-CONFIGURACAO.html)
 - [Estudo de mercado e roadmap competitivo](ESTUDO-MERCADO-ROADMAP-METADATA-STARTER.html)
 - [Estudo complementar - Praxis UI Angular metadata-driven](ESTUDO-PRAXIS-UI-ANGULAR-METADATA-DRIVEN.html)
+- [Roadmap reconciliado de Skills Java e Praxis](CODEX-SKILLS-JAVA-PRAXIS-ROADMAP.html)
 - [Roadmap de filtros](FILTROS-ROADMAP.html)
 - [RFC - GraphQL Support](GRAPHQL-SUPPORT-RFC.html)
 - [RFC - Governed Resource Command Execution](GOVERNED-RESOURCE-COMMAND-EXECUTION-RFC.html)

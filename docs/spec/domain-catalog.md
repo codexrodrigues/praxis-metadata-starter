@@ -26,6 +26,12 @@ volateis como `generatedAt`. `release.releaseKey` e derivado de `serviceKey`,
 escopo semantico e prefixo do hash, mantendo a mesma identidade para semanticas
 iguais em chamadas repetidas ou depois de restart do host.
 
+Quando a consulta usa `resourceKey`, o envelope tambem publica esse valor no
+campo top-level `resourceKey`. Consumidores que persistem releases devem usar
+esse campo estrutural para escopo e indexacao; `release.releaseKey` continua
+sendo a identidade imutavel da release, e nao deve ser analisada para recuperar
+o recurso. Em catalogos solicitados por `group`, `resourceKey` e nulo.
+
 O catalogo gerado por `resourceKey` ou `group` e memoizado no runtime do starter
 para evitar recomputar schemas, aliases, evidencias e governanca em leituras
 repetidas de `/schemas/domain`.

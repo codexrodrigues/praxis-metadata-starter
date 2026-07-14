@@ -1,6 +1,0 @@
-${AnsiColor.BRIGHT_CYAN}██   ${AnsiColor.BRIGHT_CYAN}██████  ${AnsiColor.CYAN}██████   ${AnsiColor.BLUE} █████   ${AnsiColor.MAGENTA}██   ██ ${AnsiColor.BRIGHT_MAGENTA}██ ${AnsiColor.BRIGHT_RED} ██████
-${AnsiColor.BRIGHT_CYAN} ██  ${AnsiColor.BRIGHT_CYAN}██   ██ ${AnsiColor.CYAN}██   ██  ${AnsiColor.BLUE}██   ██  ${AnsiColor.MAGENTA} ██ ██  ${AnsiColor.BRIGHT_MAGENTA}██ ${AnsiColor.BRIGHT_RED}██
-${AnsiColor.BRIGHT_CYAN}  ██ ${AnsiColor.BRIGHT_CYAN}██████  ${AnsiColor.CYAN}██████   ${AnsiColor.BLUE}███████  ${AnsiColor.MAGENTA}  ███   ${AnsiColor.BRIGHT_MAGENTA}██ ${AnsiColor.BRIGHT_RED}███████
-${AnsiColor.BRIGHT_CYAN} ██  ${AnsiColor.BRIGHT_CYAN}██      ${AnsiColor.CYAN}██   ██  ${AnsiColor.BLUE}██   ██  ${AnsiColor.MAGENTA} ██ ██  ${AnsiColor.BRIGHT_MAGENTA}██ ${AnsiColor.BRIGHT_RED}     ██
-${AnsiColor.BRIGHT_CYAN}██   ${AnsiColor.BRIGHT_CYAN}██      ${AnsiColor.CYAN}██   ██  ${AnsiColor.BLUE}██   ██  ${AnsiColor.MAGENTA}██   ██ ${AnsiColor.BRIGHT_MAGENTA}██ ${AnsiColor.BRIGHT_RED}██████
-${AnsiColor.DEFAULT}

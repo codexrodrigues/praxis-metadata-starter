@@ -14,6 +14,9 @@ Este diretorio contem a documentacao principal do `praxis-metadata-starter`.
 
 - trilha principal para LLM: [guides/README.md](guides/README.md)
 - visao geral funcional: [overview/VISAO-GERAL.md](overview/VISAO-GERAL.md)
+- arquitetura e fluxo de enriquecimento: [architecture-overview.md](architecture-overview.md)
+- responsabilidade de cada pacote Java: [packages-overview.md](packages-overview.md)
+- conceito de anotacoes Java para metadata de UI: [concepts/ui-schema.md](concepts/ui-schema.md)
 - contrato de exportacao de colecoes: [guides/COLLECTION-EXPORT.md](guides/COLLECTION-EXPORT.md)
 - prova operacional dos guias: [guides/ai-proof/README.md](guides/ai-proof/README.md)
 - exemplos complementares: [examples/README.md](examples/README.md)

@@ -12,6 +12,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
  * {@code extraProperties} em {@link org.praxisplatform.uischema.extension.annotation.UISchema}.
  * </p>
  *
+ * @see org.praxisplatform.uischema.extension.annotation.UISchema
  * @since 1.0.0
  */
 public enum ValidationProperties {

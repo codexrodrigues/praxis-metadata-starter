@@ -52,6 +52,7 @@ class SemanticDomainCatalogServiceTest {
         assertThat(response.release().releaseKey())
                 .startsWith("praxis-api-quickstart:human-resources.folhas-pagamento:")
                 .doesNotContain("2026-04-21T10:30:00Z");
+        assertThat(response.resourceKey()).isEqualTo("human-resources.folhas-pagamento");
         assertThat(service.findByResourceKey("human-resources.folhas-pagamento"))
                 .isSameAs(response);
         assertThat(response.contexts()).extracting(DomainCatalogResponse.DomainContextItem::contextKey)

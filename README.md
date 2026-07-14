@@ -29,6 +29,8 @@ Use estes entry points primeiro:
 - Home: [docs/index.md](docs/index.md)
 - Guides hub: [docs/guides/index.md](docs/guides/index.md)
 - Architecture overview: [docs/architecture-overview.md](docs/architecture-overview.md)
+- Java package overview: [docs/packages-overview.md](docs/packages-overview.md)
+- UI Schema concept: [docs/concepts/ui-schema.md](docs/concepts/ui-schema.md)
 - Conformance: [docs/spec/CONFORMANCE.md](docs/spec/CONFORMANCE.md)
 - Guide 01 - Application setup: [docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
 - Guide 02 - Canonical resource backend: [docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md)
@@ -41,6 +43,23 @@ Use estes entry points primeiro:
 - Assisted repository exploration (complementary, not normative): [CodeWiki](https://codewiki.google/github.com/codexrodrigues/praxis-metadata-starter/)
 
 ## What The Starter Actually Publishes
+
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+    dto["DTO + Bean Validation + @UISchema"] --> enrich["OpenAPI x-ui enrichment"]
+    enrich --> openapi["Canonical OpenAPI document"]
+    openapi --> filtered["/schemas/filtered\nstructural contract"]
+    openapi --> catalog["/schemas/catalog\ndocumentary catalog"]
+    annotations["@UiSurface + @WorkflowAction"] --> discovery["Semantic discovery"]
+    discovery --> capabilities["/{resource}/capabilities\ncontextual snapshot"]
+    filtered --> runtime["Metadata-driven runtime"]
+```
+
+The diagram is deliberate: `x-ui` belongs to the structural schema path;
+surfaces, actions and capabilities add discovery around it but never replace
+`/schemas/filtered` as the canonical shape of a request or response.
 
 ### Structural contract
 
