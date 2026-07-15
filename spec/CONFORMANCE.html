@@ -381,6 +381,13 @@ AI-operable, evidencias e governanca de dominio</li>
 <code>@UiSurface</code> e surfaces automaticas do recurso</li>
 <li><code>/schemas/actions</code> -&gt; catalogo semantico de
 <code>@WorkflowAction</code></li>
+<li><code>/{resource}/capabilities.canonicalOperations</code> -&gt;
+suporte estrutural, nunca autorizacao</li>
+<li><code>/{resource}/capabilities.operations</code> -&gt; operacoes
+CRUD, query, options, stats e export com scope, metodo, relacao e
+availability atuais</li>
+<li>query/stats de um snapshot item-level preservam
+<code>scope=COLLECTION</code> e nao recebem contexto de item</li>
 </ul></li>
 <li>x-domain-governance
 <ul>

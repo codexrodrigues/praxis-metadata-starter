@@ -179,7 +179,10 @@ usar <code>ResourceOperationAvailabilityProvider</code>,
 <code>SurfaceAvailabilityRule</code> e
 <code>ResourceStateSnapshotProvider</code> sem espalhar regras por
 controllers, services ou clientes.</p>
-<p>Classificacao de aderencia: <code>suportado-parcialmente</code>.</p>
+<p>Classificacao de aderencia: <code>ja-suportado-so-ux</code> para
+hosts que ainda nao materializam a SPI e
+<code>lacuna-real-de-contrato</code> encerrada no starter para operacoes
+query/stats.</p>
 <p>O starter ja sabe publicar availability em operacoes, surfaces,
 actions, <code>/capabilities</code> e <code>_links</code>. A lacuna nao
 e uma nova SPI; e a disciplina de uso, evidencia e explicacao para que
@@ -202,11 +205,12 @@ correta.</p>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Disponibilidade de operacao CRUD canonica</td>
+<td>Disponibilidade de operacao canonica</td>
 <td><code>ResourceOperationAvailabilityProvider</code></td>
 <td><code>create</code>, <code>edit</code>, <code>delete</code>,
-<code>duplicate-draft</code>, <code>export</code>,
-<code>stats</code></td>
+<code>all</code>, <code>filter</code>, <code>cursor</code>,
+<code>options</code>, <code>optionSources</code>, <code>stats*</code>,
+<code>export</code></td>
 </tr>
 <tr class="even">
 <td>Disponibilidade de comando de negocio</td>
@@ -246,6 +250,9 @@ pergunta for:</p>
 <li>este item pode ser excluido agora?</li>
 <li>este item pode gerar um rascunho editavel?</li>
 <li>a colecao pode exportar ou calcular stats agora?</li>
+<li>o principal pode consultar dados nominais por
+<code>filter/cursor</code> sem receber implicitamente acesso
+agregado?</li>
 </ul>
 <p>O provider recebe <code>ResourceOperationAvailabilityContext</code>
 com:</p>
@@ -262,6 +269,21 @@ com:</p>
 agenda, tenant, sessao ou regra regulatoria. Ele nao deve publicar nomes
 internos de package, SQL, HADES, ROWID, usuario tecnico, locators ou
 detalhes de banco.</p>
+<p>IDs estaveis recebidos pelo provider incluem <code>all</code>,
+<code>byId</code>, <code>filter</code>, <code>cursor</code>,
+<code>options</code>, <code>optionSources</code>,
+<code>statsGroupBy</code>, <code>statsTimeSeries</code>,
+<code>statsDistribution</code>, <code>statsComparison</code> e
+<code>export</code>, alem das affordances CRUD <code>create</code>,
+<code>view</code>, <code>edit</code>, <code>delete</code> e
+<code>duplicate-draft</code>. O <code>scope</code> pertence a operacao:
+mesmo em um snapshot de item, uma operacao query/stats continua
+<code>COLLECTION</code> e nao recebe <code>resourceId</code> ou
+<code>resourceState</code>.</p>
+<p><code>canonicalOperations</code> responde somente se a operacao faz
+parte do contrato estrutural. A decisao atual esta em
+<code>operations.{operationId}.availability</code>. Nenhum desses blocos
+substitui o enforcement do <code>SecurityFilterChain</code>.</p>
 <h2 id="workflow-actions">Workflow actions</h2>
 <p>Use <code>ActionAvailabilityRule</code> quando a decisao pertencer a
 uma action publicada por <code>@WorkflowAction</code>.</p>
@@ -308,6 +330,11 @@ use endpoints item-level.</li>
 <li>quando uma action ou surface <code>ITEM</code> aparece como
 <code>resource-context-required</code>, isso significa que ela existe,
 mas precisa de <code>resourceId</code> para decidir.</li>
+<li>restricoes independentes do item sao avaliadas antes do contexto:
+uma surface <code>ITEM</code> sem <code>resourceId</code> retorna
+<code>missing-authority</code> para um principal inelegivel e
+<code>resource-context-required</code> somente depois que as authorities
+exigidas passam.</li>
 </ul>
 <h2 id="metadata-publica-recomendada">Metadata publica recomendada</h2>
 <p>Use <code>AvailabilityDecision.metadata</code> para explicar a
@@ -433,7 +460,11 @@ hosts</h2>
 IA:</p>
 <ul>
 <li><code>_links</code> e <code>/capabilities.operations</code>
-concordam para create/edit/delete/export</li>
+concordam para create/edit/delete, all/filter/cursor e export</li>
+<li>query e stats protegidos possuem ao menos um teste allow e um deny
+por principal</li>
+<li><code>canonicalOperations=true</code> nunca e interpretado como
+autorizacao</li>
 <li>action catalog e <code>capabilities.actions</code> concordam no
 mesmo contexto</li>
 <li>surface catalog e <code>capabilities.surfaces</code> concordam no

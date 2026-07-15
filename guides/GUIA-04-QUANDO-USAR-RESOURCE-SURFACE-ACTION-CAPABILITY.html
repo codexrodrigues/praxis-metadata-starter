@@ -383,9 +383,14 @@ anotacoes <code>@UiSurface</code> e <code>@WorkflowAction</code>)
 declaram restricoes estaticas.</li>
 <li>Quando a disponibilidade depende de operacoes canonicas como
 <code>create</code>, <code>edit</code>, <code>delete</code>,
-<code>duplicate-draft</code>, <code>export</code> ou <code>stats</code>,
-o host deve plugar
+<code>duplicate-draft</code>, <code>all</code>, <code>filter</code>,
+<code>cursor</code>, <code>options</code>, <code>optionSources</code>,
+<code>stats*</code> ou <code>export</code>, o host deve plugar
 <code>ResourceOperationAvailabilityProvider</code>.</li>
+<li><code>canonicalOperations</code> informa suporte estrutural;
+autorizacao/disponibilidade atual pertence a
+<code>operations.{operationId}.availability</code> e o enforcement
+executavel continua no host.</li>
 <li>Quando a disponibilidade depende de workflow action publicada por
 <code>@WorkflowAction</code>, use
 <code>ActionAvailabilityRule</code>.</li>

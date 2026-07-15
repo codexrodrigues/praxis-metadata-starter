@@ -255,8 +255,13 @@ item</label></li>
 capabilities validadas separadamente quando a decisao depende de
 <code>resourceId</code></label></li>
 <li><label><input type="checkbox" /><code>_links</code> e
-<code>/capabilities.operations</code> concordam para
-create/edit/delete/export</label></li>
+<code>/capabilities.operations</code> concordam para create/edit/delete,
+all/filter/cursor e export</label></li>
+<li><label><input type="checkbox" />query/stats protegidos distinguem
+suporte estrutural de availability por principal</label></li>
+<li><label><input type="checkbox" />surface ITEM sem contexto avalia
+authorities independentes antes de retornar
+<code>resource-context-required</code></label></li>
 <li><label><input type="checkbox" /><code>/actions</code> e
 <code>capabilities.actions</code> concordam para actions collection e
 item</label></li>
