@@ -773,6 +773,13 @@ apresentacao. O texto em `@Operation` deve estar **coerente** com ids, intents e
 fontes declaradas na anotacao; caso contrario, assistentes e clientes veem
 descricao e metadata tecnica divergentes.
 
+Quando a leitura depende de uma politica executada pelo dominio, use
+`@AnalyticsPolicyReference` em `policyRefs` para publicar `policyId`,
+`policyVersion`, papel, campo de resultado e os campos opcionais de atestacao.
+Nao copie thresholds, expressoes ou regras para a annotation. A referencia
+preserva provenance; ela nao concede acesso nominal nem substitui a autorizacao
+de actions e surfaces.
+
 ## operationId, tags e exemplos OpenAPI
 
 ### `operationId`
@@ -817,11 +824,13 @@ Antes de concluir uma alteracao de annotations, responda:
     incorreta nem mascara o real tipo de dado?
 15. `@UiAnalytics` (se houver) esta alinhado ao `summary`/`description` da mesma
     operacao?
-16. `operationId` e `tags` permanecem coerentes com agrupamento e ferramentas?
-17. Exemplos OpenAPI refletem o contrato validado?
-18. O texto esta em PT-BR correto e coerente com o restante do recurso?
-19. Nao foi usado script ou heuristica de preenchimento em lote?
-20. A mudanca exige atualizar README, indice, guia ou exemplo derivado?
+16. Policy references publicam somente identidade/versionamento e atestacao,
+    sem regra executavel ou dados de runtime?
+17. `operationId` e `tags` permanecem coerentes com agrupamento e ferramentas?
+18. Exemplos OpenAPI refletem o contrato validado?
+19. O texto esta em PT-BR correto e coerente com o restante do recurso?
+20. Nao foi usado script ou heuristica de preenchimento em lote?
+21. A mudanca exige atualizar README, indice, guia ou exemplo derivado?
 
 ## Criterios objetivos de rejeicao
 

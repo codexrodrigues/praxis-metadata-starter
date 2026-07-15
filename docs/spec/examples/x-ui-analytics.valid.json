@@ -22,6 +22,20 @@
           }
         ]
       },
+      "governance": {
+        "policyRefs": [
+          {
+            "policyId": "payroll-classification-v2",
+            "policyVersion": "2026-07",
+            "role": "classification",
+            "resultField": "classificationLevel",
+            "attestation": {
+              "policyIdField": "classificationPolicyId",
+              "policyVersionField": "classificationPolicyVersion"
+            }
+          }
+        ]
+      },
       "defaults": {
         "sort": [
           {

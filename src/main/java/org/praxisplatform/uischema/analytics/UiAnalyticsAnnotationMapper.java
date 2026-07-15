@@ -5,6 +5,7 @@ import org.praxisplatform.uischema.annotation.AnalyticsComparisonPeriodBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsGranularity;
 import org.praxisplatform.uischema.annotation.AnalyticsMetricBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsOperation;
+import org.praxisplatform.uischema.annotation.AnalyticsPolicyReference;
 import org.praxisplatform.uischema.annotation.AnalyticsProjection;
 import org.praxisplatform.uischema.annotation.AnalyticsPresentationFamily;
 import org.praxisplatform.uischema.annotation.AnalyticsSort;
@@ -38,6 +39,11 @@ public class UiAnalyticsAnnotationMapper {
         result.put("source", buildSource(projection, operationPath));
         result.put("bindings", buildBindings(projection));
 
+        Map<String, Object> governance = buildGovernance(projection.policyRefs());
+        if (!governance.isEmpty()) {
+            result.put("governance", governance);
+        }
+
         Map<String, Object> defaults = buildDefaults(
                 projection.defaultSort(),
                 projection.defaultLimit(),
@@ -57,6 +63,49 @@ public class UiAnalyticsAnnotationMapper {
             result.put("interactions", interactions);
         }
 
+        return result;
+    }
+
+    private Map<String, Object> buildGovernance(AnalyticsPolicyReference[] references) {
+        if (references == null || references.length == 0) {
+            return Map.of();
+        }
+        List<Map<String, Object>> policyRefs = new ArrayList<>();
+        for (AnalyticsPolicyReference reference : references) {
+            policyRefs.add(buildPolicyReference(reference));
+        }
+        Map<String, Object> governance = new LinkedHashMap<>();
+        governance.put("policyRefs", policyRefs);
+        return governance;
+    }
+
+    private Map<String, Object> buildPolicyReference(AnalyticsPolicyReference reference) {
+        if (reference == null
+                || reference.policyId().isBlank()
+                || reference.policyVersion().isBlank()
+                || reference.role().isBlank()
+                || reference.resultField().isBlank()) {
+            throw new IllegalArgumentException(
+                    "Analytics policy references require policyId, policyVersion, role and resultField.");
+        }
+        boolean hasPolicyIdField = !reference.policyIdField().isBlank();
+        boolean hasPolicyVersionField = !reference.policyVersionField().isBlank();
+        if (hasPolicyIdField != hasPolicyVersionField) {
+            throw new IllegalArgumentException(
+                    "Analytics policy reference attestation requires both policyIdField and policyVersionField.");
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("policyId", reference.policyId().trim());
+        result.put("policyVersion", reference.policyVersion().trim());
+        result.put("role", reference.role().trim());
+        result.put("resultField", reference.resultField().trim());
+        if (hasPolicyIdField) {
+            Map<String, Object> attestation = new LinkedHashMap<>();
+            attestation.put("policyIdField", reference.policyIdField().trim());
+            attestation.put("policyVersionField", reference.policyVersionField().trim());
+            result.put("attestation", attestation);
+        }
         return result;
     }
 

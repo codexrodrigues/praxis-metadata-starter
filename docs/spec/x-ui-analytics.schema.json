@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://praxis.dev/spec/x-ui-analytics.schema.json",
-  "title": "x-ui.analytics - 0.1.0",
+  "title": "x-ui.analytics - 0.3.0",
   "type": "object",
   "additionalProperties": false,
   "required": ["projections"],
@@ -25,6 +25,7 @@
         },
         "source": { "$ref": "#/$defs/source" },
         "bindings": { "$ref": "#/$defs/bindings" },
+        "governance": { "$ref": "#/$defs/governance" },
         "defaults": { "$ref": "#/$defs/defaults" },
         "presentationHints": { "$ref": "#/$defs/presentationHints" },
         "interactions": { "$ref": "#/$defs/interactions" }
@@ -105,6 +106,39 @@
           "enum": ["count", "distinct-count", "sum", "avg", "min", "max"]
         },
         "label": { "type": "string", "minLength": 1 }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyRefs"],
+      "properties": {
+        "policyRefs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/policyRef" }
+        }
+      }
+    },
+    "policyRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyId", "policyVersion", "role", "resultField"],
+      "properties": {
+        "policyId": { "type": "string", "minLength": 1 },
+        "policyVersion": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "resultField": { "type": "string", "minLength": 1 },
+        "attestation": { "$ref": "#/$defs/policyAttestation" }
+      }
+    },
+    "policyAttestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyIdField", "policyVersionField"],
+      "properties": {
+        "policyIdField": { "type": "string", "minLength": 1 },
+        "policyVersionField": { "type": "string", "minLength": 1 }
       }
     },
     "defaults": {

@@ -25,6 +25,8 @@ public @interface AnalyticsProjection {
 
     AnalyticsMetricBinding[] secondaryMetrics() default {};
 
+    AnalyticsPolicyReference[] policyRefs() default {};
+
     AnalyticsSort[] defaultSort() default {};
 
     int defaultLimit() default -1;
