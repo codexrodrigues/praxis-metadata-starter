@@ -790,6 +790,15 @@ responder tres perguntas:</p>
 <p><code>x-ui.optionSource</code> existe para responder essas perguntas
 de forma canonica, sem depender de contratos ad hoc espalhados entre
 backend e frontend.</p>
+<p>Quando uma source registrada nao corresponde a uma propriedade
+estrutural do DTO ou do filtro, o starter nao inventa um campo em
+<code>/schemas/filtered</code>. O catalogo registry-wide do resource
+owner e materializado em
+<code>/schemas/domain?resource={resourceKey}</code>, derivado do mesmo
+<code>OptionSourceRegistry</code>. Capabilities continuam indicando
+disponibilidade operacional e nao duplicam o descriptor. Detalhes
+privados de execucao, como <code>executionMode</code>, provider, SQL,
+datasource e contexto do host, permanecem fora dessas superficies.</p>
 <h2 id="exemplos-praticos-expandidos">Exemplos Praticos Expandidos</h2>
 <h3 id="exemplo-1-distinct_dimension-para-universo">Exemplo 1:
 <code>DISTINCT_DIMENSION</code> para <code>universo</code></h3>

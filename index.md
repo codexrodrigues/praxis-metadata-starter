@@ -61,7 +61,7 @@ Isso significa:
 
 - `/schemas/filtered` segue como contrato estrutural
 - `/schemas/catalog` segue como catalogo documental
-- `/schemas/domain` publica vocabulario, aliases, evidencias e governanca AI-operable
+- `/schemas/domain` publica vocabulario, aliases, evidencias, governanca AI-operable e option sources registry-wide que nao possuem campo estrutural correspondente
 - `/schemas/surfaces` e `/schemas/actions` publicam discovery semantico
 - `/{resource}/capabilities` agrega as capacidades do recurso sem redefinir o contrato estrutural
 - `/{resource}/capabilities` tambem publica `stats.fields` quando o service declara `StatsFieldRegistry` e habilita `StatsSupportMode`, permitindo que runtimes escolham dimensoes e metricas de charts antes de executar stats

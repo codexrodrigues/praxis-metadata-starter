@@ -550,6 +550,13 @@ Se um campo precisa mostrar opcoes dinamicas, a plataforma precisa responder tre
 `x-ui.optionSource` existe para responder essas perguntas de forma canonica, sem depender de
 contratos ad hoc espalhados entre backend e frontend.
 
+Quando uma source registrada nao corresponde a uma propriedade estrutural do DTO ou do filtro,
+o starter nao inventa um campo em `/schemas/filtered`. O catalogo registry-wide do resource owner
+e materializado em `/schemas/domain?resource={resourceKey}`, derivado do mesmo
+`OptionSourceRegistry`. Capabilities continuam indicando disponibilidade operacional e nao
+duplicam o descriptor. Detalhes privados de execucao, como `executionMode`, provider, SQL,
+datasource e contexto do host, permanecem fora dessas superficies.
+
 ## Exemplos Praticos Expandidos
 
 ### Exemplo 1: `DISTINCT_DIMENSION` para `universo`

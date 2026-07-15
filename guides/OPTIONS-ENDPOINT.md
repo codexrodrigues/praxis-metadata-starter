@@ -165,6 +165,34 @@ callback `onChange`, script local ou roteamento por nome de campo. Se a mudanca
 do campo aciona uma transicao real de negocio, publique uma operacao HTTP real
 e catalogue-a com `@WorkflowAction`.
 
+## Como descobrir catalogos amplos do resource owner
+
+`/schemas/filtered` continua estritamente estrutural: ele publica
+`properties.*.x-ui.optionSource` somente quando uma propriedade real do schema
+referencia a source. Um `OptionSourceRegistry` tambem pode hospedar um catalogo
+amplo com sources operacionais que nao correspondem a campos do DTO ou do
+`FilterDTO` do recurso. Nesse caso, Praxis nao cria propriedades sinteticas.
+
+Use a projecao semantica existente:
+
+```http
+GET /schemas/domain?resource={resourceKey}
+```
+
+Os nos `policy_hint` com binding `option_source` materializam os descriptors do
+resource owner, incluindo `key`, `type`, `resourcePath`, `dependsOn`,
+`dependencyFilterMap`, `filtering`, endpoints e politicas de reload/sort. O
+owner e resolvido pelo `resourceKey` canonico ja publicado por surfaces/actions
+para o mesmo `resourcePath`; a derivacao pelo path existe apenas como fallback
+para recursos legados.
+
+Filtros obrigatorios sao aqueles com
+`filtering.availableFilters[].required=true`. Nao publique um segundo array
+`requiredFilters`, pois ele duplicaria a mesma regra. `executionMode`, nome do
+provider, SQL, datasource e contexto privado do host tambem nao fazem parte da
+projecao publica. Capabilities informam que as operacoes de option source
+existem, mas nao duplicam o descriptor estrutural ou semantico.
+
 ## Como o Angular consome isso
 
 O `praxis-ui-angular` ja tem consumo explicito para `option-sources`.
