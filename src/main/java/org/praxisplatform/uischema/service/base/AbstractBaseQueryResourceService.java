@@ -17,6 +17,7 @@ import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.praxisplatform.uischema.options.OptionSourceEligibility;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.UnknownOptionSourceException;
+import org.praxisplatform.uischema.options.service.OptionSourceOperation;
 import org.praxisplatform.uischema.options.service.OptionSourceQueryExecutor;
 import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
 import org.praxisplatform.uischema.service.base.annotation.DefaultSortColumn;
@@ -338,7 +339,11 @@ public abstract class AbstractBaseQueryResourceService<
             throw new UnsupportedOperationException("Option source options not implemented: " + sourceKey);
         }
         OptionSourceDescriptor descriptor = resolveEffectiveOptionSource(sourceKey);
-        FilterDTO effectiveFilter = sanitizeFilter(request == null ? null : request.filter(), descriptor);
+        FilterDTO effectiveFilter = normalizeOptionSourceFilter(
+                descriptor,
+                OptionSourceOperation.FILTER,
+                sanitizeFilter(request == null ? null : request.filter(), descriptor)
+        );
         GenericSpecification<E> specification = effectiveFilter == null
                 ? null
                 : getSpecificationsBuilder().buildSpecification(effectiveFilter, pageable);
@@ -364,7 +369,19 @@ public abstract class AbstractBaseQueryResourceService<
             throw new UnsupportedOperationException("Option source by-ids not implemented: " + sourceKey);
         }
         OptionSourceDescriptor descriptor = resolveEffectiveOptionSource(sourceKey);
-        return optionSourceQueryExecutor.byIdsOptions(entityManager, entityClass, descriptor, ids);
+        FilterDTO effectiveFilter = normalizeOptionSourceFilter(descriptor, OptionSourceOperation.BY_IDS, null);
+        GenericSpecification<E> specification = effectiveFilter == null
+                ? null
+                : getSpecificationsBuilder().buildSpecification(effectiveFilter, Pageable.unpaged());
+        return optionSourceQueryExecutor.byIdsOptions(
+                entityManager,
+                entityClass,
+                specification == null ? null : specification.spec(),
+                effectiveFilter,
+                descriptor,
+                List.of(),
+                ids
+        );
     }
 
     @Override
@@ -388,7 +405,11 @@ public abstract class AbstractBaseQueryResourceService<
             throw new UnsupportedOperationException("Option source by-ids not implemented: " + sourceKey);
         }
         OptionSourceDescriptor descriptor = resolveEffectiveOptionSource(sourceKey);
-        FilterDTO effectiveFilter = sanitizeFilter(request == null ? null : request.filter(), descriptor);
+        FilterDTO effectiveFilter = normalizeOptionSourceFilter(
+                descriptor,
+                OptionSourceOperation.BY_IDS,
+                sanitizeFilter(request == null ? null : request.filter(), descriptor)
+        );
         GenericSpecification<E> specification = effectiveFilter == null
                 ? null
                 : getSpecificationsBuilder().buildSpecification(effectiveFilter, Pageable.unpaged());
@@ -716,6 +737,22 @@ public abstract class AbstractBaseQueryResourceService<
         } catch (ReflectiveOperationException ex) {
             throw new IllegalArgumentException("Option source filter could not be sanitized: " + descriptor.key(), ex);
         }
+    }
+
+    /**
+     * Applies resource-owned constraints to every execution path of a derived option source.
+     *
+     * <p>The option-source descriptor describes discovery and query capabilities, but it must not
+     * become the authority for row-level access. A resource with a principal-dependent scope can
+     * override this hook to intersect the supplied filter (or create one for GET by-ids) before
+     * the JPA specification is derived.</p>
+     */
+    protected FilterDTO normalizeOptionSourceFilter(
+            OptionSourceDescriptor descriptor,
+            OptionSourceOperation operation,
+            FilterDTO filter
+    ) {
+        return filter;
     }
 
     protected OptionSourceDescriptor resolveEffectiveOptionSource(String sourceKey) {
