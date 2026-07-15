@@ -335,6 +335,15 @@ semantica analitica canonica</li>
 serie heterogenea e eixo primario/secundario para charts combinados</li>
 <li><code>state</code>, <code>events</code> -&gt; estados e interacoes
 declarativas de plataforma</li>
+<li>x-ui.analytics
+<ul>
+<li><code>bindings.primaryDimension.keyFilterField</code> -&gt; campo
+publico exato do request que recebe <code>bucket.key</code>; obrigatorio
+quando <code>interactions.crossFilter=true</code></li>
+<li>consumidores confirmam tipo/cardinalidade pelo schema request
+canonico e nunca inferem o campo por label, sufixo ou property path
+interno</li>
+</ul></li>
 <li>x-ui.optionSource
 <ul>
 <li><code>key</code>, <code>type</code>, <code>resourcePath</code> -&gt;
