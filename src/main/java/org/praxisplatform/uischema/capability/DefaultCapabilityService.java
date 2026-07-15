@@ -181,6 +181,7 @@ public class DefaultCapabilityService implements CapabilityService {
                         resourcePath,
                         collectionSurfaces,
                         collectionActions,
+                        canonicalOperations,
                         collectionExportSupported,
                         collectionExportCapability
                 ),
@@ -258,7 +259,7 @@ public class DefaultCapabilityService implements CapabilityService {
                 group,
                 resourceId,
                 canonicalOperations,
-                resolveOperations(resourcePath, itemSurfaces, itemActions),
+                resolveOperations(resourcePath, itemSurfaces, itemActions, canonicalOperations),
                 itemSurfaces,
                 itemActions,
                 StatsCapability.from(
@@ -341,14 +342,7 @@ public class DefaultCapabilityService implements CapabilityService {
             String resourceKey,
             String resourcePath
     ) {
-        Map<String, CapabilityOperation> resolved = new LinkedHashMap<>();
-        operations.forEach((id, operation) -> {
-            AvailabilityDecision hostDecision = evaluateAvailability(
-                    ResourceOperationAvailabilityContext.collection(resourceKey, resourcePath, id)
-            );
-            resolved.put(id, operation.withAvailability(combineAvailability(operation.availability(), hostDecision)));
-        });
-        return Map.copyOf(resolved);
+        return applyAvailability(operations, resourceKey, resourcePath, null, null);
     }
 
     private Map<String, CapabilityOperation> applyItemAvailability(
@@ -358,10 +352,30 @@ public class DefaultCapabilityService implements CapabilityService {
             Object resourceId,
             ResourceStateSnapshot stateSnapshot
     ) {
+        return applyAvailability(operations, resourceKey, resourcePath, resourceId, stateSnapshot);
+    }
+
+    private Map<String, CapabilityOperation> applyAvailability(
+            Map<String, CapabilityOperation> operations,
+            String resourceKey,
+            String resourcePath,
+            Object resourceId,
+            ResourceStateSnapshot stateSnapshot
+    ) {
         Map<String, CapabilityOperation> resolved = new LinkedHashMap<>();
         operations.forEach((id, operation) -> {
+            boolean itemScoped = "ITEM".equalsIgnoreCase(operation.scope());
+            ResourceOperationAvailabilityContext context = new ResourceOperationAvailabilityContext(
+                    resourceKey,
+                    resourcePath,
+                    id,
+                    operation.scope(),
+                    itemScoped ? resourceId : null,
+                    itemScoped ? stateSnapshot : null,
+                    Map.of()
+            );
             AvailabilityDecision hostDecision = evaluateAvailability(
-                    ResourceOperationAvailabilityContext.item(resourceKey, resourcePath, id, resourceId, stateSnapshot)
+                    context
             );
             resolved.put(id, operation.withAvailability(combineAvailability(operation.availability(), hostDecision)));
         });
@@ -406,11 +420,12 @@ public class DefaultCapabilityService implements CapabilityService {
             String resourcePath,
             List<SurfaceCatalogItem> surfaces,
             List<ActionCatalogItem> actions,
+            Map<String, Boolean> canonicalOperations,
             boolean collectionExportSupported,
             CollectionExportCapability collectionExportCapability
     ) {
         Map<String, CapabilityOperation> operations = new LinkedHashMap<>(
-                resolveOperations(resourcePath, surfaces, actions)
+                resolveOperations(resourcePath, surfaces, actions, canonicalOperations)
         );
         operations.put("export", exportOperation(collectionExportSupported, collectionExportCapability));
         return Map.copyOf(operations);
@@ -419,11 +434,14 @@ public class DefaultCapabilityService implements CapabilityService {
     private Map<String, CapabilityOperation> resolveOperations(
             String resourcePath,
             List<SurfaceCatalogItem> surfaces,
-            List<ActionCatalogItem> actions
+            List<ActionCatalogItem> actions,
+            Map<String, Boolean> canonicalOperations
     ) {
         Map<String, CapabilityOperation> operations = new LinkedHashMap<>(
-                canonicalCapabilityResolver.resolveCrudOperations(resourcePath)
+                canonicalCapabilityResolver.resolveOperations(resourcePath)
         );
+
+        reconcileSupportedOperations(operations, canonicalOperations);
 
         operations.computeIfPresent("create", (id, operation) ->
                 enrichFromSurface(operation, findCreateSurface(surfaces))
@@ -438,6 +456,23 @@ public class DefaultCapabilityService implements CapabilityService {
                 enrichDeleteOperation(operation, surfaces, actions)
         );
         return Map.copyOf(operations);
+    }
+
+    private void reconcileSupportedOperations(
+            Map<String, CapabilityOperation> operations,
+            Map<String, Boolean> canonicalOperations
+    ) {
+        operations.replaceAll((id, operation) -> {
+            String canonicalId = switch (id) {
+                case "view" -> "byId";
+                case "edit" -> "update";
+                default -> id;
+            };
+            Boolean canonicalSupport = canonicalOperations.get(canonicalId);
+            return canonicalSupport == null
+                    ? operation
+                    : operation.withSupported(operation.supported() && canonicalSupport);
+        });
     }
 
     private CapabilityOperation exportOperation(

@@ -21,8 +21,11 @@ import org.praxisplatform.uischema.surface.SurfaceKind;
 import org.praxisplatform.uischema.surface.SurfaceResponseCardinality;
 import org.praxisplatform.uischema.surface.SurfaceScope;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -221,6 +224,9 @@ class CapabilityServiceTest {
         assertFalse(snapshot.canonicalOperations().get("statsGroupBy"));
         assertFalse(snapshot.canonicalOperations().get("statsTimeSeries"));
         assertFalse(snapshot.canonicalOperations().get("statsDistribution"));
+        assertFalse(snapshot.operations().get("statsGroupBy").supported());
+        assertFalse(snapshot.operations().get("statsTimeSeries").supported());
+        assertFalse(snapshot.operations().get("statsDistribution").supported());
         assertTrue(snapshot.stats().fields().isEmpty());
     }
 
@@ -518,6 +524,97 @@ class CapabilityServiceTest {
     }
 
     @Test
+    void resourceOperationAvailabilityProviderGovernsQueryAndStatsWithStableIds() {
+        List<ResourceOperationAvailabilityContext> evaluated = new ArrayList<>();
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of(
+                        "filter", true,
+                        "cursor", true,
+                        "statsGroupBy", true,
+                        "statsTimeSeries", true,
+                        "statsComparison", true
+                )),
+                emptySurfaceCatalogService(),
+                emptyActionCatalogService(),
+                new StaticOpenApiDocumentService("human-resources"),
+                context -> {
+                    evaluated.add(context);
+                    if ("filter".equals(context.operationId()) || "cursor".equals(context.operationId())) {
+                        return AvailabilityDecision.deny("missing-authority", Map.of("policy", "analytics-access"));
+                    }
+                    return AvailabilityDecision.allow(Map.of("policy", "analytics-access"));
+                },
+                (resourceKey, resourceId) -> java.util.Optional.empty()
+        );
+
+        CapabilitySnapshot snapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                false,
+                null,
+                StatsFieldRegistry.builder()
+                        .categoricalGroupByBucket("status", "status")
+                        .temporalTimeSeriesField("admissionDate", "admissionDate")
+                        .build(),
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.AUTO
+        );
+
+        assertFalse(snapshot.operations().get("filter").availability().allowed());
+        assertFalse(snapshot.operations().get("cursor").availability().allowed());
+        assertTrue(snapshot.operations().get("statsComparison").supported());
+        assertTrue(snapshot.operations().get("statsComparison").availability().allowed());
+        assertEquals(
+                Set.of("filter", "cursor", "statsComparison"),
+                evaluated.stream()
+                        .filter(context -> List.of("filter", "cursor", "statsComparison").contains(context.operationId()))
+                        .map(ResourceOperationAvailabilityContext::operationId)
+                        .collect(java.util.stream.Collectors.toSet())
+        );
+        evaluated.stream()
+                .filter(context -> List.of("filter", "cursor", "statsComparison").contains(context.operationId()))
+                .forEach(context -> {
+                    assertEquals("COLLECTION", context.scope());
+                    assertEquals(null, context.resourceId());
+                });
+    }
+
+    @Test
+    void itemSnapshotEvaluatesEachOperationUsingItsOwnScope() {
+        List<ResourceOperationAvailabilityContext> evaluated = new ArrayList<>();
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of("byId", true, "update", true, "filter", true)),
+                emptySurfaceCatalogService(),
+                emptyActionCatalogService(),
+                new StaticOpenApiDocumentService("human-resources"),
+                context -> {
+                    evaluated.add(context);
+                    return AvailabilityDecision.allowAll();
+                },
+                (resourceKey, resourceId) -> java.util.Optional.of(ResourceStateSnapshot.of("ACTIVE"))
+        );
+
+        service.itemCapabilities("human-resources.employees", "/employees", 42L);
+
+        ResourceOperationAvailabilityContext filter = evaluated.stream()
+                .filter(context -> "filter".equals(context.operationId()))
+                .findFirst()
+                .orElseThrow();
+        ResourceOperationAvailabilityContext edit = evaluated.stream()
+                .filter(context -> "edit".equals(context.operationId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("COLLECTION", filter.scope());
+        assertEquals(null, filter.resourceId());
+        assertEquals(null, filter.resourceState());
+        assertEquals("ITEM", edit.scope());
+        assertEquals(42L, edit.resourceId());
+        assertEquals("ACTIVE", edit.resourceState().state());
+    }
+
+    @Test
     void resourceOperationAvailabilityProviderErrorsFailClosed() {
         CapabilityService service = new DefaultCapabilityService(
                 new StaticCanonicalCapabilityResolver(Map.of("create", true)),
@@ -678,6 +775,44 @@ class CapabilityServiceTest {
         @Override
         public Map<String, CapabilityOperation> resolveCrudOperations(com.fasterxml.jackson.databind.JsonNode openApiDocument, String resourcePath) {
             return resolveCrudOperations(resourcePath);
+        }
+
+        @Override
+        public Map<String, CapabilityOperation> resolveOperations(String resourcePath) {
+            Map<String, CapabilityOperation> operations = new LinkedHashMap<>(resolveCrudOperations(resourcePath));
+            operations.put("byId", operation("byId", "ITEM", "GET", "self"));
+            operations.put("update", operation("update", "ITEM", "PUT", "update"));
+            operations.put("all", operation("all", "COLLECTION", "GET", "all"));
+            operations.put("filter", operation("filter", "COLLECTION", "POST", "filter"));
+            operations.put("cursor", operation("cursor", "COLLECTION", "POST", "filter-cursor"));
+            operations.put("options", operation("options", "COLLECTION", "POST", "options"));
+            operations.put("optionSources", operation("optionSources", "COLLECTION", "POST", "option-sources"));
+            operations.put("export", operation("export", "COLLECTION", "POST", "export"));
+            operations.put("statsGroupBy", operation("statsGroupBy", "COLLECTION", "POST", "stats-group-by"));
+            operations.put("statsTimeSeries", operation("statsTimeSeries", "COLLECTION", "POST", "stats-timeseries"));
+            operations.put("statsDistribution", operation("statsDistribution", "COLLECTION", "POST", "stats-distribution"));
+            operations.put("statsComparison", operation("statsComparison", "COLLECTION", "POST", "stats-comparison"));
+            return Map.copyOf(operations);
+        }
+
+        @Override
+        public Map<String, CapabilityOperation> resolveOperations(
+                com.fasterxml.jackson.databind.JsonNode openApiDocument,
+                String resourcePath
+        ) {
+            return resolveOperations(resourcePath);
+        }
+
+        private CapabilityOperation operation(String id, String scope, String method, String rel) {
+            boolean supported = capabilities.getOrDefault(id, false);
+            return new CapabilityOperation(
+                    id,
+                    supported,
+                    scope,
+                    supported ? method : null,
+                    rel,
+                    AvailabilityDecision.allowAll()
+            );
         }
     }
 }

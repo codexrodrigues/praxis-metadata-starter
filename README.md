@@ -244,7 +244,7 @@ Shape esperado por operacao:
 - `preferredRel`
 - `availability`
 
-Operacoes canonicas esperadas:
+Affordances canonicas preservadas para runtimes CRUD:
 
 - `create`
 - `view`
@@ -252,15 +252,30 @@ Operacoes canonicas esperadas:
 - `delete`
 - `duplicate-draft`, quando o recurso publicar suporte explicito para preparar rascunho editavel sem persistir dados
 
+Operacoes executaveis publicadas adicionalmente pelo resolver OpenAPI:
+
+- `byId` e `update`, como operacoes HTTP canonicas correspondentes a `view` e `edit`
+- `all`, `filter` e `cursor`
+- `options` e `optionSources`
+- `statsGroupBy`, `statsTimeSeries`, `statsDistribution` e `statsComparison`
+- `export`, governado pelo opt-in real do service e nao apenas pela presenca do mapping base
+
+`filterExpression` permanece uma capability estrutural em `canonicalOperations`: ela nao vira
+`CapabilityOperation` enquanto nao existir um endpoint executavel proprio. Novas chaves de
+`operations` sao aditivas; consumidores devem preservar IDs desconhecidos em vez de validar um
+conjunto fechado.
+
 Papel de cada camada:
 
-- `capabilities.operations` governa se a operacao existe agora e como ela deve ser tratada semanticamente
+- `canonicalOperations` informa presenca/suporte estrutural e nunca deve ser usado como autorizacao
+- `capabilities.operations` combina suporte estrutural com availability atual por principal/contexto
 - `capabilities.stats.fields` governa quais dimensoes e metricas estatisticas podem alimentar charts reais quando o service tambem habilita `StatsSupportMode`
 - `/schemas/filtered` continua sendo a fonte estrutural de request/response schema
 - `surfaces` e `actions` continuam sendo discovery semantico rico quando publicados
 - `_links` entram como camada operacional/contextual para escolher o target real de execucao
 - actions devem apontar para request/response schema canonicos; respostas HATEOAS de actions devem manter esses links quando houver contrato estrutural associado
 - `ResourceOperationAvailabilityProvider` permite ao host aplicar disponibilidade dinamica de operacoes canonicas sem vazar guards legados, tenant, sessao ou permissao privada
+- `SecurityFilterChain` continua sendo a barreira executavel; availability e discovery governado e nao substitui enforcement
 
 Para adocao corporativa, use
 [`docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md`](docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md).

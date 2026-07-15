@@ -402,7 +402,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         Page<RestApiResource<ResponseDTO>> entityModels = result.map(this::toResourceModel);
 
         List<Link> links = new ArrayList<>();
-        links.add(linkToAll());
+        addCollectionOperationLink(links, "all", linkToAll());
         links.add(linkToUiSchema("/filter", "post", "request"));
         links.add(linkToUiSchema("/filter", "post", "response"));
         links.addAll(buildCollectionActionLinks());
@@ -446,7 +446,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         );
 
         List<Link> links = new ArrayList<>();
-        links.add(linkToAll());
+        addCollectionOperationLink(links, "all", linkToAll());
         links.add(linkToUiSchema("/filter/cursor", "post", "request"));
         links.add(linkToUiSchema("/filter/cursor", "post", "response"));
         links.addAll(buildCollectionActionLinks());
@@ -518,12 +518,11 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     ) {
         try {
             GroupByStatsResponse result = getService().groupByStats(request);
-            Links links = Links.of(
-                    linkToFilter(),
-                    linkToUiSchema("/stats/group-by", "post", "request"),
-                    linkToUiSchema("/stats/group-by", "post", "response")
-            );
-            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(links)));
+            List<Link> links = new ArrayList<>();
+            addCollectionOperationLink(links, "filter", linkToFilter());
+            links.add(linkToUiSchema("/stats/group-by", "post", "request"));
+            links.add(linkToUiSchema("/stats/group-by", "post", "response"));
+            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         } catch (UnsupportedOperationException ex) {
@@ -547,12 +546,11 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     ) {
         try {
             ComparisonStatsResponse result = getService().comparisonStats(request);
-            Links links = Links.of(
-                    linkToFilter(),
-                    linkToUiSchema("/stats/comparison", "post", "request"),
-                    linkToUiSchema("/stats/comparison", "post", "response")
-            );
-            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(links)));
+            List<Link> links = new ArrayList<>();
+            addCollectionOperationLink(links, "filter", linkToFilter());
+            links.add(linkToUiSchema("/stats/comparison", "post", "request"));
+            links.add(linkToUiSchema("/stats/comparison", "post", "response"));
+            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         } catch (UnsupportedOperationException ex) {
@@ -598,12 +596,11 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     ) {
         try {
             TimeSeriesStatsResponse result = getService().timeSeriesStats(request);
-            Links links = Links.of(
-                    linkToFilter(),
-                    linkToUiSchema("/stats/timeseries", "post", "request"),
-                    linkToUiSchema("/stats/timeseries", "post", "response")
-            );
-            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(links)));
+            List<Link> links = new ArrayList<>();
+            addCollectionOperationLink(links, "filter", linkToFilter());
+            links.add(linkToUiSchema("/stats/timeseries", "post", "request"));
+            links.add(linkToUiSchema("/stats/timeseries", "post", "response"));
+            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         } catch (UnsupportedOperationException ex) {
@@ -649,12 +646,11 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     ) {
         try {
             DistributionStatsResponse result = getService().distributionStats(request);
-            Links links = Links.of(
-                    linkToAll(),
-                    linkToUiSchema("/stats/distribution", "post", "request"),
-                    linkToUiSchema("/stats/distribution", "post", "response")
-            );
-            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(links)));
+            List<Link> links = new ArrayList<>();
+            addCollectionOperationLink(links, "all", linkToAll());
+            links.add(linkToUiSchema("/stats/distribution", "post", "request"));
+            links.add(linkToUiSchema("/stats/distribution", "post", "response"));
+            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         } catch (UnsupportedOperationException ex) {
@@ -719,8 +715,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 .toList();
 
         List<Link> links = new ArrayList<>();
-        links.add(linkToFilter());
-        links.add(linkToFilterCursor());
+        addCollectionOperationLink(links, "filter", linkToFilter());
+        addCollectionOperationLink(links, "cursor", linkToFilterCursor());
         links.add(linkToUiSchema("/all", "get", "response"));
         links.addAll(buildCollectionActionLinks());
         links.addAll(buildCollectionDiscoveryLinks());
@@ -1268,6 +1264,12 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     protected Link linkToExport() {
         return Link.of(resourcePath("export"), "export");
+    }
+
+    protected void addCollectionOperationLink(List<Link> links, String operationId, Link link) {
+        if (isCollectionOperationAvailable(operationId)) {
+            links.add(link);
+        }
     }
 
     protected boolean isCollectionOperationAvailable(String operationId) {

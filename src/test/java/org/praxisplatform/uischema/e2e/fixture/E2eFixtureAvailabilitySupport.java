@@ -50,10 +50,27 @@ class EmployeeSurfaceStateSnapshotProvider implements ResourceStateSnapshotProvi
 @Component
 class EmployeeResourceOperationAvailabilityProvider implements ResourceOperationAvailabilityProvider {
 
+    private static final String AGGREGATE_AUTHORITY = "employee:analytics:aggregate";
+    private static final String NOMINAL_AUTHORITY = "employee:analytics:nominal";
+
+    private final HttpServletRequest request;
+
+    EmployeeResourceOperationAvailabilityProvider(HttpServletRequest request) {
+        this.request = request;
+    }
+
     @Override
     public AvailabilityDecision evaluate(ResourceOperationAvailabilityContext context) {
         if (!"human-resources.employees".equals(context.resourceKey())) {
             return AvailabilityDecision.allowAll();
+        }
+        if (request.getUserPrincipal() != null) {
+            if ("filter".equals(context.operationId()) || "cursor".equals(context.operationId())) {
+                return requireAuthority(context.operationId(), NOMINAL_AUTHORITY, "nominal");
+            }
+            if ("statsComparison".equals(context.operationId())) {
+                return requireAuthority(context.operationId(), AGGREGATE_AUTHORITY, "aggregate");
+            }
         }
         if (!"delete".equals(context.operationId()) || context.resourceState() == null) {
             return AvailabilityDecision.allow(Map.of(
@@ -74,6 +91,21 @@ class EmployeeResourceOperationAvailabilityProvider implements ResourceOperation
                 "publicReason", "Employees on leave cannot be deleted.",
                 "blockedOperation", "delete",
                 "resourceState", context.resourceState().state()
+        ));
+    }
+
+    private AvailabilityDecision requireAuthority(String operationId, String authority, String accessClass) {
+        if (request.isUserInRole(authority)) {
+            return AvailabilityDecision.allow(Map.of(
+                    "accessClass", accessClass,
+                    "policy", "employee-analytics-access"
+            ));
+        }
+        return AvailabilityDecision.deny("missing-authority", Map.of(
+                "blockedOperation", operationId,
+                "missingAuthorities", List.of(authority),
+                "policy", "employee-analytics-access",
+                "requiredAuthorities", List.of(authority)
         ));
     }
 }

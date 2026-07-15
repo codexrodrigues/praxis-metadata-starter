@@ -61,6 +61,9 @@ class OpenApiCanonicalCapabilityResolverTest {
                     "/employees/stats/distribution": {
                       "post": {}
                     },
+                    "/employees/stats/comparison": {
+                      "post": {}
+                    },
                     "/employees/batch": {
                       "delete": {}
                     },
@@ -95,6 +98,7 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertEquals(Boolean.TRUE, capabilities.get("statsGroupBy"));
         assertEquals(Boolean.TRUE, capabilities.get("statsTimeSeries"));
         assertEquals(Boolean.TRUE, capabilities.get("statsDistribution"));
+        assertEquals(Boolean.TRUE, capabilities.get("statsComparison"));
 
         Map<String, CapabilityOperation> operations = resolver.resolveCrudOperations(document, "/employees/");
         assertTrue(operations.get("create").supported());
@@ -107,6 +111,20 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertEquals("DELETE", operations.get("delete").preferredMethod());
         assertTrue(operations.get("duplicate-draft").supported());
         assertEquals("POST", operations.get("duplicate-draft").preferredMethod());
+
+        Map<String, CapabilityOperation> allOperations = resolver.resolveOperations(document, "/employees/");
+        assertOperation(allOperations, "byId", true, "ITEM", "GET", "self");
+        assertOperation(allOperations, "update", true, "ITEM", "PATCH", "update");
+        assertOperation(allOperations, "all", true, "COLLECTION", "GET", "all");
+        assertOperation(allOperations, "filter", true, "COLLECTION", "POST", "filter");
+        assertOperation(allOperations, "cursor", true, "COLLECTION", "POST", "filter-cursor");
+        assertOperation(allOperations, "options", true, "COLLECTION", "POST", "options");
+        assertOperation(allOperations, "optionSources", true, "COLLECTION", "POST", "option-sources");
+        assertOperation(allOperations, "export", false, "COLLECTION", null, "export");
+        assertOperation(allOperations, "statsGroupBy", true, "COLLECTION", "POST", "stats-group-by");
+        assertOperation(allOperations, "statsTimeSeries", true, "COLLECTION", "POST", "stats-timeseries");
+        assertOperation(allOperations, "statsDistribution", true, "COLLECTION", "POST", "stats-distribution");
+        assertOperation(allOperations, "statsComparison", true, "COLLECTION", "POST", "stats-comparison");
     }
 
     @Test
@@ -148,6 +166,7 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertFalse(capabilities.get("statsGroupBy"));
         assertFalse(capabilities.get("statsTimeSeries"));
         assertFalse(capabilities.get("statsDistribution"));
+        assertFalse(capabilities.get("statsComparison"));
 
         Map<String, CapabilityOperation> operations = resolver.resolveCrudOperations(document, "/payroll-view");
         assertFalse(operations.get("create").supported());
@@ -155,6 +174,12 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertFalse(operations.get("edit").supported());
         assertFalse(operations.get("delete").supported());
         assertFalse(operations.get("duplicate-draft").supported());
+
+        Map<String, CapabilityOperation> allOperations = resolver.resolveOperations(document, "/payroll-view");
+        assertOperation(allOperations, "byId", true, "ITEM", "GET", "self");
+        assertOperation(allOperations, "all", true, "COLLECTION", "GET", "all");
+        assertOperation(allOperations, "filter", true, "COLLECTION", "POST", "filter");
+        assertOperation(allOperations, "cursor", false, "COLLECTION", null, "filter-cursor");
     }
 
     @Test
@@ -304,6 +329,22 @@ class OpenApiCanonicalCapabilityResolverTest {
         CapabilityOperation delete = resolver.resolveCrudOperations(document, "/codigos-frequencia").get("delete");
         assertFalse(delete.supported());
         assertNull(delete.preferredMethod());
+    }
+
+    private void assertOperation(
+            Map<String, CapabilityOperation> operations,
+            String id,
+            boolean supported,
+            String scope,
+            String preferredMethod,
+            String preferredRel
+    ) {
+        CapabilityOperation operation = operations.get(id);
+        assertEquals(supported, operation.supported());
+        assertEquals(scope, operation.scope());
+        assertEquals(preferredMethod, operation.preferredMethod());
+        assertEquals(preferredRel, operation.preferredRel());
+        assertTrue(operation.availability().allowed());
     }
 
     private record StaticOpenApiDocumentService(String group, JsonNode document) implements OpenApiDocumentService {
