@@ -40,4 +40,9 @@ public @interface AnalyticsProjection {
     boolean pointSelection() default false;
 
     boolean crossFilter() default false;
+
+    AnalyticsRecordOpen recordOpen() default @AnalyticsRecordOpen(
+            sourceIdentityField = "",
+            target = @AnalyticsSurfaceTarget(resourceKey = "", surfaceId = "")
+    );
 }

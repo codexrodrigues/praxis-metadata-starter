@@ -18,6 +18,12 @@ All notable changes to this module will be documented in this file.
   `controllerEndpointHandlerMapping`.
 
 ### Added
+- `@AnalyticsRecordOpen`, `@AnalyticsSurfaceTarget` e
+  `x-ui.analytics.projections[].interactions.recordOpen` para ligar o campo
+  publico de identidade de uma linha nominal a uma surface ITEM cross-resource.
+  O contrato publica somente `sourceIdentityField`, `resourceKey` e `surfaceId`;
+  catalogo, availability, enforcement e materializacao de `surface.open`
+  permanecem em suas fontes canonicas.
 - `@AnalyticsDimensionBinding.keyFilterField` e
   `x-ui.analytics.projections[].bindings.primaryDimension.keyFilterField` para
   vincular `bucket.key` ao campo publico exato do request de filtro. Projections

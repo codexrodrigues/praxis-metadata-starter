@@ -8,7 +8,9 @@ import org.praxisplatform.uischema.annotation.AnalyticsOperation;
 import org.praxisplatform.uischema.annotation.AnalyticsPolicyReference;
 import org.praxisplatform.uischema.annotation.AnalyticsProjection;
 import org.praxisplatform.uischema.annotation.AnalyticsPresentationFamily;
+import org.praxisplatform.uischema.annotation.AnalyticsRecordOpen;
 import org.praxisplatform.uischema.annotation.AnalyticsSort;
+import org.praxisplatform.uischema.annotation.AnalyticsSurfaceTarget;
 import org.praxisplatform.uischema.annotation.UiAnalytics;
 
 import java.util.ArrayList;
@@ -268,6 +270,36 @@ public class UiAnalyticsAnnotationMapper {
         if (projection.crossFilter()) {
             interactions.put("crossFilter", true);
         }
+        Map<String, Object> recordOpen = buildRecordOpen(projection.recordOpen());
+        if (!recordOpen.isEmpty()) {
+            interactions.put("recordOpen", recordOpen);
+        }
         return interactions;
+    }
+
+    private Map<String, Object> buildRecordOpen(AnalyticsRecordOpen recordOpen) {
+        if (recordOpen == null) {
+            return Map.of();
+        }
+        AnalyticsSurfaceTarget target = recordOpen.target();
+        String sourceIdentityField = recordOpen.sourceIdentityField().trim();
+        String resourceKey = target == null ? "" : target.resourceKey().trim();
+        String surfaceId = target == null ? "" : target.surfaceId().trim();
+        boolean declared = !sourceIdentityField.isEmpty() || !resourceKey.isEmpty() || !surfaceId.isEmpty();
+        if (!declared) {
+            return Map.of();
+        }
+        if (sourceIdentityField.isEmpty() || resourceKey.isEmpty() || surfaceId.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Analytics recordOpen requires sourceIdentityField, target.resourceKey and target.surfaceId.");
+        }
+
+        Map<String, Object> targetReference = new LinkedHashMap<>();
+        targetReference.put("resourceKey", resourceKey);
+        targetReference.put("surfaceId", surfaceId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("sourceIdentityField", sourceIdentityField);
+        result.put("target", targetReference);
+        return result;
     }
 }

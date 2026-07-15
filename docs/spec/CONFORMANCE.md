@@ -77,6 +77,9 @@
 - x-ui.analytics
   - `bindings.primaryDimension.keyFilterField` -> campo publico exato do request que recebe `bucket.key`; obrigatorio quando `interactions.crossFilter=true`
   - consumidores confirmam tipo/cardinalidade pelo schema request canonico e nunca inferem o campo por label, sufixo ou property path interno
+  - `interactions.recordOpen.sourceIdentityField` -> campo publico da linha nominal cujo valor identifica o recurso alvo
+  - `interactions.recordOpen.target` -> somente `resourceKey + surfaceId`; path, schema, scope e availability sao resolvidos em `/schemas/surfaces`
+  - `drillDown=true` isolado nao autoriza inventar target, `${item.id}` ou payload de `surface.open`
 - x-ui.optionSource
   - `key`, `type`, `resourcePath` -> identidade minima da fonte derivada
   - `dependsOn`, `dependencyFilterMap`, `excludeSelfField` -> cascata, mapeamento dependencia -> filtro e remocao do proprio predicado

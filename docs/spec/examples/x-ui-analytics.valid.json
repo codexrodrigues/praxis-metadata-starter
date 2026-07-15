@@ -17,7 +17,7 @@
         },
         "primaryMetrics": [
           {
-            "field": "matricula",
+            "field": "funcionarioId",
             "aggregation": "distinct-count",
             "label": "Colaboradores distintos"
           }
@@ -50,9 +50,15 @@
         "preferredFamilies": ["analytic-table", "chart"]
       },
       "interactions": {
-        "drillDown": true,
         "pointSelection": false,
-        "crossFilter": true
+        "crossFilter": true,
+        "recordOpen": {
+          "sourceIdentityField": "funcionarioId",
+          "target": {
+            "resourceKey": "human-resources.funcionarios",
+            "surfaceId": "hero-profile"
+          }
+        }
       }
     }
   ]
