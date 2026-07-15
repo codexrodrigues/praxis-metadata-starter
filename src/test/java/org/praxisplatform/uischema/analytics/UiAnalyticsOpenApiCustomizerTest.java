@@ -14,8 +14,10 @@ import org.praxisplatform.uischema.annotation.AnalyticsOperation;
 import org.praxisplatform.uischema.annotation.AnalyticsPolicyReference;
 import org.praxisplatform.uischema.annotation.AnalyticsPresentationFamily;
 import org.praxisplatform.uischema.annotation.AnalyticsProjection;
+import org.praxisplatform.uischema.annotation.AnalyticsRecordOpen;
 import org.praxisplatform.uischema.annotation.AnalyticsSort;
 import org.praxisplatform.uischema.annotation.AnalyticsSortDirection;
+import org.praxisplatform.uischema.annotation.AnalyticsSurfaceTarget;
 import org.praxisplatform.uischema.annotation.UiAnalytics;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
@@ -222,6 +224,42 @@ class UiAnalyticsOpenApiCustomizerTest {
                 () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(annotation, "/reports/stats/group-by"));
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void mapsNominalRecordIdentityToCrossResourceSurfaceReference() throws Exception {
+        UiAnalytics annotation = RecordOpenController.class.getDeclaredMethod("groupBy")
+                .getAnnotation(UiAnalytics.class);
+
+        Map<String, Object> analytics = new UiAnalyticsAnnotationMapper()
+                .toXUiAnalytics(annotation, "/reports/stats/group-by");
+        Map<String, Object> projection = ((java.util.List<Map<String, Object>>) analytics.get("projections")).get(0);
+        Map<String, Object> interactions = (Map<String, Object>) projection.get("interactions");
+        Map<String, Object> recordOpen = (Map<String, Object>) interactions.get("recordOpen");
+        Map<String, Object> target = (Map<String, Object>) recordOpen.get("target");
+
+        assertEquals("employeeId", recordOpen.get("sourceIdentityField"));
+        assertEquals("human-resources.employees", target.get("resourceKey"));
+        assertEquals("employee-360", target.get("surfaceId"));
+        assertFalse(target.containsKey("path"));
+        assertFalse(target.containsKey("schemaUrl"));
+        assertFalse(recordOpen.containsKey("widget"));
+        assertFalse(recordOpen.containsKey("presentation"));
+    }
+
+    @Test
+    void rejectsPartialRecordOpenReference() throws Exception {
+        UiAnalytics annotation = InvalidRecordOpenController.class.getDeclaredMethod("groupBy")
+                .getAnnotation(UiAnalytics.class);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(annotation, "/reports/stats/group-by"));
+
+        assertEquals(
+                "Analytics recordOpen requires sourceIdentityField, target.resourceKey and target.surfaceId.",
+                error.getMessage()
+        );
+    }
+
     static class SampleController {
 
         @PostMapping("/reports/stats/group-by")
@@ -309,6 +347,52 @@ class UiAnalyticsOpenApiCustomizerTest {
                                 keyFilterField = " "
                         ),
                         primaryMetrics = @AnalyticsMetricBinding(field = "total", aggregation = "sum")
+                )
+        )
+        public void groupBy() {
+        }
+    }
+
+    static class RecordOpenController {
+
+        @PostMapping("/reports/stats/group-by")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "department-record-open",
+                        intent = AnalyticsIntent.RANKING,
+                        sourceOperation = AnalyticsOperation.GROUP_BY,
+                        primaryDimension = @AnalyticsDimensionBinding(field = "department"),
+                        primaryMetrics = @AnalyticsMetricBinding(field = "total", aggregation = "sum"),
+                        recordOpen = @AnalyticsRecordOpen(
+                                sourceIdentityField = "employeeId",
+                                target = @AnalyticsSurfaceTarget(
+                                        resourceKey = "human-resources.employees",
+                                        surfaceId = "employee-360"
+                                )
+                        )
+                )
+        )
+        public void groupBy() {
+        }
+    }
+
+    static class InvalidRecordOpenController {
+
+        @PostMapping("/reports/stats/group-by")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "invalid-record-open",
+                        intent = AnalyticsIntent.RANKING,
+                        sourceOperation = AnalyticsOperation.GROUP_BY,
+                        primaryDimension = @AnalyticsDimensionBinding(field = "department"),
+                        primaryMetrics = @AnalyticsMetricBinding(field = "total", aggregation = "sum"),
+                        recordOpen = @AnalyticsRecordOpen(
+                                sourceIdentityField = "employeeId",
+                                target = @AnalyticsSurfaceTarget(
+                                        resourceKey = "human-resources.employees",
+                                        surfaceId = " "
+                                )
+                        )
                 )
         )
         public void groupBy() {

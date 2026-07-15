@@ -158,6 +158,14 @@ internos e elimina inferencias por label, sufixo ou nome parecido. Consumidores
 devem confirmar tipo e cardinalidade no schema request de `/schemas/filtered`
 antes de executar o filtro; projection sem o binding falha fechado na publicacao.
 
+Quando uma linha nominal da projection deve abrir uma surface de outro recurso,
+`interactions.recordOpen` publica `sourceIdentityField` e a referencia estavel
+`target.resourceKey + target.surfaceId`. O consumidor resolve a surface real em
+`/schemas/surfaces`, confirma scope e availability e passa o valor do campo como
+`resourceId` ao adapter canonico. O bloco nao publica URL, widget, presentation
+nem permissao; `drillDown=true` isolado nunca autoriza inferir target ou usar
+`${item.id}`.
+
 Para `POST /{resource}/stats/comparison`, o host tambem deve manter limites
 operacionais explicitos: `praxis.stats.max-comparison-candidates` limita a
 cardinalidade de grupos lida em cada janela (padrao `1000`) e

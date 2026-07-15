@@ -3,7 +3,7 @@
 ## Status
 
 - estado: `draft`
-- versao proposta: `0.4.0`
+- versao proposta: `0.5.0`
 - classe: `contrato-publico`
 
 ## Objetivo
@@ -76,9 +76,15 @@ uma unica leitura editorial.
             "preferredFamilies": ["analytic-table", "chart"]
           },
           "interactions": {
-            "drillDown": true,
             "pointSelection": false,
-            "crossFilter": true
+            "crossFilter": true,
+            "recordOpen": {
+              "sourceIdentityField": "funcionarioId",
+              "target": {
+                "resourceKey": "human-resources.funcionarios",
+                "surfaceId": "hero-profile"
+              }
+            }
           }
         }
       ]
@@ -153,14 +159,44 @@ ler linhas para descobrir a policy e sem copiar sua logica para configuracao.
 `bindings.primaryDimension.keyFilterField` referencia o campo publico do request
 de filtro que recebe a identidade preservada em `bucket.key`. Ele nao e um
 property path de entidade e nao pode ser derivado de `field`, `label`, aliases ou
-sufixos. O destino da composicao continua pertencendo ao link/widget que recebe o
-evento; a projection nao duplica `resourceKey` ou path do target.
+sufixos. O destino da lista filtrada continua pertencendo a composicao; esse
+binding nao redefine resource, URL ou widget do cross-filter.
 
 Quando `interactions.crossFilter=true`, o binding e obrigatorio. O consumidor
 deve validar o campo e sua cardinalidade no schema request canonico obtido por
 `/schemas/filtered` antes de executar. Uma key escalar pode precisar ser
 materializada como array quando o campo publico do target for multivalorado; o
 schema, e nao uma convencao de nome, governa essa adaptacao.
+
+## Abertura de registro em surface cross-resource
+
+`interactions.recordOpen` declara a decisao de abrir uma linha nominal em uma
+surface ITEM de outro recurso:
+
+```json
+{
+  "recordOpen": {
+    "sourceIdentityField": "funcionarioId",
+    "target": {
+      "resourceKey": "human-resources.funcionarios",
+      "surfaceId": "hero-profile"
+    }
+  }
+}
+```
+
+`sourceIdentityField` e um campo publico do registro nominal da projection. Seu
+valor e o `resourceId` do recurso alvo. `target` publica somente identidades
+semanticas estaveis; path, schema, scope, presentation e availability devem ser
+resolvidos no item real de `/schemas/surfaces?resource={resourceKey}`.
+
+O binding nao implica que um bucket agregado contenha a identidade nominal. Em
+uma projection com cross-filter, o fluxo executavel e bucket -> lista filtrada ->
+linha nominal -> surface. `drillDown=true` sem `recordOpen` nao autoriza o
+consumidor a inventar target, usar `item.id` ou montar payload de `surface.open`.
+
+A referencia tambem nao concede acesso. Capabilities/availability orientam a
+materializacao e o endpoint continua responsavel pelo enforcement executavel.
 
 ## Regras
 
@@ -176,6 +212,15 @@ schema, e nao uma convencao de nome, governa essa adaptacao.
   `bucket.key` sem reescrever tipo ou substituir pelo label
 - `MUST NOT`: publicar `keyPropertyPath`, `labelPropertyPath` ou outro path interno
   de entidade como binding de filtro
+- `MUST`: `recordOpen`, quando publicado, declarar `sourceIdentityField`,
+  `target.resourceKey` e `target.surfaceId`
+- `MUST`: resolver o target pelo catalogo canonico de surfaces e exigir scope ITEM
+- `MUST NOT`: publicar path, schema, widget, presentation, payload de action ou
+  availability dentro de `recordOpen`
+- `MUST NOT`: tratar `recordOpen` como autorizacao ou abrir uma surface nominal
+  quando a operacao de lista estiver indisponivel para o principal
+- `MUST NOT`: derivar target ou identity field de `drillDown`, nome, label, sufixo,
+  URL ou `${item.id}`
 - `MUST`: `comparisonPeriod` declarar `field`, `timezone`, `preset` e `mode`, usando os mesmos enums
   do request HTTP de comparison; o runtime pode oferecer intervalo customizado, mas nao deve trocar
   silenciosamente os defaults publicados

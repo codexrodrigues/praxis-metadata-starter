@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://praxis.dev/spec/x-ui-analytics.schema.json",
-  "title": "x-ui.analytics - 0.4.0",
+  "title": "x-ui.analytics - 0.5.0",
   "type": "object",
   "additionalProperties": false,
   "required": ["projections"],
@@ -193,7 +193,26 @@
       "properties": {
         "drillDown": { "type": "boolean" },
         "pointSelection": { "type": "boolean" },
-        "crossFilter": { "type": "boolean" }
+        "crossFilter": { "type": "boolean" },
+        "recordOpen": { "$ref": "#/$defs/recordOpen" }
+      }
+    },
+    "recordOpen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceIdentityField", "target"],
+      "properties": {
+        "sourceIdentityField": { "type": "string", "minLength": 1 },
+        "target": { "$ref": "#/$defs/surfaceTarget" }
+      }
+    },
+    "surfaceTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resourceKey", "surfaceId"],
+      "properties": {
+        "resourceKey": { "type": "string", "minLength": 1 },
+        "surfaceId": { "type": "string", "minLength": 1 }
       }
     },
     "comparisonProjection": {
