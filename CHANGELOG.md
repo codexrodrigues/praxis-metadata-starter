@@ -18,6 +18,11 @@ All notable changes to this module will be documented in this file.
   `controllerEndpointHandlerMapping`.
 
 ### Added
+- `@AnalyticsDimensionBinding.keyFilterField` e
+  `x-ui.analytics.projections[].bindings.primaryDimension.keyFilterField` para
+  vincular `bucket.key` ao campo publico exato do request de filtro. Projections
+  com `crossFilter=true` agora falham fechado quando o binding nao existe, sem
+  expor property paths internos nem inferir por nome ou label.
 - `/capabilities.operations` agora publica tambem `byId`, `update`, `all`,
   `filter`, `cursor`, `options`, `optionSources`, `statsGroupBy`,
   `statsTimeSeries`, `statsDistribution` e `statsComparison`, permitindo ao

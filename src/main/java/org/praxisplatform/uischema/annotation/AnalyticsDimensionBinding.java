@@ -14,4 +14,10 @@ public @interface AnalyticsDimensionBinding {
     String role() default "category";
 
     String label() default "";
+
+    /**
+     * Campo publico do request de filtro que recebe {@code bucket.key} em interacoes
+     * de cross-filter. Nao deve conter property path interno de entidade/JPA.
+     */
+    String keyFilterField() default "";
 }

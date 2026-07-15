@@ -12,7 +12,8 @@
         "primaryDimension": {
           "field": "departamento",
           "role": "category",
-          "label": "Departamento"
+          "label": "Departamento",
+          "keyFilterField": "departamentoId"
         },
         "primaryMetrics": [
           {
@@ -51,7 +52,7 @@
       "interactions": {
         "drillDown": true,
         "pointSelection": false,
-        "crossFilter": false
+        "crossFilter": true
       }
     }
   ]

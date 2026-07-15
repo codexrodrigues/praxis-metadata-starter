@@ -74,6 +74,9 @@
 - `dimensions`, `metrics`, `aggregations`, `filters`, `sort` -> semantica analitica canonica
 - `metrics[].seriesKind`, `metrics[].axis` -> serie heterogenea e eixo primario/secundario para charts combinados
 - `state`, `events` -> estados e interacoes declarativas de plataforma
+- x-ui.analytics
+  - `bindings.primaryDimension.keyFilterField` -> campo publico exato do request que recebe `bucket.key`; obrigatorio quando `interactions.crossFilter=true`
+  - consumidores confirmam tipo/cardinalidade pelo schema request canonico e nunca inferem o campo por label, sufixo ou property path interno
 - x-ui.optionSource
   - `key`, `type`, `resourcePath` -> identidade minima da fonte derivada
   - `dependsOn`, `dependencyFilterMap`, `excludeSelfField` -> cascata, mapeamento dependencia -> filtro e remocao do proprio predicado

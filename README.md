@@ -151,6 +151,13 @@ publicar `governance.policyRefs[]` com identidade e versao, papel, campo de
 resultado e atestacao opcional. O bloco e discovery de provenance: nao carrega
 thresholds, nao executa a policy e nao concede acesso a dados ou surfaces.
 
+Quando uma projection publica `interactions.crossFilter=true`,
+`bindings.primaryDimension.keyFilterField` declara qual campo publico do request
+recebe `bucket.key`. O binding nunca publica `keyPropertyPath`/`labelPropertyPath`
+internos e elimina inferencias por label, sufixo ou nome parecido. Consumidores
+devem confirmar tipo e cardinalidade no schema request de `/schemas/filtered`
+antes de executar o filtro; projection sem o binding falha fechado na publicacao.
+
 Para `POST /{resource}/stats/comparison`, o host tambem deve manter limites
 operacionais explicitos: `praxis.stats.max-comparison-candidates` limita a
 cardinalidade de grupos lida em cada janela (padrao `1000`) e
