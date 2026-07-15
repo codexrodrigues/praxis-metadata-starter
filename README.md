@@ -522,6 +522,8 @@ bean proprio quando precisar de politica operacional especifica.
 ```mermaid
 flowchart LR
   dto["DTOs + validation + resource annotations"] --> openapi["OpenAPI enriched with x-ui"]
+  registry["OptionSourceRegistry"] --> filtered
+  registry --> domain["/schemas/domain"]
   openapi --> filtered["/schemas/filtered"]
   openapi --> catalog["/schemas/catalog"]
   openapi --> surfaces["/schemas/surfaces"]
@@ -530,6 +532,7 @@ flowchart LR
   actions --> caps
   filtered --> runtime["praxis-ui-angular runtime"]
   catalog --> docs["docs, examples, RAG"]
+  domain --> clients
   caps --> clients["semantic clients and assistants"]
 ```
 
@@ -539,7 +542,7 @@ flowchart LR
 2. Siga [docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md).
 3. Modele o primeiro recurso com `@ApiResource(value = ..., resourceKey = ...)`.
 4. Valide `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities`.
-5. Se o recurso publicar `OptionSourceRegistry`, valide tambem `POST /{resource}/option-sources/{sourceKey}/options/filter`, `GET /{resource}/option-sources/{sourceKey}/options/by-ids` e `POST /{resource}/option-sources/{sourceKey}/options/by-ids` quando a source depender de contexto.
+5. Se o recurso publicar `OptionSourceRegistry`, valide tambem `POST /{resource}/option-sources/{sourceKey}/options/filter`, `GET /{resource}/option-sources/{sourceKey}/options/by-ids`, `POST /{resource}/option-sources/{sourceKey}/options/by-ids` quando a source depender de contexto e `GET /schemas/domain?resource={resourceKey}` para o catalogo completo do resource owner.
 6. Integre o host oficial com `praxis-ui-angular`.
 
 Dependencia minima:
@@ -559,6 +562,7 @@ Para um recurso mutavel no baseline atual, valide no minimo:
 - `GET /v3/api-docs/{group}`
 - `GET /schemas/filtered`
 - `GET /schemas/catalog`
+- `GET /schemas/domain?resource={resourceKey}`
 - `GET /schemas/surfaces?resource={resourceKey}`
 - `GET /schemas/actions?resource={resourceKey}` quando houver `@WorkflowAction`
 - `GET /{resource}/capabilities`
@@ -599,9 +603,12 @@ Quando o recurso publicar `OptionSourceRegistry`, valide tambem:
 - `GET /{resource}/option-sources/{sourceKey}/options/by-ids`
 - `POST /{resource}/option-sources/{sourceKey}/options/by-ids` para selected-value reload contextual com `filter`
 - `x-ui.optionSource` em `/schemas/filtered` para os campos governados por essa source
+- a metadata da source em `/schemas/domain?resource={resourceKey}` quando o registry do resource owner tambem hospedar catalogos que nao correspondem a propriedades do DTO/filter
 - `filterEndpoint`, `byIdsEndpoint`, `selectedReloadPolicy` e `invalidSortPolicy` no metadata emitido
 - `sourceKey` URL-safe, usando letras, numeros, ponto, underscore ou hifen, porque ele compoe endpoints publicos de runtime
 - quando `RESOURCE_ENTITY` publicar `filtering`, valide tambem `availableFilters`, `defaultFilters`, `sortOptions` e `defaultSort` no schema emitido
+- filtros obrigatorios por `filtering.availableFilters[].required`; nao derive nem duplique um array `requiredFilters`
+- ausencia de `executionMode`, provider, SQL, datasource e contexto do host nas superficies publicas
 
 Para lookups corporativos provider-backed, prefira `GovernedOptionSourceCatalog.providerBackedLookup(...)`
 em vez de remontar manualmente `OptionSourceDescriptor` em cada service. O builder preserva o registry

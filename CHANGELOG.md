@@ -5,6 +5,10 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Fixed
+- `/schemas/domain` agora associa option sources registry-wide ao `resourceKey`
+  canonico ja materializado por surfaces/actions para o mesmo `resourcePath`,
+  preservando a descoberta mesmo quando a URL nao codifica a identidade
+  semantica completa do recurso.
 - `/schemas/filtered` publica `x-ui.resource.identity` somente para schemas de
   resposta; schemas de request representam filtros e comandos, nao registros
   materializados.

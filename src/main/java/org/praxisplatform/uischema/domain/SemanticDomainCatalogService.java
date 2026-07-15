@@ -107,6 +107,7 @@ public class SemanticDomainCatalogService {
         Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence = new LinkedHashMap<>();
         Map<String, DomainCatalogResponse.DomainGovernanceItem> governance = new LinkedHashMap<>();
         Map<String, String> resourceDescriptions = resourceDescriptions(actions, surfaces);
+        Map<String, String> canonicalResourceKeysByPath = canonicalResourceKeysByPath(actions, surfaces);
 
         for (ActionDefinition action : sortActions(actions)) {
             String resourceKey = action.resourceKey();
@@ -137,7 +138,7 @@ public class SemanticDomainCatalogService {
         }
 
         for (OptionSourceDescriptor descriptor : optionSourceRegistry.descriptors()) {
-            String resourceKey = resourceKeyFromPath(descriptor.resourcePath());
+            String resourceKey = resourceKeyForPath(descriptor.resourcePath(), canonicalResourceKeysByPath);
             if (!matchesRequestedScope(resourceKey, requestedResourceKey, requestedGroup)) {
                 continue;
             }
@@ -1089,13 +1090,47 @@ public class SemanticDomainCatalogService {
         return true;
     }
 
+    private Map<String, String> canonicalResourceKeysByPath(
+            List<ActionDefinition> actions,
+            List<SurfaceDefinition> surfaces
+    ) {
+        Map<String, String> resourceKeysByPath = new LinkedHashMap<>();
+        for (ActionDefinition action : actions) {
+            registerCanonicalResourceKey(resourceKeysByPath, action.resourcePath(), action.resourceKey());
+        }
+        for (SurfaceDefinition surface : surfaces) {
+            registerCanonicalResourceKey(resourceKeysByPath, surface.resourcePath(), surface.resourceKey());
+        }
+        return Map.copyOf(resourceKeysByPath);
+    }
+
+    private void registerCanonicalResourceKey(
+            Map<String, String> resourceKeysByPath,
+            String resourcePath,
+            String resourceKey
+    ) {
+        String normalizedPath = normalizeResourcePath(resourcePath);
+        if (normalizedPath != null && StringUtils.hasText(resourceKey)) {
+            resourceKeysByPath.putIfAbsent(normalizedPath, resourceKey.trim());
+        }
+    }
+
+    private String resourceKeyForPath(String resourcePath, Map<String, String> canonicalResourceKeysByPath) {
+        String normalizedPath = normalizeResourcePath(resourcePath);
+        String canonicalResourceKey = normalizedPath == null
+                ? null
+                : canonicalResourceKeysByPath.get(normalizedPath);
+        return StringUtils.hasText(canonicalResourceKey)
+                ? canonicalResourceKey
+                : resourceKeyFromPath(resourcePath);
+    }
+
     private String resourceKeyFromPath(String resourcePath) {
-        if (!StringUtils.hasText(resourcePath)) {
+        String normalizedPath = normalizeResourcePath(resourcePath);
+        if (!StringUtils.hasText(normalizedPath)) {
             return "default.unknown";
         }
-        String normalized = resourcePath.trim()
-                .replaceAll("^/+", "")
-                .replaceAll("/+$", "");
+        String normalized = normalizedPath.replaceAll("^/+", "");
         if (normalized.startsWith("api/")) {
             normalized = normalized.substring("api/".length());
         }
@@ -1103,6 +1138,20 @@ public class SemanticDomainCatalogService {
             return "default.unknown";
         }
         return normalized.replace('/', '.');
+    }
+
+    private String normalizeResourcePath(String resourcePath) {
+        if (!StringUtils.hasText(resourcePath)) {
+            return null;
+        }
+        String normalized = resourcePath.trim().replaceAll("/+", "/");
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+        if (normalized.endsWith("/") && normalized.length() > 1) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     private String stateNodeKey(String resourceNodeKey, String state) {

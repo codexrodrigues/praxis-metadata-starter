@@ -237,6 +237,37 @@ class EmployeeService extends AbstractBaseResourceService<
                     OptionSourceExecutionMode.PROVIDER_REQUIRED
             ))
             .add(EmployeeEntity.class, new OptionSourceDescriptor(
+                    "externalRequiredDependencyLookup",
+                    OptionSourceType.LIGHT_LOOKUP,
+                    "/employees",
+                    "tipoSubstituicao",
+                    null,
+                    "label",
+                    "id",
+                    List.of("tipoEvento"),
+                    Map.of("tipoEvento", "tipoEvento"),
+                    new OptionSourcePolicy(false, true, "contains", 0, 20, 20, true, false, "label"),
+                    null,
+                    new LookupFilteringDescriptor(
+                            List.of(new LookupFilterDefinition(
+                                    "tipoEvento",
+                                    "Tipo de evento",
+                                    "text",
+                                    List.of("equals"),
+                                    "equals",
+                                    null,
+                                    true,
+                                    false
+                            )),
+                            Map.of(),
+                            List.of(),
+                            null,
+                            List.of("tipoEvento"),
+                            "Filtrar por tipo de evento"
+                    ),
+                    OptionSourceExecutionMode.PROVIDER_REQUIRED
+            ))
+            .add(EmployeeEntity.class, new OptionSourceDescriptor(
                     "externalFilterOnlyLookup",
                     OptionSourceType.RESOURCE_ENTITY,
                     "/employees",
