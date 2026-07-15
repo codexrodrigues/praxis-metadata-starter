@@ -99,6 +99,8 @@
 - `x-ui.analytics.intent`: `ranking | trend | distribution | composition | comparison | correlation`
 - `x-ui.analytics.source.operation`: `group-by | timeseries | distribution | comparison`
 - `x-ui.analytics.presentationHints.preferredFamilies`: `chart | analytic-table | kpi | summary-list`
+- `x-ui.analytics.governance.policyRefs[]`: identidade/versionamento da policy,
+  papel, campo de resultado e atestacao opcional; nunca thresholds ou expressoes
 - `x-ui.optionSource.type`: `RESOURCE_ENTITY | DISTINCT_DIMENSION | CATEGORICAL_BUCKET | LIGHT_LOOKUP | STATIC_CANONICAL`
 - `x-ui.fieldAccess.*ForAuthorities`: authorities canonicas do host, alinhadas ao contexto de seguranca usado por surfaces/actions. Elas nao sao automaticamente equivalentes a `x-ui.resource.capabilities` ou ao runtime context `capabilities` sem mapeamento explicito do host
 - `x-ui.shortcuts[].tone`: `neutral | info | success | warning`

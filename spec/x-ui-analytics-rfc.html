@@ -240,7 +240,7 @@ Canonica</h1>
 <h2 id="status">Status</h2>
 <ul>
 <li>estado: <code>draft</code></li>
-<li>versao proposta: <code>0.2.0</code></li>
+<li>versao proposta: <code>0.3.0</code></li>
 <li>classe: <code>contrato-publico</code></li>
 </ul>
 <h2 id="objetivo">Objetivo</h2>
@@ -354,6 +354,33 @@ projection. A elegibilidade de campos e metricas continua no
 <code>StatsFieldRegistry</code> e em <code>capabilities.stats</code>;
 esse bloco nao cria uma segunda fonte de verdade nem autoriza o runtime
 a trocar o periodo publicado por heuristica.</p>
+<h2 id="referencias-de-politicas-governadas">Referencias de politicas
+governadas</h2>
+<p>Quando uma projection depende de uma classificacao, elegibilidade,
+retencao ou outra politica executada pelo dominio,
+<code>governance.policyRefs[]</code> publica somente a identidade
+versionada e os campos que atestam o resultado materializado:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;governance&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;policyRefs&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;policyId&quot;</span><span class="fu">:</span> <span class="st">&quot;classification-policy&quot;</span><span class="fu">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;policyVersion&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-07&quot;</span><span class="fu">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;role&quot;</span><span class="fu">:</span> <span class="st">&quot;criticality&quot;</span><span class="fu">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;resultField&quot;</span><span class="fu">:</span> <span class="st">&quot;criticalityLevel&quot;</span><span class="fu">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;attestation&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;policyIdField&quot;</span><span class="fu">:</span> <span class="st">&quot;criticalityPolicyId&quot;</span><span class="fu">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;policyVersionField&quot;</span><span class="fu">:</span> <span class="st">&quot;criticalityPolicyVersion&quot;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>O dominio continua dono da execucao, dos thresholds e da autorizacao.
+A referencia permite que authoring, auditoria e runtimes preservem
+provenance sem ler linhas para descobrir a policy e sem copiar sua
+logica para configuracao.</p>
 <h2 id="regras">Regras</h2>
 <ul>
 <li><code>MUST</code>: publicar <code>projections[]</code></li>
@@ -380,6 +407,17 @@ silenciosamente os defaults publicados</li>
 <li><code>MAY</code>: metricas publicar
 <code>aggregation = "distinct-count"</code> quando a fonte
 <code>praxis.stats</code> governar o campo de metrica</li>
+<li><code>MUST</code>: cada item de <code>governance.policyRefs[]</code>
+declarar <code>policyId</code>, <code>policyVersion</code>,
+<code>role</code> e <code>resultField</code></li>
+<li><code>MUST</code>: <code>attestation</code>, quando publicado,
+declarar em conjunto <code>policyIdField</code> e
+<code>policyVersionField</code></li>
+<li><code>MUST NOT</code>: policy references publicar thresholds,
+expressoes, scripts ou payloads de runtime</li>
+<li><code>MUST NOT</code>: a presenca de uma policy reference ser
+interpretada como autorizacao para leitura nominal ou abertura de
+surface</li>
 <li><code>MUST NOT</code>: fixar componente Angular, engine, layout ou
 detalhes visuais de chart</li>
 </ul>

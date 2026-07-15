@@ -897,6 +897,13 @@ bindings e hints de apresentacao. O texto em <code>@Operation</code>
 deve estar <strong>coerente</strong> com ids, intents e fontes
 declaradas na anotacao; caso contrario, assistentes e clientes veem
 descricao e metadata tecnica divergentes.</p>
+<p>Quando a leitura depende de uma politica executada pelo dominio, use
+<code>@AnalyticsPolicyReference</code> em <code>policyRefs</code> para
+publicar <code>policyId</code>, <code>policyVersion</code>, papel, campo
+de resultado e os campos opcionais de atestacao. Nao copie thresholds,
+expressoes ou regras para a annotation. A referencia preserva
+provenance; ela nao concede acesso nominal nem substitui a autorizacao
+de actions e surfaces.</p>
 <h2 id="operationid-tags-e-exemplos-openapi">operationId, tags e
 exemplos OpenAPI</h2>
 <h3 id="operationid"><code>operationId</code></h3>
@@ -946,6 +953,8 @@ automatico do <code>/schemas/catalog</code>?</li>
 governanca heuristic incorreta nem mascara o real tipo de dado?</li>
 <li><code>@UiAnalytics</code> (se houver) esta alinhado ao
 <code>summary</code>/<code>description</code> da mesma operacao?</li>
+<li>Policy references publicam somente identidade/versionamento e
+atestacao, sem regra executavel ou dados de runtime?</li>
 <li><code>operationId</code> e <code>tags</code> permanecem coerentes
 com agrupamento e ferramentas?</li>
 <li>Exemplos OpenAPI refletem o contrato validado?</li>
