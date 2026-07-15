@@ -11,6 +11,7 @@ import org.praxisplatform.uischema.annotation.AnalyticsGranularity;
 import org.praxisplatform.uischema.annotation.AnalyticsIntent;
 import org.praxisplatform.uischema.annotation.AnalyticsMetricBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsOperation;
+import org.praxisplatform.uischema.annotation.AnalyticsPolicyReference;
 import org.praxisplatform.uischema.annotation.AnalyticsPresentationFamily;
 import org.praxisplatform.uischema.annotation.AnalyticsProjection;
 import org.praxisplatform.uischema.annotation.AnalyticsSort;
@@ -30,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -78,6 +80,7 @@ class UiAnalyticsOpenApiCustomizerTest {
         Map<String, Object> projection = ((java.util.List<Map<String, Object>>) analytics.get("projections")).get(0);
         Map<String, Object> defaults = (Map<String, Object>) projection.get("defaults");
         assertEquals("month", defaults.get("granularity"));
+        assertFalse(projection.containsKey("governance"));
     }
 
     @Test
@@ -129,6 +132,50 @@ class UiAnalyticsOpenApiCustomizerTest {
     @Test
     void rejectsComparisonProjectionWithoutCanonicalPeriodBinding() throws Exception {
         UiAnalytics annotation = InvalidComparisonController.class.getDeclaredMethod("comparison")
+                .getAnnotation(UiAnalytics.class);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(annotation, "/reports/stats/comparison"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void mapsVersionedPolicyReferencesWithoutExecutablePolicyDetails() throws Exception {
+        UiAnalytics annotation = GovernedComparisonController.class.getDeclaredMethod("comparison")
+                .getAnnotation(UiAnalytics.class);
+
+        Map<String, Object> analytics = new UiAnalyticsAnnotationMapper()
+                .toXUiAnalytics(annotation, "/reports/stats/comparison");
+        Map<String, Object> projection = ((java.util.List<Map<String, Object>>) analytics.get("projections")).get(0);
+        Map<String, Object> governance = (Map<String, Object>) projection.get("governance");
+        java.util.List<Map<String, Object>> policyRefs =
+                (java.util.List<Map<String, Object>>) governance.get("policyRefs");
+
+        assertEquals(2, policyRefs.size());
+        assertEquals("classification-policy", policyRefs.get(0).get("policyId"));
+        assertEquals("2026-07", policyRefs.get(0).get("policyVersion"));
+        assertEquals("criticality", policyRefs.get(0).get("role"));
+        assertEquals("criticalityLevel", policyRefs.get(0).get("resultField"));
+        Map<String, Object> attestation = (Map<String, Object>) policyRefs.get(0).get("attestation");
+        assertEquals("criticalityPolicyId", attestation.get("policyIdField"));
+        assertEquals("criticalityPolicyVersion", attestation.get("policyVersionField"));
+        assertEquals("retention-policy", policyRefs.get(1).get("policyId"));
+        assertFalse(policyRefs.get(0).containsKey("thresholds"));
+        assertFalse(policyRefs.get(0).containsKey("expression"));
+    }
+
+    @Test
+    void rejectsIncompletePolicyReferenceIdentity() throws Exception {
+        UiAnalytics annotation = InvalidPolicyReferenceController.class.getDeclaredMethod("comparison")
+                .getAnnotation(UiAnalytics.class);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(annotation, "/reports/stats/comparison"));
+    }
+
+    @Test
+    void rejectsIncompletePolicyAttestation() throws Exception {
+        UiAnalytics annotation = InvalidPolicyAttestationController.class.getDeclaredMethod("comparison")
                 .getAnnotation(UiAnalytics.class);
 
         assertThrows(IllegalArgumentException.class,
@@ -209,6 +256,104 @@ class UiAnalyticsOpenApiCustomizerTest {
                                 primaryMetrics = {
                                         @AnalyticsMetricBinding(field = "total", aggregation = "sum")
                                 }
+                        )
+                }
+        )
+        public void comparison() {
+        }
+    }
+
+    static class GovernedComparisonController {
+
+        @PostMapping("/reports/stats/comparison")
+        @UiAnalytics(
+                projections = {
+                        @AnalyticsProjection(
+                                id = "governed-comparison",
+                                intent = AnalyticsIntent.COMPARISON,
+                                sourceOperation = AnalyticsOperation.COMPARISON,
+                                comparisonPeriod = @AnalyticsComparisonPeriodBinding(
+                                        field = "competencia",
+                                        timezone = "America/Sao_Paulo"
+                                ),
+                                primaryMetrics = {
+                                        @AnalyticsMetricBinding(field = "total", aggregation = "sum")
+                                },
+                                policyRefs = {
+                                        @AnalyticsPolicyReference(
+                                                policyId = "classification-policy",
+                                                policyVersion = "2026-07",
+                                                role = "criticality",
+                                                resultField = "criticalityLevel",
+                                                policyIdField = "criticalityPolicyId",
+                                                policyVersionField = "criticalityPolicyVersion"
+                                        ),
+                                        @AnalyticsPolicyReference(
+                                                policyId = "retention-policy",
+                                                policyVersion = "3",
+                                                role = "retention",
+                                                resultField = "retentionClass"
+                                        )
+                                }
+                        )
+                }
+        )
+        public void comparison() {
+        }
+    }
+
+    static class InvalidPolicyReferenceController {
+
+        @PostMapping("/reports/stats/comparison")
+        @UiAnalytics(
+                projections = {
+                        @AnalyticsProjection(
+                                id = "invalid-policy-reference",
+                                intent = AnalyticsIntent.COMPARISON,
+                                sourceOperation = AnalyticsOperation.COMPARISON,
+                                comparisonPeriod = @AnalyticsComparisonPeriodBinding(
+                                        field = "competencia",
+                                        timezone = "America/Sao_Paulo"
+                                ),
+                                primaryMetrics = {
+                                        @AnalyticsMetricBinding(field = "total", aggregation = "sum")
+                                },
+                                policyRefs = @AnalyticsPolicyReference(
+                                        policyId = "",
+                                        policyVersion = "2026-07",
+                                        role = "criticality",
+                                        resultField = "criticalityLevel"
+                                )
+                        )
+                }
+        )
+        public void comparison() {
+        }
+    }
+
+    static class InvalidPolicyAttestationController {
+
+        @PostMapping("/reports/stats/comparison")
+        @UiAnalytics(
+                projections = {
+                        @AnalyticsProjection(
+                                id = "invalid-policy-attestation",
+                                intent = AnalyticsIntent.COMPARISON,
+                                sourceOperation = AnalyticsOperation.COMPARISON,
+                                comparisonPeriod = @AnalyticsComparisonPeriodBinding(
+                                        field = "competencia",
+                                        timezone = "America/Sao_Paulo"
+                                ),
+                                primaryMetrics = {
+                                        @AnalyticsMetricBinding(field = "total", aggregation = "sum")
+                                },
+                                policyRefs = @AnalyticsPolicyReference(
+                                        policyId = "classification-policy",
+                                        policyVersion = "2026-07",
+                                        role = "criticality",
+                                        resultField = "criticalityLevel",
+                                        policyIdField = "criticalityPolicyId"
+                                )
                         )
                 }
         )

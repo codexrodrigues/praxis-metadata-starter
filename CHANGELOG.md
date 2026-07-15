@@ -18,6 +18,10 @@ All notable changes to this module will be documented in this file.
   `controllerEndpointHandlerMapping`.
 
 ### Added
+- `@AnalyticsPolicyReference` e
+  `x-ui.analytics.projections[].governance.policyRefs[]` para publicar identidade
+  e versao de policies de dominio, papel, campo de resultado e atestacao
+  opcional sem expor thresholds, expressoes ou dados de runtime.
 - `x-ui-field.schema.json` agora publica o contrato de atalhos de periodo para
   `dateRange` e `inlineDateRange`, incluindo `shortcuts[]`,
   `inlineQuickPresets`, `inlineOverlay`, fixtures valid/invalid e cobertura para

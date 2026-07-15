@@ -3,7 +3,7 @@
 ## Status
 
 - estado: `draft`
-- versao proposta: `0.2.0`
+- versao proposta: `0.3.0`
 - classe: `contrato-publico`
 
 ## Objetivo
@@ -118,6 +118,35 @@ de campos e metricas continua no `StatsFieldRegistry` e em `capabilities.stats`;
 esse bloco nao cria uma segunda fonte de verdade nem autoriza o runtime a trocar
 o periodo publicado por heuristica.
 
+## Referencias de politicas governadas
+
+Quando uma projection depende de uma classificacao, elegibilidade, retencao ou
+outra politica executada pelo dominio, `governance.policyRefs[]` publica somente
+a identidade versionada e os campos que atestam o resultado materializado:
+
+```json
+{
+  "governance": {
+    "policyRefs": [
+      {
+        "policyId": "classification-policy",
+        "policyVersion": "2026-07",
+        "role": "criticality",
+        "resultField": "criticalityLevel",
+        "attestation": {
+          "policyIdField": "criticalityPolicyId",
+          "policyVersionField": "criticalityPolicyVersion"
+        }
+      }
+    ]
+  }
+}
+```
+
+O dominio continua dono da execucao, dos thresholds e da autorizacao. A
+referencia permite que authoring, auditoria e runtimes preservem provenance sem
+ler linhas para descobrir a policy e sem copiar sua logica para configuracao.
+
 ## Regras
 
 - `MUST`: publicar `projections[]`
@@ -130,6 +159,10 @@ o periodo publicado por heuristica.
   do request HTTP de comparison; o runtime pode oferecer intervalo customizado, mas nao deve trocar
   silenciosamente os defaults publicados
 - `MAY`: metricas publicar `aggregation = "distinct-count"` quando a fonte `praxis.stats` governar o campo de metrica
+- `MUST`: cada item de `governance.policyRefs[]` declarar `policyId`, `policyVersion`, `role` e `resultField`
+- `MUST`: `attestation`, quando publicado, declarar em conjunto `policyIdField` e `policyVersionField`
+- `MUST NOT`: policy references publicar thresholds, expressoes, scripts ou payloads de runtime
+- `MUST NOT`: a presenca de uma policy reference ser interpretada como autorizacao para leitura nominal ou abertura de surface
 - `MUST NOT`: fixar componente Angular, engine, layout ou detalhes visuais de chart
 
 ## Convivencia com `x-ui.chart`

@@ -146,6 +146,11 @@ com campo elegivel para aquele modo. O schema estrutural, labels ricas e
 tentativa e erro, reduz consultas invalidas e deixa dashboards auditaveis antes da
 execucao de stats.
 
+Projections `x-ui.analytics` que dependem de uma politica de dominio podem
+publicar `governance.policyRefs[]` com identidade e versao, papel, campo de
+resultado e atestacao opcional. O bloco e discovery de provenance: nao carrega
+thresholds, nao executa a policy e nao concede acesso a dados ou surfaces.
+
 Para `POST /{resource}/stats/comparison`, o host tambem deve manter limites
 operacionais explicitos: `praxis.stats.max-comparison-candidates` limita a
 cardinalidade de grupos lida em cada janela (padrao `1000`) e
