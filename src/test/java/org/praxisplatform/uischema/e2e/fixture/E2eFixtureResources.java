@@ -217,6 +217,23 @@ class EmployeeService extends AbstractBaseResourceService<
                     Map.of("tipoEvento", "tipoEvento"),
                     new OptionSourcePolicy(false, true, "contains", 0, 20, 20, true, false, "label"),
                     null,
+                    new LookupFilteringDescriptor(
+                            List.of(new LookupFilterDefinition(
+                                    "tipoEvento",
+                                    "Tipo de evento",
+                                    "text",
+                                    List.of("equals", "contains"),
+                                    "equals",
+                                    null,
+                                    false,
+                                    false
+                            )),
+                            Map.of(),
+                            List.of(),
+                            null,
+                            List.of("tipoEvento"),
+                            "Filtrar por tipo de evento"
+                    ),
                     OptionSourceExecutionMode.PROVIDER_REQUIRED
             ))
             .add(EmployeeEntity.class, new OptionSourceDescriptor(

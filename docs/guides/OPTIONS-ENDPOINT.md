@@ -22,14 +22,17 @@ publico, dependencias declaradas ou filtro tipado, use
 ```json
 {
   "filter": {},
+  "filters": [
+    { "field": "status", "operator": "equals", "value": "ACTIVE" }
+  ],
   "ids": ["1", "2"]
 }
 ```
 
-O service base propaga esse `filter` para o executor JPA e para providers
-externos no mesmo nivel de extensao usado por `OptionSourceFilterRequest`,
-preservando a ordem dos IDs e omitindo valores que nao pertencem ao contexto
-solicitado.
+O service base propaga esse `filter` e os `filters` estruturados para o executor
+JPA e para providers externos no mesmo nivel de extensao usado por
+`OptionSourceFilterRequest`, preservando a ordem dos IDs e omitindo valores que
+nao pertencem ao contexto solicitado.
 
 Para `option-sources/{sourceKey}/options/filter`, o contrato canônico de request
 agora é um envelope único que cobre:
@@ -412,10 +415,10 @@ Use ferramentas como Postman ou curl para testar endpoints:
   ```bash
   curl -X POST "http://localhost:8080/api/resource/option-sources/universo/options/by-ids" \
     -H "Content-Type: application/json" \
-    -d '{"filter": {"empresaId": 10}, "ids": ["1", "2"]}'
+    -d '{"filter": {"empresaId": 10}, "filters": [{"field": "status", "operator": "equals", "value": "ACTIVE"}], "ids": ["1", "2"]}'
   ```
   Esperado: `List<OptionDTO>` preservando a ordem dos IDs encontrados dentro do
-  contexto publico informado em `filter`.
+  contexto publico informado em `filter` e validado contra `filters`.
 
 - **Verificar Schema**:
   ```bash

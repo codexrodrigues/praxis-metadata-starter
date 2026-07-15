@@ -155,6 +155,100 @@ class OptionSourceDescriptorTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void publishesTopLevelFilteringForProviderBackedSourcesWithoutEntityLookup() {
+        LookupFilteringDescriptor filtering = new LookupFilteringDescriptor(
+                List.of(new LookupFilterDefinition(
+                        "tipoEvento",
+                        "Tipo de evento",
+                        "text",
+                        List.of("equals", "contains"),
+                        "equals",
+                        null,
+                        false,
+                        false
+                )),
+                Map.of(),
+                List.of(),
+                null,
+                List.of("tipoEvento"),
+                "Filtrar por tipo de evento"
+        );
+        OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
+                "externalDependencyLookup",
+                OptionSourceType.RESOURCE_ENTITY,
+                "/api/events",
+                null,
+                null,
+                "label",
+                "id",
+                List.of("tipoEvento"),
+                Map.of("tipoEvento", "tipoEvento"),
+                OptionSourcePolicy.defaults(),
+                null,
+                filtering,
+                OptionSourceExecutionMode.PROVIDER_REQUIRED
+        );
+
+        Map<String, Object> metadata = descriptor.toMetadataMap();
+
+        assertEquals(filtering, descriptor.effectiveFiltering());
+        Map<String, Object> publishedFiltering = (Map<String, Object>) metadata.get("filtering");
+        List<Map<String, Object>> availableFilters = (List<Map<String, Object>>) publishedFiltering.get("availableFilters");
+        assertEquals("tipoEvento", availableFilters.get(0).get("field"));
+        assertEquals(List.of("equals", "contains"), availableFilters.get(0).get("operators"));
+        assertEquals(List.of("tipoEvento"), publishedFiltering.get("quickFilterFields"));
+    }
+
+    @Test
+    void keepsEntityLookupFilteringAsCompatibilityFallback() {
+        LookupFilteringDescriptor filtering = new LookupFilteringDescriptor(
+                List.of(new LookupFilterDefinition(
+                        "status",
+                        "Status",
+                        "enum",
+                        List.of("equals"),
+                        "equals",
+                        null,
+                        false,
+                        false
+                )),
+                Map.of(),
+                List.of(),
+                null,
+                List.of(),
+                null
+        );
+        OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
+                "company",
+                OptionSourceType.RESOURCE_ENTITY,
+                "/api/companies",
+                null,
+                null,
+                "legalName",
+                "id",
+                List.of(),
+                OptionSourcePolicy.defaults(),
+                new EntityLookupDescriptor(
+                        "company",
+                        "code",
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        List.of("legalName"),
+                        Map.of(),
+                        null,
+                        new LookupCapabilities(true, true, true, false, false, true, false, true, true, true),
+                        null,
+                        filtering
+                )
+        );
+
+        assertEquals(filtering, descriptor.effectiveFiltering());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void publishesResourceEntityLookupMetadata() {
         OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
                 "company",

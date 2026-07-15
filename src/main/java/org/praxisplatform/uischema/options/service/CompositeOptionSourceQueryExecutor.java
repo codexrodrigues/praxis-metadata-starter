@@ -92,6 +92,7 @@ public class CompositeOptionSourceQueryExecutor implements OptionSourceQueryExec
             Specification<E> specification,
             Object filterPayload,
             OptionSourceDescriptor descriptor,
+            List<LookupFilterRequest> filters,
             Collection<Object> ids
     ) {
         OptionSourceExecutionContext context = contextResolver.resolve(descriptor, OptionSourceOperation.BY_IDS);
@@ -100,7 +101,7 @@ public class CompositeOptionSourceQueryExecutor implements OptionSourceQueryExec
                 filterPayload,
                 descriptor,
                 null,
-                List.of(),
+                filters,
                 null,
                 null,
                 List.of(),

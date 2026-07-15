@@ -1136,8 +1136,10 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             throw new IllegalArgumentException("Option source by-ids request must be a JSON object.");
         }
         OptionSourceFilterParts<FD> filterParts = parseOptionSourceFilterParts(body.get("filter"), descriptor);
+        List<LookupFilterRequest> filters = parseLookupFilters(body.get("filters"));
         OptionSourceByIdsRequest<FD> effectiveRequest = new OptionSourceByIdsRequest<>(
                 filterParts.filter(),
+                filters,
                 parseIds(body.get("ids"))
         );
         return new OptionSourceByIdsEnvelope<>(effectiveRequest, filterParts.providerFilterPayload());

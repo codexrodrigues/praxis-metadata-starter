@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.e2e;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.dto.OptionDTO;
+import org.praxisplatform.uischema.options.LookupFilterRequest;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.service.OptionSourceExecutionContext;
 import org.praxisplatform.uischema.options.service.OptionSourceExecutionRequest;
@@ -89,7 +90,10 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
                 {
                   "filter": {
                     "tipoEvento": "SUBST FG"
-                  }
+                  },
+                  "filters": [
+                    { "field": "tipoEvento", "operator": "equals", "value": "SUBST FG" }
+                  ]
                 }
                 """
         );
@@ -100,6 +104,11 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         assertEquals(1, ExternalCatalogOptionSourceProvider.filterCalls());
         Map<?, ?> payload = assertInstanceOf(Map.class, ExternalCatalogOptionSourceProvider.lastFilterPayload());
         assertEquals("SUBST FG", payload.get("tipoEvento"));
+        List<LookupFilterRequest> filters = ExternalCatalogOptionSourceProvider.lastFilterRequest();
+        assertEquals(1, filters.size());
+        assertEquals("tipoEvento", filters.get(0).field());
+        assertEquals("equals", filters.get(0).operator());
+        assertEquals("SUBST FG", filters.get(0).value());
     }
 
     @Test
@@ -113,6 +122,9 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
                   "filter": {
                     "tipoEvento": "SUBST FG"
                   },
+                  "filters": [
+                    { "field": "tipoEvento", "operator": "equals", "value": "SUBST FG" }
+                  ],
                   "ids": ["EXT-2", "EXT-1"]
                 }
                 """
@@ -125,6 +137,53 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         assertEquals(1, ExternalCatalogOptionSourceProvider.byIdsCalls());
         Map<?, ?> payload = assertInstanceOf(Map.class, ExternalCatalogOptionSourceProvider.lastByIdsPayload());
         assertEquals("SUBST FG", payload.get("tipoEvento"));
+        List<LookupFilterRequest> filters = ExternalCatalogOptionSourceProvider.lastByIdsFilterRequest();
+        assertEquals(1, filters.size());
+        assertEquals("tipoEvento", filters.get(0).field());
+        assertEquals("equals", filters.get(0).operator());
+        assertEquals("SUBST FG", filters.get(0).value());
+    }
+
+    @Test
+    void providerBackedStructuredFilterRejectsUndeclaredFieldBeforeCustomProviderResolution() {
+        ExternalCatalogOptionSourceProvider.resetCounters();
+
+        ResponseEntity<String> response = postJson(
+                "/employees/option-sources/externalDependencyLookup/options/filter?page=0&size=10",
+                """
+                {
+                  "filters": [
+                    { "field": "classeEvento", "operator": "equals", "value": "SUBST FG" }
+                  ]
+                }
+                """
+        );
+
+        assertEquals(422, response.getStatusCode().value());
+        assertTrue(response.getBody().contains("Unsupported entity lookup filter field: classeEvento"));
+        assertEquals(0, ExternalCatalogOptionSourceProvider.supportCalls());
+        assertEquals(0, ExternalCatalogOptionSourceProvider.filterCalls());
+    }
+
+    @Test
+    void providerBackedStructuredFilterRejectsUndeclaredOperatorBeforeCustomProviderResolution() {
+        ExternalCatalogOptionSourceProvider.resetCounters();
+
+        ResponseEntity<String> response = postJson(
+                "/employees/option-sources/externalDependencyLookup/options/filter?page=0&size=10",
+                """
+                {
+                  "filters": [
+                    { "field": "tipoEvento", "operator": "startsWith", "value": "SUBST" }
+                  ]
+                }
+                """
+        );
+
+        assertEquals(422, response.getStatusCode().value());
+        assertTrue(response.getBody().contains("Unsupported entity lookup filter operator 'startsWith'"));
+        assertEquals(0, ExternalCatalogOptionSourceProvider.supportCalls());
+        assertEquals(0, ExternalCatalogOptionSourceProvider.filterCalls());
     }
 
     @Test
@@ -286,6 +345,8 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         private static final AtomicInteger BY_IDS_CALLS = new AtomicInteger();
         private static final AtomicReference<Object> LAST_FILTER_PAYLOAD = new AtomicReference<>();
         private static final AtomicReference<Object> LAST_BY_IDS_PAYLOAD = new AtomicReference<>();
+        private static final AtomicReference<List<LookupFilterRequest>> LAST_FILTER_REQUEST = new AtomicReference<>(List.of());
+        private static final AtomicReference<List<LookupFilterRequest>> LAST_BY_IDS_FILTER_REQUEST = new AtomicReference<>(List.of());
         private static final List<OptionDTO<Object>> OPTIONS = List.of(
                 option("EXT-1", "External Human Resources"),
                 option("EXT-2", "External Operations")
@@ -313,6 +374,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         public Page<OptionDTO<Object>> filter(OptionSourceExecutionRequest<?> request) {
             FILTER_CALLS.incrementAndGet();
             LAST_FILTER_PAYLOAD.set(request.filterPayload());
+            LAST_FILTER_REQUEST.set(request.filters());
             return new PageImpl<>(OPTIONS, request.pageable(), OPTIONS.size());
         }
 
@@ -320,6 +382,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         public List<OptionDTO<Object>> byIds(OptionSourceExecutionRequest<?> request) {
             BY_IDS_CALLS.incrementAndGet();
             LAST_BY_IDS_PAYLOAD.set(request.filterPayload());
+            LAST_BY_IDS_FILTER_REQUEST.set(request.filters());
             return request.ids().stream()
                     .map(String::valueOf)
                     .map(OPTIONS_BY_ID::get)
@@ -342,6 +405,8 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
             BY_IDS_CALLS.set(0);
             LAST_FILTER_PAYLOAD.set(null);
             LAST_BY_IDS_PAYLOAD.set(null);
+            LAST_FILTER_REQUEST.set(List.of());
+            LAST_BY_IDS_FILTER_REQUEST.set(List.of());
         }
 
         private static int supportCalls() {
@@ -362,6 +427,14 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
 
         private static Object lastByIdsPayload() {
             return LAST_BY_IDS_PAYLOAD.get();
+        }
+
+        private static List<LookupFilterRequest> lastFilterRequest() {
+            return LAST_FILTER_REQUEST.get();
+        }
+
+        private static List<LookupFilterRequest> lastByIdsFilterRequest() {
+            return LAST_BY_IDS_FILTER_REQUEST.get();
         }
     }
 }

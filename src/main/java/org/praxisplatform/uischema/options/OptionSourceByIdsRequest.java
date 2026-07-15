@@ -16,10 +16,12 @@ import java.util.List;
  */
 public record OptionSourceByIdsRequest<FD extends GenericFilterDTO>(
         FD filter,
+        List<LookupFilterRequest> filters,
         Collection<Object> ids
 ) {
 
     public OptionSourceByIdsRequest {
+        filters = filters == null ? List.of() : List.copyOf(filters);
         ids = ids == null ? List.of() : List.copyOf(ids);
     }
 }
