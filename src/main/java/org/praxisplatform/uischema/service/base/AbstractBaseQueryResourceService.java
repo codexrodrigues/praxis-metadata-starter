@@ -398,6 +398,7 @@ public abstract class AbstractBaseQueryResourceService<
                 specification == null ? null : specification.spec(),
                 providerFilterPayload == null ? effectiveFilter : providerFilterPayload,
                 descriptor,
+                request == null ? List.of() : request.filters(),
                 request == null ? List.of() : request.ids()
         );
     }

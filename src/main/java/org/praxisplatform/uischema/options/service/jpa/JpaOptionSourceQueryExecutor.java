@@ -137,6 +137,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             Specification<E> specification,
             Object filterPayload,
             OptionSourceDescriptor descriptor,
+            List<LookupFilterRequest> filters,
             Collection<Object> ids
     ) {
         ensureSupported(descriptor);
@@ -165,7 +166,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         }
         Predicate idPredicate = valuePath.in(coercedIds);
         Predicate filterPredicate = applyPredicate(specification, root, query, cb);
-        Predicate mergedPredicate = mergePredicates(cb, idPredicate, filterPredicate);
+        Predicate structuredFilterPredicate = buildStructuredFilterPredicate(cb, root, descriptor, filters);
+        Predicate mergedPredicate = mergePredicates(cb, mergePredicates(cb, idPredicate, filterPredicate), structuredFilterPredicate);
         query.where(mergedPredicate).distinct(true);
 
         Map<String, OptionDTO<Object>> byKey = entityManager.createQuery(query)
@@ -325,7 +327,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         if (sortKey == null || sortKey.isBlank()) {
             return null;
         }
-        LookupFilteringDescriptor filtering = descriptor.entityLookup() == null ? null : descriptor.entityLookup().filtering();
+        LookupFilteringDescriptor filtering = descriptor.effectiveFiltering();
         if (filtering == null || filtering.sortOptions().isEmpty()) {
             return null;
         }
@@ -336,7 +338,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     }
 
     private LookupSortOption resolveDefaultSortOption(OptionSourceDescriptor descriptor) {
-        LookupFilteringDescriptor filtering = descriptor.entityLookup() == null ? null : descriptor.entityLookup().filtering();
+        LookupFilteringDescriptor filtering = descriptor.effectiveFiltering();
         if (filtering == null || filtering.defaultSort() == null) {
             return null;
         }
@@ -369,8 +371,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         if (filters == null || filters.isEmpty()) {
             return null;
         }
-        EntityLookupDescriptor lookup = descriptor.entityLookup();
-        LookupFilteringDescriptor filtering = lookup == null ? null : lookup.filtering();
+        LookupFilteringDescriptor filtering = descriptor.effectiveFiltering();
         if (filtering == null || filtering.availableFilters().isEmpty()) {
             throw new IllegalArgumentException("Structured filters are not supported for option source: " + descriptor.key());
         }

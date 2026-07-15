@@ -65,6 +65,7 @@ public class JpaOptionSourceProvider implements OptionSourceProvider {
                 hostContext.specification(),
                 request.filterPayload(),
                 request.descriptor(),
+                request.filters(),
                 request.ids()
         );
     }

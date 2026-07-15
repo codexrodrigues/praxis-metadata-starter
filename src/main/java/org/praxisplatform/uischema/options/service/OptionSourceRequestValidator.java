@@ -27,6 +27,8 @@ public class OptionSourceRequestValidator {
         validateCapability(descriptor, operation);
         if (operation == OptionSourceOperation.FILTER) {
             validateFilterRequest(request);
+        } else if (operation == OptionSourceOperation.BY_IDS) {
+            validateByIdsRequest(request);
         }
     }
 
@@ -54,6 +56,12 @@ public class OptionSourceRequestValidator {
         validatePageable(descriptor, request.pageable());
         validateSort(descriptor, request.sortKey());
         validatePageableSort(descriptor, request.pageable(), request.sortKey());
+        validateStructuredFilters(descriptor, request.filters());
+    }
+
+    private void validateByIdsRequest(OptionSourceExecutionRequest<?> request) {
+        OptionSourceDescriptor descriptor = request.descriptor();
+        validateDependencies(descriptor);
         validateStructuredFilters(descriptor, request.filters());
     }
 
@@ -180,7 +188,6 @@ public class OptionSourceRequestValidator {
     }
 
     private LookupFilteringDescriptor filtering(OptionSourceDescriptor descriptor) {
-        EntityLookupDescriptor lookup = descriptor.entityLookup();
-        return lookup == null ? null : lookup.filtering();
+        return descriptor.effectiveFiltering();
     }
 }

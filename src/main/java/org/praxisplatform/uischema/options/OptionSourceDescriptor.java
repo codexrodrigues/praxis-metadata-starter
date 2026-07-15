@@ -25,6 +25,7 @@ public record OptionSourceDescriptor(
         Map<String, String> dependencyFilterMap,
         OptionSourcePolicy policy,
         EntityLookupDescriptor entityLookup,
+        LookupFilteringDescriptor filtering,
         OptionSourceExecutionMode executionMode,
         OptionSourceRuntimeContract runtimeContract
 ) {
@@ -53,6 +54,7 @@ public record OptionSourceDescriptor(
                 dependencyFilterMap,
                 policy,
                 entityLookup,
+                null,
                 OptionSourceExecutionMode.JPA,
                 null
         );
@@ -82,6 +84,7 @@ public record OptionSourceDescriptor(
                 null,
                 policy,
                 entityLookup,
+                null,
                 OptionSourceExecutionMode.JPA,
                 null
         );
@@ -111,6 +114,7 @@ public record OptionSourceDescriptor(
                 dependencyFilterMap,
                 policy,
                 null,
+                null,
                 OptionSourceExecutionMode.JPA,
                 null
         );
@@ -138,6 +142,7 @@ public record OptionSourceDescriptor(
                 dependsOn,
                 null,
                 policy,
+                null,
                 null,
                 OptionSourceExecutionMode.JPA,
                 null
@@ -170,6 +175,73 @@ public record OptionSourceDescriptor(
                 dependencyFilterMap,
                 policy,
                 entityLookup,
+                null,
+                executionMode,
+                null
+        );
+    }
+
+    public OptionSourceDescriptor(
+            String key,
+            OptionSourceType type,
+            String resourcePath,
+            String filterField,
+            String propertyPath,
+            String labelPropertyPath,
+            String valuePropertyPath,
+            List<String> dependsOn,
+            Map<String, String> dependencyFilterMap,
+            OptionSourcePolicy policy,
+            EntityLookupDescriptor entityLookup,
+            OptionSourceExecutionMode executionMode,
+            OptionSourceRuntimeContract runtimeContract
+    ) {
+        this(
+                key,
+                type,
+                resourcePath,
+                filterField,
+                propertyPath,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                dependencyFilterMap,
+                policy,
+                entityLookup,
+                null,
+                executionMode,
+                runtimeContract
+        );
+    }
+
+    public OptionSourceDescriptor(
+            String key,
+            OptionSourceType type,
+            String resourcePath,
+            String filterField,
+            String propertyPath,
+            String labelPropertyPath,
+            String valuePropertyPath,
+            List<String> dependsOn,
+            Map<String, String> dependencyFilterMap,
+            OptionSourcePolicy policy,
+            EntityLookupDescriptor entityLookup,
+            LookupFilteringDescriptor filtering,
+            OptionSourceExecutionMode executionMode
+    ) {
+        this(
+                key,
+                type,
+                resourcePath,
+                filterField,
+                propertyPath,
+                labelPropertyPath,
+                valuePropertyPath,
+                dependsOn,
+                dependencyFilterMap,
+                policy,
+                entityLookup,
+                filtering,
                 executionMode,
                 null
         );
@@ -214,6 +286,7 @@ public record OptionSourceDescriptor(
                 dependencyFilterMap,
                 policy,
                 entityLookup,
+                filtering,
                 mode,
                 runtimeContract
         );
@@ -232,6 +305,7 @@ public record OptionSourceDescriptor(
                 dependencyFilterMap,
                 policy,
                 entityLookup,
+                filtering,
                 executionMode,
                 contract
         );
@@ -244,6 +318,22 @@ public record OptionSourceDescriptor(
      */
     public String effectiveFilterField() {
         return filterField != null ? filterField : key;
+    }
+
+    /**
+     * Retorna o contrato efetivo de filtros estruturados da option-source.
+     *
+     * <p>
+     * {@code filtering} em nivel de option-source e o contrato canonico para qualquer executor.
+     * {@code entityLookup.filtering} permanece como fallback compatível para lookups ricos já
+     * publicados antes da promoção do contrato para o nivel generico.
+     * </p>
+     */
+    public LookupFilteringDescriptor effectiveFiltering() {
+        if (filtering != null && !filtering.isEmpty()) {
+            return filtering;
+        }
+        return entityLookup == null ? null : entityLookup.filtering();
     }
 
     /**
@@ -285,6 +375,10 @@ public record OptionSourceDescriptor(
             if (!dependencyFilterMap.isEmpty()) {
                 metadata.put("dependencyFilterMap", dependencyFilterMap);
             }
+        }
+        LookupFilteringDescriptor effectiveFiltering = effectiveFiltering();
+        if (effectiveFiltering != null && !effectiveFiltering.isEmpty()) {
+            metadata.put("filtering", effectiveFiltering.toMetadataMap());
         }
         return metadata;
     }
