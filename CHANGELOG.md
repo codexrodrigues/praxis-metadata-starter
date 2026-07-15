@@ -23,6 +23,11 @@ All notable changes to this module will be documented in this file.
   vincular `bucket.key` ao campo publico exato do request de filtro. Projections
   com `crossFilter=true` agora falham fechado quando o binding nao existe, sem
   expor property paths internos nem inferir por nome ou label.
+- `/capabilities.operations` agora publica tambem `byId`, `update`, `all`,
+  `filter`, `cursor`, `options`, `optionSources`, `statsGroupBy`,
+  `statsTimeSeries`, `statsDistribution` e `statsComparison`, permitindo ao
+  `ResourceOperationAvailabilityProvider` governar query/stats por principal
+  sem transformar `canonicalOperations` em autorizacao.
 - `@AnalyticsPolicyReference` e
   `x-ui.analytics.projections[].governance.policyRefs[]` para publicar identidade
   e versao de policies de dominio, papel, campo de resultado e atestacao
@@ -81,6 +86,12 @@ All notable changes to this module will be documented in this file.
   `valuePropertyPath`/`labelPropertyPath`.
 
 ### Changed
+- Availability de operacoes passa a respeitar o `scope` da propria operacao em
+  snapshots de colecao e item; links HATEOAS `all`, `filter` e `filter-cursor`
+  acompanham a mesma decisao publicada em capabilities.
+- Regras default de surfaces avaliam `requiredAuthorities` antes de exigir
+  contexto de item: principals inelegiveis recebem `missing-authority`, enquanto
+  principals elegiveis sem `resourceId` recebem `resource-context-required`.
 - `@UISchema.options` agora pode enriquecer labels/metadados de opcoes derivadas de `enum` em `x-ui.options`, preservando os valores canonicos do schema OpenAPI e ignorando valores extras que nao pertencem ao enum.
 - `_links` de create/edit/delete/export passam a respeitar a availability canonica avaliada pelo `CapabilityService`, evitando divergencia entre HATEOAS e `/capabilities`.
 - `/schemas/domain` agora preenche a descricao do no conceitual de recurso a partir da

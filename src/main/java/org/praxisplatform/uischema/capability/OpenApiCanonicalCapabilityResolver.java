@@ -77,6 +77,105 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
     }
 
     @Override
+    public Map<String, CapabilityOperation> resolveOperations(String resourcePath) {
+        String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
+        JsonNode openApiDocument = openApiDocumentService.getDocumentForGroup(group);
+        return resolveOperations(openApiDocument, resourcePath);
+    }
+
+    @Override
+    public Map<String, CapabilityOperation> resolveOperations(JsonNode openApiDocument, String resourcePath) {
+        String basePath = normalizePath(resourcePath);
+        JsonNode pathsNode = openApiDocument == null ? null : openApiDocument.path(PATHS);
+        Map<String, CapabilityOperation> operations = new LinkedHashMap<>(
+                resolveCrudOperations(openApiDocument, resourcePath)
+        );
+
+        boolean byId = hasOperation(pathsNode, basePath + "/{id}", "get");
+        operations.put("byId", operation("byId", byId, "ITEM", byId ? "GET" : null, "self"));
+
+        boolean update = resolveEditSupported(pathsNode, basePath);
+        operations.put("update", operation(
+                "update",
+                update,
+                "ITEM",
+                resolveEditPreferredMethod(pathsNode, basePath),
+                "update"
+        ));
+
+        boolean all = hasOperation(pathsNode, basePath, "get")
+                || hasOperation(pathsNode, basePath + "/all", "get");
+        operations.put("all", operation("all", all, "COLLECTION", all ? "GET" : null, "all"));
+
+        boolean filter = hasOperation(pathsNode, basePath + "/filter", "post");
+        operations.put("filter", operation("filter", filter, "COLLECTION", filter ? "POST" : null, "filter"));
+
+        boolean cursor = hasOperation(pathsNode, basePath + "/filter/cursor", "post");
+        operations.put("cursor", operation(
+                "cursor",
+                cursor,
+                "COLLECTION",
+                cursor ? "POST" : null,
+                "filter-cursor"
+        ));
+
+        boolean optionsFilter = hasOperation(pathsNode, basePath + "/options/filter", "post");
+        boolean optionsByIds = hasOperation(pathsNode, basePath + "/options/by-ids", "get");
+        operations.put("options", operation(
+                "options",
+                optionsFilter || optionsByIds,
+                "COLLECTION",
+                optionsFilter ? "POST" : optionsByIds ? "GET" : null,
+                "options"
+        ));
+
+        boolean optionSourcesFilter = hasOperation(
+                pathsNode,
+                basePath + "/option-sources/{sourceKey}/options/filter",
+                "post"
+        );
+        boolean optionSourcesByIds = hasOperation(
+                pathsNode,
+                basePath + "/option-sources/{sourceKey}/options/by-ids",
+                "get"
+        );
+        operations.put("optionSources", operation(
+                "optionSources",
+                optionSourcesFilter || optionSourcesByIds,
+                "COLLECTION",
+                optionSourcesFilter ? "POST" : optionSourcesByIds ? "GET" : null,
+                "option-sources"
+        ));
+
+        operations.put("export", operation("export", false, "COLLECTION", null, "export"));
+        operations.put("statsGroupBy", collectionPostOperation(
+                "statsGroupBy",
+                pathsNode,
+                basePath + "/stats/group-by",
+                "stats-group-by"
+        ));
+        operations.put("statsTimeSeries", collectionPostOperation(
+                "statsTimeSeries",
+                pathsNode,
+                basePath + "/stats/timeseries",
+                "stats-timeseries"
+        ));
+        operations.put("statsDistribution", collectionPostOperation(
+                "statsDistribution",
+                pathsNode,
+                basePath + "/stats/distribution",
+                "stats-distribution"
+        ));
+        operations.put("statsComparison", collectionPostOperation(
+                "statsComparison",
+                pathsNode,
+                basePath + "/stats/comparison",
+                "stats-comparison"
+        ));
+        return Map.copyOf(operations);
+    }
+
+    @Override
     public Map<String, CapabilityOperation> resolveCrudOperations(JsonNode openApiDocument, String resourcePath) {
         String basePath = normalizePath(resourcePath);
         JsonNode pathsNode = openApiDocument == null ? null : openApiDocument.path(PATHS);
@@ -123,6 +222,33 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 AvailabilityDecision.allowAll()
         ));
         return Map.copyOf(operations);
+    }
+
+    private CapabilityOperation collectionPostOperation(
+            String id,
+            JsonNode pathsNode,
+            String path,
+            String preferredRel
+    ) {
+        boolean supported = hasOperation(pathsNode, path, "post");
+        return operation(id, supported, "COLLECTION", supported ? "POST" : null, preferredRel);
+    }
+
+    private CapabilityOperation operation(
+            String id,
+            boolean supported,
+            String scope,
+            String preferredMethod,
+            String preferredRel
+    ) {
+        return new CapabilityOperation(
+                id,
+                supported,
+                scope,
+                preferredMethod,
+                preferredRel,
+                AvailabilityDecision.allowAll()
+        );
     }
 
     private boolean hasOperation(JsonNode pathsNode, String path, String operation) {

@@ -50,7 +50,9 @@ Marque todos os itens abaixo antes de abrir a adocao do piloto.
 - [ ] `SurfaceAvailabilityRule` usado apenas para experiences publicadas por `@UiSurface`
 - [ ] `ResourceStateSnapshotProvider` usado quando action, surface e operation dependem do mesmo estado de item
 - [ ] collection capabilities e item capabilities validadas separadamente quando a decisao depende de `resourceId`
-- [ ] `_links` e `/capabilities.operations` concordam para create/edit/delete/export
+- [ ] `_links` e `/capabilities.operations` concordam para create/edit/delete, all/filter/cursor e export
+- [ ] query/stats protegidos distinguem suporte estrutural de availability por principal
+- [ ] surface ITEM sem contexto avalia authorities independentes antes de retornar `resource-context-required`
 - [ ] `/actions` e `capabilities.actions` concordam para actions collection e item
 - [ ] recursos exclusivamente orientados a comandos usam `AbstractCollectionCommandResourceController`,
       sem herdar query/CRUD nem criar armazenamento ficticio apenas para obter discovery

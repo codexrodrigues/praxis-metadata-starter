@@ -92,6 +92,64 @@ class DefaultSurfaceAvailabilityEvaluatorTest {
     }
 
     @Test
+    void deniesMissingAuthorityBeforeRequiringItemContext() {
+        SurfaceDefinition definition = definition(
+                "profile",
+                SurfaceScope.ITEM,
+                List.of("employee:profile:update"),
+                List.of("ACTIVE")
+        );
+        SurfaceAvailabilityContext context = new SurfaceAvailabilityContext(
+                "example.employees",
+                "/employees",
+                null,
+                null,
+                Locale.forLanguageTag("pt-BR"),
+                () -> "qa-user",
+                java.util.Set.of(),
+                null
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(definition, context);
+
+        assertFalse(decision.allowed());
+        assertEquals("missing-authority", decision.reason());
+        assertEquals(List.of("employee:profile:update"), decision.metadata().get("requiredAuthorities"));
+        assertEquals(List.of("employee:profile:update"), decision.metadata().get("missingAuthorities"));
+        assertNull(decision.metadata().get("contextual"));
+        assertNull(decision.metadata().get("resourceState"));
+    }
+
+    @Test
+    void requiresItemContextAfterIndependentAuthorityCheckPasses() {
+        SurfaceDefinition definition = definition(
+                "profile",
+                SurfaceScope.ITEM,
+                List.of("employee:profile:update"),
+                List.of("ACTIVE")
+        );
+        SurfaceAvailabilityContext context = new SurfaceAvailabilityContext(
+                "example.employees",
+                "/employees",
+                null,
+                null,
+                Locale.forLanguageTag("pt-BR"),
+                () -> "qa-user",
+                java.util.Set.of("employee:profile:update"),
+                null
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(definition, context);
+
+        assertFalse(decision.allowed());
+        assertEquals("resource-context-required", decision.reason());
+        assertEquals(List.of("employee:profile:update"), decision.metadata().get("requiredAuthorities"));
+        assertEquals(false, decision.metadata().get("contextual"));
+        assertNull(decision.metadata().get("allowedStates"));
+        assertNull(decision.metadata().get("resourceState"));
+    }
+
+    @Test
     void shortCircuitsOnMissingAuthorityWithoutLeakingLaterStateMetadata() {
         SurfaceDefinition definition = definition(
                 "profile",

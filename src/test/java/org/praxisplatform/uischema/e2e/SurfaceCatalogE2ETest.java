@@ -55,8 +55,36 @@ class SurfaceCatalogE2ETest extends AbstractE2eH2Test {
         assertEquals("updateProfile", profile.path("operationId").asText());
         assertTrue(profile.path("schemaUrl").asText().contains("schemaType=request"));
         assertFalse(profile.path("availability").path("allowed").asBoolean());
+        assertEquals("missing-authority", profile.path("availability").path("reason").asText());
+        assertEquals(
+                "employee:profile:update",
+                profile.path("availability").path("metadata").path("requiredAuthorities").get(0).asText()
+        );
+        assertFalse(profile.path("availability").path("metadata").has("allowedStates"));
+    }
+
+    @Test
+    void collectionCatalogRequiresItemContextAfterProfileAuthorityPasses() throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Test-Principal", "qa-user");
+        headers.add("X-Test-Authorities", "employee:profile:update");
+
+        ResponseEntity<String> response = exchange(
+                "/schemas/surfaces?resource=human-resources.employees",
+                HttpMethod.GET,
+                headers
+        );
+        assertEquals(200, response.getStatusCode().value());
+
+        JsonNode profile = findSurface(body(response).path("surfaces"), "profile");
+        assertNotNull(profile);
+        assertFalse(profile.path("availability").path("allowed").asBoolean());
         assertEquals("resource-context-required", profile.path("availability").path("reason").asText());
-        assertFalse(profile.path("availability").path("metadata").has("requiredAuthorities"));
+        assertEquals(
+                "employee:profile:update",
+                profile.path("availability").path("metadata").path("requiredAuthorities").get(0).asText()
+        );
+        assertFalse(profile.path("availability").path("metadata").path("contextual").asBoolean());
         assertFalse(profile.path("availability").path("metadata").has("allowedStates"));
     }
 

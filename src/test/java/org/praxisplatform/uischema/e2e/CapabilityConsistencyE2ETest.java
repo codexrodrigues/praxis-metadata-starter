@@ -11,6 +11,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -87,6 +88,41 @@ class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
         assertFalse(deleteAvailability.path("metadata").has("hades"));
         assertFalse(deleteAvailability.path("metadata").has("rowId"));
         assertNull(findLinkHref(itemEnvelope, "delete"));
+    }
+
+    @Test
+    void collectionQueryAvailabilityStaysConsistentBetweenCapabilitiesAndHateoasLinks() throws Exception {
+        HttpHeaders aggregateHeaders = new HttpHeaders();
+        aggregateHeaders.add("X-Test-Principal", "analytics-user");
+        aggregateHeaders.add("X-Test-Authorities", "employee:analytics:aggregate");
+
+        JsonNode aggregateCapabilities = body(exchange(
+                "/employees/capabilities",
+                HttpMethod.GET,
+                aggregateHeaders
+        ));
+        JsonNode aggregateAllEnvelope = body(exchange("/employees/all", HttpMethod.GET, aggregateHeaders));
+
+        assertFalse(aggregateCapabilities.path("operations").path("filter").path("availability").path("allowed").asBoolean());
+        assertFalse(aggregateCapabilities.path("operations").path("cursor").path("availability").path("allowed").asBoolean());
+        assertNull(findLinkHref(aggregateAllEnvelope, "filter"));
+        assertNull(findLinkHref(aggregateAllEnvelope, "filter-cursor"));
+
+        HttpHeaders nominalHeaders = new HttpHeaders();
+        nominalHeaders.add("X-Test-Principal", "nominal-user");
+        nominalHeaders.add("X-Test-Authorities", "employee:analytics:nominal");
+
+        JsonNode nominalCapabilities = body(exchange(
+                "/employees/capabilities",
+                HttpMethod.GET,
+                nominalHeaders
+        ));
+        JsonNode nominalAllEnvelope = body(exchange("/employees/all", HttpMethod.GET, nominalHeaders));
+
+        assertTrue(nominalCapabilities.path("operations").path("filter").path("availability").path("allowed").asBoolean());
+        assertTrue(nominalCapabilities.path("operations").path("cursor").path("availability").path("allowed").asBoolean());
+        assertNotNull(findLinkHref(nominalAllEnvelope, "filter"));
+        assertNotNull(findLinkHref(nominalAllEnvelope, "filter-cursor"));
     }
 
     private JsonNode filterByScope(JsonNode items, String scope) {

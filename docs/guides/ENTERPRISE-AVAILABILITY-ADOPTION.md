@@ -9,7 +9,8 @@ organiza como hosts devem usar `ResourceOperationAvailabilityProvider`,
 `ResourceStateSnapshotProvider` sem espalhar regras por controllers, services ou
 clientes.
 
-Classificacao de aderencia: `suportado-parcialmente`.
+Classificacao de aderencia: `ja-suportado-so-ux` para hosts que ainda nao materializam
+a SPI e `lacuna-real-de-contrato` encerrada no starter para operacoes query/stats.
 
 O starter ja sabe publicar availability em operacoes, surfaces, actions,
 `/capabilities` e `_links`. A lacuna nao e uma nova SPI; e a disciplina de uso,
@@ -22,7 +23,7 @@ Use cada eixo para o tipo de decisao que ele governa:
 
 | Necessidade | Fonte canonica | Exemplo |
 | --- | --- | --- |
-| Disponibilidade de operacao CRUD canonica | `ResourceOperationAvailabilityProvider` | `create`, `edit`, `delete`, `duplicate-draft`, `export`, `stats` |
+| Disponibilidade de operacao canonica | `ResourceOperationAvailabilityProvider` | `create`, `edit`, `delete`, `all`, `filter`, `cursor`, `options`, `optionSources`, `stats*`, `export` |
 | Disponibilidade de comando de negocio | `ActionAvailabilityRule` | `approve`, `reject`, `bulk-approve` |
 | Disponibilidade de experiencia UI discoverable | `SurfaceAvailabilityRule` | `profile`, `detail`, `wizard`, `related-list` |
 | Estado compartilhado do item | `ResourceStateSnapshotProvider` | `ACTIVE`, `INACTIVE`, `LOCKED`, `CLOSED` |
@@ -41,6 +42,7 @@ Use `ResourceOperationAvailabilityProvider` quando a pergunta for:
 - este item pode ser excluido agora?
 - este item pode gerar um rascunho editavel?
 - a colecao pode exportar ou calcular stats agora?
+- o principal pode consultar dados nominais por `filter/cursor` sem receber implicitamente acesso agregado?
 
 O provider recebe `ResourceOperationAvailabilityContext` com:
 
@@ -55,6 +57,17 @@ O provider recebe `ResourceOperationAvailabilityContext` com:
 O provider deve encapsular policy privada, motor legado, autorizacao, agenda,
 tenant, sessao ou regra regulatoria. Ele nao deve publicar nomes internos de
 package, SQL, HADES, ROWID, usuario tecnico, locators ou detalhes de banco.
+
+IDs estaveis recebidos pelo provider incluem `all`, `byId`, `filter`, `cursor`,
+`options`, `optionSources`, `statsGroupBy`, `statsTimeSeries`,
+`statsDistribution`, `statsComparison` e `export`, alem das affordances CRUD
+`create`, `view`, `edit`, `delete` e `duplicate-draft`. O `scope` pertence a
+operacao: mesmo em um snapshot de item, uma operacao query/stats continua
+`COLLECTION` e nao recebe `resourceId` ou `resourceState`.
+
+`canonicalOperations` responde somente se a operacao faz parte do contrato
+estrutural. A decisao atual esta em `operations.{operationId}.availability`.
+Nenhum desses blocos substitui o enforcement do `SecurityFilterChain`.
 
 ## Workflow actions
 
@@ -106,6 +119,9 @@ Regras:
 - quando uma action ou surface `ITEM` aparece como
   `resource-context-required`, isso significa que ela existe, mas precisa de
   `resourceId` para decidir.
+- restricoes independentes do item sao avaliadas antes do contexto: uma surface
+  `ITEM` sem `resourceId` retorna `missing-authority` para um principal inelegivel
+  e `resource-context-required` somente depois que as authorities exigidas passam.
 
 ## Metadata publica recomendada
 
@@ -190,7 +206,10 @@ deve virar semantica publica do Praxis.
 
 Antes de declarar um recurso pronto para migracao assistida por IA:
 
-- `_links` e `/capabilities.operations` concordam para create/edit/delete/export
+- `_links` e `/capabilities.operations` concordam para create/edit/delete,
+  all/filter/cursor e export
+- query e stats protegidos possuem ao menos um teste allow e um deny por principal
+- `canonicalOperations=true` nunca e interpretado como autorizacao
 - action catalog e `capabilities.actions` concordam no mesmo contexto
 - surface catalog e `capabilities.surfaces` concordam no mesmo contexto
 - item-level availability foi testada com pelo menos um allow e um deny
