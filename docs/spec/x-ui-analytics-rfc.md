@@ -3,7 +3,7 @@
 ## Status
 
 - estado: `draft`
-- versao proposta: `0.3.0`
+- versao proposta: `0.4.0`
 - classe: `contrato-publico`
 
 ## Objetivo
@@ -54,7 +54,8 @@ uma unica leitura editorial.
             "primaryDimension": {
               "field": "departamento",
               "role": "category",
-              "label": "Departamento"
+              "label": "Departamento",
+              "keyFilterField": "departamentoId"
             },
             "primaryMetrics": [
               {
@@ -77,7 +78,7 @@ uma unica leitura editorial.
           "interactions": {
             "drillDown": true,
             "pointSelection": false,
-            "crossFilter": false
+            "crossFilter": true
           }
         }
       ]
@@ -147,6 +148,20 @@ O dominio continua dono da execucao, dos thresholds e da autorizacao. A
 referencia permite que authoring, auditoria e runtimes preservem provenance sem
 ler linhas para descobrir a policy e sem copiar sua logica para configuracao.
 
+## Binding de `bucket.key` para cross-filter
+
+`bindings.primaryDimension.keyFilterField` referencia o campo publico do request
+de filtro que recebe a identidade preservada em `bucket.key`. Ele nao e um
+property path de entidade e nao pode ser derivado de `field`, `label`, aliases ou
+sufixos. O destino da composicao continua pertencendo ao link/widget que recebe o
+evento; a projection nao duplica `resourceKey` ou path do target.
+
+Quando `interactions.crossFilter=true`, o binding e obrigatorio. O consumidor
+deve validar o campo e sua cardinalidade no schema request canonico obtido por
+`/schemas/filtered` antes de executar. Uma key escalar pode precisar ser
+materializada como array quando o campo publico do target for multivalorado; o
+schema, e nao uma convencao de nome, governa essa adaptacao.
+
 ## Regras
 
 - `MUST`: publicar `projections[]`
@@ -155,6 +170,12 @@ ler linhas para descobrir a policy e sem copiar sua logica para configuracao.
 - `SHOULD`: projections `timeseries` publicar `defaults.granularity` quando o runtime depender da granularidade para executar a consulta sem heuristica local
 - `MUST`: `defaults.granularity`, quando publicado para `praxis.stats`, usar `day`, `week` ou `month`
 - `MUST`: projection com `source.operation = "comparison"` publicar `bindings.comparisonPeriod`
+- `MUST`: projection com `interactions.crossFilter = true` publicar
+  `bindings.primaryDimension.keyFilterField`
+- `MUST`: `keyFilterField` referenciar um campo publico do request e receber
+  `bucket.key` sem reescrever tipo ou substituir pelo label
+- `MUST NOT`: publicar `keyPropertyPath`, `labelPropertyPath` ou outro path interno
+  de entidade como binding de filtro
 - `MUST`: `comparisonPeriod` declarar `field`, `timezone`, `preset` e `mode`, usando os mesmos enums
   do request HTTP de comparison; o runtime pode oferecer intervalo customizado, mas nao deve trocar
   silenciosamente os defaults publicados

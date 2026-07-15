@@ -33,6 +33,8 @@ public class UiAnalyticsAnnotationMapper {
     }
 
     private Map<String, Object> toProjection(AnalyticsProjection projection, String operationPath) {
+        validateDimensionFilterBinding(projection);
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("id", projection.id());
         result.put("intent", projection.intent().wireValue());
@@ -173,7 +175,27 @@ public class UiAnalyticsAnnotationMapper {
         if (!binding.label().isBlank()) {
             dimension.put("label", binding.label());
         }
+        if (!binding.keyFilterField().isBlank()) {
+            dimension.put("keyFilterField", binding.keyFilterField().trim());
+        }
         return dimension;
+    }
+
+    private void validateDimensionFilterBinding(AnalyticsProjection projection) {
+        AnalyticsDimensionBinding dimension = projection.primaryDimension();
+        if (dimension != null
+                && !dimension.keyFilterField().isEmpty()
+                && dimension.keyFilterField().isBlank()) {
+            throw new IllegalArgumentException(
+                    "Analytics primaryDimension.keyFilterField must name a public request field when declared.");
+        }
+        if (projection.crossFilter()
+                && (dimension == null
+                || dimension.field().isBlank()
+                || dimension.keyFilterField().isBlank())) {
+            throw new IllegalArgumentException(
+                    "Analytics projections with crossFilter=true require primaryDimension.field and primaryDimension.keyFilterField.");
+        }
     }
 
     private List<Map<String, Object>> buildMetrics(AnalyticsMetricBinding[] metrics) {

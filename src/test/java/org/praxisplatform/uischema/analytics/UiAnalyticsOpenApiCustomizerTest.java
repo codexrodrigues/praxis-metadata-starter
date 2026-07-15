@@ -182,6 +182,46 @@ class UiAnalyticsOpenApiCustomizerTest {
                 () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(annotation, "/reports/stats/comparison"));
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void mapsBucketKeyToExplicitPublicFilterField() throws Exception {
+        UiAnalytics annotation = CrossFilterController.class.getDeclaredMethod("groupBy")
+                .getAnnotation(UiAnalytics.class);
+
+        Map<String, Object> analytics = new UiAnalyticsAnnotationMapper()
+                .toXUiAnalytics(annotation, "/reports/stats/group-by");
+        Map<String, Object> projection = ((java.util.List<Map<String, Object>>) analytics.get("projections")).get(0);
+        Map<String, Object> bindings = (Map<String, Object>) projection.get("bindings");
+        Map<String, Object> dimension = (Map<String, Object>) bindings.get("primaryDimension");
+
+        assertEquals("departmentId", dimension.get("keyFilterField"));
+        assertFalse(dimension.containsKey("keyPropertyPath"));
+        assertFalse(dimension.containsKey("labelPropertyPath"));
+    }
+
+    @Test
+    void rejectsCrossFilterWithoutExplicitBucketKeyBinding() throws Exception {
+        UiAnalytics annotation = InvalidCrossFilterController.class.getDeclaredMethod("groupBy")
+                .getAnnotation(UiAnalytics.class);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(annotation, "/reports/stats/group-by"));
+
+        assertEquals(
+                "Analytics projections with crossFilter=true require primaryDimension.field and primaryDimension.keyFilterField.",
+                error.getMessage()
+        );
+    }
+
+    @Test
+    void rejectsBlankBucketKeyBindingEvenWithoutCrossFilter() throws Exception {
+        UiAnalytics annotation = BlankFilterFieldController.class.getDeclaredMethod("groupBy")
+                .getAnnotation(UiAnalytics.class);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(annotation, "/reports/stats/group-by"));
+    }
+
     static class SampleController {
 
         @PostMapping("/reports/stats/group-by")
@@ -214,6 +254,63 @@ class UiAnalyticsOpenApiCustomizerTest {
 
     static class UnannotatedController {
         @PostMapping("/reports/stats/group-by")
+        public void groupBy() {
+        }
+    }
+
+    static class CrossFilterController {
+
+        @PostMapping("/reports/stats/group-by")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "department-cross-filter",
+                        intent = AnalyticsIntent.RANKING,
+                        sourceOperation = AnalyticsOperation.GROUP_BY,
+                        primaryDimension = @AnalyticsDimensionBinding(
+                                field = "department",
+                                label = "Department",
+                                keyFilterField = "departmentId"
+                        ),
+                        primaryMetrics = @AnalyticsMetricBinding(field = "total", aggregation = "sum"),
+                        crossFilter = true
+                )
+        )
+        public void groupBy() {
+        }
+    }
+
+    static class InvalidCrossFilterController {
+
+        @PostMapping("/reports/stats/group-by")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "invalid-cross-filter",
+                        intent = AnalyticsIntent.RANKING,
+                        sourceOperation = AnalyticsOperation.GROUP_BY,
+                        primaryDimension = @AnalyticsDimensionBinding(field = "department"),
+                        primaryMetrics = @AnalyticsMetricBinding(field = "total", aggregation = "sum"),
+                        crossFilter = true
+                )
+        )
+        public void groupBy() {
+        }
+    }
+
+    static class BlankFilterFieldController {
+
+        @PostMapping("/reports/stats/group-by")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "blank-filter-field",
+                        intent = AnalyticsIntent.RANKING,
+                        sourceOperation = AnalyticsOperation.GROUP_BY,
+                        primaryDimension = @AnalyticsDimensionBinding(
+                                field = "department",
+                                keyFilterField = " "
+                        ),
+                        primaryMetrics = @AnalyticsMetricBinding(field = "total", aggregation = "sum")
+                )
+        )
         public void groupBy() {
         }
     }

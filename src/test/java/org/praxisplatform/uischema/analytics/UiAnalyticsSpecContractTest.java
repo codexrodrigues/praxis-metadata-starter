@@ -11,6 +11,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UiAnalyticsSpecContractTest {
 
@@ -44,6 +45,23 @@ class UiAnalyticsSpecContractTest {
                 .path("governance").path("policyRefs").path(0);
 
         assertEquals(allowed, fieldNames(policyRef));
+    }
+
+    @Test
+    void dimensionSchemaAndExamplePublishOnlyThePublicBucketKeyFilterBinding() throws Exception {
+        JsonNode schema = objectMapper.readTree(
+                Path.of("docs/spec/x-ui-analytics.schema.json").toFile());
+        JsonNode example = objectMapper.readTree(
+                Path.of("docs/spec/examples/x-ui-analytics.valid.json").toFile());
+        JsonNode dimensionProperties = schema.path("$defs").path("dimension").path("properties");
+        JsonNode projection = example.path("projections").path(0);
+        JsonNode dimension = projection.path("bindings").path("primaryDimension");
+
+        assertTrue(dimensionProperties.has("keyFilterField"));
+        assertFalse(dimensionProperties.has("keyPropertyPath"));
+        assertFalse(dimensionProperties.has("labelPropertyPath"));
+        assertEquals("departamentoId", dimension.path("keyFilterField").asText());
+        assertTrue(projection.path("interactions").path("crossFilter").asBoolean());
     }
 
     private Set<String> fieldNames(JsonNode node) {
