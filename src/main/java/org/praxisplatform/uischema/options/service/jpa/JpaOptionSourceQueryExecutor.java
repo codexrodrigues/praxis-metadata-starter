@@ -114,7 +114,15 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         long total = countDistinct(entityManager, entityClass, specification, descriptor, search, filters);
         List<OptionDTO<Object>> merged = mergeIncludedOptions(
                 pageContent,
-                byIdsOptions(entityManager, entityClass, descriptor, includeIds == null ? List.of() : includeIds)
+                byIdsOptions(
+                        entityManager,
+                        entityClass,
+                        specification,
+                        filterPayload,
+                        descriptor,
+                        filters,
+                        includeIds == null ? List.of() : includeIds
+                )
         );
 
         return new PageImpl<>(merged, pageable, Math.max(total, merged.size()));

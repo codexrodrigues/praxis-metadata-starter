@@ -47,7 +47,7 @@ public interface OptionSourceQueryExecutor {
         return byIdsOptions(entityManager, entityClass, specification, filterPayload, descriptor, List.of(), ids);
     }
 
-    default <E> List<OptionDTO<Object>> byIdsOptions(
+    <E> List<OptionDTO<Object>> byIdsOptions(
             EntityManager entityManager,
             Class<E> entityClass,
             Specification<E> specification,
@@ -55,7 +55,5 @@ public interface OptionSourceQueryExecutor {
             OptionSourceDescriptor descriptor,
             List<LookupFilterRequest> filters,
             Collection<Object> ids
-    ) {
-        return byIdsOptions(entityManager, entityClass, descriptor, ids);
-    }
+    );
 }
