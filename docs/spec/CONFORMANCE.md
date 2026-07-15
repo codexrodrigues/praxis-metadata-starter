@@ -93,6 +93,9 @@
   - `/schemas/domain` -> vocabulario semantico AI-operable, evidencias e governanca de dominio
   - `/schemas/surfaces` -> catalogo semantico de `@UiSurface` e surfaces automaticas do recurso
   - `/schemas/actions` -> catalogo semantico de `@WorkflowAction`
+  - `/{resource}/capabilities.canonicalOperations` -> suporte estrutural, nunca autorizacao
+  - `/{resource}/capabilities.operations` -> operacoes CRUD, query, options, stats e export com scope, metodo, relacao e availability atuais
+  - query/stats de um snapshot item-level preservam `scope=COLLECTION` e nao recebem contexto de item
 - x-domain-governance
   - `annotationType`, `classification`, `dataCategory` -> classificacao canonica do campo
   - `aiUsage.*` -> politica de visibilidade, treino, authoring e raciocinio assistido por IA

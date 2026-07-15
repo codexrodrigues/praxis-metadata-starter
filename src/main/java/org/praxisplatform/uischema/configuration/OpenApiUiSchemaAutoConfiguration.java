@@ -432,14 +432,14 @@ public class OpenApiUiSchemaAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "contextualSurfaceAvailabilityRule")
-    @Order(0)
+    @Order(100)
     public SurfaceAvailabilityRule contextualSurfaceAvailabilityRule() {
         return new ContextualSurfaceAvailabilityRule();
     }
 
     @Bean
     @ConditionalOnMissingBean(name = "requiredAuthoritiesSurfaceAvailabilityRule")
-    @Order(100)
+    @Order(0)
     public SurfaceAvailabilityRule requiredAuthoritiesSurfaceAvailabilityRule() {
         return new RequiredAuthoritiesSurfaceAvailabilityRule();
     }

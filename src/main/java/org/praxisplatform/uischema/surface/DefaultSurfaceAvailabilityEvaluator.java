@@ -26,8 +26,8 @@ public class DefaultSurfaceAvailabilityEvaluator implements SurfaceAvailabilityE
 
     public DefaultSurfaceAvailabilityEvaluator() {
         this(List.of(
-                new ContextualSurfaceAvailabilityRule(),
                 new RequiredAuthoritiesSurfaceAvailabilityRule(),
+                new ContextualSurfaceAvailabilityRule(),
                 new AllowedStatesSurfaceAvailabilityRule()
         ));
     }

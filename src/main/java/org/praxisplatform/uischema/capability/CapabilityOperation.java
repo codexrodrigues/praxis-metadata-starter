@@ -65,4 +65,19 @@ public record CapabilityOperation(
                 async
         );
     }
+
+    public CapabilityOperation withSupported(boolean nextSupported) {
+        return new CapabilityOperation(
+                id,
+                nextSupported,
+                scope,
+                nextSupported ? preferredMethod : null,
+                preferredRel,
+                availability,
+                formats,
+                scopes,
+                maxRows,
+                async
+        );
+    }
 }

@@ -177,8 +177,12 @@ O baseline distingue **descoberta** (o que existe) de **disponibilidade** (o que
 
 - `allowedStates` e `requiredAuthorities` (nas anotacoes `@UiSurface` e `@WorkflowAction`) declaram restricoes estaticas.
 - Quando a disponibilidade depende de operacoes canonicas como `create`, `edit`,
-  `delete`, `duplicate-draft`, `export` ou `stats`, o host deve plugar
+  `delete`, `duplicate-draft`, `all`, `filter`, `cursor`, `options`,
+  `optionSources`, `stats*` ou `export`, o host deve plugar
   `ResourceOperationAvailabilityProvider`.
+- `canonicalOperations` informa suporte estrutural; autorizacao/disponibilidade
+  atual pertence a `operations.{operationId}.availability` e o enforcement
+  executavel continua no host.
 - Quando a disponibilidade depende de workflow action publicada por
   `@WorkflowAction`, use `ActionAvailabilityRule`.
 - Quando a disponibilidade depende de experiencia publicada por `@UiSurface`, use
