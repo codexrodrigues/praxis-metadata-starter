@@ -159,9 +159,30 @@ Esses atributos sao privados. Eles nao podem aparecer em:
 - `x-ui.optionSource`;
 - OpenAPI;
 - `/schemas/filtered`;
+- `/schemas/domain`;
 - payloads de exemplo;
 - mensagens de erro;
 - `OptionDTO.extra`.
+
+## Prova publica de catalogos registry-wide
+
+Quando a source corresponde a uma propriedade real, valide o contrato em
+`properties.*.x-ui.optionSource` de `/schemas/filtered`. Quando o resource owner
+hospeda um catalogo amplo e a source nao corresponde a uma propriedade do DTO ou
+do `FilterDTO`, valide-a em:
+
+```http
+GET /schemas/domain?resource={resourceKey}
+```
+
+Essa projecao deriva do mesmo `OptionSourceRegistry` e publica `filtering`,
+`dependsOn`, `dependencyFilterMap`, endpoints e politicas de runtime sem criar
+um endpoint de option-source discovery paralelo. A obrigatoriedade de cada
+filtro vive em `filtering.availableFilters[].required`.
+
+`OptionSourceExecutionMode.PROVIDER_REQUIRED` governa a selecao interna do
+executor e nao deve ser exposto. O consumidor precisa conhecer o contrato e as
+capacidades da source, nao qual provider privado o host usou para executa-la.
 
 ## Diagnostico de publicacao
 

@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -78,6 +79,52 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         assertEquals(200, requestSchemaResponse.getStatusCode().value());
         JsonNode requestSchema = body(requestSchemaResponse);
         assertTrue(requestSchema.path("properties").has("filter"), requestSchema.toPrettyString());
+    }
+
+    @Test
+    void registryWideProviderBackedOptionSourceIsDiscoverableByCanonicalResourceKey() throws Exception {
+        ResponseEntity<String> response = get("/schemas/domain?resource=human-resources.employees");
+
+        assertEquals(200, response.getStatusCode().value());
+        JsonNode domain = body(response);
+        JsonNode optionSource = findOptionSourceNode(domain, "externalRequiredDependencyLookup");
+
+        assertEquals(
+                "human-resources.employees.policy.external-required-dependency-lookup.selection",
+                optionSource.path("nodeKey").asText()
+        );
+        JsonNode metadata = optionSource.path("metadata");
+        assertEquals("LIGHT_LOOKUP", metadata.path("type").asText());
+        assertEquals("/employees", metadata.path("resourcePath").asText());
+        assertEquals("tipoEvento", metadata.path("dependsOn").get(0).asText());
+        assertEquals("tipoEvento", metadata.path("dependencyFilterMap").path("tipoEvento").asText());
+        assertEquals(
+                "/employees/option-sources/externalRequiredDependencyLookup/options/filter",
+                metadata.path("filterEndpoint").asText()
+        );
+        assertEquals(
+                "/employees/option-sources/externalRequiredDependencyLookup/options/by-ids",
+                metadata.path("byIdsEndpoint").asText()
+        );
+        JsonNode filter = metadata.path("filtering").path("availableFilters").get(0);
+        assertEquals("tipoEvento", filter.path("field").asText());
+        assertEquals("equals", filter.path("defaultOperator").asText());
+        assertTrue(filter.path("required").asBoolean());
+        assertEquals("required", metadata.path("selectedReloadPolicy").asText());
+        assertEquals("reject", metadata.path("invalidSortPolicy").asText());
+        assertTrue(metadata.path("executionMode").isMissingNode());
+        assertTrue(metadata.path("provider").isMissingNode());
+        assertTrue(metadata.path("providerConfig").isMissingNode());
+        assertTrue(metadata.path("sql").isMissingNode());
+
+        ResponseEntity<String> schemaResponse = get(
+                "/schemas/filtered?path=/employees/filter&operation=post&schemaType=request"
+        );
+        assertEquals(200, schemaResponse.getStatusCode().value());
+        assertFalse(
+                body(schemaResponse).path("properties").has("tipoSubstituicao"),
+                "Registry-wide option sources must not create synthetic structural fields"
+        );
     }
 
     @Test
@@ -337,6 +384,15 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         OptionSourceProvider externalCatalogOptionSourceProvider() {
             return new ExternalCatalogOptionSourceProvider();
         }
+    }
+
+    private JsonNode findOptionSourceNode(JsonNode domain, String sourceKey) {
+        for (JsonNode node : domain.path("nodes")) {
+            if (sourceKey.equals(node.path("metadata").path("key").asText())) {
+                return node;
+            }
+        }
+        throw new AssertionError("Option source not found in semantic domain catalog: " + sourceKey);
     }
 
     private static final class ExternalCatalogOptionSourceProvider implements OptionSourceProvider, Ordered {
