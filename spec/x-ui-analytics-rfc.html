@@ -240,7 +240,7 @@ Canonica</h1>
 <h2 id="status">Status</h2>
 <ul>
 <li>estado: <code>draft</code></li>
-<li>versao proposta: <code>0.4.0</code></li>
+<li>versao proposta: <code>0.5.0</code></li>
 <li>classe: <code>contrato-publico</code></li>
 </ul>
 <h2 id="objetivo">Objetivo</h2>
@@ -317,15 +317,21 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="
 <span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;preferredFamilies&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;analytic-table&quot;</span><span class="ot">,</span> <span class="st">&quot;chart&quot;</span><span class="ot">]</span></span>
 <span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>          <span class="fu">},</span></span>
 <span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;interactions&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;drillDown&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;pointSelection&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;crossFilter&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>          <span class="fu">}</span></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;pointSelection&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;crossFilter&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>            <span class="dt">&quot;recordOpen&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>              <span class="dt">&quot;sourceIdentityField&quot;</span><span class="fu">:</span> <span class="st">&quot;funcionarioId&quot;</span><span class="fu">,</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>              <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>                <span class="dt">&quot;resourceKey&quot;</span><span class="fu">:</span> <span class="st">&quot;human-resources.funcionarios&quot;</span><span class="fu">,</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>                <span class="dt">&quot;surfaceId&quot;</span><span class="fu">:</span> <span class="st">&quot;hero-profile&quot;</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>              <span class="fu">}</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>            <span class="fu">}</span></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>          <span class="fu">}</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <h2 id="projection-de-comparison">Projection de comparison</h2>
 <p>Uma projection de comparison acrescenta o binding temporal que o
 runtime precisa para montar o request sem deduzir campo, fuso ou
@@ -388,15 +394,43 @@ logica para configuracao.</p>
 campo publico do request de filtro que recebe a identidade preservada em
 <code>bucket.key</code>. Ele nao e um property path de entidade e nao
 pode ser derivado de <code>field</code>, <code>label</code>, aliases ou
-sufixos. O destino da composicao continua pertencendo ao link/widget que
-recebe o evento; a projection nao duplica <code>resourceKey</code> ou
-path do target.</p>
+sufixos. O destino da lista filtrada continua pertencendo a composicao;
+esse binding nao redefine resource, URL ou widget do cross-filter.</p>
 <p>Quando <code>interactions.crossFilter=true</code>, o binding e
 obrigatorio. O consumidor deve validar o campo e sua cardinalidade no
 schema request canonico obtido por <code>/schemas/filtered</code> antes
 de executar. Uma key escalar pode precisar ser materializada como array
 quando o campo publico do target for multivalorado; o schema, e nao uma
 convencao de nome, governa essa adaptacao.</p>
+<h2 id="abertura-de-registro-em-surface-cross-resource">Abertura de
+registro em surface cross-resource</h2>
+<p><code>interactions.recordOpen</code> declara a decisao de abrir uma
+linha nominal em uma surface ITEM de outro recurso:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;recordOpen&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;sourceIdentityField&quot;</span><span class="fu">:</span> <span class="st">&quot;funcionarioId&quot;</span><span class="fu">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;resourceKey&quot;</span><span class="fu">:</span> <span class="st">&quot;human-resources.funcionarios&quot;</span><span class="fu">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;surfaceId&quot;</span><span class="fu">:</span> <span class="st">&quot;hero-profile&quot;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p><code>sourceIdentityField</code> e um campo publico do registro
+nominal da projection. Seu valor e o <code>resourceId</code> do recurso
+alvo. <code>target</code> publica somente identidades semanticas
+estaveis; path, schema, scope, presentation e availability devem ser
+resolvidos no item real de
+<code>/schemas/surfaces?resource={resourceKey}</code>.</p>
+<p>O binding nao implica que um bucket agregado contenha a identidade
+nominal. Em uma projection com cross-filter, o fluxo executavel e bucket
+-&gt; lista filtrada -&gt; linha nominal -&gt; surface.
+<code>drillDown=true</code> sem <code>recordOpen</code> nao autoriza o
+consumidor a inventar target, usar <code>item.id</code> ou montar
+payload de <code>surface.open</code>.</p>
+<p>A referencia tambem nao concede acesso. Capabilities/availability
+orientam a materializacao e o endpoint continua responsavel pelo
+enforcement executavel.</p>
 <h2 id="regras">Regras</h2>
 <ul>
 <li><code>MUST</code>: publicar <code>projections[]</code></li>
@@ -424,6 +458,19 @@ ou substituir pelo label</li>
 <li><code>MUST NOT</code>: publicar <code>keyPropertyPath</code>,
 <code>labelPropertyPath</code> ou outro path interno de entidade como
 binding de filtro</li>
+<li><code>MUST</code>: <code>recordOpen</code>, quando publicado,
+declarar <code>sourceIdentityField</code>,
+<code>target.resourceKey</code> e <code>target.surfaceId</code></li>
+<li><code>MUST</code>: resolver o target pelo catalogo canonico de
+surfaces e exigir scope ITEM</li>
+<li><code>MUST NOT</code>: publicar path, schema, widget, presentation,
+payload de action ou availability dentro de <code>recordOpen</code></li>
+<li><code>MUST NOT</code>: tratar <code>recordOpen</code> como
+autorizacao ou abrir uma surface nominal quando a operacao de lista
+estiver indisponivel para o principal</li>
+<li><code>MUST NOT</code>: derivar target ou identity field de
+<code>drillDown</code>, nome, label, sufixo, URL ou
+<code>${item.id}</code></li>
 <li><code>MUST</code>: <code>comparisonPeriod</code> declarar
 <code>field</code>, <code>timezone</code>, <code>preset</code> e
 <code>mode</code>, usando os mesmos enums do request HTTP de comparison;

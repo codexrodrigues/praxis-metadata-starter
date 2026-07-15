@@ -343,6 +343,13 @@ quando <code>interactions.crossFilter=true</code></li>
 <li>consumidores confirmam tipo/cardinalidade pelo schema request
 canonico e nunca inferem o campo por label, sufixo ou property path
 interno</li>
+<li><code>interactions.recordOpen.sourceIdentityField</code> -&gt; campo
+publico da linha nominal cujo valor identifica o recurso alvo</li>
+<li><code>interactions.recordOpen.target</code> -&gt; somente
+<code>resourceKey + surfaceId</code>; path, schema, scope e availability
+sao resolvidos em <code>/schemas/surfaces</code></li>
+<li><code>drillDown=true</code> isolado nao autoriza inventar target,
+<code>${item.id}</code> ou payload de <code>surface.open</code></li>
 </ul></li>
 <li>x-ui.optionSource
 <ul>
