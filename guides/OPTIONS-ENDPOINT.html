@@ -263,6 +263,23 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="
 externos no mesmo nivel de extensao usado por
 <code>OptionSourceFilterRequest</code>, preservando a ordem dos IDs e
 omitindo valores que nao pertencem ao contexto solicitado.</p>
+<p>Recursos JPA com row scope devem sobrescrever
+<code>normalizeOptionSourceFilter(...)</code>. O starter chama esse hook
+antes de construir a <code>Specification</code> em <code>filter</code>,
+GET <code>by-ids</code> e POST <code>by-ids</code>;
+<code>includeIds</code> tambem e resolvido pela mesma consulta
+governada. A normalizacao ocorre mesmo quando a lista de IDs esta vazia,
+para que autorizacao e escopo falhem fechado antes de qualquer retorno
+antecipado. O filtro recebido deve ser intersectado com o escopo
+resolvido no servidor, nunca ampliado nem derivado de labels ou headers
+controlados pelo cliente.</p>
+<p>Em sources <code>PROVIDER_REQUIRED</code>, o payload publico continua
+sendo apenas criterio de consulta. O provider deve aplicar tenant,
+principal e row scope a partir do
+<code>OptionSourceExecutionContext</code> privado produzido por
+<code>OptionSourceContextResolver</code>; nao trate
+<code>filterPayload</code>, <code>includeIds</code> ou <code>ids</code>
+como evidencia de autorizacao.</p>
 <p>Para <code>option-sources/{sourceKey}/options/filter</code>, o
 contrato canônico de request agora é um envelope único que cobre:</p>
 <ul>

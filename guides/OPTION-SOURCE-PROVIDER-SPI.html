@@ -356,6 +356,13 @@ permitir;</li>
 <li><code>request.ids()</code> em <code>byIds</code>, preservando IDs
 string e a ordem solicitada.</li>
 </ul>
+<p>Esses valores sao criterios publicos de consulta, nao contexto de
+autorizacao. Tenant, principal e row scope devem vir de
+<code>request.context()</code> e ser aplicados pelo provider antes de
+consultar ou reidratar IDs. O mesmo enforcement vale para
+<code>filter</code>, <code>includeIds</code>, <code>byIds</code>
+contextual e listas vazias; nenhum retorno antecipado pode contornar a
+resolucao do contexto privado.</p>
 <p>Em <code>byIds</code>, retorne somente <code>OptionDTO</code>
 concretos para IDs encontrados. IDs inexistentes devem ser omitidos; nao
 retorne itens <code>null</code>. O executor canonico tambem normaliza a
