@@ -18,20 +18,20 @@ public @interface AiUsagePolicy {
      /**
       * Visibilidade permitida para respostas, explicacoes ou renderizacoes com IA.
       */
-    AiUsageMode visibility() default AiUsageMode.ALLOW;
+    AiVisibilityMode visibility() default AiVisibilityMode.ALLOW;
 
      /**
       * Politica de uso para treino de modelos.
       */
-    AiUsageMode trainingUse() default AiUsageMode.DENY;
+    AiTrainingUseMode trainingUse() default AiTrainingUseMode.DENY;
 
      /**
       * Politica para authoring de regras assistido por IA.
       */
-    AiUsageMode ruleAuthoring() default AiUsageMode.REVIEW_REQUIRED;
+    AiControlledUseMode ruleAuthoring() default AiControlledUseMode.REVIEW_REQUIRED;
 
      /**
       * Politica de uso em cadeias de raciocinio ou derivacoes semanticas.
       */
-    AiUsageMode reasoningUse() default AiUsageMode.ALLOW;
+    AiControlledUseMode reasoningUse() default AiControlledUseMode.ALLOW;
 }

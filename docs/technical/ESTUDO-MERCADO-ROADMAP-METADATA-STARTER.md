@@ -68,7 +68,7 @@ existentes e a comunicacao publica.
 | Discovery documental | `/schemas/catalog` | Gera base para docs, playground, RAG e exploracao por ferramentas |
 | Discovery semantico | `/schemas/surfaces`, `/schemas/actions` | Separa experiencia de UI, comando de negocio e contrato estrutural |
 | Capabilities | `/{resource}/capabilities`, `/{resource}/{id}/capabilities` | Explica o que pode ser feito agora por colecao ou item |
-| Governanca AI | `/schemas/domain`, `@DomainGovernance`, `AiUsageMode` | Fundamenta uso de IA com classificacao, politica e evidencias |
+| Governanca AI | `/schemas/domain`, `@DomainGovernance`, enums especificos de uso por IA | Fundamenta uso de IA com classificacao, politica e evidencias |
 | Options | `x-ui.optionSource`, registries e endpoints de option sources | Cria selects, lookups e cascatas governadas sem endpoints ad hoc |
 | Analytics | `x-ui.analytics`, `x-ui.chart`, `/stats/*` | Abre caminho para dashboards metadata-driven e indicadores governados |
 | Exportacao | `POST /{resource}/export`, `CollectionExportCapability`, engines CSV/JSON/XLSX | Resolve demanda enterprise de exportacao com filtros, selecao e limites |
@@ -213,7 +213,7 @@ Leitura para Praxis:
 | UI metadata-driven | Muito forte com Fiori Elements | Forte no CRM e builders | Forte em workspaces/forms | Forte visual low-code | Forte em `x-ui`, forms, tables, CRUD | Runtime aberto + host-aware sem suite monolitica |
 | Modelo de dominio | CDS/RAP/CAP maduro | Metadata de objetos/config | Common data/workflow model | Modelos visuais | `resourceKey`, `/schemas/domain`, governanca | Grafo semantico AI-operable versionado |
 | Actions/workflows | Actions/functions e RAP | Flow/Actions | Flow/Playbooks | Process flows | `/schemas/actions`, capabilities, domain rules | Simulacao, publicacao e materializacao governada |
-| Governanca AI | Crescente com Joule | Trust Layer e metadata grounding | Data fabric + governance | AI governance emergente | `@DomainGovernance`, `AiUsageMode`, `ai_registry`, `domain-rules` | Decision authoring com aprovacao, evidencias, diagnostics e rollback |
+| Governanca AI | Crescente com Joule | Trust Layer e metadata grounding | Data fabric + governance | AI governance emergente | `@DomainGovernance`, enums especificos de uso por IA, `ai_registry`, `domain-rules` | Decision authoring com aprovacao, evidencias, diagnostics e rollback |
 | Interoperabilidade | Forte, mas SAP-centric | Forte dentro Salesforce | Forte dentro ServiceNow | Plataforma proprietaria | OpenAPI + x-* + Spring | Contrato aberto multi-backend e suite de conformidade |
 | Prova operacional | Muito madura | Muito madura | Muito madura | Muito madura | Quickstart + landing + docs | Demos verticais com audit trail e IA explicavel |
 

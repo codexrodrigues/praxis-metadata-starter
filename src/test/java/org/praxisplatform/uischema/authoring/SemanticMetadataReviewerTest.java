@@ -3,8 +3,9 @@ package org.praxisplatform.uischema.authoring;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldControlType;
-import org.praxisplatform.uischema.annotation.AiUsageMode;
+import org.praxisplatform.uischema.annotation.AiTrainingUseMode;
 import org.praxisplatform.uischema.annotation.AiUsagePolicy;
+import org.praxisplatform.uischema.annotation.AiVisibilityMode;
 import org.praxisplatform.uischema.annotation.DomainClassification;
 import org.praxisplatform.uischema.annotation.DomainDataCategory;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
@@ -67,7 +68,7 @@ class SemanticMetadataReviewerTest {
                 kind = DomainGovernanceKind.SECURITY,
                 classification = DomainClassification.INTERNAL,
                 dataCategory = DomainDataCategory.OPERATIONAL,
-                aiUsage = @AiUsagePolicy(visibility = AiUsageMode.MASK, trainingUse = AiUsageMode.DENY)
+                aiUsage = @AiUsagePolicy(visibility = AiVisibilityMode.MASK, trainingUse = AiTrainingUseMode.DENY)
         )
         @Schema(description = "Identificador interno do tenant usado apenas para segregacao operacional e auditoria.")
         @UISchema(label = "Tenant", controlType = FieldControlType.INPUT)
