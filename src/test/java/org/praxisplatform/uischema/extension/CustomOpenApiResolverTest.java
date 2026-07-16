@@ -7,8 +7,10 @@ import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.FieldDataType;
 import org.praxisplatform.uischema.NumericFormat;
-import org.praxisplatform.uischema.annotation.AiUsageMode;
+import org.praxisplatform.uischema.annotation.AiControlledUseMode;
+import org.praxisplatform.uischema.annotation.AiTrainingUseMode;
 import org.praxisplatform.uischema.annotation.AiUsagePolicy;
+import org.praxisplatform.uischema.annotation.AiVisibilityMode;
 import org.praxisplatform.uischema.annotation.DomainClassification;
 import org.praxisplatform.uischema.annotation.DomainDataCategory;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
@@ -72,10 +74,10 @@ class CustomOpenApiResolverTest {
                 dataCategory = DomainDataCategory.PERSONAL,
                 complianceTags = {"LGPD", "GDPR"},
                 aiUsage = @AiUsagePolicy(
-                        visibility = AiUsageMode.MASK,
-                        trainingUse = AiUsageMode.DENY,
-                        ruleAuthoring = AiUsageMode.REVIEW_REQUIRED,
-                        reasoningUse = AiUsageMode.REVIEW_REQUIRED
+                        visibility = AiVisibilityMode.MASK,
+                        trainingUse = AiTrainingUseMode.DENY,
+                        ruleAuthoring = AiControlledUseMode.REVIEW_REQUIRED,
+                        reasoningUse = AiControlledUseMode.REVIEW_REQUIRED
                 ),
                 reason = "Documento pessoal do colaborador.",
                 confidence = 0.99d

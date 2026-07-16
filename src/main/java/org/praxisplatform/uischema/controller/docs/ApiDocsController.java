@@ -522,9 +522,9 @@ public class ApiDocsController {
      * Resolve o {@code idField} final a ser exposto em {@code x-ui.resource.idField}.
      *
      * <p>
-     * A prioridade atual e: parametro explicito da requisicao, identificador canonico do schema
-     * de resposta do recurso, propriedade chamada {@code id} no schema resolvido e, por fim,
-     * fallback para {@code id}.
+     * A prioridade atual e: parametro explicito da requisicao; identificador canonico do recurso
+     * quando presente no schema materializado (ou em schemas de request); identidade propria da
+     * resposta derivada via {@code id} ou {@code *Id}; e, por fim, fallback conservador.
      * </p>
      */
     private String resolveIdField(String requestedIdField,
@@ -537,13 +537,16 @@ public class ApiDocsController {
                 return requestedIdField;
             }
             String canonicalIdField = resolveCanonicalIdFieldFromResourceResponse(rootNode, basePath);
-            if (canonicalIdField != null && !canonicalIdField.isBlank()) {
+            boolean responseSchema = "response".equalsIgnoreCase(schemaType);
+            if (canonicalIdField != null
+                    && !canonicalIdField.isBlank()
+                    && (!responseSchema || hasSchemaProperty(schemaMap, canonicalIdField))) {
                 return canonicalIdField;
             }
             if (hasSchemaProperty(schemaMap, "id")) {
                 return "id";
             }
-            if ("response".equalsIgnoreCase(schemaType)) {
+            if (responseSchema) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> props = (Map<String, Object>) schemaMap.get("properties");
                 if (props != null) {
@@ -553,6 +556,9 @@ public class ApiDocsController {
                         }
                     }
                 }
+            }
+            if (canonicalIdField != null && !canonicalIdField.isBlank()) {
+                return canonicalIdField;
             }
             // Conservative fallback
             return "id";

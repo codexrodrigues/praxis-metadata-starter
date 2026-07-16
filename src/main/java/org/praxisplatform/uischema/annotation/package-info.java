@@ -13,8 +13,10 @@
  *   <li>{@link org.praxisplatform.uischema.annotation.DomainGovernance} declara classificacao semantica e politicas de IA para campos;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.DomainGovernanceKind},
  *       {@link org.praxisplatform.uischema.annotation.DomainClassification},
- *       {@link org.praxisplatform.uischema.annotation.DomainDataCategory} e
- *       {@link org.praxisplatform.uischema.annotation.AiUsageMode} fixam os tokens canonicos de governanca;</li>
+ *       {@link org.praxisplatform.uischema.annotation.DomainDataCategory},
+ *       {@link org.praxisplatform.uischema.annotation.AiVisibilityMode},
+ *       {@link org.praxisplatform.uischema.annotation.AiTrainingUseMode} e
+ *       {@link org.praxisplatform.uischema.annotation.AiControlledUseMode} fixam os tokens canonicos de governanca;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.UiSurface} publica discovery semantico de experiencias de UI;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.WorkflowAction} publica comandos explicitos de negocio;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.ResourceCapabilities} resume capacidades habilitadas do recurso.</li>
