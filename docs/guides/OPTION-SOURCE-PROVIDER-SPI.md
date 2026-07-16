@@ -126,6 +126,12 @@ O provider recebe:
 - `request.includeIds()` apenas quando a policy permitir;
 - `request.ids()` em `byIds`, preservando IDs string e a ordem solicitada.
 
+Esses valores sao criterios publicos de consulta, nao contexto de autorizacao.
+Tenant, principal e row scope devem vir de `request.context()` e ser aplicados
+pelo provider antes de consultar ou reidratar IDs. O mesmo enforcement vale para
+`filter`, `includeIds`, `byIds` contextual e listas vazias; nenhum retorno
+antecipado pode contornar a resolucao do contexto privado.
+
 Em `byIds`, retorne somente `OptionDTO` concretos para IDs encontrados. IDs
 inexistentes devem ser omitidos; nao retorne itens `null`. O executor canonico
 tambem normaliza a resposta antes do HTTP publico, removendo `null`, descartando

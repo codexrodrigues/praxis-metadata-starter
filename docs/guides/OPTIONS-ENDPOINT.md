@@ -34,6 +34,19 @@ JPA e para providers externos no mesmo nivel de extensao usado por
 `OptionSourceFilterRequest`, preservando a ordem dos IDs e omitindo valores que
 nao pertencem ao contexto solicitado.
 
+Recursos JPA com row scope devem sobrescrever `normalizeOptionSourceFilter(...)`.
+O starter chama esse hook antes de construir a `Specification` em `filter`, GET
+`by-ids` e POST `by-ids`; `includeIds` tambem e resolvido pela mesma consulta
+governada. A normalizacao ocorre mesmo quando a lista de IDs esta vazia, para que
+autorizacao e escopo falhem fechado antes de qualquer retorno antecipado. O
+filtro recebido deve ser intersectado com o escopo resolvido no servidor, nunca
+ampliado nem derivado de labels ou headers controlados pelo cliente.
+
+Em sources `PROVIDER_REQUIRED`, o payload publico continua sendo apenas criterio
+de consulta. O provider deve aplicar tenant, principal e row scope a partir do
+`OptionSourceExecutionContext` privado produzido por `OptionSourceContextResolver`;
+nao trate `filterPayload`, `includeIds` ou `ids` como evidencia de autorizacao.
+
 Para `option-sources/{sourceKey}/options/filter`, o contrato canônico de request
 agora é um envelope único que cobre:
 

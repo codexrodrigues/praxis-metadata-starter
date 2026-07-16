@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.e2e.fixture;
 
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
@@ -23,6 +24,7 @@ import org.praxisplatform.uischema.options.OptionSourceExecutionMode;
 import org.praxisplatform.uischema.options.OptionSourcePolicy;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.OptionSourceType;
+import org.praxisplatform.uischema.options.service.OptionSourceOperation;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.service.base.AbstractBaseResourceService;
 import org.praxisplatform.uischema.service.base.AbstractReadOnlyResourceService;
@@ -35,6 +37,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.hateoas.Links;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
@@ -44,6 +47,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -371,10 +375,19 @@ class EmployeeService extends AbstractBaseResourceService<
             .build();
 
     private final EmployeeResourceMapper mapper;
+    private final DepartmentRepository departmentRepository;
+    private final HttpServletRequest request;
 
-    EmployeeService(EmployeeRepository repository, EmployeeResourceMapper mapper) {
+    EmployeeService(
+            EmployeeRepository repository,
+            EmployeeResourceMapper mapper,
+            DepartmentRepository departmentRepository,
+            HttpServletRequest request
+    ) {
         super(repository, EmployeeEntity.class);
         this.mapper = mapper;
+        this.departmentRepository = departmentRepository;
+        this.request = request;
     }
 
     @Override
@@ -415,6 +428,35 @@ class EmployeeService extends AbstractBaseResourceService<
     @Override
     public OptionSourceRegistry getOptionSourceRegistry() {
         return EMPLOYEE_OPTION_SOURCES;
+    }
+
+    @Override
+    protected EmployeeFilterDTO normalizeOptionSourceFilter(
+            OptionSourceDescriptor descriptor,
+            OptionSourceOperation operation,
+            EmployeeFilterDTO filter
+    ) {
+        String principalName = request.getUserPrincipal() == null ? null : request.getUserPrincipal().getName();
+        if ("blocked-option-source-user".equals(principalName)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No option-source rows are authorized.");
+        }
+        if (!"hr-option-source-user".equals(principalName)) {
+            return filter;
+        }
+
+        Long allowedDepartmentId = departmentRepository.findAll().stream()
+                .filter(department -> "HR".equals(department.getCode()))
+                .map(DepartmentEntity::getId)
+                .findFirst()
+                .orElseThrow();
+        EmployeeFilterDTO effectiveFilter = filter == null ? new EmployeeFilterDTO() : filter;
+        if (effectiveFilter.getDepartmentId() != null
+                && !allowedDepartmentId.equals(effectiveFilter.getDepartmentId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Requested department is outside the option-source scope.");
+        }
+        effectiveFilter.setDepartmentId(allowedDepartmentId);
+        return effectiveFilter;
     }
 
     @Override
