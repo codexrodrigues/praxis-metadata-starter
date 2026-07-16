@@ -659,6 +659,11 @@ Quando o `FilterDTO` tiver campos chamados `search`, `sort`, `filters` ou `inclu
 explicito (`{ "filter": { ... }, "search": "..." }`) para diferenciar filtro estrutural de metadados de
 execucao da option-source.
 
+Para row scope JPA, sobrescreva `normalizeOptionSourceFilter(...)` no service owner. O hook governa
+`filter`, `includeIds` e GET/POST `by-ids`, inclusive requests com IDs vazios, antes da `Specification` ser
+executada. Providers externos devem resolver o mesmo escopo pelo `OptionSourceExecutionContext` privado;
+payloads publicos de filtro e IDs nunca substituem autorizacao server-side.
+
 ## Internal OpenAPI Base Resolution
 
 Os endpoints internos que consultam o SpringDoc, como `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces` e `/schemas/actions`, resolvem a base do OpenAPI nesta ordem:

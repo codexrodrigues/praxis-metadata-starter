@@ -1053,18 +1053,14 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             @RequestParam(name = "ids", required = false) List<String> ids
     ) {
         try {
-            if (ids == null || ids.isEmpty()) {
-                getService().resolveOptionSource(sourceKey);
-                return withOptionSourceVersion(ResponseEntity.ok(), sourceKey, List.of());
-            }
-            if (ids.size() > byIdsMax) {
+            if (ids != null && ids.size() > byIdsMax) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                         "Maximum number of IDs exceeded: " + byIdsMax);
             }
             return withOptionSourceVersion(
                     ResponseEntity.ok(),
                     sourceKey,
-                    getService().byIdsOptionSourceOptions(sourceKey, List.copyOf(ids))
+                    getService().byIdsOptionSourceOptions(sourceKey, ids == null ? List.of() : List.copyOf(ids))
             );
         } catch (UnknownOptionSourceException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
@@ -1098,9 +1094,6 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             OptionSourceDescriptor descriptor = getService().resolveOptionSource(sourceKey);
             OptionSourceByIdsEnvelope<FD> envelope = parseOptionSourceByIdsRequest(request, descriptor);
             Collection<Object> ids = envelope.request().ids();
-            if (ids.isEmpty()) {
-                return withOptionSourceVersion(ResponseEntity.ok(), sourceKey, List.of());
-            }
             if (ids.size() > byIdsMax) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                         "Maximum number of IDs exceeded: " + byIdsMax);

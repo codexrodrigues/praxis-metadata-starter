@@ -2,12 +2,21 @@ package org.praxisplatform.uischema.e2e;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+
+import java.net.URI;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
+
+    private static final String TEST_PRINCIPAL_HEADER = "X-Test-Principal";
 
     @Test
     void standardOptionsAndDerivedOptionSourcesBehaveCanonically() throws Exception {
@@ -237,5 +246,97 @@ class OptionsAndOptionSourcesE2ETest extends AbstractE2eH2Test {
         assertTrue(optionSourceMeta.path("sql").isMissingNode());
         assertTrue(optionSourceMeta.path("providerConfig").isMissingNode());
         assertTrue(optionSourceMeta.path("display").path("showDisabledReason").asBoolean());
+    }
+
+    @Test
+    void resourceOwnedScopeGovernsEveryJpaOptionSourcePath() throws Exception {
+        String optionsPath = "/employees/option-sources/payrollProfile/options";
+
+        ResponseEntity<String> filtered = exchangeJson(
+                optionsPath + "/filter?page=0&size=10",
+                HttpMethod.POST,
+                "{}",
+                "hr-option-source-user"
+        );
+        assertEquals(HttpStatus.OK, filtered.getStatusCode(), filtered.getBody());
+        JsonNode filteredBody = body(filtered).path("content");
+        assertEquals(2, filteredBody.size());
+        assertEquals("EXEC", filteredBody.get(0).path("id").asText());
+        assertEquals("SPEC", filteredBody.get(1).path("id").asText());
+
+        ResponseEntity<String> includedOutsideScope = exchangeJson(
+                optionsPath + "/filter?page=0&size=10&includeIds=OPS",
+                HttpMethod.POST,
+                "{}",
+                "hr-option-source-user"
+        );
+        assertEquals(HttpStatus.OK, includedOutsideScope.getStatusCode(), includedOutsideScope.getBody());
+        assertTrue(body(includedOutsideScope).path("content").findValuesAsText("id").stream()
+                .noneMatch("OPS"::equals));
+
+        ResponseEntity<String> getByIds = exchangeJson(
+                optionsPath + "/by-ids?ids=OPS&ids=SPEC",
+                HttpMethod.GET,
+                null,
+                "hr-option-source-user"
+        );
+        assertEquals(HttpStatus.OK, getByIds.getStatusCode(), getByIds.getBody());
+        JsonNode getByIdsBody = body(getByIds);
+        assertEquals(1, getByIdsBody.size());
+        assertEquals("SPEC", getByIdsBody.get(0).path("id").asText());
+
+        ResponseEntity<String> postByIds = exchangeJson(
+                optionsPath + "/by-ids",
+                HttpMethod.POST,
+                "{\"ids\":[\"OPS\",\"EXEC\"]}",
+                "hr-option-source-user"
+        );
+        assertEquals(HttpStatus.OK, postByIds.getStatusCode(), postByIds.getBody());
+        JsonNode postByIdsBody = body(postByIds);
+        assertEquals(1, postByIdsBody.size());
+        assertEquals("EXEC", postByIdsBody.get(0).path("id").asText());
+
+        ResponseEntity<String> conflictingScope = exchangeJson(
+                optionsPath + "/filter?page=0&size=10",
+                HttpMethod.POST,
+                "{\"filter\":{\"departmentId\":" + state.operationsDepartmentId() + "}}",
+                "hr-option-source-user"
+        );
+        assertEquals(HttpStatus.FORBIDDEN, conflictingScope.getStatusCode(), conflictingScope.getBody());
+
+        ResponseEntity<String> emptyGetByIds = exchangeJson(
+                optionsPath + "/by-ids",
+                HttpMethod.GET,
+                null,
+                "blocked-option-source-user"
+        );
+        assertEquals(HttpStatus.FORBIDDEN, emptyGetByIds.getStatusCode(), emptyGetByIds.getBody());
+
+        ResponseEntity<String> emptyPostByIds = exchangeJson(
+                optionsPath + "/by-ids",
+                HttpMethod.POST,
+                "{\"ids\":[]}",
+                "blocked-option-source-user"
+        );
+        assertEquals(HttpStatus.FORBIDDEN, emptyPostByIds.getStatusCode(), emptyPostByIds.getBody());
+    }
+
+    private ResponseEntity<String> exchangeJson(
+            String path,
+            HttpMethod method,
+            String requestBody,
+            String principalName
+    ) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(TEST_PRINCIPAL_HEADER, principalName);
+        if (requestBody != null) {
+            headers.setContentType(MediaType.APPLICATION_JSON);
+        }
+        return rest.getRestTemplate().exchange(
+                URI.create(url(path)),
+                method,
+                new HttpEntity<>(requestBody, headers),
+                String.class
+        );
     }
 }
