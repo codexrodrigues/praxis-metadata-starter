@@ -244,6 +244,8 @@ href="../apidocs/org/praxisplatform/uischema/filter/specification/GenericSpecifi
 <li>Javadoc: <a
 href="../apidocs/org/praxisplatform/uischema/filter/specification/GenericSpecification.html"><code>GenericSpecification</code></a></li>
 <li>Javadoc: <a
+href="../apidocs/org/praxisplatform/uischema/service/base/ResourceFilterAccessScope.html"><code>ResourceFilterAccessScope</code></a></li>
+<li>Javadoc: <a
 href="../apidocs/org/praxisplatform/uischema/util/PageableBuilder.html"><code>PageableBuilder</code></a></li>
 </ul>
 <a id="estrutura-basica"></a>
@@ -282,6 +284,46 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="
 Content-Type: application/json
 
 { &quot;nome&quot;: &quot;ana&quot;, &quot;departamento&quot;: &quot;RH&quot; }</code></pre>
+</details>
+<a id="escopo-de-acesso"></a>
+<details>
+<summary>
+<strong>Escopo de acesso server-side</strong>
+</summary>
+<p>Quando o recurso tiver row-level authorization, declare a decisao no
+service owner. O escopo e obrigatoriamente resolvido pelo contexto
+autenticado do servidor e composto com o filtro funcional:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">protected</span> ResourceFilterAccessScope<span class="op">&lt;</span>Funcionario<span class="op">&gt;</span> <span class="fu">resolveResourceFilterAccessScope</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="op">(!</span>authorization<span class="op">.</span><span class="fu">canReadAnyFuncionario</span><span class="op">())</span> <span class="op">{</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> ResourceFilterAccessScope<span class="op">.</span><span class="fu">denied</span><span class="op">();</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="op">(</span>authorization<span class="op">.</span><span class="fu">canReadEveryFuncionario</span><span class="op">())</span> <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> ResourceFilterAccessScope<span class="op">.</span><span class="fu">unrestricted</span><span class="op">();</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="bu">Long</span> tenantId <span class="op">=</span> authorization<span class="op">.</span><span class="fu">requiredTenantId</span><span class="op">();</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> ResourceFilterAccessScope<span class="op">.</span><span class="fu">restricted</span><span class="op">((</span>root<span class="op">,</span> query<span class="op">,</span> cb<span class="op">)</span> <span class="op">-&gt;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>      cb<span class="op">.</span><span class="fu">equal</span><span class="op">(</span>root<span class="op">.</span><span class="fu">get</span><span class="op">(</span><span class="st">&quot;tenantId&quot;</span><span class="op">),</span> tenantId<span class="op">));</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<ul>
+<li><code>unrestricted()</code> e uma decisao explicita para recursos
+globais; nao use <code>null</code> como fallback.</li>
+<li><code>denied()</code> falha fechado e retorna pagina vazia.</li>
+<li><code>restricted(specification)</code> aplica a
+<code>Specification</code> a pagina e a reidratacao por
+<code>includeIds</code>.</li>
+<li>Um ID autorizado fora do filtro funcional pode ser priorizado na
+primeira pagina; um ID fora do escopo de acesso nunca e retornado.</li>
+<li>O mesmo hook atende services mutaveis e read-only e tambem protege
+<code>/options/filter</code>.</li>
+<li><code>/by-ids</code>, <code>/all</code>,
+<code>/filter/cursor</code>, <code>/locate</code> e stats sao
+superficies independentes e exigem enforcement proprio quando
+publicadas.</li>
+<li>Nunca resolva acesso a partir de <code>FilterDTO</code>,
+<code>includeIds</code>, aliases ou texto enviado pelo cliente.</li>
+</ul>
 </details>
 <a id="ordenacao-com-filtros"></a>
 <details>
@@ -584,33 +626,33 @@ ser considerado.</p>
 <strong>Exemplos práticos (DTO + chamadas)</strong>
 </summary>
 <h3 id="dto-de-filtro-vendas">DTO de filtro (vendas)</h3>
-<div class="sourceCode" id="cb4"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">filter</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Filterable</span><span class="op">;</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">time</span><span class="op">.</span><span class="im">LocalDate</span><span class="op">;</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">util</span><span class="op">.</span><span class="im">List</span><span class="op">;</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaFilterDTO <span class="kw">implements</span> org<span class="op">.</span><span class="fu">praxisplatform</span><span class="op">.</span><span class="fu">uischema</span><span class="op">.</span><span class="fu">filter</span><span class="op">.</span><span class="fu">dto</span><span class="op">.</span><span class="fu">GenericFilterDTO</span> <span class="op">{</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">)</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">String</span> cliente<span class="op">;</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">GREATER_OR_EQUAL</span><span class="op">)</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> java<span class="op">.</span><span class="fu">math</span><span class="op">.</span><span class="fu">BigDecimal</span> valorMin<span class="op">;</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LESS_OR_EQUAL</span><span class="op">)</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> java<span class="op">.</span><span class="fu">math</span><span class="op">.</span><span class="fu">BigDecimal</span> valorMax<span class="op">;</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">BETWEEN</span><span class="op">)</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span>LocalDate<span class="op">&gt;</span> emissaoEntre<span class="op">;</span> <span class="co">// [de, ate]</span></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">IN</span><span class="op">)</span></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span><span class="bu">String</span><span class="op">&gt;</span> canais<span class="op">;</span> <span class="co">// [&quot;ONLINE&quot;,&quot;LOJA&quot;]</span></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">,</span> relation <span class="op">=</span> <span class="st">&quot;vendedor.nome&quot;</span><span class="op">)</span></span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">String</span> vendedorNome<span class="op">;</span></span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">IS_TRUE</span><span class="op">)</span></span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">Boolean</span> pago<span class="op">;</span></span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">filter</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">Filterable</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">time</span><span class="op">.</span><span class="im">LocalDate</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">util</span><span class="op">.</span><span class="im">List</span><span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaFilterDTO <span class="kw">implements</span> org<span class="op">.</span><span class="fu">praxisplatform</span><span class="op">.</span><span class="fu">uischema</span><span class="op">.</span><span class="fu">filter</span><span class="op">.</span><span class="fu">dto</span><span class="op">.</span><span class="fu">GenericFilterDTO</span> <span class="op">{</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">)</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">String</span> cliente<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">GREATER_OR_EQUAL</span><span class="op">)</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> java<span class="op">.</span><span class="fu">math</span><span class="op">.</span><span class="fu">BigDecimal</span> valorMin<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LESS_OR_EQUAL</span><span class="op">)</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> java<span class="op">.</span><span class="fu">math</span><span class="op">.</span><span class="fu">BigDecimal</span> valorMax<span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">BETWEEN</span><span class="op">)</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span>LocalDate<span class="op">&gt;</span> emissaoEntre<span class="op">;</span> <span class="co">// [de, ate]</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">IN</span><span class="op">)</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span><span class="bu">String</span><span class="op">&gt;</span> canais<span class="op">;</span> <span class="co">// [&quot;ONLINE&quot;,&quot;LOJA&quot;]</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">LIKE</span><span class="op">,</span> relation <span class="op">=</span> <span class="st">&quot;vendedor.nome&quot;</span><span class="op">)</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">String</span> vendedorNome<span class="op">;</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> Filterable<span class="op">.</span><span class="fu">FilterOperation</span><span class="op">.</span><span class="fu">IS_TRUE</span><span class="op">)</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">Boolean</span> pago<span class="op">;</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <pre class="http"><code>POST /api/vendas/filter?page=0&amp;size=20
 Content-Type: application/json
 
