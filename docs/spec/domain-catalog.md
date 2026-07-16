@@ -75,7 +75,9 @@ No Java, esses tokens sao fixados por:
 - `DomainGovernanceKind`
 - `DomainClassification`
 - `DomainDataCategory`
-- `AiUsageMode`
+- `AiVisibilityMode`
+- `AiTrainingUseMode`
+- `AiControlledUseMode`
 
 ## Regra De Uso
 

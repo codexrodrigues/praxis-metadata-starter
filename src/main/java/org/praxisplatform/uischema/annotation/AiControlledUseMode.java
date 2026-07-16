@@ -1,18 +1,16 @@
 package org.praxisplatform.uischema.annotation;
 
 /**
- * Tokens canonicos de politica de uso por IA publicados em {@code x-domain-governance.aiUsage}.
+ * Tokens canonicos de uso governado publicados para authoring e raciocinio assistidos por IA.
  */
-public enum AiUsageMode {
+public enum AiControlledUseMode {
     ALLOW("allow"),
-    DENY("deny"),
-    MASK("mask"),
     REVIEW_REQUIRED("review_required"),
-    SUMMARIZE_ONLY("summarize_only");
+    DENY("deny");
 
     private final String wireValue;
 
-    AiUsageMode(String wireValue) {
+    AiControlledUseMode(String wireValue) {
         this.wireValue = wireValue;
     }
 

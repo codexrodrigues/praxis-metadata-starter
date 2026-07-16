@@ -1161,6 +1161,89 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    void getFilteredSchemaUsesDerivedResponseIdentityWhenParentIdentityIsAbsent(CapturedOutput output) throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = """
+                {
+                  "paths": {
+                    "/api/human-resources/funcionarios/{id}": {
+                      "get": {
+                        "responses": {
+                          "200": {
+                            "content": {
+                              "application/json": {
+                                "schema": {"$ref": "#/components/schemas/FuncionarioDTO"}
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "/api/human-resources/funcionarios/{id}/hero-profile": {
+                      "get": {
+                        "responses": {
+                          "200": {
+                            "content": {
+                              "application/json": {
+                                "schema": {"$ref": "#/components/schemas/VwPerfilHeroiDTO"}
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "components": {
+                    "schemas": {
+                      "FuncionarioDTO": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "integer"},
+                          "nome": {"type": "string"}
+                        }
+                      },
+                      "VwPerfilHeroiDTO": {
+                        "type": "object",
+                        "properties": {
+                          "funcionarioId": {"type": "integer"},
+                          "nome": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+                """;
+
+        server.expect(requestTo("http://localhost/v3/api-docs/api-human-resources-funcionarios"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema(
+                "/api/human-resources/funcionarios/{id}/hero-profile",
+                "get",
+                false,
+                "response",
+                null,
+                null,
+                java.util.Locale.ENGLISH);
+
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> resource = (Map<String, Object>) xUi.get("resource");
+        assertEquals("funcionarioId", resource.get("idField"));
+        assertEquals(Boolean.TRUE, resource.get("idFieldValid"));
+        assertFalse(resource.containsKey("idFieldMessage"));
+        assertFalse(output.getAll().contains("nao encontrado nas propriedades do schema 'VwPerfilHeroiDTO'"));
+    }
+
+    @Test
     void getFilteredSchemaDoesNotWarnWhenStatsResponseLacksResourceIdField(CapturedOutput output) throws Exception {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("api-human-resources-vw-perfil-heroi");
         String doc = "{\n" +

@@ -46,7 +46,7 @@
   - incluir `capabilities.options|byId|all|filter|cursor` quando aplicavel
   - publicar `capabilities.filterExpression=false` enquanto o recurso nao declarar suporte executavel a expressoes canonicas de filtro compostas; `capabilities.filter=true` sozinho representa apenas DTO plano de conjuncao simples
   - manter `/schemas/surfaces` e `/schemas/actions` sincronizados com a semantica publicada por `@UiSurface` e `@WorkflowAction`
-  - declarar campos sensiveis com `@DomainGovernance` e politicas de IA tipadas por `AiUsageMode`
+  - declarar campos sensiveis com `@DomainGovernance` e cada dimensao da politica de IA pelo enum especifico (`AiVisibilityMode`, `AiTrainingUseMode` e `AiControlledUseMode`)
   - declarar `x-ui.fieldAccess` para campos cuja visibilidade ou editabilidade dependa de authorities do contexto corporativo, mantendo claro que `capabilities` de runtime nao sao equivalentes sem mapeamento explicito
   - adotar `custom.*` para extensoes privadas do host
   - publicar `x-ui.optionSource` para fontes derivadas governadas, evitando promover `INPUT` em campos com semantica corporativa clara
