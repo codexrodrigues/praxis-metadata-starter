@@ -5,6 +5,9 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Fixed
+- `POST /{resource}/filter` agora reaplica o escopo de acesso server-side ao
+  carregar `includeIds`, impedindo que a reidratacao de selecionados atravesse
+  o row scope funcional em recursos mutaveis ou read-only.
 - `/schemas/domain` agora associa option sources registry-wide ao `resourceKey`
   canonico ja materializado por surfaces/actions para o mesmo `resourcePath`,
   preservando a descoberta mesmo quando a URL nao codifica a identidade
@@ -18,6 +21,10 @@ All notable changes to this module will be documented in this file.
   `controllerEndpointHandlerMapping`.
 
 ### Added
+- API publica `ResourceFilterAccessScope` e hook
+  `AbstractBaseQueryResourceService.resolveResourceFilterAccessScope()` para o
+  host declarar explicitamente acesso irrestrito, negado ou restrito por
+  `Specification`, sempre resolvido pelo contexto autenticado do servidor.
 - `@AnalyticsRecordOpen`, `@AnalyticsSurfaceTarget` e
   `x-ui.analytics.projections[].interactions.recordOpen` para ligar o campo
   publico de identidade de uma linha nominal a uma surface ITEM cross-resource.

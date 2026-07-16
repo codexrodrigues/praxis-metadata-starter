@@ -664,6 +664,19 @@ Para row scope JPA, sobrescreva `normalizeOptionSourceFilter(...)` no service ow
 executada. Providers externos devem resolver o mesmo escopo pelo `OptionSourceExecutionContext` privado;
 payloads publicos de filtro e IDs nunca substituem autorizacao server-side.
 
+Para o filtro do proprio recurso (`POST /{resource}/filter`), sobrescreva
+`resolveResourceFilterAccessScope()` no service owner e retorne explicitamente
+`ResourceFilterAccessScope.unrestricted()`, `.denied()` ou `.restricted(specification)`. A base compoe o
+escopo server-side com o `FilterDTO` funcional e reaplica o mesmo escopo ao carregar `includeIds`; assim,
+um selecionado autorizado pode ser reidratado mesmo fora do filtro funcional, mas um ID fora do row scope
+nunca e materializado. O hook vale igualmente para `AbstractBaseResourceService` e
+`AbstractReadOnlyResourceService` e tambem limita `/options/filter`, que reutiliza a consulta filtrada.
+
+O escopo de resource filter nao autoriza implicitamente endpoints independentes como `/by-ids`, `/all`,
+`/filter/cursor`, `/locate` ou stats. Esses caminhos continuam sob seus contratos e mecanismos de
+enforcement proprios; o host deve aplica-los explicitamente quando os publicar. Nunca derive o escopo de
+acesso de `FilterDTO`, `includeIds`, aliases, palavras-chave ou outro payload controlado pelo cliente.
+
 ## Internal OpenAPI Base Resolution
 
 Os endpoints internos que consultam o SpringDoc, como `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces` e `/schemas/actions`, resolvem a base do OpenAPI nesta ordem:

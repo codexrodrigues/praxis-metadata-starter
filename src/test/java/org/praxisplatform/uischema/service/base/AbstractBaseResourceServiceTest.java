@@ -19,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
@@ -87,7 +88,7 @@ class AbstractBaseResourceServiceTest {
                         PageRequest.of(0, 2),
                         2
                 ));
-        when(repository.findAllById(List.of(1L))).thenReturn(List.of(entity(1L, "First")));
+        when(repository.findAll(any(Specification.class))).thenReturn(List.of(entity(1L, "First")));
 
         Page<TestResponseDTO> page = service.filter(new TestFilterDTO(), PageRequest.of(0, 2), List.of(1L, 3L));
 

@@ -51,6 +51,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Field;
@@ -666,18 +667,26 @@ public abstract class AbstractBaseQueryResourceService<
         return repository.findAllById(ids);
     }
 
-    protected Page<E> filterEntities(FilterDTO filterDTO, Pageable pageable) {
-        Pageable sortedPageable = pageable;
-        if (!pageable.getSort().isSorted()) {
-            sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), getDefaultSort());
-        }
+    /**
+     * Resolves the mandatory server-side row scope for resource filter queries.
+     *
+     * <p>The default is explicitly unrestricted so existing global resources preserve their
+     * behavior. Applications with row-level authorization should override this hook and return a
+     * restricted or denied scope from authenticated server context. A client {@code FilterDTO},
+     * {@code includeIds}, aliases, or textual matching must never decide this scope.</p>
+     */
+    protected ResourceFilterAccessScope<E> resolveResourceFilterAccessScope() {
+        return ResourceFilterAccessScope.unrestricted();
+    }
 
-        GenericSpecification<E> specification = getSpecificationsBuilder().buildSpecification(filterDTO, sortedPageable);
-        return repository.findAll(specification.spec(), specification.pageable());
+    protected Page<E> filterEntities(FilterDTO filterDTO, Pageable pageable) {
+        ResourceFilterQuery<E> query = resolveResourceFilterQuery(filterDTO, pageable);
+        return repository.findAll(query.effectiveSpecification(), query.pageable());
     }
 
     protected Page<E> filterEntitiesWithIncludeIds(FilterDTO filter, Pageable pageable, Collection<ID> includeIds) {
-        Page<E> page = filterEntities(filter, pageable);
+        ResourceFilterQuery<E> query = resolveResourceFilterQuery(filter, pageable);
+        Page<E> page = repository.findAll(query.effectiveSpecification(), query.pageable());
         if (includeIds == null || includeIds.isEmpty()) {
             return page;
         }
@@ -701,7 +710,8 @@ public abstract class AbstractBaseQueryResourceService<
 
         List<ID> missing = orderedIds.stream().filter(id -> !ensured.containsKey(id)).toList();
         if (!missing.isEmpty()) {
-            findEntitiesById(missing).forEach(entity -> ensured.put(extractId(entity), entity));
+            findEntitiesByIdWithinAccessScope(missing, query.accessSpecification())
+                    .forEach(entity -> ensured.put(extractId(entity), entity));
         }
 
         List<E> merged = new ArrayList<>(orderedIds.size() + remaining.size());
@@ -714,6 +724,36 @@ public abstract class AbstractBaseQueryResourceService<
         merged.addAll(remaining);
 
         return new PageImpl<>(merged, pageable, page.getTotalElements());
+    }
+
+    private ResourceFilterQuery<E> resolveResourceFilterQuery(FilterDTO filter, Pageable pageable) {
+        Pageable sortedPageable = pageable;
+        if (!pageable.getSort().isSorted()) {
+            sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), getDefaultSort());
+        }
+
+        GenericSpecification<E> functional = getSpecificationsBuilder().buildSpecification(filter, sortedPageable);
+        ResourceFilterAccessScope<E> accessScope = Objects.requireNonNull(
+                resolveResourceFilterAccessScope(),
+                "resolveResourceFilterAccessScope() must return an explicit scope"
+        );
+        Specification<E> access = accessScope.specification();
+        return new ResourceFilterQuery<>(access, access.and(functional.spec()), functional.pageable());
+    }
+
+    private List<E> findEntitiesByIdWithinAccessScope(Collection<ID> ids, Specification<E> accessSpecification) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        Specification<E> requestedIds = (root, query, criteriaBuilder) -> root.get(getIdFieldName()).in(ids);
+        return repository.findAll(accessSpecification.and(requestedIds));
+    }
+
+    private record ResourceFilterQuery<E>(
+            Specification<E> accessSpecification,
+            Specification<E> effectiveSpecification,
+            Pageable pageable
+    ) {
     }
 
     protected FilterDTO sanitizeFilter(FilterDTO filter, OptionSourceDescriptor descriptor) {

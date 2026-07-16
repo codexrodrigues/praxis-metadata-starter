@@ -28,6 +28,7 @@ import org.praxisplatform.uischema.options.service.OptionSourceOperation;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.service.base.AbstractBaseResourceService;
 import org.praxisplatform.uischema.service.base.AbstractReadOnlyResourceService;
+import org.praxisplatform.uischema.service.base.ResourceFilterAccessScope;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.stats.StatsMetric;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
@@ -401,6 +402,19 @@ class EmployeeService extends AbstractBaseResourceService<
     }
 
     @Override
+    protected ResourceFilterAccessScope<EmployeeEntity> resolveResourceFilterAccessScope() {
+        String principalName = request.getUserPrincipal() == null ? null : request.getUserPrincipal().getName();
+        if ("blocked-resource-user".equals(principalName)) {
+            return ResourceFilterAccessScope.denied();
+        }
+        if ("hr-resource-user".equals(principalName)) {
+            return ResourceFilterAccessScope.restricted((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(root.get("department").get("code"), "HR"));
+        }
+        return ResourceFilterAccessScope.unrestricted();
+    }
+
+    @Override
     public StatsSupportMode getGroupByStatsSupportMode() {
         return StatsSupportMode.AUTO;
     }
@@ -624,10 +638,16 @@ class PayrollViewService extends AbstractReadOnlyResourceService<
         PayrollViewFilterDTO> {
 
     private final PayrollViewResourceMapper mapper;
+    private final HttpServletRequest request;
 
-    PayrollViewService(PayrollViewRepository repository, PayrollViewResourceMapper mapper) {
+    PayrollViewService(
+            PayrollViewRepository repository,
+            PayrollViewResourceMapper mapper,
+            HttpServletRequest request
+    ) {
         super(repository, PayrollViewEntity.class);
         this.mapper = mapper;
+        this.request = request;
     }
 
     @Override
@@ -638,6 +658,19 @@ class PayrollViewService extends AbstractReadOnlyResourceService<
     @Override
     public Optional<String> getDatasetVersion() {
         return Optional.of("e2e");
+    }
+
+    @Override
+    protected ResourceFilterAccessScope<PayrollViewEntity> resolveResourceFilterAccessScope() {
+        String principalName = request.getUserPrincipal() == null ? null : request.getUserPrincipal().getName();
+        if ("blocked-resource-user".equals(principalName)) {
+            return ResourceFilterAccessScope.denied();
+        }
+        if ("hr-resource-user".equals(principalName)) {
+            return ResourceFilterAccessScope.restricted((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(root.get("departmentNome"), "Human Resources"));
+        }
+        return ResourceFilterAccessScope.unrestricted();
     }
 }
 

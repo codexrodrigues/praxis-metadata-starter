@@ -5,6 +5,7 @@ Como implementar filtros e paginação usando `@Filterable`, `GenericFilterDTO` 
 - Javadoc: [`@Filterable`](../apidocs/org/praxisplatform/uischema/filter/annotation/Filterable.html)
 - Javadoc: [`GenericSpecificationsBuilder`](../apidocs/org/praxisplatform/uischema/filter/specification/GenericSpecificationsBuilder.html)
 - Javadoc: [`GenericSpecification`](../apidocs/org/praxisplatform/uischema/filter/specification/GenericSpecification.html)
+- Javadoc: [`ResourceFilterAccessScope`](../apidocs/org/praxisplatform/uischema/service/base/ResourceFilterAccessScope.html)
 - Javadoc: [`PageableBuilder`](../apidocs/org/praxisplatform/uischema/util/PageableBuilder.html)
 
 <a id="estrutura-basica"></a>
@@ -44,6 +45,40 @@ Content-Type: application/json
 
 { "nome": "ana", "departamento": "RH" }
 ```
+
+</details>
+
+<a id="escopo-de-acesso"></a>
+<details>
+<summary><strong>Escopo de acesso server-side</strong></summary>
+
+Quando o recurso tiver row-level authorization, declare a decisao no service owner. O escopo e
+obrigatoriamente resolvido pelo contexto autenticado do servidor e composto com o filtro funcional:
+
+```java
+@Override
+protected ResourceFilterAccessScope<Funcionario> resolveResourceFilterAccessScope() {
+  if (!authorization.canReadAnyFuncionario()) {
+    return ResourceFilterAccessScope.denied();
+  }
+  if (authorization.canReadEveryFuncionario()) {
+    return ResourceFilterAccessScope.unrestricted();
+  }
+  Long tenantId = authorization.requiredTenantId();
+  return ResourceFilterAccessScope.restricted((root, query, cb) ->
+      cb.equal(root.get("tenantId"), tenantId));
+}
+```
+
+- `unrestricted()` e uma decisao explicita para recursos globais; nao use `null` como fallback.
+- `denied()` falha fechado e retorna pagina vazia.
+- `restricted(specification)` aplica a `Specification` a pagina e a reidratacao por `includeIds`.
+- Um ID autorizado fora do filtro funcional pode ser priorizado na primeira pagina; um ID fora do
+  escopo de acesso nunca e retornado.
+- O mesmo hook atende services mutaveis e read-only e tambem protege `/options/filter`.
+- `/by-ids`, `/all`, `/filter/cursor`, `/locate` e stats sao superficies independentes e exigem
+  enforcement proprio quando publicadas.
+- Nunca resolva acesso a partir de `FilterDTO`, `includeIds`, aliases ou texto enviado pelo cliente.
 
 </details>
 
