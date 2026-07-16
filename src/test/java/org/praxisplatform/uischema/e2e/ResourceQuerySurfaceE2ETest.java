@@ -2,8 +2,13 @@ package org.praxisplatform.uischema.e2e;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -14,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResourceQuerySurfaceE2ETest extends AbstractE2eH2Test {
+
+    private static final String TEST_PRINCIPAL_HEADER = "X-Test-Principal";
 
     @Test
     void filterRespectsDefaultSortAndIncludeIdsOnlyOnFirstPage() throws Exception {
@@ -103,10 +110,85 @@ class ResourceQuerySurfaceE2ETest extends AbstractE2eH2Test {
         assertEquals(List.of("Frank", "Bob", "Alice"), names(byIdsBody));
     }
 
+    @Test
+    void resourceFilterComposesAccessScopeWithFunctionalFilterAndIncludeIds() throws Exception {
+        Long authorizedOutsideFilter = state.employeeIdsByName().get("Carol");
+        Long unauthorizedOutsideScope = state.employeeIdsByName().get("Bob");
+
+        ResponseEntity<String> scopedResponse = postJsonAs(
+                "/employees/filter?page=0&size=10&includeIds=%d&includeIds=%d"
+                        .formatted(authorizedOutsideFilter, unauthorizedOutsideScope),
+                "{\"status\":\"ACTIVE\"}",
+                "hr-resource-user"
+        );
+        assertEquals(200, scopedResponse.getStatusCode().value());
+        JsonNode scopedBody = body(scopedResponse).path("data");
+        assertEquals(List.of("Carol", "Alice", "Eve"), names(scopedBody.path("content")));
+        assertEquals(3, scopedBody.path("totalElements").asInt());
+
+        ResponseEntity<String> noIncludeIdsResponse = postJsonAs(
+                "/employees/filter?page=0&size=10",
+                "{\"status\":\"ACTIVE\"}",
+                "hr-resource-user"
+        );
+        JsonNode noIncludeIdsBody = body(noIncludeIdsResponse).path("data");
+        assertEquals(List.of("Alice", "Eve"), names(noIncludeIdsBody.path("content")));
+        assertEquals(2, noIncludeIdsBody.path("totalElements").asInt());
+
+        ResponseEntity<String> deniedResponse = postJsonAs(
+                "/employees/filter?page=0&size=10",
+                "{}",
+                "blocked-resource-user"
+        );
+        JsonNode deniedBody = body(deniedResponse).path("data");
+        assertTrue(deniedBody.path("content").isEmpty());
+        assertEquals(0, deniedBody.path("totalElements").asInt());
+
+        ResponseEntity<String> unrestrictedResponse = postJson("/employees/filter?page=0&size=10", "{}");
+        assertEquals(6, body(unrestrictedResponse).path("data").path("totalElements").asInt());
+    }
+
+    @Test
+    void readOnlyResourceFilterAppliesTheSameAccessBoundaryToIncludeIds() throws Exception {
+        Long authorizedOutsideFilter = state.payrollIdsByEmployee().get("Carol");
+        Long unauthorizedOutsideScope = state.payrollIdsByEmployee().get("Bob");
+
+        ResponseEntity<String> response = postJsonAs(
+                "/payroll-view/filter?page=0&size=10&includeIds=%d&includeIds=%d"
+                        .formatted(authorizedOutsideFilter, unauthorizedOutsideScope),
+                "{\"employeeNome\":\"Alice\"}",
+                "hr-resource-user"
+        );
+
+        assertEquals(200, response.getStatusCode().value());
+        JsonNode data = body(response).path("data");
+        assertEquals(List.of("Carol", "Alice"), employeeNames(data.path("content")));
+        assertEquals(2, data.path("totalElements").asInt());
+    }
+
     private List<String> names(JsonNode nodes) {
         assertNotNull(nodes);
         return java.util.stream.StreamSupport.stream(nodes.spliterator(), false)
                 .map(node -> node.path("nome").asText())
                 .toList();
+    }
+
+    private List<String> employeeNames(JsonNode nodes) {
+        assertNotNull(nodes);
+        return java.util.stream.StreamSupport.stream(nodes.spliterator(), false)
+                .map(node -> node.path("employeeNome").asText())
+                .toList();
+    }
+
+    private ResponseEntity<String> postJsonAs(String path, String requestBody, String principalName) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(TEST_PRINCIPAL_HEADER, principalName);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return rest.getRestTemplate().exchange(
+                URI.create(url(path)),
+                HttpMethod.POST,
+                new HttpEntity<>(requestBody, headers),
+                String.class
+        );
     }
 }
