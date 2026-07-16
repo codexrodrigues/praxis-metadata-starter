@@ -270,7 +270,7 @@ Exibir:
 - vocabulario, aliases e evidencias;
 - campos sem descricao semantica suficiente;
 - campos sensiveis sem `@DomainGovernance` explicita;
-- `AiUsageMode` por campo;
+- politicas tipadas de visibilidade, treino, authoring e raciocinio por campo;
 - actions que exigem confirmacao;
 - exemplos seguros do LLM surface;
 - riscos de roteamento por texto local em vez de intencao semantica.

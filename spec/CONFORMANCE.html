@@ -266,8 +266,10 @@ apenas DTO plano de conjuncao simples</li>
 <li>manter <code>/schemas/surfaces</code> e
 <code>/schemas/actions</code> sincronizados com a semantica publicada
 por <code>@UiSurface</code> e <code>@WorkflowAction</code></li>
-<li>declarar campos sensiveis com <code>@DomainGovernance</code> e
-politicas de IA tipadas por <code>AiUsageMode</code></li>
+<li>declarar campos sensiveis com <code>@DomainGovernance</code> e cada
+dimensao da politica de IA pelo enum especifico
+(<code>AiVisibilityMode</code>, <code>AiTrainingUseMode</code> e
+<code>AiControlledUseMode</code>)</li>
 <li>declarar <code>x-ui.fieldAccess</code> para campos cuja visibilidade
 ou editabilidade dependa de authorities do contexto corporativo,
 mantendo claro que <code>capabilities</code> de runtime nao sao
