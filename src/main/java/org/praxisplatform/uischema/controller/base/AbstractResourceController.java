@@ -44,6 +44,7 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
     @DeleteMapping("/batch")
     @Operation(summary = "Excluir itens em lote")
     @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Resources deleted"),
             @ApiResponse(responseCode = "400", description = "Batch request is empty or invalid", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Delete operation is not available", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "A resource was not found", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),

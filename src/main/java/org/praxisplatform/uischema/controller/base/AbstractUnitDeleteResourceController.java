@@ -42,6 +42,7 @@ public abstract class AbstractUnitDeleteResourceController<ResponseDTO, ID, FD e
     @DeleteMapping("/{id:^(?!batch$).+}")
     @Operation(summary = "Excluir item")
     @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Resource deleted"),
             @ApiResponse(responseCode = "403", description = "Delete operation is not available", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Resource was not found", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "Delete conflicts with dependent data", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),

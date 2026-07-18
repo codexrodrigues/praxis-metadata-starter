@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.rest.exceptionhandler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -129,7 +130,9 @@ class GlobalExceptionHandlerTest {
         assertEquals("CALENDARIO_DUPLICATE", body.getErrors().getFirst().getCode());
         assertEquals("evento", body.getErrors().getFirst().getTarget());
         assertEquals(ErrorCategory.BUSINESS_LOGIC, body.getErrors().getFirst().getCategory());
-        assertNull(body.getErrors().getFirst().getProperties());
+        assertEquals("CALENDARIO_DUPLICATE", body.getErrors().getFirst().getProperties().get("code"));
+        assertEquals("evento", body.getErrors().getFirst().getProperties().get("target"));
+        assertFalse(body.getErrors().getFirst().getProperties().toString().contains("PRIVATE_CONSTRAINT"));
     }
 
     @Test

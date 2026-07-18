@@ -44,6 +44,7 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
     @PostMapping
     @Operation(summary = "Criar item")
     @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Resource created", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "400", description = "Invalid request or business rule violation", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Create operation is not available", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "Request conflicts with existing or dependent data", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
@@ -75,6 +76,7 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
     @PutMapping("/{id}")
     @Operation(summary = "Editar item")
     @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Resource updated", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "400", description = "Invalid request or business rule violation", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Update operation is not available", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Resource was not found", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),

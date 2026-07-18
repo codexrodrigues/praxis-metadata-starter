@@ -42,4 +42,24 @@ public class CustomProblemDetail extends ProblemDetail {
         this.category = null;
     }
 
+    /**
+     * Publishes the stable code both as a typed field and in the legacy
+     * {@link ProblemDetail} properties map consumed by existing clients.
+     */
+    public void setCode(String code) {
+        this.code = code;
+        setProperty("code", code);
+    }
+
+    /**
+     * Publishes the correction target without breaking clients that still read
+     * RFC 7807 extension members from the properties map.
+     */
+    public void setTarget(String target) {
+        this.target = target;
+        if (target != null && !target.isBlank()) {
+            setProperty("target", target);
+        }
+    }
+
 }
