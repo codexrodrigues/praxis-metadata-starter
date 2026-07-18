@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.command;
 
-import org.praxisplatform.uischema.rest.exceptionhandler.ErrorCategory;
+import org.praxisplatform.uischema.rest.failure.ResourceOperationFailure;
+import org.praxisplatform.uischema.rest.failure.ResourceOperationFailureKind;
 import org.praxisplatform.uischema.rest.response.CustomProblemDetail;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.springframework.hateoas.Links;
@@ -44,31 +45,36 @@ public class ResourceCommandHttpResponseAdapter {
             String message,
             ResourceCommandMessage commandMessage
     ) {
-        HttpStatus status = status(outcome);
-        CustomProblemDetail problem = new CustomProblemDetail(message);
+        ResourceOperationFailure failure = resourceFailure(outcome, message, commandMessage);
+        HttpStatus status = failure.kind().status();
+        CustomProblemDetail problem = new CustomProblemDetail(failure.safeMessage());
         problem.setStatus(status);
         problem.setTitle(title(outcome));
         problem.setType(URI.create(PROBLEM_BASE + outcome.name().toLowerCase().replace('_', '-')));
-        problem.setCategory(errorCategory(commandMessage == null ? outcome.errorCategory() : commandMessage.category()));
+        problem.setCategory(failure.kind().category());
+        problem.setCode(failure.code());
+        problem.setTarget(failure.target());
         problem.setProperty("outcome", outcome.name());
-        if (commandMessage != null) {
-            problem.setProperty("code", commandMessage.code());
-            if (commandMessage.target() != null && !commandMessage.target().isBlank()) {
-                problem.setProperty("target", commandMessage.target());
-            }
-        }
         return ResponseEntity.status(status).body(RestApiResponse.failure(message, List.of(problem)));
     }
 
-    private HttpStatus status(ResourceCommandOutcome outcome) {
-        return switch (outcome) {
-            case VALIDATION_FAILED -> HttpStatus.BAD_REQUEST;
-            case PERMISSION_DENIED -> HttpStatus.FORBIDDEN;
-            case NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case CONFLICT_DUPLICATE, CONFLICT_DEPENDENCY -> HttpStatus.CONFLICT;
-            case PRECONDITION_FAILED -> HttpStatus.PRECONDITION_FAILED;
-            case SUCCESS, ACCEPTED, UNEXPECTED_SANITIZED -> HttpStatus.INTERNAL_SERVER_ERROR;
+    private ResourceOperationFailure resourceFailure(
+            ResourceCommandOutcome outcome,
+            String message,
+            ResourceCommandMessage commandMessage
+    ) {
+        ResourceOperationFailureKind kind = switch (outcome) {
+            case VALIDATION_FAILED -> ResourceOperationFailureKind.INVALID_INPUT;
+            case PERMISSION_DENIED -> ResourceOperationFailureKind.PERMISSION_DENIED;
+            case NOT_FOUND -> ResourceOperationFailureKind.NOT_FOUND;
+            case CONFLICT_DUPLICATE -> ResourceOperationFailureKind.CONFLICT_DUPLICATE;
+            case CONFLICT_DEPENDENCY -> ResourceOperationFailureKind.CONFLICT_DEPENDENCY;
+            case PRECONDITION_FAILED -> ResourceOperationFailureKind.PRECONDITION_FAILED;
+            case SUCCESS, ACCEPTED, UNEXPECTED_SANITIZED -> ResourceOperationFailureKind.UNEXPECTED_SANITIZED;
         };
+        String code = commandMessage == null ? outcome.name() : commandMessage.code();
+        String target = commandMessage == null ? null : commandMessage.target();
+        return new ResourceOperationFailure(kind, code, message, target);
     }
 
     private String title(ResourceCommandOutcome outcome) {
@@ -80,18 +86,6 @@ public class ResourceCommandHttpResponseAdapter {
             case CONFLICT_DEPENDENCY -> "Command conflicts with dependent data";
             case PRECONDITION_FAILED -> "Command precondition failed";
             case SUCCESS, ACCEPTED, UNEXPECTED_SANITIZED -> "Command execution failed";
-        };
-    }
-
-    private ErrorCategory errorCategory(ResourceCommandErrorCategory category) {
-        if (category == null) {
-            return ErrorCategory.UNKNOWN;
-        }
-        return switch (category) {
-            case VALIDATION, PRECONDITION -> ErrorCategory.VALIDATION;
-            case PERMISSION -> ErrorCategory.SECURITY;
-            case NOT_FOUND, CONFLICT_DUPLICATE, CONFLICT_DEPENDENCY -> ErrorCategory.BUSINESS_LOGIC;
-            case UNEXPECTED_SANITIZED -> ErrorCategory.SYSTEM;
         };
     }
 }

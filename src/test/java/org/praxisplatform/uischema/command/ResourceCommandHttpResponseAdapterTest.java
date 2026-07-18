@@ -134,7 +134,7 @@ class ResourceCommandHttpResponseAdapterTest {
         CustomProblemDetail problem = body.getErrors().getFirst();
         assertEquals(ErrorCategory.BUSINESS_LOGIC, problem.getCategory());
         assertEquals("CONFLICT_DUPLICATE", problem.getProperties().get("outcome"));
-        assertEquals("CONFLICT_DUPLICATE", problem.getProperties().get("code"));
+        assertEquals("CONFLICT_DUPLICATE", problem.getCode());
     }
 
     @Test
@@ -158,6 +158,6 @@ class ResourceCommandHttpResponseAdapterTest {
         CustomProblemDetail problem = body.getErrors().getFirst();
         assertEquals(ErrorCategory.SYSTEM, problem.getCategory());
         assertEquals("UNEXPECTED_SANITIZED", problem.getProperties().get("outcome"));
-        assertEquals("provider-exception", problem.getProperties().get("code"));
+        assertEquals("provider-exception", problem.getCode());
     }
 }

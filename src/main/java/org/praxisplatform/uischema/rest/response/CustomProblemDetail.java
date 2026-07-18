@@ -26,6 +26,12 @@ public class CustomProblemDetail extends ProblemDetail {
     /** Categoria do erro, para uso em UI e métricas. */
     private ErrorCategory category;
 
+    /** Codigo publico estavel para tratamento sem parsing da mensagem. */
+    private String code;
+
+    /** Caminho opcional no contrato publico que o consumidor pode corrigir. */
+    private String target;
+
     /**
      * Constrói o detalhe de problema com a mensagem informada.
      *

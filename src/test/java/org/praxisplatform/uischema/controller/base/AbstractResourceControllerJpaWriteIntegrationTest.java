@@ -273,6 +273,30 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
     }
 
     @Test
+    void resourceWritesPublishCanonicalStructuredFailureSchema() throws Exception {
+        MvcResult result = mockMvc.perform(get("/v3/api-docs/integration-employees"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode postResponses = root.path("paths").path("/integration-employees").path("post").path("responses");
+        JsonNode putResponses = root.path("paths").path("/integration-employees/{id}").path("put").path("responses");
+        JsonNode deleteResponses = root.path("paths").path("/integration-employees/{id}").path("delete").path("responses");
+
+        assertTrue(postResponses.has("409"));
+        assertTrue(postResponses.has("422"));
+        assertTrue(putResponses.has("412"));
+        assertTrue(deleteResponses.has("409"));
+
+        JsonNode problemProperties = root.path("components").path("schemas")
+                .path("CustomProblemDetail").path("properties");
+        assertTrue(problemProperties.has("code"));
+        assertTrue(problemProperties.has("target"));
+        assertTrue(problemProperties.has("category"));
+        assertTrue(problemProperties.has("status"));
+    }
+
+    @Test
     void schemasEndpointRedirectsToCanonicalFilteredResponseSchema() throws Exception {
         mockMvc.perform(get("/integration-employees/schemas"))
                 .andExpect(status().isFound())

@@ -1,6 +1,14 @@
 package org.praxisplatform.uischema.controller.base;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import org.praxisplatform.uischema.rest.response.RestApiErrorResponse;
+import org.praxisplatform.uischema.rest.failure.ResourceOperationFailure;
+import org.praxisplatform.uischema.rest.failure.ResourceOperationFailureException;
+import org.praxisplatform.uischema.rest.failure.ResourceOperationFailureKind;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.service.base.BaseResourceService;
 import org.springframework.http.ResponseEntity;
@@ -35,9 +43,20 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
 
     @DeleteMapping("/batch")
     @Operation(summary = "Excluir itens em lote")
+    @ApiResponses({
+            @ApiResponse(responseCode = "400", description = "Batch request is empty or invalid", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Delete operation is not available", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "A resource was not found", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Delete conflicts with dependent data", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "Sanitized unexpected failure", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class)))
+    })
     public ResponseEntity<Void> deleteBatch(@RequestBody List<ID> ids) {
         if (ids == null || ids.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            throw new ResourceOperationFailureException(ResourceOperationFailure.of(
+                    ResourceOperationFailureKind.INVALID_INPUT,
+                    "RESOURCE_IDS_REQUIRED",
+                    "At least one resource id is required."
+            ));
         }
         assertCollectionOperationAvailable("delete");
         ids.forEach(id -> assertItemOperationAvailable("delete", id));

@@ -21,6 +21,11 @@ All notable changes to this module will be documented in this file.
   `controllerEndpointHandlerMapping`.
 
 ### Added
+- Contrato publico governado `ResourceOperationFailure` para falhas conhecidas de operacoes
+  resource-oriented, com kind canonico derivando HTTP/category, codigo estavel, mensagem segura,
+  target publico opcional e causa privada transportada separadamente por
+  `ResourceOperationFailureException`. `BusinessException(String)` preserva os defaults anteriores,
+  e create/update/delete agora documentam o envelope de erro no OpenAPI.
 - API publica `ResourceFilterAccessScope` e hook
   `AbstractBaseQueryResourceService.resolveResourceFilterAccessScope()` para o
   host declarar explicitamente acesso irrestrito, negado ou restrito por

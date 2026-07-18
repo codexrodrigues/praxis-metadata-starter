@@ -1,8 +1,13 @@
 package org.praxisplatform.uischema.controller.base;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.praxisplatform.uischema.rest.response.RestApiErrorResponse;
 import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceCommandService;
 import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceService;
 import org.springframework.hateoas.Link;
@@ -38,6 +43,13 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
 
     @PostMapping
     @Operation(summary = "Criar item")
+    @ApiResponses({
+            @ApiResponse(responseCode = "400", description = "Invalid request or business rule violation", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Create operation is not available", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Request conflicts with existing or dependent data", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "Entity is functionally invalid", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "Sanitized unexpected failure", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class)))
+    })
     public ResponseEntity<RestApiResponse<ResponseDTO>> create(@jakarta.validation.Valid @RequestBody CreateDTO dto) {
         assertCollectionOperationAvailable("create");
         BaseCreateUpdateResourceCommandService.SavedResult<ID, ResponseDTO> saved = getService().create(dto);
@@ -62,6 +74,15 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
 
     @PutMapping("/{id}")
     @Operation(summary = "Editar item")
+    @ApiResponses({
+            @ApiResponse(responseCode = "400", description = "Invalid request or business rule violation", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Update operation is not available", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Resource was not found", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Request conflicts with existing or dependent data", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "412", description = "Resource version precondition failed", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "Entity is functionally invalid", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "Sanitized unexpected failure", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class)))
+    })
     public ResponseEntity<RestApiResponse<ResponseDTO>> update(
             @PathVariable ID id,
             @jakarta.validation.Valid @RequestBody UpdateDTO dto

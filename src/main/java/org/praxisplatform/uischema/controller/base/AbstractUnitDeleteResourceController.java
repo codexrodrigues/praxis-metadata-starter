@@ -1,8 +1,13 @@
 package org.praxisplatform.uischema.controller.base;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.service.base.BaseUnitDeleteResourceService;
+import org.praxisplatform.uischema.rest.response.RestApiErrorResponse;
 import org.springframework.hateoas.Link;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -36,6 +41,13 @@ public abstract class AbstractUnitDeleteResourceController<ResponseDTO, ID, FD e
 
     @DeleteMapping("/{id:^(?!batch$).+}")
     @Operation(summary = "Excluir item")
+    @ApiResponses({
+            @ApiResponse(responseCode = "403", description = "Delete operation is not available", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Resource was not found", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Delete conflicts with dependent data", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "412", description = "Resource version precondition failed", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "Sanitized unexpected failure", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class)))
+    })
     public ResponseEntity<Void> delete(@PathVariable ID id) {
         assertItemOperationAvailable("delete", id);
         getService().deleteById(id);

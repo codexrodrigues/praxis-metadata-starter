@@ -8,6 +8,9 @@ import java.io.EOFException;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
+import org.praxisplatform.uischema.rest.failure.ResourceOperationFailure;
+import org.praxisplatform.uischema.rest.failure.ResourceOperationFailureException;
+import org.praxisplatform.uischema.rest.failure.ResourceOperationFailureKind;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -83,6 +86,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Validation error.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals("Name is required.", body.getErrors().get(0).getMessage());
+        assertEquals("name", body.getErrors().get(0).getTarget());
     }
 
     @Test
@@ -100,6 +104,44 @@ class GlobalExceptionHandlerTest {
         assertEquals("Business rule violation.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals("Rule violated.", body.getErrors().get(0).getMessage());
+        assertEquals("BUSINESS_RULE_VIOLATION", body.getErrors().get(0).getCode());
+    }
+
+    @Test
+    void shouldMaterializeGovernedDuplicateFailureWithoutLeakingPrivateCause() {
+        WebRequest request = webRequest("/api/calendarios");
+        ResourceOperationFailureException exception = new ResourceOperationFailureException(
+                new ResourceOperationFailure(
+                        ResourceOperationFailureKind.CONFLICT_DUPLICATE,
+                        "CALENDARIO_DUPLICATE",
+                        "A calendar event already exists for the informed key.",
+                        "evento"
+                ),
+                new IllegalStateException("ORA-00001: PRIVATE_CONSTRAINT")
+        );
+
+        var response = handler.handleResourceOperationFailureException(exception, request);
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("A calendar event already exists for the informed key.", body.getMessage());
+        assertEquals("CALENDARIO_DUPLICATE", body.getErrors().getFirst().getCode());
+        assertEquals("evento", body.getErrors().getFirst().getTarget());
+        assertEquals(ErrorCategory.BUSINESS_LOGIC, body.getErrors().getFirst().getCategory());
+        assertNull(body.getErrors().getFirst().getProperties());
+    }
+
+    @Test
+    void shouldRejectUnexpectedFailureAsPublicFunctionalException() {
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new ResourceOperationFailureException(ResourceOperationFailure.of(
+                        ResourceOperationFailureKind.UNEXPECTED_SANITIZED,
+                        "PRIVATE_FAILURE",
+                        "Do not publish this."
+                ))
+        );
     }
 
     @Test
@@ -132,7 +174,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Internal server error while processing the request.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
-        assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getCode());
     }
 
     @Test
@@ -148,7 +190,7 @@ class GlobalExceptionHandlerTest {
         RestApiResponse<Object> body = response.getBody();
         assertNotNull(body);
         assertEquals("The resource has changed since it was read.", body.getMessage());
-        assertEquals("STALE_RESOURCE_VERSION", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("STALE_RESOURCE_VERSION", body.getErrors().get(0).getCode());
     }
 
     @Test
@@ -212,7 +254,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("BETWEEN requires at least one bound.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
-        assertEquals("FILTER_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("FILTER_PAYLOAD_INVALID", body.getErrors().get(0).getCode());
         assertEquals("/simple/filter", body.getErrors().get(0).getInstance().toString());
     }
 
@@ -232,7 +274,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Internal server error while processing the request.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
-        assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("INTERNAL_SERVER_ERROR", body.getErrors().get(0).getCode());
     }
 
     @Test
@@ -251,7 +293,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("schema inválido", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
-        assertEquals("INVALID_PARAMETER", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("INVALID_PARAMETER", body.getErrors().get(0).getCode());
     }
 
     @Test
@@ -270,7 +312,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Invalid JSON payload or payload incompatible with the filter contract.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
-        assertEquals("REQUEST_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("REQUEST_PAYLOAD_INVALID", body.getErrors().get(0).getCode());
     }
 
     @Test
@@ -289,7 +331,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Required header is missing: X-Tenant-ID.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
-        assertEquals("MISSING_REQUEST_HEADER", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("MISSING_REQUEST_HEADER", body.getErrors().get(0).getCode());
         assertEquals("/api/praxis/config/ui", body.getErrors().get(0).getInstance().toString());
     }
 
@@ -309,7 +351,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Required parameter is missing: componentId.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
-        assertEquals("MISSING_REQUEST_PARAMETER", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("MISSING_REQUEST_PARAMETER", body.getErrors().get(0).getCode());
         assertEquals("/api/praxis/config/ui", body.getErrors().get(0).getInstance().toString());
     }
 
@@ -329,7 +371,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Method 'PUT' is not supported for this endpoint.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
-        assertEquals("METHOD_NOT_ALLOWED", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("METHOD_NOT_ALLOWED", body.getErrors().get(0).getCode());
         assertEquals("/payroll-view/1", body.getErrors().get(0).getInstance().toString());
     }
 
@@ -349,7 +391,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("OpenAPI resource was not found.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
-        assertEquals("RESOURCE_NOT_FOUND", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("RESOURCE_NOT_FOUND", body.getErrors().get(0).getCode());
         assertEquals("/v3/api-docs/does-not-exist", body.getErrors().get(0).getInstance().toString());
     }
 
@@ -373,7 +415,7 @@ class GlobalExceptionHandlerTest {
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
         assertEquals(
                 "FILTER_PAYLOAD_INVALID",
-                body.getErrors().get(0).getProperties().get("code")
+                body.getErrors().get(0).getCode()
         );
         assertEquals("/simple/filter", body.getErrors().get(0).getInstance().toString());
     }
@@ -396,7 +438,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Invalid JSON payload or payload incompatible with the filter contract.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
-        assertEquals("REQUEST_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("REQUEST_PAYLOAD_INVALID", body.getErrors().get(0).getCode());
     }
 
     @Test
@@ -416,7 +458,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("BETWEEN requires at least one bound.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
-        assertEquals("FILTER_PAYLOAD_INVALID", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("FILTER_PAYLOAD_INVALID", body.getErrors().get(0).getCode());
     }
 
     @Test
@@ -433,7 +475,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Internal server error while processing the request.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
-        assertEquals("DATA_ACCESS_ERROR", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("DATA_ACCESS_ERROR", body.getErrors().get(0).getCode());
     }
 
     @Test
@@ -450,7 +492,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Request conflicts with existing data constraints.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.BUSINESS_LOGIC, body.getErrors().get(0).getCategory());
-        assertEquals("DATA_INTEGRITY_VIOLATION", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("DATA_INTEGRITY_VIOLATION", body.getErrors().get(0).getCode());
         assertEquals("/api/helpdesk/chamados/42", body.getErrors().get(0).getInstance().toString());
     }
 
@@ -488,7 +530,7 @@ class GlobalExceptionHandlerTest {
         assertEquals("Endpoint '/payroll-view' does not exist or was not found.", body.getMessage());
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.SYSTEM, body.getErrors().get(0).getCategory());
-        assertEquals("RESOURCE_NOT_FOUND", body.getErrors().get(0).getProperties().get("code"));
+        assertEquals("RESOURCE_NOT_FOUND", body.getErrors().get(0).getCode());
         assertEquals("/payroll-view", body.getErrors().get(0).getInstance().toString());
     }
 

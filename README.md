@@ -13,6 +13,8 @@ Ele publica:
 - `POST /{resource}/export` como operacao canonica de exportacao de colecao
 - `/praxis/cockpit` como cockpit automatico do host, derivado das superficies metadata-driven existentes
 - envelopes `RestApiResponse` com suporte efetivo a Spring HATEOAS
+- falhas publicas governadas de operacoes resource-oriented com `code`, `target`, categoria e
+  mensagem segura, sem expor causas privadas de persistencia ou integracao
 
 Nao e apenas um gerador de CRUD. O baseline atual da plataforma e:
 

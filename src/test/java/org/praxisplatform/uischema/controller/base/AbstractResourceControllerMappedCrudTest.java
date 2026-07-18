@@ -8,6 +8,7 @@ import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.command.ResourceCommandExecutionResult;
 import org.praxisplatform.uischema.command.ResourceCommandResponsePolicy;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.rest.exceptionhandler.GlobalExceptionHandler;
 import org.praxisplatform.uischema.service.base.BaseResourceCommandService;
 import org.praxisplatform.uischema.service.base.BaseResourceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(value = AbstractResourceControllerMappedCrudTest.SimpleController.class)
-@Import(AbstractResourceControllerMappedCrudTest.SimpleController.class)
+@Import({AbstractResourceControllerMappedCrudTest.SimpleController.class, GlobalExceptionHandler.class})
 class AbstractResourceControllerMappedCrudTest {
 
     @Autowired
@@ -111,6 +112,18 @@ class AbstractResourceControllerMappedCrudTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("[15]"))
                 .andExpect(status().isForbidden());
+
+        verify(service, never()).deleteAllById(anyList());
+    }
+
+    @Test
+    void deleteBatchPublishesCanonicalFailureForEmptyRequest() throws Exception {
+        mockMvc.perform(delete("/simple/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[]"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value("failure"))
+                .andExpect(jsonPath("$.errors[0].code").value("RESOURCE_IDS_REQUIRED"));
 
         verify(service, never()).deleteAllById(anyList());
     }
