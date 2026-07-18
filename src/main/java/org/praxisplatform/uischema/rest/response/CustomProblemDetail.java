@@ -26,6 +26,12 @@ public class CustomProblemDetail extends ProblemDetail {
     /** Categoria do erro, para uso em UI e métricas. */
     private ErrorCategory category;
 
+    /** Codigo publico estavel para tratamento sem parsing da mensagem. */
+    private String code;
+
+    /** Caminho opcional no contrato publico que o consumidor pode corrigir. */
+    private String target;
+
     /**
      * Constrói o detalhe de problema com a mensagem informada.
      *
@@ -34,6 +40,26 @@ public class CustomProblemDetail extends ProblemDetail {
     public CustomProblemDetail(String message) {
         this.message = message;
         this.category = null;
+    }
+
+    /**
+     * Publishes the stable code both as a typed field and in the legacy
+     * {@link ProblemDetail} properties map consumed by existing clients.
+     */
+    public void setCode(String code) {
+        this.code = code;
+        setProperty("code", code);
+    }
+
+    /**
+     * Publishes the correction target without breaking clients that still read
+     * RFC 7807 extension members from the properties map.
+     */
+    public void setTarget(String target) {
+        this.target = target;
+        if (target != null && !target.isBlank()) {
+            setProperty("target", target);
+        }
     }
 
 }

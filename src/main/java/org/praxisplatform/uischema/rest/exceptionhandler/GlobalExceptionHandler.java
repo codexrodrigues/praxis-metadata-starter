@@ -3,6 +3,8 @@ package org.praxisplatform.uischema.rest.exceptionhandler;
 import lombok.extern.slf4j.Slf4j;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.BusinessException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
+import org.praxisplatform.uischema.rest.failure.ResourceOperationFailure;
+import org.praxisplatform.uischema.rest.failure.ResourceOperationFailureException;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
 import org.praxisplatform.uischema.rest.response.CustomProblemDetail;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
@@ -69,7 +71,6 @@ public class GlobalExceptionHandler {
     private static final String ERROR_CODE_DATA_ACCESS_ERROR = "DATA_ACCESS_ERROR";
     private static final String ERROR_CODE_DATA_INTEGRITY_VIOLATION = "DATA_INTEGRITY_VIOLATION";
     private static final String ERROR_CODE_INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR";
-    private static final String ERROR_CODE_BUSINESS_RULE_VIOLATION = "BUSINESS_RULE_VIOLATION";
     private static final String ERROR_CODE_ENTITY_NOT_FOUND = "RESOURCE_NOT_FOUND";
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -83,6 +84,7 @@ public class GlobalExceptionHandler {
                     customProblemDetail.setType(URI.create("https://example.com/probs/validation-error"));
                     customProblemDetail.setInstance(instanceUri(request));
                     customProblemDetail.setCategory(ErrorCategory.VALIDATION);
+                    customProblemDetail.setTarget(error.getField());
                     enrichErrorDetails(customProblemDetail, request, ERROR_CODE_INVALID_PARAMETER);
 
                     return customProblemDetail;
@@ -102,22 +104,47 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<RestApiResponse<Object>> handleBusinessException(BusinessException ex, WebRequest request) {
-        CustomProblemDetail customProblemDetail = new CustomProblemDetail(ex.getMessage());
-        customProblemDetail.setStatus(HttpStatus.BAD_REQUEST);
-        customProblemDetail.setTitle(ex.getMessage());
-        customProblemDetail.setType(URI.create("https://example.com/probs/business-logic"));
-        customProblemDetail.setInstance(instanceUri(request));
-        customProblemDetail.setCategory(ErrorCategory.BUSINESS_LOGIC);
-        enrichErrorDetails(customProblemDetail, request, ERROR_CODE_BUSINESS_RULE_VIOLATION);
+        return buildResourceOperationFailureResponse(ex, request, "Business rule violation.");
+    }
 
-        RestApiResponse<Object> response = RestApiResponse
-                .builder()
-                .status(RestApiResponseStatus.FAILURE)
-                .message("Business rule violation.")
-                .errors(List.of(customProblemDetail))
-                .build();
+    @ExceptionHandler(ResourceOperationFailureException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleResourceOperationFailureException(
+            ResourceOperationFailureException ex,
+            WebRequest request
+    ) {
+        return buildResourceOperationFailureResponse(ex, request, ex.failure().safeMessage());
+    }
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    private ResponseEntity<RestApiResponse<Object>> buildResourceOperationFailureResponse(
+            ResourceOperationFailureException ex,
+            WebRequest request,
+            String responseMessage
+    ) {
+        ResourceOperationFailure failure = ex.failure();
+        if (ex.getCause() != null) {
+            log.warn(
+                    "[GlobalExceptionHandler] Governed resource operation failure kind={} code={} target={}",
+                    failure.kind(),
+                    failure.code(),
+                    failure.target(),
+                    ex
+            );
+        }
+
+        CustomProblemDetail problem = new CustomProblemDetail(failure.safeMessage());
+        problem.setStatus(failure.kind().status());
+        problem.setTitle(failure.kind().title());
+        problem.setType(URI.create("https://example.com/probs/" + failure.kind().problemSlug()));
+        problem.setInstance(instanceUri(request));
+        problem.setCategory(failure.kind().category());
+        problem.setCode(failure.code());
+        problem.setTarget(failure.target());
+        enrichErrorDetails(problem, request, null);
+
+        return ResponseEntity.status(failure.kind().status()).body(RestApiResponse.failure(
+                responseMessage,
+                List.of(problem)
+        ));
     }
 
 
@@ -630,7 +657,7 @@ public class GlobalExceptionHandler {
         }
         String normalizedCode = normalize(errorCode);
         if (normalizedCode != null) {
-            customProblemDetail.setProperty("code", normalizedCode);
+            customProblemDetail.setCode(normalizedCode);
         }
         String traceId = resolveTraceId(request);
         if (traceId != null) {
