@@ -41,6 +41,7 @@ org.praxisplatform.uischema.repository.base
 org.praxisplatform.uischema.rest
 org.praxisplatform.uischema.rest.exceptionhandler
 org.praxisplatform.uischema.rest.exceptionhandler.exception
+org.praxisplatform.uischema.rest.failure
 org.praxisplatform.uischema.rest.response
 org.praxisplatform.uischema.schema
 org.praxisplatform.uischema.service

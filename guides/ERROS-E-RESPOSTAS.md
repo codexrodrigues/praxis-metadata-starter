@@ -49,7 +49,9 @@ Erros são padronizados com `CustomProblemDetail` e categorias (`ErrorCategory`)
       "title": "nome",
       "type": "https://example.com/probs/validation-error",
       "instance": "/api/human-resources/funcionarios",
-      "category": "VALIDATION"
+      "category": "VALIDATION",
+      "code": "INVALID_PARAMETER",
+      "target": "nome"
     }
   ],
   "timestamp": "2024-01-01T10:00:00"
@@ -70,6 +72,8 @@ Erros são padronizados com `CustomProblemDetail` e categorias (`ErrorCategory`)
 - `ResponseStatusException` → preserva status original (ex.: 400/403/404/409/410/429/503), sem rebaixar para 500
 - `InvalidFilterPayloadException` → 400 (payload de filtro inválido)
 - `BusinessException` → 400 com categoria `BUSINESS_LOGIC`
+- `ResourceOperationFailureException` → status, categoria, codigo e target derivados de uma
+  decisao governada `ResourceOperationFailure`; a causa privada fica somente em diagnostico protegido
 - `EntityNotFoundException` → 404
 - `IllegalArgumentException` fora de validação explícita de schema → 500 (evita mascarar erro interno como erro do cliente)
 - `Exception` → 500
@@ -82,6 +86,12 @@ Erros são padronizados com `CustomProblemDetail` e categorias (`ErrorCategory`)
 
 - Preencha mensagens claras nos `ProblemDetail` para facilitar a UX
 - Categorize adequadamente para telemetria/observabilidade
+- Use `ResourceOperationFailure` para falhas funcionais conhecidas de create/update/delete. O host
+  traduz a excecao privada para um `kind` canonico; nao combine status e categoria livremente.
+- Use em `target` somente o path estavel do DTO publico que o consumidor pode corrigir. Nunca publique
+  label de UI, coluna, constraint, SQL, trigger, provider ou locator privado.
+- Falhas tecnicas ou desconhecidas nao devem ser convertidas em falhas funcionais: elas permanecem no
+  `500` sanitizado e correlacionado.
 - Padronize os links `type` para catálogos internos de erros
 
 </details>

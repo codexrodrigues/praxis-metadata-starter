@@ -287,11 +287,13 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;nome&quot;</span><span class="fu">,</span></span>
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com/probs/validation-error&quot;</span><span class="fu">,</span></span>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;instance&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/human-resources/funcionarios&quot;</span><span class="fu">,</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;VALIDATION&quot;</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;timestamp&quot;</span><span class="fu">:</span> <span class="st">&quot;2024-01-01T10:00:00&quot;</span></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;category&quot;</span><span class="fu">:</span> <span class="st">&quot;VALIDATION&quot;</span><span class="fu">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;INVALID_PARAMETER&quot;</span><span class="fu">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;target&quot;</span><span class="fu">:</span> <span class="st">&quot;nome&quot;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;timestamp&quot;</span><span class="fu">:</span> <span class="st">&quot;2024-01-01T10:00:00&quot;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 </details>
 <a id="tratamento-global-de-excecoes"></a>
 <details>
@@ -314,6 +316,10 @@ ausente)</li>
 inválido)</li>
 <li><code>BusinessException</code> → 400 com categoria
 <code>BUSINESS_LOGIC</code></li>
+<li><code>ResourceOperationFailureException</code> → status, categoria,
+codigo e target derivados de uma decisao governada
+<code>ResourceOperationFailure</code>; a causa privada fica somente em
+diagnostico protegido</li>
 <li><code>EntityNotFoundException</code> → 404</li>
 <li><code>IllegalArgumentException</code> fora de validação explícita de
 schema → 500 (evita mascarar erro interno como erro do cliente)</li>
@@ -329,6 +335,16 @@ schema → 500 (evita mascarar erro interno como erro do cliente)</li>
 <li>Preencha mensagens claras nos <code>ProblemDetail</code> para
 facilitar a UX</li>
 <li>Categorize adequadamente para telemetria/observabilidade</li>
+<li>Use <code>ResourceOperationFailure</code> para falhas funcionais
+conhecidas de create/update/delete. O host traduz a excecao privada para
+um <code>kind</code> canonico; nao combine status e categoria
+livremente.</li>
+<li>Use em <code>target</code> somente o path estavel do DTO publico que
+o consumidor pode corrigir. Nunca publique label de UI, coluna,
+constraint, SQL, trigger, provider ou locator privado.</li>
+<li>Falhas tecnicas ou desconhecidas nao devem ser convertidas em falhas
+funcionais: elas permanecem no <code>500</code> sanitizado e
+correlacionado.</li>
 <li>Padronize os links <code>type</code> para catálogos internos de
 erros</li>
 </ul>
