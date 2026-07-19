@@ -14,6 +14,9 @@ public record ResourceOperationFailure(
         String safeMessage,
         String target
 ) {
+    private static final int MAX_CODE_LENGTH = 200;
+    private static final int MAX_TARGET_LENGTH = 512;
+
     public ResourceOperationFailure {
         if (kind == null) {
             throw new IllegalArgumentException("Resource operation failure kind is required.");
@@ -21,6 +24,10 @@ public record ResourceOperationFailure(
         code = requireText(code, "Resource operation failure code is required.");
         safeMessage = requireText(safeMessage, "Resource operation safe message is required.");
         target = normalize(target);
+        requirePublicToken(code, MAX_CODE_LENGTH, "Resource operation failure code");
+        if (target != null) {
+            requirePublicToken(target, MAX_TARGET_LENGTH, "Resource operation failure target");
+        }
     }
 
     public static ResourceOperationFailure of(
@@ -45,5 +52,11 @@ public record ResourceOperationFailure(
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private static void requirePublicToken(String value, int maxLength, String label) {
+        if (value.length() > maxLength || value.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException(label + " must be a bounded public value without control characters.");
+        }
     }
 }
