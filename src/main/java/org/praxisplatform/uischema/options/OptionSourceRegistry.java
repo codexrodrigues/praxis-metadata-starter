@@ -181,6 +181,11 @@ public final class OptionSourceRegistry {
         return resolve(resourceClass, sourceKey).isPresent();
     }
 
+    /** Indica se existe ao menos uma option-source declarada para a classe do recurso. */
+    public boolean containsAny(Class<?> resourceClass) {
+        return resourceClass != null && !descriptorsByResource.getOrDefault(resourceClass, Map.of()).isEmpty();
+    }
+
     /**
      * Indica se o registry nao possui fontes registradas.
      *

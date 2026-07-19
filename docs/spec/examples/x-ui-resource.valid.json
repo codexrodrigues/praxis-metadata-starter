@@ -13,11 +13,18 @@
     "create": true,
     "update": true,
     "delete": true,
+    "duplicate-draft": false,
     "options": true,
+    "optionSources": true,
     "byId": true,
     "all": true,
     "filter": true,
     "filterExpression": false,
-    "cursor": false
+    "cursor": false,
+    "export": false,
+    "statsGroupBy": true,
+    "statsTimeSeries": true,
+    "statsDistribution": true,
+    "statsComparison": true
   }
 }

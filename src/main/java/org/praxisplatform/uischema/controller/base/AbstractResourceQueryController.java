@@ -17,6 +17,7 @@ import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditions;
 import org.praxisplatform.uischema.capability.CapabilitySnapshot;
+import org.praxisplatform.uischema.capability.ResourceStructuralCapabilities;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
 import org.praxisplatform.uischema.command.GovernedResourceCommandExecutor;
 import org.praxisplatform.uischema.command.ResourceCommandEvidenceSanitizer;
@@ -57,7 +58,6 @@ import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.action.ActionCatalogResponse;
 import org.praxisplatform.uischema.action.ActionCatalogService;
-import org.praxisplatform.uischema.exporting.CollectionExportCapability;
 import org.praxisplatform.uischema.surface.SurfaceCatalogResponse;
 import org.praxisplatform.uischema.surface.SurfaceCatalogService;
 import org.praxisplatform.uischema.util.PageableBuilder;
@@ -267,6 +267,12 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     protected abstract BaseResourceQueryService<ResponseDTO, ID, FD> getService();
+
+    /** Ponte Java usada pelo registry canônico; não publica um endpoint adicional. */
+    public final ResourceStructuralCapabilities getStructuralCapabilities() {
+        ResourceStructuralCapabilities capabilities = getService().getStructuralCapabilities();
+        return capabilities == null ? ResourceStructuralCapabilities.unsupported() : capabilities;
+    }
 
     protected abstract ID getResponseId(ResponseDTO dto);
 
@@ -1190,18 +1196,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (capabilityService == null) {
             throw new IllegalStateException("CapabilityService is not configured for contextual discovery.");
         }
-        CollectionExportCapability exportCapability = getService().getCollectionExportCapability().orElse(null);
-        CapabilitySnapshot snapshot = capabilityService.collectionCapabilities(
-                getResourceKey(),
-                getBasePath(),
-                supportsCollectionExport(),
-                exportCapability,
-                getService().getStatsFieldRegistry(),
-                getService().getGroupByStatsSupportMode(),
-                getService().getTimeSeriesStatsSupportMode(),
-                getService().getDistributionStatsSupportMode(),
-                getService().getComparisonStatsSupportMode()
-        );
+        CapabilitySnapshot snapshot = capabilityService.collectionCapabilities(getResourceKey(), getBasePath());
         return withVersion(
                 ResponseEntity.ok(),
                 snapshot
@@ -1217,16 +1212,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         getService().findById(id);
         return withVersion(
                 ResponseEntity.ok(),
-                capabilityService.itemCapabilities(
-                        getResourceKey(),
-                        getBasePath(),
-                        id,
-                        getService().getStatsFieldRegistry(),
-                        getService().getGroupByStatsSupportMode(),
-                        getService().getTimeSeriesStatsSupportMode(),
-                        getService().getDistributionStatsSupportMode(),
-                        getService().getComparisonStatsSupportMode()
-                )
+                capabilityService.itemCapabilities(getResourceKey(), getBasePath(), id)
         );
     }
 

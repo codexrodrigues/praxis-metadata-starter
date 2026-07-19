@@ -28,6 +28,7 @@ import org.praxisplatform.uischema.stats.StatsProperties;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
 import org.praxisplatform.uischema.stats.ComparisonPeriodResolver;
 import org.praxisplatform.uischema.stats.StatsBucketOrder;
+import org.praxisplatform.uischema.stats.StatsCapability;
 import org.praxisplatform.uischema.stats.dto.ComparisonBucket;
 import org.praxisplatform.uischema.stats.dto.ComparisonMetricValue;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
@@ -44,6 +45,7 @@ import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import org.praxisplatform.uischema.stats.service.ResolvedStatsMetric;
 import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
+import org.praxisplatform.uischema.capability.ResourceStructuralCapabilities;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
@@ -89,6 +91,51 @@ public abstract class AbstractBaseQueryResourceService<
         ID,
         FilterDTO extends GenericFilterDTO
 > implements BaseResourceQueryService<ResponseDTO, ID, FilterDTO> {
+
+    @Override
+    public ResourceStructuralCapabilities getStructuralCapabilities() {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        StatsFieldRegistry registry = getStatsFieldRegistry() == null
+                ? StatsFieldRegistry.empty()
+                : getStatsFieldRegistry();
+        boolean statsInfrastructure = properties.enabled() && statsQueryExecutor != null && statsEligibility != null;
+        boolean groupBy = statsInfrastructure
+                && getGroupByStatsSupportMode() != StatsSupportMode.DISABLED
+                && registry.descriptors().stream().anyMatch(StatsFieldDescriptor::groupByEligible);
+        boolean timeSeries = statsInfrastructure
+                && getTimeSeriesStatsSupportMode() != StatsSupportMode.DISABLED
+                && registry.descriptors().stream().anyMatch(StatsFieldDescriptor::timeSeriesEligible);
+        boolean distribution = statsInfrastructure
+                && getDistributionStatsSupportMode() != StatsSupportMode.DISABLED
+                && registry.descriptors().stream().anyMatch(descriptor ->
+                        descriptor.distributionTermsEligible() || descriptor.distributionHistogramEligible());
+        boolean comparison = statsInfrastructure
+                && getComparisonStatsSupportMode() != StatsSupportMode.DISABLED
+                && groupBy
+                && timeSeries;
+        boolean optionSources = optionSourceQueryExecutor != null
+                && optionSourceEligibility != null
+                && getOptionSourceRegistry().containsAny(getEntityClass());
+        boolean export = supportsCollectionExport();
+        return new ResourceStructuralCapabilities(
+                true,
+                optionSources,
+                groupBy,
+                timeSeries,
+                distribution,
+                comparison,
+                export,
+                statsInfrastructure
+                        ? StatsCapability.from(
+                                registry,
+                                groupBy ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
+                                timeSeries ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
+                                distribution ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED
+                        )
+                        : StatsCapability.empty(),
+                getCollectionExportCapability().orElse(null)
+        );
+    }
 
     @PersistenceContext
     private EntityManager entityManager;

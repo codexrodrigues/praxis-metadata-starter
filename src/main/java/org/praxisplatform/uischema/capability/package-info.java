@@ -6,7 +6,7 @@
  * </p>
  *
  * <ul>
- *   <li>operacoes canonicas derivadas do OpenAPI;</li>
+ *   <li>operacoes canonicas derivadas da intersecao entre OpenAPI e suporte estrutural executavel;</li>
  *   <li>surfaces disponiveis;</li>
  *   <li>actions disponiveis.</li>
  * </ul>

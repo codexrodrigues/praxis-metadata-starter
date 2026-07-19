@@ -19,7 +19,6 @@
  *       {@link org.praxisplatform.uischema.annotation.AiControlledUseMode} fixam os tokens canonicos de governanca;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.UiSurface} publica discovery semantico de experiencias de UI;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.WorkflowAction} publica comandos explicitos de negocio;</li>
- *   <li>{@link org.praxisplatform.uischema.annotation.ResourceCapabilities} resume capacidades habilitadas do recurso.</li>
  * </ul>
  *
  * <p>

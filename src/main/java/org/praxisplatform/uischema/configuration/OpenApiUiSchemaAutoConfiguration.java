@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.configuration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.praxisplatform.uischema.capability.CapabilityService;
+import org.praxisplatform.uischema.capability.AnnotationDrivenResourceStructuralCapabilityResolver;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.capability.DefaultCapabilityService;
 import org.praxisplatform.uischema.capability.NoOpResourceStateSnapshotProvider;
@@ -10,6 +11,7 @@ import org.praxisplatform.uischema.capability.NoOpResourceOperationAvailabilityP
 import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityProvider;
 import org.praxisplatform.uischema.capability.ResourceStateSnapshotProvider;
+import org.praxisplatform.uischema.capability.ResourceStructuralCapabilityResolver;
 import org.praxisplatform.uischema.analytics.UiAnalyticsAnnotationMapper;
 import org.praxisplatform.uischema.analytics.UiAnalyticsOpenApiCustomizer;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
@@ -426,8 +428,27 @@ public class OpenApiUiSchemaAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public CanonicalCapabilityResolver canonicalCapabilityResolver(OpenApiDocumentService openApiDocumentService) {
-        return new OpenApiCanonicalCapabilityResolver(openApiDocumentService);
+    public ResourceStructuralCapabilityResolver resourceStructuralCapabilityResolver(
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            RequestMappingHandlerMapping requestMappingHandlerMapping,
+            ApplicationContext applicationContext
+    ) {
+        if (requestMappingHandlerMapping == null) {
+            return new org.praxisplatform.uischema.capability.NoOpResourceStructuralCapabilityResolver();
+        }
+        return new AnnotationDrivenResourceStructuralCapabilityResolver(
+                requestMappingHandlerMapping,
+                applicationContext
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public CanonicalCapabilityResolver canonicalCapabilityResolver(
+            OpenApiDocumentService openApiDocumentService,
+            ResourceStructuralCapabilityResolver resourceStructuralCapabilityResolver
+    ) {
+        return new OpenApiCanonicalCapabilityResolver(openApiDocumentService, resourceStructuralCapabilityResolver);
     }
 
     @Bean
@@ -617,7 +638,8 @@ public class OpenApiUiSchemaAutoConfiguration {
             ActionCatalogService actionCatalogService,
             OpenApiDocumentService openApiDocumentService,
             ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
-            ResourceStateSnapshotProvider resourceStateSnapshotProvider
+            ResourceStateSnapshotProvider resourceStateSnapshotProvider,
+            ResourceStructuralCapabilityResolver resourceStructuralCapabilityResolver
     ) {
         return new DefaultCapabilityService(
                 canonicalCapabilityResolver,
@@ -625,7 +647,8 @@ public class OpenApiUiSchemaAutoConfiguration {
                 actionCatalogService,
                 openApiDocumentService,
                 resourceOperationAvailabilityProvider,
-                resourceStateSnapshotProvider
+                resourceStateSnapshotProvider,
+                resourceStructuralCapabilityResolver
         );
     }
 

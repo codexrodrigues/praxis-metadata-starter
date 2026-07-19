@@ -193,7 +193,12 @@ class ApiDocsControllerReadOnlyMetaTest {
         assertEquals(Boolean.TRUE, caps.get("filter"));
         assertEquals(Boolean.FALSE, caps.get("filterExpression"));
         assertEquals(Boolean.TRUE, caps.get("cursor"));
-        assertEquals(Boolean.TRUE, caps.get("optionSources"));
+        assertEquals(Boolean.FALSE, caps.get("options"));
+        assertEquals(Boolean.FALSE, caps.get("optionSources"));
+        assertEquals(Boolean.FALSE, caps.get("statsGroupBy"));
+        assertEquals(Boolean.FALSE, caps.get("statsTimeSeries"));
+        assertEquals(Boolean.FALSE, caps.get("statsDistribution"));
+        assertEquals(Boolean.FALSE, caps.get("statsComparison"));
 
         @SuppressWarnings("unchecked")
         Map<String, Object> properties = (Map<String, Object>) body.get("properties");

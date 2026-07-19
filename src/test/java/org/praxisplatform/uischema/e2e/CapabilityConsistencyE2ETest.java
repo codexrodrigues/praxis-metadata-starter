@@ -18,6 +18,54 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
 
     @Test
+    void schemaAndCapabilitySnapshotShareStructuralSupportWhenStatsAreGloballyDisabled() throws Exception {
+        JsonNode snapshot = body(get("/employees/capabilities"));
+        JsonNode schema = body(get(
+                "/schemas/filtered?path=%2Femployees%2Fall&operation=get&schemaType=response"
+        ));
+        JsonNode schemaCapabilities = schema.path("x-ui").path("resource").path("capabilities");
+        JsonNode snapshotCapabilities = snapshot.path("canonicalOperations");
+
+        for (String operation : java.util.List.of(
+                "options",
+                "optionSources",
+                "statsGroupBy",
+                "statsTimeSeries",
+                "statsDistribution",
+                "statsComparison"
+        )) {
+            assertEquals(
+                    schemaCapabilities.path(operation).asBoolean(),
+                    snapshotCapabilities.path(operation).asBoolean(),
+                    operation
+            );
+        }
+        assertTrue(schemaCapabilities.path("options").asBoolean());
+        assertTrue(schemaCapabilities.path("optionSources").asBoolean());
+        assertFalse(schemaCapabilities.path("statsGroupBy").asBoolean());
+        assertFalse(schemaCapabilities.path("statsTimeSeries").asBoolean());
+        assertFalse(schemaCapabilities.path("statsDistribution").asBoolean());
+        assertFalse(schemaCapabilities.path("statsComparison").asBoolean());
+        assertTrue(snapshot.path("stats").path("fields").isEmpty());
+    }
+
+    @Test
+    void genericOptionsRemainIndependentFromNamedOptionSources() throws Exception {
+        JsonNode snapshot = body(get("/departments/capabilities"));
+        JsonNode schema = body(get(
+                "/schemas/filtered?path=%2Fdepartments%2Fall&operation=get&schemaType=response"
+        ));
+        JsonNode schemaCapabilities = schema.path("x-ui").path("resource").path("capabilities");
+
+        assertTrue(snapshot.path("canonicalOperations").path("options").asBoolean());
+        assertFalse(snapshot.path("canonicalOperations").path("optionSources").asBoolean());
+        assertTrue(snapshot.path("operations").path("options").path("supported").asBoolean());
+        assertFalse(snapshot.path("operations").path("optionSources").path("supported").asBoolean());
+        assertTrue(schemaCapabilities.path("options").asBoolean());
+        assertFalse(schemaCapabilities.path("optionSources").asBoolean());
+    }
+
+    @Test
     void collectionCapabilitiesStayConsistentWithDedicatedCollectionDiscoveryEndpoints() throws Exception {
         JsonNode capabilitySnapshot = body(get("/employees/capabilities"));
         JsonNode surfacesCatalog = body(get("/schemas/surfaces?resource=human-resources.employees"));

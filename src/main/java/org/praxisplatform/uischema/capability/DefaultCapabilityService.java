@@ -39,6 +39,7 @@ public class DefaultCapabilityService implements CapabilityService {
     private final OpenApiDocumentService openApiDocumentService;
     private final ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider;
     private final ResourceStateSnapshotProvider resourceStateSnapshotProvider;
+    private final ResourceStructuralCapabilityResolver structuralCapabilityResolver;
 
     public DefaultCapabilityService(
             CanonicalCapabilityResolver canonicalCapabilityResolver,
@@ -52,7 +53,8 @@ public class DefaultCapabilityService implements CapabilityService {
                 actionCatalogService,
                 openApiDocumentService,
                 new NoOpResourceOperationAvailabilityProvider(),
-                new NoOpResourceStateSnapshotProvider()
+                new NoOpResourceStateSnapshotProvider(),
+                null
         );
     }
 
@@ -64,6 +66,26 @@ public class DefaultCapabilityService implements CapabilityService {
             ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
             ResourceStateSnapshotProvider resourceStateSnapshotProvider
     ) {
+        this(
+                canonicalCapabilityResolver,
+                surfaceCatalogService,
+                actionCatalogService,
+                openApiDocumentService,
+                resourceOperationAvailabilityProvider,
+                resourceStateSnapshotProvider,
+                null
+        );
+    }
+
+    public DefaultCapabilityService(
+            CanonicalCapabilityResolver canonicalCapabilityResolver,
+            SurfaceCatalogService surfaceCatalogService,
+            ActionCatalogService actionCatalogService,
+            OpenApiDocumentService openApiDocumentService,
+            ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
+            ResourceStateSnapshotProvider resourceStateSnapshotProvider,
+            ResourceStructuralCapabilityResolver structuralCapabilityResolver
+    ) {
         this.canonicalCapabilityResolver = canonicalCapabilityResolver;
         this.surfaceCatalogService = surfaceCatalogService;
         this.actionCatalogService = actionCatalogService;
@@ -74,6 +96,7 @@ public class DefaultCapabilityService implements CapabilityService {
         this.resourceStateSnapshotProvider = resourceStateSnapshotProvider == null
                 ? new NoOpResourceStateSnapshotProvider()
                 : resourceStateSnapshotProvider;
+        this.structuralCapabilityResolver = structuralCapabilityResolver;
     }
 
     @Override
@@ -158,16 +181,23 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
     ) {
+        ResourceStructuralCapabilities structural = structuralCapabilities(resourcePath);
+        if (structural != null) {
+            collectionExportSupported = structural.export();
+            collectionExportCapability = structural.exportCapability();
+        }
         Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
         canonicalOperations.put("export", collectionExportSupported);
-        applyStatsSupport(
-                canonicalOperations,
-                statsFieldRegistry,
-                groupByStatsSupportMode,
-                timeSeriesStatsSupportMode,
-                distributionStatsSupportMode,
-                comparisonStatsSupportMode
-        );
+        if (structural == null) {
+            applyStatsSupport(
+                    canonicalOperations,
+                    statsFieldRegistry,
+                    groupByStatsSupportMode,
+                    timeSeriesStatsSupportMode,
+                    distributionStatsSupportMode,
+                    comparisonStatsSupportMode
+            );
+        }
         List<SurfaceCatalogItem> collectionSurfaces = collectionSurfaces(resourceKey);
         List<ActionCatalogItem> collectionActions = collectionActions(resourceKey);
         String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
@@ -187,7 +217,7 @@ public class DefaultCapabilityService implements CapabilityService {
                 ),
                 collectionSurfaces,
                 collectionActions,
-                StatsCapability.from(
+                structural != null ? structural.stats() : StatsCapability.from(
                         statsFieldRegistry,
                         groupByStatsSupportMode,
                         timeSeriesStatsSupportMode,
@@ -240,15 +270,18 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
     ) {
+        ResourceStructuralCapabilities structural = structuralCapabilities(resourcePath);
         Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
-        applyStatsSupport(
-                canonicalOperations,
-                statsFieldRegistry,
-                groupByStatsSupportMode,
-                timeSeriesStatsSupportMode,
-                distributionStatsSupportMode,
-                comparisonStatsSupportMode
-        );
+        if (structural == null) {
+            applyStatsSupport(
+                    canonicalOperations,
+                    statsFieldRegistry,
+                    groupByStatsSupportMode,
+                    timeSeriesStatsSupportMode,
+                    distributionStatsSupportMode,
+                    comparisonStatsSupportMode
+            );
+        }
         List<SurfaceCatalogItem> itemSurfaces = itemSurfaces(resourceKey, resourceId);
         List<ActionCatalogItem> itemActions = itemActions(resourceKey, resourceId);
         String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
@@ -262,7 +295,7 @@ public class DefaultCapabilityService implements CapabilityService {
                 resolveOperations(resourcePath, itemSurfaces, itemActions, canonicalOperations),
                 itemSurfaces,
                 itemActions,
-                StatsCapability.from(
+                structural != null ? structural.stats() : StatsCapability.from(
                         statsFieldRegistry,
                         groupByStatsSupportMode,
                         timeSeriesStatsSupportMode,
@@ -292,6 +325,10 @@ public class DefaultCapabilityService implements CapabilityService {
         canonicalOperations.computeIfPresent("statsTimeSeries", (key, present) -> present && supportsTimeSeries);
         canonicalOperations.computeIfPresent("statsDistribution", (key, present) -> present && supportsDistribution);
         canonicalOperations.computeIfPresent("statsComparison", (key, present) -> present && supportsComparison);
+    }
+
+    private ResourceStructuralCapabilities structuralCapabilities(String resourcePath) {
+        return structuralCapabilityResolver == null ? null : structuralCapabilityResolver.resolve(resourcePath);
     }
 
     private static final class StatsFieldDescriptorPredicates {
