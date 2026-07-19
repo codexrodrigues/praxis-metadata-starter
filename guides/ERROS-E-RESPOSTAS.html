@@ -318,8 +318,8 @@ inválido)</li>
 <code>BUSINESS_LOGIC</code></li>
 <li><code>ResourceOperationFailureException</code> → status, categoria,
 codigo e target derivados de uma decisao governada
-<code>ResourceOperationFailure</code>; a causa privada fica somente em
-diagnostico protegido</li>
+<code>ResourceOperationFailure</code>; o handler registra apenas a
+decisao publica e nunca imprime a causa privada no log central</li>
 <li><code>EntityNotFoundException</code> → 404</li>
 <li><code>IllegalArgumentException</code> fora de validação explícita de
 schema → 500 (evita mascarar erro interno como erro do cliente)</li>
@@ -342,6 +342,10 @@ livremente.</li>
 <li>Use em <code>target</code> somente o path estavel do DTO publico que
 o consumidor pode corrigir. Nunca publique label de UI, coluna,
 constraint, SQL, trigger, provider ou locator privado.</li>
+<li><code>code</code> e <code>target</code> rejeitam caracteres de
+controle e possuem limites de tamanho. Esses limites sao defesa de
+transporte/observabilidade, nao autorizacao para publicar
+identificadores privados.</li>
 <li>Falhas tecnicas ou desconhecidas nao devem ser convertidas em falhas
 funcionais: elas permanecem no <code>500</code> sanitizado e
 correlacionado.</li>
