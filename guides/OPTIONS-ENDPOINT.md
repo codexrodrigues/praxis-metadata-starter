@@ -278,7 +278,9 @@ Para fontes executadas por providers externos, veja tambem
 Cobertura confirmada hoje:
 
 - o starter expoe os endpoints em controllers base
-- o `ApiDocsController` publica `resource.capabilities.optionSources`
+- o `ApiDocsController` publica `resource.capabilities.optionSources=true` somente quando o
+  resource hospeda ao menos uma source aplicavel e possui executor/eligibility configurados;
+  a mera presenca dos mappings herdados nao anuncia suporte
 - o runtime Angular ja consome `optionSource`
 
 Execucao atualmente implementada no starter:

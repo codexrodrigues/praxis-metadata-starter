@@ -541,7 +541,10 @@ externo</a>.</p>
 <ul>
 <li>o starter expoe os endpoints em controllers base</li>
 <li>o <code>ApiDocsController</code> publica
-<code>resource.capabilities.optionSources</code></li>
+<code>resource.capabilities.optionSources=true</code> somente quando o
+resource hospeda ao menos uma source aplicavel e possui
+executor/eligibility configurados; a mera presenca dos mappings herdados
+nao anuncia suporte</li>
 <li>o runtime Angular ja consome <code>optionSource</code></li>
 </ul>
 <p>Execucao atualmente implementada no starter:</p>

@@ -43,12 +43,19 @@
         "create": { "type": "boolean" },
         "update": { "type": "boolean" },
         "delete": { "type": "boolean" },
+        "duplicate-draft": { "type": "boolean" },
         "options": { "type": "boolean" },
+        "optionSources": { "type": "boolean" },
         "byId": { "type": "boolean" },
         "all": { "type": "boolean" },
         "filter": { "type": "boolean" },
         "filterExpression": { "type": "boolean" },
-        "cursor": { "type": "boolean" }
+        "cursor": { "type": "boolean" },
+        "export": { "type": "boolean" },
+        "statsGroupBy": { "type": "boolean" },
+        "statsTimeSeries": { "type": "boolean" },
+        "statsDistribution": { "type": "boolean" },
+        "statsComparison": { "type": "boolean" }
       }
     }
   },
