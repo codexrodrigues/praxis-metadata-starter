@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.service.base;
 
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.OptionDTO;
+import org.praxisplatform.uischema.capability.ResourceStructuralCapabilities;
 import org.praxisplatform.uischema.exporting.CollectionExportCapability;
 import org.praxisplatform.uischema.exporting.CollectionExportRequest;
 import org.praxisplatform.uischema.exporting.CollectionExportResult;
@@ -42,6 +43,14 @@ import java.util.OptionalLong;
  * </p>
  */
 public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends GenericFilterDTO> {
+
+    /**
+     * Publica o suporte estrutural executavel das operacoes opcionais da hierarquia de query.
+     * Implementacoes diretas devem optar explicitamente pelas operacoes que realmente executam.
+     */
+    default ResourceStructuralCapabilities getStructuralCapabilities() {
+        return ResourceStructuralCapabilities.unsupported();
+    }
 
     String getIdFieldName();
 

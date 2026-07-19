@@ -22,9 +22,20 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
     private static final String PATHS = "paths";
 
     private final OpenApiDocumentService openApiDocumentService;
+    private final ResourceStructuralCapabilityResolver structuralCapabilityResolver;
 
     public OpenApiCanonicalCapabilityResolver(OpenApiDocumentService openApiDocumentService) {
+        this(openApiDocumentService, new NoOpResourceStructuralCapabilityResolver());
+    }
+
+    public OpenApiCanonicalCapabilityResolver(
+            OpenApiDocumentService openApiDocumentService,
+            ResourceStructuralCapabilityResolver structuralCapabilityResolver
+    ) {
         this.openApiDocumentService = openApiDocumentService;
+        this.structuralCapabilityResolver = structuralCapabilityResolver == null
+                ? new NoOpResourceStructuralCapabilityResolver()
+                : structuralCapabilityResolver;
     }
 
     @Override
@@ -38,6 +49,7 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
     public Map<String, Boolean> resolve(JsonNode openApiDocument, String resourcePath) {
         String basePath = normalizePath(resourcePath);
         JsonNode pathsNode = openApiDocument == null ? null : openApiDocument.path(PATHS);
+        ResourceStructuralCapabilities structural = structuralCapabilityResolver.resolve(basePath);
 
         Map<String, Boolean> capabilities = new LinkedHashMap<>();
         capabilities.put("create", hasOperation(pathsNode, basePath, "post"));
@@ -47,10 +59,11 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         capabilities.put("delete", hasDirectItemOperation(pathsNode, basePath, "delete")
                 || hasOperation(pathsNode, basePath + "/batch", "delete"));
         capabilities.put("duplicate-draft", hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post"));
-        capabilities.put("options", hasOperation(pathsNode, basePath + "/options/filter", "post")
-                || hasOperation(pathsNode, basePath + "/options/by-ids", "get"));
-        capabilities.put("optionSources", hasOperation(pathsNode, basePath + "/option-sources/{sourceKey}/options/filter", "post")
-                || hasOperation(pathsNode, basePath + "/option-sources/{sourceKey}/options/by-ids", "get"));
+        capabilities.put("options", structural.options() && (hasOperation(pathsNode, basePath + "/options/filter", "post")
+                || hasOperation(pathsNode, basePath + "/options/by-ids", "get")));
+        capabilities.put("optionSources", structural.optionSources()
+                && (hasOperation(pathsNode, basePath + "/option-sources/{sourceKey}/options/filter", "post")
+                || hasOperation(pathsNode, basePath + "/option-sources/{sourceKey}/options/by-ids", "get")));
         capabilities.put("byId", hasOperation(pathsNode, basePath + "/{id}", "get"));
         capabilities.put("all", hasOperation(pathsNode, basePath, "get")
                 || hasOperation(pathsNode, basePath + "/all", "get"));
@@ -62,10 +75,14 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         // Export is service opt-in. The base mapping can exist for every resource,
         // so path presence alone must not advertise runtime availability.
         capabilities.put("export", false);
-        capabilities.put("statsGroupBy", hasOperation(pathsNode, basePath + "/stats/group-by", "post"));
-        capabilities.put("statsTimeSeries", hasOperation(pathsNode, basePath + "/stats/timeseries", "post"));
-        capabilities.put("statsDistribution", hasOperation(pathsNode, basePath + "/stats/distribution", "post"));
-        capabilities.put("statsComparison", hasOperation(pathsNode, basePath + "/stats/comparison", "post"));
+        capabilities.put("statsGroupBy", structural.statsGroupBy()
+                && hasOperation(pathsNode, basePath + "/stats/group-by", "post"));
+        capabilities.put("statsTimeSeries", structural.statsTimeSeries()
+                && hasOperation(pathsNode, basePath + "/stats/timeseries", "post"));
+        capabilities.put("statsDistribution", structural.statsDistribution()
+                && hasOperation(pathsNode, basePath + "/stats/distribution", "post"));
+        capabilities.put("statsComparison", structural.statsComparison()
+                && hasOperation(pathsNode, basePath + "/stats/comparison", "post"));
         return Map.copyOf(capabilities);
     }
 
@@ -87,6 +104,7 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
     public Map<String, CapabilityOperation> resolveOperations(JsonNode openApiDocument, String resourcePath) {
         String basePath = normalizePath(resourcePath);
         JsonNode pathsNode = openApiDocument == null ? null : openApiDocument.path(PATHS);
+        ResourceStructuralCapabilities structural = structuralCapabilityResolver.resolve(basePath);
         Map<String, CapabilityOperation> operations = new LinkedHashMap<>(
                 resolveCrudOperations(openApiDocument, resourcePath)
         );
@@ -119,8 +137,10 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 "filter-cursor"
         ));
 
-        boolean optionsFilter = hasOperation(pathsNode, basePath + "/options/filter", "post");
-        boolean optionsByIds = hasOperation(pathsNode, basePath + "/options/by-ids", "get");
+        boolean optionsFilter = structural.options()
+                && hasOperation(pathsNode, basePath + "/options/filter", "post");
+        boolean optionsByIds = structural.options()
+                && hasOperation(pathsNode, basePath + "/options/by-ids", "get");
         operations.put("options", operation(
                 "options",
                 optionsFilter || optionsByIds,
@@ -129,12 +149,12 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 "options"
         ));
 
-        boolean optionSourcesFilter = hasOperation(
+        boolean optionSourcesFilter = structural.optionSources() && hasOperation(
                 pathsNode,
                 basePath + "/option-sources/{sourceKey}/options/filter",
                 "post"
         );
-        boolean optionSourcesByIds = hasOperation(
+        boolean optionSourcesByIds = structural.optionSources() && hasOperation(
                 pathsNode,
                 basePath + "/option-sources/{sourceKey}/options/by-ids",
                 "get"
@@ -152,25 +172,29 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 "statsGroupBy",
                 pathsNode,
                 basePath + "/stats/group-by",
-                "stats-group-by"
+                "stats-group-by",
+                structural.statsGroupBy()
         ));
         operations.put("statsTimeSeries", collectionPostOperation(
                 "statsTimeSeries",
                 pathsNode,
                 basePath + "/stats/timeseries",
-                "stats-timeseries"
+                "stats-timeseries",
+                structural.statsTimeSeries()
         ));
         operations.put("statsDistribution", collectionPostOperation(
                 "statsDistribution",
                 pathsNode,
                 basePath + "/stats/distribution",
-                "stats-distribution"
+                "stats-distribution",
+                structural.statsDistribution()
         ));
         operations.put("statsComparison", collectionPostOperation(
                 "statsComparison",
                 pathsNode,
                 basePath + "/stats/comparison",
-                "stats-comparison"
+                "stats-comparison",
+                structural.statsComparison()
         ));
         return Map.copyOf(operations);
     }
@@ -228,9 +252,10 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
             String id,
             JsonNode pathsNode,
             String path,
-            String preferredRel
+            String preferredRel,
+            boolean structurallySupported
     ) {
-        boolean supported = hasOperation(pathsNode, path, "post");
+        boolean supported = structurallySupported && hasOperation(pathsNode, path, "post");
         return operation(id, supported, "COLLECTION", supported ? "POST" : null, preferredRel);
     }
 

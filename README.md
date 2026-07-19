@@ -269,13 +269,19 @@ Affordances canonicas preservadas para runtimes CRUD:
 - `delete`
 - `duplicate-draft`, quando o recurso publicar suporte explicito para preparar rascunho editavel sem persistir dados
 
-Operacoes executaveis publicadas adicionalmente pelo resolver OpenAPI:
+Operacoes executaveis publicadas adicionalmente pelo resolvedor canonico, que
+intersecta a presenca no OpenAPI com o suporte estrutural real do resource/service:
 
 - `byId` e `update`, como operacoes HTTP canonicas correspondentes a `view` e `edit`
 - `all`, `filter` e `cursor`
 - `options` e `optionSources`
 - `statsGroupBy`, `statsTimeSeries`, `statsDistribution` e `statsComparison`
 - `export`, governado pelo opt-in real do service e nao apenas pela presenca do mapping base
+
+Mappings herdados de `AbstractResourceQueryController` nao constituem prova de suporte. Options,
+option sources, stats e export somente sao publicados quando o service declara infraestrutura
+executavel por `ResourceStructuralCapabilities`. Availability por principal continua sendo
+aplicada depois, em `operations.*.availability`.
 
 `filterExpression` permanece uma capability estrutural em `canonicalOperations`: ela nao vira
 `CapabilityOperation` enquanto nao existir um endpoint executavel proprio. Novas chaves de

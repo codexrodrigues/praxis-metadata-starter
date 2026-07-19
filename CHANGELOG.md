@@ -5,6 +5,10 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Fixed
+- Capabilities opcionais de resource (`options`, `optionSources`, `stats*` e `export`) agora
+  resultam da intersecao entre mapping OpenAPI e suporte estrutural executavel do service.
+  `/schemas/filtered`, `/capabilities`, `operations.supported` e `stats.fields` deixam de
+  anunciar endpoints herdados que terminariam em `501`/`UnsupportedOperationException`.
 - `POST /{resource}/filter` agora reaplica o escopo de acesso server-side ao
   carregar `includeIds`, impedindo que a reidratacao de selecionados atravesse
   o row scope funcional em recursos mutaveis ou read-only.
@@ -20,7 +24,15 @@ All notable changes to this module will be documented in this file.
   auto-configuracao em hosts que tambem publicam mappings auxiliares, como
   `controllerEndpointHandlerMapping`.
 
+### Removed
+- `@ResourceCapabilities`, anotacao declarativa sem consumo runtime que podia divergir do service
+  executavel. Durante o beta, a fonte canonica passa a ser a descricao estrutural do service
+  associada ao controller resource-oriented.
+
 ### Added
+- API publica `ResourceStructuralCapabilities` e resolver annotation-driven por `@ApiResource`
+  para centralizar a disponibilidade estrutural estavel de options, option sources, stats e
+  export sem misturar autorizacao contextual.
 - Contrato publico governado `ResourceOperationFailure` para falhas conhecidas de operacoes
   resource-oriented, com kind canonico derivando HTTP/category, codigo estavel, mensagem segura,
   target publico opcional e causa privada transportada separadamente por
@@ -30,6 +42,7 @@ All notable changes to this module will be documented in this file.
   `AbstractBaseQueryResourceService.resolveResourceFilterAccessScope()` para o
   host declarar explicitamente acesso irrestrito, negado ou restrito por
   `Specification`, sempre resolvido pelo contexto autenticado do servidor.
+
 - `@AnalyticsRecordOpen`, `@AnalyticsSurfaceTarget` e
   `x-ui.analytics.projections[].interactions.recordOpen` para ligar o campo
   publico de identidade de uma linha nominal a uma surface ITEM cross-resource.

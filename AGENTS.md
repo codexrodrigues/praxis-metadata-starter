@@ -59,7 +59,8 @@ Fronteira Canonica Local
   - `src/main/java/org/praxisplatform/uischema/annotation/UiSurface.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/WorkflowAction.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/ResourceIntent.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/ResourceCapabilities.java`
+  - `src/main/java/org/praxisplatform/uischema/capability/ResourceStructuralCapabilities.java`
+  - `src/main/java/org/praxisplatform/uischema/capability/ResourceStructuralCapabilityResolver.java`
 - Mudancas semanticas devem privilegiar estruturas que melhorem o grounding de decisoes authoradas por IA, evitando empurrar logica de negocio para `x-ui` incidental ou para convenções locais do host.
 
 Baseline Resource-Oriented

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
+import org.praxisplatform.uischema.stats.StatsCapability;
 
 import java.util.Map;
 
@@ -78,7 +79,8 @@ class OpenApiCanonicalCapabilityResolverTest {
                 """);
 
         CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
-                new StaticOpenApiDocumentService("human-resources", document)
+                new StaticOpenApiDocumentService("human-resources", document),
+                ignored -> fullySupported()
         );
 
         Map<String, Boolean> capabilities = resolver.resolve("/employees/");
@@ -125,6 +127,44 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertOperation(allOperations, "statsTimeSeries", true, "COLLECTION", "POST", "stats-timeseries");
         assertOperation(allOperations, "statsDistribution", true, "COLLECTION", "POST", "stats-distribution");
         assertOperation(allOperations, "statsComparison", true, "COLLECTION", "POST", "stats-comparison");
+    }
+
+    @Test
+    void inheritedMappingsDoNotAdvertiseUnsupportedOptionalOperations() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {
+                  "paths": {
+                    "/employees/options/filter": { "post": {} },
+                    "/employees/options/by-ids": { "get": {} },
+                    "/employees/option-sources/{sourceKey}/options/filter": { "post": {} },
+                    "/employees/stats/group-by": { "post": {} },
+                    "/employees/stats/timeseries": { "post": {} },
+                    "/employees/stats/distribution": { "post": {} },
+                    "/employees/stats/comparison": { "post": {} }
+                  }
+                }
+                """);
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
+                new StaticOpenApiDocumentService("human-resources", document),
+                ignored -> ResourceStructuralCapabilities.unsupported()
+        );
+
+        Map<String, Boolean> capabilities = resolver.resolve("/employees");
+        assertFalse(capabilities.get("options"));
+        assertFalse(capabilities.get("optionSources"));
+        assertFalse(capabilities.get("statsGroupBy"));
+        assertFalse(capabilities.get("statsTimeSeries"));
+        assertFalse(capabilities.get("statsDistribution"));
+        assertFalse(capabilities.get("statsComparison"));
+        resolver.resolveOperations(document, "/employees").values()
+                .forEach(operation -> assertFalse(operation.supported()));
+    }
+
+    private static ResourceStructuralCapabilities fullySupported() {
+        return new ResourceStructuralCapabilities(
+                true, true, true, true, true, true, false,
+                StatsCapability.empty(), null
+        );
     }
 
     @Test
