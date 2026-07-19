@@ -126,8 +126,7 @@ public class GlobalExceptionHandler {
                     "[GlobalExceptionHandler] Governed resource operation failure kind={} code={} target={}",
                     failure.kind(),
                     failure.code(),
-                    failure.target(),
-                    ex
+                    failure.target()
             );
         }
 
