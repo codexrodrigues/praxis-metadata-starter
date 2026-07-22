@@ -17,6 +17,7 @@ import org.praxisplatform.uischema.options.LookupCapabilities;
 import org.praxisplatform.uischema.options.LookupDetailDescriptor;
 import org.praxisplatform.uischema.options.LookupFilterDefinition;
 import org.praxisplatform.uischema.options.LookupFilteringDescriptor;
+import org.praxisplatform.uischema.options.LookupSearchStrategyDefinition;
 import org.praxisplatform.uischema.options.LookupSelectionPolicy;
 import org.praxisplatform.uischema.options.LookupSortOption;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
@@ -210,6 +211,28 @@ class EmployeeService extends AbstractBaseResourceService<
                     List.of("departmentId"),
                     new OptionSourcePolicy(false, true, "contains", 3, 20, 20, true, false, "label")
             ).withExecutionMode(OptionSourceExecutionMode.PROVIDER_REQUIRED))
+            .add(EmployeeEntity.class, new OptionSourceDescriptor(
+                    "externalEmployeeLookup",
+                    OptionSourceType.RESOURCE_ENTITY,
+                    "/employees",
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of("departmentId"),
+                    Map.of(),
+                    new OptionSourcePolicy(false, true, "contains", 3, 20, 20, true, false, "label"),
+                    null,
+                    new LookupFilteringDescriptor(
+                            List.of(), Map.of(), List.of(), null, List.of(), null,
+                            List.of(
+                                    new LookupSearchStrategyDefinition("employee-code", "business-code", 3),
+                                    new LookupSearchStrategyDefinition("document", "normalized-document", 11),
+                                    new LookupSearchStrategyDefinition("name", "descriptive-text", 3)
+                            )
+                    ),
+                    OptionSourceExecutionMode.PROVIDER_REQUIRED
+            ))
             .add(EmployeeEntity.class, new OptionSourceDescriptor(
                     "externalDependencyLookup",
                     OptionSourceType.RESOURCE_ENTITY,

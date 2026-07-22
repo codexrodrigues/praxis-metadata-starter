@@ -5,6 +5,7 @@ import org.praxisplatform.uischema.options.LookupCapabilities;
 import org.praxisplatform.uischema.options.LookupFilterDefinition;
 import org.praxisplatform.uischema.options.LookupFilterRequest;
 import org.praxisplatform.uischema.options.LookupFilteringDescriptor;
+import org.praxisplatform.uischema.options.LookupSearchStrategyDefinition;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourcePolicy;
 import org.springframework.data.domain.Pageable;
@@ -52,7 +53,7 @@ public class OptionSourceRequestValidator {
         if (!descriptor.policy().allowIncludeIds() && !request.includeIds().isEmpty()) {
             throw new IllegalArgumentException("includeIds is not allowed for option source: " + descriptor.key());
         }
-        validateSearch(descriptor, request.search());
+        validateSearch(descriptor, request.search(), request.searchStrategy());
         validatePageable(descriptor, request.pageable());
         validateSort(descriptor, request.sortKey());
         validatePageableSort(descriptor, request.pageable(), request.sortKey());
@@ -65,7 +66,7 @@ public class OptionSourceRequestValidator {
         validateStructuredFilters(descriptor, request.filters());
     }
 
-    private void validateSearch(OptionSourceDescriptor descriptor, String search) {
+    private void validateSearch(OptionSourceDescriptor descriptor, String search, String searchStrategy) {
         if (search == null || search.isBlank()) {
             return;
         }
@@ -73,11 +74,18 @@ public class OptionSourceRequestValidator {
         if (!policy.allowSearch()) {
             throw new IllegalArgumentException("Search is not allowed for option source: " + descriptor.key());
         }
+        LookupFilteringDescriptor filtering = filtering(descriptor);
+        LookupSearchStrategyDefinition strategy = filtering == null
+                ? null
+                : filtering.resolveSearchStrategy(searchStrategy, search);
+        int minimumLength = strategy == null
+                ? policy.minSearchChars()
+                : Math.max(policy.minSearchChars(), strategy.minSearchChars());
         int length = search.trim().length();
-        if (length < policy.minSearchChars()) {
+        if (length < minimumLength) {
             throw new IllegalArgumentException(
                     "Search term must have at least %d characters for option source: %s"
-                            .formatted(policy.minSearchChars(), descriptor.key())
+                            .formatted(minimumLength, descriptor.key())
             );
         }
     }

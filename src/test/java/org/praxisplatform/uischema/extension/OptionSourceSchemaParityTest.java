@@ -53,6 +53,7 @@ class OptionSourceSchemaParityTest {
         JsonNode filteringDefinition = schema.path("definitions").path("lookupFiltering");
         JsonNode filterDefinition = schema.path("definitions").path("lookupFilterDefinition");
         JsonNode sortDefinition = schema.path("definitions").path("lookupSortOption");
+        JsonNode strategyDefinition = schema.path("definitions").path("lookupSearchStrategy");
 
         assertTrue(optionSource.path("properties").has("filtering"),
                 "optionSource schema should expose filtering for entity lookups");
@@ -62,6 +63,10 @@ class OptionSourceSchemaParityTest {
                 filteringDefinition.path("properties").path("availableFilters").path("items").path("$ref").asText());
         assertEquals("#/definitions/lookupSortOption",
                 filteringDefinition.path("properties").path("sortOptions").path("items").path("$ref").asText());
+        assertEquals("#/definitions/lookupSearchStrategy",
+                filteringDefinition.path("properties").path("searchStrategies").path("items").path("$ref").asText());
+        assertEquals("normalized-document",
+                strategyDefinition.path("properties").path("kind").path("enum").get(2).asText());
         assertEquals("array", filterDefinition.path("properties").path("operators").path("type").asText());
         assertEquals("asc", sortDefinition.path("properties").path("direction").path("default").asText());
     }

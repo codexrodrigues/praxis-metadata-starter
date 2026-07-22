@@ -166,6 +166,18 @@ para o frontend. Ele descreve:
 - `defaultSort`
 - `quickFilterFields`
 - `searchPlaceholder`
+- `searchStrategies`
+
+`searchStrategies` declara as interpretacoes publicas de um termo de busca,
+como `business-code`, `descriptive-text` e `normalized-document`. A requisicao
+de filtro pode informar a chave em `searchStrategy`. Havendo uma unica
+estrategia, o runtime a resolve automaticamente; havendo varias, rejeita busca
+sem chave antes de resolver o provider. Para `normalized-document`, o runtime
+remove somente separadores visuais e aplica `minSearchChars` ao valor
+normalizado. Checksum e regras de documento do dominio continuam no provider.
+
+O provider continua dono de bindings e execucao; SQL, argumentos internos e
+documento bruto nao fazem parte de `x-ui.optionSource` nem de `OptionDTO.extra`.
 
 Esse bloco permite que runtime, formularios, tabelas e editores tratem o lookup como
 selecao de entidade real, com identidade, status, permissao, reidratacao e navegacao,

@@ -137,6 +137,13 @@ class ApiDocsControllerReadOnlyMetaTest {
                 .put("key", "labelAsc")
                 .put("field", "payrollProfileLabel")
                 .put("sql", "order by private_field");
+        payrollFiltering.putArray("searchStrategies")
+                .addObject()
+                .put("key", "document")
+                .put("kind", "normalized-document")
+                .put("minSearchChars", 11)
+                .put("rawCpf", "123.456.789-00")
+                .put("providerConfig", "internal");
         ObjectNode rogue = props.putObject("rogue");
         rogue.put("type", "string");
         ObjectNode rogueOptionSource = rogue.putObject("x-ui").putObject("optionSource");
@@ -246,6 +253,11 @@ class ApiDocsControllerReadOnlyMetaTest {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> sortOptions = (List<Map<String, Object>>) filtering.get("sortOptions");
         assertFalse(sortOptions.get(0).containsKey("sql"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> searchStrategies = (List<Map<String, Object>>) filtering.get("searchStrategies");
+        assertEquals("document", searchStrategies.get(0).get("key"));
+        assertFalse(searchStrategies.get(0).containsKey("rawCpf"));
+        assertFalse(searchStrategies.get(0).containsKey("providerConfig"));
 
         @SuppressWarnings("unchecked")
         Map<String, Object> rogue = (Map<String, Object>) properties.get("rogue");

@@ -44,6 +44,31 @@ class OptionSourceDescriptorTest {
     }
 
     @Test
+    void filteringProjectsGovernedSearchStrategies() {
+        LookupFilteringDescriptor filtering = new LookupFilteringDescriptor(
+                List.of(), Map.of(), List.of(), null, List.of(), null,
+                List.of(new LookupSearchStrategyDefinition("document", "normalized-document", 11)));
+
+        assertEquals(List.of(Map.of("key", "document", "kind", "normalized-document", "minSearchChars", 11)),
+                filtering.toMetadataMap().get("searchStrategies"));
+    }
+
+    @Test
+    void searchStrategiesRequireUniqueKeysAndNormalizeDocumentsWithoutLeakingFormatting() {
+        assertThrows(IllegalArgumentException.class, () -> new LookupFilteringDescriptor(
+                List.of(), Map.of(), List.of(), null, List.of(), null,
+                List.of(
+                        new LookupSearchStrategyDefinition("document", "normalized-document", 11),
+                        new LookupSearchStrategyDefinition("document", "business-code", 1)
+                )));
+
+        LookupSearchStrategyDefinition document =
+                new LookupSearchStrategyDefinition("document", "normalized-document", 11);
+        assertEquals("12345678900", document.normalizeSearch("123.456.789-00"));
+        assertThrows(IllegalArgumentException.class, () -> document.normalizeSearch("123-ABC"));
+    }
+
+    @Test
     void requiresKeyTypeAndResourcePath() {
         assertThrows(IllegalArgumentException.class, () -> new OptionSourceDescriptor(
                 " ",

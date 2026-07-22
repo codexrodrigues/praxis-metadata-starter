@@ -840,7 +840,23 @@
           "items": { "type": "string", "minLength": 1 },
           "uniqueItems": true
         },
-        "searchPlaceholder": { "type": "string" }
+        "searchPlaceholder": { "type": "string" },
+        "searchStrategies": {
+          "type": "array",
+          "description": "Declared lookup search intents. Each item key must be unique; the runtime rejects duplicate keys.",
+          "items": { "$ref": "#/definitions/lookupSearchStrategy" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "lookupSearchStrategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "minSearchChars"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["business-code", "descriptive-text", "normalized-document"] },
+        "minSearchChars": { "type": "integer", "minimum": 1 }
       }
     },
     "lookupFilterDefinition": {
