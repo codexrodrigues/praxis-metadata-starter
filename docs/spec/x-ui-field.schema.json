@@ -840,7 +840,22 @@
           "items": { "type": "string", "minLength": 1 },
           "uniqueItems": true
         },
-        "searchPlaceholder": { "type": "string" }
+        "searchPlaceholder": { "type": "string" },
+        "searchStrategies": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/lookupSearchStrategy" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "lookupSearchStrategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "minSearchChars"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["business-code", "descriptive-text", "normalized-document"] },
+        "minSearchChars": { "type": "integer", "minimum": 1 }
       }
     },
     "lookupFilterDefinition": {

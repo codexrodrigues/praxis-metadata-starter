@@ -44,6 +44,16 @@ class OptionSourceDescriptorTest {
     }
 
     @Test
+    void filteringProjectsGovernedSearchStrategies() {
+        LookupFilteringDescriptor filtering = new LookupFilteringDescriptor(
+                List.of(), Map.of(), List.of(), null, List.of(), null,
+                List.of(new LookupSearchStrategyDefinition("document", "normalized-document", 11)));
+
+        assertEquals(List.of(Map.of("key", "document", "kind", "normalized-document", "minSearchChars", 11)),
+                filtering.toMetadataMap().get("searchStrategies"));
+    }
+
+    @Test
     void requiresKeyTypeAndResourcePath() {
         assertThrows(IllegalArgumentException.class, () -> new OptionSourceDescriptor(
                 " ",

@@ -183,7 +183,8 @@ public class ApiDocsController {
                     "sortOptions",
                     "defaultSort",
                     "quickFilterFields",
-                    "searchPlaceholder"
+                    "searchPlaceholder",
+                    "searchStrategies"
             )
     );
 
@@ -222,6 +223,9 @@ public class ApiDocsController {
                     "field",
                     "direction",
                     "label"
+            ),
+            "filtering.searchStrategies", Set.of(
+                    "key", "kind", "minSearchChars"
             )
     );
     private static final Set<String> OPTION_SOURCE_PRIVATE_KEYS = Set.of(

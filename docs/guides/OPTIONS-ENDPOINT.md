@@ -3,6 +3,13 @@
 Guia canonico para publicar selects metadata-driven no
 `praxis-metadata-starter`.
 
+## Estratégias de busca
+
+Lookups que aceitam mais de uma intenção podem publicar
+`filtering.searchStrategies`. A declaração informa somente a estratégia e o
+limite mínimo; o provider deve normalizar entradas, rejeitar valores inválidos
+antes da consulta e manter detalhes de infraestrutura privados.
+
 ## Contrato publico
 
 Endpoints canonicos:
