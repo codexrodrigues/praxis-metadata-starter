@@ -78,6 +78,37 @@ public record LookupFilteringDescriptor(
         return metadata;
     }
 
+    /**
+     * Resolves the public strategy selected for a non-empty search term.
+     * A single declared strategy is selected automatically; multiple strategies
+     * require an explicit key so the provider never has to infer business intent.
+     */
+    public LookupSearchStrategyDefinition resolveSearchStrategy(String requestedKey, String search) {
+        String key = normalize(requestedKey);
+        if (search == null || search.isBlank()) {
+            if (key != null) {
+                throw new IllegalArgumentException("Lookup searchStrategy requires a non-empty search term.");
+            }
+            return null;
+        }
+        if (searchStrategies.isEmpty()) {
+            if (key != null) {
+                throw new IllegalArgumentException("Lookup searchStrategy is not declared for this option source.");
+            }
+            return null;
+        }
+        if (key == null) {
+            if (searchStrategies.size() == 1) {
+                return searchStrategies.getFirst();
+            }
+            throw new IllegalArgumentException("Lookup searchStrategy is required when multiple search strategies are declared.");
+        }
+        return searchStrategies.stream()
+                .filter(strategy -> key.equals(strategy.key()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported lookup searchStrategy: " + key));
+    }
+
     private static void validateDefaultSort(List<LookupSortOption> sortOptions, String defaultSort) {
         if (defaultSort == null) {
             return;

@@ -28,6 +28,33 @@ public record LookupSearchStrategyDefinition(String key, String kind, int minSea
         return metadata;
     }
 
+    /**
+     * Normalizes the public term before it reaches a provider.
+     *
+     * <p>Only {@code normalized-document} has platform-wide normalization: it accepts
+     * digits with common visual separators and forwards digits only. Validation of a
+     * document's business checksum remains the responsibility of the owning domain.</p>
+     */
+    public String normalizeSearch(String value) {
+        String normalized = required(value, "Lookup search term is required.");
+        if (!"normalized-document".equals(kind)) {
+            return normalized;
+        }
+        StringBuilder digits = new StringBuilder(normalized.length());
+        for (int index = 0; index < normalized.length(); index++) {
+            char character = normalized.charAt(index);
+            if (Character.isDigit(character)) {
+                digits.append(character);
+            } else if (!Character.isWhitespace(character) && character != '.' && character != '-') {
+                throw new IllegalArgumentException("Normalized document search accepts digits and visual separators only.");
+            }
+        }
+        if (digits.isEmpty()) {
+            throw new IllegalArgumentException("Normalized document search must contain at least one digit.");
+        }
+        return digits.toString();
+    }
+
     private static String required(String value, String message) {
         if (value == null || value.isBlank()) throw new IllegalArgumentException(message);
         return value.trim();

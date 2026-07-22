@@ -4,7 +4,10 @@ import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.options.EntityLookupDescriptor;
 import org.praxisplatform.uischema.options.LookupCapabilities;
+import org.praxisplatform.uischema.options.LookupFilteringDescriptor;
+import org.praxisplatform.uischema.options.LookupSearchStrategyDefinition;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourceExecutionMode;
 import org.praxisplatform.uischema.options.OptionSourcePolicy;
 import org.praxisplatform.uischema.options.OptionSourceType;
 import org.springframework.data.domain.Page;
@@ -48,6 +51,42 @@ class CompositeOptionSourceQueryExecutorTest {
         assertEquals(Map.of("companyId", 10), provider.lastRequest.filterPayload());
         assertEquals(1, provider.lastRequest.includeIds().size());
         assertEquals("filtered", result.getContent().getFirst().label());
+    }
+
+    @Test
+    void resolvesExplicitDocumentStrategyAndNormalizesItBeforeProviderResolution() {
+        OptionSourceDescriptor descriptor = descriptorWithSearchStrategies("employees");
+        CapturingProvider provider = new CapturingProvider();
+        CompositeOptionSourceQueryExecutor executor = new CompositeOptionSourceQueryExecutor(
+                new DefaultOptionSourceProviderRegistry(List.of(provider))
+        );
+
+        executor.filterOptions(
+                null, TestEntity.class, null, null, descriptor, "123.456.789-00", "document",
+                List.of(), null, PageRequest.of(0, 10), List.of()
+        );
+
+        assertEquals("document", provider.lastRequest.searchStrategy());
+        assertEquals("12345678900", provider.lastRequest.search());
+    }
+
+    @Test
+    void rejectsAmbiguousOrInvalidDocumentSearchBeforeProviderResolution() {
+        OptionSourceDescriptor descriptor = descriptorWithSearchStrategies("employees");
+        CountingProvider provider = new CountingProvider();
+        CompositeOptionSourceQueryExecutor executor = new CompositeOptionSourceQueryExecutor(
+                new DefaultOptionSourceProviderRegistry(List.of(provider))
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> executor.filterOptions(
+                null, TestEntity.class, null, null, descriptor, "Maria", null,
+                List.of(), null, PageRequest.of(0, 10), List.of()
+        ));
+        assertThrows(IllegalArgumentException.class, () -> executor.filterOptions(
+                null, TestEntity.class, null, null, descriptor, "123.456.789-0", "document",
+                List.of(), null, PageRequest.of(0, 10), List.of()
+        ));
+        assertEquals(0, provider.supportCalls);
     }
 
     @Test
@@ -347,6 +386,30 @@ class CompositeOptionSourceQueryExecutorTest {
                 "department.id",
                 List.of(),
                 policy
+        );
+    }
+
+    private static OptionSourceDescriptor descriptorWithSearchStrategies(String key) {
+        return new OptionSourceDescriptor(
+                key,
+                OptionSourceType.LIGHT_LOOKUP,
+                "/employees",
+                key,
+                "employee.id",
+                "employee.name",
+                "employee.id",
+                List.of(),
+                Map.of(),
+                OptionSourcePolicy.defaults(),
+                null,
+                new LookupFilteringDescriptor(
+                        List.of(), Map.of(), List.of(), null, List.of(), null,
+                        List.of(
+                                new LookupSearchStrategyDefinition("employee-code", "business-code", 1),
+                                new LookupSearchStrategyDefinition("document", "normalized-document", 11),
+                                new LookupSearchStrategyDefinition("name", "descriptive-text", 3)
+                        )),
+                OptionSourceExecutionMode.PROVIDER_REQUIRED
         );
     }
 
