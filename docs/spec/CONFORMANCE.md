@@ -85,6 +85,7 @@
   - `dependsOn`, `dependencyFilterMap`, `excludeSelfField` -> cascata, mapeamento dependencia -> filtro e remocao do proprio predicado
   - `searchMode`, `pageSize`, `includeIds`, `cachePolicy` -> politica publica minima de consumo
   - `filtering.availableFilters`, `filtering.defaultFilters`, `filtering.sortOptions`, `filtering.defaultSort` -> contrato publico de filtro rico para `entityLookup`
+  - `filtering.searchStrategies` -> intencoes de busca publicas; `inputFormat=digits` valida codigo numerico antes do provider sem publicar bindings privados
 - interacoes de campo
   - cascata de opcoes deve ser publicada como `x-ui.optionSource.dependsOn`, nao como callback local
   - mudanca que executa comando de negocio deve ser publicada como endpoint real e `@WorkflowAction`

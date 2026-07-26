@@ -69,6 +69,25 @@ class OptionSourceDescriptorTest {
     }
 
     @Test
+    void numericBusinessCodeRejectsNonDigitsAndPublishesOnlyItsPublicInputShape() {
+        LookupSearchStrategyDefinition employeeCode =
+                new LookupSearchStrategyDefinition("employee-code", "business-code", 1, "digits");
+
+        assertEquals("1042", employeeCode.normalizeSearch("1042"));
+        assertThrows(IllegalArgumentException.class, () -> employeeCode.normalizeSearch("EMP-1042"));
+        assertThrows(IllegalArgumentException.class, () -> employeeCode.normalizeSearch("١٠٤٢"));
+        assertEquals(
+                Map.of(
+                        "key", "employee-code",
+                        "kind", "business-code",
+                        "minSearchChars", 1,
+                        "inputFormat", "digits"
+                ),
+                employeeCode.toMetadataMap()
+        );
+    }
+
+    @Test
     void requiresKeyTypeAndResourcePath() {
         assertThrows(IllegalArgumentException.class, () -> new OptionSourceDescriptor(
                 " ",

@@ -35,6 +35,9 @@ All notable changes to this module will be documented in this file.
   estratégia única automaticamente, rejeita busca ambígua antes do provider e
   normaliza `normalized-document` sem publicar o valor bruto em metadata ou
   `OptionDTO.extra`.
+- `filtering.searchStrategies[].inputFormat=digits` para validar códigos de
+  negócio numéricos antes da resolução do provider, mantendo `text` como
+  default compatível e sem expor bindings internos.
 - API publica `ResourceStructuralCapabilities` e resolver annotation-driven por `@ApiResource`
   para centralizar a disponibilidade estrutural estavel de options, option sources, stats e
   export sem misturar autorizacao contextual.

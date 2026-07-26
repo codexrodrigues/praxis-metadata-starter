@@ -87,7 +87,25 @@
       ],
       "defaultSort": "legalNameAsc",
       "quickFilterFields": ["code", "legalName"],
-      "searchPlaceholder": "Buscar empresa por codigo, nome ou documento"
+      "searchPlaceholder": "Buscar empresa por codigo, nome ou documento",
+      "searchStrategies": [
+        {
+          "key": "businessCode",
+          "kind": "business-code",
+          "minSearchChars": 1,
+          "inputFormat": "digits"
+        },
+        {
+          "key": "name",
+          "kind": "descriptive-text",
+          "minSearchChars": 3
+        },
+        {
+          "key": "document",
+          "kind": "normalized-document",
+          "minSearchChars": 11
+        }
+      ]
     },
     "searchMode": "contains",
     "pageSize": 20,

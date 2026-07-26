@@ -67,6 +67,8 @@ class OptionSourceSchemaParityTest {
                 filteringDefinition.path("properties").path("searchStrategies").path("items").path("$ref").asText());
         assertEquals("normalized-document",
                 strategyDefinition.path("properties").path("kind").path("enum").get(2).asText());
+        assertEquals("digits",
+                strategyDefinition.path("properties").path("inputFormat").path("enum").get(1).asText());
         assertEquals("array", filterDefinition.path("properties").path("operators").path("type").asText());
         assertEquals("asc", sortDefinition.path("properties").path("direction").path("default").asText());
     }

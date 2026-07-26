@@ -142,6 +142,7 @@ class ApiDocsControllerReadOnlyMetaTest {
                 .put("key", "document")
                 .put("kind", "normalized-document")
                 .put("minSearchChars", 11)
+                .put("inputFormat", "digits")
                 .put("rawCpf", "123.456.789-00")
                 .put("providerConfig", "internal");
         ObjectNode rogue = props.putObject("rogue");
@@ -256,6 +257,7 @@ class ApiDocsControllerReadOnlyMetaTest {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> searchStrategies = (List<Map<String, Object>>) filtering.get("searchStrategies");
         assertEquals("document", searchStrategies.get(0).get("key"));
+        assertEquals("digits", searchStrategies.get(0).get("inputFormat"));
         assertFalse(searchStrategies.get(0).containsKey("rawCpf"));
         assertFalse(searchStrategies.get(0).containsKey("providerConfig"));
 

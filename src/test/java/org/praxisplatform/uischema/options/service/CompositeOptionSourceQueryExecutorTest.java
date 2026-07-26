@@ -90,6 +90,21 @@ class CompositeOptionSourceQueryExecutorTest {
     }
 
     @Test
+    void rejectsNonNumericBusinessCodeBeforeProviderResolution() {
+        OptionSourceDescriptor descriptor = descriptorWithSearchStrategies("employees");
+        CountingProvider provider = new CountingProvider();
+        CompositeOptionSourceQueryExecutor executor = new CompositeOptionSourceQueryExecutor(
+                new DefaultOptionSourceProviderRegistry(List.of(provider))
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> executor.filterOptions(
+                null, TestEntity.class, null, null, descriptor, "EMP-1042", "employee-code",
+                List.of(), null, PageRequest.of(0, 10), List.of()
+        ));
+        assertEquals(0, provider.supportCalls);
+    }
+
+    @Test
     void delegatesByIdsToProviderResolvedForByIdsOperation() {
         OptionSourceDescriptor descriptor = descriptor("departments");
         CapturingProvider provider = new CapturingProvider();
@@ -405,7 +420,7 @@ class CompositeOptionSourceQueryExecutorTest {
                 new LookupFilteringDescriptor(
                         List.of(), Map.of(), List.of(), null, List.of(), null,
                         List.of(
-                                new LookupSearchStrategyDefinition("employee-code", "business-code", 1),
+                                new LookupSearchStrategyDefinition("employee-code", "business-code", 1, "digits"),
                                 new LookupSearchStrategyDefinition("document", "normalized-document", 11),
                                 new LookupSearchStrategyDefinition("name", "descriptive-text", 3)
                         )),
