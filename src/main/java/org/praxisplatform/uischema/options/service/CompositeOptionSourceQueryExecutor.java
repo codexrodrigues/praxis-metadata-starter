@@ -58,12 +58,33 @@ public class CompositeOptionSourceQueryExecutor implements OptionSourceQueryExec
             Pageable pageable,
             Collection<Object> includeIds
     ) {
+        return filterOptions(
+                entityManager, entityClass, specification, filterPayload, descriptor, search, null,
+                filters, sortKey, pageable, includeIds
+        );
+    }
+
+    @Override
+    public <E> Page<OptionDTO<Object>> filterOptions(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            Object filterPayload,
+            OptionSourceDescriptor descriptor,
+            String search,
+            String searchStrategy,
+            List<LookupFilterRequest> filters,
+            String sortKey,
+            Pageable pageable,
+            Collection<Object> includeIds
+    ) {
         OptionSourceExecutionContext context = contextResolver.resolve(descriptor, OptionSourceOperation.FILTER);
         OptionSourceExecutionRequest<E> request = new OptionSourceExecutionRequest<>(
                 new JpaOptionSourceHostContext<>(entityManager, entityClass, specification),
                 filterPayload,
                 descriptor,
                 search,
+                searchStrategy,
                 filters,
                 sortKey,
                 pageable,

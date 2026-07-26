@@ -1,6 +1,8 @@
 package org.praxisplatform.uischema.options.service;
 
 import org.praxisplatform.uischema.options.LookupFilterRequest;
+import org.praxisplatform.uischema.options.LookupFilteringDescriptor;
+import org.praxisplatform.uischema.options.LookupSearchStrategyDefinition;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.springframework.data.domain.Pageable;
 
@@ -30,6 +32,7 @@ public record OptionSourceExecutionRequest<E>(
         Object filterPayload,
         OptionSourceDescriptor descriptor,
         String search,
+        String searchStrategy,
         List<LookupFilterRequest> filters,
         String sortKey,
         Pageable pageable,
@@ -37,7 +40,35 @@ public record OptionSourceExecutionRequest<E>(
         Collection<Object> ids,
         OptionSourceExecutionContext context
 ) {
+    /** Compatibility constructor for providers compiled against the former request shape. */
+    public OptionSourceExecutionRequest(
+            Object hostContext,
+            Object filterPayload,
+            OptionSourceDescriptor descriptor,
+            String search,
+            List<LookupFilterRequest> filters,
+            String sortKey,
+            Pageable pageable,
+            Collection<Object> includeIds,
+            Collection<Object> ids,
+            OptionSourceExecutionContext context
+    ) {
+        this(hostContext, filterPayload, descriptor, search, null, filters, sortKey, pageable, includeIds, ids, context);
+    }
+
     public OptionSourceExecutionRequest {
+        search = normalize(search);
+        searchStrategy = normalize(searchStrategy);
+        LookupFilteringDescriptor filtering = descriptor == null ? null : descriptor.effectiveFiltering();
+        if (filtering != null) {
+            LookupSearchStrategyDefinition strategy = filtering.resolveSearchStrategy(searchStrategy, search);
+            if (strategy != null) {
+                searchStrategy = strategy.key();
+                search = strategy.normalizeSearch(search);
+            }
+        } else if (searchStrategy != null) {
+            throw new IllegalArgumentException("Lookup searchStrategy is not declared for this option source.");
+        }
         filters = filters == null ? List.of() : List.copyOf(filters);
         includeIds = includeIds == null ? List.of() : List.copyOf(includeIds);
         ids = ids == null ? List.of() : List.copyOf(ids);
@@ -51,5 +82,9 @@ public record OptionSourceExecutionRequest<E>(
             throw new IllegalStateException("Option source host context is not compatible with provider.");
         }
         return type.cast(hostContext);
+    }
+
+    private static String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

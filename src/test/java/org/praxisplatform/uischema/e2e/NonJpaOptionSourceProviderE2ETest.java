@@ -59,6 +59,30 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
     }
 
     @Test
+    void canonicalEndpointForwardsSelectedSearchStrategyAndRejectsInvalidDocumentBeforeProvider() throws Exception {
+        ExternalCatalogOptionSourceProvider.resetCounters();
+
+        ResponseEntity<String> response = postJson(
+                "/employees/option-sources/externalEmployeeLookup/options/filter?search=123.456.789-00&searchStrategy=document&page=0&size=10",
+                "{}"
+        );
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("document", ExternalCatalogOptionSourceProvider.lastSearchStrategy());
+        assertEquals("12345678900", ExternalCatalogOptionSourceProvider.lastSearch());
+
+        ExternalCatalogOptionSourceProvider.resetCounters();
+        ResponseEntity<String> invalid = postJson(
+                "/employees/option-sources/externalEmployeeLookup/options/filter?search=123.456.789-0&searchStrategy=document&page=0&size=10",
+                "{}"
+        );
+
+        assertEquals(422, invalid.getStatusCode().value());
+        assertEquals(0, ExternalCatalogOptionSourceProvider.supportCalls());
+        assertEquals(0, ExternalCatalogOptionSourceProvider.filterCalls());
+    }
+
+    @Test
     void providerBackedOptionSourcePublishesStableFilterRequestSchema() throws Exception {
         ResponseEntity<String> openApiResponse = get("/v3/api-docs/employees");
 
@@ -79,6 +103,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         assertEquals(200, requestSchemaResponse.getStatusCode().value());
         JsonNode requestSchema = body(requestSchemaResponse);
         assertTrue(requestSchema.path("properties").has("filter"), requestSchema.toPrettyString());
+        assertTrue(requestSchema.path("properties").has("searchStrategy"), requestSchema.toPrettyString());
     }
 
     @Test
@@ -400,6 +425,8 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
         private static final AtomicInteger FILTER_CALLS = new AtomicInteger();
         private static final AtomicInteger BY_IDS_CALLS = new AtomicInteger();
         private static final AtomicReference<Object> LAST_FILTER_PAYLOAD = new AtomicReference<>();
+        private static final AtomicReference<String> LAST_SEARCH = new AtomicReference<>();
+        private static final AtomicReference<String> LAST_SEARCH_STRATEGY = new AtomicReference<>();
         private static final AtomicReference<Object> LAST_BY_IDS_PAYLOAD = new AtomicReference<>();
         private static final AtomicReference<List<LookupFilterRequest>> LAST_FILTER_REQUEST = new AtomicReference<>(List.of());
         private static final AtomicReference<List<LookupFilterRequest>> LAST_BY_IDS_FILTER_REQUEST = new AtomicReference<>(List.of());
@@ -421,6 +448,7 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
             SUPPORT_CALLS.incrementAndGet();
             return descriptor != null
                     && ("externalDepartmentLookup".equals(descriptor.key())
+                    || "externalEmployeeLookup".equals(descriptor.key())
                     || "externalDependencyLookup".equals(descriptor.key())
                     || "externalFilterOnlyLookup".equals(descriptor.key()))
                     && operation == context.operation();
@@ -431,6 +459,8 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
             FILTER_CALLS.incrementAndGet();
             LAST_FILTER_PAYLOAD.set(request.filterPayload());
             LAST_FILTER_REQUEST.set(request.filters());
+            LAST_SEARCH.set(request.search());
+            LAST_SEARCH_STRATEGY.set(request.searchStrategy());
             return new PageImpl<>(OPTIONS, request.pageable(), OPTIONS.size());
         }
 
@@ -460,6 +490,8 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
             FILTER_CALLS.set(0);
             BY_IDS_CALLS.set(0);
             LAST_FILTER_PAYLOAD.set(null);
+            LAST_SEARCH.set(null);
+            LAST_SEARCH_STRATEGY.set(null);
             LAST_BY_IDS_PAYLOAD.set(null);
             LAST_FILTER_REQUEST.set(List.of());
             LAST_BY_IDS_FILTER_REQUEST.set(List.of());
@@ -479,6 +511,14 @@ class NonJpaOptionSourceProviderE2ETest extends AbstractE2eH2Test {
 
         private static Object lastFilterPayload() {
             return LAST_FILTER_PAYLOAD.get();
+        }
+
+        private static String lastSearch() {
+            return LAST_SEARCH.get();
+        }
+
+        private static String lastSearchStrategy() {
+            return LAST_SEARCH_STRATEGY.get();
         }
 
         private static Object lastByIdsPayload() {

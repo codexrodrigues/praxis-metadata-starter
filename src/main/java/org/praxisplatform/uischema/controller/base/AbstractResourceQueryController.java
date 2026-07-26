@@ -780,6 +780,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             @PathVariable String sourceKey,
             @RequestBody(required = false) JsonNode request,
             @RequestParam(name = "search", required = false) String search,
+            @RequestParam(name = "searchStrategy", required = false) String searchStrategy,
             @RequestParam(name = "includeIds", required = false) List<String> includeIds,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "20") int size,
@@ -797,6 +798,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                     request,
                     descriptor,
                     search,
+                    searchStrategy,
                     includeIds,
                     sort
             );
@@ -824,6 +826,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             JsonNode request,
             OptionSourceDescriptor descriptor,
             String search,
+            String searchStrategy,
             List<String> includeIds,
             List<String> sort
     ) {
@@ -837,10 +840,12 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         OptionSourceFilterParts<FD> filterParts = parseOptionSourceFilterParts(filterNode, descriptor);
         List<LookupFilterRequest> filters = parseLookupFilters(body.get("filters"));
         String bodySearch = textOrNull(body.get("search"));
+        String bodySearchStrategy = textOrNull(body.get("searchStrategy"));
         String bodySort = textOrNull(body.get("sort"));
         Collection<Object> bodyIncludeIds = parseIncludeIds(body.get("includeIds"));
 
         String effectiveSearch = StringUtils.hasText(bodySearch) ? bodySearch : search;
+        String effectiveSearchStrategy = StringUtils.hasText(bodySearchStrategy) ? bodySearchStrategy : searchStrategy;
         String effectiveSort = StringUtils.hasText(bodySort)
                 ? bodySort
                 : firstLegacySortKey(sort);
@@ -852,6 +857,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 filterParts.filter(),
                 filters,
                 effectiveSearch,
+                effectiveSearchStrategy,
                 effectiveSort,
                 effectiveIncludeIds
         );
@@ -863,7 +869,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return true;
         }
         Set<String> bodyFields = fieldNames(body);
-        Set<String> envelopeFields = Set.of("filters", "search", "sort", "includeIds");
+        Set<String> envelopeFields = Set.of("filters", "search", "searchStrategy", "sort", "includeIds");
         boolean hasEnvelopeField = bodyFields.stream().anyMatch(envelopeFields::contains);
         if (!hasEnvelopeField) {
             return false;

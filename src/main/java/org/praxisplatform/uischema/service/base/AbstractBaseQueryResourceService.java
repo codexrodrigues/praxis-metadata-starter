@@ -402,6 +402,7 @@ public abstract class AbstractBaseQueryResourceService<
                 providerFilterPayload == null ? effectiveFilter : providerFilterPayload,
                 descriptor,
                 request == null ? null : request.search(),
+                request == null ? null : request.searchStrategy(),
                 request == null ? List.of() : request.filters(),
                 request == null ? null : request.sort(),
                 pageable,

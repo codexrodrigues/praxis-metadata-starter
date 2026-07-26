@@ -113,6 +113,7 @@ O envelope canonico de filtro e:
     { "field": "status", "operator": "equals", "value": "ACTIVE" }
   ],
   "search": "net",
+  "searchStrategy": "name",
   "sort": "label"
 }
 ```
@@ -122,7 +123,11 @@ O provider recebe:
 - `request.filterPayload()` com o payload efetivo do filtro do recurso;
 - `request.filters()` com filtros estruturados validados contra
   `optionSource.filtering.availableFilters`;
-- `request.search()` validado contra `allowSearch` e `minSearchChars`;
+- `request.search()` normalizado e validado contra `allowSearch`, a policy e a
+  estratégia selecionada;
+- `request.searchStrategy()` com a chave declarada; em lookup com uma única
+  estratégia ela é resolvida automaticamente, e com múltiplas estratégias a
+  ausência da chave é rejeitada antes do provider;
 - `request.includeIds()` apenas quando a policy permitir;
 - `request.ids()` em `byIds`, preservando IDs string e a ordem solicitada.
 

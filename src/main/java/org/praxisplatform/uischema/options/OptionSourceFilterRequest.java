@@ -12,13 +12,26 @@ public record OptionSourceFilterRequest<FD extends GenericFilterDTO>(
         FD filter,
         List<LookupFilterRequest> filters,
         String search,
+        String searchStrategy,
         String sort,
         Collection<Object> includeIds
 ) {
 
+    /** Compatibility constructor for callers compiled against the former envelope. */
+    public OptionSourceFilterRequest(
+            FD filter,
+            List<LookupFilterRequest> filters,
+            String search,
+            String sort,
+            Collection<Object> includeIds
+    ) {
+        this(filter, filters, search, null, sort, includeIds);
+    }
+
     public OptionSourceFilterRequest {
         filters = filters == null ? List.of() : List.copyOf(filters);
         search = normalize(search);
+        searchStrategy = normalize(searchStrategy);
         sort = normalize(sort);
         includeIds = includeIds == null ? List.of() : List.copyOf(includeIds);
     }
