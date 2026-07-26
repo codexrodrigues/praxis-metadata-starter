@@ -856,7 +856,13 @@
       "properties": {
         "key": { "type": "string", "minLength": 1 },
         "kind": { "type": "string", "enum": ["business-code", "descriptive-text", "normalized-document"] },
-        "minSearchChars": { "type": "integer", "minimum": 1 }
+        "minSearchChars": { "type": "integer", "minimum": 1 },
+        "inputFormat": {
+          "type": "string",
+          "enum": ["text", "digits"],
+          "default": "text",
+          "description": "Public input shape validated before provider resolution. Omitted metadata means text."
+        }
       }
     },
     "lookupFilterDefinition": {

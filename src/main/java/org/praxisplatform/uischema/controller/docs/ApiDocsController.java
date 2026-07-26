@@ -225,7 +225,7 @@ public class ApiDocsController {
                     "label"
             ),
             "filtering.searchStrategies", Set.of(
-                    "key", "kind", "minSearchChars"
+                    "key", "kind", "minSearchChars", "inputFormat"
             )
     );
     private static final Set<String> OPTION_SOURCE_PRIVATE_KEYS = Set.of(

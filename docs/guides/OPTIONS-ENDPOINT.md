@@ -12,6 +12,11 @@ somente uma estratégia declarada, o runtime a seleciona automaticamente. Com
 duas ou mais, a escolha é obrigatória: o runtime não infere código, nome ou
 documento a partir do texto.
 
+Uma estratégia pode declarar `inputFormat=digits` quando o código de negócio é
+estritamente numérico. O runtime rejeita outros caracteres antes de resolver o
+provider. O default compatível é `text`; o formato público não revela coluna,
+parâmetro, SQL nem binding interno.
+
 `normalized-document` aceita dígitos com separadores visuais e encaminha apenas
 os dígitos ao provider; o mínimo é avaliado depois da normalização. A validação
 de checksum ou de documentos aceitos pelo domínio continua no provider. Nenhum
