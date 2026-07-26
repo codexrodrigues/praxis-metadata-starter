@@ -423,6 +423,11 @@ de resolver o provider. Para <code>normalized-document</code>, o runtime
 remove somente separadores visuais e aplica <code>minSearchChars</code>
 ao valor normalizado. Checksum e regras de documento do dominio
 continuam no provider.</p>
+<p>Cada estratégia pode declarar <code>inputFormat=digits</code>. Essa
+forma pública e provider-neutral é validada antes da resolução do
+provider, sendo adequada, por exemplo, a códigos de negócio estritamente
+numéricos. O default é <code>text</code>; o formato não declara coluna,
+parâmetro, SQL nem binding interno.</p>
 <p>O provider continua dono de bindings e execucao; SQL, argumentos
 internos e documento bruto nao fazem parte de
 <code>x-ui.optionSource</code> nem de <code>OptionDTO.extra</code>.</p>

@@ -131,6 +131,11 @@ O provider recebe:
 - `request.includeIds()` apenas quando a policy permitir;
 - `request.ids()` em `byIds`, preservando IDs string e a ordem solicitada.
 
+Quando uma estrategia de `business-code` declarar `inputFormat=digits`, o
+runtime tambem rejeita termos nao numericos antes da resolucao do provider.
+Essa propriedade descreve somente a forma publica da entrada; nunca publique
+tipo de coluna, assinatura de funcao ou bind interno nela.
+
 Esses valores sao criterios publicos de consulta, nao contexto de autorizacao.
 Tenant, principal e row scope devem vir de `request.context()` e ser aplicados
 pelo provider antes de consultar ou reidratar IDs. O mesmo enforcement vale para

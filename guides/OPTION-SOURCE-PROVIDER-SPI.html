@@ -361,6 +361,11 @@ permitir;</li>
 <li><code>request.ids()</code> em <code>byIds</code>, preservando IDs
 string e a ordem solicitada.</li>
 </ul>
+<p>Quando uma estrategia de <code>business-code</code> declarar
+<code>inputFormat=digits</code>, o runtime tambem rejeita termos nao
+numericos antes da resolucao do provider. Essa propriedade descreve
+somente a forma publica da entrada; nunca publique tipo de coluna,
+assinatura de funcao ou bind interno nela.</p>
 <p>Esses valores sao criterios publicos de consulta, nao contexto de
 autorizacao. Tenant, principal e row scope devem vir de
 <code>request.context()</code> e ser aplicados pelo provider antes de
