@@ -236,6 +236,20 @@
 option-sources</h1>
 <p>Guia canonico para publicar selects metadata-driven no
 <code>praxis-metadata-starter</code>.</p>
+<h2 id="estratégias-de-busca">Estratégias de busca</h2>
+<p>Lookups que aceitam mais de uma intenção podem publicar
+<code>filtering.searchStrategies</code>. Cada item tem uma
+<code>key</code> única, um <code>kind</code> e o limite mínimo. O
+cliente envia a intenção em <code>searchStrategy</code>; quando houver
+somente uma estratégia declarada, o runtime a seleciona automaticamente.
+Com duas ou mais, a escolha é obrigatória: o runtime não infere código,
+nome ou documento a partir do texto.</p>
+<p><code>normalized-document</code> aceita dígitos com separadores
+visuais e encaminha apenas os dígitos ao provider; o mínimo é avaliado
+depois da normalização. A validação de checksum ou de documentos aceitos
+pelo domínio continua no provider. Nenhum documento, argumento interno,
+SQL ou contexto de execução pode ser publicado em metadata ou em
+<code>OptionDTO.extra</code>.</p>
 <h2 id="contrato-publico">Contrato publico</h2>
 <p>Endpoints canonicos:</p>
 <ul>

@@ -411,7 +411,21 @@ empurrar convencoes de query para o frontend. Ele descreve:</p>
 <li><code>defaultSort</code></li>
 <li><code>quickFilterFields</code></li>
 <li><code>searchPlaceholder</code></li>
+<li><code>searchStrategies</code></li>
 </ul>
+<p><code>searchStrategies</code> declara as interpretacoes publicas de
+um termo de busca, como <code>business-code</code>,
+<code>descriptive-text</code> e <code>normalized-document</code>. A
+requisicao de filtro pode informar a chave em
+<code>searchStrategy</code>. Havendo uma unica estrategia, o runtime a
+resolve automaticamente; havendo varias, rejeita busca sem chave antes
+de resolver o provider. Para <code>normalized-document</code>, o runtime
+remove somente separadores visuais e aplica <code>minSearchChars</code>
+ao valor normalizado. Checksum e regras de documento do dominio
+continuam no provider.</p>
+<p>O provider continua dono de bindings e execucao; SQL, argumentos
+internos e documento bruto nao fazem parte de
+<code>x-ui.optionSource</code> nem de <code>OptionDTO.extra</code>.</p>
 <p>Esse bloco permite que runtime, formularios, tabelas e editores
 tratem o lookup como selecao de entidade real, com identidade, status,
 permissao, reidratacao e navegacao, sem promover aliases locais no

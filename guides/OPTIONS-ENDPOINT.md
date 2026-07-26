@@ -3,6 +3,21 @@
 Guia canonico para publicar selects metadata-driven no
 `praxis-metadata-starter`.
 
+## Estratégias de busca
+
+Lookups que aceitam mais de uma intenção podem publicar
+`filtering.searchStrategies`. Cada item tem uma `key` única, um `kind` e o
+limite mínimo. O cliente envia a intenção em `searchStrategy`; quando houver
+somente uma estratégia declarada, o runtime a seleciona automaticamente. Com
+duas ou mais, a escolha é obrigatória: o runtime não infere código, nome ou
+documento a partir do texto.
+
+`normalized-document` aceita dígitos com separadores visuais e encaminha apenas
+os dígitos ao provider; o mínimo é avaliado depois da normalização. A validação
+de checksum ou de documentos aceitos pelo domínio continua no provider. Nenhum
+documento, argumento interno, SQL ou contexto de execução pode ser publicado
+em metadata ou em `OptionDTO.extra`.
+
 ## Contrato publico
 
 Endpoints canonicos:

@@ -341,16 +341,21 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;status&quot;</span><span class="fu">,</span> <span class="dt">&quot;operator&quot;</span><span class="fu">:</span> <span class="st">&quot;equals&quot;</span><span class="fu">,</span> <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="st">&quot;ACTIVE&quot;</span> <span class="fu">}</span></span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;search&quot;</span><span class="fu">:</span> <span class="st">&quot;net&quot;</span><span class="fu">,</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;sort&quot;</span><span class="fu">:</span> <span class="st">&quot;label&quot;</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;searchStrategy&quot;</span><span class="fu">:</span> <span class="st">&quot;name&quot;</span><span class="fu">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;sort&quot;</span><span class="fu">:</span> <span class="st">&quot;label&quot;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>O provider recebe:</p>
 <ul>
 <li><code>request.filterPayload()</code> com o payload efetivo do filtro
 do recurso;</li>
 <li><code>request.filters()</code> com filtros estruturados validados
 contra <code>optionSource.filtering.availableFilters</code>;</li>
-<li><code>request.search()</code> validado contra
-<code>allowSearch</code> e <code>minSearchChars</code>;</li>
+<li><code>request.search()</code> normalizado e validado contra
+<code>allowSearch</code>, a policy e a estratégia selecionada;</li>
+<li><code>request.searchStrategy()</code> com a chave declarada; em
+lookup com uma única estratégia ela é resolvida automaticamente, e com
+múltiplas estratégias a ausência da chave é rejeitada antes do
+provider;</li>
 <li><code>request.includeIds()</code> apenas quando a policy
 permitir;</li>
 <li><code>request.ids()</code> em <code>byIds</code>, preservando IDs
