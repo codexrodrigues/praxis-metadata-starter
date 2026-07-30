@@ -16,6 +16,7 @@ import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditions;
+import org.praxisplatform.uischema.concurrency.ResourceVersionUpdatePrecondition;
 import org.praxisplatform.uischema.capability.CapabilitySnapshot;
 import org.praxisplatform.uischema.capability.ResourceStructuralCapabilities;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
@@ -1610,6 +1611,19 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             );
         }
         ResourceVersionPreconditions.requireMatch(resourceVersionEtagService, ifMatch, getResourceKey(), id, version.getAsLong());
+    }
+
+    /**
+     * Binds an update precondition without reading the current version. The command service must
+     * validate it against the locked persisted version inside its update transaction.
+     */
+    protected ResourceVersionUpdatePrecondition<ID> resourceVersionUpdatePrecondition(ID id, String ifMatch) {
+        if (resourceVersionEtagService == null) {
+            throw new IllegalStateException(
+                    "Resource version ETag support is not configured. Set praxis.resource-version.etag.secret."
+            );
+        }
+        return new ResourceVersionUpdatePrecondition<>(resourceVersionEtagService, ifMatch, getResourceKey(), id);
     }
 
     protected <T> ResponseEntity<T> withOptionSourceVersion(
