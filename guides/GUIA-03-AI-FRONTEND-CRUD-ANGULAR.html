@@ -445,6 +445,14 @@ condicional:</p>
 dentro da mesma transacao do update;</li>
 <li>a resposta bem-sucedida devolve o novo <code>ETag</code>.</li>
 </ol>
+<p>O <code>ETag</code> tambem e vinculado ao escopo de isolamento
+resolvido pelo servidor. Por padrao o starter usa o escopo global; hosts
+multi-tenant devem publicar um <code>ResourceVersionScopeProvider</code>
+baseado no contexto autenticado de tenant e ambiente. O provider nao
+deve confiar diretamente em valores livres do payload ou em headers nao
+validados. Assim, um token emitido para outro tenant ou ambiente nunca e
+aceito como precondicao, mesmo quando id e versao numerica
+coincidem.</p>
 <p>Ausencia de <code>If-Match</code> retorna
 <code>428 RESOURCE_VERSION_REQUIRED</code>; uma versao valida, mas
 desatualizada, retorna <code>412 STALE_RESOURCE_VERSION</code>; um
@@ -452,6 +460,12 @@ header malformado retorna <code>400 INVALID_RESOURCE_VERSION</code>. O
 frontend deve recarregar o registro e pedir uma decisao explicita do
 usuario antes de tentar novamente. Nao deve sobrescrever silenciosamente
 nem construir o <code>ETag</code> a partir de campos de negocio.</p>
+<p>Se outra transacao vencer a corrida depois da validacao inicial, o
+bloqueio otimista da persistencia tambem e projetado como
+<code>412 STALE_RESOURCE_VERSION</code>. Detalhes de entidade, SQL e
+estado interno nao sao devolvidos. Esse resultado exige a mesma UX de
+conflito: recarregar, comparar e obter uma decisao explicita; nunca
+repetir automaticamente o <code>PUT</code>.</p>
 <p>Recursos nao versionados continuam usando
 <code>BaseCreateUpdateResourceService</code> e nao passam a exigir
 <code>If-Match</code> por efeito colateral.</p>

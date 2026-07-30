@@ -230,11 +230,23 @@ Recursos que implementam `VersionedCreateUpdateResourceService` publicam update 
    transacao do update;
 4. a resposta bem-sucedida devolve o novo `ETag`.
 
+O `ETag` tambem e vinculado ao escopo de isolamento resolvido pelo servidor. Por padrao o
+starter usa o escopo global; hosts multi-tenant devem publicar um
+`ResourceVersionScopeProvider` baseado no contexto autenticado de tenant e ambiente. O provider
+nao deve confiar diretamente em valores livres do payload ou em headers nao validados. Assim, um
+token emitido para outro tenant ou ambiente nunca e aceito como precondicao, mesmo quando id e
+versao numerica coincidem.
+
 Ausencia de `If-Match` retorna `428 RESOURCE_VERSION_REQUIRED`; uma versao valida, mas
 desatualizada, retorna `412 STALE_RESOURCE_VERSION`; um header malformado retorna
 `400 INVALID_RESOURCE_VERSION`. O frontend deve recarregar o registro e pedir uma decisao
 explicita do usuario antes de tentar novamente. Nao deve sobrescrever silenciosamente nem
 construir o `ETag` a partir de campos de negocio.
+
+Se outra transacao vencer a corrida depois da validacao inicial, o bloqueio otimista da
+persistencia tambem e projetado como `412 STALE_RESOURCE_VERSION`. Detalhes de entidade, SQL e
+estado interno nao sao devolvidos. Esse resultado exige a mesma UX de conflito: recarregar,
+comparar e obter uma decisao explicita; nunca repetir automaticamente o `PUT`.
 
 Recursos nao versionados continuam usando `BaseCreateUpdateResourceService` e nao passam a
 exigir `If-Match` por efeito colateral.
