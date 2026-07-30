@@ -412,6 +412,7 @@ validacao do endpoint base.
 O baseline canonico para recursos metadata-driven e:
 
 - `AbstractResourceController`
+- `AbstractCreateResourceController`, quando o recurso publica create sem update/delete
 - `AbstractCreateUpdateResourceController`, quando o recurso publica create/update sem delete
 - `AbstractUnitDeleteResourceController`, quando o recurso publica create/update e `DELETE /{id}` sem `DELETE /batch`
 - `AbstractLegacyBackedResourceController`, quando a escrita for delegada a backend legado mantendo contrato publico resource-oriented
@@ -419,6 +420,7 @@ O baseline canonico para recursos metadata-driven e:
 - `AbstractReadOnlyResourceController`
 - `AbstractBaseResourceService`
 - `AbstractReadOnlyResourceService`
+- `BaseCreateResourceService`, quando a porta de comando publica create sem update/delete
 - `BaseCreateUpdateResourceService`, quando a porta de comando publica create/update sem delete
 - `BaseUnitDeleteResourceService`, quando a porta de comando publica create/update e delete individual sem delete em lote
 - `LegacyBackedResourceService`, quando create/update/delete forem executados por porta/adaptador do host

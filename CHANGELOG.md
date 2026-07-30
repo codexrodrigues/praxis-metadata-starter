@@ -30,6 +30,10 @@ All notable changes to this module will be documented in this file.
   associada ao controller resource-oriented.
 
 ### Added
+- Composicao resource-oriented create-only por meio de `AbstractCreateResourceController`,
+  `BaseCreateResourceService` e `BaseCreateResourceCommandService`. Recursos podem publicar
+  leitura e `POST` sem anunciar ou mapear `PUT`/`DELETE` enquanto essas operacoes permanecem
+  indisponiveis por regra de dominio, concorrencia ou gate de migracao.
 - Concorrencia otimista atomica e opt-in para updates resource-oriented por meio de
   `VersionedCreateUpdateResourceService`: o controller vincula o `If-Match` a identidade
   canonica, e o service valida a precondicao contra a versao persistida dentro da mesma
