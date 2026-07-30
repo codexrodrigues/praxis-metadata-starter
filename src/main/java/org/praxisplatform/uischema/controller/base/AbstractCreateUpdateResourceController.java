@@ -5,13 +5,17 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.servlet.http.HttpServletRequest;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.rest.response.RestApiErrorResponse;
 import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceCommandService;
 import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceService;
+import org.praxisplatform.uischema.service.base.VersionedCreateUpdateResourceService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.Links;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +36,9 @@ import java.util.List;
  */
 public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD extends GenericFilterDTO, CreateDTO, UpdateDTO>
         extends AbstractResourceQueryController<ResponseDTO, ID, FD> {
+
+    @Autowired
+    private HttpServletRequest request;
 
     @Override
     protected abstract BaseCreateUpdateResourceService<ResponseDTO, ID, FD, CreateDTO, UpdateDTO> getService();
@@ -90,7 +97,21 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
             @jakarta.validation.Valid @RequestBody UpdateDTO dto
     ) {
         assertItemOperationAvailable("edit", id);
-        ResponseDTO updated = getService().update(id, dto);
+        BaseCreateUpdateResourceService<ResponseDTO, ID, FD, CreateDTO, UpdateDTO> service = getService();
+        ResponseDTO updated;
+        boolean versioned = service instanceof VersionedCreateUpdateResourceService<?, ?, ?, ?, ?>;
+        if (versioned) {
+            @SuppressWarnings("unchecked")
+            VersionedCreateUpdateResourceService<ResponseDTO, ID, FD, CreateDTO, UpdateDTO> versionedService =
+                    (VersionedCreateUpdateResourceService<ResponseDTO, ID, FD, CreateDTO, UpdateDTO>) service;
+            updated = versionedService.update(
+                    id,
+                    dto,
+                    resourceVersionUpdatePrecondition(id, request.getHeader(HttpHeaders.IF_MATCH))
+            );
+        } else {
+            updated = service.update(id, dto);
+        }
 
         List<Link> linkList = new ArrayList<>();
         linkList.add(linkToSelf(id));
@@ -101,6 +122,13 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
         linkList.addAll(buildItemDiscoveryLinks(id));
         linkList.add(linkToUiSchema("/{id}", "put", "request"));
 
+        if (versioned) {
+            return withResourceVersion(
+                    ResponseEntity.ok(),
+                    id,
+                    RestApiResponse.success(updated, hateoasOrNull(Links.of(linkList)))
+            );
+        }
         return withVersion(ResponseEntity.ok(), RestApiResponse.success(updated, hateoasOrNull(Links.of(linkList))));
     }
 

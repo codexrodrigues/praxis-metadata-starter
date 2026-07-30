@@ -30,6 +30,10 @@ All notable changes to this module will be documented in this file.
   associada ao controller resource-oriented.
 
 ### Added
+- Concorrencia otimista atomica e opt-in para updates resource-oriented por meio de
+  `VersionedCreateUpdateResourceService`: o controller vincula o `If-Match` a identidade
+  canonica, e o service valida a precondicao contra a versao persistida dentro da mesma
+  transacao e do mesmo lock do update. Recursos nao versionados preservam o contrato anterior.
 - `filtering.searchStrategies` para option sources governados, com seleção
   explícita por `searchStrategy` no endpoint canônico. O runtime resolve a
   estratégia única automaticamente, rejeita busca ambígua antes do provider e
