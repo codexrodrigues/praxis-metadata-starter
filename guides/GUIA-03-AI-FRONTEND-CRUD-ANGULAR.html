@@ -432,6 +432,29 @@ completo</li>
 <li><code>X-Schema-Hash</code></li>
 <li><code>x-ui.resource.idField</code></li>
 </ul>
+<h2 id="concorrencia-em-recursos-versionados">Concorrencia em recursos
+versionados</h2>
+<p>Recursos que implementam
+<code>VersionedCreateUpdateResourceService</code> publicam update
+condicional:</p>
+<ol type="1">
+<li>a leitura do item retorna um <code>ETag</code> forte;</li>
+<li>o cliente envia esse valor em <code>If-Match</code> no
+<code>PUT</code>;</li>
+<li>o service bloqueia ou le a versao persistida e valida a precondicao
+dentro da mesma transacao do update;</li>
+<li>a resposta bem-sucedida devolve o novo <code>ETag</code>.</li>
+</ol>
+<p>Ausencia de <code>If-Match</code> retorna
+<code>428 RESOURCE_VERSION_REQUIRED</code>; uma versao valida, mas
+desatualizada, retorna <code>412 STALE_RESOURCE_VERSION</code>; um
+header malformado retorna <code>400 INVALID_RESOURCE_VERSION</code>. O
+frontend deve recarregar o registro e pedir uma decisao explicita do
+usuario antes de tentar novamente. Nao deve sobrescrever silenciosamente
+nem construir o <code>ETag</code> a partir de campos de negocio.</p>
+<p>Recursos nao versionados continuam usando
+<code>BaseCreateUpdateResourceService</code> e nao passam a exigir
+<code>If-Match</code> por efeito colateral.</p>
 <h2 id="padrao-canonico-para-crud-completo">Padrao canonico para CRUD
 completo</h2>
 <pre class="text"><code>lista + acoes:

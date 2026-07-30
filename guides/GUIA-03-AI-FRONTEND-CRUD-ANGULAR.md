@@ -220,6 +220,25 @@ Tambem usa:
 - `X-Schema-Hash`
 - `x-ui.resource.idField`
 
+## Concorrencia em recursos versionados
+
+Recursos que implementam `VersionedCreateUpdateResourceService` publicam update condicional:
+
+1. a leitura do item retorna um `ETag` forte;
+2. o cliente envia esse valor em `If-Match` no `PUT`;
+3. o service bloqueia ou le a versao persistida e valida a precondicao dentro da mesma
+   transacao do update;
+4. a resposta bem-sucedida devolve o novo `ETag`.
+
+Ausencia de `If-Match` retorna `428 RESOURCE_VERSION_REQUIRED`; uma versao valida, mas
+desatualizada, retorna `412 STALE_RESOURCE_VERSION`; um header malformado retorna
+`400 INVALID_RESOURCE_VERSION`. O frontend deve recarregar o registro e pedir uma decisao
+explicita do usuario antes de tentar novamente. Nao deve sobrescrever silenciosamente nem
+construir o `ETag` a partir de campos de negocio.
+
+Recursos nao versionados continuam usando `BaseCreateUpdateResourceService` e nao passam a
+exigir `If-Match` por efeito colateral.
+
 ## Padrao canonico para CRUD completo
 
 ```text
