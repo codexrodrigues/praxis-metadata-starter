@@ -17,6 +17,8 @@ import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditions;
 import org.praxisplatform.uischema.concurrency.ResourceVersionUpdatePrecondition;
+import org.praxisplatform.uischema.concurrency.ResourceVersionScope;
+import org.praxisplatform.uischema.concurrency.ResourceVersionScopeProvider;
 import org.praxisplatform.uischema.capability.CapabilitySnapshot;
 import org.praxisplatform.uischema.capability.ResourceStructuralCapabilities;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
@@ -237,6 +239,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @Autowired(required = false)
     private ResourceVersionEtagService resourceVersionEtagService;
+
+    @Autowired(required = false)
+    private ResourceVersionScopeProvider resourceVersionScopeProvider;
 
     private String detectedBasePath;
 
@@ -1588,7 +1593,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     protected <T> ResponseEntity<T> withResourceVersion(ResponseEntity.BodyBuilder builder, ID id, T body) {
         if (resourceVersionEtagService != null) {
             getService().getResourceVersion(id).ifPresent(version -> builder.eTag(
-                    resourceVersionEtagService.create(getResourceKey(), id, version)
+                    resourceVersionEtagService.create(resourceVersionScope(), getResourceKey(), id, version)
             ));
         }
         return withVersion(builder, body);
@@ -1610,7 +1615,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                     "Resource " + getResourceKey() + " does not expose a persisted record version."
             );
         }
-        ResourceVersionPreconditions.requireMatch(resourceVersionEtagService, ifMatch, getResourceKey(), id, version.getAsLong());
+        ResourceVersionPreconditions.requireMatch(
+                resourceVersionEtagService, ifMatch, resourceVersionScope(), getResourceKey(), id, version.getAsLong());
     }
 
     /**
@@ -1623,7 +1629,18 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                     "Resource version ETag support is not configured. Set praxis.resource-version.etag.secret."
             );
         }
-        return new ResourceVersionUpdatePrecondition<>(resourceVersionEtagService, ifMatch, getResourceKey(), id);
+        return new ResourceVersionUpdatePrecondition<>(
+                resourceVersionEtagService, ifMatch, resourceVersionScope(), getResourceKey(), id);
+    }
+
+    private ResourceVersionScope resourceVersionScope() {
+        ResourceVersionScope scope = resourceVersionScopeProvider != null
+                ? resourceVersionScopeProvider.currentScope()
+                : ResourceVersionScope.GLOBAL;
+        if (scope == null) {
+            throw new IllegalStateException("ResourceVersionScopeProvider returned null.");
+        }
+        return scope;
     }
 
     protected <T> ResponseEntity<T> withOptionSourceVersion(

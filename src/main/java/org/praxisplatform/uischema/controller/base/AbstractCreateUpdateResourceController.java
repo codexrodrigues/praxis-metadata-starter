@@ -89,6 +89,7 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
             @ApiResponse(responseCode = "404", description = "Resource was not found", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "Request conflicts with existing or dependent data", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "412", description = "Resource version precondition failed", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
+            @ApiResponse(responseCode = "428", description = "If-Match is required for this versioned resource", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "422", description = "Entity is functionally invalid", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class))),
             @ApiResponse(responseCode = "500", description = "Sanitized unexpected failure", content = @Content(schema = @Schema(implementation = RestApiErrorResponse.class)))
     })

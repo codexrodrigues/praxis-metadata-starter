@@ -192,7 +192,8 @@ class PraxisCockpitControllerTest {
     @Test
     void bundledCockpitScriptUsesScopedSemanticDiscoveryAndDecisionPanels() throws IOException {
         ClassPathResource resource = new ClassPathResource("META-INF/resources/praxis/cockpit/assets/cockpit.js");
-        String script = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        String script = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8)
+                .replace("\r\n", "\n");
 
         assertThat(script)
                 .contains("/schemas/domain?resourceKey=")

@@ -25,15 +25,32 @@ public final class ResourceVersionEtagService {
     }
 
     public String create(String resourceKey, Object resourceId, long version) {
+        return create(ResourceVersionScope.GLOBAL, resourceKey, resourceId, version);
+    }
+
+    public String create(ResourceVersionScope scope, String resourceKey, Object resourceId, long version) {
         if (resourceKey == null || resourceKey.isBlank() || resourceId == null || version < 0) {
             throw new IllegalArgumentException("Resource key, resource id and non-negative version are required.");
         }
-        String payload = resourceKey.trim() + "\n" + resourceId + "\n" + version;
+        if (scope == null) {
+            throw new IllegalArgumentException("Resource version scope is required.");
+        }
+        String payload = scope.value() + "\n" + resourceKey.trim() + "\n" + resourceId + "\n" + version;
         return "\"" + Base64.getUrlEncoder().withoutPadding().encodeToString(sign(payload)) + "\"";
     }
 
     public boolean matches(String candidate, String resourceKey, Object resourceId, long version) {
-        return candidate != null && create(resourceKey, resourceId, version).equals(candidate.trim());
+        return matches(candidate, ResourceVersionScope.GLOBAL, resourceKey, resourceId, version);
+    }
+
+    public boolean matches(
+            String candidate,
+            ResourceVersionScope scope,
+            String resourceKey,
+            Object resourceId,
+            long version
+    ) {
+        return candidate != null && create(scope, resourceKey, resourceId, version).equals(candidate.trim());
     }
 
     private byte[] sign(String payload) {

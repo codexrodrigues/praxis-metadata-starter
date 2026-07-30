@@ -14,6 +14,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -173,6 +174,24 @@ public class GlobalExceptionHandler {
             WebRequest request
     ) {
         return buildStatusResponse(ex.status(), ex.getMessage(), request, ex.code());
+    }
+
+    /**
+     * Maps a collision detected by the persistence provider after the explicit If-Match check to
+     * the same safe stale-write contract. This closes the race between validation and commit.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleOptimisticLockingFailure(
+            ObjectOptimisticLockingFailureException ex,
+            WebRequest request
+    ) {
+        log.info("[GlobalExceptionHandler] Concurrent resource update rejected by optimistic locking");
+        return buildStatusResponse(
+                HttpStatus.PRECONDITION_FAILED,
+                "The resource changed after it was read. Reload it before deciding whether to retry.",
+                request,
+                "STALE_RESOURCE_VERSION"
+        );
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -551,7 +570,7 @@ public class GlobalExceptionHandler {
         return switch (status) {
             case BAD_REQUEST, METHOD_NOT_ALLOWED, UNPROCESSABLE_ENTITY -> ErrorCategory.VALIDATION;
             case UNAUTHORIZED, FORBIDDEN -> ErrorCategory.SECURITY;
-            case NOT_FOUND, CONFLICT, GONE -> ErrorCategory.BUSINESS_LOGIC;
+            case NOT_FOUND, CONFLICT, PRECONDITION_FAILED, PRECONDITION_REQUIRED, GONE -> ErrorCategory.BUSINESS_LOGIC;
             case TOO_MANY_REQUESTS, SERVICE_UNAVAILABLE, INTERNAL_SERVER_ERROR -> ErrorCategory.SYSTEM;
             default -> status.is5xxServerError() ? ErrorCategory.SYSTEM : ErrorCategory.UNKNOWN;
         };
@@ -568,6 +587,8 @@ public class GlobalExceptionHandler {
             case FORBIDDEN -> "Access denied.";
             case NOT_FOUND -> "Resource not found.";
             case CONFLICT -> "Request conflict.";
+            case PRECONDITION_FAILED -> "Resource version is stale.";
+            case PRECONDITION_REQUIRED -> "Resource version is required.";
             case GONE -> "Resource is no longer available.";
             case UNPROCESSABLE_ENTITY -> "Invalid entity.";
             case TOO_MANY_REQUESTS -> "Too many requests.";
@@ -589,6 +610,8 @@ public class GlobalExceptionHandler {
             case FORBIDDEN -> "Access denied";
             case NOT_FOUND -> "Resource not found";
             case CONFLICT -> "Conflict";
+            case PRECONDITION_FAILED -> "Stale resource version";
+            case PRECONDITION_REQUIRED -> "Resource version required";
             case GONE -> "Resource is no longer available";
             case UNPROCESSABLE_ENTITY -> "Invalid entity";
             case TOO_MANY_REQUESTS -> "Too many requests";
@@ -607,6 +630,7 @@ public class GlobalExceptionHandler {
             case UNAUTHORIZED, FORBIDDEN -> RESPONSE_STATUS_SECURITY_TYPE;
             case NOT_FOUND -> RESPONSE_STATUS_NOT_FOUND_TYPE;
             case CONFLICT -> RESPONSE_STATUS_CONFLICT_TYPE;
+            case PRECONDITION_FAILED, PRECONDITION_REQUIRED -> RESPONSE_STATUS_CONFLICT_TYPE;
             case GONE -> RESPONSE_STATUS_GONE_TYPE;
             case TOO_MANY_REQUESTS -> RESPONSE_STATUS_THROTTLE_TYPE;
             case SERVICE_UNAVAILABLE -> RESPONSE_STATUS_UNAVAILABLE_TYPE;

@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionUpdatePrecondition;
+import org.praxisplatform.uischema.concurrency.ResourceVersionScope;
+import org.praxisplatform.uischema.concurrency.ResourceVersionScopeProvider;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.exceptionhandler.GlobalExceptionHandler;
 import org.praxisplatform.uischema.service.base.VersionedCreateUpdateResourceService;
@@ -34,6 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 class VersionedCreateUpdateResourceControllerTest {
 
+    private static final ResourceVersionScope TEST_SCOPE = new ResourceVersionScope("tenant-a|test");
+
     @Autowired MockMvc mockMvc;
     @Autowired ResourceVersionEtagService etags;
     @MockBean VersionedService service;
@@ -54,7 +58,7 @@ class VersionedCreateUpdateResourceControllerTest {
                 .andExpect(jsonPath("$.errors[0].code").value("RESOURCE_VERSION_REQUIRED"));
 
         mockMvc.perform(put("/versioned/11")
-                        .header("If-Match", etags.create("test.versioned", 11L, 6L))
+                        .header("If-Match", etags.create(TEST_SCOPE, "test.versioned", 11L, 6L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\":11}"))
                 .andExpect(status().isPreconditionFailed())
@@ -68,11 +72,11 @@ class VersionedCreateUpdateResourceControllerTest {
                 .andExpect(jsonPath("$.errors[0].code").value("INVALID_RESOURCE_VERSION"));
 
         mockMvc.perform(put("/versioned/11")
-                        .header("If-Match", etags.create("test.versioned", 11L, 7L))
+                        .header("If-Match", etags.create(TEST_SCOPE, "test.versioned", 11L, 7L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\":11}"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("ETag", etags.create("test.versioned", 11L, 8L)))
+                .andExpect(header().string("ETag", etags.create(TEST_SCOPE, "test.versioned", 11L, 8L)))
                 .andExpect(jsonPath("$.data.id").value(11));
     }
 
@@ -113,6 +117,10 @@ class VersionedCreateUpdateResourceControllerTest {
     static class VersionConfiguration {
         @Bean ResourceVersionEtagService resourceVersionEtagService() {
             return new ResourceVersionEtagService("test-secret");
+        }
+
+        @Bean ResourceVersionScopeProvider resourceVersionScopeProvider() {
+            return () -> TEST_SCOPE;
         }
     }
 }

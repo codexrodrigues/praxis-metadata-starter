@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.io.EOFException;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import org.praxisplatform.uischema.rest.failure.ResourceOperationFailure;
 import org.praxisplatform.uischema.rest.failure.ResourceOperationFailureException;
@@ -194,6 +195,22 @@ class GlobalExceptionHandlerTest {
         assertNotNull(body);
         assertEquals("The resource has changed since it was read.", body.getMessage());
         assertEquals("STALE_RESOURCE_VERSION", body.getErrors().get(0).getCode());
+    }
+
+    @Test
+    void shouldPublishOptimisticCollisionAsStaleResourceVersionWithoutPersistenceDetails() {
+        WebRequest request = webRequest("/api/human-resources/funcionarios/42");
+        var response = handler.handleOptimisticLockingFailure(
+                new ObjectOptimisticLockingFailureException("SecretEntity", 42L),
+                request
+        );
+
+        assertEquals(HttpStatus.PRECONDITION_FAILED, response.getStatusCode());
+        var body = response.getBody();
+        assertNotNull(body);
+        assertEquals("STALE_RESOURCE_VERSION", body.getErrors().get(0).getCode());
+        assertFalse(body.getMessage().contains("SecretEntity"));
+        assertFalse(String.valueOf(body.getErrors().get(0).getDetail()).contains("SecretEntity"));
     }
 
     @Test
