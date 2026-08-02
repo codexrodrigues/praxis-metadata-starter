@@ -9,6 +9,9 @@ import org.praxisplatform.uischema.annotation.ResourceIntent;
 import org.praxisplatform.uischema.annotation.UiSurface;
 import org.praxisplatform.uischema.annotation.WorkflowAction;
 import org.praxisplatform.uischema.action.ActionScope;
+import org.praxisplatform.uischema.action.ActionCollectionAtomicity;
+import org.praxisplatform.uischema.action.ActionInteractionMode;
+import org.praxisplatform.uischema.action.ActionRiskLevel;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.filter.specification.GenericSpecification;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
@@ -779,6 +782,10 @@ class EmployeeController extends org.praxisplatform.uischema.controller.base.Abs
             successMessage = "Funcionario aprovado",
             requiredAuthorities = {"employee:approve"},
             allowedStates = {"INACTIVE"},
+            interactionMode = ActionInteractionMode.FORM,
+            riskLevel = ActionRiskLevel.HIGH,
+            confirmationRequired = true,
+            refreshItem = true,
             tags = {"workflow", "approval"}
     )
     public ResponseEntity<RestApiResponse<EmployeeResponseDTO>> approve(
@@ -807,6 +814,12 @@ class EmployeeController extends org.praxisplatform.uischema.controller.base.Abs
             order = 90,
             successMessage = "Funcionarios aprovados",
             requiredAuthorities = {"employee:bulk-approve"},
+            interactionMode = ActionInteractionMode.FORM,
+            riskLevel = ActionRiskLevel.HIGH,
+            confirmationRequired = true,
+            selectionIdsField = "employeeIds",
+            maxSelection = 200,
+            atomicity = ActionCollectionAtomicity.ATOMIC,
             tags = {"workflow", "bulk-approval"}
     )
     public ResponseEntity<RestApiResponse<BulkApproveEmployeesResultDTO>> bulkApprove(

@@ -241,7 +241,8 @@ class ActionCatalogServiceTest {
                 "ok",
                 List.of(),
                 allowedStates,
-                List.of()
+                List.of(),
+                ActionExecutionContract.defaults(scope)
         );
     }
 

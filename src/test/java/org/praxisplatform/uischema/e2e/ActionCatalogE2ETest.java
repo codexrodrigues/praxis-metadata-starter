@@ -41,6 +41,12 @@ class ActionCatalogE2ETest extends AbstractE2eH2Test {
         assertEquals("INACTIVE", approve.path("allowedStates").get(0).asText());
         assertFalse(approve.path("availability").path("allowed").asBoolean());
         assertEquals("resource-context-required", approve.path("availability").path("reason").asText());
+        assertEquals("FORM", approve.path("execution").path("interaction").path("mode").asText());
+        assertEquals("HIGH", approve.path("execution").path("interaction").path("riskLevel").asText());
+        assertTrue(approve.path("execution").path("interaction").path("confirmationRequired").asBoolean());
+        assertEquals("NONE", approve.path("execution").path("preconditions").path("idempotencyKey").asText());
+        assertEquals("NONE", approve.path("execution").path("preconditions").path("resourceVersionTransport").asText());
+        assertTrue(approve.path("execution").path("refresh").path("item").asBoolean());
         assertFalse(approve.has("fields"));
         assertFalse(approve.has("schema"));
 
@@ -52,6 +58,11 @@ class ActionCatalogE2ETest extends AbstractE2eH2Test {
         assertFalse(bulkApprove.path("availability").path("allowed").asBoolean());
         assertEquals("missing-authority", bulkApprove.path("availability").path("reason").asText());
         assertEquals("employee:bulk-approve", bulkApprove.path("availability").path("metadata").path("requiredAuthorities").get(0).asText());
+        assertEquals("employeeIds", bulkApprove.path("execution").path("selection").path("idsField").asText());
+        assertTrue(bulkApprove.path("execution").path("selection").path("versionsField").isNull());
+        assertEquals(200, bulkApprove.path("execution").path("selection").path("maxItems").asInt());
+        assertEquals("SINGLE", bulkApprove.path("execution").path("outcome").path("mode").asText());
+        assertEquals("ATOMIC", bulkApprove.path("execution").path("outcome").path("atomicity").asText());
     }
 
     @Test

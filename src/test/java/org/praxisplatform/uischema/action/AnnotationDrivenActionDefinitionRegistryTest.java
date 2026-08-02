@@ -174,6 +174,19 @@ class AnnotationDrivenActionDefinitionRegistryTest {
                 .findFirst()
                 .orElseThrow()
                 .scope());
+        ActionDefinition bulkApprove = firstLookup.stream()
+                .filter(action -> "bulk-approve".equals(action.id()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(ActionInteractionMode.CONFIRM, bulkApprove.execution().interaction().mode());
+        assertEquals(ActionRequirement.REQUIRED, bulkApprove.execution().preconditions().idempotencyKey());
+        assertEquals(ActionResourceVersionTransport.SELECTION_MAP,
+                bulkApprove.execution().preconditions().resourceVersionTransport());
+        assertEquals("ids", bulkApprove.execution().selection().idsField());
+        assertEquals("expectedVersions", bulkApprove.execution().selection().versionsField());
+        assertEquals(200, bulkApprove.execution().selection().maxItems());
+        assertEquals(ActionOutcomeMode.PER_ITEM, bulkApprove.execution().outcome().mode());
+        assertEquals(ActionCollectionAtomicity.ATOMIC, bulkApprove.execution().outcome().atomicity());
         assertNotNull(registry.findByGroup("registry-group").stream().filter(action -> "approve".equals(action.id())).findFirst().orElse(null));
         verify(schemaResolver, times(6)).resolve(any(String.class), eq("POST"), any(String.class), eq(false), eq(null), eq(null), eq("employeeId"), eq(false));
     }
@@ -411,7 +424,23 @@ class AnnotationDrivenActionDefinitionRegistryTest {
 
         @PostMapping("/actions/bulk-approve")
         @Operation(summary = "Bulk approve resource")
-        @WorkflowAction(id = "bulk-approve", title = "Bulk Approve", scope = ActionScope.COLLECTION)
+        @WorkflowAction(
+                id = "bulk-approve",
+                title = "Bulk Approve",
+                scope = ActionScope.COLLECTION,
+                interactionMode = ActionInteractionMode.CONFIRM,
+                riskLevel = ActionRiskLevel.HIGH,
+                confirmationRequired = true,
+                idempotencyKey = ActionRequirement.REQUIRED,
+                correlationId = ActionRequirement.OPTIONAL,
+                resourceVersion = ActionRequirement.REQUIRED,
+                resourceVersionTransport = ActionResourceVersionTransport.SELECTION_MAP,
+                selectionIdsField = "ids",
+                selectionVersionsField = "expectedVersions",
+                maxSelection = 200,
+                outcomeMode = ActionOutcomeMode.PER_ITEM,
+                atomicity = ActionCollectionAtomicity.ATOMIC
+        )
         public void bulkApprove() {
         }
     }

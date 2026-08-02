@@ -29,6 +29,7 @@ public record ActionDefinition(
         String successMessage,
         List<String> requiredAuthorities,
         List<String> allowedStates,
-        List<String> tags
+        List<String> tags,
+        ActionExecutionContract execution
 ) {
 }

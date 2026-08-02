@@ -236,7 +236,8 @@ class SemanticDomainCatalogServiceTest {
                     "Folha marcada como paga",
                     List.of(),
                     List.of("PROGRAMADA"),
-                    List.of("workflow", "payroll")
+                    List.of("workflow", "payroll"),
+                    org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
             ));
         }
 

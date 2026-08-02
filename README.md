@@ -472,6 +472,17 @@ relacionado; o starter nao deve anunciar CREATE/DELETE apenas como desejo de UX.
 
 Use `@WorkflowAction` quando a operacao for um comando de negocio explicito.
 
+Além de apontar para a operação e para os schemas canônicos, a action publica um bloco
+`execution` em `/schemas/actions` e `/capabilities`. Esse bloco informa ao runtime a interação
+governada, risco e confirmação, requisitos de idempotência/correlação/versão, bindings de seleção,
+semântica do outcome e projections que precisam ser atualizadas. O endpoint real continua sendo a
+fonte de enforcement; metadata não substitui autorização, transação nem comparação de versão.
+
+Para comandos de item, `resourceVersionTransport = IF_MATCH` identifica o ETag de versão
+persistida e `resourceVersionField` informa qual campo da projeção de linha contém essa versão
+quando tabelas ou listas materializam o comando. Para comandos de coleção, `SELECTION_MAP` exige um `selectionVersionsField` no request.
+ETag de schema não pode ser usado como versão do registro.
+
 ### Related Resource Controllers
 
 Recursos relacionados podem ser publicados por controller customizado quando a experiencia nao deve virar

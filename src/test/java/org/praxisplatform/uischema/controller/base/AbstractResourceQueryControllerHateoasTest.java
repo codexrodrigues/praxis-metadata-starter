@@ -72,7 +72,8 @@ class AbstractResourceQueryControllerHateoasTest {
                         null,
                         List.of(),
                         List.of(),
-                        List.of()
+                        List.of(),
+                        org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
                 )
         ));
 

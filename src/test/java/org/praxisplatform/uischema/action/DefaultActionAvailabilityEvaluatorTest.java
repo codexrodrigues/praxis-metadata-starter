@@ -150,7 +150,8 @@ class DefaultActionAvailabilityEvaluatorTest {
                 "Approved",
                 requiredAuthorities,
                 allowedStates,
-                List.of("workflow")
+                List.of("workflow"),
+                ActionExecutionContract.defaults(ActionScope.ITEM)
         );
     }
 }

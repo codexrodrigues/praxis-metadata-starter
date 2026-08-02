@@ -129,6 +129,39 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
         CanonicalOperationRef operationRef = canonicalOperationResolver.resolve(handlerMethod, entry.getKey());
         CanonicalSchemaRef requestSchemaRef = resolveSchema(operationRef, "request", resource);
         CanonicalSchemaRef responseSchemaRef = resolveSchema(operationRef, "response", resource);
+        ActionExecutionContract execution = new ActionExecutionContract(
+                new ActionInteractionPolicy(
+                        workflowAction.interactionMode(),
+                        workflowAction.riskLevel(),
+                        workflowAction.confirmationRequired(),
+                        workflowAction.reversible()
+                ),
+                new ActionPreconditionPolicy(
+                        workflowAction.idempotencyKey(),
+                        workflowAction.correlationId(),
+                        workflowAction.resourceVersion(),
+                        workflowAction.resourceVersionTransport(),
+                        workflowAction.resourceVersionField()
+                ),
+                new ActionSelectionPolicy(
+                        workflowAction.selectionIdsField(),
+                        workflowAction.selectionVersionsField(),
+                        workflowAction.maxSelection()
+                ),
+                new ActionOutcomePolicy(
+                        workflowAction.outcomeMode(),
+                        workflowAction.atomicity()
+                ),
+                new ActionRefreshPolicy(
+                        workflowAction.refreshItem(),
+                        workflowAction.refreshCollection(),
+                        workflowAction.refreshActions(),
+                        workflowAction.refreshCapabilities(),
+                        List.copyOf(Arrays.asList(workflowAction.invalidatesResourceKeys()))
+                )
+        );
+        execution.validateFor(workflowAction.scope());
+
         ActionDefinition definition = new ActionDefinition(
                 workflowAction.id(),
                 resource.resourceKey(),
@@ -144,7 +177,8 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
                 workflowAction.successMessage(),
                 List.copyOf(Arrays.asList(workflowAction.requiredAuthorities())),
                 List.copyOf(Arrays.asList(workflowAction.allowedStates())),
-                List.copyOf(Arrays.asList(workflowAction.tags()))
+                List.copyOf(Arrays.asList(workflowAction.tags())),
+                execution
         );
         return List.of(definition);
     }
