@@ -122,6 +122,36 @@ Regra:
 - `ITEM` em `/schemas/actions` e discovery-only sem `resourceId`; a availability real vem de
   `GET /{resource}/{id}/actions`
 
+Toda action publica tambem `execution`, separado do request/response schema:
+
+- `interaction`: `DIRECT`, `CONFIRM` ou `FORM`, risco, confirmacao e reversibilidade
+- `preconditions`: requisitos de `Idempotency-Key`, `X-Correlation-ID` e versao persistida
+- `selection`: campos do request que recebem ids e versoes de uma selecao de colecao
+- `outcome`: resultado unico ou por item e atomicidade declarada
+- `refresh`: projections que ficam obsoletas depois do sucesso
+
+Exemplo de comando de item protegido por versao:
+
+```java
+@WorkflowAction(
+    id = "deactivate",
+    title = "Inativar funcionario",
+    scope = ActionScope.ITEM,
+    interactionMode = ActionInteractionMode.FORM,
+    riskLevel = ActionRiskLevel.HIGH,
+    confirmationRequired = true,
+    idempotencyKey = ActionRequirement.REQUIRED,
+    correlationId = ActionRequirement.OPTIONAL,
+    resourceVersion = ActionRequirement.REQUIRED,
+    resourceVersionTransport = ActionResourceVersionTransport.IF_MATCH,
+    refreshItem = true
+)
+```
+
+Declarar o requisito nao substitui enforcement. O endpoint continua responsavel por rejeitar
+header ausente, versao stale, replay conflitante e autoridade/estado invalidos. O runtime consome
+essa metadata; ele nao deve inferir protocolo por path, label ou verbo HTTP.
+
 ## Capability
 
 Use `GET /{resource}/capabilities` ou `GET /{resource}/{id}/capabilities` quando o cliente precisa de um snapshot agregado do que pode ser feito agora.

@@ -415,8 +415,12 @@ empurrar convencoes de query para o frontend. Ele descreve:</p>
 </ul>
 <p><code>searchStrategies</code> declara as interpretacoes publicas de
 um termo de busca, como <code>business-code</code>,
-<code>descriptive-text</code> e <code>normalized-document</code>. A
-requisicao de filtro pode informar a chave em
+<code>descriptive-text</code> e <code>normalized-document</code>. Cada
+estrategia pode ainda declarar <code>inputFormat: "digits"</code> quando
+a entrada aceita exclusivamente digitos ASCII; <code>text</code> e o
+default e nao e serializado. Essa restricao governa a captura e a
+validacao basica do termo, sem substituir validacoes de dominio no
+provider. A requisicao de filtro pode informar a chave em
 <code>searchStrategy</code>. Havendo uma unica estrategia, o runtime a
 resolve automaticamente; havendo varias, rejeita busca sem chave antes
 de resolver o provider. Para <code>normalized-document</code>, o runtime
