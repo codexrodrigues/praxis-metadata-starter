@@ -115,7 +115,8 @@ class OpenApiUiSchemaAutoConfigurationActionAvailabilityTest {
                 "Approved",
                 List.of("employee:approve"),
                 List.of("INACTIVE"),
-                List.of("workflow")
+                List.of("workflow"),
+                org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
         );
     }
 

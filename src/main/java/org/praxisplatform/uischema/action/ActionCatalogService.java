@@ -148,7 +148,8 @@ public class ActionCatalogService {
                 availability,
                 definition.order(),
                 definition.successMessage(),
-                definition.tags()
+                definition.tags(),
+                definition.execution()
         );
     }
 

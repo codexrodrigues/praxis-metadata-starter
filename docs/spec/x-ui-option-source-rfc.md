@@ -169,7 +169,11 @@ para o frontend. Ele descreve:
 - `searchStrategies`
 
 `searchStrategies` declara as interpretacoes publicas de um termo de busca,
-como `business-code`, `descriptive-text` e `normalized-document`. A requisicao
+como `business-code`, `descriptive-text` e `normalized-document`. Cada estrategia
+pode ainda declarar `inputFormat: "digits"` quando a entrada aceita exclusivamente
+digitos ASCII; `text` e o default e nao e serializado. Essa restricao governa a
+captura e a validacao basica do termo, sem substituir validacoes de dominio no provider.
+A requisicao
 de filtro pode informar a chave em `searchStrategy`. Havendo uma unica
 estrategia, o runtime a resolve automaticamente; havendo varias, rejeita busca
 sem chave antes de resolver o provider. Para `normalized-document`, o runtime

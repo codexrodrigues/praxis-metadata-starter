@@ -673,7 +673,8 @@ class CapabilityServiceTest {
                 AvailabilityDecision.allowAll(),
                 10,
                 "ok",
-                List.of()
+                List.of(),
+                org.praxisplatform.uischema.action.ActionExecutionContract.defaults(scope)
         );
     }
 
@@ -695,7 +696,8 @@ class CapabilityServiceTest {
                 AvailabilityDecision.allowAll(),
                 10,
                 "ok",
-                List.of()
+                List.of(),
+                org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
         );
     }
 

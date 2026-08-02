@@ -38,6 +38,12 @@ All notable changes to this module will be documented in this file.
   `VersionedCreateUpdateResourceService`: o controller vincula o `If-Match` a identidade
   canonica, e o service valida a precondicao contra a versao persistida dentro da mesma
   transacao e do mesmo lock do update. Recursos nao versionados preservam o contrato anterior.
+- `@WorkflowAction` agora publica um bloco canonico `execution` em `/schemas/actions` e
+  `/capabilities`, cobrindo politica de interacao e risco, requisitos de idempotencia,
+  correlacao e versao persistida, binding de selecao, atomicidade/outcome e invalidacao de
+  projections. `resourceVersionField` identifica a versão presente nas linhas para que tabelas
+  e listas materializem `If-Match` ou mapas de versões sem aliases locais. O contrato referencia
+  os schemas reais da operacao e nao duplica payload.
 - `filtering.searchStrategies` para option sources governados, com seleção
   explícita por `searchStrategy` no endpoint canônico. O runtime resolve a
   estratégia única automaticamente, rejeita busca ambígua antes do provider e
