@@ -763,6 +763,10 @@
         "showBadges": { "type": "boolean" },
         "showDisabledReason": { "type": "boolean" },
         "showResultCount": { "type": "boolean" },
+        "statusLabelMap": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
         "statusToneMap": {
           "type": "object",
           "additionalProperties": {

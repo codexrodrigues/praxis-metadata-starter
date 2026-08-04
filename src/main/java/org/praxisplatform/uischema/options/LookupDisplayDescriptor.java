@@ -28,8 +28,50 @@ public record LookupDisplayDescriptor(
         Boolean showStatus,
         Boolean showBadges,
         Boolean showResultCount,
+        Map<String, String> statusLabelMap,
         Integer maxVisibleBadges
 ) {
+
+    public LookupDisplayDescriptor(
+            String preset,
+            String usage,
+            String density,
+            String selectedLayout,
+            String resultLayout,
+            String primaryPropertyPath,
+            List<LookupDisplayFieldDescriptor> fields,
+            List<String> secondaryPropertyPaths,
+            List<String> badgePropertyPaths,
+            String avatarPropertyPath,
+            Boolean showAvatar,
+            Boolean showCode,
+            Boolean showDescription,
+            Boolean showStatus,
+            Boolean showBadges,
+            Boolean showResultCount,
+            Integer maxVisibleBadges
+    ) {
+        this(
+                preset,
+                usage,
+                density,
+                selectedLayout,
+                resultLayout,
+                primaryPropertyPath,
+                fields,
+                secondaryPropertyPaths,
+                badgePropertyPaths,
+                avatarPropertyPath,
+                showAvatar,
+                showCode,
+                showDescription,
+                showStatus,
+                showBadges,
+                showResultCount,
+                null,
+                maxVisibleBadges
+        );
+    }
 
     public LookupDisplayDescriptor {
         preset = normalize(preset);
@@ -42,6 +84,7 @@ public record LookupDisplayDescriptor(
         secondaryPropertyPaths = normalizeList(secondaryPropertyPaths);
         badgePropertyPaths = normalizeList(badgePropertyPaths);
         avatarPropertyPath = normalize(avatarPropertyPath);
+        statusLabelMap = normalizeMap(statusLabelMap);
     }
 
     public boolean isEmpty() {
@@ -61,6 +104,7 @@ public record LookupDisplayDescriptor(
                 && showStatus == null
                 && showBadges == null
                 && showResultCount == null
+                && statusLabelMap.isEmpty()
                 && maxVisibleBadges == null;
     }
 
@@ -90,6 +134,9 @@ public record LookupDisplayDescriptor(
         putIfNotNull(metadata, "showStatus", showStatus);
         putIfNotNull(metadata, "showBadges", showBadges);
         putIfNotNull(metadata, "showResultCount", showResultCount);
+        if (!statusLabelMap.isEmpty()) {
+            metadata.put("statusLabelMap", statusLabelMap);
+        }
         putIfNotNull(metadata, "maxVisibleBadges", maxVisibleBadges);
         return metadata;
     }
@@ -122,5 +169,20 @@ public record LookupDisplayDescriptor(
         return values.stream()
                 .filter(value -> value != null && !value.isEmpty())
                 .toList();
+    }
+
+    private static Map<String, String> normalizeMap(Map<String, String> values) {
+        if (values == null || values.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> normalized = new LinkedHashMap<>();
+        values.forEach((key, value) -> {
+            String normalizedKey = normalize(key);
+            String normalizedValue = normalize(value);
+            if (normalizedKey != null && normalizedValue != null) {
+                normalized.put(normalizedKey, normalizedValue);
+            }
+        });
+        return Map.copyOf(normalized);
     }
 }

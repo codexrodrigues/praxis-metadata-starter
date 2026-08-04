@@ -426,7 +426,11 @@ Contrato minimo recomendado para Entity Lookup:
       "showDescription": true,
       "showStatus": true,
       "showBadges": true,
-      "showResultCount": true
+      "showResultCount": true,
+      "statusLabelMap": {
+        "ACTIVE": "Ativa",
+        "BLOCKED": "Bloqueada"
+      }
     }
   }
 }
@@ -440,6 +444,8 @@ Contrato minimo recomendado para Entity Lookup:
 - use `dependencyFilterMap` quando o nome do campo dependente nao for a chave de filtro esperada pelo executor
 - use `excludeSelfField=true` quando a source nao deve se autofiltrar
 - para `OptionDTO`, mantenha `optionLabelKey=label` e `optionValueKey=id`
+- publique `display.statusLabelMap` quando o estado canônico precisar de rótulo localizado;
+  não traduza nem substitua o código usado por `selectionPolicy`
 - nao use callbacks genericos de campo para recarregar options
 
 ## Troubleshooting e Debugging

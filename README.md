@@ -283,6 +283,10 @@ option sources, stats e export somente sao publicados quando o service declara i
 executavel por `ResourceStructuralCapabilities`. Availability por principal continua sendo
 aplicada depois, em `operations.*.availability`.
 
+Entity Lookups preservam códigos de estado canônicos para seleção e regras de negócio. Quando a
+experiência precisar de rótulos localizados, `display.statusLabelMap` governa somente a
+apresentação, evitando heurísticas de tradução no consumidor.
+
 `filterExpression` permanece uma capability estrutural em `canonicalOperations`: ela nao vira
 `CapabilityOperation` enquanto nao existir um endpoint executavel proprio. Novas chaves de
 `operations` sao aditivas; consumidores devem preservar IDs desconhecidos em vez de validar um

@@ -30,6 +30,10 @@ All notable changes to this module will be documented in this file.
   associada ao controller resource-oriented.
 
 ### Added
+- `display.statusLabelMap` para Entity Lookups: o backend pode publicar rótulos localizados de
+  estados sem substituir os códigos canônicos usados por políticas de seleção, filtros e regras
+  de negócio. O runtime continua recebendo `status` bruto em `OptionDTO.extra` e aplica o mapa
+  apenas na apresentação.
 - Composicao resource-oriented create-only por meio de `AbstractCreateResourceController`,
   `BaseCreateResourceService` e `BaseCreateResourceCommandService`. Recursos podem publicar
   leitura e `POST` sem anunciar ou mapear `PUT`/`DELETE` enquanto essas operacoes permanecem

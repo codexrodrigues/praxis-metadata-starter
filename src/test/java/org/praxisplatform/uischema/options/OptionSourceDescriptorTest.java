@@ -353,6 +353,7 @@ class OptionSourceDescriptorTest {
                                 true,
                                 true,
                                 true,
+                                Map.of("ACTIVE", "Ativa", "BLOCKED", "Bloqueada"),
                                 3
                         ),
                         new LookupFilteringDescriptor(
@@ -435,6 +436,7 @@ class OptionSourceDescriptorTest {
         assertEquals(List.of("documentNumber", "city", "state"), display.get("secondaryPropertyPaths"));
         assertEquals(List.of("status", "city"), display.get("badgePropertyPaths"));
         assertEquals(true, display.get("showAvatar"));
+        assertEquals(Map.of("ACTIVE", "Ativa", "BLOCKED", "Bloqueada"), display.get("statusLabelMap"));
         assertEquals(3, display.get("maxVisibleBadges"));
 
         Map<String, Object> filtering = (Map<String, Object>) metadata.get("filtering");

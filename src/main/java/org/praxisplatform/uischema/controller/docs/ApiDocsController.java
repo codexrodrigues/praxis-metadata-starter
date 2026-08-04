@@ -166,6 +166,7 @@ public class ApiDocsController {
                     "showBadges",
                     "showDisabledReason",
                     "showResultCount",
+                    "statusLabelMap",
                     "statusToneMap",
                     "badgeKeys",
                     "maxVisibleBadges",

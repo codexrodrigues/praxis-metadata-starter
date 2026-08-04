@@ -88,6 +88,7 @@ class OptionSourceSchemaParityTest {
         assertTrue(createProperties.has("openMode"));
 
         assertTrue(displayProperties.has("showDisabledReason"));
+        assertTrue(displayProperties.has("statusLabelMap"));
         assertTrue(displayProperties.has("statusToneMap"));
         assertTrue(displayProperties.has("badgeKeys"));
         assertTrue(displayProperties.has("detailActionLabel"));
