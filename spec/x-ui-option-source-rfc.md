@@ -249,7 +249,11 @@ Exemplo:
       "showDescription": true,
       "showStatus": true,
       "showBadges": true,
-      "showResultCount": true
+      "showResultCount": true,
+      "statusLabelMap": {
+        "ACTIVE": "Ativa",
+        "BLOCKED": "Bloqueada"
+      }
     },
     "filtering": {
       "availableFilters": [

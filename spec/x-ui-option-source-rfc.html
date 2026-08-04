@@ -495,43 +495,47 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="
 <span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;showDescription&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
 <span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;showStatus&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
 <span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;showBadges&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
-<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;showResultCount&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
-<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
-<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;filtering&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;availableFilters&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
-<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;status&quot;</span><span class="fu">,</span></span>
-<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Status&quot;</span><span class="fu">,</span></span>
-<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;enum&quot;</span><span class="fu">,</span></span>
-<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;operators&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;equals&quot;</span><span class="ot">,</span> <span class="st">&quot;in&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;defaultOperator&quot;</span><span class="fu">:</span> <span class="st">&quot;in&quot;</span><span class="fu">,</span></span>
-<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;optionsSource&quot;</span><span class="fu">:</span> <span class="st">&quot;company-status&quot;</span></span>
-<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span><span class="ot">,</span></span>
-<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
-<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;documentNumber&quot;</span><span class="fu">,</span></span>
-<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Documento&quot;</span><span class="fu">,</span></span>
-<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;text&quot;</span><span class="fu">,</span></span>
-<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;operators&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;contains&quot;</span><span class="ot">,</span> <span class="st">&quot;equals&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;defaultOperator&quot;</span><span class="fu">:</span> <span class="st">&quot;contains&quot;</span></span>
-<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
-<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;defaultFilters&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;ACTIVE&quot;</span><span class="ot">]</span></span>
-<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a>      <span class="fu">},</span></span>
-<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;sortOptions&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
-<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
-<span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;legalNameAsc&quot;</span><span class="fu">,</span></span>
-<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;legalName&quot;</span><span class="fu">,</span></span>
-<span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;direction&quot;</span><span class="fu">:</span> <span class="st">&quot;asc&quot;</span><span class="fu">,</span></span>
-<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Nome A-Z&quot;</span></span>
-<span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
-<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;defaultSort&quot;</span><span class="fu">:</span> <span class="st">&quot;legalNameAsc&quot;</span><span class="fu">,</span></span>
-<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;quickFilterFields&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;code&quot;</span><span class="ot">,</span> <span class="st">&quot;legalName&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;searchPlaceholder&quot;</span><span class="fu">:</span> <span class="st">&quot;Buscar empresa por codigo, nome ou documento&quot;</span></span>
-<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb1-90"><a href="#cb1-90" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;showResultCount&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;statusLabelMap&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;ACTIVE&quot;</span><span class="fu">:</span> <span class="st">&quot;Ativa&quot;</span><span class="fu">,</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;BLOCKED&quot;</span><span class="fu">:</span> <span class="st">&quot;Bloqueada&quot;</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;filtering&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;availableFilters&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;status&quot;</span><span class="fu">,</span></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Status&quot;</span><span class="fu">,</span></span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;enum&quot;</span><span class="fu">,</span></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;operators&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;equals&quot;</span><span class="ot">,</span> <span class="st">&quot;in&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;defaultOperator&quot;</span><span class="fu">:</span> <span class="st">&quot;in&quot;</span><span class="fu">,</span></span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;optionsSource&quot;</span><span class="fu">:</span> <span class="st">&quot;company-status&quot;</span></span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;documentNumber&quot;</span><span class="fu">,</span></span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Documento&quot;</span><span class="fu">,</span></span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;text&quot;</span><span class="fu">,</span></span>
+<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;operators&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;contains&quot;</span><span class="ot">,</span> <span class="st">&quot;equals&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;defaultOperator&quot;</span><span class="fu">:</span> <span class="st">&quot;contains&quot;</span></span>
+<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
+<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;defaultFilters&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;ACTIVE&quot;</span><span class="ot">]</span></span>
+<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a>      <span class="fu">},</span></span>
+<span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;sortOptions&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
+<span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;legalNameAsc&quot;</span><span class="fu">,</span></span>
+<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;legalName&quot;</span><span class="fu">,</span></span>
+<span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;direction&quot;</span><span class="fu">:</span> <span class="st">&quot;asc&quot;</span><span class="fu">,</span></span>
+<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Nome A-Z&quot;</span></span>
+<span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
+<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-90"><a href="#cb1-90" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;defaultSort&quot;</span><span class="fu">:</span> <span class="st">&quot;legalNameAsc&quot;</span><span class="fu">,</span></span>
+<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;quickFilterFields&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;code&quot;</span><span class="ot">,</span> <span class="st">&quot;legalName&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-92"><a href="#cb1-92" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;searchPlaceholder&quot;</span><span class="fu">:</span> <span class="st">&quot;Buscar empresa por codigo, nome ou documento&quot;</span></span>
+<span id="cb1-93"><a href="#cb1-93" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb1-94"><a href="#cb1-94" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb1-95"><a href="#cb1-95" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>Request canonico esperado para filtro rico:</p>
 <div class="sourceCode" id="cb2"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
