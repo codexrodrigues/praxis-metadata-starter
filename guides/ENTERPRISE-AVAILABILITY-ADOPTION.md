@@ -52,7 +52,13 @@ O provider recebe `ResourceOperationAvailabilityContext` com:
 - `scope`
 - `resourceId`, quando item-level
 - `resourceState`, quando houver snapshot
-- `metadata` publica do contexto
+- `metadata` publica do contexto, incluindo `preferredMethod`, `preferredRel` e
+  `supported` quando a operacao vier do snapshot canonico
+
+Essas chaves estruturais permitem que o host alinhe availability a classes de
+operacao, como exigir autenticacao para `POST`, `PUT`, `PATCH` e `DELETE`, sem
+inferir comportamento por nome de operacao ou duplicar um catalogo local. Elas
+descrevem a operacao; nao substituem o enforcement do host.
 
 O provider deve encapsular policy privada, motor legado, autorizacao, agenda,
 tenant, sessao ou regra regulatoria. Ele nao deve publicar nomes internos de

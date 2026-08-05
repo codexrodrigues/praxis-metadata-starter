@@ -263,8 +263,15 @@ com:</p>
 <li><code>scope</code></li>
 <li><code>resourceId</code>, quando item-level</li>
 <li><code>resourceState</code>, quando houver snapshot</li>
-<li><code>metadata</code> publica do contexto</li>
+<li><code>metadata</code> publica do contexto, incluindo
+<code>preferredMethod</code>, <code>preferredRel</code> e
+<code>supported</code> quando a operacao vier do snapshot canonico</li>
 </ul>
+<p>Essas chaves estruturais permitem que o host alinhe availability a
+classes de operacao, como exigir autenticacao para <code>POST</code>,
+<code>PUT</code>, <code>PATCH</code> e <code>DELETE</code>, sem inferir
+comportamento por nome de operacao ou duplicar um catalogo local. Elas
+descrevem a operacao; nao substituem o enforcement do host.</p>
 <p>O provider deve encapsular policy privada, motor legado, autorizacao,
 agenda, tenant, sessao ou regra regulatoria. Ele nao deve publicar nomes
 internos de package, SQL, HADES, ROWID, usuario tecnico, locators ou
