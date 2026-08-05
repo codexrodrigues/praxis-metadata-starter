@@ -504,14 +504,18 @@ class CapabilityServiceTest {
 
     @Test
     void resourceOperationAvailabilityProviderEnrichesCanonicalOperations() {
+        List<ResourceOperationAvailabilityContext> evaluated = new ArrayList<>();
         CapabilityService service = new DefaultCapabilityService(
                 new StaticCanonicalCapabilityResolver(Map.of("create", true, "delete", true)),
                 emptySurfaceCatalogService(),
                 emptyActionCatalogService(),
                 new StaticOpenApiDocumentService("human-resources"),
-                context -> "delete".equals(context.operationId())
-                        ? AvailabilityDecision.deny("legacy-denied", Map.of("source", "test-guard"))
-                        : AvailabilityDecision.allowAll(),
+                context -> {
+                    evaluated.add(context);
+                    return "delete".equals(context.operationId())
+                            ? AvailabilityDecision.deny("legacy-denied", Map.of("source", "test-guard"))
+                            : AvailabilityDecision.allowAll();
+                },
                 (resourceKey, resourceId) -> java.util.Optional.of(ResourceStateSnapshot.of("LOCKED"))
         );
 
@@ -521,6 +525,13 @@ class CapabilityServiceTest {
         assertEquals("legacy-denied", snapshot.operations().get("delete").availability().reason());
         assertEquals("test-guard", snapshot.operations().get("delete").availability().metadata().get("source"));
         assertTrue(snapshot.operations().get("edit").availability().allowed());
+        ResourceOperationAvailabilityContext deleteContext = evaluated.stream()
+                .filter(context -> "delete".equals(context.operationId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("DELETE", deleteContext.metadata().get("preferredMethod"));
+        assertEquals("delete", deleteContext.metadata().get("preferredRel"));
+        assertEquals(true, deleteContext.metadata().get("supported"));
     }
 
     @Test

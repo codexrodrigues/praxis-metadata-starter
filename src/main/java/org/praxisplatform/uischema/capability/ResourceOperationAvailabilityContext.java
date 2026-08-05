@@ -7,8 +7,10 @@ import java.util.Map;
  *
  * <p>
  * O contexto carrega apenas semantica publica e host-neutral: recurso, path, operacao,
- * escopo, item opcional e snapshot de estado opcional. Detalhes privados de seguranca,
- * tenant, sessao ou legado devem permanecer encapsulados no provider do host.
+ * escopo, item opcional, snapshot de estado opcional e metadata estrutural da operacao.
+ * Em snapshots canonicos, {@code metadata} inclui {@code preferredMethod},
+ * {@code preferredRel} e {@code supported} quando aplicaveis. Detalhes privados de
+ * seguranca, tenant, sessao ou legado devem permanecer encapsulados no provider do host.
  * </p>
  */
 public record ResourceOperationAvailabilityContext(

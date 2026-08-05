@@ -409,7 +409,7 @@ public class DefaultCapabilityService implements CapabilityService {
                     operation.scope(),
                     itemScoped ? resourceId : null,
                     itemScoped ? stateSnapshot : null,
-                    Map.of()
+                    operationContextMetadata(operation)
             );
             AvailabilityDecision hostDecision = evaluateAvailability(
                     context
@@ -417,6 +417,18 @@ public class DefaultCapabilityService implements CapabilityService {
             resolved.put(id, operation.withAvailability(combineAvailability(operation.availability(), hostDecision)));
         });
         return Map.copyOf(resolved);
+    }
+
+    private Map<String, Object> operationContextMetadata(CapabilityOperation operation) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        if (operation.preferredMethod() != null && !operation.preferredMethod().isBlank()) {
+            metadata.put("preferredMethod", operation.preferredMethod());
+        }
+        if (operation.preferredRel() != null && !operation.preferredRel().isBlank()) {
+            metadata.put("preferredRel", operation.preferredRel());
+        }
+        metadata.put("supported", operation.supported());
+        return Map.copyOf(metadata);
     }
 
     private AvailabilityDecision combineAvailability(
