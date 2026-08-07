@@ -34,3 +34,4 @@ docs/**/*.html
 *~
 .#*
 /target/
+/.codex-worktrees/
