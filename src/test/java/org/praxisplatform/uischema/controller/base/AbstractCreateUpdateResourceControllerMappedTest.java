@@ -2,23 +2,30 @@ package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
+import org.praxisplatform.uischema.concurrency.ResourceVersionUpdatePrecondition;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceCommandService;
 import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceService;
+import org.praxisplatform.uischema.rest.exceptionhandler.GlobalExceptionHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -29,7 +36,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(value = AbstractCreateUpdateResourceControllerMappedTest.PartialController.class)
-@Import(AbstractCreateUpdateResourceControllerMappedTest.PartialController.class)
+@Import({AbstractCreateUpdateResourceControllerMappedTest.PartialController.class,
+        AbstractCreateUpdateResourceControllerMappedTest.VersionTestConfiguration.class,
+        GlobalExceptionHandler.class})
 class AbstractCreateUpdateResourceControllerMappedTest {
 
     @Autowired
@@ -37,6 +46,9 @@ class AbstractCreateUpdateResourceControllerMappedTest {
 
     @MockBean
     PartialService service;
+
+    @Autowired
+    ResourceVersionEtagService resourceVersionEtagService;
 
     @Test
     void createAndUpdateAreMappedWithoutDeleteEndpoints() throws Exception {
@@ -83,6 +95,46 @@ class AbstractCreateUpdateResourceControllerMappedTest {
         assertEquals(List.of("create"), controller.exposeCollectionActionRels());
     }
 
+    @Test
+    void versionedUpdateRequiresAndTransportsIfMatchWithoutControllerPrecheck() throws Exception {
+        when(service.requiresResourceVersionPrecondition()).thenReturn(true);
+        when(service.getResourceVersion(11L)).thenReturn(OptionalLong.of(8L));
+        when(service.update(eq(11L), any(SimpleUpdateDto.class), any(ResourceVersionUpdatePrecondition.class)))
+                .thenAnswer(invocation -> {
+                    ResourceVersionUpdatePrecondition precondition = invocation.getArgument(2);
+                    precondition.requireMatch(11L, 7L);
+                    return new SimpleResponseDto(11L);
+                });
+
+        mockMvc.perform(put("/partial/11")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":11}"))
+                .andExpect(status().isPreconditionRequired());
+
+        mockMvc.perform(put("/partial/11")
+                        .header("If-Match", "invalid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":11}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(put("/partial/11")
+                        .header("If-Match", resourceVersionEtagService.create("test.partial", 11L, 6L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":11}"))
+                .andExpect(status().isPreconditionFailed());
+
+        mockMvc.perform(put("/partial/11")
+                        .header("If-Match", resourceVersionEtagService.create("test.partial", 11L, 7L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":11}"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("ETag", resourceVersionEtagService.create("test.partial", 11L, 8L)))
+                .andExpect(jsonPath("$.data.id").value(11));
+
+        verify(service, times(2)).update(eq(11L), any(SimpleUpdateDto.class), any(ResourceVersionUpdatePrecondition.class));
+        verify(service).getResourceVersion(11L);
+    }
+
     interface PartialService extends BaseCreateUpdateResourceService<
             SimpleResponseDto,
             Long,
@@ -93,6 +145,14 @@ class AbstractCreateUpdateResourceControllerMappedTest {
         @Override
         default Optional<String> getDatasetVersion() {
             return Optional.of("1");
+        }
+    }
+
+    @TestConfiguration
+    static class VersionTestConfiguration {
+        @Bean
+        ResourceVersionEtagService resourceVersionEtagService() {
+            return new ResourceVersionEtagService("mapped-controller-test-secret");
         }
     }
 

@@ -5,12 +5,15 @@ import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
 import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
+import org.praxisplatform.uischema.concurrency.ResourceVersionUpdatePrecondition;
+import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalLong;
 import java.util.Set;
 
 /**
@@ -70,12 +73,58 @@ public abstract class AbstractBaseResourceService<
     @Override
     @Transactional
     public ResponseDTO update(ID id, UpdateDTO dto) {
+        if (requiresResourceVersionPrecondition()) {
+            throw ResourceVersionPreconditionException.required();
+        }
+        return updateManaged(id, dto, null);
+    }
+
+    @Override
+    @Transactional
+    public ResponseDTO update(ID id, UpdateDTO dto, ResourceVersionUpdatePrecondition precondition) {
+        if (!requiresResourceVersionPrecondition()) {
+            return updateManaged(id, dto, null);
+        }
+        if (precondition == null) {
+            throw ResourceVersionPreconditionException.required();
+        }
+        return updateManaged(id, dto, precondition);
+    }
+
+    private ResponseDTO updateManaged(
+            ID id,
+            UpdateDTO dto,
+            ResourceVersionUpdatePrecondition precondition
+    ) {
         E existing = findEntityById(id);
+        if (precondition != null) {
+            OptionalLong version = getManagedResourceVersion(existing);
+            if (version.isEmpty()) {
+                throw new IllegalStateException(
+                        "Versioned resource service must expose the version of the managed update entity."
+                );
+            }
+            precondition.requireMatch(id, version.getAsLong());
+        }
         beforeUpdate(id, existing, dto);
         getResourceMapper().applyUpdate(existing, dto);
         E saved = refreshManaged(getRepository().save(existing));
         afterUpdate(id, saved, dto);
         return getResourceMapper().toResponse(saved);
+    }
+
+    /** Enables the opt-in version-aware update contract for this resource. */
+    @Override
+    public boolean requiresResourceVersionPrecondition() {
+        return false;
+    }
+
+    /**
+     * Returns the persisted version from the managed entity loaded for update. Versioned services
+     * override this together with {@link #requiresResourceVersionPrecondition()}.
+     */
+    protected OptionalLong getManagedResourceVersion(E entity) {
+        return OptionalLong.empty();
     }
 
     @Override

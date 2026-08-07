@@ -79,6 +79,8 @@
   - `capabilities` (mapa boolean com chaves conhecidas: `create`, `update`, `delete`, `options`, `byId`, `all`, `filter`, `cursor`; valores adicionais MAY existir e DEVEM ser boolean)
   - `identity?` declara, somente em schemas de resposta, a identidade estruturada do registro: `keyField?`, `titleField?`, `metadataFields?`, `displayLabelField?` e diagnostico `valid/invalidFields/message`
   - os campos de `identity` referenciam propriedades reais do schema; runtimes MUST NOT inferir esses papeis por nome de propriedade nem decompor `displayLabel`
+  - quando `identity` nao for declarada, runtimes MAY usar o `idField` como identidade minima somente se `idFieldValid=true`; ausencia ou valor nao booleano de `idFieldValid` falha de forma fechada, esse fallback deve ser diagnosticavel e nao autoriza inferir `titleField`
+  - identidade de resposta e contexto somente leitura: o schema de request permanece a unica fonte dos campos editaveis e do payload de comando
 - Chart (x-ui.chart)
   - `version`, `kind`, `preset`, `source`, `orientation`
   - `dimensions`, `metrics`, `aggregations`, `filters`, `sort`, `limit`

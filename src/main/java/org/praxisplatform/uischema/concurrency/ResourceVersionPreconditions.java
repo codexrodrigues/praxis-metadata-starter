@@ -12,6 +12,13 @@ public final class ResourceVersionPreconditions {
             Object resourceId,
             long version
     ) {
+        String candidate = requireSingleStrongTag(ifMatch);
+        if (!etags.matches(candidate, resourceKey, resourceId, version)) {
+            throw ResourceVersionPreconditionException.stale();
+        }
+    }
+
+    public static String requireSingleStrongTag(String ifMatch) {
         if (ifMatch == null || ifMatch.isBlank()) {
             throw ResourceVersionPreconditionException.required();
         }
@@ -19,8 +26,6 @@ public final class ResourceVersionPreconditions {
         if ("*".equals(candidate) || candidate.contains(",") || !candidate.startsWith("\"") || !candidate.endsWith("\"")) {
             throw ResourceVersionPreconditionException.invalid();
         }
-        if (!etags.matches(candidate, resourceKey, resourceId, version)) {
-            throw ResourceVersionPreconditionException.stale();
-        }
+        return candidate;
     }
 }

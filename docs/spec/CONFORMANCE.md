@@ -87,6 +87,8 @@
   - `idField` -> chave primaria no fluxo de CRUD/UI
   - `idFieldValid`/`idFieldMessage` -> diagnostico e alertas
   - `identity` -> somente em schemas de resposta, chave visual, titulo humano, metadados secundarios e fallback textual declarados por `@ApiResource`; todos os campos referenciados devem existir no schema
+  - recursos gravaveis SHOULD declarar `identity` explicita quando houver uma composicao visual de negocio; na ausencia dela, consumidores MAY materializar identidade minima somente quando `idFieldValid=true`, sem inferir titulo por nomes de propriedades; ausencia ou valor nao booleano de `idFieldValid` nao habilita o fallback
+  - schemas de request continuam sendo a unica fonte dos campos do comando; consumidores MUST NOT mesclar propriedades do schema de resposta ou a identidade contextual no payload PUT/PATCH
   - `readOnly` -> bloqueio de edicao
   - `capabilities` -> habilitacao de acoes e utilitarios
 - discovery semantico

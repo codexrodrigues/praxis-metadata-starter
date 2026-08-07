@@ -16,6 +16,7 @@ import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditions;
+import org.praxisplatform.uischema.concurrency.ResourceVersionUpdatePrecondition;
 import org.praxisplatform.uischema.capability.CapabilitySnapshot;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
 import org.praxisplatform.uischema.command.GovernedResourceCommandExecutor;
@@ -79,6 +80,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.util.StringUtils;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -1599,9 +1601,10 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
      */
     protected <T> ResponseEntity<T> withResourceVersion(ResponseEntity.BodyBuilder builder, ID id, T body) {
         if (resourceVersionEtagService != null) {
-            getService().getResourceVersion(id).ifPresent(version -> builder.eTag(
-                    resourceVersionEtagService.create(getResourceKey(), id, version)
-            ));
+            getService().getResourceVersion(id).ifPresent(version -> {
+                builder.eTag(resourceVersionEtagService.create(getResourceKey(), id, version));
+                builder.header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.ETAG);
+            });
         }
         return withVersion(builder, body);
     }
@@ -1623,6 +1626,15 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             );
         }
         ResourceVersionPreconditions.requireMatch(resourceVersionEtagService, ifMatch, getResourceKey(), id, version.getAsLong());
+    }
+
+    protected ResourceVersionUpdatePrecondition requiredUpdatePrecondition(String ifMatch) {
+        if (resourceVersionEtagService == null) {
+            throw new IllegalStateException(
+                    "Resource version ETag support is not configured. Set praxis.resource-version.etag.secret."
+            );
+        }
+        return ResourceVersionUpdatePrecondition.required(resourceVersionEtagService, ifMatch, getResourceKey());
     }
 
     protected <T> ResponseEntity<T> withOptionSourceVersion(

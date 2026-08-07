@@ -18,6 +18,11 @@ All notable changes to this module will be documented in this file.
   `controllerEndpointHandlerMapping`.
 
 ### Added
+- Contrato opt-in de update versionado para o core resource-oriented:
+  `AbstractCreateUpdateResourceController` transporta `If-Match` por
+  `ResourceVersionUpdatePrecondition` ate o command service; recursos
+  versionados validam a versao corrente dentro da transacao antes da mutacao e
+  devolvem o novo ETag. Recursos nao versionados preservam o fluxo anterior.
 - `@AnalyticsPolicyReference` e
   `x-ui.analytics.projections[].governance.policyRefs[]` para publicar identidade
   e versao de policies de dominio, papel, campo de resultado e atestacao

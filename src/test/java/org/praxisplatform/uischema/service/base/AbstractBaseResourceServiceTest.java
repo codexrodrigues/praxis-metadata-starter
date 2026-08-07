@@ -4,6 +4,9 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.Id;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.annotation.OptionLabel;
+import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
+import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
+import org.praxisplatform.uischema.concurrency.ResourceVersionUpdatePrecondition;
 import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
@@ -25,12 +28,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -148,6 +153,34 @@ class AbstractBaseResourceServiceTest {
         assertEquals(9L, response.id());
         assertEquals("After", response.name());
         assertEquals("After", existing.getName());
+    }
+
+    @Test
+    void versionedUpdateChecksManagedVersionBeforeMutation() {
+        BaseCrudRepository<TestEntity, Long> repository = mockRepository();
+        VersionedTestService service = new VersionedTestService(repository);
+        ResourceVersionEtagService etags = new ResourceVersionEtagService("test-resource-version-secret");
+        TestEntity existing = entity(9L, "Before");
+        when(repository.findById(9L)).thenReturn(Optional.of(existing));
+        when(repository.save(existing)).thenReturn(existing);
+
+        assertThrows(ResourceVersionPreconditionException.class,
+                () -> service.update(9L, new TestUpdateDTO("No header")));
+
+        ResourceVersionUpdatePrecondition stale = ResourceVersionUpdatePrecondition.required(
+                etags, etags.create("test.resources", 9L, 6L), "test.resources");
+        assertThrows(ResourceVersionPreconditionException.class,
+                () -> service.update(9L, new TestUpdateDTO("Stale"), stale));
+        assertEquals("Before", existing.getName());
+        verify(repository, never()).save(existing);
+
+        ResourceVersionUpdatePrecondition matching = ResourceVersionUpdatePrecondition.required(
+                etags, etags.create("test.resources", 9L, 7L), "test.resources");
+        TestResponseDTO response = service.update(9L, new TestUpdateDTO("After"), matching);
+
+        assertEquals("After", response.name());
+        assertEquals("After", existing.getName());
+        verify(repository).save(existing);
     }
 
     @Test
@@ -338,7 +371,7 @@ class AbstractBaseResourceServiceTest {
         return entity;
     }
 
-    private static final class TestService extends AbstractBaseResourceService<
+    private static class TestService extends AbstractBaseResourceService<
             TestEntity,
             TestResponseDTO,
             Long,
@@ -372,13 +405,30 @@ class AbstractBaseResourceServiceTest {
                     }
                 };
 
-        private TestService(BaseCrudRepository<TestEntity, Long> repository) {
+        protected TestService(BaseCrudRepository<TestEntity, Long> repository) {
             super(repository, new GenericSpecificationsBuilder<>(), TestEntity.class);
         }
 
         @Override
         protected ResourceMapper<TestEntity, TestResponseDTO, TestCreateDTO, TestUpdateDTO, Long> getResourceMapper() {
             return RESOURCE_MAPPER;
+        }
+    }
+
+    private static final class VersionedTestService extends TestService {
+
+        private VersionedTestService(BaseCrudRepository<TestEntity, Long> repository) {
+            super(repository);
+        }
+
+        @Override
+        public boolean requiresResourceVersionPrecondition() {
+            return true;
+        }
+
+        @Override
+        protected OptionalLong getManagedResourceVersion(TestEntity entity) {
+            return OptionalLong.of(7L);
         }
     }
 

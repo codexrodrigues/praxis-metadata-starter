@@ -2,16 +2,19 @@ package org.praxisplatform.uischema.controller.base;
 
 import io.swagger.v3.oas.annotations.Operation;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.concurrency.ResourceVersionUpdatePrecondition;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceCommandService;
 import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceService;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.Links;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,10 +67,17 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
     @Operation(summary = "Editar item")
     public ResponseEntity<RestApiResponse<ResponseDTO>> update(
             @PathVariable ID id,
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
             @jakarta.validation.Valid @RequestBody UpdateDTO dto
     ) {
         assertItemOperationAvailable("edit", id);
-        ResponseDTO updated = getService().update(id, dto);
+        ResponseDTO updated;
+        if (getService().requiresResourceVersionPrecondition()) {
+            ResourceVersionUpdatePrecondition precondition = requiredUpdatePrecondition(ifMatch);
+            updated = getService().update(id, dto, precondition);
+        } else {
+            updated = getService().update(id, dto);
+        }
 
         List<Link> linkList = new ArrayList<>();
         linkList.add(linkToSelf(id));
@@ -78,7 +88,8 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
         linkList.addAll(buildItemDiscoveryLinks(id));
         linkList.add(linkToUiSchema("/{id}", "put", "request"));
 
-        return withVersion(ResponseEntity.ok(), RestApiResponse.success(updated, hateoasOrNull(Links.of(linkList))));
+        return withResourceVersion(ResponseEntity.ok(), id,
+                RestApiResponse.success(updated, hateoasOrNull(Links.of(linkList))));
     }
 
     @Override

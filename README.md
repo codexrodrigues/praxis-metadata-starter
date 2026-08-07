@@ -393,6 +393,14 @@ update, delete individual e delete em lote. Use esses hooks para validacoes,
 normalizacoes e efeitos de dominio que precisam participar do fluxo transacional
 canonico sem sobrescrever `create`, `update` ou `deleteById` por inteiro.
 
+Updates com versao persistida usam o contrato opt-in de concorrencia. O service
+declara `requiresResourceVersionPrecondition() = true`, extrai a versao da entidade
+gerenciada em `getManagedResourceVersion(...)` e deixa a base validar o `If-Match`
+antes de aplicar o mapper. O controller apenas transporta a precondicao; ele nao
+consulta a versao antes do comando. Missing, malformed e stale retornam,
+respectivamente, `428`, `400` e `412`; a resposta bem-sucedida publica o novo
+`ETag`. Consulte `docs/guides/RESOURCE-VERSIONED-UPDATES.md`.
+
 Para updates com relacionamentos JPA, `AbstractBaseResourceService` tambem oferece
 helpers protegidos para resolver referencias relacionadas por ID (`relatedReference`,
 `relatedReferences`, `relatedReferenceSet`) e substituir colecoes mutaveis
