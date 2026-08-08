@@ -36,6 +36,7 @@ import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentWarmup;
 import org.praxisplatform.uischema.options.OptionSourceEligibility;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationDiagnostics;
@@ -88,6 +89,7 @@ import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationContext;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.web.client.RestTemplate;
@@ -102,6 +104,8 @@ import java.time.ZoneId;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Auto-configuracao principal do modulo de OpenAPI e UI Schema.
@@ -402,6 +406,34 @@ public class OpenApiUiSchemaAutoConfiguration {
             OpenApiDocsSupport openApiDocsSupport
     ) {
         return new CachedOpenApiDocumentService(restTemplate, objectMapper, openApiDocsSupport);
+    }
+
+    /**
+     * Executor isolado para aquecimento opcional dos documentos OpenAPI. O host deve optar por
+     * esse custo de bootstrap quando publica um cockpit ou catálogo de domínio de primeira tela.
+     */
+    @Bean(name = "openApiDocumentWarmupExecutor", destroyMethod = "shutdown")
+    @ConditionalOnMissingBean(name = "openApiDocumentWarmupExecutor")
+    public ExecutorService openApiDocumentWarmupExecutor() {
+        return Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "praxis-openapi-prewarm");
+            thread.setDaemon(true);
+            return thread;
+        });
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OpenApiDocumentWarmup openApiDocumentWarmup(
+            OpenApiDocumentService openApiDocumentService,
+            ObjectProvider<GroupedOpenApi> groupedOpenApis,
+            @Qualifier("openApiDocumentWarmupExecutor") ExecutorService executor,
+            @Value("${praxis.openapi.prewarm.enabled:false}") boolean enabled) {
+        return new OpenApiDocumentWarmup(
+                openApiDocumentService,
+                groupedOpenApis.orderedStream().toList(),
+                executor,
+                enabled);
     }
 
     /**

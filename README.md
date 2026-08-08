@@ -704,6 +704,14 @@ acesso de `FilterDTO`, `includeIds`, aliases, palavras-chave ou outro payload co
 
 ## Internal OpenAPI Base Resolution
 
+### Optional OpenAPI document prewarm
+
+Hosts that present a semantic catalog or cockpit on their first screen can enable
+`praxis.openapi.prewarm.enabled=true`. After `ApplicationReadyEvent`, the starter warms the
+published OpenAPI groups on a dedicated thread. Startup and HTTP routes stay available during the
+work, and failure for one group is logged without blocking the remaining groups. The default is
+`false`, so hosts that do not need this behaviour do not assume extra bootstrap work.
+
 Os endpoints internos que consultam o SpringDoc, como `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces` e `/schemas/actions`, resolvem a base do OpenAPI nesta ordem:
 
 1. `app.openapi.internal-base-url`
