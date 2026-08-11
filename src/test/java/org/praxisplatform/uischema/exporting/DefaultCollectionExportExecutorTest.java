@@ -410,6 +410,30 @@ class DefaultCollectionExportExecutorTest {
     }
 
     @Test
+    void rejectsClientAttemptToEnableCanonicalNonExportableField() {
+        List<CollectionExportField> fields = List.of(
+                new CollectionExportField("name", "Name", true, true, "string", "name"),
+                new CollectionExportField("amount", "Amount", true, false, "number", "amount")
+        );
+        CollectionExportRequest<?> request = new CollectionExportRequest<>(
+                "table", "orders", "/api/orders", CollectionExportFormat.CSV, CollectionExportScope.ALL,
+                null,
+                List.of(new CollectionExportField("amount", "Amount", true, true, "number", "amount")),
+                null, null, null, Map.of(), true, false, null, "orders.csv", Map.of()
+        );
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> executor.export(
+                request,
+                List.of(new Row(1, "Ana", new BigDecimal("123.45"))),
+                fields,
+                this::valueFor,
+                Map.of()
+        ));
+
+        assertEquals("One or more requested export fields are not supported by this resource.", error.getMessage());
+    }
+
+    @Test
     void exportsExcelWithGovernedFormattingSheetOptionsAndFormulaInjectionGuard() throws Exception {
         CollectionExportRequest<?> request = new CollectionExportRequest<>(
                 "table",
