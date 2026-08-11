@@ -58,6 +58,9 @@ public class DefaultCollectionExportExecutor implements CollectionExportExecutor
 
         Map<String, CollectionExportField> defaultsByKey = new LinkedHashMap<>();
         for (CollectionExportField field : defaults) {
+            if (field == null || field.exportable() == Boolean.FALSE) {
+                continue;
+            }
             putIfPresent(defaultsByKey, field.key(), field);
             putIfPresent(defaultsByKey, field.valuePath(), field);
         }
@@ -90,7 +93,7 @@ public class DefaultCollectionExportExecutor implements CollectionExportExecutor
                 canonical.key(),
                 requested.label() == null || requested.label().isBlank() ? canonical.label() : requested.label(),
                 requested.visible(),
-                requested.exportable(),
+                canonical.exportable(),
                 canonical.type(),
                 canonical.valuePath(),
                 canonical.format(),
