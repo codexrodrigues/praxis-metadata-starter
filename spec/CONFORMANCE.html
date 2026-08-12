@@ -376,6 +376,19 @@ do provider sem publicar bindings privados</li>
 <ul>
 <li>cascata de opcoes deve ser publicada como
 <code>x-ui.optionSource.dependsOn</code>, nao como callback local</li>
+<li>calculos locais deterministas devem permanecer em
+<code>formRules</code>; consultas remotas que enriquecem o formulario
+devem ser publicadas como <code>x-ui.formEffects</code> e apontar para
+uma operacao real marcada com <code>@FormDetermination</code></li>
+<li><code>x-ui.formEffects</code> pertence a operacao de request,
+referencia somente <code>operationId</code> no codigo-fonte e publica
+path/metodo/schemas resolvidos pela operacao OpenAPI canonica</li>
+<li>determinacoes de formulario devem ser <code>POST</code>, tipadas,
+idempotentes para a mesma entrada e nao podem ser simultaneamente
+<code>@WorkflowAction</code> ou <code>@UiSurface</code></li>
+<li>bindings de entrada e saida devem referenciar campos existentes;
+metadata invalida deve falhar antes da publicacao, sem efeito
+parcial</li>
 <li>mudanca que executa comando de negocio deve ser publicada como
 endpoint real e <code>@WorkflowAction</code></li>
 <li>consumidores nao devem inferir roteamento de evento por nome, label,

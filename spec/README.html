@@ -183,6 +183,8 @@ valide localmente contra os JSON Schemas desta pasta.</li>
 <code>x-ui-field.schema.json</code></li>
 <li>x-ui em nivel de operacao (por path+operation do OpenAPI):
 <code>x-ui-operation.schema.json</code></li>
+<li>x-ui.formEffects em nivel de operacao:
+<code>x-ui-form-effects.schema.json</code></li>
 <li>x-ui.resource no payload final consumido pela UI
 (<code>/schemas/filtered</code>):
 <code>x-ui-resource.schema.json</code></li>
@@ -358,7 +360,10 @@ namespace</li>
 (string[]), <code>filterFields</code> (string[]),
 <code>responseSchema</code> (string),
 <code>relatedEntitiesEndpoints</code> (string[]),
-<code>analytics</code></li>
+<code>analytics</code>, <code>formEffects</code></li>
+<li><code>formEffects[]</code> liga mudanças de campos a operações POST
+<code>@FormDetermination</code> tipadas; veja
+<code>docs/guides/FORM-EFFECTS.md</code></li>
 </ul></li>
 <li>Analytics (x-ui.analytics)
 <ul>

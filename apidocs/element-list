@@ -24,6 +24,7 @@ org.praxisplatform.uischema.filter.range
 org.praxisplatform.uischema.filter.relativeperiod
 org.praxisplatform.uischema.filter.specification
 org.praxisplatform.uischema.filter.web
+org.praxisplatform.uischema.formeffect
 org.praxisplatform.uischema.hash
 org.praxisplatform.uischema.http
 org.praxisplatform.uischema.id
