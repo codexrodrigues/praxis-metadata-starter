@@ -38,6 +38,7 @@ Use estes entry points primeiro:
 - Guide 02 - Canonical resource backend: [docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md)
 - Semantic metadata authoring: [docs/guides/SEMANTIC-METADATA-AUTHORING.md](docs/guides/SEMANTIC-METADATA-AUTHORING.md)
 - Options and option-sources: [docs/guides/OPTIONS-ENDPOINT.md](docs/guides/OPTIONS-ENDPOINT.md)
+- Reactive form determinations: [docs/guides/FORM-EFFECTS.md](docs/guides/FORM-EFFECTS.md)
 - Guide 04 - When to use resource, surface, action, capability: [docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
 - GitHub Pages site: [https://codexrodrigues.github.io/praxis-metadata-starter/](https://codexrodrigues.github.io/praxis-metadata-starter/)
 - Public Javadoc: [https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
@@ -74,6 +75,7 @@ Ela entrega:
 - `x-ui.resource.readOnly`
 - `x-ui.resource.capabilities`
 - metadata de operacao
+- `x-ui.formEffects` para determinações tipadas e não persistentes disparadas por mudança de valor
 - `ETag` e `X-Schema-Hash`
 
 ### Documentary contract

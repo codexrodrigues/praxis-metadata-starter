@@ -36,6 +36,9 @@
     },
     "analytics": {
       "$ref": "x-ui-analytics.schema.json"
+    },
+    "formEffects": {
+      "$ref": "x-ui-form-effects.schema.json"
     }
   },
   "$defs": {
