@@ -88,6 +88,10 @@
   - `filtering.searchStrategies` -> intencoes de busca publicas; `inputFormat=digits` valida codigo numerico antes do provider sem publicar bindings privados
 - interacoes de campo
   - cascata de opcoes deve ser publicada como `x-ui.optionSource.dependsOn`, nao como callback local
+  - calculos locais deterministas devem permanecer em `formRules`; consultas remotas que enriquecem o formulario devem ser publicadas como `x-ui.formEffects` e apontar para uma operacao real marcada com `@FormDetermination`
+  - `x-ui.formEffects` pertence a operacao de request, referencia somente `operationId` no codigo-fonte e publica path/metodo/schemas resolvidos pela operacao OpenAPI canonica
+  - determinacoes de formulario devem ser `POST`, tipadas, idempotentes para a mesma entrada e nao podem ser simultaneamente `@WorkflowAction` ou `@UiSurface`
+  - bindings de entrada e saida devem referenciar campos existentes; metadata invalida deve falhar antes da publicacao, sem efeito parcial
   - mudanca que executa comando de negocio deve ser publicada como endpoint real e `@WorkflowAction`
   - consumidores nao devem inferir roteamento de evento por nome, label, sufixo ou heuristica textual
 - x-ui.resource

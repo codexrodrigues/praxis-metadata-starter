@@ -14,6 +14,7 @@ import org.praxisplatform.uischema.capability.ResourceStateSnapshotProvider;
 import org.praxisplatform.uischema.capability.ResourceStructuralCapabilityResolver;
 import org.praxisplatform.uischema.analytics.UiAnalyticsAnnotationMapper;
 import org.praxisplatform.uischema.analytics.UiAnalyticsOpenApiCustomizer;
+import org.praxisplatform.uischema.formeffect.FormEffectOpenApiCustomizer;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
 import org.praxisplatform.uischema.controller.docs.ActionCatalogController;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
@@ -171,6 +172,21 @@ public class OpenApiUiSchemaAutoConfiguration {
                 requestMappingHandlerMapping,
                 canonicalOperationResolver,
                 uiAnalyticsAnnotationMapper
+        );
+    }
+
+    @Bean
+    @ConditionalOnBean(RequestMappingHandlerMapping.class)
+    @ConditionalOnMissingBean(name = "formEffectOpenApiCustomizer")
+    public GlobalOpenApiCustomizer formEffectOpenApiCustomizer(
+            RequestMappingHandlerMapping requestMappingHandlerMapping,
+            CanonicalOperationResolver canonicalOperationResolver,
+            SchemaReferenceResolver schemaReferenceResolver
+    ) {
+        return new FormEffectOpenApiCustomizer(
+                requestMappingHandlerMapping,
+                canonicalOperationResolver,
+                schemaReferenceResolver
         );
     }
 

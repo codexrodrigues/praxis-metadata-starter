@@ -9,6 +9,7 @@
 
 - x-ui de campo (por propriedade OpenAPI): `x-ui-field.schema.json`
 - x-ui em nivel de operacao (por path+operation do OpenAPI): `x-ui-operation.schema.json`
+- x-ui.formEffects em nivel de operacao: `x-ui-form-effects.schema.json`
 - x-ui.resource no payload final consumido pela UI (`/schemas/filtered`): `x-ui-resource.schema.json`
 - x-ui.analytics como draft validavel: `x-ui-analytics.schema.json`
 - x-ui.chart como draft validavel: `x-ui-chart.schema.json`
@@ -68,7 +69,8 @@
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`
   - Validacao agrupada: bloco `validation{}` com chaves basicas quando o produtor optar por agrupar regras no mesmo namespace
 - Operacao (x-ui por operacao)
-  - `displayColumns` (string[]), `displayFields` (string[]), `filterFields` (string[]), `responseSchema` (string), `relatedEntitiesEndpoints` (string[]), `analytics`
+  - `displayColumns` (string[]), `displayFields` (string[]), `filterFields` (string[]), `responseSchema` (string), `relatedEntitiesEndpoints` (string[]), `analytics`, `formEffects`
+  - `formEffects[]` liga mudanças de campos a operações POST `@FormDetermination` tipadas; veja `docs/guides/FORM-EFFECTS.md`
 - Analytics (x-ui.analytics)
   - `projections[]`
   - cada projection define `id`, `intent`, `source`, `bindings`, `defaults`, `presentationHints` e `interactions`
