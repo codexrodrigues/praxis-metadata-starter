@@ -370,7 +370,7 @@ public final class FormEffectOpenApiCustomizer implements GlobalOpenApiCustomize
         Schema<?> resolvedSource = resolveSchema(source, components, new HashSet<>());
         Schema<?> resolvedTarget = resolveSchema(target, components, new HashSet<>());
         if (resolvedSource == null || resolvedTarget == null) {
-            return true;
+            return false;
         }
         String sourceType = resolvedSource.getType();
         String targetType = resolvedTarget.getType();
