@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
+import org.praxisplatform.uischema.determination.ReactiveDeterminationMetadataCompiler;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
@@ -77,6 +78,8 @@ public class ApiDocsController {
     private static final String REF = "$ref";
     private static final String ITEMS = "items";
     private static final String OPERATION_EXAMPLES = "operationExamples";
+    private static final String REACTIVE_DETERMINATIONS = "reactiveDeterminations";
+    private static final String LEGACY_FORM_EFFECTS = "formEffects";
     private static final Set<String> DOCUMENTATION_X_UI_KEYS = Set.of(OPERATION_EXAMPLES);
     private static final Set<String> OPTION_SOURCE_PUBLIC_KEYS = Set.of(
             "key",
@@ -267,6 +270,9 @@ public class ApiDocsController {
     @Autowired
     private ObjectProvider<OptionSourceRegistry> optionSourceRegistryProvider;
 
+    @Autowired(required = false)
+    private ReactiveDeterminationMetadataCompiler reactiveDeterminationMetadataCompiler;
+
     /**
      * Resolve e devolve o fragmento estrutural de schema para uma operacao OpenAPI concreta.
      *
@@ -409,6 +415,10 @@ public class ApiDocsController {
         if (xUiMap == null) {
             xUiMap = new java.util.HashMap<>();
         }
+        // A operacao OpenAPI nao e uma superficie autoravel para callbacks, raw paths ou uma
+        // segunda copia do contrato. Apenas o compiler canonico pode publicar determinacoes.
+        xUiMap.remove(LEGACY_FORM_EFFECTS);
+        xUiMap.remove(REACTIVE_DETERMINATIONS);
         Map<String, Object> operationExamples = resolveOperationExamples(pathsNode, xUiMap, schemaType);
         if (!operationExamples.isEmpty()) {
             xUiMap.put(OPERATION_EXAMPLES, operationExamples);
@@ -469,6 +479,24 @@ public class ApiDocsController {
         enrichArrayItemSchemasInline(schemaMap, allSchemas);
         enrichReferencedComponentSchemas(schemaMap, allSchemas);
         propagateArrayEnumOptionsRecursive(schemaMap, allSchemas);
+        if (reactiveDeterminationMetadataCompiler != null) {
+            String schemaOperationId = pathsNode.path("operationId").asText(null);
+            CanonicalOperationRef exactSchemaOperation = new CanonicalOperationRef(
+                    operationRef.group(),
+                    schemaOperationId,
+                    canonicalPath,
+                    operationRef.method()
+            );
+            List<Map<String, Object>> determinations = reactiveDeterminationMetadataCompiler.compile(
+                    exactSchemaOperation,
+                    schemaType,
+                    rootNode,
+                    schemaNodeForResponse
+            );
+            if (!determinations.isEmpty()) {
+                xUiMap.put(REACTIVE_DETERMINATIONS, determinations);
+            }
+        }
         schemaMap.put(X_UI, xUiMap);
 
         // 4) Canonicalize and hash the final payload (com cache por schemaId)

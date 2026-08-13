@@ -29,6 +29,9 @@
 
 - Core (minimo obrigatorio)
   - x-ui por campo segue o schema e utiliza chaves canonicas para tipo, controle e validacoes basicas
+  - `x-ui.reactiveDeterminations`, quando presente, e publicado somente no request schema exato,
+    referencia uma capability POST resolvida por operationId e nao contem raw path autoravel,
+    contexto de tenant, regra, valores ou payload executavel
   - x-ui.resource presente no payload de `/schemas/filtered` contendo `idField`, `idFieldValid`, `readOnly`, `capabilities`
   - `/schemas/domain` publica vocabulario, bindings, aliases, evidencias e governanca como superficie semantica derivada, sem substituir `/schemas/filtered`
   - `/schemas/surfaces` e `/schemas/actions` publicam apenas discovery semantico e links para schemas canonicos resolviveis via `/schemas/filtered`
@@ -69,6 +72,8 @@
 - x-ui por operacao
   - `displayColumns` -> padrao de colunas iniciais
   - `operationExamples.<schemaType>` -> exemplos operacionais para catalogo, playgrounds e documentacao contextual
+  - `reactiveDeterminations` -> bindings estruturais compilados; o runtime executa apenas a
+    capability resolvida e o backend repete a validacao autoritativa no submit
 - x-ui.chart
 - `version`, `kind`, `source` -> identidade minima do contrato analitico metadata-driven
 - `dimensions`, `metrics`, `aggregations`, `filters`, `sort` -> semantica analitica canonica

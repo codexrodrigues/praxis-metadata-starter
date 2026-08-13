@@ -9,6 +9,7 @@
 
 - x-ui de campo (por propriedade OpenAPI): `x-ui-field.schema.json`
 - x-ui em nivel de operacao (por path+operation do OpenAPI): `x-ui-operation.schema.json`
+- determinacoes backend reativas em formularios: `reactive-determinations.md`
 - x-ui.resource no payload final consumido pela UI (`/schemas/filtered`): `x-ui-resource.schema.json`
 - x-ui.analytics como draft validavel: `x-ui-analytics.schema.json`
 - x-ui.chart como draft validavel: `x-ui-chart.schema.json`
@@ -167,6 +168,7 @@
 
 - `x-ui-field.schema.json` - valida x-ui de campo
 - `x-ui-operation.schema.json` - valida x-ui por operacao
+- `reactive-determinations.md` - define o SPI, a projecao fechada e a fronteira tenant-neutral de `x-ui.reactiveDeterminations`
 - `x-ui-resource.schema.json` - valida x-ui.resource no payload final
 - `x-ui-analytics.schema.json` - valida o draft inicial de `x-ui.analytics`
 - `x-ui-chart.schema.json` - valida o draft inicial de `x-ui.chart`

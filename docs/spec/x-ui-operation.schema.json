@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://praxis.dev/spec/x-ui-operation.schema.json",
-  "title": "x-ui (Operation) — 1.0.0",
+  "title": "x-ui (Operation) — 1.1.0",
   "type": "object",
   "additionalProperties": false,
   "patternProperties": {
@@ -36,9 +36,121 @@
     },
     "analytics": {
       "$ref": "x-ui-analytics.schema.json"
+    },
+    "reactiveDeterminations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/reactiveDetermination" },
+      "minItems": 1,
+      "uniqueItems": true
     }
   },
   "$defs": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "fieldPointer": {
+      "type": "string",
+      "pattern": "^/(?!/)(?:[^/~]|~[01])+(?:/(?:[^/~]|~[01])+)*$"
+    },
+    "reactiveDetermination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trigger", "scope", "capability", "inputs", "outputs", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "trigger": { "$ref": "#/$defs/reactiveDeterminationTrigger" },
+        "scope": { "$ref": "#/$defs/reactiveDeterminationScope" },
+        "capability": { "$ref": "#/$defs/reactiveDeterminationCapability" },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reactiveDeterminationInput" },
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reactiveDeterminationOutput" },
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "provenance": { "$ref": "#/$defs/reactiveDeterminationProvenance" }
+      }
+    },
+    "reactiveDeterminationTrigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "sourcePaths"],
+      "properties": {
+        "mode": { "const": "on-change" },
+        "sourcePaths": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fieldPointer" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "reactiveDeterminationScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaOperationId", "formMode"],
+      "properties": {
+        "schemaOperationId": { "$ref": "#/$defs/stableId" },
+        "formMode": { "enum": ["create", "edit"] }
+      }
+    },
+    "reactiveDeterminationCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationId", "method", "href", "requestSchemaUrl", "responseSchemaUrl"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/stableId" },
+        "method": { "const": "POST" },
+        "href": {
+          "type": "string",
+          "pattern": "^/(?!/)(?!.*\\\\)(?!.*[{}])[^?#]*$"
+        },
+        "requestSchemaUrl": {
+          "type": "string",
+          "pattern": "^/schemas/filtered\\?"
+        },
+        "responseSchemaUrl": {
+          "type": "string",
+          "pattern": "^/schemas/filtered\\?"
+        }
+      }
+    },
+    "reactiveDeterminationInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fieldPath", "requestPath"],
+      "properties": {
+        "fieldPath": { "$ref": "#/$defs/fieldPointer" },
+        "requestPath": { "$ref": "#/$defs/fieldPointer" }
+      }
+    },
+    "reactiveDeterminationOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["responsePath", "fieldPath"],
+      "properties": {
+        "responsePath": { "$ref": "#/$defs/fieldPointer" },
+        "fieldPath": { "$ref": "#/$defs/fieldPointer" }
+      }
+    },
+    "reactiveDeterminationProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source"],
+      "properties": {
+        "kind": { "enum": ["platform", "host"] },
+        "source": { "$ref": "#/$defs/stableId" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
     "exampleCollection": {
       "type": "object",
       "additionalProperties": {

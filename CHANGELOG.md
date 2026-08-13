@@ -30,6 +30,11 @@ All notable changes to this module will be documented in this file.
   associada ao controller resource-oriented.
 
 ### Added
+- SPI tenant-neutral `ReactiveDeterminationDefinitionProvider` e projecao fechada
+  `x-ui.reactiveDeterminations` em request schemas exatos de `/schemas/filtered`. O starter resolve
+  a capability POST por `operationId`, deriva href e schema URLs e falha fechado para bindings
+  inexistentes, ids duplicados, writers sobrepostos, ciclos ou tentativa de raw path; regras,
+  facts e decisoes aplicadas por tenant permanecem no backend/Config e fora do cache publico.
 - `display.statusLabelMap` para Entity Lookups: o backend pode publicar rótulos localizados de
   estados sem substituir os códigos canônicos usados por políticas de seleção, filtros e regras
   de negócio. O runtime continua recebendo `status` bruto em `OptionDTO.extra` e aplica o mapa

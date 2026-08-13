@@ -20,6 +20,10 @@ import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
 import org.praxisplatform.uischema.controller.docs.SemanticDomainCatalogController;
 import org.praxisplatform.uischema.controller.docs.SurfaceCatalogController;
 import org.praxisplatform.uischema.domain.SemanticDomainCatalogService;
+import org.praxisplatform.uischema.determination.DefaultReactiveDeterminationDefinitionRegistry;
+import org.praxisplatform.uischema.determination.ReactiveDeterminationDefinitionProvider;
+import org.praxisplatform.uischema.determination.ReactiveDeterminationDefinitionRegistry;
+import org.praxisplatform.uischema.determination.ReactiveDeterminationMetadataCompiler;
 import org.praxisplatform.uischema.exporting.CollectionExportEngine;
 import org.praxisplatform.uischema.exporting.CollectionExportExecutor;
 import org.praxisplatform.uischema.exporting.CsvCollectionExportEngine;
@@ -456,6 +460,37 @@ public class OpenApiUiSchemaAutoConfiguration {
     @ConditionalOnMissingBean
     public SchemaReferenceResolver schemaReferenceResolver() {
         return new FilteredSchemaReferenceResolver();
+    }
+
+    /**
+     * Captura uma unica vez os bindings estruturais declarados pelos providers do host.
+     *
+     * <p>O snapshot de bootstrap e intencional: {@code /schemas/filtered} permanece independente
+     * de request, principal e tenant, preservando sua identidade estrutural e seu cache publico.</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public ReactiveDeterminationDefinitionRegistry reactiveDeterminationDefinitionRegistry(
+            ObjectProvider<ReactiveDeterminationDefinitionProvider> providers
+    ) {
+        return new DefaultReactiveDeterminationDefinitionRegistry(providers.orderedStream().toList());
+    }
+
+    /** Compila bindings estruturais contra operacoes e schemas OpenAPI canonicos. */
+    @Bean
+    @ConditionalOnMissingBean
+    public ReactiveDeterminationMetadataCompiler reactiveDeterminationMetadataCompiler(
+            ReactiveDeterminationDefinitionRegistry registry,
+            CanonicalOperationResolver canonicalOperationResolver,
+            SchemaReferenceResolver schemaReferenceResolver,
+            OpenApiDocumentService openApiDocumentService
+    ) {
+        return new ReactiveDeterminationMetadataCompiler(
+                registry,
+                canonicalOperationResolver,
+                schemaReferenceResolver,
+                openApiDocumentService
+        );
     }
 
     @Bean

