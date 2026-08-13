@@ -93,6 +93,10 @@
   - `filtering.searchStrategies` -> intencoes de busca publicas; `inputFormat=digits` valida codigo numerico antes do provider sem publicar bindings privados
 - interacoes de campo
   - cascata de opcoes deve ser publicada como `x-ui.optionSource.dependsOn`, nao como callback local
+  - calculos locais deterministas permanecem em `formRules`; determinacoes backend autoritativas usam `x-ui.reactiveDeterminations`
+  - `x-ui.reactiveDeterminations` pertence somente a operacoes de request e publica bindings estruturais tenant-neutral; regras e materializacoes aplicadas permanecem no backend/Config
+  - capabilities de determinacao devem ser `POST`, tipadas e idempotentes para a mesma entrada
+  - bindings de entrada e saida devem referenciar campos existentes; metadata invalida deve falhar antes da publicacao, sem efeito parcial
   - mudanca que executa comando de negocio deve ser publicada como endpoint real e `@WorkflowAction`
   - consumidores nao devem inferir roteamento de evento por nome, label, sufixo ou heuristica textual
 - x-ui.resource

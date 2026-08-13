@@ -69,7 +69,8 @@
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`
   - Validacao agrupada: bloco `validation{}` com chaves basicas quando o produtor optar por agrupar regras no mesmo namespace
 - Operacao (x-ui por operacao)
-  - `displayColumns` (string[]), `displayFields` (string[]), `filterFields` (string[]), `responseSchema` (string), `relatedEntitiesEndpoints` (string[]), `analytics`
+  - `displayColumns` (string[]), `displayFields` (string[]), `filterFields` (string[]), `responseSchema` (string), `relatedEntitiesEndpoints` (string[]), `analytics`, `reactiveDeterminations`
+  - `reactiveDeterminations[]` publica somente bindings estruturais tenant-neutral para capabilities POST resolvidas pelo OpenAPI canônico
 - Analytics (x-ui.analytics)
   - `projections[]`
   - cada projection define `id`, `intent`, `source`, `bindings`, `defaults`, `presentationHints` e `interactions`
