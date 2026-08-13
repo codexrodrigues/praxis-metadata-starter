@@ -267,8 +267,16 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 values win. <code>if-empty</code> only fills an empty target.
 <code>replace</code> is restricted to targets published as read-only.
 The runtime applies all available response bindings atomically, cancels
-stale requests with latest-wins semantics and emits diagnostics without
-field values.</p>
+stale requests with latest-wins semantics, coordinates pending
+determinations with submit and emits diagnostics without field values.
+Schema bindings fail closed at startup when either side cannot be
+resolved or proved compatible.</p>
+<p>Runtime diagnostics use <code>pending</code>, <code>success</code>,
+<code>skipped</code> and <code>error</code>. Successful events may
+distinguish configured targets from fields actually applied or preserved
+by write policy, without publishing their values. Hosts should surface
+pending and failure states and must not persist a draft while its latest
+determination is still pending.</p>
 <p>Guardrails:</p>
 <ul>
 <li>only <code>value-change</code> and POST determinations are
@@ -284,6 +292,14 @@ consumer-authored URLs are accepted;</li>
 <li>authorization, tenant scope and data minimization remain backend
 responsibilities.</li>
 </ul>
+<p>Corporate boundary: form effects enrich a draft; they are not a
+governed decision ledger. Fiscal classification, pricing, eligibility,
+approval or other consequential decisions that require versioned policy,
+evidence, explainability, replay or transactional authorization must
+remain owned by the domain/rules/workflow boundary. A form effect may
+present a non-persisting preview of such a decision only when the
+backend operation preserves that authority and the final command
+revalidates it.</p>
 <p>For a select whose options depend on another field, continue using
 <code>optionSource.dependsOn</code>. For a persisted business
 transition, use <code>@WorkflowAction</code>. A form effect is

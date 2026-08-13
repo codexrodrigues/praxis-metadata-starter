@@ -24,7 +24,9 @@ public ResponseEntity<?> create(@Valid @RequestBody CreateAddressDTO command) { 
 public ResponseEntity<?> determine(@Valid @RequestBody PostalAddressRequest request) { /* ... */ }
 ```
 
-The default output policy is `if-pristine`: user-edited values win. `if-empty` only fills an empty target. `replace` is restricted to targets published as read-only. The runtime applies all available response bindings atomically, cancels stale requests with latest-wins semantics and emits diagnostics without field values.
+The default output policy is `if-pristine`: user-edited values win. `if-empty` only fills an empty target. `replace` is restricted to targets published as read-only. The runtime applies all available response bindings atomically, cancels stale requests with latest-wins semantics, coordinates pending determinations with submit and emits diagnostics without field values. Schema bindings fail closed at startup when either side cannot be resolved or proved compatible.
+
+Runtime diagnostics use `pending`, `success`, `skipped` and `error`. Successful events may distinguish configured targets from fields actually applied or preserved by write policy, without publishing their values. Hosts should surface pending and failure states and must not persist a draft while its latest determination is still pending.
 
 Guardrails:
 
@@ -35,5 +37,7 @@ Guardrails:
 - no scripts, expressions, arbitrary headers, arbitrary methods or consumer-authored URLs are accepted;
 - determinations do not run during initial form hydration;
 - authorization, tenant scope and data minimization remain backend responsibilities.
+
+Corporate boundary: form effects enrich a draft; they are not a governed decision ledger. Fiscal classification, pricing, eligibility, approval or other consequential decisions that require versioned policy, evidence, explainability, replay or transactional authorization must remain owned by the domain/rules/workflow boundary. A form effect may present a non-persisting preview of such a decision only when the backend operation preserves that authority and the final command revalidates it.
 
 For a select whose options depend on another field, continue using `optionSource.dependsOn`. For a persisted business transition, use `@WorkflowAction`. A form effect is specifically a non-persisting, typed determination whose result enriches the current form draft.
