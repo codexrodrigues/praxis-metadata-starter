@@ -183,8 +183,8 @@ valide localmente contra os JSON Schemas desta pasta.</li>
 <code>x-ui-field.schema.json</code></li>
 <li>x-ui em nivel de operacao (por path+operation do OpenAPI):
 <code>x-ui-operation.schema.json</code></li>
-<li>x-ui.formEffects em nivel de operacao:
-<code>x-ui-form-effects.schema.json</code></li>
+<li>determinacoes backend reativas em formularios:
+<code>reactive-determinations.md</code></li>
 <li>x-ui.resource no payload final consumido pela UI
 (<code>/schemas/filtered</code>):
 <code>x-ui-resource.schema.json</code></li>
@@ -360,10 +360,10 @@ namespace</li>
 (string[]), <code>filterFields</code> (string[]),
 <code>responseSchema</code> (string),
 <code>relatedEntitiesEndpoints</code> (string[]),
-<code>analytics</code>, <code>formEffects</code></li>
-<li><code>formEffects[]</code> liga mudanças de campos a operações POST
-<code>@FormDetermination</code> tipadas; veja
-<code>docs/guides/FORM-EFFECTS.md</code></li>
+<code>analytics</code>, <code>reactiveDeterminations</code></li>
+<li><code>reactiveDeterminations[]</code> publica somente bindings
+estruturais tenant-neutral para capabilities POST resolvidas pelo
+OpenAPI canônico</li>
 </ul></li>
 <li>Analytics (x-ui.analytics)
 <ul>
@@ -585,6 +585,9 @@ especificacao</h2>
 <li><code>x-ui-field.schema.json</code> - valida x-ui de campo</li>
 <li><code>x-ui-operation.schema.json</code> - valida x-ui por
 operacao</li>
+<li><code>reactive-determinations.md</code> - define o SPI, a projecao
+fechada e a fronteira tenant-neutral de
+<code>x-ui.reactiveDeterminations</code></li>
 <li><code>x-ui-resource.schema.json</code> - valida x-ui.resource no
 payload final</li>
 <li><code>x-ui-analytics.schema.json</code> - valida o draft inicial de

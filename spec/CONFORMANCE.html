@@ -219,6 +219,10 @@ CLI)</h2>
 <ul>
 <li>x-ui por campo segue o schema e utiliza chaves canonicas para tipo,
 controle e validacoes basicas</li>
+<li><code>x-ui.reactiveDeterminations</code>, quando presente, e
+publicado somente no request schema exato, referencia uma capability
+POST resolvida por operationId e nao contem raw path autoravel, contexto
+de tenant, regra, valores ou payload executavel</li>
 <li>x-ui.resource presente no payload de <code>/schemas/filtered</code>
 contendo <code>idField</code>, <code>idFieldValid</code>,
 <code>readOnly</code>, <code>capabilities</code></li>
@@ -326,6 +330,9 @@ pode virar renderer de coluna sem alterar o valor bruto da linha</li>
 <li><code>displayColumns</code> -&gt; padrao de colunas iniciais</li>
 <li><code>operationExamples.&lt;schemaType&gt;</code> -&gt; exemplos
 operacionais para catalogo, playgrounds e documentacao contextual</li>
+<li><code>reactiveDeterminations</code> -&gt; bindings estruturais
+compilados; o runtime executa apenas a capability resolvida e o backend
+repete a validacao autoritativa no submit</li>
 </ul></li>
 <li>x-ui.chart</li>
 <li><code>version</code>, <code>kind</code>, <code>source</code> -&gt;
@@ -376,16 +383,14 @@ do provider sem publicar bindings privados</li>
 <ul>
 <li>cascata de opcoes deve ser publicada como
 <code>x-ui.optionSource.dependsOn</code>, nao como callback local</li>
-<li>calculos locais deterministas devem permanecer em
-<code>formRules</code>; consultas remotas que enriquecem o formulario
-devem ser publicadas como <code>x-ui.formEffects</code> e apontar para
-uma operacao real marcada com <code>@FormDetermination</code></li>
-<li><code>x-ui.formEffects</code> pertence a operacao de request,
-referencia somente <code>operationId</code> no codigo-fonte e publica
-path/metodo/schemas resolvidos pela operacao OpenAPI canonica</li>
-<li>determinacoes de formulario devem ser <code>POST</code>, tipadas,
-idempotentes para a mesma entrada e nao podem ser simultaneamente
-<code>@WorkflowAction</code> ou <code>@UiSurface</code></li>
+<li>calculos locais deterministas permanecem em <code>formRules</code>;
+determinacoes backend autoritativas usam
+<code>x-ui.reactiveDeterminations</code></li>
+<li><code>x-ui.reactiveDeterminations</code> pertence somente a
+operacoes de request e publica bindings estruturais tenant-neutral;
+regras e materializacoes aplicadas permanecem no backend/Config</li>
+<li>capabilities de determinacao devem ser <code>POST</code>, tipadas e
+idempotentes para a mesma entrada</li>
 <li>bindings de entrada e saida devem referenciar campos existentes;
 metadata invalida deve falhar antes da publicacao, sem efeito
 parcial</li>

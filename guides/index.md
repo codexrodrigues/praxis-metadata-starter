@@ -29,7 +29,6 @@ resource-oriented, com DTOs separados e discovery semantico.
 - [Redacao Semantica de Annotations para IA](GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html)
 - [Semantic Metadata Authoring](SEMANTIC-METADATA-AUTHORING.html)
 - [Options](OPTIONS-ENDPOINT.html)
-- [Form effects e determinações reativas](FORM-EFFECTS.html)
 - [Exportacao de Colecoes](COLLECTION-EXPORT.html)
 - [Filtros e Paginacao](FILTROS-E-PAGINACAO.html)
 - [Views read-only](READ-ONLY-VIEWS.html)
