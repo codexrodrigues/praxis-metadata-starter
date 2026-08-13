@@ -29,6 +29,9 @@
 
 - Core (minimo obrigatorio)
   - x-ui por campo segue o schema e utiliza chaves canonicas para tipo, controle e validacoes basicas
+  - `x-ui.reactiveDeterminations`, quando presente, e publicado somente no request schema exato,
+    referencia uma capability POST resolvida por operationId e nao contem raw path autoravel,
+    contexto de tenant, regra, valores ou payload executavel
   - x-ui.resource presente no payload de `/schemas/filtered` contendo `idField`, `idFieldValid`, `readOnly`, `capabilities`
   - `/schemas/domain` publica vocabulario, bindings, aliases, evidencias e governanca como superficie semantica derivada, sem substituir `/schemas/filtered`
   - `/schemas/surfaces` e `/schemas/actions` publicam apenas discovery semantico e links para schemas canonicos resolviveis via `/schemas/filtered`
@@ -69,6 +72,8 @@
 - x-ui por operacao
   - `displayColumns` -> padrao de colunas iniciais
   - `operationExamples.<schemaType>` -> exemplos operacionais para catalogo, playgrounds e documentacao contextual
+  - `reactiveDeterminations` -> bindings estruturais compilados; o runtime executa apenas a
+    capability resolvida e o backend repete a validacao autoritativa no submit
 - x-ui.chart
 - `version`, `kind`, `source` -> identidade minima do contrato analitico metadata-driven
 - `dimensions`, `metrics`, `aggregations`, `filters`, `sort` -> semantica analitica canonica
@@ -88,9 +93,9 @@
   - `filtering.searchStrategies` -> intencoes de busca publicas; `inputFormat=digits` valida codigo numerico antes do provider sem publicar bindings privados
 - interacoes de campo
   - cascata de opcoes deve ser publicada como `x-ui.optionSource.dependsOn`, nao como callback local
-  - calculos locais deterministas devem permanecer em `formRules`; consultas remotas que enriquecem o formulario devem ser publicadas como `x-ui.formEffects` e apontar para uma operacao real marcada com `@FormDetermination`
-  - `x-ui.formEffects` pertence a operacao de request, referencia somente `operationId` no codigo-fonte e publica path/metodo/schemas resolvidos pela operacao OpenAPI canonica
-  - determinacoes de formulario devem ser `POST`, tipadas, idempotentes para a mesma entrada e nao podem ser simultaneamente `@WorkflowAction` ou `@UiSurface`
+  - calculos locais deterministas permanecem em `formRules`; determinacoes backend autoritativas usam `x-ui.reactiveDeterminations`
+  - `x-ui.reactiveDeterminations` pertence somente a operacoes de request e publica bindings estruturais tenant-neutral; regras e materializacoes aplicadas permanecem no backend/Config
+  - capabilities de determinacao devem ser `POST`, tipadas e idempotentes para a mesma entrada
   - bindings de entrada e saida devem referenciar campos existentes; metadata invalida deve falhar antes da publicacao, sem efeito parcial
   - mudanca que executa comando de negocio deve ser publicada como endpoint real e `@WorkflowAction`
   - consumidores nao devem inferir roteamento de evento por nome, label, sufixo ou heuristica textual

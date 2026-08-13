@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
+import org.praxisplatform.uischema.determination.ReactiveDeterminationMetadataCompiler;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
@@ -24,11 +25,14 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.server.ResponseStatusException;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -141,6 +145,37 @@ class ApiDocsControllerTest {
         Map<String, Object> responseSchema = rRes.getBody();
         assertNotNull(responseSchema);
         assertTrue(((Map<?,?>) responseSchema.get("properties")).containsKey("email"));
+    }
+
+    @Test
+    void getFilteredSchemaPublishesOnlyCompilerResolvedReactiveDeterminations() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        ReactiveDeterminationMetadataCompiler compiler = mock(ReactiveDeterminationMetadataCompiler.class);
+        when(compiler.compile(any(), anyString(), any(), any())).thenReturn(List.of(Map.of(
+                "id", "address.by-postal-code"
+        )));
+        ReflectionTestUtils.setField(controller, "reactiveDeterminationMetadataCompiler", compiler);
+
+        String documentWithLegacyMetadata = openApiDoc.replace(
+                "\"x-ui\": {",
+                "\"x-ui\": {\"formEffects\": [{\"path\": \"//unsafe.example\"}],"
+        );
+        server.expect(requestTo("http://localhost/v3/api-docs/users"))
+                .andRespond(withSuccess(documentWithLegacyMetadata, MediaType.APPLICATION_JSON));
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        Map<String, Object> body = controller.getFilteredSchema(
+                "/users", "post", false, "request", null, null, java.util.Locale.ENGLISH
+        ).getBody();
+
+        assertNotNull(body);
+        Map<?, ?> xUi = (Map<?, ?>) body.get("x-ui");
+        assertFalse(xUi.containsKey("formEffects"));
+        assertEquals(List.of(Map.of("id", "address.by-postal-code")), xUi.get("reactiveDeterminations"));
     }
 
     @Test

@@ -4,6 +4,38 @@
   "filterFields": ["status"],
   "responseSchema": "EmployeeDTO",
   "relatedEntitiesEndpoints": ["/api/departments"],
+  "reactiveDeterminations": [
+    {
+      "id": "address.by-postal-code",
+      "trigger": {
+        "mode": "on-change",
+        "sourcePaths": ["/postalCode"]
+      },
+      "scope": {
+        "schemaOperationId": "createCustomer",
+        "formMode": "create"
+      },
+      "capability": {
+        "operationId": "determineCustomerAddress",
+        "method": "POST",
+        "href": "/api/customers/determinations/address",
+        "requestSchemaUrl": "/schemas/filtered?path=%2Fapi%2Fcustomers%2Fdeterminations%2Faddress&operation=post&schemaType=request",
+        "responseSchemaUrl": "/schemas/filtered?path=%2Fapi%2Fcustomers%2Fdeterminations%2Faddress&operation=post&schemaType=response"
+      },
+      "inputs": [
+        { "fieldPath": "/postalCode", "requestPath": "/postalCode" }
+      ],
+      "outputs": [
+        { "responsePath": "/city", "fieldPath": "/address/city" },
+        { "responsePath": "/state", "fieldPath": "/address/state" }
+      ],
+      "provenance": {
+        "kind": "host",
+        "source": "customer-determinations",
+        "version": "1"
+      }
+    }
+  ],
   "operationExamples": {
     "request": {
       "groupByCount": {

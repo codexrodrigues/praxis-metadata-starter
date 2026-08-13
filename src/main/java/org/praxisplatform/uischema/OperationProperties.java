@@ -14,7 +14,6 @@ package org.praxisplatform.uischema;
  */
 public interface OperationProperties {
     String ANALYTICS = "analytics";
-    String FORM_EFFECTS = "formEffects";
     String RESPONSE_SCHEMA = "responseSchema";
     String DISPLAY_FIELDS = "displayFields";
     String DISPLAY_COLUMNS = "displayColumns";
