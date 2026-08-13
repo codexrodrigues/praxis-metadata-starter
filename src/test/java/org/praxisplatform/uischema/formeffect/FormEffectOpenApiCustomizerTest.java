@@ -77,6 +77,21 @@ class FormEffectOpenApiCustomizerTest {
     }
 
     @Test
+    void rejectsBindingWhenAPropertySchemaCannotBeResolved() throws Exception {
+        Fixture fixture = fixture("create", CreateController.class, "create", "determineAddress");
+        Schema<?> determinationData = fixture.openApi().getComponents().getSchemas()
+                .get("AddressDeterminationData");
+        determinationData.addProperty("city", new Schema<>().$ref("#/components/schemas/MissingCityType"));
+
+        IllegalStateException error = assertThrows(
+                IllegalStateException.class,
+                () -> fixture.customizer().customise(fixture.openApi()));
+
+        assertTrue(error.getMessage().contains("Incompatible output binding"));
+        assertTrue(error.getMessage().contains("city"));
+    }
+
+    @Test
     void rejectsEffectChainsWithinTheSameSourceOperation() throws Exception {
         Fixture fixture = fixture("chain", ChainedController.class, "create", "determineAddress");
 
