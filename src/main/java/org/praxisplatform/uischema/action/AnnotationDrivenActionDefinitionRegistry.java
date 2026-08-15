@@ -141,7 +141,9 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
                         workflowAction.correlationId(),
                         workflowAction.resourceVersion(),
                         workflowAction.resourceVersionTransport(),
-                        workflowAction.resourceVersionField()
+                        workflowAction.resourceVersionField(),
+                        workflowAction.resourceVersionTargetResourceKey(),
+                        workflowAction.resourceVersionTargetIdField()
                 ),
                 new ActionSelectionPolicy(
                         workflowAction.selectionIdsField(),

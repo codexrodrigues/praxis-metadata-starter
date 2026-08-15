@@ -69,6 +69,12 @@ class CapabilityE2ETest extends AbstractE2eH2Test {
         assertNotNull(bulkApprove);
         assertEquals("COLLECTION", bulkApprove.path("scope").asText());
         assertEquals("missing-authority", bulkApprove.path("availability").path("reason").asText());
+        JsonNode operationalProof = findById(snapshot.path("actions"), "operational-proof");
+        assertNotNull(operationalProof);
+        JsonNode versionPolicy = operationalProof.path("execution").path("preconditions");
+        assertEquals("policy.change-workspaces",
+                versionPolicy.path("resourceVersionTargetResourceKey").asText());
+        assertEquals("workspaceId", versionPolicy.path("resourceVersionTargetIdField").asText());
         assertEquals(null, findById(snapshot.path("actions"), "approve"));
     }
 

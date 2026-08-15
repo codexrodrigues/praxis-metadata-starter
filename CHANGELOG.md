@@ -30,6 +30,10 @@ All notable changes to this module will be documented in this file.
   associada ao controller resource-oriented.
 
 ### Added
+- Preconditions cross-resource para `@WorkflowAction`: collection actions podem declarar
+  `IF_MATCH` somente com `resourceVersionTargetResourceKey` e
+  `resourceVersionTargetIdField`, permitindo que discovery/capabilities identifiquem o owner
+  canônico do ETag e o binding do request sem inferência por URL.
 - SPI tenant-neutral `ReactiveDeterminationDefinitionProvider` e projecao fechada
   `x-ui.reactiveDeterminations` em request schemas exatos de `/schemas/filtered`. O starter resolve
   a capability POST por `operationId`, deriva href e schema URLs e falha fechado para bindings

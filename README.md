@@ -493,6 +493,10 @@ fonte de enforcement; metadata não substitui autorização, transação nem com
 Para comandos de item, `resourceVersionTransport = IF_MATCH` identifica o ETag de versão
 persistida e `resourceVersionField` informa qual campo da projeção de linha contém essa versão
 quando tabelas ou listas materializam o comando. Para comandos de coleção, `SELECTION_MAP` exige um `selectionVersionsField` no request.
+Uma collection action que protege um recurso externo pode usar `IF_MATCH` somente quando declara
+`resourceVersionTargetResourceKey` e `resourceVersionTargetIdField`. O primeiro identifica o owner
+semântico da versão; o segundo liga essa identidade a um campo do request. O endpoint continua
+responsável por validar o header contra o recurso bloqueado na mesma fronteira transacional.
 ETag de schema não pode ser usado como versão do registro.
 
 ### Related Resource Controllers
