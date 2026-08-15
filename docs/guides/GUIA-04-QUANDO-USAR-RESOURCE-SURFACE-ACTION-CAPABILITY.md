@@ -152,6 +152,24 @@ Declarar o requisito nao substitui enforcement. O endpoint continua responsavel 
 header ausente, versao stale, replay conflitante e autoridade/estado invalidos. O runtime consome
 essa metadata; ele nao deve inferir protocolo por path, label ou verbo HTTP.
 
+Quando uma collection action protege a versão de outro recurso, declare também o alvo semântico e
+o binding de identidade do request:
+
+```java
+@WorkflowAction(
+    id = "run-operational-proof",
+    title = "Executar prova operacional",
+    scope = ActionScope.COLLECTION,
+    resourceVersion = ActionRequirement.REQUIRED,
+    resourceVersionTransport = ActionResourceVersionTransport.IF_MATCH,
+    resourceVersionTargetResourceKey = "policy.change-workspaces",
+    resourceVersionTargetIdField = "workspaceId"
+)
+```
+
+Os dois campos são atômicos. Uma collection action com `IF_MATCH` sem alvo cross-resource é
+inválida; o runtime não pode inferir o owner da versão pelo path ou pelo nome do comando.
+
 ## Capability
 
 Use `GET /{resource}/capabilities` ou `GET /{resource}/{id}/capabilities` quando o cliente precisa de um snapshot agregado do que pode ser feito agora.

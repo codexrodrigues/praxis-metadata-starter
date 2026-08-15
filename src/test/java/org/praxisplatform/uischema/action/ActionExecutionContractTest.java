@@ -3,12 +3,13 @@ package org.praxisplatform.uischema.action;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ActionExecutionContractTest {
 
     @Test
-    void acceptsItemIfMatchAndCollectionSelectionMapPolicies() {
+    void acceptsItemIfMatchCollectionSelectionMapAndCrossResourceIfMatchPolicies() {
         ActionExecutionContract item = contract(
                 ActionResourceVersionTransport.IF_MATCH,
                 null,
@@ -23,9 +24,29 @@ class ActionExecutionContractTest {
                 ActionOutcomeMode.PER_ITEM,
                 ActionCollectionAtomicity.ATOMIC
         );
+        ActionExecutionContract crossResourceCollection = new ActionExecutionContract(
+                null,
+                new ActionPreconditionPolicy(
+                        ActionRequirement.REQUIRED,
+                        ActionRequirement.REQUIRED,
+                        ActionRequirement.REQUIRED,
+                        ActionResourceVersionTransport.IF_MATCH,
+                        null,
+                        "policy.change-workspaces",
+                        "workspaceId"
+                ),
+                null,
+                new ActionOutcomePolicy(ActionOutcomeMode.SINGLE, ActionCollectionAtomicity.ATOMIC),
+                null
+        );
 
         assertDoesNotThrow(() -> item.validateFor(ActionScope.ITEM));
         assertDoesNotThrow(() -> collection.validateFor(ActionScope.COLLECTION));
+        assertDoesNotThrow(() -> crossResourceCollection.validateFor(ActionScope.COLLECTION));
+        assertEquals("policy.change-workspaces",
+                crossResourceCollection.preconditions().resourceVersionTargetResourceKey());
+        assertEquals("workspaceId",
+                crossResourceCollection.preconditions().resourceVersionTargetIdField());
     }
 
     @Test
@@ -77,6 +98,28 @@ class ActionExecutionContractTest {
                 () -> missingVersionBinding.validateFor(ActionScope.COLLECTION));
         assertThrows(IllegalArgumentException.class,
                 () -> directConfirmation.validateFor(ActionScope.ITEM));
+    }
+
+    @Test
+    void rejectsIncompleteOrAmbiguousCrossResourceVersionTargets() {
+        assertThrows(IllegalArgumentException.class, () -> new ActionPreconditionPolicy(
+                ActionRequirement.REQUIRED,
+                ActionRequirement.REQUIRED,
+                ActionRequirement.REQUIRED,
+                ActionResourceVersionTransport.IF_MATCH,
+                null,
+                "policy.change-workspaces",
+                null
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new ActionPreconditionPolicy(
+                ActionRequirement.REQUIRED,
+                ActionRequirement.REQUIRED,
+                ActionRequirement.REQUIRED,
+                ActionResourceVersionTransport.SELECTION_MAP,
+                null,
+                "policy.change-workspaces",
+                "workspaceId"
+        ));
     }
 
     private ActionExecutionContract contract(

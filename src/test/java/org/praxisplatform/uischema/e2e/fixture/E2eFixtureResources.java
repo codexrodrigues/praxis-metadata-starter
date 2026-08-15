@@ -12,6 +12,8 @@ import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.action.ActionCollectionAtomicity;
 import org.praxisplatform.uischema.action.ActionInteractionMode;
 import org.praxisplatform.uischema.action.ActionRiskLevel;
+import org.praxisplatform.uischema.action.ActionRequirement;
+import org.praxisplatform.uischema.action.ActionResourceVersionTransport;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.filter.specification.GenericSpecification;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
@@ -835,6 +837,30 @@ class EmployeeController extends org.praxisplatform.uischema.controller.base.Abs
         );
         return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(links)));
     }
+
+    @PostMapping("/actions/operational-proof")
+    @Operation(summary = "Executar prova operacional de workspace")
+    @WorkflowAction(
+            id = "operational-proof",
+            title = "Executar prova operacional",
+            scope = ActionScope.COLLECTION,
+            order = 95,
+            idempotencyKey = ActionRequirement.REQUIRED,
+            correlationId = ActionRequirement.REQUIRED,
+            resourceVersion = ActionRequirement.REQUIRED,
+            resourceVersionTransport = ActionResourceVersionTransport.IF_MATCH,
+            resourceVersionTargetResourceKey = "policy.change-workspaces",
+            resourceVersionTargetIdField = "workspaceId",
+            atomicity = ActionCollectionAtomicity.ATOMIC
+    )
+    public ResponseEntity<RestApiResponse<OperationalProofRequest>> operationalProof(
+            @Valid @RequestBody OperationalProofRequest dto
+    ) {
+        return ResponseEntity.ok(RestApiResponse.success(dto, Links.NONE));
+    }
+}
+
+record OperationalProofRequest(String workspaceId) {
 }
 
 @org.springframework.web.bind.annotation.RestController

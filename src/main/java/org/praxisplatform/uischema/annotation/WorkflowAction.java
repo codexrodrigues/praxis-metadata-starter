@@ -106,6 +106,15 @@ public @interface WorkflowAction {
     /** Response-row field that exposes the persisted version used by If-Match or selection maps. */
     String resourceVersionField() default "";
 
+    /**
+     * Canonical resource key that owns an external version precondition.
+     * Empty means the action resource itself.
+     */
+    String resourceVersionTargetResourceKey() default "";
+
+    /** Request field that identifies the external resource protected by If-Match. */
+    String resourceVersionTargetIdField() default "";
+
     /** Request field that receives selected record identifiers for collection commands. */
     String selectionIdsField() default "";
 

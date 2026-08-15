@@ -26,7 +26,7 @@ class ActionCatalogE2ETest extends AbstractE2eH2Test {
         assertEquals("human-resources.employees", catalog.path("resourceKey").asText());
         assertEquals("/employees", catalog.path("resourcePath").asText());
         assertEquals("human-resources", catalog.path("group").asText());
-        assertEquals(2, catalog.path("actions").size());
+        assertEquals(3, catalog.path("actions").size());
 
         JsonNode approve = findAction(catalog.path("actions"), "approve");
         assertNotNull(approve);
@@ -63,6 +63,15 @@ class ActionCatalogE2ETest extends AbstractE2eH2Test {
         assertEquals(200, bulkApprove.path("execution").path("selection").path("maxItems").asInt());
         assertEquals("SINGLE", bulkApprove.path("execution").path("outcome").path("mode").asText());
         assertEquals("ATOMIC", bulkApprove.path("execution").path("outcome").path("atomicity").asText());
+
+        JsonNode operationalProof = findAction(catalog.path("actions"), "operational-proof");
+        assertNotNull(operationalProof);
+        JsonNode versionPolicy = operationalProof.path("execution").path("preconditions");
+        assertEquals("REQUIRED", versionPolicy.path("resourceVersion").asText());
+        assertEquals("IF_MATCH", versionPolicy.path("resourceVersionTransport").asText());
+        assertEquals("policy.change-workspaces",
+                versionPolicy.path("resourceVersionTargetResourceKey").asText());
+        assertEquals("workspaceId", versionPolicy.path("resourceVersionTargetIdField").asText());
     }
 
     @Test
@@ -80,6 +89,9 @@ class ActionCatalogE2ETest extends AbstractE2eH2Test {
         JsonNode bulkApprove = findAction(catalog.path("actions"), "human-resources.employees", "bulk-approve");
         assertNotNull(bulkApprove);
         assertEquals("/employees/actions/bulk-approve", bulkApprove.path("path").asText());
+        JsonNode operationalProof = findAction(
+                catalog.path("actions"), "human-resources.employees", "operational-proof");
+        assertNotNull(operationalProof);
         assertNullAction(catalog.path("actions"), "human-resources.departments", "approve");
         assertNullAction(catalog.path("actions"), "human-resources.payroll-view", "approve");
     }
@@ -92,7 +104,7 @@ class ActionCatalogE2ETest extends AbstractE2eH2Test {
         JsonNode catalog = body(response);
         assertEquals("human-resources.employees", catalog.path("resourceKey").asText());
         assertTrue(catalog.path("resourceId").isNull());
-        assertEquals(1, catalog.path("actions").size());
+        assertEquals(2, catalog.path("actions").size());
 
         JsonNode bulkApprove = findAction(catalog.path("actions"), "bulk-approve");
         assertNotNull(bulkApprove);

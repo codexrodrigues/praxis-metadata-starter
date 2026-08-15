@@ -49,8 +49,10 @@ public record ActionExecutionContract(
             throw new IllegalArgumentException("item actions cannot use SELECTION_MAP resource versions");
         }
         if (resolvedScope == ActionScope.COLLECTION
-                && preconditions.resourceVersionTransport() == ActionResourceVersionTransport.IF_MATCH) {
-            throw new IllegalArgumentException("collection actions cannot use IF_MATCH resource versions");
+                && preconditions.resourceVersionTransport() == ActionResourceVersionTransport.IF_MATCH
+                && !preconditions.hasCrossResourceVersionTarget()) {
+            throw new IllegalArgumentException(
+                    "collection IF_MATCH actions must declare the cross-resource version target");
         }
         if (preconditions.resourceVersionTransport() == ActionResourceVersionTransport.SELECTION_MAP
                 && selection.versionsField() == null) {

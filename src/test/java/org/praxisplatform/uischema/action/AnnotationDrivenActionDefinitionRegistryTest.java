@@ -116,13 +116,18 @@ class AnnotationDrivenActionDefinitionRegistryTest {
                 RequestMappingInfo.paths("/registry-actions/actions/bulk-approve").methods(RequestMethod.POST).build(),
                 new HandlerMethod(controller, RegistryActionController.class.getDeclaredMethod("bulkApprove"))
         );
+        handlerMethods.put(
+                RequestMappingInfo.paths("/registry-actions/actions/operational-proof").methods(RequestMethod.POST).build(),
+                new HandlerMethod(controller, RegistryActionController.class.getDeclaredMethod("operationalProof"))
+        );
         when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
         when(operationResolver.resolve(any(HandlerMethod.class), any(RequestMappingInfo.class)))
                 .thenAnswer(invocation -> {
                     RequestMappingInfo mappingInfo = invocation.getArgument(1);
                     String path = mappingInfo.getPatternValues().iterator().next();
-                    String operationId = path.contains("bulk-approve")
-                            ? "bulkApproveResource"
+                    String operationId = path.contains("operational-proof")
+                            ? "operationalProofResource"
+                            : path.contains("bulk-approve") ? "bulkApproveResource"
                             : path.contains("approve") ? "approveResource" : "rejectResource";
                     return new CanonicalOperationRef("registry-group", operationId, path, "POST");
                 });
@@ -141,8 +146,9 @@ class AnnotationDrivenActionDefinitionRegistryTest {
                     String schemaType = invocation.getArgument(2, String.class);
                     String idField = invocation.getArgument(6, String.class);
                     Boolean readOnly = invocation.getArgument(7, Boolean.class);
-                    String operationId = path.contains("bulk-approve")
-                            ? "bulkApproveResource"
+                    String operationId = path.contains("operational-proof")
+                            ? "operationalProofResource"
+                            : path.contains("bulk-approve") ? "bulkApproveResource"
                             : path.contains("approve") ? "approveResource" : "rejectResource";
                     return new CanonicalSchemaRef(
                             schemaType + "-" + operationId + "-" + idField + "-" + readOnly,
@@ -165,8 +171,9 @@ class AnnotationDrivenActionDefinitionRegistryTest {
 
         verify(handlerMapping, times(1)).getHandlerMethods();
         assertEquals(firstLookup, secondLookup);
-        assertEquals(3, firstLookup.size());
-        assertEquals(List.of("approve", "bulk-approve", "reject"), firstLookup.stream().map(ActionDefinition::id).toList());
+        assertEquals(4, firstLookup.size());
+        assertEquals(List.of("approve", "bulk-approve", "operational-proof", "reject"),
+                firstLookup.stream().map(ActionDefinition::id).toList());
         assertEquals("request-approveResource-employeeId-false", firstLookup.get(0).requestSchema().schemaId());
         assertEquals("/schemas/filtered?idField=employeeId&schemaType=request", firstLookup.get(0).requestSchema().url());
         assertEquals(ActionScope.COLLECTION, firstLookup.stream()
@@ -187,8 +194,18 @@ class AnnotationDrivenActionDefinitionRegistryTest {
         assertEquals(200, bulkApprove.execution().selection().maxItems());
         assertEquals(ActionOutcomeMode.PER_ITEM, bulkApprove.execution().outcome().mode());
         assertEquals(ActionCollectionAtomicity.ATOMIC, bulkApprove.execution().outcome().atomicity());
+        ActionDefinition operationalProof = firstLookup.stream()
+                .filter(action -> "operational-proof".equals(action.id()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(ActionResourceVersionTransport.IF_MATCH,
+                operationalProof.execution().preconditions().resourceVersionTransport());
+        assertEquals("policy.change-workspaces",
+                operationalProof.execution().preconditions().resourceVersionTargetResourceKey());
+        assertEquals("workspaceId",
+                operationalProof.execution().preconditions().resourceVersionTargetIdField());
         assertNotNull(registry.findByGroup("registry-group").stream().filter(action -> "approve".equals(action.id())).findFirst().orElse(null));
-        verify(schemaResolver, times(6)).resolve(any(String.class), eq("POST"), any(String.class), eq(false), eq(null), eq(null), eq("employeeId"), eq(false));
+        verify(schemaResolver, times(8)).resolve(any(String.class), eq("POST"), any(String.class), eq(false), eq(null), eq(null), eq("employeeId"), eq(false));
     }
 
     @Test
@@ -442,6 +459,23 @@ class AnnotationDrivenActionDefinitionRegistryTest {
                 atomicity = ActionCollectionAtomicity.ATOMIC
         )
         public void bulkApprove() {
+        }
+
+        @PostMapping("/actions/operational-proof")
+        @Operation(summary = "Run operational proof")
+        @WorkflowAction(
+                id = "operational-proof",
+                title = "Run Operational Proof",
+                scope = ActionScope.COLLECTION,
+                idempotencyKey = ActionRequirement.REQUIRED,
+                correlationId = ActionRequirement.REQUIRED,
+                resourceVersion = ActionRequirement.REQUIRED,
+                resourceVersionTransport = ActionResourceVersionTransport.IF_MATCH,
+                resourceVersionTargetResourceKey = "policy.change-workspaces",
+                resourceVersionTargetIdField = "workspaceId",
+                atomicity = ActionCollectionAtomicity.ATOMIC
+        )
+        public void operationalProof() {
         }
     }
 
