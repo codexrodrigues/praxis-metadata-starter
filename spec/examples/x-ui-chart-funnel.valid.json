@@ -1,0 +1,36 @@
+{
+  "version": "0.1.0",
+  "kind": "funnel",
+  "preset": "composition",
+  "chartId": "supplier-procurement-funnel",
+  "title": "Funil cumulativo de procurement",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/procurement/vw-supplier-procurement-funnel",
+    "operation": "group-by",
+    "options": {
+      "orderBy": "key-asc",
+      "limit": 12
+    }
+  },
+  "dimensions": [
+    {
+      "field": "stageOrder",
+      "label": "Etapa",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "volume",
+      "label": "Volume cumulativo",
+      "aggregation": "sum"
+    }
+  ],
+  "labels": {
+    "enabled": true
+  },
+  "tooltip": {
+    "enabled": true
+  }
+}

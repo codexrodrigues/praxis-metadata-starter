@@ -259,6 +259,8 @@ JSON</li>
 <code>source.options.granularity</code></li>
 <li><code>refresh.strategy = "interval"</code> exige
 <code>intervalMs</code></li>
+<li><code>funnel</code> e <code>pyramid</code> exigem ao menos uma
+dimensao e exatamente uma metrica</li>
 </ul>
 <h3 id="alinhamento-operacional-com-stats">2. Alinhamento operacional
 com stats</h3>
@@ -285,7 +287,7 @@ documentados de forma objetiva.</p>
 <li><code>source.kind = "praxis.stats"</code></li>
 <li><code>kind</code>: <code>bar</code>, <code>line</code>,
 <code>pie</code>, <code>donut</code>, <code>area</code>,
-<code>stacked-bar</code></li>
+<code>stacked-bar</code>, <code>funnel</code>, <code>pyramid</code></li>
 <li>uma metrica por chart quando a origem e
 <code>praxis.stats</code></li>
 <li><code>pointClick</code> e <code>drillDown</code> no fluxo

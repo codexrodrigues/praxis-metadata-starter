@@ -205,7 +205,8 @@ CLI)</h2>
 <li>Validar x-ui.chart:
 <ul>
 <li><code>npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.valid.json</code></li>
-<li><code>npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.invalid.json || echo "(esperado: invalido)"</code></li>
+<li><code>npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d './examples/x-ui-chart*.valid.json'</code></li>
+<li><code>npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d './examples/x-ui-chart*.invalid.json' || echo "(esperado: invalido)"</code></li>
 </ul></li>
 <li>Antes de publicar uma versao nova do starter com charts:
 <ul>
@@ -458,7 +459,8 @@ sao documentados separadamente.</p>
 <li><code>kind</code>: <code>bar</code>, <code>horizontal-bar</code>,
 <code>line</code>, <code>pie</code>, <code>donut</code>,
 <code>area</code>, <code>stacked-bar</code>, <code>stacked-area</code>,
-<code>combo</code>, <code>scatter</code></li>
+<code>combo</code>, <code>scatter</code>, <code>funnel</code>,
+<code>pyramid</code></li>
 <li><code>combo</code> com dados locais/derivados e series heterogeneas
 por metrica</li>
 <li><code>combo</code> sobre <code>source.kind = "praxis.stats"</code>
@@ -473,6 +475,9 @@ executavel</li>
 <li><code>scatter</code> com leitura bidimensional minima: primeira
 dimensao no eixo <code>x</code> e primeira metrica no eixo
 <code>y</code></li>
+<li><code>funnel</code> e <code>pyramid</code> com ao menos uma dimensao
+e exatamente uma metrica; direcao e layout pertencem ao runtime, nao ao
+contrato de engine</li>
 <li><code>theme.variant</code></li>
 <li><code>theme.palette</code> como token string</li>
 </ul>

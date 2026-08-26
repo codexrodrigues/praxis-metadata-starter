@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "kind": "funnel",
+  "source": {
+    "kind": "derived"
+  },
+  "dimensions": [
+    {
+      "field": "stageOrder",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "volume",
+      "aggregation": "sum"
+    },
+    {
+      "field": "dropOffCount",
+      "aggregation": "sum"
+    }
+  ]
+}

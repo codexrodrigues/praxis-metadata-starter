@@ -288,7 +288,8 @@ seguintes blocos.</p>
 <li>exemplo: <code>bar</code>, <code>combo</code>,
 <code>horizontal-bar</code>, <code>line</code>, <code>pie</code>,
 <code>donut</code>, <code>area</code>, <code>stacked-bar</code>,
-<code>stacked-area</code>, <code>scatter</code></li>
+<code>stacked-area</code>, <code>scatter</code>, <code>funnel</code>,
+<code>pyramid</code></li>
 </ul></li>
 <li><code>preset</code>
 <ul>
@@ -387,6 +388,18 @@ desde que o contrato deixe essa regra explicita</li>
 </ul></li>
 <li>isso preserva a semantica no nivel canonico e evita codificar
 combinacoes apenas no adapter ECharts</li>
+</ul></li>
+</ul>
+<p>Observacoes para a terceira onda:</p>
+<ul>
+<li><code>funnel</code> e <code>pyramid</code>
+<ul>
+<li>exigem ao menos uma dimensao categorial e exatamente uma
+metrica</li>
+<li>compartilham a mesma semantica analitica; a direcao visual distinta
+e materializada pelo runtime</li>
+<li>nao publicam propriedades especificas de ECharts no contrato
+canonico</li>
 </ul></li>
 </ul>
 <p>Aqui a preocupacao nao e a forma final exata do JSON, e sim garantir

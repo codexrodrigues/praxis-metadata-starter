@@ -21,7 +21,8 @@
     - `npx ajv --spec=draft2020 -s ./x-ui-resource.schema.json -d ./examples/x-ui-resource.valid.json`
   - Validar x-ui.chart:
     - `npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.valid.json`
-    - `npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d ./examples/x-ui-chart.invalid.json || echo "(esperado: invalido)"`
+    - `npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d './examples/x-ui-chart*.valid.json'`
+    - `npx ajv --spec=draft2020 -s ./x-ui-chart.schema.json -d './examples/x-ui-chart*.invalid.json' || echo "(esperado: invalido)"`
   - Antes de publicar uma versao nova do starter com charts:
     - revisar `./x-ui-chart-publication-checklist.md`
 
@@ -129,13 +130,14 @@ Cobertura executavel no runtime oficial:
 
 - `source.kind = "praxis.stats"`
 - `source.kind = "derived"`
-- `kind`: `bar`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `combo`, `scatter`
+- `kind`: `bar`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `combo`, `scatter`, `funnel`, `pyramid`
 - `combo` com dados locais/derivados e series heterogeneas por metrica
 - `combo` sobre `source.kind = "praxis.stats"` quando a operacao e `group-by` ou `timeseries`
 - `aggregation = "distinct-count"`
 - `pointClick`, `selectionChange`, `drillDown` e `crossFilter` no fluxo executavel
 - `orientation = "horizontal"` para `horizontal-bar`
 - `scatter` com leitura bidimensional minima: primeira dimensao no eixo `x` e primeira metrica no eixo `y`
+- `funnel` e `pyramid` com ao menos uma dimensao e exatamente uma metrica; direcao e layout pertencem ao runtime, nao ao contrato de engine
 - `theme.variant`
 - `theme.palette` como token string
 
