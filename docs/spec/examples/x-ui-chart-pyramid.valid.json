@@ -1,0 +1,32 @@
+{
+  "version": "0.1.0",
+  "kind": "pyramid",
+  "preset": "composition",
+  "chartId": "supplier-procurement-pyramid",
+  "title": "Pirâmide cumulativa de procurement",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/procurement/vw-supplier-procurement-funnel",
+    "operation": "group-by",
+    "options": {
+      "orderBy": "key-asc",
+      "limit": 12
+    }
+  },
+  "dimensions": [
+    {
+      "field": "stageOrder",
+      "label": "Etapa",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "volume",
+      "label": "Volume cumulativo",
+      "aggregation": "sum"
+    }
+  ],
+  "labels": true,
+  "tooltip": true
+}
