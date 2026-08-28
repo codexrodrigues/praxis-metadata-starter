@@ -472,9 +472,11 @@ quando a operacao e <code>group-by</code> ou
 executavel</li>
 <li><code>orientation = "horizontal"</code> para
 <code>horizontal-bar</code></li>
-<li><code>scatter</code> com leitura bidimensional minima: primeira
-dimensao no eixo <code>x</code> e primeira metrica no eixo
-<code>y</code></li>
+<li><code>scatter</code> com uma metrica: primeira dimensao no eixo
+<code>x</code> e primeira metrica no eixo <code>y</code></li>
+<li><code>scatter</code> agrupado com duas metricas: primeira dimensao
+identifica o bucket, primeira metrica ocupa o eixo <code>x</code> e
+segunda metrica ocupa o eixo <code>y</code></li>
 <li><code>funnel</code> e <code>pyramid</code> com ao menos uma dimensao
 e exatamente uma metrica; direcao e layout pertencem ao runtime, nao ao
 contrato de engine</li>
@@ -488,6 +490,8 @@ contrato de engine</li>
 <code>week</code> ou <code>month</code></li>
 <li><code>distribution</code> aceita uma metrica</li>
 <li><code>combo</code> exige pelo menos duas metricas</li>
+<li><code>scatter</code> exige uma dimensao e aceita uma ou duas
+metricas</li>
 <li><code>axis = "secondary"</code> e exclusivo de
 <code>combo</code></li>
 <li>pie/donut com multiplas metricas</li>

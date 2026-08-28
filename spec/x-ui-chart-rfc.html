@@ -370,9 +370,13 @@ apenas um detalhe do renderer</li>
 <li><code>scatter</code>
 <ul>
 <li>exige leitura bidimensional minima</li>
-<li>nesta fase inicial pode ser modelado como uma primeira dimensao para
-eixo <code>x</code> e uma primeira metrica para eixo <code>y</code>,
-desde que o contrato deixe essa regra explicita</li>
+<li>com uma metrica, a primeira dimensao ocupa o eixo <code>x</code> e a
+primeira metrica ocupa o eixo <code>y</code></li>
+<li>com duas metricas, a primeira dimensao identifica o bucket de
+agrupamento, a primeira metrica ocupa o eixo <code>x</code> e a segunda
+metrica ocupa o eixo <code>y</code></li>
+<li>a ordem das metricas e semantica authorada no documento canonico;
+nao depende do renderer nem de aliases locais</li>
 </ul></li>
 </ul>
 <p>Observacoes para a segunda onda:</p>
@@ -493,23 +497,22 @@ apresentada e integrada no ecossistema UI</li>
 </ul></li>
 <li><code>scatter</code>
 <ul>
-<li>pode nascer inicialmente sobre <code>group-by</code> quando o
-recurso permitir usar uma dimensao numerica ou temporal no eixo
-<code>x</code> e uma metrica agregada no eixo <code>y</code></li>
-<li>isso nao elimina uma evolucao futura para
-<code>source.kind = "derived"</code> ou envelopes analiticos mais
-ricos</li>
+<li>pode usar uma dimensao numerica ou temporal no eixo <code>x</code> e
+uma metrica agregada no eixo <code>y</code></li>
+<li>pode usar <code>group-by</code> com uma dimensao categorial para
+identificar o bucket e duas metricas agregadas como eixos <code>x</code>
+e <code>y</code></li>
+<li>os dois modos usam o mesmo envelope analitico canonico, sem request
+ou alias authorado pelo consumidor</li>
 </ul></li>
 </ul>
 <p>Cobertura inicial da segunda onda:</p>
 <ul>
 <li><code>combo</code>
 <ul>
-<li>deve nascer primeiro com <code>source.kind = "derived"</code> ou
-dados locais fornecidos pelo host/widget</li>
-<li>o suporte remoto canonico sobre <code>praxis.stats</code> depende de
-evolucao posterior do envelope analitico para mais de uma metrica por
-consulta</li>
+<li>pode usar <code>source.kind = "derived"</code> ou
+<code>praxis.stats</code> com operacoes que suportam multiplas
+metricas</li>
 </ul></li>
 </ul>
 <h2 id="versionamento">Versionamento</h2>

@@ -261,6 +261,8 @@ JSON</li>
 <code>intervalMs</code></li>
 <li><code>funnel</code> e <code>pyramid</code> exigem ao menos uma
 dimensao e exatamente uma metrica</li>
+<li><code>scatter</code> exige ao menos uma dimensao e aceita uma ou
+duas metricas, com semantica posicional documentada</li>
 </ul>
 <h3 id="alinhamento-operacional-com-stats">2. Alinhamento operacional
 com stats</h3>
@@ -285,23 +287,27 @@ documentados de forma objetiva.</p>
 <p>Cobertura executavel em <code>@praxisui/charts</code>:</p>
 <ul>
 <li><code>source.kind = "praxis.stats"</code></li>
-<li><code>kind</code>: <code>bar</code>, <code>line</code>,
-<code>pie</code>, <code>donut</code>, <code>area</code>,
-<code>stacked-bar</code>, <code>funnel</code>, <code>pyramid</code></li>
-<li>uma metrica por chart quando a origem e
-<code>praxis.stats</code></li>
-<li><code>pointClick</code> e <code>drillDown</code> no fluxo
-executavel</li>
-</ul>
-<p>Sem cobertura executavel no runtime Angular oficial:</p>
-<ul>
 <li><code>source.kind = "derived"</code></li>
+<li><code>kind</code>: <code>bar</code>, <code>combo</code>,
+<code>horizontal-bar</code>, <code>line</code>, <code>pie</code>,
+<code>donut</code>, <code>area</code>, <code>stacked-bar</code>,
+<code>stacked-area</code>, <code>scatter</code>, <code>funnel</code>,
+<code>pyramid</code></li>
 <li><code>aggregation = "distinct-count"</code></li>
-<li><code>events.selectionChange</code></li>
-<li><code>events.crossFilter</code></li>
+<li><code>scatter</code> simples com uma metrica e scatter agrupado com
+duas metricas</li>
+<li><code>pointClick</code>, <code>drillDown</code>,
+<code>events.selectionChange</code> e <code>events.crossFilter</code> no
+fluxo executavel</li>
 <li><code>theme.variant</code></li>
 <li><code>theme.palette</code> como token semantico string</li>
-<li>pie/donut com multiplas metricas</li>
+</ul>
+<p>Restricoes executaveis relevantes:</p>
+<ul>
+<li><code>distribution</code>, <code>pie</code>, <code>donut</code>,
+<code>funnel</code> e <code>pyramid</code> aceitam uma metrica</li>
+<li><code>combo</code> exige pelo menos duas metricas</li>
+<li><code>scatter</code> aceita uma ou duas metricas</li>
 </ul>
 <p>Regra de publicacao:</p>
 <ul>

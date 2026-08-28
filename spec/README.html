@@ -646,6 +646,9 @@ esperado</li>
 <li><code>examples/x-ui-chart-funnel.valid.json</code></li>
 <li><code>examples/x-ui-chart-pyramid.valid.json</code></li>
 <li><code>examples/x-ui-chart-funnel.invalid.json</code></li>
+<li><code>examples/x-ui-chart-scatter-grouped-metrics.valid.json</code></li>
+<li><code>examples/x-ui-chart-scatter-missing-metrics.invalid.json</code></li>
+<li><code>examples/x-ui-chart-scatter-too-many-metrics.invalid.json</code></li>
 </ul></li>
 <li>Exemplos canonicos de documentacao:
 <ul>
@@ -669,7 +672,8 @@ como contrato em evolucao.</li>
 <code>scatter</code>; a segunda onda introduz <code>combo</code> com
 semantica de serie por metrica; a terceira onda publica
 <code>funnel</code> e <code>pyramid</code> com ao menos uma dimensao e
-exatamente uma metrica.</li>
+exatamente uma metrica; a quarta onda permite scatter agrupado com duas
+medidas, mantendo o modo simples de uma metrica.</li>
 <li>O runtime Angular oficial deve explicitar honestamente quando alguma
 parte do contrato ainda for mais ampla que a implementacao atual.</li>
 </ul>

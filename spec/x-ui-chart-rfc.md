@@ -140,7 +140,9 @@ Observacoes para a primeira onda de expansao:
   - exige semantica de composicao empilhada no nivel canonico, nao apenas um detalhe do renderer
 - `scatter`
   - exige leitura bidimensional minima
-  - nesta fase inicial pode ser modelado como uma primeira dimensao para eixo `x` e uma primeira metrica para eixo `y`, desde que o contrato deixe essa regra explicita
+  - com uma metrica, a primeira dimensao ocupa o eixo `x` e a primeira metrica ocupa o eixo `y`
+  - com duas metricas, a primeira dimensao identifica o bucket de agrupamento, a primeira metrica ocupa o eixo `x` e a segunda metrica ocupa o eixo `y`
+  - a ordem das metricas e semantica authorada no documento canonico; nao depende do renderer nem de aliases locais
 
 Observacoes para a segunda onda:
 
@@ -235,14 +237,14 @@ Cobertura da primeira onda com `praxis.stats`:
 - `stacked-area`
   - deve nascer preferencialmente sobre `timeseries`
 - `scatter`
-  - pode nascer inicialmente sobre `group-by` quando o recurso permitir usar uma dimensao numerica ou temporal no eixo `x` e uma metrica agregada no eixo `y`
-  - isso nao elimina uma evolucao futura para `source.kind = "derived"` ou envelopes analiticos mais ricos
+  - pode usar uma dimensao numerica ou temporal no eixo `x` e uma metrica agregada no eixo `y`
+  - pode usar `group-by` com uma dimensao categorial para identificar o bucket e duas metricas agregadas como eixos `x` e `y`
+  - os dois modos usam o mesmo envelope analitico canonico, sem request ou alias authorado pelo consumidor
 
 Cobertura inicial da segunda onda:
 
 - `combo`
-  - deve nascer primeiro com `source.kind = "derived"` ou dados locais fornecidos pelo host/widget
-  - o suporte remoto canonico sobre `praxis.stats` depende de evolucao posterior do envelope analitico para mais de uma metrica por consulta
+  - pode usar `source.kind = "derived"` ou `praxis.stats` com operacoes que suportam multiplas metricas
 
 ## Versionamento
 

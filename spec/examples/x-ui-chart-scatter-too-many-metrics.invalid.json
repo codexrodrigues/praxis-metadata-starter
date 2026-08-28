@@ -1,0 +1,27 @@
+{
+  "version": "0.1.0",
+  "kind": "scatter",
+  "source": {
+    "kind": "derived"
+  },
+  "dimensions": [
+    {
+      "field": "department",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "employees",
+      "aggregation": "distinct-count"
+    },
+    {
+      "field": "absenceDays",
+      "aggregation": "sum"
+    },
+    {
+      "field": "averageDuration",
+      "aggregation": "avg"
+    }
+  ]
+}
