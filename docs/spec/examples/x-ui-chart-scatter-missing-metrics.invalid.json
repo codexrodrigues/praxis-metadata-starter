@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0",
+  "kind": "scatter",
+  "source": {
+    "kind": "derived"
+  },
+  "dimensions": [
+    {
+      "field": "department",
+      "role": "category"
+    }
+  ],
+  "metrics": []
+}

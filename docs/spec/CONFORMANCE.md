@@ -136,7 +136,8 @@ Cobertura executavel no runtime oficial:
 - `aggregation = "distinct-count"`
 - `pointClick`, `selectionChange`, `drillDown` e `crossFilter` no fluxo executavel
 - `orientation = "horizontal"` para `horizontal-bar`
-- `scatter` com leitura bidimensional minima: primeira dimensao no eixo `x` e primeira metrica no eixo `y`
+- `scatter` com uma metrica: primeira dimensao no eixo `x` e primeira metrica no eixo `y`
+- `scatter` agrupado com duas metricas: primeira dimensao identifica o bucket, primeira metrica ocupa o eixo `x` e segunda metrica ocupa o eixo `y`
 - `funnel` e `pyramid` com ao menos uma dimensao e exatamente uma metrica; direcao e layout pertencem ao runtime, nao ao contrato de engine
 - `theme.variant`
 - `theme.palette` como token string
@@ -146,6 +147,7 @@ Restricoes executaveis no runtime Angular oficial:
 - `timeseries` aceita `source.options.granularity` em `day`, `week` ou `month`
 - `distribution` aceita uma metrica
 - `combo` exige pelo menos duas metricas
+- `scatter` exige uma dimensao e aceita uma ou duas metricas
 - `axis = "secondary"` e exclusivo de `combo`
 - pie/donut com multiplas metricas
 

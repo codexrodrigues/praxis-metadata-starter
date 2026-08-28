@@ -1,0 +1,38 @@
+{
+  "version": "0.1.0",
+  "kind": "scatter",
+  "preset": "comparison",
+  "chartId": "absence-employees-vs-days",
+  "title": "Colaboradores x dias afastados por departamento",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/human-resources/vw-analytics-afastamentos",
+    "operation": "group-by",
+    "options": {
+      "orderBy": "value-desc",
+      "limit": 20
+    }
+  },
+  "dimensions": [
+    {
+      "field": "departamento",
+      "label": "Departamento",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "funcionarioId",
+      "label": "Colaboradores",
+      "aggregation": "distinct-count"
+    },
+    {
+      "field": "diasAfastado",
+      "label": "Dias afastados",
+      "aggregation": "sum"
+    }
+  ],
+  "tooltip": {
+    "enabled": true
+  }
+}
