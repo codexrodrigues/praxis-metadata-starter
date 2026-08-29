@@ -20,6 +20,7 @@ Consolidar os gates minimos para manter o draft canonico de `x-ui.chart` coerent
 - `refresh.strategy = "interval"` exige `intervalMs`
 - `funnel` e `pyramid` exigem ao menos uma dimensao e exatamente uma metrica
 - `treemap` exige ao menos uma dimensao e exatamente uma metrica
+- `gauge` exige ao menos uma dimensao, exatamente uma metrica e escala explicita; a relacao `max > min` e validada semanticamente pelo runtime
 - `scatter` exige ao menos uma dimensao e aceita uma ou duas metricas, com semantica posicional documentada
 
 ### 2. Alinhamento operacional com stats
@@ -40,7 +41,7 @@ Cobertura executavel em `@praxisui/charts`:
 
 - `source.kind = "praxis.stats"`
 - `source.kind = "derived"`
-- `kind`: `bar`, `combo`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`, `funnel`, `pyramid`, `treemap`
+- `kind`: `bar`, `combo`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`, `funnel`, `pyramid`, `treemap`, `gauge`
 - `aggregation = "distinct-count"`
 - `scatter` simples com uma metrica e scatter agrupado com duas metricas
 - `pointClick`, `drillDown`, `events.selectionChange` e `events.crossFilter` no fluxo executavel
@@ -52,6 +53,7 @@ Restricoes executaveis relevantes:
 - `distribution`, `pie`, `donut`, `funnel`, `pyramid` e `treemap` aceitam uma metrica
 - `combo` exige pelo menos duas metricas
 - `scatter` aceita uma ou duas metricas
+- `gauge` remoto exige `group-by`, limite unitario, um bucket, uma metrica e escala valida
 
 Regra de publicacao:
 

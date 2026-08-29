@@ -1,0 +1,50 @@
+{
+  "version": "0.1.0",
+  "kind": "gauge",
+  "preset": "comparison",
+  "chartId": "supplier-received-conversion-gauge",
+  "title": "Conversão até o recebimento",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/procurement/vw-supplier-procurement-funnel",
+    "operation": "group-by",
+    "options": {
+      "orderBy": "key-asc",
+      "limit": 1
+    }
+  },
+  "dimensions": [
+    {
+      "field": "stage",
+      "label": "Etapa",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "conversionRate",
+      "label": "Conversão",
+      "aggregation": "avg",
+      "format": "percent"
+    }
+  ],
+  "filters": [
+    {
+      "field": "stageOrdersIn",
+      "operator": "in",
+      "values": [6]
+    }
+  ],
+  "gauge": {
+    "scale": {
+      "min": 0,
+      "max": 1
+    }
+  },
+  "labels": {
+    "enabled": true
+  },
+  "tooltip": {
+    "enabled": true
+  }
+}

@@ -30,6 +30,8 @@ All notable changes to this module will be documented in this file.
   associada ao controller resource-oriented.
 
 ### Added
+- Familia canonica `gauge` no draft `x-ui.chart`, limitada no primeiro corte a um
+  bucket, uma metrica e escala explicita, sem opcoes especificas da engine.
 - Familia canonica `treemap` no draft `x-ui.chart`, com ao menos uma dimensao e
   exatamente uma metrica, mantendo hierarquia e layout especificos fora do contrato de engine.
 - Familias canonicas `funnel` e `pyramid` no draft `x-ui.chart`, ambas com ao menos
