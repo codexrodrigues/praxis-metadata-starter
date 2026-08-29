@@ -30,6 +30,8 @@ All notable changes to this module will be documented in this file.
   associada ao controller resource-oriented.
 
 ### Added
+- Familia canonica `treemap` no draft `x-ui.chart`, com ao menos uma dimensao e
+  exatamente uma metrica, mantendo hierarquia e layout especificos fora do contrato de engine.
 - Familias canonicas `funnel` e `pyramid` no draft `x-ui.chart`, ambas com ao menos
   uma dimensao e exatamente uma metrica, sem expor configuracao especifica da engine.
 - Preconditions cross-resource para `@WorkflowAction`: collection actions podem declarar

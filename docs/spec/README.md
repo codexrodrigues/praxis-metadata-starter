@@ -96,7 +96,7 @@
 - `type` (FieldDataType): `text | number | email | date | password | file | url | boolean | json`
 - `controlType` (FieldControlType): ver enum completo no JSON Schema
 - `numericFormat` (NumericFormat): `integer | decimal | currency | scientific | time | date | date-time | duration | number | fraction | percent`
-- `x-ui.chart.kind`: `bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter | funnel | pyramid`
+- `x-ui.chart.kind`: `bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter | funnel | pyramid | treemap`
 - `x-ui.chart.source.kind`: `praxis.stats | derived`
 - `x-ui.analytics.intent`: `ranking | trend | distribution | composition | comparison | correlation`
 - `x-ui.analytics.source.operation`: `group-by | timeseries | distribution | comparison`
@@ -208,6 +208,8 @@
   - `examples/x-ui-chart-funnel.valid.json`
   - `examples/x-ui-chart-pyramid.valid.json`
   - `examples/x-ui-chart-funnel.invalid.json`
+  - `examples/x-ui-chart-treemap.valid.json`
+  - `examples/x-ui-chart-treemap.invalid.json`
   - `examples/x-ui-chart-scatter-grouped-metrics.valid.json`
   - `examples/x-ui-chart-scatter-missing-metrics.invalid.json`
   - `examples/x-ui-chart-scatter-too-many-metrics.invalid.json`
@@ -219,5 +221,5 @@
 
 - `schemaId`, `ETag` e `X-Schema-Hash` sao praticas recomendadas para cache/304 e compoem a identidade de schema, mas nao fazem parte da validacao JSON desta pasta.
 - O draft `x-ui.chart` esta pronto para publicacao controlada, mas continua em estado `draft` e deve ser tratado como contrato em evolucao.
-- A primeira onda do draft amplia o contrato para `horizontal-bar`, `stacked-area` e `scatter`; a segunda onda introduz `combo` com semantica de serie por metrica; a terceira onda publica `funnel` e `pyramid` com ao menos uma dimensao e exatamente uma metrica; a quarta onda permite scatter agrupado com duas medidas, mantendo o modo simples de uma metrica.
+- A primeira onda do draft amplia o contrato para `horizontal-bar`, `stacked-area` e `scatter`; a segunda onda introduz `combo` com semantica de serie por metrica; a terceira onda publica `funnel` e `pyramid` com ao menos uma dimensao e exatamente uma metrica; a quarta onda permite scatter agrupado com duas medidas, mantendo o modo simples de uma metrica; a quinta onda publica `treemap` como composicao categorial de uma dimensao e exatamente uma metrica.
 - O runtime Angular oficial deve explicitar honestamente quando alguma parte do contrato ainda for mais ampla que a implementacao atual.

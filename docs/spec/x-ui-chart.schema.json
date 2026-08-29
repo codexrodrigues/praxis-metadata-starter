@@ -97,7 +97,7 @@
       "if": {
         "properties": {
           "kind": {
-            "enum": ["funnel", "pyramid"]
+            "enum": ["funnel", "pyramid", "treemap"]
           }
         },
         "required": ["kind"]
@@ -125,7 +125,7 @@
     },
     "kind": {
       "type": "string",
-      "enum": ["bar", "combo", "horizontal-bar", "line", "pie", "donut", "area", "stacked-bar", "stacked-area", "scatter", "funnel", "pyramid"]
+      "enum": ["bar", "combo", "horizontal-bar", "line", "pie", "donut", "area", "stacked-bar", "stacked-area", "scatter", "funnel", "pyramid", "treemap"]
     },
     "preset": {
       "type": "string",

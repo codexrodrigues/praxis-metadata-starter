@@ -130,7 +130,7 @@ Cobertura executavel no runtime oficial:
 
 - `source.kind = "praxis.stats"`
 - `source.kind = "derived"`
-- `kind`: `bar`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `combo`, `scatter`, `funnel`, `pyramid`
+- `kind`: `bar`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `combo`, `scatter`, `funnel`, `pyramid`, `treemap`
 - `combo` com dados locais/derivados e series heterogeneas por metrica
 - `combo` sobre `source.kind = "praxis.stats"` quando a operacao e `group-by` ou `timeseries`
 - `aggregation = "distinct-count"`
@@ -139,6 +139,7 @@ Cobertura executavel no runtime oficial:
 - `scatter` com uma metrica: primeira dimensao no eixo `x` e primeira metrica no eixo `y`
 - `scatter` agrupado com duas metricas: primeira dimensao identifica o bucket, primeira metrica ocupa o eixo `x` e segunda metrica ocupa o eixo `y`
 - `funnel` e `pyramid` com ao menos uma dimensao e exatamente uma metrica; direcao e layout pertencem ao runtime, nao ao contrato de engine
+- `treemap` com ao menos uma dimensao e exatamente uma metrica; hierarquia multinivel e layout especifico permanecem fora deste corte do contrato
 - `theme.variant`
 - `theme.palette` como token string
 
@@ -149,7 +150,7 @@ Restricoes executaveis no runtime Angular oficial:
 - `combo` exige pelo menos duas metricas
 - `scatter` exige uma dimensao e aceita uma ou duas metricas
 - `axis = "secondary"` e exclusivo de `combo`
-- pie/donut com multiplas metricas
+- `pie`, `donut`, `funnel`, `pyramid` e `treemap` exigem exatamente uma metrica
 
 Publicacoes do starter devem declarar essas restricoes como cobertura de execucao, sem sugerir trilhas paralelas de contrato.
 
