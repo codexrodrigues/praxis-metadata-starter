@@ -26,6 +26,13 @@ class UiChartSpecContractTest {
     }
 
     @Test
+    void gaugeExampleIsValid() throws Exception {
+        assertTrue(chartSchema()
+                .validate(example("x-ui-chart-gauge.valid.json"))
+                .isEmpty());
+    }
+
+    @Test
     void funnelRequiresExactlyOneMetric() throws Exception {
         assertFalse(chartSchema()
                 .validate(example("x-ui-chart-funnel.invalid.json"))
@@ -37,6 +44,15 @@ class UiChartSpecContractTest {
         assertFalse(chartSchema()
                 .validate(example("x-ui-chart-treemap.invalid.json"))
                 .isEmpty());
+    }
+
+    @Test
+    void gaugeRequiresOneMetricScaleAndAUnitaryRemoteLimit() throws Exception {
+        JsonSchema schema = chartSchema();
+
+        assertFalse(schema.validate(example("x-ui-chart-gauge-multiple-metrics.invalid.json")).isEmpty());
+        assertFalse(schema.validate(example("x-ui-chart-gauge-missing-scale.invalid.json")).isEmpty());
+        assertFalse(schema.validate(example("x-ui-chart-gauge-limit.invalid.json")).isEmpty());
     }
 
     private JsonSchema chartSchema() throws Exception {

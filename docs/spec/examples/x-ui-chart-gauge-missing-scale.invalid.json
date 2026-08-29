@@ -1,0 +1,20 @@
+{
+  "version": "0.1.0",
+  "kind": "gauge",
+  "source": {
+    "kind": "derived"
+  },
+  "dimensions": [
+    {
+      "field": "stage",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "conversionRate",
+      "aggregation": "avg"
+    }
+  ],
+  "gauge": {}
+}
