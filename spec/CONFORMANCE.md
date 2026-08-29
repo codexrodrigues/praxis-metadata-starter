@@ -130,7 +130,7 @@ Cobertura executavel no runtime oficial:
 
 - `source.kind = "praxis.stats"`
 - `source.kind = "derived"`
-- `kind`: `bar`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `combo`, `scatter`, `funnel`, `pyramid`, `treemap`
+- `kind`: `bar`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `combo`, `scatter`, `funnel`, `pyramid`, `treemap`, `gauge`
 - `combo` com dados locais/derivados e series heterogeneas por metrica
 - `combo` sobre `source.kind = "praxis.stats"` quando a operacao e `group-by` ou `timeseries`
 - `aggregation = "distinct-count"`
@@ -140,6 +140,7 @@ Cobertura executavel no runtime oficial:
 - `scatter` agrupado com duas metricas: primeira dimensao identifica o bucket, primeira metrica ocupa o eixo `x` e segunda metrica ocupa o eixo `y`
 - `funnel` e `pyramid` com ao menos uma dimensao e exatamente uma metrica; direcao e layout pertencem ao runtime, nao ao contrato de engine
 - `treemap` com ao menos uma dimensao e exatamente uma metrica; hierarquia multinivel e layout especifico permanecem fora deste corte do contrato
+- `gauge` com um bucket, uma metrica e escala explicita; o runtime valida cardinalidade e valor dentro da escala sem clamp silencioso
 - `theme.variant`
 - `theme.palette` como token string
 
@@ -151,6 +152,7 @@ Restricoes executaveis no runtime Angular oficial:
 - `scatter` exige uma dimensao e aceita uma ou duas metricas
 - `axis = "secondary"` e exclusivo de `combo`
 - `pie`, `donut`, `funnel`, `pyramid` e `treemap` exigem exatamente uma metrica
+- `gauge` remoto exige `group-by`, `source.options.limit=1`, exatamente uma metrica e `gauge.scale.max > gauge.scale.min`
 
 Publicacoes do starter devem declarar essas restricoes como cobertura de execucao, sem sugerir trilhas paralelas de contrato.
 

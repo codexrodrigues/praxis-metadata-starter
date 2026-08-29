@@ -401,6 +401,7 @@ nem decompor <code>displayLabel</code></li>
 <code>limit</code></li>
 <li><code>metrics[].seriesKind</code>, <code>metrics[].axis</code>,
 <code>metrics[].color</code></li>
+<li><code>gauge.scale.min</code>, <code>gauge.scale.max</code></li>
 <li><code>state</code>, <code>events</code>, <code>legend</code>,
 <code>labels</code>, <code>tooltip</code>, <code>theme</code></li>
 </ul></li>
@@ -425,7 +426,7 @@ JSON Schema</li>
 <li><code>numericFormat</code> (NumericFormat):
 <code>integer | decimal | currency | scientific | time | date | date-time | duration | number | fraction | percent</code></li>
 <li><code>x-ui.chart.kind</code>:
-<code>bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter | funnel | pyramid | treemap</code></li>
+<code>bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter | funnel | pyramid | treemap | gauge</code></li>
 <li><code>x-ui.chart.source.kind</code>:
 <code>praxis.stats | derived</code></li>
 <li><code>x-ui.analytics.intent</code>:
@@ -489,6 +490,9 @@ request MUST NOT publica-lo.</li>
 <code>source.resource</code> e <code>source.operation</code></li>
 <li>quando <code>source.operation = "timeseries"</code>, MUST conter
 <code>source.options.granularity</code></li>
+<li><code>gauge</code> MUST conter uma dimensao, exatamente uma metrica
+e <code>gauge.scale</code>; com <code>praxis.stats</code>, MUST usar
+<code>group-by</code> e <code>source.options.limit=1</code></li>
 </ul></li>
 </ul>
 <h2 id="precedencia-normativa">Precedencia (normativa)</h2>
@@ -648,6 +652,10 @@ esperado</li>
 <li><code>examples/x-ui-chart-funnel.invalid.json</code></li>
 <li><code>examples/x-ui-chart-treemap.valid.json</code></li>
 <li><code>examples/x-ui-chart-treemap.invalid.json</code></li>
+<li><code>examples/x-ui-chart-gauge.valid.json</code></li>
+<li><code>examples/x-ui-chart-gauge-multiple-metrics.invalid.json</code></li>
+<li><code>examples/x-ui-chart-gauge-missing-scale.invalid.json</code></li>
+<li><code>examples/x-ui-chart-gauge-limit.invalid.json</code></li>
 <li><code>examples/x-ui-chart-scatter-grouped-metrics.valid.json</code></li>
 <li><code>examples/x-ui-chart-scatter-missing-metrics.invalid.json</code></li>
 <li><code>examples/x-ui-chart-scatter-too-many-metrics.invalid.json</code></li>
@@ -677,7 +685,8 @@ semantica de serie por metrica; a terceira onda publica
 exatamente uma metrica; a quarta onda permite scatter agrupado com duas
 medidas, mantendo o modo simples de uma metrica; a quinta onda publica
 <code>treemap</code> como composicao categorial de uma dimensao e
-exatamente uma metrica.</li>
+exatamente uma metrica; a sexta onda publica <code>gauge</code> escalar
+com um bucket, uma metrica e escala explicita.</li>
 <li>O runtime Angular oficial deve explicitar honestamente quando alguma
 parte do contrato ainda for mais ampla que a implementacao atual.</li>
 </ul>

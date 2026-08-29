@@ -94,7 +94,7 @@ Um contrato `x-ui.chart` precisa cobrir pelo menos os seguintes blocos.
 
 - `version`
 - `kind`
-  - exemplo: `bar`, `combo`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`, `funnel`, `pyramid`, `treemap`
+  - exemplo: `bar`, `combo`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`, `funnel`, `pyramid`, `treemap`, `gauge`
 - `preset`
   - exemplo: `kpi-trend`, `comparison`, `distribution`, `ranking`, `composition`
 - `orientation`
@@ -167,6 +167,15 @@ Observacoes para a quinta onda:
   - exige ao menos uma dimensao categorial e exatamente uma metrica
   - representa composicao proporcional usando identidade, label e valor do bucket canonico
   - hierarquia multinivel, breadcrumb, layout e estilos especificos de engine permanecem fora deste corte
+
+Observacoes para a sexta onda:
+
+- `gauge`
+  - representa um valor escalar associado a exatamente um bucket e uma metrica
+  - declara uma escala renderer-neutral por `gauge.scale.min` e `gauge.scale.max`
+  - com `praxis.stats`, usa `group-by` com filtros governados e `source.options.limit=1`
+  - o runtime exige exatamente um bucket, `max > min` e valor dentro da escala
+  - target, thresholds, multiplos ponteiros, angulos, ticks e estilos de engine ficam fora do primeiro corte
 
 Aqui a preocupacao nao e a forma final exata do JSON, e sim garantir que o contrato expresse negocio e analise, nao apenas apresentacao.
 

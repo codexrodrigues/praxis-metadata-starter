@@ -289,7 +289,7 @@ seguintes blocos.</p>
 <code>horizontal-bar</code>, <code>line</code>, <code>pie</code>,
 <code>donut</code>, <code>area</code>, <code>stacked-bar</code>,
 <code>stacked-area</code>, <code>scatter</code>, <code>funnel</code>,
-<code>pyramid</code>, <code>treemap</code></li>
+<code>pyramid</code>, <code>treemap</code>, <code>gauge</code></li>
 </ul></li>
 <li><code>preset</code>
 <ul>
@@ -415,6 +415,22 @@ canonico</li>
 do bucket canonico</li>
 <li>hierarquia multinivel, breadcrumb, layout e estilos especificos de
 engine permanecem fora deste corte</li>
+</ul></li>
+</ul>
+<p>Observacoes para a sexta onda:</p>
+<ul>
+<li><code>gauge</code>
+<ul>
+<li>representa um valor escalar associado a exatamente um bucket e uma
+metrica</li>
+<li>declara uma escala renderer-neutral por <code>gauge.scale.min</code>
+e <code>gauge.scale.max</code></li>
+<li>com <code>praxis.stats</code>, usa <code>group-by</code> com filtros
+governados e <code>source.options.limit=1</code></li>
+<li>o runtime exige exatamente um bucket, <code>max &gt; min</code> e
+valor dentro da escala</li>
+<li>target, thresholds, multiplos ponteiros, angulos, ticks e estilos de
+engine ficam fora do primeiro corte</li>
 </ul></li>
 </ul>
 <p>Aqui a preocupacao nao e a forma final exata do JSON, e sim garantir
