@@ -425,7 +425,7 @@ JSON Schema</li>
 <li><code>numericFormat</code> (NumericFormat):
 <code>integer | decimal | currency | scientific | time | date | date-time | duration | number | fraction | percent</code></li>
 <li><code>x-ui.chart.kind</code>:
-<code>bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter | funnel | pyramid</code></li>
+<code>bar | combo | horizontal-bar | line | pie | donut | area | stacked-bar | stacked-area | scatter | funnel | pyramid | treemap</code></li>
 <li><code>x-ui.chart.source.kind</code>:
 <code>praxis.stats | derived</code></li>
 <li><code>x-ui.analytics.intent</code>:
@@ -646,6 +646,8 @@ esperado</li>
 <li><code>examples/x-ui-chart-funnel.valid.json</code></li>
 <li><code>examples/x-ui-chart-pyramid.valid.json</code></li>
 <li><code>examples/x-ui-chart-funnel.invalid.json</code></li>
+<li><code>examples/x-ui-chart-treemap.valid.json</code></li>
+<li><code>examples/x-ui-chart-treemap.invalid.json</code></li>
 <li><code>examples/x-ui-chart-scatter-grouped-metrics.valid.json</code></li>
 <li><code>examples/x-ui-chart-scatter-missing-metrics.invalid.json</code></li>
 <li><code>examples/x-ui-chart-scatter-too-many-metrics.invalid.json</code></li>
@@ -673,7 +675,9 @@ como contrato em evolucao.</li>
 semantica de serie por metrica; a terceira onda publica
 <code>funnel</code> e <code>pyramid</code> com ao menos uma dimensao e
 exatamente uma metrica; a quarta onda permite scatter agrupado com duas
-medidas, mantendo o modo simples de uma metrica.</li>
+medidas, mantendo o modo simples de uma metrica; a quinta onda publica
+<code>treemap</code> como composicao categorial de uma dimensao e
+exatamente uma metrica.</li>
 <li>O runtime Angular oficial deve explicitar honestamente quando alguma
 parte do contrato ainda for mais ampla que a implementacao atual.</li>
 </ul>

@@ -1,0 +1,36 @@
+{
+  "version": "0.1.0",
+  "kind": "treemap",
+  "preset": "composition",
+  "chartId": "payroll-profile-treemap",
+  "title": "Composição dos perfis da folha",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/human-resources/vw-analytics-folha-pagamento",
+    "operation": "group-by",
+    "options": {
+      "orderBy": "value-desc",
+      "limit": 8
+    }
+  },
+  "dimensions": [
+    {
+      "field": "payrollProfile",
+      "label": "Perfil",
+      "role": "category"
+    }
+  ],
+  "metrics": [
+    {
+      "field": "count",
+      "label": "Registros",
+      "aggregation": "count"
+    }
+  ],
+  "labels": {
+    "enabled": true
+  },
+  "tooltip": {
+    "enabled": true
+  }
+}

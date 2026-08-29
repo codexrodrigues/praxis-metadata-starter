@@ -289,7 +289,7 @@ seguintes blocos.</p>
 <code>horizontal-bar</code>, <code>line</code>, <code>pie</code>,
 <code>donut</code>, <code>area</code>, <code>stacked-bar</code>,
 <code>stacked-area</code>, <code>scatter</code>, <code>funnel</code>,
-<code>pyramid</code></li>
+<code>pyramid</code>, <code>treemap</code></li>
 </ul></li>
 <li><code>preset</code>
 <ul>
@@ -404,6 +404,17 @@ metrica</li>
 e materializada pelo runtime</li>
 <li>nao publicam propriedades especificas de ECharts no contrato
 canonico</li>
+</ul></li>
+</ul>
+<p>Observacoes para a quinta onda:</p>
+<ul>
+<li><code>treemap</code>
+<ul>
+<li>exige ao menos uma dimensao categorial e exatamente uma metrica</li>
+<li>representa composicao proporcional usando identidade, label e valor
+do bucket canonico</li>
+<li>hierarquia multinivel, breadcrumb, layout e estilos especificos de
+engine permanecem fora deste corte</li>
 </ul></li>
 </ul>
 <p>Aqui a preocupacao nao e a forma final exata do JSON, e sim garantir
