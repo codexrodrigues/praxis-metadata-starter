@@ -94,7 +94,7 @@ Um contrato `x-ui.chart` precisa cobrir pelo menos os seguintes blocos.
 
 - `version`
 - `kind`
-  - exemplo: `bar`, `combo`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`, `funnel`, `pyramid`
+  - exemplo: `bar`, `combo`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`, `funnel`, `pyramid`, `treemap`
 - `preset`
   - exemplo: `kpi-trend`, `comparison`, `distribution`, `ranking`, `composition`
 - `orientation`
@@ -160,6 +160,13 @@ Observacoes para a terceira onda:
   - exigem ao menos uma dimensao categorial e exatamente uma metrica
   - compartilham a mesma semantica analitica; a direcao visual distinta e materializada pelo runtime
   - nao publicam propriedades especificas de ECharts no contrato canonico
+
+Observacoes para a quinta onda:
+
+- `treemap`
+  - exige ao menos uma dimensao categorial e exatamente uma metrica
+  - representa composicao proporcional usando identidade, label e valor do bucket canonico
+  - hierarquia multinivel, breadcrumb, layout e estilos especificos de engine permanecem fora deste corte
 
 Aqui a preocupacao nao e a forma final exata do JSON, e sim garantir que o contrato expresse negocio e analise, nao apenas apresentacao.
 

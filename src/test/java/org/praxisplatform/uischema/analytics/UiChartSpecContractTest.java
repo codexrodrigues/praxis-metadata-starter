@@ -17,17 +17,25 @@ class UiChartSpecContractTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void funnelAndPyramidExamplesAreValid() throws Exception {
+    void categorySliceExamplesAreValid() throws Exception {
         JsonSchema schema = chartSchema();
 
         assertTrue(schema.validate(example("x-ui-chart-funnel.valid.json")).isEmpty());
         assertTrue(schema.validate(example("x-ui-chart-pyramid.valid.json")).isEmpty());
+        assertTrue(schema.validate(example("x-ui-chart-treemap.valid.json")).isEmpty());
     }
 
     @Test
     void funnelRequiresExactlyOneMetric() throws Exception {
         assertFalse(chartSchema()
                 .validate(example("x-ui-chart-funnel.invalid.json"))
+                .isEmpty());
+    }
+
+    @Test
+    void treemapRequiresExactlyOneMetric() throws Exception {
+        assertFalse(chartSchema()
+                .validate(example("x-ui-chart-treemap.invalid.json"))
                 .isEmpty());
     }
 

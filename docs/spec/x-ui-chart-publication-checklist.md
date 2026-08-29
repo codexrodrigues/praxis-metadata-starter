@@ -19,6 +19,7 @@ Consolidar os gates minimos para manter o draft canonico de `x-ui.chart` coerent
 - `timeseries` exige `source.options.granularity`
 - `refresh.strategy = "interval"` exige `intervalMs`
 - `funnel` e `pyramid` exigem ao menos uma dimensao e exatamente uma metrica
+- `treemap` exige ao menos uma dimensao e exatamente uma metrica
 - `scatter` exige ao menos uma dimensao e aceita uma ou duas metricas, com semantica posicional documentada
 
 ### 2. Alinhamento operacional com stats
@@ -39,7 +40,7 @@ Cobertura executavel em `@praxisui/charts`:
 
 - `source.kind = "praxis.stats"`
 - `source.kind = "derived"`
-- `kind`: `bar`, `combo`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`, `funnel`, `pyramid`
+- `kind`: `bar`, `combo`, `horizontal-bar`, `line`, `pie`, `donut`, `area`, `stacked-bar`, `stacked-area`, `scatter`, `funnel`, `pyramid`, `treemap`
 - `aggregation = "distinct-count"`
 - `scatter` simples com uma metrica e scatter agrupado com duas metricas
 - `pointClick`, `drillDown`, `events.selectionChange` e `events.crossFilter` no fluxo executavel
@@ -48,7 +49,7 @@ Cobertura executavel em `@praxisui/charts`:
 
 Restricoes executaveis relevantes:
 
-- `distribution`, `pie`, `donut`, `funnel` e `pyramid` aceitam uma metrica
+- `distribution`, `pie`, `donut`, `funnel`, `pyramid` e `treemap` aceitam uma metrica
 - `combo` exige pelo menos duas metricas
 - `scatter` aceita uma ou duas metricas
 
