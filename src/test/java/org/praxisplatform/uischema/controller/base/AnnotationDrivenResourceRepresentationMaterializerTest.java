@@ -5,6 +5,7 @@ import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.response.RestApiResource;
 import org.praxisplatform.uischema.service.base.BaseResourceService;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -93,6 +94,24 @@ class AnnotationDrivenResourceRepresentationMaterializerTest {
                 () -> materializer.materialize("test.simple", new OtherResponseDto(7L)));
         assertTrue(incompatible.getMessage().contains(OtherResponseDto.class.getName()));
         assertTrue(incompatible.getMessage().contains(SimpleResponseDto.class.getName()));
+    }
+
+    @Test
+    void resolvesResponseTypeThroughClassBasedControllerProxies() throws Exception {
+        SimpleController target = configured(new SimpleController());
+        ProxyFactory proxyFactory = new ProxyFactory(target);
+        proxyFactory.setProxyTargetClass(true);
+        SimpleController proxy = (SimpleController) proxyFactory.getProxy();
+        ResourceRepresentationMaterializer materializer = materializer(Map.of(
+                RequestMappingInfo.paths("/simple").build(), handler(proxy)
+        ));
+
+        RestApiResource<SimpleResponseDto> resource = materializer.materialize(
+                "test.simple",
+                new SimpleResponseDto(11L)
+        );
+
+        assertEquals(11L, resource.getContent().getId());
     }
 
     private ResourceRepresentationMaterializer materializer(Map<RequestMappingInfo, HandlerMethod> handlers) {
