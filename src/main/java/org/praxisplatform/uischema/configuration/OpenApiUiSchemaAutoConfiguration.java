@@ -14,6 +14,8 @@ import org.praxisplatform.uischema.capability.ResourceStateSnapshotProvider;
 import org.praxisplatform.uischema.capability.ResourceStructuralCapabilityResolver;
 import org.praxisplatform.uischema.analytics.UiAnalyticsAnnotationMapper;
 import org.praxisplatform.uischema.analytics.UiAnalyticsOpenApiCustomizer;
+import org.praxisplatform.uischema.controller.base.AnnotationDrivenResourceRepresentationMaterializer;
+import org.praxisplatform.uischema.controller.base.ResourceRepresentationMaterializer;
 import org.praxisplatform.uischema.controller.docs.ApiDocsController;
 import org.praxisplatform.uischema.controller.docs.ActionCatalogController;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
@@ -161,6 +163,22 @@ public class OpenApiUiSchemaAutoConfiguration {
     @ConditionalOnMissingBean
     public UiAnalyticsAnnotationMapper uiAnalyticsAnnotationMapper() {
         return new UiAnalyticsAnnotationMapper();
+    }
+
+    /**
+     * Publishes the canonical boundary used by parent projections to materialize child resources.
+     */
+    @Bean
+    @ConditionalOnBean(RequestMappingHandlerMapping.class)
+    @ConditionalOnMissingBean(ResourceRepresentationMaterializer.class)
+    public ResourceRepresentationMaterializer resourceRepresentationMaterializer(
+            RequestMappingHandlerMapping requestMappingHandlerMapping,
+            ApplicationContext applicationContext
+    ) {
+        return new AnnotationDrivenResourceRepresentationMaterializer(
+                requestMappingHandlerMapping,
+                applicationContext
+        );
     }
 
     @Bean

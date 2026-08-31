@@ -102,6 +102,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -341,6 +342,26 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         links.addAll(buildEntityActionLinks(id));
         links.addAll(buildItemDiscoveryLinks(id));
         return RestApiResource.of(dto, links);
+    }
+
+    /**
+     * Internal bridge used by the canonical cross-resource materializer.
+     *
+     * <p>The bridge deliberately remains package-private: hosts resolve representations by
+     * {@code resourceKey} through {@link ResourceRepresentationMaterializer}, rather than
+     * coupling parent controllers to child controller instances.</p>
+     */
+    @SuppressWarnings("unchecked")
+    final RestApiResource<?> materializeResourceRepresentation(Object dto) {
+        Objects.requireNonNull(dto, "Resource representation DTO must not be null");
+        Class<?> responseType = resolveResponseDtoClass();
+        if (!responseType.isInstance(dto)) {
+            throw new IllegalArgumentException(
+                    "Resource " + getResourceKey() + " expects DTO " + responseType.getName()
+                            + " but received " + dto.getClass().getName()
+            );
+        }
+        return toResourceModel((ResponseDTO) responseType.cast(dto));
     }
 
     protected List<Link> buildItemActionLinks(ID id) {
@@ -979,6 +1000,19 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             throw new IllegalStateException("Unable to resolve resource FilterDTO type.");
         }
         return (Class<FD>) filterType;
+    }
+
+    private Class<?> resolveResponseDtoClass() {
+        Class<?> responseType = ResolvableType.forClass(getClass())
+                .as(AbstractResourceQueryController.class)
+                .getGeneric(0)
+                .resolve();
+        if (responseType == null) {
+            throw new IllegalStateException(
+                    "Unable to resolve resource ResponseDTO type for " + getClass().getName()
+            );
+        }
+        return responseType;
     }
 
     private Set<String> fieldNames(JsonNode node) {

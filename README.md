@@ -589,6 +589,25 @@ encaminhados, sem exigir que cada App Host reescreva URLs de capabilities,
 actions ou discovery localmente. O host ainda pode substituir esse filtro com um
 bean proprio quando precisar de politica operacional especifica.
 
+### Related projections preserve the child resource contract
+
+Uma `@UiSurface` pai que retorna registros de outro recurso deve preservar a representação
+canônica do filho. Injete `ResourceRepresentationMaterializer` no controller pai e materialize a
+coleção pelo `relatedChildResourceKey` declarado:
+
+```java
+List<RestApiResource<MissionParticipantDto>> participants =
+    representationMaterializer.materializeAll(
+        "operations.mission-participants",
+        participantService.findByMissionId(id)
+    );
+```
+
+O host não monta `_links`, não infere paths e não decide availability. O registry resolve o
+controller resource-oriented proprietário do `resourceKey` e reutiliza sua materialização de
+`self`, actions, surfaces e capabilities. Resource keys ausentes, duplicados ou DTOs de outro
+recurso falham explicitamente. Não injete o controller filho no controller pai.
+
 ## Quick Mental Model
 
 ```mermaid

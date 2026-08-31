@@ -30,6 +30,10 @@ All notable changes to this module will be documented in this file.
   associada ao controller resource-oriented.
 
 ### Added
+- API pública `ResourceRepresentationMaterializer` para projections pai-filho materializarem DTOs
+  pelo `resourceKey` canônico do recurso filho. A implementação annotation-driven reutiliza a
+  composição oficial de `self`, actions, surfaces e capabilities, rejeita resource keys ausentes
+  ou duplicados e evita acoplamento controller-to-controller nos hosts.
 - Familia canonica `gauge` no draft `x-ui.chart`, limitada no primeiro corte a um
   bucket, uma metrica e escala explicita, sem opcoes especificas da engine.
 - Familia canonica `treemap` no draft `x-ui.chart`, com ao menos uma dimensao e
