@@ -159,6 +159,18 @@ class HypermediaDiscoveryE2ETest extends AbstractE2eH2Test {
         assertFalse(capabilitiesHref.contains("127.0.0.1:4301"));
     }
 
+    @Test
+    void relatedResourceResponsesPublishTheDomainSchemaInTheParentOpenApiGroup() throws Exception {
+        JsonNode schema = body(get(
+                "/schemas/filtered?path=/employees/%7Bid%7D/notes&operation=get&schemaType=response"
+        ));
+
+        assertTrue(schema.path("properties").has("id"));
+        assertTrue(schema.path("properties").has("summary"));
+        assertFalse(schema.path("properties").has("content"));
+        assertFalse(schema.path("properties").has("_links"));
+    }
+
     private void assertFilteredSchemaUrl(String href, String path, String operation, String schemaType) {
         var uri = UriComponentsBuilder.fromUriString(href).build(true);
         assertEquals("/schemas/filtered", uri.getPath());

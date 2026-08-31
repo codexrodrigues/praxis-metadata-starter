@@ -32,6 +32,7 @@ import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.OptionSourceType;
 import org.praxisplatform.uischema.options.service.OptionSourceOperation;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResource;
 import org.praxisplatform.uischema.service.base.AbstractBaseResourceService;
 import org.praxisplatform.uischema.service.base.AbstractReadOnlyResourceService;
 import org.praxisplatform.uischema.service.base.ResourceFilterAccessScope;
@@ -49,6 +50,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -739,6 +741,20 @@ class EmployeeController extends org.praxisplatform.uischema.controller.base.Abs
     @Override
     protected Long getResponseId(EmployeeResponseDTO dto) {
         return dto.getId();
+    }
+
+    @GetMapping("/{id}/notes")
+    @Operation(summary = "Listar notas relacionadas do funcionario")
+    public ResponseEntity<RestApiResponse<List<RestApiResource<EmployeeNoteDTO>>>> relatedNotes(
+            @PathVariable Long id
+    ) {
+        EmployeeNoteDTO note = new EmployeeNoteDTO();
+        note.setId(id * 10);
+        note.setSummary("Contextual note");
+        return ResponseEntity.ok(RestApiResponse.success(
+                List.of(RestApiResource.of(note)),
+                Links.NONE
+        ));
     }
 
     @PatchMapping("/{id}/profile")

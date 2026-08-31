@@ -5,6 +5,9 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Fixed
+- Responses concretas `RestApiResource<DTO>` em projections relacionadas agora registram o DTO
+  de domínio no grupo OpenAPI pai e publicam o componente flatten `DTO + _links`, permitindo que
+  `/schemas/filtered` resolva o schema sem depender de inferência pelo nome do wrapper.
 - Capabilities opcionais de resource (`options`, `optionSources`, `stats*` e `export`) agora
   resultam da intersecao entre mapping OpenAPI e suporte estrutural executavel do service.
   `/schemas/filtered`, `/capabilities`, `operations.supported` e `stats.fields` deixam de
