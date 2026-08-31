@@ -243,5 +243,12 @@ A UI obtem a disponibilidade real via `GET /{resource}/capabilities`,
 `GET /{resource}/{id}/surfaces`. Collection capabilities nao substituem item
 capabilities quando a decisao depende de `resourceId` ou estado do registro.
 
+Quando uma surface pai retorna uma coleção de um recurso filho mutável, use
+`ResourceRepresentationMaterializer.materializeAll(relatedChildResourceKey, dtos)`. Isso mantém
+`_links.self`, actions e discovery contextual pertencendo ao recurso filho. O endpoint pai não
+deve sintetizar links, copiar regras de availability nem injetar o controller filho. O
+`resourceKey` explícito é a única chave de resolução; nomes, labels e paths aproximados não são
+fallbacks válidos.
+
 Para adocao corporativa, metadata publica segura e criterios de aceite, siga
 [Enterprise Availability Adoption](ENTERPRISE-AVAILABILITY-ADOPTION.md).

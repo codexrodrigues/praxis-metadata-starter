@@ -522,6 +522,14 @@ estado sem N+1.</li>
 <code>GET /{resource}/{id}/surfaces</code>. Collection capabilities nao
 substituem item capabilities quando a decisao depende de
 <code>resourceId</code> ou estado do registro.</p>
+<p>Quando uma surface pai retorna uma coleção de um recurso filho
+mutável, use
+<code>ResourceRepresentationMaterializer.materializeAll(relatedChildResourceKey, dtos)</code>.
+Isso mantém <code>_links.self</code>, actions e discovery contextual
+pertencendo ao recurso filho. O endpoint pai não deve sintetizar links,
+copiar regras de availability nem injetar o controller filho. O
+<code>resourceKey</code> explícito é a única chave de resolução; nomes,
+labels e paths aproximados não são fallbacks válidos.</p>
 <p>Para adocao corporativa, metadata publica segura e criterios de
 aceite, siga <a href="ENTERPRISE-AVAILABILITY-ADOPTION.md">Enterprise
 Availability Adoption</a>.</p>
