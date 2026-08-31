@@ -608,6 +608,12 @@ controller resource-oriented proprietário do `resourceKey` e reutiliza sua mate
 `self`, actions, surfaces e capabilities. Resource keys ausentes, duplicados ou DTOs de outro
 recurso falham explicitamente. Não injete o controller filho no controller pai.
 
+O tipo de retorno do endpoint deve declarar concretamente
+`RestApiResource<ChildDto>`. O starter usa o tipo genérico do `HandlerMethod` para registrar
+`ChildDto` no grupo OpenAPI pai e publicar o componente flatten `ChildDto + _links`; tipos
+genéricos não resolvidos não são inferidos por nome. Assim, `/schemas/filtered` continua retornando
+o schema de domínio, enquanto o payload HTTP preserva hypermedia por item.
+
 ## Quick Mental Model
 
 ```mermaid

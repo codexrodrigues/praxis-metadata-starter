@@ -43,6 +43,7 @@ import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentWarmup;
+import org.praxisplatform.uischema.openapi.RelatedResourceResponseSchemaCustomizer;
 import org.praxisplatform.uischema.options.OptionSourceEligibility;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationDiagnostics;
@@ -178,6 +179,19 @@ public class OpenApiUiSchemaAutoConfiguration {
         return new AnnotationDrivenResourceRepresentationMaterializer(
                 requestMappingHandlerMapping,
                 applicationContext
+        );
+    }
+
+    @Bean
+    @ConditionalOnBean(RequestMappingHandlerMapping.class)
+    @ConditionalOnMissingBean(RelatedResourceResponseSchemaCustomizer.class)
+    public RelatedResourceResponseSchemaCustomizer relatedResourceResponseSchemaCustomizer(
+            RequestMappingHandlerMapping requestMappingHandlerMapping,
+            CanonicalOperationResolver canonicalOperationResolver
+    ) {
+        return new RelatedResourceResponseSchemaCustomizer(
+                requestMappingHandlerMapping,
+                canonicalOperationResolver
         );
     }
 
