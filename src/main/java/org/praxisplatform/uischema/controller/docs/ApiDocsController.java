@@ -395,11 +395,17 @@ public class ApiDocsController {
 
         LOGGER.info("Schema node retrieved successfully");
 
-        JsonNode schemaNodeForResponse = schemasNode;
+        JsonNode schemaNodeForResponse = schemasNode.isObject() ? schemasNode.deepCopy() : schemasNode;
+        if ("request".equalsIgnoreCase(schemaType) && schemaNodeForResponse.isObject()) {
+            materializeStatsFilterSchema(
+                    (ObjectNode) schemaNodeForResponse,
+                    rootNode,
+                    canonicalPath
+            );
+        }
         // Se includeInternalSchemas for verdadeiro, substitui schemas internos em uma copia
         // profunda para nao contaminar o documento OpenAPI compartilhado em cache.
-        if (includeInternalSchemas && schemasNode.isObject()) {
-            schemaNodeForResponse = schemasNode.deepCopy();
+        if (includeInternalSchemas && schemaNodeForResponse.isObject()) {
             replaceInternalSchemas((ObjectNode) schemaNodeForResponse, allSchemas);
         }
 
@@ -739,6 +745,89 @@ public class ApiDocsController {
         }
 
         return p; // ja e base
+    }
+
+    /**
+     * Materializa no request de stats o schema concreto de filtro do mesmo recurso.
+     *
+     * <p>O Springdoc preserva o envelope de {@code GroupByStatsRequest<FD>} e
+     * {@code TimeSeriesStatsRequest<FD>}, mas pode apagar o tipo parametrico {@code FD}, publicando
+     * {@code filter} apenas como {@code object}. O endpoint irmao {@code /filter} continua contendo
+     * o {@code FilterDTO} concreto. Esta etapa reutiliza essa evidencia OpenAPI canonica para que
+     * {@code /schemas/filtered} nao perca a conformidade de campos nas operacoes analiticas.</p>
+     */
+    private void materializeStatsFilterSchema(
+            ObjectNode statsRequestSchema,
+            JsonNode rootNode,
+            String canonicalPath
+    ) {
+        if (!isStatsOperationPath(canonicalPath)) {
+            return;
+        }
+
+        JsonNode propertiesNode = statsRequestSchema.path(PROPERTIES);
+        JsonNode currentFilterSchema = propertiesNode.path("filter");
+        JsonNode allSchemas = rootNode.path(COMPONENTS).path(SCHEMAS);
+        if (!(propertiesNode instanceof ObjectNode properties)
+                || currentFilterSchema.isMissingNode()
+                || hasDeclaredSchemaProperties(currentFilterSchema, allSchemas)) {
+            return;
+        }
+
+        String filterPath = deriveBasePathFrom(canonicalPath) + "/filter";
+        JsonNode filterOperation = rootNode.path(PATHS).path(filterPath).path("post");
+        if (filterOperation.isMissingNode()) {
+            return;
+        }
+
+        JsonNode filterRequestSchema = openApiDocsSupport.selectPreferredContentNode(
+                filterOperation.path("requestBody").path("content")
+        ).path("schema");
+        JsonNode concreteFilterSchema = resolveRequestSchemaNode(
+                filterRequestSchema,
+                allSchemas
+        );
+        if (concreteFilterSchema == null || !concreteFilterSchema.isObject()) {
+            return;
+        }
+
+        properties.set("filter", concreteFilterSchema.deepCopy());
+        LOGGER.info(
+                "Schema concreto de filtro materializado em request de stats '{}' a partir de '{}'",
+                canonicalPath,
+                filterPath
+        );
+    }
+
+    private boolean isStatsOperationPath(String path) {
+        return path != null && (
+                path.endsWith("/stats/group-by")
+                        || path.endsWith("/stats/timeseries")
+                        || path.endsWith("/stats/distribution")
+                        || path.endsWith("/stats/comparison")
+        );
+    }
+
+    private JsonNode resolveRequestSchemaNode(JsonNode requestSchema, JsonNode allSchemas) {
+        if (requestSchema == null || requestSchema.isMissingNode()) {
+            return null;
+        }
+        if (requestSchema.has(REF)) {
+            JsonNode referenced = allSchemas.path(extractSchemaNameFromRef(requestSchema.path(REF).asText()));
+            return referenced.isMissingNode() ? null : referenced;
+        }
+        JsonNode extracted = tryExtractFilterSchemaFromInline(requestSchema, allSchemas);
+        return extracted != null ? extracted : requestSchema;
+    }
+
+    private boolean hasDeclaredSchemaProperties(JsonNode schema, JsonNode allSchemas) {
+        JsonNode candidate = schema;
+        if (schema.has(REF)) {
+            candidate = allSchemas.path(extractSchemaNameFromRef(schema.path(REF).asText()));
+        }
+        return candidate != null
+                && !candidate.isMissingNode()
+                && candidate.path(PROPERTIES).fieldNames().hasNext();
     }
 
     /**

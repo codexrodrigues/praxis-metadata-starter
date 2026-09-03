@@ -156,6 +156,13 @@ com campo elegivel para aquele modo. O schema estrutural, labels ricas e
 tentativa e erro, reduz consultas invalidas e deixa dashboards auditaveis antes da
 execucao de stats.
 
+Nos schemas de request de `/{resource}/stats/group-by`, `timeseries`, `distribution`
+e `comparison`, a propriedade `filter` materializa o mesmo `FilterDTO` concreto
+publicado pelo endpoint `/{resource}/filter`. Essa projeção corrige apenas a perda do
+tipo genérico no OpenAPI; não cria uma segunda definição de filtro. Assim, runtimes e
+agentes podem verificar em `/schemas/filtered` se cada campo de cross-filter é aceito
+pela operação analítica antes de executá-la.
+
 Projections `x-ui.analytics` que dependem de uma politica de dominio podem
 publicar `governance.policyRefs[]` com identidade e versao, papel, campo de
 resultado e atestacao opcional. O bloco e discovery de provenance: nao carrega
