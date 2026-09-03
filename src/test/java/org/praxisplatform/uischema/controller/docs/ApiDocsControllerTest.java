@@ -672,6 +672,85 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    void getFilteredSchemaMaterializesConcreteResourceFilterInsideStatsRequest() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("payroll");
+        String doc = """
+                {
+                  "paths": {
+                    "/payroll/filter": {
+                      "post": {
+                        "requestBody": {
+                          "content": {
+                            "application/json": {
+                              "schema": {"$ref": "#/components/schemas/PayrollFilterDTO"}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "/payroll/stats/group-by": {
+                      "post": {
+                        "requestBody": {
+                          "content": {
+                            "application/json": {
+                              "schema": {"$ref": "#/components/schemas/GroupByStatsRequest"}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "components": {
+                    "schemas": {
+                      "PayrollFilterDTO": {
+                        "type": "object",
+                        "properties": {
+                          "departmentId": {"type": "integer"},
+                          "payrollProfile": {"type": "string"}
+                        }
+                      },
+                      "GroupByStatsRequest": {
+                        "type": "object",
+                        "properties": {
+                          "filter": {"$ref": "#/components/schemas/GenericFilterDTO"},
+                          "field": {"type": "string"}
+                        }
+                      },
+                      "GenericFilterDTO": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+                """;
+
+        server.expect(requestTo("http://localhost/v3/api-docs/payroll"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema(
+                "/payroll/stats/group-by",
+                "post",
+                false,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH
+        );
+
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+        Map<?, ?> properties = (Map<?, ?>) schema.get("properties");
+        Map<?, ?> filterSchema = (Map<?, ?>) properties.get("filter");
+        Map<?, ?> filterProperties = (Map<?, ?>) filterSchema.get("properties");
+        assertEquals(List.of("departmentId", "payrollProfile"), filterProperties.keySet().stream().toList());
+    }
+
+    @Test
     void getFilteredSchemaResolvesStatsResponseFromRestApiResponseWrapper() throws Exception {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
         String doc = "{\n" +

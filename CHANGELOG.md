@@ -5,6 +5,9 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Fixed
+- Requests de `/schemas/filtered` para `/{resource}/stats/*` agora materializam em `filter`
+  o `FilterDTO` concreto já publicado por `/{resource}/filter`, preservando a conformidade de
+  campos mesmo quando o Springdoc apaga o parâmetro genérico dos DTOs analíticos.
 - Responses concretas `RestApiResource<DTO>` em projections relacionadas agora registram o DTO
   de domínio no grupo OpenAPI pai e publicam o componente flatten `DTO + _links`, permitindo que
   `/schemas/filtered` resolva o schema sem depender de inferência pelo nome do wrapper.
