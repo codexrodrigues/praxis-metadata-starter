@@ -5,6 +5,9 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Fixed
+- O executor de commands governados agora preserva `ResourceVersionPreconditionException` para o
+  handler HTTP canônico, inclusive quando a revalidacao transacional detecta a corrida. Assim,
+  `400`, `412` e `428` mantêm seus códigos públicos distintos em vez de virarem erro inesperado.
 - O transporte de versao agora valida separadamente um `If-Match` forte antes de resolver replay
   idempotente, mantendo o header obrigatorio sem rejeitar a versao original ja obsoleta.
 - Commands governados agora classificam uma colisao JPA de concorrencia otimista como

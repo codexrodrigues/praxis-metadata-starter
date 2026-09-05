@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityProvider;
+import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.server.ResponseStatusException;
@@ -14,6 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -203,6 +205,30 @@ class GovernedResourceCommandExecutorTest {
         assertEquals("Resource version is stale.", result.messages().getFirst().message());
         assertEquals(412, result.evidence().get("status"));
         assertFalse(result.evidence().toString().contains("PrivateAgreementEntity"));
+    }
+
+    @Test
+    void preservesTypedResourceVersionFailureForCanonicalHttpMaterialization() {
+        ResourceVersionPreconditionException expected = ResourceVersionPreconditionException.stale();
+        GovernedResourceCommandExecutor executor = new GovernedResourceCommandExecutor(request -> {
+            throw expected;
+        });
+
+        ResourceVersionPreconditionException actual = assertThrows(
+                ResourceVersionPreconditionException.class,
+                () -> executor.execute(ResourceCommandExecutionRequest.item(
+                        "operations.agreements",
+                        "/api/operations/agreements",
+                        "suspend",
+                        42L,
+                        Map.of("reason", "audit"),
+                        ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT
+                ))
+        );
+
+        assertSame(expected, actual);
+        assertEquals(HttpStatus.PRECONDITION_FAILED, actual.status());
+        assertEquals("STALE_RESOURCE_VERSION", actual.code());
     }
 
     @Test
