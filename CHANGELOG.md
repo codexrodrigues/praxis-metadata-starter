@@ -5,6 +5,11 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Fixed
+- O transporte de versao agora valida separadamente um `If-Match` forte antes de resolver replay
+  idempotente, mantendo o header obrigatorio sem rejeitar a versao original ja obsoleta.
+- Commands governados agora classificam uma colisao JPA de concorrencia otimista como
+  `PRECONDITION_FAILED`/HTTP `412`, com mensagem sanitizada, em vez de converter a corrida
+  protegida por `@Version` em falha inesperada.
 - Requests de `/schemas/filtered` para `/{resource}/stats/*` agora materializam em `filter`
   o `FilterDTO` concreto já publicado por `/{resource}/filter`, preservando a conformidade de
   campos mesmo quando o Springdoc apaga o parâmetro genérico dos DTOs analíticos.

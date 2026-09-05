@@ -56,4 +56,17 @@ class ResourceVersionEtagServiceTest {
                 etags, tag, "human-resources.funcionarios", 42, 3
         ));
     }
+
+    @Test
+    void validatesStrongHeaderWithoutComparingItToTheCurrentVersion() {
+        String oldTag = etags.create("human-resources.funcionarios", 42, 3);
+
+        assertEquals(oldTag, ResourceVersionPreconditions.requireStrongEtag("  " + oldTag + "  "));
+        assertEquals("RESOURCE_VERSION_REQUIRED", assertThrows(ResourceVersionPreconditionException.class,
+                () -> ResourceVersionPreconditions.requireStrongEtag(null)).code());
+        assertEquals("INVALID_RESOURCE_VERSION", assertThrows(ResourceVersionPreconditionException.class,
+                () -> ResourceVersionPreconditions.requireStrongEtag("W/" + oldTag)).code());
+        assertEquals("INVALID_RESOURCE_VERSION", assertThrows(ResourceVersionPreconditionException.class,
+                () -> ResourceVersionPreconditions.requireStrongEtag(oldTag + ", " + oldTag)).code());
+    }
 }

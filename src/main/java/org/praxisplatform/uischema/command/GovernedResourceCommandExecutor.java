@@ -4,6 +4,8 @@ import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.NoOpResourceOperationAvailabilityProvider;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityProvider;
+import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
@@ -74,6 +76,13 @@ public class GovernedResourceCommandExecutor {
                     outcomeFromStatus(ex.getStatusCode().value()),
                     publicMessage(ex),
                     Map.of("status", ex.getStatusCode().value())
+            );
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            return ResourceCommandExecutionResult.failure(
+                    request,
+                    ResourceCommandOutcome.PRECONDITION_FAILED,
+                    "Resource version is stale.",
+                    Map.of("status", HttpStatus.PRECONDITION_FAILED.value())
             );
         } catch (RuntimeException ex) {
             return ResourceCommandExecutionResult.unexpected(
