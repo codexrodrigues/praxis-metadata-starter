@@ -5,6 +5,7 @@ import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityProvider;
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
@@ -179,6 +180,29 @@ class GovernedResourceCommandExecutorTest {
         assertEquals(ResourceCommandErrorCategory.CONFLICT_DEPENDENCY, result.messages().getFirst().category());
         assertEquals("State not allowed: DRAFT", result.messages().getFirst().message());
         assertEquals(409, result.evidence().get("status"));
+    }
+
+    @Test
+    void mapsConcurrentJpaWriteToStablePreconditionFailure() {
+        GovernedResourceCommandExecutor executor = new GovernedResourceCommandExecutor(request -> {
+            throw new ObjectOptimisticLockingFailureException("PrivateAgreementEntity", 42L);
+        });
+
+        ResourceCommandExecutionResult result = executor.execute(ResourceCommandExecutionRequest.item(
+                "operations.agreements",
+                "/api/operations/agreements",
+                "suspend",
+                42L,
+                Map.of("reason", "audit"),
+                ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT
+        ));
+
+        assertFalse(result.successful());
+        assertEquals(ResourceCommandOutcome.PRECONDITION_FAILED, result.outcome());
+        assertEquals(ResourceCommandErrorCategory.PRECONDITION, result.messages().getFirst().category());
+        assertEquals("Resource version is stale.", result.messages().getFirst().message());
+        assertEquals(412, result.evidence().get("status"));
+        assertFalse(result.evidence().toString().contains("PrivateAgreementEntity"));
     }
 
     @Test
