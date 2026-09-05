@@ -198,6 +198,27 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void shouldKeepDistinctMissingAndMalformedResourceVersionContracts() {
+        WebRequest request = webRequest("/api/operations/agreements/42/actions/suspend");
+
+        var required = handler.handleResourceVersionPrecondition(
+                ResourceVersionPreconditionException.required(),
+                request
+        );
+        var invalid = handler.handleResourceVersionPrecondition(
+                ResourceVersionPreconditionException.invalid(),
+                request
+        );
+
+        assertEquals(HttpStatus.PRECONDITION_REQUIRED, required.getStatusCode());
+        assertNotNull(required.getBody());
+        assertEquals("RESOURCE_VERSION_REQUIRED", required.getBody().getErrors().getFirst().getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, invalid.getStatusCode());
+        assertNotNull(invalid.getBody());
+        assertEquals("INVALID_RESOURCE_VERSION", invalid.getBody().getErrors().getFirst().getCode());
+    }
+
+    @Test
     void shouldPublishOptimisticCollisionAsStaleResourceVersionWithoutPersistenceDetails() {
         WebRequest request = webRequest("/api/human-resources/funcionarios/42");
         var response = handler.handleOptimisticLockingFailure(

@@ -4,6 +4,7 @@ import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.NoOpResourceOperationAvailabilityProvider;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityProvider;
+import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.server.ResponseStatusException;
@@ -70,6 +71,11 @@ public class GovernedResourceCommandExecutor {
                     ex.publicMessage(),
                     evidenceSanitizer.sanitize(ex.evidence())
             );
+        } catch (ResourceVersionPreconditionException ex) {
+            // Preserve the canonical typed failure so GlobalExceptionHandler can materialize its
+            // exact 400/412/428 status and stable public code. Converting it to a generic command
+            // outcome would collapse distinct concurrency decisions into one HTTP response.
+            throw ex;
         } catch (ResponseStatusException ex) {
             return ResourceCommandExecutionResult.failure(
                     request,
