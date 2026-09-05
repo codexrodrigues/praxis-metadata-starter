@@ -61,6 +61,8 @@ Marque todos os itens abaixo antes de abrir a adocao do piloto.
 - [ ] metadata de denial nao expoe SQL, HADES, Oracle, ROWID, package, procedure, usuario tecnico, tenant privado, sessao ou locator interno
 - [ ] falha do provider testada como fail-closed para operacoes protegidas
 - [ ] teste focal prova pelo menos um allow e um deny item-level
+- [ ] action de item versionada prova ETag valido, ausente e obsoleto, replay idempotente,
+      conflito de payload e colisao concorrente materializada como HTTP `412`
 
 ## Testes e validacao
 

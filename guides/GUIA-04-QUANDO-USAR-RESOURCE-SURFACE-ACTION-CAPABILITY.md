@@ -130,6 +130,15 @@ Toda action publica tambem `execution`, separado do request/response schema:
 - `outcome`: resultado unico ou por item e atomicidade declarada
 - `refresh`: projections que ficam obsoletas depois do sucesso
 
+Quando uma action `ITEM` exige versao, o host deve validar o ETag antes da reserva idempotente e
+novamente dentro da transacao que carrega e altera o agregado. O `@Version` fecha a corrida entre
+duas escritas simultaneas; o executor governado materializa a colisao resultante como
+`PRECONDITION_FAILED`/HTTP `412`, sem expor o tipo da entidade persistida.
+
+Antes de devolver um replay, o host deve chamar `ResourceVersionPreconditions.requireStrongEtag`
+para exigir um unico `If-Match` forte. Nesse caminho ele nao compara o token com a versao corrente:
+o ETag original tornou-se naturalmente obsoleto depois do primeiro sucesso.
+
 Exemplo de comando de item protegido por versao:
 
 ```java

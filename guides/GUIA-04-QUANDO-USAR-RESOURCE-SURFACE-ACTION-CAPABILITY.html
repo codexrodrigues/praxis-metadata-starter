@@ -389,6 +389,17 @@ declarada</li>
 <li><code>refresh</code>: projections que ficam obsoletas depois do
 sucesso</li>
 </ul>
+<p>Quando uma action <code>ITEM</code> exige versao, o host deve validar
+o ETag antes da reserva idempotente e novamente dentro da transacao que
+carrega e altera o agregado. O <code>@Version</code> fecha a corrida
+entre duas escritas simultaneas; o executor governado materializa a
+colisao resultante como <code>PRECONDITION_FAILED</code>/HTTP
+<code>412</code>, sem expor o tipo da entidade persistida.</p>
+<p>Antes de devolver um replay, o host deve chamar
+<code>ResourceVersionPreconditions.requireStrongEtag</code> para exigir
+um unico <code>If-Match</code> forte. Nesse caminho ele nao compara o
+token com a versao corrente: o ETag original tornou-se naturalmente
+obsoleto depois do primeiro sucesso.</p>
 <p>Exemplo de comando de item protegido por versao:</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">@WorkflowAction</span><span class="op">(</span></span>
