@@ -135,6 +135,11 @@ novamente dentro da transacao que carrega e altera o agregado. O `@Version` fech
 duas escritas simultaneas; o executor governado materializa a colisao resultante como
 `PRECONDITION_FAILED`/HTTP `412`, sem expor o tipo da entidade persistida.
 
+Se a revalidacao transacional lançar `ResourceVersionPreconditionException`, o executor preserva
+essa decisao tipada para o handler global. O host nao deve capturá-la como erro genérico: os
+contratos `RESOURCE_VERSION_REQUIRED` (`428`), `INVALID_RESOURCE_VERSION` (`400`) e
+`STALE_RESOURCE_VERSION` (`412`) precisam continuar distinguíveis no transporte HTTP.
+
 Antes de devolver um replay, o host deve chamar `ResourceVersionPreconditions.requireStrongEtag`
 para exigir um unico `If-Match` forte. Nesse caminho ele nao compara o token com a versao corrente:
 o ETag original tornou-se naturalmente obsoleto depois do primeiro sucesso.

@@ -395,6 +395,14 @@ carrega e altera o agregado. O <code>@Version</code> fecha a corrida
 entre duas escritas simultaneas; o executor governado materializa a
 colisao resultante como <code>PRECONDITION_FAILED</code>/HTTP
 <code>412</code>, sem expor o tipo da entidade persistida.</p>
+<p>Se a revalidacao transacional lançar
+<code>ResourceVersionPreconditionException</code>, o executor preserva
+essa decisao tipada para o handler global. O host nao deve capturá-la
+como erro genérico: os contratos <code>RESOURCE_VERSION_REQUIRED</code>
+(<code>428</code>), <code>INVALID_RESOURCE_VERSION</code>
+(<code>400</code>) e <code>STALE_RESOURCE_VERSION</code>
+(<code>412</code>) precisam continuar distinguíveis no transporte
+HTTP.</p>
 <p>Antes de devolver um replay, o host deve chamar
 <code>ResourceVersionPreconditions.requireStrongEtag</code> para exigir
 um unico <code>If-Match</code> forte. Nesse caminho ele nao compara o
