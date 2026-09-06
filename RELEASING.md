@@ -8,13 +8,13 @@ Este documento descreve como publicar um Release Candidate (RC) e versões finai
   - `GPG_PRIVATE_KEY` (chave privada ASCII‑armored ou base64, sem CRLF)
   - `GPG_PASSPHRASE` (passphrase da chave)
   - `GPG_KEY_ID` (opcional; se ausente, o workflow resolve automaticamente)
-  - `RELEASE_PAT` (recomendado quando o workflow `workflow_dispatch` criar tags; pushes feitos com `GITHUB_TOKEN` nao disparam novo workflow de tag)
+  - `RELEASE_PAT` (obrigatorio quando o workflow `workflow_dispatch` criar tags; pushes feitos com `GITHUB_TOKEN` nao disparam novo workflow de tag)
 - Java 21 instalado localmente (para builds locais).
 
 ## Fluxo (Release Candidate)
-1) Opcional — validar localmente (sem assinar):
+1) Validar localmente (sem assinar):
 ```
-./mvnw -B -DskipTests -T 1C clean verify
+./mvnw -B -T 1C clean verify
 ./mvnw -B javadoc:javadoc && test -d target/site/apidocs
 ```
 2) Para qualquer mudanca de contrato publico, executar o gate corporativo antes
@@ -37,20 +37,12 @@ Checklist minima para esse caso:
 - garantir que `target/**`, `.flattened-pom.xml`, `.m2repo/` e artefatos
   gerados de release nao entram no change set.
 
-3) Criar a tag do RC e enviar:
-```
-git tag v1.0.0-rc.6
-git push origin v1.0.0-rc.6
-```
-
-Para publicar as mudancas atuais da plataforma, apos o merge em `main`, use a proxima coordenada nao publicada:
-```
-git tag v8.0.0-rc.N
-git push origin v8.0.0-rc.N
-```
+3) Em `main`, executar o workflow de release por `workflow_dispatch`, com
+   `create_tag=true` e versao explicita ou bump/preid. A preparacao persiste
+   o POM e envia commit/tag atomicamente; nao cria tag sobre POM divergente.
 4) Acompanhar o workflow “Release Java Starter (praxis-metadata-starter)”
 - O workflow resolve a versão a partir da tag (`v` é removido → `1.0.0-rc.6`).
-- Passos: importar GPG → `versions:set` → `clean verify` com perfil `release` (assina) → publicar via Central Plugin.
+- Passos: conferir ancestralidade em main e versao persistida → importar GPG → testes/assinatura com `clean verify` → publicar via Central Plugin na mesma sessao Maven.
 - O passo `Publish to Central` aguarda até o upload ser aceito pelo Central
   Portal. Em seguida, o passo `Verify Maven Central availability` tenta resolver
   o POM em `repo1.maven.org` e executa `mvn dependency:get` para confirmar que a
@@ -71,17 +63,13 @@ git push origin v8.0.0-rc.N
   versão já consumível pelo Maven Central público.
 
 ## Fluxo (Versão Final)
-- Mesmo processo, usando tag sem sufixo RC, por exemplo:
-```
-git tag v1.0.0
-git push origin v1.0.0
-```
+- Mesmo dispatch, com versao estavel sem sufixo RC; nao criar tag manual como atalho.
 
 ## Observações
-- O `pom.xml` no repositório mantém a versão “base”. O workflow usa `versions:set` apenas dentro da execução do CI, sem commit.
+- O `pom.xml` da tag e de main persiste a versao publicada; divergencia falha antes de publicar.
 - O flatten POM no perfil `release` remove o parent e gera um POM compatível com Central.
 - Para publicar a documentação (Javadoc HTML + markdown convertido para HTML):
-  - Faça push para `main` ou crie uma tag `v*` e veja o workflow “Documentation”.
+  - O workflow reutilizavel “Documentation” roda apos a release verde; commits em main nao publicam docs.
 
 ## Troubleshooting
 - GPG key id não resolvido:

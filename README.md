@@ -792,3 +792,7 @@ Para onboarding, modelagem e validacao, siga os entry points documentados neste 
 - Package map: [docs/packages-overview.md](docs/packages-overview.md)
 - Guides hub: [docs/guides/index.md](docs/guides/index.md)
 - Conformance: [docs/spec/CONFORMANCE.md](docs/spec/CONFORMANCE.md)
+
+## Política de CI e publicação
+
+Validação local durante desenvolvimento; Actions apenas no fechamento necessário de versões. Consulte [ACTIONS-RELEASE-POLICY.md](ACTIONS-RELEASE-POLICY.md) para gatilhos, gates e recuperação.
