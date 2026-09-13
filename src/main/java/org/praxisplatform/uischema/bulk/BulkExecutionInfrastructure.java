@@ -13,6 +13,7 @@ import org.springframework.orm.jpa.EntityManagerFactoryInfo;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -77,6 +78,10 @@ public final class BulkExecutionInfrastructure {
     }
 
     private void validateBinding() {
+        if (transactionManager instanceof AbstractPlatformTransactionManager local
+                && !local.isGlobalRollbackOnParticipationFailure()) {
+            throw new IllegalArgumentException("Participation failure must mark the operational transaction rollback-only");
+        }
         // This first adapter binding deliberately excludes routing and wrapper composition.
         // Supplying the actual shared pool avoids inventing equivalence by URL or bean name.
         if (dataSource instanceof AbstractRoutingDataSource || dataSource instanceof DelegatingDataSource) {
