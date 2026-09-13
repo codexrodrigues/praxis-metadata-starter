@@ -30,11 +30,7 @@ final class BulkSnapshotStorageCodec {
         if (payload == null || payload.length == 0 || payload.length > MAX_BYTES)
             throw invalid();
         try {
-            JsonNode root;
-            try (JsonParser parser = MAPPER.getFactory().createParser(payload)) {
-                parser.nextToken(); root = readNode(parser);
-                if (parser.nextToken() != null) throw invalid();
-            }
+            JsonNode root = readDocument(payload);
             exact(root, Set.of("namespaceId", "subjectId", "resourceKey", "schemaRevision", "atomicity",
                     "codecId", "mode", "operationRef", "intent"));
             JsonNode op = root.get("operationRef");
@@ -48,10 +44,19 @@ final class BulkSnapshotStorageCodec {
                     BulkMode.valueOf(text(root, "mode")), root.get("intent"));
             if (!restored.fingerprint().equals(fingerprint)) throw invalid();
             return restored;
-        } catch (IOException | RuntimeException error) {
+        } catch (RuntimeException error) {
             // Neither Jackson nor driver details may expose protected business values.
             throw invalid();
         }
+    }
+
+    static JsonNode readDocument(byte[] payload) {
+        if (payload == null || payload.length == 0 || payload.length > MAX_BYTES) throw invalid();
+        try (JsonParser parser = MAPPER.getFactory().createParser(payload)) {
+            parser.nextToken(); JsonNode root = readNode(parser);
+            if (parser.nextToken() != null) throw invalid();
+            return root;
+        } catch (IOException | RuntimeException error) { throw invalid(); }
     }
 
     // Read exact numeric tokens directly. Databind's tree reader may first probe a huge
@@ -105,7 +110,7 @@ final class BulkSnapshotStorageCodec {
         };
     }
 
-    private static byte[] json(JsonNode value) {
+    static byte[] json(JsonNode value) {
         try {
             var output = new BoundedOutput();
             try (JsonGenerator generator = MAPPER.getFactory().createGenerator(output)) { write(generator, value); }

@@ -24,8 +24,11 @@ public final class BulkExecutionMigrator {
     static final String SCHEMA = "praxis_bulk";
     static final String HISTORY_TABLE = "praxis_bulk_schema_history";
     private static final String PROPOSAL_TABLE = "praxis_bulk_proposal";
+    private static final String EVALUATION_TABLE = "praxis_bulk_evaluation";
     private static final String REJECTION_FUNCTION = "reject_praxis_bulk_proposal_update";
     private static final String REJECTION_TRIGGER = "praxis_bulk_proposal_reject_update";
+    private static final String EVALUATION_REJECTION_FUNCTION = "reject_praxis_bulk_evaluation_update";
+    private static final String EVALUATION_REJECTION_TRIGGER = "praxis_bulk_evaluation_reject_update";
 
     private BulkExecutionMigrator() { }
 
@@ -61,7 +64,17 @@ public final class BulkExecutionMigrator {
             validateColumns(connection);
             validatePrimaryKey(connection);
             validateChecks(connection);
-            validateImmutableUpdateTrigger(connection);
+            validateProposalUnique(connection);
+            validateImmutableUpdateTrigger(connection, PROPOSAL_TABLE, REJECTION_TRIGGER, REJECTION_FUNCTION,
+                    "praxis_bulk.praxis_bulk_proposal");
+            validateEvaluationTable(connection);
+            validateEvaluationColumns(connection);
+            validateEvaluationPrimaryKey(connection);
+            validateEvaluationForeignKey(connection);
+            validateEvaluationChecks(connection);
+            validateImmutableUpdateTrigger(connection, EVALUATION_TABLE, EVALUATION_REJECTION_TRIGGER,
+                    EVALUATION_REJECTION_FUNCTION, "praxis_bulk.praxis_bulk_evaluation");
+            validateOwnedSchema(connection);
         } catch (SQLException error) {
             throw new IllegalStateException("Unable to validate protected bulk proposal storage", error);
         }
@@ -116,10 +129,10 @@ public final class BulkExecutionMigrator {
 
             if (relations.isEmpty() && functions.isEmpty() && types.isEmpty() && triggers.isEmpty()) return;
             if (!relations.contains(HISTORY_TABLE)
-                    || !relations.stream().allMatch(Set.of(HISTORY_TABLE, PROPOSAL_TABLE)::contains)
-                    || !functions.stream().allMatch(Set.of(REJECTION_FUNCTION)::contains)
+                    || !relations.stream().allMatch(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE)::contains)
+                    || !functions.stream().allMatch(Set.of(REJECTION_FUNCTION, EVALUATION_REJECTION_FUNCTION)::contains)
                     || !types.isEmpty()
-                    || !triggers.stream().allMatch(Set.of(REJECTION_TRIGGER)::contains)) {
+                    || !triggers.stream().allMatch(Set.of(REJECTION_TRIGGER, EVALUATION_REJECTION_TRIGGER)::contains)) {
                 throw new IllegalStateException("Refusing an unknown nonempty praxis_bulk schema");
             }
         } catch (SQLException error) {
@@ -146,6 +159,35 @@ public final class BulkExecutionMigrator {
             }
         }
         return names;
+    }
+
+    private static void validateOwnedSchema(Connection connection) throws SQLException {
+        Set<String> relations = queryNames(connection, """
+                select c.relname
+                from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = ? and c.relkind in ('r', 'p', 'v', 'm', 'S', 'f')
+                """);
+        Set<String> functions = queryNames(connection, """
+                select p.proname
+                from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where n.nspname = ? and p.prokind in ('f', 'p')
+                """);
+        Set<String> types = queryNames(connection, """
+                select t.typname
+                from pg_type t join pg_namespace n on n.oid = t.typnamespace
+                where n.nspname = ? and t.typrelid = 0 and t.typtype in ('d', 'e', 'r')
+                """);
+        Set<String> triggers = queryNames(connection, """
+                select t.tgname
+                from pg_trigger t join pg_class c on c.oid = t.tgrelid
+                    join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = ? and not t.tgisinternal
+                """);
+        require(relations.equals(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE))
+                        && functions.equals(Set.of(REJECTION_FUNCTION, EVALUATION_REJECTION_FUNCTION))
+                        && types.isEmpty()
+                        && triggers.equals(Set.of(REJECTION_TRIGGER, EVALUATION_REJECTION_TRIGGER)),
+                "protected bulk storage schema contains unexpected owned objects");
     }
 
     private static void validateColumns(Connection connection) throws SQLException {
@@ -194,6 +236,47 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    private static void validateEvaluationTable(Connection connection) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select c.relkind, c.relpersistence
+                from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = ? and c.relname = ?
+                """)) {
+            statement.setString(1, SCHEMA);
+            statement.setString(2, EVALUATION_TABLE);
+            try (ResultSet result = statement.executeQuery()) {
+                require(result.next() && "r".equals(result.getString(1)) && "p".equals(result.getString(2))
+                                && !result.next(),
+                        "evaluation storage must be an ordinary permanent table");
+            }
+        }
+    }
+
+    private static void validateEvaluationColumns(Connection connection) throws SQLException {
+        Map<String, ColumnDefinition> expected = Map.ofEntries(
+                Map.entry("proposal_id", new ColumnDefinition("uuid", false, null, "NEVER", null)),
+                Map.entry("input_fingerprint", new ColumnDefinition("text", false, null, "NEVER", null)),
+                Map.entry("evaluation_fingerprint", new ColumnDefinition("text", false, null, "NEVER", null)),
+                Map.entry("payload", new ColumnDefinition("bytea", false, null, "NEVER", null)));
+        Map<String, ColumnDefinition> actual = new LinkedHashMap<>();
+        try (var statement = connection.prepareStatement("""
+                select column_name, data_type, is_nullable, column_default, is_generated, datetime_precision
+                from information_schema.columns
+                where table_schema = ? and table_name = ?
+                """)) {
+            statement.setString(1, SCHEMA);
+            statement.setString(2, EVALUATION_TABLE);
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    actual.put(result.getString(1), new ColumnDefinition(
+                            result.getString(2), "YES".equals(result.getString(3)), result.getString(4), result.getString(5),
+                            result.getObject(6, Integer.class)));
+                }
+            }
+        }
+        require(expected.equals(actual), "evaluation table columns, types or nullability differ from V2");
+    }
+
     private static void validatePrimaryKey(Connection connection) throws SQLException {
         try (var statement = connection.prepareStatement("""
                 select string_agg(a.attname, ',' order by key_columns.ordinality), c.condeferrable
@@ -209,6 +292,81 @@ public final class BulkExecutionMigrator {
             try (ResultSet result = statement.executeQuery()) {
                 require(result.next() && "proposal_id".equals(result.getString(1)) && !result.getBoolean(2) && !result.next(),
                         "proposal_id must be the only primary key column");
+            }
+        }
+    }
+
+    private static void validateProposalUnique(Connection connection) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select string_agg(a.attname, ',' order by key_columns.ordinality),
+                       c.condeferrable, c.condeferred, c.convalidated
+                from pg_constraint c
+                join unnest(c.conkey) with ordinality as key_columns(attnum, ordinality) on true
+                join pg_attribute a on a.attrelid = c.conrelid and a.attnum = key_columns.attnum
+                join pg_namespace n on n.oid = c.connamespace
+                where n.nspname = ? and c.conrelid = ?::regclass and c.contype = 'u'
+                group by c.oid
+                """)) {
+            statement.setString(1, SCHEMA);
+            statement.setString(2, SCHEMA + "." + PROPOSAL_TABLE);
+            try (ResultSet result = statement.executeQuery()) {
+                require(result.next() && "proposal_id,fingerprint".equals(result.getString(1))
+                                && !result.getBoolean(2) && !result.getBoolean(3) && result.getBoolean(4) && !result.next(),
+                        "proposal_id and fingerprint must have the only immediate validated unique key");
+            }
+        }
+    }
+
+    private static void validateEvaluationPrimaryKey(Connection connection) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select string_agg(a.attname, ',' order by key_columns.ordinality), c.condeferrable, c.condeferred
+                from pg_constraint c
+                join unnest(c.conkey) with ordinality as key_columns(attnum, ordinality) on true
+                join pg_attribute a on a.attrelid = c.conrelid and a.attnum = key_columns.attnum
+                join pg_namespace n on n.oid = c.connamespace
+                where n.nspname = ? and c.conrelid = ?::regclass and c.contype = 'p'
+                group by c.oid
+                """)) {
+            statement.setString(1, SCHEMA);
+            statement.setString(2, SCHEMA + "." + EVALUATION_TABLE);
+            try (ResultSet result = statement.executeQuery()) {
+                require(result.next() && "proposal_id".equals(result.getString(1))
+                                && !result.getBoolean(2) && !result.getBoolean(3) && !result.next(),
+                        "evaluation proposal_id must be the only immediate primary key column");
+            }
+        }
+    }
+
+    private static void validateEvaluationForeignKey(Connection connection) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select string_agg(source_column.attname, ',' order by source_key.ordinality),
+                       string_agg(target_column.attname, ',' order by target_key.ordinality),
+                       target_namespace.nspname, target_relation.relname,
+                       c.condeferrable, c.condeferred, c.convalidated,
+                       c.confmatchtype, c.confupdtype, c.confdeltype
+                from pg_constraint c
+                join unnest(c.conkey) with ordinality as source_key(attnum, ordinality) on true
+                join pg_attribute source_column on source_column.attrelid = c.conrelid and source_column.attnum = source_key.attnum
+                join unnest(c.confkey) with ordinality as target_key(attnum, ordinality)
+                    on target_key.ordinality = source_key.ordinality
+                join pg_attribute target_column on target_column.attrelid = c.confrelid and target_column.attnum = target_key.attnum
+                join pg_class target_relation on target_relation.oid = c.confrelid
+                join pg_namespace target_namespace on target_namespace.oid = target_relation.relnamespace
+                join pg_namespace source_namespace on source_namespace.oid = c.connamespace
+                where source_namespace.nspname = ? and c.conrelid = ?::regclass and c.contype = 'f'
+                group by c.oid, target_namespace.nspname, target_relation.relname
+                """)) {
+            statement.setString(1, SCHEMA);
+            statement.setString(2, SCHEMA + "." + EVALUATION_TABLE);
+            try (ResultSet result = statement.executeQuery()) {
+                require(result.next()
+                                && "proposal_id,input_fingerprint".equals(result.getString(1))
+                                && "proposal_id,fingerprint".equals(result.getString(2))
+                                && SCHEMA.equals(result.getString(3)) && PROPOSAL_TABLE.equals(result.getString(4))
+                                && !result.getBoolean(5) && !result.getBoolean(6) && result.getBoolean(7)
+                                && "s".equals(result.getString(8)) && "a".equals(result.getString(9))
+                                && "a".equals(result.getString(10)) && !result.next(),
+                        "evaluation must have the only immediate validated proposal and input-fingerprint foreign key");
             }
         }
     }
@@ -248,7 +406,35 @@ public final class BulkExecutionMigrator {
         }
     }
 
-    private static void validateImmutableUpdateTrigger(Connection connection) throws SQLException {
+    private static void validateEvaluationChecks(Connection connection) throws SQLException {
+        Map<String, String> expected = Map.ofEntries(
+                Map.entry("praxis_bulk_evaluation_fingerprint_format_check",
+                        "(evaluation_fingerprint~'^sha256:[0-9a-f]{64}$'::text)"),
+                Map.entry("praxis_bulk_evaluation_payload_length_check",
+                        "((octet_length(payload)>=1)and(octet_length(payload)<=8388608))"));
+        Map<String, ConstraintDefinition> actual = new LinkedHashMap<>();
+        try (var statement = connection.prepareStatement("""
+                select c.conname, c.convalidated, pg_get_expr(c.conbin, c.conrelid)
+                from pg_constraint c join pg_namespace n on n.oid = c.connamespace
+                where n.nspname = ? and c.conrelid = ?::regclass and c.contype = 'c'
+                """)) {
+            statement.setString(1, SCHEMA);
+            statement.setString(2, SCHEMA + "." + EVALUATION_TABLE);
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) actual.put(result.getString(1),
+                        new ConstraintDefinition(result.getBoolean(2), normalizeExpression(result.getString(3))));
+            }
+        }
+        require(actual.keySet().equals(expected.keySet()), "evaluation table check constraints differ from V2");
+        for (Map.Entry<String, String> check : expected.entrySet()) {
+            ConstraintDefinition definition = actual.get(check.getKey());
+            require(definition.validated() && check.getValue().equals(definition.expression()),
+                    "evaluation table check constraint is invalid: " + check.getKey());
+        }
+    }
+
+    private static void validateImmutableUpdateTrigger(Connection connection, String table, String trigger,
+            String function, String relation) throws SQLException {
         try (var statement = connection.prepareStatement("""
                 select t.tgenabled, pg_get_triggerdef(t.oid), p.prosrc, l.lanname, p.prorettype::regtype::text, p.prosecdef
                 from pg_trigger t
@@ -259,20 +445,21 @@ public final class BulkExecutionMigrator {
                 where n.nspname = ? and c.relname = ? and t.tgname = ? and not t.tgisinternal
                 """)) {
             statement.setString(1, SCHEMA);
-            statement.setString(2, PROPOSAL_TABLE);
-            statement.setString(3, REJECTION_TRIGGER);
+            statement.setString(2, table);
+            statement.setString(3, trigger);
             try (ResultSet result = statement.executeQuery()) {
                 require(result.next(), "immutable update trigger is missing");
                 String definition = normalizeExpression(result.getString(2));
                 require("O".equals(result.getString(1))
-                                && definition.equals("createtriggerpraxis_bulk_proposal_reject_updatebeforeupdateonpraxis_bulk.praxis_bulk_proposalforeachrowexecutefunctionpraxis_bulk.reject_praxis_bulk_proposal_update()")
+                                && definition.equals("createtrigger" + trigger + "beforeupdateon" + SCHEMA + "." + table
+                                        + "foreachrowexecutefunction" + SCHEMA + "." + function + "()")
                                 && "plpgsql".equals(result.getString(4))
                                 && "trigger".equals(result.getString(5))
                                 && !result.getBoolean(6)
                                 && normalizeExpression(result.getString(3)).equals(
-                                        "beginraiseexception'praxis_bulk.praxis_bulk_proposal is immutable'usingerrcode='55000';end;")
+                                        "beginraiseexception'" + relation + " is immutable'usingerrcode='55000';end;")
                                 && !result.next(),
-                        "immutable update trigger differs from V1");
+                        "immutable update trigger differs from protected storage migration");
             }
         }
     }
