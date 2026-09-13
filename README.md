@@ -30,6 +30,8 @@ A [fundação de entrada do protocolo](docs/spec/BULK-PROTOCOL-INPUT.md) fornece
 
 O [binding canônico de operações](docs/spec/CANONICAL-OPERATION-BINDING.md) valida ID explícito, recurso e método sobre o registro MVC e oferece vínculo com o tipo concreto do DTO @RequestBody. Essa fundação estrutural ainda não publica operações de lote.
 
+A [infraestrutura transacional explícita](docs/spec/BULK-EXECUTION-INFRASTRUCTURE.md) permite ao adapter participar da transação JDBC/JPA do host, com provas PostgreSQL. Ainda não fornece store, migrations ou executor bulk.
+
 A [declaração de campos editáveis](docs/spec/BULK-EDITABLE-FIELDS.md) compila `@BulkEditable`, nomes Jackson e schema real em listas estruturais para SET/CLEAR. Ainda sem anúncio de capability ou executor.
 
 A [leitura estrita do request canônico](docs/spec/CANONICAL-REQUEST-SCHEMA.md) fornece schema JSON resolvido e dialeto para compilação backend, preservando a projeção documental existente.
