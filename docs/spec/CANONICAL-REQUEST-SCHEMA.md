@@ -4,14 +4,14 @@
 
 ```java
 // IDs declarados no handler real. Não inferir update pelo verbo ou nome do método.
-CanonicalOperationRef operation = operations.requireResourceOperation(
-    resourceKey, updateOperationId, "PUT");
-CanonicalRequestSchema request = documents.requireRequestSchema(operation);
+CanonicalRequestBodyBinding binding = operations.requireResourceRequestBody(
+    resourceKey, updateOperationId, "PUT", mapper.getTypeFactory());
+CanonicalRequestSchema request = documents.requireRequestSchema(binding.operation());
 BulkEditableFields fields = BulkEditableFields.compile(
-    mapper, actualUpdateJavaType, request.schema(), request.specVersion(), protectedWireNames);
+    mapper, binding.bodyType(), request.schema(), request.specVersion(), protectedWireNames);
 ```
 
-O exemplo exige que a composição confiável **já tenha vinculado** `actualUpdateJavaType` ao `@RequestBody` concreto daquele handler, incluindo genéricos. O leitor não recupera ou compara tipos Java. Em lote, o request da avaliação contém seleção/changes; ele não é o DTO de atualização unitária que declara `@BulkEditable`. Não usar esse wrapper para compilar a allowlist, nem escolher o primeiro PUT/PATCH do recurso. O vínculo explícito com a operação de update é uma dependência do futuro registry.
+O exemplo usa o [binding MVC tipado](CANONICAL-OPERATION-BINDING.md) para obter o JavaType do `@RequestBody` concreto, incluindo genéricos. O leitor de schema, isoladamente, não recupera ou compara tipos Java. Em lote, o request da avaliação contém seleção/changes; ele não é o DTO de atualização unitária que declara `@BulkEditable`. Não usar esse wrapper para compilar a allowlist, nem escolher o primeiro PUT/PATCH do recurso. O futuro registry deve compor esse vínculo explícito com a operação unitária de update.
 
 ## Garantias e subconjunto suportado
 
@@ -35,6 +35,6 @@ Entradas inválidas de operação produzem IllegalArgumentException; inconsistê
 
 ## Provas
 
-`CanonicalRequestSchemaTest` cobre operações/mídias/dialetos, referências/escapes/composição, cópias/cache e limites. `CanonicalRequestSchemaHttpIntegrationTest` usa MVC e SpringDoc servidos em HTTP real, um handler update/DTO explícito e BulkEditableFields; verifica também que a projeção filtrada continua disponível com headers. A fixture é uma operação de update sem persistência, não um executor de lote.
+`CanonicalRequestSchemaTest` cobre operações/mídias/dialetos, referências/escapes/composição, cópias/cache e limites. `CanonicalRequestSchemaHttpIntegrationTest` usa MVC e SpringDoc servidos em HTTP real, um handler update/DTO explícito, o binding MVC tipado e BulkEditableFields; verifica também que a projeção filtrada continua disponível com headers. A fixture é uma operação de update sem persistência, não um executor de lote.
 
 Regressões focais: OpenApiDocsSupportTest, ApiDocsControllerTest, ApiDocsControllerPathResolutionTest, ApiDocsControllerSchemaHashTest e BulkEditableFieldsTest. Validar o JAR candidato exato no Quickstart. Registry, schemas de avaliação/execução, autorização, PostgreSQL e runtime bulk continuam pendentes.

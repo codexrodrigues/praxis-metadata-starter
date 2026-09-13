@@ -19,7 +19,7 @@ plataforma.
 
 - [Propostas, resultados e fingerprint de intenção](spec/BULK-PROTOCOL-RESULTS.html): snapshots e schemas de SDK, sem execução durável.
 
-- [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html): unicidade e vínculo estrutural entre operação real, recurso e método.
+- [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html): unicidade, vínculo operação/recurso/método e DTO de request concreto do handler MVC.
 
 - [Leitura estrita de request](spec/CANONICAL-REQUEST-SCHEMA.html): schema da operação, dialeto e limites da composição backend.
 - [Campos editáveis em lote](spec/BULK-EDITABLE-FIELDS.html): annotation e compilação estrutural de SET/CLEAR.

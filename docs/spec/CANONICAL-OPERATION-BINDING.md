@@ -32,3 +32,29 @@ A referência obtida pode alimentar o `SchemaReferenceResolver` existente, mas g
 ## Prova
 
 `OpenApiCanonicalOperationResolverTest` cobre lookup e rejeições estruturais; `CanonicalResourceOperationBindingTest` usa registro MVC real. A regressão do consumidor deve usar o JAR candidato exato, incluindo schemas, ações e capabilities existentes. Não usar esses testes para declarar T01 completo: bootstrap declarativo, schemas reais e rejeição de infraestrutura ausente permanecem pendentes em B1-B.
+
+
+## Vínculo com o DTO de request
+
+`requireResourceRequestBody(resourceKey, operationId, method, mapper.getTypeFactory())` retorna `CanonicalRequestBodyBinding`, com `operation()` e `bodyType()` (JavaType). O resolver usa a mesma entrada MVC estrita da resolução acima; o consumidor não fornece uma classe de DTO separada nem faz outro lookup de handler.
+
+```java
+CanonicalRequestBodyBinding binding = resolver.requireResourceRequestBody(
+    resourceKey, updateOperationId, "PUT", mapper.getTypeFactory());
+// Etapa posterior: a fonte padrão do documento exige o servidor disponível.
+CanonicalRequestSchema request = documents.requireRequestSchema(binding.operation());
+BulkEditableFields fields = BulkEditableFields.compile(
+    mapper, binding.bodyType(), request.schema(), request.specVersion(), protectedWireNames);
+```
+
+O método requer exatamente um `@RequestBody` obrigatório e direto. Usa os parâmetros do HandlerMethod registrado (incluindo annotations herdadas) e resolve variáveis no contexto do controller concreto. Mantém parâmetros aninhados como `UpdateEnvelope<List<String>>`; não converte o tipo bruto ou uma variável não resolvida em Object. A TypeFactory deve vir do mapper configurado para essa composição.
+
+O subconjunto exige DTO raiz concreto (classe ou record). Recusa body ausente/múltiplo/opcional, HttpEntity/RequestEntity/Optional, raiz array/coleção/mapa, Object/JsonNode, tipos simples definidos pelo Spring (incluindo UUID/datas), interface/abstrato e classe membro não estática. Tipos raw, wildcards e variáveis não vinculadas, inclusive parâmetros de método e ancestrais genéricos, falham explicitamente. Os argumentos genéricos também precisam estar fechados; Object como argumento é recusado. Resolução/herança tem limite de 32 níveis. Não executa construtores, converters nem código de domínio.
+
+A garantia é sobre o **tipo declarado pelo handler MVC** e sua operação. Não comprova que custom HttpMessageConverters, desserializadores polimórficos ou customizações SpringDoc tenham semântica idêntica. Esses pontos continuam na composição/prova do consumidor; não use uma anotação Swagger para substituir o tipo que o MVC recebe. Também não infere quais campos de identidade/versão/workflow devem ser protegidos: protectedWireNames segue obrigatório na compilação de campos.
+
+O método requer o registro MVC inicializado e não busca OpenAPI. `requireRequestSchema` é uma etapa posterior, com a mesma operação retornada. O warmup atual é opcional, assíncrono e tolera falha, portanto não prova readiness de execução. Um futuro registry precisa bloquear admissão até validar schema/infraestrutura/providers e definir revalidação quando sua fonte mudar; este SDK não instala esse gate nem anuncia capability de lote.
+
+Resolvers substitutos implementam a mesma prova de handler/tipo; o default deste método lança UnsupportedOperationException. O valor público permite integração desses resolvers confiáveis, não valida um handler apenas por ser construído. Argumento TypeFactory nulo falha com IllegalArgumentException; ausência/ambiguidade/tipo fora do subconjunto falha com IllegalStateException. Essas falhas são de composição, não respostas HTTP de negócio prontas.
+
+Prova focal: CanonicalRequestBodyBindingTest usa MVC real e casos diretos/herdados/interfaces/genéricos; CanonicalRequestSchemaHttpIntegrationTest usa o novo vínculo, o SpringDoc servido e a compilação de BulkEditableFields. A regressão mantém CanonicalResourceOperationBindingTest, OpenApiCanonicalOperationResolverTest e ReactiveDeterminationMetadataCompilerTest. No host, declarar operationId explícito nos endpoints de update será parte da adoção; não relaxar a exigência quando overrides antigos só tenham summary.
