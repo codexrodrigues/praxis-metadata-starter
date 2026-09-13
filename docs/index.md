@@ -17,6 +17,8 @@ plataforma.
 
 - [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html): API Java, sem runtime executável ou integração de discovery neste incremento.
 
+- [Propostas, resultados e fingerprint de intenção](spec/BULK-PROTOCOL-RESULTS.html): snapshots e schemas de SDK, sem execução durável.
+
 ## Comece por objetivo
 
 ### Quero adotar o baseline atual

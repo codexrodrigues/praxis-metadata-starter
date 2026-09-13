@@ -5,6 +5,7 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- Tipos de proposta/execução/resultado e fingerprint da intenção normalizada no SDK `bulk`, com snapshots defensivos, totais/estados validados e schemas documentais. A composição HTTP, storage e idempotência durável permanecem fora deste incremento.
 - Fundação Java `bulk` com requests das três modalidades, confirmação por proposalId, codecs Integer/Long/String/UUID, parser isolado com limites e validação estrutural SET/CLEAR/omissão. Ainda sem endpoints, discovery ou executor; ver `docs/spec/BULK-PROTOCOL-INPUT.md`.
 
 ### Fixed

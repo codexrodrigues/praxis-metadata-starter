@@ -67,7 +67,7 @@ public final class BulkFieldChanges {
             Set<String> clearableFields
     ) {
         Objects.requireNonNull(current, "Current bulk resource JSON must not be null.");
-        BulkJsonValues.validate(current);
+        BulkCanonicalJson.preflight(current);
         validate(changes, writableFields, clearableFields);
 
         ObjectNode candidate = current.deepCopy();

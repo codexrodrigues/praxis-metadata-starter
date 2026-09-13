@@ -1,0 +1,438 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://praxisplatform.org/schemas/bulk-protocol.schema.json",
+  "title": "Praxis bulk protocol bindings",
+  "description": "Documentary protocol schema. Resolve a concrete request definition for the resource identity codec and domain bindings; this document deliberately has no permissive generic request union.",
+  "not": {},
+  "$defs": {
+    "NonBlankText": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "IntegerIdentity": {
+      "type": "integer",
+      "format": "int32",
+      "minimum": -2147483648,
+      "maximum": 2147483647
+    },
+    "LongIdentity": {
+      "type": "string",
+      "format": "int64-decimal",
+      "pattern": "^(?:0|[1-9][0-9]*|-[1-9][0-9]*)$",
+      "maxLength": 20,
+      "description": "Canonical decimal string in the inclusive range -9223372036854775808 to 9223372036854775807; the codec validates the range."
+    },
+    "StringIdentity": {
+      "type": "string",
+      "minLength": 1
+    },
+    "UuidIdentity": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "minLength": 36,
+      "maxLength": 36
+    },
+    "DomainObjectBinding": {
+      "type": "object",
+      "description": "Placeholder for the canonical parameters or filter schema selected by the concrete operation binding in B1. This protocol schema does not duplicate domain properties.",
+      "additionalProperties": true
+    },
+    "ParametersBinding": {
+      "type": "object",
+      "description": "Placeholder for canonical command parameters. Protected transport bindings are forbidden only at this object root; nested domain objects remain governed by their own schema.",
+      "propertyNames": {
+        "not": {
+          "enum": ["proposalId", "selection", "targets", "items", "executionMode", "atomicity", "changes", "filter", "excludedIds", "expectedVersion", "id", "mode"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "RedactedIntentBinding": {
+      "type": "object",
+      "description": "Placeholder for the normalized, redacted public preview of parameters or changes selected by the concrete operation binding in B1.",
+      "additionalProperties": true
+    },
+    "ExecutionMode": {
+      "type": "string",
+      "enum": ["SYNC", "ASYNC"]
+    },
+    "Atomicity": {
+      "type": "string",
+      "enum": ["ATOMIC", "PER_ITEM"]
+    },
+    "BulkMode": {
+      "type": "string",
+      "enum": ["DOMAIN_COMMAND", "UNIFORM_UPDATE", "PER_ITEM_UPDATE"]
+    },
+    "FieldChange": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field", "operator", "value"],
+          "properties": {
+            "field": { "$ref": "#/$defs/NonBlankText" },
+            "operator": { "const": "SET" },
+            "value": { "not": { "type": "null" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field", "operator"],
+          "properties": {
+            "field": { "$ref": "#/$defs/NonBlankText" },
+            "operator": { "const": "CLEAR" }
+          }
+        }
+      ]
+    },
+    "FieldChanges": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/FieldChange" },
+      "description": "Field names must be unique; JSON Schema cannot compare a nested field value across array entries."
+    },
+    "IntegerTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "expectedVersion"],
+      "properties": {
+        "id": { "$ref": "#/$defs/IntegerIdentity" },
+        "expectedVersion": { "$ref": "#/$defs/NonBlankText" }
+      }
+    },
+    "LongTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "expectedVersion"],
+      "properties": {
+        "id": { "$ref": "#/$defs/LongIdentity" },
+        "expectedVersion": { "$ref": "#/$defs/NonBlankText" }
+      }
+    },
+    "StringTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "expectedVersion"],
+      "properties": {
+        "id": { "$ref": "#/$defs/StringIdentity" },
+        "expectedVersion": { "$ref": "#/$defs/NonBlankText" }
+      }
+    },
+    "UuidTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "expectedVersion"],
+      "properties": {
+        "id": { "$ref": "#/$defs/UuidIdentity" },
+        "expectedVersion": { "$ref": "#/$defs/NonBlankText" }
+      }
+    },
+    "IntegerSelection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "targets"],
+          "properties": {
+            "mode": { "const": "EXPLICIT" },
+            "targets": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/IntegerTarget" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "filter"],
+          "properties": {
+            "mode": { "const": "QUERY" },
+            "filter": { "$ref": "#/$defs/DomainObjectBinding" },
+            "excludedIds": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/IntegerIdentity" } }
+          }
+        }
+      ]
+    },
+    "LongSelection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "targets"],
+          "properties": {
+            "mode": { "const": "EXPLICIT" },
+            "targets": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/LongTarget" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "filter"],
+          "properties": {
+            "mode": { "const": "QUERY" },
+            "filter": { "$ref": "#/$defs/DomainObjectBinding" },
+            "excludedIds": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/LongIdentity" } }
+          }
+        }
+      ]
+    },
+    "StringSelection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "targets"],
+          "properties": {
+            "mode": { "const": "EXPLICIT" },
+            "targets": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/StringTarget" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "filter"],
+          "properties": {
+            "mode": { "const": "QUERY" },
+            "filter": { "$ref": "#/$defs/DomainObjectBinding" },
+            "excludedIds": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/StringIdentity" } }
+          }
+        }
+      ]
+    },
+    "UuidSelection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "targets"],
+          "properties": {
+            "mode": { "const": "EXPLICIT" },
+            "targets": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/UuidTarget" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "filter"],
+          "properties": {
+            "mode": { "const": "QUERY" },
+            "filter": { "$ref": "#/$defs/DomainObjectBinding" },
+            "excludedIds": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/UuidIdentity" } }
+          }
+        }
+      ]
+    },
+    "IntegerCommandEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "selection", "parameters"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "selection": { "$ref": "#/$defs/IntegerSelection" }, "parameters": { "$ref": "#/$defs/ParametersBinding" } }
+    },
+    "LongCommandEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "selection", "parameters"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "selection": { "$ref": "#/$defs/LongSelection" }, "parameters": { "$ref": "#/$defs/ParametersBinding" } }
+    },
+    "StringCommandEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "selection", "parameters"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "selection": { "$ref": "#/$defs/StringSelection" }, "parameters": { "$ref": "#/$defs/ParametersBinding" } }
+    },
+    "UuidCommandEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "selection", "parameters"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "selection": { "$ref": "#/$defs/UuidSelection" }, "parameters": { "$ref": "#/$defs/ParametersBinding" } }
+    },
+    "IntegerUniformEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "selection", "changes"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "selection": { "$ref": "#/$defs/IntegerSelection" }, "changes": { "$ref": "#/$defs/FieldChanges" } }
+    },
+    "LongUniformEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "selection", "changes"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "selection": { "$ref": "#/$defs/LongSelection" }, "changes": { "$ref": "#/$defs/FieldChanges" } }
+    },
+    "StringUniformEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "selection", "changes"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "selection": { "$ref": "#/$defs/StringSelection" }, "changes": { "$ref": "#/$defs/FieldChanges" } }
+    },
+    "UuidUniformEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "selection", "changes"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "selection": { "$ref": "#/$defs/UuidSelection" }, "changes": { "$ref": "#/$defs/FieldChanges" } }
+    },
+    "IntegerItemChange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "expectedVersion", "changes"],
+      "properties": { "id": { "$ref": "#/$defs/IntegerIdentity" }, "expectedVersion": { "$ref": "#/$defs/NonBlankText" }, "changes": { "$ref": "#/$defs/FieldChanges" } }
+    },
+    "LongItemChange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "expectedVersion", "changes"],
+      "properties": { "id": { "$ref": "#/$defs/LongIdentity" }, "expectedVersion": { "$ref": "#/$defs/NonBlankText" }, "changes": { "$ref": "#/$defs/FieldChanges" } }
+    },
+    "StringItemChange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "expectedVersion", "changes"],
+      "properties": { "id": { "$ref": "#/$defs/StringIdentity" }, "expectedVersion": { "$ref": "#/$defs/NonBlankText" }, "changes": { "$ref": "#/$defs/FieldChanges" } }
+    },
+    "UuidItemChange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "expectedVersion", "changes"],
+      "properties": { "id": { "$ref": "#/$defs/UuidIdentity" }, "expectedVersion": { "$ref": "#/$defs/NonBlankText" }, "changes": { "$ref": "#/$defs/FieldChanges" } }
+    },
+    "IntegerItemEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "items"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "items": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/IntegerItemChange" } } }
+    },
+    "LongItemEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "items"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "items": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/LongItemChange" } } }
+    },
+    "StringItemEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "items"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "items": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/StringItemChange" } } }
+    },
+    "UuidItemEvaluationRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executionMode", "items"],
+      "properties": { "executionMode": { "$ref": "#/$defs/ExecutionMode" }, "items": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/UuidItemChange" } } }
+    },
+    "BulkConfirmationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposalId"],
+      "properties": { "proposalId": { "$ref": "#/$defs/NonBlankText" } }
+    },
+    "CanonicalOperationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationId", "path", "method"],
+      "properties": {
+        "group": { "type": ["string", "null"] },
+        "operationId": { "$ref": "#/$defs/NonBlankText" },
+        "path": { "$ref": "#/$defs/NonBlankText" },
+        "method": { "$ref": "#/$defs/NonBlankText" }
+      }
+    },
+    "BulkProposalStatus": { "type": "string", "enum": ["READY", "BLOCKED"] },
+    "BulkExecutionStatus": { "type": "string", "enum": ["QUEUED", "RUNNING", "CANCEL_REQUESTED", "COMPLETED", "COMPLETED_WITH_ERRORS", "CANCELLED", "STOPPED", "RECONCILIATION_REQUIRED"] },
+    "BulkItemStatus": { "type": "string", "enum": ["CONFIRMED", "UNCHANGED", "DENIED", "INVALID", "CONFLICT", "NOT_PROCESSED", "UNKNOWN"] },
+    "BulkProposalTotals": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Structural bounds only. The evaluated/executable/blocked relationship is validated by Java.",
+      "required": ["targetCount", "evaluated", "executable", "blocked"],
+      "properties": {
+        "targetCount": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "evaluated": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "executable": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "blocked": { "type": "integer", "minimum": 0, "maximum": 10000 }
+      }
+    },
+    "BulkExecutionTotals": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Structural bounds only. Receipt sums and state-dependent totals are validated by Java.",
+      "required": ["targetCount", "pending", "confirmed", "unchanged", "denied", "invalid", "conflict", "notProcessed", "unknown"],
+      "properties": {
+        "targetCount": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "pending": { "type": "integer", "minimum": 0, "maximum": 10000 }
+        ,"confirmed": { "type": "integer", "minimum": 0, "maximum": 10000 }
+        ,"unchanged": { "type": "integer", "minimum": 0, "maximum": 10000 }
+        ,"denied": { "type": "integer", "minimum": 0, "maximum": 10000 }
+        ,"invalid": { "type": "integer", "minimum": 0, "maximum": 10000 }
+        ,"conflict": { "type": "integer", "minimum": 0, "maximum": 10000 }
+        ,"notProcessed": { "type": "integer", "minimum": 0, "maximum": 10000 }
+        ,"unknown": { "type": "integer", "minimum": 0, "maximum": 10000 }
+      }
+    },
+    "ResourceCommandMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "code", "message", "target", "metadata"],
+      "properties": {
+        "category": { "type": "string", "enum": ["VALIDATION", "PERMISSION", "NOT_FOUND", "CONFLICT_DUPLICATE", "CONFLICT_DEPENDENCY", "PRECONDITION", "UNEXPECTED_SANITIZED"] },
+        "code": { "$ref": "#/$defs/NonBlankText" },
+        "message": { "type": "string" },
+        "target": { "type": ["string", "null"] },
+        "metadata": { "type": "object", "additionalProperties": false, "maxProperties": 0 }
+      }
+    },
+    "BulkEvidenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "referenceId", "revision", "fingerprint"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["POLICY", "FACT"] },
+        "referenceId": { "$ref": "#/$defs/NonBlankText" },
+        "revision": { "$ref": "#/$defs/NonBlankText" },
+        "fingerprint": { "$ref": "#/$defs/NonBlankText" }
+      }
+    },
+    "BulkProposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposalId", "operationRef", "mode", "executionMode", "atomicity", "status", "createdAt", "expiresAt", "totals", "redactedIntent", "diagnostics", "evidence"],
+      "properties": {
+        "proposalId": { "$ref": "#/$defs/NonBlankText" },
+        "operationRef": { "$ref": "#/$defs/CanonicalOperationRef" },
+        "mode": { "$ref": "#/$defs/BulkMode" },
+        "executionMode": { "$ref": "#/$defs/ExecutionMode" },
+        "atomicity": { "$ref": "#/$defs/Atomicity" },
+        "status": { "$ref": "#/$defs/BulkProposalStatus" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "totals": { "$ref": "#/$defs/BulkProposalTotals" },
+        "redactedIntent": { "$ref": "#/$defs/RedactedIntentBinding" },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/ResourceCommandMessage" } },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/BulkEvidenceReference" } }
+      }
+    },
+    "BulkExecution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executionId", "proposalId", "operationRef", "mode", "executionMode", "atomicity", "status", "createdAt", "updatedAt", "terminalAt", "totals", "diagnostics"],
+      "properties": {
+        "executionId": { "$ref": "#/$defs/NonBlankText" },
+        "proposalId": { "$ref": "#/$defs/NonBlankText" },
+        "operationRef": { "$ref": "#/$defs/CanonicalOperationRef" },
+        "mode": { "$ref": "#/$defs/BulkMode" },
+        "executionMode": { "$ref": "#/$defs/ExecutionMode" },
+        "atomicity": { "$ref": "#/$defs/Atomicity" },
+        "status": { "$ref": "#/$defs/BulkExecutionStatus" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "terminalAt": { "type": ["string", "null"], "format": "date-time" },
+        "totals": { "$ref": "#/$defs/BulkExecutionTotals" },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/ResourceCommandMessage" } }
+      }
+    },
+    "IntegerBulkItemResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "diagnostics"],
+      "properties": { "id": { "$ref": "#/$defs/IntegerIdentity" }, "status": { "$ref": "#/$defs/BulkItemStatus" }, "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/ResourceCommandMessage" } } }
+    },
+    "LongBulkItemResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "diagnostics"],
+      "properties": { "id": { "$ref": "#/$defs/LongIdentity" }, "status": { "$ref": "#/$defs/BulkItemStatus" }, "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/ResourceCommandMessage" } } }
+    },
+    "StringBulkItemResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "diagnostics"],
+      "properties": { "id": { "$ref": "#/$defs/StringIdentity" }, "status": { "$ref": "#/$defs/BulkItemStatus" }, "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/ResourceCommandMessage" } } }
+    },
+    "UuidBulkItemResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "diagnostics"],
+      "properties": { "id": { "$ref": "#/$defs/UuidIdentity" }, "status": { "$ref": "#/$defs/BulkItemStatus" }, "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/ResourceCommandMessage" } } }
+    }
+  }
+}

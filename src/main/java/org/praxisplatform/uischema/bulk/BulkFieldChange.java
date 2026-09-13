@@ -27,7 +27,7 @@ public final class BulkFieldChange {
         this.field = field;
         this.operator = Objects.requireNonNull(operator, "Bulk field change operator must not be null.");
         validateValue(operator, value);
-        if (value != null) BulkJsonValues.validate(value);
+        if (value != null) BulkCanonicalJson.preflight(value);
         this.value = copyOf(value);
     }
 
