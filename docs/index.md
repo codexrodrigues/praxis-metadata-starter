@@ -21,6 +21,7 @@ plataforma.
 
 - [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html): unicidade e vínculo estrutural entre operação real, recurso e método.
 
+- [Leitura estrita de request](spec/CANONICAL-REQUEST-SCHEMA.html): schema da operação, dialeto e limites da composição backend.
 - [Campos editáveis em lote](spec/BULK-EDITABLE-FIELDS.html): annotation e compilação estrutural de SET/CLEAR.
 
 ## Comece por objetivo

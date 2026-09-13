@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.controller.docs;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.praxisplatform.uischema.openapi.OpenApiContentSupport;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,6 @@ import org.springframework.web.util.UriUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
 
 /**
  * Componente de suporte para resolucao e leitura de documentos OpenAPI do starter.
@@ -142,19 +142,7 @@ public class OpenApiDocsSupport {
      * @return no preferencial para leitura de schema e exemplos
      */
     public JsonNode selectPreferredContentNode(JsonNode contentRoot) {
-        if (contentRoot == null || contentRoot.isMissingNode()) {
-            return contentRoot;
-        }
-        JsonNode applicationJson = contentRoot.path("application/json");
-        if (!applicationJson.isMissingNode()) {
-            return applicationJson;
-        }
-        JsonNode any = contentRoot.path("*/*");
-        if (!any.isMissingNode()) {
-            return any;
-        }
-        Iterator<JsonNode> values = contentRoot.elements();
-        return values.hasNext() ? values.next() : contentRoot;
+        return OpenApiContentSupport.preferredContent(contentRoot);
     }
 
     /**
@@ -164,17 +152,7 @@ public class OpenApiDocsSupport {
      * @return media type preferencial ou {@code null} quando inexistente
      */
     public String inferMediaType(JsonNode contentRoot) {
-        if (contentRoot == null || contentRoot.isMissingNode()) {
-            return null;
-        }
-        if (!contentRoot.path("application/json").isMissingNode()) {
-            return "application/json";
-        }
-        if (!contentRoot.path("*/*").isMissingNode()) {
-            return "*/*";
-        }
-        Iterator<String> fieldNames = contentRoot.fieldNames();
-        return fieldNames.hasNext() ? fieldNames.next() : null;
+        return OpenApiContentSupport.preferredMediaType(contentRoot);
     }
 
     private String truncateAtFirstPathVariable(String path) {
