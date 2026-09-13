@@ -28,6 +28,8 @@ Nao e apenas um gerador de CRUD. O baseline atual da plataforma e:
 
 A [fundação de entrada do protocolo](docs/spec/BULK-PROTOCOL-INPUT.md) fornece tipos Java, codecs de identidade e validação de SET/CLEAR. Os [tipos de resultado e fingerprint de intenção](docs/spec/BULK-PROTOCOL-RESULTS.md) complementam o SDK. Ainda não disponibiliza endpoints ou execução de lote.
 
+O [binding canônico de operações](docs/spec/CANONICAL-OPERATION-BINDING.md) valida ID explícito, recurso e método sobre o registro MVC. Essa fundação estrutural ainda não publica operações de lote.
+
 ## Public Documentation
 
 Use estes entry points primeiro:

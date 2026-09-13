@@ -53,8 +53,34 @@ public interface CanonicalOperationResolver {
      *
      * <p>
      * Implementacoes podem precisar varrer o registro de handlers do Spring para produzir a
-     * referencia completa correspondente.
+     * referencia completa correspondente. Mais de um mapping com o mesmo ID efetivo e erro,
+     * nunca uma escolha dependente da ordem de registro. Ausencia continua retornando empty.
      * </p>
+     * @throws IllegalStateException quando o ID identifica mais de um mapping
      */
     Optional<CanonicalOperationRef> resolveByOperationId(String operationId);
+
+    /**
+     * Resolve um binding estrutural obrigatorio por ID explicitamente declarado em
+     * {@code @Operation}, recurso declarado em {@code @ApiResource} e metodo HTTP esperado.
+     * Exige unicidade global antes de verificar o recurso; nao usa nomes Java como fallback.
+     * O mapping deve ter exatamente uma rota canonica e um metodo, sem condicoes de
+     * params/headers/custom que nao possam ser representadas em {@link CanonicalOperationRef}.
+     * Outro mapping nao pode compartilhar o mesmo path/metodo, mesmo com ID ou midia distintos.
+     * Operacoes explicitamente ocultas nao podem ser usadas neste binding.
+     *
+     * <p>Usar depois da inicializacao do registro MVC. Esta prova estrutural nao atesta
+     * schema gerado, papel de avaliacao/confirmacao, autorizacao, providers ou execucao.
+     * O consumidor deve validar essas garantias adicionais na sua composicao.</p>
+     *
+     * <p>Resolvers substitutos precisam implementar a garantia completa. O default falha
+     * explicitamente, pois o lookup permissivo nao comprova recurso nem unicidade de rota.</p>
+     *
+     * @throws IllegalArgumentException quando um argumento e vazio ou o metodo HTTP e invalido
+     * @throws IllegalStateException quando o binding nao satisfaz as garantias estruturais
+     * @throws UnsupportedOperationException quando o resolver nao implementa binding estrito
+     */
+    default CanonicalOperationRef requireResourceOperation(String resourceKey, String operationId, String method) {
+        throw new UnsupportedOperationException("Strict resource operation binding is not implemented by this resolver");
+    }
 }
