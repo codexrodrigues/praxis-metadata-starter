@@ -56,6 +56,18 @@ class BulkExecutionInfrastructureTest {
     }
 
     @Test
+    void rejectsDisabledRollbackOnParticipationFailureAtConstructionAndBeforeWork() {
+        var ds = mock(DataSource.class); var manager = new DataSourceTransactionManager(ds);
+        var binding = new BulkExecutionInfrastructure(ds, manager, "x");
+        manager.setGlobalRollbackOnParticipationFailure(false);
+        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, manager, "x"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> binding.withConnection(connection -> { throw new AssertionError("must not run"); }))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(ds);
+    }
+
+    @Test
     void rebindingTheMutableHostManagerIsRejectedBeforeWork() {
         var ds = mock(DataSource.class); var manager = new DataSourceTransactionManager(ds);
         var binding = new BulkExecutionInfrastructure(ds, manager, "x");
