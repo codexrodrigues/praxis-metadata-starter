@@ -21,6 +21,8 @@ plataforma.
 
 - [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html): unicidade e vínculo estrutural entre operação real, recurso e método.
 
+- [Campos editáveis em lote](spec/BULK-EDITABLE-FIELDS.html): annotation e compilação estrutural de SET/CLEAR.
+
 ## Comece por objetivo
 
 ### Quero adotar o baseline atual
