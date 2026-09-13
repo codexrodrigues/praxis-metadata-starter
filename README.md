@@ -30,6 +30,8 @@ A [fundação de entrada do protocolo](docs/spec/BULK-PROTOCOL-INPUT.md) fornece
 
 O [binding canônico de operações](docs/spec/CANONICAL-OPERATION-BINDING.md) valida ID explícito, recurso e método sobre o registro MVC. Essa fundação estrutural ainda não publica operações de lote.
 
+A [declaração de campos editáveis](docs/spec/BULK-EDITABLE-FIELDS.md) compila `@BulkEditable`, nomes Jackson e schema real em listas estruturais para SET/CLEAR. Ainda sem anúncio de capability ou executor.
+
 ## Public Documentation
 
 Use estes entry points primeiro:

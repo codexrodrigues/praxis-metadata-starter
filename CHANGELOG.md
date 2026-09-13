@@ -5,6 +5,7 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- `@BulkEditable` e `BulkEditableFields` compilam opt-in de DTO, nomes wire e schema resolvido em allowlists imutáveis por modalidade, com rejeição de campos protegidos/ocultos/readonly e CLEAR sem nullabilidade explícita. SDK estrutural, sem bootstrap ou runtime de lote.
 - Resolução estrita `CanonicalOperationResolver.requireResourceOperation` com ID explícito global, recurso e método HTTP, rejeitando bindings ausentes ou ambíguos. Sem bootstrap declarativo ou runtime de lote neste incremento.
 - Tipos de proposta/execução/resultado e fingerprint da intenção normalizada no SDK `bulk`, com snapshots defensivos, totais/estados validados e schemas documentais. A composição HTTP, storage e idempotência durável permanecem fora deste incremento.
 - Fundação Java `bulk` com requests das três modalidades, confirmação por proposalId, codecs Integer/Long/String/UUID, parser isolado com limites e validação estrutural SET/CLEAR/omissão. Ainda sem endpoints, discovery ou executor; ver `docs/spec/BULK-PROTOCOL-INPUT.md`.

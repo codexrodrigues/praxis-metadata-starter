@@ -1,6 +1,6 @@
 # Entrada do protocolo de operações em lote — SDK Java
 
-Estado: fundação Java em desenvolvimento, ainda sem release. Este incremento fornece leitura estrita de requests, codecs de identidade e construção de candidatos de alteração. Não registra endpoints, anotações, capabilities, propostas duráveis, executor, jobs ou tabelas. O complemento de [resultados e fingerprint de intenção](BULK-PROTOCOL-RESULTS.md) publica os tipos adicionais do SDK. Aceitar estruturalmente `ASYNC` ou `QUERY` não significa que uma operação ofereça esses modos.
+Estado: fundação Java em desenvolvimento, ainda sem release. Este incremento fornece leitura estrita de requests, codecs de identidade e construção de candidatos de alteração. Não registra endpoints, capabilities, propostas duráveis, executor, jobs ou tabelas. O SDK complementar de [campos editáveis](BULK-EDITABLE-FIELDS.md) fornece @BulkEditable e compilação estrutural de allowlists. O complemento de [resultados e fingerprint de intenção](BULK-PROTOCOL-RESULTS.md) publica os tipos adicionais do SDK. Aceitar estruturalmente `ASYNC` ou `QUERY` não significa que uma operação ofereça esses modos.
 
 ## Fonte e impacto
 
@@ -49,7 +49,7 @@ Use esse reader sobre os bytes originais. Desserializar primeiro com `ObjectMapp
 - Campo omitido permanece como estava. Um campo não pode aparecer duas vezes na mesma lista de alterações.
 - `field` é uma chave literal da raiz, não JSONPath/Pointer ou expressão. Um nome com ponto só pode alterar a chave literal se a allowlist a contiver.
 
-`BulkFieldChanges.validate` recebe allowlists estruturais de campos graváveis e limpáveis. Os limpáveis precisam estar contidos nos graváveis. `applyTo` retorna cópia do candidato e representa CLEAR por null. Não persiste nem substitui Bean Validation, política governada, autorização por ator/campo/referência, invariantes do agregado ou verificação de concorrência. A futura projeção das anotações deverá excluir ID, versão, readonly e workflow da allowlist; o helper não pode descobrir essas regras sozinho.
+`BulkFieldChanges.validate` recebe allowlists estruturais de campos graváveis e limpáveis. Os limpáveis precisam estar contidos nos graváveis. `applyTo` retorna cópia do candidato e representa CLEAR por null. Não persiste nem substitui Bean Validation, política governada, autorização por ator/campo/referência, invariantes do agregado ou verificação de concorrência. BulkEditableFields compila @BulkEditable contra o DTO/schema de update, dialeto OpenAPI e nomes protegidos fornecidos pelo binding. Exclui declarações inválidas de ID, versão, readonly e workflow; BulkFieldChanges sozinho não pode descobrir essas regras. A composição automática do binding e do registry continua pendente.
 
 `BulkFieldChange` copia valores na entrada/saída e rejeita nós opacos Java, binários, missing, nós Float/Double (inclusive finitos) e estruturas excessivamente profundas. Na construção programática, use `BigDecimal`/`DecimalNode` para valores decimais. `toString()` não imprime campo ou valor. Os requests são entradas de avaliação, não snapshots imutáveis de proposta: DTOs `P` e `F` são de responsabilidade do binding e podem ser mutáveis.
 
@@ -71,4 +71,4 @@ As exceções de parsing não incluem corpo/cause original. Isso não transforma
 mvn -DfailIfNoTests=true -Dtest=BulkProtocolContractTest,BulkIdentityCodecTest,BulkFieldChangeValidationTest test
 ```
 
-Os testes verificam identidades, entradas válidas/inválidas, limites, serialização e preservação da intenção. Esse conjunto prova apenas a entrada do protocolo (parte de T02/T09 do plano). Fingerprint de intenção e tipos de respostas/propostas têm prova complementar em [BULK-PROTOCOL-RESULTS.md](BULK-PROTOCOL-RESULTS.md). Registry/anotações, segurança contextual, PostgreSQL, atomicidade, recuperação, idempotência durável e prova HTTP bulk continuam pendentes. Não tratar esse teste focal como aceite integral de backend ou de B1-A.
+Os testes verificam identidades, entradas válidas/inválidas, limites, serialização e preservação da intenção. Esse conjunto prova apenas a entrada do protocolo (parte de T02/T09 do plano). Fingerprint de intenção e tipos de respostas/propostas têm prova complementar em [BULK-PROTOCOL-RESULTS.md](BULK-PROTOCOL-RESULTS.md). Registry/BulkOperation, segurança contextual, PostgreSQL, atomicidade, recuperação, idempotência durável e prova HTTP bulk continuam pendentes. Não tratar esse teste focal como aceite integral de backend ou de B1-A.
