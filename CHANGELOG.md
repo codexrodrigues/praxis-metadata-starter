@@ -5,6 +5,7 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- `BulkExecutionInfrastructure` vincula datasource/manager/namespace e participa de transação JDBC/JPA local obrigatória, com prova PostgreSQL real de commit, rollback e locks. Sem DDL, store ou execução bulk.
 - `CanonicalOperationResolver.requireResourceRequestBody` vincula a operação estrita ao DTO @RequestBody concreto do handler MVC, preservando genéricos herdados/aninhados e recusando corpos abertos/opcionais/wrappers. Sem fetch de schema ou executor.
 - Leitura estrita `OpenApiDocumentService.requireRequestSchema` com snapshot isolado, dialeto declarado e resolução limitada de referências locais; preferência documental de mídia compartilhada e preservada. Sem registro executável de operações em lote.
 - `@BulkEditable` e `BulkEditableFields` compilam opt-in de DTO, nomes wire e schema resolvido em allowlists imutáveis por modalidade, com rejeição de campos protegidos/ocultos/readonly e CLEAR sem nullabilidade explícita. SDK estrutural, sem bootstrap ou runtime de lote.
