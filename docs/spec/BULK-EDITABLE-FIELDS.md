@@ -48,4 +48,4 @@ O perfil executável ainda precisa de BulkOperation, registry, validação de bo
 
 `BulkEditableFieldsTest` confronta declarações com conversão Swagger real com `ModelConverters` e `CustomOpenApiResolver`, além de casos inválidos, wire names, herança/records, imutabilidade e aplicação pelo SDK. Executar também `BulkFieldChangeValidationTest` e os gates do consumidor com o JAR candidato exato. A prova do DTO não certifica o futuro endpoint de avaliação nem encerra B1-B/T01.
 
-A [leitura estrita do request canônico](CANONICAL-REQUEST-SCHEMA.md) fornece schema e SpecVersion a partir de documento real. O binding ainda deve comprovar a associação entre handler e JavaType do update; o wrapper de avaliação do lote não substitui esse DTO.
+A [leitura estrita do request canônico](CANONICAL-REQUEST-SCHEMA.md) fornece schema e SpecVersion a partir de documento real. CanonicalOperationResolver.requireResourceRequestBody fornece a associação MVC/JavaType do update no subconjunto documentado; o wrapper de avaliação do lote não substitui esse DTO.

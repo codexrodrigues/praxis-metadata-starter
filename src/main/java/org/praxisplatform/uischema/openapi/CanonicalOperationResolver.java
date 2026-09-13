@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.openapi;
 
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 
@@ -82,5 +83,16 @@ public interface CanonicalOperationResolver {
      */
     default CanonicalOperationRef requireResourceOperation(String resourceKey, String operationId, String method) {
         throw new UnsupportedOperationException("Strict resource operation binding is not implemented by this resolver");
+    }
+
+    /**
+     * Resolves the required, direct DTO {@code @RequestBody} from the same strict MVC binding.
+     * Generic types must be concrete in the registered controller's context; the caller supplies
+     * only the configured mapper's TypeFactory, never a guessed DTO type. Does not fetch schemas.
+     * Custom resolvers must implement the complete handler/type guarantee; no permissive fallback.
+     */
+    default CanonicalRequestBodyBinding requireResourceRequestBody(String resourceKey, String operationId,
+            String method, TypeFactory typeFactory) {
+        throw new UnsupportedOperationException("Strict request body binding is not implemented by this resolver");
     }
 }

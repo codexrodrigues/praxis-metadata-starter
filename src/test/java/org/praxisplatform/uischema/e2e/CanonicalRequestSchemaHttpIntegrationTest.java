@@ -37,11 +37,11 @@ class CanonicalRequestSchemaHttpIntegrationTest extends AbstractE2eH2Test {
     void compilesFieldsFromTheRealUpdateHandlerAndItsServedSpringDocSchema() throws Exception {
         // Default document retrieval uses self HTTP: run after server startup, with the test server's actual port.
         ReflectionTestUtils.setField(docsSupport, "openApiInternalBaseUrl", url(""));
-        var operation = operations.requireResourceOperation("schema-binding.items", "schema-binding.items.update", "PUT");
+        var binding = operations.requireResourceRequestBody("schema-binding.items", "schema-binding.items.update", "PUT", objectMapper.getTypeFactory());
+        var operation = binding.operation();
         var request = documents.requireRequestSchema(operation);
-        var handler = UpdateController.class.getDeclaredMethod("update", String.class, UpdateBody.class);
-        // This fixture proves a known handler/type association; the production registry must establish it explicitly.
-        var type = objectMapper.getTypeFactory().constructType(handler.getGenericParameterTypes()[1]);
+        var type = binding.bodyType();
+        assertEquals(UpdateBody.class, type.getRawClass());
         var fields = BulkEditableFields.compile(objectMapper, type, request.schema(), request.specVersion(), Set.of("id", "version"));
 
         assertEquals(SpecVersion.V30, request.specVersion());

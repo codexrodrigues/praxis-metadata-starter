@@ -28,7 +28,7 @@ Nao e apenas um gerador de CRUD. O baseline atual da plataforma e:
 
 A [fundação de entrada do protocolo](docs/spec/BULK-PROTOCOL-INPUT.md) fornece tipos Java, codecs de identidade e validação de SET/CLEAR. Os [tipos de resultado e fingerprint de intenção](docs/spec/BULK-PROTOCOL-RESULTS.md) complementam o SDK. Ainda não disponibiliza endpoints ou execução de lote.
 
-O [binding canônico de operações](docs/spec/CANONICAL-OPERATION-BINDING.md) valida ID explícito, recurso e método sobre o registro MVC. Essa fundação estrutural ainda não publica operações de lote.
+O [binding canônico de operações](docs/spec/CANONICAL-OPERATION-BINDING.md) valida ID explícito, recurso e método sobre o registro MVC e oferece vínculo com o tipo concreto do DTO @RequestBody. Essa fundação estrutural ainda não publica operações de lote.
 
 A [declaração de campos editáveis](docs/spec/BULK-EDITABLE-FIELDS.md) compila `@BulkEditable`, nomes Jackson e schema real em listas estruturais para SET/CLEAR. Ainda sem anúncio de capability ou executor.
 

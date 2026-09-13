@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.openapi;
 
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.praxisplatform.uischema.annotation.ApiResource;
@@ -100,6 +101,19 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
 
     @Override
     public CanonicalOperationRef requireResourceOperation(String resourceKey, String operationId, String method) {
+        return requireMapping(resourceKey, operationId, method).operation();
+    }
+
+    @Override
+    public CanonicalRequestBodyBinding requireResourceRequestBody(String resourceKey, String operationId,
+            String method, TypeFactory typeFactory) {
+        if (typeFactory == null) throw new IllegalArgumentException("Configured TypeFactory is required");
+        StrictMapping binding = requireMapping(resourceKey, operationId, method);
+        return new CanonicalRequestBodyBinding(binding.operation(),
+                CanonicalRequestBodyTypes.resolve(binding.handler(), typeFactory));
+    }
+
+    private StrictMapping requireMapping(String resourceKey, String operationId, String method) {
         if (!StringUtils.hasText(resourceKey) || !StringUtils.hasText(operationId) || !StringUtils.hasText(method)) {
             throw new IllegalArgumentException("resourceKey, operationId and method must not be blank");
         }
@@ -154,8 +168,10 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         if (sharedAddress) {
             throw invalidBinding(operationId, "path and method are shared by another registered mapping");
         }
-        return new CanonicalOperationRef(resolveGroup(path), operationId, path, expectedMethod.name());
+        return new StrictMapping(new CanonicalOperationRef(resolveGroup(path), operationId, path, expectedMethod.name()), handler);
     }
+
+    private record StrictMapping(CanonicalOperationRef operation, HandlerMethod handler) { }
 
     private List<Map.Entry<RequestMappingInfo, HandlerMethod>> findMappings(String operationId) {
         // Match identity before resolving groups. Neither resource nor method filtering may
