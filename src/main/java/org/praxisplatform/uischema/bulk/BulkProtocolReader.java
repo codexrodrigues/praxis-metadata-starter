@@ -61,13 +61,17 @@ public final class BulkProtocolReader<WI, ID> {
         JsonNode root = parse(body);
         fields(root, Set.of("executionMode", "selection", "parameters"));
         JsonNode parameters = root.get("parameters");
+        validateParameterBindings(parameters);
+        return new BulkCommandEvaluationRequest<>(executionMode(root), selection(root.get("selection"), filterReader),
+                Objects.requireNonNull(parametersReader, "parametersReader is required").apply(parameters.deepCopy()));
+    }
+
+    static void validateParameterBindings(JsonNode parameters) {
         object(parameters);
         for (String reserved : List.of("proposalId", "selection", "targets", "items", "executionMode", "atomicity",
                 "changes", "filter", "excludedIds", "expectedVersion", "id", "mode")) {
             if (parameters.has(reserved)) throw invalid("Parameters contain a protected binding");
         }
-        return new BulkCommandEvaluationRequest<>(executionMode(root), selection(root.get("selection"), filterReader),
-                Objects.requireNonNull(parametersReader, "parametersReader is required").apply(parameters.deepCopy()));
     }
 
     public BulkItemEvaluationRequest<WI> readItems(byte[] body) {

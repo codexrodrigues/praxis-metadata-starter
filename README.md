@@ -26,7 +26,7 @@ Nao e apenas um gerador de CRUD. O baseline atual da plataforma e:
 
 ## SDK de operações em lote em desenvolvimento
 
-A [fundação de entrada do protocolo](docs/spec/BULK-PROTOCOL-INPUT.md) fornece tipos Java, codecs de identidade e validação de SET/CLEAR. Ainda não disponibiliza endpoints ou execução de lote.
+A [fundação de entrada do protocolo](docs/spec/BULK-PROTOCOL-INPUT.md) fornece tipos Java, codecs de identidade e validação de SET/CLEAR. Os [tipos de resultado e fingerprint de intenção](docs/spec/BULK-PROTOCOL-RESULTS.md) complementam o SDK. Ainda não disponibiliza endpoints ou execução de lote.
 
 ## Public Documentation
 

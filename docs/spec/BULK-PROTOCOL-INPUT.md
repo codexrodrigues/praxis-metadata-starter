@@ -1,6 +1,6 @@
 # Entrada do protocolo de operações em lote — SDK Java
 
-Estado: fundação Java em desenvolvimento, ainda sem release. Este incremento fornece leitura estrita de requests, codecs de identidade e construção de candidatos de alteração. Não registra endpoints, anotações, capabilities, proposals, executor, jobs ou tabelas. Aceitar estruturalmente `ASYNC` ou `QUERY` não significa que uma operação ofereça esses modos.
+Estado: fundação Java em desenvolvimento, ainda sem release. Este incremento fornece leitura estrita de requests, codecs de identidade e construção de candidatos de alteração. Não registra endpoints, anotações, capabilities, propostas duráveis, executor, jobs ou tabelas. O complemento de [resultados e fingerprint de intenção](BULK-PROTOCOL-RESULTS.md) publica os tipos adicionais do SDK. Aceitar estruturalmente `ASYNC` ou `QUERY` não significa que uma operação ofereça esses modos.
 
 ## Fonte e impacto
 
@@ -71,4 +71,4 @@ As exceções de parsing não incluem corpo/cause original. Isso não transforma
 mvn -DfailIfNoTests=true -Dtest=BulkProtocolContractTest,BulkIdentityCodecTest,BulkFieldChangeValidationTest test
 ```
 
-Os testes verificam identidades, entradas válidas/inválidas, limites, serialização e preservação da intenção. Esse conjunto prova apenas a entrada do protocolo (parte de T02/T09 do plano). Fingerprint normalizado, respostas/propostas, schema completo, registry/anotações, segurança contextual, PostgreSQL, atomicidade, recuperação, idempotência e prova HTTP continuam pendentes. Não tratar esse teste focal como aceite integral de backend ou de B1-A.
+Os testes verificam identidades, entradas válidas/inválidas, limites, serialização e preservação da intenção. Esse conjunto prova apenas a entrada do protocolo (parte de T02/T09 do plano). Fingerprint de intenção e tipos de respostas/propostas têm prova complementar em [BULK-PROTOCOL-RESULTS.md](BULK-PROTOCOL-RESULTS.md). Registry/anotações, segurança contextual, PostgreSQL, atomicidade, recuperação, idempotência durável e prova HTTP bulk continuam pendentes. Não tratar esse teste focal como aceite integral de backend ou de B1-A.
