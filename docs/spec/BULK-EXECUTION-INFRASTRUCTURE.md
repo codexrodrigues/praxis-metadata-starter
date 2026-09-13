@@ -1,6 +1,6 @@
 # Infraestrutura de lote — participação na transação operacional
 
-`BulkExecutionInfrastructure` vincula explicitamente um DataSource, um PlatformTransactionManager local e um namespace estável da implantação. Sua construção não conecta ao banco, registra beans, cria tabelas ou inicia workers. É a base de integração do futuro adapter JDBC; ainda não é um store de propostas/receipts ou executor de lote.
+`BulkExecutionInfrastructure` vincula explicitamente um DataSource, um PlatformTransactionManager local e um namespace estável da implantação. Sua construção não conecta ao banco, registra beans, cria tabelas ou inicia workers. É a base de integração de `JdbcBulkProposalStore`, descrito em [Persistência protegida de propostas](BULK-PROPOSAL-STORAGE.md). A infraestrutura em si não é store de receipts nem executor de lote.
 
 ```java
 // Os três valores são fornecidos explicitamente pelo host, após inicialização dos beans.

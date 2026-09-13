@@ -148,6 +148,19 @@
             <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Explicit deployment-time migrator only; consumers opt into Flyway themselves. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>11.17.0</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <version>11.17.0</version>
+            <optional>true</optional>
+        </dependency>
         <!-- Real PostgreSQL transaction proof; no runtime driver or server is introduced. -->
         <dependency>
             <groupId>io.zonky.test</groupId>

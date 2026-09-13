@@ -17,13 +17,23 @@ import java.util.function.Function;
  */
 @JsonIgnoreType
 public final class BulkIntentSnapshot {
+    private final BulkFingerprintContext context;
+    private final String codecId;
+    private final BulkMode mode;
     private final JsonNode intent;
     private final String fingerprint;
 
     private BulkIntentSnapshot(BulkFingerprintContext context, String codecId, BulkMode mode, ObjectNode intent) {
         Objects.requireNonNull(context, "context is required");
         BulkContractChecks.text(codecId, "codecId");
+        this.context = context;
+        this.codecId = codecId;
+        this.mode = mode;
         this.intent = BulkCanonicalJson.normalize(intent);
+        this.fingerprint = BulkCanonicalJson.digest(storageDocument());
+    }
+
+    JsonNode storageDocument() {
         ObjectNode root = JsonNodeFactory.instance.objectNode();
         root.put("namespaceId", context.namespaceId()); root.put("subjectId", context.subjectId());
         root.put("resourceKey", context.resourceKey()); root.put("schemaRevision", context.schemaRevision());
@@ -31,9 +41,13 @@ public final class BulkIntentSnapshot {
         var operation = root.putObject("operationRef");
         operation.put("group", context.operationRef().group()); operation.put("operationId", context.operationRef().operationId());
         operation.put("path", context.operationRef().path()); operation.put("method", context.operationRef().method());
-        root.set("intent", this.intent);
-        this.fingerprint = BulkCanonicalJson.digest(root);
+        root.set("intent", this.intent.deepCopy());
+        return root;
     }
+
+    public BulkFingerprintContext context() { return context; }
+    public String codecId() { return codecId; }
+    public BulkMode mode() { return mode; }
 
     public JsonNode intent() { return intent.deepCopy(); }
     public String fingerprint() { return fingerprint; }

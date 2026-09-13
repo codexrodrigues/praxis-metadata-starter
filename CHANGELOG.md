@@ -5,6 +5,7 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- `BulkStoredProposal`/`JdbcBulkProposalStore` persistem intenções EXPLICIT/SYNC nas três modalidades, preservando números exatos, contexto e fingerprint. `BulkExecutionMigrator` aplica migração PostgreSQL explícita em schema próprio e valida estrutura física; sem READY ou executor.
 - `BulkExecutionInfrastructure` vincula datasource/manager/namespace e participa de transação JDBC/JPA local obrigatória, com prova PostgreSQL real de commit, rollback e locks. Sem DDL, store ou execução bulk.
 - `CanonicalOperationResolver.requireResourceRequestBody` vincula a operação estrita ao DTO @RequestBody concreto do handler MVC, preservando genéricos herdados/aninhados e recusando corpos abertos/opcionais/wrappers. Sem fetch de schema ou executor.
 - Leitura estrita `OpenApiDocumentService.requireRequestSchema` com snapshot isolado, dialeto declarado e resolução limitada de referências locais; preferência documental de mídia compartilhada e preservada. Sem registro executável de operações em lote.

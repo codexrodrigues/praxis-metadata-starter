@@ -50,7 +50,10 @@ public final class BulkProtocolReader<WI, ID> {
     }
 
     public <F> BulkUniformEvaluationRequest<WI, F> readUniform(byte[] body, Function<JsonNode, F> filterReader) {
-        JsonNode root = parse(body);
+        return readUniformNode(parse(body), filterReader);
+    }
+
+    <F> BulkUniformEvaluationRequest<WI, F> readUniformNode(JsonNode root, Function<JsonNode, F> filterReader) {
         fields(root, Set.of("executionMode", "selection", "changes"));
         return new BulkUniformEvaluationRequest<>(executionMode(root), selection(root.get("selection"), filterReader),
                 changes(root.get("changes")));
@@ -58,7 +61,11 @@ public final class BulkProtocolReader<WI, ID> {
 
     public <P, F> BulkCommandEvaluationRequest<P, WI, F> readCommand(
             byte[] body, Function<JsonNode, P> parametersReader, Function<JsonNode, F> filterReader) {
-        JsonNode root = parse(body);
+        return readCommandNode(parse(body), parametersReader, filterReader);
+    }
+
+    <P, F> BulkCommandEvaluationRequest<P, WI, F> readCommandNode(
+            JsonNode root, Function<JsonNode, P> parametersReader, Function<JsonNode, F> filterReader) {
         fields(root, Set.of("executionMode", "selection", "parameters"));
         JsonNode parameters = root.get("parameters");
         validateParameterBindings(parameters);
@@ -75,7 +82,10 @@ public final class BulkProtocolReader<WI, ID> {
     }
 
     public BulkItemEvaluationRequest<WI> readItems(byte[] body) {
-        JsonNode root = parse(body);
+        return readItemsNode(parse(body));
+    }
+
+    BulkItemEvaluationRequest<WI> readItemsNode(JsonNode root) {
         fields(root, Set.of("executionMode", "items"));
         JsonNode items = array(root.get("items"), limits.maxTargets(), false);
         List<BulkItemChange<WI>> result = new ArrayList<>(items.size());
