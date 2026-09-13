@@ -16,6 +16,7 @@ All notable changes to this module will be documented in this file.
 - Fundação Java `bulk` com requests das três modalidades, confirmação por proposalId, codecs Integer/Long/String/UUID, parser isolado com limites e validação estrutural SET/CLEAR/omissão. Ainda sem endpoints, discovery ou executor; ver `docs/spec/BULK-PROTOCOL-INPUT.md`.
 
 ### Fixed
+- Parser bulk preserva decimais válidos além da faixa double; normalização mantém snapshots numericamente válidos após persistência, sem alterar fingerprints. BulkStoredProposal recusa tokens wire incompatíveis com o codec canônico declarado.
 - Infraestrutura bulk recusa manager com `globalRollbackOnParticipationFailure=false`, preservando rollback-only após erro do callback.
 - Lookup canônico por `operationId` rejeita IDs efetivos duplicados em vez de escolher o primeiro handler; consumidores com configuração ambígua precisam corrigir suas identidades/referências.
 - O executor de commands governados agora preserva `ResourceVersionPreconditionException` para o

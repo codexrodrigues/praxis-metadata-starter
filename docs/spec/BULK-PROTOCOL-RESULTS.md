@@ -30,7 +30,7 @@ O algoritmo de framing é específico deste protocolo, identificado por `praxis.
 
 O preflight confere profundidade, tipos e orçamento antes da cópia defensiva de valores e objetos de domínio. Ele não evita a alocação do objeto original pelo produtor/encoder; o binding deve limitar essa produção. O frame é limitado a 8 MiB, incluindo nomes, contexto e framing: um JSON próximo do limite de entrada pode exceder esse orçamento e ser rejeitado. Limites de 50 alterações por item e 10.000 alvos/itens/exclusões também se aplicam ao snapshot. O reader continua necessário para provar tokens originais e limitar o body HTTP; construir records diretamente não substitui o reader.
 
-Fingerprint de intenção **não é** assinatura, autenticação, idempotência durável, admissão de confirmação ou prova de efeitos. O store/orquestrador futuros deverão vincular proposalId, manifest fechado, fatos/políticas avaliados e seus digests à reserva e revalidar acesso/contexto. Não reconstruir esse fingerprint usando política/estado atuais ao servir replay histórico. A identidade/retenção da execução pertence a seu próprio ciclo, não à expiração da proposta.
+Fingerprint de intenção **não é** assinatura, autenticação, idempotência durável, admissão de confirmação ou prova de efeitos. O [store protegido](BULK-PROPOSAL-STORAGE.md) e a [evidência de domínio](BULK-EVALUATION-EVIDENCE.md) já vinculam entrada/fatos/plano em EXPLICIT/SYNC. A composição restante deverá vincular manifest fechado, políticas avaliadas e seus digests à reserva e revalidar acesso/contexto. Não reconstruir esse fingerprint usando política/estado atuais ao servir replay histórico. A identidade/retenção da execução pertence a seu próprio ciclo, não à expiração da proposta.
 
 ## Projeções públicas
 

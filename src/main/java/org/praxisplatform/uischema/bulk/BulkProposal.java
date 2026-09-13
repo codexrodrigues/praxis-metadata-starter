@@ -16,7 +16,7 @@ import java.util.Objects;
  *
  * <p>The caller supplies an already redacted intent. This SDK defensively copies it but cannot
  * decide which business values may be revealed. Full selection bindings, versions, parameters,
- * and protected intent belong to the future protected proposal payload.</p>
+ * and protected intent belong to the separate protected storage, never to this public projection.</p>
  */
 public final class BulkProposal {
     private final String proposalId;

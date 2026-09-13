@@ -3,10 +3,7 @@ package org.praxisplatform.uischema.bulk;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -24,7 +21,7 @@ import java.util.function.Function;
 public final class BulkProtocolReader<WI, ID> {
     private final BulkIdentityCodec<WI, ID> codec;
     private final BulkProtocolLimits limits;
-    private final ObjectMapper mapper;
+    private final JsonFactory factory;
 
     public BulkProtocolReader(BulkIdentityCodec<WI, ID> codec) {
         this(codec, BulkProtocolLimits.defaults());
@@ -33,16 +30,12 @@ public final class BulkProtocolReader<WI, ID> {
     public BulkProtocolReader(BulkIdentityCodec<WI, ID> codec, BulkProtocolLimits limits) {
         this.codec = Objects.requireNonNull(codec, "codec is required");
         this.limits = Objects.requireNonNull(limits, "limits are required");
-        var factory = JsonFactory.builder()
+        factory = JsonFactory.builder()
                 .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                 .streamReadConstraints(StreamReadConstraints.builder()
                         .maxNestingDepth(limits.maxDepth()).maxNumberLength(256)
                         .maxStringLength(limits.maxRequestBytes()).build()).build();
-        mapper = new ObjectMapper(factory)
-                .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-                .enable(DeserializationFeature.USE_BIG_INTEGER_FOR_INTS)
-                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .configure(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES, false);
+
     }
 
     public BulkUniformEvaluationRequest<WI, JsonNode> readUniform(byte[] body) {
@@ -140,8 +133,8 @@ public final class BulkProtocolReader<WI, ID> {
     private JsonNode parse(byte[] body) {
         if (body == null || body.length == 0 || body.length > limits.maxRequestBytes())
             throw invalid("Bulk request size is outside the configured limit");
-        try {
-            JsonNode root = mapper.readTree(body);
+        try (var parser = factory.createParser(body)) {
+            JsonNode root = BulkJsonValues.readDocument(parser);
             object(root);
             checkNumbers(root);
             return root;
@@ -154,7 +147,7 @@ public final class BulkProtocolReader<WI, ID> {
     private static void checkNumbers(JsonNode node) {
         if (node.isFloatingPointNumber()) {
             var decimal = node.decimalValue();
-            if (decimal.precision() > 256 || Math.abs((long) decimal.scale()) > 256)
+            if (decimal.precision() > 256 || Math.abs((long) decimal.scale()) > BulkJsonValues.MAX_DECIMAL_SCALE)
                 throw invalid("Decimal is outside the bulk numeric limit");
         }
         for (JsonNode child : node) checkNumbers(child);

@@ -46,8 +46,15 @@ final class BulkCanonicalJson {
             return result;
         }
         if (node.isTextual()) unicode(node.textValue());
-        if (node.isFloatingPointNumber())
-            return JsonNodeFactory.instance.numberNode(node.decimalValue().stripTrailingZeros());
+        if (node.isFloatingPointNumber()) {
+            var decimal = node.decimalValue().stripTrailingZeros();
+            // Stripping a valid 10e256 yields 1e257 (scale -257). Keep the tree
+            // inside the accepted domain so it can be normalized and decoded again.
+            // The fingerprint still strips zeros independently; its framing is unchanged.
+            if (decimal.scale() < -BulkJsonValues.MAX_DECIMAL_SCALE)
+                decimal = decimal.setScale(-BulkJsonValues.MAX_DECIMAL_SCALE);
+            return JsonNodeFactory.instance.numberNode(decimal);
+        }
         return node.deepCopy();
     }
 

@@ -7,7 +7,6 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Set;
@@ -53,39 +52,8 @@ final class BulkSnapshotStorageCodec {
     static JsonNode readDocument(byte[] payload) {
         if (payload == null || payload.length == 0 || payload.length > MAX_BYTES) throw invalid();
         try (JsonParser parser = MAPPER.getFactory().createParser(payload)) {
-            parser.nextToken(); JsonNode root = readNode(parser);
-            if (parser.nextToken() != null) throw invalid();
-            return root;
+            return BulkJsonValues.readDocument(parser);
         } catch (IOException | RuntimeException error) { throw invalid(); }
-    }
-
-    // Read exact numeric tokens directly. Databind's tree reader may first probe a huge
-    // exponent as double and materialize Infinity even with USE_BIG_DECIMAL_FOR_FLOATS.
-    private static JsonNode readNode(JsonParser parser) throws IOException {
-        if (parser.currentToken() == null) throw invalid();
-        var nodes = JsonNodeFactory.instance;
-        return switch (parser.currentToken()) {
-            case START_OBJECT -> {
-                var object = nodes.objectNode();
-                while (parser.nextToken() != com.fasterxml.jackson.core.JsonToken.END_OBJECT) {
-                    if (parser.currentToken() != com.fasterxml.jackson.core.JsonToken.FIELD_NAME) throw invalid();
-                    String name = parser.currentName(); parser.nextToken(); object.set(name, readNode(parser));
-                }
-                yield object;
-            }
-            case START_ARRAY -> {
-                var array = nodes.arrayNode();
-                while (parser.nextToken() != com.fasterxml.jackson.core.JsonToken.END_ARRAY) array.add(readNode(parser));
-                yield array;
-            }
-            case VALUE_NUMBER_INT -> nodes.numberNode(parser.getBigIntegerValue());
-            case VALUE_NUMBER_FLOAT -> nodes.numberNode(parser.getDecimalValue());
-            case VALUE_STRING -> nodes.textNode(parser.getText());
-            case VALUE_TRUE -> nodes.booleanNode(true);
-            case VALUE_FALSE -> nodes.booleanNode(false);
-            case VALUE_NULL -> nodes.nullNode();
-            default -> throw invalid();
-        };
     }
 
     static BulkIdentityCodec<?, ?> codec(String id) {

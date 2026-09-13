@@ -71,7 +71,8 @@ class BulkEvaluationSnapshotTest {
     }
     @Test void factsAndPlansStayDefensiveAndNumericTypesRemainExact() {
         var original=evaluation(proposal()); var first=original.targets().getFirst();
-        for(var number:List.of(new BigDecimal("1"),new BigDecimal("1e256"),new BigDecimal("9".repeat(256)).scaleByPowerOfTen(256))) {
+        for(var number:List.of(new BigDecimal("1"),new BigDecimal("1e256"),new BigDecimal("10e256"),
+                new BigDecimal("1"+"0".repeat(255)).scaleByPowerOfTen(256),new BigDecimal("9".repeat(256)).scaleByPowerOfTen(256))) {
             var plan=JSON.objectNode().put("amount",number);var evidence=new BulkTargetEvidence<>(first.target(),first.observedVersion(),first.facts(),plan);
             plan.put("amount",99);
             var value=new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt(),List.of(evidence));
