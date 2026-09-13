@@ -4,6 +4,9 @@ All notable changes to this module will be documented in this file.
 
 ## Unreleased
 
+### Added
+- Fundação Java `bulk` com requests das três modalidades, confirmação por proposalId, codecs Integer/Long/String/UUID, parser isolado com limites e validação estrutural SET/CLEAR/omissão. Ainda sem endpoints, discovery ou executor; ver `docs/spec/BULK-PROTOCOL-INPUT.md`.
+
 ### Fixed
 - O executor de commands governados agora preserva `ResourceVersionPreconditionException` para o
   handler HTTP canônico, inclusive quando a revalidacao transacional detecta a corrida. Assim,
