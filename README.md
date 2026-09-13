@@ -24,6 +24,10 @@ Nao e apenas um gerador de CRUD. O baseline atual da plataforma e:
 - `capability`
 - HATEOAS
 
+## SDK de operações em lote em desenvolvimento
+
+A [fundação de entrada do protocolo](docs/spec/BULK-PROTOCOL-INPUT.md) fornece tipos Java, codecs de identidade e validação de SET/CLEAR. Ainda não disponibiliza endpoints ou execução de lote.
+
 ## Public Documentation
 
 Use estes entry points primeiro:

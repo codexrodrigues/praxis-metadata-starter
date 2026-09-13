@@ -13,6 +13,10 @@ plataforma.
 - a operacao canonica de exportacao de colecao
 - referencia tecnica complementar em Javadoc
 
+## SDK em desenvolvimento
+
+- [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html): API Java, sem runtime executável ou integração de discovery neste incremento.
+
 ## Comece por objetivo
 
 ### Quero adotar o baseline atual
