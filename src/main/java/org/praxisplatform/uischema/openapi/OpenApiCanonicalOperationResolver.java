@@ -1,15 +1,20 @@
 package org.praxisplatform.uischema.openapi;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Hidden;
+import org.praxisplatform.uischema.annotation.ApiResource;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriUtils;
 import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -26,7 +31,7 @@ import java.util.Optional;
  *
  * <p>
  * A busca por {@code operationId} percorre os handlers registrados no
- * {@link RequestMappingHandlerMapping} e devolve a primeira correspondencia exata.
+ * {@link RequestMappingHandlerMapping} e rejeita IDs efetivos duplicados globalmente.
  * </p>
  *
  * <p>
@@ -88,13 +93,92 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         if (!StringUtils.hasText(operationId) || handlerMapping == null) {
             return Optional.empty();
         }
-        for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : handlerMapping.getHandlerMethods().entrySet()) {
-            CanonicalOperationRef ref = resolve(entry.getValue(), entry.getKey());
-            if (operationId.equals(ref.operationId())) {
-                return Optional.of(ref);
-            }
+        List<Map.Entry<RequestMappingInfo, HandlerMethod>> matches = findMappings(operationId);
+        rejectDuplicateMappings(operationId, matches);
+        return matches.stream().findFirst().map(entry -> resolve(entry.getValue(), entry.getKey()));
+    }
+
+    @Override
+    public CanonicalOperationRef requireResourceOperation(String resourceKey, String operationId, String method) {
+        if (!StringUtils.hasText(resourceKey) || !StringUtils.hasText(operationId) || !StringUtils.hasText(method)) {
+            throw new IllegalArgumentException("resourceKey, operationId and method must not be blank");
         }
-        return Optional.empty();
+        RequestMethod expectedMethod;
+        try {
+            expectedMethod = RequestMethod.valueOf(normalizeMethod(method));
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("method must be a supported HTTP method");
+        }
+        if (handlerMapping == null) {
+            throw invalidBinding(operationId, "MVC handler registry is unavailable");
+        }
+        List<Map.Entry<RequestMappingInfo, HandlerMethod>> matches = findMappings(operationId);
+        rejectDuplicateMappings(operationId, matches);
+        if (matches.isEmpty()) {
+            throw invalidBinding(operationId, "no registered operation");
+        }
+        Map.Entry<RequestMappingInfo, HandlerMethod> entry = matches.getFirst();
+        HandlerMethod handler = entry.getValue();
+        RequestMappingInfo mapping = entry.getKey();
+        Operation operation = handler.getMethodAnnotation(Operation.class);
+        if (operation == null || !StringUtils.hasText(operation.operationId())) {
+            throw invalidBinding(operationId, "an explicit @Operation operationId is required");
+        }
+        if (operation.hidden() || handler.hasMethodAnnotation(Hidden.class)
+                || AnnotatedElementUtils.hasAnnotation(handler.getBeanType(), Hidden.class)) {
+            throw invalidBinding(operationId, "operation is explicitly hidden");
+        }
+        ApiResource resource = AnnotatedElementUtils.findMergedAnnotation(handler.getBeanType(), ApiResource.class);
+        if (resource == null || !resourceKey.equals(resource.resourceKey())) {
+            throw invalidBinding(operationId, "registered resource does not match the expected resourceKey");
+        }
+        if (mapping.getPatternValues().size() != 1 || mapping.getMethodsCondition().getMethods().size() != 1
+                || !mapping.getMethodsCondition().getMethods().contains(expectedMethod)) {
+            throw invalidBinding(operationId, "exactly one path and the expected HTTP method are required");
+        }
+        if (!mapping.getParamsCondition().isEmpty() || !mapping.getHeadersCondition().isEmpty()
+                || mapping.getCustomCondition() != null) {
+            throw invalidBinding(operationId, "conditional params, headers or custom routing cannot be represented");
+        }
+        String path = mapping.getPatternValues().iterator().next();
+        // The schema reference contract normalizes these paths. Reject, rather than silently
+        // publishing a different route from the one actually registered in Spring MVC.
+        if (!path.startsWith("/") || !path.equals(normalizePath(path))) {
+            throw invalidBinding(operationId, "registered path must already be canonical");
+        }
+        boolean sharedAddress = handlerMapping.getHandlerMethods().keySet().stream()
+                .filter(other -> !other.equals(mapping))
+                .anyMatch(other -> other.getPatternValues().contains(path)
+                        && (other.getMethodsCondition().getMethods().isEmpty()
+                        || other.getMethodsCondition().getMethods().contains(expectedMethod)));
+        if (sharedAddress) {
+            throw invalidBinding(operationId, "path and method are shared by another registered mapping");
+        }
+        return new CanonicalOperationRef(resolveGroup(path), operationId, path, expectedMethod.name());
+    }
+
+    private List<Map.Entry<RequestMappingInfo, HandlerMethod>> findMappings(String operationId) {
+        // Match identity before resolving groups. Neither resource nor method filtering may
+        // hide a global collision; no OpenAPI document fetch is needed to inspect handlers.
+        return handlerMapping.getHandlerMethods().entrySet().stream()
+                .filter(entry -> {
+                    HandlerMethod handler = entry.getValue();
+                    Operation operation = handler.getMethodAnnotation(Operation.class);
+                    String effectiveId = operation != null && StringUtils.hasText(operation.operationId())
+                            ? operation.operationId() : handler.getMethod().getName();
+                    return operationId.equals(effectiveId);
+                }).toList();
+    }
+
+    private void rejectDuplicateMappings(String operationId,
+            List<Map.Entry<RequestMappingInfo, HandlerMethod>> matches) {
+        if (matches.size() > 1) {
+            throw invalidBinding(operationId, "operationId is ambiguous across registered mappings");
+        }
+    }
+
+    private IllegalStateException invalidBinding(String operationId, String reason) {
+        return new IllegalStateException("Cannot bind operationId '" + operationId + "': " + reason);
     }
 
     private String normalizePath(String path) {

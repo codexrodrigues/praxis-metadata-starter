@@ -5,10 +5,12 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- Resolução estrita `CanonicalOperationResolver.requireResourceOperation` com ID explícito global, recurso e método HTTP, rejeitando bindings ausentes ou ambíguos. Sem bootstrap declarativo ou runtime de lote neste incremento.
 - Tipos de proposta/execução/resultado e fingerprint da intenção normalizada no SDK `bulk`, com snapshots defensivos, totais/estados validados e schemas documentais. A composição HTTP, storage e idempotência durável permanecem fora deste incremento.
 - Fundação Java `bulk` com requests das três modalidades, confirmação por proposalId, codecs Integer/Long/String/UUID, parser isolado com limites e validação estrutural SET/CLEAR/omissão. Ainda sem endpoints, discovery ou executor; ver `docs/spec/BULK-PROTOCOL-INPUT.md`.
 
 ### Fixed
+- Lookup canônico por `operationId` rejeita IDs efetivos duplicados em vez de escolher o primeiro handler; consumidores com configuração ambígua precisam corrigir suas identidades/referências.
 - O executor de commands governados agora preserva `ResourceVersionPreconditionException` para o
   handler HTTP canônico, inclusive quando a revalidacao transacional detecta a corrida. Assim,
   `400`, `412` e `428` mantêm seus códigos públicos distintos em vez de virarem erro inesperado.

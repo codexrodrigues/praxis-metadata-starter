@@ -19,6 +19,8 @@ plataforma.
 
 - [Propostas, resultados e fingerprint de intenção](spec/BULK-PROTOCOL-RESULTS.html): snapshots e schemas de SDK, sem execução durável.
 
+- [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html): unicidade e vínculo estrutural entre operação real, recurso e método.
+
 ## Comece por objetivo
 
 ### Quero adotar o baseline atual
