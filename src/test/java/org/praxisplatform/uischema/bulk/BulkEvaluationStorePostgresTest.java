@@ -66,6 +66,29 @@ class BulkEvaluationStorePostgresTest {
         });
         assertThat(count("praxis_bulk_proposal")).isZero();assertThat(count("praxis_bulk_evaluation")).isZero();
     }
+    @Test void numericBoundaryValuesRemainRecoverableAfterCommit() {
+        migrate();
+        for (var number : List.of(new java.math.BigDecimal("10e256"),
+                new java.math.BigDecimal("1"+"0".repeat(255)).scaleByPowerOfTen(256),
+                new java.math.BigDecimal("9".repeat(200)+"e200"))) {
+            var parameters = JSON.objectNode().put("amount", number);
+            var request = new BulkCommandEvaluationRequest<com.fasterxml.jackson.databind.JsonNode,String,com.fasterxml.jackson.databind.JsonNode>(
+                    BulkExecutionMode.SYNC, new BulkSelection<>(BulkSelectionMode.EXPLICIT,
+                    List.of(new BulkTarget<>("1", "v1")), null, null), parameters);
+            var input = proposal(BulkIntentSnapshot.command(CONTEXT, BulkIdentityCodecs.strings(), request,
+                    com.fasterxml.jackson.databind.JsonNode::deepCopy, com.fasterxml.jackson.databind.JsonNode::deepCopy));
+            var evidence = new BulkTargetEvidence<>(new BulkTarget<>("1", "v1"), "v1", parameters, parameters);
+            var value = new BulkEvaluationSnapshot(input, input.createdAt(), List.of(evidence));
+            tx.executeWithoutResult(status -> store.insertEvaluated(value));
+            var recovered = tx.execute(status -> store.findEvaluation(CONTEXT, input.id()).orElseThrow());
+            assertThat(recovered.fingerprint()).isEqualTo(value.fingerprint());
+            assertThat(recovered.proposal().snapshot().intent().at("/parameters/amount").decimalValue()).isEqualByComparingTo(number);
+            assertThat(recovered.targets().getFirst().facts().get("amount").decimalValue()).isEqualByComparingTo(number);
+            assertThat(recovered.targets().getFirst().plan().get("amount").decimalValue()).isEqualByComparingTo(number);
+        }
+        assertThat(count("praxis_bulk_proposal")).isEqualTo(3);
+        assertThat(count("praxis_bulk_evaluation")).isEqualTo(3);
+    }
     @Test void caughtCompanionFailureStillRollsBackItsInput() {
         migrate();var value=evaluation(proposal());
         sql.execute("create function public.fail_evaluation_fixture() returns trigger language plpgsql as $$ begin raise exception 'fixture failure'; end; $$");

@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.bulk;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreType;
+import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
@@ -30,7 +31,17 @@ public final class BulkStoredProposal {
                     && !"EXPLICIT".equals(intent.path("selection").path("mode").asText()))) {
             throw new IllegalArgumentException("Protected storage currently requires EXPLICIT SYNC input");
         }
-        BulkSnapshotStorageCodec.codec(snapshot.codecId());
+        var canonicalCodec = BulkSnapshotStorageCodec.codec(snapshot.codecId());
+        JsonNode targets = snapshot.mode() == BulkMode.PER_ITEM_UPDATE
+                ? intent.path("items") : intent.path("selection").path("targets");
+        if (!targets.isArray()) throw new IllegalArgumentException("Protected storage requires canonical wire identities");
+        for (JsonNode target : targets) {
+            try {
+                canonicalCodec.readWire(target.get("id"));
+            } catch (IllegalArgumentException error) {
+                throw new IllegalArgumentException("Protected storage requires canonical wire identities");
+            }
+        }
     }
     public UUID id() { return id; }
     public Instant createdAt() { return createdAt; }

@@ -55,11 +55,24 @@ class BulkSnapshotStorageCodecTest {
     }
     @Test void programmaticDecimalLimitsSurviveWithoutTransportLexicalCoercion() {
         for (var number : new BigDecimal[]{ new BigDecimal("1e-256"), new BigDecimal("1e256"),
+                new BigDecimal("10e256"), new BigDecimal("1"+"0".repeat(255)).scaleByPowerOfTen(256),
                 new BigDecimal("9".repeat(256)).scaleByPowerOfTen(256), new BigDecimal("0."+"9".repeat(256)) }) {
             var parameters = JsonNodeFactory.instance.objectNode().put("amount", number);
             var request = new BulkCommandEvaluationRequest<JsonNode,String,JsonNode>(BulkExecutionMode.SYNC,
                     new BulkSelection<>(BulkSelectionMode.EXPLICIT, java.util.List.of(new BulkTarget<>("1", "v")), null, null), parameters);
             roundtrip(BulkIntentSnapshot.command(CONTEXT, BulkIdentityCodecs.strings(), request, JsonNode::deepCopy, JsonNode::deepCopy));
+        }
+    }
+    @Test void transportDecimalsBeyondDoubleRangeRemainExactInEveryModality() {
+        String number = "9".repeat(200)+"e200";
+        for (var mode : BulkMode.values()) {
+            var restored = roundtrip(snapshot(mode, BulkIdentityCodecs.strings(), "\"1\"", number));
+            String pointer = switch (mode) {
+                case DOMAIN_COMMAND -> "/parameters/amount";
+                case UNIFORM_UPDATE -> "/changes/0/value";
+                case PER_ITEM_UPDATE -> "/items/0/changes/0/value";
+            };
+            assertThat(restored.intent().at(pointer).decimalValue()).isEqualByComparingTo(new BigDecimal(number));
         }
     }
     @Test void corruptUnknownDuplicateAndTrailingContentIsSanitized() {
