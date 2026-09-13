@@ -45,6 +45,18 @@ public interface OpenApiDocumentService {
     JsonNode getDocumentForGroup(String groupName);
 
     /**
+     * Reads an explicit operation's JSON request schema for backend compilation.
+     * The default verifies the document binding and declared dialect, resolves supported
+     * local references and fails on unsupported/ambiguous structure using this service's source.
+     * This does not bind a Java DTO,
+     * authorize execution, or replace the UI projection at /schemas/filtered.
+     * Call only when the implementation's document source is available (the default uses HTTP).
+     */
+    default CanonicalRequestSchema requireRequestSchema(CanonicalOperationRef operation) {
+        return OpenApiRequestSchemaReader.read(this, operation);
+    }
+
+    /**
      * Retorna o hash estrutural canonico para o {@code schemaId} informado.
      *
      * <p>

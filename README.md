@@ -32,6 +32,8 @@ O [binding canônico de operações](docs/spec/CANONICAL-OPERATION-BINDING.md) v
 
 A [declaração de campos editáveis](docs/spec/BULK-EDITABLE-FIELDS.md) compila `@BulkEditable`, nomes Jackson e schema real em listas estruturais para SET/CLEAR. Ainda sem anúncio de capability ou executor.
 
+A [leitura estrita do request canônico](docs/spec/CANONICAL-REQUEST-SCHEMA.md) fornece schema JSON resolvido e dialeto para compilação backend, preservando a projeção documental existente.
+
 ## Public Documentation
 
 Use estes entry points primeiro:
