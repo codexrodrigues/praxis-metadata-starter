@@ -32,6 +32,8 @@ O [binding canônico de operações](docs/spec/CANONICAL-OPERATION-BINDING.md) v
 
 A [infraestrutura transacional explícita](docs/spec/BULK-EXECUTION-INFRASTRUCTURE.md) permite ao adapter participar da transação JDBC/JPA do host, com provas PostgreSQL. O [armazenamento protegido](docs/spec/BULK-PROPOSAL-STORAGE.md) acrescenta persistência EXPLICIT/SYNC e migração PostgreSQL explícita; o executor continua pendente.
 
+A [evidência protegida de avaliação](docs/spec/BULK-EVALUATION-EVIDENCE.md) vincula fatos e plano de cada alvo à entrada, com gravação atômica e migração V2; não certifica READY ou autorização.
+
 A [declaração de campos editáveis](docs/spec/BULK-EDITABLE-FIELDS.md) compila `@BulkEditable`, nomes Jackson e schema real em listas estruturais para SET/CLEAR. Ainda sem anúncio de capability ou executor.
 
 A [leitura estrita do request canônico](docs/spec/CANONICAL-REQUEST-SCHEMA.md) fornece schema JSON resolvido e dialeto para compilação backend, preservando a projeção documental existente.

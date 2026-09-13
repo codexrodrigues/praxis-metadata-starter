@@ -1,5 +1,7 @@
 # Persistência protegida de propostas
 
+A [evidência de avaliação de domínio](BULK-EVALUATION-EVIDENCE.md) amplia este armazenamento com vínculo atômico de fatos/plano e migração V2, sem conferir elegibilidade.
+
 O SDK oferece `BulkStoredProposal` e `JdbcBulkProposalStore` para inserir e recuperar a intenção protegida de um lote. O conteúdo inclui contexto confiável, identidade da operação, revisão do schema, atomicidade, codec de identidade, modalidade e intenção normalizada. A projeção pública `BulkProposal` continua separada.
 
 Este incremento aceita seleção EXPLICIT e execução SYNC nas três modalidades: alteração uniforme, ação de domínio e alterações por item. Só os codecs canônicos Integer, Long, String e UUID são reconstituídos. QUERY exige um manifesto de alvos capturado; ASYNC exige outro ciclo operacional. Ambos permanecem fora deste adapter. Persistir uma entrada não demonstra avaliação, READY, autorização, reserva de quota, confirmação, execução ou idempotência de negócio.
@@ -49,7 +51,7 @@ Não copiar o SQL para `db/migration`, reutilizar o histórico do host ou aplica
 
 A identidade privilegiada aplica e valida a migração fora das transações do domínio. `validate` verifica também o catálogo físico: colunas/tipos/nullabilidade, chave primária, checks e trigger de imutabilidade. Uma história Flyway válida, sozinha, não prova que ninguém removeu uma constraint ou desabilitou o trigger.
 
-A identidade de runtime precisa de USAGE no schema e SELECT/INSERT na tabela. Não conceder CREATE, UPDATE ou DELETE. O trigger BEFORE UPDATE rejeita alteração inclusive pelo dono enquanto está habilitado; privilégios administrativos continuam podendo alterar o schema. O adapter não valida o catálogo a cada operação: executar a validação de implantação antes de habilitar seu consumo é uma obrigação da composição do host.
+A identidade de runtime precisa de USAGE no schema e SELECT/INSERT nas tabelas usadas: proposal para entrada e também evaluation quando adotar a evidência V2. Não conceder CREATE, UPDATE ou DELETE. O trigger BEFORE UPDATE rejeita alteração inclusive pelo dono enquanto está habilitado; privilégios administrativos continuam podendo alterar o schema. O adapter não valida o catálogo a cada operação: executar a validação de implantação antes de habilitar seu consumo é uma obrigação da composição do host.
 
 ## Provas e próximos gates
 

@@ -51,9 +51,13 @@ final class BulkCanonicalJson {
         return node.deepCopy();
     }
 
-    static String digest(JsonNode node) {
+    static String digest(JsonNode node) { return digest("praxis.bulk.intent/1", node); }
+
+    static String evaluationDigest(JsonNode node) { return digest("praxis.bulk.evaluation/1", node); }
+
+    private static String digest(String framing, JsonNode node) {
         var encoder = new BulkCanonicalJson();
-        encoder.string("praxis.bulk.intent/1");
+        encoder.string(framing);
         encoder.write(node, 0);
         return "sha256:" + HexFormat.of().formatHex(encoder.digest.digest());
     }

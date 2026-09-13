@@ -5,6 +5,7 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- `BulkTargetEvidence` e `BulkEvaluationSnapshot` vinculam fatos/plano por alvo à proposta com framing próprio, cobertura exata e cópias defensivas. Store grava entrada+evidência atomicamente; migração V2 preserva V1 e valida FK/imutabilidade. Não emite READY nem substitui política do Config.
 - `BulkStoredProposal`/`JdbcBulkProposalStore` persistem intenções EXPLICIT/SYNC nas três modalidades, preservando números exatos, contexto e fingerprint. `BulkExecutionMigrator` aplica migração PostgreSQL explícita em schema próprio e valida estrutura física; sem READY ou executor.
 - `BulkExecutionInfrastructure` vincula datasource/manager/namespace e participa de transação JDBC/JPA local obrigatória, com prova PostgreSQL real de commit, rollback e locks. Sem DDL, store ou execução bulk.
 - `CanonicalOperationResolver.requireResourceRequestBody` vincula a operação estrita ao DTO @RequestBody concreto do handler MVC, preservando genéricos herdados/aninhados e recusando corpos abertos/opcionais/wrappers. Sem fetch de schema ou executor.

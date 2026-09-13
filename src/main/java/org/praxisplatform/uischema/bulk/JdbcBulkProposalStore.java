@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.bulk;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -18,23 +19,27 @@ public final class JdbcBulkProposalStore {
     /** Returned insertion is provisional until the owning transaction commits. Duplicate IDs are conflicts. */
     public void insert(BulkStoredProposal proposal) {
         Objects.requireNonNull(proposal, "proposal");
-        var snapshot = proposal.snapshot(); var context = snapshot.context(); requireNamespace(context);
-        byte[] payload = BulkSnapshotStorageCodec.encode(snapshot);
+        requireNamespace(proposal.snapshot().context());
+        try {
+            infrastructure.withConnection(connection -> { insertProposal(connection, proposal); return null; });
+        } catch (DataAccessException error) { throw safe(error); }
+    }
+
+    /**
+     * Persists protected input and its immutable evaluation evidence in the caller's one required
+     * transaction. A companion failure marks that transaction rollback-only, including when a
+     * caller later catches the safe storage exception.
+     */
+    public void insertEvaluated(BulkEvaluationSnapshot evaluation) {
+        Objects.requireNonNull(evaluation, "evaluation");
+        BulkStoredProposal proposal = evaluation.proposal();
+        requireNamespace(proposal.snapshot().context());
+        byte[] evaluationPayload = BulkEvaluationStorageCodec.encode(evaluation);
         try {
             infrastructure.withConnection(connection -> {
-                try (var statement = connection.prepareStatement("""
-                        insert into praxis_bulk.praxis_bulk_proposal
-                        (proposal_id, namespace_id, subject_id, resource_key, operation_id, created_at, expires_at, fingerprint, payload)
-                        values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """)) {
-                    statement.setObject(1, proposal.id()); statement.setString(2, context.namespaceId());
-                    statement.setString(3, context.subjectId()); statement.setString(4, context.resourceKey());
-                    statement.setString(5, context.operationRef().operationId());
-                    statement.setObject(6, proposal.createdAt().atOffset(ZoneOffset.UTC));
-                    statement.setObject(7, proposal.expiresAt().atOffset(ZoneOffset.UTC));
-                    statement.setString(8, snapshot.fingerprint()); statement.setBytes(9, payload);
-                    statement.executeUpdate(); return null;
-                }
+                insertProposal(connection, proposal);
+                insertEvaluation(connection, proposal, evaluation, evaluationPayload);
+                return null;
             });
         } catch (DataAccessException error) { throw safe(error); }
     }
@@ -72,6 +77,77 @@ public final class JdbcBulkProposalStore {
                 }
             });
         } catch (DataAccessException error) { throw safe(error); }
+    }
+
+    /**
+     * Reads evidence only after the trusted, scope-bound protected input has been recovered.
+     * It remains evidence of facts and plans; callers must independently revalidate policy,
+     * grants, expiry and execution admission.
+     */
+    public Optional<BulkEvaluationSnapshot> findEvaluation(BulkFingerprintContext scope, UUID id) {
+        Objects.requireNonNull(id, "id");
+        requireNamespace(scope);
+        Optional<BulkStoredProposal> proposal = find(scope, id);
+        if (proposal.isEmpty()) return Optional.empty();
+        BulkStoredProposal input = proposal.orElseThrow();
+        try {
+            return infrastructure.withConnection(connection -> {
+                try (var statement = connection.prepareStatement("""
+                        select input_fingerprint, evaluation_fingerprint, payload
+                        from praxis_bulk.praxis_bulk_evaluation
+                        where proposal_id=?
+                        """)) {
+                    statement.setObject(1, input.id());
+                    try (var rows = statement.executeQuery()) {
+                        if (!rows.next()) return Optional.empty();
+                        try {
+                            if (!input.snapshot().fingerprint().equals(rows.getString(1))) {
+                                throw new IllegalArgumentException("Protected evaluation input binding mismatch");
+                            }
+                            var evaluation = BulkEvaluationStorageCodec.decode(input, rows.getBytes(3), rows.getString(2));
+                            if (rows.next()) throw new IllegalArgumentException("Duplicate protected evaluation evidence");
+                            return Optional.of(evaluation);
+                        } catch (RuntimeException error) {
+                            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
+                        }
+                    }
+                }
+            });
+        } catch (DataAccessException error) { throw safe(error); }
+    }
+
+    private static void insertProposal(Connection connection, BulkStoredProposal proposal) throws SQLException {
+        var snapshot = proposal.snapshot();
+        var context = snapshot.context();
+        byte[] payload = BulkSnapshotStorageCodec.encode(snapshot);
+        try (var statement = connection.prepareStatement("""
+                insert into praxis_bulk.praxis_bulk_proposal
+                (proposal_id, namespace_id, subject_id, resource_key, operation_id, created_at, expires_at, fingerprint, payload)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """)) {
+            statement.setObject(1, proposal.id()); statement.setString(2, context.namespaceId());
+            statement.setString(3, context.subjectId()); statement.setString(4, context.resourceKey());
+            statement.setString(5, context.operationRef().operationId());
+            statement.setObject(6, proposal.createdAt().atOffset(ZoneOffset.UTC));
+            statement.setObject(7, proposal.expiresAt().atOffset(ZoneOffset.UTC));
+            statement.setString(8, snapshot.fingerprint()); statement.setBytes(9, payload);
+            statement.executeUpdate();
+        }
+    }
+
+    private static void insertEvaluation(Connection connection, BulkStoredProposal proposal,
+            BulkEvaluationSnapshot evaluation, byte[] payload) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                insert into praxis_bulk.praxis_bulk_evaluation
+                (proposal_id, input_fingerprint, evaluation_fingerprint, payload)
+                values (?, ?, ?, ?)
+                """)) {
+            statement.setObject(1, proposal.id());
+            statement.setString(2, proposal.snapshot().fingerprint());
+            statement.setString(3, evaluation.fingerprint());
+            statement.setBytes(4, payload);
+            statement.executeUpdate();
+        }
     }
 
     private void requireNamespace(BulkFingerprintContext context) {

@@ -33,7 +33,7 @@ class JdbcBulkProposalStorePostgresTest {
     }
     @AfterAll void stop() throws Exception { if (postgres != null) postgres.close(); }
     @BeforeEach void reset() { sql.execute("drop schema if exists praxis_bulk cascade"); }
-    void migrate() { assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(1); }
+    void migrate() { assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(2); }
     int count() { return sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal", Integer.class); }
 
     @Test void explicitMigrationPreservesHostAndIsRepeatable() {
@@ -47,7 +47,7 @@ class JdbcBulkProposalStorePostgresTest {
         try (var executor = Executors.newFixedThreadPool(2)) {
             Callable<Integer> task = () -> { barrier.await(5, TimeUnit.SECONDS); return BulkExecutionMigrator.migrate(dataSource); };
             var first = executor.submit(task); var second = executor.submit(task);
-            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(1);
+            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(2);
         }
         BulkExecutionMigrator.validate(dataSource);
     }
@@ -72,7 +72,7 @@ class JdbcBulkProposalStorePostgresTest {
     @Test void detectsChangedCheckSemanticsUnloggedTableAndDeferredPrimaryKey() {
         String[] mutations = {
             "alter table praxis_bulk.praxis_bulk_proposal drop constraint praxis_bulk_proposal_fingerprint_format_check; alter table praxis_bulk.praxis_bulk_proposal add constraint praxis_bulk_proposal_fingerprint_format_check check (fingerprint ~ '^sha256:[0-9A-F]{64}$')",
-            "alter table praxis_bulk.praxis_bulk_proposal set unlogged",
+            "alter table praxis_bulk.praxis_bulk_evaluation set unlogged; alter table praxis_bulk.praxis_bulk_proposal set unlogged",
             "alter table praxis_bulk.praxis_bulk_proposal alter column created_at type timestamptz(0)",
             "alter table praxis_bulk.praxis_bulk_proposal drop constraint praxis_bulk_proposal_pkey; alter table praxis_bulk.praxis_bulk_proposal add constraint praxis_bulk_proposal_pkey primary key (proposal_id) deferrable initially deferred",
             "alter function praxis_bulk.reject_praxis_bulk_proposal_update() security definer"
