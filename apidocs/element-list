@@ -3,6 +3,7 @@ org.praxisplatform.uischema.action
 org.praxisplatform.uischema.analytics
 org.praxisplatform.uischema.annotation
 org.praxisplatform.uischema.authoring
+org.praxisplatform.uischema.bulk
 org.praxisplatform.uischema.capability
 org.praxisplatform.uischema.command
 org.praxisplatform.uischema.concurrency

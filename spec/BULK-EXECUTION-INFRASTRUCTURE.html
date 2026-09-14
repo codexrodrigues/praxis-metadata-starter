@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Infraestrutura de lote — participação na transação operacional</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Infraestrutura de lote — participação na transação
+operacional</h1>
+</header>
+<h1
+id="infraestrutura-de-lote-participação-na-transação-operacional">Infraestrutura
+de lote — participação na transação operacional</h1>
+<p><code>BulkExecutionInfrastructure</code> vincula explicitamente um
+DataSource, um PlatformTransactionManager local e um namespace estável
+da implantação. Sua construção não conecta ao banco, registra beans,
+cria tabelas ou inicia workers. É a base de integração de
+<code>JdbcBulkProposalStore</code>, descrito em <a
+href="BULK-PROPOSAL-STORAGE.md">Persistência protegida de propostas</a>.
+A infraestrutura em si não é store de receipts nem executor de lote.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Os três valores são fornecidos explicitamente pelo host, após inicialização dos beans.</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> infrastructure <span class="op">=</span> <span class="kw">new</span> <span class="fu">BulkExecutionInfrastructure</span><span class="op">(</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    operationalDataSource<span class="op">,</span> operationalTransactionManager<span class="op">,</span> operationalNamespace<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// A camada de execução é dona da transação externa e do seu commit.</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> transaction <span class="op">=</span> <span class="kw">new</span> <span class="fu">TransactionTemplate</span><span class="op">(</span>infrastructure<span class="op">.</span><span class="fu">transactionManager</span><span class="op">());</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> result <span class="op">=</span> transaction<span class="op">.</span><span class="fu">execute</span><span class="op">(</span>status <span class="op">-&gt;</span> <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Escrita de domínio JPA deve participar deste mesmo manager/transação.</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> infrastructure<span class="op">.</span><span class="fu">withConnection</span><span class="op">(</span>connection <span class="op">-&gt;</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Trabalho JDBC do adapter. Fechar Statements/ResultSets; não controlar a conexão.</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="fu">performJdbcWork</span><span class="op">(</span>connection<span class="op">);</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">});</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="op">});</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Só depois de transaction.execute concluir há confirmação do commit desta unidade.</span></span></code></pre></div>
+<p><code>performJdbcWork</code> é ilustrativo, não uma API do Starter. O
+callback usa o contrato Spring <code>ConnectionCallback</code>; não se
+cria uma segunda abstração de acesso a conexão. Regras, autorização,
+prazos da unidade, validação e SQL continuam responsabilidades das
+camadas que usam essa infraestrutura.</p>
+<h2 id="vínculo-verificável">Vínculo verificável</h2>
+<p>O datasource deve ser a mesma instância gerenciada por
+<code>DataSourceTransactionManager</code> (incluindo
+JdbcTransactionManager) ou <code>JpaTransactionManager</code>. No
+caminho JPA, o EntityManagerFactory também deve expor essa instância por
+<code>EntityManagerFactoryInfo</code>. Um EMF opaco, manager diferente
+ou datasource escolhido por coincidência de URL não é aceito. Os beans
+devem estar inicializados e permanecer estáveis; a classe volta a
+conferir o vínculo a cada chamada. Reconfigurar esses objetos
+concorrentemente não é suportado.</p>
+<p>Este primeiro subset rejeita AbstractRoutingDataSource e
+DelegatingDataSource, incluindo proxies de datasource. O host fornece
+diretamente o pool operacional compartilhado. Não é uma equivalência
+geral de wrappers; suporte a roteamento/JTA/outros managers precisa de
+contrato e conformidade próprios. O datasource e seu manager são
+colaboradores confiáveis, não uma fronteira de segurança contra
+implementações maliciosas.</p>
+<p>O namespace tem de 1 a 200 caracteres Java, sem espaços nas
+extremidades, controles ou valor vazio; não é normalizado, inferido de
+headers nem recebe default. Identifica o binding operacional e precisa
+permanecer estável e não ser reutilizado para outro escopo. Não
+substitui tenant/ambiente/ator autenticados, autorização por operação ou
+isolamento do ledger futuro.</p>
+<h2 id="participação-e-falhas">Participação e falhas</h2>
+<p><code>withConnection</code> exige propagação
+<strong>MANDATORY</strong> no manager configurado: não inicia uma
+transação independente. Rejeita transação ausente, sem
+sincronização/conexão JDBC exposta, somente leitura ou rollback-only
+observável pelo manager. Uma marca local em um TransactionStatus externo
+ainda não propagada ao recurso pode não ser visível ao participante; o
+dono deve parar de chamar mutações ao decidir rollback.</p>
+<p>A conexão entregue pelo JdbcTemplate pertence à transação física e
+está sem auto-commit. A verificação considera seu ConnectionProxy
+canônico, preservando a proteção contra close acidental no callback. Não
+fechar/guardar a conexão, alterar auto-commit ou chamar commit/rollback;
+o callback é código confiável do adapter. Exceção do callback passa pelo
+TransactionTemplate e provoca rollback-only conforme a política do
+manager. Configurar globalRollbackOnParticipationFailure=false é
+rejeitado na construção e em cada chamada, pois permitiria confirmação
+parcial de uma unidade após erro.</p>
+<p>O retorno do callback e de <code>withConnection</code> é
+<strong>provisório até o commit externo</strong>. Falha de
+flush/constraint diferida/commit ainda pode desfazer todos os writes.
+Esta API não é uma garantia de efeito remoto ou outbox, não controla
+admissão de jobs e não oferece fencing, replay, retenção ou recuperação.
+Consistência de schema e credenciais DML também não é validada por este
+vínculo; pertencerá ao migrator/store.</p>
+<h2 id="provas">Provas</h2>
+<p><code>BulkExecutionInfrastructureTest</code> cobre namespace, vínculo
+por identidade, EMF divergente/opaco, managers não suportados,
+wrappers/roteamento, mutação de configuração e construção sem I/O.
+<code>BulkExecutionInfrastructurePostgresTest</code> inicia PostgreSQL
+real descartável, sem skip nem fallback H2, e valida:</p>
+<ul>
+<li>mesma conexão física JPA/JDBC e outra conexão com PID distinto, sem
+visibilidade dos writes antes de commit;</li>
+<li>commit, rollback explícito/exceção, erro capturado marcando
+rollback-only e falha real no commit por UNIQUE diferida;</li>
+<li>rejeição de ausência/read-only/rollback-only/manager alheio,
+participação JDBC;</li>
+<li>duas conexões disputando FOR UPDATE, SQLSTATE 55P03 por lock_timeout
+e liberação depois da conclusão do dono.</li>
+</ul>
+<p>As tabelas de domínio/receipt são fixtures de teste. Não são a DDL de
+execução bulk. O PostgreSQL embarcado e seus binários são dependências
+somente de teste. O host deve provar seu próprio par de beans e seus
+writers antes de anunciar atomicidade de domínio + ledger.</p>
+<p>Referência: <a
+href="https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/orm/jpa/JpaTransactionManager.html">JpaTransactionManager</a>
+descreve participação JDBC no datasource da JPA e a necessidade do
+dialect adequado; <a
+href="https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/jdbc/datasource/DataSourceUtils.html">DataSourceUtils</a>
+define acesso/release de conexão transacional. A implementação e a prova
+foram conferidas também contra as fontes locais Spring 6.1.6; a
+documentação web pode mostrar versão posterior.</p>
+</body>
+</html>
