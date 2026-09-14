@@ -20,13 +20,21 @@ Este documento descreve como publicar um Release Candidate (RC) e versões finai
 2) Para qualquer mudanca de contrato publico, executar o gate corporativo antes
    da tag:
 ```
-scripts/check-public-contract-gate.sh --base origin/main
+# Substituir pela última tag efetivamente publicada no Maven Central.
+scripts/check-public-contract-gate.sh --base <ultima-tag-publicada>
 ```
 
 Esse gate e obrigatorio quando a mudanca toca `x-ui`, `/schemas/filtered`,
 `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `/capabilities`,
 anotacoes publicas, enriquecimento OpenAPI, headers, ETag, `X-Schema-Hash` ou
 controladores/base publicos.
+
+Na preparação de uma release já integrada à main, comparar com `origin/main`
+produz diff vazio e não cobre o contrato acumulado desde a publicação anterior.
+Confirmar a tag anterior no Git e sua coordenada no Maven Central, registrar o
+SHA/base e executar também `git diff --check <ultima-tag-publicada>..HEAD`.
+O passo do workflow sem `--base` verifica somente higiene do checkout; não
+substitui esta revisão acumulada nem executa as provas downstream listadas.
 
 Checklist minima para esse caso:
 - usar nova tag/versao do starter ou instalar localmente o artefato alterado de
