@@ -17,6 +17,13 @@ Este documento descreve como publicar um Release Candidate (RC) e versões finai
 ./mvnw -B -T 1C clean verify
 ./mvnw -B javadoc:javadoc && test -d target/site/apidocs
 ```
+O gate inclui `EmbeddedPostgresColdStartTest`, que extrai e inicia PostgreSQL em
+diretório novo com resolver independente. Cache Maven isolado não equivale a
+cache de binários vazio: uma instalação já extraída pode ocultar incompatibilidade
+entre Commons Compress e Commons Lang. Antes de ajustar dependências, conferir
+`mvn dependency:tree`; preservar o alinhamento também no classpath de runtime e
+na adoção do host, sem corrigir somente o classpath dos testes.
+
 2) Para qualquer mudanca de contrato publico, executar o gate corporativo antes
    da tag:
 ```
