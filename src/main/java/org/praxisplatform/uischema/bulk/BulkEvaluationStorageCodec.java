@@ -12,7 +12,7 @@ final class BulkEvaluationStorageCodec {
     static BulkEvaluationSnapshot decode(BulkStoredProposal proposal, byte[] payload, String fingerprint) {
         try {
             JsonNode root = BulkSnapshotStorageCodec.readDocument(payload);
-            exact(root, Set.of("proposalId", "inputFingerprint", "createdAt", "expiresAt", "evaluatedAt", "targets"));
+            exact(root, Set.of("proposalId", "inputFingerprint", "createdAt", "expiresAt", "evaluatedAt", "targets", "governance"));
             if (!text(root,"proposalId").equals(proposal.id().toString())
                     || !text(root,"inputFingerprint").equals(proposal.snapshot().fingerprint())
                     || !text(root,"createdAt").equals(proposal.createdAt().toString())
@@ -27,7 +27,21 @@ final class BulkEvaluationStorageCodec {
                 targets.add(new BulkTargetEvidence<>(new BulkTarget<>(id, text(value,"expectedVersion")),
                         text(value,"observedVersion"), value.get("facts"), value.get("plan")));
             }
-            var restored = new BulkEvaluationSnapshot(proposal, Instant.parse(text(root,"evaluatedAt")), targets);
+            JsonNode governance = root.get("governance");
+            exact(governance, Set.of("evaluatorRevision", "authorizationFingerprint", "policies"));
+            var policies = governance.get("policies");
+            if (!policies.isArray() || policies.isEmpty() || policies.size() > 64) throw invalid();
+            var observations = new ArrayList<BulkPolicyObservation>();
+            for (var policy : policies) {
+                exact(policy, Set.of("tenantId", "environment", "targetLayer", "targetArtifactType",
+                        "targetArtifactKey", "resolutionState", "resolutionFingerprint", "observedAt"));
+                observations.add(new BulkPolicyObservation(text(policy,"tenantId"), text(policy,"environment"),
+                        text(policy,"targetLayer"), text(policy,"targetArtifactType"), text(policy,"targetArtifactKey"),
+                        text(policy,"resolutionState"), text(policy,"resolutionFingerprint"), Instant.parse(text(policy,"observedAt"))));
+            }
+            var binding = new BulkEvaluationGovernance(text(governance,"evaluatorRevision"),
+                    text(governance,"authorizationFingerprint"), observations);
+            var restored = new BulkEvaluationSnapshot(proposal, Instant.parse(text(root,"evaluatedAt")), targets, binding);
             if (!restored.fingerprint().equals(fingerprint)) throw invalid();
             return restored;
         } catch (RuntimeException error) { throw invalid(); }

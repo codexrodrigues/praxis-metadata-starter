@@ -61,6 +61,7 @@ final class BulkCanonicalJson {
     static String digest(JsonNode node) { return digest("praxis.bulk.intent/1", node); }
 
     static String evaluationDigest(JsonNode node) { return digest("praxis.bulk.evaluation/1", node); }
+    static String revalidationDigest(JsonNode node) { return digest("praxis.bulk.revalidation/1", node); }
 
     private static String digest(String framing, JsonNode node) {
         var encoder = new BulkCanonicalJson();
