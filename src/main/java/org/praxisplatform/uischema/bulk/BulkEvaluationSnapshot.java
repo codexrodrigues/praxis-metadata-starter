@@ -17,13 +17,19 @@ public final class BulkEvaluationSnapshot {
     private final Instant evaluatedAt;
     private final List<BulkTargetEvidence<?>> targets;
     private final String fingerprint;
+    private final BulkEvaluationGovernance governance;
 
     public BulkEvaluationSnapshot(BulkStoredProposal proposal, Instant evaluatedAt,
-            List<? extends BulkTargetEvidence<?>> targets) {
+            List<? extends BulkTargetEvidence<?>> targets, BulkEvaluationGovernance governance) {
         this.proposal = Objects.requireNonNull(proposal, "proposal");
         this.evaluatedAt = Objects.requireNonNull(evaluatedAt, "evaluatedAt").truncatedTo(ChronoUnit.MICROS);
         if (this.evaluatedAt.isBefore(proposal.createdAt()) || !this.evaluatedAt.isBefore(proposal.expiresAt()))
             throw new IllegalArgumentException("Evaluation instant outside proposal validity");
+        this.governance = Objects.requireNonNull(governance, "governance");
+        for (var policy : governance.policies()) {
+            if (policy.observedAt().isBefore(proposal.createdAt()) || policy.observedAt().isAfter(this.evaluatedAt))
+                throw new IllegalArgumentException("Policy observation outside evaluation window");
+        }
         Objects.requireNonNull(targets, "targets");
         if (targets.isEmpty() || targets.size() > 10000) throw invalid();
         JsonNode intent = proposal.snapshot().intent();
@@ -51,6 +57,32 @@ public final class BulkEvaluationSnapshot {
     public Instant evaluatedAt() { return evaluatedAt; }
     public List<BulkTargetEvidence<?>> targets() { return targets; }
     public String fingerprint() { return fingerprint; }
+    public BulkEvaluationGovernance governance() { return governance; }
+
+    /**
+     * Compares freshly captured evidence in the exact current server context. True means only
+     * unchanged evidence within the proposal lifetime, never authorization or READY. The host
+     * must perform fresh policy/grant/domain reads and validate them before calling this method;
+     * this method cannot distinguish a reused observation from a fresh read.
+     * Invalid current evidence throws a validation exception; callers must handle it as an
+     * operational impediment, never substitute a prior successful comparison.
+     */
+    public boolean matchesCurrentEvidence(BulkFingerprintContext currentContext, Instant checkedAt,
+            List<? extends BulkTargetEvidence<?>> currentTargets, BulkEvaluationGovernance currentGovernance) {
+        Objects.requireNonNull(currentContext, "currentContext");
+        Objects.requireNonNull(checkedAt, "checkedAt");
+        if (!proposal.snapshot().context().equals(currentContext) || checkedAt.isBefore(evaluatedAt)
+                || !checkedAt.isBefore(proposal.expiresAt())) return false;
+        var current = new BulkEvaluationSnapshot(proposal, checkedAt, currentTargets, currentGovernance);
+        return BulkCanonicalJson.revalidationDigest(comparisonDocument())
+                .equals(BulkCanonicalJson.revalidationDigest(current.comparisonDocument()));
+    }
+    private JsonNode comparisonDocument() {
+        var value = (com.fasterxml.jackson.databind.node.ObjectNode) storageDocument();
+        value.remove("evaluatedAt");
+        value.set("governance", governance.document(false));
+        return value;
+    }
     @Override public String toString() { return "BulkEvaluationSnapshot[protected]"; }
 
     JsonNode storageDocument() {
@@ -58,6 +90,7 @@ public final class BulkEvaluationSnapshot {
         root.put("proposalId", proposal.id().toString()); root.put("inputFingerprint", proposal.snapshot().fingerprint());
         root.put("createdAt", proposal.createdAt().toString()); root.put("expiresAt", proposal.expiresAt().toString());
         root.put("evaluatedAt", evaluatedAt.toString());
+        root.set("governance", governance.document(true));
         var values = root.putArray("targets");
         for (var target : targets) {
             var value = values.addObject(); value.set("id", wire(target.target().id()));

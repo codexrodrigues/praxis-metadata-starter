@@ -78,7 +78,7 @@ class BulkEvaluationStorePostgresTest {
             var input = proposal(BulkIntentSnapshot.command(CONTEXT, BulkIdentityCodecs.strings(), request,
                     com.fasterxml.jackson.databind.JsonNode::deepCopy, com.fasterxml.jackson.databind.JsonNode::deepCopy));
             var evidence = new BulkTargetEvidence<>(new BulkTarget<>("1", "v1"), "v1", parameters, parameters);
-            var value = new BulkEvaluationSnapshot(input, input.createdAt(), List.of(evidence));
+            var value = new BulkEvaluationSnapshot(input, input.createdAt(), List.of(evidence), governance());
             tx.executeWithoutResult(status -> store.insertEvaluated(value));
             var recovered = tx.execute(status -> store.findEvaluation(CONTEXT, input.id()).orElseThrow());
             assertThat(recovered.fingerprint()).isEqualTo(value.fingerprint());
@@ -100,7 +100,7 @@ class BulkEvaluationStorePostgresTest {
     }
     @Test void concurrentConflictingEvidenceHasExactlyOneCommittedPair() throws Exception {
         migrate();var first=evaluation(proposal());var old=first.targets().getFirst();
-        var second=new BulkEvaluationSnapshot(first.proposal(),first.evaluatedAt(),List.of(new BulkTargetEvidence<>(old.target(),"other-version",old.facts(),old.plan())));
+        var second=new BulkEvaluationSnapshot(first.proposal(),first.evaluatedAt(),List.of(new BulkTargetEvidence<>(old.target(),"other-version",old.facts(),old.plan())), governance());
         var barrier=new CyclicBarrier(2);
         try(var executor=Executors.newFixedThreadPool(2)) {
             var a=executor.submit(()->insertAfterBarrier(first,barrier));var b=executor.submit(()->insertAfterBarrier(second,barrier));
@@ -153,6 +153,38 @@ class BulkEvaluationStorePostgresTest {
             assertThatThrownBy(()->restricted.execute("update praxis_bulk."+table+" set payload=payload")).isInstanceOf(RuntimeException.class);
         }
     }
+    @Test void governanceSurvivesCommitAndChangedPolicyCannotMatchRecoveredEvidence() {
+        migrate(); var value = evaluation(proposal());
+        tx.executeWithoutResult(status -> store.insertEvaluated(value));
+        // New transaction/connection reads the durable evidence, not the original Java instance.
+        var loaded = tx.execute(status -> store.findEvaluation(CONTEXT, value.proposal().id()).orElseThrow());
+        assertThat(loaded.governance()).isEqualTo(value.governance());
+        var policy = loaded.governance().policies().getFirst();
+        var later = loaded.evaluatedAt().plusSeconds(1);
+        var withdrawn = new BulkPolicyObservation(policy.tenantId(), policy.environment(), policy.targetLayer(),
+                policy.targetArtifactType(), policy.targetArtifactKey(), "PREVIOUSLY_APPLIED_WITHOUT_ELIGIBLE_HEAD",
+                "withdrawn-policy-revision", later);
+        var changed = new BulkEvaluationGovernance(loaded.governance().evaluatorRevision(),
+                loaded.governance().authorizationFingerprint(), List.of(withdrawn));
+        assertThat(loaded.matchesCurrentEvidence(CONTEXT, later, loaded.targets(), changed)).isFalse();
+        // No rewrite or re-evaluation is persisted by the comparison.
+        assertThat(tx.execute(status -> store.findEvaluation(CONTEXT, value.proposal().id()).orElseThrow()).fingerprint())
+                .isEqualTo(value.fingerprint());
+    }
+    @Test void legacyPayloadWithoutGovernanceIsCorruptAndNeverReconstructedAsAuthorized() {
+        migrate(); var value = evaluation(proposal()); persist(value);
+        var legacy = (com.fasterxml.jackson.databind.node.ObjectNode) value.storageDocument();
+        legacy.remove("governance");
+        sql.execute("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user");
+        sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=?, evaluation_fingerprint=? where proposal_id=?",
+                BulkSnapshotStorageCodec.json(legacy), BulkCanonicalJson.evaluationDigest(legacy), value.proposal().id());
+        assertThatThrownBy(() -> tx.execute(status -> store.findEvaluation(CONTEXT, value.proposal().id())))
+                .isInstanceOfSatisfying(BulkProposalStorageException.class, error ->
+                        assertThat(error.reason()).isEqualTo(BulkProposalStorageException.Reason.CORRUPT))
+                .hasNoCause();
+        var input = tx.execute(status -> store.find(CONTEXT, value.proposal().id()));
+        assertThat(input).isPresent();
+    }
     private String insertAfterBarrier(BulkEvaluationSnapshot value,CyclicBarrier barrier) throws Exception {
         barrier.await(5,TimeUnit.SECONDS);
         try{tx.executeWithoutResult(status->store.insertEvaluated(value));return "COMMITTED";}
@@ -160,6 +192,7 @@ class BulkEvaluationStorePostgresTest {
     }
     private void persist(BulkEvaluationSnapshot value){
         tx.executeWithoutResult(status->store.insertEvaluated(value));var loaded=tx.execute(status->store.findEvaluation(CONTEXT,value.proposal().id()).orElseThrow());
+        assertThat(loaded.governance()).isEqualTo(value.governance());
         assertThat(loaded.fingerprint()).isEqualTo(value.fingerprint());assertThat(loaded.evaluatedAt()).isEqualTo(value.evaluatedAt());
         assertThat(loaded.targets().getFirst().plan().get("amount").isBigDecimal()).isTrue();
     }
