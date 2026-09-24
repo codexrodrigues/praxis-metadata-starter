@@ -30,6 +30,13 @@ public final class BulkExecutionMigrator {
     private static final String EVALUATION_REJECTION_FUNCTION = "reject_praxis_bulk_evaluation_update";
     private static final String EVALUATION_REJECTION_TRIGGER = "praxis_bulk_evaluation_reject_update";
 
+    private static final String EXECUTION_TABLE = "praxis_bulk_execution";
+    private static final String RECEIPT_TABLE = "praxis_bulk_item_receipt";
+    private static final String BINDING_FUNCTION = "protect_praxis_bulk_execution_binding";
+    private static final String BINDING_TRIGGER = "praxis_bulk_execution_protect_binding";
+    private static final String RECEIPT_FUNCTION = "reject_praxis_bulk_item_receipt_mutation";
+    private static final String RECEIPT_TRIGGER = "praxis_bulk_item_receipt_reject_mutation";
+
     private BulkExecutionMigrator() { }
 
     /**
@@ -59,22 +66,33 @@ public final class BulkExecutionMigrator {
         assertKnownDedicatedSchema(operationalDataSource);
         flyway(operationalDataSource).validate();
         try (Connection connection = operationalDataSource.getConnection()) {
-            assertPostgreSql(connection);
-            validateProposalTable(connection);
-            validateColumns(connection);
-            validatePrimaryKey(connection);
-            validateChecks(connection);
-            validateProposalUnique(connection);
-            validateImmutableUpdateTrigger(connection, PROPOSAL_TABLE, REJECTION_TRIGGER, REJECTION_FUNCTION,
-                    "praxis_bulk.praxis_bulk_proposal");
-            validateEvaluationTable(connection);
-            validateEvaluationColumns(connection);
-            validateEvaluationPrimaryKey(connection);
-            validateEvaluationForeignKey(connection);
-            validateEvaluationChecks(connection);
-            validateImmutableUpdateTrigger(connection, EVALUATION_TABLE, EVALUATION_REJECTION_TRIGGER,
-                    EVALUATION_REJECTION_FUNCTION, "praxis_bulk.praxis_bulk_evaluation");
-            validateOwnedSchema(connection);
+            String previousSearchPath;
+            try (var statement = connection.createStatement(); var rows = statement.executeQuery("select current_setting('search_path')")) {
+                require(rows.next(), "Unable to read current PostgreSQL search_path");
+                previousSearchPath = rows.getString(1);
+            }
+            try {
+                setCatalogSearchPath(connection, "pg_catalog");
+                assertPostgreSql(connection);
+                validateProposalTable(connection);
+                validateColumns(connection);
+                validatePrimaryKey(connection);
+                validateChecks(connection);
+                validateProposalUnique(connection);
+                validateImmutableUpdateTrigger(connection, PROPOSAL_TABLE, REJECTION_TRIGGER, REJECTION_FUNCTION,
+                        "praxis_bulk.praxis_bulk_proposal");
+                validateEvaluationTable(connection);
+                validateEvaluationColumns(connection);
+                validateEvaluationPrimaryKey(connection);
+                validateEvaluationForeignKey(connection);
+                validateEvaluationChecks(connection);
+                validateImmutableUpdateTrigger(connection, EVALUATION_TABLE, EVALUATION_REJECTION_TRIGGER,
+                        EVALUATION_REJECTION_FUNCTION, "praxis_bulk.praxis_bulk_evaluation");
+                validateDurableExecution(connection);
+                validateOwnedSchema(connection);
+            } finally {
+                setCatalogSearchPath(connection, previousSearchPath);
+            }
         } catch (SQLException error) {
             throw new IllegalStateException("Unable to validate protected bulk proposal storage", error);
         }
@@ -111,29 +129,40 @@ public final class BulkExecutionMigrator {
                     where n.nspname = ? and c.relkind in ('r', 'p', 'v', 'm', 'S', 'f')
                     """);
             Set<String> functions = queryNames(connection, """
-                    select p.proname
+                    select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'
                     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                    where n.nspname = ? and p.prokind in ('f', 'p')
+                    where n.nspname = ? and p.prokind in ('f', 'p', 'a', 'w')
                     """);
             Set<String> types = queryNames(connection, """
                     select t.typname
                     from pg_type t join pg_namespace n on n.oid = t.typnamespace
-                    where n.nspname = ? and t.typrelid = 0 and t.typtype in ('d', 'e', 'r')
+                    where n.nspname = ? and t.typelem = 0 and t.typtype in ('b', 'c', 'd', 'e', 'm', 'r')
+                      and not (t.typtype = 'c' and t.typrelid <> 0
+                          and t.typname in ('praxis_bulk_schema_history', 'praxis_bulk_proposal',
+                              'praxis_bulk_evaluation', 'praxis_bulk_execution', 'praxis_bulk_item_receipt'))
                     """);
+            Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
             Set<String> triggers = queryNames(connection, """
-                    select t.tgname
+                    select c.relname || '.' || t.tgname
                     from pg_trigger t join pg_class c on c.oid = t.tgrelid
                         join pg_namespace n on n.oid = c.relnamespace
                     where n.nspname = ? and not t.tgisinternal
                     """);
+            Set<String> rules = userRules(connection);
+            Set<String> policies = rowSecurityPolicies(connection);
 
-            if (relations.isEmpty() && functions.isEmpty() && types.isEmpty() && triggers.isEmpty()) return;
+            if (relations.isEmpty() && functions.isEmpty() && types.isEmpty()
+                    && orphanIndexes.isEmpty() && triggers.isEmpty() && rules.isEmpty() && policies.isEmpty()) return;
             if (!relations.contains(HISTORY_TABLE)
-                    || !relations.stream().allMatch(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE)::contains)
-                    || !functions.stream().allMatch(Set.of(REJECTION_FUNCTION, EVALUATION_REJECTION_FUNCTION)::contains)
+                    || !relations.stream().allMatch(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, EXECUTION_TABLE, RECEIPT_TABLE)::contains)
+                    || !functions.stream().allMatch(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()", BINDING_FUNCTION + "()", RECEIPT_FUNCTION + "()")::contains)
                     || !types.isEmpty()
-                    || !triggers.stream().allMatch(Set.of(REJECTION_TRIGGER, EVALUATION_REJECTION_TRIGGER)::contains)) {
-                throw new IllegalStateException("Refusing an unknown nonempty praxis_bulk schema");
+                    || !orphanIndexes.isEmpty()
+                    || !rules.isEmpty() || !policies.isEmpty()
+                    || !triggers.stream().allMatch(Set.of(PROPOSAL_TABLE + "." + REJECTION_TRIGGER, EVALUATION_TABLE + "." + EVALUATION_REJECTION_TRIGGER, EXECUTION_TABLE + "." + BINDING_TRIGGER, RECEIPT_TABLE + "." + RECEIPT_TRIGGER)::contains)) {
+                throw new IllegalStateException("Refusing an unknown nonempty praxis_bulk schema: relations="
+                        + relations + ", functions=" + functions + ", types=" + types + ", indexes="
+                        + orphanIndexes + ", triggers=" + triggers + ", rules=" + rules + ", policies=" + policies);
             }
         } catch (SQLException error) {
             throw new IllegalStateException("Unable to inspect dedicated bulk storage schema", error);
@@ -161,6 +190,58 @@ public final class BulkExecutionMigrator {
         return names;
     }
 
+    private static Set<String> unexpectedOrphanIndexes(Connection connection) throws SQLException {
+        Set<String> names = new LinkedHashSet<>();
+        try (var statement = connection.prepareStatement("""
+                select index_class.relname
+                from pg_index i
+                join pg_class index_class on index_class.oid = i.indexrelid
+                join pg_class table_class on table_class.oid = i.indrelid
+                join pg_namespace n on n.oid = index_class.relnamespace
+                join pg_am am on am.oid = index_class.relam
+                left join lateral unnest(i.indkey) with ordinality key_column(attnum, ordinal_position)
+                    on key_column.ordinal_position = 1
+                left join pg_attribute key_attribute on key_attribute.attrelid = i.indrelid
+                    and key_attribute.attnum = key_column.attnum
+                left join pg_opclass opclass on opclass.oid = i.indclass[0]
+                left join pg_constraint c on c.conindid = i.indexrelid and c.conrelid = i.indrelid
+                    and c.contype in ('p', 'u', 'x')
+                where n.nspname = ? and c.oid is null
+                  and not coalesce((index_class.relname = ? and table_class.relname = ?
+                    and not i.indisunique and i.indisvalid and i.indisready and i.indislive
+                    and i.indpred is null and i.indexprs is null and i.indnatts = 1 and i.indnkeyatts = 1
+                    and am.amname = 'btree' and key_attribute.attname = 'success'
+                    and i.indoption[0] = 0 and i.indcollation[0] = key_attribute.attcollation
+                    and opclass.opcdefault), false)
+                """)) {
+            statement.setString(1, SCHEMA);
+            statement.setString(2, "praxis_bulk_schema_history_s_idx");
+            statement.setString(3, HISTORY_TABLE);
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) names.add(result.getString(1));
+            }
+        }
+        return names;
+    }
+
+    private static Set<String> userRules(Connection connection) throws SQLException {
+        return queryNames(connection, """
+                select c.relname || '.' || r.rulename
+                from pg_rewrite r join pg_class c on c.oid = r.ev_class
+                    join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = ? and r.rulename <> '_RETURN'
+                """);
+    }
+
+    private static Set<String> rowSecurityPolicies(Connection connection) throws SQLException {
+        return queryNames(connection, """
+                select c.relname || '.' || p.polname
+                from pg_policy p join pg_class c on c.oid = p.polrelid
+                    join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = ?
+                """);
+    }
+
     private static void validateOwnedSchema(Connection connection) throws SQLException {
         Set<String> relations = queryNames(connection, """
                 select c.relname
@@ -168,26 +249,35 @@ public final class BulkExecutionMigrator {
                 where n.nspname = ? and c.relkind in ('r', 'p', 'v', 'm', 'S', 'f')
                 """);
         Set<String> functions = queryNames(connection, """
-                select p.proname
+                select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'
                 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                where n.nspname = ? and p.prokind in ('f', 'p')
+                where n.nspname = ? and p.prokind in ('f', 'p', 'a', 'w')
                 """);
         Set<String> types = queryNames(connection, """
                 select t.typname
                 from pg_type t join pg_namespace n on n.oid = t.typnamespace
-                where n.nspname = ? and t.typrelid = 0 and t.typtype in ('d', 'e', 'r')
+                where n.nspname = ? and t.typelem = 0 and t.typtype in ('b', 'c', 'd', 'e', 'm', 'r')
+                  and not (t.typtype = 'c' and t.typrelid <> 0
+                      and t.typname in ('praxis_bulk_schema_history', 'praxis_bulk_proposal',
+                          'praxis_bulk_evaluation', 'praxis_bulk_execution', 'praxis_bulk_item_receipt'))
                 """);
+        Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
         Set<String> triggers = queryNames(connection, """
-                select t.tgname
+                select c.relname || '.' || t.tgname
                 from pg_trigger t join pg_class c on c.oid = t.tgrelid
                     join pg_namespace n on n.oid = c.relnamespace
                 where n.nspname = ? and not t.tgisinternal
                 """);
-        require(relations.equals(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE))
-                        && functions.equals(Set.of(REJECTION_FUNCTION, EVALUATION_REJECTION_FUNCTION))
+        Set<String> rules = userRules(connection);
+        Set<String> policies = rowSecurityPolicies(connection);
+        require(relations.equals(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, EXECUTION_TABLE, RECEIPT_TABLE))
+                        && functions.equals(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()", BINDING_FUNCTION + "()", RECEIPT_FUNCTION + "()"))
                         && types.isEmpty()
-                        && triggers.equals(Set.of(REJECTION_TRIGGER, EVALUATION_REJECTION_TRIGGER)),
-                "protected bulk storage schema contains unexpected owned objects");
+                        && orphanIndexes.isEmpty()
+                        && rules.isEmpty() && policies.isEmpty()
+                        && triggers.equals(Set.of(PROPOSAL_TABLE + "." + REJECTION_TRIGGER, EVALUATION_TABLE + "." + EVALUATION_REJECTION_TRIGGER, EXECUTION_TABLE + "." + BINDING_TRIGGER, RECEIPT_TABLE + "." + RECEIPT_TRIGGER)),
+                "protected bulk storage schema contains unexpected owned objects: indexes=" + orphanIndexes
+                        + ", rules=" + rules + ", policies=" + policies);
     }
 
     private static void validateColumns(Connection connection) throws SQLException {
@@ -464,6 +554,184 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    /** Frozen V3 catalog expectations, checked against real PostgreSQL; no runtime DDL here. */
+    private static void validateDurableExecution(Connection connection) throws SQLException {
+        validateDurableColumns(connection, "praxis_bulk_execution", Map.ofEntries(
+                Map.entry("execution_id", "uuid|true"),
+                Map.entry("proposal_id", "uuid|true"),
+                Map.entry("namespace_id", "text|true"),
+                Map.entry("subject_id", "text|true"),
+                Map.entry("resource_key", "text|true"),
+                Map.entry("operation_id", "text|true"),
+                Map.entry("idempotency_key_digest", "text|true"),
+                Map.entry("reservation_fingerprint", "text|true"),
+                Map.entry("input_fingerprint", "text|true"),
+                Map.entry("evaluation_fingerprint", "text|true"),
+                Map.entry("structural_revision", "text|true"),
+                Map.entry("owner_id", "text|true"),
+                Map.entry("owner_epoch", "bigint|true"),
+                Map.entry("status", "text|true"),
+                Map.entry("next_ordinal", "integer|true"),
+                Map.entry("target_count", "integer|true"),
+                Map.entry("deadline_at", "timestamp(6) with time zone|true"),
+                Map.entry("active_attempt_id", "uuid|false"),
+                Map.entry("active_attempt_ordinal", "integer|false"),
+                Map.entry("active_target_digest", "text|false"),
+                Map.entry("active_attempt_epoch", "bigint|false"),
+                Map.entry("created_at", "timestamp(6) with time zone|true"),
+                Map.entry("updated_at", "timestamp(6) with time zone|true"),
+                Map.entry("terminal_at", "timestamp(6) with time zone|false")));
+        validateDurableColumns(connection, "praxis_bulk_item_receipt", Map.ofEntries(
+                Map.entry("execution_id", "uuid|true"),
+                Map.entry("unit_ordinal", "integer|true"),
+                Map.entry("target_digest", "text|true"),
+                Map.entry("expected_version", "text|true"),
+                Map.entry("attempt_id", "uuid|true"),
+                Map.entry("owner_epoch", "bigint|true"),
+                Map.entry("outcome", "text|true"),
+                Map.entry("confirmed_at", "timestamp(6) with time zone|true")));
+        validateDurableConstraints(connection, "praxis_bulk_evaluation", true, Map.ofEntries(
+                Map.entry("praxis_bulk_evaluation_proposal_fingerprint_key", "UNIQUE (proposal_id, evaluation_fingerprint)")));
+        validateDurableConstraints(connection, "praxis_bulk_execution", false, Map.ofEntries(
+                Map.entry("praxis_bulk_execution_attempt_shape_check", "CHECK ((((active_attempt_id IS NULL) = (active_attempt_ordinal IS NULL)) AND ((active_attempt_id IS NULL) = (active_target_digest IS NULL)) AND ((active_attempt_id IS NULL) = (active_attempt_epoch IS NULL)) AND ((active_attempt_id IS NULL) OR ((active_attempt_ordinal = next_ordinal) AND ((active_attempt_ordinal >= 0) AND (active_attempt_ordinal <= (target_count - 1))) AND ((active_attempt_epoch >= 1) AND (active_attempt_epoch <= owner_epoch)) AND (active_target_digest ~ '^sha256:[0-9a-f]{64}$'::text)))))"),
+                Map.entry("praxis_bulk_execution_deadline_check", "CHECK ((deadline_at > created_at))"),
+                Map.entry("praxis_bulk_execution_digest_format_check", "CHECK ((idempotency_key_digest ~ '^sha256:[0-9a-f]{64}$'::text))"),
+                Map.entry("praxis_bulk_execution_epoch_check", "CHECK ((owner_epoch >= 1))"),
+                Map.entry("praxis_bulk_execution_evaluation_fingerprint_check", "CHECK ((evaluation_fingerprint ~ '^sha256:[0-9a-f]{64}$'::text))"),
+                Map.entry("praxis_bulk_execution_evaluation_fkey", "FOREIGN KEY (proposal_id, evaluation_fingerprint) REFERENCES praxis_bulk.praxis_bulk_evaluation(proposal_id, evaluation_fingerprint)"),
+                Map.entry("praxis_bulk_execution_input_fingerprint_check", "CHECK ((input_fingerprint ~ '^sha256:[0-9a-f]{64}$'::text))"),
+                Map.entry("praxis_bulk_execution_namespace_nonblank_check", "CHECK ((btrim(namespace_id) <> ''::text))"),
+                Map.entry("praxis_bulk_execution_operation_nonblank_check", "CHECK ((btrim(operation_id) <> ''::text))"),
+                Map.entry("praxis_bulk_execution_owner_nonblank_check", "CHECK ((btrim(owner_id) <> ''::text))"),
+                Map.entry("praxis_bulk_execution_pkey", "PRIMARY KEY (execution_id)"),
+                Map.entry("praxis_bulk_execution_progress_check", "CHECK ((((target_count >= 1) AND (target_count <= 10000)) AND ((next_ordinal >= 0) AND (next_ordinal <= target_count))))"),
+                Map.entry("praxis_bulk_execution_proposal_key", "UNIQUE (proposal_id)"),
+                Map.entry("praxis_bulk_execution_reservation_fingerprint_check", "CHECK ((reservation_fingerprint ~ '^sha256:[0-9a-f]{64}$'::text))"),
+                Map.entry("praxis_bulk_execution_resource_nonblank_check", "CHECK ((btrim(resource_key) <> ''::text))"),
+                Map.entry("praxis_bulk_execution_revision_nonblank_check", "CHECK ((btrim(structural_revision) <> ''::text))"),
+                Map.entry("praxis_bulk_execution_scoped_idempotency_key", "UNIQUE (namespace_id, subject_id, resource_key, operation_id, idempotency_key_digest)"),
+                Map.entry("praxis_bulk_execution_state_shape_check", "CHECK ((((status = 'RUNNING'::text) AND (active_attempt_id IS NULL) AND (next_ordinal < target_count) AND (terminal_at IS NULL)) OR ((status = ANY (ARRAY['UNIT_IN_FLIGHT'::text, 'UNIT_COMMITTED_PENDING_ACK'::text])) AND (active_attempt_id IS NOT NULL) AND (terminal_at IS NULL)) OR ((status = 'COMPLETED'::text) AND (active_attempt_id IS NULL) AND (next_ordinal = target_count) AND (terminal_at IS NOT NULL)) OR ((status = 'STOPPED'::text) AND (terminal_at IS NOT NULL)) OR ((status = 'RECONCILIATION_REQUIRED'::text) AND (terminal_at IS NULL))))"),
+                Map.entry("praxis_bulk_execution_status_check", "CHECK ((status = ANY (ARRAY['RUNNING'::text, 'UNIT_IN_FLIGHT'::text, 'UNIT_COMMITTED_PENDING_ACK'::text, 'COMPLETED'::text, 'STOPPED'::text, 'RECONCILIATION_REQUIRED'::text])))"),
+                Map.entry("praxis_bulk_execution_subject_nonblank_check", "CHECK ((btrim(subject_id) <> ''::text))")));
+        validateDurableConstraints(connection, "praxis_bulk_item_receipt", false, Map.ofEntries(
+                Map.entry("praxis_bulk_item_receipt_attempt_key", "UNIQUE (attempt_id)"),
+                Map.entry("praxis_bulk_item_receipt_epoch_check", "CHECK ((owner_epoch >= 1))"),
+                Map.entry("praxis_bulk_item_receipt_execution_fkey", "FOREIGN KEY (execution_id) REFERENCES praxis_bulk.praxis_bulk_execution(execution_id)"),
+                Map.entry("praxis_bulk_item_receipt_expected_version_nonblank_check", "CHECK ((btrim(expected_version) <> ''::text))"),
+                Map.entry("praxis_bulk_item_receipt_ordinal_check", "CHECK ((unit_ordinal >= 0))"),
+                Map.entry("praxis_bulk_item_receipt_outcome_check", "CHECK ((outcome = ANY (ARRAY['CONFIRMED'::text, 'UNCHANGED'::text])))"),
+                Map.entry("praxis_bulk_item_receipt_pkey", "PRIMARY KEY (execution_id, unit_ordinal)"),
+                Map.entry("praxis_bulk_item_receipt_target_digest_check", "CHECK ((target_digest ~ '^sha256:[0-9a-f]{64}$'::text))"),
+                Map.entry("praxis_bulk_item_receipt_target_key", "UNIQUE (execution_id, target_digest)")));
+        validateDurableTrigger(connection, "praxis_bulk_execution", "praxis_bulk_execution_protect_binding", "protect_praxis_bulk_execution_binding",
+                "CREATE TRIGGER praxis_bulk_execution_protect_binding BEFORE UPDATE ON praxis_bulk.praxis_bulk_execution FOR EACH ROW EXECUTE FUNCTION praxis_bulk.protect_praxis_bulk_execution_binding()",
+                """
+                begin
+                    if new.execution_id is distinct from old.execution_id
+                       or new.proposal_id is distinct from old.proposal_id
+                       or new.namespace_id is distinct from old.namespace_id
+                       or new.subject_id is distinct from old.subject_id
+                       or new.resource_key is distinct from old.resource_key
+                       or new.operation_id is distinct from old.operation_id
+                       or new.idempotency_key_digest is distinct from old.idempotency_key_digest
+                       or new.reservation_fingerprint is distinct from old.reservation_fingerprint
+                       or new.input_fingerprint is distinct from old.input_fingerprint
+                       or new.evaluation_fingerprint is distinct from old.evaluation_fingerprint
+                       or new.structural_revision is distinct from old.structural_revision
+                       or new.target_count is distinct from old.target_count
+                       or new.deadline_at is distinct from old.deadline_at
+                       or new.created_at is distinct from old.created_at then
+                        raise exception 'praxis_bulk.praxis_bulk_execution binding is immutable' using errcode = '55000';
+                    end if;
+                    return new;
+                end;
+                """);
+        validateDurableTrigger(connection, "praxis_bulk_item_receipt", "praxis_bulk_item_receipt_reject_mutation", "reject_praxis_bulk_item_receipt_mutation",
+                "CREATE TRIGGER praxis_bulk_item_receipt_reject_mutation BEFORE DELETE OR UPDATE ON praxis_bulk.praxis_bulk_item_receipt FOR EACH ROW EXECUTE FUNCTION praxis_bulk.reject_praxis_bulk_item_receipt_mutation()",
+                """
+                begin
+                    raise exception 'praxis_bulk.praxis_bulk_item_receipt is immutable' using errcode = '55000';
+                end;
+                """);
+    }
+
+    private static void validateDurableColumns(Connection connection, String table,
+            Map<String, String> expected) throws SQLException {
+        var actual = new LinkedHashMap<String, String>();
+        try (var statement = connection.prepareStatement("""
+                select a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull,
+                       a.atthasdef, a.attidentity, a.attgenerated, r.relkind, r.relpersistence, r.relrowsecurity
+                from pg_attribute a join pg_class r on r.oid = a.attrelid
+                where a.attrelid = ?::regclass and a.attnum > 0 and not a.attisdropped
+                """)) {
+            statement.setString(1, SCHEMA + "." + table);
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    require(!rows.getBoolean(4) && rows.getString(5).isEmpty() && rows.getString(6).isEmpty()
+                                    && "r".equals(rows.getString(7)) && "p".equals(rows.getString(8))
+                                    && !rows.getBoolean(9),
+                            "durable storage defaults, generation, persistence or row security differ: " + table);
+                    actual.put(rows.getString(1), rows.getString(2) + "|" + rows.getBoolean(3));
+                }
+            }
+        }
+        require(expected.equals(actual), "durable storage columns differ: " + table);
+    }
+
+    private static void validateDurableConstraints(Connection connection, String table, boolean onlyNewUnique,
+            Map<String, String> expected) throws SQLException {
+        var actual = new LinkedHashMap<String, String>();
+        try (var statement = connection.prepareStatement("""
+                select c.conname, pg_get_constraintdef(c.oid), c.convalidated, c.condeferrable,
+                       c.condeferred, i.indisvalid, i.indisready, i.indislive, i.indimmediate
+                from pg_constraint c left join pg_index i on i.indexrelid = c.conindid
+                where c.conrelid = ?::regclass and (not ? or c.contype = 'u')
+                """)) {
+            statement.setString(1, SCHEMA + "." + table);
+            statement.setBoolean(2, onlyNewUnique);
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    require(rows.getBoolean(3) && !rows.getBoolean(4) && !rows.getBoolean(5),
+                            "durable constraint must be immediate and validated: " + rows.getString(1));
+                    if (rows.getObject(6) != null) {
+                        require(rows.getBoolean(6) && rows.getBoolean(7) && rows.getBoolean(8) && rows.getBoolean(9),
+                                "durable constraint index is invalid: " + rows.getString(1));
+                    }
+                    actual.put(rows.getString(1), normalizeExpression(rows.getString(2)));
+                }
+            }
+        }
+        var normalized = new LinkedHashMap<String, String>();
+        expected.forEach((name, definition) -> normalized.put(name, normalizeExpression(definition)));
+        require(normalized.equals(actual), "durable storage constraints differ: " + table);
+    }
+
+    private static void validateDurableTrigger(Connection connection, String table, String trigger,
+            String function, String expectedDefinition, String expectedBody) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select t.tgenabled, pg_get_triggerdef(t.oid), p.prosrc, l.lanname,
+                       p.prorettype::regtype::text, p.prosecdef, p.proname,
+                       pn.nspname, p.pronargs, p.proconfig
+                from pg_trigger t join pg_class r on r.oid = t.tgrelid
+                join pg_proc p on p.oid = t.tgfoid join pg_namespace pn on pn.oid = p.pronamespace
+                join pg_language l on l.oid = p.prolang
+                where t.tgrelid = ?::regclass and t.tgname = ? and not t.tgisinternal
+                """)) {
+            statement.setString(1, SCHEMA + "." + table);
+            statement.setString(2, trigger);
+            try (var rows = statement.executeQuery()) {
+                require(rows.next() && "O".equals(rows.getString(1))
+                                && normalizeExpression(expectedDefinition).equals(normalizeExpression(rows.getString(2)))
+                                && normalizeExpression(expectedBody).equals(normalizeExpression(rows.getString(3)))
+                                && "plpgsql".equals(rows.getString(4)) && "trigger".equals(rows.getString(5))
+                                && !rows.getBoolean(6) && function.equals(rows.getString(7))
+                                && SCHEMA.equals(rows.getString(8)) && rows.getInt(9) == 0
+                                && rows.getObject(10) == null && !rows.next(),
+                        "durable storage trigger or function differs: " + trigger);
+            }
+        }
+    }
+
     private static String normalizeExpression(String expression) {
         StringBuilder normalized = new StringBuilder(expression.length());
         boolean quoted = false;
@@ -493,6 +761,13 @@ public final class BulkExecutionMigrator {
 
     private static void require(boolean condition, String message) {
         if (!condition) throw new IllegalStateException(message);
+    }
+
+    private static void setCatalogSearchPath(Connection connection, String searchPath) throws SQLException {
+        try (var statement = connection.prepareStatement("select set_config('search_path', ?, false)")) {
+            statement.setString(1, searchPath);
+            statement.execute();
+        }
     }
 
     private record ColumnDefinition(String dataType, boolean nullable, String defaultValue, String generated,

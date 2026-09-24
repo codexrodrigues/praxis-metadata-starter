@@ -15,6 +15,7 @@ plataforma.
 
 ## SDK em desenvolvimento
 
+- [Núcleo durável de execução](spec/BULK-DURABLE-EXECUTION.html): contrato de reserva, unidade transacional e recuperação; adoção explícita, sem exposição HTTP.
 - [Evidência protegida da avaliação](spec/BULK-EVALUATION-EVIDENCE.html): fatos/plano por alvo vinculados à proposta, sem decisão de elegibilidade.
 
 - [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html): API Java, sem runtime executável ou integração de discovery neste incremento.
