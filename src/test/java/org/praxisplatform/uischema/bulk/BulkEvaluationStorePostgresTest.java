@@ -32,18 +32,20 @@ class BulkEvaluationStorePostgresTest {
     }
     @AfterAll void stop() throws Exception {if(postgres!=null)postgres.close();}
     @BeforeEach void reset(){sql.execute("drop schema if exists praxis_bulk cascade");}
-    void migrate(){assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(2);}
+    void migrate(){assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(3);}
     int count(String table){return sql.queryForObject("select count(*) from praxis_bulk."+table,Integer.class);}
-    @Test void upgradePreservesV1PayloadAndHistoryWithoutFabricatingEvaluation() {
+    @Test void upgradePreservesV1PayloadAndHistoryWithoutFabricatingEvaluationOrExecution() {
         Flyway.configure().dataSource(dataSource).locations("classpath:db/praxis-bulk-migrations").schemas("praxis_bulk")
                 .defaultSchema("praxis_bulk").table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true).target("1").load().migrate();
         var value=proposal();tx.executeWithoutResult(status->store.insert(value));
         var before=sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class);
-        assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(1);
+        assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(2);
         assertThat(sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class)).isEqualTo(before);
         var recovered=tx.execute(status->store.find(CONTEXT,value.id()).orElseThrow());
         assertThat(recovered.snapshot().fingerprint()).isEqualTo(value.snapshot().fingerprint());
         var evidence=tx.execute(status->store.findEvaluation(CONTEXT,value.id()));assertThat(evidence).isEmpty();
+        assertThat(count("praxis_bulk_execution")).isZero();
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
     }
     @Test void allModalitiesAndCodecsRecoverExactFactsAndPlansFromDatabase() {
         migrate();
@@ -134,7 +136,7 @@ class BulkEvaluationStorePostgresTest {
         assertThatThrownBy(()->sql.execute("update praxis_bulk.praxis_bulk_evaluation set payload=payload")).isInstanceOf(RuntimeException.class);
     }
     @Test void physicalValidationRejectsDisabledTriggerUnloggedAndAlteredBinding() {
-        for(String mutation:List.of("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user","alter table praxis_bulk.praxis_bulk_evaluation set unlogged")){
+        for(String mutation:List.of("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user","alter table praxis_bulk.praxis_bulk_item_receipt set unlogged; alter table praxis_bulk.praxis_bulk_execution set unlogged; alter table praxis_bulk.praxis_bulk_evaluation set unlogged")){
             migrate();sql.execute(mutation);assertThatThrownBy(()->BulkExecutionMigrator.validate(dataSource)).isInstanceOf(RuntimeException.class);reset();
         }
         migrate();String name=sql.queryForObject("select conname from pg_constraint where conrelid='praxis_bulk.praxis_bulk_evaluation'::regclass and contype='f'",String.class);
