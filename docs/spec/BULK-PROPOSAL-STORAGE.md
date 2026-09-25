@@ -16,7 +16,7 @@ int applied = BulkExecutionMigrator.migrate(migrationDataSource, namespaceToDepl
 
 // Composição do runtime: datasource operacional compartilhado com o domínio.
 var infrastructure = new BulkExecutionInfrastructure(
-    operationalDataSource, operationalTransactionManager, deploymentNamespace);
+    operationalDataSource, operationalTransactionManager, deploymentNamespace, deploymentId);
 var proposals = new JdbcBulkProposalStore(infrastructure);
 
 // Dentro da transação de serviço já existente:

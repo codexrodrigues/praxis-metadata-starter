@@ -5,9 +5,11 @@
 Este corte é `contrato-publico` e `arquitetural`. A fonte canônica é o pacote `bulk` do
 Metadata Starter e seu schema PostgreSQL explícito. O consumidor direto é o host que adota
 o mesmo `DataSource` e `PlatformTransactionManager` do domínio. Não há endpoint, registry,
-annotation, auto-configuração ou capability neste corte. V5 fornece controle estrutural
-`READY`, quotas e primitivas de retenção/expurgo descritos abaixo; eles não publicam por si
-só uma operação executável, fila/job, nem suporte a QUERY, ASYNC ou ATOMIC.
+annotation, auto-configuração ou capability neste corte. V5 fornece controle estrutural de
+operação (criado como `UNCOMPOSED`), quotas e primitivas de retenção/expurgo descritos
+abaixo; a migração não coloca o controle em `READY`, nem publica
+por si só uma operação executável, fila/job, ou suporte a QUERY, ASYNC ou ATOMIC. A transição
+para `READY` depende de publicação governada posterior com fingerprint e revisão estrutural.
 
 O inventário anterior é reaproveitado assim:
 
