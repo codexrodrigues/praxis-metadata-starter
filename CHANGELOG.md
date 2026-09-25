@@ -5,6 +5,7 @@ All notable changes to this module will be documented in this file.
 ## Unreleased
 
 ### Added
+- Migração V5 conecta propostas e execuções ao ledger durável de capacidade (100 pendentes por deployment, 10 por sujeito, 80 ativas), com replay antes dos gates exclusivos, liberação terminal atômica, owner/roles e retenção restrita com tombstone. A especificação documenta estados, ACL e provas PostgreSQL; ainda não há exposição governada/endpoint nem adoção completa no host.
 - Governança obrigatória em `BulkEvaluationSnapshot`: observações de política, revisão do avaliador e fingerprint de autorização. Comparação canônica de recaptura preserva inteiro/decimal e verifica contexto/validade, sem conceder execução. Constructor beta anterior removido; payload sem governança é recusado, sem alterar migrations V1/V2.
 - `BulkTargetEvidence` e `BulkEvaluationSnapshot` vinculam fatos/plano por alvo à proposta com framing próprio, cobertura exata e cópias defensivas. Store grava entrada+evidência atomicamente; migração V2 preserva V1 e valida FK/imutabilidade. Não emite READY nem substitui política do Config.
 - `BulkStoredProposal`/`JdbcBulkProposalStore` persistem intenções EXPLICIT/SYNC nas três modalidades, preservando números exatos, contexto e fingerprint. `BulkExecutionMigrator` aplica migração PostgreSQL explícita em schema próprio e valida estrutura física; sem READY ou executor.

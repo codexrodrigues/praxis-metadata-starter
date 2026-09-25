@@ -1,20 +1,22 @@
 # Persistência protegida de propostas
 
-A [evidência de avaliação de domínio](BULK-EVALUATION-EVIDENCE.md) amplia este armazenamento com vínculo atômico de fatos/plano e migração V2, sem conferir elegibilidade.
+A [evidência de avaliação de domínio](BULK-EVALUATION-EVIDENCE.md) amplia este armazenamento com vínculo atômico de fatos/plano e migração V2, sem conferir elegibilidade. A migração V5 acrescenta ledger durável de capacidade e retenção; as regras estão em [execução durável](BULK-DURABLE-EXECUTION.md).
 
 O SDK oferece `BulkStoredProposal` e `JdbcBulkProposalStore` para inserir e recuperar a intenção protegida de um lote. O conteúdo inclui contexto confiável, identidade da operação, revisão do schema, atomicidade, codec de identidade, modalidade e intenção normalizada. A projeção pública `BulkProposal` continua separada.
 
-Este incremento aceita seleção EXPLICIT e execução SYNC nas três modalidades: alteração uniforme, ação de domínio e alterações por item. Só as representações canônicas Integer, Long, String e UUID são reconstituídas. BulkStoredProposal valida os tokens dos alvos com o codec canônico antes de admitir o objeto; declarar um codecId conhecido em um codec customizado não contorna essa validação. Um codec customizado com representação wire realmente compatível permanece válido. QUERY exige um manifesto de alvos capturado; ASYNC exige outro ciclo operacional. Ambos permanecem fora deste adapter. Persistir uma entrada não demonstra avaliação, READY, autorização, reserva de quota, confirmação, execução ou idempotência de negócio.
+Este incremento aceita seleção EXPLICIT e execução SYNC nas três modalidades: alteração uniforme, ação de domínio e alterações por item. Só as representações canônicas Integer, Long, String e UUID são reconstituídas. BulkStoredProposal valida os tokens dos alvos com o codec canônico antes de admitir o objeto; declarar um codecId conhecido em um codec customizado não contorna essa validação. Um codec customizado com representação wire realmente compatível permanece válido. QUERY exige um manifesto de alvos capturado; ASYNC permanece fora deste adapter. Em V5, inserir uma proposta também reserva atomicamente a quota pendente; isso não demonstra avaliação elegível, autorização, reserva de execução, confirmação ou execução de negócio.
 
 ## Integração explícita
 
 ```java
-// Etapa de implantação, fora de qualquer transação Spring, com credenciais de migração.
-int applied = BulkExecutionMigrator.migrate(migrationDataSource);
+// Valores vêm do provisionamento real do host. Migração fora de qualquer transação Spring.
+var roles = new BulkExecutionRoleConfiguration(
+    expectedSchemaOwnerRole, runtimeGranteeRoles, retentionExecutorMembers);
+int applied = BulkExecutionMigrator.migrate(migrationDataSource, namespaceToDeploymentId, roles);
 
 // Composição do runtime: datasource operacional compartilhado com o domínio.
 var infrastructure = new BulkExecutionInfrastructure(
-    operationalDataSource, operationalTransactionManager, deploymentNamespace);
+    operationalDataSource, operationalTransactionManager, deploymentNamespace, deploymentId);
 var proposals = new JdbcBulkProposalStore(infrastructure);
 
 // Dentro da transação de serviço já existente:
@@ -30,7 +32,7 @@ Construir o store não acessa o banco nem registra beans. `insert` e `find` exig
 
 A consulta combina UUID, namespace, usuário, recurso e operationId vindos do contexto confiável do servidor. Outro usuário/recurso/operação recebe ausência; namespace divergente da infraestrutura é rejeitado. O `operationRef` original completo, schemaRevision e atomicidade retornam no snapshot para futura revalidação. Uma revisão atual diferente não torna a linha corrompida nem autoriza executá-la.
 
-Os timestamps são truncados a microssegundos antes da persistência. ExpiresAt deve ser posterior a createdAt; o intervalo suportado vai de 0001 a 9999. O store pode recuperar entradas expiradas: a admissão futura deve negar sua execução e aplicar TTL/quota/política. Não há limpeza automática, DELETE público, estado READY ou atualização de proposta neste incremento.
+Os timestamps são truncados a microssegundos antes da persistência. ExpiresAt deve ser posterior a createdAt; o intervalo suportado vai de 0001 a 9999. O store pode recuperar entradas expiradas: a reserva de execução deve negar novas mutações após a validade. A V5 fornece procedimentos restritos para expirar propostas não consumidas e expurgar resultados terminais após retenção; eles não são jobs automáticos, nem autorizam DELETE público ou atualização de proposta. A migration cria controles de lifecycle em `UNCOMPOSED`; somente a publicação governada posterior pode colocá-los em `READY`. Este adapter não publica endpoint nem executa automaticamente uma operação de negócio.
 
 O payload BYTEA contém JSON protegido, sem criptografia adicional fornecida pelo SDK. Credenciais, grants, criptografia do banco/backups e retenção são responsabilidades operacionais do host. Não serializar esses objetos em endpoints, logs ou UI. `@JsonIgnoreType` protege propriedades aninhadas; não é uma autorização para devolver o objeto como resposta raiz.
 
@@ -49,12 +51,10 @@ As dependências Flyway core e PostgreSQL 11.17.0 são opcionais no starter. O h
 
 Não copiar o SQL para `db/migration`, reutilizar o histórico do host ou aplicar baseline em um schema desconhecido. Um schema `public` com tabelas existentes não participa dessa linha de migração. O schema próprio é reservado ao SDK. A migração não cria grants automaticamente. PostgreSQL é obrigatório; as provas deste incremento usam PostgreSQL 14.22 real. A validação estrutural usa as formas de expressão retornadas pelo catálogo dessa versão: diferenças falham de modo fechado. Outras versões exigem prova de compatibilidade antes da adoção; não estão certificadas por esta suíte.
 
-A identidade privilegiada aplica e valida a migração fora das transações do domínio. `validate` verifica também o catálogo físico: colunas/tipos/nullabilidade, chave primária, checks e trigger de imutabilidade. Uma história Flyway válida, sozinha, não prova que ninguém removeu uma constraint ou desabilitou o trigger.
-
-A identidade de runtime precisa de USAGE no schema e SELECT/INSERT nas tabelas usadas: proposal para entrada e também evaluation quando adotar a evidência V2. Não conceder CREATE, UPDATE ou DELETE. O trigger BEFORE UPDATE rejeita alteração inclusive pelo dono enquanto está habilitado; privilégios administrativos continuam podendo alterar o schema. O adapter não valida o catálogo a cada operação: executar a validação de implantação antes de habilitar seu consumo é uma obrigação da composição do host.
+O migrator valida o owner esperado, os grantees runtime e os membros do executor de retenção contra o catálogo PostgreSQL, incluindo os privilégios mínimos por tabela/coluna e as funções `SECURITY DEFINER`; não cria grants. O host obtém esses nomes do provisionamento real e executa a validação antes de habilitar o consumo. O schema de lifecycle é protegido por triggers e funções restritas; não conceder `CREATE`, `DELETE` ou escrita direta em tombstone ao runtime. Detalhes de lock, limites 100/10/80 e grants estão em [execução durável](BULK-DURABLE-EXECUTION.md). Privilégios administrativos ainda podem alterar o schema; portanto, a composição operacional precisa controlar credenciais e repetir a validação quando apropriado.
 
 ## Provas e próximos gates
 
-`BulkSnapshotStorageCodecTest` cobre as três modalidades, quatro codecs, tipos numéricos, limites decimais programáticos, cópias defensivas e corrupção sanitizada. `JdbcBulkProposalStorePostgresTest` usa processo PostgreSQL real e conexões independentes para migração repetida/concorrente, schema estranho, drift, commit/rollback, unicidade concorrente, acesso contextual, imutabilidade, conteúdo corrompido e credenciais restritas.
+`BulkSnapshotStorageCodecTest` cobre as três modalidades, quatro codecs, tipos numéricos, limites decimais programáticos, cópias defensivas e corrupção sanitizada. `JdbcBulkProposalStorePostgresTest` usa PostgreSQL real e conexões independentes para migração repetida/concorrente, schema estranho, drift, commit/rollback conjunto da proposta e allocation pendente, unicidade concorrente, limites de quota, acesso contextual, imutabilidade, conteúdo corrompido e credenciais restritas.
 
-Este pacote não altera x-ui, discovery, endpoints, capability, corpus HTTP ou Angular. As regressões do host provam compatibilidade com o JAR candidato; não demonstram adoção do store pelo host. Composição da avaliação governada a partir da evidência protegida, manifesto QUERY, quotas, expiração na admissão, ledger/fencing, executores e prova HTTP operacional continuam necessários antes do gate backend completo e da evolução Angular.
+Este pacote não altera x-ui, discovery, endpoints, capability, corpus HTTP ou Angular. As regressões do host provam compatibilidade com o JAR candidato; não demonstram adoção do store pelo host. A composição da avaliação governada, a integração real do host com configuração/grants/migrator e a prova HTTP operacional continuam necessárias antes de declarar o protocolo P1 pronto ou iniciar a evolução Angular.

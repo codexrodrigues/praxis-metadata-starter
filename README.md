@@ -30,7 +30,7 @@ A [fundação de entrada do protocolo](docs/spec/BULK-PROTOCOL-INPUT.md) fornece
 
 O [binding canônico de operações](docs/spec/CANONICAL-OPERATION-BINDING.md) valida ID explícito, recurso e método sobre o registro MVC e oferece vínculo com o tipo concreto do DTO @RequestBody. Essa fundação estrutural ainda não publica operações de lote.
 
-A [infraestrutura transacional explícita](docs/spec/BULK-EXECUTION-INFRASTRUCTURE.md) permite ao adapter participar da transação JDBC/JPA do host, com provas PostgreSQL. O [armazenamento protegido](docs/spec/BULK-PROPOSAL-STORAGE.md) acrescenta persistência EXPLICIT/SYNC e migração PostgreSQL explícita; o executor continua pendente.
+A [infraestrutura transacional explícita](docs/spec/BULK-EXECUTION-INFRASTRUCTURE.md) permite ao adapter participar da transação JDBC/JPA do host, com provas PostgreSQL. O [armazenamento protegido](docs/spec/BULK-PROPOSAL-STORAGE.md) acrescenta persistência EXPLICIT/SYNC e migração PostgreSQL explícita. O [núcleo durável](docs/spec/BULK-DURABLE-EXECUTION.md) agora inclui reserva, receipts, ledger de capacidade V5, fencing e retenção controlada; a exposição governada Metadata e a adoção completa no host ainda estão pendentes, sem endpoint executável.
 
 A [evidência protegida de avaliação](docs/spec/BULK-EVALUATION-EVIDENCE.md) vincula fatos e plano de cada alvo à entrada, com gravação atômica e migração V2; não certifica READY ou autorização.
 

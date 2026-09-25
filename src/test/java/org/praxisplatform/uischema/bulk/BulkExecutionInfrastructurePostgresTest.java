@@ -39,6 +39,10 @@ class BulkExecutionInfrastructurePostgresTest {
     void start() throws Exception {
         postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
         dataSource = postgres.getPostgresDatabase();
+        BulkPostgresTestSupport.migrate(dataSource, java.util.Map.of(
+                "tenant-a:production:payroll", "deployment-prod",
+                "jdbc-test", "deployment-jdbc",
+                "lock-test", "deployment-lock"));
         observer = new JdbcTemplate(dataSource);
         System.out.println("Bulk infrastructure proof PostgreSQL: " + observer.queryForObject("select version()", String.class));
         observer.execute("create table bulk_test_domain(id bigint primary key)");
@@ -50,7 +54,8 @@ class BulkExecutionInfrastructurePostgresTest {
         factory.afterPropertiesSet();
         emf = factory.getObject();
         manager = new JpaTransactionManager(emf);
-        infrastructure = new BulkExecutionInfrastructure(dataSource, manager, "tenant-a:production:payroll");
+        infrastructure = new BulkExecutionInfrastructure(dataSource, manager,
+                "tenant-a:production:payroll", "deployment-prod");
     }
 
     @AfterAll
@@ -154,6 +159,30 @@ class BulkExecutionInfrastructurePostgresTest {
     }
 
     @Test
+    void durableNamespaceBindingMustMatchTheExplicitDeploymentBeforeCallbackRuns() {
+        var wrongDeployment = new BulkExecutionInfrastructure(dataSource, manager,
+                "tenant-a:production:payroll", "deployment-other");
+        var invoked = new AtomicBoolean();
+        assertThatThrownBy(() -> new TransactionTemplate(manager).execute(status ->
+                wrongDeployment.withConnection(connection -> {
+                    invoked.set(true);
+                    return null;
+                }))).isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("not bound to the configured deployment");
+        assertThat(invoked).isFalse();
+
+        var missingNamespace = new BulkExecutionInfrastructure(dataSource, manager,
+                "unbound-namespace", "deployment-prod");
+        assertThatThrownBy(() -> new TransactionTemplate(manager).execute(status ->
+                missingNamespace.withConnection(connection -> {
+                    invoked.set(true);
+                    return null;
+                }))).isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("not bound to the configured deployment");
+        assertThat(invoked).isFalse();
+    }
+
+    @Test
     void unrelatedManagerOrJdbcOnlyTransactionCannotMasqueradeAsJpaTransaction() {
         DataSource other = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", "");
         for (var txManager : new DataSourceTransactionManager[] {
@@ -168,7 +197,7 @@ class BulkExecutionInfrastructurePostgresTest {
     @Test
     void jdbcManagerParticipatesAndRollsBackWithoutStartingASecondTransaction() {
         var jdbcManager = new DataSourceTransactionManager(dataSource);
-        var jdbcInfrastructure = new BulkExecutionInfrastructure(dataSource, jdbcManager, "jdbc-test");
+        var jdbcInfrastructure = new BulkExecutionInfrastructure(dataSource, jdbcManager, "jdbc-test", "deployment-jdbc");
         new TransactionTemplate(jdbcManager).execute(status -> {
             jdbcInfrastructure.withConnection(connection -> {
                 execute(connection, "insert into bulk_test_receipt values (1, 'one')");
@@ -184,7 +213,7 @@ class BulkExecutionInfrastructurePostgresTest {
     void independentConnectionCannotAcquireHeldRowLockUntilOwnerCompletes() throws Exception {
         observer.update("insert into bulk_test_domain values (1)");
         var jdbcManager = new DataSourceTransactionManager(dataSource);
-        var binding = new BulkExecutionInfrastructure(dataSource, jdbcManager, "lock-test");
+        var binding = new BulkExecutionInfrastructure(dataSource, jdbcManager, "lock-test", "deployment-lock");
         var secondPid = new AtomicInteger();
         try (var executor = Executors.newSingleThreadExecutor()) {
             new TransactionTemplate(jdbcManager).execute(status -> binding.withConnection(connection -> {

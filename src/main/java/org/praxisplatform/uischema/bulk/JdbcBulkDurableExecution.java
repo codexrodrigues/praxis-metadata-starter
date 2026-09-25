@@ -51,7 +51,7 @@ public final class JdbcBulkDurableExecution {
         String owner = text(ownerId, "ownerId");
         String revision = text(structuralRevision, "structuralRevision");
         Instant boundedDeadline = micro(Objects.requireNonNull(deadline, "deadline"));
-        String keyDigest = digest("praxis.bulk.idempotency/1", key);
+        String keyDigest = BulkScopeDigests.idempotencyKeyDigest(key);
         try {
             ReservationWrite write = transaction(connection -> reserve(connection, scope, proposalId,
                     keyDigest, owner, revision, boundedDeadline));
@@ -146,8 +146,29 @@ public final class JdbcBulkDurableExecution {
 
     private ReservationWrite reserve(Connection connection, BulkFingerprintContext scope, UUID proposalId,
             String keyDigest, String owner, String revision, Instant deadline) throws SQLException {
+        String authorizationDigest = BulkScopeDigests.authorizationScopeDigest(scope.namespaceId(),
+                scope.subjectId(), scope.resourceKey(), scope.operationRef().operationId());
+        if (BulkQuotaLedger.tombstoneExists(connection, scope, authorizationDigest, keyDigest))
+            throw failure(BulkDurableExecutionException.Reason.RESULT_PURGED);
         Evaluation evaluation = loadEvaluation(connection, scope, proposalId, false);
         String reservationFingerprint = reservationFingerprint(evaluation, revision);
+        if (reservationExists(connection, scope, proposalId, keyDigest)) {
+            Optional<BulkExecutionSnapshot> existing = findReservation(connection, scope, proposalId,
+                    keyDigest, reservationFingerprint);
+            return new ReservationWrite(existing.orElseThrow(), false);
+        }
+        BulkQuotaLedger.Scope quota;
+        try {
+            quota = BulkQuotaLedger.lockProposal(connection, infrastructure, evaluation.proposal(), true, false);
+        } catch (BulkProposalStorageException error) {
+            if (error.reason() == BulkProposalStorageException.Reason.CAPACITY)
+                throw failure(BulkDurableExecutionException.Reason.CAPACITY);
+            throw failure(error.reason() == BulkProposalStorageException.Reason.CORRUPT
+                    ? BulkDurableExecutionException.Reason.CORRUPT
+                    : BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+        }
+        // A reservation which committed while this transaction waited for the deployment
+        // bucket wins before quota checks; idempotent replay is never blocked by saturation.
         Optional<BulkExecutionSnapshot> existing = findReservation(connection, scope, proposalId,
                 keyDigest, reservationFingerprint);
         if (existing.isPresent()) return new ReservationWrite(existing.orElseThrow(), false);
@@ -156,6 +177,7 @@ public final class JdbcBulkDurableExecution {
         if (!databaseNow.isBefore(evaluation.proposal().expiresAt()))
             throw failure(BulkDurableExecutionException.Reason.EXPIRED);
         if (!deadline.isAfter(databaseNow)) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+        BulkQuotaLedger.requireExecutionRoom(connection, quota);
         UUID executionId = UUID.randomUUID();
         int inserted;
         try (var statement = connection.prepareStatement("""
@@ -177,10 +199,27 @@ public final class JdbcBulkDurableExecution {
             statement.setObject(14, deadline.atOffset(ZoneOffset.UTC));
             inserted = statement.executeUpdate();
         }
+        if (inserted == 1) BulkQuotaLedger.activateExecution(connection, scope, proposalId, executionId, quota);
         Optional<BulkExecutionSnapshot> selected = findReservation(connection, scope, proposalId, keyDigest,
                 reservationFingerprint);
         if (selected.isEmpty()) throw failure(BulkDurableExecutionException.Reason.CONFLICT);
         return new ReservationWrite(selected.orElseThrow(), inserted == 1);
+    }
+
+    private boolean reservationExists(Connection connection, BulkFingerprintContext scope, UUID proposalId,
+            String keyDigest) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select exists (
+                    select 1 from praxis_bulk.praxis_bulk_execution e
+                     where e.namespace_id=? and e.subject_id=? and e.resource_key=? and e.operation_id=?
+                       and (e.proposal_id=? or e.idempotency_key_digest=?)
+                )
+                """)) {
+            bindScope(statement, scope, 1);
+            statement.setObject(5, proposalId);
+            statement.setString(6, keyDigest);
+            try (ResultSet rows = statement.executeQuery()) { return rows.next() && rows.getBoolean(1); }
+        }
     }
 
     private Optional<BulkExecutionSnapshot> findReservation(Connection connection, BulkFingerprintContext scope,

@@ -26,17 +26,24 @@ public final class BulkExecutionInfrastructure {
     private final DataSource dataSource;
     private final PlatformTransactionManager transactionManager;
     private final String namespace;
+    private final String deploymentId;
     private final JdbcTemplate jdbc;
 
     public BulkExecutionInfrastructure(DataSource dataSource,
-            PlatformTransactionManager transactionManager, String namespace) {
+            PlatformTransactionManager transactionManager, String namespace, String deploymentId) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
         this.transactionManager = Objects.requireNonNull(transactionManager, "transactionManager");
         if (namespace == null || namespace.isBlank() || namespace.length() > 200
                 || !namespace.equals(namespace.strip()) || namespace.codePoints().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("Explicit namespace of 1 to 200 characters without surrounding whitespace or controls is required");
         }
+        if (deploymentId == null || deploymentId.isBlank() || deploymentId.length() > 200
+                || !deploymentId.equals(deploymentId.strip())
+                || deploymentId.codePoints().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("Explicit deploymentId of 1 to 200 characters without surrounding whitespace or controls is required");
+        }
         this.namespace = namespace;
+        this.deploymentId = deploymentId;
         validateBinding();
         this.jdbc = new JdbcTemplate(dataSource);
     }
@@ -44,6 +51,7 @@ public final class BulkExecutionInfrastructure {
     public DataSource dataSource() { return dataSource; }
     public PlatformTransactionManager transactionManager() { return transactionManager; }
     public String namespace() { return namespace; }
+    public String deploymentId() { return deploymentId; }
 
     /**
      * Joins an existing writable transaction using the configured manager (MANDATORY).
@@ -72,9 +80,23 @@ public final class BulkExecutionInfrastructure {
                         || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource)) {
                     throw new IllegalStateException("JDBC work must use the operational transaction connection");
                 }
+                verifyDurableNamespaceBinding(connection);
                 return work.doInConnection(connection);
             });
         });
+    }
+
+    private void verifyDurableNamespaceBinding(java.sql.Connection connection) throws java.sql.SQLException {
+        try (var statement = connection.prepareStatement("""
+                select deployment_id from praxis_bulk.praxis_bulk_namespace_binding where namespace_id = ?
+                """)) {
+            statement.setString(1, namespace);
+            try (var rows = statement.executeQuery()) {
+                if (!rows.next() || !deploymentId.equals(rows.getString(1)) || rows.next()) {
+                    throw new IllegalStateException("Operational namespace is not bound to the configured deployment");
+                }
+            }
+        }
     }
 
     private void validateBinding() {

@@ -26,20 +26,25 @@ class BulkEvaluationStorePostgresTest {
         postgres=EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
         dataSource=postgres.getPostgresDatabase();sql=new JdbcTemplate(dataSource);
         var manager=new DataSourceTransactionManager(dataSource);tx=new TransactionTemplate(manager);
-        store=new JdbcBulkProposalStore(new BulkExecutionInfrastructure(dataSource,manager,CONTEXT.namespaceId()));
+        store=new JdbcBulkProposalStore(new BulkExecutionInfrastructure(dataSource,manager,CONTEXT.namespaceId(),
+                BulkPostgresTestSupport.DEPLOYMENT_ID));
         sql.execute("create role evaluation_runtime login");
         System.out.println("Evaluation store PostgreSQL: "+sql.queryForObject("select version()",String.class));
     }
     @AfterAll void stop() throws Exception {if(postgres!=null)postgres.close();}
     @BeforeEach void reset(){sql.execute("drop schema if exists praxis_bulk cascade");}
-    void migrate(){assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(4);}
+    void migrate(){
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(5);
+        BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
+    }
     int count(String table){return sql.queryForObject("select count(*) from praxis_bulk."+table,Integer.class);}
     @Test void upgradePreservesV1PayloadAndHistoryWithoutFabricatingEvaluationOrExecution() {
         Flyway.configure().dataSource(dataSource).locations("classpath:db/praxis-bulk-migrations").schemas("praxis_bulk")
                 .defaultSchema("praxis_bulk").table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true).target("1").load().migrate();
-        var value=proposal();tx.executeWithoutResult(status->store.insert(value));
+        var value=proposal();BulkPostgresTestSupport.insertLegacyProposal(sql,value);
         var before=sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class);
-        assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(3);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(4);
+        BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
         assertThat(sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class)).isEqualTo(before);
         var recovered=tx.execute(status->store.find(CONTEXT,value.id()).orElseThrow());
         assertThat(recovered.snapshot().fingerprint()).isEqualTo(value.snapshot().fingerprint());
@@ -49,13 +54,18 @@ class BulkEvaluationStorePostgresTest {
     }
     @Test void allModalitiesAndCodecsRecoverExactFactsAndPlansFromDatabase() {
         migrate();
+        int subject = 0;
         for(var mode:BulkMode.values()) {
-            persist(evaluation(proposal(snapshot(mode,BulkIdentityCodecs.integers(),"42","1.0"))));
-            persist(evaluation(proposal(snapshot(mode,BulkIdentityCodecs.longs(),"\"9223372036854775807\"","1.0"))));
-            persist(evaluation(proposal(snapshot(mode,BulkIdentityCodecs.strings(),"\"101\"","1.0"))));
-            persist(evaluation(proposal(snapshot(mode,BulkIdentityCodecs.uuids(),"\"123e4567-e89b-12d3-a456-426614174000\"","1.0"))));
+            persist(evaluation(proposal(snapshot(subjectContext(++subject), mode,BulkIdentityCodecs.integers(),"42","1.0"))));
+            persist(evaluation(proposal(snapshot(subjectContext(++subject), mode,BulkIdentityCodecs.longs(),"\"9223372036854775807\"","1.0"))));
+            persist(evaluation(proposal(snapshot(subjectContext(++subject), mode,BulkIdentityCodecs.strings(),"\"101\"","1.0"))));
+            persist(evaluation(proposal(snapshot(subjectContext(++subject), mode,BulkIdentityCodecs.uuids(),"\"123e4567-e89b-12d3-a456-426614174000\"","1.0"))));
         }
         assertThat(count("praxis_bulk_evaluation")).isEqualTo(12);
+    }
+    private static BulkFingerprintContext subjectContext(int sequence) {
+        return new BulkFingerprintContext(CONTEXT.namespaceId(), "subject-" + sequence,
+                CONTEXT.resourceKey(), CONTEXT.operationRef(), CONTEXT.schemaRevision(), CONTEXT.atomicity());
     }
     @Test void bothRowsAreInvisibleUntilCommitAndRollbackRemovesBoth() {
         migrate();var value=evaluation(proposal());
@@ -136,7 +146,7 @@ class BulkEvaluationStorePostgresTest {
         assertThatThrownBy(()->sql.execute("update praxis_bulk.praxis_bulk_evaluation set payload=payload")).isInstanceOf(RuntimeException.class);
     }
     @Test void physicalValidationRejectsDisabledTriggerUnloggedAndAlteredBinding() {
-        for(String mutation:List.of("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user","alter table praxis_bulk.praxis_bulk_item_receipt set unlogged; alter table praxis_bulk.praxis_bulk_admission set unlogged; alter table praxis_bulk.praxis_bulk_execution set unlogged; alter table praxis_bulk.praxis_bulk_evaluation set unlogged; alter table praxis_bulk.praxis_bulk_proposal set unlogged")){
+        for(String mutation:List.of("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user","alter table praxis_bulk.praxis_bulk_tombstone set unlogged")){
             migrate();sql.execute(mutation);assertThatThrownBy(()->BulkExecutionMigrator.validate(dataSource)).isInstanceOf(RuntimeException.class);reset();
         }
         migrate();String name=sql.queryForObject("select conname from pg_constraint where conrelid='praxis_bulk.praxis_bulk_evaluation'::regclass and contype='f'",String.class);
@@ -144,10 +154,11 @@ class BulkEvaluationStorePostgresTest {
         assertThatThrownBy(()->BulkExecutionMigrator.validate(dataSource)).isInstanceOf(RuntimeException.class);
     }
     @Test void runtimeRoleCanInsertAndReadButCannotUpdateOrDeleteEitherRow() {
-        migrate();sql.execute("grant usage on schema praxis_bulk to evaluation_runtime");sql.execute("grant select,insert on praxis_bulk.praxis_bulk_proposal,praxis_bulk.praxis_bulk_evaluation to evaluation_runtime");
+        migrate();sql.execute("grant usage on schema praxis_bulk to evaluation_runtime");sql.execute("grant select,insert on praxis_bulk.praxis_bulk_proposal,praxis_bulk.praxis_bulk_evaluation to evaluation_runtime");sql.execute("grant update (proposal_id) on praxis_bulk.praxis_bulk_proposal to evaluation_runtime");sql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding,praxis_bulk.praxis_bulk_operation_control to evaluation_runtime");sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_namespace_binding to evaluation_runtime");sql.execute("grant update (state) on praxis_bulk.praxis_bulk_operation_control to evaluation_runtime");sql.execute("grant select on praxis_bulk.praxis_bulk_deployment_bucket to evaluation_runtime");sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_deployment_bucket to evaluation_runtime");sql.execute("grant select,insert on praxis_bulk.praxis_bulk_subject_bucket to evaluation_runtime");sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_subject_bucket to evaluation_runtime");sql.execute("grant select,insert on praxis_bulk.praxis_bulk_allocation to evaluation_runtime");sql.execute("grant update (state) on praxis_bulk.praxis_bulk_allocation to evaluation_runtime");
         var ds=new DriverManagerDataSource(postgres.getJdbcUrl("evaluation_runtime","postgres"),"evaluation_runtime","");
         var manager=new DataSourceTransactionManager(ds);var runtimeTx=new TransactionTemplate(manager);
-        var runtime=new JdbcBulkProposalStore(new BulkExecutionInfrastructure(ds,manager,CONTEXT.namespaceId()));var value=evaluation(proposal());
+        var runtime=new JdbcBulkProposalStore(new BulkExecutionInfrastructure(ds,manager,CONTEXT.namespaceId(),
+                BulkPostgresTestSupport.DEPLOYMENT_ID));var value=evaluation(proposal());
         runtimeTx.executeWithoutResult(status->runtime.insertEvaluated(value));var loaded=runtimeTx.execute(status->runtime.findEvaluation(CONTEXT,value.proposal().id()));assertThat(loaded).isPresent();
         var restricted=new JdbcTemplate(ds);
         for(String table:List.of("praxis_bulk_proposal","praxis_bulk_evaluation")) {
@@ -193,7 +204,8 @@ class BulkEvaluationStorePostgresTest {
         catch(BulkProposalStorageException error){return error.reason().name();}
     }
     private void persist(BulkEvaluationSnapshot value){
-        tx.executeWithoutResult(status->store.insertEvaluated(value));var loaded=tx.execute(status->store.findEvaluation(CONTEXT,value.proposal().id()).orElseThrow());
+        var scope = value.proposal().snapshot().context();
+        tx.executeWithoutResult(status->store.insertEvaluated(value));var loaded=tx.execute(status->store.findEvaluation(scope,value.proposal().id()).orElseThrow());
         assertThat(loaded.governance()).isEqualTo(value.governance());
         assertThat(loaded.fingerprint()).isEqualTo(value.fingerprint());assertThat(loaded.evaluatedAt()).isEqualTo(value.evaluatedAt());
         assertThat(loaded.targets().getFirst().plan().get("amount").isBigDecimal()).isTrue();
