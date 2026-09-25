@@ -131,13 +131,14 @@ reserva exige readback independente sob escopo. Sem readback conclusivo, o retor
 
 ## Unidade concreta e barreira de commit incerto
 
-`executeUnit(control, expectedOrdinal, callback)` implementa três transações curtas, todas no manager
+`executeUnit(control, expectedOrdinal, admission, mutation)` implementa três transações curtas, todas no manager
 operacional do binding:
 
 1. **Preparação.** Sob lock e fencing, consulta primeiro o receipt do `expectedOrdinal`.
    Receipt existente é replay daquele ordinal e a callback não roda. Sem receipt, exige
    `expectedOrdinal == nextOrdinal`, valida `RUNNING`, deadline e alvo,
    gera attemptId, persiste `UNIT_IN_FLIGHT` com ordinal/digest/epoch e confirma essa barreira.
+   O mesmo `UPDATE` persiste `active_unit_deadline_at = min(deadline_at, database_now + 5 s)`.
    A callback só pode começar depois que esse commit retornou confirmado. Se o commit de
    preparação for incerto, nenhuma callback ocorreu e a chamada devolve
    `RECONCILIATION_REQUIRED`. O chamador precisa pedir recuperação explícita, que lê o estado
@@ -145,16 +146,27 @@ operacional do binding:
    preparação. A chamada nunca avança implicitamente para outro ordinal.
 2. **Domínio + receipt.** Sob o mesmo lock/fencing e o mesmo manager, a callback recebe uma
    unidade protegida com a evidência do alvo. Ela grava domínio/outbox usando participantes
-   JDBC ou JPA da transação atual e devolve apenas `CONFIRMED` ou `UNCHANGED`. Antes e depois
-   da callback, o banco verifica o deadline. O insert do
-   receipt usa o relógio do PostgreSQL e só ocorre quando `confirmed_at < deadline_at`.
+   JDBC ou JPA da transação atual e devolve apenas `CONFIRMED` ou `UNCHANGED`. O prazo absoluto
+   persistido cobre a unidade desde o marcador durável, incluindo grant, Config, leitura e lock
+   do alvo, callback e tentativa de commit. O consumidor recebe orçamento restante ancorado em
+   relógio monotônico, calculado a partir do relógio do banco, para não depender de sincronização
+   de relógios entre processos. Config, grant e fatos limitam cada transação/query ao orçamento
+   restante; aquisição de conexões dos pools operacionais tem espera máxima de 1 s. Antes de
+   chamar a mutação e ao gravar o receipt, o banco confere o prazo com `clock_timestamp()`. Se
+   ele expirou, a transação é revertida e o receipt não é gravado. O insert do receipt usa o
+   relógio do PostgreSQL e só ocorre quando `confirmed_at` antecede o prazo da execução e o
+   prazo persistido da unidade.
    Domínio, receipt e mudança para `UNIT_COMMITTED_PENDING_ACK` confirmam juntos. Resultado
    `CONFIRMED` nunca é observado antes desse commit.
 3. **Acknowledgement.** Somente depois que o manager confirmou a transação anterior, uma nova
    transação relê receipt/attempt sob lock, avança `nextOrdinal`, limpa a tentativa e escolhe
    `RUNNING` ou `COMPLETED`. Se o ack falha, o receipt continua sendo fonte de verdade e o
    estado pendente bloqueia a próxima callback; uma chamada posterior para o mesmo ordinal
-   pode apenas reconhecer esse receipt. Quando a recuperação encontra evidência inconsistente,
+   pode apenas reconhecer esse receipt. ACK, readback, reconciliação e recuperação usam limite
+   de 1 s para lock e statement; esgotar esse limite devolve `RECONCILIATION_REQUIRED` e mantém
+   o receipt confirmado como barreira, sem repetir callback nem avançar o sufixo. O prazo da
+   unidade não invalida um receipt já confirmado: replay/ACK consultam primeiro a evidência e
+   permanecem possíveis depois do prazo, dentro do limite próprio de controle. Quando a recuperação encontra evidência inconsistente,
    `nextOrdinal` fica limitado ao prefixo contíguo de receipts que passou as validações; somente
    itens antes desse limite podem ser lidos em replay, e o receipt que provocou reconciliação
    permanece bloqueado. Se o commit do acknowledgement ocorreu e somente sua
@@ -228,7 +240,9 @@ BulkExecutionReservation reservation = kernel.reserve(
     scope, proposalId, idempotencyKey, ownerId, structuralRevision, deadline);
 
 BulkUnitExecutionResult result = kernel.executeUnit(
-    reservation.control(), 0, unit -> {
+    reservation.control(), 0,
+    unit -> validateCurrentGrantAndPolicy(unit.remainingBudget()),
+    unit -> {
         // serviço/repositório JDBC ou JPA participa do manager operacional atual
         mutateDomain(unit.targetEvidence());
         return BulkUnitMutationResult.confirmed();

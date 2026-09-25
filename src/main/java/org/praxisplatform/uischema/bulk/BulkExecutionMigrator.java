@@ -1,13 +1,20 @@
 package org.praxisplatform.uischema.bulk;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.OffsetDateTime;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -32,10 +39,15 @@ public final class BulkExecutionMigrator {
 
     private static final String EXECUTION_TABLE = "praxis_bulk_execution";
     private static final String RECEIPT_TABLE = "praxis_bulk_item_receipt";
+    private static final String ADMISSION_TABLE = "praxis_bulk_admission";
     private static final String BINDING_FUNCTION = "protect_praxis_bulk_execution_binding";
     private static final String BINDING_TRIGGER = "praxis_bulk_execution_protect_binding";
+    private static final String TERMINAL_REASON_FUNCTION = "protect_praxis_bulk_terminal_reason";
+    private static final String TERMINAL_REASON_TRIGGER = "praxis_bulk_execution_protect_terminal_reason";
     private static final String RECEIPT_FUNCTION = "reject_praxis_bulk_item_receipt_mutation";
     private static final String RECEIPT_TRIGGER = "praxis_bulk_item_receipt_reject_mutation";
+    private static final String ADMISSION_FUNCTION = "reject_praxis_bulk_admission_mutation";
+    private static final String ADMISSION_TRIGGER = "praxis_bulk_admission_reject_mutation";
 
     private BulkExecutionMigrator() { }
 
@@ -89,6 +101,9 @@ public final class BulkExecutionMigrator {
                 validateImmutableUpdateTrigger(connection, EVALUATION_TABLE, EVALUATION_REJECTION_TRIGGER,
                         EVALUATION_REJECTION_FUNCTION, "praxis_bulk.praxis_bulk_evaluation");
                 validateDurableExecution(connection);
+                validateDurableAdmission(connection);
+                validateAdmissionRows(connection);
+                validateEvidenceBinding(connection);
                 validateOwnedSchema(connection);
             } finally {
                 setCatalogSearchPath(connection, previousSearchPath);
@@ -139,7 +154,8 @@ public final class BulkExecutionMigrator {
                     where n.nspname = ? and t.typelem = 0 and t.typtype in ('b', 'c', 'd', 'e', 'm', 'r')
                       and not (t.typtype = 'c' and t.typrelid <> 0
                           and t.typname in ('praxis_bulk_schema_history', 'praxis_bulk_proposal',
-                              'praxis_bulk_evaluation', 'praxis_bulk_execution', 'praxis_bulk_item_receipt'))
+                              'praxis_bulk_evaluation', 'praxis_bulk_execution', 'praxis_bulk_item_receipt',
+                              'praxis_bulk_admission'))
                     """);
             Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
             Set<String> triggers = queryNames(connection, """
@@ -154,12 +170,19 @@ public final class BulkExecutionMigrator {
             if (relations.isEmpty() && functions.isEmpty() && types.isEmpty()
                     && orphanIndexes.isEmpty() && triggers.isEmpty() && rules.isEmpty() && policies.isEmpty()) return;
             if (!relations.contains(HISTORY_TABLE)
-                    || !relations.stream().allMatch(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, EXECUTION_TABLE, RECEIPT_TABLE)::contains)
-                    || !functions.stream().allMatch(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()", BINDING_FUNCTION + "()", RECEIPT_FUNCTION + "()")::contains)
+                    || !relations.stream().allMatch(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE,
+                            EXECUTION_TABLE, RECEIPT_TABLE, ADMISSION_TABLE)::contains)
+                    || !functions.stream().allMatch(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
+                            BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
+                            RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()")::contains)
                     || !types.isEmpty()
                     || !orphanIndexes.isEmpty()
                     || !rules.isEmpty() || !policies.isEmpty()
-                    || !triggers.stream().allMatch(Set.of(PROPOSAL_TABLE + "." + REJECTION_TRIGGER, EVALUATION_TABLE + "." + EVALUATION_REJECTION_TRIGGER, EXECUTION_TABLE + "." + BINDING_TRIGGER, RECEIPT_TABLE + "." + RECEIPT_TRIGGER)::contains)) {
+                    || !triggers.stream().allMatch(Set.of(PROPOSAL_TABLE + "." + REJECTION_TRIGGER,
+                            EVALUATION_TABLE + "." + EVALUATION_REJECTION_TRIGGER,
+                            EXECUTION_TABLE + "." + BINDING_TRIGGER, RECEIPT_TABLE + "." + RECEIPT_TRIGGER,
+                            EXECUTION_TABLE + "." + TERMINAL_REASON_TRIGGER,
+                            ADMISSION_TABLE + "." + ADMISSION_TRIGGER)::contains)) {
                 throw new IllegalStateException("Refusing an unknown nonempty praxis_bulk schema: relations="
                         + relations + ", functions=" + functions + ", types=" + types + ", indexes="
                         + orphanIndexes + ", triggers=" + triggers + ", rules=" + rules + ", policies=" + policies);
@@ -259,7 +282,8 @@ public final class BulkExecutionMigrator {
                 where n.nspname = ? and t.typelem = 0 and t.typtype in ('b', 'c', 'd', 'e', 'm', 'r')
                   and not (t.typtype = 'c' and t.typrelid <> 0
                       and t.typname in ('praxis_bulk_schema_history', 'praxis_bulk_proposal',
-                          'praxis_bulk_evaluation', 'praxis_bulk_execution', 'praxis_bulk_item_receipt'))
+                          'praxis_bulk_evaluation', 'praxis_bulk_execution', 'praxis_bulk_item_receipt',
+                          'praxis_bulk_admission'))
                 """);
         Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
         Set<String> triggers = queryNames(connection, """
@@ -270,12 +294,19 @@ public final class BulkExecutionMigrator {
                 """);
         Set<String> rules = userRules(connection);
         Set<String> policies = rowSecurityPolicies(connection);
-        require(relations.equals(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, EXECUTION_TABLE, RECEIPT_TABLE))
-                        && functions.equals(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()", BINDING_FUNCTION + "()", RECEIPT_FUNCTION + "()"))
+        require(relations.equals(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE,
+                                EXECUTION_TABLE, RECEIPT_TABLE, ADMISSION_TABLE))
+                        && functions.equals(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
+                                BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
+                                RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()"))
                         && types.isEmpty()
                         && orphanIndexes.isEmpty()
                         && rules.isEmpty() && policies.isEmpty()
-                        && triggers.equals(Set.of(PROPOSAL_TABLE + "." + REJECTION_TRIGGER, EVALUATION_TABLE + "." + EVALUATION_REJECTION_TRIGGER, EXECUTION_TABLE + "." + BINDING_TRIGGER, RECEIPT_TABLE + "." + RECEIPT_TRIGGER)),
+                        && triggers.equals(Set.of(PROPOSAL_TABLE + "." + REJECTION_TRIGGER,
+                                EVALUATION_TABLE + "." + EVALUATION_REJECTION_TRIGGER,
+                                EXECUTION_TABLE + "." + BINDING_TRIGGER, RECEIPT_TABLE + "." + RECEIPT_TRIGGER,
+                                EXECUTION_TABLE + "." + TERMINAL_REASON_TRIGGER,
+                                ADMISSION_TABLE + "." + ADMISSION_TRIGGER)),
                 "protected bulk storage schema contains unexpected owned objects: indexes=" + orphanIndexes
                         + ", rules=" + rules + ", policies=" + policies);
     }
@@ -554,7 +585,7 @@ public final class BulkExecutionMigrator {
         }
     }
 
-    /** Frozen V3 catalog expectations, checked against real PostgreSQL; no runtime DDL here. */
+    /** V3 execution and receipt plus V4 execution changes, checked against real PostgreSQL. */
     private static void validateDurableExecution(Connection connection) throws SQLException {
         validateDurableColumns(connection, "praxis_bulk_execution", Map.ofEntries(
                 Map.entry("execution_id", "uuid|true"),
@@ -578,9 +609,11 @@ public final class BulkExecutionMigrator {
                 Map.entry("active_attempt_ordinal", "integer|false"),
                 Map.entry("active_target_digest", "text|false"),
                 Map.entry("active_attempt_epoch", "bigint|false"),
+                Map.entry("active_unit_deadline_at", "timestamp(6) with time zone|false"),
                 Map.entry("created_at", "timestamp(6) with time zone|true"),
                 Map.entry("updated_at", "timestamp(6) with time zone|true"),
-                Map.entry("terminal_at", "timestamp(6) with time zone|false")));
+                Map.entry("terminal_at", "timestamp(6) with time zone|false"),
+                Map.entry("terminal_reason_code", "text|false")));
         validateDurableColumns(connection, "praxis_bulk_item_receipt", Map.ofEntries(
                 Map.entry("execution_id", "uuid|true"),
                 Map.entry("unit_ordinal", "integer|true"),
@@ -589,7 +622,8 @@ public final class BulkExecutionMigrator {
                 Map.entry("attempt_id", "uuid|true"),
                 Map.entry("owner_epoch", "bigint|true"),
                 Map.entry("outcome", "text|true"),
-                Map.entry("confirmed_at", "timestamp(6) with time zone|true")));
+                Map.entry("confirmed_at", "timestamp(6) with time zone|true"),
+                Map.entry("unit_deadline_at", "timestamp(6) with time zone|false")));
         validateDurableConstraints(connection, "praxis_bulk_evaluation", true, Map.ofEntries(
                 Map.entry("praxis_bulk_evaluation_proposal_fingerprint_key", "UNIQUE (proposal_id, evaluation_fingerprint)")));
         validateDurableConstraints(connection, "praxis_bulk_execution", false, Map.ofEntries(
@@ -610,8 +644,10 @@ public final class BulkExecutionMigrator {
                 Map.entry("praxis_bulk_execution_resource_nonblank_check", "CHECK ((btrim(resource_key) <> ''::text))"),
                 Map.entry("praxis_bulk_execution_revision_nonblank_check", "CHECK ((btrim(structural_revision) <> ''::text))"),
                 Map.entry("praxis_bulk_execution_scoped_idempotency_key", "UNIQUE (namespace_id, subject_id, resource_key, operation_id, idempotency_key_digest)"),
-                Map.entry("praxis_bulk_execution_state_shape_check", "CHECK ((((status = 'RUNNING'::text) AND (active_attempt_id IS NULL) AND (next_ordinal < target_count) AND (terminal_at IS NULL)) OR ((status = ANY (ARRAY['UNIT_IN_FLIGHT'::text, 'UNIT_COMMITTED_PENDING_ACK'::text])) AND (active_attempt_id IS NOT NULL) AND (terminal_at IS NULL)) OR ((status = 'COMPLETED'::text) AND (active_attempt_id IS NULL) AND (next_ordinal = target_count) AND (terminal_at IS NOT NULL)) OR ((status = 'STOPPED'::text) AND (terminal_at IS NOT NULL)) OR ((status = 'RECONCILIATION_REQUIRED'::text) AND (terminal_at IS NULL))))"),
-                Map.entry("praxis_bulk_execution_status_check", "CHECK ((status = ANY (ARRAY['RUNNING'::text, 'UNIT_IN_FLIGHT'::text, 'UNIT_COMMITTED_PENDING_ACK'::text, 'COMPLETED'::text, 'STOPPED'::text, 'RECONCILIATION_REQUIRED'::text])))"),
+                Map.entry("praxis_bulk_execution_state_shape_check", "CHECK ((((status = 'RUNNING'::text) AND (active_attempt_id IS NULL) AND (next_ordinal < target_count) AND (terminal_at IS NULL)) OR ((status = ANY (ARRAY['UNIT_IN_FLIGHT'::text, 'UNIT_COMMITTED_PENDING_ACK'::text])) AND (active_attempt_id IS NOT NULL) AND (terminal_at IS NULL)) OR ((status = ANY (ARRAY['COMPLETED'::text, 'COMPLETED_WITH_ERRORS'::text])) AND (active_attempt_id IS NULL) AND (next_ordinal = target_count) AND (terminal_at IS NOT NULL)) OR ((status = 'STOPPED'::text) AND (terminal_at IS NOT NULL) AND (active_attempt_id IS NULL) AND (active_attempt_ordinal IS NULL) AND (active_target_digest IS NULL) AND (active_attempt_epoch IS NULL)) OR ((status = 'RECONCILIATION_REQUIRED'::text) AND (terminal_at IS NULL))))"),
+                Map.entry("praxis_bulk_execution_status_check", "CHECK ((status = ANY (ARRAY['RUNNING'::text, 'UNIT_IN_FLIGHT'::text, 'UNIT_COMMITTED_PENDING_ACK'::text, 'COMPLETED'::text, 'COMPLETED_WITH_ERRORS'::text, 'STOPPED'::text, 'RECONCILIATION_REQUIRED'::text])))"),
+                Map.entry("praxis_bulk_execution_terminal_reason_check", "CHECK ((((status = 'STOPPED'::text) = (terminal_reason_code IS NOT NULL)) AND ((terminal_reason_code IS NULL) OR (terminal_reason_code = ANY (ARRAY['LEGACY_REASON_NOT_RECORDED'::text, 'DEADLINE_EXCEEDED'::text, 'AUTHORIZATION_REVOKED'::text, 'POLICY_BLOCKED'::text, 'COMMON_GOVERNANCE_CHANGED'::text, 'COMMON_GOVERNANCE_UNAVAILABLE'::text, 'DEPENDENCY_UNAVAILABLE'::text, 'UNIT_ROLLED_BACK'::text, 'RECOVERY_STOPPED'::text, 'EVALUATOR_UNAVAILABLE'::text, 'STRUCTURAL_REVISION_CHANGED'::text])))))"),
+                Map.entry("praxis_bulk_execution_active_unit_deadline_check", "CHECK (((active_unit_deadline_at IS NULL) OR ((active_attempt_id IS NOT NULL) AND (active_unit_deadline_at <= deadline_at))))"),
                 Map.entry("praxis_bulk_execution_subject_nonblank_check", "CHECK ((btrim(subject_id) <> ''::text))")));
         validateDurableConstraints(connection, "praxis_bulk_item_receipt", false, Map.ofEntries(
                 Map.entry("praxis_bulk_item_receipt_attempt_key", "UNIQUE (attempt_id)"),
@@ -622,6 +658,7 @@ public final class BulkExecutionMigrator {
                 Map.entry("praxis_bulk_item_receipt_outcome_check", "CHECK ((outcome = ANY (ARRAY['CONFIRMED'::text, 'UNCHANGED'::text])))"),
                 Map.entry("praxis_bulk_item_receipt_pkey", "PRIMARY KEY (execution_id, unit_ordinal)"),
                 Map.entry("praxis_bulk_item_receipt_target_digest_check", "CHECK ((target_digest ~ '^sha256:[0-9a-f]{64}$'::text))"),
+                Map.entry("praxis_bulk_item_receipt_unit_deadline_check", "CHECK (((unit_deadline_at IS NULL) OR (confirmed_at < unit_deadline_at)))"),
                 Map.entry("praxis_bulk_item_receipt_target_key", "UNIQUE (execution_id, target_digest)")));
         validateDurableTrigger(connection, "praxis_bulk_execution", "praxis_bulk_execution_protect_binding", "protect_praxis_bulk_execution_binding",
                 "CREATE TRIGGER praxis_bulk_execution_protect_binding BEFORE UPDATE ON praxis_bulk.praxis_bulk_execution FOR EACH ROW EXECUTE FUNCTION praxis_bulk.protect_praxis_bulk_execution_binding()",
@@ -646,6 +683,28 @@ public final class BulkExecutionMigrator {
                     return new;
                 end;
                 """);
+        validateDurableTrigger(connection, EXECUTION_TABLE, TERMINAL_REASON_TRIGGER, TERMINAL_REASON_FUNCTION,
+                "CREATE TRIGGER praxis_bulk_execution_protect_terminal_reason BEFORE INSERT OR UPDATE ON praxis_bulk.praxis_bulk_execution FOR EACH ROW EXECUTE FUNCTION praxis_bulk.protect_praxis_bulk_terminal_reason()",
+                """
+                begin
+                    if tg_op = 'INSERT' then
+                        if new.terminal_reason_code = 'LEGACY_REASON_NOT_RECORDED' then
+                            raise exception 'legacy stop reason is reserved for migration history' using errcode = '55000';
+                        end if;
+                    else
+                        if old.status = 'STOPPED'
+                           and new.terminal_reason_code is distinct from old.terminal_reason_code then
+                            raise exception 'terminal stop reason is immutable' using errcode = '55000';
+                        end if;
+                        if old.status is distinct from 'STOPPED'
+                           and new.status = 'STOPPED'
+                           and new.terminal_reason_code = 'LEGACY_REASON_NOT_RECORDED' then
+                            raise exception 'legacy stop reason is reserved for migration history' using errcode = '55000';
+                        end if;
+                    end if;
+                    return new;
+                end;
+                """);
         validateDurableTrigger(connection, "praxis_bulk_item_receipt", "praxis_bulk_item_receipt_reject_mutation", "reject_praxis_bulk_item_receipt_mutation",
                 "CREATE TRIGGER praxis_bulk_item_receipt_reject_mutation BEFORE DELETE OR UPDATE ON praxis_bulk.praxis_bulk_item_receipt FOR EACH ROW EXECUTE FUNCTION praxis_bulk.reject_praxis_bulk_item_receipt_mutation()",
                 """
@@ -653,6 +712,196 @@ public final class BulkExecutionMigrator {
                     raise exception 'praxis_bulk.praxis_bulk_item_receipt is immutable' using errcode = '55000';
                 end;
                 """);
+    }
+
+    /** V4 never widens the meaning of a V3 receipt: admission certifies no mutation. */
+    private static void validateDurableAdmission(Connection connection) throws SQLException {
+        validateDurableColumns(connection, ADMISSION_TABLE, Map.ofEntries(
+                Map.entry("execution_id", "uuid|true"),
+                Map.entry("unit_ordinal", "integer|true"),
+                Map.entry("target_digest", "text|true"),
+                Map.entry("expected_version", "text|true"),
+                Map.entry("attempt_id", "uuid|true"),
+                Map.entry("owner_epoch", "bigint|true"),
+                Map.entry("outcome", "text|true"),
+                Map.entry("reason_code", "text|true"),
+                Map.entry("recorded_at", "timestamp(6) with time zone|true")));
+        validateDurableConstraints(connection, ADMISSION_TABLE, false, Map.ofEntries(
+                Map.entry("praxis_bulk_admission_pkey", "PRIMARY KEY (execution_id, unit_ordinal)"),
+                Map.entry("praxis_bulk_admission_target_key", "UNIQUE (execution_id, target_digest)"),
+                Map.entry("praxis_bulk_admission_attempt_key", "UNIQUE (attempt_id)"),
+                Map.entry("praxis_bulk_admission_execution_fkey", "FOREIGN KEY (execution_id) REFERENCES praxis_bulk.praxis_bulk_execution(execution_id)"),
+                Map.entry("praxis_bulk_admission_ordinal_check", "CHECK ((unit_ordinal >= 0))"),
+                Map.entry("praxis_bulk_admission_target_digest_check", "CHECK ((target_digest ~ '^sha256:[0-9a-f]{64}$'::text))"),
+                Map.entry("praxis_bulk_admission_expected_version_nonblank_check", "CHECK ((btrim(expected_version) <> ''::text))"),
+                Map.entry("praxis_bulk_admission_epoch_check", "CHECK ((owner_epoch >= 1))"),
+                Map.entry("praxis_bulk_admission_outcome_reason_check", "CHECK ((((outcome = 'DENIED'::text) AND (reason_code = 'TARGET_DENIED'::text)) OR ((outcome = 'INVALID'::text) AND (reason_code = ANY (ARRAY['TARGET_NOT_FOUND'::text, 'TARGET_INVALID'::text]))) OR ((outcome = 'CONFLICT'::text) AND (reason_code = ANY (ARRAY['TARGET_VERSION_CONFLICT'::text, 'TARGET_STATE_CONFLICT'::text, 'TARGET_DEPENDENCY_CHANGED'::text])))))")));
+        validateDurableTrigger(connection, ADMISSION_TABLE, ADMISSION_TRIGGER, ADMISSION_FUNCTION,
+                "CREATE TRIGGER praxis_bulk_admission_reject_mutation BEFORE DELETE OR UPDATE ON praxis_bulk.praxis_bulk_admission FOR EACH ROW EXECUTE FUNCTION praxis_bulk.reject_praxis_bulk_admission_mutation()",
+                """
+                begin
+                    raise exception 'praxis_bulk.praxis_bulk_admission is immutable' using errcode = '55000';
+                end;
+                """);
+        // The host grants SELECT/INSERT to its runtime role explicitly. Both table- and
+        // column-level ACLs must reject PUBLIC, mutation rights and grant options.
+        try (var statement = connection.prepareStatement("""
+                select count(*)
+                from (
+                    select acl.grantee, acl.privilege_type, acl.is_grantable, c.relowner
+                    from pg_class c,
+                         lateral aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) acl
+                    where c.oid = ?::regclass
+                    union all
+                    select acl.grantee, acl.privilege_type, acl.is_grantable, c.relowner
+                    from pg_class c join pg_attribute a on a.attrelid = c.oid,
+                         lateral aclexplode(a.attacl) acl
+                    where c.oid = ?::regclass and a.attnum > 0 and not a.attisdropped
+                      and a.attacl is not null
+                ) grants
+                where grantee <> relowner
+                  and (grantee = 0 or privilege_type not in ('SELECT', 'INSERT') or is_grantable)
+                """)) {
+            statement.setString(1, SCHEMA + "." + ADMISSION_TABLE);
+            statement.setString(2, SCHEMA + "." + ADMISSION_TABLE);
+            try (var rows = statement.executeQuery()) {
+                require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+                        "admission storage grants must be limited to scoped SELECT/INSERT roles");
+            }
+        }
+    }
+
+    /** Reject contradictory or noncontiguous durable evidence, including cross-table duplicates. */
+    private static void validateAdmissionRows(Connection connection) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                with evidence as (
+                    select execution_id, unit_ordinal, target_digest, attempt_id, owner_epoch, false as admission
+                    from praxis_bulk.praxis_bulk_item_receipt
+                    union all
+                    select execution_id, unit_ordinal, target_digest, attempt_id, owner_epoch, true as admission
+                    from praxis_bulk.praxis_bulk_admission
+                ), totals as (
+                    select execution_id, count(*) as evidence_count,
+                           count(*) filter (where admission) as admission_count,
+                           count(distinct unit_ordinal) as ordinal_count,
+                           count(distinct target_digest) as target_count,
+                           count(distinct attempt_id) as attempt_count,
+                           min(unit_ordinal) as first_ordinal, max(unit_ordinal) as last_ordinal,
+                           max(owner_epoch) as latest_epoch
+                    from evidence group by execution_id
+                )
+                select count(*)
+                from praxis_bulk.praxis_bulk_execution e left join totals t using (execution_id)
+                where coalesce(t.evidence_count, 0) <> coalesce(t.ordinal_count, 0)
+                   or coalesce(t.evidence_count, 0) <> coalesce(t.target_count, 0)
+                   or coalesce(t.evidence_count, 0) <> coalesce(t.attempt_count, 0)
+                   or (t.evidence_count > 0 and (t.first_ordinal <> 0 or t.last_ordinal <> t.evidence_count - 1))
+                   or t.latest_epoch > e.owner_epoch
+                   or t.last_ordinal >= e.target_count
+                   or (e.status in ('RUNNING', 'UNIT_IN_FLIGHT', 'STOPPED', 'COMPLETED', 'COMPLETED_WITH_ERRORS')
+                       and coalesce(t.evidence_count, 0) <> e.next_ordinal)
+                   or (e.status in ('COMPLETED', 'COMPLETED_WITH_ERRORS')
+                       and coalesce(t.evidence_count, 0) <> e.target_count)
+                   or (e.status = 'COMPLETED' and coalesce(t.admission_count, 0) <> 0)
+                   or (e.status = 'COMPLETED_WITH_ERRORS' and coalesce(t.admission_count, 0) = 0)
+                   or (e.status = 'UNIT_COMMITTED_PENDING_ACK'
+                       and coalesce(t.evidence_count, 0) <> e.next_ordinal + 1)
+                   or (e.status = 'UNIT_COMMITTED_PENDING_ACK' and not exists (
+                       select 1 from praxis_bulk.praxis_bulk_item_receipt r
+                       where r.execution_id = e.execution_id and r.unit_ordinal = e.next_ordinal
+                         and r.attempt_id = e.active_attempt_id
+                         and r.target_digest = e.active_target_digest
+                         and r.owner_epoch = e.active_attempt_epoch))
+                   or (e.status = 'UNIT_COMMITTED_PENDING_ACK' and exists (
+                       select 1 from praxis_bulk.praxis_bulk_admission a
+                       where a.execution_id = e.execution_id and a.unit_ordinal = e.next_ordinal))
+                   or (e.status = 'RECONCILIATION_REQUIRED'
+                       and coalesce(t.evidence_count, 0) not between e.next_ordinal and e.next_ordinal + 1)
+                """)) {
+            try (var rows = statement.executeQuery()) {
+                require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+                        "admission and receipt evidence must form one unambiguous contiguous prefix");
+            }
+        }
+    }
+
+    /** Decode the protected evaluation once per execution and bind each durable outcome to its ordered target. */
+    private static void validateEvidenceBinding(Connection connection) throws SQLException {
+        var evaluations = new LinkedHashMap<UUID, BulkEvaluationSnapshot>();
+        try (var statement = connection.prepareStatement("""
+                with evidence as (
+                    select execution_id, unit_ordinal, target_digest, expected_version
+                    from praxis_bulk.praxis_bulk_item_receipt
+                    union all
+                    select execution_id, unit_ordinal, target_digest, expected_version
+                    from praxis_bulk.praxis_bulk_admission
+                )
+                select d.execution_id, d.unit_ordinal, d.target_digest, d.expected_version,
+                       x.proposal_id, x.namespace_id, x.subject_id, x.resource_key, x.operation_id,
+                       x.input_fingerprint, x.evaluation_fingerprint, x.target_count,
+                       p.created_at, p.expires_at, p.fingerprint, p.payload,
+                       v.input_fingerprint, v.evaluation_fingerprint, v.payload
+                from evidence d
+                join praxis_bulk.praxis_bulk_execution x using (execution_id)
+                join praxis_bulk.praxis_bulk_proposal p on p.proposal_id=x.proposal_id
+                join praxis_bulk.praxis_bulk_evaluation v on v.proposal_id=x.proposal_id
+                """)) {
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    UUID executionId = rows.getObject(1, UUID.class);
+                    try {
+                        BulkEvaluationSnapshot evaluation = evaluations.get(executionId);
+                        if (evaluation == null) {
+                            require(rows.getString(10).equals(rows.getString(15))
+                                            && rows.getString(10).equals(rows.getString(17))
+                                            && rows.getString(11).equals(rows.getString(18)),
+                                    "durable evidence fingerprint binding differs");
+                            var intent = BulkSnapshotStorageCodec.decode(rows.getBytes(16), rows.getString(15));
+                            var scope = intent.context();
+                            require(scope.namespaceId().equals(rows.getString(6))
+                                            && scope.subjectId().equals(rows.getString(7))
+                                            && scope.resourceKey().equals(rows.getString(8))
+                                            && scope.operationRef().operationId().equals(rows.getString(9)),
+                                    "durable evidence scope differs");
+                            var proposal = new BulkStoredProposal(rows.getObject(5, UUID.class),
+                                    rows.getObject(13, OffsetDateTime.class).toInstant(),
+                                    rows.getObject(14, OffsetDateTime.class).toInstant(), intent);
+                            evaluation = BulkEvaluationStorageCodec.decode(proposal, rows.getBytes(19), rows.getString(11));
+                            require(evaluation.targets().size() == rows.getInt(12),
+                                    "durable evidence target count differs");
+                            evaluations.put(executionId, evaluation);
+                        }
+                        int ordinal = rows.getInt(2);
+                        require(ordinal >= 0 && ordinal < evaluation.targets().size(),
+                                "durable evidence ordinal differs");
+                        var target = evaluation.targets().get(ordinal).target();
+                        require(target.expectedVersion().equals(rows.getString(4))
+                                        && evidenceTargetDigest(evaluation, ordinal).equals(rows.getString(3)),
+                                "durable evidence target or version differs");
+                    } catch (RuntimeException corrupt) {
+                        throw new IllegalStateException("durable evidence does not match protected evaluation", corrupt);
+                    }
+                }
+            }
+        }
+    }
+
+    static String evidenceTargetDigest(BulkEvaluationSnapshot evaluation, int ordinal) {
+        var target = evaluation.targets().get(ordinal).target();
+        Object id = target.id();
+        String type = id instanceof Integer ? "integer" : "string";
+        try {
+            MessageDigest hash = MessageDigest.getInstance("SHA-256");
+            for (String value : new String[] {"praxis.bulk.unit/1", evaluation.fingerprint(),
+                    Integer.toString(ordinal), type, id.toString(), target.expectedVersion()}) {
+                byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+                hash.update(ByteBuffer.allocate(4).putInt(bytes.length).array());
+                hash.update(bytes);
+            }
+            return "sha256:" + HexFormat.of().formatHex(hash.digest());
+        } catch (NoSuchAlgorithmException unavailable) {
+            throw new IllegalStateException("SHA-256 unavailable", unavailable);
+        }
     }
 
     private static void validateDurableColumns(Connection connection, String table,

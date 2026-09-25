@@ -18,14 +18,22 @@ public final class BulkEvaluationSnapshot {
     private final List<BulkTargetEvidence<?>> targets;
     private final String fingerprint;
     private final BulkEvaluationGovernance governance;
+    private final int formatVersion;
 
     public BulkEvaluationSnapshot(BulkStoredProposal proposal, Instant evaluatedAt,
             List<? extends BulkTargetEvidence<?>> targets, BulkEvaluationGovernance governance) {
+        this(proposal, evaluatedAt, targets, governance, 2);
+    }
+
+    private BulkEvaluationSnapshot(BulkStoredProposal proposal, Instant evaluatedAt,
+            List<? extends BulkTargetEvidence<?>> targets, BulkEvaluationGovernance governance, int formatVersion) {
         this.proposal = Objects.requireNonNull(proposal, "proposal");
         this.evaluatedAt = Objects.requireNonNull(evaluatedAt, "evaluatedAt").truncatedTo(ChronoUnit.MICROS);
         if (this.evaluatedAt.isBefore(proposal.createdAt()) || !this.evaluatedAt.isBefore(proposal.expiresAt()))
             throw new IllegalArgumentException("Evaluation instant outside proposal validity");
         this.governance = Objects.requireNonNull(governance, "governance");
+        if (formatVersion != 1 && formatVersion != 2) throw invalid();
+        this.formatVersion = formatVersion;
         for (var policy : governance.policies()) {
             if (policy.observedAt().isBefore(proposal.createdAt()) || policy.observedAt().isAfter(this.evaluatedAt))
                 throw new IllegalArgumentException("Policy observation outside evaluation window");
@@ -39,6 +47,8 @@ public final class BulkEvaluationSnapshot {
         var byId = new HashMap<Object, BulkTargetEvidence<?>>();
         for (var target : targets) {
             Objects.requireNonNull(target, "target evidence");
+            if (formatVersion == 2 && target.eligibility().isEmpty()) throw invalid();
+            if (formatVersion == 1 && target.eligibility().isPresent()) throw invalid();
             Object id = codec.readWire(wire(target.target().id()));
             if (byId.put(id, target) != null) throw invalid();
         }
@@ -53,6 +63,11 @@ public final class BulkEvaluationSnapshot {
         this.targets = List.copyOf(ordered);
         this.fingerprint = BulkCanonicalJson.evaluationDigest(storageDocument());
     }
+    static BulkEvaluationSnapshot legacy(BulkStoredProposal proposal, Instant evaluatedAt,
+            List<? extends BulkTargetEvidence<?>> targets, BulkEvaluationGovernance governance) {
+        return new BulkEvaluationSnapshot(proposal, evaluatedAt, targets, governance, 1);
+    }
+    boolean hasTypedEligibility() { return formatVersion == 2; }
     public BulkStoredProposal proposal() { return proposal; }
     public Instant evaluatedAt() { return evaluatedAt; }
     public List<BulkTargetEvidence<?>> targets() { return targets; }
@@ -71,7 +86,7 @@ public final class BulkEvaluationSnapshot {
             List<? extends BulkTargetEvidence<?>> currentTargets, BulkEvaluationGovernance currentGovernance) {
         Objects.requireNonNull(currentContext, "currentContext");
         Objects.requireNonNull(checkedAt, "checkedAt");
-        if (!proposal.snapshot().context().equals(currentContext) || checkedAt.isBefore(evaluatedAt)
+        if (!hasTypedEligibility() || !proposal.snapshot().context().equals(currentContext) || checkedAt.isBefore(evaluatedAt)
                 || !checkedAt.isBefore(proposal.expiresAt())) return false;
         var current = new BulkEvaluationSnapshot(proposal, checkedAt, currentTargets, currentGovernance);
         return BulkCanonicalJson.revalidationDigest(comparisonDocument())
@@ -90,12 +105,14 @@ public final class BulkEvaluationSnapshot {
         root.put("proposalId", proposal.id().toString()); root.put("inputFingerprint", proposal.snapshot().fingerprint());
         root.put("createdAt", proposal.createdAt().toString()); root.put("expiresAt", proposal.expiresAt().toString());
         root.put("evaluatedAt", evaluatedAt.toString());
+        if (formatVersion == 2) root.put("formatVersion", 2);
         root.set("governance", governance.document(true));
         var values = root.putArray("targets");
         for (var target : targets) {
             var value = values.addObject(); value.set("id", wire(target.target().id()));
             value.put("expectedVersion", target.target().expectedVersion()); value.put("observedVersion", target.observedVersion());
             value.set("facts", target.facts()); value.set("plan", target.plan());
+            if (formatVersion == 2) value.set("eligibility", BulkEvaluationStorageCodec.eligibilityDocument(target.eligibility().orElseThrow()));
         }
         return root;
     }

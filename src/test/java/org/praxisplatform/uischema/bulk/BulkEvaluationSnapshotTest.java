@@ -24,7 +24,7 @@ class BulkEvaluationSnapshotTest {
         var codec=BulkSnapshotStorageCodec.codec(proposal.snapshot().codecId());
         var targets=new ArrayList<BulkTargetEvidence<?>>();
         for(var target:selected) targets.add(new BulkTargetEvidence<>(new BulkTarget<>(codec.readWire(target.get("id")),target.get("expectedVersion").asText()),
-                "observed-v2", JSON.objectNode().put("dependentRevision","r7"), JSON.objectNode().put("amount",new BigDecimal("1.0"))));
+                "observed-v2", JSON.objectNode().put("dependentRevision","r7"), JSON.objectNode().put("amount",new BigDecimal("1.0")), BulkTargetEligibility.executable()));
         return new BulkEvaluationSnapshot(proposal,proposal.createdAt().plusSeconds(1),targets, governance());
     }
     @Test void evaluationUsesIndependentVersionedFraming() {
@@ -44,9 +44,9 @@ class BulkEvaluationSnapshotTest {
     @Test void rejectsMissingExtraDuplicateForeignTypedTargetsAndChangedExpectedVersion() {
         var value=evaluation(proposal()); var target=value.targets().getFirst();
         for(var targets:List.of(List.<BulkTargetEvidence<?>>of(),List.of(target,target),
-                List.of(new BulkTargetEvidence<>(new BulkTarget<>(101,"v1"),"v",JSON.objectNode(),JSON.objectNode())),
-                List.of(new BulkTargetEvidence<>(new BulkTarget<>("other","v1"),"v",JSON.objectNode(),JSON.objectNode())),
-                List.of(new BulkTargetEvidence<>(new BulkTarget<>("101","changed"),"v",JSON.objectNode(),JSON.objectNode()))))
+                List.of(new BulkTargetEvidence<>(new BulkTarget<>(101,"v1"),"v",JSON.objectNode(),JSON.objectNode(), BulkTargetEligibility.executable())),
+                List.of(new BulkTargetEvidence<>(new BulkTarget<>("other","v1"),"v",JSON.objectNode(),JSON.objectNode(), BulkTargetEligibility.executable())),
+                List.of(new BulkTargetEvidence<>(new BulkTarget<>("101","changed"),"v",JSON.objectNode(),JSON.objectNode(), BulkTargetEligibility.executable()))))
             assertThatThrownBy(()->new BulkEvaluationSnapshot(value.proposal(),value.evaluatedAt(),targets, governance())).isInstanceOf(IllegalArgumentException.class);
     }
     @Test void bindsUuidInputValidityInstantFactsObservedVersionAndPlan() {
@@ -55,9 +55,9 @@ class BulkEvaluationSnapshotTest {
         variants.add(new BulkEvaluationSnapshot(new BulkStoredProposal(UUID.randomUUID(),original.proposal().createdAt(),original.proposal().expiresAt(),original.proposal().snapshot()),original.evaluatedAt(),original.targets(), governance()));
         variants.add(new BulkEvaluationSnapshot(new BulkStoredProposal(original.proposal().id(),original.proposal().createdAt(),original.proposal().expiresAt().plusSeconds(1),original.proposal().snapshot()),original.evaluatedAt(),original.targets(), governance()));
         variants.add(new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt().plusSeconds(1),original.targets(), governance()));
-        variants.add(new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt(),List.of(new BulkTargetEvidence<>(target.target(),"changed",target.facts(),target.plan())), governance()));
-        variants.add(new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt(),List.of(new BulkTargetEvidence<>(target.target(),target.observedVersion(),JSON.objectNode().put("dependentRevision","r8"),target.plan())), governance()));
-        variants.add(new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt(),List.of(new BulkTargetEvidence<>(target.target(),target.observedVersion(),target.facts(),JSON.objectNode().put("amount",2))), governance()));
+        variants.add(new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt(),List.of(new BulkTargetEvidence<>(target.target(),"changed",target.facts(),target.plan(), BulkTargetEligibility.executable())), governance()));
+        variants.add(new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt(),List.of(new BulkTargetEvidence<>(target.target(),target.observedVersion(),JSON.objectNode().put("dependentRevision","r8"),target.plan(), BulkTargetEligibility.executable())), governance()));
+        variants.add(new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt(),List.of(new BulkTargetEvidence<>(target.target(),target.observedVersion(),target.facts(),JSON.objectNode().put("amount",2), BulkTargetEligibility.executable())), governance()));
         for(var value:variants)assertThat(value.fingerprint()).isNotEqualTo(original.fingerprint());
         assertThat(original.targets().getFirst().observedVersion()).isEqualTo("observed-v2"); // records a conflict, not READY
     }
@@ -79,14 +79,14 @@ class BulkEvaluationSnapshotTest {
         var original=evaluation(proposal()); var first=original.targets().getFirst();
         for(var number:List.of(new BigDecimal("1"),new BigDecimal("1e256"),new BigDecimal("10e256"),
                 new BigDecimal("1"+"0".repeat(255)).scaleByPowerOfTen(256),new BigDecimal("9".repeat(256)).scaleByPowerOfTen(256))) {
-            var plan=JSON.objectNode().put("amount",number);var evidence=new BulkTargetEvidence<>(first.target(),first.observedVersion(),first.facts(),plan);
+            var plan=JSON.objectNode().put("amount",number);var evidence=new BulkTargetEvidence<>(first.target(),first.observedVersion(),first.facts(),plan, BulkTargetEligibility.executable());
             plan.put("amount",99);
             var value=new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt(),List.of(evidence), governance());
             var restored=roundtrip(value);
             assertThat(restored.targets().getFirst().plan().get("amount").decimalValue()).isEqualByComparingTo(number);
             ((ObjectNode)evidence.plan()).put("amount",88);assertThat(evidence.plan().get("amount").decimalValue()).isEqualByComparingTo(number);
         }
-        var integer=new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt(),List.of(new BulkTargetEvidence<>(first.target(),first.observedVersion(),first.facts(),JSON.objectNode().put("amount",1))), governance());
+        var integer=new BulkEvaluationSnapshot(original.proposal(),original.evaluatedAt(),List.of(new BulkTargetEvidence<>(first.target(),first.observedVersion(),first.facts(),JSON.objectNode().put("amount",1), BulkTargetEligibility.executable())), governance());
         assertThat(integer.fingerprint()).isNotEqualTo(original.fingerprint());
         assertThatThrownBy(()->original.targets().clear()).isInstanceOf(UnsupportedOperationException.class);
         assertThat(original.toString()).isEqualTo("BulkEvaluationSnapshot[protected]");
@@ -101,9 +101,9 @@ class BulkEvaluationSnapshotTest {
     }
     @Test void rejectsUnsafeOrOversizedEvidence() {
         var target=evaluation(proposal()).targets().getFirst();
-        assertThatThrownBy(()->new BulkTargetEvidence<>(target.target(),"v",JSON.objectNode().put("amount",1.0d),JSON.objectNode())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(()->new BulkTargetEvidence<>(target.target(),"v",JSON.objectNode().put("amount",1.0d),JSON.objectNode(), BulkTargetEligibility.executable())).isInstanceOf(IllegalArgumentException.class);
         var huge=JSON.objectNode().put("value","x".repeat(5*1024*1024));
-        var evidence=new BulkTargetEvidence<>(target.target(),"v",huge,huge);
+        var evidence=new BulkTargetEvidence<>(target.target(),"v",huge,huge, BulkTargetEligibility.executable());
         var proposal=proposal();
         assertThatThrownBy(()->new BulkEvaluationSnapshot(proposal,proposal.createdAt(),List.of(evidence), governance())).isInstanceOf(IllegalArgumentException.class);
     }
