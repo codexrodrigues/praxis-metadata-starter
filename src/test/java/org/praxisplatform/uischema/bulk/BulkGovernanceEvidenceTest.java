@@ -72,10 +72,10 @@ class BulkGovernanceEvidenceTest {
         assertThat(value.matchesCurrentEvidence(CONTEXT, checkedAt, value.targets(), governance(checkedAt))).isTrue();
         assertThat(value.matchesCurrentEvidence(CONTEXT, checkedAt,
                 List.of(new BulkTargetEvidence<>(target.target(), target.observedVersion(),
-                        JSON.objectNode().put("dependentRevision", "changed"), target.plan())), governance(checkedAt))).isFalse();
+                        JSON.objectNode().put("dependentRevision", "changed"), target.plan(), BulkTargetEligibility.executable())), governance(checkedAt))).isFalse();
         assertThat(value.matchesCurrentEvidence(CONTEXT, checkedAt,
                 List.of(new BulkTargetEvidence<>(target.target(), target.observedVersion(), target.facts(),
-                        JSON.objectNode().put("amount", new BigDecimal("2.0")))), governance(checkedAt))).isFalse();
+                        JSON.objectNode().put("amount", new BigDecimal("2.0")), BulkTargetEligibility.executable())), governance(checkedAt))).isFalse();
 
         for (var changed : List.of(
                 governance("evaluator-r2", "authorization-r1", List.of(policyAt(checkedAt))),
@@ -114,14 +114,14 @@ class BulkGovernanceEvidenceTest {
         var target = seed.targets().getFirst();
         var original = new BulkEvaluationSnapshot(proposal, proposal.createdAt().plusSeconds(1),
                 List.of(new BulkTargetEvidence<>(target.target(), target.observedVersion(),
-                        JSON.objectNode().put("count", 1), JSON.objectNode().put("amount", 1))),
+                        JSON.objectNode().put("count", 1), JSON.objectNode().put("amount", 1), BulkTargetEligibility.executable())),
                 governance(proposal.createdAt()));
         var loaded = BulkEvaluationStorageCodec.decode(proposal, BulkEvaluationStorageCodec.encode(original), original.fingerprint());
         var checkedAt = original.evaluatedAt().plusSeconds(1);
         var freshInteger = new BulkTargetEvidence<>(target.target(), target.observedVersion(),
-                JSON.objectNode().put("count", 1), JSON.objectNode().put("amount", 1));
+                JSON.objectNode().put("count", 1), JSON.objectNode().put("amount", 1), BulkTargetEligibility.executable());
         var freshDecimal = new BulkTargetEvidence<>(target.target(), target.observedVersion(),
-                JSON.objectNode().put("count", 1), JSON.objectNode().put("amount", new BigDecimal("1.0")));
+                JSON.objectNode().put("count", 1), JSON.objectNode().put("amount", new BigDecimal("1.0")), BulkTargetEligibility.executable());
 
         assertThat(loaded.targets().getFirst().facts().get("count").isBigInteger()).isTrue();
         assertThat(freshInteger.facts().get("count").isInt()).isTrue();

@@ -9,14 +9,18 @@ public final class BulkUnitExecutionResult {
     private final UUID executionId;
     private final int ordinal;
     private final BulkUnitOutcome outcome;
+    private final BulkItemStatus itemStatus;
+    private final BulkUnitReasonCode reasonCode;
     private final boolean replayed;
     private final BulkExecutionSnapshot execution;
 
-    BulkUnitExecutionResult(UUID executionId, int ordinal, BulkUnitOutcome outcome,
-            boolean replayed, BulkExecutionSnapshot execution) {
+    BulkUnitExecutionResult(UUID executionId, int ordinal, BulkUnitOutcome outcome, BulkItemStatus itemStatus,
+            BulkUnitReasonCode reasonCode, boolean replayed, BulkExecutionSnapshot execution) {
         this.executionId = executionId;
         this.ordinal = ordinal;
         this.outcome = outcome;
+        this.itemStatus = itemStatus;
+        this.reasonCode = reasonCode;
         this.replayed = replayed;
         this.execution = execution;
     }
@@ -24,6 +28,12 @@ public final class BulkUnitExecutionResult {
     public UUID executionId() { return executionId; }
     public int ordinal() { return ordinal; }
     public BulkUnitOutcome outcome() { return outcome; }
+    public BulkItemStatus itemStatus() { return itemStatus; }
+    public BulkUnitReasonCode reasonCode() { return reasonCode; }
+    public boolean durableResultPresent() {
+        return outcome != null || itemStatus == BulkItemStatus.DENIED
+                || itemStatus == BulkItemStatus.INVALID || itemStatus == BulkItemStatus.CONFLICT;
+    }
     public boolean receiptPresent() { return outcome != null; }
     public boolean replayed() { return replayed; }
     public BulkDurableExecutionStatus status() { return execution.status(); }

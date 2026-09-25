@@ -2,9 +2,14 @@ package org.praxisplatform.uischema.bulk;
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import jakarta.persistence.EntityManagerFactory;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -96,7 +101,7 @@ class BulkDurableExecutionPostgresTest {
         observer.execute("truncate bulk_durable_domain, bulk_durable_jpa_domain");
         observer.update("insert into bulk_durable_domain(id) values (1), (2)");
         observer.update("insert into bulk_durable_jpa_domain(id) values (1), (2)");
-        assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(3);
+        assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(4);
     }
 
     @Test
@@ -124,6 +129,243 @@ class BulkDurableExecutionPostgresTest {
                 "structural-r1", deadline()))
                 .isInstanceOfSatisfying(BulkDurableExecutionException.class,
                         error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.CONFLICT));
+    }
+
+    @Test
+    void targetConflictIsDurableAndReplayNeverRunsAdmissionOrMutationAgain() {
+        var kernel = kernel();
+        var evaluation = persist(twoTargetEvaluation());
+        var reservation = reserve(kernel, evaluation, "admission-conflict", "owner-a");
+        var admissionCalls = new AtomicInteger();
+        var mutations = new AtomicInteger();
+        var conflict = kernel.executeUnit(reservation.control(), 0, unit -> {
+            admissionCalls.incrementAndGet();
+            assertThat(unit.originalIntent()).isNotNull();
+            assertThat(unit.governance()).isNotNull();
+            assertThat(unit.targetEvidence().eligibility()).isPresent();
+            return BulkUnitAdmission.conflict(BulkUnitReasonCode.TARGET_VERSION_CONFLICT);
+        }, unit -> {
+            mutations.incrementAndGet();
+            return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(conflict.itemStatus()).isEqualTo(BulkItemStatus.CONFLICT);
+        assertThat(conflict.durableResultPresent()).isTrue();
+        assertThat(conflict.reasonCode()).isEqualTo(BulkUnitReasonCode.TARGET_VERSION_CONFLICT);
+        assertThat(conflict.control().epoch()).isEqualTo(reservation.control().epoch());
+        assertThat(conflict.execution().nextOrdinal()).isEqualTo(1);
+        assertThat(conflict.execution().admissionCount()).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+        assertThat(admissionCalls).hasValue(1);
+        assertThat(mutations).hasValue(0);
+
+        var replay = kernel.executeUnit(conflict.control(), 0, unit -> {
+            admissionCalls.incrementAndGet(); return BulkUnitAdmission.admit();
+        }, unit -> {
+            mutations.incrementAndGet(); return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(replay.replayed()).isTrue();
+        assertThat(replay.itemStatus()).isEqualTo(BulkItemStatus.CONFLICT);
+        assertThat(admissionCalls).hasValue(1);
+        assertThat(mutations).hasValue(0);
+
+        var finalUnit = kernel.executeUnit(replay.control(), 1, unit -> BulkUnitAdmission.admit(),
+                unit -> BulkUnitMutationResult.confirmed());
+        assertThat(finalUnit.status()).isEqualTo(BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS);
+        assertThat(finalUnit.execution().receiptCount()).isEqualTo(1);
+        assertThat(finalUnit.execution().admissionCount()).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentAdmissionAndReceiptWritersSerializeAtTheExecutionControl() throws Exception {
+        var firstKernel = kernel();
+        var secondKernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(dataSource,
+                new DataSourceTransactionManager(dataSource), CONTEXT.namespaceId()));
+        var reservation = reserve(firstKernel, persist(twoTargetEvaluation()), "cross-result-race", "owner-a");
+        var callbackEntered = new CountDownLatch(1);
+        var releaseCallback = new CountDownLatch(1);
+        var secondStarted = new CountDownLatch(1);
+        var secondAdmissionCalls = new AtomicInteger();
+        var secondMutationCalls = new AtomicInteger();
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> firstKernel.executeUnit(reservation.control(), 0, unit -> {
+                callbackEntered.countDown();
+                try {
+                    if (!releaseCallback.await(8, TimeUnit.SECONDS)) throw new AssertionError("admission callback not released");
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt(); throw new AssertionError(error);
+                }
+                return BulkUnitAdmission.denied(BulkUnitReasonCode.TARGET_DENIED);
+            }, unit -> { fail("denied first writer must never mutate"); return BulkUnitMutationResult.confirmed(); }));
+            assertThat(callbackEntered.await(5, TimeUnit.SECONDS)).isTrue();
+            var second = executor.submit(() -> {
+                secondStarted.countDown();
+                return secondKernel.executeUnit(reservation.control(), 0, unit -> {
+                secondAdmissionCalls.incrementAndGet(); return BulkUnitAdmission.admit();
+                }, unit -> { secondMutationCalls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+            });
+            assertThat(secondStarted.await(5, TimeUnit.SECONDS)).isTrue();
+            var lockWaitDeadline = Instant.now().plusSeconds(4);
+            boolean lockObserved = false;
+            while (Instant.now().isBefore(lockWaitDeadline) && !lockObserved) {
+                lockObserved = observer.queryForObject("""
+                        select exists(select 1 from pg_stat_activity
+                          where pid <> pg_backend_pid() and wait_event_type='Lock'
+                            and query ilike '%praxis_bulk_execution%')
+                        """, Boolean.class);
+                if (!lockObserved) Thread.sleep(25);
+            }
+            assertThat(lockObserved).as("second writer waits on the durable execution row").isTrue();
+            releaseCallback.countDown();
+            var committed = first.get(5, TimeUnit.SECONDS);
+            assertThat(committed.itemStatus()).isEqualTo(BulkItemStatus.DENIED);
+            var serialized = second.get(5, TimeUnit.SECONDS);
+            assertThat(serialized.replayed()).isTrue();
+            assertThat(serialized.itemStatus()).isEqualTo(BulkItemStatus.DENIED);
+        } finally {
+            releaseCallback.countDown();
+        }
+        assertThat(secondAdmissionCalls).hasValue(0);
+        assertThat(secondMutationCalls).hasValue(0);
+        assertThat(count("praxis_bulk_admission")).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+    }
+
+    @Test
+    void commonStopPersistsSafeReasonAndLeavesCurrentAndSuffixUnprocessed() {
+        var kernel = kernel();
+        var evaluation = persist(twoTargetEvaluation());
+        var reservation = reserve(kernel, evaluation, "common-stop", "owner-a");
+        var mutations = new AtomicInteger();
+        var stopped = kernel.executeUnit(reservation.control(), 0,
+                unit -> BulkUnitAdmission.stop(BulkUnitReasonCode.AUTHORIZATION_REVOKED), unit -> {
+                    mutations.incrementAndGet(); return BulkUnitMutationResult.confirmed();
+                });
+        assertThat(stopped.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(stopped.execution().nextOrdinal()).isZero();
+        assertThat(stopped.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.AUTHORIZATION_REVOKED);
+        assertThat(stopped.itemStatus()).isEqualTo(BulkItemStatus.NOT_PROCESSED);
+        assertThat(stopped.durableResultPresent()).isFalse();
+        assertThat(count("praxis_bulk_admission")).isZero();
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+        assertThat(mutations).hasValue(0);
+
+        var readback = kernel.find(CONTEXT, reservation.executionId()).orElseThrow();
+        assertThat(readback.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(readback.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.AUTHORIZATION_REVOKED);
+        assertThat(kernel.recover(CONTEXT, reservation.executionId(), "recovery-owner").execution().terminalReasonCode())
+                .isEqualTo(BulkUnitReasonCode.AUTHORIZATION_REVOKED);
+        assertThat(mutations).hasValue(0);
+    }
+
+    @Test
+    void targetLockThatExceedsOneSecondStopsAndClearsAttempt() throws Exception {
+        var kernel = kernel();
+        var targetLocked = new CountDownLatch(1);
+        var releaseTarget = new CountDownLatch(1);
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var blocker = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                observer.update("update bulk_durable_domain set writes=writes+1 where id=1");
+                targetLocked.countDown();
+                try {
+                    if (!releaseTarget.await(5, TimeUnit.SECONDS)) throw new AssertionError("target lock not released");
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt(); throw new AssertionError(error);
+                }
+            }));
+            assertThat(targetLocked.await(5, TimeUnit.SECONDS)).isTrue();
+            var evaluation = persist(twoTargetEvaluation());
+            long started = System.nanoTime();
+            var reservation = kernel.reserve(CONTEXT, evaluation.proposal().id(), "deadline-target-lock", "owner-a",
+                    "structural-r1", Instant.now().plusSeconds(10));
+            try {
+                var stopped = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
+                    observer.queryForObject("select writes from bulk_durable_domain where id=1 for update", Integer.class);
+                    return BulkUnitMutationResult.confirmed();
+                });
+                assertThat(stopped.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+                assertThat(stopped.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.UNIT_ROLLED_BACK);
+                assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+                        .as("the active target lock is capped at one second")
+                        .isLessThan(3_000);
+                assertThat(stopped.itemStatus()).isEqualTo(BulkItemStatus.NOT_PROCESSED);
+                assertThat(observer.queryForObject("select active_attempt_id is null from praxis_bulk.praxis_bulk_execution where execution_id=?",
+                        Boolean.class, reservation.executionId())).isTrue();
+                assertThat(count("praxis_bulk_item_receipt")).isZero();
+            } finally {
+                releaseTarget.countDown();
+                blocker.get(5, TimeUnit.SECONDS);
+            }
+        }
+    }
+
+    @Test
+    void durableAdmissionReplayRemainsReadableAfterExecutionDeadline() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "admission-after-deadline", "owner-a");
+        var admissionCalls = new AtomicInteger();
+        var denied = kernel.executeUnit(reservation.control(), 0, unit -> {
+            admissionCalls.incrementAndGet(); return BulkUnitAdmission.denied(BulkUnitReasonCode.TARGET_DENIED);
+        }, unit -> { fail("denied unit must not mutate"); return BulkUnitMutationResult.confirmed(); });
+        expireExecutionDeadlineAsFixtureOwner(reservation.executionId());
+        var replay = kernel.executeUnit(denied.control(), 0, unit -> {
+            admissionCalls.incrementAndGet(); return BulkUnitAdmission.admit();
+        }, unit -> { fail("replay after deadline must not mutate"); return BulkUnitMutationResult.confirmed(); });
+        assertThat(replay.replayed()).isTrue();
+        assertThat(replay.itemStatus()).isEqualTo(BulkItemStatus.DENIED);
+        assertThat(admissionCalls).hasValue(1);
+    }
+
+    @Test
+    void refusesToMutateAfterARecordedOrdinalGap() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "ordinal-gap", "owner-a");
+        observer.update("update praxis_bulk.praxis_bulk_execution set next_ordinal=1 where execution_id=?",
+                reservation.executionId());
+        var admissions = new AtomicInteger();
+        var mutations = new AtomicInteger();
+        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 1, unit -> {
+            admissions.incrementAndGet(); return BulkUnitAdmission.admit();
+        }, unit -> {
+            mutations.incrementAndGet(); return BulkUnitMutationResult.confirmed();
+        })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+        assertThat(admissions).hasValue(0);
+        assertThat(mutations).hasValue(0);
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+        assertThat(count("praxis_bulk_admission")).isZero();
+    }
+
+    @Test
+    void recoversPendingReceiptByOrdinalAfterPriorAdmissionWithoutRedispatch() throws Exception {
+        var faults = new BulkCommitFaultDataSource(dataSource);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults,
+                new DataSourceTransactionManager(faults), CONTEXT.namespaceId()));
+        var domain = new JdbcTemplate(faults);
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "mixed-prefix-recovery", "owner-a");
+        var admissionCalls = new AtomicInteger();
+        var mutationCalls = new AtomicInteger();
+        var conflict = kernel.executeUnit(reservation.control(), 0, unit -> {
+            admissionCalls.incrementAndGet(); return BulkUnitAdmission.conflict(BulkUnitReasonCode.TARGET_VERSION_CONFLICT);
+        }, unit -> { fail("conflicted ordinal must not mutate"); return BulkUnitMutationResult.confirmed(); });
+        assertThat(conflict.execution().nextOrdinal()).isEqualTo(1);
+
+        assertThatThrownBy(() -> kernel.executeUnit(conflict.control(), 1, unit -> {
+            admissionCalls.incrementAndGet(); return BulkUnitAdmission.admit();
+        }, unit -> {
+            mutationCalls.incrementAndGet();
+            domain.update("update bulk_durable_domain set writes=writes+1 where id=2");
+            faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+            return BulkUnitMutationResult.confirmed();
+        })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+        assertThat(writes("bulk_durable_domain", 2)).isEqualTo(1);
+        var recovered = kernel.recover(CONTEXT, reservation.executionId(), "mixed-recovery-owner");
+        assertThat(recovered.status()).isEqualTo(BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS);
+        assertThat(recovered.execution().nextOrdinal()).isEqualTo(2);
+        assertThat(recovered.execution().admissionCount()).isEqualTo(1);
+        assertThat(recovered.execution().receiptCount()).isEqualTo(1);
+        assertThat(admissionCalls).hasValue(2);
+        assertThat(mutationCalls).hasValue(1);
     }
 
     @Test
@@ -205,7 +447,7 @@ class BulkDurableExecutionPostgresTest {
         int v2Checksum = observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='2'", Integer.class);
 
-        assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(1);
+        assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(2);
         assertThat(observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'", Integer.class))
                 .isEqualTo(v1Checksum);
@@ -219,6 +461,135 @@ class BulkDurableExecutionPostgresTest {
     }
 
     @Test
+    void v3LegacyEvaluationReceiptStillReplaysAfterV4ButCannotStartAnotherUnit() {
+        observer.execute("drop schema if exists praxis_bulk cascade");
+        Flyway.configure().dataSource(dataSource).locations("classpath:db/praxis-bulk-migrations")
+                .schemas("praxis_bulk").defaultSchema("praxis_bulk").table("praxis_bulk_schema_history")
+                .baselineOnMigrate(false).cleanDisabled(true).target("3").load().migrate();
+
+        Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        var expiredFixture = legacyV3Fixture(now.minusSeconds(40), now.minusSeconds(35), now.minusSeconds(20));
+        var proposal = expiredFixture.proposal();
+        var legacy = expiredFixture.evaluation();
+        persist(legacy);
+        UUID executionId = UUID.randomUUID();
+        seedV3Execution(proposal, legacy, "legacy-key", executionId, now.minusSeconds(25), now.minusSeconds(10),
+                now.minusSeconds(15), true);
+
+        // A second, still-live legacy execution proves that typed eligibility is required
+        // before a new unit starts, independently of replay/deadline behavior above.
+        var activeFixture = legacyV3Fixture(now.minusSeconds(5), now.minusSeconds(4), now.plusSeconds(60));
+        var activeProposal = activeFixture.proposal();
+        var activeLegacy = activeFixture.evaluation();
+        persist(activeLegacy);
+        UUID activeExecutionId = UUID.randomUUID();
+        seedV3Execution(activeProposal, activeLegacy, "legacy-key-active", activeExecutionId, now.minusSeconds(3), now.plusSeconds(30),
+                null, false);
+
+        assertThat(BulkExecutionMigrator.migrate(dataSource)).isEqualTo(1);
+        var kernel = kernel();
+        var replayReservation = kernel.reserve(CONTEXT, proposal.id(), "legacy-key", "owner-a", "structural-r1",
+                now.plusSeconds(60));
+        assertThat(replayReservation.replayed()).isTrue();
+        var callbacks = new AtomicInteger();
+        var receipt = kernel.executeUnit(replayReservation.control(), 0, unit -> {
+            callbacks.incrementAndGet(); return BulkUnitAdmission.admit();
+        }, unit -> { callbacks.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+        assertThat(receipt.replayed()).isTrue();
+        assertThat(receipt.receiptPresent()).isTrue();
+        assertThat(receipt.itemStatus()).isEqualTo(BulkItemStatus.CONFIRMED);
+        assertThat(callbacks).hasValue(0);
+        var recovered = kernel.recover(CONTEXT, executionId, "legacy-recovery-owner");
+        assertThat(recovered.receiptCount()).isEqualTo(1);
+        assertThat(recovered.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(callbacks).hasValue(0);
+
+        var activeReplay = kernel.reserve(CONTEXT, activeProposal.id(), "legacy-key-active", "owner-a",
+                "structural-r1", now.plusSeconds(60));
+        assertThat(activeReplay.replayed()).isTrue();
+        assertThat(observer.queryForObject(
+                "select next_ordinal from praxis_bulk.praxis_bulk_execution where execution_id=?", Integer.class,
+                activeExecutionId)).isZero();
+        assertThat(observer.queryForObject(
+                "select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=?", Integer.class,
+                activeExecutionId)).isZero();
+        assertThatThrownBy(() -> kernel.executeUnit(activeReplay.control(), 0,
+                unit -> { fail("legacy evidence has no new admission decision"); return BulkUnitAdmission.admit(); },
+                unit -> { fail("legacy evidence cannot start a new mutation"); return BulkUnitMutationResult.confirmed(); }))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_EXECUTABLE));
+        assertThat(callbacks).hasValue(0);
+    }
+
+    private LegacyV3Fixture legacyV3Fixture(Instant createdAt, Instant evaluatedAt, Instant expiresAt) {
+        var modernFixture = twoTargetEvaluation();
+        var proposal = new BulkStoredProposal(modernFixture.proposal().id(), createdAt, expiresAt,
+                modernFixture.proposal().snapshot());
+        var governance = new BulkEvaluationGovernance("legacy-evaluator-r1", "legacy-grants-r1", List.of(
+                new BulkPolicyObservation("tenant", "test", "approval_policy", "resource-action-approval",
+                        "resource:approve", "NEVER_APPLIED", "legacy-policy-r1", createdAt.plusSeconds(1))));
+        List<BulkTargetEvidence<?>> legacyTargets = new ArrayList<>();
+        modernFixture.targets().forEach(target -> legacyTargets.add(legacyEvidence(target)));
+        return new LegacyV3Fixture(proposal,
+                BulkEvaluationSnapshot.legacy(proposal, evaluatedAt, legacyTargets, governance));
+    }
+
+    private void seedV3Execution(BulkStoredProposal proposal, BulkEvaluationSnapshot legacy, String rawKey, UUID executionId,
+            Instant executionCreatedAt, Instant executionDeadline, Instant receiptAt, boolean withReceipt) {
+        String keyDigest = testFramedDigest("praxis.bulk.idempotency/1", rawKey);
+        String binding = testFramedDigest("praxis.bulk.reservation/1", proposal.id().toString(),
+                proposal.snapshot().fingerprint(), legacy.fingerprint(), CONTEXT.namespaceId(), CONTEXT.subjectId(),
+                CONTEXT.resourceKey(), CONTEXT.operationRef().operationId(), "structural-r1");
+        observer.update("""
+                insert into praxis_bulk.praxis_bulk_execution
+                (execution_id, proposal_id, namespace_id, subject_id, resource_key, operation_id,
+                 idempotency_key_digest, reservation_fingerprint, input_fingerprint, evaluation_fingerprint,
+                 structural_revision, owner_id, owner_epoch, status, next_ordinal, target_count, deadline_at,
+                 active_attempt_id, active_attempt_ordinal, active_target_digest, active_attempt_epoch,
+                 created_at, updated_at, terminal_at)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'RUNNING', ?, 2, ?, null, null, null, null, ?, ?, null)
+                """, executionId, proposal.id(), CONTEXT.namespaceId(), CONTEXT.subjectId(), CONTEXT.resourceKey(),
+                CONTEXT.operationRef().operationId(), keyDigest, binding, proposal.snapshot().fingerprint(),
+                legacy.fingerprint(), "structural-r1", "owner-a", withReceipt ? 1 : 0,
+                executionDeadline.atOffset(java.time.ZoneOffset.UTC),
+                executionCreatedAt.atOffset(java.time.ZoneOffset.UTC),
+                (withReceipt ? receiptAt : executionCreatedAt).atOffset(java.time.ZoneOffset.UTC));
+        if (withReceipt) {
+            UUID attemptId = UUID.randomUUID();
+            String digest = testFramedDigest("praxis.bulk.unit/1", legacy.fingerprint(), "0", "string", "1", "v1");
+            observer.update("""
+                insert into praxis_bulk.praxis_bulk_item_receipt
+                (execution_id, unit_ordinal, target_digest, expected_version, attempt_id, owner_epoch, outcome, confirmed_at)
+                values (?, 0, ?, 'v1', ?, 1, 'CONFIRMED', ?)
+                """, executionId, digest, attemptId, receiptAt.atOffset(java.time.ZoneOffset.UTC));
+        }
+    }
+
+    private record LegacyV3Fixture(BulkStoredProposal proposal, BulkEvaluationSnapshot evaluation) {}
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static BulkTargetEvidence<?> legacyEvidence(BulkTargetEvidence<?> target) {
+        return BulkTargetEvidence.legacy(target.target(), target.observedVersion(), target.facts(), target.plan());
+    }
+
+    private static String testFramedDigest(String framing, String... values) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            testFrame(digest, framing);
+            for (String value : values) testFrame(digest, value);
+            return "sha256:" + java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException error) {
+            throw new AssertionError(error);
+        }
+    }
+
+    private static void testFrame(MessageDigest digest, String value) {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        digest.update(ByteBuffer.allocate(4).putInt(bytes.length).array());
+        digest.update(bytes);
+    }
+
+    @Test
     void v3ReceiptIsImmutableAndRuntimeRoleHasOnlyTheRequiredWriteSurface() throws Exception {
         var runtimeDataSource = new DriverManagerDataSource(postgres.getJdbcUrl("durable_runtime", "postgres"),
                 "durable_runtime", "");
@@ -226,11 +597,12 @@ class BulkDurableExecutionPostgresTest {
         observer.execute("grant select on praxis_bulk.praxis_bulk_proposal, praxis_bulk.praxis_bulk_evaluation to durable_runtime");
         observer.execute("grant select, insert, update on praxis_bulk.praxis_bulk_execution to durable_runtime");
         observer.execute("grant select, insert on praxis_bulk.praxis_bulk_item_receipt to durable_runtime");
+        observer.execute("grant select, insert on praxis_bulk.praxis_bulk_admission to durable_runtime");
         var runtimeManager = new DataSourceTransactionManager(runtimeDataSource);
         var runtimeKernel = new JdbcBulkDurableExecution(
                 new BulkExecutionInfrastructure(runtimeDataSource, runtimeManager, CONTEXT.namespaceId()));
         var reservation = reserve(runtimeKernel, persist(twoTargetEvaluation()), "runtime-key", "runtime-owner");
-        runtimeKernel.executeUnit(reservation.control(), 0, unit -> BulkUnitMutationResult.confirmed());
+        runtimeKernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> BulkUnitMutationResult.confirmed());
 
         assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
         assertThatThrownBy(() -> observer.execute(
@@ -266,20 +638,20 @@ class BulkDurableExecutionPostgresTest {
             return BulkUnitMutationResult.confirmed();
         };
 
-        var first = kernel.executeUnit(reservation.control(), 0, callback);
+        var first = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), callback);
         assertThat(first.replayed()).isFalse();
         assertThat(first.outcome()).isEqualTo(BulkUnitOutcome.CONFIRMED);
         assertThat(writes("bulk_durable_domain", 1)).isEqualTo(1);
         assertThat(writes("bulk_durable_domain", 2)).isZero();
         assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
 
-        var retryA = kernel.executeUnit(first.control(), 0, callback);
+        var retryA = kernel.executeUnit(first.control(), 0, unit -> BulkUnitAdmission.admit(), callback);
         assertThat(retryA.replayed()).isTrue();
         assertThat(retryA.ordinal()).isZero();
         assertThat(callsA).hasValue(1);
         assertThat(callsB).hasValue(0);
 
-        var explicitB = kernel.executeUnit(retryA.control(), 1, callback);
+        var explicitB = kernel.executeUnit(retryA.control(), 1, unit -> BulkUnitAdmission.admit(), callback);
         assertThat(explicitB.replayed()).isFalse();
         assertThat(callsB).hasValue(1);
         assertThat(writes("bulk_durable_domain", 2)).isEqualTo(1);
@@ -295,7 +667,7 @@ class BulkDurableExecutionPostgresTest {
         var otherKernel = new JdbcBulkDurableExecution(
                 new BulkExecutionInfrastructure(dataSource, otherManager, otherContext.namespaceId()));
         var called = new AtomicInteger();
-        assertThatThrownBy(() -> otherKernel.executeUnit(reservation.control(), 0, unit -> {
+        assertThatThrownBy(() -> otherKernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             called.incrementAndGet();
             return BulkUnitMutationResult.confirmed();
         })).isInstanceOf(BulkDurableExecutionException.class);
@@ -310,7 +682,7 @@ class BulkDurableExecutionPostgresTest {
         var kernel = new JdbcBulkDurableExecution(infrastructure);
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "jpa-key", "owner-a");
 
-        var committed = kernel.executeUnit(reservation.control(), 0, unit -> {
+        var committed = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             var entityManager = EntityManagerFactoryUtils.getTransactionalEntityManager(entityManagerFactory);
             entityManager.find(BulkDurableJpaDomainRow.class, 1L).recordWrite();
             entityManager.flush();
@@ -321,7 +693,7 @@ class BulkDurableExecutionPostgresTest {
         assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
 
         var rollbackReservation = reserve(kernel, persist(twoTargetEvaluation()), "jpa-rollback", "owner-b");
-        var rolledBack = kernel.executeUnit(rollbackReservation.control(), 0, unit -> {
+        var rolledBack = kernel.executeUnit(rollbackReservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             var entityManager = EntityManagerFactoryUtils.getTransactionalEntityManager(entityManagerFactory);
             entityManager.find(BulkDurableJpaDomainRow.class, 1L).recordWrite();
             entityManager.flush();
@@ -341,24 +713,30 @@ class BulkDurableExecutionPostgresTest {
 
         var knownRollback = reserve(kernel, persist(twoTargetEvaluation()), "rollback-key", "owner-a");
         var rollbackCalls = new AtomicInteger();
-        var rollback = kernel.executeUnit(knownRollback.control(), 0, unit -> {
+        var rollback = kernel.executeUnit(knownRollback.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             rollbackCalls.incrementAndGet();
             faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
             faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.ROLLBACK_THEN_FAIL);
             return BulkUnitMutationResult.confirmed();
         });
         assertThat(rollback.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(rollback.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.UNIT_ROLLED_BACK);
+        assertThat(observer.queryForObject("""
+                select active_attempt_id is null and active_attempt_ordinal is null
+                   and active_target_digest is null and active_attempt_epoch is null
+                from praxis_bulk.praxis_bulk_execution where execution_id=?
+                """, Boolean.class, knownRollback.executionId())).isTrue();
         assertThat(rollbackCalls).hasValue(1);
         assertThat(writes("bulk_durable_domain", 1)).isZero();
         assertThat(count("praxis_bulk_item_receipt")).isZero();
-        assertThatThrownBy(() -> kernel.executeUnit(rollback.control(), 1, unit -> {
+        assertThatThrownBy(() -> kernel.executeUnit(rollback.control(), 1, unit -> BulkUnitAdmission.admit(), unit -> {
             fail("ordinal B must remain blocked after known rollback");
             return BulkUnitMutationResult.confirmed();
         })).isInstanceOf(BulkDurableExecutionException.class);
 
         var unknown = reserve(kernel, persist(twoTargetEvaluation()), "unknown-key", "owner-b");
         var unknownCalls = new AtomicInteger();
-        assertThatThrownBy(() -> kernel.executeUnit(unknown.control(), 0, unit -> {
+        assertThatThrownBy(() -> kernel.executeUnit(unknown.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             unknownCalls.incrementAndGet();
             faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
             faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
@@ -368,7 +746,7 @@ class BulkDurableExecutionPostgresTest {
         assertThat(unknownCalls).hasValue(1);
         assertThat(writes("bulk_durable_domain", 1)).isEqualTo(1);
         assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
-        assertThatThrownBy(() -> kernel.executeUnit(unknown.control(), 1, unit -> {
+        assertThatThrownBy(() -> kernel.executeUnit(unknown.control(), 1, unit -> BulkUnitAdmission.admit(), unit -> {
             fail("ordinal B must not run while commit B is uncertain");
             return BulkUnitMutationResult.confirmed();
         })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
@@ -376,7 +754,7 @@ class BulkDurableExecutionPostgresTest {
 
         var recovery = kernel.recover(CONTEXT, unknown.executionId(), "recovery-owner");
         assertThat(recovery.receiptCount()).isEqualTo(1);
-        assertThatThrownBy(() -> kernel.executeUnit(unknown.control(), 1, unit -> BulkUnitMutationResult.confirmed()))
+        assertThatThrownBy(() -> kernel.executeUnit(unknown.control(), 1, unit -> BulkUnitAdmission.admit(), unit -> BulkUnitMutationResult.confirmed()))
                 .isInstanceOfSatisfying(BulkDurableExecutionException.class,
                         error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.FENCED));
     }
@@ -391,7 +769,7 @@ class BulkDurableExecutionPostgresTest {
         var callsA = new AtomicInteger();
         var callsB = new AtomicInteger();
 
-        var first = kernel.executeUnit(reservation.control(), 0, unit -> {
+        var first = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             callsA.incrementAndGet();
             faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -408,14 +786,47 @@ class BulkDurableExecutionPostgresTest {
         assertThat(callsA).hasValue(1);
         assertThat(callsB).hasValue(0);
 
-        var retryA = kernel.executeUnit(first.control(), 0, unit -> {
+        var lockAcquired = new CountDownLatch(1);
+        var releaseLock = new CountDownLatch(1);
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var blocker = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                observer.queryForObject("select execution_id from praxis_bulk.praxis_bulk_execution where execution_id=? for update",
+                        UUID.class, reservation.executionId());
+                lockAcquired.countDown();
+                try {
+                    if (!releaseLock.await(4, TimeUnit.SECONDS)) throw new AssertionError("ACK row lock not released");
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError("ACK row lock interrupted", error);
+                }
+            }));
+            assertThat(lockAcquired.await(2, TimeUnit.SECONDS)).isTrue();
+            long startedNanos = System.nanoTime();
+            assertThatThrownBy(() -> kernel.executeUnit(first.control(), 0,
+                    unit -> { callsB.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                    unit -> { callsB.incrementAndGet(); return BulkUnitMutationResult.confirmed(); }))
+                    .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                            error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+            assertThat(Duration.ofNanos(System.nanoTime() - startedNanos)).isLessThan(Duration.ofSeconds(3));
+            assertThat(callsA).hasValue(1);
+            assertThat(callsB).hasValue(0);
+            assertThat(countForExecution("praxis_bulk_item_receipt", reservation.executionId())).isEqualTo(1);
+            releaseLock.countDown();
+            blocker.get(4, TimeUnit.SECONDS);
+        } finally {
+            releaseLock.countDown();
+        }
+
+        var retryA = kernel.executeUnit(first.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             callsB.incrementAndGet();
             return BulkUnitMutationResult.confirmed();
         });
         assertThat(retryA.replayed()).isTrue();
         assertThat(callsB).hasValue(0);
+        assertThat(observer.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=? and unit_ordinal=0 and unit_deadline_at > confirmed_at",
+                Integer.class, reservation.executionId())).isEqualTo(1);
 
-        kernel.executeUnit(retryA.control(), 1, unit -> {
+        kernel.executeUnit(retryA.control(), 1, unit -> BulkUnitAdmission.admit(), unit -> {
             callsB.incrementAndGet();
             faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=2");
             return BulkUnitMutationResult.confirmed();
@@ -425,25 +836,55 @@ class BulkDurableExecutionPostgresTest {
     }
 
     @Test
+    void admissionCannotExhaustItsDurableBudgetAndStillInvokeDomainMutation() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "unit-budget-key", "owner-budget");
+        var mutations = new AtomicInteger();
+        long startedNanos = System.nanoTime();
+        var outcome = kernel.executeUnit(reservation.control(), 0, unit -> {
+            assertThat(unit.remainingBudget()).isPositive();
+            // Model the host's independent Config/pool wait while Metadata's API transaction is idle.
+            try (Connection external = dataSource.getConnection();
+                    var slowRead = external.prepareStatement("select pg_sleep(5.2)")) {
+                slowRead.execute();
+            } catch (SQLException unavailable) {
+                throw new IllegalStateException("simulated external admission read failed", unavailable);
+            }
+            return BulkUnitAdmission.admit();
+        }, unit -> {
+            mutations.incrementAndGet();
+            observer.update("update bulk_durable_domain set writes=writes+1 where id=1");
+            return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(Duration.ofNanos(System.nanoTime() - startedNanos)).isLessThan(Duration.ofSeconds(8));
+        assertThat(outcome.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(outcome.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.DEADLINE_EXCEEDED);
+        assertThat(mutations).hasValue(0);
+        assertThat(writes("bulk_durable_domain", 1)).isZero();
+        assertThat(countForExecution("praxis_bulk_item_receipt", reservation.executionId())).isZero();
+        assertThat(countForExecution("praxis_bulk_admission", reservation.executionId())).isZero();
+    }
+
+    @Test
     void replayOfAAfterBCompletesAndDeadlinePassesNeverDispatchesACallbackAgain() {
         var kernel = kernel();
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "completed-replay-key", "owner-a");
         var callsA = new AtomicInteger();
         var callsB = new AtomicInteger();
 
-        var first = kernel.executeUnit(reservation.control(), 0, unit -> {
+        var first = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             callsA.incrementAndGet();
             observer.update("update bulk_durable_domain set writes=writes+1 where id=1");
             return BulkUnitMutationResult.confirmed();
         });
-        var completed = kernel.executeUnit(first.control(), 1, unit -> {
+        var completed = kernel.executeUnit(first.control(), 1, unit -> BulkUnitAdmission.admit(), unit -> {
             callsB.incrementAndGet();
             observer.update("update bulk_durable_domain set writes=writes+1 where id=2");
             return BulkUnitMutationResult.confirmed();
         });
         assertThat(completed.status()).isEqualTo(BulkDurableExecutionStatus.COMPLETED);
 
-        var replayAfterCompletion = kernel.executeUnit(completed.control(), 0, ignored -> {
+        var replayAfterCompletion = kernel.executeUnit(completed.control(), 0, unit -> BulkUnitAdmission.admit(), ignored -> {
             fail("receipt A must replay after B completed; it must not invoke the callback");
             return BulkUnitMutationResult.confirmed();
         });
@@ -457,7 +898,7 @@ class BulkDurableExecutionPostgresTest {
                 select deadline_at < clock_timestamp()
                 from praxis_bulk.praxis_bulk_execution where execution_id=?
                 """, Boolean.class, reservation.executionId())).isTrue();
-        var replayAfterDeadline = kernel.executeUnit(replayAfterCompletion.control(), 0, ignored -> {
+        var replayAfterDeadline = kernel.executeUnit(replayAfterCompletion.control(), 0, unit -> BulkUnitAdmission.admit(), ignored -> {
             fail("durable receipt A must replay even when the execution deadline is past");
             return BulkUnitMutationResult.confirmed();
         });
@@ -478,7 +919,7 @@ class BulkDurableExecutionPostgresTest {
         var faultJdbc = new JdbcTemplate(faults);
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "corrupt-recovery-key", "owner-a");
 
-        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 0, unit -> {
+        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
             faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
             return BulkUnitMutationResult.confirmed();
@@ -492,7 +933,7 @@ class BulkDurableExecutionPostgresTest {
         assertThat(recovery.receiptCount()).isEqualTo(1);
         assertThat(recovery.control().epoch()).isGreaterThan(reservation.control().epoch());
         var callbacks = new AtomicInteger();
-        assertThatThrownBy(() -> kernel.executeUnit(recovery.control(), 1, ignored -> {
+        assertThatThrownBy(() -> kernel.executeUnit(recovery.control(), 1, unit -> BulkUnitAdmission.admit(), ignored -> {
             callbacks.incrementAndGet();
             return BulkUnitMutationResult.confirmed();
         })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
@@ -508,11 +949,11 @@ class BulkDurableExecutionPostgresTest {
         var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager, CONTEXT.namespaceId()));
         var faultJdbc = new JdbcTemplate(faults);
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "corrupt-attempt-key", "owner-a");
-        var first = kernel.executeUnit(reservation.control(), 0, unit -> {
+        var first = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
             return BulkUnitMutationResult.confirmed();
         });
-        assertThatThrownBy(() -> kernel.executeUnit(first.control(), 1, unit -> {
+        assertThatThrownBy(() -> kernel.executeUnit(first.control(), 1, unit -> BulkUnitAdmission.admit(), unit -> {
             faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=2");
             faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
             return BulkUnitMutationResult.confirmed();
@@ -522,7 +963,7 @@ class BulkDurableExecutionPostgresTest {
 
         corruptPendingReceiptAttemptIdAsFixtureOwner(reservation.executionId(), 1);
         var callbacks = new AtomicInteger();
-        assertThatThrownBy(() -> kernel.executeUnit(first.control(), 1, ignored -> {
+        assertThatThrownBy(() -> kernel.executeUnit(first.control(), 1, unit -> BulkUnitAdmission.admit(), ignored -> {
             callbacks.incrementAndGet();
             return BulkUnitMutationResult.confirmed();
         })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
@@ -539,11 +980,11 @@ class BulkDurableExecutionPostgresTest {
         var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager, CONTEXT.namespaceId()));
         var faultJdbc = new JdbcTemplate(faults);
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "prefix-recovery-key", "owner-a");
-        var first = kernel.executeUnit(reservation.control(), 0, unit -> {
+        var first = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
             return BulkUnitMutationResult.confirmed();
         });
-        assertThatThrownBy(() -> kernel.executeUnit(first.control(), 1, unit -> {
+        assertThatThrownBy(() -> kernel.executeUnit(first.control(), 1, unit -> BulkUnitAdmission.admit(), unit -> {
             faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=2");
             faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
             return BulkUnitMutationResult.confirmed();
@@ -556,7 +997,7 @@ class BulkDurableExecutionPostgresTest {
         assertThat(recovery.execution().nextOrdinal()).isEqualTo(1);
         assertThat(recovery.receiptCount()).isEqualTo(2);
         var callbacks = new AtomicInteger();
-        var replayedA = kernel.executeUnit(recovery.control(), 0, ignored -> {
+        var replayedA = kernel.executeUnit(recovery.control(), 0, unit -> BulkUnitAdmission.admit(), ignored -> {
             callbacks.incrementAndGet();
             return BulkUnitMutationResult.confirmed();
         });
@@ -569,7 +1010,7 @@ class BulkDurableExecutionPostgresTest {
         assertThat(replayedA.control().executionId()).isEqualTo(recovery.control().executionId());
         assertThat(replayedA.control().ownerId()).isEqualTo(recovery.control().ownerId());
         assertThat(replayedA.control().epoch()).isEqualTo(recovery.control().epoch());
-        assertThatThrownBy(() -> kernel.executeUnit(recovery.control(), 1, ignored -> {
+        assertThatThrownBy(() -> kernel.executeUnit(recovery.control(), 1, unit -> BulkUnitAdmission.admit(), ignored -> {
             callbacks.incrementAndGet();
             return BulkUnitMutationResult.confirmed();
         })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
@@ -588,7 +1029,7 @@ class BulkDurableExecutionPostgresTest {
         var release = new CountDownLatch(1);
         var callsB = new AtomicInteger();
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var unit = executor.submit(() -> kernel.executeUnit(reservation.control(), 0, ignored -> {
+            var unit = executor.submit(() -> kernel.executeUnit(reservation.control(), 0, admissionContext -> BulkUnitAdmission.admit(), ignored -> {
                 observer.update("update bulk_durable_domain set writes=writes+1 where id=1");
                 entered.countDown();
                 try {
@@ -612,7 +1053,7 @@ class BulkDurableExecutionPostgresTest {
             assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
             var recovery = recovering.get(10, TimeUnit.SECONDS);
             assertThat(recovery.control().epoch()).isGreaterThan(reservation.control().epoch());
-            assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 1, ignored -> {
+            assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 1, admissionContext -> BulkUnitAdmission.admit(), ignored -> {
                 callsB.incrementAndGet();
                 return BulkUnitMutationResult.confirmed();
             })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
@@ -636,8 +1077,8 @@ class BulkDurableExecutionPostgresTest {
                 com.fasterxml.jackson.databind.JsonNode::deepCopy, com.fasterxml.jackson.databind.JsonNode::deepCopy);
         var proposal = new BulkStoredProposal(UUID.randomUUID(), created, created.plusSeconds(600), snapshot);
         var evidence = new ArrayList<BulkTargetEvidence<?>>();
-        evidence.add(new BulkTargetEvidence<>(new BulkTarget<>("1", "v1"), "observed-v1", JSON.objectNode(), JSON.objectNode()));
-        evidence.add(new BulkTargetEvidence<>(new BulkTarget<>("2", "v2"), "observed-v2", JSON.objectNode(), JSON.objectNode()));
+        evidence.add(new BulkTargetEvidence<>(new BulkTarget<>("1", "v1"), "observed-v1", JSON.objectNode(), JSON.objectNode(), BulkTargetEligibility.executable()));
+        evidence.add(new BulkTargetEvidence<>(new BulkTarget<>("2", "v2"), "observed-v2", JSON.objectNode(), JSON.objectNode(), BulkTargetEligibility.executable()));
         Instant evaluatedAt = created.plusSeconds(1);
         var governance = new BulkEvaluationGovernance("test-evaluator-r1", "test-grants-r1", List.of(
                 new BulkPolicyObservation("tenant", "test", "approval_policy", "resource-action-approval",
@@ -669,6 +1110,13 @@ class BulkDurableExecutionPostgresTest {
         return observer.queryForObject("select count(*) from praxis_bulk." + table, Integer.class);
     }
 
+    private int countForExecution(String table, UUID executionId) {
+        if (!List.of("praxis_bulk_item_receipt", "praxis_bulk_admission").contains(table))
+            throw new IllegalArgumentException("Unsupported durable execution table");
+        return observer.queryForObject("select count(*) from praxis_bulk." + table + " where execution_id=?",
+                Integer.class, executionId);
+    }
+
     private int writes(String table, long id) {
         return observer.queryForObject("select writes from " + table + " where id=?", Integer.class, id);
     }
@@ -676,14 +1124,39 @@ class BulkDurableExecutionPostgresTest {
     private void expireDeadlineAsFixtureOwner(UUID executionId) {
         observer.execute("alter table praxis_bulk.praxis_bulk_execution "
                 + "disable trigger praxis_bulk_execution_protect_binding");
+        observer.execute("alter table praxis_bulk.praxis_bulk_item_receipt "
+                + "disable trigger praxis_bulk_item_receipt_reject_mutation");
         try {
+            assertThat(observer.update("""
+                    update praxis_bulk.praxis_bulk_item_receipt
+                    set unit_deadline_at=(select max(confirmed_at) + interval '1 microsecond'
+                                          from praxis_bulk.praxis_bulk_item_receipt
+                                          where execution_id=?)
+                    where execution_id=?
+                    """, executionId, executionId)).isGreaterThan(0);
             assertThat(observer.update("""
                     update praxis_bulk.praxis_bulk_execution
                     set deadline_at=(select max(confirmed_at) + interval '1 microsecond'
                                      from praxis_bulk.praxis_bulk_item_receipt
                                      where execution_id=praxis_bulk_execution.execution_id)
                     where execution_id=?
-                    """, executionId)).isEqualTo(1);
+            """, executionId)).isEqualTo(1);
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_item_receipt "
+                    + "enable trigger praxis_bulk_item_receipt_reject_mutation");
+            observer.execute("alter table praxis_bulk.praxis_bulk_execution "
+                    + "enable trigger praxis_bulk_execution_protect_binding");
+        }
+    }
+
+    private void expireExecutionDeadlineAsFixtureOwner(UUID executionId) {
+        observer.execute("alter table praxis_bulk.praxis_bulk_execution "
+                + "disable trigger praxis_bulk_execution_protect_binding");
+        try {
+            assertThat(observer.update("update praxis_bulk.praxis_bulk_execution "
+                    + "set deadline_at=(select max(recorded_at) + interval '1 microsecond' "
+                    + "from praxis_bulk.praxis_bulk_admission where execution_id=praxis_bulk_execution.execution_id) "
+                    + "where execution_id=?", executionId)).isEqualTo(1);
         } finally {
             observer.execute("alter table praxis_bulk.praxis_bulk_execution "
                     + "enable trigger praxis_bulk_execution_protect_binding");
