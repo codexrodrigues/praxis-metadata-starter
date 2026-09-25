@@ -21,7 +21,12 @@ public final class JdbcBulkProposalStore {
         Objects.requireNonNull(proposal, "proposal");
         requireNamespace(proposal.snapshot().context());
         try {
-            infrastructure.withConnection(connection -> { insertProposal(connection, proposal); return null; });
+            infrastructure.withConnection(connection -> {
+                BulkQuotaLedger.Scope quota = BulkQuotaLedger.lockProposal(connection, infrastructure, proposal, false, true);
+                insertProposal(connection, proposal);
+                BulkQuotaLedger.insertPending(connection, proposal, quota);
+                return null;
+            });
         } catch (DataAccessException error) { throw safe(error); }
     }
 
@@ -37,8 +42,10 @@ public final class JdbcBulkProposalStore {
         byte[] evaluationPayload = BulkEvaluationStorageCodec.encode(evaluation);
         try {
             infrastructure.withConnection(connection -> {
+                BulkQuotaLedger.Scope quota = BulkQuotaLedger.lockProposal(connection, infrastructure, proposal, false, true);
                 insertProposal(connection, proposal);
                 insertEvaluation(connection, proposal, evaluation, evaluationPayload);
+                BulkQuotaLedger.insertPending(connection, proposal, quota);
                 return null;
             });
         } catch (DataAccessException error) { throw safe(error); }

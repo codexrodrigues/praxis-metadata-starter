@@ -15,7 +15,7 @@ plataforma.
 
 ## SDK em desenvolvimento
 
-- [Núcleo durável de execução](spec/BULK-DURABLE-EXECUTION.html): contrato de reserva, unidade transacional e recuperação; adoção explícita, sem exposição HTTP.
+- [Núcleo durável de execução](spec/BULK-DURABLE-EXECUTION.html): reserva, unidade transacional, ledger de capacidade V5, retenção/tombstones e recuperação; fundação sem exposição HTTP nem adoção completa no host.
 - [Evidência protegida da avaliação](spec/BULK-EVALUATION-EVIDENCE.html): fatos/plano por alvo vinculados à proposta, sem decisão de elegibilidade.
 
 - [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html): API Java, sem runtime executável ou integração de discovery neste incremento.
@@ -25,7 +25,7 @@ plataforma.
 - [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html): unicidade, vínculo operação/recurso/método e DTO de request concreto do handler MVC.
 
 - [Leitura estrita de request](spec/CANONICAL-REQUEST-SCHEMA.html): schema da operação, dialeto e limites da composição backend.
-- [Persistência protegida de propostas](spec/BULK-PROPOSAL-STORAGE.html): entradas EXPLICIT/SYNC, migração explícita e provas PostgreSQL; sem avaliação READY ou execução.
+- [Persistência protegida de propostas](spec/BULK-PROPOSAL-STORAGE.html): entradas EXPLICIT/SYNC, allocations pendentes V5 e migração explícita; sem endpoint/fluxo de negócio executável.
 - [Infraestrutura transacional de lote](spec/BULK-EXECUTION-INFRASTRUCTURE.html): vínculo JDBC/JPA explícito, sem store ou DDL.
 
 - [Campos editáveis em lote](spec/BULK-EDITABLE-FIELDS.html): annotation e compilação estrutural de SET/CLEAR.

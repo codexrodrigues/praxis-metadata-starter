@@ -23,15 +23,19 @@ class BulkSnapshotStorageCodecTest {
                 Instant.parse("2026-09-13T12:15:00Z"), snapshot);
     }
     static <WI, ID> BulkIntentSnapshot snapshot(BulkMode mode, BulkIdentityCodec<WI, ID> codec, String id, String number) {
+        return snapshot(CONTEXT, mode, codec, id, number);
+    }
+    static <WI, ID> BulkIntentSnapshot snapshot(BulkFingerprintContext context, BulkMode mode,
+            BulkIdentityCodec<WI, ID> codec, String id, String number) {
         var reader = new BulkProtocolReader<>(codec);
         String selection = "\"selection\":{\"mode\":\"EXPLICIT\",\"targets\":[{\"id\":"+id+",\"expectedVersion\":\"v1\"}]}";
         String changes = "\"changes\":[{\"field\":\"amount\",\"operator\":\"SET\",\"value\":"+number+"}]";
         return switch(mode) {
-            case UNIFORM_UPDATE -> BulkIntentSnapshot.uniform(CONTEXT, codec,
+            case UNIFORM_UPDATE -> BulkIntentSnapshot.uniform(context, codec,
                     reader.readUniform(bytes("{\"executionMode\":\"SYNC\","+selection+","+changes+"}")), JsonNode::deepCopy);
-            case DOMAIN_COMMAND -> BulkIntentSnapshot.command(CONTEXT, codec,
+            case DOMAIN_COMMAND -> BulkIntentSnapshot.command(context, codec,
                     reader.<JsonNode, JsonNode>readCommand(bytes("{\"executionMode\":\"SYNC\","+selection+",\"parameters\":{\"amount\":"+number+",\"reason\":\"protected-customer-value\"}}"), JsonNode::deepCopy, JsonNode::deepCopy), JsonNode::deepCopy, JsonNode::deepCopy);
-            case PER_ITEM_UPDATE -> BulkIntentSnapshot.items(CONTEXT, codec,
+            case PER_ITEM_UPDATE -> BulkIntentSnapshot.items(context, codec,
                     reader.readItems(bytes("{\"executionMode\":\"SYNC\",\"items\":[{\"id\":"+id+",\"expectedVersion\":\"v1\","+changes+"}]}")));
         };
     }

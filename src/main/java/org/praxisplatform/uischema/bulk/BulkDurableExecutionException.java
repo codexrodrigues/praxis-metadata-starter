@@ -5,7 +5,9 @@ public final class BulkDurableExecutionException extends RuntimeException {
     public enum Reason {
         NOT_FOUND,
         CONFLICT,
+        CAPACITY,
         EXPIRED,
+        RESULT_PURGED,
         FENCED,
         NOT_EXECUTABLE,
         DEADLINE_EXCEEDED,

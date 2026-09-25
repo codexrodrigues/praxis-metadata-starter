@@ -5,8 +5,9 @@
 Este corte é `contrato-publico` e `arquitetural`. A fonte canônica é o pacote `bulk` do
 Metadata Starter e seu schema PostgreSQL explícito. O consumidor direto é o host que adota
 o mesmo `DataSource` e `PlatformTransactionManager` do domínio. Não há endpoint, registry,
-annotation, auto-configuração, capability, READY, quota, fila, job, QUERY, ASYNC, ATOMIC,
-retenção ou expurgo neste corte.
+annotation, auto-configuração ou capability neste corte. V5 fornece controle estrutural
+`READY`, quotas e primitivas de retenção/expurgo descritos abaixo; eles não publicam por si
+só uma operação executável, fila/job, nem suporte a QUERY, ASYNC ou ATOMIC.
 
 O inventário anterior é reaproveitado assim:
 
@@ -74,6 +75,67 @@ políticas RLS inesperados no schema dedicado. O índice interno do Flyway é a 
 btree ascendente, não único), não somente pelo nome. As inspeções de catálogo usam
 `pg_catalog` e restauram o `search_path` original na mesma conexão, inclusive para datasource
 configurado com `currentSchema=praxis_bulk`.
+
+O host também declara o owner esperado do schema e os principais PostgreSQL que recebem
+privilégios para a validação física.
+`BulkExecutionMigrator.migrate(dataSource, namespaceToDeploymentId,
+BulkExecutionRoleConfiguration)` aceita `runtimeGranteeRoles` e `retentionExecutorMembers`; a
+sobrecarga `validate(dataSource, configuration)` pode verificar novamente o ambiente depois.
+`expectedSchemaOwnerRole` identifica o usuário/role usado para criar o schema e as tabelas;
+ownership é validado separadamente porque não aparece como um grant ordinário e pode permitir
+alterar privilégios ou remover triggers. Os métodos sem configuração capturam `current_user`
+da conexão usada na própria validação; para validar usando outra credencial, passe explicitamente
+o owner confiável registrado pelo host.
+Esses campos identificam os grantees diretos e todos os membros de role aceitos, inclusive os
+transitivos. A validação exige que as identidades existam e sejam não privilegiadas, rejeita
+membership que amplie a lista declarada e compara ACLs do schema exatamente. Para cada tabela,
+varre privilégios de tabela e coluna e recusa `PUBLIC`, grant option, grantees não configurados
+ou privilégios fora da allowlist específica; tombstones são somente leitura pelo runtime. O
+Metadata Starter valida esses grants, mas não os concede: o provisionamento das credenciais e
+ACLs continua sob controle do host/administrador do banco.
+
+## Ledger de capacidade e retenção V5
+
+V5 liga as tabelas existentes às mutações reais por meio de allocations duráveis. A ordem
+de locks de todas as mutações e rotinas de retenção é: binding de namespace (`FOR SHARE`),
+controle da operação (`FOR SHARE`), bucket do deployment (`FOR UPDATE`), bucket do sujeito
+(`FOR UPDATE`), proposta (`FOR UPDATE`) e execução (`FOR UPDATE`). O migrator toma os locks
+globais nessa mesma ordem antes de reconstruir o ledger. Buckets são pontos de serialização;
+as contagens são derivadas das allocations dentro da transação, sem contador mutável paralelo.
+
+Os limites são 100 propostas pendentes por deployment, 10 por sujeito autenticado dentro do
+deployment e 80 execuções ativas por deployment. `JdbcBulkProposalStore.insert` e
+`insertEvaluated` criam a proposta/evidência e `PROPOSAL_PENDING` juntos. A reserva consulta
+primeiro a existência de uma execução por chave sob o escopo confiável, antes de gates que
+só se aplicam a trabalho novo; replay válido continua possível sob saturação. Para nova
+reserva, os locks serializam concorrentes, o limite ativo é verificado, a allocation
+pendente vira `CONSUMED` e a `EXECUTION_ACTIVE` nasce na mesma transação que a execução.
+Uma proposta consumida por outra chave retorna sua execução existente; não cria segunda
+execução nem nova cobrança pendente.
+
+Ao confirmar estado terminal, um trigger protegido muda exatamente uma allocation ativa
+para `RELEASED/TERMINAL_RECONCILED` na mesma transação. A validação física exige essa
+correspondência exata; allocation ativa órfã após terminalização é drift e deve falhar
+fechado, sem exceção tolerante que deixe quota ocupada indefinidamente. Falha/commit incerto,
+owner ativo ou evidência incompleta não libera capacidade. Proposta expirada e não consumida
+é limpa por `expire_unconsumed_proposal`, não por delete do runtime.
+
+`praxis_bulk_retention_executor` tem somente `USAGE` no schema e `EXECUTE` nas duas funções
+de retenção. Não recebe mutação direta de tabelas. A validação também confere roles e
+memberships, ownership, ACLs por coluna/tabela, triggers de proteção, funções definer e
+search paths fixos. A função de purge aceita uma execução terminal reconciliada, completa e
+com `terminal_at` imutável de pelo menos 30 dias; na mesma transação grava tombstone mínimo
+com scope/key digest e identidade do resultado, e depois remove conteúdo operacional,
+receipts, alocações, proposta e execução. O tombstone é retido para sempre dentro do
+namespace e impede reutilizar a chave. Replay autorizado por tombstone resulta em
+`RESULT_PURGED` (mapeável ao HTTP 410); conflitos ordinários de chave/vínculo continuam
+`CONFLICT` (409). Sem tombstone correspondente, não inferir expurgo nem efeito.
+
+Provas PostgreSQL exercitam os jobs sob `SET ROLE praxis_bulk_retention_executor`, a
+liberação junto da transição terminal, expiração apenas de proposta não consumida, purge,
+tombstone, replay após purge e rejeição de estado terminal com allocation ativa. Migração e
+validação física após um caminho de trigger desabilitado precisam falhar até o operador
+reconciliar a allocation; checksums de Flyway não bastam.
 
 ## Estados e sequência
 
@@ -262,8 +324,10 @@ avanço de ordinal não incrementa epoch nem transforma uma chamada de A em B.
 vigente. `BulkUnitExecutionResult` distingue receipt confirmado/replay, execução concluída,
 rollback conhecido, deadline e reconciliação obrigatória. `BulkExecutionRecovery` informa
 epoch novo, status final/bloqueante e contagem derivada de receipts. `BulkDurableExecutionException`
-expõe somente razão segura (`NOT_FOUND`, `CONFLICT`, `EXPIRED`, `FENCED`, `NOT_EXECUTABLE`,
-`DEADLINE_EXCEEDED`, `RECONCILIATION_REQUIRED`, `CORRUPT`, `UNAVAILABLE`).
+expõe somente razão segura (`NOT_FOUND`, `CONFLICT`, `CAPACITY`, `EXPIRED`, `RESULT_PURGED`,
+`FENCED`, `NOT_EXECUTABLE`, `DEADLINE_EXCEEDED`, `RECONCILIATION_REQUIRED`, `CORRUPT`,
+`UNAVAILABLE`). `RESULT_PURGED` só é emitido após correspondência de tombstone no escopo
+autenticado consultado; a API host pode mapear este caso a HTTP 410.
 
 ## Limites de garantia
 
