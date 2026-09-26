@@ -27,15 +27,22 @@ O recorte aceito é seleção `EXPLICIT`, transporte `SYNC` e atomicidade `PER_I
 modalidades de intenção existentes. A proposta deve possuir evidência persistida. Propostas
 V1 sem evidência e combinações QUERY/ASYNC/ATOMIC falham fechadas.
 
-Não há artefato derivado de HTTP, landing, Angular ou corpus neste corte. V1 e V2 permanecem
-byte a byte; V3 é somente incremental. A skill de concorrência já exige receipt junto ao
-domínio, fencing e parada em commit incerto, e a skill de autoconfiguração já exige adoção
-explícita. A classificação deste corte é `atualizar-existente`: a nova API, a barreira em
-três transações, V3 e sua validação física precisam substituir o guidance ainda futuro após
-as provas e revisão. A fonte canônica das skills fica fora deste checkout e será atualizada
-pelo coordenador no mesmo ciclo.
+Não há artefato derivado de HTTP, landing, Angular ou corpus neste corte. V1–V3 permanecem
+byte a byte; V4 acrescenta a admissão governada por unidade, persistindo resultados sem
+mutação em `praxis_bulk_admission` e a razão terminal limitada em `terminal_reason_code`.
+V5 estende esse modelo com controle estrutural de operação, quotas e primitivas de retenção;
+V5 não torna uma operação `READY` nem habilita sozinho uma rota executável. Consulte
+[Admissão governada por unidade](BULK-GOVERNED-UNIT-ADMISSION.md) para as regras e provas
+específicas de V4. A classificação da atualização de guidance é `atualizar-existente`: a API,
+a barreira em três transações, a migração V3→V4, e sua validação física devem constar na
+skill de concorrência já usada; a fonte canônica dessa skill fica fora deste checkout.
 
-## Modelo físico V3
+## Modelo físico base V3 e evolução V4
+
+V3 contém o ledger de execução e receipts descrito abaixo. A migração V3→V4 adiciona os
+prazos de unidade, a razão terminal protegida e os resultados de admissão sem mutação,
+preservando receipts e histórico anteriores. V1–V3 continuam imutáveis; V5 acrescenta o
+ledger de capacidade e retenção documentado adiante.
 
 `praxis_bulk_execution` contém uma reserva por proposta e por chave idempotente no escopo
 confiável. A identidade de escopo é formada por namespace operacional, sujeito, recurso e
