@@ -24,10 +24,20 @@ duplicados em paths, callbacks e webhooks, confirmando a identidade da rota em t
 que a publicam; customizers que
 reescrevam a identidade ou criem duplicidade tornam a resolução inelegível. A annotation não cria paths nem
 autoriza uma action. IDs em branco/repetidos, papéis ausentes/duplicados, conflito com outra
-operação e mapping condicional/ambíguo omitem o binding; a aplicação pode continuar servindo
+operação, texto de identidade não canônico (espaços periféricos ou controles) e mapping condicional/ambíguo omitem o binding; a aplicação pode continuar servindo
 OpenAPI, enquanto consumidores estritos não resolvem esses IDs. A composição/action projection
 ainda precisa considerar esses diagnostics e permanecer `UNCOMPOSED`/`SUSPENDED` até provar
 handlers, schemas, provider e publication CAS.
+
+`@BulkOperation` é complementar e só marca o método HTTP real de confirmação de uma
+`@WorkflowAction`. Declara `mode`, `atomicity` e o `evaluationOperationId` explícito; o binder exige
+que confirmação e avaliação sejam handlers POST distintos do mesmo controller/resource, tenham
+request body, que a confirmação tenha operationId explícito e que a atomicidade coincida com a de
+`@WorkflowAction`. Ambos os IDs entram na validação global de collisions e no mesmo binding
+imutável, junto dos cinco papéis compartilhados de lifecycle. Falha ou ambiguidade omite todo o
+binding daquele `@ApiResource`. Isso prova somente identidade/mapeamento MVC: schemas ainda devem
+ser validados no mesmo snapshot estrito, e a anotação não cria provider, permission, descriptor,
+fingerprint, durable CAS, `READY`, capability ou endpoint.
 
 A validação usa o documento exato de cada grupo publicado e lê a lista de grupos no instante da
 resolução, incluindo grupos registrados dinamicamente depois da criação do resolver. O serviço

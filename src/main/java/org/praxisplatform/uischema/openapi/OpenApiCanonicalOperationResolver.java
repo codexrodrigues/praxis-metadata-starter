@@ -214,7 +214,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
                 || mapping.getCustomCondition() != null) {
             throw invalidBinding(operationId, "conditional params, headers or custom routing cannot be represented");
         }
-        if (StringUtils.hasText(declaredBulkId)
+        if (bulkOperationBindings.requiresBodylessLifecycle(operationId)
                 && !mapping.getConsumesCondition().getExpressions().isEmpty()) {
             throw invalidBinding(operationId, "bulk lifecycle routes cannot declare request consumes constraints");
         }

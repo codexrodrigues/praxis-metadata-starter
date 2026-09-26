@@ -3,6 +3,9 @@ package org.praxisplatform.uischema.bulk;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.annotation.BulkOperation;
+import org.praxisplatform.uischema.annotation.WorkflowAction;
+import org.praxisplatform.uischema.action.ActionCollectionAtomicity;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -37,20 +40,25 @@ public final class BulkResourceOperationBindings {
 
     private final Map<HandlerMethod, String> operationIdsByHandler;
     private final Map<String, HandlerMethod> handlersByOperationId;
+    private final Map<HandlerMethod, BulkOperationBinding> bulkOperationsByConfirmation;
+    private final Set<String> bodylessLifecycleOperationIds;
     private final Set<String> declaredOperationIds;
     private final List<String> diagnostics;
 
     private BulkResourceOperationBindings(Map<HandlerMethod, String> operationIdsByHandler,
-            Map<String, HandlerMethod> handlersByOperationId, Set<String> declaredOperationIds,
-            List<String> diagnostics) {
+            Map<String, HandlerMethod> handlersByOperationId,
+            Map<HandlerMethod, BulkOperationBinding> bulkOperationsByConfirmation,
+            Set<String> bodylessLifecycleOperationIds, Set<String> declaredOperationIds, List<String> diagnostics) {
         this.operationIdsByHandler = Map.copyOf(operationIdsByHandler);
         this.handlersByOperationId = Map.copyOf(handlersByOperationId);
+        this.bulkOperationsByConfirmation = Map.copyOf(bulkOperationsByConfirmation);
+        this.bodylessLifecycleOperationIds = Set.copyOf(bodylessLifecycleOperationIds);
         this.declaredOperationIds = Set.copyOf(declaredOperationIds);
         this.diagnostics = List.copyOf(diagnostics);
     }
 
     public static BulkResourceOperationBindings empty() {
-        return new BulkResourceOperationBindings(Map.of(), Map.of(), Set.of(), List.of());
+        return new BulkResourceOperationBindings(Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), List.of());
     }
 
     /**
@@ -62,26 +70,52 @@ public final class BulkResourceOperationBindings {
         if (mapping == null) return empty();
 
         Map<Class<?>, ResourceCandidate> candidates = new LinkedHashMap<>();
+        Set<String> orphanDeclaredIds = new HashSet<>();
+        List<String> orphanDiagnostics = new ArrayList<>();
         for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : mapping.getHandlerMethods().entrySet()) {
             HandlerMethod handler = entry.getValue();
             BulkResourceOperations declaration = AnnotatedElementUtils.findMergedAnnotation(
                     handler.getBeanType(), BulkResourceOperations.class);
-            if (declaration == null) continue;
+            if (declaration == null) {
+                BulkOperation orphan = AnnotatedElementUtils.findMergedAnnotation(
+                        handler.getMethod(), BulkOperation.class);
+                if (orphan != null) {
+                    String confirmationId = explicitOperationId(handler);
+                    if (StringUtils.hasText(confirmationId)) orphanDeclaredIds.add(confirmationId);
+                    if (StringUtils.hasText(orphan.evaluationOperationId()))
+                        orphanDeclaredIds.add(orphan.evaluationOperationId());
+                    orphanDiagnostics.add(handler.getBeanType().getName()
+                            + ": @BulkOperation requires @BulkResourceOperations on the same @ApiResource controller");
+                }
+                continue;
+            }
             ResourceCandidate candidate = candidates.computeIfAbsent(handler.getBeanType(),
                     type -> new ResourceCandidate(type, declaration));
             BulkResourceOperation role = AnnotatedElementUtils.findMergedAnnotation(
                     handler.getMethod(), BulkResourceOperation.class);
             if (role != null) candidate.roles.computeIfAbsent(role.value(), ignored -> new ArrayList<>())
                     .add(new MappedHandler(entry.getKey(), handler, role.value()));
+            BulkOperation action = AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(), BulkOperation.class);
+            if (action != null) candidate.actions.add(new MappedBulkOperation(entry.getKey(), handler, action));
         }
 
         List<String> diagnostics = new ArrayList<>();
-        Set<String> declaredIds = new HashSet<>();
+        diagnostics.addAll(orphanDiagnostics);
+        Set<String> declaredIds = new HashSet<>(orphanDeclaredIds);
+        Set<String> bodylessLifecycleIds = new HashSet<>();
         List<BoundResource> valid = new ArrayList<>();
         for (ResourceCandidate candidate : candidates.values()) {
             operationIds(candidate.declaration).values().stream().filter(StringUtils::hasText).forEach(declaredIds::add);
+            operationIds(candidate.declaration).values().stream().filter(StringUtils::hasText)
+                    .forEach(bodylessLifecycleIds::add);
+            candidate.actions.forEach(action -> {
+                String confirmationId = explicitOperationId(action.handler);
+                if (StringUtils.hasText(confirmationId)) declaredIds.add(confirmationId);
+                if (StringUtils.hasText(action.declaration.evaluationOperationId()))
+                    declaredIds.add(action.declaration.evaluationOperationId());
+            });
             List<String> errors = validate(candidate, mapping);
-            if (errors.isEmpty()) valid.add(bind(candidate));
+            if (errors.isEmpty()) valid.add(bind(candidate, mapping));
             else errors.forEach(error -> diagnostics.add(candidate.controllerType.getName() + ": " + error));
         }
 
@@ -101,23 +135,34 @@ public final class BulkResourceOperationBindings {
             }
         });
 
-        Map<String, List<MappedHandler>> declarationsById = new HashMap<>();
+        Map<String, List<HandlerMethod>> declarationsById = new HashMap<>();
         valid.forEach(resource -> resource.byRole.values().forEach(binding ->
                 declarationsById.computeIfAbsent(binding.operationId, ignored -> new ArrayList<>())
-                        .add(binding.mappedHandler)));
+                        .add(binding.mappedHandler.handler)));
+        valid.forEach(resource -> resource.bulkOperations.forEach(binding -> {
+            declarationsById.computeIfAbsent(binding.confirmationOperationId(), ignored -> new ArrayList<>())
+                    .add(binding.confirmationHandler());
+            declarationsById.computeIfAbsent(binding.evaluationOperationId(), ignored -> new ArrayList<>())
+                    .add(binding.evaluationHandler());
+        }));
         Set<Class<?>> collidingResources = new HashSet<>();
         collidingResources.addAll(duplicateResourceKeys);
-        for (Map.Entry<String, List<MappedHandler>> entry : declarationsById.entrySet()) {
+        Set<HandlerMethod> declaredHandlers = new HashSet<>();
+        valid.forEach(resource -> {
+            declaredHandlers.addAll(resource.bulkOperationHandlers());
+            resource.byRole.values().forEach(binding -> declaredHandlers.add(binding.mappedHandler.handler));
+        });
+        for (Map.Entry<String, List<HandlerMethod>> entry : declarationsById.entrySet()) {
             if (entry.getValue().size() > 1) {
-                entry.getValue().forEach(binding -> collidingResources.add(binding.handler.getBeanType()));
+                entry.getValue().forEach(handler -> collidingResources.add(handler.getBeanType()));
             }
             for (Map.Entry<RequestMappingInfo, HandlerMethod> registered : mapping.getHandlerMethods().entrySet()) {
                 HandlerMethod other = registered.getValue();
-                if (entry.getValue().stream().anyMatch(candidate -> candidate.handler.equals(other))) continue;
+                if (declaredHandlers.contains(other)) continue;
                 String explicitId = explicitOperationId(other);
                 String fallbackId = StringUtils.hasText(explicitId) ? explicitId : other.getMethod().getName();
                 if (entry.getKey().equals(fallbackId)) {
-                    entry.getValue().forEach(candidate -> collidingResources.add(candidate.handler.getBeanType()));
+                    entry.getValue().forEach(candidate -> collidingResources.add(candidate.getBeanType()));
                 }
             }
         }
@@ -127,14 +172,23 @@ public final class BulkResourceOperationBindings {
 
         Map<HandlerMethod, String> byHandler = new HashMap<>();
         Map<String, HandlerMethod> byId = new HashMap<>();
+        Map<HandlerMethod, BulkOperationBinding> bulkByConfirmation = new HashMap<>();
         for (BoundResource resource : valid) {
             if (collidingResources.contains(resource.controllerType)) continue;
             resource.byRole.values().forEach(binding -> {
                 byHandler.put(binding.mappedHandler.handler, binding.operationId);
                 byId.put(binding.operationId, binding.mappedHandler.handler);
             });
+            resource.bulkOperations.forEach(binding -> {
+                byHandler.put(binding.confirmationHandler(), binding.confirmationOperationId());
+                byHandler.put(binding.evaluationHandler(), binding.evaluationOperationId());
+                byId.put(binding.confirmationOperationId(), binding.confirmationHandler());
+                byId.put(binding.evaluationOperationId(), binding.evaluationHandler());
+                bulkByConfirmation.put(binding.confirmationHandler(), binding);
+            });
         }
-        return new BulkResourceOperationBindings(byHandler, byId, declaredIds, diagnostics);
+        return new BulkResourceOperationBindings(byHandler, byId, bulkByConfirmation,
+                bodylessLifecycleIds, declaredIds, diagnostics);
     }
 
     public Optional<String> operationIdFor(HandlerMethod handler) {
@@ -143,6 +197,16 @@ public final class BulkResourceOperationBindings {
 
     public Optional<HandlerMethod> handlerFor(String operationId) {
         return Optional.ofNullable(handlersByOperationId.get(operationId));
+    }
+
+    /** Returns the validated confirmation/evaluation pair for a confirmation handler. */
+    public Optional<BulkOperationBinding> bulkOperationFor(HandlerMethod confirmationHandler) {
+        return Optional.ofNullable(bulkOperationsByConfirmation.get(confirmationHandler));
+    }
+
+    /** True only for the five shared lifecycle operations whose request contract is bodyless. */
+    public boolean requiresBodylessLifecycle(String operationId) {
+        return bodylessLifecycleOperationIds.contains(operationId);
     }
 
     /** True when an opt-in resource claimed the ID, including a declaration omitted as invalid. */
@@ -158,11 +222,12 @@ public final class BulkResourceOperationBindings {
     private static List<String> validate(ResourceCandidate candidate, RequestMappingHandlerMapping registry) {
         List<String> errors = new ArrayList<>();
         ApiResource resource = AnnotatedElementUtils.findMergedAnnotation(candidate.controllerType, ApiResource.class);
-        if (resource == null || !StringUtils.hasText(resource.resourceKey())) errors.add("@ApiResource resourceKey is required");
+        if (resource == null || !isCanonicalText(resource.resourceKey()))
+            errors.add("@ApiResource resourceKey must be canonical nonblank text");
         Map<BulkResourceOperation.Role, String> ids = operationIds(candidate.declaration);
         Set<String> uniqueIds = new HashSet<>();
         ids.forEach((role, id) -> {
-            if (!StringUtils.hasText(id)) errors.add("operationId for " + role + " must not be blank");
+            if (!isCanonicalText(id)) errors.add("operationId for " + role + " must be canonical nonblank text");
             else if (!uniqueIds.add(id)) errors.add("declared bulk operationIds must be unique");
         });
         for (BulkResourceOperation.Role role : BulkResourceOperation.Role.values()) {
@@ -210,15 +275,129 @@ public final class BulkResourceOperationBindings {
                 errors.add("request bodies and HTTP entity parameters are not supported for shared lifecycle role " + role);
             }
         }
+        errors.addAll(validateActions(candidate, registry, uniqueIds));
         return errors;
     }
 
-    private static BoundResource bind(ResourceCandidate candidate) {
+    private static List<String> validateActions(ResourceCandidate candidate, RequestMappingHandlerMapping registry,
+            Set<String> uniqueIds) {
+        List<String> errors = new ArrayList<>();
+        Set<HandlerMethod> confirmations = new HashSet<>();
+        for (MappedBulkOperation action : candidate.actions) {
+            HandlerMethod confirmation = action.handler;
+            if (!confirmations.add(confirmation)) {
+                errors.add("bulk confirmation handler must have exactly one canonical MVC mapping");
+                continue;
+            }
+            String confirmationId = explicitOperationId(confirmation);
+            if (!isCanonicalText(confirmationId)) {
+                errors.add("bulk confirmation handler requires a canonical explicit @Operation operationId");
+            } else if (!uniqueIds.add(confirmationId)) {
+                errors.add("bulk confirmation and lifecycle operationIds must be unique");
+            }
+            String evaluationId = action.declaration.evaluationOperationId();
+            if (!isCanonicalText(evaluationId)) {
+                errors.add("bulk evaluationOperationId must be canonical nonblank text");
+            } else if (!uniqueIds.add(evaluationId)) {
+                errors.add("bulk evaluation and confirmation operationIds must be unique");
+            }
+            ActionCollectionAtomicity atomicity = action.declaration.atomicity();
+            if (atomicity == null || atomicity == ActionCollectionAtomicity.NOT_APPLICABLE) {
+                errors.add("bulk atomicity must be ATOMIC or PER_ITEM");
+            }
+            if (action.declaration.mode() == null) errors.add("bulk mode is required");
+
+            WorkflowAction workflow = AnnotatedElementUtils.findMergedAnnotation(confirmation.getMethod(),
+                    WorkflowAction.class);
+            if (workflow == null) {
+                errors.add("bulk confirmation handler must also declare @WorkflowAction");
+            } else if (workflow.atomicity() != atomicity) {
+                errors.add("@WorkflowAction atomicity must match @BulkOperation atomicity");
+            }
+            if (AnnotatedElementUtils.hasAnnotation(confirmation.getBeanType(), Hidden.class)
+                    || AnnotatedElementUtils.hasAnnotation(confirmation.getMethod(), Hidden.class)) {
+                errors.add("hidden handlers cannot provide a bulk confirmation operation");
+            }
+            if (!hasRequestBody(confirmation)) {
+                errors.add("bulk confirmation handler requires a request body");
+            }
+            if (!isCanonicalPostMapping(action.mapping, registry, confirmation)) {
+                errors.add("bulk confirmation requires one unconditional canonical POST path");
+            }
+
+            List<Map.Entry<RequestMappingInfo, HandlerMethod>> evaluations = registry.getHandlerMethods().entrySet().stream()
+                    .filter(entry -> entry.getValue().getBeanType().equals(candidate.controllerType))
+                    .filter(entry -> evaluationId.equals(explicitOperationId(entry.getValue())))
+                    .toList();
+            Set<HandlerMethod> evaluationHandlers = evaluations.stream().map(Map.Entry::getValue)
+                    .collect(java.util.stream.Collectors.toSet());
+            if (evaluationHandlers.size() != 1 || evaluations.size() != 1) {
+                errors.add("evaluationOperationId must resolve to exactly one handler on the same resource controller");
+                continue;
+            }
+            HandlerMethod evaluation = evaluations.getFirst().getValue();
+            if (evaluation.equals(confirmation)) {
+                errors.add("evaluation and confirmation operations must use distinct handlers");
+            }
+            if (AnnotatedElementUtils.hasAnnotation(evaluation.getBeanType(), Hidden.class)
+                    || AnnotatedElementUtils.hasAnnotation(evaluation.getMethod(), Hidden.class)) {
+                errors.add("hidden handlers cannot provide a bulk evaluation operation");
+            }
+            if (!hasRequestBody(evaluation)) {
+                errors.add("bulk evaluation handler requires a request body");
+            }
+            if (!isCanonicalPostMapping(evaluations.getFirst().getKey(), registry, evaluation)) {
+                errors.add("bulk evaluation requires one unconditional canonical POST path");
+            }
+        }
+        return errors;
+    }
+
+    private static boolean hasRequestBody(HandlerMethod handler) {
+        return java.util.Arrays.stream(handler.getMethodParameters()).anyMatch(parameter -> {
+            Class<?> type = parameter.getParameterType();
+            return AnnotatedElementUtils.hasAnnotation(parameter.getParameter(), RequestBody.class)
+                    || AnnotatedElementUtils.hasAnnotation(parameter.getParameter(), RequestPart.class)
+                    || HttpEntity.class.isAssignableFrom(type) || RequestEntity.class.isAssignableFrom(type);
+        });
+    }
+
+    private static boolean isCanonicalText(String value) {
+        return StringUtils.hasText(value) && value.equals(value.strip())
+                && value.codePoints().noneMatch(Character::isISOControl);
+    }
+
+    private static boolean isCanonicalPostMapping(RequestMappingInfo mapping, RequestMappingHandlerMapping registry,
+            HandlerMethod handler) {
+        if (mapping.getPatternValues().size() != 1 || mapping.getMethodsCondition().getMethods().size() != 1
+                || !mapping.getMethodsCondition().getMethods().contains(RequestMethod.POST)
+                || !mapping.getParamsCondition().isEmpty() || !mapping.getHeadersCondition().isEmpty()
+                || mapping.getCustomCondition() != null) return false;
+        String path = mapping.getPatternValues().iterator().next();
+        return registry.getHandlerMethods().entrySet().stream()
+                .filter(entry -> !entry.getValue().equals(handler))
+                .noneMatch(entry -> entry.getKey().getPatternValues().contains(path)
+                        && (entry.getKey().getMethodsCondition().getMethods().isEmpty()
+                        || entry.getKey().getMethodsCondition().getMethods().contains(RequestMethod.POST)));
+    }
+
+    private static BoundResource bind(ResourceCandidate candidate, RequestMappingHandlerMapping registry) {
         ApiResource resource = AnnotatedElementUtils.findMergedAnnotation(candidate.controllerType, ApiResource.class);
         Map<BulkResourceOperation.Role, RoleBinding> byRole = new EnumMap<>(BulkResourceOperation.Role.class);
         operationIds(candidate.declaration).forEach((role, id) ->
                 byRole.put(role, new RoleBinding(id, candidate.roles.get(role).getFirst())));
-        return new BoundResource(candidate.controllerType, resource.resourceKey(), Collections.unmodifiableMap(byRole));
+        List<BulkOperationBinding> actions = candidate.actions.stream().map(action -> {
+            String confirmationId = explicitOperationId(action.handler);
+            HandlerMethod evaluationHandler = registry.getHandlerMethods().values().stream()
+                    .filter(handler -> handler.getBeanType().equals(candidate.controllerType))
+                    .filter(handler -> action.declaration.evaluationOperationId().equals(explicitOperationId(handler)))
+                    .findFirst().orElseThrow();
+            return new BulkOperationBinding(resource.resourceKey(), confirmationId,
+                    action.declaration.evaluationOperationId(), action.declaration.mode(),
+                    action.declaration.atomicity(), action.handler, evaluationHandler);
+        }).toList();
+        return new BoundResource(candidate.controllerType, resource.resourceKey(),
+                Collections.unmodifiableMap(byRole), actions);
     }
 
     private static Map<BulkResourceOperation.Role, String> operationIds(BulkResourceOperations declaration) {
@@ -240,6 +419,7 @@ public final class BulkResourceOperationBindings {
         private final Class<?> controllerType;
         private final BulkResourceOperations declaration;
         private final Map<BulkResourceOperation.Role, List<MappedHandler>> roles = new EnumMap<>(BulkResourceOperation.Role.class);
+        private final List<MappedBulkOperation> actions = new ArrayList<>();
 
         private ResourceCandidate(Class<?> controllerType, BulkResourceOperations declaration) {
             this.controllerType = controllerType;
@@ -248,7 +428,13 @@ public final class BulkResourceOperationBindings {
     }
 
     private record MappedHandler(RequestMappingInfo mapping, HandlerMethod handler, BulkResourceOperation.Role role) { }
+    private record MappedBulkOperation(RequestMappingInfo mapping, HandlerMethod handler, BulkOperation declaration) { }
     private record RoleBinding(String operationId, MappedHandler mappedHandler) { }
     private record BoundResource(Class<?> controllerType, String resourceKey,
-            Map<BulkResourceOperation.Role, RoleBinding> byRole) { }
+            Map<BulkResourceOperation.Role, RoleBinding> byRole, List<BulkOperationBinding> bulkOperations) {
+        private List<HandlerMethod> bulkOperationHandlers() {
+            return bulkOperations.stream().flatMap(binding -> java.util.stream.Stream.of(
+                    binding.confirmationHandler(), binding.evaluationHandler())).toList();
+        }
+    }
 }
