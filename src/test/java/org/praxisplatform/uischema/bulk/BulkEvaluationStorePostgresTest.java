@@ -34,7 +34,7 @@ class BulkEvaluationStorePostgresTest {
     @AfterAll void stop() throws Exception {if(postgres!=null)postgres.close();}
     @BeforeEach void reset(){sql.execute("drop schema if exists praxis_bulk cascade");}
     void migrate(){
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(5);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(6);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count(String table){return sql.queryForObject("select count(*) from praxis_bulk."+table,Integer.class);}
@@ -43,7 +43,7 @@ class BulkEvaluationStorePostgresTest {
                 .defaultSchema("praxis_bulk").table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true).target("1").load().migrate();
         var value=proposal();BulkPostgresTestSupport.insertLegacyProposal(sql,value);
         var before=sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class);
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(4);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(5);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
         assertThat(sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class)).isEqualTo(before);
         var recovered=tx.execute(status->store.find(CONTEXT,value.id()).orElseThrow());
@@ -154,7 +154,7 @@ class BulkEvaluationStorePostgresTest {
         assertThatThrownBy(()->BulkExecutionMigrator.validate(dataSource)).isInstanceOf(RuntimeException.class);
     }
     @Test void runtimeRoleCanInsertAndReadButCannotUpdateOrDeleteEitherRow() {
-        migrate();sql.execute("grant usage on schema praxis_bulk to evaluation_runtime");sql.execute("grant select,insert on praxis_bulk.praxis_bulk_proposal,praxis_bulk.praxis_bulk_evaluation to evaluation_runtime");sql.execute("grant update (proposal_id) on praxis_bulk.praxis_bulk_proposal to evaluation_runtime");sql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding,praxis_bulk.praxis_bulk_operation_control to evaluation_runtime");sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_namespace_binding to evaluation_runtime");sql.execute("grant update (state) on praxis_bulk.praxis_bulk_operation_control to evaluation_runtime");sql.execute("grant select on praxis_bulk.praxis_bulk_deployment_bucket to evaluation_runtime");sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_deployment_bucket to evaluation_runtime");sql.execute("grant select,insert on praxis_bulk.praxis_bulk_subject_bucket to evaluation_runtime");sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_subject_bucket to evaluation_runtime");sql.execute("grant select,insert on praxis_bulk.praxis_bulk_allocation to evaluation_runtime");sql.execute("grant update (state) on praxis_bulk.praxis_bulk_allocation to evaluation_runtime");
+        migrate();sql.execute("grant usage on schema praxis_bulk to evaluation_runtime");sql.execute("grant select,insert on praxis_bulk.praxis_bulk_proposal,praxis_bulk.praxis_bulk_evaluation to evaluation_runtime");sql.execute("grant update (proposal_id) on praxis_bulk.praxis_bulk_proposal to evaluation_runtime");sql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to evaluation_runtime");sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_namespace_binding to evaluation_runtime");sql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to evaluation_runtime");sql.execute("grant select on praxis_bulk.praxis_bulk_deployment_bucket to evaluation_runtime");sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_deployment_bucket to evaluation_runtime");sql.execute("grant select,insert on praxis_bulk.praxis_bulk_subject_bucket to evaluation_runtime");sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_subject_bucket to evaluation_runtime");sql.execute("grant select,insert on praxis_bulk.praxis_bulk_allocation to evaluation_runtime");sql.execute("grant update (state) on praxis_bulk.praxis_bulk_allocation to evaluation_runtime");
         var ds=new DriverManagerDataSource(postgres.getJdbcUrl("evaluation_runtime","postgres"),"evaluation_runtime","");
         var manager=new DataSourceTransactionManager(ds);var runtimeTx=new TransactionTemplate(manager);
         var runtime=new JdbcBulkProposalStore(new BulkExecutionInfrastructure(ds,manager,CONTEXT.namespaceId(),

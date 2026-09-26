@@ -80,6 +80,10 @@ public final class BulkExecutionMigrator {
             "release_active_allocation_on_terminal()",
             "purge_terminal_execution(p_execution_id uuid)",
             "expire_unconsumed_proposal(p_proposal_id uuid)");
+    private static final Set<String> V6_FUNCTIONS = Set.of(
+            "guard_new_bulk_admission()", "guard_new_bulk_evaluation()",
+            "lock_operation_control(p_namespace_id text, p_operation_id text)",
+            "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text)");
     private static final Set<String> V5_TRIGGERS = Set.of(
             PROPOSAL_TABLE + ".praxis_bulk_proposal_guard_delete",
             EVALUATION_TABLE + ".praxis_bulk_evaluation_guard_delete",
@@ -119,7 +123,7 @@ public final class BulkExecutionMigrator {
 
     /**
      * Applies migrations and validates every bulk ACL against the explicitly configured host
-     * runtime and retention-operator PostgreSQL roles.
+     * runtime, retention-operator, and control-plane PostgreSQL roles.
      */
     public static int migrate(DataSource dataSource, Map<String, String> namespaceToDeploymentId,
             BulkExecutionRoleConfiguration roles) {
@@ -675,6 +679,7 @@ public final class BulkExecutionMigrator {
 
     private static Set<String> allowedFunctions() {
         var names = new LinkedHashSet<>(V5_FUNCTIONS);
+        names.addAll(V6_FUNCTIONS);
         names.addAll(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
                 BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
                 RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()"));
@@ -1288,7 +1293,7 @@ public final class BulkExecutionMigrator {
         validateV5Constraints(connection);
         validateV5Indexes(connection);
         validateV5Triggers(connection);
-        validateV5Functions(connection);
+        validateV5Functions(connection, roles);
         validateV5RolesAndPrivileges(connection, roles);
     }
 
@@ -1462,12 +1467,18 @@ public final class BulkExecutionMigrator {
         return Map.entry(table + "." + name, new TriggerSpec(function, normalizeExpression(definition)));
     }
 
-    private static void validateV5Functions(Connection connection) throws SQLException {
-        String migration = readV5Migration();
+    private static void validateV5Functions(Connection connection,
+            BulkExecutionRoleConfiguration roleConfiguration) throws SQLException {
+        String v5Migration = readV5Migration();
+        String v6Migration = readV6Migration();
         var keys = new LinkedHashSet<>(V5_FUNCTIONS);
+        keys.addAll(V6_FUNCTIONS);
         keys.add(RECEIPT_FUNCTION + "()");
         keys.add(ADMISSION_FUNCTION + "()");
         Set<String> definer = Set.of("protect_allocation_transition()", "validate_allocation_binding()",
+                "guard_new_bulk_admission()", "guard_new_bulk_evaluation()",
+                "lock_operation_control(p_namespace_id text, p_operation_id text)",
+                "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text)",
                 "guard_terminal_execution()", "release_active_allocation_on_terminal()",
                 "purge_terminal_execution(p_execution_id uuid)",
                 "expire_unconsumed_proposal(p_proposal_id uuid)");
@@ -1492,22 +1503,33 @@ public final class BulkExecutionMigrator {
                     boolean sqlHelper = name.equals("terminal_evidence_complete");
                     boolean booleanResult = sqlHelper || name.equals("purge_terminal_execution")
                             || name.equals("expire_unconsumed_proposal");
+                    boolean recordResult = name.equals("lock_operation_control")
+                            || name.equals("transition_operation_control");
                     require((sqlHelper ? "sql" : "plpgsql").equals(rows.getString(3))
-                                    && (booleanResult ? "boolean" : "trigger").equals(rows.getString(4))
+                                    && (recordResult ? "record" : booleanResult ? "boolean" : "trigger").equals(rows.getString(4))
                                     && rows.getBoolean(5) == definer.contains(key)
                                     && (sqlHelper ? "s" : "v").equals(rows.getString(6))
                                     && "f".equals(rows.getString(7)) && !rows.getBoolean(8)
                                     && "u".equals(rows.getString(9)) && rows.getBoolean(10),
                             "governed lifecycle function attributes differ: " + key);
-                    if (definer.contains(key)) {
+                    if (key.startsWith("lock_operation_control(")
+                            || key.startsWith("transition_operation_control(")
+                            || key.equals("guard_new_bulk_admission()")
+                            || key.equals("guard_new_bulk_evaluation()")) {
+                        require("praxis_bulk_control_owner".equals(rows.getString(11)),
+                                "operation-control function has unexpected owner: " + key);
+                    } else if (definer.contains(key)) {
                         require("praxis_bulk_retention_owner".equals(rows.getString(11)),
                                 "SECURITY DEFINER function has unexpected owner: " + key);
                     } else {
-                        require(!Set.of("praxis_bulk_retention_owner", "praxis_bulk_retention_executor")
+                        require(!Set.of("praxis_bulk_retention_owner", "praxis_bulk_retention_executor",
+                                        "praxis_bulk_control_owner")
                                         .contains(rows.getString(11)),
                                 "invoker function is owned by a retention role: " + key);
                     }
-                    require(normalizeExpression(extractV5FunctionBody(migration, name))
+                    String functionMigration = V6_FUNCTIONS.stream().anyMatch(function -> function.startsWith(name + "("))
+                            ? v6Migration : v5Migration;
+                    require(normalizeExpression(extractFunctionBody(functionMigration, name, functionMigration == v6Migration ? "V6" : "V5"))
                                     .equals(normalizeExpression(rows.getString(12))),
                             "governed lifecycle function body differs: " + key);
                     actual.add(key);
@@ -1515,7 +1537,7 @@ public final class BulkExecutionMigrator {
             }
         }
         require(actual.equals(keys), "governed lifecycle functions are missing");
-        validateV5FunctionPrivileges(connection);
+        validateV5FunctionPrivileges(connection, roleConfiguration);
     }
 
     private static String readV5Migration() {
@@ -1528,21 +1550,36 @@ public final class BulkExecutionMigrator {
         }
     }
 
-    private static String extractV5FunctionBody(String migration, String function) {
+    private static String readV6Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V6__bulk_operation_control_security.sql")) {
+            require(input != null, "V6 operation-control security migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V6 operation-control security migration", failure);
+        }
+    }
+
+    private static String extractFunctionBody(String migration, String function, String version) {
         Pattern pattern = Pattern.compile("(?is)create\\s+(?:or\\s+replace\\s+)?function\\s+praxis_bulk\\."
                 + Pattern.quote(function) + "\\s*\\([^)]*\\).*?\\bas\\s*\\$\\$(.*?)\\$\\$\\s*;");
         Matcher matcher = pattern.matcher(migration);
-        require(matcher.find(), "Function is absent from V5 migration resource: " + function);
+        require(matcher.find(), "Function is absent from " + version + " migration resource: " + function);
         String body = matcher.group(1);
-        require(!matcher.find(), "Function is duplicated in V5 migration resource: " + function);
+        require(!matcher.find(), "Function is duplicated in " + version + " migration resource: " + function);
         return body;
     }
 
-    private static void validateV5FunctionPrivileges(Connection connection) throws SQLException {
-        Set<String> expected = Set.of(
+    private static void validateV5FunctionPrivileges(Connection connection,
+            BulkExecutionRoleConfiguration roles) throws SQLException {
+        var expected = new LinkedHashSet<String>(Set.of(
                 "terminal_evidence_complete(p_execution_id uuid, p_required_count integer)|praxis_bulk_retention_owner|EXECUTE",
                 "purge_terminal_execution(p_execution_id uuid)|praxis_bulk_retention_executor|EXECUTE",
-                "expire_unconsumed_proposal(p_proposal_id uuid)|praxis_bulk_retention_executor|EXECUTE");
+                "expire_unconsumed_proposal(p_proposal_id uuid)|praxis_bulk_retention_executor|EXECUTE"));
+        roles.runtimeGranteeRoles().forEach(role -> expected.add(
+                "lock_operation_control(p_namespace_id text, p_operation_id text)|" + role + "|EXECUTE"));
+        roles.controlPlaneGranteeRoles().forEach(role -> expected.add(
+                "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text)|" + role + "|EXECUTE"));
         var actual = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
                 select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
@@ -1555,7 +1592,9 @@ public final class BulkExecutionMigrator {
                       = any (?::text[])
                 """)) {
             statement.setString(1, SCHEMA);
-            statement.setArray(2, connection.createArrayOf("text", V5_FUNCTIONS.toArray()));
+            var functionKeys = new LinkedHashSet<>(V5_FUNCTIONS);
+            functionKeys.addAll(V6_FUNCTIONS);
+            statement.setArray(2, connection.createArrayOf("text", functionKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
                     if (rows.getBoolean(5)) continue;
@@ -1570,30 +1609,35 @@ public final class BulkExecutionMigrator {
     private static void validateV5RolesAndPrivileges(Connection connection,
             BulkExecutionRoleConfiguration roleConfiguration) throws SQLException {
         validateConfiguredRoles(connection, roleConfiguration);
+        validateConfiguredRoleInheritance(connection, roleConfiguration);
         validateSchemaAndTableOwners(connection, roleConfiguration.expectedSchemaOwnerRole());
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
                 select count(*) from pg_roles
-                where rolname in ('praxis_bulk_retention_owner', 'praxis_bulk_retention_executor')
+                where rolname in ('praxis_bulk_retention_owner', 'praxis_bulk_retention_executor',
+                                  'praxis_bulk_control_owner')
                   and not rolcanlogin and not rolinherit and not rolsuper and not rolcreatedb
                   and not rolcreaterole and not rolreplication and not rolbypassrls
                 """)) {
-            require(rows.next() && rows.getLong(1) == 2 && !rows.next(),
-                    "bulk retention roles must be unprivileged NOLOGIN NOINHERIT roles");
+            require(rows.next() && rows.getLong(1) == 3 && !rows.next(),
+                    "bulk internal roles must be unprivileged NOLOGIN NOINHERIT roles");
         }
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
                 select count(*) from pg_auth_members m
                 join pg_roles granted on granted.oid=m.roleid
                 join pg_roles member on member.oid=m.member
-                where granted.rolname='praxis_bulk_retention_owner'
-                   or member.rolname in ('praxis_bulk_retention_owner', 'praxis_bulk_retention_executor')
+                where granted.rolname in ('praxis_bulk_retention_owner', 'praxis_bulk_control_owner')
+                   or member.rolname in ('praxis_bulk_retention_owner', 'praxis_bulk_retention_executor',
+                                         'praxis_bulk_control_owner')
                 """)) {
             require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
-                    "bulk retention owner/member topology is unsafe");
+                    "bulk internal owner/member topology is unsafe");
         }
         var expectedSchema = new LinkedHashSet<String>();
         expectedSchema.add("praxis_bulk_retention_owner|USAGE");
         expectedSchema.add("praxis_bulk_retention_executor|USAGE");
+        expectedSchema.add("praxis_bulk_control_owner|USAGE");
         roleConfiguration.runtimeGranteeRoles().forEach(role -> expectedSchema.add(role + "|USAGE"));
+        roleConfiguration.controlPlaneGranteeRoles().forEach(role -> expectedSchema.add(role + "|USAGE"));
         var actualSchema = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
                 select coalesce(r.rolname, 'PUBLIC'), acl.privilege_type, acl.is_grantable,
@@ -1637,8 +1681,25 @@ public final class BulkExecutionMigrator {
             require(tableRolePrivileges(connection, entry.getKey(), "PUBLIC").isEmpty(),
                     "PUBLIC must not have governed lifecycle table privileges: " + entry.getKey());
         }
+        require(tableRolePrivileges(connection, OPERATION_CONTROL_TABLE, "praxis_bulk_control_owner")
+                        .equals(Set.of("T:SELECT", "C:state:UPDATE", "C:generation:UPDATE",
+                                "C:descriptor_fingerprint:UPDATE", "C:structural_revision:UPDATE",
+                                "C:updated_at:UPDATE")),
+                "operation-control definer-owner privileges differ");
+        require(tableRolePrivileges(connection, PROPOSAL_TABLE, "praxis_bulk_control_owner")
+                        .equals(Set.of("C:proposal_id:SELECT", "C:namespace_id:SELECT", "C:operation_id:SELECT")),
+                "operation-control definer-owner proposal privileges differ");
+        for (String table : V5_TABLES) {
+            if (!OPERATION_CONTROL_TABLE.equals(table) && !PROPOSAL_TABLE.equals(table)) {
+                require(tableRolePrivileges(connection, table, "praxis_bulk_control_owner").isEmpty(),
+                        "operation-control definer-owner has unrelated table privileges: " + table);
+            }
+        }
         validateRuntimeTablePrivileges(connection, roleConfiguration.runtimeGranteeRoles());
         validateRuntimeRoleMemberships(connection, roleConfiguration.runtimeGranteeRoles());
+        validateConfiguredRoleMembershipClosure(connection, roleConfiguration.controlPlaneGranteeRoles(),
+                roleConfiguration.controlPlaneGranteeRoles(),
+                "control-plane role membership introduces an unconfigured grantee");
         validateRetentionExecutorMemberships(connection, roleConfiguration.retentionExecutorMembers());
     }
 
@@ -1646,6 +1707,7 @@ public final class BulkExecutionMigrator {
             BulkExecutionRoleConfiguration configuration) throws SQLException {
         var expected = new LinkedHashSet<>(configuration.runtimeGranteeRoles());
         expected.addAll(configuration.retentionExecutorMembers());
+        expected.addAll(configuration.controlPlaneGranteeRoles());
         if (expected.isEmpty()) return;
         var actual = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
@@ -1660,6 +1722,47 @@ public final class BulkExecutionMigrator {
             }
         }
         require(actual.equals(expected), "configured bulk host roles must exist and be unprivileged");
+    }
+
+    private static void validateConfiguredRoleInheritance(Connection connection,
+            BulkExecutionRoleConfiguration configuration) throws SQLException {
+        var roots = new LinkedHashSet<>(configuration.runtimeGranteeRoles());
+        roots.addAll(configuration.retentionExecutorMembers());
+        roots.addAll(configuration.controlPlaneGranteeRoles());
+
+        var allowed = new LinkedHashSet<String>();
+        for (String role : configuration.retentionExecutorMembers()) {
+            allowed.add(role + "|praxis_bulk_retention_executor");
+            for (String retentionRole : configuration.retentionExecutorMembers()) {
+                if (!role.equals(retentionRole)) allowed.add(role + "|" + retentionRole);
+            }
+        }
+        var actual = new LinkedHashSet<String>();
+        if (!roots.isEmpty()) {
+            try (var statement = connection.prepareStatement("""
+                    with recursive inherited_roles(root, inherited_role) as (
+                        select membership.member, membership.roleid
+                        from pg_auth_members membership
+                        where membership.member = any (
+                            select oid from pg_roles where rolname = any (?::text[]))
+                        union
+                        select inherited.root, membership.roleid
+                        from inherited_roles inherited
+                        join pg_auth_members membership on membership.member=inherited.inherited_role
+                    )
+                    select root.rolname, inherited.rolname
+                    from inherited_roles roles
+                    join pg_roles root on root.oid=roles.root
+                    join pg_roles inherited on inherited.oid=roles.inherited_role
+                    """)) {
+                statement.setArray(1, connection.createArrayOf("text", roots.toArray()));
+                try (var rows = statement.executeQuery()) {
+                    while (rows.next()) actual.add(rows.getString(1) + "|" + rows.getString(2));
+                }
+            }
+        }
+        require(allowed.containsAll(actual),
+                "configured bulk roles inherit unexpected PostgreSQL roles");
     }
 
     private static void validateSchemaAndTableOwners(Connection connection, String expectedOwner)
@@ -1731,9 +1834,7 @@ public final class BulkExecutionMigrator {
             throws SQLException {
         Map<String, Set<String>> allowedByTable = Map.ofEntries(
                 Map.entry(NAMESPACE_BINDING_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
-                Map.entry(OPERATION_CONTROL_TABLE, Set.of("T:SELECT", "C:state:UPDATE",
-                        "C:generation:UPDATE", "C:descriptor_fingerprint:UPDATE",
-                        "C:structural_revision:UPDATE", "C:updated_at:UPDATE")),
+                Map.entry(OPERATION_CONTROL_TABLE, Set.of()),
                 Map.entry(DEPLOYMENT_BUCKET_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
                 Map.entry(SUBJECT_BUCKET_TABLE, Set.of("T:SELECT", "T:INSERT", "C:deployment_id:UPDATE")),
                 Map.entry(PROPOSAL_TABLE, Set.of("T:SELECT", "T:INSERT", "C:proposal_id:UPDATE")),
@@ -1777,7 +1878,8 @@ public final class BulkExecutionMigrator {
                     require(!"PUBLIC".equals(role) && !rows.getBoolean(4),
                             "PUBLIC or grant-option access is forbidden on governed table " + table);
                     if (role.equals("praxis_bulk_retention_owner")
-                            || role.equals("praxis_bulk_retention_executor")) continue;
+                            || role.equals("praxis_bulk_retention_executor")
+                            || role.equals("praxis_bulk_control_owner")) continue;
                     require(runtimeRoles.contains(role), "unconfigured bulk table grantee: " + role);
                     require(allowedByTable.get(table).contains(permission),
                             "bulk runtime privilege exceeds its table allowlist: " + role + " " + table + " " + permission);

@@ -36,7 +36,7 @@ class JdbcBulkProposalStorePostgresTest {
     @AfterAll void stop() throws Exception { if (postgres != null) postgres.close(); }
     @BeforeEach void reset() { sql.execute("drop schema if exists praxis_bulk cascade"); }
     void migrate() {
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(5);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(6);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count() { return sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal", Integer.class); }
@@ -52,7 +52,7 @@ class JdbcBulkProposalStorePostgresTest {
         try (var executor = Executors.newFixedThreadPool(2)) {
             Callable<Integer> task = () -> { barrier.await(5, TimeUnit.SECONDS); return BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId()); };
             var first = executor.submit(task); var second = executor.submit(task);
-            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(5);
+            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(6);
         }
         BulkExecutionMigrator.validate(dataSource);
     }
@@ -222,9 +222,9 @@ class JdbcBulkProposalStorePostgresTest {
     @Test void runtimeRoleNeedsOnlyUsageSelectInsertAndCannotMutateSchema() {
         migrate(); sql.execute("grant usage on schema praxis_bulk to bulk_runtime");
         sql.execute("grant select, insert on praxis_bulk.praxis_bulk_proposal to bulk_runtime");
-        sql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding, praxis_bulk.praxis_bulk_operation_control to bulk_runtime");
+        sql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
         sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
-        sql.execute("grant update (state) on praxis_bulk.praxis_bulk_operation_control to bulk_runtime");
+        sql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
         sql.execute("grant select on praxis_bulk.praxis_bulk_deployment_bucket to bulk_runtime");
         sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_deployment_bucket to bulk_runtime");
         sql.execute("grant select, insert on praxis_bulk.praxis_bulk_subject_bucket to bulk_runtime");
@@ -232,7 +232,6 @@ class JdbcBulkProposalStorePostgresTest {
         sql.execute("grant select, insert on praxis_bulk.praxis_bulk_allocation to bulk_runtime");
         sql.execute("grant update (state) on praxis_bulk.praxis_bulk_allocation to bulk_runtime");
         sql.execute("grant update (proposal_id) on praxis_bulk.praxis_bulk_proposal to bulk_runtime");
-        sql.execute("grant update (state) on praxis_bulk.praxis_bulk_operation_control to bulk_runtime");
         var runtimeDs = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_runtime", "postgres"), "bulk_runtime", "");
         var manager = new DataSourceTransactionManager(runtimeDs); var runtimeTx = new TransactionTemplate(manager);
         var runtimeStore = new JdbcBulkProposalStore(new BulkExecutionInfrastructure(runtimeDs, manager,

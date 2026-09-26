@@ -88,7 +88,8 @@ configurado com `currentSchema=praxis_bulk`.
 O host também declara o owner esperado do schema e os principais PostgreSQL que recebem
 privilégios para a validação física.
 `BulkExecutionMigrator.migrate(dataSource, namespaceToDeploymentId,
-BulkExecutionRoleConfiguration)` aceita `runtimeGranteeRoles` e `retentionExecutorMembers`; a
+BulkExecutionRoleConfiguration)` aceita `runtimeGranteeRoles`, `retentionExecutorMembers` e
+`controlPlaneGranteeRoles`; a
 sobrecarga `validate(dataSource, configuration)` pode verificar novamente o ambiente depois.
 `expectedSchemaOwnerRole` identifica o usuário/role usado para criar o schema e as tabelas;
 ownership é validado separadamente porque não aparece como um grant ordinário e pode permitir
@@ -96,12 +97,17 @@ alterar privilégios ou remover triggers. Os métodos sem configuração captura
 da conexão usada na própria validação; para validar usando outra credencial, passe explicitamente
 o owner confiável registrado pelo host.
 Esses campos identificam os grantees diretos e todos os membros de role aceitos, inclusive os
-transitivos. A validação exige que as identidades existam e sejam não privilegiadas, rejeita
-membership que amplie a lista declarada e compara ACLs do schema exatamente. Para cada tabela,
+transitivos. A validação exige que as identidades existam e sejam não privilegiadas; rejeita
+herança de roles não declarada (incluindo roles predefinidas como `pg_write_all_data`), exceto a
+membership explícita de cada membro de retenção em `praxis_bulk_retention_executor`; e compara
+ACLs do schema exatamente. Para cada tabela,
 varre privilégios de tabela e coluna e recusa `PUBLIC`, grant option, grantees não configurados
 ou privilégios fora da allowlist específica; tombstones são somente leitura pelo runtime. O
 Metadata Starter valida esses grants, mas não os concede: o provisionamento das credenciais e
 ACLs continua sob controle do host/administrador do banco.
+O runtime não recebe `SELECT` nem `UPDATE` direto em `praxis_bulk_operation_control`; ele lê e
+segura o lock compartilhado pela função SECURITY DEFINER `lock_operation_control`. O control
+plane também não lê/escreve diretamente a tabela, recebendo só `EXECUTE` na transição CAS.
 
 ## Ledger de capacidade e retenção V5
 

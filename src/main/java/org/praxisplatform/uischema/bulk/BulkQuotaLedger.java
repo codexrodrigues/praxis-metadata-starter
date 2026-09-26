@@ -32,17 +32,11 @@ final class BulkQuotaLedger {
                     throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
             }
         }
-        try (var statement = connection.prepareStatement("""
-                select state from praxis_bulk.praxis_bulk_operation_control
-                where namespace_id=? and operation_id=? for share
-                """)) {
-            statement.setString(1, context.namespaceId());
-            statement.setString(2, context.operationRef().operationId());
-            try (var rows = statement.executeQuery()) {
-                if (!rows.next() || !"READY".equals(rows.getString(1)) || rows.next())
-                    throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
-            }
-        }
+        JdbcBulkOperationControl.Snapshot control = JdbcBulkOperationControl.lockForAdmission(connection,
+                context.namespaceId(), context.operationRef().operationId());
+        if (control == null || !control.ready() || control.generation() < 1
+                || control.descriptorFingerprint() == null || control.structuralRevision() == null)
+            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
         lockDeployment(connection, deployment);
         String subjectDigest = BulkScopeDigests.subjectQuotaDigest(deployment, context.subjectId());
         String authorizationDigest = BulkScopeDigests.authorizationScopeDigest(context.namespaceId(),
