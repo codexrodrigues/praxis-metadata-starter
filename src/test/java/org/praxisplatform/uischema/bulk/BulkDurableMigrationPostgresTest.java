@@ -2,17 +2,24 @@ package org.praxisplatform.uischema.bulk;
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.flywaydb.core.Flyway;
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
+import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.action.ActionCollectionAtomicity;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
-import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DelegatingDataSource;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import javax.sql.DataSource;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -85,6 +92,107 @@ class BulkDurableMigrationPostgresTest {
                     List.of(identity))).isInstanceOf(IllegalArgumentException.class);
             assertThat(new JdbcTemplate(dataSource).queryForObject("select to_regclass('praxis_bulk') is null",
                     Boolean.class)).isTrue();
+        }
+    }
+
+    @Test
+    void lateFailureWhileSeedingDeclaredOperationsRollsBackPriorBindingBucketAndControlRows() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start()) {
+            var dataSource = postgres.getPostgresDatabase();
+            var sql = new JdbcTemplate(dataSource);
+            var first = new BulkOperationControlIdentity(CONTEXT.namespaceId(), "employee-bulk-approve-a");
+            var second = new BulkOperationControlIdentity(CONTEXT.namespaceId(), "employee-bulk-approve-b");
+            var targetedInserts = new AtomicInteger();
+            var failingDataSource = failOnSecondOperationControlInsert(dataSource, targetedInserts);
+
+            assertThatThrownBy(() -> BulkExecutionMigrator.migrateWithOperations(failingDataSource,
+                    java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID),
+                    List.of(first, second)))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasRootCauseMessage("Injected failure on the second declared operation control");
+
+            assertThat(targetedInserts).hasValue(2);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_operation_control", Long.class))
+                    .isZero();
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_namespace_binding", Long.class))
+                    .isZero();
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_deployment_bucket", Long.class))
+                    .isZero();
+
+            // DDL and Flyway history precede the retryable bootstrap transaction; a clean retry
+            // must still provision both identities and bindings atomically.
+            assertThat(BulkExecutionMigrator.migrateWithOperations(dataSource,
+                    java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID),
+                    List.of(first, second))).isZero();
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_operation_control", Long.class))
+                    .isEqualTo(2L);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_namespace_binding", Long.class))
+                    .isEqualTo(1L);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_deployment_bucket", Long.class))
+                    .isEqualTo(1L);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_operation_control "
+                    + "where state <> 'UNCOMPOSED'", Long.class)).isZero();
+
+            assertThat(BulkExecutionMigrator.migrateWithOperations(dataSource,
+                    java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID),
+                    List.of(first, second))).isZero();
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_operation_control", Long.class))
+                    .isEqualTo(2L);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_namespace_binding", Long.class))
+                    .isEqualTo(1L);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_deployment_bucket", Long.class))
+                    .isEqualTo(1L);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_operation_control "
+                    + "where state <> 'UNCOMPOSED'", Long.class)).isZero();
+        }
+    }
+
+    private static DataSource failOnSecondOperationControlInsert(DataSource target, AtomicInteger targetedInserts) {
+        return new DelegatingDataSource(target) {
+            @Override
+            public java.sql.Connection getConnection() throws java.sql.SQLException {
+                var connection = super.getConnection();
+                return (java.sql.Connection) Proxy.newProxyInstance(
+                        java.sql.Connection.class.getClassLoader(),
+                        new Class<?>[] { java.sql.Connection.class },
+                        (proxy, method, args) -> {
+                            Object value = invokeDelegate(connection, method, args);
+                            if ("prepareStatement".equals(method.getName()) && args != null && args.length > 0
+                                    && args[0] instanceof String statementSql
+                                    && isDeclaredControlInsert(statementSql)) {
+                                return failOnSecondExecution((java.sql.PreparedStatement) value, targetedInserts);
+                            }
+                            return value;
+                        });
+            }
+        };
+    }
+
+    private static java.sql.PreparedStatement failOnSecondExecution(
+            java.sql.PreparedStatement statement, AtomicInteger targetedInserts) {
+        return (java.sql.PreparedStatement) Proxy.newProxyInstance(
+                java.sql.PreparedStatement.class.getClassLoader(),
+                new Class<?>[] { java.sql.PreparedStatement.class },
+                (proxy, method, args) -> {
+                    if ("executeUpdate".equals(method.getName()) && targetedInserts.incrementAndGet() == 2) {
+                        throw new java.sql.SQLException("Injected failure on the second declared operation control");
+                    }
+                    return invokeDelegate(statement, method, args);
+                });
+    }
+
+    private static boolean isDeclaredControlInsert(String statementSql) {
+        String normalized = statementSql.toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", " ");
+        return normalized.contains("insert into praxis_bulk.praxis_bulk_operation_control")
+                && normalized.contains("values (?, ?, 'uncomposed'");
+    }
+
+    private static Object invokeDelegate(Object delegate, Method method, Object[] args) throws Throwable {
+        try {
+            return method.invoke(delegate, args);
+        } catch (InvocationTargetException failure) {
+            throw failure.getCause();
         }
     }
 
