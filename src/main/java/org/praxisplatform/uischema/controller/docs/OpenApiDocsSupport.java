@@ -131,6 +131,37 @@ public class OpenApiDocsSupport {
     }
 
     /**
+     * Fetches only the named group document. Unlike {@link #fetchOpenApiDocument}, this method
+     * never substitutes the ungrouped document: callers using group identity as evidence must
+     * fail closed when that exact publication is absent.
+     */
+    public JsonNode fetchOpenApiGroupDocument(RestTemplate restTemplate, String openApiBasePath,
+                                               String group, Logger logger) {
+        if (!StringUtils.hasText(group)) {
+            throw new IllegalArgumentException("OpenAPI group name must not be blank");
+        }
+        String groupDocUrl = resolveOpenApiBaseUrl() + openApiBasePath + "/"
+                + UriUtils.encodePathSegment(group, StandardCharsets.UTF_8);
+        try {
+            JsonNode document = restTemplate.getForObject(groupDocUrl, JsonNode.class);
+            if (document == null) {
+                throw new IllegalStateException("OpenAPI group document is null: " + groupDocUrl);
+            }
+            return document;
+        } catch (HttpStatusCodeException ex) {
+            logger.error("Exact OpenAPI group document {} failed with status {}", groupDocUrl, ex.getStatusCode());
+            throw new IllegalStateException("Failed to fetch exact OpenAPI group document " + groupDocUrl
+                    + " (status " + ex.getStatusCode() + ")", ex);
+        } catch (Exception ex) {
+            if (ex instanceof IllegalStateException illegalStateException) {
+                throw illegalStateException;
+            }
+            logger.error("Failed to fetch exact OpenAPI group document {}", groupDocUrl, ex);
+            throw new IllegalStateException("Failed to fetch exact OpenAPI group document " + groupDocUrl, ex);
+        }
+    }
+
+    /**
      * Seleciona o content node preferencial dentro de um bloco OpenAPI {@code content}.
      *
      * <p>

@@ -4,12 +4,47 @@
 
 Este corte é `contrato-publico` e `arquitetural`. A fonte canônica é o pacote `bulk` do
 Metadata Starter e seu schema PostgreSQL explícito. O consumidor direto é o host que adota
-o mesmo `DataSource` e `PlatformTransactionManager` do domínio. Não há endpoint, registry,
-annotation, auto-configuração ou capability neste corte. V5 fornece controle estrutural de
+o mesmo `DataSource` e `PlatformTransactionManager` do domínio. Este documento descreve o núcleo
+durável, não declara endpoint de protocolo, provider executável ou capability pronta. V5 fornece controle estrutural de
 operação (criado como `UNCOMPOSED`), quotas e primitivas de retenção/expurgo descritos
 abaixo; a migração não coloca o controle em `READY`, nem publica
 por si só uma operação executável, fila/job, ou suporte a QUERY, ASYNC ou ATOMIC. A transição
 para `READY` depende de publicação governada posterior com fingerprint e revisão estrutural.
+
+## Binding declarativo de operações compartilhadas
+
+`@BulkResourceOperations`, aplicado uma única vez por `resourceKey` a um controller `@ApiResource`, declara os operationIds
+globais de leitura da proposta/resultados e execução/resultados, além do cancelamento. Cada ID
+precisa corresponder a um método MVC real marcado com seu papel estrutural
+`@BulkResourceOperation`. O starter deriva um snapshot imutável e o compartilha entre
+`CanonicalOperationResolver` e o customizer Springdoc; assim o mesmo ID explícito é resolvido e
+materializado no documento OpenAPI antes da leitura de schema. O binding estrito confirma também
+o operationId no endpoint e percorre todos os grupos OpenAPI publicados para detectar IDs
+duplicados em paths, callbacks e webhooks, confirmando a identidade da rota em todos os grupos
+que a publicam; customizers que
+reescrevam a identidade ou criem duplicidade tornam a resolução inelegível. A annotation não cria paths nem
+autoriza uma action. IDs em branco/repetidos, papéis ausentes/duplicados, conflito com outra
+operação e mapping condicional/ambíguo omitem o binding; a aplicação pode continuar servindo
+OpenAPI, enquanto consumidores estritos não resolvem esses IDs. A composição/action projection
+ainda precisa considerar esses diagnostics e permanecer `UNCOMPOSED`/`SUSPENDED` até provar
+handlers, schemas, provider e publication CAS.
+
+A validação usa o documento exato de cada grupo publicado e lê a lista de grupos no instante da
+resolução, incluindo grupos registrados dinamicamente depois da criação do resolver. O serviço
+documental mantém fallback para o documento base nos fluxos legados de schema/catálogo, mas esse
+fallback nunca prova a existência nem a identidade de um grupo nomeado. Implementações customizadas
+de `OpenApiDocumentService` usadas com esta declaração devem fornecer o fetch estrito; o padrão
+falha fechado.
+
+Os handlers comuns do protocolo são `GET` para leitura/resultados e `POST` sem body para
+cancelamento. `consumes` explícito (que acrescentaria um contrato de request body), parâmetros
+`HttpEntity`/`RequestEntity` e qualquer condição de roteamento não representada pelo contrato
+estrito impedem o binding. `produces` não muda a identidade da rota e permanece documentado no
+OpenAPI; este binding não certifica o contrato de resposta.
+Avaliação e confirmação continuam operações reais separadas com operationIds
+explícitos em `@Operation`; somente elas fornecem request schema. As cinco leituras/cancelamento
+não devem inventar request schemas. A prova completa até OpenAPI real, descriptor, CAS e gate V7
+permanece pendente neste incremento.
 
 O inventário anterior é reaproveitado assim:
 
