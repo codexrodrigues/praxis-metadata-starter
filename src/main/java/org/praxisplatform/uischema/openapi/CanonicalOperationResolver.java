@@ -5,6 +5,7 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 
 import java.util.Optional;
+import java.util.List;
 
 /**
  * Resolve a identidade canonica de operacoes OpenAPI documentadas.
@@ -90,6 +91,16 @@ public interface CanonicalOperationResolver {
     }
 
     /**
+     * Resolves and validates several operation identities against one captured exact-group snapshot.
+     * Implementations must preserve strict MVC/resource binding and published OpenAPI identity
+     * checks without fetching that captured group again; unsupported resolvers fail closed.
+     */
+    default List<CanonicalOperationRef> requireResourceOperations(String resourceKey,
+            List<CanonicalOperationRef> operations, CanonicalOpenApiGroupSnapshot snapshot) {
+        throw new UnsupportedOperationException("Batch strict operation binding is not implemented by this resolver");
+    }
+
+    /**
      * Resolves the required, direct DTO {@code @RequestBody} from the same strict MVC binding.
      * Generic types must be concrete in the registered controller's context; the caller supplies
      * only the configured mapper's TypeFactory, never a guessed DTO type. Does not fetch schemas.
@@ -98,5 +109,11 @@ public interface CanonicalOperationResolver {
     default CanonicalRequestBodyBinding requireResourceRequestBody(String resourceKey, String operationId,
             String method, TypeFactory typeFactory) {
         throw new UnsupportedOperationException("Strict request body binding is not implemented by this resolver");
+    }
+
+    /** Resolves the direct DTO body for an operation already validated against its snapshot. */
+    default CanonicalRequestBodyBinding requireResourceRequestBody(String resourceKey,
+            CanonicalOperationRef operation, TypeFactory typeFactory) {
+        throw new UnsupportedOperationException("Snapshot-bound request body binding is not implemented by this resolver");
     }
 }

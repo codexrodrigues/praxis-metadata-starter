@@ -16,6 +16,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.List;
@@ -156,6 +158,96 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
     }
 
     @Override
+    public List<CanonicalOperationRef> requireResourceOperations(String resourceKey,
+            List<CanonicalOperationRef> operations, CanonicalOpenApiGroupSnapshot snapshot) {
+        if (!StringUtils.hasText(resourceKey) || operations == null || operations.isEmpty() || snapshot == null) {
+            throw new IllegalArgumentException("resourceKey, operations and exact OpenAPI snapshot are required");
+        }
+        Set<String> operationIds = new HashSet<>();
+        List<CanonicalOperationRef> validated = new java.util.ArrayList<>(operations.size());
+        for (CanonicalOperationRef operation : operations) {
+            if (operation == null || !StringUtils.hasText(operation.operationId())
+                    || !operationIds.add(operation.operationId())) {
+                throw new IllegalStateException("Bulk operation IDs must be present and unique");
+            }
+            StrictMapping mapping = requireMapping(resourceKey, operation.operationId(), operation.method(), false);
+            if (!mapping.operation().equals(operation) || !snapshot.group().equals(operation.group())) {
+                throw invalidBinding(operation.operationId(), "operation does not match the exact MVC binding and captured group");
+            }
+            validated.add(mapping.operation());
+        }
+
+        Map<String, JsonNode> documents = new LinkedHashMap<>();
+        documents.put(snapshot.group(), snapshot.document());
+        Set<String> groups = new LinkedHashSet<>();
+        List<String> published = publishedOpenApiGroups.get();
+        if (published != null) published.stream().filter(StringUtils::hasText).forEach(groups::add);
+        groups.add(snapshot.group());
+        for (String group : groups) {
+            if (documents.containsKey(group)) continue;
+            JsonNode document = openApiDocumentService.getDocumentForGroupStrict(group);
+            if (document == null || !document.path("paths").isObject()) {
+                throw invalidBinding(validated.getFirst().operationId(),
+                        "published OpenAPI group '" + group + "' cannot be inspected for global identity collisions");
+            }
+            documents.put(group, document.deepCopy());
+        }
+
+        Map<String, Set<String>> locationsByOperationId = new HashMap<>();
+        documents.forEach((group, document) -> {
+            Map<String, Set<String>> groupLocations = new HashMap<>();
+            collectDocumentOperationIds(document, groupLocations);
+            groupLocations.forEach((id, locations) -> locationsByOperationId
+                    .computeIfAbsent(id, ignored -> new HashSet<>())
+                    .addAll(locations.stream().map(location -> group + "\u001f" + location).toList()));
+        });
+        for (CanonicalOperationRef operation : validated) {
+            String method = operation.method().toLowerCase(Locale.ROOT);
+            String canonicalLocation = "/paths/" + escapeJsonPointer(operation.path())
+                    + "/" + escapeJsonPointer(method);
+            for (Map.Entry<String, JsonNode> entry : documents.entrySet()) {
+                JsonNode paths = entry.getValue().path("paths");
+                String targetPath = paths.has(operation.path()) ? operation.path()
+                        : openApiDocumentService.resolveDocumentPath(paths, operation.path(), method);
+                if (!StringUtils.hasText(targetPath)) continue;
+                JsonNode targetOperation = paths.path(targetPath).path(method);
+                if (targetOperation.isObject()) {
+                    String publishedId = targetOperation.path("operationId").asText(null);
+                    if (!operation.operationId().equals(publishedId)) {
+                        throw invalidBinding(operation.operationId(), "published OpenAPI group '" + entry.getKey()
+                                + "' changes the identity at the same structural route");
+                    }
+                    Set<String> locations = locationsByOperationId.get(operation.operationId());
+                    String publishedLocation = entry.getKey() + "\u001f/paths/"
+                            + escapeJsonPointer(targetPath) + "/" + escapeJsonPointer(method);
+                    if (locations != null && locations.remove(publishedLocation)) {
+                        // OpenAPI groups may publish the same MVC route using different
+                        // template variable names. Normalize only that exact route alias;
+                        // duplicate IDs elsewhere remain distinct and fail the uniqueness gate.
+                        locations.add(canonicalLocation);
+                    }
+                }
+            }
+            JsonNode document = documents.get(operation.group());
+            JsonNode paths = document == null ? null : document.path("paths");
+            if (paths == null || !paths.isObject()) {
+                throw invalidBinding(operation.operationId(), "captured OpenAPI group has no paths object");
+            }
+            String path = paths.has(operation.path()) ? operation.path()
+                    : openApiDocumentService.resolveDocumentPath(paths, operation.path(), method);
+            JsonNode operationNode = StringUtils.hasText(path) ? paths.path(path).path(method) : null;
+            if (operationNode == null || !operation.operationId().equals(operationNode.path("operationId").asText(null))) {
+                throw invalidBinding(operation.operationId(), "captured OpenAPI operation does not retain the exact MVC identity");
+            }
+            if (!locationsByOperationId.getOrDefault(operation.operationId(), Set.of())
+                    .equals(Set.of(canonicalLocation))) {
+                throw invalidBinding(operation.operationId(), "captured OpenAPI operationId is not globally unique across published groups, callbacks and webhooks");
+            }
+        }
+        return List.copyOf(validated);
+    }
+
+    @Override
     public CanonicalRequestBodyBinding requireResourceRequestBody(String resourceKey, String operationId,
             String method, TypeFactory typeFactory) {
         if (typeFactory == null) throw new IllegalArgumentException("Configured TypeFactory is required");
@@ -164,7 +256,26 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
                 CanonicalRequestBodyTypes.resolve(binding.handler(), typeFactory));
     }
 
+    @Override
+    public CanonicalRequestBodyBinding requireResourceRequestBody(String resourceKey,
+            CanonicalOperationRef operation, TypeFactory typeFactory) {
+        if (operation == null || typeFactory == null) {
+            throw new IllegalArgumentException("Canonical operation and configured TypeFactory are required");
+        }
+        StrictMapping binding = requireMapping(resourceKey, operation.operationId(), operation.method(), false);
+        if (!binding.operation().equals(operation)) {
+            throw invalidBinding(operation.operationId(), "operation does not match its strict MVC handler mapping");
+        }
+        return new CanonicalRequestBodyBinding(operation,
+                CanonicalRequestBodyTypes.resolve(binding.handler(), typeFactory));
+    }
+
     private StrictMapping requireMapping(String resourceKey, String operationId, String method) {
+        return requireMapping(resourceKey, operationId, method, true);
+    }
+
+    private StrictMapping requireMapping(String resourceKey, String operationId, String method,
+            boolean verifyPublishedDocument) {
         if (!StringUtils.hasText(resourceKey) || !StringUtils.hasText(operationId) || !StringUtils.hasText(method)) {
             throw new IllegalArgumentException("resourceKey, operationId and method must not be blank");
         }
@@ -232,7 +343,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         if (sharedAddress) {
             throw invalidBinding(operationId, "path and method are shared by another registered mapping");
         }
-        if (StringUtils.hasText(declaredBulkId)) {
+        if (verifyPublishedDocument && StringUtils.hasText(declaredBulkId)) {
             verifyPublishedBulkOperation(declaredBulkId, path, expectedMethod.name());
         }
         return new StrictMapping(new CanonicalOperationRef(resolveGroup(path), operationId, path, expectedMethod.name()), handler);

@@ -17,6 +17,15 @@ Não aceita fallback para nome do método Java, escolha entre aliases de rota, m
 
 `resourceKey` e `operationId` são comparados exatamente; método HTTP aceita normalização de case e espaços. Argumentos vazios ou método HTTP inválido produzem `IllegalArgumentException`. Ausência de registro, ambiguidade, referência a outro recurso ou shape incompatível produzem `IllegalStateException`. Resolvers substitutos precisam implementar as mesmas garantias: o default da interface lança `UnsupportedOperationException`, sem degradar silenciosamente para lookup permissivo.
 
+Para um conjunto que precisa ser validado contra uma única leitura documental, use
+`requireResourceOperations(resourceKey, operations, snapshot)`. O método em lote vincula
+cada referência ao mapping MVC estrito, exige o grupo exato do snapshot e verifica IDs
+globais nos grupos OpenAPI publicados sem buscar novamente o documento já capturado.
+Implementações substitutas sem essa garantia falham fechadas. Grupos podem publicar a mesma
+rota estrutural com nomes diferentes para variáveis de template; o batch normaliza somente
+essa localização-alvo. Uma identidade diferente na mesma rota ou o mesmo ID em outra rota,
+callback ou webhook continua sendo conflito.
+
 ## Lookup existente e compatibilidade
 
 `resolveByOperationId` mantém o fallback legado para nome Java e o retorno vazio para ID ausente. Entretanto, um ID efetivo presente em mais de um mapping agora falha com `IllegalStateException`, em vez de escolher a primeira ocorrência. Uma colisão entre ID explícito e nome Java legado também falha; filtrar primeiro pelo recurso esconderia uma ambiguidade global.
@@ -54,6 +63,13 @@ O subconjunto exige DTO raiz concreto (classe ou record). Recusa body ausente/m�
 A garantia é sobre o **tipo declarado pelo handler MVC** e sua operação. Não comprova que custom HttpMessageConverters, desserializadores polimórficos ou customizações SpringDoc tenham semântica idêntica. Esses pontos continuam na composição/prova do consumidor; não use uma anotação Swagger para substituir o tipo que o MVC recebe. Também não infere quais campos de identidade/versão/workflow devem ser protegidos: protectedWireNames segue obrigatório na compilação de campos.
 
 O método requer o registro MVC inicializado e não busca OpenAPI. `requireRequestSchema` é uma etapa posterior, com a mesma operação retornada. O warmup atual é opcional, assíncrono e tolera falha, portanto não prova readiness de execução. Um futuro registry precisa bloquear admissão até validar schema/infraestrutura/providers e definir revalidação quando sua fonte mudar; este SDK não instala esse gate nem anuncia capability de lote.
+
+Quando a referência já foi validada pelo snapshot, use a sobrecarga
+`requireResourceRequestBody(resourceKey, operationRef, typeFactory)` para obter o DTO sem
+repetir a leitura OpenAPI. Para os papéis de protocolo declarados bodyless, valide também
+`snapshot.requireNoRequestBody(operationRef)`: verificar somente que o handler MVC não tem
+`@RequestBody` não impede um customizer OpenAPI de publicar `requestBody`. Essa prova lê a
+cópia defensiva do grupo capturado e não constitui readiness.
 
 Resolvers substitutos implementam a mesma prova de handler/tipo; o default deste método lança UnsupportedOperationException. O valor público permite integração desses resolvers confiáveis, não valida um handler apenas por ser construído. Argumento TypeFactory nulo falha com IllegalArgumentException; ausência/ambiguidade/tipo fora do subconjunto falha com IllegalStateException. Essas falhas são de composição, não respostas HTTP de negócio prontas.
 
