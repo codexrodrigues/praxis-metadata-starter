@@ -2,11 +2,15 @@
 
 `OpenApiDocumentService.requireRequestSchema(CanonicalOperationRef)` lê o request JSON de uma operação explícita no documento OpenAPI canônico. O método default usa `getDocumentForGroupStrict`; fallback ao documento sem grupo não prova a publicação do grupo nomeado e falha fechado. Implementações substitutas precisam fornecer essa operação estrita. `CachedOpenApiDocumentService` fornece o documento/cache já existente. A saída `CanonicalRequestSchema` mantém operação, mídia, `SpecVersion` e schema isolado; cada acesso a `schema()` retorna uma cópia.
 
+Quando uma composição precisa verificar request e response de várias operações como um conjunto, capture `CanonicalOpenApiGroupSnapshot` uma vez para o grupo comum. O mesmo snapshot fornece `requireRequestSchema` e `requireResponseSchema`; assim essas leituras usam a mesma cópia defensiva do documento e não repetem fetch/cache lookup. O response mantém `SpecVersion`, schema canônico e a lista ordenada de variantes `(status, mediaType)`. O snapshot é uma observação pontual: `clearCaches()` não o atualiza e ele não prova frescor, vínculo MVC, readiness, autorização ou permissão de execução. Compositores que publicarem disponibilidade precisam coordenar invalidação e fencing separadamente.
+
 ```java
 // IDs declarados no handler real. Não inferir update pelo verbo ou nome do método.
 CanonicalRequestBodyBinding binding = operations.requireResourceRequestBody(
     resourceKey, updateOperationId, "PUT", mapper.getTypeFactory());
-CanonicalRequestSchema request = documents.requireRequestSchema(binding.operation());
+CanonicalOpenApiGroupSnapshot snapshot = CanonicalOpenApiGroupSnapshot.capture(
+    documents, binding.operation().group());
+CanonicalRequestSchema request = snapshot.requireRequestSchema(binding.operation());
 BulkEditableFields fields = BulkEditableFields.compile(
     mapper, binding.bodyType(), request.schema(), request.specVersion(), protectedWireNames);
 ```
@@ -15,7 +19,7 @@ O exemplo usa o [binding MVC tipado](CANONICAL-OPERATION-BINDING.md) para obter 
 
 ## Garantias e subconjunto suportado
 
-- Exige grupo, ID explícito, path e método; captura o documento por grupo estrito, resolve o path pelo serviço canônico e confere o mesmo ID na operação daquele documento. IDs repetidos nas operações de `paths` daquele documento falham. A unicidade global dos handlers/recurso pertence a `requireResourceOperation`; o leitor não a substitui. O overload interno com snapshot permite que um compositor compartilhe a mesma cópia defensiva entre bindings e leitura dos dois schemas.
+- Exige grupo, ID explícito, path e método; captura o documento por grupo estrito, resolve o path pelo serviço canônico e confere o mesmo ID na operação daquele documento. IDs repetidos nas operações de `paths` daquele documento falham. A unicidade global dos handlers/recurso pertence a `requireResourceOperation`; o leitor não a substitui. `CanonicalOpenApiGroupSnapshot` permite compartilhar publicamente a mesma cópia defensiva entre leituras de vários request/response contracts.
 - Exige `openapi` 3.0.x ou 3.1.x. Não deduz dialeto por `nullable` ou pelo tipo. Em 3.1, aceita o dialeto padrão OpenAPI e JSON Schema 2020-12; dialectos customizados falham. Esse suporte é um subconjunto estrutural, não um validador completo de OpenAPI/JSON Schema.
 - Exige um único media type JSON concreto: `application/json` ou `application/<subtype-token>+json`, com subtype formado por caracteres ASCII `tchar` válidos; a comparação de nome é case-insensitive. Wildcards, parâmetros, espaços, tabs e caracteres Unicode não válidos não são aceitos como chaves de media type. Múltiplos candidatos JSON são ambíguos, inclusive `application/json` junto de outro `+json`; não escolhe uma allowlist arbitrária entre representações. XML e wildcard não provam um contrato JSON. A seleção documental permissiva continua a mesma para os controllers existentes, compartilhando a preferência na camada OpenAPI.
 - Resolve referências locais a `#/components/requestBodies/` e `#/components/schemas/`, com escapes JSON Pointer `~0`/`~1`. Não busca rede para resolver referências. Referência ausente, externa, cíclica, com siblings ou encoding não suportado falha explicitamente. Path items por referência não são suportados.
@@ -35,6 +39,6 @@ Entradas inválidas de operação produzem IllegalArgumentException; inconsistê
 
 ## Provas
 
-`CanonicalRequestSchemaTest` cobre operações/mídias/dialetos, referências/escapes/composição, cópias/cache e limites. `CanonicalRequestSchemaHttpIntegrationTest` usa MVC e SpringDoc servidos em HTTP real, um handler update/DTO explícito, o binding MVC tipado e BulkEditableFields; verifica também que a projeção filtrada continua disponível com headers. A fixture é uma operação de update sem persistência, não um executor de lote.
+`CanonicalRequestSchemaTest` cobre operações/mídias/dialetos, referências/escapes/composição, cópias/cache e limites. `CanonicalOpenApiGroupSnapshotTest` prova que request/response usam uma única captura estrita, preservam mídia/variante e resistem à mutação tanto da fonte quanto das cópias retornadas. `CanonicalRequestSchemaHttpIntegrationTest` usa MVC e SpringDoc servidos em HTTP real, um handler update/DTO explícito, o binding MVC tipado e BulkEditableFields; verifica também que a projeção filtrada continua disponível com headers. A fixture é uma operação de update sem persistência, não um executor de lote.
 
 Regressões focais: OpenApiDocsSupportTest, ApiDocsControllerTest, ApiDocsControllerPathResolutionTest, ApiDocsControllerSchemaHashTest e BulkEditableFieldsTest. Validar o JAR candidato exato no Quickstart. Registry, schemas de avaliação/execução, autorização, PostgreSQL e runtime bulk continuam pendentes.
