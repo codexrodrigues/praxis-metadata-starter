@@ -90,6 +90,133 @@ class BulkOperationStructuralCompilerTest {
     }
 
     @Test
+    void structuralSegmentDigestIsStableForTheSameSnapshotAndSensitiveToResponseSchemaChanges() {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var mapper = new ObjectMapper();
+            var original = document(true);
+            var firstDocuments = new TestDocuments(original);
+            var firstResolver = new OpenApiCanonicalOperationResolver(firstDocuments, mvc, bindings);
+            var firstCompiler = new BulkOperationStructuralCompiler(bindings, firstResolver, firstDocuments,
+                    registry(actionDefinition()), mapper.getTypeFactory(), new FilteredSchemaReferenceResolver());
+            var firstDescriptor = firstCompiler.compileAll().getFirst();
+            String firstDigest = BulkStructuralSegmentDigest.compute(firstDescriptor);
+            assertEquals("sha256:dfd892e1153c0fbbd498e43da9d90aeeeb4a56411db55d2bb6358bae8e10a9c1",
+                    firstDigest);
+
+            var repeatedDocuments = new TestDocuments(original);
+            var repeatedResolver = new OpenApiCanonicalOperationResolver(repeatedDocuments, mvc, bindings);
+            var repeatedCompiler = new BulkOperationStructuralCompiler(bindings, repeatedResolver, repeatedDocuments,
+                    registry(actionDefinition()), mapper.getTypeFactory(), new FilteredSchemaReferenceResolver());
+            assertEquals(firstDigest, BulkStructuralSegmentDigest.compute(
+                    repeatedCompiler.compileAll().getFirst()));
+
+            JsonNode changed = original.deepCopy();
+            for (String status : List.of("200", "202")) {
+                ((ObjectNode) changed.path("paths").path("/api/items/actions/bulk-approve").path("post")
+                        .path("responses").path(status).path("content").path("application/json")
+                        .path("schema").path("properties").path("accepted"))
+                        .put("description", "Confirmed by the domain handler");
+            }
+            var changedDocuments = new TestDocuments(changed);
+            var changedResolver = new OpenApiCanonicalOperationResolver(changedDocuments, mvc, bindings);
+            var changedCompiler = new BulkOperationStructuralCompiler(bindings, changedResolver, changedDocuments,
+                    registry(actionDefinition()), mapper.getTypeFactory(), new FilteredSchemaReferenceResolver());
+            assertFalse(firstDigest.equals(BulkStructuralSegmentDigest.compute(
+                    changedCompiler.compileAll().getFirst())));
+
+            // Object member order is not semantic input to the digest.
+            JsonNode canonicalContent = BulkStructuralSegmentDigest.canonicalContent(firstDescriptor);
+            assertDigestChanges(canonicalContent, "/action/id", "different-action");
+            assertDigestChanges(canonicalContent, "/action/execution/selection/maxItems", 51);
+            assertDigestChanges(canonicalContent, "/operations/0/reference/path", "/api/items/changed");
+            assertDigestChanges(canonicalContent, "/operations/5/requestJavaType", "example.ChangedRequest");
+            assertDigestChanges(canonicalContent, "/operations/5/requestSchema/mediaType", "application/problem+json");
+            assertDigestChanges(canonicalContent, "/operations/5/requestSchema/specVersion", "OPENAPI_3_1");
+            assertDigestChanges(canonicalContent, "/operations/5/requestSchema/schema/type", "string");
+            assertDigestChanges(canonicalContent, "/operations/5/responseJavaType", "example.ChangedResponse");
+            assertDigestChanges(canonicalContent, "/operations/5/responseSchema/specVersion", "OPENAPI_3_1");
+            assertDigestChanges(canonicalContent, "/operations/5/responseSchema/variants/0/status", 204);
+            assertDigestChanges(canonicalContent, "/operations/5/responseSchema/variants/0/mediaType", "application/problem+json");
+            ObjectNode reversedMembers = mapper.createObjectNode();
+            var names = new java.util.ArrayList<String>();
+            canonicalContent.fieldNames().forEachRemaining(names::add);
+            java.util.Collections.reverse(names);
+            names.forEach(name -> reversedMembers.set(name, canonicalContent.get(name)));
+            assertEquals(BulkStructuralSegmentDigest.compute(firstDescriptor),
+                    BulkCanonicalJson.structuralDescriptorDigest(reversedMembers));
+        }
+    }
+
+    @Test
+    void structuralSegmentAcceptsReaderSchemaDepthAndDecimalsAndCanonicalizesRequiredSets() {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            JsonNode original = document(true);
+            JsonNode reordered = original.deepCopy();
+            for (String path : List.of("/api/items/actions/bulk-approve/evaluation",
+                    "/api/items/actions/bulk-approve")) {
+                ObjectNode schema = (ObjectNode) original.path("paths").path(path).path("post")
+                        .path("requestBody").path("content").path("application/json").path("schema");
+                ObjectNode properties = (ObjectNode) schema.path("properties");
+                ObjectNode numeric = properties.putObject("ratio");
+                numeric.put("type", "number");
+                numeric.put("minimum", 0.5d);
+                ObjectNode nested = properties.putObject("nested");
+                ObjectNode cursor = nested;
+                for (int depth = 0; depth < 20; depth++) cursor = cursor.putObject("level" + depth);
+                cursor.put("type", "string");
+                schema.putArray("required").add("accepted").add("ratio");
+
+                ObjectNode reorderedSchema = (ObjectNode) reordered.path("paths").path(path).path("post")
+                        .path("requestBody").path("content").path("application/json").path("schema");
+                ObjectNode reorderedProperties = (ObjectNode) reorderedSchema.path("properties");
+                ObjectNode reorderedNumeric = reorderedProperties.putObject("ratio");
+                reorderedNumeric.put("type", "number");
+                reorderedNumeric.put("minimum", 0.5d);
+                ObjectNode reorderedNested = reorderedProperties.putObject("nested");
+                ObjectNode reorderedCursor = reorderedNested;
+                for (int depth = 0; depth < 20; depth++) reorderedCursor = reorderedCursor.putObject("level" + depth);
+                reorderedCursor.put("type", "string");
+                reorderedSchema.putArray("required").add("ratio").add("accepted");
+            }
+
+            String originalDigest = compileDigest(original, mvc, bindings);
+            assertEquals(originalDigest, compileDigest(reordered, mvc, bindings));
+        }
+    }
+
+    private String compileDigest(JsonNode document, RequestMappingHandlerMapping mvc,
+            BulkResourceOperationBindings bindings) {
+        var documents = new TestDocuments(document);
+        var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
+        var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
+                registry(actionDefinition()), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+        return BulkStructuralSegmentDigest.compute(compiler.compileAll().getFirst());
+    }
+
+    private static void assertDigestChanges(JsonNode content, String pointer, String replacement) {
+        assertDigestChanges(content, pointer, new ObjectMapper().getNodeFactory().textNode(replacement));
+    }
+
+    private static void assertDigestChanges(JsonNode content, String pointer, int replacement) {
+        assertDigestChanges(content, pointer, new ObjectMapper().getNodeFactory().numberNode(replacement));
+    }
+
+    private static void assertDigestChanges(JsonNode content, String pointer, JsonNode replacement) {
+        JsonNode changed = content.deepCopy();
+        int separator = pointer.lastIndexOf('/');
+        JsonNode parent = changed.at(pointer.substring(0, separator));
+        String property = pointer.substring(separator + 1).replace("~1", "/").replace("~0", "~");
+        assertTrue(parent instanceof ObjectNode, "Expected object parent for " + pointer);
+        ((ObjectNode) parent).set(property, replacement);
+        assertFalse(BulkCanonicalJson.structuralDescriptorDigest(content)
+                .equals(BulkCanonicalJson.structuralDescriptorDigest(changed)), pointer);
+    }
+
+    @Test
     void rejectsAChangedActionDefinitionInsteadOfComposingAnUnrelatedWorkflowAction() {
         try (var context = context()) {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);

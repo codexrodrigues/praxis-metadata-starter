@@ -13,10 +13,17 @@ import java.util.HexFormat;
 /** Bulk-specific typed framing. Not RFC 8785 and not a replacement for the schema hash. */
 final class BulkCanonicalJson {
     private static final int MAX_BYTES = 8 * 1024 * 1024;
+    private static final int STRUCTURAL_MAX_DEPTH = 72;
     private final MessageDigest digest;
+    private final int maxDepth;
     private int size;
 
     private BulkCanonicalJson() {
+        this(32);
+    }
+
+    private BulkCanonicalJson(int maxDepth) {
+        this.maxDepth = maxDepth;
         try { digest = MessageDigest.getInstance("SHA-256"); }
         catch (NoSuchAlgorithmException exception) { throw new IllegalStateException("SHA-256 unavailable"); }
     }
@@ -63,15 +70,27 @@ final class BulkCanonicalJson {
     static String evaluationDigest(JsonNode node) { return digest("praxis.bulk.evaluation/1", node); }
     static String revalidationDigest(JsonNode node) { return digest("praxis.bulk.revalidation/1", node); }
 
+    static String structuralDescriptorDigest(JsonNode node) {
+        // OpenAPI schemas have their own accepted depth and numeric domain; payload validation
+        // in BulkJsonValues must not narrow this structural evidence to the intent request limits.
+        return digest("praxis.bulk.structural-descriptor/1", node, STRUCTURAL_MAX_DEPTH);
+    }
+
     private static String digest(String framing, JsonNode node) {
-        var encoder = new BulkCanonicalJson();
+        return digest(framing, node, 32);
+    }
+
+    private static String digest(String framing, JsonNode node, int maxDepth) {
+        var encoder = new BulkCanonicalJson(maxDepth);
         encoder.string(framing);
         encoder.write(node, 0);
         return "sha256:" + HexFormat.of().formatHex(encoder.digest.digest());
     }
 
     private void write(JsonNode node, int depth) {
-        if (depth > 32) throw new IllegalArgumentException("Bulk fingerprint depth exceeded");
+        if (node == null || node.isPojo() || node.isBinary() || node.isMissingNode())
+            throw new IllegalArgumentException("Unsupported bulk digest value");
+        if (depth > maxDepth) throw new IllegalArgumentException("Bulk digest depth exceeded");
         if (node.isObject()) {
             marker('O'); number(node.size());
             var names = new ArrayList<String>(); node.fieldNames().forEachRemaining(names::add);
