@@ -34,7 +34,7 @@ class BulkEvaluationStorePostgresTest {
     @AfterAll void stop() throws Exception {if(postgres!=null)postgres.close();}
     @BeforeEach void reset(){sql.execute("drop schema if exists praxis_bulk cascade");}
     void migrate(){
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(6);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(7);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count(String table){return sql.queryForObject("select count(*) from praxis_bulk."+table,Integer.class);}
@@ -43,7 +43,7 @@ class BulkEvaluationStorePostgresTest {
                 .defaultSchema("praxis_bulk").table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true).target("1").load().migrate();
         var value=proposal();BulkPostgresTestSupport.insertLegacyProposal(sql,value);
         var before=sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class);
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(5);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(7);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
         assertThat(sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class)).isEqualTo(before);
         var recovered=tx.execute(status->store.find(CONTEXT,value.id()).orElseThrow());

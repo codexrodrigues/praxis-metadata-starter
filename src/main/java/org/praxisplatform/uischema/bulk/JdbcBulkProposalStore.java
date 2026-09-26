@@ -20,6 +20,7 @@ public final class JdbcBulkProposalStore {
     public void insert(BulkStoredProposal proposal) {
         Objects.requireNonNull(proposal, "proposal");
         requireNamespace(proposal.snapshot().context());
+        requireControlExpectation(proposal);
         try {
             infrastructure.withConnection(connection -> {
                 BulkQuotaLedger.Scope quota = BulkQuotaLedger.lockProposal(connection, infrastructure, proposal, false, true);
@@ -39,6 +40,7 @@ public final class JdbcBulkProposalStore {
         Objects.requireNonNull(evaluation, "evaluation");
         BulkStoredProposal proposal = evaluation.proposal();
         requireNamespace(proposal.snapshot().context());
+        requireControlExpectation(proposal);
         byte[] evaluationPayload = BulkEvaluationStorageCodec.encode(evaluation);
         try {
             infrastructure.withConnection(connection -> {
@@ -57,7 +59,8 @@ public final class JdbcBulkProposalStore {
         try {
             return infrastructure.withConnection(connection -> {
                 try (var statement = connection.prepareStatement("""
-                        select created_at, expires_at, fingerprint, payload
+                        select created_at, expires_at, fingerprint, payload,
+                               control_generation, control_descriptor_fingerprint, control_structural_revision
                         from praxis_bulk.praxis_bulk_proposal
                         where proposal_id=? and namespace_id=? and subject_id=? and resource_key=? and operation_id=?
                         """)) {
@@ -76,7 +79,8 @@ public final class JdbcBulkProposalStore {
                             }
                             return Optional.of(new BulkStoredProposal(id,
                                     rows.getObject(1, OffsetDateTime.class).toInstant(),
-                                    rows.getObject(2, OffsetDateTime.class).toInstant(), snapshot));
+                                    rows.getObject(2, OffsetDateTime.class).toInstant(), snapshot,
+                                    expectation(rows.getObject(5, Long.class), rows.getString(6), rows.getString(7))));
                         } catch (RuntimeException error) {
                             throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
                         }
@@ -84,6 +88,22 @@ public final class JdbcBulkProposalStore {
                 }
             });
         } catch (DataAccessException error) { throw safe(error); }
+    }
+
+    private static void requireControlExpectation(BulkStoredProposal proposal) {
+        if (proposal.controlExpectation() == null)
+            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
+    }
+
+    static BulkOperationControlExpectation expectation(Long generation, String fingerprint, String revision) {
+        if (generation == null && fingerprint == null && revision == null) return null;
+        try {
+            if (generation == null || fingerprint == null || revision == null)
+                throw new IllegalArgumentException("Incomplete persisted descriptor tuple");
+            return new BulkOperationControlExpectation(generation, fingerprint, revision);
+        } catch (RuntimeException error) {
+            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
+        }
     }
 
     /**
@@ -129,15 +149,20 @@ public final class JdbcBulkProposalStore {
         byte[] payload = BulkSnapshotStorageCodec.encode(snapshot);
         try (var statement = connection.prepareStatement("""
                 insert into praxis_bulk.praxis_bulk_proposal
-                (proposal_id, namespace_id, subject_id, resource_key, operation_id, created_at, expires_at, fingerprint, payload)
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (proposal_id, namespace_id, subject_id, resource_key, operation_id, created_at, expires_at,
+                 fingerprint, payload, control_generation, control_descriptor_fingerprint, control_structural_revision)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
+            BulkOperationControlExpectation expectation = proposal.controlExpectation();
             statement.setObject(1, proposal.id()); statement.setString(2, context.namespaceId());
             statement.setString(3, context.subjectId()); statement.setString(4, context.resourceKey());
             statement.setString(5, context.operationRef().operationId());
             statement.setObject(6, proposal.createdAt().atOffset(ZoneOffset.UTC));
             statement.setObject(7, proposal.expiresAt().atOffset(ZoneOffset.UTC));
             statement.setString(8, snapshot.fingerprint()); statement.setBytes(9, payload);
+            statement.setLong(10, expectation.generation());
+            statement.setString(11, expectation.descriptorFingerprint());
+            statement.setString(12, expectation.structuralRevision());
             statement.executeUpdate();
         }
     }

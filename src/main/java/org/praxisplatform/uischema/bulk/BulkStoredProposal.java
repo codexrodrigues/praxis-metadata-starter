@@ -14,8 +14,14 @@ public final class BulkStoredProposal {
     private final Instant createdAt;
     private final Instant expiresAt;
     private final BulkIntentSnapshot snapshot;
+    private final BulkOperationControlExpectation controlExpectation;
 
     public BulkStoredProposal(UUID id, Instant createdAt, Instant expiresAt, BulkIntentSnapshot snapshot) {
+        this(id, createdAt, expiresAt, snapshot, null);
+    }
+
+    public BulkStoredProposal(UUID id, Instant createdAt, Instant expiresAt, BulkIntentSnapshot snapshot,
+            BulkOperationControlExpectation controlExpectation) {
         this.id = Objects.requireNonNull(id, "id");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt").truncatedTo(ChronoUnit.MICROS);
         this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt").truncatedTo(ChronoUnit.MICROS);
@@ -25,6 +31,7 @@ public final class BulkStoredProposal {
             throw new IllegalArgumentException("Invalid protected proposal validity window");
         }
         this.snapshot = Objects.requireNonNull(snapshot, "snapshot");
+        this.controlExpectation = controlExpectation;
         var intent = snapshot.intent();
         if (!"SYNC".equals(intent.path("executionMode").asText())
                 || (snapshot.mode() != BulkMode.PER_ITEM_UPDATE
@@ -47,5 +54,7 @@ public final class BulkStoredProposal {
     public Instant createdAt() { return createdAt; }
     public Instant expiresAt() { return expiresAt; }
     public BulkIntentSnapshot snapshot() { return snapshot; }
+    /** Null only for legacy/read-only inputs; new storage writes require a complete expectation. */
+    public BulkOperationControlExpectation controlExpectation() { return controlExpectation; }
     @Override public String toString() { return "BulkStoredProposal[protected]"; }
 }

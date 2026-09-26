@@ -36,7 +36,7 @@ class JdbcBulkProposalStorePostgresTest {
     @AfterAll void stop() throws Exception { if (postgres != null) postgres.close(); }
     @BeforeEach void reset() { sql.execute("drop schema if exists praxis_bulk cascade"); }
     void migrate() {
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(6);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(7);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count() { return sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal", Integer.class); }
@@ -47,12 +47,29 @@ class JdbcBulkProposalStorePostgresTest {
         assertThat(sql.queryForObject("select count(*) from public.host_existing", Integer.class)).isZero();
         assertThat(sql.queryForObject("select to_regclass('public.flyway_schema_history')::text", String.class)).isNull();
     }
+    @Test void databaseRejectsV6WriterThatOmitsDescriptorTupleAfterV7() {
+        migrate();
+        var valid = proposal();
+        var snapshot = valid.snapshot();
+        assertThatThrownBy(() -> sql.update("""
+                insert into praxis_bulk.praxis_bulk_proposal
+                    (proposal_id, namespace_id, subject_id, resource_key, operation_id,
+                     created_at, expires_at, fingerprint, payload)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, UUID.randomUUID(), snapshot.context().namespaceId(), snapshot.context().subjectId(),
+                snapshot.context().resourceKey(), snapshot.context().operationRef().operationId(),
+                java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC),
+                java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).plusMinutes(5), snapshot.fingerprint(),
+                BulkSnapshotStorageCodec.encode(snapshot)))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(count()).isZero();
+    }
     @Test void concurrentMigrationHasOneVersionApplication() throws Exception {
         var barrier = new CyclicBarrier(2);
         try (var executor = Executors.newFixedThreadPool(2)) {
             Callable<Integer> task = () -> { barrier.await(5, TimeUnit.SECONDS); return BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId()); };
             var first = executor.submit(task); var second = executor.submit(task);
-            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(6);
+            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(7);
         }
         BulkExecutionMigrator.validate(dataSource);
     }
@@ -103,7 +120,8 @@ class JdbcBulkProposalStorePostgresTest {
             persistAndRead(snapshot(subjectContext(++subject), mode, BulkIdentityCodecs.uuids(), "\"123e4567-e89b-12d3-a456-426614174000\"", "1e100"));
         }
         // Reading an expired input is intentional: this low-level store does not admit execution.
-        var old = new BulkStoredProposal(UUID.randomUUID(), Instant.parse("2000-01-01T00:00:00Z"), Instant.parse("2000-01-01T00:01:00Z"), proposal().snapshot());
+        var old = new BulkStoredProposal(UUID.randomUUID(), Instant.parse("2000-01-01T00:00:00Z"),
+                Instant.parse("2000-01-01T00:01:00Z"), proposal().snapshot(), CONTROL_EXPECTATION);
         tx.executeWithoutResult(status -> store.insert(old));
         assertThat(tx.<java.util.Optional<BulkStoredProposal>>execute(status -> store.find(CONTEXT, old.id()))).isPresent();
         assertThat(count()).isEqualTo(13);

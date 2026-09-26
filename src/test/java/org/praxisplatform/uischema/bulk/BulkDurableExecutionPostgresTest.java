@@ -102,7 +102,7 @@ class BulkDurableExecutionPostgresTest {
         observer.execute("truncate bulk_durable_domain, bulk_durable_jpa_domain");
         observer.update("insert into bulk_durable_domain(id) values (1), (2)");
         observer.update("insert into bulk_durable_jpa_domain(id) values (1), (2)");
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(6);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(7);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 
@@ -201,6 +201,172 @@ class BulkDurableExecutionPostgresTest {
         assertThat(finalUnit.status()).isEqualTo(BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS);
         assertThat(finalUnit.execution().receiptCount()).isEqualTo(1);
         assertThat(finalUnit.execution().admissionCount()).isEqualTo(1);
+    }
+
+    @Test
+    void suspendedDescriptorStillReplaysReceiptButCannotStartAnotherUnit() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "suspend-fence", "owner-a");
+        var writes = new AtomicInteger();
+        var first = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
+            writes.incrementAndGet();
+            return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(first.receiptPresent()).isTrue();
+        assertThat(writes).hasValue(1);
+
+        try (var connection = dataSource.getConnection()) {
+            var transition = JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
+                    CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED,
+                    null, null);
+            assertThat(transition.applied()).isTrue();
+            assertThat(transition.generation()).isEqualTo(2);
+        }
+
+        var replay = kernel.executeUnit(reservation.control(), 0, unit -> {
+            writes.incrementAndGet();
+            return BulkUnitAdmission.admit();
+        }, unit -> {
+            writes.incrementAndGet();
+            return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(replay.replayed()).isTrue();
+        assertThat(replay.receiptPresent()).isTrue();
+        assertThat(writes).hasValue(1);
+
+        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 1, unit -> {
+            writes.incrementAndGet();
+            return BulkUnitAdmission.admit();
+        }, unit -> {
+            writes.incrementAndGet();
+            return BulkUnitMutationResult.confirmed();
+        })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_EXECUTABLE));
+        assertThat(writes).hasValue(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+    }
+
+    @Test
+    void suspensionThatWinsBetweenPrepareAndApplyStopsBeforeDomainCallback() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "suspend-in-flight", "owner-a");
+        observer.execute("""
+                create function praxis_bulk.test_gate_unit_prepare() returns trigger
+                language plpgsql as $$
+                begin
+                    if old.status = 'RUNNING' and new.status = 'UNIT_IN_FLIGHT' then
+                        perform pg_advisory_xact_lock(91021101);
+                    end if;
+                    return new;
+                end;
+                $$
+                """);
+        observer.execute("""
+                create trigger test_gate_unit_prepare before update on praxis_bulk.praxis_bulk_execution
+                for each row execute function praxis_bulk.test_gate_unit_prepare()
+                """);
+
+        var callbackCalls = new AtomicInteger();
+        try (var gate = dataSource.getConnection(); var executor = Executors.newFixedThreadPool(2)) {
+            try (var statement = gate.createStatement()) { statement.execute("select pg_advisory_lock(91021101)"); }
+
+            var unit = executor.submit(() -> kernel.executeUnit(reservation.control(), 0,
+                    admission -> { callbackCalls.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                    mutation -> { callbackCalls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); }));
+            assertDatabaseWait("advisory", "%update praxis_bulk.praxis_bulk_execution e%");
+
+            var suspend = executor.submit(() -> {
+                try (var connection = dataSource.getConnection()) {
+                    return JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
+                            CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED,
+                            null, null);
+                }
+            });
+            assertDatabaseWait("transactionid", "%transition_operation_control%");
+
+            try (var statement = gate.createStatement()) { statement.execute("select pg_advisory_unlock(91021101)"); }
+            assertThat(suspend.get(3, TimeUnit.SECONDS).applied()).isTrue();
+            var result = unit.get(5, TimeUnit.SECONDS);
+            assertThat(result.itemStatus()).isEqualTo(BulkItemStatus.NOT_PROCESSED);
+            assertThat(result.receiptPresent()).isFalse();
+            assertThat(result.execution().status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        }
+        assertThat(callbackCalls).hasValue(0);
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+        assertThat(count("praxis_bulk_admission")).isZero();
+    }
+
+    @Test
+    void suspensionWaitsForAdmittedMutationAndReceiptToCommitTogether() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "suspend-after-admission", "owner-a");
+        var callbackEntered = new CountDownLatch(1);
+        var releaseCallback = new CountDownLatch(1);
+        var writes = new AtomicInteger();
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var unit = executor.submit(() -> kernel.executeUnit(reservation.control(), 0,
+                    admission -> BulkUnitAdmission.admit(), mutation -> {
+                        callbackEntered.countDown();
+                        try {
+                            if (!releaseCallback.await(3, TimeUnit.SECONDS))
+                                throw new AssertionError("domain callback was not released");
+                        } catch (InterruptedException error) {
+                            Thread.currentThread().interrupt();
+                            throw new AssertionError(error);
+                        }
+                        writes.incrementAndGet();
+                        return BulkUnitMutationResult.confirmed();
+                    }));
+            assertThat(callbackEntered.await(2, TimeUnit.SECONDS)).isTrue();
+
+            var suspend = executor.submit(() -> {
+                try (var connection = dataSource.getConnection()) {
+                    return JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
+                            CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED,
+                            null, null);
+                }
+            });
+            assertDatabaseWait("transactionid", "%transition_operation_control%");
+            assertThat(suspend.isDone()).as("CAS waits while the admitted unit holds the control fence").isFalse();
+
+            releaseCallback.countDown();
+            var committed = unit.get(3, TimeUnit.SECONDS);
+            assertThat(committed.receiptPresent()).isTrue();
+            assertThat(committed.itemStatus()).isEqualTo(BulkItemStatus.CONFIRMED);
+            assertThat(suspend.get(3, TimeUnit.SECONDS).applied()).isTrue();
+        } finally {
+            releaseCallback.countDown();
+        }
+        assertThat(writes).hasValue(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+        assertThat(count("praxis_bulk_admission")).isZero();
+    }
+
+    @Test
+    void recompositionAtANewGenerationCannotContinueAnOldExecution() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "recomposed-generation", "owner-a");
+        try (var connection = dataSource.getConnection()) {
+            var suspended = JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
+                    CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED, null, null);
+            assertThat(suspended.generation()).isEqualTo(2);
+            var republished = JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
+                    CONTEXT.operationRef().operationId(), 2, JdbcBulkOperationControl.Target.READY,
+                    "sha256:" + "0".repeat(64), "structural-r1");
+            assertThat(republished.applied()).isTrue();
+            assertThat(republished.generation()).isEqualTo(3);
+        }
+
+        var callbacks = new AtomicInteger();
+        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 0, unit -> {
+            callbacks.incrementAndGet(); return BulkUnitAdmission.admit();
+        }, unit -> {
+            callbacks.incrementAndGet(); return BulkUnitMutationResult.confirmed();
+        })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_EXECUTABLE));
+        assertThat(callbacks).hasValue(0);
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+        assertThat(count("praxis_bulk_admission")).isZero();
     }
 
     @Test
@@ -414,23 +580,12 @@ class BulkDurableExecutionPostgresTest {
         }
 
         var conflictingProposal = persist(twoTargetEvaluation());
-        var conflictBarrier = new CyclicBarrier(2);
-        try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> reserveAfterBarrier(firstKernel, conflictingProposal, "conflict-key", "structural-a", conflictBarrier));
-            var second = executor.submit(() -> reserveAfterBarrier(secondKernel, conflictingProposal, "conflict-key", "structural-b", conflictBarrier));
-            var outcomes = List.of(first, second).stream().map(future -> {
-                try {
-                    return future.get(10, TimeUnit.SECONDS);
-                } catch (Exception error) {
-                    return error;
-                }
-            }).toList();
-            assertThat(outcomes.stream().filter(BulkExecutionReservation.class::isInstance)).hasSize(1);
-            assertThat(outcomes.stream().filter(Exception.class::isInstance)).hasSize(1);
-            Throwable failure = ((Exception) outcomes.stream().filter(Exception.class::isInstance).findFirst().orElseThrow()).getCause();
-            assertThat(failure).isInstanceOfSatisfying(BulkDurableExecutionException.class,
-                    error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.CONFLICT));
-        }
+        firstKernel.reserve(conflictingProposal.proposal().snapshot().context(), conflictingProposal.proposal().id(),
+                "conflict-key", "owner-a", "structural-r1", deadline());
+        assertThatThrownBy(() -> secondKernel.reserve(conflictingProposal.proposal().snapshot().context(),
+                conflictingProposal.proposal().id(), "conflict-key", "owner-a", "structural-r2", deadline()))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.CONFLICT));
 
         var proposalKey = persist(twoTargetEvaluation());
         var proposalBarrier = new CyclicBarrier(2);
@@ -585,7 +740,7 @@ class BulkDurableExecutionPostgresTest {
         int v2Checksum = observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='2'", Integer.class);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(4);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(5);
         assertThat(observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'", Integer.class))
                 .isEqualTo(v1Checksum);
@@ -624,7 +779,7 @@ class BulkDurableExecutionPostgresTest {
         seedV3Execution(activeProposal, activeLegacy, "legacy-key-active", activeExecutionId, now.minusSeconds(3), now.plusSeconds(30),
                 null, false);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(3);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(4);
         var kernel = kernel();
         var replayReservation = kernel.reserve(CONTEXT, proposal.id(), "legacy-key", "owner-a", "structural-r1",
                 now.plusSeconds(60));
@@ -1238,7 +1393,8 @@ class BulkDurableExecutionPostgresTest {
         Instant created = Instant.now().minusSeconds(5);
         var snapshot = BulkIntentSnapshot.command(context, BulkIdentityCodecs.strings(), request,
                 com.fasterxml.jackson.databind.JsonNode::deepCopy, com.fasterxml.jackson.databind.JsonNode::deepCopy);
-        var proposal = new BulkStoredProposal(UUID.randomUUID(), created, created.plusSeconds(600), snapshot);
+        var proposal = new BulkStoredProposal(UUID.randomUUID(), created, created.plusSeconds(600), snapshot,
+                BulkSnapshotStorageCodecTest.CONTROL_EXPECTATION);
         var evidence = new ArrayList<BulkTargetEvidence<?>>();
         evidence.add(new BulkTargetEvidence<>(new BulkTarget<>("1", "v1"), "observed-v1", JSON.objectNode(), JSON.objectNode(), BulkTargetEligibility.executable()));
         evidence.add(new BulkTargetEvidence<>(new BulkTarget<>("2", "v2"), "observed-v2", JSON.objectNode(), JSON.objectNode(), BulkTargetEligibility.executable()));
@@ -1278,6 +1434,20 @@ class BulkDurableExecutionPostgresTest {
 
     private int count(String table) {
         return observer.queryForObject("select count(*) from praxis_bulk." + table, Integer.class);
+    }
+
+    private void assertDatabaseWait(String waitEvent, String queryPattern) throws InterruptedException {
+        var deadline = Instant.now().plusSeconds(3);
+        boolean observed = false;
+        while (Instant.now().isBefore(deadline) && !observed) {
+            observed = observer.queryForObject("""
+                    select exists(select 1 from pg_stat_activity
+                      where pid <> pg_backend_pid() and wait_event_type='Lock' and wait_event=?
+                        and query ilike ?)
+                    """, Boolean.class, waitEvent, queryPattern);
+            if (!observed) Thread.sleep(20);
+        }
+        assertThat(observed).as("database lock wait %s for %s", waitEvent, queryPattern).isTrue();
     }
 
     private int countForExecution(String table, UUID executionId) {

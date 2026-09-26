@@ -57,7 +57,7 @@ final class BulkPostgresTestSupport {
         jdbc.update("""
                 update praxis_bulk.praxis_bulk_operation_control
                 set state='READY', generation=generation+1, descriptor_fingerprint=?,
-                    structural_revision='test-composition-r1', updated_at=clock_timestamp()
+                    structural_revision='structural-r1', updated_at=clock_timestamp()
                 where namespace_id=? and operation_id=? and state in ('UNCOMPOSED','SUSPENDED')
                 """, "sha256:" + "0".repeat(64), namespaceId, operationId);
     }

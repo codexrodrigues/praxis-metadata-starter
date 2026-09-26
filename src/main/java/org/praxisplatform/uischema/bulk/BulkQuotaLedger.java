@@ -34,8 +34,11 @@ final class BulkQuotaLedger {
         }
         JdbcBulkOperationControl.Snapshot control = JdbcBulkOperationControl.lockForAdmission(connection,
                 context.namespaceId(), context.operationRef().operationId());
-        if (control == null || !control.ready() || control.generation() < 1
-                || control.descriptorFingerprint() == null || control.structuralRevision() == null)
+        BulkOperationControlExpectation expected = proposal.controlExpectation();
+        if (control == null || !control.ready() || expected == null
+                || control.generation() != expected.generation()
+                || !expected.descriptorFingerprint().equals(control.descriptorFingerprint())
+                || !expected.structuralRevision().equals(control.structuralRevision()))
             throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
         lockDeployment(connection, deployment);
         String subjectDigest = BulkScopeDigests.subjectQuotaDigest(deployment, context.subjectId());
