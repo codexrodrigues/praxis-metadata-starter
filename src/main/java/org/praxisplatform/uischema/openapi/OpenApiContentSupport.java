@@ -4,9 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
-/** Shared content selection for documentary projection and strict JSON request binding. */
+/** Shared content selection for documentary projection and strict JSON operation binding. */
 public final class OpenApiContentSupport {
+    private static final Pattern JSON_MEDIA_TYPE = Pattern.compile("application/json", Pattern.CASE_INSENSITIVE);
+    private static final Pattern JSON_SUFFIX_MEDIA_TYPE = Pattern.compile(
+            "application/[!#$%&'*+.^_`|~0-9A-Za-z-]+\\+json", Pattern.CASE_INSENSITIVE);
+
     private OpenApiContentSupport() { }
 
     /** Documentary preference: application/json, wildcard, then first declared media type. */
@@ -29,17 +34,16 @@ public final class OpenApiContentSupport {
     /** JSON binding cannot infer a concrete JSON contract from wildcard or XML content. */
     static String requireJsonMediaType(JsonNode content) {
         if (content == null || !content.isObject()) {
-            throw new IllegalStateException("Canonical request must declare JSON content");
+            throw new IllegalStateException("Canonical operation must declare JSON content");
         }
         List<String> candidates = new ArrayList<>();
         content.fieldNames().forEachRemaining(name -> {
-            if ("application/json".equals(name) || (name.startsWith("application/") && name.endsWith("+json")
-                    && name.indexOf('*') < 0 && name.indexOf(';') < 0 && name.indexOf(' ') < 0)) {
+            if (JSON_MEDIA_TYPE.matcher(name).matches() || JSON_SUFFIX_MEDIA_TYPE.matcher(name).matches()) {
                 candidates.add(name);
             }
         });
         if (candidates.size() != 1) {
-            throw new IllegalStateException("Canonical request must declare one unambiguous JSON media type");
+            throw new IllegalStateException("Canonical operation must declare one unambiguous JSON media type");
         }
         return candidates.get(0);
     }
