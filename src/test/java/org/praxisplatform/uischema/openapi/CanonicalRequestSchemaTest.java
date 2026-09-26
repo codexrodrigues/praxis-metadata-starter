@@ -48,6 +48,46 @@ class CanonicalRequestSchemaTest {
     }
 
     @Test
+    void strictRequestSchemaUsesTheExactGroupAndNeverSubstitutesTheBaseDocument() {
+        ObjectNode base = basicDocument("3.0.3");
+        ObjectNode exact = basicDocument("3.0.3");
+        requestSchema(exact).putObject("properties").putObject("exactOnly").put("type", "string");
+
+        java.util.concurrent.atomic.AtomicInteger legacyReads = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger strictReads = new java.util.concurrent.atomic.AtomicInteger();
+        OpenApiDocumentService documents = new OpenApiDocumentService() {
+            @Override
+            public String resolveGroupFromPath(String path) { return "inventory"; }
+
+            @Override
+            public JsonNode getDocumentForGroup(String groupName) {
+                legacyReads.incrementAndGet();
+                return base;
+            }
+
+            @Override
+            public JsonNode getDocumentForGroupStrict(String groupName) {
+                strictReads.incrementAndGet();
+                return exact;
+            }
+
+            @Override
+            public String getOrComputeSchemaHash(String schemaId, java.util.function.Supplier<JsonNode> supplier) {
+                return "hash";
+            }
+
+            @Override
+            public void clearCaches() { }
+        };
+
+        CanonicalRequestSchema schema = documents.requireRequestSchema(UPDATE);
+
+        assertEquals(0, legacyReads.get());
+        assertEquals(1, strictReads.get());
+        assertTrue(schema.schema().path("properties").has("exactOnly"));
+    }
+
+    @Test
     void acceptsOas31OnlyWithADeclaredSupportedDialectAndReturnsItsDialectVersion() {
         ObjectNode baseDialect = basicDocument("3.1.1");
         baseDialect.put("jsonSchemaDialect", "https://spec.openapis.org/oas/3.1/dialect/base");
@@ -283,6 +323,11 @@ class CanonicalRequestSchemaTest {
             }
 
             @Override
+            public JsonNode getDocumentForGroupStrict(String groupName) {
+                return source;
+            }
+
+            @Override
             public String getOrComputeSchemaHash(String schemaId, java.util.function.Supplier<JsonNode> supplier) {
                 return "hash";
             }
@@ -301,7 +346,7 @@ class CanonicalRequestSchemaTest {
     void usesTheCachedDocumentWithoutMutatingItOrRefetchingIt() {
         ObjectNode document = basicDocument("3.0.3");
         OpenApiDocsSupport support = mock(OpenApiDocsSupport.class);
-        when(support.fetchOpenApiDocument(any(RestTemplate.class), isNull(), anyString(), any())).thenReturn(document);
+        when(support.fetchOpenApiGroupDocument(any(RestTemplate.class), isNull(), anyString(), any())).thenReturn(document);
         CachedOpenApiDocumentService service = new CachedOpenApiDocumentService(new RestTemplate(), JSON, support);
 
         CanonicalRequestSchema first = service.requireRequestSchema(UPDATE);
@@ -311,12 +356,13 @@ class CanonicalRequestSchemaTest {
         assertNotNull(second.schema());
         assertFalse(document.path("paths").path("/api/items/{id}").path("put").path("requestBody")
                 .path("content").path("application/json").path("schema").has("$ref"));
-        verify(support, times(1)).fetchOpenApiDocument(any(RestTemplate.class), isNull(), anyString(), any());
+        verify(support, times(1)).fetchOpenApiGroupDocument(any(RestTemplate.class), isNull(), anyString(), any());
+        verify(support, org.mockito.Mockito.never()).fetchOpenApiDocument(any(RestTemplate.class), isNull(), anyString(), any());
     }
 
     private static CachedOpenApiDocumentService cached(JsonNode document) {
         OpenApiDocsSupport support = mock(OpenApiDocsSupport.class);
-        when(support.fetchOpenApiDocument(any(RestTemplate.class), isNull(), anyString(), any())).thenReturn(document);
+        when(support.fetchOpenApiGroupDocument(any(RestTemplate.class), isNull(), anyString(), any())).thenReturn(document);
         return new CachedOpenApiDocumentService(new RestTemplate(), JSON, support);
     }
 

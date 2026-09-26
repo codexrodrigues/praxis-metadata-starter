@@ -40,11 +40,24 @@ Os handlers comuns do protocolo são `GET` para leitura/resultados e `POST` sem 
 cancelamento. `consumes` explícito (que acrescentaria um contrato de request body), parâmetros
 `HttpEntity`/`RequestEntity` e qualquer condição de roteamento não representada pelo contrato
 estrito impedem o binding. `produces` não muda a identidade da rota e permanece documentado no
-OpenAPI; este binding não certifica o contrato de resposta.
+OpenAPI; este binding sozinho não certifica o contrato de resposta.
 Avaliação e confirmação continuam operações reais separadas com operationIds
 explícitos em `@Operation`; somente elas fornecem request schema. As cinco leituras/cancelamento
 não devem inventar request schemas. A prova completa até OpenAPI real, descriptor, CAS e gate V7
 permanece pendente neste incremento.
+
+Para a composição do descriptor, os readers estritos aceitam uma cópia defensiva do documento
+exato do grupo, permitindo que operação, request e response usem a mesma publicação sem nova
+consulta ao cache entre etapas. `OpenApiRequestSchemaReader` usa obtenção estrita; fallback ao
+documento base não prova identidade. `OpenApiResponseSchemaReader` valida os códigos 2xx explícitos:
+exige em cada um exatamente um media type JSON suportado (`application/json` ou
+`application/<subtype-token>+json` com `tchar` ASCII válido, comparação case-insensitive e sem parâmetros) e schema resolvível, rejeita `default` e
+a faixa `2XX`, resolve referências locais de Response Object/schema com os limites compartilhados,
+e falha se schemas canonizados ou media/status forem ambíguos/divergentes. O canonicalizer conserva
+descrições, exemplos e extensões, portanto a igualdade é conservadora. A tupla ordenada de
+status/media type e JSON canônico completo do schema deve entrar diretamente no fingerprint do
+descriptor; o cache de hash de `/schemas/filtered` não substitui essa evidência. Esses readers ainda
+não compõem/publicam o descriptor, não projetam action/capability e não elevam o estado a `READY`.
 
 O inventário anterior é reaproveitado assim:
 

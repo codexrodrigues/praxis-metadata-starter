@@ -26,18 +26,24 @@ final class OpenApiRequestSchemaReader {
     private final SpecVersion version;
     private int nodes;
 
-    private OpenApiRequestSchemaReader(JsonNode document, SpecVersion version) {
+    OpenApiRequestSchemaReader(JsonNode document, SpecVersion version) {
         this.document = document;
         this.version = version;
     }
 
     static CanonicalRequestSchema read(OpenApiDocumentService documents, CanonicalOperationRef operation) {
-        if (operation == null || blank(operation.group()) || blank(operation.path()) || blank(operation.method()) || blank(operation.operationId())) {
-            throw new IllegalArgumentException("Explicit canonical operation group, ID, path and method are required");
-        }
+        validateOperationReference(operation);
+        CanonicalOpenApiGroupSnapshot snapshot = CanonicalOpenApiGroupSnapshot.capture(documents, operation.group());
+        return read(documents, snapshot, operation);
+    }
+
+    static CanonicalRequestSchema read(OpenApiDocumentService documents, CanonicalOpenApiGroupSnapshot snapshot,
+            CanonicalOperationRef operation) {
+        validateOperationReference(operation);
+        if (documents == null) throw new IllegalArgumentException("OpenAPI document service is required");
+        if (snapshot == null || !snapshot.group().equals(operation.group())) throw invalid("Operation group does not match the captured OpenAPI document");
         String method = operation.method().toLowerCase(Locale.ROOT);
-        if (!METHODS.contains(method)) throw new IllegalArgumentException("Unsupported operation method");
-        JsonNode document = documents.getDocumentForGroup(operation.group());
+        JsonNode document = snapshot.document();
         if (document == null || !document.isObject()) throw invalid("OpenAPI document is unavailable");
         SpecVersion version = version(document.path("openapi"));
         checkDialect(document.get("jsonSchemaDialect"), version);
@@ -62,6 +68,14 @@ final class OpenApiRequestSchemaReader {
         return new CanonicalRequestSchema(operation, mediaType, version, schema);
     }
 
+    static void validateOperationReference(CanonicalOperationRef operation) {
+        if (operation == null || blank(operation.group()) || blank(operation.path()) || blank(operation.method()) || blank(operation.operationId())) {
+            throw new IllegalArgumentException("Explicit canonical operation group, ID, path and method are required");
+        }
+        String method = operation.method().toLowerCase(Locale.ROOT);
+        if (!METHODS.contains(method)) throw new IllegalArgumentException("Unsupported operation method");
+    }
+
     private JsonNode resolveRequestBody(JsonNode body, Set<String> visited, int depth) {
         budget(depth);
         if (!body.isObject()) throw invalid("Request body is missing or invalid");
@@ -69,6 +83,10 @@ final class OpenApiRequestSchemaReader {
         String ref = reference(body, "#/components/requestBodies/");
         if (!visited.add(ref)) throw invalid("Cyclic request body reference");
         return resolveRequestBody(target(ref), visited, depth + 1);
+    }
+
+    JsonNode resolveSchema(JsonNode source) {
+        return schema(source, new HashSet<>(), 0);
     }
 
     private JsonNode schema(JsonNode source, Set<String> visited, int depth) {
@@ -136,7 +154,7 @@ final class OpenApiRequestSchemaReader {
         return value.deepCopy();
     }
 
-    private String reference(JsonNode source, String prefix) {
+    String reference(JsonNode source, String prefix) {
         JsonNode node = source.path("$ref");
         if (!node.isTextual() || source.size() != 1) throw invalid("Reference siblings are not supported");
         String ref = node.textValue();
@@ -151,17 +169,17 @@ final class OpenApiRequestSchemaReader {
         return ref;
     }
 
-    private JsonNode target(String ref) {
+    JsonNode target(String ref) {
         JsonNode target = document.at(ref.substring(1));
         if (target.isMissingNode() || target.isNull()) throw invalid("Component reference is missing");
         return target;
     }
 
-    private void budget(int depth) {
-        if (depth > MAX_DEPTH || ++nodes > MAX_NODES) throw invalid("Request schema resolution exceeds structural limits");
+    void budget(int depth) {
+        if (depth > MAX_DEPTH || ++nodes > MAX_NODES) throw invalid("OpenAPI reference or schema resolution exceeds structural limits");
     }
 
-    private static SpecVersion version(JsonNode version) {
+    static SpecVersion version(JsonNode version) {
         if (version.isTextual()) {
             if (version.textValue().matches("3\\.0\\.[0-9]+")) return SpecVersion.V30;
             if (version.textValue().matches("3\\.1\\.[0-9]+")) return SpecVersion.V31;
@@ -169,12 +187,12 @@ final class OpenApiRequestSchemaReader {
         throw invalid("Explicit OpenAPI 3.0.x or 3.1.x version is required");
     }
 
-    private static void checkDialect(JsonNode dialect, SpecVersion version) {
+    static void checkDialect(JsonNode dialect, SpecVersion version) {
         if (dialect != null && (version != SpecVersion.V31 || !dialect.isTextual() || !DIALECTS.contains(dialect.textValue()))) {
             throw invalid("Unsupported JSON Schema dialect");
         }
     }
 
-    private static boolean blank(String value) { return value == null || value.isBlank(); }
-    private static IllegalStateException invalid(String message) { return new IllegalStateException(message); }
+    static boolean blank(String value) { return value == null || value.isBlank(); }
+    static IllegalStateException invalid(String message) { return new IllegalStateException(message); }
 }
