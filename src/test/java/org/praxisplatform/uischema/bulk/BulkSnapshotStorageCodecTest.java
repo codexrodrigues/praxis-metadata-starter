@@ -16,11 +16,13 @@ class BulkSnapshotStorageCodecTest {
     static final BulkFingerprintContext CONTEXT = new BulkFingerprintContext("namespace-a", "subject-a", "employees",
             new CanonicalOperationRef("admin", "employee-bulk-edit", "/employees/bulk", "PATCH"),
             "schema-a", ActionCollectionAtomicity.ATOMIC);
+    static final BulkOperationControlExpectation CONTROL_EXPECTATION = new BulkOperationControlExpectation(
+            1, "sha256:" + "0".repeat(64), "structural-r1");
 
     static BulkStoredProposal proposal() { return proposal(snapshot(BulkMode.DOMAIN_COMMAND, BulkIdentityCodecs.strings(), "\"101\"", "1.0")); }
     static BulkStoredProposal proposal(BulkIntentSnapshot snapshot) {
         return new BulkStoredProposal(UUID.randomUUID(), Instant.parse("2026-09-13T12:00:00Z"),
-                Instant.parse("2026-09-13T12:15:00Z"), snapshot);
+                Instant.parse("2026-09-13T12:15:00Z"), snapshot, CONTROL_EXPECTATION);
     }
     static <WI, ID> BulkIntentSnapshot snapshot(BulkMode mode, BulkIdentityCodec<WI, ID> codec, String id, String number) {
         return snapshot(CONTEXT, mode, codec, id, number);

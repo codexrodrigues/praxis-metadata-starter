@@ -56,6 +56,11 @@ public final class BulkExecutionMigrator {
     private static final String RECEIPT_TRIGGER = "praxis_bulk_item_receipt_reject_mutation";
     private static final String ADMISSION_FUNCTION = "reject_praxis_bulk_admission_mutation";
     private static final String ADMISSION_TRIGGER = "praxis_bulk_admission_reject_mutation";
+    private static final String DESCRIPTOR_FUNCTION = "protect_execution_descriptor_binding";
+    private static final String DESCRIPTOR_TRIGGER = "praxis_bulk_execution_protect_descriptor_binding";
+    private static final String INSERT_FENCE_FUNCTION = "guard_descriptor_fence";
+    private static final String PROPOSAL_INSERT_FENCE_TRIGGER = "praxis_bulk_proposal_descriptor_fence";
+    private static final String EXECUTION_INSERT_FENCE_TRIGGER = "praxis_bulk_execution_descriptor_fence";
     private static final String NAMESPACE_BINDING_TABLE = "praxis_bulk_namespace_binding";
     private static final String OPERATION_CONTROL_TABLE = "praxis_bulk_operation_control";
     private static final String DEPLOYMENT_BUCKET_TABLE = "praxis_bulk_deployment_bucket";
@@ -84,6 +89,7 @@ public final class BulkExecutionMigrator {
             "guard_new_bulk_admission()", "guard_new_bulk_evaluation()",
             "lock_operation_control(p_namespace_id text, p_operation_id text)",
             "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text)");
+    private static final Set<String> V7_FUNCTIONS = Set.of(INSERT_FENCE_FUNCTION + "()");
     private static final Set<String> V5_TRIGGERS = Set.of(
             PROPOSAL_TABLE + ".praxis_bulk_proposal_guard_delete",
             EVALUATION_TABLE + ".praxis_bulk_evaluation_guard_delete",
@@ -118,7 +124,19 @@ public final class BulkExecutionMigrator {
     public static int migrate(DataSource dataSource, Map<String, String> namespaceToDeploymentId) {
         DataSource operationalDataSource = Objects.requireNonNull(dataSource, "dataSource");
         return migrate(operationalDataSource, namespaceToDeploymentId,
-                BulkExecutionRoleConfiguration.none(currentDatabaseRole(operationalDataSource)));
+                BulkExecutionRoleConfiguration.none(currentDatabaseRole(operationalDataSource)), List.of());
+    }
+
+    /**
+     * Applies migrations and bootstraps deny-only control rows for the explicitly declared
+     * confirmation operations. The identity list is part of deployment configuration; it is
+     * never inferred from request headers or historical proposals.
+     */
+    public static int migrateWithOperations(DataSource dataSource, Map<String, String> namespaceToDeploymentId,
+            List<BulkOperationControlIdentity> operations) {
+        DataSource operationalDataSource = Objects.requireNonNull(dataSource, "dataSource");
+        return migrate(operationalDataSource, namespaceToDeploymentId,
+                BulkExecutionRoleConfiguration.none(currentDatabaseRole(operationalDataSource)), operations);
     }
 
     /**
@@ -127,15 +145,44 @@ public final class BulkExecutionMigrator {
      */
     public static int migrate(DataSource dataSource, Map<String, String> namespaceToDeploymentId,
             BulkExecutionRoleConfiguration roles) {
+        return migrate(dataSource, namespaceToDeploymentId, roles, List.of());
+    }
+
+    /**
+     * Applies migrations and validates every bulk ACL against the explicitly configured host
+     * runtime, retention-operator, and control-plane PostgreSQL roles, while provisioning control
+     * identities for every declared confirmation operation.
+     */
+    public static int migrate(DataSource dataSource, Map<String, String> namespaceToDeploymentId,
+            BulkExecutionRoleConfiguration roles, List<BulkOperationControlIdentity> operations) {
         requireOutsideSpringTransaction();
         DataSource operationalDataSource = Objects.requireNonNull(dataSource, "dataSource");
         Map<String, String> deployments = canonicalDeploymentMap(namespaceToDeploymentId);
+        List<BulkOperationControlIdentity> controlIdentities = canonicalControlIdentities(operations, deployments);
         BulkExecutionRoleConfiguration roleConfiguration = Objects.requireNonNull(roles, "roles");
         assertKnownDedicatedSchema(operationalDataSource);
         int migrationsExecuted = flyway(operationalDataSource).migrate().migrationsExecuted;
-        initializeGovernedLifecycle(operationalDataSource, deployments);
+        initializeGovernedLifecycle(operationalDataSource, deployments, controlIdentities);
         validate(operationalDataSource, roleConfiguration);
         return migrationsExecuted;
+    }
+
+    private static List<BulkOperationControlIdentity> canonicalControlIdentities(
+            List<BulkOperationControlIdentity> operations, Map<String, String> deployments) {
+        Objects.requireNonNull(operations, "operations");
+        var unique = new java.util.TreeSet<>(java.util.Comparator
+                .comparing(BulkOperationControlIdentity::namespaceId)
+                .thenComparing(BulkOperationControlIdentity::confirmationOperationId));
+        for (BulkOperationControlIdentity identity : operations) {
+            Objects.requireNonNull(identity, "operation control identity");
+            if (!deployments.containsKey(identity.namespaceId())) {
+                throw new IllegalArgumentException("Every operation control identity requires an explicit namespace binding");
+            }
+            if (!unique.add(identity)) {
+                throw new IllegalArgumentException("Duplicate operation control identity");
+            }
+        }
+        return List.copyOf(unique);
     }
 
     private static Map<String, String> canonicalDeploymentMap(Map<String, String> mapping) {
@@ -157,7 +204,8 @@ public final class BulkExecutionMigrator {
     }
 
     /** Flyway DDL is complete before this retryable, all-or-nothing data bootstrap. */
-    private static void initializeGovernedLifecycle(DataSource dataSource, Map<String, String> deployments) {
+    private static void initializeGovernedLifecycle(DataSource dataSource, Map<String, String> deployments,
+            List<BulkOperationControlIdentity> operations) {
         try (Connection connection = dataSource.getConnection()) {
             assertPostgreSql(connection);
             boolean originalAutoCommit = connection.getAutoCommit();
@@ -177,7 +225,7 @@ public final class BulkExecutionMigrator {
                 }
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
-                bootstrapLifecycle(connection, deployments);
+                bootstrapLifecycle(connection, deployments, operations);
                 validateLifecycleRows(connection);
                 connection.commit();
             } catch (SQLException | RuntimeException failure) {
@@ -192,7 +240,8 @@ public final class BulkExecutionMigrator {
         }
     }
 
-    private static void bootstrapLifecycle(Connection connection, Map<String, String> deployments) throws SQLException {
+    private static void bootstrapLifecycle(Connection connection, Map<String, String> deployments,
+            List<BulkOperationControlIdentity> operations) throws SQLException {
         Set<String> historicalNamespaces = new LinkedHashSet<>();
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
                 select namespace_id from praxis_bulk.praxis_bulk_proposal
@@ -233,7 +282,20 @@ public final class BulkExecutionMigrator {
                     from (select namespace_id, operation_id from praxis_bulk.praxis_bulk_proposal
                           union select namespace_id, operation_id from praxis_bulk.praxis_bulk_execution) scope
                     on conflict (namespace_id, operation_id) do nothing
-                    """);
+            """);
+        }
+        for (BulkOperationControlIdentity identity : operations) {
+            try (var statement = connection.prepareStatement("""
+                    insert into praxis_bulk.praxis_bulk_operation_control
+                        (namespace_id, operation_id, state, generation, descriptor_fingerprint,
+                         structural_revision, updated_at)
+                    values (?, ?, 'UNCOMPOSED', 0, null, null, clock_timestamp())
+                    on conflict (namespace_id, operation_id) do nothing
+                    """)) {
+                statement.setString(1, identity.namespaceId());
+                statement.setString(2, identity.confirmationOperationId());
+                statement.executeUpdate();
+            }
         }
 
         // A bootstrap retry may run while already-published operations are active.
@@ -584,6 +646,7 @@ public final class BulkExecutionMigrator {
                 validateDurableExecution(connection);
                 validateDurableAdmission(connection);
                 validateGovernedLifecycleCatalog(connection, roleConfiguration);
+                validateDescriptorFenceRows(connection);
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
                 validateLifecycleRows(connection);
@@ -682,7 +745,8 @@ public final class BulkExecutionMigrator {
         names.addAll(V6_FUNCTIONS);
         names.addAll(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
                 BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
-                RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()"));
+                RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()", DESCRIPTOR_FUNCTION + "()",
+                INSERT_FENCE_FUNCTION + "()"));
         return names;
     }
 
@@ -691,6 +755,9 @@ public final class BulkExecutionMigrator {
         names.addAll(Set.of(PROPOSAL_TABLE + "." + REJECTION_TRIGGER,
                 EVALUATION_TABLE + "." + EVALUATION_REJECTION_TRIGGER,
                 EXECUTION_TABLE + "." + BINDING_TRIGGER,
+                EXECUTION_TABLE + "." + DESCRIPTOR_TRIGGER,
+                PROPOSAL_TABLE + "." + PROPOSAL_INSERT_FENCE_TRIGGER,
+                EXECUTION_TABLE + "." + EXECUTION_INSERT_FENCE_TRIGGER,
                 RECEIPT_TABLE + "." + RECEIPT_TRIGGER,
                 EXECUTION_TABLE + "." + TERMINAL_REASON_TRIGGER,
                 ADMISSION_TABLE + "." + ADMISSION_TRIGGER));
@@ -827,7 +894,10 @@ public final class BulkExecutionMigrator {
                 Map.entry("created_at", new ColumnDefinition("timestamp with time zone", false, null, "NEVER", 6)),
                 Map.entry("expires_at", new ColumnDefinition("timestamp with time zone", false, null, "NEVER", 6)),
                 Map.entry("fingerprint", new ColumnDefinition("text", false, null, "NEVER", null)),
-                Map.entry("payload", new ColumnDefinition("bytea", false, null, "NEVER", null)));
+                Map.entry("payload", new ColumnDefinition("bytea", false, null, "NEVER", null)),
+                Map.entry("control_generation", new ColumnDefinition("bigint", true, null, "NEVER", null)),
+                Map.entry("control_descriptor_fingerprint", new ColumnDefinition("text", true, null, "NEVER", null)),
+                Map.entry("control_structural_revision", new ColumnDefinition("text", true, null, "NEVER", null)));
         Map<String, ColumnDefinition> actual = new LinkedHashMap<>();
         try (var statement = connection.prepareStatement("""
                 select column_name, data_type, is_nullable, column_default, is_generated, datetime_precision
@@ -1010,6 +1080,8 @@ public final class BulkExecutionMigrator {
                         "(btrim(operation_id)<>''::text)"),
                 Map.entry("praxis_bulk_proposal_valid_window_check", "(expires_at>created_at)"),
                 Map.entry("praxis_bulk_proposal_fingerprint_format_check", "(fingerprint~'^sha256:[0-9a-f]{64}$'::text)"),
+                Map.entry("praxis_bulk_proposal_control_tuple_check",
+                        "(((control_generationisnull)and(control_descriptor_fingerprintisnull)and(control_structural_revisionisnull))or((control_generationisnotnull)and(control_generation>=1)and(control_descriptor_fingerprintisnotnull)and(control_descriptor_fingerprint~'^sha256:[0-9a-f]{64}$'::text)and(control_structural_revisionisnotnull)and(btrim(control_structural_revision)<>''::text)and(length(control_structural_revision)<=200)))"),
                 Map.entry("praxis_bulk_proposal_payload_length_check",
                         "((octet_length(payload)>=1)and(octet_length(payload)<=8388608))"));
         Map<String, ConstraintDefinition> actual = new LinkedHashMap<>();
@@ -1029,7 +1101,8 @@ public final class BulkExecutionMigrator {
         for (Map.Entry<String, String> check : expected.entrySet()) {
             ConstraintDefinition definition = actual.get(check.getKey());
             require(definition.validated() && check.getValue().equals(definition.expression()),
-                    "proposal table check constraint is invalid: " + check.getKey());
+                    "proposal table check constraint is invalid: " + check.getKey()
+                            + " expected=" + check.getValue() + " actual=" + definition.expression());
         }
     }
 
@@ -1104,6 +1177,8 @@ public final class BulkExecutionMigrator {
                 Map.entry("reservation_fingerprint", "text|true"),
                 Map.entry("input_fingerprint", "text|true"),
                 Map.entry("evaluation_fingerprint", "text|true"),
+                Map.entry("control_generation", "bigint|false"),
+                Map.entry("control_descriptor_fingerprint", "text|false"),
                 Map.entry("structural_revision", "text|true"),
                 Map.entry("owner_id", "text|true"),
                 Map.entry("owner_epoch", "bigint|true"),
@@ -1134,6 +1209,7 @@ public final class BulkExecutionMigrator {
                 Map.entry("praxis_bulk_evaluation_proposal_fingerprint_key", "UNIQUE (proposal_id, evaluation_fingerprint)")));
         validateDurableConstraints(connection, "praxis_bulk_execution", false, Map.ofEntries(
                 Map.entry("praxis_bulk_execution_attempt_shape_check", "CHECK ((((active_attempt_id IS NULL) = (active_attempt_ordinal IS NULL)) AND ((active_attempt_id IS NULL) = (active_target_digest IS NULL)) AND ((active_attempt_id IS NULL) = (active_attempt_epoch IS NULL)) AND ((active_attempt_id IS NULL) OR ((active_attempt_ordinal = next_ordinal) AND ((active_attempt_ordinal >= 0) AND (active_attempt_ordinal <= (target_count - 1))) AND ((active_attempt_epoch >= 1) AND (active_attempt_epoch <= owner_epoch)) AND (active_target_digest ~ '^sha256:[0-9a-f]{64}$'::text)))))"),
+                Map.entry("praxis_bulk_execution_control_tuple_check", "CHECK ((((control_generation IS NULL) AND (control_descriptor_fingerprint IS NULL)) OR ((control_generation IS NOT NULL) AND (control_generation >= 1) AND (control_descriptor_fingerprint IS NOT NULL) AND (control_descriptor_fingerprint ~ '^sha256:[0-9a-f]{64}$'::text))))"),
                 Map.entry("praxis_bulk_execution_deadline_check", "CHECK ((deadline_at > created_at))"),
                 Map.entry("praxis_bulk_execution_digest_format_check", "CHECK ((idempotency_key_digest ~ '^sha256:[0-9a-f]{64}$'::text))"),
                 Map.entry("praxis_bulk_execution_epoch_check", "CHECK ((owner_epoch >= 1))"),
@@ -1295,6 +1371,41 @@ public final class BulkExecutionMigrator {
         validateV5Triggers(connection);
         validateV5Functions(connection, roles);
         validateV5RolesAndPrivileges(connection, roles);
+        validateDescriptorFenceCatalog(connection);
+    }
+
+    private static void validateDescriptorFenceCatalog(Connection connection) throws SQLException {
+        validateDurableTrigger(connection, EXECUTION_TABLE, DESCRIPTOR_TRIGGER, DESCRIPTOR_FUNCTION,
+                "CREATE TRIGGER " + DESCRIPTOR_TRIGGER + " BEFORE UPDATE ON praxis_bulk." + EXECUTION_TABLE
+                        + " FOR EACH ROW EXECUTE FUNCTION praxis_bulk." + DESCRIPTOR_FUNCTION + "()",
+                "begin if new.control_generation is distinct from old.control_generation or "
+                        + "new.control_descriptor_fingerprint is distinct from old.control_descriptor_fingerprint then "
+                        + "raise exception 'praxis_bulk.praxis_bulk_execution descriptor binding is immutable' "
+                        + "using errcode = '55000'; end if; return new; end;");
+        String fenceBody = extractFunctionBody(readV7Migration(), INSERT_FENCE_FUNCTION, "V7");
+        validateDescriptorInsertFence(connection, PROPOSAL_TABLE, PROPOSAL_INSERT_FENCE_TRIGGER,
+                "CREATE TRIGGER " + PROPOSAL_INSERT_FENCE_TRIGGER + " BEFORE INSERT ON praxis_bulk."
+                        + PROPOSAL_TABLE + " FOR EACH ROW EXECUTE FUNCTION praxis_bulk." + INSERT_FENCE_FUNCTION + "()",
+                fenceBody);
+        validateDescriptorInsertFence(connection, EXECUTION_TABLE, EXECUTION_INSERT_FENCE_TRIGGER,
+                "CREATE TRIGGER " + EXECUTION_INSERT_FENCE_TRIGGER + " BEFORE INSERT ON praxis_bulk."
+                        + EXECUTION_TABLE + " FOR EACH ROW EXECUTE FUNCTION praxis_bulk." + INSERT_FENCE_FUNCTION + "()",
+                fenceBody);
+    }
+
+    private static void validateDescriptorFenceRows(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select count(*)
+                  from praxis_bulk.praxis_bulk_execution e
+                  join praxis_bulk.praxis_bulk_proposal p on p.proposal_id=e.proposal_id
+                 where e.control_generation is distinct from p.control_generation
+                    or e.control_descriptor_fingerprint is distinct from p.control_descriptor_fingerprint
+                    or (e.control_generation is not null
+                        and e.structural_revision is distinct from p.control_structural_revision)
+                """)) {
+            require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+                    "execution descriptor tuple differs from its protected proposal");
+        }
     }
 
     private static void validateV5Columns(Connection connection) throws SQLException {
@@ -1560,6 +1671,16 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    private static String readV7Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V7__bulk_operation_descriptor_fence.sql")) {
+            require(input != null, "V7 descriptor fence migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V7 descriptor fence migration", failure);
+        }
+    }
+
     private static String extractFunctionBody(String migration, String function, String version) {
         Pattern pattern = Pattern.compile("(?is)create\\s+(?:or\\s+replace\\s+)?function\\s+praxis_bulk\\."
                 + Pattern.quote(function) + "\\s*\\([^)]*\\).*?\\bas\\s*\\$\\$(.*?)\\$\\$\\s*;");
@@ -1594,6 +1715,7 @@ public final class BulkExecutionMigrator {
             statement.setString(1, SCHEMA);
             var functionKeys = new LinkedHashSet<>(V5_FUNCTIONS);
             functionKeys.addAll(V6_FUNCTIONS);
+            functionKeys.addAll(V7_FUNCTIONS);
             statement.setArray(2, connection.createArrayOf("text", functionKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
@@ -1687,10 +1809,15 @@ public final class BulkExecutionMigrator {
                                 "C:updated_at:UPDATE")),
                 "operation-control definer-owner privileges differ");
         require(tableRolePrivileges(connection, PROPOSAL_TABLE, "praxis_bulk_control_owner")
-                        .equals(Set.of("C:proposal_id:SELECT", "C:namespace_id:SELECT", "C:operation_id:SELECT")),
-                "operation-control definer-owner proposal privileges differ");
+                        .equals(Set.of("C:proposal_id:SELECT", "C:namespace_id:SELECT", "C:operation_id:SELECT",
+                                "C:control_generation:SELECT", "C:control_descriptor_fingerprint:SELECT",
+                                "C:control_structural_revision:SELECT")),
+                "operation-control definer-owner proposal column privileges differ");
+        require(tableRolePrivileges(connection, EXECUTION_TABLE, "praxis_bulk_control_owner").isEmpty(),
+                "operation-control definer-owner must not read execution payloads");
         for (String table : V5_TABLES) {
-            if (!OPERATION_CONTROL_TABLE.equals(table) && !PROPOSAL_TABLE.equals(table)) {
+            if (!OPERATION_CONTROL_TABLE.equals(table) && !PROPOSAL_TABLE.equals(table)
+                    && !EXECUTION_TABLE.equals(table)) {
                 require(tableRolePrivileges(connection, table, "praxis_bulk_control_owner").isEmpty(),
                         "operation-control definer-owner has unrelated table privileges: " + table);
             }
@@ -2187,6 +2314,34 @@ public final class BulkExecutionMigrator {
                                     ? rows.getBoolean(11) : rows.getObject(10) == null)
                                 && !rows.next(),
                         "durable storage trigger or function differs: " + trigger);
+            }
+        }
+    }
+
+    private static void validateDescriptorInsertFence(Connection connection, String table, String trigger,
+            String expectedDefinition, String expectedBody) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select t.tgenabled, pg_get_triggerdef(t.oid), p.prosrc, p.prosecdef,
+                       p.proconfig = array['search_path=pg_catalog, pg_temp']::text[], owner.rolname,
+                       p.proname, p.pronargs, l.lanname, p.prorettype::regtype::text
+                from pg_trigger t join pg_class r on r.oid=t.tgrelid
+                join pg_namespace n on n.oid=r.relnamespace
+                join pg_proc p on p.oid=t.tgfoid join pg_roles owner on owner.oid=p.proowner
+                join pg_language l on l.oid=p.prolang
+                where n.nspname=? and r.relname=? and t.tgname=? and not t.tgisinternal
+                """)) {
+            statement.setString(1, SCHEMA);
+            statement.setString(2, table);
+            statement.setString(3, trigger);
+            try (var rows = statement.executeQuery()) {
+                require(rows.next() && "O".equals(rows.getString(1))
+                                && normalizeExpression(expectedDefinition).equals(normalizeExpression(rows.getString(2)))
+                                && normalizeExpression(expectedBody).equals(normalizeExpression(rows.getString(3)))
+                                && rows.getBoolean(4) && rows.getBoolean(5)
+                                && "praxis_bulk_control_owner".equals(rows.getString(6))
+                                && INSERT_FENCE_FUNCTION.equals(rows.getString(7)) && rows.getInt(8) == 0
+                                && "plpgsql".equals(rows.getString(9)) && "trigger".equals(rows.getString(10))
+                                && !rows.next(), "descriptor insert fence differs: " + trigger);
             }
         }
     }

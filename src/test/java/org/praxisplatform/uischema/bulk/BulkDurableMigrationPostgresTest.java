@@ -32,6 +32,63 @@ class BulkDurableMigrationPostgresTest {
     }
 
     @Test
+    void provisionsDeclaredConfirmationControlAsUncomposedAndRerunNeverResetsIt() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start()) {
+            var dataSource = postgres.getPostgresDatabase();
+            var sql = new JdbcTemplate(dataSource);
+            var identity = new BulkOperationControlIdentity(CONTEXT.namespaceId(),
+                    CONTEXT.operationRef().operationId());
+
+            assertThat(BulkExecutionMigrator.migrateWithOperations(dataSource,
+                    java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID),
+                    List.of(identity))).isEqualTo(7);
+            assertThat(sql.queryForMap("""
+                    select state, generation, descriptor_fingerprint, structural_revision
+                    from praxis_bulk.praxis_bulk_operation_control
+                    where namespace_id=? and operation_id=?
+                    """, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId()))
+                    .containsEntry("state", "UNCOMPOSED")
+                    .containsEntry("generation", 0L)
+                    .containsEntry("descriptor_fingerprint", null)
+                    .containsEntry("structural_revision", null);
+
+            BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
+            assertThat(BulkExecutionMigrator.migrateWithOperations(dataSource,
+                    java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID),
+                    List.of(identity))).isZero();
+            assertThat(sql.queryForMap("""
+                    select state, generation, descriptor_fingerprint, structural_revision
+                    from praxis_bulk.praxis_bulk_operation_control
+                    where namespace_id=? and operation_id=?
+                    """, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId()))
+                    .containsEntry("state", "READY")
+                    .containsEntry("generation", 1L)
+                    .containsEntry("descriptor_fingerprint", "sha256:" + "0".repeat(64))
+                    .containsEntry("structural_revision", "structural-r1");
+        }
+    }
+
+    @Test
+    void rejectsDuplicateOrUnboundControlIdentitiesBeforeChangingDatabase() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start()) {
+            var dataSource = postgres.getPostgresDatabase();
+            var identity = new BulkOperationControlIdentity(CONTEXT.namespaceId(),
+                    CONTEXT.operationRef().operationId());
+            var deployments = java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID);
+
+            assertThatThrownBy(() -> BulkExecutionMigrator.migrateWithOperations(dataSource, deployments,
+                    List.of(identity, identity))).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> BulkExecutionMigrator.migrateWithOperations(dataSource,
+                    java.util.Map.of("another-namespace", BulkPostgresTestSupport.DEPLOYMENT_ID),
+                    List.of(identity))).isInstanceOf(IllegalArgumentException.class);
+            assertThat(new JdbcTemplate(dataSource).queryForObject("select to_regclass('praxis_bulk') is null",
+                    Boolean.class)).isTrue();
+        }
+    }
+
+    @Test
     void validatesPhysicalDurabilityAndBindingInsteadOfTrustingMigrationHistory() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start()) {
@@ -87,7 +144,7 @@ class BulkDurableMigrationPostgresTest {
                             + "create unique index praxis_bulk_schema_history_s_idx on praxis_bulk.praxis_bulk_execution(owner_id)",
                     "create unique index praxis_bulk_fk_bound_owner on praxis_bulk.praxis_bulk_execution(owner_id); "
                             + "create table public.praxis_bulk_external_ref(owner_id text references praxis_bulk.praxis_bulk_execution(owner_id))")) {
-                assertThat(migrate(dataSource)).isEqualTo(6);
+                assertThat(migrate(dataSource)).isEqualTo(7);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
                 sql.execute(mutation);
                 assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
@@ -104,7 +161,7 @@ class BulkDurableMigrationPostgresTest {
             var url = postgres.getJdbcUrl("postgres", "postgres") + "&currentSchema=praxis_bulk";
             try (var physicalConnection = java.sql.DriverManager.getConnection(url, "postgres", "postgres");
                     var scopedDataSource = new SingleConnectionDataSource(physicalConnection, true)) {
-                assertThat(migrate(scopedDataSource)).isEqualTo(6);
+                assertThat(migrate(scopedDataSource)).isEqualTo(7);
                 BulkExecutionMigrator.validate(scopedDataSource);
                 try (var statement = physicalConnection.createStatement();
                         var result = statement.executeQuery("select current_schema(), current_setting('search_path')")) {
@@ -149,6 +206,11 @@ class BulkDurableMigrationPostgresTest {
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("governed lifecycle function grants differ");
             sql.execute("revoke execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) from bulk_rogue");
+            sql.execute("grant execute on function praxis_bulk.guard_descriptor_fence() to public");
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, configured))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("governed lifecycle function grants differ");
+            sql.execute("revoke execute on function praxis_bulk.guard_descriptor_fence() from public");
             sql.execute("grant praxis_bulk_control_owner to bulk_rogue");
             assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, configured))
                     .isInstanceOf(IllegalStateException.class)
@@ -307,7 +369,7 @@ class BulkDurableMigrationPostgresTest {
                         Integer.class, Integer.toString(version));
             }
 
-            assertThat(migrate(dataSource)).isEqualTo(3);
+            assertThat(migrate(dataSource)).isEqualTo(4);
             for (int version = 1; version <= 3; version++) {
                 assertThat(sql.queryForObject(
                         "select checksum from praxis_bulk.praxis_bulk_schema_history where version=?",
@@ -346,13 +408,14 @@ class BulkDurableMigrationPostgresTest {
             String replayKey = "retention-replay-key";
             sql.update("update praxis_bulk.praxis_bulk_execution set terminal_at=clock_timestamp()-interval '31 days' "
                     + "where execution_id=?", terminal.id());
-            assertThat(migrate(dataSource)).isEqualTo(3);
+            assertThat(migrate(dataSource)).isEqualTo(4);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
 
             var now = Instant.now();
             var expired = new BulkStoredProposal(UUID.randomUUID(), now.minusSeconds(120), now.minusSeconds(60),
                     BulkSnapshotStorageCodecTest.snapshot(CONTEXT, BulkMode.DOMAIN_COMMAND,
-                            BulkIdentityCodecs.strings(), "\"retention-target\"", "1.0"));
+                            BulkIdentityCodecs.strings(), "\"retention-target\"", "1.0"),
+                    BulkSnapshotStorageCodecTest.CONTROL_EXPECTATION);
             var proposalStore = new JdbcBulkProposalStore(new BulkExecutionInfrastructure(dataSource,
                     new DataSourceTransactionManager(dataSource), CONTEXT.namespaceId(),
                     BulkPostgresTestSupport.DEPLOYMENT_ID));
@@ -398,7 +461,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(dataSource);
-            assertThat(migrate(dataSource)).isEqualTo(6);
+            assertThat(migrate(dataSource)).isEqualTo(7);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             var fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             UUID executionId = fixture.id();
@@ -490,7 +553,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(dataSource);
-            assertThat(migrate(dataSource)).isEqualTo(6);
+            assertThat(migrate(dataSource)).isEqualTo(7);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             var fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             UUID executionId = fixture.id();
@@ -509,7 +572,7 @@ class BulkDurableMigrationPostgresTest {
                     .isInstanceOf(IllegalStateException.class);
 
             sql.execute("drop schema praxis_bulk cascade");
-            assertThat(migrate(dataSource)).isEqualTo(6);
+            assertThat(migrate(dataSource)).isEqualTo(7);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             executionId = fixture.id();
@@ -523,7 +586,7 @@ class BulkDurableMigrationPostgresTest {
                     .isInstanceOf(IllegalStateException.class);
 
             sql.execute("drop schema praxis_bulk cascade");
-            assertThat(migrate(dataSource)).isEqualTo(6);
+            assertThat(migrate(dataSource)).isEqualTo(7);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             executionId = fixture.id();
@@ -548,7 +611,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(dataSource);
-            assertThat(migrate(dataSource)).isEqualTo(6);
+            assertThat(migrate(dataSource)).isEqualTo(7);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             var fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             UUID attemptId = UUID.randomUUID();
@@ -585,7 +648,7 @@ class BulkDurableMigrationPostgresTest {
                     .isInstanceOf(IllegalStateException.class);
 
             sql.execute("drop schema praxis_bulk cascade");
-            assertThat(migrate(dataSource)).isEqualTo(6);
+            assertThat(migrate(dataSource)).isEqualTo(7);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             attemptId = UUID.randomUUID();
@@ -608,7 +671,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(dataSource);
-            assertThat(migrate(dataSource)).isEqualTo(6);
+            assertThat(migrate(dataSource)).isEqualTo(7);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             UUID executionId = insertExecution(dataSource, sql, "RUNNING", 0, false).id();
             sql.update("""
@@ -675,7 +738,7 @@ class BulkDurableMigrationPostgresTest {
     }
 
     @Test
-    void v6UpgradesV5WithoutChangingItsAppliedChecksum() throws Exception {
+    void v7UpgradesV5WithoutChangingItsAppliedChecksum() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
@@ -684,14 +747,14 @@ class BulkDurableMigrationPostgresTest {
             int priorV5Checksum = sql.queryForObject(
                     "select checksum from praxis_bulk.praxis_bulk_schema_history where version='5'", Integer.class);
 
-            assertThat(migrate(dataSource)).isEqualTo(1);
+            assertThat(migrate(dataSource)).isEqualTo(2);
 
             assertThat(sql.queryForObject(
                     "select checksum from praxis_bulk.praxis_bulk_schema_history where version='5'", Integer.class))
                     .isEqualTo(priorV5Checksum);
             assertThat(sql.queryForObject(
                     "select version from praxis_bulk.praxis_bulk_schema_history order by installed_rank desc limit 1",
-                    String.class)).isEqualTo("6");
+                    String.class)).isEqualTo("7");
             BulkExecutionMigrator.validate(dataSource);
         }
     }
@@ -720,7 +783,8 @@ class BulkDurableMigrationPostgresTest {
         var snapshot = BulkIntentSnapshot.command(CONTEXT, BulkIdentityCodecs.strings(), request,
                 com.fasterxml.jackson.databind.JsonNode::deepCopy,
                 com.fasterxml.jackson.databind.JsonNode::deepCopy);
-        var proposal = new BulkStoredProposal(UUID.randomUUID(), created, created.plusSeconds(600), snapshot);
+        var proposal = new BulkStoredProposal(UUID.randomUUID(), created, created.plusSeconds(600), snapshot,
+                BulkSnapshotStorageCodecTest.CONTROL_EXPECTATION);
         var empty = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
         var evaluation = new BulkEvaluationSnapshot(proposal, created.plusSeconds(1), List.of(
                 new BulkTargetEvidence<>(new BulkTarget<>("1", "v1"), "observed-v1", empty, empty,
@@ -732,34 +796,70 @@ class BulkDurableMigrationPostgresTest {
                                 "resource:approve", "NEVER_APPLIED", "test-policy-r1", created.plusMillis(500)))));
         UUID proposalId = proposal.id();
         UUID executionId = UUID.randomUUID();
-        sql.update("""
-                insert into praxis_bulk.praxis_bulk_proposal
-                (proposal_id, namespace_id, subject_id, resource_key, operation_id,
-                 created_at, expires_at, fingerprint, payload)
-                values (?, 'tenant:prod:payroll', 'operator', 'employees', 'employee-bulk-approve',
-                        ?, ?, ?, ?)
-                """, proposalId, java.sql.Timestamp.from(proposal.createdAt()),
-                java.sql.Timestamp.from(proposal.expiresAt()), snapshot.fingerprint(),
-                BulkSnapshotStorageCodec.encode(snapshot));
+        boolean descriptorFence = Boolean.TRUE.equals(sql.queryForObject("""
+                select exists (select 1 from information_schema.columns where table_schema='praxis_bulk'
+                    and table_name='praxis_bulk_proposal' and column_name='control_generation')
+                """, Boolean.class));
+        if (descriptorFence) {
+            sql.update("""
+                    insert into praxis_bulk.praxis_bulk_proposal
+                    (proposal_id, namespace_id, subject_id, resource_key, operation_id,
+                     created_at, expires_at, fingerprint, payload, control_generation,
+                     control_descriptor_fingerprint, control_structural_revision)
+                    values (?, 'tenant:prod:payroll', 'operator', 'employees', 'employee-bulk-approve',
+                            ?, ?, ?, ?, 1, ?, 'structural-r1')
+                    """, proposalId, java.sql.Timestamp.from(proposal.createdAt()),
+                    java.sql.Timestamp.from(proposal.expiresAt()), snapshot.fingerprint(),
+                    BulkSnapshotStorageCodec.encode(snapshot),
+                    BulkSnapshotStorageCodecTest.CONTROL_EXPECTATION.descriptorFingerprint());
+        } else {
+            sql.update("""
+                    insert into praxis_bulk.praxis_bulk_proposal
+                    (proposal_id, namespace_id, subject_id, resource_key, operation_id,
+                     created_at, expires_at, fingerprint, payload)
+                    values (?, 'tenant:prod:payroll', 'operator', 'employees', 'employee-bulk-approve',
+                            ?, ?, ?, ?)
+                    """, proposalId, java.sql.Timestamp.from(proposal.createdAt()),
+                    java.sql.Timestamp.from(proposal.expiresAt()), snapshot.fingerprint(),
+                    BulkSnapshotStorageCodec.encode(snapshot));
+        }
         sql.update("""
                 insert into praxis_bulk.praxis_bulk_evaluation
                 (proposal_id, input_fingerprint, evaluation_fingerprint, payload)
                 values (?, ?, ?, ?)
                 """, proposalId, snapshot.fingerprint(), evaluation.fingerprint(),
                 BulkEvaluationStorageCodec.encode(evaluation));
-        sql.update("""
-                insert into praxis_bulk.praxis_bulk_execution
-                (execution_id, proposal_id, namespace_id, subject_id, resource_key, operation_id,
-                 idempotency_key_digest, reservation_fingerprint, input_fingerprint,
-                 evaluation_fingerprint, structural_revision, owner_id, owner_epoch, status,
-                 next_ordinal, target_count, deadline_at, created_at, updated_at, terminal_at)
-                values (?, ?, 'tenant:prod:payroll', 'operator', 'employees', 'employee-bulk-approve',
-                        ?, ?, ?, ?, 'structural-r1', 'owner', 1, ?, ?, 2,
-                        clock_timestamp() + interval '30 seconds', ?, clock_timestamp(),
-                        case when ? then clock_timestamp() else null end)
-                """, executionId, proposalId, keyDigest, EVALUATION_FINGERPRINT,
-                snapshot.fingerprint(), evaluation.fingerprint(), status, nextOrdinal,
-                java.sql.Timestamp.from(proposal.createdAt()), terminal);
+        if (descriptorFence) {
+            sql.update("""
+                    insert into praxis_bulk.praxis_bulk_execution
+                    (execution_id, proposal_id, namespace_id, subject_id, resource_key, operation_id,
+                     idempotency_key_digest, reservation_fingerprint, input_fingerprint,
+                     evaluation_fingerprint, structural_revision, control_generation,
+                     control_descriptor_fingerprint, owner_id, owner_epoch, status,
+                     next_ordinal, target_count, deadline_at, created_at, updated_at, terminal_at)
+                    values (?, ?, 'tenant:prod:payroll', 'operator', 'employees', 'employee-bulk-approve',
+                            ?, ?, ?, ?, 'structural-r1', 1, ?, 'owner', 1, ?, ?, 2,
+                            clock_timestamp() + interval '30 seconds', ?, clock_timestamp(),
+                            case when ? then clock_timestamp() else null end)
+                    """, executionId, proposalId, keyDigest, EVALUATION_FINGERPRINT,
+                    snapshot.fingerprint(), evaluation.fingerprint(),
+                    BulkSnapshotStorageCodecTest.CONTROL_EXPECTATION.descriptorFingerprint(), status, nextOrdinal,
+                    java.sql.Timestamp.from(proposal.createdAt()), terminal);
+        } else {
+            sql.update("""
+                    insert into praxis_bulk.praxis_bulk_execution
+                    (execution_id, proposal_id, namespace_id, subject_id, resource_key, operation_id,
+                     idempotency_key_digest, reservation_fingerprint, input_fingerprint,
+                     evaluation_fingerprint, structural_revision, owner_id, owner_epoch, status,
+                     next_ordinal, target_count, deadline_at, created_at, updated_at, terminal_at)
+                    values (?, ?, 'tenant:prod:payroll', 'operator', 'employees', 'employee-bulk-approve',
+                            ?, ?, ?, ?, 'structural-r1', 'owner', 1, ?, ?, 2,
+                            clock_timestamp() + interval '30 seconds', ?, clock_timestamp(),
+                            case when ? then clock_timestamp() else null end)
+                    """, executionId, proposalId, keyDigest, EVALUATION_FINGERPRINT,
+                    snapshot.fingerprint(), evaluation.fingerprint(), status, nextOrdinal,
+                    java.sql.Timestamp.from(proposal.createdAt()), terminal);
+        }
         if (sql.queryForObject("select to_regclass('praxis_bulk.praxis_bulk_allocation') is not null", Boolean.class)) {
             BulkExecutionMigrator.migrate(dataSource, java.util.Map.of(CONTEXT.namespaceId(),
                     BulkPostgresTestSupport.DEPLOYMENT_ID));
