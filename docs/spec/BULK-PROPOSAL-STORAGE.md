@@ -1,6 +1,6 @@
 # Persistência protegida de propostas
 
-A [evidência de avaliação de domínio](BULK-EVALUATION-EVIDENCE.md) amplia este armazenamento com vínculo atômico de fatos/plano e migração V2, sem conferir elegibilidade. A migração V5 acrescenta ledger durável de capacidade e retenção; as regras estão em [execução durável](BULK-DURABLE-EXECUTION.md).
+A [evidência de avaliação de domínio](BULK-EVALUATION-EVIDENCE.md) amplia este armazenamento com vínculo atômico de fatos/plano e migração V2, sem conferir elegibilidade. A migração V5 acrescenta ledger durável de capacidade e retenção; as regras estão em [execução durável](BULK-DURABLE-EXECUTION.md) e [controle de operação](BULK-OPERATION-CONTROL.md).
 
 O SDK oferece `BulkStoredProposal` e `JdbcBulkProposalStore` para inserir e recuperar a intenção protegida de um lote. O conteúdo inclui contexto confiável, identidade da operação, revisão do schema, atomicidade, codec de identidade, modalidade e intenção normalizada. A projeção pública `BulkProposal` continua separada.
 
@@ -11,7 +11,7 @@ Este incremento aceita seleção EXPLICIT e execução SYNC nas três modalidade
 ```java
 // Valores vêm do provisionamento real do host. Migração fora de qualquer transação Spring.
 var roles = new BulkExecutionRoleConfiguration(
-    expectedSchemaOwnerRole, runtimeGranteeRoles, retentionExecutorMembers);
+    expectedSchemaOwnerRole, runtimeGranteeRoles, retentionExecutorMembers, controlPlaneGranteeRoles);
 int applied = BulkExecutionMigrator.migrate(migrationDataSource, namespaceToDeploymentId, roles);
 
 // Composição do runtime: datasource operacional compartilhado com o domínio.
@@ -51,7 +51,7 @@ As dependências Flyway core e PostgreSQL 11.17.0 são opcionais no starter. O h
 
 Não copiar o SQL para `db/migration`, reutilizar o histórico do host ou aplicar baseline em um schema desconhecido. Um schema `public` com tabelas existentes não participa dessa linha de migração. O schema próprio é reservado ao SDK. A migração não cria grants automaticamente. PostgreSQL é obrigatório; as provas deste incremento usam PostgreSQL 14.22 real. A validação estrutural usa as formas de expressão retornadas pelo catálogo dessa versão: diferenças falham de modo fechado. Outras versões exigem prova de compatibilidade antes da adoção; não estão certificadas por esta suíte.
 
-O migrator valida o owner esperado, os grantees runtime e os membros do executor de retenção contra o catálogo PostgreSQL, incluindo os privilégios mínimos por tabela/coluna e as funções `SECURITY DEFINER`; não cria grants. O host obtém esses nomes do provisionamento real e executa a validação antes de habilitar o consumo. O schema de lifecycle é protegido por triggers e funções restritas; não conceder `CREATE`, `DELETE` ou escrita direta em tombstone ao runtime. Detalhes de lock, limites 100/10/80 e grants estão em [execução durável](BULK-DURABLE-EXECUTION.md). Privilégios administrativos ainda podem alterar o schema; portanto, a composição operacional precisa controlar credenciais e repetir a validação quando apropriado.
+O migrator valida o owner esperado, grantees runtime/control-plane e membros do executor de retenção contra o catálogo PostgreSQL, incluindo os privilégios mínimos por tabela/coluna/função e funções `SECURITY DEFINER`; não cria grants. O host obtém esses nomes do provisionamento real e executa a validação antes de habilitar o consumo. O runtime não recebe escrita direta no controle de operação; lock e CAS governado são concedidos por funções dedicadas da V6. Não conceder `CREATE`, `DELETE` ou escrita direta em tombstone ao runtime. Detalhes de lock, limites 100/10/80 e grants estão em [execução durável](BULK-DURABLE-EXECUTION.md) e [controle de operação](BULK-OPERATION-CONTROL.md). Privilégios administrativos ainda podem alterar o schema; portanto, a composição operacional precisa controlar credenciais e repetir a validação quando apropriado.
 
 ## Provas e próximos gates
 

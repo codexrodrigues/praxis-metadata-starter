@@ -5,34 +5,49 @@ import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
 
-/** Explicit PostgreSQL grantees trusted for the bulk runtime and retention operator. */
+/** Explicit PostgreSQL grantees for the bulk runtime, retention operator, and governed control plane. */
 public record BulkExecutionRoleConfiguration(
         String expectedSchemaOwnerRole,
         Set<String> runtimeGranteeRoles,
-        Set<String> retentionExecutorMembers) {
+        Set<String> retentionExecutorMembers,
+        Set<String> controlPlaneGranteeRoles) {
 
     public BulkExecutionRoleConfiguration {
         expectedSchemaOwnerRole = canonicalOwner(expectedSchemaOwnerRole);
         runtimeGranteeRoles = canonicalRoles(runtimeGranteeRoles, "runtimeGranteeRoles");
         retentionExecutorMembers = canonicalRoles(retentionExecutorMembers, "retentionExecutorMembers");
+        controlPlaneGranteeRoles = canonicalRoles(controlPlaneGranteeRoles, "controlPlaneGranteeRoles");
         var overlap = new LinkedHashSet<>(runtimeGranteeRoles);
         overlap.retainAll(retentionExecutorMembers);
         if (!overlap.isEmpty()) {
             throw new IllegalArgumentException("Runtime and retention executor roles must be disjoint");
         }
-        if (runtimeGranteeRoles.contains(expectedSchemaOwnerRole)
-                || retentionExecutorMembers.contains(expectedSchemaOwnerRole)) {
-            throw new IllegalArgumentException("The schema owner cannot be a runtime or retention executor role");
+        overlap = new LinkedHashSet<>(controlPlaneGranteeRoles);
+        overlap.retainAll(runtimeGranteeRoles);
+        if (!overlap.isEmpty()) {
+            throw new IllegalArgumentException("Control-plane and runtime roles must be disjoint");
         }
-        for (String role : Set.of("praxis_bulk_retention_owner", "praxis_bulk_retention_executor")) {
-            if (runtimeGranteeRoles.contains(role) || retentionExecutorMembers.contains(role)) {
-                throw new IllegalArgumentException("Internal bulk retention roles cannot be configured as host roles");
+        overlap = new LinkedHashSet<>(controlPlaneGranteeRoles);
+        overlap.retainAll(retentionExecutorMembers);
+        if (!overlap.isEmpty()) {
+            throw new IllegalArgumentException("Control-plane, runtime, and retention roles must be disjoint");
+        }
+        if (runtimeGranteeRoles.contains(expectedSchemaOwnerRole)
+                || retentionExecutorMembers.contains(expectedSchemaOwnerRole)
+                || controlPlaneGranteeRoles.contains(expectedSchemaOwnerRole)) {
+            throw new IllegalArgumentException("The schema owner cannot be configured as a host role");
+        }
+        for (String role : Set.of("praxis_bulk_retention_owner", "praxis_bulk_retention_executor",
+                "praxis_bulk_control_owner")) {
+            if (runtimeGranteeRoles.contains(role) || retentionExecutorMembers.contains(role)
+                    || controlPlaneGranteeRoles.contains(role)) {
+                throw new IllegalArgumentException("Internal bulk roles cannot be configured as host roles");
             }
         }
     }
 
     public static BulkExecutionRoleConfiguration none(String expectedSchemaOwnerRole) {
-        return new BulkExecutionRoleConfiguration(expectedSchemaOwnerRole, Set.of(), Set.of());
+        return new BulkExecutionRoleConfiguration(expectedSchemaOwnerRole, Set.of(), Set.of(), Set.of());
     }
 
     private static String canonicalOwner(String role) {

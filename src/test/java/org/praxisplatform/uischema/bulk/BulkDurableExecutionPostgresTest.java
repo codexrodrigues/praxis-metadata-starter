@@ -102,7 +102,7 @@ class BulkDurableExecutionPostgresTest {
         observer.execute("truncate bulk_durable_domain, bulk_durable_jpa_domain");
         observer.update("insert into bulk_durable_domain(id) values (1), (2)");
         observer.update("insert into bulk_durable_jpa_domain(id) values (1), (2)");
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(5);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(6);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 
@@ -585,7 +585,7 @@ class BulkDurableExecutionPostgresTest {
         int v2Checksum = observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='2'", Integer.class);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(3);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(4);
         assertThat(observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'", Integer.class))
                 .isEqualTo(v1Checksum);
@@ -624,7 +624,7 @@ class BulkDurableExecutionPostgresTest {
         seedV3Execution(activeProposal, activeLegacy, "legacy-key-active", activeExecutionId, now.minusSeconds(3), now.plusSeconds(30),
                 null, false);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(2);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(3);
         var kernel = kernel();
         var replayReservation = kernel.reserve(CONTEXT, proposal.id(), "legacy-key", "owner-a", "structural-r1",
                 now.plusSeconds(60));
@@ -732,9 +732,9 @@ class BulkDurableExecutionPostgresTest {
         var runtimeDataSource = new DriverManagerDataSource(postgres.getJdbcUrl("durable_runtime", "postgres"),
                 "durable_runtime", "");
         observer.execute("grant usage on schema praxis_bulk to durable_runtime");
-        observer.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding, praxis_bulk.praxis_bulk_operation_control to durable_runtime");
+        observer.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to durable_runtime");
         observer.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_namespace_binding to durable_runtime");
-        observer.execute("grant update (state) on praxis_bulk.praxis_bulk_operation_control to durable_runtime");
+        observer.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to durable_runtime");
         observer.execute("grant select on praxis_bulk.praxis_bulk_deployment_bucket to durable_runtime");
         observer.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_deployment_bucket to durable_runtime");
         observer.execute("grant select, insert on praxis_bulk.praxis_bulk_subject_bucket to durable_runtime");
