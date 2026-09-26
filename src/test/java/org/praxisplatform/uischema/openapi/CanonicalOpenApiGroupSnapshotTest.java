@@ -46,16 +46,19 @@ class CanonicalOpenApiGroupSnapshotTest {
         ((ObjectNode) exposed.path("paths").path(OPERATION.path()).path("post")
                 .path("requestBody").path("content").path("application/json").path("schema")).put("leak", true);
 
-        CanonicalRequestSchema request = OpenApiRequestSchemaReader.read(documents, snapshot, OPERATION);
-        CanonicalResponseSchema response = OpenApiResponseSchemaReader.read(documents, snapshot, OPERATION);
+        CanonicalRequestSchema request = snapshot.requireRequestSchema(OPERATION);
+        CanonicalResponseSchema response = snapshot.requireResponseSchema(OPERATION);
 
         assertEquals(1, strictReads.get());
         assertEquals(0, fallbackReads.get());
         assertEquals("string", request.schema().path("properties").path("value").path("type").asText());
         assertEquals("string", response.schema().path("properties").path("result").path("type").asText());
+        assertEquals("application/json", request.mediaType());
+        assertEquals(200, response.variants().getFirst().status());
+        assertEquals("application/json", response.variants().getFirst().mediaType());
         assertFalse(request.schema().has("leak"));
         assertThrows(IllegalStateException.class, () ->
-                OpenApiRequestSchemaReader.read(documents, snapshot,
+                snapshot.requireRequestSchema(
                         new CanonicalOperationRef("other", OPERATION.operationId(), OPERATION.path(), "POST")));
     }
 
