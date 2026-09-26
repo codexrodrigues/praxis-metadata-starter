@@ -44,6 +44,8 @@ import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentWarmup;
 import org.praxisplatform.uischema.openapi.RelatedResourceResponseSchemaCustomizer;
+import org.praxisplatform.uischema.bulk.BulkResourceOperationBindings;
+import org.praxisplatform.uischema.bulk.BulkResourceOperationIdCustomizer;
 import org.praxisplatform.uischema.options.OptionSourceEligibility;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationDiagnostics;
@@ -92,6 +94,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.util.StringUtils;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
@@ -103,6 +106,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
+import org.springdoc.core.customizers.GlobalOperationCustomizer;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 
 import java.lang.reflect.Method;
@@ -480,9 +484,30 @@ public class OpenApiUiSchemaAutoConfiguration {
     public CanonicalOperationResolver canonicalOperationResolver(
             OpenApiDocumentService openApiDocumentService,
             @org.springframework.beans.factory.annotation.Autowired(required = false)
-            RequestMappingHandlerMapping requestMappingHandlerMapping
+            RequestMappingHandlerMapping requestMappingHandlerMapping,
+            BulkResourceOperationBindings bulkResourceOperationBindings,
+            ObjectProvider<GroupedOpenApi> groupedOpenApis
     ) {
-        return new OpenApiCanonicalOperationResolver(openApiDocumentService, requestMappingHandlerMapping);
+        return new OpenApiCanonicalOperationResolver(openApiDocumentService, requestMappingHandlerMapping,
+                bulkResourceOperationBindings, () -> groupedOpenApis.orderedStream()
+                        .map(GroupedOpenApi::getGroup).filter(StringUtils::hasText).toList());
+    }
+
+    /** Captures the class-declared bulk operation identities against real MVC handler mappings. */
+    @Bean
+    @ConditionalOnMissingBean
+    public BulkResourceOperationBindings bulkResourceOperationBindings(
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            RequestMappingHandlerMapping requestMappingHandlerMapping) {
+        return BulkResourceOperationBindings.from(requestMappingHandlerMapping);
+    }
+
+    /** Applies the same immutable bulk binding used by the canonical resolver to OpenAPI output. */
+    @Bean
+    @Order(org.springframework.core.Ordered.LOWEST_PRECEDENCE)
+    public GlobalOperationCustomizer bulkResourceOperationIdCustomizer(
+            BulkResourceOperationBindings bulkResourceOperationBindings) {
+        return new BulkResourceOperationIdCustomizer(bulkResourceOperationBindings);
     }
 
     /**

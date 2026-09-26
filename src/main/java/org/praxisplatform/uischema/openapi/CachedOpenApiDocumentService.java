@@ -41,7 +41,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     private final ObjectMapper objectMapper;
     private final OpenApiDocsSupport openApiDocsSupport;
     private final SchemaCanonicalizer schemaCanonicalizer = new SchemaCanonicalizer();
-    private final Map<String, JsonNode> documentCache = new ConcurrentHashMap<>();
+    private final Map<String, CachedDocument> documentCache = new ConcurrentHashMap<>();
     private final Map<String, String> schemaHashCache = new ConcurrentHashMap<>();
 
     public CachedOpenApiDocumentService(
@@ -67,14 +67,36 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                 if (groupDoc != null) {
                     long sizeKB = estimateJsonSize(groupDoc) / 1024;
                     LOGGER.info("Documento OpenAPI especifico cacheado para grupo '{}' (~{}KB)", group, sizeKB);
-                    return groupDoc;
+                    return new CachedDocument(groupDoc, false);
                 }
                 throw new IllegalStateException("OpenAPI document helper returned null for group: " + group);
             } catch (Exception e) {
                 LOGGER.error("Falha critica ao buscar documento OpenAPI para grupo '{}': {}", group, e.getMessage());
                 throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + group, e);
             }
-        });
+        }).document();
+    }
+
+    @Override
+    public JsonNode getDocumentForGroupStrict(String groupName) {
+        return documentCache.compute(groupName, (group, cached) -> {
+            if (cached != null && cached.exactGroupDocument()) {
+                return cached;
+            }
+            try {
+                JsonNode groupDoc = openApiDocsSupport.fetchOpenApiGroupDocument(
+                        restTemplate, openApiBasePath, group, LOGGER);
+                if (groupDoc == null) {
+                    throw new IllegalStateException("OpenAPI strict group helper returned null for: " + group);
+                }
+                long sizeKB = estimateJsonSize(groupDoc) / 1024;
+                LOGGER.info("Documento OpenAPI exato cacheado para grupo '{}' (~{}KB)", group, sizeKB);
+                return new CachedDocument(groupDoc, true);
+            } catch (Exception e) {
+                LOGGER.error("Falha ao buscar documento OpenAPI estrito para grupo '{}': {}", group, e.getMessage());
+                throw new IllegalStateException("Failed to retrieve the exact OpenAPI document for group: " + group, e);
+            }
+        }).document();
     }
 
     @Override
@@ -106,4 +128,6 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             return 0;
         }
     }
+
+    private record CachedDocument(JsonNode document, boolean exactGroupDocument) { }
 }

@@ -62,9 +62,13 @@ public interface CanonicalOperationResolver {
     Optional<CanonicalOperationRef> resolveByOperationId(String operationId);
 
     /**
-     * Resolve um binding estrutural obrigatorio por ID explicitamente declarado em
-     * {@code @Operation}, recurso declarado em {@code @ApiResource} e metodo HTTP esperado.
-     * Exige unicidade global antes de verificar o recurso; nao usa nomes Java como fallback.
+     * Resolve um binding estrutural obrigatorio por operationId explicito, recurso declarado em
+     * {@code @ApiResource} e metodo HTTP esperado. A identidade explicita pode vir de
+     * {@code @Operation}; para um papel compartilhado de lifecycle bulk, vem de
+     * {@code @BulkResourceOperations} e e aplicada ao handler identificado por
+     * {@code @BulkResourceOperation}.
+     * Exige unicidade global antes de verificar o recurso; nomes Java nunca satisfazem este
+     * binding estrito, ainda que continuem aceitos por discovery legado nao estrito.
      * O mapping deve ter exatamente uma rota canonica e um metodo, sem condicoes de
      * params/headers/custom que nao possam ser representadas em {@link CanonicalOperationRef}.
      * Outro mapping nao pode compartilhar o mesmo path/metodo, mesmo com ID ou midia distintos.

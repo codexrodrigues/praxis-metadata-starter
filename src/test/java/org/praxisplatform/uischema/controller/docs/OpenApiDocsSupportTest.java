@@ -1,8 +1,10 @@
 package org.praxisplatform.uischema.controller.docs;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -81,6 +83,43 @@ class OpenApiDocsSupportTest {
         );
 
         assertEquals(true, result.path("paths").has("/stats/group-by"));
+        server.verify();
+    }
+
+    @Test
+    void fetchOpenApiGroupDocumentFailsClosedWhenOnlyTheBaseDocumentExists() {
+        server.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(NOT_FOUND));
+
+        assertThrows(IllegalStateException.class, () -> support.fetchOpenApiGroupDocument(
+                restTemplate,
+                "/v3/api-docs",
+                "stats",
+                LoggerFactory.getLogger(OpenApiDocsSupportTest.class)
+        ));
+        server.verify();
+    }
+
+    @Test
+    void strictGroupDocumentReplacesPreviouslyCachedBaseFallbackForAllReaders() {
+        server.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                .andRespond(withStatus(NOT_FOUND));
+        server.expect(once(), requestTo("http://localhost/v3/api-docs"))
+                .andRespond(withSuccess("{\"paths\":{\"/base-only\":{}}}", MediaType.APPLICATION_JSON));
+        server.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                .andRespond(withSuccess("{\"paths\":{\"/exact-group\":{}}}", MediaType.APPLICATION_JSON));
+
+        CachedOpenApiDocumentService documents = new CachedOpenApiDocumentService(
+                restTemplate, new ObjectMapper(), support);
+        ReflectionTestUtils.setField(documents, "openApiBasePath", "/v3/api-docs");
+
+        JsonNode legacyRead = documents.getDocumentForGroup("stats");
+        assertEquals(true, legacyRead.path("paths").has("/base-only"));
+        JsonNode strictRead = documents.getDocumentForGroupStrict("stats");
+        assertEquals(true, strictRead.path("paths").has("/exact-group"));
+        JsonNode subsequentSchemaReader = documents.getDocumentForGroup("stats");
+        assertEquals(true, subsequentSchemaReader.path("paths").has("/exact-group"));
         server.verify();
     }
 

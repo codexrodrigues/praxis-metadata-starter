@@ -45,6 +45,18 @@ public interface OpenApiDocumentService {
     JsonNode getDocumentForGroup(String groupName);
 
     /**
+     * Returns the document fetched for exactly the named published group, without substituting
+     * the ungrouped document. Strict identity verification must use this method because the
+     * ordinary group reader intentionally supports a legacy base-document fallback.
+     *
+     * <p>Implementations that cannot establish the source group must fail closed.</p>
+     */
+    default JsonNode getDocumentForGroupStrict(String groupName) {
+        throw new UnsupportedOperationException(
+                "This OpenApiDocumentService cannot verify exact published group documents");
+    }
+
+    /**
      * Reads an explicit operation's JSON request schema for backend compilation.
      * The default verifies the document binding and declared dialect, resolves supported
      * local references and fails on unsupported/ambiguous structure using this service's source.
