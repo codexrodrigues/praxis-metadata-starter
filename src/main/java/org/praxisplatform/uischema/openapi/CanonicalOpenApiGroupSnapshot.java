@@ -45,4 +45,13 @@ public final class CanonicalOpenApiGroupSnapshot {
     public CanonicalResponseSchema requireResponseSchema(CanonicalOperationRef operation) {
         return OpenApiResponseSchemaReader.read(documents, this, operation);
     }
+
+    /**
+     * Verifies that the exact operation in this group snapshot does not publish a request body.
+     * This is stronger than checking the MVC handler: OpenAPI customizers must not add a body to
+     * protocol operations whose handler contract is explicitly bodyless.
+     */
+    public void requireNoRequestBody(CanonicalOperationRef operation) {
+        OpenApiRequestSchemaReader.requireNoRequestBody(documents, this, operation);
+    }
 }

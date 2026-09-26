@@ -19,6 +19,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Immutable projection from declared bulk lifecycle roles to their real Spring MVC handlers.
@@ -40,6 +42,7 @@ public final class BulkResourceOperationBindings {
 
     private final Map<HandlerMethod, String> operationIdsByHandler;
     private final Map<String, HandlerMethod> handlersByOperationId;
+    private final Map<HandlerMethod, List<RequestMappingInfo>> mappingsByHandler;
     private final Map<HandlerMethod, BulkOperationBinding> bulkOperationsByConfirmation;
     private final Set<String> bodylessLifecycleOperationIds;
     private final Set<String> declaredOperationIds;
@@ -47,10 +50,13 @@ public final class BulkResourceOperationBindings {
 
     private BulkResourceOperationBindings(Map<HandlerMethod, String> operationIdsByHandler,
             Map<String, HandlerMethod> handlersByOperationId,
+            Map<HandlerMethod, List<RequestMappingInfo>> mappingsByHandler,
             Map<HandlerMethod, BulkOperationBinding> bulkOperationsByConfirmation,
             Set<String> bodylessLifecycleOperationIds, Set<String> declaredOperationIds, List<String> diagnostics) {
         this.operationIdsByHandler = Map.copyOf(operationIdsByHandler);
         this.handlersByOperationId = Map.copyOf(handlersByOperationId);
+        this.mappingsByHandler = mappingsByHandler.entrySet().stream().collect(Collectors.toUnmodifiableMap(
+                Map.Entry::getKey, entry -> List.copyOf(entry.getValue())));
         this.bulkOperationsByConfirmation = Map.copyOf(bulkOperationsByConfirmation);
         this.bodylessLifecycleOperationIds = Set.copyOf(bodylessLifecycleOperationIds);
         this.declaredOperationIds = Set.copyOf(declaredOperationIds);
@@ -58,7 +64,7 @@ public final class BulkResourceOperationBindings {
     }
 
     public static BulkResourceOperationBindings empty() {
-        return new BulkResourceOperationBindings(Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), List.of());
+        return new BulkResourceOperationBindings(Map.of(), Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), List.of());
     }
 
     /**
@@ -187,7 +193,10 @@ public final class BulkResourceOperationBindings {
                 bulkByConfirmation.put(binding.confirmationHandler(), binding);
             });
         }
-        return new BulkResourceOperationBindings(byHandler, byId, bulkByConfirmation,
+        Map<HandlerMethod, List<RequestMappingInfo>> mappingsByHandler = mapping.getHandlerMethods().entrySet().stream()
+                .collect(Collectors.groupingBy(Map.Entry::getValue,
+                        Collectors.mapping(Map.Entry::getKey, Collectors.toList())));
+        return new BulkResourceOperationBindings(byHandler, byId, mappingsByHandler, bulkByConfirmation,
                 bodylessLifecycleIds, declaredIds, diagnostics);
     }
 
@@ -199,9 +208,22 @@ public final class BulkResourceOperationBindings {
         return Optional.ofNullable(handlersByOperationId.get(operationId));
     }
 
+    Optional<RequestMappingInfo> mappingFor(HandlerMethod handler) {
+        List<RequestMappingInfo> mappings = mappingsByHandler.getOrDefault(handler, List.of());
+        return mappings.size() == 1 ? Optional.of(mappings.getFirst()) : Optional.empty();
+    }
+
     /** Returns the validated confirmation/evaluation pair for a confirmation handler. */
     public Optional<BulkOperationBinding> bulkOperationFor(HandlerMethod confirmationHandler) {
         return Optional.ofNullable(bulkOperationsByConfirmation.get(confirmationHandler));
+    }
+
+    /** Returns the validated action bindings in deterministic resource/operation order. */
+    List<BulkOperationBinding> bulkOperations() {
+        return bulkOperationsByConfirmation.values().stream()
+                .sorted(Comparator.comparing(BulkOperationBinding::resourceKey)
+                        .thenComparing(BulkOperationBinding::confirmationOperationId))
+                .toList();
     }
 
     /** True only for the five shared lifecycle operations whose request contract is bodyless. */

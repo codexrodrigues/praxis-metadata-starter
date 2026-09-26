@@ -68,6 +68,36 @@ final class OpenApiRequestSchemaReader {
         return new CanonicalRequestSchema(operation, mediaType, version, schema);
     }
 
+    static void requireNoRequestBody(OpenApiDocumentService documents, CanonicalOpenApiGroupSnapshot snapshot,
+            CanonicalOperationRef operation) {
+        validateOperationReference(operation);
+        if (documents == null) throw new IllegalArgumentException("OpenAPI document service is required");
+        if (snapshot == null || !snapshot.group().equals(operation.group())) {
+            throw invalid("Operation group does not match the captured OpenAPI document");
+        }
+        String method = operation.method().toLowerCase(Locale.ROOT);
+        JsonNode document = snapshot.document();
+        SpecVersion version = version(document.path("openapi"));
+        checkDialect(document.get("jsonSchemaDialect"), version);
+        String path = documents.resolveDocumentPath(document.path("paths"), operation.path(), method);
+        JsonNode pathItem = document.path("paths").path(path);
+        if (pathItem.has("$ref")) throw invalid("Referenced path items are not supported for strict bodyless binding");
+        JsonNode operationNode = pathItem.path(method);
+        if (!operationNode.isObject() || !operation.operationId().equals(operationNode.path("operationId").textValue())) {
+            throw invalid("Bodyless operation is not present with its explicit ID in the canonical document");
+        }
+        int matches = 0;
+        for (JsonNode item : document.path("paths")) {
+            for (String verb : METHODS) {
+                if (operation.operationId().equals(item.path(verb).path("operationId").textValue())) matches++;
+            }
+        }
+        if (matches != 1) throw invalid("Operation ID is ambiguous in the canonical document");
+        if (operationNode.has("requestBody")) {
+            throw invalid("Bodyless operation must not publish a requestBody in the canonical document");
+        }
+    }
+
     static void validateOperationReference(CanonicalOperationRef operation) {
         if (operation == null || blank(operation.group()) || blank(operation.path()) || blank(operation.method()) || blank(operation.operationId())) {
             throw new IllegalArgumentException("Explicit canonical operation group, ID, path and method are required");
