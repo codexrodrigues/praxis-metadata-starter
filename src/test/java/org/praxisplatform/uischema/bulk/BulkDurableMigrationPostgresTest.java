@@ -1130,14 +1130,20 @@ class BulkDurableMigrationPostgresTest {
             migrateToVersion(dataSource, "12");
             sql.execute("grant execute on function praxis_bulk.guard_terminal_execution() to public");
             assertThatThrownBy(() -> migrate(dataSource)).isInstanceOf(RuntimeException.class)
-                    .hasStackTraceContaining("bulk terminal guard V5 attestation failed");
+                    .hasStackTraceContaining("bulk V5/V10 chronology guard attestation failed");
             assertThat(sql.queryForObject("select version from praxis_bulk.praxis_bulk_schema_history "
                     + "order by installed_rank desc limit 1", String.class)).isEqualTo("12");
             sql.execute("revoke execute on function praxis_bulk.guard_terminal_execution() from public");
             sql.execute("grant create on schema praxis_bulk to praxis_bulk_retention_owner");
             assertThatThrownBy(() -> migrate(dataSource)).isInstanceOf(RuntimeException.class)
-                    .hasStackTraceContaining("bulk terminal guard V5 attestation failed");
+                    .hasStackTraceContaining("bulk V5/V10 chronology guard attestation failed");
             sql.execute("revoke create on schema praxis_bulk from praxis_bulk_retention_owner");
+            sql.execute("alter function praxis_bulk.guard_terminal_execution() parallel safe");
+            assertThatThrownBy(() -> migrate(dataSource)).isInstanceOf(RuntimeException.class)
+                    .hasStackTraceContaining("bulk V5/V10 chronology guard attestation failed");
+            assertThat(sql.queryForObject("select version from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank desc limit 1", String.class)).isEqualTo("12");
+            sql.execute("alter function praxis_bulk.guard_terminal_execution() parallel unsafe");
             assertThat(migrate(dataSource)).isEqualTo(1);
             sql.execute("alter table praxis_bulk.praxis_bulk_execution drop constraint "
                     + "praxis_bulk_execution_time_order_check");
@@ -1146,6 +1152,91 @@ class BulkDurableMigrationPostgresTest {
             assertThatThrownBy(() -> migrate(dataSource)).isInstanceOf(IllegalStateException.class);
             assertThat(sql.queryForObject("select count(*) from pg_constraint where conname="
                     + "'praxis_bulk_execution_time_order_check'", Integer.class)).isZero();
+        }
+    }
+
+    @Test
+    void v13RejectsSameNamedTerminalTriggerWithFalseWhenBeforeAnyChange() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start()) {
+            var dataSource = postgres.getPostgresDatabase();
+            var sql = new JdbcTemplate(dataSource);
+            migrateToVersion(dataSource, "12");
+            String v5Body = sql.queryForObject("select md5(prosrc) from pg_proc where oid="
+                    + "'praxis_bulk.guard_terminal_execution()'::regprocedure", String.class);
+            String v5Acl = sql.queryForObject("select proacl::text from pg_proc where oid="
+                    + "'praxis_bulk.guard_terminal_execution()'::regprocedure", String.class);
+            sql.execute("drop trigger praxis_bulk_execution_guard_terminal on "
+                    + "praxis_bulk.praxis_bulk_execution");
+            sql.execute("""
+                    create trigger praxis_bulk_execution_guard_terminal before update
+                    on praxis_bulk.praxis_bulk_execution for each row when (false)
+                    execute function praxis_bulk.guard_terminal_execution()
+                    """);
+
+            assertThatThrownBy(() -> migrate(dataSource)).isInstanceOf(RuntimeException.class)
+                    .hasStackTraceContaining("bulk V5/V10 chronology guard attestation failed");
+            assertThat(sql.queryForObject("select version from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank desc limit 1", String.class)).isEqualTo("12");
+            assertThat(sql.queryForObject("select md5(prosrc) from pg_proc where oid="
+                    + "'praxis_bulk.guard_terminal_execution()'::regprocedure", String.class))
+                    .isEqualTo(v5Body);
+            assertThat(sql.queryForObject("select proacl::text from pg_proc where oid="
+                    + "'praxis_bulk.guard_terminal_execution()'::regprocedure", String.class))
+                    .isEqualTo(v5Acl);
+            assertThat(sql.queryForObject("select owner.rolname from pg_proc p join pg_roles owner "
+                    + "on owner.oid=p.proowner where p.oid="
+                    + "'praxis_bulk.guard_terminal_execution()'::regprocedure", String.class))
+                    .isEqualTo("praxis_bulk_retention_owner");
+            assertThat(sql.queryForObject("select has_schema_privilege('praxis_bulk_retention_owner', "
+                    + "'praxis_bulk', 'CREATE')", Boolean.class)).isFalse();
+            assertThat(sql.queryForObject("select count(*) from pg_auth_members where roleid="
+                    + "'praxis_bulk_retention_owner'::regrole", Integer.class)).isZero();
+            assertThat(sql.queryForObject("select tgqual is not null from pg_trigger where tgname="
+                    + "'praxis_bulk_execution_guard_terminal'", Boolean.class)).isTrue();
+        }
+    }
+
+    @Test
+    void v13RejectsSameNamedCancelTriggerWithFalseWhenBeforeAnyChange() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start()) {
+            var dataSource = postgres.getPostgresDatabase();
+            var sql = new JdbcTemplate(dataSource);
+            migrateToVersion(dataSource, "12");
+            String v5Body = sql.queryForObject("select md5(prosrc) from pg_proc where oid="
+                    + "'praxis_bulk.guard_terminal_execution()'::regprocedure", String.class);
+            String v10Body = sql.queryForObject("select md5(prosrc) from pg_proc where oid="
+                    + "'praxis_bulk.protect_cancel_request()'::regprocedure", String.class);
+            String v10Acl = sql.queryForObject("select proacl::text from pg_proc where oid="
+                    + "'praxis_bulk.protect_cancel_request()'::regprocedure", String.class);
+            sql.execute("drop trigger praxis_bulk_execution_protect_cancel on "
+                    + "praxis_bulk.praxis_bulk_execution");
+            sql.execute("""
+                    create trigger praxis_bulk_execution_protect_cancel before insert or update
+                    on praxis_bulk.praxis_bulk_execution for each row when (false)
+                    execute function praxis_bulk.protect_cancel_request()
+                    """);
+
+            assertThatThrownBy(() -> migrate(dataSource)).isInstanceOf(RuntimeException.class)
+                    .hasStackTraceContaining("bulk V5/V10 chronology guard attestation failed");
+            assertThat(sql.queryForObject("select version from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank desc limit 1", String.class)).isEqualTo("12");
+            assertThat(sql.queryForObject("select md5(prosrc) from pg_proc where oid="
+                    + "'praxis_bulk.guard_terminal_execution()'::regprocedure", String.class))
+                    .isEqualTo(v5Body);
+            assertThat(sql.queryForObject("select md5(prosrc) from pg_proc where oid="
+                    + "'praxis_bulk.protect_cancel_request()'::regprocedure", String.class))
+                    .isEqualTo(v10Body);
+            assertThat(sql.queryForObject("select proacl::text from pg_proc where oid="
+                    + "'praxis_bulk.protect_cancel_request()'::regprocedure", String.class))
+                    .isEqualTo(v10Acl);
+            assertThat(sql.queryForObject("select has_schema_privilege('praxis_bulk_retention_owner', "
+                    + "'praxis_bulk', 'CREATE')", Boolean.class)).isFalse();
+            assertThat(sql.queryForObject("select count(*) from pg_auth_members where roleid="
+                    + "'praxis_bulk_retention_owner'::regrole", Integer.class)).isZero();
+            assertThat(sql.queryForObject("select tgqual is not null from pg_trigger where tgname="
+                    + "'praxis_bulk_execution_protect_cancel'", Boolean.class)).isTrue();
         }
     }
 

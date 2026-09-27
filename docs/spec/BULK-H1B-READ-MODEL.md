@@ -510,7 +510,7 @@ terminal fisicamente válido podia ter `terminalAt` microssegundos após
 
 **Integridade temporal V13 (implementada após RS3):** a migração substitui
 apenas o bloco de tempo do guard V5, preservando os fences e provas de terminal.
-Ela atesta owner, corpo, ACL e trigger V5 antes da troca, repara o skew histórico
+Ela atesta owner, corpo, ACL e trigger V5/V10 antes da troca, repara o skew histórico
 conhecido (`terminal_at > updated_at`) sob lock transacional e valida uma
 constraint para `created_at <= updated_at`, `terminal_at <= updated_at` e
 `cancel_requested_at <= terminal_at` quando ambos existem. Cronologia histórica
@@ -521,6 +521,12 @@ no UPDATE que aceita cancelamento. O migrator rejeita drift posterior de corpo,
 ACL, owner, trigger ou constraint. A projeção RS3 continua preservando os
 instantes certificados sem normalização de leitura; o gate público de autorização,
 contrato e HTTP permanece separado.
+O corte V13 exige drenar writers e retenção V12 antes do Flyway: binários V12
+reatestam o corpo V5 e falham fechados após o commit V13. Reiniciar e reabrir
+tráfego somente com binários V13; esta migração não declara rolling upgrade.
+O preflight V13 atesta os guards V5/V10 que governam a cronologia e a forma
+dos seis triggers de UPDATE da execução; drift em outras superfícies continua
+sob a validação mais ampla do migrator.
 
 `ABSENT` e `TOMBSTONE` continuam observações internas distintas, sem decisão
 de 404/410 antes da autorização atual e integral no host. Não se fabrica
