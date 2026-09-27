@@ -36,8 +36,9 @@ public final class JdbcBulkProposalStore {
      * transaction. A companion failure marks that transaction rollback-only, including when a
      * caller later catches the safe storage exception.
      */
-    public void insertEvaluated(BulkEvaluationSnapshot evaluation) {
+    public void insertEvaluated(BulkEvaluationSnapshot evaluation, BulkPreviewProjection preview) {
         Objects.requireNonNull(evaluation, "evaluation");
+        Objects.requireNonNull(preview, "preview").requireMatches(evaluation);
         BulkStoredProposal proposal = evaluation.proposal();
         requireNamespace(proposal.snapshot().context());
         requireControlExpectation(proposal);
@@ -48,6 +49,7 @@ public final class JdbcBulkProposalStore {
                 insertProposal(connection, proposal);
                 insertEvaluation(connection, proposal, evaluation, evaluationPayload);
                 BulkOrdinalManifest.insert(connection, evaluation);
+                BulkPreviewStorage.insert(connection, evaluation, preview);
                 BulkQuotaLedger.insertPending(connection, proposal, quota);
                 return null;
             });

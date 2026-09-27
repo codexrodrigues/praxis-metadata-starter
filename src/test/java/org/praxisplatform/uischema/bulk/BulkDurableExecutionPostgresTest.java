@@ -108,7 +108,7 @@ class BulkDurableExecutionPostgresTest {
         observer.execute("truncate bulk_durable_domain, bulk_durable_jpa_domain");
         observer.update("insert into bulk_durable_domain(id) values (1), (2)");
         observer.update("insert into bulk_durable_jpa_domain(id) values (1), (2)");
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(8);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(9);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 
@@ -746,7 +746,7 @@ class BulkDurableExecutionPostgresTest {
         int v2Checksum = observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='2'", Integer.class);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(6);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(7);
         assertThat(observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'", Integer.class))
                 .isEqualTo(v1Checksum);
@@ -785,7 +785,7 @@ class BulkDurableExecutionPostgresTest {
         seedV3Execution(activeProposal, activeLegacy, "legacy-key-active", activeExecutionId, now.minusSeconds(3), now.plusSeconds(30),
                 null, false);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(5);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(6);
         var kernel = kernel();
         var replayReservation = kernel.reserve(CONTEXT, proposal.id(), "legacy-key", "owner-a", "structural-r1",
                 now.plusSeconds(60));
@@ -1416,7 +1416,7 @@ class BulkDurableExecutionPostgresTest {
     }
 
     private BulkEvaluationSnapshot persist(BulkEvaluationSnapshot value) {
-        transactions.executeWithoutResult(status -> proposals.insertEvaluated(value));
+        transactions.executeWithoutResult(status -> proposals.insertEvaluated(value, BulkEvaluationSnapshotTest.preview(value)));
         return value;
     }
 

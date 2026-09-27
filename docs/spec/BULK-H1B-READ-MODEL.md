@@ -1,7 +1,7 @@
 # H1b — decisão de base para leitura de operações em lote
 
-Estado: decisão de arquitetura para orientar os próximos cortes; este documento não publica
-readers, endpoints, cancelamento ou `READY`. Baseline auditado: Metadata main
+Estado: V8 integrado e V9 RS2 físico candidato em revisão, sem reader, endpoint,
+cancelamento ou `READY`. Baseline inicialmente auditado: Metadata main
 `fdc4fac8cf6bdf6129282db6b0ada26c82ac03cb` (`8.0.0-rc.136`) e consumidor
 Quickstart PR #311. O plano do consumidor está em
 `internal-planning/bulk-operations/H1B-WRITE-SETS.md` no Quickstart. B0 continua
@@ -10,7 +10,7 @@ revisadas antes de modificar um contrato público.
 
 ## Classificação, fonte e impacto
 
-Esta decisão documental é `docs-apenas`. Implementá-la atingirá `contrato-publico`,
+Esta decisão nasceu como `docs-apenas`; o corte V9 é `contrato-publico`,
 `arquitetural` e `transversal`: pacote `bulk`, migrations, migrator, codecs, readers,
 projeções públicas e composição MVC do Metadata; Quickstart como consumidor concreto;
 documentação `docs/spec`, guias, corpus HTTP e skills correspondentes. Config não é
@@ -117,6 +117,51 @@ indisponível, sem inventar resultado a partir do blob. O contrato público fina
 de RS2 e o ajuste correspondente de B0 precisam de decisão/revisão própria antes
 de código público.
 
+### Corte V9 — projeção física RS2
+
+`BulkPreviewProjection` é a entrada explícita do provider para o armazenamento:
+revisão versionada e allowlist de diagnósticos públicos por categoria/código com
+mensagem segura. A decisão `EXECUTABLE|BLOCKED` vem da elegibilidade tipada;
+diagnóstico privado sem definição pública recusa a projeção inteira. O provider
+não fornece mensagens copiadas de `facts`, `plan`, alvo ou metadata; a coluna
+`diagnostics` guarda apenas categoria, código e texto seguro, em bytes UTF-8
+JSON para não perder caracteres aceitos pelo contrato. O estado `COMPLETE` guarda
+também a allowlist pública canônica e um digest versionado da revisão, avaliação,
+allowlist e de cada item (inclusive texto seguro). Validação recompõe o digest
+e compara cada mensagem à allowlist, detectando drift parcial de texto. O schema
+owner continua confiável: alguém que altera simultaneamente linhas, digest e DDL
+está fora dessa garantia. Nenhuma comparação
+antes/depois genérica é fabricada neste corte.
+
+`JdbcBulkProposalStore.insertEvaluated(evaluation, projection)` exige esse valor
+na mesma transação física que proposta, avaliação, manifest e allocation. A
+projeção é vinculada à avaliação exata, possui estado `COMPLETE` e linhas
+contíguas por ordinal; um trigger diferido exige a projeção completa antes do
+commit da avaliação. Instâncias anteriores à V9 não podem continuar a gravar
+após o cutover: mesmo se aguardarem lock, o commit sem projeção falha. A
+assinatura anterior de `insertEvaluated` foi removida no beta; o host consumidor
+deve passar a projeção do provider. Propostas históricas recebem
+`UNAVAILABLE_LEGACY`, sem itens e sem preview inventado. Para uma avaliação nova
+tipada sem projector seguro, o provider escolhe explicitamente
+`BulkPreviewProjection.unavailable(evaluation)`; a avaliação válida persiste
+com estado `UNAVAILABLE` sem itens. O trigger exige estado explícito e por isso
+continua a rejeitar writer antigo que não gravou a projeção. Um guard de
+`INSERT` no item consulta o estado pai antes de admitir dados e recusa
+`UNAVAILABLE`/`UNAVAILABLE_LEGACY` mesmo em transação posterior ao commit da
+avaliação. A FK do item adquire o lock de chave do pai e impede corrida com
+DELETE de retenção. A retenção trava a proposta e remove o item antes do estado. O futuro reader
+deve tratar ambos os estados indisponíveis com `BULK_PREVIEW_UNAVAILABLE` após
+autorização atual.
+
+A V9 adiciona ACL focal para as mesmas roles runtime já aptas à avaliação,
+marcador de bootstrap `PENDING/COMPLETE` exclusivo do owner, validação de
+constraints/funções/triggers/linhas e ordem de expiração/purge
+`preview_item → preview_state → manifest → evaluation → proposal`. Após
+`COMPLETE`, migração/validação não restauram grants revogados nem preenchem
+projeções ausentes. O corte não expõe leitor, paginação, cursor, HTTP ou
+capability. Autorização atual, forma pública de RS2 e paginação continuam gates
+separados.
+
 Toda leitura, inclusive proposta, status e totais agregados, valida autenticação
 e autorização **atuais** para o conjunto armazenado, com permissões granulares
 de alvo, campo e referência exigidas pelo perfil. Uma permissão parcial ou
@@ -148,8 +193,9 @@ duas conexões e interleavings antes de ser usado pelos handlers.
 
 1. Implementar manifest privado e evolução física completa, validar PostgreSQL e
    revisão independente; integrar corte autocontido na main.
-2. Fechar RS2/preview e cursor/ACL em B0, revisar contratos públicos e construir
-   readers RS1–RS4 sobre o manifest, com testes de paginação, auth e purge.
+2. Integrar a projeção física V9 RS2 após testes e revisão independente; fechar
+   cursor/ACL em B0, revisar contratos públicos e construir readers RS1–RS4
+   sobre manifest/projeção, com testes de paginação, auth e purge.
 3. Implementar cancelamento durável, corridas com ACK/recovery e projection.
 4. Publicar o Metadata no marco autorizado, adotar no Quickstart e implementar os
    sete handlers. Somente composição real, readback e provas HTTP/PostgreSQL podem
