@@ -1,12 +1,90 @@
 # H1b — decisão de base para leitura de operações em lote
 
-Estado: V8 integrado e V9 RS2 físico candidato em revisão, sem reader, endpoint,
-cancelamento ou `READY`. Baseline inicialmente auditado: Metadata main
+Estado: V8/V9/V10 integrados; a fundação interna RS3 abaixo ainda é candidata, sem reader
+público, endpoint, cursor ou `READY`. Baseline inicialmente auditado: Metadata main
 `fdc4fac8cf6bdf6129282db6b0ada26c82ac03cb` (`8.0.0-rc.136`) e consumidor
 Quickstart PR #311. O plano do consumidor está em
 `internal-planning/bulk-operations/H1B-WRITE-SETS.md` no Quickstart. B0 continua
 definindo invariantes e semântica pública; divergências devem ser corrigidas ali e
 revisadas antes de modificar um contrato público.
+
+## Corte interno RS3 — pré-análise de 27/09/2026
+
+Base de implementação: Metadata main `7117f96cb6f34e612711fa57212f13e4f943ba65` (V10).
+Classificação: `arquitetural` pela fronteira de snapshot físico e `transversal` entre
+infraestrutura JDBC/JPA, ledger, validação e docs; sem alteração de contrato público.
+Inventário de aderência: `JdbcBulkDurableExecution.find` já filtra execution pelo
+escopo, mas lê linha/contagens sem prova de prefixo nem tombstone (`suportado-parcialmente`);
+`loadEvaluation`, `BulkOrdinalManifest.validateOne`, `durablePrefixConsistent` e
+os codecs já verificam o vínculo protegido (`ja-suportado-mal-materializado`);
+`BulkExecutionInfrastructure.withLifecycleRead` usa `READ_COMMITTED` e transaction
+writable, portanto uma leitura curta `REPEATABLE_READ READ ONLY` é lacuna real de
+infraestrutura. O consumidor concreto futuro é o handler `execution-read` do
+Quickstart PR #311, após authorizer integral atual do conjunto; não serializar
+`BulkExecutionSnapshot`, avaliação ou blob protegido.
+
+Write set mínimo: um caminho interno sem HTTP que abre conexão runtime
+independente, fixa isolamento `REPEATABLE READ` e `READ ONLY` antes da primeira
+consulta de dados, aplica timeouts locais, lê execution/proposal/evaluation,
+manifest, receipt/admission, allocation e tombstone no mesmo snapshot MVCC e
+finaliza/fecha a transação. Faltas, duplicidades, drift de fingerprint/digest/versão,
+prefixo inválido e combinações impossíveis de status/allocation falham fechadas.
+Leitura não adquire locks de escrita, não chama domínio, não altera quota/epoch e
+não decide 404/410; até a identificação interna de tombstone só pode ser usada
+depois da autorização corrente pelo host. Não expor campos protegidos ou
+`NOT_PROCESSED` público neste corte. Provas PostgreSQL focais: commit de receipt
+concorrente, purge concorrente, corrupção e escopo cruzado, conferindo que o
+resultado inteiro vem de um único snapshot.
+
+### Candidato implementado e limite de uso
+
+`BulkExecutionInfrastructure.withConsistentRead` abre transação independente e
+verifica no PostgreSQL físico `transaction_isolation=repeatable read` e
+`transaction_read_only=on`, inclusive sob `JpaTransactionManager`; o vínculo da
+conexão, role runtime, namespace e timeouts são revalidados. O caminho
+package-private `JdbcBulkDurableExecution.inspectConsistent` lê tudo na mesma
+transação, valida a avaliação protegida contra a proposta, o manifest V8, o
+prefixo de receipts/admissions, estado e duas allocations, e devolve somente
+uma observação interna `ABSENT`, `LIVE` ou `TOMBSTONE`. Esta observação contém
+controle protegido e **não** é contrato/response público; não pode gerar 404/410
+antes de autorização atual do host. Nenhum blob, fato, plano ou texto de
+diagnóstico é serializado. Nenhum novo write set, migration, grant ou bean é
+introduzido.
+
+Em `RECONCILIATION_REQUIRED`, receipts/admissions fisicamente presentes depois
+de `nextOrdinal` permanecem evidência incerta. O read model valida sua forma,
+digest, versão e unicidade, mas conta como `CONFIRMED`/outro outcome apenas o
+prefixo certificado. O snapshot interno apresenta contagens certificadas, e
+`unknown = targetCount - nextOrdinal` cobre conservadoramente todo o sufixo;
+não transforma receipt posterior em sucesso nem em `NOT_PROCESSED`. O ledger
+físico pode, portanto, ter mais linhas do que a contagem certificada no read
+model. Duplicidade ou digest/versão impossível continuam `CORRUPT`.
+
+Prova focal em PostgreSQL 14.22: `BulkDurableExecutionPostgresTest` selecionou
+`internalConsistentRead*` e dois cenários existentes de recuperação, 11 testes,
+0 falhas/erros. Inclui isolamento físico de
+escrita (`SQLSTATE 25006`), JPA, escopo cruzado, commit concorrente de receipt,
+purge concorrente com tombstone, e corrupção de versão/ordinal, digest do
+manifest e lifecycle de allocation, além de 10.000 alvos e de receipt incerto
+após recuperação com prefixo certificado zero ou um. A barreira de teste pausa a leitura depois
+do primeiro SELECT que fixa o snapshot: commits concorrentes aparecem apenas
+numa nova leitura, nunca como mistura de épocas na mesma observação. Log local:
+`/tmp/praxis-h1b-rs3-reconciliation.log`; relatório Surefire:
+`target/surefire-reports/TEST-org.praxisplatform.uischema.bulk.BulkDurableExecutionPostgresTest.xml`.
+
+Este validador interno percorre até o limite do snapshot protegido; ele **não**
+é um reader paginado. O futuro reader público precisa de consulta limitada por
+ordinal e prova própria de custo/latência para 10.000 alvos, autorização atual,
+redaction/projeção e cursor seguro. Não declarar RS1/RS3 público ou `READY` com
+esta fundação. O material canônico inspecionado em
+`praxis-codex-skills` `origin/main cff2c46` local cobre V8/V9, mas não ensina o
+snapshot físico `REPEATABLE READ READ ONLY`. Como essa referência local pode
+estar defasada, a classificação é provisória: `atualizar-existente`
+(`praxis-java-command-concurrency-authoring`, com ajuste de manutenção de
+starter se necessário), sujeita a confronto com o HEAD canônico atual pelo
+coordenador. A atualização canônica fica sob a coordenação do pacote de skills,
+antes do aceite final. Docs HTTP, corpus,
+playgrounds, Angular e exemplos públicos não têm superfície nova neste corte.
 
 ## Classificação, fonte e impacto
 
