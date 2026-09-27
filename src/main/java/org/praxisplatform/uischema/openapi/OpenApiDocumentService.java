@@ -3,6 +3,8 @@ package org.praxisplatform.uischema.openapi;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 import java.util.function.Supplier;
 
@@ -55,6 +57,48 @@ public interface OpenApiDocumentService {
         throw new UnsupportedOperationException(
                 "This OpenApiDocumentService cannot verify exact published group documents");
     }
+
+    /**
+     * Fetches the exact published group again, bypassing any process-local document cache.
+     * Implementations that cannot establish freshness must fail closed. This is intended for
+     * lifecycle publication and invalidation, not request-path schema reads.
+     */
+    default JsonNode refreshDocumentForGroupStrict(String groupName) {
+        throw new UnsupportedOperationException(
+                "This OpenApiDocumentService cannot refresh an exact published group document");
+    }
+
+    /**
+     * Installs the durable bulk lifecycle fence which must run before any public cache clear or
+     * strict refresh. Implementations that cannot enforce this centrally must fail closed when
+     * the governed bulk lifecycle is enabled.
+     */
+    default void installBulkLifecycleInvalidationGuard(Runnable guard) {
+        throw new UnsupportedOperationException(
+                "This OpenApiDocumentService cannot fence cache invalidation for bulk lifecycle");
+    }
+
+    /**
+     * Serializes lifecycle publication (through its durable READY CAS) against any public cache
+     * invalidation (through the cache mutation). Implementations without this exclusion fail closed.
+     */
+    default <T> T withBulkLifecycleCompositionLock(Supplier<T> action) {
+        throw new UnsupportedOperationException(
+                "This OpenApiDocumentService cannot serialize bulk lifecycle composition and invalidation");
+    }
+
+    /**
+     * Fetches the supplied exact groups into an isolated, immutable lifecycle snapshot and makes
+     * that snapshot visible to strict reads only for the duration of {@code action}. It must not
+     * replace the ordinary shared document cache.
+     */
+    default <T> T withFreshBulkLifecycleDocuments(Set<String> groups, Supplier<T> action) {
+        throw new UnsupportedOperationException(
+                "This OpenApiDocumentService cannot provide an isolated fresh lifecycle snapshot");
+    }
+
+    /** Whether strict refreshes use a regenerated source rather than a source-side document cache. */
+    default boolean supportsFreshBulkLifecycleComposition() { return false; }
 
     /**
      * Reads an explicit operation's JSON request schema for backend compilation.

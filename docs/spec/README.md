@@ -18,6 +18,8 @@
 
 ## Drafts canonicos em andamento
 
+- Operações em lote metadata-driven: [lifecycle governado](BULK-OPERATION-LIFECYCLE.md) especifica provider, perfil efetivo, composição e publication/suspension duráveis do descriptor. Não expõe endpoints ou capability bulk; a adoção produtiva é um gate separado.
+
 - Charts metadata-driven: `x-ui-chart-rfc.md`
   - define a direcao canonica de `x-ui.chart` como extensao governada da plataforma
   - complementado por `x-ui-chart.schema.json` como draft validavel inicial

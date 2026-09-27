@@ -248,6 +248,38 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
     }
 
     @Override
+    public List<String> refreshPublishedOpenApiGroupsStrict(Set<String> requiredGroups) {
+        List<String> ordered = publishedOpenApiGroups(requiredGroups);
+        for (String group : ordered) {
+            JsonNode document = openApiDocumentService.refreshDocumentForGroupStrict(group);
+            if (document == null || !document.path("paths").isObject())
+                throw new IllegalStateException("Published OpenAPI group cannot be refreshed exactly: " + group);
+        }
+        return ordered;
+    }
+
+    @Override
+    public List<String> publishedOpenApiGroups(Set<String> requiredGroups) {
+        Set<String> groups = new LinkedHashSet<>();
+        List<String> published = publishedOpenApiGroups.get();
+        if (published != null) {
+            for (String group : published) {
+                if (!StringUtils.hasText(group) || !group.equals(group.strip()))
+                    throw new IllegalStateException("Published OpenAPI group identities must be canonical");
+                groups.add(group);
+            }
+        }
+        if (requiredGroups == null || requiredGroups.isEmpty())
+            throw new IllegalArgumentException("At least one required OpenAPI group is required");
+        for (String group : requiredGroups) {
+            if (!StringUtils.hasText(group) || !group.equals(group.strip()))
+                throw new IllegalArgumentException("Required OpenAPI group identities must be canonical");
+            groups.add(group);
+        }
+        return groups.stream().sorted().toList();
+    }
+
+    @Override
     public CanonicalRequestBodyBinding requireResourceRequestBody(String resourceKey, String operationId,
             String method, TypeFactory typeFactory) {
         if (typeFactory == null) throw new IllegalArgumentException("Configured TypeFactory is required");

@@ -30,6 +30,12 @@ public final class CanonicalOpenApiGroupSnapshot {
         return new CanonicalOpenApiGroupSnapshot(documents, group, documents.getDocumentForGroupStrict(group));
     }
 
+    /** Captures one exact group after asking the source to bypass its process-local cache. */
+    public static CanonicalOpenApiGroupSnapshot captureFresh(OpenApiDocumentService documents, String group) {
+        if (documents == null) throw new IllegalArgumentException("OpenApiDocumentService is required");
+        return new CanonicalOpenApiGroupSnapshot(documents, group, documents.refreshDocumentForGroupStrict(group));
+    }
+
     /** The exact group name captured by this snapshot. */
     public String group() { return group; }
 

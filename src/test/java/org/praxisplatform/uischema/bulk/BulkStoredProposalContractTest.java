@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.bulk;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,9 @@ class BulkStoredProposalContractTest {
             @Override public String decode(String wire) { return wire; }
             @Override public String encode(String id) { return id; }
             @Override public Schema<?> wireSchema() { return new StringSchema(); }
+            @Override public JsonNode canonicalWireSchema() {
+                return JsonNodeFactory.instance.objectNode().put("type", "string");
+            }
             @Override public String codecId() { return codecId; }
         };
     }

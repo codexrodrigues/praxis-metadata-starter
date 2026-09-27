@@ -7,6 +7,10 @@ import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.RequestEntity;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -162,6 +166,33 @@ public class OpenApiDocsSupport {
     }
 
     /**
+     * Fetches the exact named group with request cache revalidation directives. Lifecycle
+     * publication uses this method after durable suspension so a process-local or compliant HTTP
+     * cache cannot silently provide an old OpenAPI representation. It never falls back to the
+     * ungrouped document.
+     */
+    public JsonNode fetchFreshOpenApiGroupDocument(RestTemplate restTemplate, String openApiBasePath,
+                                                   String group, Logger logger) {
+        if (!StringUtils.hasText(group)) throw new IllegalArgumentException("OpenAPI group name must not be blank");
+        String groupDocUrl = resolveOpenApiBaseUrl() + openApiBasePath + "/"
+                + UriUtils.encodePathSegment(group, StandardCharsets.UTF_8);
+        try {
+            var request = RequestEntity.get(java.net.URI.create(groupDocUrl))
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .build();
+            ResponseEntity<JsonNode> response = restTemplate.exchange(request, JsonNode.class);
+            JsonNode document = response.getBody();
+            if (document == null) throw new IllegalStateException("Fresh OpenAPI group document is null: " + groupDocUrl);
+            return document;
+        } catch (Exception ex) {
+            logger.error("Failed to fetch fresh exact OpenAPI group document {}", groupDocUrl, ex);
+            if (ex instanceof IllegalStateException illegalStateException) throw illegalStateException;
+            throw new IllegalStateException("Failed to fetch fresh exact OpenAPI group document " + groupDocUrl, ex);
+        }
+    }
+
+    /**
      * Seleciona o content node preferencial dentro de um bloco OpenAPI {@code content}.
      *
      * <p>
@@ -221,14 +252,19 @@ public class OpenApiDocsSupport {
         return builder.build().toUriString();
     }
 
+    /** Whether this helper was configured to fetch documentation from a different URL/process. */
+    public boolean usesConfiguredInternalBaseUrl() {
+        return StringUtils.hasText(openApiInternalBaseUrl);
+    }
+
     private String resolveLocalHost(HttpServletRequest request) {
-        String localName = request.getLocalName();
-        if (StringUtils.hasText(localName) && !"0:0:0:0:0:0:0:1".equals(localName)) {
-            return localName;
-        }
         String localAddress = request.getLocalAddr();
         if (StringUtils.hasText(localAddress) && !"0:0:0:0:0:0:0:1".equals(localAddress)) {
             return localAddress;
+        }
+        String localName = request.getLocalName();
+        if (StringUtils.hasText(localName) && !"0:0:0:0:0:0:0:1".equals(localName)) {
+            return localName;
         }
         return "localhost";
     }

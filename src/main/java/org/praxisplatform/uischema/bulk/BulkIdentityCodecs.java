@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.bulk;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.swagger.v3.oas.models.media.IntegerSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
@@ -73,6 +74,13 @@ public final class BulkIdentityCodecs {
                     .maximum(BigDecimal.valueOf(Integer.MAX_VALUE));
         }
 
+        @Override public JsonNode canonicalWireSchema() {
+            var schema = JsonNodeFactory.instance.objectNode();
+            schema.put("type", "integer"); schema.put("format", "int32");
+            schema.put("minimum", Integer.MIN_VALUE); schema.put("maximum", Integer.MAX_VALUE);
+            return schema;
+        }
+
         @Override
         public String codecId() {
             return "integer";
@@ -118,6 +126,14 @@ public final class BulkIdentityCodecs {
                     .description(LONG_WIRE_DESCRIPTION);
         }
 
+        @Override public JsonNode canonicalWireSchema() {
+            var schema = JsonNodeFactory.instance.objectNode();
+            schema.put("type", "string"); schema.put("format", "int64-decimal");
+            schema.put("pattern", CANONICAL_LONG.pattern()); schema.put("maxLength", 20);
+            schema.put("description", LONG_WIRE_DESCRIPTION);
+            return schema;
+        }
+
         @Override
         public String codecId() {
             return "long";
@@ -151,6 +167,12 @@ public final class BulkIdentityCodecs {
         @Override
         public Schema<?> wireSchema() {
             return new StringSchema().minLength(1);
+        }
+
+        @Override public JsonNode canonicalWireSchema() {
+            var schema = JsonNodeFactory.instance.objectNode();
+            schema.put("type", "string"); schema.put("minLength", 1);
+            return schema;
         }
 
         @Override
@@ -196,6 +218,13 @@ public final class BulkIdentityCodecs {
                     .pattern(CANONICAL_UUID.pattern())
                     .minLength(36)
                     .maxLength(36);
+        }
+
+        @Override public JsonNode canonicalWireSchema() {
+            var schema = JsonNodeFactory.instance.objectNode();
+            schema.put("type", "string"); schema.put("format", "uuid");
+            schema.put("pattern", CANONICAL_UUID.pattern()); schema.put("minLength", 36); schema.put("maxLength", 36);
+            return schema;
         }
 
         @Override

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -51,7 +53,7 @@ class OpenApiDocsSupportTest {
         request.setLocalPort(8091);
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
 
-        server.expect(once(), requestTo("http://localhost:8091/v3/api-docs/stats"))
+        server.expect(once(), requestTo("http://127.0.0.1:8091/v3/api-docs/stats"))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("{\"paths\":{\"/stats/group-by\":{}}}", MediaType.APPLICATION_JSON));
 
@@ -120,6 +122,27 @@ class OpenApiDocsSupportTest {
         assertEquals(true, strictRead.path("paths").has("/exact-group"));
         JsonNode subsequentSchemaReader = documents.getDocumentForGroup("stats");
         assertEquals(true, subsequentSchemaReader.path("paths").has("/exact-group"));
+        server.verify();
+    }
+
+    @Test
+    void lifecycleRefreshBypassesTheNodeCacheAndRequestsHttpCacheRevalidation() {
+        server.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"openapi\":\"3.1.0\",\"info\":{\"version\":\"old\"},\"paths\":{}}",
+                        MediaType.APPLICATION_JSON));
+        server.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store"))
+                .andRespond(withSuccess("{\"openapi\":\"3.1.0\",\"info\":{\"version\":\"fresh\"},\"paths\":{}}",
+                        MediaType.APPLICATION_JSON));
+        CachedOpenApiDocumentService documents = new CachedOpenApiDocumentService(
+                restTemplate, new ObjectMapper(), support);
+        ReflectionTestUtils.setField(documents, "openApiBasePath", "/v3/api-docs");
+
+        assertEquals("old", documents.getDocumentForGroupStrict("stats").path("info").path("version").asText());
+        assertEquals("fresh", documents.refreshDocumentForGroupStrict("stats").path("info").path("version").asText());
+        assertEquals("fresh", documents.getDocumentForGroupStrict("stats").path("info").path("version").asText());
         server.verify();
     }
 

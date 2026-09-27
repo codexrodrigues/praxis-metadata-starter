@@ -12,7 +12,7 @@ praxis_bulk_control_owner é NOLOGIN, NOINHERIT, não tem membros e recebe somen
 
 O host deve fornecer controlPlaneGranteeRoles no BulkExecutionRoleConfiguration, a partir do provisionamento real. O starter não infere roles. A conta de migração precisa poder criar a role interna e associar-se a ela temporariamente para transferir ownership; a migration revoga essa membership antes do commit. A role da aplicação que chama a transição recebe apenas EXECUTE, nunca é a conta migradora.
 
-Este incremento implementa o fence durável e o CAS de controle, não a composição/verificação do descritor. Ter uma linha READY ou um fingerprint sintaticamente válido não prova handlers, schemas, providers, generation/fingerprint local, invalidação de cache, discovery ou endpoint executável. A composição S4c ainda deve validar o descriptor completo antes de publicar readiness; nenhuma ação/capability bulk deve ser anunciada por este fundamento isolado.
+Este documento cobre o fence durável e o CAS de controle. A composição completa do host/MVC/OpenAPI/provider e o lifecycle canônico Metadata estão especificados em [Lifecycle governado de operações em lote](BULK-OPERATION-LIFECYCLE.md). Ter uma linha READY ou um fingerprint sintaticamente válido não prova adoção produtiva no host, autorização de domínio, discovery ou endpoint executável. Nenhuma action/capability bulk deve ser anunciada por este fundamento isolado.
 
 ## Provas
 
@@ -28,4 +28,4 @@ Na reserva, o runtime resolve idempotência existente antes do limite/quota de n
 
 Replay de receipt/admission é resolvido antes do gate READY e continua disponível em SUSPENDED. Leitura, cancelamento, reconciliação e retenção seguem seus contratos próprios; nenhuma dessas operações recompõe ou publica o descritor. Recovery nunca executa admission nem callback de domínio. A nova ordem de locks relacionada ao descritor deve continuar compatível com V6 e com o consumidor concreto; não mover o callback para fora da transação que grava o receipt.
 
-As provas focais incluem tuple ausente/stale, proposal/execution INSERT de writer antigo, binding imutável, replay após suspensão, nova unidade rejeitada e CAS concorrente em cada lado da janela prepare→apply. Essas garantias apenas impedem uso de descritor obsoleto no ledger; não compõem handlers/providers, resolvem schemas OpenAPI nem publicam discovery/READY. Não são evidência de endpoint executável ou de conclusão do pacote S4c.
+As provas focais incluem tuple ausente/stale, proposal/execution INSERT de writer antigo, binding imutável, replay após suspensão, nova unidade rejeitada e CAS concorrente em cada lado da janela prepare→apply. As provas do lifecycle, incluindo refresh multi-instância e reconciliação de commit incerto, ficam em [BULK-OPERATION-LIFECYCLE.md](BULK-OPERATION-LIFECYCLE.md). Estas garantias não são evidência de endpoint executável nem de adoção do host.
