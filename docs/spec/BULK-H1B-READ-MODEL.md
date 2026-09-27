@@ -480,6 +480,45 @@ coordenador. A atualização canônica fica sob a coordenação do pacote de ski
 antes do aceite final. Docs HTTP, corpus,
 playgrounds, Angular e exemplos públicos não têm superfície nova neste corte.
 
+### Projeção interna de resumo RS3
+
+Base: Metadata main `ff0d6b074c0d7922cc887340b01edec81285417e`.
+Classificação `arquitetural` interna, sem contrato público. O inventário é
+`suportado-parcialmente`: `inspectConsistent` já certifica o vínculo protegido,
+o prefixo durável, as allocations, os tempos e as contagens, enquanto
+`BulkExecutionTotals` já valida a soma. Faltava somente materializar um resumo
+interno coerente para o futuro handler `execution-read` do Quickstart. Não há
+migration, grant, endpoint, cursor, DTO público ou `READY` neste corte.
+
+`BulkExecutionSummary` é package-private e opaco à serialização. A projeção usa
+somente a observação consistente RS3. `RUNNING`, `UNIT_IN_FLIGHT` e
+`UNIT_COMMITTED_PENDING_ACK` viram `RUNNING` com o sufixo não reconhecido em
+`pending`; o receipt pendente de ACK não entra nas contagens certificadas.
+`RECONCILIATION_REQUIRED` mantém todo o sufixo `UNKNOWN`, inclusive quando há
+receipt físico incerto. `STOPPED` só projeta o sufixo como `NOT_PROCESSED` após
+a prova de ausência de receipt/admission em `inspectConsistent`; a razão
+`CANCELLED_BY_USER` distingue `CANCELLED`, sem antecipar terminalização de um
+pedido de cancelamento. `COMPLETED` e `COMPLETED_WITH_ERRORS` exigem prefixo
+integral e evidência compatível. A soma dos totais deve ser `targetCount`;
+drift de estado, tempos ou contagens falha `CORRUPT` sem causa protegida.
+O resumo preserva os instantes persistidos: os writers atuais chamam
+`clock_timestamp()` separadamente para `terminal_at` e `updated_at`, então
+um terminal válido pode ter `terminalAt` microssegundos após `updatedAt`.
+Este corte interno não reescreve instantes nem constrói o DTO público, cujo
+invariante temporal ainda exige correção canônica antes da exposição HTTP.
+
+`ABSENT` e `TOMBSTONE` continuam observações internas distintas, sem decisão
+de 404/410 antes da autorização atual e integral no host. Não se fabrica
+`QUEUED`, `CANCEL_REQUESTED`, modo, atomicidade, `operationRef` ou diagnostics:
+esses campos não foram certificados por este read model, e o resumo não
+constrói `BulkExecution`. Docs HTTP, corpus, playgrounds e Angular não possuem
+artefato derivado neste corte. Provas PostgreSQL focais cobrem o estado inicial,
+sucessos/admissions, sufixo de STOPPED, receipt pendente de ACK, cancelamento
+antes/depois de reconciliação, escopo cruzado, tombstone e corrupção; as provas
+RS3 preexistentes continuam cobrindo snapshot físico, receipt/purge concorrentes
+e limite de 10.000 alvos. O impacto em skill permanece sob a coordenação do
+pacote canônico `praxis-java-command-concurrency-authoring`.
+
 ## Corte interno RS1 — proposta e avaliação no mesmo snapshot
 
 Base: Metadata main `17d102ec69c5e00c4b75101ad8c6f0f9652bb228` (V12). A

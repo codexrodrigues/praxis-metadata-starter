@@ -1257,6 +1257,11 @@ class BulkDurableExecutionPostgresTest {
         assertThat(conservativeRead.execution().receiptCount()).isZero();
         assertThat(conservativeRead.confirmed()).isZero();
         assertThat(conservativeRead.unknown()).isEqualTo(2);
+        var summary = kernel.summarizeConsistent(CONTEXT, reservation.executionId());
+        assertThat(summary.status()).isEqualTo(BulkExecutionStatus.RECONCILIATION_REQUIRED);
+        assertThat(summary.totals().unknown()).isEqualTo(2);
+        assertThat(summary.totals().confirmed()).isZero();
+        assertThat(summary.totals().notProcessed()).isZero();
         var callbacks = new AtomicInteger();
         assertThatThrownBy(() -> kernel.executeUnit(recovery.control(), 1, unit -> BulkUnitAdmission.admit(), ignored -> {
             callbacks.incrementAndGet();
@@ -1442,6 +1447,96 @@ class BulkDurableExecutionPostgresTest {
         assertThat(foreign.kind()).isEqualTo(BulkConsistentExecutionRead.Kind.ABSENT);
         assertThat(foreign.execution()).isNull();
         assertThat(foreign.tombstoneTerminalStatus()).isNull();
+    }
+
+    @Test
+    void internalSummaryProjectsCertifiedCountsAndTerminalSuffixFromPostgres() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-summary-counts", "owner-a");
+        var initial = kernel.summarizeConsistent(CONTEXT, reservation.executionId());
+        assertThat(initial.status()).isEqualTo(BulkExecutionStatus.RUNNING);
+        assertThat(initial.totals().pending()).isEqualTo(2);
+        assertThat(initial.totals().confirmed()).isZero();
+        assertThat(initial.totals().targetCount()).isEqualTo(2);
+
+        kernel.executeUnit(reservation.control(), 0, ignored -> BulkUnitAdmission.admit(),
+                ignored -> BulkUnitMutationResult.confirmed());
+        var partial = kernel.summarizeConsistent(CONTEXT, reservation.executionId());
+        assertThat(partial.status()).isEqualTo(BulkExecutionStatus.RUNNING);
+        assertThat(partial.totals().confirmed()).isEqualTo(1);
+        assertThat(partial.totals().pending()).isEqualTo(1);
+        assertThat(partial.terminalAt()).isNull();
+
+        kernel.executeUnit(reservation.control(), 1,
+                ignored -> BulkUnitAdmission.denied(BulkUnitReasonCode.TARGET_DENIED),
+                ignored -> { fail("denied admission must not mutate"); return BulkUnitMutationResult.confirmed(); });
+        var terminal = kernel.summarizeConsistent(CONTEXT, reservation.executionId());
+        assertThat(terminal.status()).isEqualTo(BulkExecutionStatus.COMPLETED_WITH_ERRORS);
+        assertThat(terminal.totals().confirmed()).isEqualTo(1);
+        assertThat(terminal.totals().denied()).isEqualTo(1);
+        assertThat(terminal.totals().pending()).isZero();
+        assertThat(terminal.terminalAt()).isNotNull();
+
+        var cancelledReservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-summary-cancel", "owner-a");
+        kernel.executeUnit(cancelledReservation.control(), 0, ignored -> BulkUnitAdmission.admit(),
+                ignored -> BulkUnitMutationResult.unchanged());
+        kernel.requestCancel(CONTEXT, cancelledReservation.executionId());
+        var cancelled = kernel.summarizeConsistent(CONTEXT, cancelledReservation.executionId());
+        assertThat(cancelled.status()).isEqualTo(BulkExecutionStatus.CANCELLED);
+        assertThat(cancelled.totals().unchanged()).isEqualTo(1);
+        assertThat(cancelled.totals().notProcessed()).isEqualTo(1);
+        assertThat(cancelled.totals().pending()).isZero();
+        assertThat(countForExecution("praxis_bulk_item_receipt", cancelledReservation.executionId())).isEqualTo(1);
+        assertThat(countForExecution("praxis_bulk_admission", cancelledReservation.executionId())).isZero();
+        assertThat(kernel.summarizeConsistent(quotaSubject("foreign-subject"), cancelledReservation.executionId()).kind())
+                .isEqualTo(BulkExecutionSummary.Kind.ABSENT);
+
+        var stoppedReservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-summary-stop", "owner-a");
+        kernel.executeUnit(stoppedReservation.control(), 0,
+                ignored -> BulkUnitAdmission.stop(BulkUnitReasonCode.AUTHORIZATION_REVOKED),
+                ignored -> { fail("stop must not mutate"); return BulkUnitMutationResult.confirmed(); });
+        var stopped = kernel.summarizeConsistent(CONTEXT, stoppedReservation.executionId());
+        assertThat(stopped.status()).isEqualTo(BulkExecutionStatus.STOPPED);
+        assertThat(stopped.totals().notProcessed()).isEqualTo(2);
+
+        var completedReservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-summary-complete", "owner-a");
+        for (int ordinal = 0; ordinal < 2; ordinal++) {
+            kernel.executeUnit(completedReservation.control(), ordinal, ignored -> BulkUnitAdmission.admit(),
+                    ignored -> BulkUnitMutationResult.confirmed());
+        }
+        var completed = kernel.summarizeConsistent(CONTEXT, completedReservation.executionId());
+        assertThat(completed.status()).isEqualTo(BulkExecutionStatus.COMPLETED);
+        assertThat(completed.totals().confirmed()).isEqualTo(2);
+        assertThat(completed.totals().pending()).isZero();
+    }
+
+    @Test
+    void internalSummaryRejectsStoppedSuffixWithPhysicalAdmission() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-summary-stopped-drift", "owner-a");
+        kernel.requestCancel(CONTEXT, reservation.executionId());
+        assertThat(kernel.summarizeConsistent(CONTEXT, reservation.executionId()).totals().notProcessed())
+                .isEqualTo(2);
+        observer.execute("alter table praxis_bulk.praxis_bulk_admission "
+                + "disable trigger praxis_bulk_admission_guard_terminal");
+        try {
+            observer.update("""
+                    insert into praxis_bulk.praxis_bulk_admission
+                      (execution_id, unit_ordinal, target_digest, expected_version, attempt_id,
+                       owner_epoch, outcome, reason_code, recorded_at)
+                    select e.execution_id, m.ordinal, m.target_digest, 'v2', ?, e.owner_epoch,
+                           'DENIED', 'TARGET_DENIED', clock_timestamp()
+                    from praxis_bulk.praxis_bulk_execution e
+                    join praxis_bulk.praxis_bulk_target_manifest m on m.proposal_id=e.proposal_id
+                    where e.execution_id=? and m.ordinal=1
+                    """, UUID.randomUUID(), reservation.executionId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_admission "
+                    + "enable trigger praxis_bulk_admission_guard_terminal");
+        }
+        assertThatThrownBy(() -> kernel.summarizeConsistent(CONTEXT, reservation.executionId()))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.CORRUPT));
     }
 
     @Test
@@ -1832,10 +1927,12 @@ class BulkDurableExecutionPostgresTest {
                 assertThat(before.execution().status()).isEqualTo(BulkDurableExecutionStatus.UNIT_IN_FLIGHT);
                 assertThat(before.execution().nextOrdinal()).isZero();
                 assertThat(before.confirmed()).isZero();
+                assertThat(BulkExecutionSummary.from(before).totals().pending()).isEqualTo(2);
                 var after = kernel.inspectConsistent(CONTEXT, reservation.executionId());
                 assertThat(after.execution().status()).isEqualTo(BulkDurableExecutionStatus.RUNNING);
                 assertThat(after.execution().nextOrdinal()).isEqualTo(1);
                 assertThat(after.confirmed()).isEqualTo(1);
+                assertThat(BulkExecutionSummary.from(after).totals().confirmed()).isEqualTo(1);
             } finally {
                 releaseCallback.countDown();
                 paused.release();
@@ -1888,6 +1985,10 @@ class BulkDurableExecutionPostgresTest {
                 assertThat(after.kind()).isEqualTo(BulkConsistentExecutionRead.Kind.TOMBSTONE);
                 assertThat(after.execution()).isNull();
                 assertThat(after.tombstoneTerminalStatus()).isEqualTo("CANCELLED");
+                var summary = kernel.summarizeConsistent(CONTEXT, reservation.executionId());
+                assertThat(summary.kind()).isEqualTo(BulkExecutionSummary.Kind.TOMBSTONE);
+                assertThat(summary.tombstoneStatus()).isEqualTo(BulkExecutionStatus.CANCELLED);
+                assertThat(summary.totals()).isNull();
                 assertThat(kernel.inspectConsistent(quotaSubject("foreign-subject"), reservation.executionId()).kind())
                         .isEqualTo(BulkConsistentExecutionRead.Kind.ABSENT);
             } finally {
@@ -1987,6 +2088,7 @@ class BulkDurableExecutionPostgresTest {
         assertThat(read.kind()).isEqualTo(BulkConsistentExecutionRead.Kind.LIVE);
         assertThat(read.execution().targetCount()).isEqualTo(10_000);
         assertThat(read.execution().nextOrdinal()).isZero();
+        assertThat(BulkExecutionSummary.from(read).totals().pending()).isEqualTo(10_000);
     }
 
     @Test
@@ -2168,9 +2270,19 @@ class BulkDurableExecutionPostgresTest {
                         error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
         assertThat(observer.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?",
                 String.class, reservation.executionId())).isEqualTo("UNIT_COMMITTED_PENDING_ACK");
+        var pendingSummary = kernel.summarizeConsistent(CONTEXT, reservation.executionId());
+        assertThat(pendingSummary.status()).isEqualTo(BulkExecutionStatus.RUNNING);
+        assertThat(pendingSummary.totals().confirmed()).isZero();
+        assertThat(pendingSummary.totals().pending()).isEqualTo(2);
         assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).cancelRequestedAt()).isNotNull();
+        assertThat(kernel.summarizeConsistent(CONTEXT, reservation.executionId()).status())
+                .isEqualTo(BulkExecutionStatus.RUNNING);
         var recovery = kernel.recover(CONTEXT, reservation.executionId(), "recovery-owner");
         assertThat(recovery.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        var recoveredSummary = kernel.summarizeConsistent(CONTEXT, reservation.executionId());
+        assertThat(recoveredSummary.status()).isEqualTo(BulkExecutionStatus.CANCELLED);
+        assertThat(recoveredSummary.totals().confirmed()).isEqualTo(1);
+        assertThat(recoveredSummary.totals().notProcessed()).isEqualTo(1);
         assertThat(recovery.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
         var replay = kernel.executeUnit(recovery.control(), 0,
                 unit -> { calls.incrementAndGet(); return BulkUnitAdmission.admit(); },
