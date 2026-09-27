@@ -267,7 +267,7 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Composição do runtime: datasource operacional compartilhado com o domínio.</span></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> infrastructure <span class="op">=</span> <span class="kw">new</span> <span class="fu">BulkExecutionInfrastructure</span><span class="op">(</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    operationalDataSource<span class="op">,</span> operationalTransactionManager<span class="op">,</span> deploymentNamespace<span class="op">,</span> deploymentId<span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    operationalDataSource<span class="op">,</span> operationalTransactionManager<span class="op">,</span> deploymentNamespace<span class="op">,</span> deploymentId<span class="op">,</span> roles<span class="op">);</span></span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> proposals <span class="op">=</span> <span class="kw">new</span> <span class="fu">JdbcBulkProposalStore</span><span class="op">(</span>infrastructure<span class="op">);</span></span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Dentro da transação de serviço já existente:</span></span>
@@ -358,15 +358,20 @@ membros do executor de retenção contra o catálogo PostgreSQL, incluindo
 os privilégios mínimos por tabela/coluna/função e funções
 <code>SECURITY DEFINER</code>; não cria grants. O host obtém esses nomes
 do provisionamento real e executa a validação antes de habilitar o
-consumo. O runtime não recebe escrita direta no controle de operação;
-lock e CAS governado são concedidos por funções dedicadas da V6. Não
-conceder <code>CREATE</code>, <code>DELETE</code> ou escrita direta em
-tombstone ao runtime. Detalhes de lock, limites 100/10/80 e grants estão
-em <a href="BULK-DURABLE-EXECUTION.md">execução durável</a> e <a
-href="BULK-OPERATION-CONTROL.md">controle de operação</a>. Privilégios
-administrativos ainda podem alterar o schema; portanto, a composição
-operacional precisa controlar credenciais e repetir a validação quando
-apropriado.</p>
+consumo. Cada entrada de runtime também revalida identidade e ACLs
+protegidas na própria conexão autenticada, antes do binding/callback.
+Configure uma identidade de login runtime não privilegiada; usar o owner
+como runtime, ou chegar ao papel permitido por <code>SET ROLE</code>,
+falha fechado. O runtime não recebe escrita direta no controle de
+operação; lock e CAS governado são concedidos por funções dedicadas da
+V6. Não conceder <code>CREATE</code>, <code>DELETE</code> ou escrita
+direta em tombstone ao runtime. Detalhes de lock, limites 100/10/80 e
+grants estão em <a href="BULK-DURABLE-EXECUTION.md">execução
+durável</a>, <a href="BULK-EXECUTION-INFRASTRUCTURE.md">infraestrutura
+transacional</a> e <a href="BULK-OPERATION-CONTROL.md">controle de
+operação</a>. Privilégios administrativos ainda podem alterar o schema;
+portanto, a composição operacional precisa controlar credenciais e
+repetir validação estrutural no provisionamento.</p>
 <h2 id="provas-e-próximos-gates">Provas e próximos gates</h2>
 <p><code>BulkSnapshotStorageCodecTest</code> cobre as três modalidades,
 quatro codecs, tipos numéricos, limites decimais programáticos, cópias
