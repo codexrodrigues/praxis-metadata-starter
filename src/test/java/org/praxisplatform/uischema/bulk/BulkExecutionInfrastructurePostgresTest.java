@@ -38,15 +38,20 @@ class BulkExecutionInfrastructurePostgresTest {
     @BeforeAll
     void start() throws Exception {
         postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
-        dataSource = postgres.getPostgresDatabase();
-        BulkPostgresTestSupport.migrate(dataSource, java.util.Map.of(
+        DataSource schemaOwnerDataSource = postgres.getPostgresDatabase();
+        BulkExecutionMigrator.migrate(schemaOwnerDataSource, java.util.Map.of(
                 "tenant-a:production:payroll", "deployment-prod",
                 "jdbc-test", "deployment-jdbc",
                 "lock-test", "deployment-lock"));
-        observer = new JdbcTemplate(dataSource);
+        var roleConfiguration = BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource, "bulk_runtime_test");
+        BulkExecutionMigrator.validate(schemaOwnerDataSource, roleConfiguration);
+        dataSource = new DriverManagerDataSource(
+                postgres.getJdbcUrl("bulk_runtime_test", "postgres"), "bulk_runtime_test", "");
+        observer = new JdbcTemplate(schemaOwnerDataSource);
         System.out.println("Bulk infrastructure proof PostgreSQL: " + observer.queryForObject("select version()", String.class));
         observer.execute("create table bulk_test_domain(id bigint primary key)");
         observer.execute("create table bulk_test_receipt(id bigint primary key, marker text unique deferrable initially deferred)");
+        observer.execute("grant select, insert, update, delete on bulk_test_domain, bulk_test_receipt to bulk_runtime_test");
         var factory = new LocalContainerEntityManagerFactoryBean();
         factory.setDataSource(dataSource);
         factory.setPackagesToScan(InfrastructureDomainRow.class.getPackageName());
@@ -55,7 +60,7 @@ class BulkExecutionInfrastructurePostgresTest {
         emf = factory.getObject();
         manager = new JpaTransactionManager(emf);
         infrastructure = new BulkExecutionInfrastructure(dataSource, manager,
-                "tenant-a:production:payroll", "deployment-prod");
+                "tenant-a:production:payroll", "deployment-prod", roleConfiguration);
     }
 
     @AfterAll
@@ -161,7 +166,7 @@ class BulkExecutionInfrastructurePostgresTest {
     @Test
     void durableNamespaceBindingMustMatchTheExplicitDeploymentBeforeCallbackRuns() {
         var wrongDeployment = new BulkExecutionInfrastructure(dataSource, manager,
-                "tenant-a:production:payroll", "deployment-other");
+                "tenant-a:production:payroll", "deployment-other", infrastructure.roleConfiguration());
         var invoked = new AtomicBoolean();
         assertThatThrownBy(() -> new TransactionTemplate(manager).execute(status ->
                 wrongDeployment.withConnection(connection -> {
@@ -172,7 +177,7 @@ class BulkExecutionInfrastructurePostgresTest {
         assertThat(invoked).isFalse();
 
         var missingNamespace = new BulkExecutionInfrastructure(dataSource, manager,
-                "unbound-namespace", "deployment-prod");
+                "unbound-namespace", "deployment-prod", infrastructure.roleConfiguration());
         assertThatThrownBy(() -> new TransactionTemplate(manager).execute(status ->
                 missingNamespace.withConnection(connection -> {
                     invoked.set(true);
@@ -197,7 +202,8 @@ class BulkExecutionInfrastructurePostgresTest {
     @Test
     void jdbcManagerParticipatesAndRollsBackWithoutStartingASecondTransaction() {
         var jdbcManager = new DataSourceTransactionManager(dataSource);
-        var jdbcInfrastructure = new BulkExecutionInfrastructure(dataSource, jdbcManager, "jdbc-test", "deployment-jdbc");
+        var jdbcInfrastructure = new BulkExecutionInfrastructure(dataSource, jdbcManager, "jdbc-test", "deployment-jdbc",
+                infrastructure.roleConfiguration());
         new TransactionTemplate(jdbcManager).execute(status -> {
             jdbcInfrastructure.withConnection(connection -> {
                 execute(connection, "insert into bulk_test_receipt values (1, 'one')");
@@ -213,7 +219,8 @@ class BulkExecutionInfrastructurePostgresTest {
     void independentConnectionCannotAcquireHeldRowLockUntilOwnerCompletes() throws Exception {
         observer.update("insert into bulk_test_domain values (1)");
         var jdbcManager = new DataSourceTransactionManager(dataSource);
-        var binding = new BulkExecutionInfrastructure(dataSource, jdbcManager, "lock-test", "deployment-lock");
+        var binding = new BulkExecutionInfrastructure(dataSource, jdbcManager, "lock-test", "deployment-lock",
+                infrastructure.roleConfiguration());
         var secondPid = new AtomicInteger();
         try (var executor = Executors.newSingleThreadExecutor()) {
             new TransactionTemplate(jdbcManager).execute(status -> binding.withConnection(connection -> {

@@ -3,9 +3,9 @@
 `BulkExecutionInfrastructure` vincula explicitamente um DataSource, um PlatformTransactionManager local, um namespace e um identificador imutável de deployment. Sua construção não conecta ao banco, registra beans, cria tabelas ou inicia workers. Cada callback valida o binding durável namespace→deployment sob lock compartilhado antes da operação. É a base de integração de `JdbcBulkProposalStore`, descrito em [Persistência protegida de propostas](BULK-PROPOSAL-STORAGE.md). A infraestrutura em si não publica endpoint nem readiness.
 
 ```java
-// Os três valores são fornecidos explicitamente pelo host, após inicialização dos beans.
+// Datasource, manager, namespace, deployment e roles vêm explicitamente do host/provisionamento.
 var infrastructure = new BulkExecutionInfrastructure(
-    operationalDataSource, operationalTransactionManager, operationalNamespace, deploymentId);
+    operationalDataSource, operationalTransactionManager, operationalNamespace, deploymentId, roles);
 
 // A camada de execução é dona da transação externa e do seu commit.
 var transaction = new TransactionTemplate(infrastructure.transactionManager());
@@ -27,7 +27,11 @@ O datasource deve ser a mesma instância gerenciada por `DataSourceTransactionMa
 
 Este primeiro subset rejeita AbstractRoutingDataSource e DelegatingDataSource, incluindo proxies de datasource. O host fornece diretamente o pool operacional compartilhado. Não é uma equivalência geral de wrappers; suporte a roteamento/JTA/outros managers precisa de contrato e conformidade próprios. O datasource e seu manager são colaboradores confiáveis, não uma fronteira de segurança contra implementações maliciosas.
 
+O host também fornece uma `BulkExecutionRoleConfiguration` proveniente do provisionamento real. Em cada chamada, antes de consultar o namespace ou executar o callback, a infraestrutura verifica na própria conexão transacional que `session_user` e `current_user` são iguais e que a identidade consta na allowlist runtime. A mesma conexão revalida owner, privilégios e ACLs das tabelas e funções protegidas, além do corpo, owner, atributos e triggers dos fences V7; a atestação não usa conexão administrativa separada nem executa Flyway/DDL. Cada SQL de atestação fica limitado a 250 ms (não é um orçamento total da sequência de consultas), preservando timeout mais estrito já configurado e restaurando o valor anterior. As verificações isoladas de lifecycle/control também limitam lock e statement timeout a 1/2 segundos sem ampliar limites mais estritos do pool. Se identidade, grants, owner, definições ou atributos de segurança mudarem após startup, a chamada falha fechada antes do trabalho operacional. Esse teste contínuo não substitui provisionamento seguro: a conta DBA/migradora permanece confiável, e o Starter não protege contra um administrador que altera simultaneamente a definição e a execução do banco.
+
 O namespace tem de 1 a 200 caracteres Java, sem espaços nas extremidades, controles ou valor vazio; não é normalizado, inferido de headers nem recebe default. Identifica o binding operacional e precisa permanecer estável e não ser reutilizado para outro escopo. Não substitui tenant/ambiente/ator autenticados, autorização por operação ou isolamento do ledger futuro.
+
+Os corpos SQL esperados das migrations V5/V6/V7 são extraídos e normalizados uma vez por classloader para um holder lazy e imutável, falhando fechado se a extração não for possível. Só esses valores imutáveis são reutilizados; roles, memberships, grants, ownership, atributos e fences do catálogo PostgreSQL são consultados novamente em toda entrada pública.
 
 ## Participação e falhas
 
@@ -35,16 +39,18 @@ O namespace tem de 1 a 200 caracteres Java, sem espaços nas extremidades, contr
 
 A conexão entregue pelo JdbcTemplate pertence à transação física e está sem auto-commit. A verificação considera seu ConnectionProxy canônico, preservando a proteção contra close acidental no callback. Não fechar/guardar a conexão, alterar auto-commit ou chamar commit/rollback; o callback é código confiável do adapter. Exceção do callback passa pelo TransactionTemplate e provoca rollback-only conforme a política do manager. Configurar globalRollbackOnParticipationFailure=false é rejeitado na construção e em cada chamada, pois permitiria confirmação parcial de uma unidade após erro.
 
-O retorno do callback e de `withConnection` é **provisório até o commit externo**. Falha de flush/constraint diferida/commit ainda pode desfazer todos os writes. Esta API não é uma garantia de efeito remoto ou outbox, não controla admissão de jobs e não oferece fencing, replay, retenção ou recuperação. Consistência de schema e credenciais DML também não é validada por este vínculo; pertencerá ao migrator/store.
+O retorno do callback e de `withConnection` é **provisório até o commit externo**. Falha de flush/constraint diferida/commit ainda pode desfazer todos os writes. Esta API não é uma garantia de efeito remoto ou outbox, não controla admissão de jobs e não oferece fencing, replay, retenção ou recuperação. A validação estrutural feita pelo migrator continua necessária no provisionamento; a chamada revalida as ACLs/identidade vivas para detectar drift operacional entre provisionamento e uso.
 
 ## Provas
 
-`BulkExecutionInfrastructureTest` cobre namespace, vínculo por identidade, EMF divergente/opaco, managers não suportados, wrappers/roteamento, mutação de configuração e construção sem I/O. `BulkExecutionInfrastructurePostgresTest` inicia PostgreSQL real descartável, sem skip nem fallback H2, e valida:
+`BulkExecutionInfrastructureTest` cobre namespace, vínculo por identidade, EMF divergente/opaco, managers não suportados, wrappers/roteamento, mutação de configuração e construção sem I/O. `BulkExecutionInfrastructurePostgresTest` inicia PostgreSQL real descartável com logins restritos e grants explícitos, sem skip nem fallback H2, e valida:
 
 - mesma conexão física JPA/JDBC e outra conexão com PID distinto, sem visibilidade dos writes antes de commit;
 - commit, rollback explícito/exceção, erro capturado marcando rollback-only e falha real no commit por UNIQUE diferida;
 - rejeição de ausência/read-only/rollback-only/manager alheio, participação JDBC;
 - duas conexões disputando FOR UPDATE, SQLSTATE 55P03 por lock_timeout e liberação depois da conclusão do dono.
+
+As provas também verificam que cada operação usa `session_user=current_user`, rejeita acesso do owner/admin como runtime e percebe drift ACL depois do startup pela entrada pública. No PostgreSQL real, runtime e control plane rejeitam grant CAS indevido, DML/CREATE não permitido, membership extra, revogação do lock runtime, `PUBLIC`, grant option, owner divergente e sessão `SET ROLE`; nenhuma rejeição chama o callback. O teste também comprova que o runtime marca a transação rollback-only, estado/generation do control plane permanecem `UNCOMPOSED:0`, e a operação volta a ser aceita depois de restaurar o catálogo, sem reconstruir as infraestruturas. O timeout menor configurado de 100 ms permanece efetivo nos três caminhos. Uma medição sintética sequencial e aquecida no Embedded PostgreSQL 14.22 registrou 25 entradas `withLifecycleRead` entre 451–481 ms e 25 entradas control-plane (incluindo prova do banco físico via advisory lock) entre 897–916 ms, em duas execuções. Esses valores são amostras locais, não SLA nem orçamento de deployment.
 
 As tabelas de domínio/receipt são fixtures de teste. Não são a DDL de execução bulk. O PostgreSQL embarcado e seus binários são dependências somente de teste. O host deve provar seu próprio par de beans e seus writers antes de anunciar atomicidade de domínio + ledger.
 

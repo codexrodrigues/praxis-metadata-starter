@@ -60,6 +60,14 @@ class BulkOperationStructuralCompilerTest {
     private static final String ACTION_ID = "items.bulk-approve";
     private static final String EVALUATION_ID = ACTION_ID + ".evaluation";
 
+    private static BulkExecutionRoleConfiguration controlPlaneTestRoles(javax.sql.DataSource admin) {
+        BulkPostgresTestSupport.grantRuntimeRole(admin, "bulk_runtime_test");
+        BulkPostgresTestSupport.grantRuntimeRole(admin, "durable_runtime");
+        BulkPostgresTestSupport.grantControlRole(admin, "bulk_control_test");
+        return new BulkExecutionRoleConfiguration("postgres", java.util.Set.of("bulk_runtime_test", "durable_runtime"),
+                java.util.Set.of(), java.util.Set.of("bulk_control_test"));
+    }
+
     @Test
     void composesSevenRealOperationsAgainstOneStrictGroupAndKeepsBodylessRolesBodyless() {
         try (var context = context()) {
@@ -214,12 +222,15 @@ class BulkOperationStructuralCompilerTest {
             var operation = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
             BulkExecutionMigrator.migrateWithOperations(admin, java.util.Map.of("test-namespace", "deployment-a"),
                     List.of(operation));
-            var controlDs = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", "");
-            var runtime = new BulkExecutionInfrastructure(admin, new DataSourceTransactionManager(admin),
-                    "test-namespace", "deployment-a");
+            var roles = controlPlaneTestRoles(admin);
+            var runtimeDs = BulkPostgresTestSupport.runtimeDataSource(postgres);
+            var controlDs = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_control_test", "postgres"),
+                    "bulk_control_test", "");
+            var runtime = new BulkExecutionInfrastructure(runtimeDs, new DataSourceTransactionManager(runtimeDs),
+                    "test-namespace", "deployment-a", roles);
             var uncertainCommitManager = new CommitThenFailOnceTransactionManager(controlDs);
             var control = new BulkControlPlaneInfrastructure(controlDs,
-                    uncertainCommitManager, "test-namespace", "deployment-a", "postgres", runtime);
+                    uncertainCommitManager, "test-namespace", "deployment-a", "bulk_control_test", runtime);
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
             var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
@@ -284,11 +295,14 @@ class BulkOperationStructuralCompilerTest {
             var operation = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
             BulkExecutionMigrator.migrateWithOperations(admin, java.util.Map.of("test-namespace", "deployment-a"),
                     List.of(operation));
-            var controlDs = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", "");
-            var runtime = new BulkExecutionInfrastructure(admin, new DataSourceTransactionManager(admin),
-                    "test-namespace", "deployment-a");
+            var roles = controlPlaneTestRoles(admin);
+            var runtimeDs = BulkPostgresTestSupport.runtimeDataSource(postgres);
+            var controlDs = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_control_test", "postgres"),
+                    "bulk_control_test", "");
+            var runtime = new BulkExecutionInfrastructure(runtimeDs, new DataSourceTransactionManager(runtimeDs),
+                    "test-namespace", "deployment-a", roles);
             var control = new BulkControlPlaneInfrastructure(controlDs,
-                    new DataSourceTransactionManager(controlDs), "test-namespace", "deployment-a", "postgres", runtime);
+                    new DataSourceTransactionManager(controlDs), "test-namespace", "deployment-a", "bulk_control_test", runtime);
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
             var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
@@ -336,16 +350,20 @@ class BulkOperationStructuralCompilerTest {
             var operation = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
             BulkExecutionMigrator.migrateWithOperations(admin, java.util.Map.of("test-namespace", "deployment-a"),
                     List.of(operation));
-            var nodeARuntime = new BulkExecutionInfrastructure(admin, new DataSourceTransactionManager(admin),
-                    "test-namespace", "deployment-a");
-            var nodeBRuntime = new BulkExecutionInfrastructure(admin, new DataSourceTransactionManager(admin),
-                    "test-namespace", "deployment-a");
-            var nodeAControlDs = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", "");
-            var nodeBControlDs = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", "");
+            var roles = controlPlaneTestRoles(admin);
+            var runtimeDs = BulkPostgresTestSupport.runtimeDataSource(postgres);
+            var nodeARuntime = new BulkExecutionInfrastructure(runtimeDs, new DataSourceTransactionManager(runtimeDs),
+                    "test-namespace", "deployment-a", roles);
+            var nodeBRuntime = new BulkExecutionInfrastructure(runtimeDs, new DataSourceTransactionManager(runtimeDs),
+                    "test-namespace", "deployment-a", roles);
+            var nodeAControlDs = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_control_test", "postgres"),
+                    "bulk_control_test", "");
+            var nodeBControlDs = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_control_test", "postgres"),
+                    "bulk_control_test", "");
             var nodeAControl = new BulkControlPlaneInfrastructure(nodeAControlDs,
-                    new DataSourceTransactionManager(nodeAControlDs), "test-namespace", "deployment-a", "postgres", nodeARuntime);
+                    new DataSourceTransactionManager(nodeAControlDs), "test-namespace", "deployment-a", "bulk_control_test", nodeARuntime);
             var nodeBControl = new BulkControlPlaneInfrastructure(nodeBControlDs,
-                    new DataSourceTransactionManager(nodeBControlDs), "test-namespace", "deployment-a", "postgres", nodeBRuntime);
+                    new DataSourceTransactionManager(nodeBControlDs), "test-namespace", "deployment-a", "bulk_control_test", nodeBRuntime);
             JsonNode cachedDocument = operationalDocument(BulkIdentityCodecs.longs());
             JsonNode refreshedDocument = cachedDocument.deepCopy();
             for (String status : List.of("200", "202")) {
@@ -471,7 +489,7 @@ class BulkOperationStructuralCompilerTest {
                 var dataSource = new JdbcDataSource();
                 dataSource.setURL("jdbc:h2:mem:operational-descriptor-" + deployment + ";DB_CLOSE_DELAY=-1");
                 this.infrastructure = new BulkExecutionInfrastructure(dataSource,
-                        new DataSourceTransactionManager(dataSource), "test-namespace", deployment);
+                        new DataSourceTransactionManager(dataSource), "test-namespace", deployment, BulkPostgresTestSupport.testRoleConfiguration());
             } else this.infrastructure = configuredInfrastructure;
         }
 

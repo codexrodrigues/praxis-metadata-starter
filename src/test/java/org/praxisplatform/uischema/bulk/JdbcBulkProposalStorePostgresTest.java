@@ -20,15 +20,17 @@ import static org.praxisplatform.uischema.bulk.BulkSnapshotStorageCodecTest.*;
 class JdbcBulkProposalStorePostgresTest {
     private EmbeddedPostgres postgres;
     private DataSource dataSource;
+    private DataSource runtimeDataSource;
     private JdbcTemplate sql;
     private TransactionTemplate tx;
     private JdbcBulkProposalStore store;
     @BeforeAll void start() throws Exception {
         postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
         dataSource = postgres.getPostgresDatabase(); sql = new JdbcTemplate(dataSource);
-        var manager = new DataSourceTransactionManager(dataSource); tx = new TransactionTemplate(manager);
-        store = new JdbcBulkProposalStore(new BulkExecutionInfrastructure(dataSource, manager, CONTEXT.namespaceId(),
-                BulkPostgresTestSupport.DEPLOYMENT_ID));
+        runtimeDataSource = BulkPostgresTestSupport.runtimeDataSource(postgres);
+        var manager = new DataSourceTransactionManager(runtimeDataSource); tx = new TransactionTemplate(manager);
+        store = new JdbcBulkProposalStore(new BulkExecutionInfrastructure(runtimeDataSource, manager, CONTEXT.namespaceId(),
+                BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         sql.execute("create table public.host_existing(id integer primary key)");
         sql.execute("create role bulk_runtime login");
         System.out.println("Proposal store proof PostgreSQL: " + sql.queryForObject("select version()", String.class));
@@ -43,7 +45,7 @@ class JdbcBulkProposalStorePostgresTest {
 
     @Test void explicitMigrationPreservesHostAndIsRepeatable() {
         migrate(); assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isZero();
-        BulkExecutionMigrator.validate(dataSource);
+        BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
         assertThat(sql.queryForObject("select count(*) from public.host_existing", Integer.class)).isZero();
         assertThat(sql.queryForObject("select to_regclass('public.flyway_schema_history')::text", String.class)).isNull();
     }
@@ -67,11 +69,16 @@ class JdbcBulkProposalStorePostgresTest {
     @Test void concurrentMigrationHasOneVersionApplication() throws Exception {
         var barrier = new CyclicBarrier(2);
         try (var executor = Executors.newFixedThreadPool(2)) {
-            Callable<Integer> task = () -> { barrier.await(5, TimeUnit.SECONDS); return BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId()); };
+            Callable<Integer> task = () -> {
+                barrier.await(5, TimeUnit.SECONDS);
+                return BulkExecutionMigrator.migrate(dataSource,
+                        java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+            };
             var first = executor.submit(task); var second = executor.submit(task);
             assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(7);
         }
-        BulkExecutionMigrator.validate(dataSource);
+        BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId());
+        BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
     }
     @Test void refusesUnknownNonemptyDedicatedSchema() {
         sql.execute("create schema praxis_bulk"); sql.execute("create table praxis_bulk.foreign_data(id integer)");
@@ -233,6 +240,7 @@ class JdbcBulkProposalStorePostgresTest {
         assertThatThrownBy(() -> sql.update("update praxis_bulk.praxis_bulk_proposal set payload=?", bytes("protected-customer-value"))).isInstanceOf(RuntimeException.class);
         sql.execute("alter table praxis_bulk.praxis_bulk_proposal disable trigger user");
         sql.update("update praxis_bulk.praxis_bulk_proposal set payload=?", bytes("protected-customer-value"));
+        sql.execute("alter table praxis_bulk.praxis_bulk_proposal enable trigger user");
         assertThatThrownBy(() -> tx.execute(status -> store.find(CONTEXT, value.id())))
                 .isInstanceOfSatisfying(BulkProposalStorageException.class, error -> assertThat(error.reason()).isEqualTo(BulkProposalStorageException.Reason.CORRUPT))
                 .hasNoCause().hasMessageNotContaining("protected-customer-value");
@@ -250,10 +258,13 @@ class JdbcBulkProposalStorePostgresTest {
         sql.execute("grant select, insert on praxis_bulk.praxis_bulk_allocation to bulk_runtime");
         sql.execute("grant update (state) on praxis_bulk.praxis_bulk_allocation to bulk_runtime");
         sql.execute("grant update (proposal_id) on praxis_bulk.praxis_bulk_proposal to bulk_runtime");
+        var roles = new BulkExecutionRoleConfiguration("postgres",
+                java.util.Set.of("bulk_runtime_test", "durable_runtime", "bulk_runtime"), java.util.Set.of(), java.util.Set.of());
+        BulkExecutionMigrator.validate(dataSource, roles);
         var runtimeDs = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_runtime", "postgres"), "bulk_runtime", "");
         var manager = new DataSourceTransactionManager(runtimeDs); var runtimeTx = new TransactionTemplate(manager);
         var runtimeStore = new JdbcBulkProposalStore(new BulkExecutionInfrastructure(runtimeDs, manager,
-                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, roles));
         var value = proposal(); runtimeTx.executeWithoutResult(status -> runtimeStore.insert(value));
         assertThat(runtimeTx.<java.util.Optional<BulkStoredProposal>>execute(status -> runtimeStore.find(CONTEXT, value.id()))).isPresent();
         var runtimeSql = new JdbcTemplate(runtimeDs);

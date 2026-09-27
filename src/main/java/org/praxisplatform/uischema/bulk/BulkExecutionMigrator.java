@@ -111,6 +111,7 @@ public final class BulkExecutionMigrator {
             EXECUTION_TABLE + ".praxis_bulk_execution_release_active_allocation",
             RECEIPT_TABLE + ".praxis_bulk_receipt_guard_terminal",
             ADMISSION_TABLE + ".praxis_bulk_admission_guard_terminal");
+    private static volatile MigrationExpectations migrationExpectations;
 
     private BulkExecutionMigrator() { }
 
@@ -1374,6 +1375,67 @@ public final class BulkExecutionMigrator {
         validateDescriptorFenceCatalog(connection);
     }
 
+    /**
+     * Re-attests the governed runtime role on the very connection about to perform work. Unlike
+     * {@link #validate(DataSource, BulkExecutionRoleConfiguration)}, this deliberately checks
+     * only the live role/ACL/function boundary, not Flyway history or mutable lifecycle rows.
+     *
+     * <p>The authenticated and effective identities must be the same configured runtime
+     * grantee. The full role and controlled-function allowlists are then checked against the
+     * current PostgreSQL catalogs, so grants or memberships added after provisioning fail
+     * closed before the caller touches the namespace/control rows.</p>
+     */
+    static void validateLiveRuntimeRoleAccess(Connection connection,
+            BulkExecutionRoleConfiguration roles) {
+        Objects.requireNonNull(connection, "connection");
+        BulkExecutionRoleConfiguration configuration = Objects.requireNonNull(roles, "roles");
+        try {
+            validateConnectionIdentity(connection, configuration.runtimeGranteeRoles(), null);
+            validateV5Functions(connection, configuration);
+            validateV5RolesAndPrivileges(connection, configuration);
+            validateDescriptorFenceCatalog(connection);
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to attest the live bulk runtime role", failure);
+        }
+    }
+
+    /** Re-attests the configured CAS-only control-plane role on its operation connection. */
+    static void validateLiveControlPlaneRoleAccess(Connection connection,
+            BulkExecutionRoleConfiguration roles, String expectedRole) {
+        Objects.requireNonNull(connection, "connection");
+        BulkExecutionRoleConfiguration configuration = Objects.requireNonNull(roles, "roles");
+        String expected = Objects.requireNonNull(expectedRole, "expectedRole");
+        require(configuration.controlPlaneGranteeRoles().contains(expected),
+                "configured control-plane identity is not an allowlisted grantee");
+        try {
+            validateConnectionIdentity(connection, configuration.controlPlaneGranteeRoles(), expected);
+            validateV5Functions(connection, configuration);
+            validateV5RolesAndPrivileges(connection, configuration);
+            validateDescriptorFenceCatalog(connection);
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to attest the live bulk control-plane role", failure);
+        }
+    }
+
+    private static void validateConnectionIdentity(Connection connection, Set<String> allowedRoles,
+            String exactRole) throws SQLException {
+        String sessionUser;
+        String currentUser;
+        try (var statement = connection.createStatement();
+                var rows = statement.executeQuery("select session_user, current_user")) {
+            require(rows.next(), "Unable to identify the current PostgreSQL session");
+            sessionUser = rows.getString(1);
+            currentUser = rows.getString(2);
+            require(!rows.next(), "PostgreSQL session identity query returned multiple rows");
+        }
+        require(sessionUser != null && sessionUser.equals(currentUser),
+                "Bulk connection session and effective PostgreSQL identities must match");
+        require(allowedRoles.contains(sessionUser),
+                "Bulk connection identity is not an allowlisted PostgreSQL role");
+        require(exactRole == null || exactRole.equals(sessionUser),
+                "Control-plane connection identity differs from its configured PostgreSQL role");
+    }
+
     private static void validateDescriptorFenceCatalog(Connection connection) throws SQLException {
         validateDurableTrigger(connection, EXECUTION_TABLE, DESCRIPTOR_TRIGGER, DESCRIPTOR_FUNCTION,
                 "CREATE TRIGGER " + DESCRIPTOR_TRIGGER + " BEFORE UPDATE ON praxis_bulk." + EXECUTION_TABLE
@@ -1382,7 +1444,7 @@ public final class BulkExecutionMigrator {
                         + "new.control_descriptor_fingerprint is distinct from old.control_descriptor_fingerprint then "
                         + "raise exception 'praxis_bulk.praxis_bulk_execution descriptor binding is immutable' "
                         + "using errcode = '55000'; end if; return new; end;");
-        String fenceBody = extractFunctionBody(readV7Migration(), INSERT_FENCE_FUNCTION, "V7");
+        String fenceBody = migrationExpectations().normalizedDescriptorFenceBody();
         validateDescriptorInsertFence(connection, PROPOSAL_TABLE, PROPOSAL_INSERT_FENCE_TRIGGER,
                 "CREATE TRIGGER " + PROPOSAL_INSERT_FENCE_TRIGGER + " BEFORE INSERT ON praxis_bulk."
                         + PROPOSAL_TABLE + " FOR EACH ROW EXECUTE FUNCTION praxis_bulk." + INSERT_FENCE_FUNCTION + "()",
@@ -1580,8 +1642,7 @@ public final class BulkExecutionMigrator {
 
     private static void validateV5Functions(Connection connection,
             BulkExecutionRoleConfiguration roleConfiguration) throws SQLException {
-        String v5Migration = readV5Migration();
-        String v6Migration = readV6Migration();
+        Map<String, FunctionBodyExpectation> expectedBodies = migrationExpectations().functionBodies();
         var keys = new LinkedHashSet<>(V5_FUNCTIONS);
         keys.addAll(V6_FUNCTIONS);
         keys.add(RECEIPT_FUNCTION + "()");
@@ -1638,11 +1699,12 @@ public final class BulkExecutionMigrator {
                                         .contains(rows.getString(11)),
                                 "invoker function is owned by a retention role: " + key);
                     }
-                    String functionMigration = V6_FUNCTIONS.stream().anyMatch(function -> function.startsWith(name + "("))
-                            ? v6Migration : v5Migration;
-                    require(normalizeExpression(extractFunctionBody(functionMigration, name, functionMigration == v6Migration ? "V6" : "V5"))
-                                    .equals(normalizeExpression(rows.getString(12))),
-                            "governed lifecycle function body differs: " + key);
+                    FunctionBodyExpectation expectedBody = expectedBodies.get(name);
+                    require(expectedBody != null
+                                    && expectedBody.normalizedBody().equals(normalizeExpression(rows.getString(12))),
+                            "governed lifecycle function body differs from "
+                                    + (expectedBody == null ? "versioned migration" : expectedBody.version())
+                                    + " expectation: " + key);
                     actual.add(key);
                 }
             }
@@ -1678,6 +1740,69 @@ public final class BulkExecutionMigrator {
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException failure) {
             throw new IllegalStateException("Unable to read V7 descriptor fence migration", failure);
+        }
+    }
+
+    private static MigrationExpectations migrationExpectations() {
+        MigrationExpectations cached = migrationExpectations;
+        if (cached != null) return cached;
+        synchronized (BulkExecutionMigrator.class) {
+            cached = migrationExpectations;
+            if (cached == null) {
+                cached = loadMigrationExpectations();
+                migrationExpectations = cached;
+            }
+        }
+        return cached;
+    }
+
+    private static MigrationExpectations loadMigrationExpectations() {
+        String v5Migration = readV5Migration();
+        String v6Migration = readV6Migration();
+        String v7Migration = readV7Migration();
+        var v5FunctionNames = new LinkedHashSet<String>();
+        V5_FUNCTIONS.forEach(signature -> v5FunctionNames.add(functionName(signature)));
+        v5FunctionNames.add(functionName(RECEIPT_FUNCTION + "()"));
+        v5FunctionNames.add(functionName(ADMISSION_FUNCTION + "()"));
+
+        var v6FunctionNames = new LinkedHashSet<String>();
+        V6_FUNCTIONS.forEach(signature -> v6FunctionNames.add(functionName(signature)));
+
+        var expectedBodies = new LinkedHashMap<String, FunctionBodyExpectation>();
+        for (String function : v5FunctionNames) {
+            if (!v6FunctionNames.contains(function)) {
+                expectedBodies.put(function,
+                        new FunctionBodyExpectation("V5", normalizeExpression(
+                                extractFunctionBody(v5Migration, function, "V5"))));
+            }
+        }
+        for (String function : v6FunctionNames) {
+            expectedBodies.put(function,
+                    new FunctionBodyExpectation("V6", normalizeExpression(
+                            extractFunctionBody(v6Migration, function, "V6"))));
+        }
+        return new MigrationExpectations(expectedBodies,
+                normalizeExpression(extractFunctionBody(v7Migration, INSERT_FENCE_FUNCTION, "V7")));
+    }
+
+    private static String functionName(String signature) {
+        int argumentsStart = signature.indexOf('(');
+        require(argumentsStart > 0, "Invalid governed function signature: " + signature);
+        return signature.substring(0, argumentsStart);
+    }
+
+    private record FunctionBodyExpectation(String version, String normalizedBody) {
+        private FunctionBodyExpectation {
+            Objects.requireNonNull(version, "version");
+            Objects.requireNonNull(normalizedBody, "normalizedBody");
+        }
+    }
+
+    private record MigrationExpectations(Map<String, FunctionBodyExpectation> functionBodies,
+            String normalizedDescriptorFenceBody) {
+        private MigrationExpectations {
+            functionBodies = Map.copyOf(functionBodies);
+            Objects.requireNonNull(normalizedDescriptorFenceBody, "normalizedDescriptorFenceBody");
         }
     }
 
@@ -2319,7 +2444,7 @@ public final class BulkExecutionMigrator {
     }
 
     private static void validateDescriptorInsertFence(Connection connection, String table, String trigger,
-            String expectedDefinition, String expectedBody) throws SQLException {
+            String expectedDefinition, String normalizedExpectedBody) throws SQLException {
         try (var statement = connection.prepareStatement("""
                 select t.tgenabled, pg_get_triggerdef(t.oid), p.prosrc, p.prosecdef,
                        p.proconfig = array['search_path=pg_catalog, pg_temp']::text[], owner.rolname,
@@ -2336,7 +2461,7 @@ public final class BulkExecutionMigrator {
             try (var rows = statement.executeQuery()) {
                 require(rows.next() && "O".equals(rows.getString(1))
                                 && normalizeExpression(expectedDefinition).equals(normalizeExpression(rows.getString(2)))
-                                && normalizeExpression(expectedBody).equals(normalizeExpression(rows.getString(3)))
+                                && normalizedExpectedBody.equals(normalizeExpression(rows.getString(3)))
                                 && rows.getBoolean(4) && rows.getBoolean(5)
                                 && "praxis_bulk_control_owner".equals(rows.getString(6))
                                 && INSERT_FENCE_FUNCTION.equals(rows.getString(7)) && rows.getInt(8) == 0

@@ -518,16 +518,21 @@ class BulkDurableMigrationPostgresTest {
                     + "where execution_id=?", terminal.id());
             assertThat(migrate(dataSource)).isEqualTo(4);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
+            var roles = BulkPostgresTestSupport.testRoleConfiguration();
+            BulkPostgresTestSupport.grantRuntimeRole(dataSource, "bulk_runtime_test");
+            BulkPostgresTestSupport.grantRuntimeRole(dataSource, "durable_runtime");
+            BulkExecutionMigrator.validate(dataSource, roles);
+            var runtimeDataSource = BulkPostgresTestSupport.runtimeDataSource(postgres);
 
             var now = Instant.now();
             var expired = new BulkStoredProposal(UUID.randomUUID(), now.minusSeconds(120), now.minusSeconds(60),
                     BulkSnapshotStorageCodecTest.snapshot(CONTEXT, BulkMode.DOMAIN_COMMAND,
                             BulkIdentityCodecs.strings(), "\"retention-target\"", "1.0"),
                     BulkSnapshotStorageCodecTest.CONTROL_EXPECTATION);
-            var proposalStore = new JdbcBulkProposalStore(new BulkExecutionInfrastructure(dataSource,
-                    new DataSourceTransactionManager(dataSource), CONTEXT.namespaceId(),
-                    BulkPostgresTestSupport.DEPLOYMENT_ID));
-            new TransactionTemplate(new DataSourceTransactionManager(dataSource))
+            var proposalStore = new JdbcBulkProposalStore(new BulkExecutionInfrastructure(runtimeDataSource,
+                    new DataSourceTransactionManager(runtimeDataSource), CONTEXT.namespaceId(),
+                    BulkPostgresTestSupport.DEPLOYMENT_ID, roles));
+            new TransactionTemplate(new DataSourceTransactionManager(runtimeDataSource))
                     .executeWithoutResult(status -> proposalStore.insert(expired));
 
             sql.execute("grant praxis_bulk_retention_executor to postgres");
@@ -551,15 +556,15 @@ class BulkDurableMigrationPostgresTest {
                     Integer.class, terminal.id())).isZero();
             assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_tombstone where execution_id=?",
                     Integer.class, terminal.id())).isEqualTo(1);
-            var durableKernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(dataSource,
-                    new DataSourceTransactionManager(dataSource), CONTEXT.namespaceId(),
-                    BulkPostgresTestSupport.DEPLOYMENT_ID));
+            var durableKernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(runtimeDataSource,
+                    new DataSourceTransactionManager(runtimeDataSource), CONTEXT.namespaceId(),
+                    BulkPostgresTestSupport.DEPLOYMENT_ID, roles));
             assertThatThrownBy(() -> durableKernel.reserve(CONTEXT, terminal.proposalId(), replayKey,
                     "retention-owner", "structural-r1", Instant.now().plusSeconds(60)))
                     .isInstanceOfSatisfying(BulkDurableExecutionException.class,
                             error -> assertThat(error.reason())
                                     .isEqualTo(BulkDurableExecutionException.Reason.RESULT_PURGED));
-            BulkExecutionMigrator.validate(dataSource);
+            BulkExecutionMigrator.validate(dataSource, roles);
         }
     }
 
