@@ -29,8 +29,8 @@ final class BulkPreviewStorage {
         if (projection.state().equals("UNAVAILABLE")) {
             try (var state = connection.prepareStatement("""
                     insert into praxis_bulk.praxis_bulk_preview_state
-                        (proposal_id, evaluation_fingerprint, projection_state)
-                    values (?, ?, 'UNAVAILABLE')
+                        (proposal_id, evaluation_fingerprint, projection_state, integrity_version)
+                    values (?, ?, 'UNAVAILABLE', 11)
                     """)) {
                 state.setObject(1, proposalId);
                 state.setString(2, evaluation.fingerprint());
@@ -47,8 +47,8 @@ final class BulkPreviewStorage {
         try (var state = connection.prepareStatement("""
                 insert into praxis_bulk.praxis_bulk_preview_state
                     (proposal_id, evaluation_fingerprint, projection_state, projector_revision,
-                     target_count, public_allowlist, projection_digest)
-                values (?, ?, 'COMPLETE', ?, ?, ?, ?)
+                     target_count, public_allowlist, projection_digest, integrity_version)
+                values (?, ?, 'COMPLETE', ?, ?, ?, ?, 11)
                 """)) {
             state.setObject(1, proposalId);
             state.setString(2, evaluation.fingerprint());
@@ -74,6 +74,7 @@ final class BulkPreviewStorage {
             }
             item.executeBatch();
         }
+        BulkPreviewItemIntegrity.insertForProposal(connection, proposalId);
     }
 
     static byte[] diagnostics(List<ResourceCommandMessage> diagnostics) {
@@ -164,6 +165,7 @@ final class BulkPreviewStorage {
                              where p.proposal_id=? order by p.ordinal
                             """)) {
                         preview.setObject(1, id);
+                        preview.setFetchSize(64);
                         try (var items = preview.executeQuery()) {
                             if (state.equals("UNAVAILABLE_LEGACY") || state.equals("UNAVAILABLE")) {
                                 if (rows.getString(5) != null || count != null || rows.getBytes(7) != null

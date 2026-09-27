@@ -42,6 +42,8 @@ public final class BulkExecutionMigrator {
     private static final String PREVIEW_STATE_TABLE = "praxis_bulk_preview_state";
     private static final String TARGET_PREVIEW_TABLE = "praxis_bulk_target_preview";
     private static final String PREVIEW_BOOTSTRAP_TABLE = "praxis_bulk_preview_bootstrap";
+    private static final String PREVIEW_INTEGRITY_TABLE = "praxis_bulk_preview_item_integrity";
+    private static final String PREVIEW_INTEGRITY_BOOTSTRAP_TABLE = "praxis_bulk_preview_integrity_bootstrap";
     private static final String REJECTION_FUNCTION = "reject_praxis_bulk_proposal_update";
     private static final String REJECTION_TRIGGER = "praxis_bulk_proposal_reject_update";
     private static final String EVALUATION_REJECTION_FUNCTION = "reject_praxis_bulk_evaluation_update";
@@ -71,7 +73,8 @@ public final class BulkExecutionMigrator {
     private static final String TOMBSTONE_TABLE = "praxis_bulk_tombstone";
     private static final Set<String> V5_TABLES = Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE,
             MANIFEST_TABLE, MANIFEST_BOOTSTRAP_TABLE, PREVIEW_STATE_TABLE,
-            TARGET_PREVIEW_TABLE, PREVIEW_BOOTSTRAP_TABLE,
+            TARGET_PREVIEW_TABLE, PREVIEW_BOOTSTRAP_TABLE, PREVIEW_INTEGRITY_TABLE,
+            PREVIEW_INTEGRITY_BOOTSTRAP_TABLE,
             EXECUTION_TABLE, RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE,
             OPERATION_CONTROL_TABLE, DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE,
             ALLOCATION_TABLE, TOMBSTONE_TABLE);
@@ -100,6 +103,9 @@ public final class BulkExecutionMigrator {
             "require_complete_target_preview()", "require_complete_preview_parent()",
             "reject_preview_mutation()");
     private static final Set<String> V10_FUNCTIONS = Set.of("protect_cancel_request()");
+    private static final Set<String> V11_FUNCTIONS = Set.of(
+            "require_complete_preview_integrity_bootstrap()",
+            "require_complete_preview_item_integrity()");
     private static final Set<String> V5_TRIGGERS = Set.of(
             PROPOSAL_TABLE + ".praxis_bulk_proposal_guard_delete",
             EVALUATION_TABLE + ".praxis_bulk_evaluation_guard_delete",
@@ -134,6 +140,11 @@ public final class BulkExecutionMigrator {
             PREVIEW_STATE_TABLE + ".praxis_bulk_preview_state_guard_delete",
             TARGET_PREVIEW_TABLE + ".praxis_bulk_target_preview_immutable",
             TARGET_PREVIEW_TABLE + ".praxis_bulk_target_preview_guard_delete");
+    private static final Set<String> V11_TRIGGERS = Set.of(
+            PREVIEW_STATE_TABLE + ".praxis_bulk_preview_state_integrity_guard_insert",
+            EVALUATION_TABLE + ".praxis_bulk_evaluation_require_preview_item_integrity",
+            PREVIEW_INTEGRITY_TABLE + ".praxis_bulk_preview_item_integrity_immutable",
+            PREVIEW_INTEGRITY_TABLE + ".praxis_bulk_preview_item_integrity_guard_delete");
     private static volatile MigrationExpectations migrationExpectations;
 
     private BulkExecutionMigrator() { }
@@ -251,6 +262,7 @@ public final class BulkExecutionMigrator {
                 // V8 phase may authorize the one-time manifest ACL grant.
                 boolean pendingManifestBootstrap = lockManifestBootstrap(connection);
                 boolean pendingPreviewBootstrap = lockPreviewBootstrap(connection);
+                boolean pendingIntegrityBootstrap = lockPreviewIntegrityBootstrap(connection);
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
                 bootstrapLifecycle(connection, deployments, operations);
@@ -258,6 +270,7 @@ public final class BulkExecutionMigrator {
                 else BulkOrdinalManifest.validateAll(connection);
                 if (pendingManifestBootstrap) provisionManifestRuntimeGrants(connection, roles);
                 if (pendingPreviewBootstrap) provisionPreviewRuntimeGrants(connection, roles);
+                if (pendingIntegrityBootstrap) provisionPreviewIntegrityRuntimeGrants(connection, roles);
                 validateLifecycleRows(connection);
                 if (pendingManifestBootstrap) completeManifestBootstrap(connection);
                 if (pendingPreviewBootstrap) completePreviewBootstrap(connection);
@@ -268,6 +281,12 @@ public final class BulkExecutionMigrator {
                 validateManifestCatalog(connection, roles);
                 validatePreviewCatalog(connection, roles);
                 BulkPreviewStorage.validateAll(connection);
+                if (pendingIntegrityBootstrap) BulkPreviewItemIntegrity.backfillAndValidate(connection);
+                else BulkPreviewItemIntegrity.validateAll(connection);
+                validatePreviewIntegrityCatalog(connection, roles,
+                        pendingIntegrityBootstrap ? "PENDING" : "COMPLETE");
+                if (pendingIntegrityBootstrap) completePreviewIntegrityBootstrap(connection);
+                validatePreviewIntegrityCatalog(connection, roles, "COMPLETE");
                 connection.commit();
             } catch (SQLException | RuntimeException failure) {
                 try { connection.rollback(); } catch (SQLException rollback) { failure.addSuppressed(rollback); }
@@ -346,6 +365,40 @@ public final class BulkExecutionMigrator {
                 for (String table : List.of(PREVIEW_STATE_TABLE, TARGET_PREVIEW_TABLE))
                     statement.execute("grant select, insert on praxis_bulk." + table + " to \""
                             + role.replace("\"", "\"\"") + "\"");
+            }
+        }
+    }
+
+    private static boolean lockPreviewIntegrityBootstrap(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select bootstrap_version, phase
+                  from praxis_bulk.praxis_bulk_preview_integrity_bootstrap for update
+                """)) {
+            require(rows.next() && rows.getInt(1) == 11, "V11 integrity bootstrap marker is missing");
+            String phase = rows.getString(2);
+            require(!rows.next() && ("PENDING".equals(phase) || "COMPLETE".equals(phase)),
+                    "V11 integrity bootstrap marker differs");
+            return "PENDING".equals(phase);
+        }
+    }
+
+    private static void completePreviewIntegrityBootstrap(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement()) {
+            require(statement.executeUpdate("""
+                    update praxis_bulk.praxis_bulk_preview_integrity_bootstrap set phase='COMPLETE'
+                    where bootstrap_version=11 and phase='PENDING'
+                    """) == 1, "V11 integrity bootstrap transition failed");
+        }
+    }
+
+    private static void provisionPreviewIntegrityRuntimeGrants(Connection connection,
+            BulkExecutionRoleConfiguration roles) throws SQLException {
+        for (String role : roles.runtimeGranteeRoles()) {
+            require(tableRolePrivileges(connection, TARGET_PREVIEW_TABLE, role).equals(Set.of("T:SELECT", "T:INSERT")),
+                    "integrity upgrade requires an existing exact preview runtime grant: " + role);
+            try (var statement = connection.createStatement()) {
+                statement.execute("grant select, insert on praxis_bulk." + PREVIEW_INTEGRITY_TABLE + " to \""
+                        + role.replace("\"", "\"\"") + "\"");
             }
         }
     }
@@ -762,6 +815,8 @@ public final class BulkExecutionMigrator {
                 BulkOrdinalManifest.validateAll(connection);
                 validatePreviewCatalog(connection, roleConfiguration);
                 BulkPreviewStorage.validateAll(connection);
+                validatePreviewIntegrityCatalog(connection, roleConfiguration, "COMPLETE");
+                BulkPreviewItemIntegrity.validateAll(connection);
                 validateDescriptorFenceRows(connection);
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
@@ -824,6 +879,8 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_target_manifest', 'praxis_bulk_manifest_bootstrap',
                               'praxis_bulk_preview_state', 'praxis_bulk_target_preview',
                               'praxis_bulk_preview_bootstrap',
+                              'praxis_bulk_preview_item_integrity',
+                              'praxis_bulk_preview_integrity_bootstrap',
                               'praxis_bulk_tombstone'))
                     """);
             Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
@@ -857,7 +914,8 @@ public final class BulkExecutionMigrator {
     private static Set<String> allowedRelations() {
         return Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, MANIFEST_TABLE,
                 MANIFEST_BOOTSTRAP_TABLE, PREVIEW_STATE_TABLE, TARGET_PREVIEW_TABLE,
-                PREVIEW_BOOTSTRAP_TABLE, EXECUTION_TABLE,
+                PREVIEW_BOOTSTRAP_TABLE, PREVIEW_INTEGRITY_TABLE,
+                PREVIEW_INTEGRITY_BOOTSTRAP_TABLE, EXECUTION_TABLE,
                 RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE, OPERATION_CONTROL_TABLE,
                 DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE, ALLOCATION_TABLE, TOMBSTONE_TABLE);
     }
@@ -868,6 +926,7 @@ public final class BulkExecutionMigrator {
         names.addAll(V8_FUNCTIONS);
         names.addAll(V9_FUNCTIONS);
         names.addAll(V10_FUNCTIONS);
+        names.addAll(V11_FUNCTIONS);
         names.addAll(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
                 BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
                 RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()", DESCRIPTOR_FUNCTION + "()",
@@ -889,6 +948,7 @@ public final class BulkExecutionMigrator {
         names.addAll(V8_TRIGGERS);
         names.addAll(V9_TRIGGERS);
         names.addAll(V10_TRIGGERS);
+        names.addAll(V11_TRIGGERS);
         return names;
     }
 
@@ -994,6 +1054,8 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_target_manifest', 'praxis_bulk_manifest_bootstrap',
                               'praxis_bulk_preview_state', 'praxis_bulk_target_preview',
                               'praxis_bulk_preview_bootstrap',
+                              'praxis_bulk_preview_item_integrity',
+                              'praxis_bulk_preview_integrity_bootstrap',
                               'praxis_bulk_tombstone'))
                 """);
         Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
@@ -1613,7 +1675,7 @@ public final class BulkExecutionMigrator {
                 "proposal_id", "uuid|true", "evaluation_fingerprint", "text|true",
                 "projection_state", "text|true", "projector_revision", "text|false",
                 "target_count", "integer|false", "public_allowlist", "bytea|false",
-                "projection_digest", "text|false"));
+                "projection_digest", "text|false", "integrity_version", "integer|true"));
         validateDurableColumns(connection, TARGET_PREVIEW_TABLE, Map.of(
                 "proposal_id", "uuid|true", "evaluation_fingerprint", "text|true",
                 "ordinal", "integer|true", "decision", "text|true", "diagnostics", "bytea|true"));
@@ -1633,7 +1695,8 @@ public final class BulkExecutionMigrator {
                 "praxis_bulk_preview_state_evaluation_fkey", "FOREIGN KEY (proposal_id, evaluation_fingerprint) REFERENCES praxis_bulk.praxis_bulk_evaluation(proposal_id, evaluation_fingerprint) ON DELETE RESTRICT",
                 "praxis_bulk_preview_state_binding_key", "UNIQUE (proposal_id, evaluation_fingerprint)",
                 "praxis_bulk_preview_state_state_check", "CHECK ((((projection_state = 'COMPLETE'::text) AND (projector_revision IS NOT NULL) AND ((length(projector_revision) >= 1) AND (length(projector_revision) <= 128)) AND (target_count IS NOT NULL) AND (public_allowlist IS NOT NULL) AND ((octet_length(public_allowlist) >= 2) AND (octet_length(public_allowlist) <= 65536)) AND (projection_digest ~ '^sha256:[0-9a-f]{64}$'::text)) OR ((projection_state = ANY (ARRAY['UNAVAILABLE'::text, 'UNAVAILABLE_LEGACY'::text])) AND (projector_revision IS NULL) AND (target_count IS NULL) AND (public_allowlist IS NULL) AND (projection_digest IS NULL))))",
-                "praxis_bulk_preview_state_count_check", "CHECK (((target_count IS NULL) OR ((target_count >= 1) AND (target_count <= 10000))))"));
+                "praxis_bulk_preview_state_count_check", "CHECK (((target_count IS NULL) OR ((target_count >= 1) AND (target_count <= 10000))))",
+                "praxis_bulk_preview_state_integrity_version_check", "CHECK ((integrity_version = 11))"));
         validatePreviewConstraints(connection, TARGET_PREVIEW_TABLE, Map.of(
                 "praxis_bulk_target_preview_pkey", "PRIMARY KEY (proposal_id, ordinal)",
                 "praxis_bulk_target_preview_manifest_fkey", "FOREIGN KEY (proposal_id, ordinal) REFERENCES praxis_bulk.praxis_bulk_target_manifest(proposal_id, ordinal) ON DELETE RESTRICT",
@@ -1683,6 +1746,78 @@ public final class BulkExecutionMigrator {
             for (String table : List.of(PREVIEW_STATE_TABLE, TARGET_PREVIEW_TABLE))
                 require(tableRolePrivileges(connection, table, role).equals(Set.of("T:SELECT", "T:INSERT")),
                         "preview runtime grants differ: " + role + " " + table);
+    }
+
+    private static void validatePreviewIntegrityCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roles, String expectedPhase) throws SQLException {
+        validateDurableColumns(connection, PREVIEW_INTEGRITY_BOOTSTRAP_TABLE, Map.of(
+                "bootstrap_version", "integer|true", "phase", "text|true"));
+        validateDurableColumns(connection, PREVIEW_INTEGRITY_TABLE, Map.of(
+                "proposal_id", "uuid|true", "ordinal", "integer|true",
+                "digest_version", "integer|true", "item_digest", "text|true"));
+        validateOwnerOnlyTableAcl(connection, PREVIEW_INTEGRITY_BOOTSTRAP_TABLE);
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select bootstrap_version, phase from praxis_bulk.praxis_bulk_preview_integrity_bootstrap
+                """)) {
+            require(rows.next() && rows.getInt(1) == 11 && expectedPhase.equals(rows.getString(2))
+                    && !rows.next(), "V11 integrity bootstrap phase differs");
+        }
+        validatePreviewConstraints(connection, PREVIEW_INTEGRITY_BOOTSTRAP_TABLE, Map.of(
+                "praxis_bulk_preview_integrity_bootstrap_pkey", "PRIMARY KEY (bootstrap_version)",
+                "praxis_bulk_preview_integrity_bootstrap_bootstrap_version_check", "CHECK ((bootstrap_version = 11))",
+                "praxis_bulk_preview_integrity_bootstrap_phase_check",
+                        "CHECK ((phase = ANY (ARRAY['PENDING'::text, 'COMPLETE'::text])))"));
+        validatePreviewConstraints(connection, PREVIEW_INTEGRITY_TABLE, Map.of(
+                "praxis_bulk_preview_item_integrity_pkey", "PRIMARY KEY (proposal_id, ordinal)",
+                "praxis_bulk_preview_item_integrity_preview_fkey",
+                        "FOREIGN KEY (proposal_id, ordinal) REFERENCES praxis_bulk.praxis_bulk_target_preview(proposal_id, ordinal) ON DELETE RESTRICT",
+                "praxis_bulk_preview_item_integrity_version_check", "CHECK ((digest_version = 1))",
+                "praxis_bulk_preview_item_integrity_digest_check",
+                        "CHECK ((item_digest ~ '^sha256:[0-9a-f]{64}$'::text))"));
+        var observed = new LinkedHashSet<String>();
+        try (var statement = connection.prepareStatement("""
+                select r.relname || '.' || t.tgname, t.tgenabled, t.tgdeferrable,
+                       t.tginitdeferred, t.tgconstraint<>0, t.tgtype,
+                       p.proname, n.nspname
+                  from pg_trigger t join pg_class r on r.oid=t.tgrelid
+                  join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace
+                 where r.relnamespace='praxis_bulk'::regnamespace and not t.tgisinternal
+                   and (r.relname || '.' || t.tgname)=any (?::text[])
+                """)) {
+            statement.setArray(1, connection.createArrayOf("text", V11_TRIGGERS.toArray()));
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    String key = rows.getString(1);
+                    require("O".equals(rows.getString(2)) && SCHEMA.equals(rows.getString(8)),
+                            "V11 trigger disabled or rebound: " + key);
+                    boolean deferred = key.equals(EVALUATION_TABLE + ".praxis_bulk_evaluation_require_preview_item_integrity");
+                    require(rows.getBoolean(3) == deferred && rows.getBoolean(4) == deferred
+                            && rows.getBoolean(5) == deferred, "V11 trigger deferral differs: " + key);
+                    String expectedFunction;
+                    int expectedType;
+                    if (deferred) {
+                        expectedFunction = "require_complete_preview_item_integrity";
+                        expectedType = 5;
+                    } else if (key.endsWith("integrity_guard_insert")) {
+                        expectedFunction = "require_complete_preview_integrity_bootstrap";
+                        expectedType = 7;
+                    } else if (key.endsWith("_immutable")) {
+                        expectedFunction = "reject_preview_mutation";
+                        expectedType = 27;
+                    } else {
+                        expectedFunction = "guard_lifecycle_delete";
+                        expectedType = 11;
+                    }
+                    require(expectedFunction.equals(rows.getString(7)) && rows.getInt(6) == expectedType,
+                            "V11 trigger binding differs: " + key);
+                    observed.add(key);
+                }
+            }
+        }
+        require(observed.equals(V11_TRIGGERS), "V11 trigger inventory differs");
+        for (String role : roles.runtimeGranteeRoles())
+            require(tableRolePrivileges(connection, PREVIEW_INTEGRITY_TABLE, role)
+                    .equals(Set.of("T:SELECT", "T:INSERT")), "V11 runtime grants differ: " + role);
     }
 
     private static void validatePreviewConstraints(Connection connection, String table, Map<String, String> expected)
@@ -1987,6 +2122,7 @@ public final class BulkExecutionMigrator {
         keys.addAll(V8_FUNCTIONS);
         keys.addAll(V9_FUNCTIONS);
         keys.addAll(V10_FUNCTIONS);
+        keys.addAll(V11_FUNCTIONS);
         keys.add(RECEIPT_FUNCTION + "()");
         keys.add(ADMISSION_FUNCTION + "()");
         Set<String> definer = Set.of("protect_allocation_transition()", "validate_allocation_binding()",
@@ -1995,7 +2131,8 @@ public final class BulkExecutionMigrator {
                 "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text)",
                 "guard_terminal_execution()", "release_active_allocation_on_terminal()",
                 "purge_terminal_execution(p_execution_id uuid)",
-                "expire_unconsumed_proposal(p_proposal_id uuid)");
+                "expire_unconsumed_proposal(p_proposal_id uuid)",
+                "require_complete_preview_integrity_bootstrap()");
         var actual = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
                 select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
@@ -2032,6 +2169,9 @@ public final class BulkExecutionMigrator {
                             || key.equals("guard_new_bulk_evaluation()")) {
                         require("praxis_bulk_control_owner".equals(rows.getString(11)),
                                 "operation-control function has unexpected owner: " + key);
+                    } else if (key.equals("require_complete_preview_integrity_bootstrap()")) {
+                        require(roleConfiguration.expectedSchemaOwnerRole().equals(rows.getString(11)),
+                                "preview bootstrap guard has unexpected owner: " + key);
                     } else if (definer.contains(key)) {
                         require("praxis_bulk_retention_owner".equals(rows.getString(11)),
                                 "SECURITY DEFINER function has unexpected owner: " + key);
@@ -2118,6 +2258,16 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    private static String readV11Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V11__bulk_preview_item_integrity.sql")) {
+            require(input != null, "V11 preview integrity migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V11 preview integrity migration", failure);
+        }
+    }
+
     private static MigrationExpectations migrationExpectations() {
         MigrationExpectations cached = migrationExpectations;
         if (cached != null) return cached;
@@ -2174,6 +2324,13 @@ public final class BulkExecutionMigrator {
                 "purge_terminal_execution")) {
             expectedBodies.put(function, new FunctionBodyExpectation("V10", normalizeExpression(
                     extractFunctionBody(v10Migration, function, "V10"))));
+        }
+        String v11Migration = readV11Migration();
+        for (String function : Set.of("require_complete_preview_integrity_bootstrap",
+                "require_complete_preview_item_integrity", "purge_terminal_execution",
+                "expire_unconsumed_proposal")) {
+            expectedBodies.put(function, new FunctionBodyExpectation("V11", normalizeExpression(
+                    extractFunctionBody(v11Migration, function, "V11"))));
         }
         return new MigrationExpectations(expectedBodies,
                 normalizeExpression(extractFunctionBody(v7Migration, INSERT_FENCE_FUNCTION, "V7")));
@@ -2238,6 +2395,7 @@ public final class BulkExecutionMigrator {
             functionKeys.addAll(V8_FUNCTIONS);
             functionKeys.addAll(V9_FUNCTIONS);
             functionKeys.addAll(V10_FUNCTIONS);
+            functionKeys.addAll(V11_FUNCTIONS);
             statement.setArray(2, connection.createArrayOf("text", functionKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
@@ -2313,6 +2471,7 @@ public final class BulkExecutionMigrator {
                 Map.entry(MANIFEST_TABLE, Set.of("T:SELECT", "T:DELETE")),
                 Map.entry(PREVIEW_STATE_TABLE, Set.of("T:SELECT", "T:DELETE")),
                 Map.entry(TARGET_PREVIEW_TABLE, Set.of("T:SELECT", "T:DELETE")),
+                Map.entry(PREVIEW_INTEGRITY_TABLE, Set.of("T:SELECT", "T:DELETE")),
                 Map.entry(EXECUTION_TABLE, Set.of("T:SELECT", "T:DELETE", "C:execution_id:UPDATE")),
                 Map.entry(RECEIPT_TABLE, Set.of("T:SELECT", "T:DELETE")),
                 Map.entry(ADMISSION_TABLE, Set.of("T:SELECT", "T:DELETE")),
@@ -2350,7 +2509,7 @@ public final class BulkExecutionMigrator {
         for (String role : roleConfiguration.runtimeGranteeRoles()) {
             require(tableRolePrivileges(connection, MANIFEST_TABLE, role).equals(Set.of("T:SELECT", "T:INSERT")),
                     "bulk runtime manifest grants differ: " + role);
-            for (String table : List.of(PREVIEW_STATE_TABLE, TARGET_PREVIEW_TABLE))
+            for (String table : List.of(PREVIEW_STATE_TABLE, TARGET_PREVIEW_TABLE, PREVIEW_INTEGRITY_TABLE))
                 require(tableRolePrivileges(connection, table, role).equals(Set.of("T:SELECT", "T:INSERT")),
                         "bulk runtime preview grants differ: " + role + " " + table);
         }
@@ -2503,6 +2662,8 @@ public final class BulkExecutionMigrator {
                 Map.entry(PREVIEW_STATE_TABLE, Set.of("T:SELECT", "T:INSERT")),
                 Map.entry(TARGET_PREVIEW_TABLE, Set.of("T:SELECT", "T:INSERT")),
                 Map.entry(PREVIEW_BOOTSTRAP_TABLE, Set.of()),
+                Map.entry(PREVIEW_INTEGRITY_TABLE, Set.of("T:SELECT", "T:INSERT")),
+                Map.entry(PREVIEW_INTEGRITY_BOOTSTRAP_TABLE, Set.of()),
                 Map.entry(EXECUTION_TABLE, Set.of("T:SELECT", "T:INSERT", "T:UPDATE")),
                 Map.entry(RECEIPT_TABLE, Set.of("T:SELECT", "T:INSERT")),
                 Map.entry(ADMISSION_TABLE, Set.of("T:SELECT", "T:INSERT")),
