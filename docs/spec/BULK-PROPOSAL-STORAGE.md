@@ -16,7 +16,7 @@ int applied = BulkExecutionMigrator.migrate(migrationDataSource, namespaceToDepl
 
 // Composição do runtime: datasource operacional compartilhado com o domínio.
 var infrastructure = new BulkExecutionInfrastructure(
-    operationalDataSource, operationalTransactionManager, deploymentNamespace, deploymentId);
+    operationalDataSource, operationalTransactionManager, deploymentNamespace, deploymentId, roles);
 var proposals = new JdbcBulkProposalStore(infrastructure);
 
 // Dentro da transação de serviço já existente:
@@ -51,7 +51,7 @@ As dependências Flyway core e PostgreSQL 11.17.0 são opcionais no starter. O h
 
 Não copiar o SQL para `db/migration`, reutilizar o histórico do host ou aplicar baseline em um schema desconhecido. Um schema `public` com tabelas existentes não participa dessa linha de migração. O schema próprio é reservado ao SDK. A migração não cria grants automaticamente. PostgreSQL é obrigatório; as provas deste incremento usam PostgreSQL 14.22 real. A validação estrutural usa as formas de expressão retornadas pelo catálogo dessa versão: diferenças falham de modo fechado. Outras versões exigem prova de compatibilidade antes da adoção; não estão certificadas por esta suíte.
 
-O migrator valida o owner esperado, grantees runtime/control-plane e membros do executor de retenção contra o catálogo PostgreSQL, incluindo os privilégios mínimos por tabela/coluna/função e funções `SECURITY DEFINER`; não cria grants. O host obtém esses nomes do provisionamento real e executa a validação antes de habilitar o consumo. O runtime não recebe escrita direta no controle de operação; lock e CAS governado são concedidos por funções dedicadas da V6. Não conceder `CREATE`, `DELETE` ou escrita direta em tombstone ao runtime. Detalhes de lock, limites 100/10/80 e grants estão em [execução durável](BULK-DURABLE-EXECUTION.md) e [controle de operação](BULK-OPERATION-CONTROL.md). Privilégios administrativos ainda podem alterar o schema; portanto, a composição operacional precisa controlar credenciais e repetir a validação quando apropriado.
+O migrator valida o owner esperado, grantees runtime/control-plane e membros do executor de retenção contra o catálogo PostgreSQL, incluindo os privilégios mínimos por tabela/coluna/função e funções `SECURITY DEFINER`; não cria grants. O host obtém esses nomes do provisionamento real e executa a validação antes de habilitar o consumo. Cada entrada de runtime também revalida identidade e ACLs protegidas na própria conexão autenticada, antes do binding/callback. Configure uma identidade de login runtime não privilegiada; usar o owner como runtime, ou chegar ao papel permitido por `SET ROLE`, falha fechado. O runtime não recebe escrita direta no controle de operação; lock e CAS governado são concedidos por funções dedicadas da V6. Não conceder `CREATE`, `DELETE` ou escrita direta em tombstone ao runtime. Detalhes de lock, limites 100/10/80 e grants estão em [execução durável](BULK-DURABLE-EXECUTION.md), [infraestrutura transacional](BULK-EXECUTION-INFRASTRUCTURE.md) e [controle de operação](BULK-OPERATION-CONTROL.md). Privilégios administrativos ainda podem alterar o schema; portanto, a composição operacional precisa controlar credenciais e repetir validação estrutural no provisionamento.
 
 ## Provas e próximos gates
 

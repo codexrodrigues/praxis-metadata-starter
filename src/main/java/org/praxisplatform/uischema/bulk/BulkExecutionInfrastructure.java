@@ -27,12 +27,18 @@ public final class BulkExecutionInfrastructure {
     private final PlatformTransactionManager transactionManager;
     private final String namespace;
     private final String deploymentId;
+    private final BulkExecutionRoleConfiguration roleConfiguration;
     private final JdbcTemplate jdbc;
 
     public BulkExecutionInfrastructure(DataSource dataSource,
-            PlatformTransactionManager transactionManager, String namespace, String deploymentId) {
+            PlatformTransactionManager transactionManager, String namespace, String deploymentId,
+            BulkExecutionRoleConfiguration roleConfiguration) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
         this.transactionManager = Objects.requireNonNull(transactionManager, "transactionManager");
+        this.roleConfiguration = Objects.requireNonNull(roleConfiguration, "roleConfiguration");
+        if (this.roleConfiguration.runtimeGranteeRoles().isEmpty()) {
+            throw new IllegalArgumentException("At least one explicit runtime PostgreSQL role is required");
+        }
         if (namespace == null || namespace.isBlank() || namespace.length() > 200
                 || !namespace.equals(namespace.strip()) || namespace.codePoints().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("Explicit namespace of 1 to 200 characters without surrounding whitespace or controls is required");
@@ -52,6 +58,7 @@ public final class BulkExecutionInfrastructure {
     public PlatformTransactionManager transactionManager() { return transactionManager; }
     public String namespace() { return namespace; }
     public String deploymentId() { return deploymentId; }
+    BulkExecutionRoleConfiguration roleConfiguration() { return roleConfiguration; }
 
     /**
      * Joins an existing writable transaction using the configured manager (MANDATORY).
@@ -80,6 +87,9 @@ public final class BulkExecutionInfrastructure {
                         || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource)) {
                     throw new IllegalStateException("JDBC work must use the operational transaction connection");
                 }
+                attestWithBoundStatementTimeout(connection,
+                        attestedConnection -> BulkExecutionMigrator.validateLiveRuntimeRoleAccess(
+                                attestedConnection, roleConfiguration));
                 verifyDurableNamespaceBinding(connection);
                 return work.doInConnection(connection);
             });
@@ -111,13 +121,82 @@ public final class BulkExecutionInfrastructure {
                         || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource)) {
                     throw new IllegalStateException("Lifecycle verification must use the runtime transaction connection");
                 }
-                try (var statement = connection.createStatement()) {
-                    statement.execute("select set_config('lock_timeout', '1s', true), set_config('statement_timeout', '2s', true)");
-                }
+                constrainLifecycleTimeouts(connection);
+                attestWithBoundStatementTimeout(connection,
+                        attestedConnection -> BulkExecutionMigrator.validateLiveRuntimeRoleAccess(
+                                attestedConnection, roleConfiguration));
                 verifyDurableNamespaceBinding(connection);
                 return work.doInConnection(connection);
             });
         });
+    }
+
+    static void constrainLifecycleTimeouts(java.sql.Connection connection) throws java.sql.SQLException {
+        try (var statement = connection.createStatement()) {
+            statement.execute("""
+                    select set_config('lock_timeout',
+                        case when current_setting('lock_timeout') = '0'
+                                  or current_setting('lock_timeout')::interval > interval '1 second'
+                             then '1s' else current_setting('lock_timeout') end, true),
+                           set_config('statement_timeout',
+                        case when current_setting('statement_timeout') = '0'
+                                  or current_setting('statement_timeout')::interval > interval '2 seconds'
+                             then '2s' else current_setting('statement_timeout') end, true)
+                    """);
+        }
+    }
+
+    static String constrainLiveAttestationStatementTimeout(java.sql.Connection connection)
+            throws java.sql.SQLException {
+        String previous;
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                "select current_setting('statement_timeout')")) {
+            if (!rows.next()) throw new IllegalStateException("Unable to read PostgreSQL statement timeout");
+            previous = rows.getString(1);
+            if (rows.next()) throw new IllegalStateException("PostgreSQL statement timeout query returned multiple rows");
+        }
+        try (var statement = connection.createStatement()) {
+            statement.execute("select set_config('statement_timeout', "
+                    + "case when current_setting('statement_timeout') = '0' "
+                    + "or current_setting('statement_timeout')::interval > interval '250 milliseconds' "
+                    + "then '250ms' else current_setting('statement_timeout') end, true)");
+        }
+        return previous;
+    }
+
+    static void restoreStatementTimeout(java.sql.Connection connection, String previous)
+            throws java.sql.SQLException {
+        try (var statement = connection.prepareStatement("select set_config('statement_timeout', ?, true)")) {
+            statement.setString(1, previous);
+            statement.execute();
+        }
+    }
+
+    static void attestWithBoundStatementTimeout(java.sql.Connection connection, SqlAttestation attestation)
+            throws java.sql.SQLException {
+        String previous = constrainLiveAttestationStatementTimeout(connection);
+        Throwable primaryFailure = null;
+        try {
+            attestation.run(connection);
+        } catch (java.sql.SQLException | RuntimeException | Error failure) {
+            primaryFailure = failure;
+            throw failure;
+        } finally {
+            try {
+                restoreStatementTimeout(connection, previous);
+            } catch (java.sql.SQLException restoreFailure) {
+                if (primaryFailure != null) {
+                    primaryFailure.addSuppressed(restoreFailure);
+                } else {
+                    throw restoreFailure;
+                }
+            }
+        }
+    }
+
+    @FunctionalInterface
+    interface SqlAttestation {
+        void run(java.sql.Connection connection) throws java.sql.SQLException;
     }
 
     private void verifyDurableNamespaceBinding(java.sql.Connection connection) throws java.sql.SQLException {

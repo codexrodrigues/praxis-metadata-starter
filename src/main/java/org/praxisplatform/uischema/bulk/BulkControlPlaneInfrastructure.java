@@ -41,6 +41,8 @@ public final class BulkControlPlaneInfrastructure {
         this.deploymentId = canonical(deploymentId, "deploymentId");
         this.expectedRole = canonicalRole(expectedRole);
         this.runtime = Objects.requireNonNull(runtime, "runtime");
+        if (!runtime.roleConfiguration().controlPlaneGranteeRoles().contains(this.expectedRole))
+            throw new IllegalArgumentException("Expected control-plane role must be present in the explicit control-plane allowlist");
         if (runtime.dataSource() == dataSource)
             throw new IllegalArgumentException("Control-plane and runtime datasources must be distinct bindings");
         if (!runtime.namespace().equals(namespace) || !runtime.deploymentId().equals(deploymentId))
@@ -72,14 +74,10 @@ public final class BulkControlPlaneInfrastructure {
                 if (connection.getAutoCommit() || connection.isReadOnly()
                         || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource))
                     throw new IllegalStateException("Control-plane work must use its transaction connection");
-                try (var statement = connection.createStatement()) {
-                    statement.execute("select set_config('lock_timeout', '1s', true), set_config('statement_timeout', '2s', true)");
-                }
-                try (var statement = connection.prepareStatement("select current_user" );
-                     var rows = statement.executeQuery()) {
-                    if (!rows.next() || !expectedRole.equals(rows.getString(1)) || rows.next())
-                        throw new IllegalStateException("Control-plane connection is not authenticated as its configured PostgreSQL role");
-                }
+                BulkExecutionInfrastructure.constrainLifecycleTimeouts(connection);
+                BulkExecutionInfrastructure.attestWithBoundStatementTimeout(connection,
+                        attestedConnection -> BulkExecutionMigrator.validateLiveControlPlaneRoleAccess(
+                                attestedConnection, runtime.roleConfiguration(), expectedRole));
                 verifySamePhysicalDatabase(connection);
                 return work.doInConnection(connection);
             });

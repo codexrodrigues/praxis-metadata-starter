@@ -17,16 +17,16 @@ class BulkExecutionInfrastructureTest {
     @Test
     void explicitNamespaceAndBindingAreRequiredWithoutDatabaseAccess() {
         var ds = mock(DataSource.class); var manager = new DataSourceTransactionManager(ds);
-        var binding = new BulkExecutionInfrastructure(ds, manager, "tenant-a:prod", "deployment-prod");
+        var binding = new BulkExecutionInfrastructure(ds, manager, "tenant-a:prod", "deployment-prod", BulkPostgresTestSupport.testRoleConfiguration());
         assertThat(binding.dataSource()).isSameAs(ds);
         assertThat(binding.transactionManager()).isSameAs(manager);
         assertThat(binding.namespace()).isEqualTo("tenant-a:prod");
         assertThat(binding.deploymentId()).isEqualTo("deployment-prod");
         for (String invalid : new String[] {null, "", " ", " leading", "trailing ", "tab\tvalue", "x".repeat(201)}) {
-            assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, manager, invalid, "deployment-prod")).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, manager, invalid, "deployment-prod", BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalArgumentException.class);
         }
         for (String invalid : new String[] {null, "", " ", " leading", "trailing ", "tab\tvalue", "x".repeat(201)}) {
-            assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, manager, "tenant-a:prod", invalid))
+            assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, manager, "tenant-a:prod", invalid, BulkPostgresTestSupport.testRoleConfiguration()))
                     .isInstanceOf(IllegalArgumentException.class);
         }
         verifyNoInteractions(ds);
@@ -35,12 +35,12 @@ class BulkExecutionInfrastructureTest {
     @Test
     void rejectsUnsupportedOrMismatchedManagersAndUnprovenWrappers() {
         var ds = mock(DataSource.class);
-        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, mock(PlatformTransactionManager.class), "x", "deployment-x"))
+        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, mock(PlatformTransactionManager.class), "x", "deployment-x", BulkPostgresTestSupport.testRoleConfiguration()))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, new DataSourceTransactionManager(mock(DataSource.class)), "x", "deployment-x"))
+        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, new DataSourceTransactionManager(mock(DataSource.class)), "x", "deployment-x", BulkPostgresTestSupport.testRoleConfiguration()))
                 .isInstanceOf(IllegalArgumentException.class);
         for (var wrapper : new DataSource[] {new DelegatingDataSource(ds), mock(AbstractRoutingDataSource.class)}) {
-            assertThatThrownBy(() -> new BulkExecutionInfrastructure(wrapper, new DataSourceTransactionManager(wrapper), "x", "deployment-x"))
+            assertThatThrownBy(() -> new BulkExecutionInfrastructure(wrapper, new DataSourceTransactionManager(wrapper), "x", "deployment-x", BulkPostgresTestSupport.testRoleConfiguration()))
                     .isInstanceOf(IllegalArgumentException.class);
         }
         verifyNoInteractions(ds);
@@ -52,20 +52,20 @@ class BulkExecutionInfrastructureTest {
         var emf = mock(EntityManagerFactory.class, withSettings().extraInterfaces(EntityManagerFactoryInfo.class));
         var manager = new JpaTransactionManager(); manager.setEntityManagerFactory(emf); manager.setDataSource(ds);
         when(((EntityManagerFactoryInfo) emf).getDataSource()).thenReturn(mock(DataSource.class));
-        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, manager, "x", "deployment-x")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, manager, "x", "deployment-x", BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalArgumentException.class);
         when(((EntityManagerFactoryInfo) emf).getDataSource()).thenReturn(ds);
-        assertThat(new BulkExecutionInfrastructure(ds, manager, "x", "deployment-x").dataSource()).isSameAs(ds);
+        assertThat(new BulkExecutionInfrastructure(ds, manager, "x", "deployment-x", BulkPostgresTestSupport.testRoleConfiguration()).dataSource()).isSameAs(ds);
         var opaque = new JpaTransactionManager(); opaque.setEntityManagerFactory(mock(EntityManagerFactory.class)); opaque.setDataSource(ds);
-        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, opaque, "x", "deployment-x")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, opaque, "x", "deployment-x", BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(ds);
     }
 
     @Test
     void rejectsDisabledRollbackOnParticipationFailureAtConstructionAndBeforeWork() {
         var ds = mock(DataSource.class); var manager = new DataSourceTransactionManager(ds);
-        var binding = new BulkExecutionInfrastructure(ds, manager, "x", "deployment-x");
+        var binding = new BulkExecutionInfrastructure(ds, manager, "x", "deployment-x", BulkPostgresTestSupport.testRoleConfiguration());
         manager.setGlobalRollbackOnParticipationFailure(false);
-        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, manager, "x", "deployment-x"))
+        assertThatThrownBy(() -> new BulkExecutionInfrastructure(ds, manager, "x", "deployment-x", BulkPostgresTestSupport.testRoleConfiguration()))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> binding.withConnection(connection -> { throw new AssertionError("must not run"); }))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -75,7 +75,7 @@ class BulkExecutionInfrastructureTest {
     @Test
     void rebindingTheMutableHostManagerIsRejectedBeforeWork() {
         var ds = mock(DataSource.class); var manager = new DataSourceTransactionManager(ds);
-        var binding = new BulkExecutionInfrastructure(ds, manager, "x", "deployment-x");
+        var binding = new BulkExecutionInfrastructure(ds, manager, "x", "deployment-x", BulkPostgresTestSupport.testRoleConfiguration());
         manager.setDataSource(mock(DataSource.class));
         assertThatThrownBy(() -> binding.withConnection(connection -> { throw new AssertionError("must not run"); }))
                 .isInstanceOf(IllegalArgumentException.class);

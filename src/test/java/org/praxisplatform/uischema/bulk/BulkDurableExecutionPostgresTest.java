@@ -53,7 +53,9 @@ class BulkDurableExecutionPostgresTest {
 
     private EmbeddedPostgres postgres;
     private DataSource dataSource;
+    private DataSource runtimeDataSource;
     private JdbcTemplate observer;
+    private JdbcTemplate runtimeJdbc;
     private DataSourceTransactionManager manager;
     private TransactionTemplate transactions;
     private JdbcBulkProposalStore proposals;
@@ -65,15 +67,19 @@ class BulkDurableExecutionPostgresTest {
         postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
         dataSource = postgres.getPostgresDatabase();
         observer = new JdbcTemplate(dataSource);
-        manager = new DataSourceTransactionManager(dataSource);
+        observer.execute("create role bulk_runtime_test login");
+        runtimeDataSource = BulkPostgresTestSupport.runtimeDataSource(postgres);
+        runtimeJdbc = new JdbcTemplate(runtimeDataSource);
+        manager = new DataSourceTransactionManager(runtimeDataSource);
         transactions = new TransactionTemplate(manager);
-        proposals = new JdbcBulkProposalStore(new BulkExecutionInfrastructure(dataSource, manager,
-                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+        proposals = new JdbcBulkProposalStore(new BulkExecutionInfrastructure(runtimeDataSource, manager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         observer.execute("create table bulk_durable_domain(id bigint primary key, writes integer not null default 0)");
         observer.execute("create table bulk_durable_jpa_domain(id bigint primary key, writes integer not null default 0)");
+        observer.execute("grant select, insert, update, delete on bulk_durable_domain, bulk_durable_jpa_domain to bulk_runtime_test");
         observer.execute("create role durable_runtime login");
         var factory = new LocalContainerEntityManagerFactoryBean();
-        factory.setDataSource(dataSource);
+        factory.setDataSource(runtimeDataSource);
         factory.setPackagesToScan(BulkDurableJpaDomainRow.class.getPackageName());
         factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         factory.afterPropertiesSet();
@@ -156,7 +162,7 @@ class BulkDurableExecutionPostgresTest {
                 """, (row, index) -> row.getObject(1, java.time.OffsetDateTime.class).toInstant(),
                 reservation.executionId());
         assertThat(stored).isAfter(forgedTime);
-        BulkExecutionMigrator.validate(dataSource);
+        BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
     }
 
     @Test
@@ -372,8 +378,8 @@ class BulkDurableExecutionPostgresTest {
     @Test
     void concurrentAdmissionAndReceiptWritersSerializeAtTheExecutionControl() throws Exception {
         var firstKernel = kernel();
-        var secondKernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(dataSource,
-                new DataSourceTransactionManager(dataSource), CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+        var secondKernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(runtimeDataSource,
+                new DataSourceTransactionManager(runtimeDataSource), CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         var reservation = reserve(firstKernel, persist(twoTargetEvaluation()), "cross-result-race", "owner-a");
         var callbackEntered = new CountDownLatch(1);
         var releaseCallback = new CountDownLatch(1);
@@ -458,7 +464,7 @@ class BulkDurableExecutionPostgresTest {
         var releaseTarget = new CountDownLatch(1);
         try (var executor = Executors.newSingleThreadExecutor()) {
             var blocker = executor.submit(() -> transactions.executeWithoutResult(status -> {
-                observer.update("update bulk_durable_domain set writes=writes+1 where id=1");
+                runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
                 targetLocked.countDown();
                 try {
                     if (!releaseTarget.await(5, TimeUnit.SECONDS)) throw new AssertionError("target lock not released");
@@ -473,7 +479,7 @@ class BulkDurableExecutionPostgresTest {
                     "structural-r1", Instant.now().plusSeconds(10));
             try {
                 var stopped = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
-                    observer.queryForObject("select writes from bulk_durable_domain where id=1 for update", Integer.class);
+                    runtimeJdbc.queryForObject("select writes from bulk_durable_domain where id=1 for update", Integer.class);
                     return BulkUnitMutationResult.confirmed();
                 });
                 assertThat(stopped.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
@@ -531,9 +537,9 @@ class BulkDurableExecutionPostgresTest {
 
     @Test
     void recoversPendingReceiptByOrdinalAfterPriorAdmissionWithoutRedispatch() throws Exception {
-        var faults = new BulkCommitFaultDataSource(dataSource);
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
         var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults,
-                new DataSourceTransactionManager(faults), CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+                new DataSourceTransactionManager(faults), CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         var domain = new JdbcTemplate(faults);
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "mixed-prefix-recovery", "owner-a");
         var admissionCalls = new AtomicInteger();
@@ -565,9 +571,9 @@ class BulkDurableExecutionPostgresTest {
     @Test
     void concurrentReservationsSerializeSameKeyDifferentBindingAndSecondKeyForOneProposal() throws Exception {
         var firstKernel = kernel();
-        var secondManager = new DataSourceTransactionManager(dataSource);
+        var secondManager = new DataSourceTransactionManager(runtimeDataSource);
         var secondKernel = new JdbcBulkDurableExecution(
-                new BulkExecutionInfrastructure(dataSource, secondManager, CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+                new BulkExecutionInfrastructure(runtimeDataSource, secondManager, CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         var sameKeyProposal = persist(twoTargetEvaluation());
         var sameKey = new CyclicBarrier(2);
         try (var executor = Executors.newFixedThreadPool(2)) {
@@ -676,7 +682,7 @@ class BulkDurableExecutionPostgresTest {
                 "active-rollback-key", "active-rollback-owner", "structural-r1", deadline());
 
         transactions.executeWithoutResult(status -> {
-            observer.update("update praxis_bulk.praxis_bulk_execution "
+            runtimeJdbc.update("update praxis_bulk.praxis_bulk_execution "
                     + "set status='STOPPED', terminal_reason_code='AUTHORIZATION_REVOKED', "
                     + "owner_epoch=owner_epoch+1, terminal_at=clock_timestamp() where execution_id=?",
                     reservation.executionId());
@@ -902,9 +908,13 @@ class BulkDurableExecutionPostgresTest {
         observer.execute("grant select, insert on praxis_bulk.praxis_bulk_item_receipt to durable_runtime");
         observer.execute("grant select, insert on praxis_bulk.praxis_bulk_admission to durable_runtime");
         observer.execute("grant select on praxis_bulk.praxis_bulk_tombstone to durable_runtime");
+        observer.execute("grant select, insert, update, delete on bulk_durable_domain, bulk_durable_jpa_domain to durable_runtime");
+        var runtimeRoles = new BulkExecutionRoleConfiguration("postgres",
+                java.util.Set.of("bulk_runtime_test", "durable_runtime"), java.util.Set.of(), java.util.Set.of());
+        BulkExecutionMigrator.validate(dataSource, runtimeRoles);
         var runtimeManager = new DataSourceTransactionManager(runtimeDataSource);
         var runtimeKernel = new JdbcBulkDurableExecution(
-                new BulkExecutionInfrastructure(runtimeDataSource, runtimeManager, CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+                new BulkExecutionInfrastructure(runtimeDataSource, runtimeManager, CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, runtimeRoles));
         var reservation = reserve(runtimeKernel, persist(twoTargetEvaluation()), "runtime-key", "runtime-owner");
         runtimeKernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> BulkUnitMutationResult.confirmed());
 
@@ -937,7 +947,7 @@ class BulkDurableExecutionPostgresTest {
             } else {
                 callsB.incrementAndGet();
             }
-            observer.update("update bulk_durable_domain set writes=writes+1 where id=?", unit.ordinal() + 1L);
+            runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=?", unit.ordinal() + 1L);
             assertIndependentObserverPreservesCommittedPrefix(unit.ordinal());
             return BulkUnitMutationResult.confirmed();
         };
@@ -967,9 +977,9 @@ class BulkDurableExecutionPostgresTest {
         var reservation = reserve(kernel(), persist(twoTargetEvaluation()), "namespace-key", "owner-a");
         var otherContext = new BulkFingerprintContext("tenant-b:production:payroll", CONTEXT.subjectId(), CONTEXT.resourceKey(),
                 CONTEXT.operationRef(), CONTEXT.schemaRevision(), CONTEXT.atomicity());
-        var otherManager = new DataSourceTransactionManager(dataSource);
+        var otherManager = new DataSourceTransactionManager(runtimeDataSource);
         var otherKernel = new JdbcBulkDurableExecution(
-                new BulkExecutionInfrastructure(dataSource, otherManager, otherContext.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+                new BulkExecutionInfrastructure(runtimeDataSource, otherManager, otherContext.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         var called = new AtomicInteger();
         assertThatThrownBy(() -> otherKernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             called.incrementAndGet();
@@ -982,8 +992,8 @@ class BulkDurableExecutionPostgresTest {
 
     @Test
     void jpaDomainAndReceiptAreAtomicForCommitAndCallbackRollback() throws Exception {
-        var infrastructure = new BulkExecutionInfrastructure(dataSource, jpaManager,
-                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID);
+        var infrastructure = new BulkExecutionInfrastructure(runtimeDataSource, jpaManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration());
         var kernel = new JdbcBulkDurableExecution(infrastructure);
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "jpa-key", "owner-a");
 
@@ -1011,10 +1021,10 @@ class BulkDurableExecutionPostgresTest {
 
     @Test
     void knownRollbackAndUnknownCommitKeepLaterOrdinalBlockedUntilRecovery() throws Exception {
-        var faults = new BulkCommitFaultDataSource(dataSource);
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
         var faultManager = new DataSourceTransactionManager(faults);
         var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
-                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         var faultJdbc = new JdbcTemplate(faults);
 
         var knownRollback = reserve(kernel, persist(twoTargetEvaluation()), "rollback-key", "owner-a");
@@ -1067,10 +1077,10 @@ class BulkDurableExecutionPostgresTest {
 
     @Test
     void ackLostAfterItsOwnCommitStillReplaysAAndNeverDispatchesBImplicitly() throws Exception {
-        var faults = new BulkCommitFaultDataSource(dataSource);
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
         var faultManager = new DataSourceTransactionManager(faults);
         var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
-                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         var faultJdbc = new JdbcTemplate(faults);
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "ack-key", "owner-a");
         var callsA = new AtomicInteger();
@@ -1097,7 +1107,7 @@ class BulkDurableExecutionPostgresTest {
         var releaseLock = new CountDownLatch(1);
         try (var executor = Executors.newSingleThreadExecutor()) {
             var blocker = executor.submit(() -> transactions.executeWithoutResult(status -> {
-                observer.queryForObject("select execution_id from praxis_bulk.praxis_bulk_execution where execution_id=? for update",
+                runtimeJdbc.queryForObject("select execution_id from praxis_bulk.praxis_bulk_execution where execution_id=? for update",
                         UUID.class, reservation.executionId());
                 lockAcquired.countDown();
                 try {
@@ -1160,7 +1170,7 @@ class BulkDurableExecutionPostgresTest {
             return BulkUnitAdmission.admit();
         }, unit -> {
             mutations.incrementAndGet();
-            observer.update("update bulk_durable_domain set writes=writes+1 where id=1");
+            runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
             return BulkUnitMutationResult.confirmed();
         });
         assertThat(Duration.ofNanos(System.nanoTime() - startedNanos)).isLessThan(Duration.ofSeconds(8));
@@ -1183,12 +1193,12 @@ class BulkDurableExecutionPostgresTest {
 
         var first = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
             callsA.incrementAndGet();
-            observer.update("update bulk_durable_domain set writes=writes+1 where id=1");
+            runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
             return BulkUnitMutationResult.confirmed();
         });
         var completed = kernel.executeUnit(first.control(), 1, unit -> BulkUnitAdmission.admit(), unit -> {
             callsB.incrementAndGet();
-            observer.update("update bulk_durable_domain set writes=writes+1 where id=2");
+            runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=2");
             return BulkUnitMutationResult.confirmed();
         });
         assertThat(completed.status()).isEqualTo(BulkDurableExecutionStatus.COMPLETED);
@@ -1223,10 +1233,10 @@ class BulkDurableExecutionPostgresTest {
 
     @Test
     void recoveryClosesWhenPendingReceiptEpochDoesNotMatchTheActiveAttempt() throws Exception {
-        var faults = new BulkCommitFaultDataSource(dataSource);
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
         var faultManager = new DataSourceTransactionManager(faults);
         var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
-                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         var faultJdbc = new JdbcTemplate(faults);
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "corrupt-recovery-key", "owner-a");
 
@@ -1255,10 +1265,10 @@ class BulkDurableExecutionPostgresTest {
 
     @Test
     void pendingReceiptWithDifferentAttemptIdCannotBeAcknowledgedByFallbackReadback() throws Exception {
-        var faults = new BulkCommitFaultDataSource(dataSource);
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
         var faultManager = new DataSourceTransactionManager(faults);
         var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
-                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         var faultJdbc = new JdbcTemplate(faults);
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "corrupt-attempt-key", "owner-a");
         var first = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
@@ -1287,10 +1297,10 @@ class BulkDurableExecutionPostgresTest {
 
     @Test
     void intactReceiptAReplaysWithoutMutationWhenReceiptBMakesTheAggregateReconciliationRequired() throws Exception {
-        var faults = new BulkCommitFaultDataSource(dataSource);
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
         var faultManager = new DataSourceTransactionManager(faults);
         var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
-                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
         var faultJdbc = new JdbcTemplate(faults);
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "prefix-recovery-key", "owner-a");
         var first = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
@@ -1343,7 +1353,7 @@ class BulkDurableExecutionPostgresTest {
         var callsB = new AtomicInteger();
         try (var executor = Executors.newFixedThreadPool(2)) {
             var unit = executor.submit(() -> kernel.executeUnit(reservation.control(), 0, admissionContext -> BulkUnitAdmission.admit(), ignored -> {
-                observer.update("update bulk_durable_domain set writes=writes+1 where id=1");
+                runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
                 entered.countDown();
                 try {
                     if (!release.await(5, TimeUnit.SECONDS)) {
@@ -1376,8 +1386,8 @@ class BulkDurableExecutionPostgresTest {
     }
 
     private JdbcBulkDurableExecution kernel() {
-        return new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(dataSource, manager,
-                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
+        return new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(runtimeDataSource, manager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
     }
 
     private BulkEvaluationSnapshot twoTargetEvaluation() {
