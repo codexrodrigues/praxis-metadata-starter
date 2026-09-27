@@ -1,0 +1,126 @@
+-- V13: certify the V5 terminal guard before replacing its timestamp block.
+-- Flyway executes this PostgreSQL migration transactionally. An unexpected V5 body,
+-- owner, ACL or trigger aborts before any role or row change.
+do $$
+declare
+    v_function oid;
+begin
+    select p.oid into v_function
+    from pg_catalog.pg_proc p
+    join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+    join pg_catalog.pg_roles owner on owner.oid=p.proowner
+    join pg_catalog.pg_language lang on lang.oid=p.prolang
+    where n.nspname='praxis_bulk' and p.proname='guard_terminal_execution'
+      and pg_catalog.pg_get_function_identity_arguments(p.oid)=''
+      and owner.rolname='praxis_bulk_retention_owner'
+      and lang.lanname='plpgsql' and p.prorettype='trigger'::pg_catalog.regtype
+      and p.prosecdef and p.provolatile='v'
+      and p.proconfig = array['search_path=pg_catalog, pg_temp']::text[]
+      and pg_catalog.md5(p.prosrc)='d5355ce55cb68977645243ca86d4b126';
+    if v_function is null
+       or pg_catalog.has_schema_privilege('praxis_bulk_retention_owner', 'praxis_bulk', 'CREATE')
+       or exists (select 1 from pg_catalog.pg_auth_members m
+                  where m.roleid='praxis_bulk_retention_owner'::pg_catalog.regrole)
+       or exists (select 1 from pg_catalog.aclexplode(
+                    (select p.proacl from pg_catalog.pg_proc p where p.oid=v_function)) acl
+                  where acl.privilege_type='EXECUTE' and acl.grantee <> (
+                      select p.proowner from pg_catalog.pg_proc p where p.oid=v_function))
+       or not exists (select 1 from pg_catalog.pg_trigger t
+                      where t.tgrelid='praxis_bulk.praxis_bulk_execution'::pg_catalog.regclass
+                        and t.tgname='praxis_bulk_execution_guard_terminal'
+                        and t.tgfoid=v_function and t.tgtype=19
+                        and t.tgenabled='O' and not t.tgisinternal)
+    then
+        raise exception 'bulk terminal guard V5 attestation failed' using errcode='55000';
+    end if;
+    execute pg_catalog.format('grant praxis_bulk_retention_owner to %I', current_user);
+    execute pg_catalog.format(
+        'alter function praxis_bulk.guard_terminal_execution() owner to %I', current_user);
+end;
+$$;
+
+create or replace function praxis_bulk.guard_terminal_execution()
+returns trigger language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare
+    v_admission_count bigint;
+begin
+    if old.status in ('COMPLETED', 'COMPLETED_WITH_ERRORS', 'STOPPED')
+       and new is distinct from old then
+        raise exception 'bulk terminal execution is fenced and immutable' using errcode = '55000';
+    end if;
+    if old.status not in ('COMPLETED', 'COMPLETED_WITH_ERRORS', 'STOPPED')
+       and new.status in ('COMPLETED', 'COMPLETED_WITH_ERRORS', 'STOPPED') then
+        -- Retention starts at the database-observed transition, never at a caller
+        -- supplied timestamp that could make a fresh result immediately purgeable.
+        new.terminal_at := greatest(clock_timestamp(), old.updated_at, old.cancel_requested_at);
+        new.updated_at := greatest(new.updated_at, new.terminal_at);
+    end if;
+    if new.status in ('COMPLETED', 'COMPLETED_WITH_ERRORS', 'STOPPED')
+       and (old.status not in ('COMPLETED', 'COMPLETED_WITH_ERRORS', 'STOPPED')
+            or new.status is distinct from old.status) then
+        if new.active_attempt_id is not null or new.owner_epoch < 1
+           or new.owner_epoch not in (old.owner_epoch, old.owner_epoch + 1)
+           or new.next_ordinal < old.next_ordinal
+           or new.terminal_at is null
+           or (new.status = 'STOPPED' and
+               (new.terminal_reason_code is null or
+                not praxis_bulk.terminal_evidence_complete(new.execution_id, new.next_ordinal)))
+           or (new.status in ('COMPLETED', 'COMPLETED_WITH_ERRORS') and
+               (new.next_ordinal <> new.target_count or
+                not praxis_bulk.terminal_evidence_complete(new.execution_id, new.target_count))) then
+            raise exception 'bulk execution lacks terminal evidence or fencing' using errcode = '55000';
+        end if;
+        if new.status in ('COMPLETED', 'COMPLETED_WITH_ERRORS') then
+            select count(*) into v_admission_count
+            from praxis_bulk.praxis_bulk_admission a where a.execution_id = new.execution_id;
+            if (new.status = 'COMPLETED' and v_admission_count <> 0)
+               or (new.status = 'COMPLETED_WITH_ERRORS' and v_admission_count = 0) then
+                raise exception 'bulk execution terminal status does not match unit evidence' using errcode = '55000';
+            end if;
+        end if;
+    end if;
+    return new;
+end;
+$$;
+
+-- Restore the governed function owner and zero-membership boundary before commit.
+grant create on schema praxis_bulk to praxis_bulk_retention_owner;
+do $$
+begin
+    alter function praxis_bulk.guard_terminal_execution() owner to praxis_bulk_retention_owner;
+    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I', current_user);
+    if exists (select 1 from pg_catalog.pg_auth_members m
+               where m.roleid='praxis_bulk_retention_owner'::pg_catalog.regrole) then
+        raise exception 'bulk retention owner membership was not fully revoked' using errcode='55000';
+    end if;
+end;
+$$;
+revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
+do $$
+begin
+    if pg_catalog.has_schema_privilege('praxis_bulk_retention_owner', 'praxis_bulk', 'CREATE') then
+        raise exception 'bulk retention owner retains schema CREATE' using errcode='55000';
+    end if;
+end;
+$$;
+
+-- The V5 guard fences terminal rows, so repair its known timestamp skew under an
+-- exclusive table lock, with only that guard temporarily disabled in this transaction.
+alter table praxis_bulk.praxis_bulk_execution
+    disable trigger praxis_bulk_execution_guard_terminal;
+update praxis_bulk.praxis_bulk_execution
+   set updated_at=terminal_at
+ where terminal_at is not null and terminal_at > updated_at;
+alter table praxis_bulk.praxis_bulk_execution
+    enable trigger praxis_bulk_execution_guard_terminal;
+
+-- Any other impossible historical chronology aborts the upgrade; no row is silently
+-- normalized by a reader. Future writes are guarded by PostgreSQL itself.
+alter table praxis_bulk.praxis_bulk_execution
+    add constraint praxis_bulk_execution_time_order_check check (
+        created_at <= updated_at
+        and (terminal_at is null or
+             (created_at <= terminal_at and terminal_at <= updated_at))
+        and (cancel_requested_at is null or
+             (created_at <= cancel_requested_at and cancel_requested_at <= updated_at
+              and (terminal_at is null or cancel_requested_at <= terminal_at))));

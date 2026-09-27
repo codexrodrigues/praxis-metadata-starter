@@ -38,7 +38,7 @@ class JdbcBulkProposalStorePostgresTest {
     @AfterAll void stop() throws Exception { if (postgres != null) postgres.close(); }
     @BeforeEach void reset() { sql.execute("drop schema if exists praxis_bulk cascade"); }
     void migrate() {
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(12);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(13);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count() { return sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal", Integer.class); }
@@ -75,7 +75,7 @@ class JdbcBulkProposalStorePostgresTest {
                         java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
             };
             var first = executor.submit(task); var second = executor.submit(task);
-            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(12);
+            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(13);
         }
         BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId());
         BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
