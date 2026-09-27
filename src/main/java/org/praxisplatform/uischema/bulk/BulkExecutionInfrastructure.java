@@ -131,6 +131,48 @@ public final class BulkExecutionInfrastructure {
         });
     }
 
+    /** One short, physically read-only MVCC snapshot, isolated from any caller transaction. */
+    <T> T withConsistentRead(ConnectionCallback<T> work) {
+        Objects.requireNonNull(work, "work");
+        validateBinding();
+        TransactionTemplate independent = new TransactionTemplate(transactionManager);
+        independent.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        independent.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        independent.setReadOnly(true);
+        independent.setTimeout(3);
+        return independent.execute(status -> {
+            if (!TransactionSynchronizationManager.isActualTransactionActive()
+                    || !TransactionSynchronizationManager.isSynchronizationActive()
+                    || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                    || !(TransactionSynchronizationManager.getResource(dataSource) instanceof ConnectionHolder)) {
+                throw new IllegalStateException("An independent read-only operational transaction is required");
+            }
+            return jdbc.execute((ConnectionCallback<T>) connection -> {
+                if (connection.getAutoCommit()
+                        || !DataSourceUtils.isConnectionTransactional(
+                                DataSourceUtils.getTargetConnection(connection), dataSource)) {
+                    throw new IllegalStateException("Snapshot must use the bound operational connection");
+                }
+                try (var statement = connection.createStatement();
+                        var state = statement.executeQuery("""
+                                select current_setting('transaction_isolation'),
+                                       current_setting('transaction_read_only')
+                                """)) {
+                    if (!state.next() || !"repeatable read".equals(state.getString(1))
+                            || !"on".equals(state.getString(2)) || state.next()) {
+                        throw new IllegalStateException("PostgreSQL read-only repeatable-read snapshot is required");
+                    }
+                }
+                constrainLifecycleTimeouts(connection);
+                attestWithBoundStatementTimeout(connection,
+                        attested -> BulkExecutionMigrator.validateLiveRuntimeRoleAccess(
+                                attested, roleConfiguration));
+                verifyDurableNamespaceBinding(connection);
+                return work.doInConnection(connection);
+            });
+        });
+    }
+
     static void constrainLifecycleTimeouts(java.sql.Connection connection) throws java.sql.SQLException {
         try (var statement = connection.createStatement()) {
             statement.execute("""

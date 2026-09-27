@@ -1253,6 +1253,10 @@ class BulkDurableExecutionPostgresTest {
         assertThat(recovery.status()).isEqualTo(BulkDurableExecutionStatus.RECONCILIATION_REQUIRED);
         assertThat(recovery.receiptCount()).isEqualTo(1);
         assertThat(recovery.control().epoch()).isGreaterThan(reservation.control().epoch());
+        var conservativeRead = kernel.inspectConsistent(CONTEXT, reservation.executionId());
+        assertThat(conservativeRead.execution().receiptCount()).isZero();
+        assertThat(conservativeRead.confirmed()).isZero();
+        assertThat(conservativeRead.unknown()).isEqualTo(2);
         var callbacks = new AtomicInteger();
         assertThatThrownBy(() -> kernel.executeUnit(recovery.control(), 1, unit -> BulkUnitAdmission.admit(), ignored -> {
             callbacks.incrementAndGet();
@@ -1319,6 +1323,10 @@ class BulkDurableExecutionPostgresTest {
         assertThat(recovery.status()).isEqualTo(BulkDurableExecutionStatus.RECONCILIATION_REQUIRED);
         assertThat(recovery.execution().nextOrdinal()).isEqualTo(1);
         assertThat(recovery.receiptCount()).isEqualTo(2);
+        var conservativeRead = kernel.inspectConsistent(CONTEXT, reservation.executionId());
+        assertThat(conservativeRead.execution().receiptCount()).isEqualTo(1);
+        assertThat(conservativeRead.confirmed()).isEqualTo(1);
+        assertThat(conservativeRead.unknown()).isEqualTo(1);
         var callbacks = new AtomicInteger();
         var replayedA = kernel.executeUnit(recovery.control(), 0, unit -> BulkUnitAdmission.admit(), ignored -> {
             callbacks.incrementAndGet();
@@ -1416,6 +1424,252 @@ class BulkDurableExecutionPostgresTest {
         assertThat(count("praxis_bulk_item_receipt")).isZero();
         assertThat(count("praxis_bulk_admission")).isZero();
         BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
+    }
+
+    @Test
+    void internalConsistentReadValidatesOneLiveScopeAndHidesAnotherSubject() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-live", "owner-a");
+        var live = kernel.inspectConsistent(CONTEXT, reservation.executionId());
+        assertThat(live.kind()).isEqualTo(BulkConsistentExecutionRead.Kind.LIVE);
+        assertThat(live.execution().status()).isEqualTo(BulkDurableExecutionStatus.RUNNING);
+        assertThat(live.execution().nextOrdinal()).isZero();
+        assertThat(live.createdAt()).isNotNull();
+        assertThat(live.updatedAt()).isNotNull();
+        assertThat(live.terminalAt()).isNull();
+        assertThat(live.confirmed() + live.unchanged() + live.denied() + live.invalid() + live.conflict()).isZero();
+        var foreign = kernel.inspectConsistent(quotaSubject("foreign-subject"), reservation.executionId());
+        assertThat(foreign.kind()).isEqualTo(BulkConsistentExecutionRead.Kind.ABSENT);
+        assertThat(foreign.execution()).isNull();
+        assertThat(foreign.tombstoneTerminalStatus()).isNull();
+    }
+
+    @Test
+    void internalConsistentReadUsesPhysicalReadOnlyRepeatableReadWithJpaManager() {
+        var reservation = reserve(kernel(), persist(twoTargetEvaluation()), "rs3-jpa-read", "owner-a");
+        var jpaKernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(runtimeDataSource,
+                jpaManager, CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration()));
+        var live = jpaKernel.inspectConsistent(CONTEXT, reservation.executionId());
+        assertThat(live.kind()).isEqualTo(BulkConsistentExecutionRead.Kind.LIVE);
+        assertThat(live.execution().status()).isEqualTo(BulkDurableExecutionStatus.RUNNING);
+    }
+
+    @Test
+    void internalConsistentReadRejectsMutationOnThePhysicalPostgresConnection() {
+        var infrastructure = new BulkExecutionInfrastructure(runtimeDataSource, manager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration());
+        String sqlState = infrastructure.withConsistentRead(connection -> {
+            try (var statement = connection.prepareStatement(
+                    "update bulk_durable_domain set writes=writes+1 where id=1")) {
+                statement.executeUpdate();
+                throw new AssertionError("PostgreSQL accepted a write in the read-only snapshot");
+            } catch (SQLException expected) {
+                return expected.getSQLState();
+            }
+        });
+        assertThat(sqlState).isEqualTo("25006");
+        assertThat(observer.queryForObject("select writes from bulk_durable_domain where id=1", Integer.class))
+                .isZero();
+    }
+
+    @Test
+    void internalConsistentReadDoesNotMixExecutionBeforeReceiptCommitWithEvidenceAfterCommit() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-receipt-race", "owner-a");
+        var callbackEntered = new CountDownLatch(1);
+        var releaseCallback = new CountDownLatch(1);
+        var paused = new BulkReadPauseDataSource(runtimeDataSource);
+        var reader = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(paused,
+                new DataSourceTransactionManager(paused), CONTEXT.namespaceId(),
+                BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var unit = executor.submit(() -> kernel.executeUnit(reservation.control(), 0,
+                    ignored -> BulkUnitAdmission.admit(), ignored -> {
+                        runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+                        callbackEntered.countDown();
+                        try {
+                            if (!releaseCallback.await(5, TimeUnit.SECONDS))
+                                throw new AssertionError("receipt writer was not released");
+                        } catch (InterruptedException error) {
+                            Thread.currentThread().interrupt();
+                            throw new AssertionError("receipt writer interrupted", error);
+                        }
+                        return BulkUnitMutationResult.confirmed();
+                    }));
+            try {
+                assertThat(callbackEntered.await(5, TimeUnit.SECONDS)).isTrue();
+                var snapshot = executor.submit(() -> {
+                    paused.arm(Thread.currentThread());
+                    return reader.inspectConsistent(CONTEXT, reservation.executionId());
+                });
+                boolean observed = paused.awaitObservation(5, TimeUnit.SECONDS);
+                if (!observed && snapshot.isDone()) snapshot.get(1, TimeUnit.SECONDS);
+                assertThat(observed).isTrue();
+                releaseCallback.countDown();
+                assertThat(unit.get(5, TimeUnit.SECONDS).execution().nextOrdinal()).isEqualTo(1);
+                paused.release();
+                var before = snapshot.get(5, TimeUnit.SECONDS);
+                assertThat(before.kind()).isEqualTo(BulkConsistentExecutionRead.Kind.LIVE);
+                assertThat(before.execution().status()).isEqualTo(BulkDurableExecutionStatus.UNIT_IN_FLIGHT);
+                assertThat(before.execution().nextOrdinal()).isZero();
+                assertThat(before.confirmed()).isZero();
+                var after = kernel.inspectConsistent(CONTEXT, reservation.executionId());
+                assertThat(after.execution().status()).isEqualTo(BulkDurableExecutionStatus.RUNNING);
+                assertThat(after.execution().nextOrdinal()).isEqualTo(1);
+                assertThat(after.confirmed()).isEqualTo(1);
+            } finally {
+                releaseCallback.countDown();
+                paused.release();
+            }
+        }
+    }
+
+    @Test
+    void internalConsistentReadNeverMixesPurgedTombstoneWithTheEarlierLiveSnapshot() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-purge-race", "owner-a");
+        kernel.requestCancel(CONTEXT, reservation.executionId());
+        observer.execute("alter table praxis_bulk.praxis_bulk_execution disable trigger praxis_bulk_execution_guard_terminal");
+        try {
+            observer.update("update praxis_bulk.praxis_bulk_execution "
+                    + "set terminal_at=clock_timestamp()-interval '31 days' where execution_id=?",
+                    reservation.executionId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_guard_terminal");
+        }
+        assertThat(kernel.inspectConsistent(CONTEXT, reservation.executionId()).kind())
+                .isEqualTo(BulkConsistentExecutionRead.Kind.LIVE);
+        var paused = new BulkReadPauseDataSource(runtimeDataSource);
+        var reader = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(paused,
+                new DataSourceTransactionManager(paused), CONTEXT.namespaceId(),
+                BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var snapshot = executor.submit(() -> {
+                paused.arm(Thread.currentThread());
+                return reader.inspectConsistent(CONTEXT, reservation.executionId());
+            });
+            try {
+                boolean observed = paused.awaitObservation(5, TimeUnit.SECONDS);
+                if (!observed && snapshot.isDone()) snapshot.get(1, TimeUnit.SECONDS);
+                assertThat(observed).isTrue();
+                observer.execute("grant praxis_bulk_retention_executor to postgres");
+                var ownerTx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+                Boolean purged = ownerTx.execute(status -> {
+                    observer.execute("set local role praxis_bulk_retention_executor");
+                    return observer.queryForObject("select praxis_bulk.purge_terminal_execution(?)", Boolean.class,
+                            reservation.executionId());
+                });
+                assertThat(purged).isTrue();
+                paused.release();
+                var before = snapshot.get(5, TimeUnit.SECONDS);
+                assertThat(before.kind()).isEqualTo(BulkConsistentExecutionRead.Kind.LIVE);
+                assertThat(before.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+                observer.execute("revoke praxis_bulk_retention_executor from postgres");
+                var after = kernel.inspectConsistent(CONTEXT, reservation.executionId());
+                assertThat(after.kind()).isEqualTo(BulkConsistentExecutionRead.Kind.TOMBSTONE);
+                assertThat(after.execution()).isNull();
+                assertThat(after.tombstoneTerminalStatus()).isEqualTo("CANCELLED");
+                assertThat(kernel.inspectConsistent(quotaSubject("foreign-subject"), reservation.executionId()).kind())
+                        .isEqualTo(BulkConsistentExecutionRead.Kind.ABSENT);
+            } finally {
+                paused.release();
+            }
+        } finally {
+            observer.execute("revoke praxis_bulk_retention_executor from postgres");
+        }
+    }
+
+    @Test
+    void internalConsistentReadFailsClosedOnReceiptVersionDriftAndDuplicateOrdinal() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-corrupt-receipt", "owner-a");
+        kernel.executeUnit(reservation.control(), 0, ignored -> BulkUnitAdmission.admit(),
+                ignored -> BulkUnitMutationResult.confirmed());
+        assertThat(kernel.inspectConsistent(CONTEXT, reservation.executionId()).confirmed()).isEqualTo(1);
+
+        observer.execute("alter table praxis_bulk.praxis_bulk_item_receipt "
+                + "disable trigger praxis_bulk_item_receipt_reject_mutation");
+        try {
+            observer.update("update praxis_bulk.praxis_bulk_item_receipt set expected_version='drift' "
+                    + "where execution_id=? and unit_ordinal=0", reservation.executionId());
+            assertThatThrownBy(() -> kernel.inspectConsistent(CONTEXT, reservation.executionId()))
+                    .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                            error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.CORRUPT));
+            observer.update("update praxis_bulk.praxis_bulk_item_receipt set expected_version='v1' "
+                    + "where execution_id=? and unit_ordinal=0", reservation.executionId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_item_receipt "
+                    + "enable trigger praxis_bulk_item_receipt_reject_mutation");
+        }
+
+        observer.execute("alter table praxis_bulk.praxis_bulk_admission "
+                + "disable trigger praxis_bulk_admission_guard_terminal");
+        try {
+            observer.update("""
+                    insert into praxis_bulk.praxis_bulk_admission
+                      (execution_id, unit_ordinal, target_digest, expected_version, attempt_id,
+                       owner_epoch, outcome, reason_code, recorded_at)
+                    select execution_id, unit_ordinal, target_digest, expected_version, ?,
+                           owner_epoch, 'DENIED', 'TARGET_DENIED', clock_timestamp()
+                    from praxis_bulk.praxis_bulk_item_receipt
+                    where execution_id=? and unit_ordinal=0
+                    """, UUID.randomUUID(), reservation.executionId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_admission "
+                    + "enable trigger praxis_bulk_admission_guard_terminal");
+        }
+        assertThatThrownBy(() -> kernel.inspectConsistent(CONTEXT, reservation.executionId()))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.CORRUPT));
+    }
+
+    @Test
+    void internalConsistentReadFailsClosedOnManifestDigestDrift() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-corrupt-manifest", "owner-a");
+        observer.execute("alter table praxis_bulk.praxis_bulk_target_manifest "
+                + "disable trigger praxis_bulk_target_manifest_immutable");
+        try {
+            observer.update("update praxis_bulk.praxis_bulk_target_manifest "
+                    + "set target_digest=? where proposal_id=? and ordinal=0",
+                    "sha256:" + "0".repeat(64), reservation.proposalId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_target_manifest "
+                    + "enable trigger praxis_bulk_target_manifest_immutable");
+        }
+        assertThatThrownBy(() -> kernel.inspectConsistent(CONTEXT, reservation.executionId()))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.CORRUPT));
+    }
+
+    @Test
+    void internalConsistentReadFailsClosedOnAllocationLifecycleDrift() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-corrupt-allocation", "owner-a");
+        observer.execute("alter table praxis_bulk.praxis_bulk_allocation "
+                + "disable trigger praxis_bulk_allocation_protect_transition");
+        try {
+            observer.update("update praxis_bulk.praxis_bulk_allocation set state='PENDING' "
+                    + "where proposal_id=?", reservation.proposalId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_allocation "
+                    + "enable trigger praxis_bulk_allocation_protect_transition");
+        }
+        assertThatThrownBy(() -> kernel.inspectConsistent(CONTEXT, reservation.executionId()))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.CORRUPT));
+    }
+
+    @Test
+    void internalConsistentReadValidatesTheTenThousandTargetBoundary() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(tenThousandTargetEvaluation()), "rs3-10k", "owner-a");
+        var read = kernel.inspectConsistent(CONTEXT, reservation.executionId());
+        assertThat(read.kind()).isEqualTo(BulkConsistentExecutionRead.Kind.LIVE);
+        assertThat(read.execution().targetCount()).isEqualTo(10_000);
+        assertThat(read.execution().nextOrdinal()).isZero();
     }
 
     @Test
@@ -1985,6 +2239,31 @@ class BulkDurableExecutionPostgresTest {
 
     private BulkEvaluationSnapshot twoTargetEvaluation() {
         return twoTargetEvaluation(CONTEXT);
+    }
+
+    private BulkEvaluationSnapshot tenThousandTargetEvaluation() {
+        var selected = new ArrayList<BulkTarget<String>>(10_000);
+        var evidence = new ArrayList<BulkTargetEvidence<?>>(10_000);
+        var empty = JSON.objectNode();
+        for (int ordinal = 0; ordinal < 10_000; ordinal++) {
+            var target = new BulkTarget<>("target-" + ordinal, "v1");
+            selected.add(target);
+            evidence.add(new BulkTargetEvidence<>(target, "observed", empty, empty,
+                    BulkTargetEligibility.executable()));
+        }
+        var request = new BulkCommandEvaluationRequest<com.fasterxml.jackson.databind.JsonNode, String,
+                com.fasterxml.jackson.databind.JsonNode>(BulkExecutionMode.SYNC,
+                        new BulkSelection<>(BulkSelectionMode.EXPLICIT, selected, null, null), empty);
+        Instant created = Instant.now().minusSeconds(5);
+        var snapshot = BulkIntentSnapshot.command(CONTEXT, BulkIdentityCodecs.strings(), request,
+                com.fasterxml.jackson.databind.JsonNode::deepCopy,
+                com.fasterxml.jackson.databind.JsonNode::deepCopy);
+        var proposal = new BulkStoredProposal(UUID.randomUUID(), created, created.plusSeconds(600), snapshot,
+                BulkSnapshotStorageCodecTest.CONTROL_EXPECTATION);
+        var governance = new BulkEvaluationGovernance("test-evaluator-r1", "test-grants-r1", List.of(
+                new BulkPolicyObservation("tenant", "test", "approval_policy", "resource-action-approval",
+                        "resource:approve", "NEVER_APPLIED", "test-policy-r1", created.plusMillis(500))));
+        return new BulkEvaluationSnapshot(proposal, created.plusSeconds(1), evidence, governance);
     }
 
     private BulkEvaluationSnapshot twoTargetEvaluation(BulkFingerprintContext context) {

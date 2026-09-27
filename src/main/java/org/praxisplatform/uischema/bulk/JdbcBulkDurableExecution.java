@@ -129,6 +129,82 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
+    /** Internal RS3 foundation; the host must authorize before any future public projection. */
+    BulkConsistentExecutionRead inspectConsistent(BulkFingerprintContext scope, UUID executionId) {
+        requireNoAmbientTransaction();
+        requireScope(scope);
+        Objects.requireNonNull(executionId, "executionId");
+        try {
+            return infrastructure.withConsistentRead(connection -> inspectConsistent(connection, scope, executionId));
+        } catch (BulkDurableExecutionException error) {
+            throw error;
+        } catch (RuntimeException error) {
+            throw failure(BulkDurableExecutionException.Reason.UNAVAILABLE);
+        }
+    }
+
+    private BulkConsistentExecutionRead inspectConsistent(Connection connection, BulkFingerprintContext scope,
+            UUID executionId) throws SQLException {
+        Optional<BulkExecutionSnapshot> scoped = findScoped(connection, scope, executionId, false);
+        String tombstone = scopedTombstone(connection, scope, executionId);
+        if (scoped.isEmpty()) return tombstone == null
+                ? BulkConsistentExecutionRead.absent() : BulkConsistentExecutionRead.tombstone(tombstone);
+        if (tombstone != null) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        ExecutionRow execution = row(connection, executionId, false);
+        if (!execution.proposalId().equals(scoped.orElseThrow().proposalId())
+                || !scope.namespaceId().equals(execution.namespaceId())
+                || !scope.subjectId().equals(execution.subjectId())
+                || !scope.resourceKey().equals(execution.resourceKey())
+                || !scope.operationRef().operationId().equals(execution.operationId()))
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        Evaluation evaluation = loadEvaluation(connection, execution, false);
+        if (evaluation.snapshot().targets().size() != execution.targetCount())
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        try {
+            validateExecutionSubset(evaluation);
+            BulkOrdinalManifest.validateOne(connection, evaluation.snapshot());
+        } catch (RuntimeException invalid) {
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        }
+        List<Receipt> receipts = receipts(connection, executionId);
+        List<AdmissionRecord> admissions = admissions(connection, executionId);
+        if (receipts.size() != execution.receiptCount()
+                || admissions.size() != execution.admissionCount()
+                || !readEvidenceConsistent(receipts, admissions, execution, evaluation))
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        validateReadState(execution, evaluation, receipts, admissions);
+        validateReadAllocations(connection, scope, execution);
+        Instant[] times = readExecutionTimes(connection, executionId);
+        int confirmed = 0, unchanged = 0, denied = 0, invalid = 0, conflict = 0;
+        boolean reconciling = execution.status() == BulkDurableExecutionStatus.RECONCILIATION_REQUIRED;
+        int certifiedReceipts = 0, certifiedAdmissions = 0;
+        for (Receipt receipt : receipts) {
+            if (reconciling && receipt.ordinal() >= execution.nextOrdinal()) continue;
+            certifiedReceipts++;
+            if (receipt.outcome() == BulkUnitOutcome.CONFIRMED) confirmed++;
+            else unchanged++;
+        }
+        for (AdmissionRecord admission : admissions) {
+            if (reconciling && admission.ordinal() >= execution.nextOrdinal()) continue;
+            certifiedAdmissions++;
+            switch (admission.status()) {
+                case DENIED -> denied++;
+                case INVALID -> invalid++;
+                case CONFLICT -> conflict++;
+                default -> throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+        }
+        BulkExecutionSnapshot certified = new BulkExecutionSnapshot(execution.executionId(),
+                execution.proposalId(), execution.status(), execution.nextOrdinal(), execution.targetCount(),
+                certifiedReceipts, certifiedAdmissions, execution.deadlineAt(),
+                new BulkExecutionControl(execution.executionId(), execution.ownerId(), execution.ownerEpoch()),
+                execution.terminalReasonCode(), execution.cancelRequestedAt());
+        return new BulkConsistentExecutionRead(BulkConsistentExecutionRead.Kind.LIVE,
+                certified, times[0], times[1], times[2],
+                confirmed, unchanged, denied, invalid, conflict,
+                reconciling ? execution.targetCount() - execution.nextOrdinal() : 0, null);
+    }
+
     /**
      * Admits one durable, idempotent cancellation request after host authorization.
      * It never invokes a domain callback or treats a lock timeout as evidence of rollback.
@@ -1044,6 +1120,151 @@ public final class JdbcBulkDurableExecution {
                 ExecutionRow value = row(rows);
                 if (rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
                 return Optional.of(snapshot(value));
+            }
+        }
+    }
+
+    private String scopedTombstone(Connection connection, BulkFingerprintContext scope,
+            UUID executionId) throws SQLException {
+        String digest = BulkScopeDigests.authorizationScopeDigest(scope.namespaceId(), scope.subjectId(),
+                scope.resourceKey(), scope.operationRef().operationId());
+        try (var statement = connection.prepareStatement("""
+                select terminal_status from praxis_bulk.praxis_bulk_tombstone
+                where execution_id=? and namespace_id=?
+                  and authorization_scope_digest_version=? and authorization_scope_digest=?
+                  and resource_key=? and operation_id=?
+                """)) {
+            statement.setObject(1, executionId);
+            statement.setString(2, scope.namespaceId());
+            statement.setInt(3, BulkScopeDigests.VERSION);
+            statement.setString(4, digest);
+            statement.setString(5, scope.resourceKey());
+            statement.setString(6, scope.operationRef().operationId());
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) return null;
+                String terminal = rows.getString(1);
+                if (!List.of("COMPLETED", "COMPLETED_WITH_ERRORS", "STOPPED", "CANCELLED").contains(terminal)
+                        || rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                return terminal;
+            }
+        }
+    }
+
+    private static void validateReadState(ExecutionRow execution, Evaluation evaluation,
+            List<Receipt> receipts, List<AdmissionRecord> admissions) {
+        boolean active = execution.status() == BulkDurableExecutionStatus.UNIT_IN_FLIGHT
+                || execution.status() == BulkDurableExecutionStatus.UNIT_COMMITTED_PENDING_ACK;
+        if (active) {
+            if (execution.activeAttemptId() == null || execution.activeAttemptOrdinal() == null
+                    || execution.activeAttemptOrdinal() != execution.nextOrdinal()
+                    || execution.nextOrdinal() < 0
+                    || execution.nextOrdinal() >= evaluation.snapshot().targets().size()
+                    || execution.activeUnitDeadline() == null
+                    || execution.activeUnitDeadline().isAfter(execution.deadlineAt()))
+                throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            var evidence = evaluation.snapshot().targets().get(execution.nextOrdinal());
+            if (!targetDigest(evaluation, execution.nextOrdinal(), evidence)
+                    .equals(execution.activeTargetDigest()))
+                throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        } else if (execution.status() != BulkDurableExecutionStatus.RECONCILIATION_REQUIRED
+                && execution.activeAttemptId() != null) {
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        }
+        if (execution.status() == BulkDurableExecutionStatus.STOPPED
+                && (execution.nextOrdinal() >= execution.targetCount()
+                    || execution.terminalReasonCode() == null))
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        if (execution.status() == BulkDurableExecutionStatus.COMPLETED && !admissions.isEmpty())
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        if (execution.status() == BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS && admissions.isEmpty())
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        if (receipts.size() + admissions.size() > execution.targetCount())
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+    }
+
+    /** Reconciliation may retain a structurally valid but unacknowledged suffix. */
+    private static boolean readEvidenceConsistent(List<Receipt> receipts, List<AdmissionRecord> admissions,
+            ExecutionRow execution, Evaluation evaluation) {
+        if (execution.status() != BulkDurableExecutionStatus.RECONCILIATION_REQUIRED)
+            return durablePrefixConsistent(receipts, admissions, execution, evaluation);
+        if (receipts.size() + admissions.size() > execution.targetCount()) return false;
+        var byOrdinal = new java.util.HashMap<Integer, Object>();
+        for (Receipt receipt : receipts) {
+            if (!validReceipt(execution, evaluation, receipt)
+                    || byOrdinal.putIfAbsent(receipt.ordinal(), receipt) != null) return false;
+        }
+        for (AdmissionRecord admission : admissions) {
+            if (!validAdmission(execution, evaluation, admission)
+                    || byOrdinal.putIfAbsent(admission.ordinal(), admission) != null) return false;
+        }
+        for (int ordinal = 0; ordinal < execution.nextOrdinal(); ordinal++) {
+            Object certified = byOrdinal.get(ordinal);
+            if (certified instanceof Receipt receipt) {
+                if (!receiptReplayable(execution, receipt)) return false;
+            } else if (certified instanceof AdmissionRecord admission) {
+                if (!admissionReplayable(execution, admission)) return false;
+            } else return false;
+        }
+        return true;
+    }
+
+    private void validateReadAllocations(Connection connection, BulkFingerprintContext scope,
+            ExecutionRow execution) throws SQLException {
+        String subjectDigest = BulkScopeDigests.subjectQuotaDigest(infrastructure.deploymentId(), scope.subjectId());
+        String authorizationDigest = BulkScopeDigests.authorizationScopeDigest(scope.namespaceId(),
+                scope.subjectId(), scope.resourceKey(), scope.operationRef().operationId());
+        boolean proposal = false, active = false;
+        try (var statement = connection.prepareStatement("""
+                select kind, state, namespace_id, deployment_id,
+                       subject_scope_digest_version, subject_scope_digest,
+                       authorization_scope_digest_version, authorization_scope_digest,
+                       proposal_id, execution_id
+                from praxis_bulk.praxis_bulk_allocation
+                where proposal_id=? or execution_id=?
+                """)) {
+            statement.setObject(1, execution.proposalId());
+            statement.setObject(2, execution.executionId());
+            try (ResultSet rows = statement.executeQuery()) {
+                int count = 0;
+                while (rows.next()) {
+                    count++;
+                    if (count > 2 || !scope.namespaceId().equals(rows.getString(3))
+                            || !infrastructure.deploymentId().equals(rows.getString(4))
+                            || rows.getInt(5) != BulkScopeDigests.VERSION
+                            || !subjectDigest.equals(rows.getString(6))
+                            || rows.getInt(7) != BulkScopeDigests.VERSION
+                            || !authorizationDigest.equals(rows.getString(8)))
+                        throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                    if ("PROPOSAL_PENDING".equals(rows.getString(1))
+                            && "CONSUMED".equals(rows.getString(2))
+                            && execution.proposalId().equals(rows.getObject(9, UUID.class))
+                            && rows.getObject(10, UUID.class) == null) proposal = true;
+                    else if ("EXECUTION_ACTIVE".equals(rows.getString(1))
+                            && execution.executionId().equals(rows.getObject(10, UUID.class))
+                            && rows.getObject(9, UUID.class) == null
+                            && (terminal(execution.status()) == "RELEASED".equals(rows.getString(2)))) active = true;
+                    else throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                }
+                if (count != 2 || !proposal || !active)
+                    throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+        }
+    }
+
+    private static Instant[] readExecutionTimes(Connection connection, UUID executionId) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select created_at, updated_at, terminal_at from praxis_bulk.praxis_bulk_execution
+                where execution_id=?
+                """)) {
+            statement.setObject(1, executionId);
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                Instant created = rows.getObject(1, OffsetDateTime.class).toInstant();
+                Instant updated = rows.getObject(2, OffsetDateTime.class).toInstant();
+                OffsetDateTime terminal = rows.getObject(3, OffsetDateTime.class);
+                if (rows.next() || updated.isBefore(created))
+                    throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                return new Instant[]{created, updated, terminal == null ? null : terminal.toInstant()};
             }
         }
     }
