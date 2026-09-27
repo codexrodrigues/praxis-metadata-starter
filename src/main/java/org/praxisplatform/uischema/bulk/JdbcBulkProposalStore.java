@@ -60,37 +60,43 @@ public final class JdbcBulkProposalStore {
     public Optional<BulkStoredProposal> find(BulkFingerprintContext scope, UUID id) {
         Objects.requireNonNull(id, "id"); requireNamespace(scope);
         try {
-            return infrastructure.withConnection(connection -> {
-                try (var statement = connection.prepareStatement("""
-                        select created_at, expires_at, fingerprint, payload,
-                               control_generation, control_descriptor_fingerprint, control_structural_revision
-                        from praxis_bulk.praxis_bulk_proposal
-                        where proposal_id=? and namespace_id=? and subject_id=? and resource_key=? and operation_id=?
-                        """)) {
-                    statement.setObject(1, id); statement.setString(2, scope.namespaceId());
-                    statement.setString(3, scope.subjectId()); statement.setString(4, scope.resourceKey());
-                    statement.setString(5, scope.operationRef().operationId());
-                    try (var rows = statement.executeQuery()) {
-                        if (!rows.next()) return Optional.empty();
-                        try {
-                            var snapshot = BulkSnapshotStorageCodec.decode(rows.getBytes(4), rows.getString(3));
-                            var stored = snapshot.context();
-                            if (!stored.namespaceId().equals(scope.namespaceId()) || !stored.subjectId().equals(scope.subjectId())
-                                    || !stored.resourceKey().equals(scope.resourceKey())
-                                    || !stored.operationRef().operationId().equals(scope.operationRef().operationId())) {
-                                throw new IllegalArgumentException("Protected scope mismatch");
-                            }
-                            return Optional.of(new BulkStoredProposal(id,
-                                    rows.getObject(1, OffsetDateTime.class).toInstant(),
-                                    rows.getObject(2, OffsetDateTime.class).toInstant(), snapshot,
-                                    expectation(rows.getObject(5, Long.class), rows.getString(6), rows.getString(7))));
-                        } catch (RuntimeException error) {
-                            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
-                        }
-                    }
-                }
-            });
+            return infrastructure.withConnection(connection -> readProposal(connection, scope, id));
         } catch (DataAccessException error) { throw safe(error); }
+    }
+
+    /** Shared protected decoder; callers choose their own transaction/isolation boundary. */
+    static Optional<BulkStoredProposal> readProposal(Connection connection,
+            BulkFingerprintContext scope, UUID id) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select created_at, expires_at, fingerprint, payload,
+                       control_generation, control_descriptor_fingerprint, control_structural_revision
+                from praxis_bulk.praxis_bulk_proposal
+                where proposal_id=? and namespace_id=? and subject_id=? and resource_key=? and operation_id=?
+                """)) {
+            statement.setObject(1, id); statement.setString(2, scope.namespaceId());
+            statement.setString(3, scope.subjectId()); statement.setString(4, scope.resourceKey());
+            statement.setString(5, scope.operationRef().operationId());
+            try (var rows = statement.executeQuery()) {
+                if (!rows.next()) return Optional.empty();
+                try {
+                    var snapshot = BulkSnapshotStorageCodec.decode(rows.getBytes(4), rows.getString(3));
+                    var stored = snapshot.context();
+                    if (!stored.namespaceId().equals(scope.namespaceId()) || !stored.subjectId().equals(scope.subjectId())
+                            || !stored.resourceKey().equals(scope.resourceKey())
+                            || !stored.operationRef().operationId().equals(scope.operationRef().operationId())) {
+                        throw new IllegalArgumentException("Protected scope mismatch");
+                    }
+                    var result = new BulkStoredProposal(id,
+                            rows.getObject(1, OffsetDateTime.class).toInstant(),
+                            rows.getObject(2, OffsetDateTime.class).toInstant(), snapshot,
+                            expectation(rows.getObject(5, Long.class), rows.getString(6), rows.getString(7)));
+                    if (rows.next()) throw new IllegalArgumentException("Duplicate protected proposal");
+                    return Optional.of(result);
+                } catch (RuntimeException error) {
+                    throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
+                }
+            }
+        }
     }
 
     private static void requireControlExpectation(BulkStoredProposal proposal) {
@@ -121,29 +127,33 @@ public final class JdbcBulkProposalStore {
         if (proposal.isEmpty()) return Optional.empty();
         BulkStoredProposal input = proposal.orElseThrow();
         try {
-            return infrastructure.withConnection(connection -> {
-                try (var statement = connection.prepareStatement("""
-                        select input_fingerprint, evaluation_fingerprint, payload
-                        from praxis_bulk.praxis_bulk_evaluation
-                        where proposal_id=?
-                        """)) {
-                    statement.setObject(1, input.id());
-                    try (var rows = statement.executeQuery()) {
-                        if (!rows.next()) return Optional.empty();
-                        try {
-                            if (!input.snapshot().fingerprint().equals(rows.getString(1))) {
-                                throw new IllegalArgumentException("Protected evaluation input binding mismatch");
-                            }
-                            var evaluation = BulkEvaluationStorageCodec.decode(input, rows.getBytes(3), rows.getString(2));
-                            if (rows.next()) throw new IllegalArgumentException("Duplicate protected evaluation evidence");
-                            return Optional.of(evaluation);
-                        } catch (RuntimeException error) {
-                            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
-                        }
-                    }
-                }
-            });
+            return infrastructure.withConnection(connection -> readEvaluation(connection, input));
         } catch (DataAccessException error) { throw safe(error); }
+    }
+
+    /** Shared protected decoder; never establishes authorization or current eligibility. */
+    static Optional<BulkEvaluationSnapshot> readEvaluation(Connection connection,
+            BulkStoredProposal input) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select input_fingerprint, evaluation_fingerprint, payload
+                from praxis_bulk.praxis_bulk_evaluation
+                where proposal_id=?
+                """)) {
+            statement.setObject(1, input.id());
+            try (var rows = statement.executeQuery()) {
+                if (!rows.next()) return Optional.empty();
+                try {
+                    if (!input.snapshot().fingerprint().equals(rows.getString(1))) {
+                        throw new IllegalArgumentException("Protected evaluation input binding mismatch");
+                    }
+                    var evaluation = BulkEvaluationStorageCodec.decode(input, rows.getBytes(3), rows.getString(2));
+                    if (rows.next()) throw new IllegalArgumentException("Duplicate protected evaluation evidence");
+                    return Optional.of(evaluation);
+                } catch (RuntimeException error) {
+                    throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
+                }
+            }
+        }
     }
 
     private static void insertProposal(Connection connection, BulkStoredProposal proposal) throws SQLException {
