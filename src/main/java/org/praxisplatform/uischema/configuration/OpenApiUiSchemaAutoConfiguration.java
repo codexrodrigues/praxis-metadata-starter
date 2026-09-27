@@ -443,9 +443,11 @@ public class OpenApiUiSchemaAutoConfiguration {
     public OpenApiDocumentService openApiDocumentService(
             RestTemplate restTemplate,
             ObjectMapper objectMapper,
-            OpenApiDocsSupport openApiDocsSupport
+            OpenApiDocsSupport openApiDocsSupport,
+            @Value("${springdoc.cache.disabled:false}") boolean springdocCacheDisabled
     ) {
-        return new CachedOpenApiDocumentService(restTemplate, objectMapper, openApiDocsSupport);
+        return new CachedOpenApiDocumentService(restTemplate, objectMapper, openApiDocsSupport,
+                springdocCacheDisabled);
     }
 
     /**

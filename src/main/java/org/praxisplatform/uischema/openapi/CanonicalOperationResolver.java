@@ -6,6 +6,7 @@ import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 
 import java.util.Optional;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Resolve a identidade canonica de operacoes OpenAPI documentadas.
@@ -98,6 +99,22 @@ public interface CanonicalOperationResolver {
     default List<CanonicalOperationRef> requireResourceOperations(String resourceKey,
             List<CanonicalOperationRef> operations, CanonicalOpenApiGroupSnapshot snapshot) {
         throw new UnsupportedOperationException("Batch strict operation binding is not implemented by this resolver");
+    }
+
+    /**
+     * Refreshes every published OpenAPI group, plus required groups, into the document service
+     * cache before a governed descriptor is composed. Resolvers that cannot enumerate and
+     * refresh the full collision domain fail closed.
+     */
+    default List<String> refreshPublishedOpenApiGroupsStrict(Set<String> requiredGroups) {
+        throw new UnsupportedOperationException(
+                "This resolver cannot refresh the complete published OpenAPI collision domain");
+    }
+
+    /** Returns the canonical exact group set required for an isolated lifecycle snapshot. */
+    default List<String> publishedOpenApiGroups(Set<String> requiredGroups) {
+        throw new UnsupportedOperationException(
+                "This resolver cannot enumerate the complete published OpenAPI collision domain");
     }
 
     /**

@@ -76,6 +76,10 @@ final class BulkCanonicalJson {
         return digest("praxis.bulk.structural-descriptor/1", node, STRUCTURAL_MAX_DEPTH);
     }
 
+    static String operationalDescriptorDigest(JsonNode node) {
+        return digest("praxis.bulk.operational-descriptor/1", node, STRUCTURAL_MAX_DEPTH);
+    }
+
     private static String digest(String framing, JsonNode node) {
         return digest(framing, node, 32);
     }

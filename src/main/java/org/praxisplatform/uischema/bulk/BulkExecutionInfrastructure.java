@@ -86,6 +86,40 @@ public final class BulkExecutionInfrastructure {
         });
     }
 
+    /**
+     * Opens a short runtime-role transaction for read-only lifecycle verification. The method
+     * suspends any caller transaction and is intentionally separate from proposal/mutation work.
+     */
+    <T> T withLifecycleRead(ConnectionCallback<T> work) {
+        Objects.requireNonNull(work, "work");
+        validateBinding();
+        TransactionTemplate independent = new TransactionTemplate(transactionManager);
+        independent.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        independent.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        independent.setTimeout(2);
+        return independent.execute(status -> {
+            if (!TransactionSynchronizationManager.isActualTransactionActive()
+                    || !TransactionSynchronizationManager.isSynchronizationActive()
+                    || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+                throw new IllegalStateException("An independent writable lifecycle verification transaction is required");
+            }
+            if (!(TransactionSynchronizationManager.getResource(dataSource) instanceof ConnectionHolder)) {
+                throw new IllegalStateException("Runtime JDBC connection is not exposed by its transaction manager");
+            }
+            return jdbc.execute((ConnectionCallback<T>) connection -> {
+                if (connection.getAutoCommit() || connection.isReadOnly()
+                        || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource)) {
+                    throw new IllegalStateException("Lifecycle verification must use the runtime transaction connection");
+                }
+                try (var statement = connection.createStatement()) {
+                    statement.execute("select set_config('lock_timeout', '1s', true), set_config('statement_timeout', '2s', true)");
+                }
+                verifyDurableNamespaceBinding(connection);
+                return work.doInConnection(connection);
+            });
+        });
+    }
+
     private void verifyDurableNamespaceBinding(java.sql.Connection connection) throws java.sql.SQLException {
         try (var statement = connection.prepareStatement("""
                 select deployment_id from praxis_bulk.praxis_bulk_namespace_binding where namespace_id = ?

@@ -20,5 +20,12 @@ public interface BulkIdentityCodec<WI, ID> {
 
     Schema<?> wireSchema();
 
+    /**
+     * Exact JSON Schema node used by durable operational composition. The tree must describe the
+     * same wire values as {@link #wireSchema()} and must contain only JSON values. It is compared
+     * to the identity node resolved from the canonical evaluation request before publication.
+     */
+    JsonNode canonicalWireSchema();
+
     String codecId();
 }

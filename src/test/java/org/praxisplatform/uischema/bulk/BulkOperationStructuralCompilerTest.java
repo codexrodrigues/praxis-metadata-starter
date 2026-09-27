@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.bulk;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.swagger.v3.oas.annotations.Operation;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.action.ActionCollectionAtomicity;
@@ -36,8 +37,17 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.util.List;
+import java.time.Duration;
+import java.util.EnumSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import org.h2.jdbcx.JdbcDataSource;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.TransactionSystemException;
+import org.springframework.transaction.support.DefaultTransactionStatus;
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -56,7 +66,7 @@ class BulkOperationStructuralCompilerTest {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
             var documents = new TestDocuments(document(true));
-            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("inventory"));
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
                     registry(actionDefinition()), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
 
@@ -86,6 +96,401 @@ class BulkOperationStructuralCompilerTest {
                     .requestSchema().orElseThrow().schema().has("type"));
             assertNotSame(returnedSchema, descriptor.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION)
                     .requestSchema().orElseThrow().schema());
+        }
+    }
+
+    @Test
+    void operationalDescriptorIsDeterministicAndSensitiveToProviderCodecProfileAndDeployment() {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
+            var structural = new BulkOperationStructuralCompiler(bindings, resolver, documents,
+                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    new FilteredSchemaReferenceResolver()).compileAll().getFirst();
+            var first = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
+            var repeated = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
+
+            assertEquals(first.structuralRevision(), repeated.structuralRevision());
+            assertEquals(first.descriptorFingerprint(), repeated.descriptorFingerprint());
+            assertEquals(first.identity(), repeated.identity());
+            assertEquals(1, first.expectation(1).generation());
+            assertEquals(first.descriptorFingerprint(), first.expectation(2).descriptorFingerprint());
+            assertFalse(first.descriptorFingerprint().equals(BulkOperationalDescriptorComposer.compose(
+                    structural, provider("provider.r2", "deployment-a")).descriptorFingerprint()));
+            assertFalse(first.descriptorFingerprint().equals(BulkOperationalDescriptorComposer.compose(
+                    structural, provider("provider.r1", "deployment-b")).descriptorFingerprint()));
+            assertFalse(first.descriptorFingerprint().equals(BulkOperationalDescriptorComposer.compose(
+                    structural, provider("provider.r1", "deployment-a", 199)).descriptorFingerprint()));
+            assertFalse(first.descriptorFingerprint().equals(BulkOperationalDescriptorComposer.compose(
+                    structural, providerWithCodec("deployment-a", alternateLongCodec())).descriptorFingerprint()));
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(
+                    structural, providerWithCodec("deployment-a", BulkIdentityCodecs.integers())));
+            assertEquals("sha256:74404c34f0516d6d6f80cca40a37bd0287bdc5a04fe4f570e073ed0e55869d80",
+                    first.descriptorFingerprint(), "operational framing is a versioned digest contract");
+        }
+    }
+
+    @Test
+    void operationalCompositionRejectsProviderForDifferentConfirmationIdentity() {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
+            var structural = new BulkOperationStructuralCompiler(bindings,
+                    new OpenApiCanonicalOperationResolver(documents, mvc, bindings), documents,
+                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    new FilteredSchemaReferenceResolver()).compileAll().getFirst();
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(
+                    structural, provider("provider.r1", "deployment-a", "another.confirmation")));
+        }
+    }
+
+    @Test
+    void operationalCompositionRejectsAtomicityWithoutAnAtomicRuntimeProof() {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
+            var structural = new BulkOperationStructuralCompiler(bindings,
+                    new OpenApiCanonicalOperationResolver(documents, mvc, bindings), documents,
+                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    new FilteredSchemaReferenceResolver()).compileAll().getFirst();
+            var atomic = new BulkOperationStructuralDescriptor(structural.resourceKey(), structural.openApiGroup(),
+                    structural.mode(), ActionCollectionAtomicity.ATOMIC, structural.action(), structural.operations());
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(
+                    atomic, provider("provider.r1", "deployment-a")));
+        }
+    }
+
+    @Test
+    void operationalCompositionReadsEachHostContributionExactlyOnce() {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
+            var structural = new BulkOperationStructuralCompiler(bindings,
+                    new OpenApiCanonicalOperationResolver(documents, mvc, bindings), documents,
+                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    new FilteredSchemaReferenceResolver()).compileAll().getFirst();
+            var provider = provider("provider.r1", "deployment-a");
+            BulkOperationalDescriptorComposer.compose(structural, provider);
+            assertEquals(1, provider.profileReads.get());
+            assertEquals(1, provider.providerIdReads.get());
+            assertEquals(1, provider.providerRevisionReads.get());
+            assertEquals(1, provider.codecReads.get());
+            assertEquals(1, provider.infrastructureReads.get());
+        }
+    }
+
+    @Test
+    void p1OperationalProfileRejectsUnprovedModeLimitsAndPrecision() {
+        assertThrows(IllegalArgumentException.class, () -> new BulkOperationalProfile(
+                EnumSet.of(BulkMode.DOMAIN_COMMAND), EnumSet.of(BulkExecutionMode.ASYNC),
+                EnumSet.of(BulkSelectionMode.EXPLICIT), 200, 1024, Duration.ofMinutes(5), Duration.ofSeconds(5)));
+        assertThrows(IllegalArgumentException.class, () -> new BulkOperationalProfile(
+                EnumSet.of(BulkMode.DOMAIN_COMMAND), EnumSet.of(BulkExecutionMode.SYNC),
+                EnumSet.of(BulkSelectionMode.QUERY), 200, 1024, Duration.ofMinutes(5), Duration.ofSeconds(5)));
+        assertThrows(IllegalArgumentException.class, () -> new BulkOperationalProfile(
+                EnumSet.of(BulkMode.DOMAIN_COMMAND), EnumSet.of(BulkExecutionMode.SYNC),
+                EnumSet.of(BulkSelectionMode.EXPLICIT), 201, 1024, Duration.ofMinutes(5), Duration.ofSeconds(5)));
+        assertThrows(IllegalArgumentException.class, () -> new BulkOperationalProfile(
+                EnumSet.of(BulkMode.DOMAIN_COMMAND), EnumSet.of(BulkExecutionMode.SYNC),
+                EnumSet.of(BulkSelectionMode.EXPLICIT), 200, 1024, Duration.ofMinutes(16), Duration.ofSeconds(5)));
+        assertThrows(IllegalArgumentException.class, () -> new BulkOperationalProfile(
+                EnumSet.of(BulkMode.DOMAIN_COMMAND), EnumSet.of(BulkExecutionMode.SYNC),
+                EnumSet.of(BulkSelectionMode.EXPLICIT), 200, 1024, Duration.ofMinutes(5), Duration.ofMillis(5001)));
+        assertThrows(IllegalArgumentException.class, () -> new BulkOperationalProfile(
+                EnumSet.of(BulkMode.DOMAIN_COMMAND), EnumSet.of(BulkExecutionMode.SYNC),
+                EnumSet.of(BulkSelectionMode.EXPLICIT), 200, 1024, Duration.ofNanos(1), Duration.ofSeconds(1)));
+    }
+
+    @Test
+    void lifecyclePublishesOnlyFreshCompositionAndSuspendsBeforeInvalidatingCaches() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start(); var context = context()) {
+            var admin = postgres.getPostgresDatabase();
+            var operation = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
+            BulkExecutionMigrator.migrateWithOperations(admin, java.util.Map.of("test-namespace", "deployment-a"),
+                    List.of(operation));
+            var controlDs = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", "");
+            var runtime = new BulkExecutionInfrastructure(admin, new DataSourceTransactionManager(admin),
+                    "test-namespace", "deployment-a");
+            var uncertainCommitManager = new CommitThenFailOnceTransactionManager(controlDs);
+            var control = new BulkControlPlaneInfrastructure(controlDs,
+                    uncertainCommitManager, "test-namespace", "deployment-a", "postgres", runtime);
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
+            var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
+            var lifecycle = new BulkOperationLifecycle(bindings, resolver, documents, registry(actionDefinition()),
+                    new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver(), runtime, control,
+                    List.of(provider));
+
+            assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(operation));
+            var ready = lifecycle.publish(operation, 0);
+            assertEquals(1, ready.generation());
+            assertEquals(2, documents.freshReads(), "initial readiness and publication each compose a fresh snapshot");
+            assertEquals(ready, lifecycle.requireReady(operation));
+
+            uncertainCommitManager.failNextCommitAcknowledgement();
+            assertEquals(2, lifecycle.suspend(operation, 1));
+            assertEquals(1, documents.cacheClears());
+            assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(operation));
+            assertThrows(IllegalStateException.class, () -> lifecycle.publish(operation, 1));
+            var republished = lifecycle.publish(operation, 2);
+            assertEquals(3, republished.generation());
+            assertEquals(5, documents.freshReads(), "readiness revalidates its source after each state transition");
+            assertEquals(republished, lifecycle.requireReady(operation));
+            assertEquals("READY", new JdbcTemplate(admin).queryForObject(
+                    "select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?",
+                    String.class, operation.namespaceId(), operation.confirmationOperationId()));
+            assertEquals(3L, new JdbcTemplate(admin).queryForObject(
+                    "select generation from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?",
+                    Long.class, operation.namespaceId(), operation.confirmationOperationId()));
+            documents.clearCaches();
+            assertEquals(4L, new JdbcTemplate(admin).queryForObject(
+                    "select generation from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?",
+                    Long.class, operation.namespaceId(), operation.confirmationOperationId()),
+                    "a direct public cache clear must durably suspend before clearing");
+            assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(operation));
+        }
+    }
+
+    private static final class CommitThenFailOnceTransactionManager extends DataSourceTransactionManager {
+        private boolean failNextCommit = true;
+
+        private CommitThenFailOnceTransactionManager(javax.sql.DataSource dataSource) { super(dataSource); }
+
+        private void failNextCommitAcknowledgement() { failNextCommit = true; }
+
+        @Override
+        protected void doCommit(DefaultTransactionStatus status) {
+            super.doCommit(status);
+            if (failNextCommit) {
+                failNextCommit = false;
+                throw new TransactionSystemException("Injected lost commit acknowledgement after PostgreSQL commit");
+            }
+        }
+    }
+
+    @Test
+    void lifecycleFailsClosedWhenAnyValidatedConfirmationHasNoExactProvider() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start(); var context = context()) {
+            var admin = postgres.getPostgresDatabase();
+            var operation = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
+            BulkExecutionMigrator.migrateWithOperations(admin, java.util.Map.of("test-namespace", "deployment-a"),
+                    List.of(operation));
+            var controlDs = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", "");
+            var runtime = new BulkExecutionInfrastructure(admin, new DataSourceTransactionManager(admin),
+                    "test-namespace", "deployment-a");
+            var control = new BulkControlPlaneInfrastructure(controlDs,
+                    new DataSourceTransactionManager(controlDs), "test-namespace", "deployment-a", "postgres", runtime);
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
+            var lifecycle = new BulkOperationLifecycle(bindings,
+                    new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("inventory")), documents,
+                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    new FilteredSchemaReferenceResolver(), runtime, control, List.of());
+
+            assertThrows(IllegalStateException.class, () -> lifecycle.publish(operation, 0));
+            assertEquals("UNCOMPOSED", new JdbcTemplate(admin).queryForObject(
+                    "select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?",
+                    String.class, operation.namespaceId(), operation.confirmationOperationId()));
+            assertEquals(0L, new JdbcTemplate(admin).queryForObject(
+                    "select generation from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?",
+                    Long.class, operation.namespaceId(), operation.confirmationOperationId()));
+        }
+    }
+
+    @Test
+    void publicationRefreshesEveryPublishedOpenApiGroupBeforeCheckingGlobalCollisions() throws Exception {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()),
+                    new ObjectMapper().createObjectNode().putObject("paths"),
+                    operationalDocument(BulkIdentityCodecs.longs()), collisionDocument());
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings,
+                    List.of("inventory", "other"));
+            assertEquals(List.of("inventory", "other"),
+                    resolver.refreshPublishedOpenApiGroupsStrict(java.util.Set.of("inventory")));
+            assertEquals(2, documents.freshReads(), "both the target and non-target collision domain are refreshed");
+            var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
+                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    new FilteredSchemaReferenceResolver());
+            assertThrows(IllegalStateException.class, compiler::compileAll,
+                    "a newly duplicated operationId outside the target group must prevent composition");
+        }
+    }
+
+    @Test
+    void secondNodeCannotRepublishItsStaleOpenApiCacheAfterAnotherNodeSuspends() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start(); var context = context()) {
+            var admin = postgres.getPostgresDatabase();
+            var operation = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
+            BulkExecutionMigrator.migrateWithOperations(admin, java.util.Map.of("test-namespace", "deployment-a"),
+                    List.of(operation));
+            var nodeARuntime = new BulkExecutionInfrastructure(admin, new DataSourceTransactionManager(admin),
+                    "test-namespace", "deployment-a");
+            var nodeBRuntime = new BulkExecutionInfrastructure(admin, new DataSourceTransactionManager(admin),
+                    "test-namespace", "deployment-a");
+            var nodeAControlDs = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", "");
+            var nodeBControlDs = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", "");
+            var nodeAControl = new BulkControlPlaneInfrastructure(nodeAControlDs,
+                    new DataSourceTransactionManager(nodeAControlDs), "test-namespace", "deployment-a", "postgres", nodeARuntime);
+            var nodeBControl = new BulkControlPlaneInfrastructure(nodeBControlDs,
+                    new DataSourceTransactionManager(nodeBControlDs), "test-namespace", "deployment-a", "postgres", nodeBRuntime);
+            JsonNode cachedDocument = operationalDocument(BulkIdentityCodecs.longs());
+            JsonNode refreshedDocument = cachedDocument.deepCopy();
+            for (String status : List.of("200", "202")) {
+                ((ObjectNode) refreshedDocument.path("paths").path("/api/items/actions/bulk-approve").path("post")
+                        .path("responses").path(status).path("content").path("application/json")
+                        .path("schema").path("properties").path("accepted")).put("type", "string");
+            }
+            var nodeADocuments = new TestDocuments(cachedDocument);
+            var nodeBDocuments = new TestDocuments(cachedDocument);
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var nodeA = new BulkOperationLifecycle(bindings,
+                    new OpenApiCanonicalOperationResolver(nodeADocuments, mvc, bindings, List.of("inventory")), nodeADocuments,
+                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    new FilteredSchemaReferenceResolver(), nodeARuntime, nodeAControl,
+                    List.of(provider("provider.r1", "deployment-a", 200, ACTION_ID, nodeARuntime)));
+            var nodeB = new BulkOperationLifecycle(bindings,
+                    new OpenApiCanonicalOperationResolver(nodeBDocuments, mvc, bindings, List.of("inventory")), nodeBDocuments,
+                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    new FilteredSchemaReferenceResolver(), nodeBRuntime, nodeBControl,
+                    List.of(provider("provider.r1", "deployment-a", 200, ACTION_ID, nodeBRuntime)));
+
+            var publishedA = nodeA.publish(operation, 0);
+            assertEquals(publishedA, nodeB.requireReady(operation), "node B initially has the same cached composition");
+            assertEquals(2, nodeA.suspend(operation, publishedA.generation()));
+            nodeBDocuments.setRefreshedDocument("inventory", refreshedDocument);
+            assertThrows(IllegalStateException.class, () -> nodeB.requireReady(operation));
+            var publishedB = nodeB.publish(operation, 2);
+
+            assertEquals(3, publishedB.generation());
+            assertTrue(!publishedA.descriptorFingerprint().equals(publishedB.descriptorFingerprint()));
+            assertEquals(3, nodeBDocuments.freshReads(), "initial readiness, suspended readiness, and publication use isolated snapshots");
+            assertEquals(publishedB, nodeB.requireReady(operation));
+        }
+    }
+
+    private static TestProvider provider(String revision, String deployment) {
+        return provider(revision, deployment, 200);
+    }
+
+    private static TestProvider provider(String revision, String deployment, int maxTargets) {
+        return provider(revision, deployment, maxTargets, ACTION_ID);
+    }
+
+    private static TestProvider providerWithCodec(String deployment, BulkIdentityCodec<?, ?> codec) {
+        return new TestProvider("provider.r1", deployment, 200, ACTION_ID, codec);
+    }
+
+    private static BulkIdentityCodec<String, Long> alternateLongCodec() {
+        var delegate = BulkIdentityCodecs.longs();
+        return new BulkIdentityCodec<>() {
+            @Override public String readWire(JsonNode node) { return delegate.readWire(node); }
+            @Override public Long decode(String wire) { return delegate.decode(wire); }
+            @Override public String encode(Long id) { return delegate.encode(id); }
+            @Override public io.swagger.v3.oas.models.media.Schema<?> wireSchema() { return delegate.wireSchema(); }
+            @Override public JsonNode canonicalWireSchema() { return delegate.canonicalWireSchema(); }
+            @Override public String codecId() { return "long-revision-2"; }
+        };
+    }
+
+    private JsonNode operationalDocument(BulkIdentityCodec<?, ?> codec) {
+        var root = document(true).deepCopy();
+        var requestSchema = JsonNodeFactory.instance.objectNode();
+        requestSchema.put("type", "object");
+        var selection = requestSchema.putObject("properties").putObject("selection");
+        selection.put("type", "object");
+        var targets = selection.putObject("properties").putObject("targets");
+        targets.put("type", "array");
+        var item = targets.putObject("items");
+        item.put("type", "object");
+        var identitySchema = codec.canonicalWireSchema().deepCopy();
+        item.putObject("properties").set("id", identitySchema);
+        ((ObjectNode) root.path("paths").path("/api/items/actions/bulk-approve/evaluation").path("post")
+                .path("requestBody").path("content").path("application/json")).set("schema", requestSchema);
+        return root;
+    }
+
+    private JsonNode collisionDocument() {
+        var document = new ObjectMapper().createObjectNode();
+        document.putObject("paths").putObject("/new-collision").putObject("get").put("operationId", ACTION_ID);
+        return document;
+    }
+
+    private static TestProvider provider(String revision, String deployment, String operationId) {
+        return provider("provider.r1", deployment, 200, operationId);
+    }
+
+    private static TestProvider provider(String revision, String deployment, int maxTargets, String operationId) {
+        return new TestProvider(revision, deployment, maxTargets, operationId, BulkIdentityCodecs.longs());
+    }
+
+    private static TestProvider provider(String revision, String deployment, int maxTargets, String operationId,
+            BulkExecutionInfrastructure infrastructure) {
+        return new TestProvider(revision, deployment, maxTargets, operationId, BulkIdentityCodecs.longs(), infrastructure);
+    }
+
+    private static final class TestProvider implements BulkOperationDescriptorProvider {
+        private final String revision;
+        private final String deployment;
+        private final int maxTargets;
+        private final String operationId;
+        private final BulkExecutionInfrastructure infrastructure;
+        private final BulkIdentityCodec<?, ?> codec;
+        private final AtomicInteger profileReads = new AtomicInteger();
+        private final AtomicInteger providerIdReads = new AtomicInteger();
+        private final AtomicInteger providerRevisionReads = new AtomicInteger();
+        private final AtomicInteger codecReads = new AtomicInteger();
+        private final AtomicInteger infrastructureReads = new AtomicInteger();
+
+        private TestProvider(String revision, String deployment, int maxTargets, String operationId,
+                BulkIdentityCodec<?, ?> codec) {
+            this(revision, deployment, maxTargets, operationId, codec, null);
+        }
+
+        private TestProvider(String revision, String deployment, int maxTargets, String operationId,
+                BulkIdentityCodec<?, ?> codec, BulkExecutionInfrastructure configuredInfrastructure) {
+            this.revision = revision;
+            this.deployment = deployment;
+            this.maxTargets = maxTargets;
+            this.operationId = operationId;
+            this.codec = codec;
+            if (configuredInfrastructure == null) {
+                var dataSource = new JdbcDataSource();
+                dataSource.setURL("jdbc:h2:mem:operational-descriptor-" + deployment + ";DB_CLOSE_DELAY=-1");
+                this.infrastructure = new BulkExecutionInfrastructure(dataSource,
+                        new DataSourceTransactionManager(dataSource), "test-namespace", deployment);
+            } else this.infrastructure = configuredInfrastructure;
+        }
+
+        @Override public String confirmationOperationId() { return operationId; }
+        @Override public String providerId() { providerIdReads.incrementAndGet(); return "events.approval"; }
+        @Override public String providerRevision() { providerRevisionReads.incrementAndGet(); return revision; }
+        @Override public BulkIdentityCodec<?, ?> identityCodec() { codecReads.incrementAndGet(); return codec; }
+        @Override public String identitySchemaPointer() {
+            return "/properties/selection/properties/targets/items/properties/id";
+        }
+        @Override public BulkOperationalProfile profile() {
+            profileReads.incrementAndGet();
+            return new BulkOperationalProfile(EnumSet.of(BulkMode.DOMAIN_COMMAND),
+                    EnumSet.of(BulkExecutionMode.SYNC),
+                    EnumSet.of(BulkSelectionMode.EXPLICIT), maxTargets, 1024 * 1024,
+                    Duration.ofMinutes(5), Duration.ofSeconds(5));
+        }
+        @Override public BulkExecutionInfrastructure executionInfrastructure() {
+            infrastructureReads.incrementAndGet(); return infrastructure;
         }
     }
 
@@ -540,25 +945,78 @@ class BulkOperationStructuralCompilerTest {
 
     private static final class TestDocuments implements OpenApiDocumentService {
         private final java.util.Map<String, JsonNode> documents;
+        private final java.util.Map<String, JsonNode> refreshDocuments;
         private final AtomicInteger strictReads = new AtomicInteger();
-        private TestDocuments(JsonNode document) { this(document, null); }
+        private final AtomicInteger freshReads = new AtomicInteger();
+        private final AtomicInteger cacheClears = new AtomicInteger();
+        private volatile Runnable invalidationGuard;
+        private final ThreadLocal<java.util.Map<String, JsonNode>> freshSnapshot = new ThreadLocal<>();
+        private TestDocuments(JsonNode document) { this(document, null, document, null); }
         private TestDocuments(JsonNode primary, JsonNode other) {
+            this(primary, other, primary, other);
+        }
+        private TestDocuments(JsonNode primary, JsonNode other, JsonNode refreshed) {
+            this(primary, other, refreshed, other);
+        }
+        private TestDocuments(JsonNode primary, JsonNode other, JsonNode refreshed, JsonNode refreshedOther) {
             this.documents = new java.util.HashMap<>();
             this.documents.put("inventory", primary.deepCopy());
             if (other != null) this.documents.put("other", other.deepCopy());
+            this.refreshDocuments = new java.util.HashMap<>();
+            this.refreshDocuments.put("inventory", refreshed.deepCopy());
+            if (refreshedOther != null) this.refreshDocuments.put("other", refreshedOther.deepCopy());
         }
         @Override public String resolveGroupFromPath(String path) { return "inventory"; }
         @Override public JsonNode getDocumentForGroup(String groupName) { return getDocumentForGroupStrict(groupName); }
         @Override public JsonNode getDocumentForGroupStrict(String groupName) {
+            var snapshot = freshSnapshot.get();
+            if (snapshot != null) {
+                JsonNode fresh = snapshot.get(groupName);
+                if (fresh == null) throw new IllegalStateException("unexpected fresh group " + groupName);
+                return fresh.deepCopy();
+            }
             strictReads.incrementAndGet();
             JsonNode document = documents.get(groupName);
             if (document == null) throw new IllegalStateException("unexpected group " + groupName);
             return document.deepCopy();
         }
+        @Override public JsonNode refreshDocumentForGroupStrict(String groupName) {
+            var snapshot = freshSnapshot.get();
+            if (snapshot != null) {
+                JsonNode document = snapshot.get(groupName);
+                if (document == null) throw new IllegalStateException("unexpected fresh group " + groupName);
+                return document.deepCopy();
+            }
+            runGuard();
+            freshReads.incrementAndGet();
+            JsonNode document = refreshDocuments.get(groupName);
+            if (document == null) throw new IllegalStateException("unexpected group " + groupName);
+            documents.put(groupName, document.deepCopy());
+            return document.deepCopy();
+        }
         int strictReads() { return strictReads.get(); }
+        int freshReads() { return freshReads.get(); }
+        void setRefreshedDocument(String group, JsonNode document) { refreshDocuments.put(group, document.deepCopy()); }
+        int cacheClears() { return cacheClears.get(); }
         @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) {
             throw new UnsupportedOperationException("schema hash is not part of structural composition");
         }
-        @Override public void clearCaches() { }
+        @Override public void installBulkLifecycleInvalidationGuard(Runnable guard) { invalidationGuard = guard; }
+        @Override public boolean supportsFreshBulkLifecycleComposition() { return true; }
+        @Override public <T> T withBulkLifecycleCompositionLock(Supplier<T> action) { return action.get(); }
+        @Override public <T> T withFreshBulkLifecycleDocuments(java.util.Set<String> groups, Supplier<T> action) {
+            var snapshot = new java.util.HashMap<String, JsonNode>();
+            for (String group : groups) {
+                JsonNode document = refreshDocuments.get(group);
+                if (document == null) throw new IllegalStateException("unexpected fresh group " + group);
+                snapshot.put(group, document.deepCopy());
+                freshReads.incrementAndGet();
+            }
+            freshSnapshot.set(snapshot);
+            try { return action.get(); }
+            finally { freshSnapshot.remove(); }
+        }
+        @Override public void clearCaches() { runGuard(); cacheClears.incrementAndGet(); }
+        private void runGuard() { if (invalidationGuard != null) invalidationGuard.run(); }
     }
 }

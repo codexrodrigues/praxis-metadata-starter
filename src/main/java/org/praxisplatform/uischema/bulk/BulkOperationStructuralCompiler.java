@@ -63,17 +63,23 @@ final class BulkOperationStructuralCompiler {
 
     /** Compile every valid bulk action, failing closed if any declared binding is incomplete. */
     List<BulkOperationStructuralDescriptor> compileAll() {
+        return compileAll(false);
+    }
+
+    List<BulkOperationStructuralDescriptor> compileAll(boolean refreshOpenApi) {
         if (!bindings.diagnostics().isEmpty()) {
             throw invalid("Bulk MVC declarations contain diagnostics: " + String.join("; ", bindings.diagnostics()));
         }
         List<BulkOperationBinding> declared = bindings.bulkOperations();
         if (declared.isEmpty()) return List.of();
+        Map<String, CanonicalOpenApiGroupSnapshot> snapshots = new java.util.HashMap<>();
         List<BulkOperationStructuralDescriptor> result = new ArrayList<>(declared.size());
-        for (BulkOperationBinding binding : declared) result.add(compileBinding(binding));
+        for (BulkOperationBinding binding : declared) result.add(compileBinding(binding, snapshots, refreshOpenApi));
         return List.copyOf(result);
     }
 
-    private BulkOperationStructuralDescriptor compileBinding(BulkOperationBinding binding) {
+    private BulkOperationStructuralDescriptor compileBinding(BulkOperationBinding binding,
+            Map<String, CanonicalOpenApiGroupSnapshot> snapshots, boolean refreshOpenApi) {
         Objects.requireNonNull(binding, "binding");
         if (bindings.bulkOperationFor(binding.confirmationHandler()).orElse(null) != binding) {
             throw invalid("Bulk operation binding was not produced by this validated MVC binding set");
@@ -127,7 +133,9 @@ final class BulkOperationStructuralCompiler {
         if (pending.stream().anyMatch(operation -> !group.equals(operation.reference().group()))) {
             throw invalid("All seven bulk operations must belong to one exact OpenAPI group");
         }
-        CanonicalOpenApiGroupSnapshot snapshot = CanonicalOpenApiGroupSnapshot.capture(documents, group);
+        CanonicalOpenApiGroupSnapshot snapshot = snapshots.computeIfAbsent(group, exactGroup -> refreshOpenApi
+                ? CanonicalOpenApiGroupSnapshot.captureFresh(documents, exactGroup)
+                : CanonicalOpenApiGroupSnapshot.capture(documents, exactGroup));
         List<CanonicalOperationRef> resolved = operationResolver.requireResourceOperations(binding.resourceKey(),
                 pending.stream().map(PendingOperation::reference).toList(), snapshot);
         if (!resolved.equals(pending.stream().map(PendingOperation::reference).toList())) {
