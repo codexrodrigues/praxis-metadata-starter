@@ -236,7 +236,10 @@
 propostas</h1>
 <p>A <a href="BULK-EVALUATION-EVIDENCE.md">evidência de avaliação de
 domínio</a> amplia este armazenamento com vínculo atômico de fatos/plano
-e migração V2, sem conferir elegibilidade.</p>
+e migração V2, sem conferir elegibilidade. A migração V5 acrescenta
+ledger durável de capacidade e retenção; as regras estão em <a
+href="BULK-DURABLE-EXECUTION.md">execução durável</a> e <a
+href="BULK-OPERATION-CONTROL.md">controle de operação</a>.</p>
 <p>O SDK oferece <code>BulkStoredProposal</code> e
 <code>JdbcBulkProposalStore</code> para inserir e recuperar a intenção
 protegida de um lote. O conteúdo inclui contexto confiável, identidade
@@ -250,23 +253,26 @@ reconstituídas. BulkStoredProposal valida os tokens dos alvos com o
 codec canônico antes de admitir o objeto; declarar um codecId conhecido
 em um codec customizado não contorna essa validação. Um codec
 customizado com representação wire realmente compatível permanece
-válido. QUERY exige um manifesto de alvos capturado; ASYNC exige outro
-ciclo operacional. Ambos permanecem fora deste adapter. Persistir uma
-entrada não demonstra avaliação, READY, autorização, reserva de quota,
-confirmação, execução ou idempotência de negócio.</p>
+válido. QUERY exige um manifesto de alvos capturado; ASYNC permanece
+fora deste adapter. Em V5, inserir uma proposta também reserva
+atomicamente a quota pendente; isso não demonstra avaliação elegível,
+autorização, reserva de execução, confirmação ou execução de
+negócio.</p>
 <h2 id="integração-explícita">Integração explícita</h2>
 <div class="sourceCode" id="cb1"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Etapa de implantação, fora de qualquer transação Spring, com credenciais de migração.</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> applied <span class="op">=</span> BulkExecutionMigrator<span class="op">.</span><span class="fu">migrate</span><span class="op">(</span>migrationDataSource<span class="op">);</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Composição do runtime: datasource operacional compartilhado com o domínio.</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> infrastructure <span class="op">=</span> <span class="kw">new</span> <span class="fu">BulkExecutionInfrastructure</span><span class="op">(</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    operationalDataSource<span class="op">,</span> operationalTransactionManager<span class="op">,</span> deploymentNamespace<span class="op">);</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> proposals <span class="op">=</span> <span class="kw">new</span> <span class="fu">JdbcBulkProposalStore</span><span class="op">(</span>infrastructure<span class="op">);</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Dentro da transação de serviço já existente:</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>proposals<span class="op">.</span><span class="fu">insert</span><span class="op">(</span><span class="kw">new</span> <span class="fu">BulkStoredProposal</span><span class="op">(</span>proposalId<span class="op">,</span> createdAt<span class="op">,</span> expiresAt<span class="op">,</span> snapshot<span class="op">));</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> stored <span class="op">=</span> proposals<span class="op">.</span><span class="fu">find</span><span class="op">(</span>trustedContext<span class="op">,</span> proposalId<span class="op">);</span></span></code></pre></div>
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Valores vêm do provisionamento real do host. Migração fora de qualquer transação Spring.</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> roles <span class="op">=</span> <span class="kw">new</span> <span class="fu">BulkExecutionRoleConfiguration</span><span class="op">(</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    expectedSchemaOwnerRole<span class="op">,</span> runtimeGranteeRoles<span class="op">,</span> retentionExecutorMembers<span class="op">,</span> controlPlaneGranteeRoles<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> applied <span class="op">=</span> BulkExecutionMigrator<span class="op">.</span><span class="fu">migrate</span><span class="op">(</span>migrationDataSource<span class="op">,</span> namespaceToDeploymentId<span class="op">,</span> roles<span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Composição do runtime: datasource operacional compartilhado com o domínio.</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> infrastructure <span class="op">=</span> <span class="kw">new</span> <span class="fu">BulkExecutionInfrastructure</span><span class="op">(</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    operationalDataSource<span class="op">,</span> operationalTransactionManager<span class="op">,</span> deploymentNamespace<span class="op">,</span> deploymentId<span class="op">);</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> proposals <span class="op">=</span> <span class="kw">new</span> <span class="fu">JdbcBulkProposalStore</span><span class="op">(</span>infrastructure<span class="op">);</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Dentro da transação de serviço já existente:</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>proposals<span class="op">.</span><span class="fu">insert</span><span class="op">(</span><span class="kw">new</span> <span class="fu">BulkStoredProposal</span><span class="op">(</span>proposalId<span class="op">,</span> createdAt<span class="op">,</span> expiresAt<span class="op">,</span> snapshot<span class="op">));</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> stored <span class="op">=</span> proposals<span class="op">.</span><span class="fu">find</span><span class="op">(</span>trustedContext<span class="op">,</span> proposalId<span class="op">);</span></span></code></pre></div>
 <p><code>migrationDataSource</code> pode usar credenciais diferentes,
 mas deve apontar para o mesmo banco operacional. O starter não descobre,
 cria ou escolhe essas credenciais. A <a
@@ -293,10 +299,15 @@ atual diferente não torna a linha corrompida nem autoriza
 executá-la.</p>
 <p>Os timestamps são truncados a microssegundos antes da persistência.
 ExpiresAt deve ser posterior a createdAt; o intervalo suportado vai de
-0001 a 9999. O store pode recuperar entradas expiradas: a admissão
-futura deve negar sua execução e aplicar TTL/quota/política. Não há
-limpeza automática, DELETE público, estado READY ou atualização de
-proposta neste incremento.</p>
+0001 a 9999. O store pode recuperar entradas expiradas: a reserva de
+execução deve negar novas mutações após a validade. A V5 fornece
+procedimentos restritos para expirar propostas não consumidas e expurgar
+resultados terminais após retenção; eles não são jobs automáticos, nem
+autorizam DELETE público ou atualização de proposta. A migration cria
+controles de lifecycle em <code>UNCOMPOSED</code>; somente a publicação
+governada posterior pode colocá-los em <code>READY</code>. Este adapter
+não publica endpoint nem executa automaticamente uma operação de
+negócio.</p>
 <p>O payload BYTEA contém JSON protegido, sem criptografia adicional
 fornecida pelo SDK. Credenciais, grants, criptografia do banco/backups e
 retenção são responsabilidades operacionais do host. Não serializar
@@ -342,34 +353,35 @@ incremento usam PostgreSQL 14.22 real. A validação estrutural usa as
 formas de expressão retornadas pelo catálogo dessa versão: diferenças
 falham de modo fechado. Outras versões exigem prova de compatibilidade
 antes da adoção; não estão certificadas por esta suíte.</p>
-<p>A identidade privilegiada aplica e valida a migração fora das
-transações do domínio. <code>validate</code> verifica também o catálogo
-físico: colunas/tipos/nullabilidade, chave primária, checks e trigger de
-imutabilidade. Uma história Flyway válida, sozinha, não prova que
-ninguém removeu uma constraint ou desabilitou o trigger.</p>
-<p>A identidade de runtime precisa de USAGE no schema e SELECT/INSERT
-nas tabelas usadas: proposal para entrada e também evaluation quando
-adotar a evidência V2. Não conceder CREATE, UPDATE ou DELETE. O trigger
-BEFORE UPDATE rejeita alteração inclusive pelo dono enquanto está
-habilitado; privilégios administrativos continuam podendo alterar o
-schema. O adapter não valida o catálogo a cada operação: executar a
-validação de implantação antes de habilitar seu consumo é uma obrigação
-da composição do host.</p>
+<p>O migrator valida o owner esperado, grantees runtime/control-plane e
+membros do executor de retenção contra o catálogo PostgreSQL, incluindo
+os privilégios mínimos por tabela/coluna/função e funções
+<code>SECURITY DEFINER</code>; não cria grants. O host obtém esses nomes
+do provisionamento real e executa a validação antes de habilitar o
+consumo. O runtime não recebe escrita direta no controle de operação;
+lock e CAS governado são concedidos por funções dedicadas da V6. Não
+conceder <code>CREATE</code>, <code>DELETE</code> ou escrita direta em
+tombstone ao runtime. Detalhes de lock, limites 100/10/80 e grants estão
+em <a href="BULK-DURABLE-EXECUTION.md">execução durável</a> e <a
+href="BULK-OPERATION-CONTROL.md">controle de operação</a>. Privilégios
+administrativos ainda podem alterar o schema; portanto, a composição
+operacional precisa controlar credenciais e repetir a validação quando
+apropriado.</p>
 <h2 id="provas-e-próximos-gates">Provas e próximos gates</h2>
 <p><code>BulkSnapshotStorageCodecTest</code> cobre as três modalidades,
 quatro codecs, tipos numéricos, limites decimais programáticos, cópias
 defensivas e corrupção sanitizada.
-<code>JdbcBulkProposalStorePostgresTest</code> usa processo PostgreSQL
-real e conexões independentes para migração repetida/concorrente, schema
-estranho, drift, commit/rollback, unicidade concorrente, acesso
-contextual, imutabilidade, conteúdo corrompido e credenciais
-restritas.</p>
+<code>JdbcBulkProposalStorePostgresTest</code> usa PostgreSQL real e
+conexões independentes para migração repetida/concorrente, schema
+estranho, drift, commit/rollback conjunto da proposta e allocation
+pendente, unicidade concorrente, limites de quota, acesso contextual,
+imutabilidade, conteúdo corrompido e credenciais restritas.</p>
 <p>Este pacote não altera x-ui, discovery, endpoints, capability, corpus
 HTTP ou Angular. As regressões do host provam compatibilidade com o JAR
-candidato; não demonstram adoção do store pelo host. Composição da
-avaliação governada a partir da evidência protegida, manifesto QUERY,
-quotas, expiração na admissão, ledger/fencing, executores e prova HTTP
-operacional continuam necessários antes do gate backend completo e da
+candidato; não demonstram adoção do store pelo host. A composição da
+avaliação governada, a integração real do host com
+configuração/grants/migrator e a prova HTTP operacional continuam
+necessárias antes de declarar o protocolo P1 pronto ou iniciar a
 evolução Angular.</p>
 </body>
 </html>

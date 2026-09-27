@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Controle durável de operação em lote</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Controle durável de operação em lote</h1>
+</header>
+<h1 id="controle-durável-de-operação-em-lote">Controle durável de
+operação em lote</h1>
+<p>A migration V6 fecha uma lacuna de privilégio descoberta na revisão
+do ledger V5. O runtime precisa manter um lock compartilhado da linha de
+controle durante admissão/reserva para que a suspensão concorrente tenha
+um ponto de serialização. No PostgreSQL, SELECT FOR SHARE também exige
+privilégio de UPDATE; concedê-lo diretamente ao runtime permitiria
+fabricar estado READY e contornar o descritor governado.</p>
+<p>V6 preserva o checksum da V5 e instala funções de superfície mínima
+SECURITY DEFINER com search_path fixo:</p>
+<ul>
+<li>lock_operation_control(namespace, operation) lê e trava a linha até
+o fim da transação. Só roles runtime explicitamente configuradas recebem
+EXECUTE.</li>
+<li>transition_operation_control(namespace, operation,
+expectedGeneration, target, fingerprint, revision) aplica CAS e
+incrementa a geração monotônica. Só roles de control plane
+explicitamente configuradas recebem EXECUTE.</li>
+<li>As triggers de admissão e avaliação executam sob o proprietário
+dedicado para que as credenciais runtime não precisem de UPDATE no
+controle. A trigger de avaliação lê a identidade imutável da proposta,
+depois trava o controle, mantendo a ordem de locks.</li>
+</ul>
+<p>praxis_bulk_control_owner é NOLOGIN, NOINHERIT, não tem membros e
+recebe somente SELECT/UPDATE nas colunas do controle e leitura dos
+campos de localização imutáveis da proposta. As credenciais runtime e
+control plane não recebem membership, SELECT nem escrita direta no
+operation-control; runtime lê e trava pela função definer. O migrator
+rejeita herança de roles PostgreSQL não declarada (inclusive roles
+predefinidas com privilégios globais); a única herança prevista é entre
+membros configurados para retenção e a role
+<code>praxis_bulk_retention_executor</code>. Ele confere owners,
+definição/atributos das funções, grants de schema/tabela/função e
+topologia de memberships; não cria grants. Qualquer privilégio excedente
+ou alteração da definição fecha a validação.</p>
+<p>O host deve fornecer controlPlaneGranteeRoles no
+BulkExecutionRoleConfiguration, a partir do provisionamento real. O
+starter não infere roles. A conta de migração precisa poder criar a role
+interna e associar-se a ela temporariamente para transferir ownership; a
+migration revoga essa membership antes do commit. A role da aplicação
+que chama a transição recebe apenas EXECUTE, nunca é a conta
+migradora.</p>
+<p>Este documento cobre o fence durável e o CAS de controle. A
+composição completa do host/MVC/OpenAPI/provider e o lifecycle canônico
+Metadata estão especificados em <a
+href="BULK-OPERATION-LIFECYCLE.md">Lifecycle governado de operações em
+lote</a>. Ter uma linha READY ou um fingerprint sintaticamente válido
+não prova adoção produtiva no host, autorização de domínio, discovery ou
+endpoint executável. Nenhuma action/capability bulk deve ser anunciada
+por este fundamento isolado.</p>
+<h2 id="provas">Provas</h2>
+<p>BulkDurableMigrationPostgresTest.operationControlSeparatesRuntimeFenceFromGovernedCas
+usa roles PostgreSQL independentes para provar leitura/trava runtime,
+CAS restrito ao control plane, negação de DML direto, rejeição de
+geração obsoleta e bloqueio da suspensão até a transação runtime que já
+obteve o lock terminar. As demais provas de migração exercitam a V6
+tanto em instalação limpa quanto em upgrade V3→V4→V5→V6 e verificam que
+checksums V1–V3 não mudam.</p>
+<h2 id="fence-do-descritor-v7">Fence do descritor V7</h2>
+<p>V7 persiste em cada proposta o tuple exato que a autorizou: geração,
+fingerprint do descritor e revisão estrutural. Cada execução copia
+geração e fingerprint e sua revisão estrutural já persistida deve
+coincidir com a proposta. Constraints validam a forma dos tuples e o
+migrator cruza as linhas; bindings de execução tornam-se imutáveis.
+Linhas históricas continuam com tuple totalmente NULL: podem ser lidas e
+ter recibos reconhecidos, mas não adquirem autorização retroativa para
+nova reserva ou mutação.</p>
+<p>As triggers de INSERT das propostas e execuções usam
+<code>guard_descriptor_fence()</code> SECURITY DEFINER para serializar
+contra o controle e rejeitar tanto estado diferente de READY quanto
+inserts antigos que omitem o tuple. A função possui
+<code>search_path</code> restrito e não pode ser executada por PUBLIC. O
+validator compara definição, proprietário, atributos, triggers, ACL e
+grants mínimos; permissões extras invalidam o deployment. O
+<code>praxis_bulk_control_owner</code> recebe SELECT em nível de coluna
+apenas para <code>proposal_id</code>, namespace/operation IDs e o tuple
+de controle da proposta; não recebe leitura integral do payload nem
+SELECT da tabela de execuções.</p>
+<p>Na reserva, o runtime resolve idempotência existente antes do
+limite/quota de novas gravações, depois adquire o lock compartilhado do
+operation-control, valida READY+generation+fingerprint+revision e por
+fim escreve proposta/execução sob os limites e locks existentes. Na
+unidade, a ordem de locks é operation-control compartilhado → execução
+<code>FOR UPDATE</code>/epoch → receipt ou admission. A identidade da
+operação é primeiro lida sem lock da execução; depois do lock
+compartilhado o runtime relê a execução travada e confirma a identidade,
+namespace, owner e epoch. <code>prepare</code> exige READY e igualdade
+exata do tuple antes de criar o marker. <code>applyAndReceipt</code>
+toma o mesmo lock novamente e repete o gate antes de chamar callbacks;
+mantém esse lock até confirmar callback de domínio e receipt
+atomicamente. Isso fecha a janela prepare→apply: se CAS de SUSPENDED
+vence nessa janela, a callback não é chamada e o marker termina
+fail-closed; se apply já entrou sob o lock compartilhado, CAS aguarda a
+unidade transacional concluir.</p>
+<p>Replay de receipt/admission é resolvido antes do gate READY e
+continua disponível em SUSPENDED. Leitura, cancelamento, reconciliação e
+retenção seguem seus contratos próprios; nenhuma dessas operações
+recompõe ou publica o descritor. Recovery nunca executa admission nem
+callback de domínio. A nova ordem de locks relacionada ao descritor deve
+continuar compatível com V6 e com o consumidor concreto; não mover o
+callback para fora da transação que grava o receipt.</p>
+<p>As provas focais incluem tuple ausente/stale, proposal/execution
+INSERT de writer antigo, binding imutável, replay após suspensão, nova
+unidade rejeitada e CAS concorrente em cada lado da janela
+prepare→apply. As provas do lifecycle, incluindo refresh multi-instância
+e reconciliação de commit incerto, ficam em <a
+href="BULK-OPERATION-LIFECYCLE.md">BULK-OPERATION-LIFECYCLE.md</a>.
+Estas garantias não são evidência de endpoint executável nem de adoção
+do host.</p>
+</body>
+</html>

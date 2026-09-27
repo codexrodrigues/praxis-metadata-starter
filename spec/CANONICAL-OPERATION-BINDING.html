@@ -272,6 +272,17 @@ ambiguidade, referência a outro recurso ou shape incompatível produzem
 implementar as mesmas garantias: o default da interface lança
 <code>UnsupportedOperationException</code>, sem degradar silenciosamente
 para lookup permissivo.</p>
+<p>Para um conjunto que precisa ser validado contra uma única leitura
+documental, use
+<code>requireResourceOperations(resourceKey, operations, snapshot)</code>.
+O método em lote vincula cada referência ao mapping MVC estrito, exige o
+grupo exato do snapshot e verifica IDs globais nos grupos OpenAPI
+publicados sem buscar novamente o documento já capturado. Implementações
+substitutas sem essa garantia falham fechadas. Grupos podem publicar a
+mesma rota estrutural com nomes diferentes para variáveis de template; o
+batch normaliza somente essa localização-alvo. Uma identidade diferente
+na mesma rota ou o mesmo ID em outra rota, callback ou webhook continua
+sendo conflito.</p>
 <h2 id="lookup-existente-e-compatibilidade">Lookup existente e
 compatibilidade</h2>
 <p><code>resolveByOperationId</code> mantém o fallback legado para nome
@@ -354,6 +365,14 @@ falha, portanto não prova readiness de execução. Um futuro registry
 precisa bloquear admissão até validar schema/infraestrutura/providers e
 definir revalidação quando sua fonte mudar; este SDK não instala esse
 gate nem anuncia capability de lote.</p>
+<p>Quando a referência já foi validada pelo snapshot, use a sobrecarga
+<code>requireResourceRequestBody(resourceKey, operationRef, typeFactory)</code>
+para obter o DTO sem repetir a leitura OpenAPI. Para os papéis de
+protocolo declarados bodyless, valide também
+<code>snapshot.requireNoRequestBody(operationRef)</code>: verificar
+somente que o handler MVC não tem <code>@RequestBody</code> não impede
+um customizer OpenAPI de publicar <code>requestBody</code>. Essa prova
+lê a cópia defensiva do grupo capturado e não constitui readiness.</p>
 <p>Resolvers substitutos implementam a mesma prova de handler/tipo; o
 default deste método lança UnsupportedOperationException. O valor
 público permite integração desses resolvers confiáveis, não valida um

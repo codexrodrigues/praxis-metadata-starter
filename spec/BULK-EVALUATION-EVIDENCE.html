@@ -304,13 +304,16 @@ acesso/indexação com o consumidor real e seus limites. Não reutilizar a
 projeção pública redigida como fonte protegida.</p>
 <h2 id="persistência-e-migração-v2">Persistência e migração V2</h2>
 <p>A <a href="BULK-PROPOSAL-STORAGE.md">migração explícita</a> conserva
-V1 e acrescenta V2. Em banco novo, migrate aplica duas versões; em banco
-no V1, aplica uma; repetição aplica zero. A tabela
-<code>praxis_bulk_evaluation</code> possui PK proposal_id e FK imediata
-composta para <code>(proposal_id, fingerprint)</code> da entrada. O pai
-recebe a UNIQUE correspondente. Checks limitam hash/payload; trigger
-recusa UPDATE. A validação física verifica também a nova PK/FK,
-permanência, colunas e trigger.</p>
+V1 e acrescenta V2. A introdução da evidência corresponde à V2. Com a V3
+do <a href="BULK-DURABLE-EXECUTION.md">núcleo durável</a>, migrate
+aplica três versões em banco novo, duas a partir de V1 e uma a partir de
+V2; repetição aplica zero. O upgrade não fabrica execuções ou receipts
+para propostas anteriores. A tabela <code>praxis_bulk_evaluation</code>
+possui PK proposal_id e FK imediata composta para
+<code>(proposal_id, fingerprint)</code> da entrada. O pai recebe a
+UNIQUE correspondente. Checks limitam hash/payload; trigger recusa
+UPDATE. A validação física verifica também a nova PK/FK, permanência,
+colunas e trigger.</p>
 <p><code>insertEvaluated</code> insere as duas linhas em uma única
 transação física existente. Falha na segunda inserção impede a
 persistência da primeira, mesmo quando o chamador captura a exceção e

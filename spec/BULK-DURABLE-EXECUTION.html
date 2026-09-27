@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Núcleo durável de execução bulk</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Núcleo durável de execução bulk</h1>
+</header>
+<h1 id="núcleo-durável-de-execução-bulk">Núcleo durável de execução
+bulk</h1>
+<h2 id="escopo-e-aderência">Escopo e aderência</h2>
+<p>Este corte é <code>contrato-publico</code> e
+<code>arquitetural</code>. A fonte canônica é o pacote <code>bulk</code>
+do Metadata Starter e seu schema PostgreSQL explícito. O consumidor
+direto é o host que adota o mesmo <code>DataSource</code> e
+<code>PlatformTransactionManager</code> do domínio. Este documento
+descreve o núcleo durável, não declara endpoint de protocolo, provider
+executável ou capability pronta. V5 fornece controle estrutural de
+operação (criado como <code>UNCOMPOSED</code>), quotas e primitivas de
+retenção/expurgo descritos abaixo; a migração não coloca o controle em
+<code>READY</code>, nem publica por si só uma operação executável,
+fila/job, ou suporte a QUERY, ASYNC ou ATOMIC. A transição para
+<code>READY</code> depende de publicação governada posterior com
+fingerprint e revisão estrutural.</p>
+<h2 id="binding-declarativo-de-operações-compartilhadas">Binding
+declarativo de operações compartilhadas</h2>
+<p><code>@BulkResourceOperations</code>, aplicado uma única vez por
+<code>resourceKey</code> a um controller <code>@ApiResource</code>,
+declara os operationIds globais de leitura da proposta/resultados e
+execução/resultados, além do cancelamento. Cada ID precisa corresponder
+a um método MVC real marcado com seu papel estrutural
+<code>@BulkResourceOperation</code>. O starter deriva um snapshot
+imutável e o compartilha entre <code>CanonicalOperationResolver</code> e
+o customizer Springdoc; assim o mesmo ID explícito é resolvido e
+materializado no documento OpenAPI antes da leitura de schema. O binding
+estrito confirma também o operationId no endpoint e percorre todos os
+grupos OpenAPI publicados para detectar IDs duplicados em paths,
+callbacks e webhooks, confirmando a identidade da rota em todos os
+grupos que a publicam; customizers que reescrevam a identidade ou criem
+duplicidade tornam a resolução inelegível. A annotation não cria paths
+nem autoriza uma action. IDs em branco/repetidos, papéis
+ausentes/duplicados, conflito com outra operação, texto de identidade
+não canônico (espaços periféricos ou controles) e mapping
+condicional/ambíguo omitem o binding; a aplicação pode continuar
+servindo OpenAPI, enquanto consumidores estritos não resolvem esses IDs.
+A composição/action projection ainda precisa considerar esses
+diagnostics e permanecer <code>UNCOMPOSED</code>/<code>SUSPENDED</code>
+até provar handlers, schemas, provider e publication CAS.</p>
+<p><code>@BulkOperation</code> é complementar e só marca o método HTTP
+real de confirmação de uma <code>@WorkflowAction</code>. Declara
+<code>mode</code>, <code>atomicity</code> e o
+<code>evaluationOperationId</code> explícito; o binder exige que
+confirmação e avaliação sejam handlers POST distintos do mesmo
+controller/resource, tenham request body, que a confirmação tenha
+operationId explícito e que a atomicidade coincida com a de
+<code>@WorkflowAction</code>. Ambos os IDs entram na validação global de
+collisions e no mesmo binding imutável, junto dos cinco papéis
+compartilhados de lifecycle. Falha ou ambiguidade omite todo o binding
+daquele <code>@ApiResource</code>. Isso prova somente
+identidade/mapeamento MVC: schemas ainda devem ser validados no mesmo
+snapshot estrito, e a anotação não cria provider, permission,
+descriptor, fingerprint, durable CAS, <code>READY</code>, capability ou
+endpoint.</p>
+<p>A validação usa o documento exato de cada grupo publicado e lê a
+lista de grupos no instante da resolução, incluindo grupos registrados
+dinamicamente depois da criação do resolver. O serviço documental mantém
+fallback para o documento base nos fluxos legados de schema/catálogo,
+mas esse fallback nunca prova a existência nem a identidade de um grupo
+nomeado. Implementações customizadas de
+<code>OpenApiDocumentService</code> usadas com esta declaração devem
+fornecer o fetch estrito; o padrão falha fechado.</p>
+<p>Os handlers comuns do protocolo são <code>GET</code> para
+leitura/resultados e <code>POST</code> sem body para cancelamento.
+<code>consumes</code> explícito (que acrescentaria um contrato de
+request body), parâmetros
+<code>HttpEntity</code>/<code>RequestEntity</code> e qualquer condição
+de roteamento não representada pelo contrato estrito impedem o binding.
+<code>produces</code> não muda a identidade da rota e permanece
+documentado no OpenAPI; este binding sozinho não certifica o contrato de
+resposta. Avaliação e confirmação continuam operações reais separadas
+com operationIds explícitos em <code>@Operation</code>; somente elas
+fornecem request schema. As cinco leituras/cancelamento não devem
+inventar request schemas. A prova completa até OpenAPI real, descriptor,
+CAS e gate V7 permanece pendente neste incremento.</p>
+<p>Para a composição do descriptor, os readers estritos aceitam uma
+cópia defensiva do documento exato do grupo, permitindo que operação,
+request e response usem a mesma publicação sem nova consulta ao cache
+entre etapas. <code>OpenApiRequestSchemaReader</code> usa obtenção
+estrita; fallback ao documento base não prova identidade.
+<code>OpenApiResponseSchemaReader</code> valida os códigos 2xx
+explícitos: exige em cada um exatamente um media type JSON suportado
+(<code>application/json</code> ou
+<code>application/&lt;subtype-token&gt;+json</code> com
+<code>tchar</code> ASCII válido, comparação case-insensitive e sem
+parâmetros) e schema resolvível, rejeita <code>default</code> e a faixa
+<code>2XX</code>, resolve referências locais de Response Object/schema
+com os limites compartilhados, e falha se schemas canonizados ou
+media/status forem ambíguos/divergentes. O canonicalizer conserva
+descrições, exemplos e extensões, portanto a igualdade é conservadora. A
+tupla ordenada de status/media type e JSON canônico completo do schema
+deve entrar diretamente no fingerprint do descriptor; o cache de hash de
+<code>/schemas/filtered</code> não substitui essa evidência. Esses
+readers ainda não compõem/publicam o descriptor, não projetam
+action/capability e não elevam o estado a <code>READY</code>.</p>
+<p>O inventário anterior é reaproveitado assim:</p>
+<ul>
+<li>intenção e evidência protegidas, vínculo de contexto e
+infraestrutura transacional:
+<code>ja-suportado-mal-nomeado-ou-mal-materializado</code>, por meio de
+<code>BulkEvaluationSnapshot</code>, <code>JdbcBulkProposalStore</code>
+e <code>BulkExecutionInfrastructure</code>;</li>
+<li>reserva única, controle/epoch, tentativa durável, receipt e
+recuperação: <code>lacuna-real-de-contrato</code>;</li>
+<li>decisão de elegibilidade e revalidação governada por unidade:
+permanece para o consumidor S4b e não é inferida do JSON de
+<code>plan</code> neste núcleo;</li>
+<li>projeções públicas
+<code>BulkExecution</code>/<code>BulkItemResult</code>: continuam sendo
+vocabulário público, mas não são construídas diretamente a partir destas
+APIs protegidas no S4a.</li>
+</ul>
+<p>O recorte aceito é seleção <code>EXPLICIT</code>, transporte
+<code>SYNC</code> e atomicidade <code>PER_ITEM</code>, nas três
+modalidades de intenção existentes. A proposta deve possuir evidência
+persistida. Propostas V1 sem evidência e combinações QUERY/ASYNC/ATOMIC
+falham fechadas.</p>
+<p>Não há artefato derivado de HTTP, landing, Angular ou corpus neste
+corte. V1–V3 permanecem byte a byte; V4 acrescenta a admissão governada
+por unidade, persistindo resultados sem mutação em
+<code>praxis_bulk_admission</code> e a razão terminal limitada em
+<code>terminal_reason_code</code>. V5 estende esse modelo com controle
+estrutural de operação, quotas e primitivas de retenção; V5 não torna
+uma operação <code>READY</code> nem habilita sozinho uma rota
+executável. Consulte <a href="BULK-GOVERNED-UNIT-ADMISSION.md">Admissão
+governada por unidade</a> para as regras e provas específicas de V4. A
+classificação da atualização de guidance é
+<code>atualizar-existente</code>: a API, a barreira em três transações,
+a migração V3→V4, e sua validação física devem constar na skill de
+concorrência já usada; a fonte canônica dessa skill fica fora deste
+checkout.</p>
+<h2 id="modelo-físico-base-v3-e-evolução-v4">Modelo físico base V3 e
+evolução V4</h2>
+<p>V3 contém o ledger de execução e receipts descrito abaixo. A migração
+V3→V4 adiciona os prazos de unidade, a razão terminal protegida e os
+resultados de admissão sem mutação, preservando receipts e histórico
+anteriores. V1–V3 continuam imutáveis; V5 acrescenta o ledger de
+capacidade e retenção documentado adiante.</p>
+<p><code>praxis_bulk_execution</code> contém uma reserva por proposta e
+por chave idempotente no escopo confiável. A identidade de escopo é
+formada por namespace operacional, sujeito, recurso e operationId;
+tenant/ambiente fazem parte do namespace/binding operacional adotado
+pelo host. A tabela guarda somente o digest da chave, nunca seu
+valor.</p>
+<p>As constraints centrais são:</p>
+<ul>
+<li><code>PRIMARY KEY (execution_id)</code>;</li>
+<li><code>UNIQUE (proposal_id)</code>, impedindo outra chave de criar
+uma segunda execução;</li>
+<li><code>UNIQUE (namespace_id, subject_id, resource_key, operation_id,   idempotency_key_digest)</code>,
+serializando a mesma chave dentro do escopo;</li>
+<li>FK imediata e validada de
+<code>(proposal_id, evaluation_fingerprint)</code> para a evidência V2,
+sustentada por <code>UNIQUE (proposal_id, evaluation_fingerprint)</code>
+acrescentada sem reescrever seu conteúdo;</li>
+<li>checks exatos para fingerprints/digests, estados, ordinal/progresso,
+deadline, epoch e o grupo atômico das colunas de tentativa ativa;</li>
+<li>nenhuma linha V1/V2 recebe execução ou receipt fabricado durante o
+upgrade.</li>
+</ul>
+<p><code>praxis_bulk_item_receipt</code> é append-only e contém
+execução, ordinal canônico, digest do alvo tipado e versão esperada,
+attemptId, epoch, resultado <code>CONFIRMED</code> ou
+<code>UNCHANGED</code> e instante confirmado. Não cria mensagem, código,
+referência ou payload paralelo a
+<code>ResourceCommandMessage</code>/<code>BulkItemResult</code>; S4b
+deriva a projeção pública canônica na fronteira governada. A PK é
+<code>(execution_id, unit_ordinal)</code>; há unicidade por
+<code>(execution_id, target_digest)</code> e por
+<code>attempt_id</code>. A FK para execução é imediata, validada e sem
+cascade. Trigger recusa <code>UPDATE</code> e <code>DELETE</code>; a
+credencial runtime recebe <code>SELECT/INSERT</code>, nunca
+<code>UPDATE/DELETE</code>, nessa tabela.</p>
+<p>A execução é a única linha mutável. Um trigger recusa alteração de
+proposal/fingerprints, contexto, digest da chave, deadline, createdAt e
+total de alvos; somente owner/epoch, estado, progresso, tentativa ativa,
+updatedAt e terminalAt formam o controle mutável. A credencial runtime
+precisa de <code>SELECT/INSERT/UPDATE</code> nela, <code>SELECT</code>
+nas propostas/evidências e <code>SELECT/INSERT</code> nos receipts. O
+migrator não concede privilégios. A validação física confere tabelas
+permanentes, colunas/tipos/null/defaults, PKs, UNIQUEs, FKs imediatas e
+validadas, checks, trigger/função de imutabilidade e allowlists pré e
+pós migração. Também recusa funções/overloads, tipos, agregados, índices
+avulsos ou de expressão, regras de reescrita e políticas RLS inesperados
+no schema dedicado. O índice interno do Flyway é a única exceção a
+índice avulso, identificado por tabela e forma física
+(<code>praxis_bulk_schema_history.success</code>, btree ascendente, não
+único), não somente pelo nome. As inspeções de catálogo usam
+<code>pg_catalog</code> e restauram o <code>search_path</code> original
+na mesma conexão, inclusive para datasource configurado com
+<code>currentSchema=praxis_bulk</code>.</p>
+<p>O host também declara o owner esperado do schema e os principais
+PostgreSQL que recebem privilégios para a validação física.
+<code>BulkExecutionMigrator.migrate(dataSource, namespaceToDeploymentId, BulkExecutionRoleConfiguration)</code>
+aceita <code>runtimeGranteeRoles</code>,
+<code>retentionExecutorMembers</code> e
+<code>controlPlaneGranteeRoles</code>; a sobrecarga
+<code>validate(dataSource, configuration)</code> pode verificar
+novamente o ambiente depois. <code>expectedSchemaOwnerRole</code>
+identifica o usuário/role usado para criar o schema e as tabelas;
+ownership é validado separadamente porque não aparece como um grant
+ordinário e pode permitir alterar privilégios ou remover triggers. Os
+métodos sem configuração capturam <code>current_user</code> da conexão
+usada na própria validação; para validar usando outra credencial, passe
+explicitamente o owner confiável registrado pelo host. Esses campos
+identificam os grantees diretos e todos os membros de role aceitos,
+inclusive os transitivos. A validação exige que as identidades existam e
+sejam não privilegiadas; rejeita herança de roles não declarada
+(incluindo roles predefinidas como <code>pg_write_all_data</code>),
+exceto a membership explícita de cada membro de retenção em
+<code>praxis_bulk_retention_executor</code>; e compara ACLs do schema
+exatamente. Para cada tabela, varre privilégios de tabela e coluna e
+recusa <code>PUBLIC</code>, grant option, grantees não configurados ou
+privilégios fora da allowlist específica; tombstones são somente leitura
+pelo runtime. O Metadata Starter valida esses grants, mas não os
+concede: o provisionamento das credenciais e ACLs continua sob controle
+do host/administrador do banco. O runtime não recebe <code>SELECT</code>
+nem <code>UPDATE</code> direto em
+<code>praxis_bulk_operation_control</code>; ele lê e segura o lock
+compartilhado pela função SECURITY DEFINER
+<code>lock_operation_control</code>. O control plane também não
+lê/escreve diretamente a tabela, recebendo só <code>EXECUTE</code> na
+transição CAS.</p>
+<h2 id="ledger-de-capacidade-e-retenção-v5">Ledger de capacidade e
+retenção V5</h2>
+<p>V5 liga as tabelas existentes às mutações reais por meio de
+allocations duráveis. A ordem de locks de todas as mutações e rotinas de
+retenção é: binding de namespace (<code>FOR SHARE</code>), controle da
+operação (<code>FOR SHARE</code>), bucket do deployment
+(<code>FOR UPDATE</code>), bucket do sujeito (<code>FOR UPDATE</code>),
+proposta (<code>FOR UPDATE</code>) e execução (<code>FOR UPDATE</code>).
+O migrator toma os locks globais nessa mesma ordem antes de reconstruir
+o ledger. Buckets são pontos de serialização; as contagens são derivadas
+das allocations dentro da transação, sem contador mutável paralelo.</p>
+<p>Os limites são 100 propostas pendentes por deployment, 10 por sujeito
+autenticado dentro do deployment e 80 execuções ativas por deployment.
+<code>JdbcBulkProposalStore.insert</code> e <code>insertEvaluated</code>
+criam a proposta/evidência e <code>PROPOSAL_PENDING</code> juntos. A
+reserva consulta primeiro a existência de uma execução por chave sob o
+escopo confiável, antes de gates que só se aplicam a trabalho novo;
+replay válido continua possível sob saturação. Para nova reserva, os
+locks serializam concorrentes, o limite ativo é verificado, a allocation
+pendente vira <code>CONSUMED</code> e a <code>EXECUTION_ACTIVE</code>
+nasce na mesma transação que a execução. Uma proposta consumida por
+outra chave retorna sua execução existente; não cria segunda execução
+nem nova cobrança pendente.</p>
+<p>Ao confirmar estado terminal, um trigger protegido muda exatamente
+uma allocation ativa para <code>RELEASED/TERMINAL_RECONCILED</code> na
+mesma transação. A validação física exige essa correspondência exata;
+allocation ativa órfã após terminalização é drift e deve falhar fechado,
+sem exceção tolerante que deixe quota ocupada indefinidamente.
+Falha/commit incerto, owner ativo ou evidência incompleta não libera
+capacidade. Proposta expirada e não consumida é limpa por
+<code>expire_unconsumed_proposal</code>, não por delete do runtime.</p>
+<p><code>praxis_bulk_retention_executor</code> tem somente
+<code>USAGE</code> no schema e <code>EXECUTE</code> nas duas funções de
+retenção. Não recebe mutação direta de tabelas. A validação também
+confere roles e memberships, ownership, ACLs por coluna/tabela, triggers
+de proteção, funções definer e search paths fixos. A função de purge
+aceita uma execução terminal reconciliada, completa e com
+<code>terminal_at</code> imutável de pelo menos 30 dias; na mesma
+transação grava tombstone mínimo com scope/key digest e identidade do
+resultado, e depois remove conteúdo operacional, receipts, alocações,
+proposta e execução. O tombstone é retido para sempre dentro do
+namespace e impede reutilizar a chave. Replay autorizado por tombstone
+resulta em <code>RESULT_PURGED</code> (mapeável ao HTTP 410); conflitos
+ordinários de chave/vínculo continuam <code>CONFLICT</code> (409). Sem
+tombstone correspondente, não inferir expurgo nem efeito.</p>
+<p>Provas PostgreSQL exercitam os jobs sob
+<code>SET ROLE praxis_bulk_retention_executor</code>, a liberação junto
+da transição terminal, expiração apenas de proposta não consumida,
+purge, tombstone, replay após purge e rejeição de estado terminal com
+allocation ativa. Migração e validação física após um caminho de trigger
+desabilitado precisam falhar até o operador reconciliar a allocation;
+checksums de Flyway não bastam.</p>
+<h2 id="estados-e-sequência">Estados e sequência</h2>
+<p>Os estados protegidos do kernel são:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Estado</th>
+<th>Significado e entradas permitidas</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>RUNNING</code></td>
+<td>Reserva confirmada e sem tentativa pendente; pode preparar
+exatamente o <code>nextOrdinal</code>.</td>
+</tr>
+<tr class="even">
+<td><code>UNIT_IN_FLIGHT</code></td>
+<td>Marcador de tentativa confirmado antes da callback. Bloqueia
+qualquer outro ordinal.</td>
+</tr>
+<tr class="odd">
+<td><code>UNIT_COMMITTED_PENDING_ACK</code></td>
+<td>Domínio e receipt confirmaram juntos; ainda não houve avanço
+confirmado do controle. Callback nunca é repetida.</td>
+</tr>
+<tr class="even">
+<td><code>COMPLETED</code></td>
+<td>Todos os ordinais possuem receipt e o avanço final foi
+confirmado.</td>
+</tr>
+<tr class="odd">
+<td><code>STOPPED</code></td>
+<td>Recuperação ou rollback conhecido encerrou a execução; unidades
+restantes não são executadas.</td>
+</tr>
+<tr class="even">
+<td><code>RECONCILIATION_REQUIRED</code></td>
+<td>Invariante/evidência está ausente ou contraditória; nenhuma nova
+mutação é permitida.</td>
+</tr>
+</tbody>
+</table>
+<p><code>STOPPED</code> e <code>COMPLETED</code> são terminais neste
+recorte. <code>RECONCILIATION_REQUIRED</code> é bloqueante, não terminal
+e nunca significa licença para retry. Estes estados internos não ampliam
+nem reinterpretam automaticamente o enum público
+<code>BulkExecutionStatus</code>.</p>
+<p>O bloqueio de <code>RECONCILIATION_REQUIRED</code> vale para nova
+mutação. Um receipt individual já confirmado continua consultável e pode
+ser devolvido como replay depois que ordinal, alvo, versão, attempt,
+epoch, outcome e instante forem validados contra a avaliação e o
+deadline. Esse replay não reconhece tentativa pendente, não altera
+progresso e não limpa o estado agregado bloqueado. Receipt incoerente
+permanece impedimento de reconciliação.</p>
+<p>Cada chamada mutante leva um controle protegido
+<code>(executionId, ownerId, epoch)</code>. A transação sempre adquire
+<code>SELECT ... FOR UPDATE</code> da execução antes de ler ou alterar
+progresso. Owner e epoch são comparados sob o lock. Recuperação
+explícita, autorizada pelo host, adquire o mesmo lock, incrementa o
+epoch e troca owner. Lease/horário não prova perda do lock e não permite
+roubo por fora da linha.</p>
+<p>A ordem de locks é fixa: execução, receipt do ordinal/digest,
+proposta/evidência já vinculada, locks do domínio feitos pela callback,
+inserção do receipt, atualização da execução. Não há transação externa
+cobrindo o loop PER_ITEM.</p>
+<h2 id="reserva-idempotente">Reserva idempotente</h2>
+<p><code>reserve(scope, proposalId, idempotencyKey, ownerId, structuralRevision, deadline)</code>
+rejeita transação Spring ambiente e abre uma transação operacional
+própria. Ela recupera proposta e evidência pelo escopo confiável, valida
+EXPLICIT/SYNC/PER_ITEM e exige <code>now &lt; expiresAt</code> antes da
+primeira reserva. O binding da reserva enquadra proposalId, fingerprints
+de intenção e avaliação e structuralRevision com framing versionado. A
+chave e textos têm limites e são validados antes do banco; exceções
+públicas não carregam SQL, payload ou causa do driver.</p>
+<p>O insert usa as duas constraints. Depois de uma corrida:</p>
+<ul>
+<li>mesma chave e mesmo binding retorna a execução vencedora;</li>
+<li>mesma chave e binding diferente retorna <code>CONFLICT</code>;</li>
+<li>outra chave para a mesma proposta retorna a execução já
+vinculada;</li>
+<li>outra proposta ou escopo nunca é revelado pelo UUID/chave.</li>
+</ul>
+<p>Replay é resolvido antes do TTL inicial. Proposta expirada impede
+apenas uma reserva inédita; uma execução existente permanece legível sob
+autorização atual. Erro/ACK incerto no commit da reserva exige readback
+independente sob escopo. Sem readback conclusivo, o retorno é
+<code>RECONCILIATION_REQUIRED</code>; nunca se cria chave/UUID
+substituta automaticamente.</p>
+<h2 id="unidade-concreta-e-barreira-de-commit-incerto">Unidade concreta
+e barreira de commit incerto</h2>
+<p><code>executeUnit(control, expectedOrdinal, admission, mutation)</code>
+implementa três transações curtas, todas no manager operacional do
+binding:</p>
+<ol type="1">
+<li><strong>Preparação.</strong> Sob lock e fencing, consulta primeiro o
+receipt do <code>expectedOrdinal</code>. Receipt existente é replay
+daquele ordinal e a callback não roda. Sem receipt, exige
+<code>expectedOrdinal == nextOrdinal</code>, valida
+<code>RUNNING</code>, deadline e alvo, gera attemptId, persiste
+<code>UNIT_IN_FLIGHT</code> com ordinal/digest/epoch e confirma essa
+barreira. O mesmo <code>UPDATE</code> persiste
+<code>active_unit_deadline_at = min(deadline_at, database_now + 5 s)</code>.
+A callback só pode começar depois que esse commit retornou confirmado.
+Se o commit de preparação for incerto, nenhuma callback ocorreu e a
+chamada devolve <code>RECONCILIATION_REQUIRED</code>. O chamador precisa
+pedir recuperação explícita, que lê o estado sob o mesmo lock,
+incrementa o epoch e encerra sem nova mutação; não há retry automático
+da preparação. A chamada nunca avança implicitamente para outro
+ordinal.</li>
+<li><strong>Domínio + receipt.</strong> Sob o mesmo lock/fencing e o
+mesmo manager, a callback recebe uma unidade protegida com a evidência
+do alvo. Ela grava domínio/outbox usando participantes JDBC ou JPA da
+transação atual e devolve apenas <code>CONFIRMED</code> ou
+<code>UNCHANGED</code>. O prazo absoluto persistido cobre a unidade
+desde o marcador durável, incluindo grant, Config, leitura e lock do
+alvo, callback e tentativa de commit. O consumidor recebe orçamento
+restante ancorado em relógio monotônico, calculado a partir do relógio
+do banco, para não depender de sincronização de relógios entre
+processos. Config, grant e fatos limitam cada transação/query ao
+orçamento restante; aquisição de conexões dos pools operacionais tem
+espera máxima de 1 s. Antes de chamar a mutação e ao gravar o receipt, o
+banco confere o prazo com <code>clock_timestamp()</code>. Se ele
+expirou, a transação é revertida e o receipt não é gravado. O insert do
+receipt usa o relógio do PostgreSQL e só ocorre quando
+<code>confirmed_at</code> antecede o prazo da execução e o prazo
+persistido da unidade. Domínio, receipt e mudança para
+<code>UNIT_COMMITTED_PENDING_ACK</code> confirmam juntos. Resultado
+<code>CONFIRMED</code> nunca é observado antes desse commit.</li>
+<li><strong>Acknowledgement.</strong> Somente depois que o manager
+confirmou a transação anterior, uma nova transação relê receipt/attempt
+sob lock, avança <code>nextOrdinal</code>, limpa a tentativa e escolhe
+<code>RUNNING</code> ou <code>COMPLETED</code>. Se o ack falha, o
+receipt continua sendo fonte de verdade e o estado pendente bloqueia a
+próxima callback; uma chamada posterior para o mesmo ordinal pode apenas
+reconhecer esse receipt. ACK, readback, reconciliação e recuperação usam
+limite de 1 s para lock e statement; esgotar esse limite devolve
+<code>RECONCILIATION_REQUIRED</code> e mantém o receipt confirmado como
+barreira, sem repetir callback nem avançar o sufixo. O prazo da unidade
+não invalida um receipt já confirmado: replay/ACK consultam primeiro a
+evidência e permanecem possíveis depois do prazo, dentro do limite
+próprio de controle. Quando a recuperação encontra evidência
+inconsistente, <code>nextOrdinal</code> fica limitado ao prefixo
+contíguo de receipts que passou as validações; somente itens antes desse
+limite podem ser lidos em replay, e o receipt que provocou reconciliação
+permanece bloqueado. Se o commit do acknowledgement ocorreu e somente
+sua resposta se perdeu, o readback encontra <code>nextOrdinal</code>
+avançado, mas a chamada original continua vinculada ao ordinal anterior
+e devolve o receipt anterior como replay. Ela jamais despacha
+implicitamente o novo ordinal.</li>
+</ol>
+<p>Replay de ordinal já dentro do prefixo reconhecido, inclusive em
+<code>RECONCILIATION_REQUIRED</code>, é leitura sem mudança de
+progresso. Receipt pendente exatamente em <code>nextOrdinal</code> pode
+reconhecer a unidade cujo domínio+receipt já foram commitados e avançar
+somente esse acknowledgement; em nenhum dos casos replay volta a chamar
+a callback.</p>
+<p>A barreira é durável em uma transação anterior à callback e permanece
+tanto quando a transação de domínio confirma quanto quando ela reverte.
+Isto resolve os dois resultados de uma exceção de COMMIT:</p>
+<ul>
+<li>se domínio+receipt confirmaram e o ACK da conexão se perdeu, o banco
+contém receipt e <code>UNIT_COMMITTED_PENDING_ACK</code>; nenhuma
+unidade seguinte entra até readback/reconciliação;</li>
+<li>se houve rollback real, o banco contém <code>UNIT_IN_FLIGHT</code>
+sem receipt; nenhuma unidade seguinte entra e o kernel não chama
+novamente a mutação por suposição.</li>
+</ul>
+<p>Uma notificação de conclusão do gerenciador não é a barreira nem
+evidência suficiente para classificar uma perda de conexão. Retorno
+normal do manager é commit confirmado. Após falha, o kernel readquire a
+linha em uma transação independente: tentativa ainda em flight e
+ausência de receipt provam rollback local e permitem
+<code>STOPPED</code>; receipt presente prova que a unidade confirmou,
+mas preserva a barreira e devolve <code>RECONCILIATION_REQUIRED</code>.
+Readback indisponível também devolve
+<code>RECONCILIATION_REQUIRED</code>. Exceção da callback nunca vira
+receipt <code>DENIED</code>/<code>INVALID</code>.</p>
+<p>O retorno da callback é deliberadamente restrito a
+<code>CONFIRMED</code> e <code>UNCHANGED</code>. Estados de autorização,
+conflito, validação e revalidação pertencem ao provider governado S4b e
+devem ser decididos antes da mutação; uma exceção transacional nunca é
+reinterpretada como resultado de negócio. O teste de conformidade usa
+uma callback real que altera uma tabela de domínio, não um SPI vazio ou
+mock de serialização.</p>
+<h2 id="recuperação-sem-nova-mutação">Recuperação sem nova mutação</h2>
+<p><code>recover(scope, executionId, recoveryOwner)</code> é uma ação
+explícita do host; o kernel não a agenda nem infere abandono por lease.
+Ela tenta adquirir o mesmo lock. Enquanto uma unidade mantém o lock, a
+recuperação espera/falha conforme o timeout do chamador e não encerra a
+conexão alheia. Ao adquirir o lock, incrementa epoch antes de qualquer
+conclusão; o executor antigo falha no próximo gate e não pode atualizar
+o agregado.</p>
+<p>Sob controle novo, a recuperação compara attempt, ordinal, digest,
+epoch e receipts:</p>
+<ul>
+<li>receipt válido para a tentativa confirma somente aquela
+unidade;</li>
+<li>tentativa ativa sem receipt, depois de adquirir o lock que exclui
+qualquer commit ainda em curso, é encerrada sem callback e as unidades
+restantes ficam não processadas;</li>
+<li>receipts completos permitem <code>COMPLETED</code>; conjunto parcial
+coerente termina <code>STOPPED</code>;</li>
+<li>receipt ausente quando estado/progresso afirma que a unidade já
+confirmou, receipt duplicado/divergente, ordinal impossível ou vínculo
+quebrado mantém <code>RECONCILIATION_REQUIRED</code>. Isso é distinto da
+tentativa ainda <code>UNIT_IN_FLIGHT</code> sem receipt: depois que o
+recuperador adquiriu o lock e a atomicidade local foi validada, essa
+ausência prova rollback da unidade e permite <code>STOPPED</code> sem
+nova mutação. Contagem isolada nunca prova cobertura; ordinal, target
+digest, attemptId e epoch precisam coincidir.</li>
+</ul>
+<p>Recuperação nunca chama a callback, nunca reconstitui resultado pelo
+estado atual do domínio e nunca transforma ausência de receipt em falha
+histórica quando a atomicidade do mesmo banco não pode ser provada. O
+receipt preserva o epoch/attempt original; o novo owner apenas fecha o
+controle.</p>
+<h2 id="api-protegida-prevista">API protegida prevista</h2>
+<p>As classes ficam em <code>org.praxisplatform.uischema.bulk</code>,
+usam <code>@JsonIgnoreType</code>, não têm constructors públicos para
+forjar controle/receipt e redigem <code>toString</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> kernel <span class="op">=</span> <span class="kw">new</span> <span class="fu">JdbcBulkDurableExecution</span><span class="op">(</span>infrastructure<span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>BulkExecutionReservation reservation <span class="op">=</span> kernel<span class="op">.</span><span class="fu">reserve</span><span class="op">(</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    scope<span class="op">,</span> proposalId<span class="op">,</span> idempotencyKey<span class="op">,</span> ownerId<span class="op">,</span> structuralRevision<span class="op">,</span> deadline<span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>BulkUnitExecutionResult result <span class="op">=</span> kernel<span class="op">.</span><span class="fu">executeUnit</span><span class="op">(</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    reservation<span class="op">.</span><span class="fu">control</span><span class="op">(),</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    unit <span class="op">-&gt;</span> <span class="fu">validateCurrentGrantAndPolicy</span><span class="op">(</span>unit<span class="op">.</span><span class="fu">remainingBudget</span><span class="op">()),</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    unit <span class="op">-&gt;</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// serviço/repositório JDBC ou JPA participa do manager operacional atual</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="fu">mutateDomain</span><span class="op">(</span>unit<span class="op">.</span><span class="fu">targetEvidence</span><span class="op">());</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> BulkUnitMutationResult<span class="op">.</span><span class="fu">confirmed</span><span class="op">();</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">});</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>BulkExecutionRecovery recovery <span class="op">=</span> kernel<span class="op">.</span><span class="fu">recover</span><span class="op">(</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    scope<span class="op">,</span> reservation<span class="op">.</span><span class="fu">executionId</span><span class="op">(),</span> recoveryOwner<span class="op">);</span></span></code></pre></div>
+<p>O ordinal explícito é a identidade estável da unidade dentro da
+avaliação imutável. Retry de A sempre pede A, inclusive se o
+acknowledgement já avançou o banco para B; o kernel consulta o receipt
+de A e nunca interpreta esse retry como pedido para B. Ordinal fora do
+progresso esperado é rejeitado sem callback. Controle antigo após
+incremento de epoch é <code>FENCED</code>; avanço de ordinal não
+incrementa epoch nem transforma uma chamada de A em B.</p>
+<p><code>BulkExecutionReservation</code> informa criada/replay, status
+protegido, progresso e controle vigente.
+<code>BulkUnitExecutionResult</code> distingue receipt
+confirmado/replay, execução concluída, rollback conhecido, deadline e
+reconciliação obrigatória. <code>BulkExecutionRecovery</code> informa
+epoch novo, status final/bloqueante e contagem derivada de receipts.
+<code>BulkDurableExecutionException</code> expõe somente razão segura
+(<code>NOT_FOUND</code>, <code>CONFLICT</code>, <code>CAPACITY</code>,
+<code>EXPIRED</code>, <code>RESULT_PURGED</code>, <code>FENCED</code>,
+<code>NOT_EXECUTABLE</code>, <code>DEADLINE_EXCEEDED</code>,
+<code>RECONCILIATION_REQUIRED</code>, <code>CORRUPT</code>,
+<code>UNAVAILABLE</code>). <code>RESULT_PURGED</code> só é emitido após
+correspondência de tombstone no escopo autenticado consultado; a API
+host pode mapear este caso a HTTP 410.</p>
+<h2 id="limites-de-garantia">Limites de garantia</h2>
+<p>O kernel prova atomicidade local somente quando callback, receipts e
+domínio usam o mesmo manager/datasource verificável. Não detecta
+<code>REQUIRES_NEW</code> ou banco remoto por introspecção; o consumidor
+precisa de prova de rollback e de readback independente. O S4a não
+decide grants, política, schema atual ou elegibilidade e não publica uma
+operação executável. O deadline protege a inserção do receipt no banco;
+não promete interrupção segura de rede ou COMMIT. Quando o resultado do
+commit não é conhecido, a execução permanece bloqueada até
+recuperação.</p>
+</body>
+</html>

@@ -183,6 +183,10 @@ da plataforma.</p>
 </ul>
 <h2 id="sdk-em-desenvolvimento">SDK em desenvolvimento</h2>
 <ul>
+<li><p><a href="spec/BULK-DURABLE-EXECUTION.html">Núcleo durável de
+execução</a>: reserva, unidade transacional, ledger de capacidade V5,
+retenção/tombstones e recuperação; fundação sem exposição HTTP nem
+adoção completa no host.</p></li>
 <li><p><a href="spec/BULK-EVALUATION-EVIDENCE.html">Evidência protegida
 da avaliação</a>: fatos/plano por alvo vinculados à proposta, sem
 decisão de elegibilidade.</p></li>
@@ -199,8 +203,8 @@ request concreto do handler MVC.</p></li>
 request</a>: schema da operação, dialeto e limites da composição
 backend.</p></li>
 <li><p><a href="spec/BULK-PROPOSAL-STORAGE.html">Persistência protegida
-de propostas</a>: entradas EXPLICIT/SYNC, migração explícita e provas
-PostgreSQL; sem avaliação READY ou execução.</p></li>
+de propostas</a>: entradas EXPLICIT/SYNC, allocations pendentes V5 e
+migração explícita; sem endpoint/fluxo de negócio executável.</p></li>
 <li><p><a href="spec/BULK-EXECUTION-INFRASTRUCTURE.html">Infraestrutura
 transacional de lote</a>: vínculo JDBC/JPA explícito, sem store ou
 DDL.</p></li>

@@ -237,16 +237,18 @@ operacional</h1>
 id="infraestrutura-de-lote-participação-na-transação-operacional">Infraestrutura
 de lote — participação na transação operacional</h1>
 <p><code>BulkExecutionInfrastructure</code> vincula explicitamente um
-DataSource, um PlatformTransactionManager local e um namespace estável
-da implantação. Sua construção não conecta ao banco, registra beans,
-cria tabelas ou inicia workers. É a base de integração de
+DataSource, um PlatformTransactionManager local, um namespace e um
+identificador imutável de deployment. Sua construção não conecta ao
+banco, registra beans, cria tabelas ou inicia workers. Cada callback
+valida o binding durável namespace→deployment sob lock compartilhado
+antes da operação. É a base de integração de
 <code>JdbcBulkProposalStore</code>, descrito em <a
 href="BULK-PROPOSAL-STORAGE.md">Persistência protegida de propostas</a>.
-A infraestrutura em si não é store de receipts nem executor de lote.</p>
+A infraestrutura em si não publica endpoint nem readiness.</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Os três valores são fornecidos explicitamente pelo host, após inicialização dos beans.</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> infrastructure <span class="op">=</span> <span class="kw">new</span> <span class="fu">BulkExecutionInfrastructure</span><span class="op">(</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    operationalDataSource<span class="op">,</span> operationalTransactionManager<span class="op">,</span> operationalNamespace<span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    operationalDataSource<span class="op">,</span> operationalTransactionManager<span class="op">,</span> operationalNamespace<span class="op">,</span> deploymentId<span class="op">);</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// A camada de execução é dona da transação externa e do seu commit.</span></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> transaction <span class="op">=</span> <span class="kw">new</span> <span class="fu">TransactionTemplate</span><span class="op">(</span>infrastructure<span class="op">.</span><span class="fu">transactionManager</span><span class="op">());</span></span>

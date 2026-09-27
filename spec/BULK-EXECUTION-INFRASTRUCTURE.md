@@ -1,11 +1,11 @@
 # Infraestrutura de lote — participação na transação operacional
 
-`BulkExecutionInfrastructure` vincula explicitamente um DataSource, um PlatformTransactionManager local e um namespace estável da implantação. Sua construção não conecta ao banco, registra beans, cria tabelas ou inicia workers. É a base de integração de `JdbcBulkProposalStore`, descrito em [Persistência protegida de propostas](BULK-PROPOSAL-STORAGE.md). A infraestrutura em si não é store de receipts nem executor de lote.
+`BulkExecutionInfrastructure` vincula explicitamente um DataSource, um PlatformTransactionManager local, um namespace e um identificador imutável de deployment. Sua construção não conecta ao banco, registra beans, cria tabelas ou inicia workers. Cada callback valida o binding durável namespace→deployment sob lock compartilhado antes da operação. É a base de integração de `JdbcBulkProposalStore`, descrito em [Persistência protegida de propostas](BULK-PROPOSAL-STORAGE.md). A infraestrutura em si não publica endpoint nem readiness.
 
 ```java
 // Os três valores são fornecidos explicitamente pelo host, após inicialização dos beans.
 var infrastructure = new BulkExecutionInfrastructure(
-    operationalDataSource, operationalTransactionManager, operationalNamespace);
+    operationalDataSource, operationalTransactionManager, operationalNamespace, deploymentId);
 
 // A camada de execução é dona da transação externa e do seu commit.
 var transaction = new TransactionTemplate(infrastructure.transactionManager());

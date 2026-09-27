@@ -36,7 +36,7 @@ O payload único é deliberadamente limitado ao recorte EXPLICIT/SYNC. Ele não 
 
 ## Persistência e migração V2
 
-A [migração explícita](BULK-PROPOSAL-STORAGE.md) conserva V1 e acrescenta V2. Em banco novo, migrate aplica duas versões; em banco no V1, aplica uma; repetição aplica zero. A tabela `praxis_bulk_evaluation` possui PK proposal_id e FK imediata composta para `(proposal_id, fingerprint)` da entrada. O pai recebe a UNIQUE correspondente. Checks limitam hash/payload; trigger recusa UPDATE. A validação física verifica também a nova PK/FK, permanência, colunas e trigger.
+A [migração explícita](BULK-PROPOSAL-STORAGE.md) conserva V1 e acrescenta V2. A introdução da evidência corresponde à V2. Com a V3 do [núcleo durável](BULK-DURABLE-EXECUTION.md), migrate aplica três versões em banco novo, duas a partir de V1 e uma a partir de V2; repetição aplica zero. O upgrade não fabrica execuções ou receipts para propostas anteriores. A tabela `praxis_bulk_evaluation` possui PK proposal_id e FK imediata composta para `(proposal_id, fingerprint)` da entrada. O pai recebe a UNIQUE correspondente. Checks limitam hash/payload; trigger recusa UPDATE. A validação física verifica também a nova PK/FK, permanência, colunas e trigger.
 
 `insertEvaluated` insere as duas linhas em uma única transação física existente. Falha na segunda inserção impede a persistência da primeira, mesmo quando o chamador captura a exceção e tenta concluir a transação. Ambas só ficam visíveis após commit. O store não oferece attach, UPDATE, sobrescrita ou upsert: uma reavaliação exige nova proposta/UUID. Entradas V1 existentes continuam recuperáveis, mas nunca ganham evidência por migração ou fallback. O ciclo operacional futuro deverá decidir sua expiração/substituição.
 

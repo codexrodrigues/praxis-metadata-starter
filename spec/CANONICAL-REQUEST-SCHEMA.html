@@ -236,19 +236,35 @@
 de request</h1>
 <p><code>OpenApiDocumentService.requireRequestSchema(CanonicalOperationRef)</code>
 lê o request JSON de uma operação explícita no documento OpenAPI
-canônico. O método default aplica a mesma garantia em implementações
-substitutas, usando a fonte documental do SPI;
-<code>CachedOpenApiDocumentService</code> fornece o documento/cache já
-existente. A saída <code>CanonicalRequestSchema</code> mantém operação,
-mídia, <code>SpecVersion</code> e schema isolado; cada acesso a
+canônico. O método default usa <code>getDocumentForGroupStrict</code>;
+fallback ao documento sem grupo não prova a publicação do grupo nomeado
+e falha fechado. Implementações substitutas precisam fornecer essa
+operação estrita. <code>CachedOpenApiDocumentService</code> fornece o
+documento/cache já existente. A saída
+<code>CanonicalRequestSchema</code> mantém operação, mídia,
+<code>SpecVersion</code> e schema isolado; cada acesso a
 <code>schema()</code> retorna uma cópia.</p>
+<p>Quando uma composição precisa verificar request e response de várias
+operações como um conjunto, capture
+<code>CanonicalOpenApiGroupSnapshot</code> uma vez para o grupo comum. O
+mesmo snapshot fornece <code>requireRequestSchema</code> e
+<code>requireResponseSchema</code>; assim essas leituras usam a mesma
+cópia defensiva do documento e não repetem fetch/cache lookup. O
+response mantém <code>SpecVersion</code>, schema canônico e a lista
+ordenada de variantes <code>(status, mediaType)</code>. O snapshot é uma
+observação pontual: <code>clearCaches()</code> não o atualiza e ele não
+prova frescor, vínculo MVC, readiness, autorização ou permissão de
+execução. Compositores que publicarem disponibilidade precisam coordenar
+invalidação e fencing separadamente.</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// IDs declarados no handler real. Não inferir update pelo verbo ou nome do método.</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>CanonicalRequestBodyBinding binding <span class="op">=</span> operations<span class="op">.</span><span class="fu">requireResourceRequestBody</span><span class="op">(</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    resourceKey<span class="op">,</span> updateOperationId<span class="op">,</span> <span class="st">&quot;PUT&quot;</span><span class="op">,</span> mapper<span class="op">.</span><span class="fu">getTypeFactory</span><span class="op">());</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>CanonicalRequestSchema request <span class="op">=</span> documents<span class="op">.</span><span class="fu">requireRequestSchema</span><span class="op">(</span>binding<span class="op">.</span><span class="fu">operation</span><span class="op">());</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>BulkEditableFields fields <span class="op">=</span> BulkEditableFields<span class="op">.</span><span class="fu">compile</span><span class="op">(</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    mapper<span class="op">,</span> binding<span class="op">.</span><span class="fu">bodyType</span><span class="op">(),</span> request<span class="op">.</span><span class="fu">schema</span><span class="op">(),</span> request<span class="op">.</span><span class="fu">specVersion</span><span class="op">(),</span> protectedWireNames<span class="op">);</span></span></code></pre></div>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>CanonicalOpenApiGroupSnapshot snapshot <span class="op">=</span> CanonicalOpenApiGroupSnapshot<span class="op">.</span><span class="fu">capture</span><span class="op">(</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    documents<span class="op">,</span> binding<span class="op">.</span><span class="fu">operation</span><span class="op">().</span><span class="fu">group</span><span class="op">());</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>CanonicalRequestSchema request <span class="op">=</span> snapshot<span class="op">.</span><span class="fu">requireRequestSchema</span><span class="op">(</span>binding<span class="op">.</span><span class="fu">operation</span><span class="op">());</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>BulkEditableFields fields <span class="op">=</span> BulkEditableFields<span class="op">.</span><span class="fu">compile</span><span class="op">(</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    mapper<span class="op">,</span> binding<span class="op">.</span><span class="fu">bodyType</span><span class="op">(),</span> request<span class="op">.</span><span class="fu">schema</span><span class="op">(),</span> request<span class="op">.</span><span class="fu">specVersion</span><span class="op">(),</span> protectedWireNames<span class="op">);</span></span></code></pre></div>
 <p>O exemplo usa o <a href="CANONICAL-OPERATION-BINDING.md">binding MVC
 tipado</a> para obter o JavaType do <code>@RequestBody</code> concreto,
 incluindo genéricos. O leitor de schema, isoladamente, não recupera ou
@@ -261,24 +277,30 @@ update.</p>
 <h2 id="garantias-e-subconjunto-suportado">Garantias e subconjunto
 suportado</h2>
 <ul>
-<li>Exige grupo, ID explícito, path e método; resolve o path pelo
-serviço canônico e confere o mesmo ID na operação do documento. IDs
-repetidos nas operações de <code>paths</code> daquele documento falham.
-A unicidade global dos handlers/recurso pertence a
-<code>requireResourceOperation</code>; o leitor não a substitui.</li>
+<li>Exige grupo, ID explícito, path e método; captura o documento por
+grupo estrito, resolve o path pelo serviço canônico e confere o mesmo ID
+na operação daquele documento. IDs repetidos nas operações de
+<code>paths</code> daquele documento falham. A unicidade global dos
+handlers/recurso pertence a <code>requireResourceOperation</code>; o
+leitor não a substitui. <code>CanonicalOpenApiGroupSnapshot</code>
+permite compartilhar publicamente a mesma cópia defensiva entre leituras
+de vários request/response contracts.</li>
 <li>Exige <code>openapi</code> 3.0.x ou 3.1.x. Não deduz dialeto por
 <code>nullable</code> ou pelo tipo. Em 3.1, aceita o dialeto padrão
 OpenAPI e JSON Schema 2020-12; dialectos customizados falham. Esse
 suporte é um subconjunto estrutural, não um validador completo de
 OpenAPI/JSON Schema.</li>
 <li>Exige um único media type JSON concreto:
-<code>application/json</code> ou <code>application/...+json</code>.
-Múltiplos candidatos JSON são ambíguos, inclusive
-<code>application/json</code> junto de outro <code>+json</code>; não
-escolhe uma allowlist arbitrária entre representações. XML e wildcard
-não provam um contrato JSON. A seleção documental permissiva continua a
-mesma para os controllers existentes, compartilhando a preferência na
-camada OpenAPI.</li>
+<code>application/json</code> ou
+<code>application/&lt;subtype-token&gt;+json</code>, com subtype formado
+por caracteres ASCII <code>tchar</code> válidos; a comparação de nome é
+case-insensitive. Wildcards, parâmetros, espaços, tabs e caracteres
+Unicode não válidos não são aceitos como chaves de media type. Múltiplos
+candidatos JSON são ambíguos, inclusive <code>application/json</code>
+junto de outro <code>+json</code>; não escolhe uma allowlist arbitrária
+entre representações. XML e wildcard não provam um contrato JSON. A
+seleção documental permissiva continua a mesma para os controllers
+existentes, compartilhando a preferência na camada OpenAPI.</li>
 <li>Resolve referências locais a
 <code>#/components/requestBodies/</code> e
 <code>#/components/schemas/</code>, com escapes JSON Pointer
@@ -325,7 +347,7 @@ bloqueie admissão até as dependências reais estarem prontas, ou outra
 leitura local canônica comprovada. Este incremento não instala esse
 ciclo automaticamente. Implementações substitutas de
 OpenApiDocumentService herdam o mesmo algoritmo; personalizam a fonte
-por getDocumentForGroup/resolveDocumentPath. Não precisam fabricar
+por getDocumentForGroupStrict/resolveDocumentPath. Não precisam fabricar
 snapshots nem reimplementar a resolução.</p>
 <p>Entradas inválidas de operação produzem IllegalArgumentException;
 inconsistências/limites de documento produzem IllegalStateException. São
@@ -336,7 +358,10 @@ atualização nem cria storage/providers.</p>
 <h2 id="provas">Provas</h2>
 <p><code>CanonicalRequestSchemaTest</code> cobre
 operações/mídias/dialetos, referências/escapes/composição, cópias/cache
-e limites. <code>CanonicalRequestSchemaHttpIntegrationTest</code> usa
+e limites. <code>CanonicalOpenApiGroupSnapshotTest</code> prova que
+request/response usam uma única captura estrita, preservam
+mídia/variante e resistem à mutação tanto da fonte quanto das cópias
+retornadas. <code>CanonicalRequestSchemaHttpIntegrationTest</code> usa
 MVC e SpringDoc servidos em HTTP real, um handler update/DTO explícito,
 o binding MVC tipado e BulkEditableFields; verifica também que a
 projeção filtrada continua disponível com headers. A fixture é uma
