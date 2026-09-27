@@ -1124,7 +1124,7 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
-    private String scopedTombstone(Connection connection, BulkFingerprintContext scope,
+    static String scopedTombstone(Connection connection, BulkFingerprintContext scope,
             UUID executionId) throws SQLException {
         String digest = BulkScopeDigests.authorizationScopeDigest(scope.namespaceId(), scope.subjectId(),
                 scope.resourceKey(), scope.operationRef().operationId());

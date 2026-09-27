@@ -325,6 +325,83 @@ na linha extra, é recusado. O orçamento limita bytes processados, **não** é 
 heap ou SLA; `fetchSize(1)` e benchmark representativo continuam obrigatórios
 antes da superfície HTTP.
 
+## Corte interno RS4 — resultados duráveis por página
+
+Base: Metadata main `712eb13f1bad382b8cb6f4a57ae619d24e8e7c1b` (RS1/RS2/V12).
+Classificação `arquitetural` interna; nenhum contrato público, SQL físico,
+grant, endpoint, cursor ou `READY` é criado. Consumidor futuro: handler
+`execution-results` no Quickstart, após autorização corrente integral do
+conjunto. Docs HTTP/corpus/Angular não derivam deste corte.
+
+Inventário de aderência: `BulkConsistentExecutionRead` e
+`JdbcBulkDurableExecution.inspectConsistent` já certificam controle/prefixo,
+mas percorrem avaliação protegida, manifest e todo o ledger de até 10.000
+unidades (`suportado-parcialmente`, inadequado para página). Manifest V8 já
+vincula ordinal, identidade wire e versão à avaliação; receipts V3 e admissions
+V4 guardam outcome e digest duráveis, enquanto tombstone V5 preserva somente
+estado terminal (`ja-suportado-mal-materializado`). `BulkExecutionInfrastructure`
+já fornece `withConsistentRead` independente `REPEATABLE READ READ ONLY`; não
+existe lacuna de contrato público para a **fundação interna**. `BulkItemResult`
+é contrato futuro; não é resposta deste leitor nem autoriza expor reason/facts.
+
+Write set mínimo: somente leitor package-private e provas PostgreSQL; queries
+indexadas no mesmo snapshot observam header de execution, vínculo
+proposal/evaluation e tombstone scoped, depois keyset por ordinal do manifest
+com LEFT JOIN das receipts/admissions, `LIMIT size+1` e limite agregado de
+bytes. Escopo confiável inclui namespace, subject, resource e operationId;
+fingerprints, targetCount, digest da identidade wire, versão e targetDigest
+são comparados antes de aceitar um item. A primeira página fixa e devolve
+`watermarkExclusive`; toda continuação interna exige esse valor explícito e
+jamais amplia a janela quando ACK ou `STOPPED` avança `nextOrdinal`/status.
+O futuro cursor público deve vincular o watermark ao escopo/shape governado.
+O prefixo servido deve estar em
+`ordinal < nextOrdinal` e ter exatamente uma evidência durável coerente por
+ordinal. Evidência no sufixo de `RECONCILIATION_REQUIRED` nunca vira item
+`UNKNOWN`; ele fica fora da página até reconciliar. Em `STOPPED` terminal,
+`NOT_PROCESSED` é permitido apenas em ordinal >= `nextOrdinal` com ausência
+física comprovada de receipt e admission na própria linha. Estados não
+terminais não fabricam itens futuros. `COMPLETED` e
+`COMPLETED_WITH_ERRORS` exigem `nextOrdinal=targetCount` e evidência por item.
+Um `EXISTS` indexado do ledger de admission exige ausência para `COMPLETED`
+e presença para `COMPLETED_WITH_ERRORS`, sem scan global por página. A garantia
+do leitor é local aos itens retornados e ao estado terminal mínimo; a auditoria
+integral do prefixo, contagens e allocations continua em RS3.
+Drift/duplicidade/shape impossível falha `CORRUPT`; SQL/ACL/timeout falha
+`UNAVAILABLE`, sem payload ou razão privada na exceção. O orçamento de 20 MiB
+inclui bytes do manifest e a linha de lookahead; aceita igualdade e rejeita o
+primeiro byte acima do limite. Ele limita bytes processados, não prova pico
+de heap nem estabelece SLA; `fetchSize(1)` preserva a estratégia conservadora
+até benchmark representativo antes de HTTP.
+
+Locks: nenhum lock de escrita; o primeiro SELECT fixa a visão MVCC, então
+ACK/receipt, cancelamento, recovery e purge podem confirmar em outra conexão
+sem página híbrida. Tombstone scoped nunca é convertido em 410 antes de
+autorização do host. O valor interno contém apenas bytes wire canônicos,
+ordinal e outcome/razão de código para interpretação posterior e tem
+serialização/toString opacos. Não lê o blob da avaliação por página; portanto
+este corte comprova a integridade **local** dos itens servidos contra manifest
+imutável e controle durável, não reexecuta a auditoria integral RS3 em cada
+requisição. A ordenação, a linha extra e o orçamento são verificáveis em
+PostgreSQL com 10.000 alvos, corrupção, fronteira de bytes, escopo cruzado e
+barreiras determinísticas de ACK/purge. Antes de expor HTTP ainda faltam
+authorizer granular, cursor protegido e redaction explícita de razões/identidade.
+
+Prova focal em PostgreSQL 14.22: dez métodos de
+`BulkDurableExecutionPostgresTest` cobrem prefixo/`STOPPED`, admission,
+reconciliação sem `UNKNOWN`, escopo cruzado, manifest/receipt drift, ACK e
+purge concorrentes entre SELECTs, watermark fixado entre páginas,
+admission/status terminal incompatíveis, 10.000 alvos e orçamento da linha extra.
+O método de 10.000 alvos mediu 69 ms para duas páginas de 200 itens no PG
+embedded local; isto não é orçamento de latência de produção. A bateria final
+tem 10/10 sem falhas/erros no XML Surefire desta árvore, log local
+`/tmp/praxis-rs4-ten.log`. RS3 já prova o
+`withConsistentRead` físico com JDBC e JPA; RS4 não altera essa infraestrutura.
+Impacto de skill: `atualizar-existente` em
+`praxis-java-command-concurrency-authoring`; o arquivo canônico consultado em
+`praxis-codex-skills` HEAD `d99aef0` ensina outcomes em lote, mas ainda não
+descreve esta leitura protegida bounded e seus limites. A coordenação entrega
+e valida a atualização na fonte canônica; este pacote Metadata não edita skills.
+
 ## Corte interno RS3 — pré-análise de 27/09/2026
 
 Base de implementação: Metadata main `7117f96cb6f34e612711fa57212f13e4f943ba65` (V10).
@@ -433,7 +510,7 @@ exato. Duplicidade, bytes inválidos, vínculo/escopo divergente ou linha
 dependente inesperada sob proposta sem avaliação falham `CORRUPT` sem incluir
 payload na exceção. SQL/ACL/timeout falham
 `UNAVAILABLE`. A leitura não usa locks de escrita: o snapshot MVCC permite
-expiração/purge concorrentes e impede misturar proposta anterior com avaliação
+expiração concorrente e impede misturar proposta anterior com avaliação
 posterior ou vice-versa. O futuro host não deve converter `ABSENT` em 404/410
 antes de autenticação, autorização atual e decisão sobre histórico/tombstone.
 
@@ -445,8 +522,8 @@ Não produzir `redactedIntent` genérico; a autorização histórica ambígua,
 delegação, expiração pública e shape da projeção do provider permanecem lacunas
 separadas de RS1. Provas focais: PostgreSQL real em conexões independentes,
 cross-scope, proposta sem avaliação, corrupção dos dois blobs/vínculo, read-only
-físico e expiração/purge entre selects com snapshot antigo coerente e leitura
-nova ausente. A prova focal executada em PostgreSQL 14.22 foi
+físico e expiração da proposta não consumida entre SELECTs, com snapshot antigo
+coerente e leitura nova ausente. A prova focal executada em PostgreSQL 14.22 foi
 `BulkProtectedProposalReaderPostgresTest` (4 testes, sem falhas/erros): estados,
 escopo, conteúdo opaco em `toString`/Jackson, corrupção de ambos os blobs,
 ACL revogada como indisponibilidade e expiração confirmada entre os dois SELECTs.
