@@ -1,7 +1,8 @@
 # H1b — decisão de base para leitura de operações em lote
 
-Estado: V8/V9/V10 e a fundação interna RS3 integrados; sem reader
-público, endpoint, cursor ou `READY`. Baseline inicialmente auditado: Metadata main
+Estado atual: V8–V13, readers internos RS1–RS4 e codec AEAD de cursor estão
+integrados; ainda não existe serviço de leitura autorizado/publicamente
+consumível, endpoint, cursor HTTP ou `READY`. Baseline inicialmente auditado: Metadata main
 `fdc4fac8cf6bdf6129282db6b0ada26c82ac03cb` (`8.0.0-rc.136`) e consumidor
 Quickstart PR #311. O plano do consumidor está em
 `internal-planning/bulk-operations/H1B-WRITE-SETS.md` no Quickstart. B0 continua
@@ -614,14 +615,16 @@ por um teste isolado de serialização.
 |---|---|---|
 | Proposta | `BulkProposal` público e `JdbcBulkProposalStore.find` scoped | `suportado-parcialmente`: falta projeção/redaction do provider para `redactedIntent`, diagnostics e evidence, além de snapshot coerente e autorização corrente; `findEvaluation` abre outra conexão |
 | Avaliação por alvo | `BulkEvaluationSnapshot` imutável e protegido, até 10.000 alvos | `lacuna-real-de-contrato`: `BulkItemResult` é outcome da execução; falta DTO seguro da avaliação e fonte paginável |
-| Execução | `BulkExecution`/`BulkExecutionTotals` públicos e `JdbcBulkDurableExecution.find` protegido | `suportado-parcialmente`: faltam reader, horários/contagens por outcome e estados de cancelamento persistidos |
-| Resultado por alvo | `BulkItemResult`, receipts/admissions por ordinal | `suportado-parcialmente`: identidade wire está dentro do blob da avaliação; não há reader/cursor público |
-| Cursor | `CursorPage` é envelope; `CursorEncoder` usa Base64 reversível | `lacuna-real-de-contrato`: falta token autenticado, confidencial e ligado ao escopo |
+| Execução | `BulkExecution`/`BulkExecutionTotals`, `JdbcBulkDurableExecution.find` e `BulkExecutionSummary` interno | `suportado-parcialmente`: status/resumo existe na fundação protegida; falta serviço público/autorizado que faça a projeção segura e a associe ao principal e ao scope atual. `requestCancel` no kernel não é rota nem read model de cancelamento |
+| Resultado por alvo | `BulkItemResult`, receipts/admissions por ordinal e `BulkExecutionResultsReader` RS4 interno | `suportado-parcialmente`: leitor paginado e cursor interno existem, mas são package-private e não há serviço/projeção externa autorizada; identidade wire e razão terminal precisam de redaction/associação segura |
+| Cursor | `CursorPage` é envelope; `BulkReadCursorCodec` AEAD interno e readers RS2/RS4 | `suportado-parcialmente`: codec autenticado/confidencial integrado, mas sem API pública de emissão/continuação ligada à reautorização por página |
 
 `BulkProtocolReader` valida **entrada** JSON; não é reader de resultados. Os blobs
-protegidos guardam fatos, plano, governança, seleção e versões para replay. Eles não
-são um response público nem uma fonte de paginação bounded. A existência dos DTOs
-públicos não prova que o banco consegue preenchê-los corretamente.
+protegidos guardam fatos, plano, governança, seleção e versões para replay. Os
+readers RS1–RS4 atuais são internos e não produzem, por si, response público nem
+autorização. Os blobs e snapshots protegidos não podem ser serializados como
+response. A existência dos DTOs públicos não prova que há serviço autorizado que
+os projete corretamente.
 
 ## Decisão 1 — índice privado imutável por ordinal
 
@@ -795,12 +798,17 @@ incerto ou anúncio antecipado de backend completo.
 ## Corte interno para cursor criptográfico RS2/RS4
 
 Classificação `arquitetural` e `transversal`, ainda sem endpoint, DTO HTTP,
-annotation, capability ou alteração de contrato publicado. Fonte canônica:
+annotation, capability ou alteração de contrato publicado. Este codec interno
+foi integrado pelo Metadata PR #194 (`27a010e2aba0e2e56cd24f539bd49d8c9f609375`,
+merge `15ab5935d020cce3cd6d49e14f5188ef75fd4b2f`); não equivale a cursor público
+ou serviço de leitura. Fonte canônica:
 Metadata para token e claims; o Quickstart continua dono do principal autenticado
 e de toda decisão/grant de leitura. Aderência: `CursorPage` é somente envelope e
 `CursorEncoder.BASE64_URL` não oculta nem autentica seus valores
-(`suportado-parcialmente`); RS2/RS4 internos já leem páginas limitadas, mas não
-há mecanismo de continuação protegido (`lacuna-real-de-contrato` para o codec).
+(`suportado-parcialmente`); `BulkReadCursorCodec` fornece continuação protegida
+para os readers internos RS2/RS4. Continua `lacuna-real-de-contrato/integração`
+somente a composição pública que reautoriza o principal atual, liga cursor a
+scope/shape e projeta DTOs seguros.
 Consumidor concreto futuro: leitores `BulkPreviewPageReader` e
 `BulkExecutionResultsReader`, chamados por handlers Quickstart somente depois de
 lookup scoped e autorização corrente integral.
@@ -813,7 +821,7 @@ ou usa claims para autorizar. Cada página futura deve refazer a autorização
 completa e comparar o fingerprint efetivo depois dessa decisão. Repetir uma
 leitura durante a validade é permitido e não produz nova mutação.
 
-Write set deste corte: codec package-private de AES-256-GCM, claims binários
+Implementação interna já integrada: codec package-private de AES-256-GCM, claims binários
 canônicos, dois propósitos distintos (`PROPOSAL_RESULTS` RS2 e
 `EXECUTION_RESULTS` RS4), key set imutável com uma chave ativa e antigas
 somente para decriptação. AAD inclui namespace de protocolo/versão, propósito e
@@ -854,7 +862,7 @@ integrada em `praxis-java-filter-query-authoring` pela PR #606, merge
 skill de comandos de negócio não foi alterada, pois este codec não executa
 transições nem controla concorrência de mutações.
 
-Aceite focal antes de integrar: round-trip em instância nova (prova de restart),
+Critérios de aceite deste corte integrado: round-trip em instância nova (prova de restart),
 rotação ativa/antiga, propósito/AAD trocado, tamper/tag, `kid` removido,
 fingerprint e escopo cruzado, nonce aleatório distinto, UTF-8 inválido,
 truncamento/trailing bytes autenticados, flags binárias não canônicas, claims e
