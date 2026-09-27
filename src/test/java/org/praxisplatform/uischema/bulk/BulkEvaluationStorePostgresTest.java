@@ -284,6 +284,34 @@ class BulkEvaluationStorePostgresTest {
         assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,roles))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("manifest bootstrap is not complete");
     }
+    @Test void internalRetentionGrantsCannotMutateBootstrapMarker() throws Exception {
+        migrate();
+        var roles=BulkPostgresTestSupport.testRoleConfiguration();
+        for (String role:List.of("praxis_bulk_retention_owner","praxis_bulk_retention_executor")) {
+            sql.execute("grant update on praxis_bulk.praxis_bulk_manifest_bootstrap to "+role);
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,roles))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("manifest bootstrap marker ACL must be owner-only");
+            sql.execute("revoke update on praxis_bulk.praxis_bulk_manifest_bootstrap from "+role);
+        }
+        sql.execute("grant update on praxis_bulk.praxis_bulk_manifest_bootstrap to praxis_bulk_retention_executor");
+        try (var connection=schemaOwnerDataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try (var statement=connection.createStatement()) {
+                statement.execute("set role praxis_bulk_retention_executor");
+                assertThat(statement.executeUpdate("""
+                        update praxis_bulk.praxis_bulk_manifest_bootstrap set phase='PENDING'
+                        """)).isEqualTo(1);
+            } finally {
+                connection.rollback();
+            }
+        }
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
+                .isEqualTo("COMPLETE");
+        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,roles))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("manifest bootstrap marker ACL must be owner-only");
+    }
     @Test void completedBootstrapRejectsMissingManifestWithoutRecreatingIt() {
         migrate();
         var value=evaluation(proposal());

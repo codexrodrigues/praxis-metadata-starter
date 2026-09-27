@@ -1453,8 +1453,7 @@ public final class BulkExecutionMigrator {
             require(rows.next() && rows.getInt(1) == 8 && "COMPLETE".equals(rows.getString(2))
                     && !rows.next(), "V8 manifest bootstrap is not complete");
         }
-        require(tableRolePrivileges(connection, MANIFEST_BOOTSTRAP_TABLE, "PUBLIC").isEmpty(),
-                "manifest bootstrap marker must be private");
+        validateManifestBootstrapAcl(connection);
         validateDurableColumns(connection, MANIFEST_TABLE, Map.of(
                 "proposal_id", "uuid|true", "evaluation_fingerprint", "text|true",
                 "ordinal", "integer|true", "wire_identity", "bytea|true",
@@ -1513,6 +1512,26 @@ public final class BulkExecutionMigrator {
         for (String role : roles.runtimeGranteeRoles()) {
             require(tableRolePrivileges(connection, MANIFEST_TABLE, role).equals(Set.of("T:SELECT", "T:INSERT")),
                     "manifest runtime grants differ: " + role);
+        }
+    }
+
+    private static void validateManifestBootstrapAcl(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select count(*) from (
+                    select acl.grantee, acl.grantor, c.relowner
+                      from pg_class c cross join lateral
+                           aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) acl
+                     where c.oid='praxis_bulk.praxis_bulk_manifest_bootstrap'::regclass
+                    union all
+                    select acl.grantee, acl.grantor, c.relowner
+                      from pg_class c join pg_attribute a on a.attrelid=c.oid
+                           cross join lateral aclexplode(a.attacl) acl
+                     where c.oid='praxis_bulk.praxis_bulk_manifest_bootstrap'::regclass
+                       and a.attnum>0 and not a.attisdropped and a.attacl is not null
+                ) grants where grantee <> relowner or grantor <> relowner
+                """)) {
+            require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+                    "manifest bootstrap marker ACL must be owner-only");
         }
     }
 
