@@ -236,10 +236,16 @@ public final class BulkExecutionMigrator {
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
                 bootstrapLifecycle(connection, deployments, operations);
-                BulkOrdinalManifest.backfillAndValidate(connection);
+                if (pendingManifestBootstrap) BulkOrdinalManifest.backfillAndValidate(connection);
+                else BulkOrdinalManifest.validateAll(connection);
                 if (pendingManifestBootstrap) provisionManifestRuntimeGrants(connection, roles);
                 validateLifecycleRows(connection);
                 if (pendingManifestBootstrap) completeManifestBootstrap(connection);
+                // A wrong role set must roll back the PENDING -> COMPLETE transition and
+                // its grants. Do not defer ACL attestation until after bootstrap commits.
+                validateV5RolesAndPrivileges(connection, roles);
+                validateV5FunctionPrivileges(connection, roles);
+                validateManifestCatalog(connection, roles);
                 connection.commit();
             } catch (SQLException | RuntimeException failure) {
                 try { connection.rollback(); } catch (SQLException rollback) { failure.addSuppressed(rollback); }

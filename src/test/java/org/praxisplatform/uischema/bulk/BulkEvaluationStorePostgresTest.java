@@ -284,6 +284,30 @@ class BulkEvaluationStorePostgresTest {
         assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,roles))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("manifest bootstrap is not complete");
     }
+    @Test void completedBootstrapRejectsMissingManifestWithoutRecreatingIt() {
+        migrate();
+        var value=evaluation(proposal());
+        persist(value);
+        sql.execute("alter table praxis_bulk.praxis_bulk_target_manifest disable trigger user");
+        try {
+            sql.update("delete from praxis_bulk.praxis_bulk_target_manifest where proposal_id=?",
+                    value.proposal().id());
+        } finally {
+            sql.execute("alter table praxis_bulk.praxis_bulk_target_manifest enable trigger user");
+        }
+        assertThat(count("praxis_bulk_target_manifest")).isZero();
+        var roles=BulkPostgresTestSupport.testRoleConfiguration();
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Protected bulk manifest differs from evaluation");
+        assertThat(count("praxis_bulk_target_manifest")).isZero();
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
+                .isEqualTo("COMPLETE");
+        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,roles))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(count("praxis_bulk_target_manifest")).isZero();
+    }
     @Test void v7EvaluationBackfillsAtomicallyBeforeValidation() {
         Flyway.configure().dataSource(schemaOwnerDataSource).locations("classpath:db/praxis-bulk-migrations")
                 .schemas("praxis_bulk").defaultSchema("praxis_bulk")
@@ -376,6 +400,29 @@ class BulkEvaluationStorePostgresTest {
         assertThat(sql.queryForObject("""
                 select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','insert')
                 """,Boolean.class)).isFalse();
+    }
+    @Test void wrongNoRoleUpgradeCannotCompleteAndCorrectRoleRetryRecovers() {
+        migrateToV7();
+        BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"bulk_runtime_test");
+        BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"durable_runtime");
+        var value=evaluation(proposal(specialSnapshot("upgrade-role","v1","plain")));
+        insertV7Evaluation(value);
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
+                .isEqualTo("PENDING");
+        assertThat(count("praxis_bulk_target_manifest")).isZero();
+        assertThat(sql.queryForObject("""
+                select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
+                """,Boolean.class)).isFalse();
+        var roles=BulkPostgresTestSupport.testRoleConfiguration();
+        assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isZero();
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
+                .isEqualTo("COMPLETE");
+        assertThat(count("praxis_bulk_target_manifest")).isEqualTo(value.targets().size());
+        BulkExecutionMigrator.validate(schemaOwnerDataSource,roles);
     }
     @Test void v7UpgradeRejectsUnprovisionedRoleWithoutGrantingManifest() {
         migrateToV7();
