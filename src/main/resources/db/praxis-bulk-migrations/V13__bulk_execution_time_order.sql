@@ -54,7 +54,7 @@ begin
                         and t.tgname='praxis_bulk_execution_guard_terminal'
                         and t.tgfoid=v_function and t.tgtype=19
                         and t.tgqual is null and t.tgnargs=0
-                        and t.tgattr::text='' and pg_catalog.octet_length(t.tgargs)=0
+                        and t.tgattr = ''::pg_catalog.int2vector and pg_catalog.octet_length(t.tgargs)=0
                         and t.tgoldtable is null and t.tgnewtable is null
                         and t.tgenabled='O' and not t.tgisinternal)
        or not exists (select 1 from pg_catalog.pg_trigger t
@@ -62,7 +62,7 @@ begin
                         and t.tgname='praxis_bulk_execution_protect_cancel'
                         and t.tgfoid=v_cancel_function and t.tgtype=23
                         and t.tgqual is null and t.tgnargs=0
-                        and t.tgattr::text='' and pg_catalog.octet_length(t.tgargs)=0
+                        and t.tgattr = ''::pg_catalog.int2vector and pg_catalog.octet_length(t.tgargs)=0
                         and t.tgoldtable is null and t.tgnewtable is null
                         and t.tgenabled='O' and not t.tgisinternal)
        or (select count(*) from pg_catalog.pg_trigger t
@@ -84,7 +84,7 @@ begin
                  pg_catalog.to_regprocedure('praxis_bulk.' || expected.function_name || '()')
               or t.tgtype <> expected.trigger_type or t.tgenabled <> 'O'
               or t.tgqual is not null or t.tgnargs <> 0
-              or t.tgattr::text <> '' or pg_catalog.octet_length(t.tgargs) <> 0
+              or t.tgattr <> ''::pg_catalog.int2vector or pg_catalog.octet_length(t.tgargs) <> 0
               or t.tgoldtable is not null or t.tgnewtable is not null)
     then
         raise exception 'bulk V5/V10 chronology guard attestation failed' using errcode='55000';
