@@ -791,3 +791,75 @@ duas conexões e interleavings antes de ser usado pelos handlers.
 
 Nenhum desses passos autoriza mutação automática na recuperação, expurgo de efeito
 incerto ou anúncio antecipado de backend completo.
+
+## Corte interno para cursor criptográfico RS2/RS4
+
+Classificação `arquitetural` e `transversal`, ainda sem endpoint, DTO HTTP,
+annotation, capability ou alteração de contrato publicado. Fonte canônica:
+Metadata para token e claims; o Quickstart continua dono do principal autenticado
+e de toda decisão/grant de leitura. Aderência: `CursorPage` é somente envelope e
+`CursorEncoder.BASE64_URL` não oculta nem autentica seus valores
+(`suportado-parcialmente`); RS2/RS4 internos já leem páginas limitadas, mas não
+há mecanismo de continuação protegido (`lacuna-real-de-contrato` para o codec).
+Consumidor concreto futuro: leitores `BulkPreviewPageReader` e
+`BulkExecutionResultsReader`, chamados por handlers Quickstart somente depois de
+lookup scoped e autorização corrente integral.
+
+Este corte pode avançar sem escolher acesso creator-only versus delegação nem a
+data de entitlement departamental: o token separa o sujeito histórico criador de
+um fingerprint opaco do escopo de leitura efetivo, ambos fornecidos pelo servidor.
+O codec nunca calcula grants, autentica principal, executa lookup, redige dados,
+ou usa claims para autorizar. Cada página futura deve refazer a autorização
+completa e comparar o fingerprint efetivo depois dessa decisão. Repetir uma
+leitura durante a validade é permitido e não produz nova mutação.
+
+Write set deste corte: codec package-private de AES-256-GCM, claims binários
+canônicos, dois propósitos distintos (`PROPOSAL_RESULTS` RS2 e
+`EXECUTION_RESULTS` RS4), key set imutável com uma chave ativa e antigas
+somente para decriptação. AAD inclui namespace de protocolo/versão, propósito e
+`kid`; o envelope expõe apenas versão, `kid`, nonce aleatório de 96 bits e
+ciphertext/tag. Claims cifrados ligam proposta, execução quando aplicável,
+`{namespace, subject criador, resource, operationId}`, fingerprint efetivo de
+autorização de 32 bytes, direção `NEXT`, último ordinal exclusivo, page size,
+`watermarkExclusive`, revisão de projector/shape e `issuedAt`/`expiresAt`.
+Path, grupo, schema e atomicity correntes não participam do vínculo histórico.
+O codec limita páginas a 1–200, ordinal a `0 <= lastOrdinal < watermark <=
+10.000`, texto/frame e tamanho total do token. Emissão limita TTL a 15 minutos;
+esse é o teto local conservador da versão interna, sujeito à revisão de B0 antes
+de qualquer contrato HTTP. Chaves anteriores precisam permanecer disponíveis
+em todas as réplicas até esse teto mais tolerância de relógio. Decode autentica
+claims expiradas e as marca para que o host possa fazer lookup/autorização antes
+de mapear um 412; token malformado, `kid` ausente ou tag incorreta falham sem
+detalhe sensível.
+
+O nonce aleatório requer rotação operacional da chave ativa antes de 2^32
+emissões agregadas em toda a frota; esse limite não é contabilizado pelo codec
+stateless. A configuração futura do host precisa documentar e provar a política
+de rotação e observabilidade da emissão antes de habilitar cursor HTTP. Não
+colocar nonce, token, claims ou fingerprint em logs, métricas ou traces.
+
+Estados e recursos: cursor é stateless e imutável; não abre sessão, não consome
+cursor uma única vez, não renova TTL e não toma locks. A página RS2 fixa o
+watermark imutável da proposta; a RS4 conserva o prefixo certificado inicial.
+Queries futuras permanecem no snapshot `REPEATABLE READ READ ONLY`; a ordem de
+locks de escrita B0 não muda. A expiração/tombstone/revogação são verificadas
+pela camada futura, não inferidas do token.
+
+Mapa de impacto: somente pacote `bulk`, testes unitários e esta especificação no
+Metadata. Host, Config, schemas OpenAPI, corpus HTTP, landing/playground e Angular
+não mudam enquanto os leitores permanecerem internos. Skills: classificação
+`atualizar-existente`; a orientação reutilizável de continuação/autorização foi
+integrada em `praxis-java-filter-query-authoring` pela PR #606, merge
+`793a4ac0f3c51e3b025d51079dc6e04e3722b761`, e sincronizada seletivamente. A
+skill de comandos de negócio não foi alterada, pois este codec não executa
+transições nem controla concorrência de mutações.
+
+Aceite focal antes de integrar: round-trip em instância nova (prova de restart),
+rotação ativa/antiga, propósito/AAD trocado, tamper/tag, `kid` removido,
+fingerprint e escopo cruzado, nonce aleatório distinto, UTF-8 inválido,
+truncamento/trailing bytes autenticados, flags binárias não canônicas, claims e
+token excedentes, limites positivos e negativos de ordinal/page/TTL,
+decode autenticado-expirado sem autorização implícita. Revisão independente de
+segurança deve confirmar ausência de logging de bearer/claims e ausência de
+decisões HTTP/autorização no codec. O corte não declara leitura pública nem
+resolve os dois pontos pendentes do host.
