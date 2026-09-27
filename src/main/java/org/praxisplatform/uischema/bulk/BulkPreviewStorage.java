@@ -104,7 +104,7 @@ final class BulkPreviewStorage {
         return bytes;
     }
 
-    private static Map<String, String> validatedAllowlist(byte[] payload) {
+    static Map<String, String> validatedAllowlist(byte[] payload) {
         JsonNode document = BulkSnapshotStorageCodec.readDocument(payload);
         if (!document.isArray() || document.size() > 64) throw invalid();
         List<BulkPreviewProjection.PublicDiagnostic> definitions = new ArrayList<>();

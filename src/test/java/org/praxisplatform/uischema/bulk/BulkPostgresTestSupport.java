@@ -86,6 +86,12 @@ final class BulkPostgresTestSupport {
                 + "on praxis_bulk.praxis_bulk_allocation to " + runtimeRole);
         admin.execute("grant select on praxis_bulk.praxis_bulk_tombstone to " + runtimeRole);
         admin.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to " + runtimeRole);
+        if (Boolean.TRUE.equals(admin.queryForObject("""
+                select to_regprocedure('praxis_bulk.assert_preview_integrity_complete()') is not null
+                """, Boolean.class))) {
+            admin.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to "
+                    + runtimeRole);
+        }
         return new BulkExecutionRoleConfiguration("postgres", Set.of(runtimeRole), Set.of(), Set.of());
     }
 
