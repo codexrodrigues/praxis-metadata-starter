@@ -27,6 +27,17 @@ class BulkEvaluationSnapshotTest {
                 "observed-v2", JSON.objectNode().put("dependentRevision","r7"), JSON.objectNode().put("amount",new BigDecimal("1.0")), BulkTargetEligibility.executable()));
         return new BulkEvaluationSnapshot(proposal,proposal.createdAt().plusSeconds(1),targets, governance());
     }
+    static BulkPreviewProjection preview(BulkEvaluationSnapshot evaluation) {
+        var allowlist = new ArrayList<BulkPreviewProjection.PublicDiagnostic>();
+        var seen = new HashSet<String>();
+        for (var target : evaluation.targets())
+            for (var diagnostic : target.eligibility().orElseThrow().diagnostics()) {
+                String key = diagnostic.category() + ":" + diagnostic.code();
+                if (seen.add(key)) allowlist.add(new BulkPreviewProjection.PublicDiagnostic(
+                        diagnostic.category(), diagnostic.code(), "Public test diagnostic"));
+            }
+        return new BulkPreviewProjection(evaluation, "test-preview/1", allowlist);
+    }
     @Test void evaluationUsesIndependentVersionedFraming() {
         var value=JSON.objectNode().put("value",1);
         // Independent Python struct/hashlib reference: version string + O/count/key/I/value.

@@ -34,6 +34,27 @@ A V8 registra um marcador privado `PENDING` após o DDL. Backfill, grant focal e
 
 Construir o store não acessa o banco nem registra beans. `insert` e `find` exigem a transação física, existente e gravável do serviço, participando com MANDATORY. Nenhuma transação independente é criada pelo adapter. O retorno de insert é provisório até o commit externo; rollback remove a inserção. Um UUID já existente gera `BulkProposalStorageException.Reason.CONFLICT`, sem upsert nem sobrescrita. Essa unicidade técnica não substitui a futura chave de idempotência de negócio.
 
+No **upgrade V8→V9**, drene/pare writers antigos e suspenda admissão antes da
+migration. O provider passa a fornecer `BulkPreviewProjection` com revisão e
+allowlist explícita de diagnósticos públicos; `insertEvaluated` agora exige
+`(evaluation, projection)`. A V9 grava estado `COMPLETE` e exatamente uma linha
+segura por ordinal na mesma transação de proposta, avaliação, manifest e quota.
+Avaliações legadas são marcadas `UNAVAILABLE_LEGACY` sem projetar mensagens
+protegidas. Uma avaliação nova sem projector seguro exige escolha explícita
+`BulkPreviewProjection.unavailable(evaluation)`, persistida como `UNAVAILABLE`;
+o futuro reader retornará indisponibilidade após autorização, preservando a
+avaliação válida. `COMPLETE` grava allowlist pública e digest versionado de
+revisão e itens; o migrator recomputa e compara mensagens, detectando drift
+parcial. Trigger diferido impede commit de writer antigo que não gravou estado
+explícito. Um guard de `INSERT` no item exige pai `COMPLETE`; a FK fornece lock
+referencial contra DELETE concorrente e impede
+acrescentar itens tardios a estados indisponíveis. O bootstrap V9 tem marcador próprio `PENDING/COMPLETE`: enquanto
+`PENDING`, concede `SELECT, INSERT` nas tabelas de projeção somente às roles
+runtime já aptas à avaliação e explicitamente configuradas; depois de
+`COMPLETE`, não restaura grants nem reconstrói linhas. Valide estrutura, ACL,
+linhas e roles antes de reabrir admissão. Não há reader ou endpoint RS2 neste
+corte.
+
 ## Identidade, validade e proteção
 
 A consulta combina UUID, namespace, usuário, recurso e operationId vindos do contexto confiável do servidor. Outro usuário/recurso/operação recebe ausência; namespace divergente da infraestrutura é rejeitado. O `operationRef` original completo, schemaRevision e atomicidade retornam no snapshot para futura revalidação. Uma revisão atual diferente não torna a linha corrompida nem autoriza executá-la.
