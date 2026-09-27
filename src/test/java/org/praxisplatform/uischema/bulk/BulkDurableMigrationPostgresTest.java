@@ -39,6 +39,58 @@ class BulkDurableMigrationPostgresTest {
     }
 
     @Test
+    void v8MigrationRunsAsDedicatedNonSuperuserOwner() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start()) {
+            var admin = postgres.getPostgresDatabase();
+            var sql = new JdbcTemplate(admin);
+            Flyway.configure().dataSource(admin).locations("classpath:db/praxis-bulk-migrations")
+                    .schemas("praxis_bulk").defaultSchema("praxis_bulk")
+                    .table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true)
+                    .target("7").load().migrate();
+            sql.execute("create role bulk_schema_owner login createrole");
+            sql.execute("""
+                    do $$ declare item record; begin
+                      for item in select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                           where n.nspname='praxis_bulk' and c.relkind in ('r','p')
+                           and c.relowner=(select oid from pg_roles where rolname='postgres') loop
+                        execute format('alter table praxis_bulk.%I owner to bulk_schema_owner',item.relname);
+                      end loop;
+                      for item in select p.oid::regprocedure as signature from pg_proc p
+                           join pg_namespace n on n.oid=p.pronamespace where n.nspname='praxis_bulk'
+                           and p.proowner=(select oid from pg_roles where rolname='postgres') loop
+                        execute format('alter function %s owner to bulk_schema_owner',item.signature);
+                      end loop;
+                      alter schema praxis_bulk owner to bulk_schema_owner;
+                    end $$
+                    """);
+            var owner = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_schema_owner", "postgres"),
+                    "bulk_schema_owner", "");
+            assertThat(new JdbcTemplate(owner).queryForObject(
+                    "select rolsuper from pg_roles where rolname=current_user", Boolean.class)).isFalse();
+            BulkPostgresTestSupport.grantRuntimeRole(admin,"bulk_runtime_test");
+            var roles=new BulkExecutionRoleConfiguration("bulk_schema_owner",
+                    java.util.Set.of("bulk_runtime_test"),java.util.Set.of(),java.util.Set.of());
+            assertThat(BulkExecutionMigrator.migrate(owner,
+                    java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles))
+                    .isEqualTo(1);
+            BulkExecutionMigrator.validate(owner,roles);
+            assertThat(sql.queryForObject("""
+                    select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
+                    """,Boolean.class)).isTrue();
+            assertThat(sql.queryForObject("""
+                    select count(*) from pg_auth_members m join pg_roles r on r.oid=m.roleid
+                    join pg_roles member on member.oid=m.member
+                    where r.rolname='praxis_bulk_retention_owner' and member.rolname='bulk_schema_owner'
+                    """,Integer.class)).isZero();
+            assertThat(sql.queryForObject("""
+                    select owner.rolname from pg_class c join pg_roles owner on owner.oid=c.relowner
+                     where c.oid='praxis_bulk.praxis_bulk_target_manifest'::regclass
+                    """,String.class)).isEqualTo("bulk_schema_owner");
+        }
+    }
+
+    @Test
     void provisionsDeclaredConfirmationControlAsUncomposedAndRerunNeverResetsIt() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start()) {

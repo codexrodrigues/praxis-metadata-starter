@@ -66,7 +66,10 @@ final class BulkPostgresTestSupport {
         admin.execute("grant select, insert, update (deployment_id) on praxis_bulk.praxis_bulk_subject_bucket to " + runtimeRole);
         admin.execute("grant select, insert, update (proposal_id) on praxis_bulk.praxis_bulk_proposal to " + runtimeRole);
         admin.execute("grant select, insert on praxis_bulk.praxis_bulk_evaluation to " + runtimeRole);
-        admin.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest to " + runtimeRole);
+        if (Boolean.TRUE.equals(admin.queryForObject(
+                "select to_regclass('praxis_bulk.praxis_bulk_target_manifest') is not null", Boolean.class))) {
+            admin.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest to " + runtimeRole);
+        }
         admin.execute("grant select, insert, update on praxis_bulk.praxis_bulk_execution to " + runtimeRole);
         admin.execute("grant select, insert on praxis_bulk.praxis_bulk_item_receipt to " + runtimeRole);
         admin.execute("grant select, insert on praxis_bulk.praxis_bulk_admission to " + runtimeRole);

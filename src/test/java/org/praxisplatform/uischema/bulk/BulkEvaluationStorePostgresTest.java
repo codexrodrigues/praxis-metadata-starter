@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.bulk;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import javax.sql.DataSource;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.*;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
@@ -95,6 +96,56 @@ class BulkEvaluationStorePostgresTest {
         assertThat(count("praxis_bulk_target_manifest")).isZero();
         assertThat(count("praxis_bulk_allocation")).isEqualTo(1);
     }
+    @Test void oldWriterFullTransactionRollsBackProposalEvaluationAllocationAndQuota() {
+        migrate();
+        var value=evaluation(proposal());
+        var runtimeSql=new JdbcTemplate(dataSource);
+        assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
+            store.insert(value.proposal());
+            runtimeSql.update("""
+                    insert into praxis_bulk.praxis_bulk_evaluation
+                        (proposal_id,input_fingerprint,evaluation_fingerprint,payload) values (?,?,?,?)
+                    """, value.proposal().id(), value.proposal().snapshot().fingerprint(),
+                    value.fingerprint(), BulkEvaluationStorageCodec.encode(value));
+        })).isInstanceOf(RuntimeException.class);
+        assertThat(count("praxis_bulk_proposal")).isZero();
+        assertThat(count("praxis_bulk_evaluation")).isZero();
+        assertThat(count("praxis_bulk_target_manifest")).isZero();
+        assertThat(count("praxis_bulk_allocation")).isZero();
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_subject_bucket",Integer.class)).isZero();
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation where state in ('PENDING','ACTIVE')",Integer.class)).isZero();
+    }
+    @Test void manifestPreservesNulInWireIdentityVersionAndPayloadAndLongIdentity() {
+        migrate();
+        for (var value : List.of(evaluation(proposal(specialSnapshot("id\u0000part", "v\u0000part", "reason\u0000part"))),
+                evaluation(proposal(specialSnapshot("x".repeat(5000), "v1", "plain"))))) {
+            persist(value);
+            var target=value.targets().getFirst().target();
+            var manifest=sql.queryForMap("""
+                    select wire_identity, wire_identity_digest, expected_version, target_count
+                      from praxis_bulk.praxis_bulk_target_manifest where proposal_id=? and ordinal=0
+                    """,value.proposal().id());
+            byte[] wire=BulkSnapshotStorageCodec.json(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.textNode((String) target.id()));
+            assertThat((byte[])manifest.get("wire_identity")).isEqualTo(wire);
+            assertThat(manifest.get("wire_identity_digest")).isEqualTo(BulkTargetDigest.wireIdentity(wire));
+            assertThat((byte[])manifest.get("expected_version")).isEqualTo(target.expectedVersion().getBytes(StandardCharsets.UTF_8));
+            assertThat(manifest.get("target_count")).isEqualTo(1);
+        }
+    }
+    private static BulkIntentSnapshot specialSnapshot(String id, String version, String reason) {
+        var json=com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+        String idJson=new String(BulkSnapshotStorageCodec.json(json.textNode(id)),StandardCharsets.UTF_8);
+        String versionJson=new String(BulkSnapshotStorageCodec.json(json.textNode(version)),StandardCharsets.UTF_8);
+        String reasonJson=new String(BulkSnapshotStorageCodec.json(json.textNode(reason)),StandardCharsets.UTF_8);
+        var request=new BulkProtocolReader<>(BulkIdentityCodecs.strings())
+                .<com.fasterxml.jackson.databind.JsonNode,com.fasterxml.jackson.databind.JsonNode>readCommand(bytes(
+                        "{\"executionMode\":\"SYNC\",\"selection\":{\"mode\":\"EXPLICIT\",\"targets\":[{\"id\":"
+                        +idJson+",\"expectedVersion\":"+versionJson+"}]},\"parameters\":{\"reason\":"+reasonJson+"}}"),
+                        com.fasterxml.jackson.databind.JsonNode::deepCopy,
+                        com.fasterxml.jackson.databind.JsonNode::deepCopy);
+        return BulkIntentSnapshot.command(CONTEXT,BulkIdentityCodecs.strings(),request,
+                com.fasterxml.jackson.databind.JsonNode::deepCopy,com.fasterxml.jackson.databind.JsonNode::deepCopy);
+    }
     @Test void oldWriterWaitingOnControlLockStillFailsClosedAfterRelease() throws Exception {
         migrate();var value=evaluation(proposal());
         tx.executeWithoutResult(status -> store.insert(value.proposal()));
@@ -143,17 +194,51 @@ class BulkEvaluationStorePostgresTest {
         sql.update("update praxis_bulk.praxis_bulk_target_manifest set target_digest=? where proposal_id=?",
                 "sha256:"+"0".repeat(64),value.proposal().id());
         sql.execute("alter table praxis_bulk.praxis_bulk_target_manifest enable trigger user");
-        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource))
+        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,
+                BulkPostgresTestSupport.testRoleConfiguration()))
                 .isInstanceOf(IllegalStateException.class);
+    }
+    @Test void manifestByteIdentityVersionAndPhysicalCountDriftFailValidation() {
+        migrate();var value=evaluation(proposal(specialSnapshot("id\u0000part","v\u0000part","payload\u0000part")));
+        persist(value);
+        var original=sql.queryForMap("""
+                select wire_identity,wire_identity_digest,expected_version,target_count
+                  from praxis_bulk.praxis_bulk_target_manifest where proposal_id=? and ordinal=0
+                """,value.proposal().id());
+        sql.execute("alter table praxis_bulk.praxis_bulk_target_manifest disable trigger user");
+        try {
+            for (String mutation : List.of("wire_identity=decode('00','hex')",
+                    "wire_identity_digest='sha256:"+"0".repeat(64)+"'",
+                    "expected_version=decode('00','hex')", "target_count=2")) {
+                sql.update("update praxis_bulk.praxis_bulk_target_manifest set "+mutation+" where proposal_id=?",
+                        value.proposal().id());
+                sql.execute("alter table praxis_bulk.praxis_bulk_target_manifest enable trigger user");
+                assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,
+                        BulkPostgresTestSupport.testRoleConfiguration()))
+                        .as("reject manifest drift: %s",mutation).isInstanceOf(IllegalStateException.class);
+                sql.execute("alter table praxis_bulk.praxis_bulk_target_manifest disable trigger user");
+                sql.update("""
+                        update praxis_bulk.praxis_bulk_target_manifest
+                           set wire_identity=?,wire_identity_digest=?,expected_version=?,target_count=?
+                         where proposal_id=?
+                        """,original.get("wire_identity"),original.get("wire_identity_digest"),
+                        original.get("expected_version"),original.get("target_count"),value.proposal().id());
+            }
+        } finally {
+            sql.execute("alter table praxis_bulk.praxis_bulk_target_manifest enable trigger user");
+        }
+        BulkExecutionMigrator.validate(schemaOwnerDataSource,BulkPostgresTestSupport.testRoleConfiguration());
     }
     @Test void manifestAclAndMutationFenceAreAttested() {
         migrate();
         sql.execute("grant select on praxis_bulk.praxis_bulk_target_manifest to public");
-        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource))
+        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,
+                BulkPostgresTestSupport.testRoleConfiguration()))
                 .isInstanceOf(IllegalStateException.class);
         sql.execute("revoke select on praxis_bulk.praxis_bulk_target_manifest from public");
         sql.execute("alter table praxis_bulk.praxis_bulk_target_manifest disable trigger praxis_bulk_target_manifest_immutable");
-        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource))
+        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,
+                BulkPostgresTestSupport.testRoleConfiguration()))
                 .isInstanceOf(IllegalStateException.class);
     }
     @Test void v7EvaluationBackfillsAtomicallyBeforeValidation() {
@@ -164,7 +249,8 @@ class BulkEvaluationStorePostgresTest {
         sql.update("insert into praxis_bulk.praxis_bulk_namespace_binding(namespace_id,deployment_id,bound_at) values(?,?,clock_timestamp())",
                 CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID);
         BulkPostgresTestSupport.ready(schemaOwnerDataSource,CONTEXT.namespaceId(),CONTEXT.operationRef().operationId());
-        var first=evaluation(proposal());var second=evaluation(proposal());
+        var first=evaluation(proposal(specialSnapshot("legacy\u0000id", "v\u0000legacy", "legacy\u0000payload")));
+        var second=evaluation(proposal(specialSnapshot("x".repeat(5000), "v2", "legacy-long")));
         insertV7Evaluation(first);
         insertV7Evaluation(second);
         sql.execute("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user");
@@ -181,6 +267,53 @@ class BulkEvaluationStorePostgresTest {
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID))).isZero();
         assertThat(count("praxis_bulk_target_manifest")).isEqualTo(first.targets().size()+second.targets().size());
         BulkExecutionMigrator.validate(schemaOwnerDataSource);
+    }
+    @Test void v7UpgradeProvisionsOnlyNewManifestPrivilegesForExistingRuntimeRoles() {
+        migrateToV7();
+        BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"bulk_runtime_test");
+        BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"durable_runtime");
+        var value=evaluation(proposal(specialSnapshot("upgrade\u0000id","v\u0000upgrade","payload\u0000upgrade")));
+        insertV7Evaluation(value);
+        assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
+                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(1);
+        assertThat(sql.queryForObject("""
+                select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
+                """,Boolean.class)).isTrue();
+        BulkExecutionMigrator.validate(schemaOwnerDataSource,BulkPostgresTestSupport.testRoleConfiguration());
+        assertThat(count("praxis_bulk_target_manifest")).isEqualTo(value.targets().size());
+        assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
+                BulkPostgresTestSupport.testRoleConfiguration())).isZero();
+        sql.execute("revoke insert on praxis_bulk.praxis_bulk_target_manifest from bulk_runtime_test");
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
+                BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class);
+        assertThat(sql.queryForObject("""
+                select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','insert')
+                """,Boolean.class)).isFalse();
+    }
+    @Test void v7UpgradeRejectsUnprovisionedRoleWithoutGrantingManifest() {
+        migrateToV7();
+        sql.execute("create role missing_runtime login");
+        var roles=new BulkExecutionRoleConfiguration("postgres",java.util.Set.of("missing_runtime"),
+                java.util.Set.of(),java.util.Set.of());
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(sql.queryForObject("""
+                select has_table_privilege('missing_runtime','praxis_bulk.praxis_bulk_target_manifest','select,insert')
+                """,Boolean.class)).isFalse();
+        assertThat(count("praxis_bulk_target_manifest")).isZero();
+    }
+    private void migrateToV7() {
+        Flyway.configure().dataSource(schemaOwnerDataSource).locations("classpath:db/praxis-bulk-migrations")
+                .schemas("praxis_bulk").defaultSchema("praxis_bulk")
+                .table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true)
+                .target("7").load().migrate();
+        sql.update("insert into praxis_bulk.praxis_bulk_namespace_binding(namespace_id,deployment_id,bound_at) values(?,?,clock_timestamp())",
+                CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID);
+        BulkPostgresTestSupport.ready(schemaOwnerDataSource,CONTEXT.namespaceId(),CONTEXT.operationRef().operationId());
     }
     private void insertV7Evaluation(BulkEvaluationSnapshot value) {
         var proposal=value.proposal();var context=proposal.snapshot().context();

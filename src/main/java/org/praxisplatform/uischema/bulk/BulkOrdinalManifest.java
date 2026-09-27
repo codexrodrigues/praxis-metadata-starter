@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.UUID;
 
 /** Private derived index; every row is checked against the protected evaluation before use. */
@@ -14,8 +15,9 @@ final class BulkOrdinalManifest {
     static void insert(Connection connection, BulkEvaluationSnapshot evaluation) throws SQLException {
         try (var statement = connection.prepareStatement("""
                 insert into praxis_bulk.praxis_bulk_target_manifest
-                    (proposal_id, evaluation_fingerprint, ordinal, wire_identity, expected_version, target_digest)
-                values (?, ?, ?, ?::jsonb, ?, ?)
+                    (proposal_id, evaluation_fingerprint, ordinal, wire_identity,
+                     wire_identity_digest, expected_version, target_count, target_digest)
+                values (?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             int ordinal = 0;
             for (var evidence : evaluation.targets()) {
@@ -25,9 +27,12 @@ final class BulkOrdinalManifest {
                 statement.setObject(1, evaluation.proposal().id());
                 statement.setString(2, evaluation.fingerprint());
                 statement.setInt(3, ordinal);
-                statement.setString(4, new String(BulkSnapshotStorageCodec.json(wire), StandardCharsets.UTF_8));
-                statement.setString(5, evidence.target().expectedVersion());
-                statement.setString(6, BulkTargetDigest.of(evaluation.fingerprint(), ordinal, id,
+                byte[] identity = BulkSnapshotStorageCodec.json(wire);
+                statement.setBytes(4, identity);
+                statement.setString(5, BulkTargetDigest.wireIdentity(identity));
+                statement.setBytes(6, evidence.target().expectedVersion().getBytes(StandardCharsets.UTF_8));
+                statement.setInt(7, evaluation.targets().size());
+                statement.setString(8, BulkTargetDigest.of(evaluation.fingerprint(), ordinal, id,
                         evidence.target().expectedVersion()));
                 statement.addBatch();
                 ordinal++;
@@ -80,7 +85,8 @@ final class BulkOrdinalManifest {
 
     static void validateOne(Connection connection, BulkEvaluationSnapshot evaluation) throws SQLException {
         try (var statement = connection.prepareStatement("""
-                select ordinal, evaluation_fingerprint, wire_identity::text, expected_version, target_digest
+                select ordinal, evaluation_fingerprint, wire_identity, wire_identity_digest,
+                       expected_version, target_count, target_digest
                   from praxis_bulk.praxis_bulk_target_manifest
                  where proposal_id=? order by ordinal
                 """)) {
@@ -91,12 +97,14 @@ final class BulkOrdinalManifest {
                     var target = evaluation.targets().get(ordinal).target();
                     var wire = target.id() instanceof Integer number ? JsonNodeFactory.instance.numberNode(number)
                             : JsonNodeFactory.instance.textNode((String) target.id());
-                    String identity = new String(BulkSnapshotStorageCodec.json(wire), StandardCharsets.UTF_8);
+                    byte[] identity = BulkSnapshotStorageCodec.json(wire);
                     if (rows.getInt(1) != ordinal || !evaluation.fingerprint().equals(rows.getString(2))
-                            || !identity.equals(rows.getString(3))
-                            || !target.expectedVersion().equals(rows.getString(4))
+                            || !Arrays.equals(identity, rows.getBytes(3))
+                            || !BulkTargetDigest.wireIdentity(identity).equals(rows.getString(4))
+                            || !Arrays.equals(target.expectedVersion().getBytes(StandardCharsets.UTF_8), rows.getBytes(5))
+                            || rows.getInt(6) != evaluation.targets().size()
                             || !BulkTargetDigest.of(evaluation.fingerprint(), ordinal, target.id(),
-                                    target.expectedVersion()).equals(rows.getString(5))) throw invalid();
+                                    target.expectedVersion()).equals(rows.getString(7))) throw invalid();
                 }
                 if (rows.next()) throw invalid();
             }

@@ -3,8 +3,10 @@ create table praxis_bulk.praxis_bulk_target_manifest (
     proposal_id uuid not null,
     evaluation_fingerprint text not null,
     ordinal integer not null,
-    wire_identity jsonb not null,
-    expected_version text not null,
+    wire_identity bytea not null,
+    wire_identity_digest text not null,
+    expected_version bytea not null,
+    target_count integer not null,
     target_digest text not null,
     constraint praxis_bulk_target_manifest_pkey primary key (proposal_id, ordinal),
     constraint praxis_bulk_target_manifest_proposal_fkey
@@ -14,34 +16,40 @@ create table praxis_bulk.praxis_bulk_target_manifest (
         foreign key (proposal_id, evaluation_fingerprint)
         references praxis_bulk.praxis_bulk_evaluation (proposal_id, evaluation_fingerprint)
         on delete restrict,
-    constraint praxis_bulk_target_manifest_identity_key unique (proposal_id, wire_identity),
+    constraint praxis_bulk_target_manifest_identity_key unique (proposal_id, wire_identity_digest),
     constraint praxis_bulk_target_manifest_ordinal_check check (ordinal between 0 and 9999),
     constraint praxis_bulk_target_manifest_identity_check check (
-        jsonb_typeof(wire_identity) in ('string', 'number')
-        and (jsonb_typeof(wire_identity) <> 'number'
-             or wire_identity::text ~ '^(0|[1-9][0-9]*)$|^-[1-9][0-9]*$')),
+        octet_length(wire_identity) between 1 and 8388608),
+    constraint praxis_bulk_target_manifest_identity_digest_check check (
+        wire_identity_digest ~ '^sha256:[0-9a-f]{64}$'),
     constraint praxis_bulk_target_manifest_expected_version_check check (
-        octet_length(expected_version) between 1 and 8388608 and btrim(expected_version) <> ''),
+        octet_length(expected_version) between 1 and 8388608),
+    constraint praxis_bulk_target_manifest_target_count_check check (
+        target_count between 1 and 10000),
     constraint praxis_bulk_target_manifest_digest_check check (
         target_digest ~ '^sha256:[0-9a-f]{64}$')
 );
 
 -- A deferred check makes an rc.136 writer fail at COMMIT: it cannot append the
--- matching manifest. The evaluation payload is already canonical JSON bytes.
+-- matching manifest. Its protected payload is opaque to PostgreSQL: valid
+-- JSON string values can contain escaped NUL and cannot round-trip via jsonb.
 create function praxis_bulk.require_complete_target_manifest()
 returns trigger language plpgsql set search_path = pg_catalog, pg_temp as $$
 declare
     v_count bigint;
+    v_min integer;
     v_max integer;
-    v_expected integer;
+    v_min_count integer;
+    v_max_count integer;
 begin
-    select count(*), max(m.ordinal) into v_count, v_max
+    select count(*), min(m.ordinal), max(m.ordinal),
+           min(m.target_count), max(m.target_count)
+      into v_count, v_min, v_max, v_min_count, v_max_count
       from praxis_bulk.praxis_bulk_target_manifest m
      where m.proposal_id = new.proposal_id
        and m.evaluation_fingerprint = new.evaluation_fingerprint;
-    v_expected := jsonb_array_length((convert_from(new.payload, 'UTF8')::jsonb)->'targets');
-    if v_expected is null or v_expected < 1 or v_expected > 10000
-       or v_count <> v_expected or v_max <> v_expected - 1 then
+    if v_count = 0 or v_min <> 0 or v_min_count <> v_max_count
+       or v_count <> v_min_count or v_max <> v_min_count - 1 then
         raise exception 'protected bulk evaluation requires a complete ordinal manifest'
             using errcode = '55000';
     end if;

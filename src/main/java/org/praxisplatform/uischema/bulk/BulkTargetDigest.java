@@ -27,8 +27,22 @@ final class BulkTargetDigest {
         }
     }
 
+    static String wireIdentity(byte[] canonicalWireJson) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            update(digest, "praxis.bulk.wire-identity/1");
+            update(digest, canonicalWireJson);
+            return "sha256:" + HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 unavailable", error);
+        }
+    }
+
     private static void update(MessageDigest digest, String value) {
-        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        update(digest, value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static void update(MessageDigest digest, byte[] bytes) {
         digest.update(ByteBuffer.allocate(4).putInt(bytes.length).array());
         digest.update(bytes);
     }

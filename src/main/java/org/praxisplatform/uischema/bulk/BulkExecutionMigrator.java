@@ -28,8 +28,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *
  * <p>This class is intentionally not an auto-configuration component. A host calls it during an
  * explicit deployment step with the same operational datasource used by the protected store. It
- * owns only the {@value #SCHEMA} schema and never baselines, cleans, grants application runtime
- * roles, evaluates, admits or executes proposals.</p>
+ * owns only the {@value #SCHEMA} schema and never baselines, cleans, evaluates, admits or
+ * executes proposals. On V8 upgrade it grants the new private manifest to explicitly configured
+ * runtime roles that already hold the exact protected-evaluation write privileges.</p>
  */
 public final class BulkExecutionMigrator {
     static final String SCHEMA = "praxis_bulk";
@@ -166,7 +167,8 @@ public final class BulkExecutionMigrator {
         BulkExecutionRoleConfiguration roleConfiguration = Objects.requireNonNull(roles, "roles");
         assertKnownDedicatedSchema(operationalDataSource);
         int migrationsExecuted = flyway(operationalDataSource).migrate().migrationsExecuted;
-        initializeGovernedLifecycle(operationalDataSource, deployments, controlIdentities);
+        initializeGovernedLifecycle(operationalDataSource, deployments, controlIdentities,
+                roleConfiguration, migrationsExecuted > 0);
         validate(operationalDataSource, roleConfiguration);
         return migrationsExecuted;
     }
@@ -209,7 +211,8 @@ public final class BulkExecutionMigrator {
 
     /** Flyway DDL is complete before this retryable, all-or-nothing data bootstrap. */
     private static void initializeGovernedLifecycle(DataSource dataSource, Map<String, String> deployments,
-            List<BulkOperationControlIdentity> operations) {
+            List<BulkOperationControlIdentity> operations, BulkExecutionRoleConfiguration roles,
+            boolean newlyMigrated) {
         try (Connection connection = dataSource.getConnection()) {
             assertPostgreSql(connection);
             boolean originalAutoCommit = connection.getAutoCommit();
@@ -231,6 +234,7 @@ public final class BulkExecutionMigrator {
                 validateEvidenceBinding(connection);
                 bootstrapLifecycle(connection, deployments, operations);
                 BulkOrdinalManifest.backfillAndValidate(connection);
+                if (newlyMigrated) provisionManifestRuntimeGrants(connection, roles);
                 validateLifecycleRows(connection);
                 connection.commit();
             } catch (SQLException | RuntimeException failure) {
@@ -242,6 +246,20 @@ public final class BulkExecutionMigrator {
             }
         } catch (SQLException failure) {
             throw new IllegalStateException("Unable to initialize governed bulk lifecycle", failure);
+        }
+    }
+
+    private static void provisionManifestRuntimeGrants(Connection connection, BulkExecutionRoleConfiguration roles)
+            throws SQLException {
+        for (String role : roles.runtimeGranteeRoles()) {
+            require(tableRolePrivileges(connection, EVALUATION_TABLE, role).equals(Set.of("T:SELECT", "T:INSERT")),
+                    "manifest upgrade requires an existing exact evaluation runtime grant: " + role);
+            // Only the new V8 relation is provisioned. A failed backfill rolls this grant back
+            // with the bootstrap transaction; all other runtime ACLs remain host-owned.
+            try (var statement = connection.createStatement()) {
+                statement.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest to \""
+                        + role.replace("\"", "\"\"") + "\"");
+            }
         }
     }
 
@@ -1392,18 +1410,21 @@ public final class BulkExecutionMigrator {
             BulkExecutionRoleConfiguration roles) throws SQLException {
         validateDurableColumns(connection, MANIFEST_TABLE, Map.of(
                 "proposal_id", "uuid|true", "evaluation_fingerprint", "text|true",
-                "ordinal", "integer|true", "wire_identity", "jsonb|true",
-                "expected_version", "text|true", "target_digest", "text|true"));
+                "ordinal", "integer|true", "wire_identity", "bytea|true",
+                "wire_identity_digest", "text|true", "expected_version", "bytea|true",
+                "target_count", "integer|true", "target_digest", "text|true"));
         var expectedConstraints = Map.ofEntries(
                 Map.entry("praxis_bulk_target_manifest_pkey", "PRIMARY KEY (proposal_id, ordinal)"),
                 Map.entry("praxis_bulk_target_manifest_proposal_fkey",
                         "FOREIGN KEY (proposal_id) REFERENCES praxis_bulk.praxis_bulk_proposal(proposal_id) ON DELETE RESTRICT"),
                 Map.entry("praxis_bulk_target_manifest_evaluation_fkey",
                         "FOREIGN KEY (proposal_id, evaluation_fingerprint) REFERENCES praxis_bulk.praxis_bulk_evaluation(proposal_id, evaluation_fingerprint) ON DELETE RESTRICT"),
-                Map.entry("praxis_bulk_target_manifest_identity_key", "UNIQUE (proposal_id, wire_identity)"),
+                Map.entry("praxis_bulk_target_manifest_identity_key", "UNIQUE (proposal_id, wire_identity_digest)"),
                 Map.entry("praxis_bulk_target_manifest_ordinal_check", "CHECK (((ordinal >= 0) AND (ordinal <= 9999)))"),
-                Map.entry("praxis_bulk_target_manifest_identity_check", "CHECK (((jsonb_typeof(wire_identity) = ANY (ARRAY['string'::text, 'number'::text])) AND ((jsonb_typeof(wire_identity) <> 'number'::text) OR ((wire_identity)::text ~ '^(0|[1-9][0-9]*)$|^-[1-9][0-9]*$'::text))))"),
-                Map.entry("praxis_bulk_target_manifest_expected_version_check", "CHECK ((((octet_length(expected_version) >= 1) AND (octet_length(expected_version) <= 8388608)) AND (btrim(expected_version) <> ''::text)))"),
+                Map.entry("praxis_bulk_target_manifest_identity_check", "CHECK (((octet_length(wire_identity) >= 1) AND (octet_length(wire_identity) <= 8388608)))"),
+                Map.entry("praxis_bulk_target_manifest_identity_digest_check", "CHECK ((wire_identity_digest ~ '^sha256:[0-9a-f]{64}$'::text))"),
+                Map.entry("praxis_bulk_target_manifest_expected_version_check", "CHECK (((octet_length(expected_version) >= 1) AND (octet_length(expected_version) <= 8388608)))"),
+                Map.entry("praxis_bulk_target_manifest_target_count_check", "CHECK (((target_count >= 1) AND (target_count <= 10000)))"),
                 Map.entry("praxis_bulk_target_manifest_digest_check", "CHECK ((target_digest ~ '^sha256:[0-9a-f]{64}$'::text))"));
         validateDurableConstraints(connection, MANIFEST_TABLE, false, expectedConstraints);
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
