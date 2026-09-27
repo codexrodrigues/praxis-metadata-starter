@@ -403,6 +403,61 @@ coordenador. A atualização canônica fica sob a coordenação do pacote de ski
 antes do aceite final. Docs HTTP, corpus,
 playgrounds, Angular e exemplos públicos não têm superfície nova neste corte.
 
+## Corte interno RS1 — proposta e avaliação no mesmo snapshot
+
+Base: Metadata main `17d102ec69c5e00c4b75101ad8c6f0f9652bb228` (V12). A
+mudança é `arquitetural` interna: cria uma observação protegida coerente, mas
+não altera contrato público, endpoint, autorização, projeção segura ou estado
+`READY`. Fonte canônica: `praxis-metadata-starter`; consumidor concreto futuro:
+handler `bulk-proposal-read` do Quickstart, somente após autorização corrente
+e redaction explícita do provider. Não há artefato HTTP, corpus, Angular ou
+playground derivado deste corte.
+
+Inventário de aderência: `JdbcBulkProposalStore.find` já verifica escopo e
+fingerprint da intenção; `findEvaluation` já verifica o vínculo da avaliação,
+mas chama `find` e abre outra conexão/observação. Os codecs protegidos
+`BulkSnapshotStorageCodec` e `BulkEvaluationStorageCodec` já validam shape,
+fingerprints e vínculo do conteúdo. `BulkExecutionInfrastructure.withConsistentRead`
+já estabelece transação física independente `REPEATABLE READ READ ONLY`, escopo
+operacional, ACL viva e timeout curto. Classificação: `suportado-parcialmente`;
+falta somente a composição desses leitores em **um** snapshot. Não se cria DTO
+de resposta, registry, SPI ou nova migration.
+
+Write set: nenhum. O reader package-private observa proposta e avaliação por
+`proposal_id` e escopo confiável `(namespace, subject, resource, operationId)`;
+decodifica ambas na mesma conexão após o primeiro SELECT fixar o snapshot.
+`ABSENT`, `NOT_EVALUATED` e `EVALUATED` são estados internos, não códigos HTTP.
+Se a proposta estiver presente sem avaliação, a observação exige ausência de
+manifest/projeção/folhas; se houver avaliação, exige vínculo de fingerprint
+exato. Duplicidade, bytes inválidos, vínculo/escopo divergente ou linha
+dependente inesperada sob proposta sem avaliação falham `CORRUPT` sem incluir
+payload na exceção. SQL/ACL/timeout falham
+`UNAVAILABLE`. A leitura não usa locks de escrita: o snapshot MVCC permite
+expiração/purge concorrentes e impede misturar proposta anterior com avaliação
+posterior ou vice-versa. O futuro host não deve converter `ABSENT` em 404/410
+antes de autenticação, autorização atual e decisão sobre histórico/tombstone.
+
+Mapa de impacto: apenas pacote `bulk` e testes PostgreSQL do Metadata; a API
+pública existente de `JdbcBulkProposalStore` mantém a semântica. Risco material
+é vazamento de `facts`, `plan` ou intenção protegida por serialização acidental:
+o valor interno fica package-private/`@JsonIgnoreType`, com `toString` opaco.
+Não produzir `redactedIntent` genérico; a autorização histórica ambígua,
+delegação, expiração pública e shape da projeção do provider permanecem lacunas
+separadas de RS1. Provas focais: PostgreSQL real em conexões independentes,
+cross-scope, proposta sem avaliação, corrupção dos dois blobs/vínculo, read-only
+físico e expiração/purge entre selects com snapshot antigo coerente e leitura
+nova ausente. A prova focal executada em PostgreSQL 14.22 foi
+`BulkProtectedProposalReaderPostgresTest` (4 testes, sem falhas/erros): estados,
+escopo, conteúdo opaco em `toString`/Jackson, corrupção de ambos os blobs,
+ACL revogada como indisponibilidade e expiração confirmada entre os dois SELECTs.
+Log local `/tmp/praxis-h1b-rs1-reader.log` e XML Surefire homônimo da classe;
+a infraestrutura RS3 já possui prova própria de transação física READ ONLY/JPA.
+Skill: `atualizar-existente` em `praxis-java-command-concurrency-authoring`
+(fonte canônica `praxis-codex-skills` HEAD `d99aef06` inspecionada): o guidance
+atual cobre comando/retry, mas não ensina leitura protegida coerente e
+autorização posterior. A atualização canônica fica com a coordenação; esta
+árvore Metadata não modifica skills.
+
 ## Classificação, fonte e impacto
 
 Esta decisão nasceu como `docs-apenas`; o corte V9 é `contrato-publico`,
