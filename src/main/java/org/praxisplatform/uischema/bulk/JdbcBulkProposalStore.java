@@ -47,6 +47,7 @@ public final class JdbcBulkProposalStore {
                 BulkQuotaLedger.Scope quota = BulkQuotaLedger.lockProposal(connection, infrastructure, proposal, false, true);
                 insertProposal(connection, proposal);
                 insertEvaluation(connection, proposal, evaluation, evaluationPayload);
+                BulkOrdinalManifest.insert(connection, evaluation);
                 BulkQuotaLedger.insertPending(connection, proposal, quota);
                 return null;
             });

@@ -1111,10 +1111,8 @@ public final class JdbcBulkDurableExecution {
     }
 
     private static String targetDigest(Evaluation evaluation, int ordinal, BulkTargetEvidence<?> evidence) {
-        Object id = evidence.target().id();
-        String type = id instanceof Integer ? "integer" : "string";
-        return digest("praxis.bulk.unit/1", evaluation.snapshot().fingerprint(), Integer.toString(ordinal),
-                type, id.toString(), evidence.target().expectedVersion());
+        return BulkTargetDigest.of(evaluation.snapshot().fingerprint(), ordinal,
+                evidence.target().id(), evidence.target().expectedVersion());
     }
 
     private static String reservationFingerprint(Evaluation evaluation, String structuralRevision) {

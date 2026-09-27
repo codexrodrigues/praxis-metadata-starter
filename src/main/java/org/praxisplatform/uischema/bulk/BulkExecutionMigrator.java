@@ -2,10 +2,7 @@ package org.praxisplatform.uischema.bulk;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -13,7 +10,6 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -32,14 +28,15 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *
  * <p>This class is intentionally not an auto-configuration component. A host calls it during an
  * explicit deployment step with the same operational datasource used by the protected store. It
- * owns only the {@value #SCHEMA} schema and never baselines, cleans, grants, evaluates, admits or
- * executes proposals.</p>
+ * owns only the {@value #SCHEMA} schema and never baselines, cleans, grants application runtime
+ * roles, evaluates, admits or executes proposals.</p>
  */
 public final class BulkExecutionMigrator {
     static final String SCHEMA = "praxis_bulk";
     static final String HISTORY_TABLE = "praxis_bulk_schema_history";
     private static final String PROPOSAL_TABLE = "praxis_bulk_proposal";
     private static final String EVALUATION_TABLE = "praxis_bulk_evaluation";
+    private static final String MANIFEST_TABLE = "praxis_bulk_target_manifest";
     private static final String REJECTION_FUNCTION = "reject_praxis_bulk_proposal_update";
     private static final String REJECTION_TRIGGER = "praxis_bulk_proposal_reject_update";
     private static final String EVALUATION_REJECTION_FUNCTION = "reject_praxis_bulk_evaluation_update";
@@ -67,7 +64,7 @@ public final class BulkExecutionMigrator {
     private static final String SUBJECT_BUCKET_TABLE = "praxis_bulk_subject_bucket";
     private static final String ALLOCATION_TABLE = "praxis_bulk_allocation";
     private static final String TOMBSTONE_TABLE = "praxis_bulk_tombstone";
-    private static final Set<String> V5_TABLES = Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE,
+    private static final Set<String> V5_TABLES = Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, MANIFEST_TABLE,
             EXECUTION_TABLE, RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE,
             OPERATION_CONTROL_TABLE, DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE,
             ALLOCATION_TABLE, TOMBSTONE_TABLE);
@@ -90,6 +87,8 @@ public final class BulkExecutionMigrator {
             "lock_operation_control(p_namespace_id text, p_operation_id text)",
             "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text)");
     private static final Set<String> V7_FUNCTIONS = Set.of(INSERT_FENCE_FUNCTION + "()");
+    private static final Set<String> V8_FUNCTIONS = Set.of(
+            "require_complete_target_manifest()", "reject_target_manifest_mutation()");
     private static final Set<String> V5_TRIGGERS = Set.of(
             PROPOSAL_TABLE + ".praxis_bulk_proposal_guard_delete",
             EVALUATION_TABLE + ".praxis_bulk_evaluation_guard_delete",
@@ -111,6 +110,10 @@ public final class BulkExecutionMigrator {
             EXECUTION_TABLE + ".praxis_bulk_execution_release_active_allocation",
             RECEIPT_TABLE + ".praxis_bulk_receipt_guard_terminal",
             ADMISSION_TABLE + ".praxis_bulk_admission_guard_terminal");
+    private static final Set<String> V8_TRIGGERS = Set.of(
+            EVALUATION_TABLE + ".praxis_bulk_evaluation_require_manifest",
+            MANIFEST_TABLE + ".praxis_bulk_target_manifest_immutable",
+            MANIFEST_TABLE + ".praxis_bulk_target_manifest_guard_delete");
     private static volatile MigrationExpectations migrationExpectations;
 
     private BulkExecutionMigrator() { }
@@ -227,6 +230,7 @@ public final class BulkExecutionMigrator {
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
                 bootstrapLifecycle(connection, deployments, operations);
+                BulkOrdinalManifest.backfillAndValidate(connection);
                 validateLifecycleRows(connection);
                 connection.commit();
             } catch (SQLException | RuntimeException failure) {
@@ -622,6 +626,8 @@ public final class BulkExecutionMigrator {
         assertKnownDedicatedSchema(operationalDataSource);
         flyway(operationalDataSource).validate();
         try (Connection connection = operationalDataSource.getConnection()) {
+            connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+            connection.setAutoCommit(false);
             String previousSearchPath;
             try (var statement = connection.createStatement(); var rows = statement.executeQuery("select current_setting('search_path')")) {
                 require(rows.next(), "Unable to read current PostgreSQL search_path");
@@ -647,6 +653,8 @@ public final class BulkExecutionMigrator {
                 validateDurableExecution(connection);
                 validateDurableAdmission(connection);
                 validateGovernedLifecycleCatalog(connection, roleConfiguration);
+                validateManifestCatalog(connection, roleConfiguration);
+                BulkOrdinalManifest.validateAll(connection);
                 validateDescriptorFenceRows(connection);
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
@@ -655,6 +663,7 @@ public final class BulkExecutionMigrator {
             } finally {
                 setCatalogSearchPath(connection, previousSearchPath);
             }
+            connection.commit();
         } catch (SQLException error) {
             throw new IllegalStateException("Unable to validate protected bulk proposal storage", error);
         }
@@ -705,6 +714,7 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_admission', 'praxis_bulk_namespace_binding',
                               'praxis_bulk_operation_control', 'praxis_bulk_deployment_bucket',
                               'praxis_bulk_subject_bucket', 'praxis_bulk_allocation',
+                              'praxis_bulk_target_manifest',
                               'praxis_bulk_tombstone'))
                     """);
             Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
@@ -736,7 +746,7 @@ public final class BulkExecutionMigrator {
     }
 
     private static Set<String> allowedRelations() {
-        return Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, EXECUTION_TABLE,
+        return Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, MANIFEST_TABLE, EXECUTION_TABLE,
                 RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE, OPERATION_CONTROL_TABLE,
                 DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE, ALLOCATION_TABLE, TOMBSTONE_TABLE);
     }
@@ -744,6 +754,7 @@ public final class BulkExecutionMigrator {
     private static Set<String> allowedFunctions() {
         var names = new LinkedHashSet<>(V5_FUNCTIONS);
         names.addAll(V6_FUNCTIONS);
+        names.addAll(V8_FUNCTIONS);
         names.addAll(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
                 BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
                 RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()", DESCRIPTOR_FUNCTION + "()",
@@ -762,6 +773,7 @@ public final class BulkExecutionMigrator {
                 RECEIPT_TABLE + "." + RECEIPT_TRIGGER,
                 EXECUTION_TABLE + "." + TERMINAL_REASON_TRIGGER,
                 ADMISSION_TABLE + "." + ADMISSION_TRIGGER));
+        names.addAll(V8_TRIGGERS);
         return names;
     }
 
@@ -864,6 +876,7 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_admission', 'praxis_bulk_namespace_binding',
                               'praxis_bulk_operation_control', 'praxis_bulk_deployment_bucket',
                               'praxis_bulk_subject_bucket', 'praxis_bulk_allocation',
+                              'praxis_bulk_target_manifest',
                               'praxis_bulk_tombstone'))
                 """);
         Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
@@ -1375,6 +1388,66 @@ public final class BulkExecutionMigrator {
         validateDescriptorFenceCatalog(connection);
     }
 
+    private static void validateManifestCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roles) throws SQLException {
+        validateDurableColumns(connection, MANIFEST_TABLE, Map.of(
+                "proposal_id", "uuid|true", "evaluation_fingerprint", "text|true",
+                "ordinal", "integer|true", "wire_identity", "jsonb|true",
+                "expected_version", "text|true", "target_digest", "text|true"));
+        var expectedConstraints = Map.ofEntries(
+                Map.entry("praxis_bulk_target_manifest_pkey", "PRIMARY KEY (proposal_id, ordinal)"),
+                Map.entry("praxis_bulk_target_manifest_proposal_fkey",
+                        "FOREIGN KEY (proposal_id) REFERENCES praxis_bulk.praxis_bulk_proposal(proposal_id) ON DELETE RESTRICT"),
+                Map.entry("praxis_bulk_target_manifest_evaluation_fkey",
+                        "FOREIGN KEY (proposal_id, evaluation_fingerprint) REFERENCES praxis_bulk.praxis_bulk_evaluation(proposal_id, evaluation_fingerprint) ON DELETE RESTRICT"),
+                Map.entry("praxis_bulk_target_manifest_identity_key", "UNIQUE (proposal_id, wire_identity)"),
+                Map.entry("praxis_bulk_target_manifest_ordinal_check", "CHECK (((ordinal >= 0) AND (ordinal <= 9999)))"),
+                Map.entry("praxis_bulk_target_manifest_identity_check", "CHECK (((jsonb_typeof(wire_identity) = ANY (ARRAY['string'::text, 'number'::text])) AND ((jsonb_typeof(wire_identity) <> 'number'::text) OR ((wire_identity)::text ~ '^(0|[1-9][0-9]*)$|^-[1-9][0-9]*$'::text))))"),
+                Map.entry("praxis_bulk_target_manifest_expected_version_check", "CHECK ((((octet_length(expected_version) >= 1) AND (octet_length(expected_version) <= 8388608)) AND (btrim(expected_version) <> ''::text)))"),
+                Map.entry("praxis_bulk_target_manifest_digest_check", "CHECK ((target_digest ~ '^sha256:[0-9a-f]{64}$'::text))"));
+        validateDurableConstraints(connection, MANIFEST_TABLE, false, expectedConstraints);
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select t.tgname, t.tgenabled, t.tgdeferrable, t.tginitdeferred,
+                       p.proname, t.tgtype, t.tgconstraint <> 0
+                  from pg_trigger t join pg_proc p on p.oid=t.tgfoid
+                 where t.tgrelid='praxis_bulk.praxis_bulk_target_manifest'::regclass
+                   and not t.tgisinternal
+                union all
+                select t.tgname, t.tgenabled, t.tgdeferrable, t.tginitdeferred,
+                       p.proname, t.tgtype, t.tgconstraint <> 0
+                  from pg_trigger t join pg_proc p on p.oid=t.tgfoid
+                 where t.tgrelid='praxis_bulk.praxis_bulk_evaluation'::regclass
+                   and t.tgname='praxis_bulk_evaluation_require_manifest'
+                """)) {
+            var names = new LinkedHashSet<String>();
+            while (rows.next()) {
+                String name = rows.getString(1);
+                require("O".equals(rows.getString(2)), "manifest trigger disabled: " + name);
+                if (name.equals("praxis_bulk_evaluation_require_manifest")) {
+                    require(rows.getBoolean(3) && rows.getBoolean(4)
+                            && "require_complete_target_manifest".equals(rows.getString(5))
+                            && rows.getInt(6) == 5 && rows.getBoolean(7),
+                            "evaluation manifest commit fence differs");
+                } else {
+                    require(!rows.getBoolean(3) && !rows.getBoolean(4)
+                            && (name.equals("praxis_bulk_target_manifest_immutable")
+                                ? "reject_target_manifest_mutation" : "guard_lifecycle_delete")
+                                .equals(rows.getString(5))
+                            && rows.getInt(6) == (name.equals("praxis_bulk_target_manifest_immutable") ? 27 : 11)
+                            && !rows.getBoolean(7), "manifest mutation guard differs");
+                }
+                names.add(name);
+            }
+            require(names.equals(Set.of("praxis_bulk_evaluation_require_manifest",
+                    "praxis_bulk_target_manifest_immutable", "praxis_bulk_target_manifest_guard_delete")),
+                    "manifest trigger inventory differs");
+        }
+        for (String role : roles.runtimeGranteeRoles()) {
+            require(tableRolePrivileges(connection, MANIFEST_TABLE, role).equals(Set.of("T:SELECT", "T:INSERT")),
+                    "manifest runtime grants differ: " + role);
+        }
+    }
+
     /**
      * Re-attests the governed runtime role on the very connection about to perform work. Unlike
      * {@link #validate(DataSource, BulkExecutionRoleConfiguration)}, this deliberately checks
@@ -1645,6 +1718,7 @@ public final class BulkExecutionMigrator {
         Map<String, FunctionBodyExpectation> expectedBodies = migrationExpectations().functionBodies();
         var keys = new LinkedHashSet<>(V5_FUNCTIONS);
         keys.addAll(V6_FUNCTIONS);
+        keys.addAll(V8_FUNCTIONS);
         keys.add(RECEIPT_FUNCTION + "()");
         keys.add(ADMISSION_FUNCTION + "()");
         Set<String> definer = Set.of("protect_allocation_transition()", "validate_allocation_binding()",
@@ -1743,6 +1817,16 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    private static String readV8Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V8__bulk_ordinal_manifest.sql")) {
+            require(input != null, "V8 ordinal manifest migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V8 ordinal manifest migration", failure);
+        }
+    }
+
     private static MigrationExpectations migrationExpectations() {
         MigrationExpectations cached = migrationExpectations;
         if (cached != null) return cached;
@@ -1780,6 +1864,12 @@ public final class BulkExecutionMigrator {
             expectedBodies.put(function,
                     new FunctionBodyExpectation("V6", normalizeExpression(
                             extractFunctionBody(v6Migration, function, "V6"))));
+        }
+        String v8Migration = readV8Migration();
+        for (String function : Set.of("purge_terminal_execution", "expire_unconsumed_proposal",
+                "require_complete_target_manifest", "reject_target_manifest_mutation")) {
+            expectedBodies.put(function, new FunctionBodyExpectation("V8", normalizeExpression(
+                    extractFunctionBody(v8Migration, function, "V8"))));
         }
         return new MigrationExpectations(expectedBodies,
                 normalizeExpression(extractFunctionBody(v7Migration, INSERT_FENCE_FUNCTION, "V7")));
@@ -1841,6 +1931,7 @@ public final class BulkExecutionMigrator {
             var functionKeys = new LinkedHashSet<>(V5_FUNCTIONS);
             functionKeys.addAll(V6_FUNCTIONS);
             functionKeys.addAll(V7_FUNCTIONS);
+            functionKeys.addAll(V8_FUNCTIONS);
             statement.setArray(2, connection.createArrayOf("text", functionKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
@@ -1913,6 +2004,7 @@ public final class BulkExecutionMigrator {
                 Map.entry(SUBJECT_BUCKET_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
                 Map.entry(PROPOSAL_TABLE, Set.of("T:SELECT", "T:DELETE", "C:proposal_id:UPDATE")),
                 Map.entry(EVALUATION_TABLE, Set.of("T:SELECT", "T:DELETE")),
+                Map.entry(MANIFEST_TABLE, Set.of("T:SELECT", "T:DELETE")),
                 Map.entry(EXECUTION_TABLE, Set.of("T:SELECT", "T:DELETE", "C:execution_id:UPDATE")),
                 Map.entry(RECEIPT_TABLE, Set.of("T:SELECT", "T:DELETE")),
                 Map.entry(ADMISSION_TABLE, Set.of("T:SELECT", "T:DELETE")),
@@ -1946,6 +2038,10 @@ public final class BulkExecutionMigrator {
                 require(tableRolePrivileges(connection, table, "praxis_bulk_control_owner").isEmpty(),
                         "operation-control definer-owner has unrelated table privileges: " + table);
             }
+        }
+        for (String role : roleConfiguration.runtimeGranteeRoles()) {
+            require(tableRolePrivileges(connection, MANIFEST_TABLE, role).equals(Set.of("T:SELECT", "T:INSERT")),
+                    "bulk runtime manifest grants differ: " + role);
         }
         validateRuntimeTablePrivileges(connection, roleConfiguration.runtimeGranteeRoles());
         validateRuntimeRoleMemberships(connection, roleConfiguration.runtimeGranteeRoles());
@@ -2091,6 +2187,7 @@ public final class BulkExecutionMigrator {
                 Map.entry(SUBJECT_BUCKET_TABLE, Set.of("T:SELECT", "T:INSERT", "C:deployment_id:UPDATE")),
                 Map.entry(PROPOSAL_TABLE, Set.of("T:SELECT", "T:INSERT", "C:proposal_id:UPDATE")),
                 Map.entry(EVALUATION_TABLE, Set.of("T:SELECT", "T:INSERT")),
+                Map.entry(MANIFEST_TABLE, Set.of("T:SELECT", "T:INSERT")),
                 Map.entry(EXECUTION_TABLE, Set.of("T:SELECT", "T:INSERT", "T:UPDATE")),
                 Map.entry(RECEIPT_TABLE, Set.of("T:SELECT", "T:INSERT")),
                 Map.entry(ADMISSION_TABLE, Set.of("T:SELECT", "T:INSERT")),
@@ -2347,20 +2444,7 @@ public final class BulkExecutionMigrator {
 
     static String evidenceTargetDigest(BulkEvaluationSnapshot evaluation, int ordinal) {
         var target = evaluation.targets().get(ordinal).target();
-        Object id = target.id();
-        String type = id instanceof Integer ? "integer" : "string";
-        try {
-            MessageDigest hash = MessageDigest.getInstance("SHA-256");
-            for (String value : new String[] {"praxis.bulk.unit/1", evaluation.fingerprint(),
-                    Integer.toString(ordinal), type, id.toString(), target.expectedVersion()}) {
-                byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-                hash.update(ByteBuffer.allocate(4).putInt(bytes.length).array());
-                hash.update(bytes);
-            }
-            return "sha256:" + HexFormat.of().formatHex(hash.digest());
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 unavailable", unavailable);
-        }
+        return BulkTargetDigest.of(evaluation.fingerprint(), ordinal, target.id(), target.expectedVersion());
     }
 
     private static void validateDurableColumns(Connection connection, String table,
