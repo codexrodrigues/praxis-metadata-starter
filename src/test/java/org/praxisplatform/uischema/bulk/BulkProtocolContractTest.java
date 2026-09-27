@@ -15,6 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BulkProtocolContractTest {
 
     @Test
+    void cancellationReasonIsReservedForTheDurableRequestLifecycle() {
+        assertThrows(IllegalArgumentException.class,
+                () -> BulkUnitAdmission.stop(BulkUnitReasonCode.CANCELLED_BY_USER));
+    }
+
+    @Test
     void readsUniformUpdateWithExactWireValuesAndExplicitSelection() {
         BulkUniformEvaluationRequest<String, JsonNode> request = reader().readUniform(bytes("""
                 {

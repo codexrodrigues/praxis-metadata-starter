@@ -129,6 +129,25 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
+    /**
+     * Admits one durable, idempotent cancellation request after host authorization.
+     * It never invokes a domain callback or treats a lock timeout as evidence of rollback.
+     */
+    public BulkExecutionSnapshot requestCancel(BulkFingerprintContext scope, UUID executionId) {
+        requireNoAmbientTransaction();
+        requireScope(scope);
+        Objects.requireNonNull(executionId, "executionId");
+        try {
+            return unitTransaction(connection -> requestCancel(connection, scope, executionId));
+        } catch (BulkDurableExecutionException error) {
+            throw error;
+        } catch (RuntimeException error) {
+            // The request commit may have succeeded. A later scoped retry resolves it without
+            // manufacturing a successful acknowledgement from an uncertain transaction.
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        }
+    }
+
     public BulkExecutionRecovery recover(BulkFingerprintContext scope, UUID executionId,
             String recoveryOwner) {
         requireNoAmbientTransaction();
@@ -142,6 +161,55 @@ public final class JdbcBulkDurableExecution {
         } catch (RuntimeException error) {
             throw failure(BulkDurableExecutionException.Reason.UNAVAILABLE);
         }
+    }
+
+    private BulkExecutionSnapshot requestCancel(Connection connection, BulkFingerprintContext scope,
+            UUID executionId) throws SQLException {
+        ExecutionRow execution = lockLifecycle(connection, scope, executionId);
+        if (terminal(execution.status()) || execution.cancelRequestedAt() != null)
+            return snapshot(execution);
+        Evaluation evaluation = loadEvaluation(connection, execution, false);
+        boolean prefixConsistent = durablePrefixConsistent(connection, execution, evaluation);
+        if (execution.status() == BulkDurableExecutionStatus.RUNNING
+                && prefixConsistent) {
+            try (var statement = connection.prepareStatement("""
+                    update praxis_bulk.praxis_bulk_execution
+                    set cancel_requested_at=clock_timestamp(), status='STOPPED',
+                        terminal_reason_code='CANCELLED_BY_USER', terminal_at=clock_timestamp(),
+                        updated_at=clock_timestamp()
+                    where execution_id=? and namespace_id=? and status='RUNNING'
+                      and cancel_requested_at is null and owner_epoch=?
+                    """)) {
+                statement.setObject(1, executionId);
+                statement.setString(2, infrastructure.namespace());
+                statement.setLong(3, execution.ownerEpoch());
+                if (statement.executeUpdate() != 1)
+                    throw failure(BulkDurableExecutionException.Reason.FENCED);
+            }
+        } else {
+            try (var statement = connection.prepareStatement("""
+                    update praxis_bulk.praxis_bulk_execution
+                    set cancel_requested_at=clock_timestamp(),
+                        status=case when ? then status else 'RECONCILIATION_REQUIRED' end,
+                        updated_at=clock_timestamp()
+                    where execution_id=? and namespace_id=? and cancel_requested_at is null
+                      and owner_epoch=?
+                    """)) {
+                statement.setBoolean(1, prefixConsistent);
+                statement.setObject(2, executionId);
+                statement.setString(3, infrastructure.namespace());
+                statement.setLong(4, execution.ownerEpoch());
+                if (statement.executeUpdate() != 1)
+                    throw failure(BulkDurableExecutionException.Reason.FENCED);
+            }
+        }
+        return snapshot(row(connection, executionId, false));
+    }
+
+    private static boolean terminal(BulkDurableExecutionStatus status) {
+        return status == BulkDurableExecutionStatus.COMPLETED
+                || status == BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS
+                || status == BulkDurableExecutionStatus.STOPPED;
     }
 
     private ReservationWrite reserve(Connection connection, BulkFingerprintContext scope, UUID proposalId,
@@ -280,6 +348,11 @@ public final class JdbcBulkDurableExecution {
         }
         if (!durablePrefixConsistent(connection, execution, evaluation))
             throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        if (execution.cancelRequestedAt() != null) {
+            if (execution.status() == BulkDurableExecutionStatus.RUNNING)
+                return new Preparation(null, null, null, finishCancelled(connection, execution));
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        }
         if (execution.status() == BulkDurableExecutionStatus.UNIT_COMMITTED_PENDING_ACK
                 || execution.status() == BulkDurableExecutionStatus.UNIT_IN_FLIGHT
                 || execution.status() == BulkDurableExecutionStatus.RECONCILIATION_REQUIRED) {
@@ -346,6 +419,8 @@ public final class JdbcBulkDurableExecution {
             BulkUnitAdmissionCallback admissionCallback, BulkUnitMutationCallback callback) throws SQLException {
         ExecutionRow execution = lockControl(connection, control);
         requireAttempt(execution, attempt, BulkDurableExecutionStatus.UNIT_IN_FLIGHT);
+        if (execution.cancelRequestedAt() != null)
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         if (findReceipt(connection, execution.executionId(), attempt.ordinal()).isPresent()
                 || findAdmission(connection, execution.executionId(), attempt.ordinal()).isPresent())
             throw failure(BulkDurableExecutionException.Reason.CORRUPT);
@@ -465,7 +540,7 @@ public final class JdbcBulkDurableExecution {
                         throw failure(BulkDurableExecutionException.Reason.CORRUPT);
                     BulkExecutionSnapshot current = snapshot(row(connection, control.executionId(), false));
                     return new BulkExecutionSnapshot(current.executionId(), current.proposalId(), current.status(),
-                            current.nextOrdinal(), current.targetCount(), current.receiptCount(), current.admissionCount(), current.deadlineAt(), control, current.terminalReasonCode());
+                            current.nextOrdinal(), current.targetCount(), current.receiptCount(), current.admissionCount(), current.deadlineAt(), control, current.terminalReasonCode(), current.cancelRequestedAt());
                 });
                 return result(control.executionId(), ordinal, receipt.outcome(), receipt.outcome() == BulkUnitOutcome.CONFIRMED
                         ? BulkItemStatus.CONFIRMED : BulkItemStatus.UNCHANGED, null, true, readback);
@@ -534,20 +609,23 @@ public final class JdbcBulkDurableExecution {
             }
         }
         boolean completed = attempt.ordinal() + 1 == execution.targetCount();
+        boolean cancelled = !completed && execution.cancelRequestedAt() != null;
         try (var statement = connection.prepareStatement("""
                 update praxis_bulk.praxis_bulk_execution
                 set next_ordinal=?, status=?, active_attempt_id=null, active_attempt_ordinal=null,
                     active_target_digest=null, active_attempt_epoch=null, active_unit_deadline_at=null,
-                    updated_at=clock_timestamp(), terminal_at=case when ? then clock_timestamp() else null end
+                    terminal_reason_code=?, updated_at=clock_timestamp(),
+                    terminal_at=case when ? then clock_timestamp() else null end
                 where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
                   and status='UNIT_IN_FLIGHT' and active_attempt_id=? and next_ordinal=?
                 """)) {
             statement.setInt(1, attempt.ordinal() + 1);
-            statement.setString(2, completed ? "COMPLETED_WITH_ERRORS" : "RUNNING");
-            statement.setBoolean(3, completed); statement.setObject(4, execution.executionId());
-            statement.setString(5, infrastructure.namespace()); statement.setString(6, execution.ownerId());
-            statement.setLong(7, attempt.epoch()); statement.setObject(8, attempt.attemptId());
-            statement.setInt(9, attempt.ordinal());
+            statement.setString(2, completed ? "COMPLETED_WITH_ERRORS" : cancelled ? "STOPPED" : "RUNNING");
+            statement.setString(3, cancelled ? "CANCELLED_BY_USER" : null);
+            statement.setBoolean(4, completed || cancelled); statement.setObject(5, execution.executionId());
+            statement.setString(6, infrastructure.namespace()); statement.setString(7, execution.ownerId());
+            statement.setLong(8, attempt.epoch()); statement.setObject(9, attempt.attemptId());
+            statement.setInt(10, attempt.ordinal());
             if (statement.executeUpdate() != 1) throw failure(BulkDurableExecutionException.Reason.FENCED);
         }
         return new AdmissionRecord(attempt.ordinal(), attempt.targetDigest(), evidence.target().expectedVersion(),
@@ -569,6 +647,27 @@ public final class JdbcBulkDurableExecution {
             statement.setInt(7, attempt.ordinal());
             if (statement.executeUpdate() != 1) throw failure(BulkDurableExecutionException.Reason.FENCED);
         }
+    }
+
+    private BulkExecutionSnapshot finishCancelled(Connection connection, ExecutionRow execution) throws SQLException {
+        if (execution.cancelRequestedAt() == null || execution.status() != BulkDurableExecutionStatus.RUNNING
+                || execution.nextOrdinal() >= execution.targetCount())
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        try (var statement = connection.prepareStatement("""
+                update praxis_bulk.praxis_bulk_execution
+                set status='STOPPED', terminal_reason_code='CANCELLED_BY_USER',
+                    terminal_at=clock_timestamp(), updated_at=clock_timestamp()
+                where execution_id=? and namespace_id=? and owner_epoch=? and status='RUNNING'
+                  and cancel_requested_at is not null and next_ordinal=?
+                """)) {
+            statement.setObject(1, execution.executionId());
+            statement.setString(2, infrastructure.namespace());
+            statement.setLong(3, execution.ownerEpoch());
+            statement.setInt(4, execution.nextOrdinal());
+            if (statement.executeUpdate() != 1)
+                throw failure(BulkDurableExecutionException.Reason.FENCED);
+        }
+        return snapshot(row(connection, execution.executionId(), false));
     }
 
     private static BulkUnitExecutionResult result(UUID executionId, int ordinal, BulkUnitOutcome outcome,
@@ -598,20 +697,23 @@ public final class JdbcBulkDurableExecution {
                 || !Objects.equals(execution.activeUnitDeadline(), receipt.unitDeadline()))
             throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
         boolean completed = ordinal + 1 == execution.targetCount();
+        boolean cancelled = !completed && execution.cancelRequestedAt() != null;
         try (var statement = connection.prepareStatement("""
                 update praxis_bulk.praxis_bulk_execution
                 set next_ordinal=?, status=?, active_attempt_id=null, active_attempt_ordinal=null,
                     active_target_digest=null, active_attempt_epoch=null, active_unit_deadline_at=null,
-                    updated_at=clock_timestamp(),
+                    terminal_reason_code=?, updated_at=clock_timestamp(),
                     terminal_at=case when ? then clock_timestamp() else null end
                 where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
                   and status='UNIT_COMMITTED_PENDING_ACK' and active_attempt_id=?
                 """)) {
             statement.setInt(1, ordinal + 1);
-            statement.setString(2, completed ? (execution.admissionCount() > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED") : "RUNNING");
-            statement.setBoolean(3, completed); statement.setObject(4, execution.executionId());
-            statement.setString(5, infrastructure.namespace()); statement.setString(6, control.ownerId());
-            statement.setLong(7, control.epoch()); statement.setObject(8, receipt.attemptId());
+            statement.setString(2, completed ? (execution.admissionCount() > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED")
+                    : cancelled ? "STOPPED" : "RUNNING");
+            statement.setString(3, cancelled ? "CANCELLED_BY_USER" : null);
+            statement.setBoolean(4, completed || cancelled); statement.setObject(5, execution.executionId());
+            statement.setString(6, infrastructure.namespace()); statement.setString(7, control.ownerId());
+            statement.setLong(8, control.epoch()); statement.setObject(9, receipt.attemptId());
             if (statement.executeUpdate() != 1) throw failure(BulkDurableExecutionException.Reason.FENCED);
         }
         return snapshot(row(connection, execution.executionId(), false));
@@ -633,7 +735,9 @@ public final class JdbcBulkDurableExecution {
                 }
                 requireAttempt(execution, attempt, BulkDurableExecutionStatus.UNIT_IN_FLIGHT);
                 Instant observedAt = clock(connection);
-                BulkUnitReasonCode stopReason = observedReason == BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED
+                BulkUnitReasonCode stopReason = execution.cancelRequestedAt() != null
+                        ? BulkUnitReasonCode.CANCELLED_BY_USER
+                        : observedReason == BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED
                         || !observedAt.isBefore(execution.deadlineAt())
                         || !observedAt.isBefore(attempt.unitDeadline())
                         ? BulkUnitReasonCode.DEADLINE_EXCEEDED : BulkUnitReasonCode.UNIT_ROLLED_BACK;
@@ -664,9 +768,7 @@ public final class JdbcBulkDurableExecution {
 
     private BulkExecutionRecovery recover(Connection connection, BulkFingerprintContext scope,
             UUID executionId, String owner) throws SQLException {
-        if (findScoped(connection, scope, executionId, true).isEmpty())
-            throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
-        ExecutionRow execution = row(connection, executionId, false);
+        ExecutionRow execution = lockLifecycle(connection, scope, executionId);
         Evaluation evaluation = loadEvaluation(connection, execution, false);
         List<Receipt> receipts = receipts(connection, executionId);
         List<AdmissionRecord> admissions = admissions(connection, executionId);
@@ -720,7 +822,7 @@ public final class JdbcBulkDurableExecution {
         try (var statement = connection.prepareStatement("""
                 update praxis_bulk.praxis_bulk_execution
                 set owner_id=?, owner_epoch=?, status=?, next_ordinal=?,
-                    terminal_reason_code=case when ?='STOPPED' then coalesce(terminal_reason_code, 'RECOVERY_STOPPED') else null end,
+                    terminal_reason_code=case when ?='STOPPED' then ? else null end,
                     active_attempt_id=null, active_attempt_ordinal=null,
                     active_target_digest=null, active_attempt_epoch=null, active_unit_deadline_at=null,
                     updated_at=clock_timestamp(),
@@ -728,8 +830,10 @@ public final class JdbcBulkDurableExecution {
                 where execution_id=? and namespace_id=? and owner_epoch=?
                 """)) {
             statement.setString(1, owner); statement.setLong(2, epoch); statement.setString(3, status.name());
-            statement.setInt(4, next); statement.setString(5, status.name()); statement.setString(6, status.name()); statement.setObject(7, executionId);
-            statement.setString(8, infrastructure.namespace()); statement.setLong(9, execution.ownerEpoch());
+            statement.setInt(4, next); statement.setString(5, status.name());
+            statement.setString(6, execution.cancelRequestedAt() != null ? "CANCELLED_BY_USER" : "RECOVERY_STOPPED");
+            statement.setString(7, status.name()); statement.setObject(8, executionId);
+            statement.setString(9, infrastructure.namespace()); statement.setLong(10, execution.ownerEpoch());
             if (statement.executeUpdate() != 1) throw failure(BulkDurableExecutionException.Reason.FENCED);
         }
         return new BulkExecutionRecovery(snapshot(row(connection, executionId, false)));
@@ -830,6 +934,83 @@ public final class JdbcBulkDurableExecution {
         return execution;
     }
 
+    /** Same lifecycle lock order as V9 retention, without requiring a READY descriptor. */
+    private ExecutionRow lockLifecycle(Connection connection, BulkFingerprintContext scope,
+            UUID executionId) throws SQLException {
+        BulkExecutionSnapshot candidate = findScoped(connection, scope, executionId, false)
+                .orElseThrow(() -> failure(BulkDurableExecutionException.Reason.NOT_FOUND));
+        String subjectDigest = BulkScopeDigests.subjectQuotaDigest(
+                infrastructure.deploymentId(), scope.subjectId());
+        try (var statement = connection.prepareStatement("""
+                select 1 from praxis_bulk.praxis_bulk_namespace_binding
+                where namespace_id=? and deployment_id=? for share
+                """)) {
+            statement.setString(1, scope.namespaceId());
+            statement.setString(2, infrastructure.deploymentId());
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next() || rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+        }
+        if (JdbcBulkOperationControl.lockForAdmission(connection, scope.namespaceId(),
+                scope.operationRef().operationId()) == null)
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        try (var statement = connection.prepareStatement("""
+                select 1 from praxis_bulk.praxis_bulk_deployment_bucket
+                where deployment_id=? for update
+                """)) {
+            statement.setString(1, infrastructure.deploymentId());
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next() || rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+        }
+        try (var statement = connection.prepareStatement("""
+                select 1 from praxis_bulk.praxis_bulk_subject_bucket
+                where deployment_id=? and subject_scope_digest_version=?
+                  and subject_scope_digest=? for update
+                """)) {
+            statement.setString(1, infrastructure.deploymentId());
+            statement.setInt(2, BulkScopeDigests.VERSION);
+            statement.setString(3, subjectDigest);
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next() || rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+        }
+        try (var statement = connection.prepareStatement("""
+                select 1 from praxis_bulk.praxis_bulk_proposal
+                where proposal_id=? and namespace_id=? and subject_id=?
+                  and resource_key=? and operation_id=? for update
+                """)) {
+            statement.setObject(1, candidate.proposalId());
+            bindScope(statement, scope, 2);
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next() || rows.next()) throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
+            }
+        }
+        ExecutionRow execution = row(connection, executionId, true);
+        if (!candidate.proposalId().equals(execution.proposalId())
+                || !scope.namespaceId().equals(execution.namespaceId())
+                || !scope.subjectId().equals(execution.subjectId())
+                || !scope.resourceKey().equals(execution.resourceKey())
+                || !scope.operationRef().operationId().equals(execution.operationId()))
+            throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
+        try (var statement = connection.prepareStatement("""
+                select 1 from praxis_bulk.praxis_bulk_allocation
+                where execution_id=? and namespace_id=? and deployment_id=?
+                  and subject_scope_digest_version=? and subject_scope_digest=?
+                  and kind='EXECUTION_ACTIVE'
+                """)) {
+            statement.setObject(1, executionId);
+            statement.setString(2, scope.namespaceId());
+            statement.setString(3, infrastructure.deploymentId());
+            statement.setInt(4, BulkScopeDigests.VERSION);
+            statement.setString(5, subjectDigest);
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next() || rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+        }
+        return execution;
+    }
+
     private void requireReadyControlFence(Connection connection, ExecutionRow execution, Evaluation evaluation)
             throws SQLException {
         JdbcBulkOperationControl.Snapshot current = JdbcBulkOperationControl.lockForAdmission(connection,
@@ -899,13 +1080,16 @@ public final class JdbcBulkDurableExecution {
                 rows.getObject("active_unit_deadline_at", OffsetDateTime.class) == null ? null
                         : rows.getObject("active_unit_deadline_at", OffsetDateTime.class).toInstant(),
                 rows.getInt("receipt_count"), rows.getInt("admission_count"),
-                rows.getString("terminal_reason_code") == null ? null : BulkUnitReasonCode.valueOf(rows.getString("terminal_reason_code")));
+                rows.getString("terminal_reason_code") == null ? null : BulkUnitReasonCode.valueOf(rows.getString("terminal_reason_code")),
+                rows.getObject("cancel_requested_at", OffsetDateTime.class) == null ? null
+                        : rows.getObject("cancel_requested_at", OffsetDateTime.class).toInstant());
     }
 
     private static BulkExecutionSnapshot snapshot(ExecutionRow row) {
         return new BulkExecutionSnapshot(row.executionId(), row.proposalId(), row.status(), row.nextOrdinal(),
                 row.targetCount(), row.receiptCount(), row.admissionCount(), row.deadlineAt(),
-                new BulkExecutionControl(row.executionId(), row.ownerId(), row.ownerEpoch()), row.terminalReasonCode());
+                new BulkExecutionControl(row.executionId(), row.ownerId(), row.ownerEpoch()),
+                row.terminalReasonCode(), row.cancelRequestedAt());
     }
 
     private Optional<Receipt> findReceipt(Connection connection, UUID executionId, int ordinal) throws SQLException {
@@ -1243,5 +1427,5 @@ public final class JdbcBulkDurableExecution {
             BulkDurableExecutionStatus status, int nextOrdinal, int targetCount, Instant deadlineAt,
             UUID activeAttemptId, Integer activeAttemptOrdinal, String activeTargetDigest,
             Long activeAttemptEpoch, Instant activeUnitDeadline, int receiptCount, int admissionCount,
-            BulkUnitReasonCode terminalReasonCode) { }
+            BulkUnitReasonCode terminalReasonCode, Instant cancelRequestedAt) { }
 }
