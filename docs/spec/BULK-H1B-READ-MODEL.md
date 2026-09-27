@@ -511,9 +511,10 @@ invariante temporal ainda exige correção canônica antes da exposição HTTP.
 
 `ABSENT` e `TOMBSTONE` continuam observações internas distintas, sem decisão
 de 404/410 antes da autorização atual e integral no host. Não se fabrica
-`QUEUED`, `CANCEL_REQUESTED`, modo, atomicidade, `operationRef` ou diagnostics:
-esses campos não foram certificados por este read model, e o resumo não
-constrói `BulkExecution`. Docs HTTP, corpus, playgrounds e Angular não possuem
+`QUEUED`, modo, atomicidade, `operationRef` ou diagnostics: esses campos não
+foram certificados por este read model. `CANCEL_REQUESTED` depende exclusivamente
+de `cancelRequestedAt` persistido. O resumo não constrói `BulkExecution`.
+Docs HTTP, corpus, playgrounds e Angular não possuem
 artefato derivado neste corte. Provas PostgreSQL focais cobrem o estado inicial,
 sucessos/admissions, sufixo de STOPPED, receipt pendente de ACK, cancelamento
 antes/depois de reconciliação, escopo cruzado, tombstone e corrupção; as provas
