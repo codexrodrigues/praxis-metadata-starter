@@ -492,8 +492,10 @@ migration, grant, endpoint, cursor, DTO público ou `READY` neste corte.
 
 `BulkExecutionSummary` é package-private e opaco à serialização. A projeção usa
 somente a observação consistente RS3. `RUNNING`, `UNIT_IN_FLIGHT` e
-`UNIT_COMMITTED_PENDING_ACK` viram `RUNNING` com o sufixo não reconhecido em
-`pending`; o receipt pendente de ACK não entra nas contagens certificadas.
+`UNIT_COMMITTED_PENDING_ACK` viram `RUNNING` sem pedido de cancelamento, ou
+`CANCEL_REQUESTED` quando `cancelRequestedAt` já está persistido; em ambos os
+casos o sufixo não reconhecido fica em `pending`. O receipt pendente de ACK não
+entra nas contagens certificadas.
 `RECONCILIATION_REQUIRED` mantém todo o sufixo `UNKNOWN`, inclusive quando há
 receipt físico incerto. `STOPPED` só projeta o sufixo como `NOT_PROCESSED` após
 a prova de ausência de receipt/admission em `inspectConsistent`; a razão

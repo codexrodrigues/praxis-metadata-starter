@@ -41,14 +41,17 @@ record BulkExecutionSummary(Kind kind, UUID executionId, UUID proposalId,
                         ? remainder : 0)) throw corrupt();
 
         BulkExecutionStatus status = switch (execution.status()) {
-            case RUNNING, UNIT_IN_FLIGHT, UNIT_COMMITTED_PENDING_ACK -> BulkExecutionStatus.RUNNING;
+            case RUNNING, UNIT_IN_FLIGHT, UNIT_COMMITTED_PENDING_ACK ->
+                    execution.cancelRequestedAt() == null
+                            ? BulkExecutionStatus.RUNNING : BulkExecutionStatus.CANCEL_REQUESTED;
             case COMPLETED -> BulkExecutionStatus.COMPLETED;
             case COMPLETED_WITH_ERRORS -> BulkExecutionStatus.COMPLETED_WITH_ERRORS;
             case STOPPED -> execution.terminalReasonCode() == BulkUnitReasonCode.CANCELLED_BY_USER
                     ? BulkExecutionStatus.CANCELLED : BulkExecutionStatus.STOPPED;
             case RECONCILIATION_REQUIRED -> BulkExecutionStatus.RECONCILIATION_REQUIRED;
         };
-        long pending = status == BulkExecutionStatus.RUNNING ? remainder : 0;
+        long pending = status == BulkExecutionStatus.RUNNING || status == BulkExecutionStatus.CANCEL_REQUESTED
+                ? remainder : 0;
         long notProcessed = status == BulkExecutionStatus.STOPPED || status == BulkExecutionStatus.CANCELLED
                 ? remainder : 0;
         if (status.terminal() != (read.terminalAt() != null)

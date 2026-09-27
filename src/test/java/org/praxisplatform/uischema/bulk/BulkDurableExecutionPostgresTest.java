@@ -2275,8 +2275,11 @@ class BulkDurableExecutionPostgresTest {
         assertThat(pendingSummary.totals().confirmed()).isZero();
         assertThat(pendingSummary.totals().pending()).isEqualTo(2);
         assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).cancelRequestedAt()).isNotNull();
-        assertThat(kernel.summarizeConsistent(CONTEXT, reservation.executionId()).status())
-                .isEqualTo(BulkExecutionStatus.RUNNING);
+        var cancelRequested = kernel.summarizeConsistent(CONTEXT, reservation.executionId());
+        assertThat(cancelRequested.status()).isEqualTo(BulkExecutionStatus.CANCEL_REQUESTED);
+        assertThat(cancelRequested.totals().pending()).isEqualTo(2);
+        assertThat(cancelRequested.totals().confirmed()).isZero();
+        assertThat(cancelRequested.terminalAt()).isNull();
         var recovery = kernel.recover(CONTEXT, reservation.executionId(), "recovery-owner");
         assertThat(recovery.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
         var recoveredSummary = kernel.summarizeConsistent(CONTEXT, reservation.executionId());
@@ -2537,8 +2540,15 @@ class BulkDurableExecutionPostgresTest {
                         error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
         assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).status())
                 .isEqualTo(BulkDurableExecutionStatus.UNIT_COMMITTED_PENDING_ACK);
+        var requested = kernel.summarizeConsistent(CONTEXT, reservation.executionId());
+        assertThat(requested.status()).isEqualTo(BulkExecutionStatus.CANCEL_REQUESTED);
+        assertThat(requested.totals().confirmed()).isEqualTo(1);
+        assertThat(requested.totals().pending()).isEqualTo(1);
+        assertThat(requested.terminalAt()).isNull();
         var recovered = kernel.recover(CONTEXT, reservation.executionId(), "recovery-owner");
         assertThat(recovered.status()).isEqualTo(BulkDurableExecutionStatus.COMPLETED);
+        assertThat(kernel.summarizeConsistent(CONTEXT, reservation.executionId()).status())
+                .isEqualTo(BulkExecutionStatus.COMPLETED);
         assertThat(recovered.execution().terminalReasonCode()).isNull();
         assertThat(recovered.execution().cancelRequestedAt()).isNotNull();
         assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).status())
