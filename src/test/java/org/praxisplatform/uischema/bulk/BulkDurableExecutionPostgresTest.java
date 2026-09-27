@@ -1456,6 +1456,323 @@ class BulkDurableExecutionPostgresTest {
     }
 
     @Test
+    void internalResultPagesCertifyPrefixAndStoppedSuffixWithoutExposingProtectedPayload() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs4-prefix", "owner-a");
+        var reader = resultReader(runtimeDataSource, manager);
+        assertThat(reader.read(CONTEXT, reservation.executionId(), -1, 1).items()).isEmpty();
+        var first = kernel.executeUnit(reservation.control(), 0, ignored -> BulkUnitAdmission.admit(),
+                ignored -> BulkUnitMutationResult.confirmed());
+        assertThat(reader.read(CONTEXT, reservation.executionId(), -1, 1).items())
+                .extracting(BulkExecutionResultsReader.Item::status)
+                .containsExactly(BulkItemStatus.CONFIRMED);
+        kernel.requestCancel(CONTEXT, reservation.executionId());
+        var page0 = reader.read(CONTEXT, reservation.executionId(), -1, 1);
+        assertThat(page0.kind()).isEqualTo(BulkExecutionResultsReader.Kind.LIVE);
+        assertThat(page0.hasMore()).isTrue();
+        assertThat(page0.lastReturnedOrdinal()).isZero();
+        assertThat(page0.items().getFirst().status()).isEqualTo(BulkItemStatus.CONFIRMED);
+        assertThat(page0.items().getFirst().wireIdentity()).isEqualTo(BulkSnapshotStorageCodec.json(JSON.textNode("1")));
+        assertThat(page0.toString()).doesNotContain("1", "reason", "v1");
+        assertThat(page0.items().getFirst().toString()).doesNotContain("1", "v1");
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(page0))
+                .doesNotContain("wireIdentity", "v1", "CONFIRMED", "reason");
+        var page1 = reader.read(CONTEXT, reservation.executionId(), 0, 1,
+                page0.watermarkExclusive());
+        assertThat(page1.items()).extracting(BulkExecutionResultsReader.Item::status)
+                .containsExactly(BulkItemStatus.NOT_PROCESSED);
+        assertThat(page1.hasMore()).isFalse();
+        assertThat(page1.items().getFirst().reasonCode()).isNull();
+        assertThat(reader.read(quotaSubject("other-subject"), reservation.executionId(), -1, 1).kind())
+                .isEqualTo(BulkExecutionResultsReader.Kind.ABSENT);
+        assertThat(first.execution().nextOrdinal()).isEqualTo(1);
+    }
+
+    @Test
+    void internalResultPageRejectsManifestAndReceiptDriftWithoutReturningPartialItems() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs4-corrupt", "owner-a");
+        kernel.executeUnit(reservation.control(), 0, ignored -> BulkUnitAdmission.admit(),
+                ignored -> BulkUnitMutationResult.confirmed());
+        var reader = resultReader(runtimeDataSource, manager);
+        assertThat(reader.read(CONTEXT, reservation.executionId(), -1, 1).items()).hasSize(1);
+        observer.execute("alter table praxis_bulk.praxis_bulk_item_receipt "
+                + "disable trigger praxis_bulk_item_receipt_reject_mutation");
+        try {
+            observer.update("update praxis_bulk.praxis_bulk_item_receipt set expected_version='drift' "
+                    + "where execution_id=? and unit_ordinal=0", reservation.executionId());
+            assertResultCorrupt(reader, reservation.executionId());
+            observer.update("update praxis_bulk.praxis_bulk_item_receipt set expected_version='v1' "
+                    + "where execution_id=? and unit_ordinal=0", reservation.executionId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_item_receipt "
+                    + "enable trigger praxis_bulk_item_receipt_reject_mutation");
+        }
+        observer.execute("alter table praxis_bulk.praxis_bulk_target_manifest "
+                + "disable trigger praxis_bulk_target_manifest_immutable");
+        try {
+            observer.update("update praxis_bulk.praxis_bulk_target_manifest set target_digest=? "
+                    + "where proposal_id=? and ordinal=0", "sha256:" + "0".repeat(64),
+                    reservation.proposalId());
+            assertResultCorrupt(reader, reservation.executionId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_target_manifest "
+                    + "enable trigger praxis_bulk_target_manifest_immutable");
+        }
+    }
+
+    @Test
+    void internalResultPageReadsGovernedAdmissionWithoutCallingDomain() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs4-admission", "owner-a");
+        var calls = new AtomicInteger();
+        kernel.executeUnit(reservation.control(), 0,
+                ignored -> BulkUnitAdmission.denied(BulkUnitReasonCode.TARGET_DENIED),
+                ignored -> { calls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+        var page = resultReader(runtimeDataSource, manager).read(CONTEXT,
+                reservation.executionId(), -1, 200);
+        assertThat(page.items()).hasSize(1);
+        assertThat(page.items().getFirst().status()).isEqualTo(BulkItemStatus.DENIED);
+        assertThat(page.items().getFirst().reasonCode()).isEqualTo(BulkUnitReasonCode.TARGET_DENIED);
+        assertThat(page.hasMore()).isFalse();
+        assertThat(calls).hasValue(0);
+    }
+
+    @Test
+    void internalResultPageOmitsUncertainReceiptSuffixAfterConservativeRecovery() throws Exception {
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
+        var faultManager = new DataSourceTransactionManager(faults);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration()));
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs4-reconcile", "owner-a");
+        var first = kernel.executeUnit(reservation.control(), 0, ignored -> BulkUnitAdmission.admit(),
+                ignored -> BulkUnitMutationResult.confirmed());
+        assertThatThrownBy(() -> kernel.executeUnit(first.control(), 1,
+                ignored -> BulkUnitAdmission.admit(), ignored -> {
+                    faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+                    return BulkUnitMutationResult.confirmed();
+                })).isInstanceOf(BulkDurableExecutionException.class);
+        corruptPendingReceiptEpochAsFixtureOwner(reservation.executionId(), 1);
+        var recovery = kernel.recover(CONTEXT, reservation.executionId(), "recovery-owner");
+        assertThat(recovery.status()).isEqualTo(BulkDurableExecutionStatus.RECONCILIATION_REQUIRED);
+        var reader = resultReader(runtimeDataSource, manager);
+        var certified = reader.read(CONTEXT, reservation.executionId(), -1, 200);
+        assertThat(certified.items()).extracting(BulkExecutionResultsReader.Item::status)
+                .containsExactly(BulkItemStatus.CONFIRMED);
+        assertThat(certified.nextOrdinal()).isEqualTo(1);
+        assertThat(certified.hasMore()).isFalse();
+        assertThat(certified.watermarkExclusive()).isEqualTo(1);
+        assertThat(reader.read(CONTEXT, reservation.executionId(), -1, 200,
+                certified.watermarkExclusive()).items()).hasSize(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(2);
+    }
+
+    @Test
+    void internalResultPageNeverWidensTheFirstWatermarkAfterStop() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs4-fixed-window", "owner-a");
+        kernel.executeUnit(reservation.control(), 0, ignored -> BulkUnitAdmission.admit(),
+                ignored -> BulkUnitMutationResult.confirmed());
+        var reader = resultReader(runtimeDataSource, manager);
+        var first = reader.read(CONTEXT, reservation.executionId(), -1, 1);
+        assertThat(first.watermarkExclusive()).isEqualTo(1);
+        assertThat(first.items()).extracting(BulkExecutionResultsReader.Item::status)
+                .containsExactly(BulkItemStatus.CONFIRMED);
+        kernel.requestCancel(CONTEXT, reservation.executionId());
+        var sameWindow = reader.read(CONTEXT, reservation.executionId(), -1, 1,
+                first.watermarkExclusive());
+        assertThat(sameWindow.watermarkExclusive()).isEqualTo(1);
+        assertThat(sameWindow.hasMore()).isFalse();
+        assertThat(sameWindow.items()).extracting(BulkExecutionResultsReader.Item::status)
+                .containsExactly(BulkItemStatus.CONFIRMED);
+        assertThatThrownBy(() -> reader.read(CONTEXT, reservation.executionId(), 0, 1))
+                .isInstanceOf(IllegalArgumentException.class);
+        var freshWindow = reader.read(CONTEXT, reservation.executionId(), -1, 1);
+        assertThat(freshWindow.watermarkExclusive()).isEqualTo(2);
+        assertThat(freshWindow.hasMore()).isTrue();
+    }
+
+    @Test
+    void internalResultPageRejectsTerminalStatusThatContradictsAdmissionPresence() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs4-terminal-drift", "owner-a");
+        var first = kernel.executeUnit(reservation.control(), 0,
+                ignored -> BulkUnitAdmission.denied(BulkUnitReasonCode.TARGET_DENIED),
+                ignored -> { fail("denied unit cannot mutate"); return BulkUnitMutationResult.confirmed(); });
+        kernel.executeUnit(first.control(), 1, ignored -> BulkUnitAdmission.admit(),
+                ignored -> BulkUnitMutationResult.confirmed());
+        var reader = resultReader(runtimeDataSource, manager);
+        assertThat(reader.read(CONTEXT, reservation.executionId(), -1, 2).executionStatus())
+                .isEqualTo(BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS);
+        observer.execute("alter table praxis_bulk.praxis_bulk_execution disable trigger praxis_bulk_execution_guard_terminal");
+        try {
+            observer.update("update praxis_bulk.praxis_bulk_execution set status='COMPLETED' "
+                    + "where execution_id=?", reservation.executionId());
+            assertResultCorrupt(reader, reservation.executionId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_guard_terminal");
+        }
+    }
+
+    @Test
+    void internalResultPageStaysOnOldSnapshotAcrossReceiptAckCommit() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs4-ack-race", "owner-a");
+        var paused = new BulkReadPauseDataSource(runtimeDataSource);
+        var reader = resultReader(paused, new DataSourceTransactionManager(paused));
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var beforeFuture = executor.submit(() -> {
+                paused.arm(Thread.currentThread());
+                return reader.read(CONTEXT, reservation.executionId(), -1, 1);
+            });
+            try {
+                assertThat(paused.awaitObservation(5, TimeUnit.SECONDS)).isTrue();
+                kernel.executeUnit(reservation.control(), 0, ignored -> BulkUnitAdmission.admit(),
+                        ignored -> BulkUnitMutationResult.confirmed());
+                paused.release();
+                var before = beforeFuture.get(5, TimeUnit.SECONDS);
+                assertThat(before.nextOrdinal()).isZero();
+                assertThat(before.items()).isEmpty();
+                assertThat(before.watermarkExclusive()).isZero();
+                assertThat(resultReader(runtimeDataSource, manager).read(CONTEXT,
+                        reservation.executionId(), -1, 1, before.watermarkExclusive()).items()).isEmpty();
+                var after = resultReader(runtimeDataSource, manager).read(CONTEXT,
+                        reservation.executionId(), -1, 1);
+                assertThat(after.nextOrdinal()).isEqualTo(1);
+                assertThat(after.items()).extracting(BulkExecutionResultsReader.Item::status)
+                        .containsExactly(BulkItemStatus.CONFIRMED);
+            } finally {
+                paused.release();
+            }
+        }
+    }
+
+    @Test
+    void internalResultPageUsesBoundedKeysetOnTenThousandTargets() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(tenThousandTargetEvaluation()), "rs4-10k", "owner-a");
+        kernel.requestCancel(CONTEXT, reservation.executionId());
+        var reader = resultReader(runtimeDataSource, manager);
+        long started = System.nanoTime();
+        var first = reader.read(CONTEXT, reservation.executionId(), -1, 200);
+        var last = reader.read(CONTEXT, reservation.executionId(), 9799, 200,
+                first.watermarkExclusive());
+        long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+        System.out.println("RS4 10k two bounded pages PostgreSQL ms=" + millis);
+        assertThat(first.items()).hasSize(200);
+        assertThat(first.hasMore()).isTrue();
+        assertThat(first.lastReturnedOrdinal()).isEqualTo(199);
+        assertThat(last.items()).hasSize(200);
+        assertThat(last.items().getFirst().ordinal()).isEqualTo(9800);
+        assertThat(last.items().getLast().ordinal()).isEqualTo(9999);
+        assertThat(last.hasMore()).isFalse();
+        assertThat(last.items()).allSatisfy(item -> assertThat(item.status())
+                .isEqualTo(BulkItemStatus.NOT_PROCESSED));
+    }
+
+    @Test
+    void internalResultPageKeepsLiveSnapshotAcrossPurgeAndThenSeesScopedTombstone() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs4-purge-race", "owner-a");
+        kernel.requestCancel(CONTEXT, reservation.executionId());
+        observer.execute("alter table praxis_bulk.praxis_bulk_execution disable trigger praxis_bulk_execution_guard_terminal");
+        try {
+            observer.update("update praxis_bulk.praxis_bulk_execution "
+                    + "set terminal_at=clock_timestamp()-interval '31 days' where execution_id=?",
+                    reservation.executionId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_guard_terminal");
+        }
+        var paused = new BulkReadPauseDataSource(runtimeDataSource);
+        var reader = resultReader(paused, new DataSourceTransactionManager(paused));
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var oldSnapshot = executor.submit(() -> {
+                paused.arm(Thread.currentThread());
+                return reader.read(CONTEXT, reservation.executionId(), -1, 1);
+            });
+            try {
+                assertThat(paused.awaitObservation(5, TimeUnit.SECONDS)).isTrue();
+                observer.execute("grant praxis_bulk_retention_executor to postgres");
+                var ownerTx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+                Boolean purged = ownerTx.execute(status -> {
+                    observer.execute("set local role praxis_bulk_retention_executor");
+                    return observer.queryForObject("select praxis_bulk.purge_terminal_execution(?)",
+                            Boolean.class, reservation.executionId());
+                });
+                assertThat(purged).isTrue();
+                observer.execute("revoke praxis_bulk_retention_executor from postgres");
+                paused.release();
+                assertThat(oldSnapshot.get(5, TimeUnit.SECONDS).kind())
+                        .isEqualTo(BulkExecutionResultsReader.Kind.LIVE);
+                var after = resultReader(runtimeDataSource, manager).read(CONTEXT,
+                        reservation.executionId(), -1, 1);
+                assertThat(after.kind()).isEqualTo(BulkExecutionResultsReader.Kind.TOMBSTONE);
+                assertThat(after.tombstoneTerminalStatus()).isEqualTo("CANCELLED");
+                assertThat(resultReader(runtimeDataSource, manager).read(
+                        quotaSubject("other-subject"), reservation.executionId(), -1, 1).kind())
+                        .isEqualTo(BulkExecutionResultsReader.Kind.ABSENT);
+            } finally {
+                paused.release();
+                observer.execute("revoke praxis_bulk_retention_executor from postgres");
+            }
+        }
+    }
+
+    @Test
+    void internalResultPageCountsLookaheadRowBeforeReturningAnyItems() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs4-budget", "owner-a");
+        kernel.requestCancel(CONTEXT, reservation.executionId());
+        var reader = resultReader(runtimeDataSource, manager);
+        observer.execute("alter table praxis_bulk.praxis_bulk_target_manifest "
+                + "disable trigger praxis_bulk_target_manifest_immutable");
+        try {
+            inflateManifestRowsForBudget(reservation.proposalId(), 4 * 1024 * 1024);
+            var below = reader.read(CONTEXT, reservation.executionId(), -1, 1);
+            assertThat(below.items()).hasSize(1);
+            assertThat(below.hasMore()).isTrue();
+            inflateManifestRowsForBudget(reservation.proposalId(), 5 * 1024 * 1024);
+            assertThatThrownBy(() -> reader.read(CONTEXT, reservation.executionId(), -1, 1))
+                    .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                            error -> assertThat(error.reason())
+                                    .isEqualTo(BulkDurableExecutionException.Reason.UNAVAILABLE));
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_target_manifest "
+                    + "enable trigger praxis_bulk_target_manifest_immutable");
+        }
+    }
+
+    private void inflateManifestRowsForBudget(UUID proposalId, int componentLength) {
+        for (int ordinal = 0; ordinal < 2; ordinal++) {
+            String identity = (ordinal == 0 ? "a" : "b") + "x".repeat(componentLength - 1);
+            String version = "v".repeat(componentLength);
+            byte[] wire = BulkSnapshotStorageCodec.json(JSON.textNode(identity));
+            String evaluation = observer.queryForObject("select evaluation_fingerprint "
+                    + "from praxis_bulk.praxis_bulk_target_manifest where proposal_id=? and ordinal=?",
+                    String.class, proposalId, ordinal);
+            observer.update("update praxis_bulk.praxis_bulk_target_manifest "
+                    + "set wire_identity=?, wire_identity_digest=?, expected_version=?, target_digest=? "
+                    + "where proposal_id=? and ordinal=?", wire, BulkTargetDigest.wireIdentity(wire),
+                    version.getBytes(StandardCharsets.UTF_8),
+                    BulkTargetDigest.of(evaluation, ordinal, identity, version), proposalId, ordinal);
+        }
+    }
+
+    private void assertResultCorrupt(BulkExecutionResultsReader reader, UUID executionId) {
+        assertThatThrownBy(() -> reader.read(CONTEXT, executionId, -1, 1))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason())
+                                .isEqualTo(BulkDurableExecutionException.Reason.CORRUPT));
+    }
+
+    private BulkExecutionResultsReader resultReader(DataSource source, DataSourceTransactionManager tx) {
+        return new BulkExecutionResultsReader(new BulkExecutionInfrastructure(source, tx,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration()));
+    }
+
+    @Test
     void internalConsistentReadRejectsMutationOnThePhysicalPostgresConnection() {
         var infrastructure = new BulkExecutionInfrastructure(runtimeDataSource, manager,
                 CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
