@@ -108,7 +108,7 @@ class BulkDurableExecutionPostgresTest {
         observer.execute("truncate bulk_durable_domain, bulk_durable_jpa_domain");
         observer.update("insert into bulk_durable_domain(id) values (1), (2)");
         observer.update("insert into bulk_durable_jpa_domain(id) values (1), (2)");
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(9);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(10);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 
@@ -746,7 +746,7 @@ class BulkDurableExecutionPostgresTest {
         int v2Checksum = observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='2'", Integer.class);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(7);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(8);
         assertThat(observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'", Integer.class))
                 .isEqualTo(v1Checksum);
@@ -785,7 +785,7 @@ class BulkDurableExecutionPostgresTest {
         seedV3Execution(activeProposal, activeLegacy, "legacy-key-active", activeExecutionId, now.minusSeconds(3), now.plusSeconds(30),
                 null, false);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(6);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(7);
         var kernel = kernel();
         var replayReservation = kernel.reserve(CONTEXT, proposal.id(), "legacy-key", "owner-a", "structural-r1",
                 now.plusSeconds(60));
@@ -1385,6 +1385,599 @@ class BulkDurableExecutionPostgresTest {
         }
     }
 
+    @Test
+    void cancellationBeforeFirstUnitIsDurableIdempotentScopedAndReleasesQuota() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-before-unit", "owner-a");
+        var cancelled = kernel.requestCancel(CONTEXT, reservation.executionId());
+        assertThat(cancelled.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(cancelled.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+        assertThat(cancelled.cancelRequestedAt()).isNotNull();
+        assertThat(cancelled.nextOrdinal()).isZero();
+        assertThat(observer.queryForObject("""
+                select cancel_requested_at <= terminal_at and cancel_requested_at <= updated_at
+                from praxis_bulk.praxis_bulk_execution where execution_id=?
+                """, Boolean.class, reservation.executionId())).isTrue();
+        assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).cancelRequestedAt())
+                .isEqualTo(cancelled.cancelRequestedAt());
+        assertThat(observer.queryForObject("select state from praxis_bulk.praxis_bulk_allocation where execution_id=?",
+                String.class, reservation.executionId())).isEqualTo("RELEASED");
+
+        var anotherSubject = quotaSubject("another-subject");
+        assertThatThrownBy(() -> kernel.requestCancel(anotherSubject, reservation.executionId()))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_FOUND));
+        var calls = new AtomicInteger();
+        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 0,
+                unit -> { calls.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                unit -> { calls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); }))
+                .isInstanceOf(BulkDurableExecutionException.class);
+        assertThat(calls).hasValue(0);
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+        assertThat(count("praxis_bulk_admission")).isZero();
+        BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
+    }
+
+    @Test
+    void cancellationWinningTheLifecycleLockFencesConcurrentRecoveryWithoutAnotherCallback() throws Exception {
+        var reservation = reserve(kernel(), persist(twoTargetEvaluation()), "cancel-wins-recovery", "owner-a");
+        var paused = new BulkCommitPauseDataSource(runtimeDataSource,
+                BulkCommitPauseDataSource.PausePoint.BEFORE_COMMIT);
+        var pausedKernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(paused,
+                new DataSourceTransactionManager(paused), CONTEXT.namespaceId(),
+                BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
+        var callbacks = new AtomicInteger();
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var cancellation = executor.submit(() -> {
+                paused.arm(Thread.currentThread());
+                return pausedKernel.requestCancel(CONTEXT, reservation.executionId());
+            });
+            try {
+                assertThat(paused.awaitMarker(5, TimeUnit.SECONDS)).isTrue();
+                var recovery = executor.submit(() -> kernel().recover(CONTEXT, reservation.executionId(), "recovery-owner"));
+                assertDatabaseLockWait("%praxis_bulk_deployment_bucket%");
+                assertThat(recovery.isDone()).isFalse();
+                paused.release();
+                var cancelled = cancellation.get(5, TimeUnit.SECONDS);
+                var recovered = recovery.get(5, TimeUnit.SECONDS);
+                assertThat(cancelled.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+                assertThat(cancelled.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+                assertThat(recovered.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+                assertThat(recovered.control().epoch()).isEqualTo(reservation.control().epoch());
+                assertThat(recovered.execution().cancelRequestedAt()).isEqualTo(cancelled.cancelRequestedAt());
+            } finally {
+                paused.release();
+            }
+        }
+        assertTerminalRaceHasOneAllocationAndNoCallback(reservation, callbacks);
+    }
+
+    @Test
+    void recoveryWinningTheLifecycleLockPreservesItsReasonAgainstConcurrentCancellation() throws Exception {
+        var reservation = reserve(kernel(), persist(twoTargetEvaluation()), "recovery-wins-cancel", "owner-a");
+        var paused = new BulkCommitPauseDataSource(runtimeDataSource,
+                BulkCommitPauseDataSource.PausePoint.BEFORE_COMMIT);
+        var pausedKernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(paused,
+                new DataSourceTransactionManager(paused), CONTEXT.namespaceId(),
+                BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
+        var callbacks = new AtomicInteger();
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var recovery = executor.submit(() -> {
+                paused.arm(Thread.currentThread());
+                return pausedKernel.recover(CONTEXT, reservation.executionId(), "recovery-owner");
+            });
+            try {
+                assertThat(paused.awaitMarker(5, TimeUnit.SECONDS)).isTrue();
+                var cancellation = executor.submit(() -> kernel().requestCancel(CONTEXT, reservation.executionId()));
+                assertDatabaseLockWait("%praxis_bulk_deployment_bucket%");
+                assertThat(cancellation.isDone()).isFalse();
+                paused.release();
+                var recovered = recovery.get(5, TimeUnit.SECONDS);
+                var afterCancellation = cancellation.get(5, TimeUnit.SECONDS);
+                assertThat(recovered.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+                assertThat(recovered.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.RECOVERY_STOPPED);
+                assertThat(recovered.control().epoch()).isGreaterThan(reservation.control().epoch());
+                assertThat(afterCancellation.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.RECOVERY_STOPPED);
+                assertThat(afterCancellation.cancelRequestedAt()).isNull();
+                assertThat(afterCancellation.control().epoch()).isEqualTo(recovered.control().epoch());
+            } finally {
+                paused.release();
+            }
+        }
+        assertTerminalRaceHasOneAllocationAndNoCallback(reservation, callbacks);
+    }
+
+    private void assertTerminalRaceHasOneAllocationAndNoCallback(BulkExecutionReservation reservation,
+            AtomicInteger callbacks) {
+        assertThat(observer.queryForObject("select count(*) from praxis_bulk.praxis_bulk_execution where execution_id=?",
+                Integer.class, reservation.executionId())).isEqualTo(1);
+        assertThat(observer.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation where execution_id=?",
+                Integer.class, reservation.executionId())).isEqualTo(1);
+        assertThat(observer.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation "
+                + "where execution_id=? and state='RELEASED'", Integer.class, reservation.executionId())).isEqualTo(1);
+        assertThat(countForExecution("praxis_bulk_item_receipt", reservation.executionId())).isZero();
+        assertThat(countForExecution("praxis_bulk_admission", reservation.executionId())).isZero();
+        assertThatThrownBy(() -> kernel().executeUnit(reservation.control(), 0,
+                ignored -> { callbacks.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                ignored -> { callbacks.incrementAndGet(); return BulkUnitMutationResult.confirmed(); }))
+                .isInstanceOf(BulkDurableExecutionException.class);
+        assertThat(callbacks).hasValue(0);
+        assertThat(writes("bulk_durable_domain", 1)).isZero();
+    }
+
+    @Test
+    void cancellationBetweenPreparedMarkerAndApplyPreventsEveryDomainCallback() throws Exception {
+        var paused = new BulkCommitPauseDataSource(runtimeDataSource);
+        var pausedManager = new DataSourceTransactionManager(paused);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(paused, pausedManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration()));
+        var reservation = reserve(kernel(), persist(twoTargetEvaluation()), "cancel-after-prepare", "owner-a");
+        var callbacks = new AtomicInteger();
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var unit = executor.submit(() -> {
+                paused.arm(Thread.currentThread());
+                return kernel.executeUnit(reservation.control(), 0,
+                        ignored -> { callbacks.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                        ignored -> { callbacks.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+            });
+            try {
+                assertThat(paused.awaitMarker(2, TimeUnit.SECONDS)).isTrue();
+                assertThat(observer.queryForObject("select status from praxis_bulk.praxis_bulk_execution "
+                        + "where execution_id=?", String.class, reservation.executionId()))
+                        .isEqualTo("UNIT_IN_FLIGHT");
+                var requested = kernel().requestCancel(CONTEXT, reservation.executionId());
+                assertThat(requested.cancelRequestedAt()).isNotNull();
+                assertThat(requested.status()).isEqualTo(BulkDurableExecutionStatus.UNIT_IN_FLIGHT);
+            } finally {
+                paused.release();
+            }
+            var outcome = unit.get(4, TimeUnit.SECONDS);
+            assertThat(outcome.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+            assertThat(outcome.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+        } finally {
+            paused.release();
+        }
+        assertThat(callbacks).hasValue(0);
+        assertThat(writes("bulk_durable_domain", 1)).isZero();
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+        assertThat(count("praxis_bulk_admission")).isZero();
+    }
+
+    @Test
+    void cancellationPreservesConfirmedPrefixAndWorksWhenDescriptorIsSuspended() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-after-first", "owner-a");
+        var first = kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> {
+            runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+            return BulkUnitMutationResult.confirmed();
+        });
+        try (var connection = dataSource.getConnection()) {
+            assertThat(JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
+                    CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED,
+                    null, null).applied()).isTrue();
+        }
+        var cancelled = kernel.requestCancel(CONTEXT, reservation.executionId());
+        assertThat(cancelled.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(cancelled.nextOrdinal()).isEqualTo(1);
+        assertThat(cancelled.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+        var calls = new AtomicInteger();
+        var replay = kernel.executeUnit(first.control(), 0,
+                unit -> { calls.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                unit -> { calls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+        assertThat(replay.replayed()).isTrue();
+        assertThatThrownBy(() -> kernel.executeUnit(first.control(), 1,
+                unit -> { calls.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                unit -> { calls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); }))
+                .isInstanceOf(BulkDurableExecutionException.class);
+        assertThat(calls).hasValue(0);
+        assertThat(writes("bulk_durable_domain", 1)).isEqualTo(1);
+        assertThat(writes("bulk_durable_domain", 2)).isZero();
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+        BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
+    }
+
+    @Test
+    void cancellationOfPendingCommittedReceiptReconcilesWithoutMutationReplay() {
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
+        var faultManager = new DataSourceTransactionManager(faults);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration()));
+        var faultJdbc = new JdbcTemplate(faults);
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-pending", "owner-a");
+        var calls = new AtomicInteger();
+        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 0,
+                unit -> BulkUnitAdmission.admit(), unit -> {
+                    calls.incrementAndGet();
+                    faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+                    faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+                    return BulkUnitMutationResult.confirmed();
+                })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+        assertThat(observer.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?",
+                String.class, reservation.executionId())).isEqualTo("UNIT_COMMITTED_PENDING_ACK");
+        assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).cancelRequestedAt()).isNotNull();
+        var recovery = kernel.recover(CONTEXT, reservation.executionId(), "recovery-owner");
+        assertThat(recovery.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(recovery.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+        var replay = kernel.executeUnit(recovery.control(), 0,
+                unit -> { calls.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                unit -> { calls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+        assertThat(replay.replayed()).isTrue();
+        assertThat(calls).hasValue(1);
+        assertThat(writes("bulk_durable_domain", 1)).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+    }
+
+    @Test
+    void olderWriterMayAcknowledgeAnEarlierReceiptButCannotPrepareTheNextUnit() {
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
+        var managerWithFault = new DataSourceTransactionManager(faults);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, managerWithFault,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration()));
+        var faultJdbc = new JdbcTemplate(faults);
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-old-ack", "owner-a");
+        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 0,
+                ignored -> BulkUnitAdmission.admit(), ignored -> {
+                    faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+                    faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+                    return BulkUnitMutationResult.confirmed();
+                })).isInstanceOf(BulkDurableExecutionException.class);
+        kernel.requestCancel(CONTEXT, reservation.executionId());
+
+        // The V9 ACK shape must remain legal for an already committed receipt.
+        runtimeJdbc.update("""
+                update praxis_bulk.praxis_bulk_execution
+                set next_ordinal=1, status='RUNNING', active_attempt_id=null,
+                    active_attempt_ordinal=null, active_target_digest=null,
+                    active_attempt_epoch=null, active_unit_deadline_at=null,
+                    updated_at=clock_timestamp()
+                where execution_id=? and status='UNIT_COMMITTED_PENDING_ACK'
+                """, reservation.executionId());
+        String digest = observer.queryForObject("select target_digest from praxis_bulk.praxis_bulk_target_manifest "
+                + "where proposal_id=? and ordinal=1", String.class, reservation.proposalId());
+        assertThatThrownBy(() -> runtimeJdbc.update("""
+                update praxis_bulk.praxis_bulk_execution
+                set status='UNIT_IN_FLIGHT', active_attempt_id=?, active_attempt_ordinal=1,
+                    active_target_digest=?, active_attempt_epoch=owner_epoch,
+                    active_unit_deadline_at=clock_timestamp()+interval '5 seconds'
+                where execution_id=? and status='RUNNING'
+                """, UUID.randomUUID(), digest, reservation.executionId()))
+                .isInstanceOf(RuntimeException.class);
+        var cancelled = kernel.executeUnit(reservation.control(), 1,
+                ignored -> { fail("no admission after V9 ACK of a cancelled execution"); return BulkUnitAdmission.admit(); },
+                ignored -> { fail("no domain after V9 ACK of a cancelled execution"); return BulkUnitMutationResult.confirmed(); });
+        assertThat(cancelled.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(cancelled.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+        assertThat(writes("bulk_durable_domain", 1)).isEqualTo(1);
+        assertThat(writes("bulk_durable_domain", 2)).isZero();
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+    }
+
+    @Test
+    void cancellationWaitsForCommittedDomainTransactionAndNeverMutatesTheSuffix() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-during-domain", "owner-a");
+        var callbackEntered = new CountDownLatch(1);
+        var releaseCallback = new CountDownLatch(1);
+        var calls = new AtomicInteger();
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var unit = executor.submit(() -> kernel.executeUnit(reservation.control(), 0,
+                    ignored -> BulkUnitAdmission.admit(), mutation -> {
+                        calls.incrementAndGet();
+                        runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+                        callbackEntered.countDown();
+                        try {
+                            if (!releaseCallback.await(2, TimeUnit.SECONDS)) throw new AssertionError("callback gate timed out");
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt(); throw new AssertionError(interrupted);
+                        }
+                        return BulkUnitMutationResult.confirmed();
+                    }));
+            assertThat(callbackEntered.await(2, TimeUnit.SECONDS)).isTrue();
+            var cancellation = executor.submit(() -> kernel.requestCancel(CONTEXT, reservation.executionId()));
+            try {
+                Thread.sleep(120);
+                assertThat(cancellation.isDone()).isFalse();
+            } finally {
+                releaseCallback.countDown();
+            }
+            assertThat(unit.get(4, TimeUnit.SECONDS).receiptPresent()).isTrue();
+            assertThat(cancellation.get(4, TimeUnit.SECONDS).cancelRequestedAt()).isNotNull();
+        } finally {
+            releaseCallback.countDown();
+        }
+        var finalState = kernel.find(CONTEXT, reservation.executionId()).orElseThrow();
+        assertThat(finalState.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(finalState.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+        assertThat(finalState.nextOrdinal()).isEqualTo(1);
+        assertThat(writes("bulk_durable_domain", 1)).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+        assertThatThrownBy(() -> kernel.executeUnit(finalState.control(), 1,
+                ignored -> BulkUnitAdmission.admit(), ignored -> {
+                    calls.incrementAndGet(); return BulkUnitMutationResult.confirmed();
+                })).isInstanceOf(BulkDurableExecutionException.class);
+        assertThat(calls).hasValue(1);
+    }
+
+    @Test
+    void cancellationThatLosesTheRowLockReturnsNoFalseAcknowledgement() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-lock-timeout", "owner-a");
+        var locked = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var blocker = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                runtimeJdbc.queryForObject("select execution_id from praxis_bulk.praxis_bulk_execution "
+                        + "where execution_id=? for update", UUID.class, reservation.executionId());
+                locked.countDown();
+                try {
+                    if (!release.await(4, TimeUnit.SECONDS)) throw new AssertionError("row-lock gate timed out");
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt(); throw new AssertionError(interrupted);
+                }
+            }));
+            assertThat(locked.await(2, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> kernel.requestCancel(CONTEXT, reservation.executionId()))
+                    .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                            error -> assertThat(error.reason()).isEqualTo(
+                                    BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+            assertThat(observer.queryForObject("select cancel_requested_at is null from "
+                    + "praxis_bulk.praxis_bulk_execution where execution_id=?", Boolean.class,
+                    reservation.executionId())).isTrue();
+            release.countDown();
+            blocker.get(3, TimeUnit.SECONDS);
+        } finally {
+            release.countDown();
+        }
+        assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).status())
+                .isEqualTo(BulkDurableExecutionStatus.STOPPED);
+    }
+
+    @Test
+    void cancellationCommitAcknowledgementLossRequiresReadbackAndIdempotentRetry() {
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
+        var managerWithFault = new DataSourceTransactionManager(faults);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, managerWithFault,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration()));
+        var reservation = reserve(kernel(), persist(twoTargetEvaluation()), "cancel-commit-unknown", "owner-a");
+        faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+        assertThatThrownBy(() -> kernel.requestCancel(CONTEXT, reservation.executionId()))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(
+                                BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+        var readback = kernel.find(CONTEXT, reservation.executionId()).orElseThrow();
+        assertThat(readback.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(readback.cancelRequestedAt()).isNotNull();
+        var retry = kernel.requestCancel(CONTEXT, reservation.executionId());
+        assertThat(retry.cancelRequestedAt()).isEqualTo(readback.cancelRequestedAt());
+        assertThat(retry.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(observer.queryForObject("select state from praxis_bulk.praxis_bulk_allocation "
+                + "where execution_id=?", String.class, reservation.executionId())).isEqualTo("RELEASED");
+    }
+
+    @Test
+    void physicalCancellationFenceRollsBackAnOlderWriterDomainAndReceiptTogether() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-old-writer", "owner-a");
+        var attemptId = UUID.randomUUID();
+        var digest = observer.queryForObject("select target_digest from praxis_bulk.praxis_bulk_target_manifest "
+                + "where proposal_id=? and ordinal=0", String.class, reservation.proposalId());
+        observer.update("""
+                update praxis_bulk.praxis_bulk_execution
+                set status='UNIT_IN_FLIGHT', active_attempt_id=?, active_attempt_ordinal=0,
+                    active_target_digest=?, active_attempt_epoch=owner_epoch,
+                    active_unit_deadline_at=clock_timestamp()+interval '5 seconds'
+                where execution_id=? and status='RUNNING'
+                """, attemptId, digest, reservation.executionId());
+        assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).status())
+                .isEqualTo(BulkDurableExecutionStatus.UNIT_IN_FLIGHT);
+        assertThatThrownBy(() -> transactions.executeWithoutResult(status -> {
+            runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+            runtimeJdbc.update("""
+                    insert into praxis_bulk.praxis_bulk_item_receipt
+                      (execution_id,unit_ordinal,target_digest,expected_version,attempt_id,
+                       owner_epoch,outcome,confirmed_at,unit_deadline_at)
+                    values (?,0,?,'v1',?,1,'CONFIRMED',clock_timestamp(),
+                       (select active_unit_deadline_at from praxis_bulk.praxis_bulk_execution
+                        where execution_id=?))
+                    """, reservation.executionId(), digest, attemptId, reservation.executionId());
+        })).isInstanceOf(RuntimeException.class);
+        assertThat(writes("bulk_durable_domain", 1)).isZero();
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+        var recovered = kernel.recover(CONTEXT, reservation.executionId(), "recovery-owner");
+        assertThat(recovered.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(recovered.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+        assertThat(recovered.execution().nextOrdinal()).isZero();
+    }
+
+    @Test
+    void cancellationTombstoneSurvivesPurgingAndDeniesReservationReplay() {
+        var kernel = kernel();
+        var evaluated = persist(twoTargetEvaluation());
+        var reservation = reserve(kernel, evaluated, "cancel-retention", "owner-a");
+        kernel.requestCancel(CONTEXT, reservation.executionId());
+        observer.execute("alter table praxis_bulk.praxis_bulk_execution disable trigger praxis_bulk_execution_guard_terminal");
+        try {
+            observer.update("update praxis_bulk.praxis_bulk_execution set terminal_at=clock_timestamp()-interval '31 days' "
+                    + "where execution_id=?", reservation.executionId());
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_guard_terminal");
+        }
+        BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
+        observer.execute("grant praxis_bulk_retention_executor to postgres");
+        try {
+            var ownerTx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+            Boolean purged = ownerTx.execute(status -> {
+                observer.execute("set local role praxis_bulk_retention_executor");
+                return observer.queryForObject("select praxis_bulk.purge_terminal_execution(?)", Boolean.class,
+                        reservation.executionId());
+            });
+            assertThat(purged).isTrue();
+        } finally {
+            observer.execute("revoke praxis_bulk_retention_executor from postgres");
+        }
+        assertThat(observer.queryForObject("select terminal_status from praxis_bulk.praxis_bulk_tombstone "
+                + "where execution_id=?", String.class, reservation.executionId())).isEqualTo("CANCELLED");
+        assertThat(count("praxis_bulk_execution")).isZero();
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+        assertThatThrownBy(() -> reserve(kernel, evaluated, "cancel-retention", "owner-a"))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RESULT_PURGED));
+        BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
+    }
+
+    @Test
+    void lastPendingReceiptCompletesNormallyEvenWhenCancellationWasRequested() {
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
+        var faultManager = new DataSourceTransactionManager(faults);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration()));
+        var faultJdbc = new JdbcTemplate(faults);
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-last-receipt", "owner-a");
+        var first = kernel.executeUnit(reservation.control(), 0, ignored -> BulkUnitAdmission.admit(), mutation -> {
+            faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+            return BulkUnitMutationResult.confirmed();
+        });
+        var calls = new AtomicInteger();
+        assertThatThrownBy(() -> kernel.executeUnit(first.control(), 1,
+                ignored -> BulkUnitAdmission.admit(), mutation -> {
+                    calls.incrementAndGet();
+                    faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=2");
+                    faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+                    return BulkUnitMutationResult.confirmed();
+                })).isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+        assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).status())
+                .isEqualTo(BulkDurableExecutionStatus.UNIT_COMMITTED_PENDING_ACK);
+        var recovered = kernel.recover(CONTEXT, reservation.executionId(), "recovery-owner");
+        assertThat(recovered.status()).isEqualTo(BulkDurableExecutionStatus.COMPLETED);
+        assertThat(recovered.execution().terminalReasonCode()).isNull();
+        assertThat(recovered.execution().cancelRequestedAt()).isNotNull();
+        assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).status())
+                .isEqualTo(BulkDurableExecutionStatus.COMPLETED);
+        assertThat(calls).hasValue(1);
+        assertThat(writes("bulk_durable_domain", 2)).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(2);
+    }
+
+    @Test
+    void cancelledExecutionAfterDeniedAdmissionKeepsItemEvidenceAndUnprocessedSuffix() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-admission", "owner-a");
+        var mutationCalls = new AtomicInteger();
+        var denied = kernel.executeUnit(reservation.control(), 0,
+                ignored -> BulkUnitAdmission.denied(BulkUnitReasonCode.TARGET_DENIED),
+                ignored -> { mutationCalls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+        assertThat(denied.status()).isEqualTo(BulkDurableExecutionStatus.RUNNING);
+        assertThat(denied.execution().admissionCount()).isEqualTo(1);
+        var cancelled = kernel.requestCancel(CONTEXT, reservation.executionId());
+        assertThat(cancelled.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(cancelled.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+        assertThat(cancelled.nextOrdinal()).isEqualTo(1);
+        var replay = kernel.executeUnit(denied.control(), 0,
+                ignored -> { mutationCalls.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                ignored -> { mutationCalls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+        assertThat(replay.replayed()).isTrue();
+        assertThat(mutationCalls).hasValue(0);
+        assertThat(count("praxis_bulk_admission")).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+    }
+
+    @Test
+    void jpaConfirmedDomainAndReceiptStayCommittedWhenCancellationStopsTheSuffix() {
+        var jpaKernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(runtimeDataSource,
+                jpaManager, CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration()));
+        var reservation = reserve(jpaKernel, persist(twoTargetEvaluation()), "cancel-jpa", "owner-a");
+        var first = jpaKernel.executeUnit(reservation.control(), 0, ignored -> BulkUnitAdmission.admit(), ignored -> {
+            var em = EntityManagerFactoryUtils.getTransactionalEntityManager(entityManagerFactory);
+            em.find(BulkDurableJpaDomainRow.class, 1L).recordWrite();
+            em.flush();
+            return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(first.receiptPresent()).isTrue();
+        var cancelled = jpaKernel.requestCancel(CONTEXT, reservation.executionId());
+        assertThat(cancelled.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(cancelled.nextOrdinal()).isEqualTo(1);
+        assertThat(writes("bulk_durable_jpa_domain", 1)).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+        assertThatThrownBy(() -> jpaKernel.executeUnit(cancelled.control(), 1,
+                ignored -> BulkUnitAdmission.admit(), ignored -> {
+                    fail("cancelled JPA suffix must not invoke domain");
+                    return BulkUnitMutationResult.confirmed();
+                })).isInstanceOf(BulkDurableExecutionException.class);
+    }
+
+    @Test
+    void cancellationRacingARealCallbackRollbackNeverClaimsTheDomainEffect() throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-domain-rollback", "owner-a");
+        var callbackEntered = new CountDownLatch(1);
+        var releaseCallback = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var unit = executor.submit(() -> kernel.executeUnit(reservation.control(), 0,
+                    ignored -> BulkUnitAdmission.admit(), ignored -> {
+                        runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+                        callbackEntered.countDown();
+                        try {
+                            if (!releaseCallback.await(2, TimeUnit.SECONDS)) throw new AssertionError("callback gate timed out");
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt(); throw new AssertionError(interrupted);
+                        }
+                        throw new IllegalStateException("forced callback rollback");
+                    }));
+            assertThat(callbackEntered.await(2, TimeUnit.SECONDS)).isTrue();
+            var cancellation = executor.submit(() -> kernel.requestCancel(CONTEXT, reservation.executionId()));
+            try { Thread.sleep(100); }
+            finally { releaseCallback.countDown(); }
+            assertThat(unit.get(4, TimeUnit.SECONDS).status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+            var observed = cancellation.get(4, TimeUnit.SECONDS);
+            var finalState = kernel.find(CONTEXT, reservation.executionId()).orElseThrow();
+            assertThat(finalState.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+            if (observed.cancelRequestedAt() != null) {
+                assertThat(finalState.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+            } else {
+                assertThat(finalState.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.UNIT_ROLLED_BACK);
+            }
+        } finally {
+            releaseCallback.countDown();
+        }
+        assertThat(writes("bulk_durable_domain", 1)).isZero();
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+        assertThat(count("praxis_bulk_admission")).isZero();
+    }
+
+    @Test
+    void cancellationKeepsCorruptPendingReceiptUnknownInsteadOfClaimingCancellation() throws Exception {
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
+        var faultManager = new DataSourceTransactionManager(faults);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                BulkPostgresTestSupport.testRoleConfiguration()));
+        var faultJdbc = new JdbcTemplate(faults);
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "cancel-corrupt-pending", "owner-a");
+        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 0,
+                ignored -> BulkUnitAdmission.admit(), ignored -> {
+                    faultJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+                    faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+                    return BulkUnitMutationResult.confirmed();
+                })).isInstanceOf(BulkDurableExecutionException.class);
+        corruptPendingReceiptEpochAsFixtureOwner(reservation.executionId(), 0);
+        var cancellation = kernel.requestCancel(CONTEXT, reservation.executionId());
+        assertThat(cancellation.status()).isEqualTo(BulkDurableExecutionStatus.RECONCILIATION_REQUIRED);
+        assertThat(cancellation.cancelRequestedAt()).isNotNull();
+        assertThat(cancellation.terminalReasonCode()).isNull();
+        var recovery = kernel.recover(CONTEXT, reservation.executionId(), "recovery-owner");
+        assertThat(recovery.status()).isEqualTo(BulkDurableExecutionStatus.RECONCILIATION_REQUIRED);
+        assertThat(writes("bulk_durable_domain", 1)).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+    }
+
     private JdbcBulkDurableExecution kernel() {
         return new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(runtimeDataSource, manager,
                 CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
@@ -1458,6 +2051,19 @@ class BulkDurableExecutionPostgresTest {
             if (!observed) Thread.sleep(20);
         }
         assertThat(observed).as("database lock wait %s for %s", waitEvent, queryPattern).isTrue();
+    }
+
+    private void assertDatabaseLockWait(String queryPattern) throws InterruptedException {
+        var deadline = Instant.now().plusSeconds(3);
+        boolean observed = false;
+        while (Instant.now().isBefore(deadline) && !observed) {
+            observed = observer.queryForObject("""
+                    select exists(select 1 from pg_stat_activity
+                      where pid <> pg_backend_pid() and wait_event_type='Lock' and query ilike ?)
+                    """, Boolean.class, queryPattern);
+            if (!observed) Thread.sleep(20);
+        }
+        assertThat(observed).as("database lock wait for %s", queryPattern).isTrue();
     }
 
     private int countForExecution(String table, UUID executionId) {

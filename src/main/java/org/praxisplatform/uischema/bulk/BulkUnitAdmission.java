@@ -18,7 +18,9 @@ public final class BulkUnitAdmission {
     public static BulkUnitAdmission conflict(BulkUnitReasonCode reason) { return local(Decision.CONFLICT, reason); }
     public static BulkUnitAdmission stop(BulkUnitReasonCode reason) {
         Objects.requireNonNull(reason);
-        if (reason.name().startsWith("TARGET_") || reason == BulkUnitReasonCode.LEGACY_REASON_NOT_RECORDED)
+        if (reason.name().startsWith("TARGET_")
+                || reason == BulkUnitReasonCode.LEGACY_REASON_NOT_RECORDED
+                || reason == BulkUnitReasonCode.CANCELLED_BY_USER)
             throw new IllegalArgumentException("reason cannot be supplied as a new common stop");
         return new BulkUnitAdmission(Decision.STOP, reason);
     }

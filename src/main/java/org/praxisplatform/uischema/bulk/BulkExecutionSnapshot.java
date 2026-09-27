@@ -17,10 +17,11 @@ public final class BulkExecutionSnapshot {
     private final Instant deadlineAt;
     private final BulkExecutionControl control;
     private final BulkUnitReasonCode terminalReasonCode;
+    private final Instant cancelRequestedAt;
 
     BulkExecutionSnapshot(UUID executionId, UUID proposalId, BulkDurableExecutionStatus status,
             int nextOrdinal, int targetCount, int receiptCount, int admissionCount, Instant deadlineAt,
-            BulkExecutionControl control, BulkUnitReasonCode terminalReasonCode) {
+            BulkExecutionControl control, BulkUnitReasonCode terminalReasonCode, Instant cancelRequestedAt) {
         this.executionId = executionId;
         this.proposalId = proposalId;
         this.status = status;
@@ -31,6 +32,7 @@ public final class BulkExecutionSnapshot {
         this.deadlineAt = deadlineAt;
         this.control = control;
         this.terminalReasonCode = terminalReasonCode;
+        this.cancelRequestedAt = cancelRequestedAt;
     }
 
     public UUID executionId() { return executionId; }
@@ -43,5 +45,6 @@ public final class BulkExecutionSnapshot {
     public Instant deadlineAt() { return deadlineAt; }
     public BulkExecutionControl control() { return control; }
     public BulkUnitReasonCode terminalReasonCode() { return terminalReasonCode; }
+    public Instant cancelRequestedAt() { return cancelRequestedAt; }
     @Override public String toString() { return "BulkExecutionSnapshot[protected]"; }
 }

@@ -99,6 +99,7 @@ public final class BulkExecutionMigrator {
     private static final Set<String> V9_FUNCTIONS = Set.of(
             "require_complete_target_preview()", "require_complete_preview_parent()",
             "reject_preview_mutation()");
+    private static final Set<String> V10_FUNCTIONS = Set.of("protect_cancel_request()");
     private static final Set<String> V5_TRIGGERS = Set.of(
             PROPOSAL_TABLE + ".praxis_bulk_proposal_guard_delete",
             EVALUATION_TABLE + ".praxis_bulk_evaluation_guard_delete",
@@ -124,6 +125,8 @@ public final class BulkExecutionMigrator {
             EVALUATION_TABLE + ".praxis_bulk_evaluation_require_manifest",
             MANIFEST_TABLE + ".praxis_bulk_target_manifest_immutable",
             MANIFEST_TABLE + ".praxis_bulk_target_manifest_guard_delete");
+    private static final Set<String> V10_TRIGGERS = Set.of(
+            EXECUTION_TABLE + ".praxis_bulk_execution_protect_cancel");
     private static final Set<String> V9_TRIGGERS = Set.of(
             EVALUATION_TABLE + ".praxis_bulk_evaluation_require_preview",
             TARGET_PREVIEW_TABLE + ".praxis_bulk_target_preview_guard_insert",
@@ -864,6 +867,7 @@ public final class BulkExecutionMigrator {
         names.addAll(V6_FUNCTIONS);
         names.addAll(V8_FUNCTIONS);
         names.addAll(V9_FUNCTIONS);
+        names.addAll(V10_FUNCTIONS);
         names.addAll(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
                 BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
                 RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()", DESCRIPTOR_FUNCTION + "()",
@@ -884,6 +888,7 @@ public final class BulkExecutionMigrator {
                 ADMISSION_TABLE + "." + ADMISSION_TRIGGER));
         names.addAll(V8_TRIGGERS);
         names.addAll(V9_TRIGGERS);
+        names.addAll(V10_TRIGGERS);
         return names;
     }
 
@@ -1320,7 +1325,8 @@ public final class BulkExecutionMigrator {
                 Map.entry("created_at", "timestamp(6) with time zone|true"),
                 Map.entry("updated_at", "timestamp(6) with time zone|true"),
                 Map.entry("terminal_at", "timestamp(6) with time zone|false"),
-                Map.entry("terminal_reason_code", "text|false")));
+                Map.entry("terminal_reason_code", "text|false"),
+                Map.entry("cancel_requested_at", "timestamp(6) with time zone|false")));
         validateDurableColumns(connection, "praxis_bulk_item_receipt", Map.ofEntries(
                 Map.entry("execution_id", "uuid|true"),
                 Map.entry("unit_ordinal", "integer|true"),
@@ -1354,7 +1360,9 @@ public final class BulkExecutionMigrator {
                 Map.entry("praxis_bulk_execution_scoped_idempotency_key", "UNIQUE (namespace_id, subject_id, resource_key, operation_id, idempotency_key_digest)"),
                 Map.entry("praxis_bulk_execution_state_shape_check", "CHECK ((((status = 'RUNNING'::text) AND (active_attempt_id IS NULL) AND (next_ordinal < target_count) AND (terminal_at IS NULL)) OR ((status = ANY (ARRAY['UNIT_IN_FLIGHT'::text, 'UNIT_COMMITTED_PENDING_ACK'::text])) AND (active_attempt_id IS NOT NULL) AND (terminal_at IS NULL)) OR ((status = ANY (ARRAY['COMPLETED'::text, 'COMPLETED_WITH_ERRORS'::text])) AND (active_attempt_id IS NULL) AND (next_ordinal = target_count) AND (terminal_at IS NOT NULL)) OR ((status = 'STOPPED'::text) AND (terminal_at IS NOT NULL) AND (active_attempt_id IS NULL) AND (active_attempt_ordinal IS NULL) AND (active_target_digest IS NULL) AND (active_attempt_epoch IS NULL)) OR ((status = 'RECONCILIATION_REQUIRED'::text) AND (terminal_at IS NULL))))"),
                 Map.entry("praxis_bulk_execution_status_check", "CHECK ((status = ANY (ARRAY['RUNNING'::text, 'UNIT_IN_FLIGHT'::text, 'UNIT_COMMITTED_PENDING_ACK'::text, 'COMPLETED'::text, 'COMPLETED_WITH_ERRORS'::text, 'STOPPED'::text, 'RECONCILIATION_REQUIRED'::text])))"),
-                Map.entry("praxis_bulk_execution_terminal_reason_check", "CHECK ((((status = 'STOPPED'::text) = (terminal_reason_code IS NOT NULL)) AND ((terminal_reason_code IS NULL) OR (terminal_reason_code = ANY (ARRAY['LEGACY_REASON_NOT_RECORDED'::text, 'DEADLINE_EXCEEDED'::text, 'AUTHORIZATION_REVOKED'::text, 'POLICY_BLOCKED'::text, 'COMMON_GOVERNANCE_CHANGED'::text, 'COMMON_GOVERNANCE_UNAVAILABLE'::text, 'DEPENDENCY_UNAVAILABLE'::text, 'UNIT_ROLLED_BACK'::text, 'RECOVERY_STOPPED'::text, 'EVALUATOR_UNAVAILABLE'::text, 'STRUCTURAL_REVISION_CHANGED'::text])))))"),
+                Map.entry("praxis_bulk_execution_terminal_reason_check", "CHECK ((((status = 'STOPPED'::text) = (terminal_reason_code IS NOT NULL)) AND ((terminal_reason_code IS NULL) OR (terminal_reason_code = ANY (ARRAY['LEGACY_REASON_NOT_RECORDED'::text, 'DEADLINE_EXCEEDED'::text, 'AUTHORIZATION_REVOKED'::text, 'POLICY_BLOCKED'::text, 'COMMON_GOVERNANCE_CHANGED'::text, 'COMMON_GOVERNANCE_UNAVAILABLE'::text, 'DEPENDENCY_UNAVAILABLE'::text, 'UNIT_ROLLED_BACK'::text, 'RECOVERY_STOPPED'::text, 'EVALUATOR_UNAVAILABLE'::text, 'STRUCTURAL_REVISION_CHANGED'::text, 'CANCELLED_BY_USER'::text])))))"),
+                Map.entry("praxis_bulk_execution_cancel_shape_check", "CHECK (((terminal_reason_code IS DISTINCT FROM 'CANCELLED_BY_USER'::text) OR ((cancel_requested_at IS NOT NULL) AND (next_ordinal < target_count) AND (active_attempt_id IS NULL))))"),
+                Map.entry("praxis_bulk_execution_cancel_terminal_check", "CHECK (((cancel_requested_at IS NULL) OR (status <> 'STOPPED'::text) OR (terminal_reason_code = 'CANCELLED_BY_USER'::text)))"),
                 Map.entry("praxis_bulk_execution_active_unit_deadline_check", "CHECK (((active_unit_deadline_at IS NULL) OR ((active_attempt_id IS NOT NULL) AND (active_unit_deadline_at <= deadline_at))))"),
                 Map.entry("praxis_bulk_execution_subject_nonblank_check", "CHECK ((btrim(subject_id) <> ''::text))")));
         validateDurableConstraints(connection, "praxis_bulk_item_receipt", false, Map.ofEntries(
@@ -1881,7 +1889,7 @@ public final class BulkExecutionMigrator {
                 Map.entry("praxis_bulk_tombstone_key_digest_check", "CHECK ((idempotency_key_digest ~ '^sha256:[0-9a-f]{64}$'::text))"),
                 Map.entry("praxis_bulk_tombstone_resource_check", "CHECK ((btrim(resource_key) <> ''::text))"),
                 Map.entry("praxis_bulk_tombstone_operation_check", "CHECK ((btrim(operation_id) <> ''::text))"),
-                Map.entry("praxis_bulk_tombstone_terminal_check", "CHECK ((terminal_status = ANY (ARRAY['COMPLETED'::text, 'COMPLETED_WITH_ERRORS'::text, 'STOPPED'::text])))"),
+                Map.entry("praxis_bulk_tombstone_terminal_check", "CHECK ((terminal_status = ANY (ARRAY['COMPLETED'::text, 'COMPLETED_WITH_ERRORS'::text, 'STOPPED'::text, 'CANCELLED'::text])))"),
                 Map.entry("praxis_bulk_tombstone_time_check", "CHECK ((purged_at >= terminal_at))")));
     }
 
@@ -1935,6 +1943,7 @@ public final class BulkExecutionMigrator {
                 trigger(EXECUTION_TABLE, "praxis_bulk_execution_guard_admission", "BEFORE INSERT", "guard_new_bulk_admission"),
                 trigger(EVALUATION_TABLE, "praxis_bulk_evaluation_guard_admission", "BEFORE INSERT", "guard_new_bulk_evaluation"),
                 trigger(EXECUTION_TABLE, "praxis_bulk_execution_guard_terminal", "BEFORE UPDATE", "guard_terminal_execution"),
+                trigger(EXECUTION_TABLE, "praxis_bulk_execution_protect_cancel", "BEFORE INSERT OR UPDATE", "protect_cancel_request"),
                 trigger(EXECUTION_TABLE, "praxis_bulk_execution_release_active_allocation", "AFTER UPDATE", "release_active_allocation_on_terminal"),
                 trigger(RECEIPT_TABLE, "praxis_bulk_receipt_guard_terminal", "BEFORE INSERT", "guard_terminal_evidence_insert"),
                 trigger(ADMISSION_TABLE, "praxis_bulk_admission_guard_terminal", "BEFORE INSERT", "guard_terminal_evidence_insert"));
@@ -1949,7 +1958,9 @@ public final class BulkExecutionMigrator {
                   and (r.relname || '.' || t.tgname) = any (?::text[])
                 """)) {
             statement.setString(1, SCHEMA);
-            statement.setArray(2, connection.createArrayOf("text", V5_TRIGGERS.toArray()));
+            var triggerKeys = new LinkedHashSet<>(V5_TRIGGERS);
+            triggerKeys.addAll(V10_TRIGGERS);
+            statement.setArray(2, connection.createArrayOf("text", triggerKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
                     String key = rows.getString(1) + "." + rows.getString(2);
@@ -1975,6 +1986,7 @@ public final class BulkExecutionMigrator {
         keys.addAll(V6_FUNCTIONS);
         keys.addAll(V8_FUNCTIONS);
         keys.addAll(V9_FUNCTIONS);
+        keys.addAll(V10_FUNCTIONS);
         keys.add(RECEIPT_FUNCTION + "()");
         keys.add(ADMISSION_FUNCTION + "()");
         Set<String> definer = Set.of("protect_allocation_transition()", "validate_allocation_binding()",
@@ -2023,6 +2035,9 @@ public final class BulkExecutionMigrator {
                     } else if (definer.contains(key)) {
                         require("praxis_bulk_retention_owner".equals(rows.getString(11)),
                                 "SECURITY DEFINER function has unexpected owner: " + key);
+                    } else if (V10_FUNCTIONS.contains(key)) {
+                        require(roleConfiguration.expectedSchemaOwnerRole().equals(rows.getString(11)),
+                                "cancellation invoker function has unexpected owner: " + key);
                     } else {
                         require(!Set.of("praxis_bulk_retention_owner", "praxis_bulk_retention_executor",
                                         "praxis_bulk_control_owner")
@@ -2093,6 +2108,16 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    private static String readV10Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V10__bulk_durable_cancellation.sql")) {
+            require(input != null, "V10 cancellation migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V10 cancellation migration", failure);
+        }
+    }
+
     private static MigrationExpectations migrationExpectations() {
         MigrationExpectations cached = migrationExpectations;
         if (cached != null) return cached;
@@ -2143,6 +2168,12 @@ public final class BulkExecutionMigrator {
                 "reject_preview_mutation")) {
             expectedBodies.put(function, new FunctionBodyExpectation("V9", normalizeExpression(
                     extractFunctionBody(v9Migration, function, "V9"))));
+        }
+        String v10Migration = readV10Migration();
+        for (String function : Set.of("protect_cancel_request", "guard_terminal_evidence_insert",
+                "purge_terminal_execution")) {
+            expectedBodies.put(function, new FunctionBodyExpectation("V10", normalizeExpression(
+                    extractFunctionBody(v10Migration, function, "V10"))));
         }
         return new MigrationExpectations(expectedBodies,
                 normalizeExpression(extractFunctionBody(v7Migration, INSERT_FENCE_FUNCTION, "V7")));
@@ -2206,6 +2237,7 @@ public final class BulkExecutionMigrator {
             functionKeys.addAll(V7_FUNCTIONS);
             functionKeys.addAll(V8_FUNCTIONS);
             functionKeys.addAll(V9_FUNCTIONS);
+            functionKeys.addAll(V10_FUNCTIONS);
             statement.setArray(2, connection.createArrayOf("text", functionKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
