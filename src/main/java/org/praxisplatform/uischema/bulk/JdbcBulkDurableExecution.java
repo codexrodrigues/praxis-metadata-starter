@@ -143,6 +143,11 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
+    /** Internal summary only; the host must authorize before deriving a response. */
+    BulkExecutionSummary summarizeConsistent(BulkFingerprintContext scope, UUID executionId) {
+        return BulkExecutionSummary.from(inspectConsistent(scope, executionId));
+    }
+
     private BulkConsistentExecutionRead inspectConsistent(Connection connection, BulkFingerprintContext scope,
             UUID executionId) throws SQLException {
         Optional<BulkExecutionSnapshot> scoped = findScoped(connection, scope, executionId, false);
@@ -179,13 +184,14 @@ public final class JdbcBulkDurableExecution {
         boolean reconciling = execution.status() == BulkDurableExecutionStatus.RECONCILIATION_REQUIRED;
         int certifiedReceipts = 0, certifiedAdmissions = 0;
         for (Receipt receipt : receipts) {
-            if (reconciling && receipt.ordinal() >= execution.nextOrdinal()) continue;
+            // A durable receipt awaiting ACK is not yet part of the certified prefix either.
+            if (receipt.ordinal() >= execution.nextOrdinal()) continue;
             certifiedReceipts++;
             if (receipt.outcome() == BulkUnitOutcome.CONFIRMED) confirmed++;
             else unchanged++;
         }
         for (AdmissionRecord admission : admissions) {
-            if (reconciling && admission.ordinal() >= execution.nextOrdinal()) continue;
+            if (admission.ordinal() >= execution.nextOrdinal()) continue;
             certifiedAdmissions++;
             switch (admission.status()) {
                 case DENIED -> denied++;
