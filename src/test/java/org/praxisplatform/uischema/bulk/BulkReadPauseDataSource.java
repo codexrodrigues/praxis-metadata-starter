@@ -17,12 +17,19 @@ import javax.sql.DataSource;
 /** Test barrier after the execution identity SELECT has fixed the reader's MVCC snapshot. */
 final class BulkReadPauseDataSource implements DataSource {
     private final DataSource delegate;
+    private final String sqlMarker;
     private final AtomicBoolean first = new AtomicBoolean(true);
     private final CountDownLatch observed = new CountDownLatch(1);
     private final CountDownLatch release = new CountDownLatch(1);
     private volatile Thread reader;
 
-    BulkReadPauseDataSource(DataSource delegate) { this.delegate = delegate; }
+    BulkReadPauseDataSource(DataSource delegate) {
+        this(delegate, "from praxis_bulk.praxis_bulk_execution e");
+    }
+    BulkReadPauseDataSource(DataSource delegate, String sqlMarker) {
+        this.delegate = delegate;
+        this.sqlMarker = sqlMarker;
+    }
     void arm(Thread reader) { this.reader = reader; }
     boolean awaitObservation(long timeout, TimeUnit unit) throws InterruptedException {
         return observed.await(timeout, unit);
@@ -41,8 +48,9 @@ final class BulkReadPauseDataSource implements DataSource {
                     Object value = invoke(actual, method, arguments);
                     if ("prepareStatement".equals(method.getName()) && arguments != null
                             && arguments.length > 0 && arguments[0] instanceof String sql
-                            && sql.contains("from praxis_bulk.praxis_bulk_execution e")
-                            && sql.contains("where e.execution_id=?")) {
+                            && sql.contains(sqlMarker)
+                            && (!sqlMarker.equals("from praxis_bulk.praxis_bulk_execution e")
+                                || sql.contains("where e.execution_id=?"))) {
                         return wrapStatement((PreparedStatement) value);
                     }
                     return value;

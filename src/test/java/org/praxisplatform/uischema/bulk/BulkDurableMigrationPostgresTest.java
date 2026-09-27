@@ -44,7 +44,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(dataSource);
-            assertThat(migrate(dataSource)).isEqualTo(11);
+            assertThat(migrate(dataSource)).isEqualTo(12);
             BulkExecutionMigrator.validate(dataSource);
 
             sql.execute("grant execute on function praxis_bulk.protect_cancel_request() to public");
@@ -107,7 +107,7 @@ class BulkDurableMigrationPostgresTest {
                     java.util.Set.of("bulk_runtime_test"),java.util.Set.of(),java.util.Set.of());
             assertThat(BulkExecutionMigrator.migrate(owner,
                     java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles))
-                    .isEqualTo(4);
+                    .isEqualTo(5);
             BulkExecutionMigrator.validate(owner,roles);
             assertThat(sql.queryForObject("""
                     select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
@@ -135,7 +135,7 @@ class BulkDurableMigrationPostgresTest {
 
             assertThat(BulkExecutionMigrator.migrateWithOperations(dataSource,
                     java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID),
-                    List.of(identity))).isEqualTo(11);
+                    List.of(identity))).isEqualTo(12);
             assertThat(sql.queryForMap("""
                     select state, generation, descriptor_fingerprint, structural_revision
                     from praxis_bulk.praxis_bulk_operation_control
@@ -338,7 +338,7 @@ class BulkDurableMigrationPostgresTest {
                             + "create unique index praxis_bulk_schema_history_s_idx on praxis_bulk.praxis_bulk_execution(owner_id)",
                     "create unique index praxis_bulk_fk_bound_owner on praxis_bulk.praxis_bulk_execution(owner_id); "
                             + "create table public.praxis_bulk_external_ref(owner_id text references praxis_bulk.praxis_bulk_execution(owner_id))")) {
-                assertThat(migrate(dataSource)).isEqualTo(11);
+                assertThat(migrate(dataSource)).isEqualTo(12);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
                 sql.execute(mutation);
                 assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
@@ -355,7 +355,7 @@ class BulkDurableMigrationPostgresTest {
             var url = postgres.getJdbcUrl("postgres", "postgres") + "&currentSchema=praxis_bulk";
             try (var physicalConnection = java.sql.DriverManager.getConnection(url, "postgres", "postgres");
                     var scopedDataSource = new SingleConnectionDataSource(physicalConnection, true)) {
-                assertThat(migrate(scopedDataSource)).isEqualTo(11);
+                assertThat(migrate(scopedDataSource)).isEqualTo(12);
                 BulkExecutionMigrator.validate(scopedDataSource);
                 try (var statement = physicalConnection.createStatement();
                         var result = statement.executeQuery("select current_schema(), current_setting('search_path')")) {
@@ -384,6 +384,7 @@ class BulkDurableMigrationPostgresTest {
             sql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_preview to bulk_runtime");
             sql.execute("grant select, insert on praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
             sql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
+            sql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
             var configured = new BulkExecutionRoleConfiguration("postgres",
                     java.util.Set.of("bulk_runtime"), java.util.Set.of(), java.util.Set.of());
             BulkExecutionMigrator.validate(dataSource, configured);
@@ -457,6 +458,7 @@ class BulkDurableMigrationPostgresTest {
             sql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_preview to bulk_runtime");
             sql.execute("grant select, insert on praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
             sql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
+            sql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
             sql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_control");
             var roles = new BulkExecutionRoleConfiguration("postgres", java.util.Set.of("bulk_runtime"),
                     java.util.Set.of("bulk_retention_group", "bulk_retention_login"),
@@ -575,7 +577,7 @@ class BulkDurableMigrationPostgresTest {
                         Integer.class, Integer.toString(version));
             }
 
-            assertThat(migrate(dataSource)).isEqualTo(8);
+            assertThat(migrate(dataSource)).isEqualTo(9);
             for (int version = 1; version <= 3; version++) {
                 assertThat(sql.queryForObject(
                         "select checksum from praxis_bulk.praxis_bulk_schema_history where version=?",
@@ -614,7 +616,7 @@ class BulkDurableMigrationPostgresTest {
             String replayKey = "retention-replay-key";
             sql.update("update praxis_bulk.praxis_bulk_execution set terminal_at=clock_timestamp()-interval '31 days' "
                     + "where execution_id=?", terminal.id());
-            assertThat(migrate(dataSource)).isEqualTo(8);
+            assertThat(migrate(dataSource)).isEqualTo(9);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             var roles = BulkPostgresTestSupport.testRoleConfiguration();
             BulkPostgresTestSupport.grantRuntimeRole(dataSource, "bulk_runtime_test");
@@ -733,7 +735,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(dataSource);
-            assertThat(migrate(dataSource)).isEqualTo(11);
+            assertThat(migrate(dataSource)).isEqualTo(12);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             var fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             UUID executionId = fixture.id();
@@ -803,6 +805,7 @@ class BulkDurableMigrationPostgresTest {
             sql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_preview to admission_runtime");
             sql.execute("grant select, insert on praxis_bulk.praxis_bulk_preview_item_integrity to admission_runtime");
             sql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to admission_runtime");
+            sql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to admission_runtime");
             var runtimeRoles = new BulkExecutionRoleConfiguration("postgres",
                     java.util.Set.of("admission_runtime"), java.util.Set.of(), java.util.Set.of());
             BulkExecutionMigrator.validate(dataSource, runtimeRoles);
@@ -831,7 +834,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(dataSource);
-            assertThat(migrate(dataSource)).isEqualTo(11);
+            assertThat(migrate(dataSource)).isEqualTo(12);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             var fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             UUID executionId = fixture.id();
@@ -850,7 +853,7 @@ class BulkDurableMigrationPostgresTest {
                     .isInstanceOf(IllegalStateException.class);
 
             sql.execute("drop schema praxis_bulk cascade");
-            assertThat(migrate(dataSource)).isEqualTo(11);
+            assertThat(migrate(dataSource)).isEqualTo(12);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             executionId = fixture.id();
@@ -864,7 +867,7 @@ class BulkDurableMigrationPostgresTest {
                     .isInstanceOf(IllegalStateException.class);
 
             sql.execute("drop schema praxis_bulk cascade");
-            assertThat(migrate(dataSource)).isEqualTo(11);
+            assertThat(migrate(dataSource)).isEqualTo(12);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             executionId = fixture.id();
@@ -889,7 +892,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(dataSource);
-            assertThat(migrate(dataSource)).isEqualTo(11);
+            assertThat(migrate(dataSource)).isEqualTo(12);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             var fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             UUID attemptId = UUID.randomUUID();
@@ -926,7 +929,7 @@ class BulkDurableMigrationPostgresTest {
                     .isInstanceOf(IllegalStateException.class);
 
             sql.execute("drop schema praxis_bulk cascade");
-            assertThat(migrate(dataSource)).isEqualTo(11);
+            assertThat(migrate(dataSource)).isEqualTo(12);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
             attemptId = UUID.randomUUID();
@@ -949,7 +952,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(dataSource);
-            assertThat(migrate(dataSource)).isEqualTo(11);
+            assertThat(migrate(dataSource)).isEqualTo(12);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
             UUID executionId = insertExecution(dataSource, sql, "RUNNING", 0, false).id();
             sql.update("""
@@ -1016,7 +1019,7 @@ class BulkDurableMigrationPostgresTest {
     }
 
     @Test
-    void v11UpgradesV5WithoutChangingItsAppliedChecksum() throws Exception {
+    void v12UpgradesV5WithoutChangingItsAppliedChecksum() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start()) {
             var dataSource = postgres.getPostgresDatabase();
@@ -1025,14 +1028,14 @@ class BulkDurableMigrationPostgresTest {
             int priorV5Checksum = sql.queryForObject(
                     "select checksum from praxis_bulk.praxis_bulk_schema_history where version='5'", Integer.class);
 
-            assertThat(migrate(dataSource)).isEqualTo(6);
+            assertThat(migrate(dataSource)).isEqualTo(7);
 
             assertThat(sql.queryForObject(
                     "select checksum from praxis_bulk.praxis_bulk_schema_history where version='5'", Integer.class))
                     .isEqualTo(priorV5Checksum);
             assertThat(sql.queryForObject(
                     "select version from praxis_bulk.praxis_bulk_schema_history order by installed_rank desc limit 1",
-                    String.class)).isEqualTo("11");
+                    String.class)).isEqualTo("12");
             BulkExecutionMigrator.validate(dataSource);
         }
     }

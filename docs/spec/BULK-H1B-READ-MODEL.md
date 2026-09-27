@@ -176,6 +176,155 @@ O reader RS2 bounded é um corte separado, depois da revisão do V11. O schema
 owner capaz de alterar simultaneamente todos os dados e DDL está fora do
 modelo de ameaça; runtime não possui esses privilégios.
 
+## Corte interno RS2 — página limitada sobre V11
+
+Base: Metadata main `7f5f7bbd54efd0e3813b3c422181571c331daec5`.
+Classificação `arquitetural`/`transversal`, sem contrato público. V8 manifest,
+V9 preview e V11 checksum individual fornecem a evidência física; RS3
+`withConsistentRead` fornece transação PostgreSQL independente `REPEATABLE READ
+READ ONLY` (`suportado-parcialmente`). A lacuna interna era a consulta por
+janela limitada com validação local por item. O consumidor futuro é
+`bulk-proposal-results` do Quickstart, **após** autorização atual e integral
+do conjunto, contrato de response/cursor e revisão próprios. Este corte não
+registra rota, capability, DTO público ou `READY`.
+
+`BulkPreviewPageReader` permanece package-private. A primeira consulta lê
+somente o vínculo scoped de proposta, avaliação e parent V9/V11, sem selecionar
+ou decodificar seus blobs protegidos. A segunda usa o índice do manifest como
+eixo, `ordinal > lastOrdinal AND ordinal < watermarkExclusive`, ordenação
+ascendente e `LIMIT size+1` (`size` de 1 a 200); o watermark RS2 deve ser
+igual ao `targetCount` imutável. Preview e folha entram por `LEFT JOIN`, para
+que uma ausência não se transforme em página vazia. Cada linha verifica
+continuidade de ordinal, fingerprint, count, wire identity digest, transcript
+V11 e diagnostics canônicos contra a allowlist pública do parent. Uma consulta
+indexada adicional `ordinal >= targetCount LIMIT 1` rejeita sufixo físico
+indevido. Só ordinal, decisão e diagnósticos aprovados saem na observação
+interna; wire identity, expectedVersion, targetDigest e digest da folha servem
+apenas à verificação. `ABSENT`, `NOT_EVALUATED`, `UNAVAILABLE` e
+`UNAVAILABLE_LEGACY` são estados internos distintos e não decidem 404/409
+antes do authorizer do host. Drift, falta, duplicidade, shape inválido ou
+checksum divergente falham fechados sem detalhe protegido na exceção.
+Estados sem avaliação/projeção usam probes indexados `LIMIT 1` para rejeitar
+manifest, preview ou folhas que não deveriam existir, em vez de aceitar
+um estado de indisponibilidade aparentemente legítimo após drift.
+
+O orçamento agregado é 20 MiB por chamada, incluindo allowlist, manifest,
+diagnostics e a linha extra `size+1`; excedê-lo produz indisponibilidade
+operacional segura, jamais página truncada. Como V8 admite até 8 MiB de
+identidade e 8 MiB de versão por linha, até uma página máxima fisicamente
+válida pode ser recusada por esse orçamento. O `PreparedStatement` usa
+`fetchSize(1)` **antes** de `executeQuery` como estratégia para reduzir a
+materialização antecipada de linhas grandes; o orçamento rejeita a página
+quando excedido. Isso não prova um limite de heap no driver e pode custar até
+201 fetches de rede numa página de 200. A prova de heap e latência com
+PostgreSQL e dados representativos ainda é pendente antes da API/release; não
+aumentar fetch sem essa evidência. A janela usa o timeout existente da infraestrutura
+RS3 (transação 3 s, statement limitado a 2 s), sem SLA novo prometido.
+Nenhum lock de escrita, callback de domínio ou mutação é introduzido.
+
+Provas focais PostgreSQL incluem 10.000 itens e fronteira keyset, estado
+indisponível/legado, escopo cruzado, drift de mensagem/folha/manifest e
+expiração concorrente pausada após o primeiro SELECT: o snapshot antigo
+retém uma página íntegra e uma nova leitura observa ausência. A garantia de
+JPA e read-only físico é herdada e comprovada em RS3; este reader usa a mesma
+infraestrutura, sem prometer suporte para outra topologia. Nenhum documento
+HTTP, corpus, Angular ou exemplo público muda neste corte. Impacto em skill:
+`atualizar-existente` para guidance de paginação segura/limite de fetch no
+`praxis-java-command-concurrency-authoring`, sob coordenação da atualização
+canônica antes de adoção pública.
+
+### Gate de bootstrap V11 para o reader — corte V12 candidato
+
+**Estado da decisão:** revisão arquitetural aprovada; implementação V12 e reader
+RS2 são candidatos sob provas PostgreSQL e revisão independente. Nenhum deles
+pode ser ativado publicamente antes do aceite completo deste gate.
+Reprodução PostgreSQL: após persistir uma avaliação `COMPLETE`, o owner muda
+`praxis_bulk_preview_integrity_bootstrap.phase` para `PENDING`; o reader inicial
+continuava devolvendo `COMPLETE`, pois validava parent e folhas, mas não consultava o
+marker. A revisão classificou a falha como P1. Aderência: o V11 já possui o
+marker owner-only e um trigger `SECURITY DEFINER` que barra *inserts* no parent;
+falta uma leitura atestada do mesmo marker sob o snapshot RS3. Classificação
+`arquitetural`/`transversal` de contrato físico privado, sem endpoint, DTO ou
+semântica pública nova. Fonte canônica: Metadata Starter. Consumidor concreto:
+`BulkPreviewPageReader` package-private; o Quickstart só poderá consumi-lo após
+autorização e contrato de leitura próprios.
+
+Alternativas descartadas: conceder `SELECT` no marker à role runtime rompe o
+limite owner-only e amplia a superfície de catálogo; cache de lifecycle pode
+ficar obsoleto após `COMPLETE` → `PENDING`; chamar a função V11 existente é
+impossível porque ela retorna `trigger`. A menor solução correta é uma função
+PL/pgSQL versionada V12, por exemplo
+`praxis_bulk.assert_preview_integrity_complete() RETURNS boolean`,
+`SECURITY DEFINER`, `STABLE` (nunca `IMMUTABLE`), owner igual ao schema owner atestado, `search_path` fixo
+`pg_catalog, pg_temp`, `PUBLIC EXECUTE` revogado, `EXECUTE` concedido somente
+às roles runtime explicitamente configuradas. Ela devolve `true` apenas quando
+há **exatamente uma** linha de cada marker V11 e V12 e ambas estão `COMPLETE`, e levanta SQLSTATE
+`55000` se faltar marker ou a fase divergir. Não recebe identificadores nem
+expõe conteúdo da tabela; o runtime continua sem `SELECT` nos markers. O
+reader a executa **antes do header**, na mesma conexão e transação
+`REPEATABLE READ READ ONLY` de `withConsistentRead`; erro, privilégio ausente
+ou função ausente falha fechado como indisponibilidade, sem página ou detalhe
+do marker. O reader exige exatamente uma linha e valor booleano `TRUE` da
+função; qualquer outra forma ou erro é indisponibilidade. A atestação viva já
+feita uma vez por `withConsistentRead` deve passar a conferir assinatura,
+owner, `SECURITY DEFINER`, `STABLE`, `search_path`, corpo extraído do SQL V12,
+ACL efetiva, ausência de `PUBLIC`/grant option e membership. Não repetir a
+atestação por item. Se uma transição owner para `PENDING` ocorrer depois de fixado o
+snapshot, a leitura conserva a versão anterior íntegra; a nova transação vê
+`PENDING` e falha.
+
+V12 cria a função e um marker owner-only `praxis_bulk_preview_reader_bootstrap`
+(`bootstrap_version=12`, fase `PENDING/COMPLETE`) em uma transação Flyway.
+Não há novo write set de proposta, avaliação, preview ou folha. O marker V12
+autoriza **uma única vez** o grant dinâmico da função às roles runtime; sem ele,
+um bootstrap que falha depois do DDL teria de reparar ACL sem distinguir
+instalação de drift. O migrator, sob seu advisory lock existente, bloqueia
+markers na ordem V8 → V9 → V11 → V12, verifica roles e catálogo, concede
+`EXECUTE` exato apenas durante V12 `PENDING`, valida assinatura, linguagem,
+volatilidade, owner, `SECURITY DEFINER`, `search_path`, corpo derivado do SQL
+versionado, ACL de função e owner-only de ambos os markers; muda V12 para
+`COMPLETE` e revalida no **mesmo commit**. Falha ou role incorreta reverte grant
+e fase, permitindo retry em `PENDING`. Depois de `COMPLETE`, revogação/alteração
+de grant, função ou marker é drift e **não** sofre auto-heal. A função testa os
+dois markers ao vivo em cada snapshot e não depende de validação apenas no
+startup. Não introduz row lock no reader nem altera a ordem de locks da
+retenção ou do writer.
+
+O DDL novo é aditivo, mas binários V11 antigos rejeitam relações/funções
+desconhecidas no catálogo; portanto drenar hosts V11 e jobs de retenção antes
+do Flyway V12, aguardar transações em voo, executar DDL e bootstrap V12,
+validar com roles exatas e só então reabrir o serviço. Não se promete deploy
+sem interrupção nem rollback binário V11 após o schema V12: falha após DDL deixa
+o marker V12 `PENDING` e a função sem grant runtime até retry; reversão de
+release requer restauração governada ou correção progressiva, nunca remover
+fence/ACL ad hoc. Superuser/schema owner capaz de editar função, marker e
+catálogo de forma coerente está fora do modelo de ameaça; runtime role não
+tem essa autoridade.
+
+Provas PostgreSQL mínimas do V12: instalação fresca V1→V12 e upgrade
+V11→V12, leitura `COMPLETE` normal; owner muda V11 ou
+V12 para `PENDING` após avaliação e a próxima leitura recusa, inclusive com
+parent/folhas íntegros; snapshot anterior à transição permanece consistente;
+runtime não consegue `SELECT`/`UPDATE` marker nem alterar função; chamada
+direta só é possível para grantee runtime exato; revogação de `EXECUTE`, grant
+ao `PUBLIC`, owner/corpo/search_path desviados e marker ausente falham na
+validação sem reparo; bootstrap com role incorreta reverte grant e fase e retry
+controlado conclui; o validator do binário V11 rejeita o catálogo V12.
+Writer V9 é barrado pelo fence físico V11; writer V11 durante V12 exige o
+dreno operacional, não um fence V12 que não existe no write set.
+
+P2 do mesmo aceite: contabilizar o orçamento por bytes UTF-8/bytea **de todas**
+as colunas selecionadas do header e de cada linha, inclusive fingerprints,
+digest V11, decisão, campos de tamanho fixo e a linha `size+1`, com overhead
+conservador documentado. Fazer a cobrança antes de interpretar diagnostics ou
+adicionar item ao resultado. Um teste de fronteira com duas linhas fisicamente
+válidas e checksum V11 coerente, `size=1`, deve provar que a segunda linha
+excede 20 MiB e recusa a chamada completa; outro teste prova página abaixo do
+limite. Igualdade exata com 20 MiB é aceita; o primeiro byte acima, inclusive
+na linha extra, é recusado. O orçamento limita bytes processados, **não** é promessa de pico de
+heap ou SLA; `fetchSize(1)` e benchmark representativo continuam obrigatórios
+antes da superfície HTTP.
+
 ## Corte interno RS3 — pré-análise de 27/09/2026
 
 Base de implementação: Metadata main `7117f96cb6f34e612711fa57212f13e4f943ba65` (V10).
