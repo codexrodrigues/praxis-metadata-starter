@@ -38,6 +38,7 @@ public final class BulkExecutionMigrator {
     private static final String PROPOSAL_TABLE = "praxis_bulk_proposal";
     private static final String EVALUATION_TABLE = "praxis_bulk_evaluation";
     private static final String MANIFEST_TABLE = "praxis_bulk_target_manifest";
+    private static final String MANIFEST_BOOTSTRAP_TABLE = "praxis_bulk_manifest_bootstrap";
     private static final String REJECTION_FUNCTION = "reject_praxis_bulk_proposal_update";
     private static final String REJECTION_TRIGGER = "praxis_bulk_proposal_reject_update";
     private static final String EVALUATION_REJECTION_FUNCTION = "reject_praxis_bulk_evaluation_update";
@@ -65,7 +66,8 @@ public final class BulkExecutionMigrator {
     private static final String SUBJECT_BUCKET_TABLE = "praxis_bulk_subject_bucket";
     private static final String ALLOCATION_TABLE = "praxis_bulk_allocation";
     private static final String TOMBSTONE_TABLE = "praxis_bulk_tombstone";
-    private static final Set<String> V5_TABLES = Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, MANIFEST_TABLE,
+    private static final Set<String> V5_TABLES = Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE,
+            MANIFEST_TABLE, MANIFEST_BOOTSTRAP_TABLE,
             EXECUTION_TABLE, RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE,
             OPERATION_CONTROL_TABLE, DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE,
             ALLOCATION_TABLE, TOMBSTONE_TABLE);
@@ -167,8 +169,7 @@ public final class BulkExecutionMigrator {
         BulkExecutionRoleConfiguration roleConfiguration = Objects.requireNonNull(roles, "roles");
         assertKnownDedicatedSchema(operationalDataSource);
         int migrationsExecuted = flyway(operationalDataSource).migrate().migrationsExecuted;
-        initializeGovernedLifecycle(operationalDataSource, deployments, controlIdentities,
-                roleConfiguration, migrationsExecuted > 0);
+        initializeGovernedLifecycle(operationalDataSource, deployments, controlIdentities, roleConfiguration);
         validate(operationalDataSource, roleConfiguration);
         return migrationsExecuted;
     }
@@ -211,8 +212,7 @@ public final class BulkExecutionMigrator {
 
     /** Flyway DDL is complete before this retryable, all-or-nothing data bootstrap. */
     private static void initializeGovernedLifecycle(DataSource dataSource, Map<String, String> deployments,
-            List<BulkOperationControlIdentity> operations, BulkExecutionRoleConfiguration roles,
-            boolean newlyMigrated) {
+            List<BulkOperationControlIdentity> operations, BulkExecutionRoleConfiguration roles) {
         try (Connection connection = dataSource.getConnection()) {
             assertPostgreSql(connection);
             boolean originalAutoCommit = connection.getAutoCommit();
@@ -230,12 +230,16 @@ public final class BulkExecutionMigrator {
                 try (var statement = connection.createStatement()) {
                     statement.execute("select pg_advisory_xact_lock(1347574124, 5)");
                 }
+                // Flyway's migration count also includes future versions; only this durable
+                // V8 phase may authorize the one-time manifest ACL grant.
+                boolean pendingManifestBootstrap = lockManifestBootstrap(connection);
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
                 bootstrapLifecycle(connection, deployments, operations);
                 BulkOrdinalManifest.backfillAndValidate(connection);
-                if (newlyMigrated) provisionManifestRuntimeGrants(connection, roles);
+                if (pendingManifestBootstrap) provisionManifestRuntimeGrants(connection, roles);
                 validateLifecycleRows(connection);
+                if (pendingManifestBootstrap) completeManifestBootstrap(connection);
                 connection.commit();
             } catch (SQLException | RuntimeException failure) {
                 try { connection.rollback(); } catch (SQLException rollback) { failure.addSuppressed(rollback); }
@@ -246,6 +250,27 @@ public final class BulkExecutionMigrator {
             }
         } catch (SQLException failure) {
             throw new IllegalStateException("Unable to initialize governed bulk lifecycle", failure);
+        }
+    }
+
+    private static boolean lockManifestBootstrap(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select bootstrap_version, phase from praxis_bulk.praxis_bulk_manifest_bootstrap for update
+                """)) {
+            require(rows.next() && rows.getInt(1) == 8, "V8 manifest bootstrap marker is missing");
+            String phase = rows.getString(2);
+            require(!rows.next() && ("PENDING".equals(phase) || "COMPLETE".equals(phase)),
+                    "V8 manifest bootstrap marker differs");
+            return "PENDING".equals(phase);
+        }
+    }
+
+    private static void completeManifestBootstrap(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement()) {
+            require(statement.executeUpdate("""
+                    update praxis_bulk.praxis_bulk_manifest_bootstrap set phase='COMPLETE'
+                    where bootstrap_version=8 and phase='PENDING'
+                    """) == 1, "V8 manifest bootstrap transition failed");
         }
     }
 
@@ -732,7 +757,7 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_admission', 'praxis_bulk_namespace_binding',
                               'praxis_bulk_operation_control', 'praxis_bulk_deployment_bucket',
                               'praxis_bulk_subject_bucket', 'praxis_bulk_allocation',
-                              'praxis_bulk_target_manifest',
+                              'praxis_bulk_target_manifest', 'praxis_bulk_manifest_bootstrap',
                               'praxis_bulk_tombstone'))
                     """);
             Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
@@ -764,7 +789,8 @@ public final class BulkExecutionMigrator {
     }
 
     private static Set<String> allowedRelations() {
-        return Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, MANIFEST_TABLE, EXECUTION_TABLE,
+        return Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, MANIFEST_TABLE,
+                MANIFEST_BOOTSTRAP_TABLE, EXECUTION_TABLE,
                 RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE, OPERATION_CONTROL_TABLE,
                 DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE, ALLOCATION_TABLE, TOMBSTONE_TABLE);
     }
@@ -894,7 +920,7 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_admission', 'praxis_bulk_namespace_binding',
                               'praxis_bulk_operation_control', 'praxis_bulk_deployment_bucket',
                               'praxis_bulk_subject_bucket', 'praxis_bulk_allocation',
-                              'praxis_bulk_target_manifest',
+                              'praxis_bulk_target_manifest', 'praxis_bulk_manifest_bootstrap',
                               'praxis_bulk_tombstone'))
                 """);
         Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
@@ -1408,6 +1434,21 @@ public final class BulkExecutionMigrator {
 
     private static void validateManifestCatalog(Connection connection,
             BulkExecutionRoleConfiguration roles) throws SQLException {
+        validateDurableColumns(connection, MANIFEST_BOOTSTRAP_TABLE, Map.of(
+                "bootstrap_version", "integer|true", "phase", "text|true"));
+        validateDurableConstraints(connection, MANIFEST_BOOTSTRAP_TABLE, false, Map.of(
+                "praxis_bulk_manifest_bootstrap_pkey", "PRIMARY KEY (bootstrap_version)",
+                "praxis_bulk_manifest_bootstrap_version_check", "CHECK ((bootstrap_version = 8))",
+                "praxis_bulk_manifest_bootstrap_phase_check",
+                        "CHECK ((phase = ANY (ARRAY['PENDING'::text, 'COMPLETE'::text])))"));
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select bootstrap_version, phase from praxis_bulk.praxis_bulk_manifest_bootstrap
+                """)) {
+            require(rows.next() && rows.getInt(1) == 8 && "COMPLETE".equals(rows.getString(2))
+                    && !rows.next(), "V8 manifest bootstrap is not complete");
+        }
+        require(tableRolePrivileges(connection, MANIFEST_BOOTSTRAP_TABLE, "PUBLIC").isEmpty(),
+                "manifest bootstrap marker must be private");
         validateDurableColumns(connection, MANIFEST_TABLE, Map.of(
                 "proposal_id", "uuid|true", "evaluation_fingerprint", "text|true",
                 "ordinal", "integer|true", "wire_identity", "bytea|true",
@@ -2209,6 +2250,7 @@ public final class BulkExecutionMigrator {
                 Map.entry(PROPOSAL_TABLE, Set.of("T:SELECT", "T:INSERT", "C:proposal_id:UPDATE")),
                 Map.entry(EVALUATION_TABLE, Set.of("T:SELECT", "T:INSERT")),
                 Map.entry(MANIFEST_TABLE, Set.of("T:SELECT", "T:INSERT")),
+                Map.entry(MANIFEST_BOOTSTRAP_TABLE, Set.of()),
                 Map.entry(EXECUTION_TABLE, Set.of("T:SELECT", "T:INSERT", "T:UPDATE")),
                 Map.entry(RECEIPT_TABLE, Set.of("T:SELECT", "T:INSERT")),
                 Map.entry(ADMISSION_TABLE, Set.of("T:SELECT", "T:INSERT")),

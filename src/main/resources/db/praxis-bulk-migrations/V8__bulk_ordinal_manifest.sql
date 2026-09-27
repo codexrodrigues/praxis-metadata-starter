@@ -30,6 +30,20 @@ create table praxis_bulk.praxis_bulk_target_manifest (
         target_digest ~ '^sha256:[0-9a-f]{64}$')
 );
 
+-- Flyway commits DDL before the Java bootstrap. Keep a durable retry marker so
+-- a failed backfill can finish its grants, while completed ACLs are never healed
+-- implicitly by a later migration.
+create table praxis_bulk.praxis_bulk_manifest_bootstrap (
+    bootstrap_version integer not null,
+    phase text not null,
+    constraint praxis_bulk_manifest_bootstrap_pkey primary key (bootstrap_version),
+    constraint praxis_bulk_manifest_bootstrap_version_check check (bootstrap_version = 8),
+    constraint praxis_bulk_manifest_bootstrap_phase_check check (phase in ('PENDING', 'COMPLETE'))
+);
+insert into praxis_bulk.praxis_bulk_manifest_bootstrap (bootstrap_version, phase)
+values (8, 'PENDING');
+revoke all on praxis_bulk.praxis_bulk_manifest_bootstrap from public;
+
 -- A deferred check makes an rc.136 writer fail at COMMIT: it cannot append the
 -- matching manifest. Its protected payload is opaque to PostgreSQL: valid
 -- JSON string values can contain escaped NUL and cannot round-trip via jsonb.

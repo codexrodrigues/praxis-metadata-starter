@@ -118,7 +118,8 @@ class BulkEvaluationStorePostgresTest {
     @Test void manifestPreservesNulInWireIdentityVersionAndPayloadAndLongIdentity() {
         migrate();
         for (var value : List.of(evaluation(proposal(specialSnapshot("id\u0000part", "v\u0000part", "reason\u0000part"))),
-                evaluation(proposal(specialSnapshot("x".repeat(5000), "v1", "plain"))))) {
+                evaluation(proposal(specialSnapshot("x".repeat(5000), "v1", "plain"))),
+                evaluation(proposal(specialSnapshot("version-id", "v".repeat(5000), "plain"))))) {
             persist(value);
             var target=value.targets().getFirst().target();
             var manifest=sql.queryForMap("""
@@ -131,6 +132,34 @@ class BulkEvaluationStorePostgresTest {
             assertThat((byte[])manifest.get("expected_version")).isEqualTo(target.expectedVersion().getBytes(StandardCharsets.UTF_8));
             assertThat(manifest.get("target_count")).isEqualTo(1);
         }
+    }
+    @Test void tenThousandTargetsPersistThroughTheLastOrdinal() {
+        migrate();
+        var selected=new java.util.ArrayList<BulkTarget<String>>(10_000);
+        var evidence=new java.util.ArrayList<BulkTargetEvidence<?>>(10_000);
+        var empty=com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+        for (int ordinal=0;ordinal<10_000;ordinal++) {
+            var target=new BulkTarget<>("target-"+ordinal,"v1");
+            selected.add(target);
+            evidence.add(new BulkTargetEvidence<>(target,"observed",empty,empty,
+                    BulkTargetEligibility.executable()));
+        }
+        var request=new BulkCommandEvaluationRequest<com.fasterxml.jackson.databind.JsonNode,String,com.fasterxml.jackson.databind.JsonNode>(
+                BulkExecutionMode.SYNC,new BulkSelection<>(BulkSelectionMode.EXPLICIT,selected,null,null),empty);
+        var input=proposal(BulkIntentSnapshot.command(CONTEXT,BulkIdentityCodecs.strings(),request,
+                com.fasterxml.jackson.databind.JsonNode::deepCopy,com.fasterxml.jackson.databind.JsonNode::deepCopy));
+        var value=new BulkEvaluationSnapshot(input,input.createdAt().plusSeconds(1),evidence,governance());
+        tx.executeWithoutResult(status->store.insertEvaluated(value));
+        assertThat(sql.queryForObject("""
+                select count(*) from praxis_bulk.praxis_bulk_target_manifest where proposal_id=?
+                """,Integer.class,input.id())).isEqualTo(10_000);
+        assertThat(sql.queryForObject("""
+                select max(ordinal) from praxis_bulk.praxis_bulk_target_manifest where proposal_id=?
+                """,Integer.class,input.id())).isEqualTo(9_999);
+        assertThat(sql.queryForObject("""
+                select count(distinct wire_identity_digest) from praxis_bulk.praxis_bulk_target_manifest
+                 where proposal_id=?
+                """,Integer.class,input.id())).isEqualTo(10_000);
     }
     private static BulkIntentSnapshot specialSnapshot(String id, String version, String reason) {
         var json=com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
@@ -241,6 +270,20 @@ class BulkEvaluationStorePostgresTest {
                 BulkPostgresTestSupport.testRoleConfiguration()))
                 .isInstanceOf(IllegalStateException.class);
     }
+    @Test void bootstrapMarkerIsPrivateAndCompletionIsValidated() {
+        migrate();
+        var roles=BulkPostgresTestSupport.testRoleConfiguration();
+        assertThat(sql.queryForObject("""
+                select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_manifest_bootstrap','select')
+                """,Boolean.class)).isFalse();
+        sql.execute("grant select on praxis_bulk.praxis_bulk_manifest_bootstrap to bulk_runtime_test");
+        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,roles))
+                .isInstanceOf(IllegalStateException.class);
+        sql.execute("revoke select on praxis_bulk.praxis_bulk_manifest_bootstrap from bulk_runtime_test");
+        sql.update("update praxis_bulk.praxis_bulk_manifest_bootstrap set phase='PENDING'");
+        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,roles))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("manifest bootstrap is not complete");
+    }
     @Test void v7EvaluationBackfillsAtomicallyBeforeValidation() {
         Flyway.configure().dataSource(schemaOwnerDataSource).locations("classpath:db/praxis-bulk-migrations")
                 .schemas("praxis_bulk").defaultSchema("praxis_bulk")
@@ -289,6 +332,47 @@ class BulkEvaluationStorePostgresTest {
         assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
                 BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class);
+        assertThat(sql.queryForObject("""
+                select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','insert')
+                """,Boolean.class)).isFalse();
+        assertThat(sql.queryForObject("""
+                select phase from praxis_bulk.praxis_bulk_manifest_bootstrap where bootstrap_version=8
+                """,String.class)).isEqualTo("COMPLETE");
+    }
+    @Test void failedV8BootstrapRetriesGrantOnlyUntilDurableCompletion() {
+        migrateToV7();
+        BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"bulk_runtime_test");
+        BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"durable_runtime");
+        var value=evaluation(proposal(specialSnapshot("retry\u0000id","v\u0000retry","payload\u0000retry")));
+        insertV7Evaluation(value);
+        sql.execute("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user");
+        sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
+                bytes("CORRUPT"),value.proposal().id());
+        var roles=BulkPostgresTestSupport.testRoleConfiguration();
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
+                .isEqualTo("PENDING");
+        assertThat(count("praxis_bulk_target_manifest")).isZero();
+        assertThat(sql.queryForObject("""
+                select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
+                """,Boolean.class)).isFalse();
+        sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
+                BulkEvaluationStorageCodec.encode(value),value.proposal().id());
+        sql.execute("alter table praxis_bulk.praxis_bulk_evaluation enable trigger user");
+        assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isZero();
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
+                .isEqualTo("COMPLETE");
+        assertThat(count("praxis_bulk_target_manifest")).isEqualTo(value.targets().size());
+        assertThat(sql.queryForObject("""
+                select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
+                """,Boolean.class)).isTrue();
+        sql.execute("revoke insert on praxis_bulk.praxis_bulk_target_manifest from bulk_runtime_test");
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles))
+                .isInstanceOf(IllegalStateException.class);
         assertThat(sql.queryForObject("""
                 select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','insert')
                 """,Boolean.class)).isFalse();
