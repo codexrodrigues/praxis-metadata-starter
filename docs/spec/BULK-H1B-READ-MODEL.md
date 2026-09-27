@@ -1,12 +1,180 @@
 # H1b — decisão de base para leitura de operações em lote
 
-Estado: V8/V9/V10 integrados; a fundação interna RS3 abaixo ainda é candidata, sem reader
+Estado: V8/V9/V10 e a fundação interna RS3 integrados; sem reader
 público, endpoint, cursor ou `READY`. Baseline inicialmente auditado: Metadata main
 `fdc4fac8cf6bdf6129282db6b0ada26c82ac03cb` (`8.0.0-rc.136`) e consumidor
 Quickstart PR #311. O plano do consumidor está em
 `internal-planning/bulk-operations/H1B-WRITE-SETS.md` no Quickstart. B0 continua
 definindo invariantes e semântica pública; divergências devem ser corrigidas ali e
 revisadas antes de modificar um contrato público.
+
+## Decisão V11 — integridade bounded de página RS2
+
+Base: Metadata main `c13e5d8706b3f4b6d0e40e0f1673192d689122eb`, com V9 e RS3.
+Classificação: `arquitetural` e `transversal` para a integridade física de
+projeção paginada; nenhum contrato público é alterado nesta análise. Aderência:
+`praxis_bulk_preview_state` já vincula a projeção inteira à avaliação exata,
+revisão/allowlist e digest global (`suportado-parcialmente`); cada
+`praxis_bulk_target_preview` está indexado por ordinal e referenciado ao
+manifest V8 (`ja-suportado-mal-materializado`). Falta um checksum versionado
+verificável **por página limitada** contra alteração de diagnostics de um item
+sem ler todos os demais (`lacuna-real-de-contrato` físico, não HTTP).
+
+O consumidor concreto futuro é `proposal-results` no Quickstart, somente depois
+de autorização atual e integral de alvos/campos/referências. O caminho interno
+pretendido usa `withConsistentRead` em PostgreSQL `REPEATABLE READ READ ONLY`,
+consulta scoped por namespace/sujeito/recurso/operationId e keyset por ordinal
+exclusivo dentro de `0 <= ordinal < watermarkExclusive`, com limite 1–200 e
+`LIMIT size+1`; RS2 imutável fixa `watermarkExclusive=targetCount`. Estado
+`UNAVAILABLE`/`UNAVAILABLE_LEGACY` é indisponibilidade explícita, nunca página
+vazia. Falta, drift ou duplicidade falham fechados. Nenhuma leitura pode chamar
+domínio, decodificar blob protegido por página, emitir 404/410 antes da
+autorização, criar cursor/endpoint ou declarar `READY`.
+
+Duas opções de integridade foram confrontadas:
+
+1. Recalcular o digest global V9 a cada página dentro do mesmo snapshot.
+   Detecta drift de texto e exige somente código reader, sem DDL ou nova ACL,
+   mas lê todos os itens até 10.000 em cada página. No máximo físico de
+   `diagnostics` (65.536 bytes por item), isso pode atingir cerca de 655 MB por
+   chamada e repetir-se até 50 vezes para páginas de 200. A resposta HTTP
+   teria poucas linhas, porém o trabalho não seria bounded e ameaçaria o
+   timeout curto do RS3.
+2. Adicionar V11 com digest versionado **por item**. O digest local inclui
+   fingerprint/revisão/allowlist/digest V9, ordinal, decisão, diagnostics
+   canônicos e identidade/versão/digest do manifest. O reader lê somente
+   `size+1` itens e recalcula os digests locais na mesma transação curta,
+   mantendo o digest global V9 como auditoria integral no bootstrap/migrator.
+   Uma árvore Merkle acrescentaria prova contra alteração simultânea de item e
+   seu digest por um schema owner, mas esse owner também pode substituir raiz,
+   árvore e DDL e está fora do modelo de ameaça deste corte. O custo adicional
+   da árvore não se justifica sob as ACLs/immutabilidade governadas.
+
+**Decisão arquitetural: opção 2, digest local V11 sem Merkle.** O write set é
+um campo `integrity_version=11` obrigatório **sem default** no parent state e
+uma linha `item_digest` por ordinal, com FK ao preview V9 e algoritmo fechado.
+O DDL de Flyway é atômico no PostgreSQL: adiciona a coluna
+`integrity_version integer NOT NULL DEFAULT 11`, preenchendo linhas V9 sem
+disparar o trigger de imutabilidade; remove o default **antes do commit**, fixa
+o `CHECK` e instala, na mesma transação, o marker V11 `PENDING` e um trigger
+de admissão no parent que exige marker
+`COMPLETE` para **todo INSERT**, inclusive writer V11; essa proteção não pode
+depender da velocidade nem do sucesso do bootstrap Java. Assim, entre commit
+do DDL e commit do bootstrap, falha, crash ou role incorreta só podem deixar
+`PENDING` e impedir novas avaliações. Writer V9 omite `integrity_version` e
+continua barrado após `COMPLETE`. O guard diferido exige todos os digests de
+uma nova avaliação `COMPLETE` antes de commit; `UNAVAILABLE` não admite
+linha. O marker é owner-only; a função de guard é definida sem `search_path`
+mutável pelo chamador, roda `SECURITY DEFINER` com owner governado,
+tem `PUBLIC EXECUTE` revogado e não concede leitura do marker à role runtime.
+
+O transcript é fechado e binário, com prefixo de domínio e versão. **Todo**
+campo, inclusive inteiro e domínio, é `comprimento uint32 big-endian || bytes`;
+um inteiro é exatamente quatro bytes signed big-endian, portanto seu frame
+começa em `00 00 00 04`. Strings são UTF-8; bytea usa bytes persistidos,
+sem normalizar texto/JSON após a gravação. `SHA-256(public_allowlist bytea)`
+é calculado sobre bytes crus, e o resultado de 32 bytes entra como campo
+framed no parent. O contexto do parent é
+`SHA-256("praxis.bulk.preview-parent/1", proposal UUID canônico,
+integrity_version int32=11, evaluation_fingerprint UTF-8,
+projector_revision UTF-8, target_count int32,
+SHA-256(public_allowlist bytea), projection_digest UTF-8,
+projection_state UTF-8="COMPLETE")`. O item é
+`SHA-256("praxis.bulk.preview-item/1", parent_context_digest,
+digest_version int32=1, ordinal int32, manifest.wire_identity bytea,
+manifest.wire_identity_digest UTF-8, manifest.expected_version bytea,
+manifest.target_digest UTF-8, preview.decision UTF-8,
+preview.diagnostics bytea)`. O identificador UUID é sua representação
+canônica ASCII de 36 bytes, também length-framed. `null` é proibido nos
+campos do transcript; o framing impede concatenações ambíguas. O digest
+armazenado é `sha256:` seguido de 64 caracteres hexadecimais minúsculos.
+Vetor de ouro independente (`hashlib`/`struct`, também fixado em teste): UUID
+`123e4567-e89b-12d3-a456-426614174000`, fingerprint `sha256:` + 64 `a`,
+revision `prévia\0v1🚀`, count `2`, allowlist UTF-8
+`[{"message":"Café\\u0000"}]`, projection digest `sha256:` + 64 `b`
+produzem contexto
+`9f5a40eb25d55c1e0394984b739bf8abfe0b8f27c6e1c78bf39313c7ecfd28e4`.
+Com ordinal `1`, wire identity ASCII `"id\\u0000"`, wire digest `sha256:`
++ 64 `c`, expected version bytes `00 01 00 ff 80`, target digest `sha256:`
++ 64 `d`, decisão `BLOCKED` e diagnostics
+`[{"message":"Café\\u0000"}]`, a folha é
+`sha256:1afcd8ccf9bb8aca82898b8247b4cd05967ff74c867db2938e068a0a59a4f70b`.
+Durante `PENDING`, é permitido calcular folhas para parents V9 cujo
+`projection_state` já é `COMPLETE`: o valor `COMPLETE` no transcript é o
+estado imutável daquele parent, não a fase do marker V11. Nenhum reader
+aceita essas folhas enquanto o marker não for `COMPLETE`.
+O writer calcula a folha dos bytes **persistidos** no mesmo transaction scope
+da avaliação, manifest e preview, e nunca de uma segunda serialização em
+memória. O reader futuro calcula o contexto uma vez por página no mesmo
+snapshot RR e verifica cada folha retornada; não recalcula a allowlist por
+item nem decodifica a avaliação protegida.
+
+O bootstrap em uma única transação com advisory lock valida primeiro V8
+manifest e V9 **global** contra a avaliação protegida, incluindo revision,
+allowlist e mensagens; só então faz backfill das folhas V11 dos bytes
+persistidos. `UNAVAILABLE`/`UNAVAILABLE_LEGACY` não recebem folhas. Na mesma
+transação valida folhas/constraints, grants, corpo dos guards, triggers,
+owner e catálogo, marca V11 `COMPLETE` por último e atesta o marker antes de
+commit. Qualquer falha reverte backfill, ACL e marker juntos; em `PENDING`
+o retry repete a validação integral, sem confiar em folhas prévias. Após
+`COMPLETE`, migrator apenas valida e **não repara** drift. A role runtime
+recebe só `SELECT,INSERT` na nova relação, sem `UPDATE,DELETE`; triggers de
+imutabilidade e ACL protegem os bytes. A FK da folha ao preview é
+`ON DELETE RESTRICT`; as duas funções governadas de retenção,
+`expire_unconsumed_proposal` e `purge_terminal_execution`, removem folhas
+**após** obter locks binding → control → buckets → proposal/execution e
+**antes** do preview. O trigger de deleção exige o definer
+`praxis_bulk_retention_owner`, sem grant direto ao executor; falha em qualquer
+DELETE reverte o write set inteiro.
+O cutover **exige** drenar writers V9 e os executores de retenção
+`expire`/`purge`, aguardar transações em voo, aplicar Flyway V11, executar
+bootstrap até marker `COMPLETE` e `validate` com roles exatas, e só então
+reativar retenção e writers V11. O marker owner-only não serializa retenção;
+uma corrida fora desse procedimento durante `PENDING` pode remover um parent
+entre validação V9 e backfill V11, fazendo a transação de bootstrap abortar
+por FK ou revalidar somente o conjunto sobrevivente. O resultado aceitável
+de falha é marker ainda `PENDING`, grants/folhas revertidos e retry **após**
+dreno; não há promessa de upgrade zero-downtime. Lock order existente
+binding → operation-control → buckets → proposal/execution é preservado,
+bootstrap serializa no advisory lock e reader não toma lock de escrita.
+O release/adoption deve tratar o dreno como gate operacional auditável e não
+reabrir admissão se marker, ACL, folhas ou validação não estiverem completos.
+Consumidor, docs públicos, corpus HTTP e Angular continuam sem mudança até
+reader/autorização. Writers V9 devem migrar antes da reabertura da admissão,
+exigência intencional no beta.
+
+O teto bruto de diagnostics numa página de 200 é 12,5 MiB, além de identidade,
+resultados e overhead; o reader futuro deve impor orçamento agregado de bytes
+e tempo de transação, sem transformar `size+1` em varredura global. O scan V9
+integral **permanece em todo `migrate`/`validate` e startup que os invoca**,
+inclusive após marker V11 `COMPLETE`: com 10.000 itens de diagnostics de
+65.536 bytes, pode ler cerca de 655 MB por proposta, além do blob protegido,
+manifest e folhas. O gate operacional do V11 deve medir tempo/memória dessa
+validação em bases representativas, definir orçamento de startup e impedir
+readiness quando o scan falhar; a paginação bounded resolve o custo de cada
+leitura RS2, não esse custo de bootstrap/attestation. Na fixture PostgreSQL
+de 10.000 itens deste corte, `validateAll` levou 234 ms com heap usado
+antes/depois de 62/151 MB no JVM padrão; com `-Xmx256m`, levou 303 ms e o
+heap usado antes/depois foi 51/80 MB. Esses valores não medem o pico, nem representam
+carga concorrente ou uma base corporativa; não aprovam ainda um orçamento de
+startup. Um teste separado com heap limitado a 256 MiB rejeitou uma projeção
+de 10.000 diagnostics de 32 KiB corrompidos sem OOM, demonstrando streaming
+na falha, não um SLA de inicialização. Essa decisão
+detecta corrupção/drift que não seja reescrito coerentemente junto com
+o checksum, sob ACL e imutabilidade;
+schema owner/superuser que edita coerentemente dados, folhas e DDL está fora
+do modelo de ameaça. SHA-256 aqui é checksum de integridade sob ACL e
+imutabilidade, não autenticação criptográfica contra writer runtime malicioso
+com `INSERT` autorizado.
+
+Provas PostgreSQL de aceite do físico V11: 10.000 itens, alteração isolada de
+diagnostics, alteração do digest ou manifest, estado indisponível, rollback,
+writers V9/V11 barrados no `PENDING`, writer aguardando commit do DDL,
+wrong-role rollback seguido de retry, writer V9 após cutover,
+ACL/marker/`COMPLETE` no-heal, expiração/purge e concorrência.
+O reader RS2 bounded é um corte separado, depois da revisão do V11. O schema
+owner capaz de alterar simultaneamente todos os dados e DDL está fora do
+modelo de ameaça; runtime não possui esses privilégios.
 
 ## Corte interno RS3 — pré-análise de 27/09/2026
 

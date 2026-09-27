@@ -35,7 +35,7 @@ class BulkEvaluationStorePostgresTest {
     @AfterAll void stop() throws Exception {if(postgres!=null)postgres.close();}
     @BeforeEach void reset(){sql.execute("drop schema if exists praxis_bulk cascade");}
     void migrate(){
-        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(10);
+        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(11);
         BulkPostgresTestSupport.ready(schemaOwnerDataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count(String table){return sql.queryForObject("select count(*) from praxis_bulk."+table,Integer.class);}
@@ -44,8 +44,8 @@ class BulkEvaluationStorePostgresTest {
                 .defaultSchema("praxis_bulk").table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true).target("1").load().migrate();
         var value=proposal();BulkPostgresTestSupport.insertLegacyProposal(sql,value);
         var before=sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class);
-        // V1 is already installed by this upgrade fixture, so Flyway executes V2 through V10.
-        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(9);
+        // V1 is already installed by this upgrade fixture, so Flyway executes V2 through V11.
+        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(10);
         BulkPostgresTestSupport.ready(schemaOwnerDataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
         assertThat(sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class)).isEqualTo(before);
         var recovered=tx.execute(status->store.find(CONTEXT,value.id()).orElseThrow());
@@ -171,8 +171,39 @@ class BulkEvaluationStorePostgresTest {
                 select count(*) from praxis_bulk.praxis_bulk_target_preview where proposal_id=?
                 """, Integer.class, input.id())).isEqualTo(10_000);
         assertThat(sql.queryForObject("""
+                select count(*) from praxis_bulk.praxis_bulk_preview_item_integrity where proposal_id=?
+                """, Integer.class, input.id())).isEqualTo(10_000);
+        assertThat(sql.queryForObject("""
+                select max(ordinal) from praxis_bulk.praxis_bulk_preview_item_integrity where proposal_id=?
+                """, Integer.class, input.id())).isEqualTo(9_999);
+        assertThat(sql.queryForObject("""
                 select projection_state from praxis_bulk.praxis_bulk_preview_state where proposal_id=?
                 """, String.class, input.id())).isEqualTo("COMPLETE");
+        long heapBefore=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        long start=System.nanoTime();
+        BulkExecutionMigrator.validate(schemaOwnerDataSource, BulkPostgresTestSupport.testRoleConfiguration());
+        long elapsedMillis=TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-start);
+        long heapAfter=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        System.out.printf("V11 10k validate: %d ms, heap used before/after %d/%d bytes (not peak)%n",
+                elapsedMillis,heapBefore,heapAfter);
+        // A corrupt owner-side fixture expands to roughly 320 MiB of preview bytes.
+        // The validator must reject the first item under a 256 MiB test heap,
+        // without JDBC eagerly materializing the entire 10k-row result set.
+        sql.execute("alter table praxis_bulk.praxis_bulk_target_preview disable trigger user");
+        sql.execute("""
+                update praxis_bulk.praxis_bulk_target_preview
+                   set diagnostics=convert_to('[' || repeat('X',32760) || ']','UTF8')
+                """);
+        sql.execute("alter table praxis_bulk.praxis_bulk_target_preview enable trigger user");
+        try (var connection=schemaOwnerDataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            assertThatThrownBy(() -> BulkPreviewStorage.validateAll(connection))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Invalid protected");
+            connection.rollback();
+            assertThatThrownBy(() -> BulkPreviewItemIntegrity.validateAll(connection))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("integrity");
+            connection.rollback();
+        } catch (java.sql.SQLException error) { throw new AssertionError(error); }
     }
     @Test void providerAllowlistRedactsProtectedMessageAndUnlistedCodeRejectsProjection() {
         migrate();
@@ -278,6 +309,96 @@ class BulkEvaluationStorePostgresTest {
                 BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("preview");
     }
+    @Test void v11LeafDetectsMessageOnlyDriftAndDigestDriftWithoutDecodingProtectedEvaluation() throws Exception {
+        migrate();
+        var ordinary=evaluation(proposal());
+        var old=ordinary.targets().getFirst();
+        var privateMessage=new org.praxisplatform.uischema.command.ResourceCommandMessage(
+                org.praxisplatform.uischema.command.ResourceCommandErrorCategory.CONFLICT_DEPENDENCY,
+                "STATE_NOT_ALLOWED", "private employee detail", null, java.util.Map.of());
+        var blocked=new BulkTargetEvidence<>(old.target(),old.observedVersion(),old.facts(),old.plan(),
+                BulkTargetEligibility.blocked(List.of(privateMessage)));
+        var value=new BulkEvaluationSnapshot(ordinary.proposal(),ordinary.evaluatedAt(),List.of(blocked),governance());
+        tx.executeWithoutResult(status -> store.insertEvaluated(value,new BulkPreviewProjection(value,"test/1",List.of(
+                new BulkPreviewProjection.PublicDiagnostic(privateMessage.category(),privateMessage.code(),"Public")))));
+        try (var connection=schemaOwnerDataSource.getConnection()) {
+            BulkPreviewItemIntegrity.validateAll(connection);
+        }
+        sql.execute("alter table praxis_bulk.praxis_bulk_target_preview disable trigger user");
+        sql.update("update praxis_bulk.praxis_bulk_target_preview set diagnostics=? where proposal_id=?",
+                bytes("[{\"category\":\"CONFLICT_DEPENDENCY\",\"code\":\"STATE_NOT_ALLOWED\",\"message\":\"Private\"}]"),
+                value.proposal().id());
+        sql.execute("alter table praxis_bulk.praxis_bulk_target_preview enable trigger user");
+        try (var connection=schemaOwnerDataSource.getConnection()) {
+            assertThatThrownBy(() -> BulkPreviewItemIntegrity.validateAll(connection))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("integrity");
+        }
+        sql.execute("alter table praxis_bulk.praxis_bulk_target_preview disable trigger user");
+        sql.update("update praxis_bulk.praxis_bulk_target_preview set diagnostics=? where proposal_id=?",
+                bytes("[{\"category\":\"CONFLICT_DEPENDENCY\",\"code\":\"STATE_NOT_ALLOWED\",\"message\":\"Public\"}]"),
+                value.proposal().id());
+        sql.execute("alter table praxis_bulk.praxis_bulk_target_preview enable trigger user");
+        sql.execute("alter table praxis_bulk.praxis_bulk_preview_item_integrity disable trigger user");
+        sql.update("update praxis_bulk.praxis_bulk_preview_item_integrity set item_digest=? where proposal_id=?",
+                "sha256:"+"0".repeat(64), value.proposal().id());
+        sql.execute("alter table praxis_bulk.praxis_bulk_preview_item_integrity enable trigger user");
+        try (var connection=schemaOwnerDataSource.getConnection()) {
+            assertThatThrownBy(() -> BulkPreviewItemIntegrity.validateAll(connection))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("integrity");
+        }
+    }
+    @Test void v11PendingFenceBlocksNewParentForBothWriterGenerationsAndOldWriterAfterCompletion() {
+        migrate();
+        var id=java.util.UUID.randomUUID();
+        String fingerprint="sha256:"+"0".repeat(64);
+        sql.update("update praxis_bulk.praxis_bulk_preview_integrity_bootstrap set phase='PENDING' where bootstrap_version=11");
+        assertThatThrownBy(() -> sql.update("""
+                insert into praxis_bulk.praxis_bulk_preview_state
+                    (proposal_id,evaluation_fingerprint,projection_state,integrity_version)
+                values (?,?,'UNAVAILABLE',11)
+                """,id,fingerprint)).isInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("bootstrap is pending");
+        assertThatThrownBy(() -> sql.update("""
+                insert into praxis_bulk.praxis_bulk_preview_state
+                    (proposal_id,evaluation_fingerprint,projection_state)
+                values (?,?,'UNAVAILABLE')
+                """,id,fingerprint)).isInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("bootstrap is pending");
+        sql.update("update praxis_bulk.praxis_bulk_preview_integrity_bootstrap set phase='COMPLETE' where bootstrap_version=11");
+        assertThatThrownBy(() -> sql.update("""
+                insert into praxis_bulk.praxis_bulk_preview_state
+                    (proposal_id,evaluation_fingerprint,projection_state)
+                values (?,?,'UNAVAILABLE')
+                """,id,fingerprint)).isInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("integrity_version");
+    }
+    @Test void v11IntegrityAclAndCatalogDriftFailClosed() {
+        migrate();
+        var value=evaluation(proposal());
+        tx.executeWithoutResult(status -> store.insertEvaluated(value,BulkEvaluationSnapshotTest.preview(value)));
+        var runtimeSql=new JdbcTemplate(dataSource);
+        assertThat(runtimeSql.queryForObject("""
+                select count(*) from praxis_bulk.praxis_bulk_preview_item_integrity
+                """,Integer.class)).isEqualTo(1);
+        assertThatThrownBy(() -> runtimeSql.execute("""
+                update praxis_bulk.praxis_bulk_preview_item_integrity
+                   set item_digest=item_digest
+                """)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> runtimeSql.execute("""
+                delete from praxis_bulk.praxis_bulk_preview_item_integrity
+                """)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> runtimeSql.execute("""
+                select * from praxis_bulk.praxis_bulk_preview_integrity_bootstrap
+                """)).isInstanceOf(RuntimeException.class);
+        sql.execute("revoke insert on praxis_bulk.praxis_bulk_preview_item_integrity from bulk_runtime_test");
+        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,
+                BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class);
+        sql.execute("grant insert on praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime_test");
+        sql.execute("grant select on praxis_bulk.praxis_bulk_preview_integrity_bootstrap to public");
+        assertThatThrownBy(() -> BulkExecutionMigrator.validate(schemaOwnerDataSource,
+                BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("bootstrap");
+    }
     @Test void v8ToV9PreviewBootstrapRetriesWrongRoleWithoutHealingAfterCompletion() {
         Flyway.configure().dataSource(schemaOwnerDataSource).locations("classpath:db/praxis-bulk-migrations")
                 .schemas("praxis_bulk").defaultSchema("praxis_bulk").table("praxis_bulk_schema_history")
@@ -303,6 +424,141 @@ class BulkEvaluationStorePostgresTest {
                 select phase from praxis_bulk.praxis_bulk_preview_bootstrap where bootstrap_version=9
                 """,String.class)).isEqualTo("COMPLETE");
         BulkExecutionMigrator.validate(schemaOwnerDataSource,BulkPostgresTestSupport.testRoleConfiguration());
+    }
+    @Test void v10ToV11BackfillsExactCompletePreviewOnlyAfterValidatedRetry() throws Exception {
+        Flyway.configure().dataSource(schemaOwnerDataSource).locations("classpath:db/praxis-bulk-migrations")
+                .schemas("praxis_bulk").defaultSchema("praxis_bulk").table("praxis_bulk_schema_history")
+                .baselineOnMigrate(false).cleanDisabled(true).target("10").load().migrate();
+        sql.update("insert into praxis_bulk.praxis_bulk_namespace_binding(namespace_id,deployment_id,bound_at) values(?,?,clock_timestamp())",
+                CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID);
+        BulkPostgresTestSupport.ready(schemaOwnerDataSource,CONTEXT.namespaceId(),CONTEXT.operationRef().operationId());
+        BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"bulk_runtime_test");
+        BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"durable_runtime");
+        var value=evaluation(proposal());
+        var diagnostics=BulkPreviewStorage.diagnostics(List.of());
+        byte[] allowlist=bytes("[]");
+        String revision="test-preview/1";
+        String digest=v9Digest(value.fingerprint(),revision,allowlist,"EXECUTABLE",diagnostics);
+        var ownerTx=new TransactionTemplate(new DataSourceTransactionManager(schemaOwnerDataSource));
+        ownerTx.executeWithoutResult(status -> {
+            insertV7Evaluation(value);
+            sql.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+                BulkOrdinalManifest.insert(connection,value);
+                return null;
+            });
+            sql.update("""
+                    insert into praxis_bulk.praxis_bulk_preview_state
+                        (proposal_id,evaluation_fingerprint,projection_state,projector_revision,
+                         target_count,public_allowlist,projection_digest)
+                    values (?,?,'COMPLETE',?,?,?,?)
+                    """,value.proposal().id(),value.fingerprint(),revision,1,allowlist,digest);
+            sql.update("""
+                    insert into praxis_bulk.praxis_bulk_target_preview
+                        (proposal_id,evaluation_fingerprint,ordinal,decision,diagnostics)
+                    values (?,?,0,'EXECUTABLE',?)
+                    """,value.proposal().id(),value.fingerprint(),diagnostics);
+        });
+        sql.update("update praxis_bulk.praxis_bulk_manifest_bootstrap set phase='COMPLETE' where bootstrap_version=8");
+        sql.update("update praxis_bulk.praxis_bulk_preview_bootstrap set phase='COMPLETE' where bootstrap_version=9");
+        var wrong=new BulkExecutionRoleConfiguration("postgres",java.util.Set.of("bulk_runtime_test"),
+                java.util.Set.of(),java.util.Set.of());
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),wrong))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(sql.queryForObject("""
+                select phase from praxis_bulk.praxis_bulk_preview_integrity_bootstrap
+                """,String.class)).isEqualTo("PENDING");
+        assertThat(count("praxis_bulk_preview_item_integrity")).isZero();
+        assertThat(sql.queryForObject("""
+                select has_table_privilege('bulk_runtime_test',
+                    'praxis_bulk.praxis_bulk_preview_item_integrity','insert')
+                """,Boolean.class)).isFalse();
+        sql.execute("alter table praxis_bulk.praxis_bulk_preview_state disable trigger user");
+        sql.update("update praxis_bulk.praxis_bulk_preview_state set projection_digest=? where proposal_id=?",
+                "sha256:"+"0".repeat(64),value.proposal().id());
+        sql.execute("alter table praxis_bulk.praxis_bulk_preview_state enable trigger user");
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
+                BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class);
+        assertThat(count("praxis_bulk_preview_item_integrity")).isZero();
+        sql.execute("alter table praxis_bulk.praxis_bulk_preview_state disable trigger user");
+        sql.update("update praxis_bulk.praxis_bulk_preview_state set projection_digest=? where proposal_id=?",
+                digest,value.proposal().id());
+        sql.execute("alter table praxis_bulk.praxis_bulk_preview_state enable trigger user");
+        assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
+                BulkPostgresTestSupport.testRoleConfiguration())).isZero();
+        assertThat(sql.queryForObject("""
+                select phase from praxis_bulk.praxis_bulk_preview_integrity_bootstrap
+                """,String.class)).isEqualTo("COMPLETE");
+        assertThat(count("praxis_bulk_preview_item_integrity")).isEqualTo(1);
+        BulkExecutionMigrator.validate(schemaOwnerDataSource,BulkPostgresTestSupport.testRoleConfiguration());
+        sql.execute("alter table praxis_bulk.praxis_bulk_preview_item_integrity disable trigger user");
+        sql.update("update praxis_bulk.praxis_bulk_preview_item_integrity set item_digest=? where proposal_id=?",
+                "sha256:"+"0".repeat(64),value.proposal().id());
+        sql.execute("alter table praxis_bulk.praxis_bulk_preview_item_integrity enable trigger user");
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
+                BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class);
+        assertThat(count("praxis_bulk_preview_item_integrity")).isEqualTo(1);
+    }
+    private static String v9Digest(String fingerprint, String revision, byte[] allowlist,
+            String decision, byte[] diagnostics) throws Exception {
+        var digest=java.security.MessageDigest.getInstance("SHA-256");
+        for (byte[] field : List.of(bytes("praxis.bulk.preview/1"),bytes(fingerprint),bytes(revision),allowlist)) {
+            digest.update(java.nio.ByteBuffer.allocate(4).putInt(field.length).array());
+            digest.update(field);
+        }
+        digest.update(java.nio.ByteBuffer.allocate(4).putInt(0).array());
+        for (byte[] field : List.of(bytes(decision),diagnostics)) {
+            digest.update(java.nio.ByteBuffer.allocate(4).putInt(field.length).array());
+            digest.update(field);
+        }
+        return "sha256:"+java.util.HexFormat.of().formatHex(digest.digest());
+    }
+    @Test void writerQueuedBehindV11DdlObservesPendingFenceAfterMigrationCommit() throws Exception {
+        Flyway.configure().dataSource(schemaOwnerDataSource).locations("classpath:db/praxis-bulk-migrations")
+                .schemas("praxis_bulk").defaultSchema("praxis_bulk").table("praxis_bulk_schema_history")
+                .baselineOnMigrate(false).cleanDisabled(true).target("10").load().migrate();
+        try (var blocker=schemaOwnerDataSource.getConnection(); var executor=Executors.newFixedThreadPool(2)) {
+            blocker.setAutoCommit(false);
+            try (var lock=blocker.createStatement()) {
+                lock.execute("lock table praxis_bulk.praxis_bulk_preview_state in access share mode");
+            }
+            var ddl=executor.submit(() -> Flyway.configure().dataSource(schemaOwnerDataSource)
+                    .locations("classpath:db/praxis-bulk-migrations").schemas("praxis_bulk")
+                    .defaultSchema("praxis_bulk").table("praxis_bulk_schema_history")
+                    .baselineOnMigrate(false).cleanDisabled(true).target("11").load().migrate());
+            awaitQueuedPreviewStateLocks(1);
+            var writer=executor.submit(() -> sql.update("""
+                    insert into praxis_bulk.praxis_bulk_preview_state
+                        (proposal_id,evaluation_fingerprint,projection_state)
+                    values (?,?,'UNAVAILABLE')
+                    """,java.util.UUID.randomUUID(),"sha256:"+"0".repeat(64)));
+            awaitQueuedPreviewStateLocks(2);
+            assertThat(ddl.isDone()).isFalse();
+            assertThat(writer.isDone()).isFalse();
+            blocker.rollback();
+            assertThat(ddl.get(10,TimeUnit.SECONDS).migrationsExecuted).isEqualTo(1);
+            assertThatThrownBy(() -> writer.get(10,TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class).hasStackTraceContaining("bootstrap is pending");
+            assertThat(sql.queryForObject("""
+                    select phase from praxis_bulk.praxis_bulk_preview_integrity_bootstrap
+                    """,String.class)).isEqualTo("PENDING");
+        }
+    }
+    private void awaitQueuedPreviewStateLocks(int expected) throws Exception {
+        long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime()<deadline) {
+            Integer count=sql.queryForObject("""
+                    select count(*) from pg_locks
+                     where relation='praxis_bulk.praxis_bulk_preview_state'::regclass
+                       and not granted
+                    """,Integer.class);
+            if (count != null && count>=expected) return;
+            Thread.sleep(10);
+        }
+        fail("V11 DDL/writer did not queue on preview state within 10 seconds");
     }
     private static BulkIntentSnapshot specialSnapshot(String id, String version, String reason) {
         var json=com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
@@ -534,7 +790,7 @@ class BulkEvaluationStorePostgresTest {
         insertV7Evaluation(value);
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
-                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(3);
+                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(4);
         assertThat(sql.queryForObject("""
                 select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
                 """,Boolean.class)).isTrue();
