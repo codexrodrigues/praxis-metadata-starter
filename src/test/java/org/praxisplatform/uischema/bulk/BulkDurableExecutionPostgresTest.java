@@ -108,7 +108,7 @@ class BulkDurableExecutionPostgresTest {
         observer.execute("truncate bulk_durable_domain, bulk_durable_jpa_domain");
         observer.update("insert into bulk_durable_domain(id) values (1), (2)");
         observer.update("insert into bulk_durable_jpa_domain(id) values (1), (2)");
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(12);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(13);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 
@@ -162,6 +162,7 @@ class BulkDurableExecutionPostgresTest {
                 """, (row, index) -> row.getObject(1, java.time.OffsetDateTime.class).toInstant(),
                 reservation.executionId());
         assertThat(stored).isAfter(forgedTime);
+        assertExecutionChronology(reservation.executionId());
         BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
     }
 
@@ -746,7 +747,7 @@ class BulkDurableExecutionPostgresTest {
         int v2Checksum = observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='2'", Integer.class);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(10);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(11);
         assertThat(observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'", Integer.class))
                 .isEqualTo(v1Checksum);
@@ -785,7 +786,7 @@ class BulkDurableExecutionPostgresTest {
         seedV3Execution(activeProposal, activeLegacy, "legacy-key-active", activeExecutionId, now.minusSeconds(3), now.plusSeconds(30),
                 null, false);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(9);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(10);
         var kernel = kernel();
         var replayReservation = kernel.reserve(CONTEXT, proposal.id(), "legacy-key", "owner-a", "structural-r1",
                 now.plusSeconds(60));
@@ -1407,6 +1408,7 @@ class BulkDurableExecutionPostgresTest {
         assertThat(cancelled.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
         assertThat(cancelled.cancelRequestedAt()).isNotNull();
         assertThat(cancelled.nextOrdinal()).isZero();
+        assertExecutionChronology(reservation.executionId());
         assertThat(observer.queryForObject("""
                 select cancel_requested_at <= terminal_at and cancel_requested_at <= updated_at
                 from praxis_bulk.praxis_bulk_execution where execution_id=?
@@ -1476,6 +1478,7 @@ class BulkDurableExecutionPostgresTest {
         assertThat(terminal.totals().denied()).isEqualTo(1);
         assertThat(terminal.totals().pending()).isZero();
         assertThat(terminal.terminalAt()).isNotNull();
+        assertExecutionChronology(reservation.executionId());
 
         var cancelledReservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-summary-cancel", "owner-a");
         kernel.executeUnit(cancelledReservation.control(), 0, ignored -> BulkUnitAdmission.admit(),
@@ -1486,6 +1489,7 @@ class BulkDurableExecutionPostgresTest {
         assertThat(cancelled.totals().unchanged()).isEqualTo(1);
         assertThat(cancelled.totals().notProcessed()).isEqualTo(1);
         assertThat(cancelled.totals().pending()).isZero();
+        assertExecutionChronology(cancelledReservation.executionId());
         assertThat(countForExecution("praxis_bulk_item_receipt", cancelledReservation.executionId())).isEqualTo(1);
         assertThat(countForExecution("praxis_bulk_admission", cancelledReservation.executionId())).isZero();
         assertThat(kernel.summarizeConsistent(quotaSubject("foreign-subject"), cancelledReservation.executionId()).kind())
@@ -1498,6 +1502,7 @@ class BulkDurableExecutionPostgresTest {
         var stopped = kernel.summarizeConsistent(CONTEXT, stoppedReservation.executionId());
         assertThat(stopped.status()).isEqualTo(BulkExecutionStatus.STOPPED);
         assertThat(stopped.totals().notProcessed()).isEqualTo(2);
+        assertExecutionChronology(stoppedReservation.executionId());
 
         var completedReservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-summary-complete", "owner-a");
         for (int ordinal = 0; ordinal < 2; ordinal++) {
@@ -1771,14 +1776,7 @@ class BulkDurableExecutionPostgresTest {
         var kernel = kernel();
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs4-purge-race", "owner-a");
         kernel.requestCancel(CONTEXT, reservation.executionId());
-        observer.execute("alter table praxis_bulk.praxis_bulk_execution disable trigger praxis_bulk_execution_guard_terminal");
-        try {
-            observer.update("update praxis_bulk.praxis_bulk_execution "
-                    + "set terminal_at=clock_timestamp()-interval '31 days' where execution_id=?",
-                    reservation.executionId());
-        } finally {
-            observer.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_guard_terminal");
-        }
+        ageTerminalForRetentionAsFixtureOwner(reservation.executionId());
         var paused = new BulkReadPauseDataSource(runtimeDataSource);
         var reader = resultReader(paused, new DataSourceTransactionManager(paused));
         try (var executor = Executors.newSingleThreadExecutor()) {
@@ -1945,14 +1943,7 @@ class BulkDurableExecutionPostgresTest {
         var kernel = kernel();
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "rs3-purge-race", "owner-a");
         kernel.requestCancel(CONTEXT, reservation.executionId());
-        observer.execute("alter table praxis_bulk.praxis_bulk_execution disable trigger praxis_bulk_execution_guard_terminal");
-        try {
-            observer.update("update praxis_bulk.praxis_bulk_execution "
-                    + "set terminal_at=clock_timestamp()-interval '31 days' where execution_id=?",
-                    reservation.executionId());
-        } finally {
-            observer.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_guard_terminal");
-        }
+        ageTerminalForRetentionAsFixtureOwner(reservation.executionId());
         assertThat(kernel.inspectConsistent(CONTEXT, reservation.executionId()).kind())
                 .isEqualTo(BulkConsistentExecutionRead.Kind.LIVE);
         var paused = new BulkReadPauseDataSource(runtimeDataSource);
@@ -2286,6 +2277,7 @@ class BulkDurableExecutionPostgresTest {
         assertThat(recoveredSummary.status()).isEqualTo(BulkExecutionStatus.CANCELLED);
         assertThat(recoveredSummary.totals().confirmed()).isEqualTo(1);
         assertThat(recoveredSummary.totals().notProcessed()).isEqualTo(1);
+        assertExecutionChronology(reservation.executionId());
         assertThat(recovery.execution().terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
         var replay = kernel.executeUnit(recovery.control(), 0,
                 unit -> { calls.incrementAndGet(); return BulkUnitAdmission.admit(); },
@@ -2486,13 +2478,7 @@ class BulkDurableExecutionPostgresTest {
         var evaluated = persist(twoTargetEvaluation());
         var reservation = reserve(kernel, evaluated, "cancel-retention", "owner-a");
         kernel.requestCancel(CONTEXT, reservation.executionId());
-        observer.execute("alter table praxis_bulk.praxis_bulk_execution disable trigger praxis_bulk_execution_guard_terminal");
-        try {
-            observer.update("update praxis_bulk.praxis_bulk_execution set terminal_at=clock_timestamp()-interval '31 days' "
-                    + "where execution_id=?", reservation.executionId());
-        } finally {
-            observer.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_guard_terminal");
-        }
+        ageTerminalForRetentionAsFixtureOwner(reservation.executionId());
         BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
         observer.execute("grant praxis_bulk_retention_executor to postgres");
         try {
@@ -2795,6 +2781,17 @@ class BulkDurableExecutionPostgresTest {
         return observer.queryForObject("select writes from " + table + " where id=?", Integer.class, id);
     }
 
+    private void assertExecutionChronology(UUID executionId) {
+        assertThat(observer.queryForObject("""
+                select created_at <= updated_at
+                   and (terminal_at is null or created_at <= terminal_at and terminal_at <= updated_at)
+                   and (cancel_requested_at is null or
+                        created_at <= cancel_requested_at and cancel_requested_at <= updated_at
+                        and (terminal_at is null or cancel_requested_at <= terminal_at))
+                from praxis_bulk.praxis_bulk_execution where execution_id=?
+                """, Boolean.class, executionId)).isTrue();
+    }
+
     private void expireDeadlineAsFixtureOwner(UUID executionId) {
         observer.execute("alter table praxis_bulk.praxis_bulk_execution "
                 + "disable trigger praxis_bulk_execution_protect_binding");
@@ -2820,6 +2817,44 @@ class BulkDurableExecutionPostgresTest {
                     + "enable trigger praxis_bulk_item_receipt_reject_mutation");
             observer.execute("alter table praxis_bulk.praxis_bulk_execution "
                     + "enable trigger praxis_bulk_execution_protect_binding");
+        }
+    }
+
+    private void ageTerminalForRetentionAsFixtureOwner(UUID executionId) {
+        // Test-only owner time travel keeps V13 chronology valid while proving retention.
+        observer.execute("alter table praxis_bulk.praxis_bulk_execution "
+                + "disable trigger praxis_bulk_execution_guard_terminal");
+        observer.execute("alter table praxis_bulk.praxis_bulk_execution "
+                + "disable trigger praxis_bulk_execution_protect_cancel");
+        observer.execute("alter table praxis_bulk.praxis_bulk_execution "
+                + "disable trigger praxis_bulk_execution_protect_binding");
+        observer.execute("alter table praxis_bulk.praxis_bulk_allocation "
+                + "disable trigger praxis_bulk_allocation_protect_transition");
+        try {
+            assertThat(observer.update("""
+                    with aged as materialized (select clock_timestamp() - interval '31 days' as terminal)
+                    update praxis_bulk.praxis_bulk_execution
+                    set created_at=aged.terminal - interval '2 seconds',
+                        cancel_requested_at=case when cancel_requested_at is null then null
+                            else aged.terminal - interval '1 second' end,
+                        terminal_at=aged.terminal, updated_at=aged.terminal
+                    from aged where execution_id=?
+                    """, executionId)).isEqualTo(1);
+            assertThat(observer.update("""
+                    update praxis_bulk.praxis_bulk_allocation a
+                    set created_at=e.created_at, released_at=e.terminal_at
+                    from praxis_bulk.praxis_bulk_execution e
+                    where a.execution_id=e.execution_id and e.execution_id=?
+                    """, executionId)).isEqualTo(1);
+        } finally {
+            observer.execute("alter table praxis_bulk.praxis_bulk_allocation "
+                    + "enable trigger praxis_bulk_allocation_protect_transition");
+            observer.execute("alter table praxis_bulk.praxis_bulk_execution "
+                    + "enable trigger praxis_bulk_execution_protect_binding");
+            observer.execute("alter table praxis_bulk.praxis_bulk_execution "
+                    + "enable trigger praxis_bulk_execution_protect_cancel");
+            observer.execute("alter table praxis_bulk.praxis_bulk_execution "
+                    + "enable trigger praxis_bulk_execution_guard_terminal");
         }
     }
 

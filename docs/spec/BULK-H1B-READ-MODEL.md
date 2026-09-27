@@ -503,11 +503,30 @@ a prova de ausência de receipt/admission em `inspectConsistent`; a razão
 pedido de cancelamento. `COMPLETED` e `COMPLETED_WITH_ERRORS` exigem prefixo
 integral e evidência compatível. A soma dos totais deve ser `targetCount`;
 drift de estado, tempos ou contagens falha `CORRUPT` sem causa protegida.
-O resumo preserva os instantes persistidos: os writers atuais chamam
-`clock_timestamp()` separadamente para `terminal_at` e `updated_at`, então
-um terminal válido pode ter `terminalAt` microssegundos após `updatedAt`.
-Este corte interno não reescreve instantes nem constrói o DTO público, cujo
-invariante temporal ainda exige correção canônica antes da exposição HTTP.
+O resumo preserva os instantes persistidos. Antes de V13, os writers chamavam
+`clock_timestamp()` separadamente para `terminal_at` e `updated_at`, e um
+terminal fisicamente válido podia ter `terminalAt` microssegundos após
+`updatedAt`. Este corte RS3 não reescreve instantes nem constrói o DTO público.
+
+**Integridade temporal V13 (implementada após RS3):** a migração substitui
+apenas o bloco de tempo do guard V5, preservando os fences e provas de terminal.
+Ela atesta owner, corpo, ACL e trigger V5/V10 antes da troca, repara o skew histórico
+conhecido (`terminal_at > updated_at`) sob lock transacional e valida uma
+constraint para `created_at <= updated_at`, `terminal_at <= updated_at` e
+`cancel_requested_at <= terminal_at` quando ambos existem. Cronologia histórica
+impossível interrompe a migração e reverte DDL, função, privilégios e dados.
+Os writers usam um instante SQL por UPDATE terminal; o trigger V5 reestampa
+`terminal_at` e eleva `updated_at`, enquanto V10 continua elevando o terminal
+no UPDATE que aceita cancelamento. O migrator rejeita drift posterior de corpo,
+ACL, owner, trigger ou constraint. A projeção RS3 continua preservando os
+instantes certificados sem normalização de leitura; o gate público de autorização,
+contrato e HTTP permanece separado.
+O corte V13 exige drenar writers e retenção V12 antes do Flyway: binários V12
+reatestam o corpo V5 e falham fechados após o commit V13. Reiniciar e reabrir
+tráfego somente com binários V13; esta migração não declara rolling upgrade.
+O preflight V13 atesta os guards V5/V10 que governam a cronologia e a forma
+dos seis triggers de UPDATE da execução; drift em outras superfícies continua
+sob a validação mais ampla do migrator.
 
 `ABSENT` e `TOMBSTONE` continuam observações internas distintas, sem decisão
 de 404/410 antes da autorização atual e integral no host. Não se fabrica

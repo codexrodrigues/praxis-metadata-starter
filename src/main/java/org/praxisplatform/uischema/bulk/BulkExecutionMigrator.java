@@ -1472,6 +1472,7 @@ public final class BulkExecutionMigrator {
                 Map.entry("praxis_bulk_execution_terminal_reason_check", "CHECK ((((status = 'STOPPED'::text) = (terminal_reason_code IS NOT NULL)) AND ((terminal_reason_code IS NULL) OR (terminal_reason_code = ANY (ARRAY['LEGACY_REASON_NOT_RECORDED'::text, 'DEADLINE_EXCEEDED'::text, 'AUTHORIZATION_REVOKED'::text, 'POLICY_BLOCKED'::text, 'COMMON_GOVERNANCE_CHANGED'::text, 'COMMON_GOVERNANCE_UNAVAILABLE'::text, 'DEPENDENCY_UNAVAILABLE'::text, 'UNIT_ROLLED_BACK'::text, 'RECOVERY_STOPPED'::text, 'EVALUATOR_UNAVAILABLE'::text, 'STRUCTURAL_REVISION_CHANGED'::text, 'CANCELLED_BY_USER'::text])))))"),
                 Map.entry("praxis_bulk_execution_cancel_shape_check", "CHECK (((terminal_reason_code IS DISTINCT FROM 'CANCELLED_BY_USER'::text) OR ((cancel_requested_at IS NOT NULL) AND (next_ordinal < target_count) AND (active_attempt_id IS NULL))))"),
                 Map.entry("praxis_bulk_execution_cancel_terminal_check", "CHECK (((cancel_requested_at IS NULL) OR (status <> 'STOPPED'::text) OR (terminal_reason_code = 'CANCELLED_BY_USER'::text)))"),
+                Map.entry("praxis_bulk_execution_time_order_check", "CHECK (((created_at <= updated_at) AND ((terminal_at IS NULL) OR ((created_at <= terminal_at) AND (terminal_at <= updated_at))) AND ((cancel_requested_at IS NULL) OR ((created_at <= cancel_requested_at) AND (cancel_requested_at <= updated_at) AND ((terminal_at IS NULL) OR (cancel_requested_at <= terminal_at))))))"),
                 Map.entry("praxis_bulk_execution_active_unit_deadline_check", "CHECK (((active_unit_deadline_at IS NULL) OR ((active_attempt_id IS NOT NULL) AND (active_unit_deadline_at <= deadline_at))))"),
                 Map.entry("praxis_bulk_execution_subject_nonblank_check", "CHECK ((btrim(subject_id) <> ''::text))")));
         validateDurableConstraints(connection, "praxis_bulk_item_receipt", false, Map.ofEntries(
@@ -2348,6 +2349,16 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    private static String readV13Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V13__bulk_execution_time_order.sql")) {
+            require(input != null, "V13 execution time-order migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V13 execution time-order migration", failure);
+        }
+    }
+
     private static MigrationExpectations migrationExpectations() {
         MigrationExpectations cached = migrationExpectations;
         if (cached != null) return cached;
@@ -2416,6 +2427,9 @@ public final class BulkExecutionMigrator {
         expectedBodies.put("assert_preview_integrity_complete", new FunctionBodyExpectation("V12",
                 normalizeExpression(extractFunctionBody(v12Migration,
                         "assert_preview_integrity_complete", "V12"))));
+        String v13Migration = readV13Migration();
+        expectedBodies.put("guard_terminal_execution", new FunctionBodyExpectation("V13",
+                normalizeExpression(extractFunctionBody(v13Migration, "guard_terminal_execution", "V13"))));
         return new MigrationExpectations(expectedBodies,
                 normalizeExpression(extractFunctionBody(v7Migration, INSERT_FENCE_FUNCTION, "V7")));
     }

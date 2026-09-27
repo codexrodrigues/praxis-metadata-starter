@@ -255,10 +255,12 @@ public final class JdbcBulkDurableExecution {
         if (execution.status() == BulkDurableExecutionStatus.RUNNING
                 && prefixConsistent) {
             try (var statement = connection.prepareStatement("""
+                    with terminal_clock as materialized (select clock_timestamp() as observed_at)
                     update praxis_bulk.praxis_bulk_execution
-                    set cancel_requested_at=clock_timestamp(), status='STOPPED',
-                        terminal_reason_code='CANCELLED_BY_USER', terminal_at=clock_timestamp(),
-                        updated_at=clock_timestamp()
+                    set cancel_requested_at=terminal_clock.observed_at, status='STOPPED',
+                        terminal_reason_code='CANCELLED_BY_USER', terminal_at=terminal_clock.observed_at,
+                        updated_at=terminal_clock.observed_at
+                    from terminal_clock
                     where execution_id=? and namespace_id=? and status='RUNNING'
                       and cancel_requested_at is null and owner_epoch=?
                     """)) {
@@ -445,9 +447,11 @@ public final class JdbcBulkDurableExecution {
         requireReadyControlFence(connection, execution, evaluation);
         if (!clock(connection).isBefore(execution.deadlineAt())) {
             try (var statement = connection.prepareStatement("""
+                    with terminal_clock as materialized (select clock_timestamp() as observed_at)
                     update praxis_bulk.praxis_bulk_execution
                     set status='STOPPED', terminal_reason_code='DEADLINE_EXCEEDED',
-                        terminal_at=clock_timestamp(), updated_at=clock_timestamp()
+                        terminal_at=terminal_clock.observed_at, updated_at=terminal_clock.observed_at
+                    from terminal_clock
                     where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
                       and status='RUNNING' and next_ordinal=?
                     """)) {
@@ -693,11 +697,13 @@ public final class JdbcBulkDurableExecution {
         boolean completed = attempt.ordinal() + 1 == execution.targetCount();
         boolean cancelled = !completed && execution.cancelRequestedAt() != null;
         try (var statement = connection.prepareStatement("""
+                with terminal_clock as materialized (select clock_timestamp() as observed_at)
                 update praxis_bulk.praxis_bulk_execution
                 set next_ordinal=?, status=?, active_attempt_id=null, active_attempt_ordinal=null,
                     active_target_digest=null, active_attempt_epoch=null, active_unit_deadline_at=null,
-                    terminal_reason_code=?, updated_at=clock_timestamp(),
-                    terminal_at=case when ? then clock_timestamp() else null end
+                    terminal_reason_code=?, updated_at=terminal_clock.observed_at,
+                    terminal_at=case when ? then terminal_clock.observed_at else null end
+                from terminal_clock
                 where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
                   and status='UNIT_IN_FLIGHT' and active_attempt_id=? and next_ordinal=?
                 """)) {
@@ -716,10 +722,12 @@ public final class JdbcBulkDurableExecution {
 
     private void stop(Connection connection, ExecutionRow execution, Attempt attempt, BulkUnitReasonCode reason) throws SQLException {
         try (var statement = connection.prepareStatement("""
+                with terminal_clock as materialized (select clock_timestamp() as observed_at)
                 update praxis_bulk.praxis_bulk_execution
-                set status='STOPPED', terminal_reason_code=?, updated_at=clock_timestamp(), terminal_at=clock_timestamp(),
+                set status='STOPPED', terminal_reason_code=?, updated_at=terminal_clock.observed_at, terminal_at=terminal_clock.observed_at,
                     active_attempt_id=null, active_attempt_ordinal=null, active_target_digest=null,
                     active_attempt_epoch=null, active_unit_deadline_at=null
+                from terminal_clock
                 where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
                   and status='UNIT_IN_FLIGHT' and active_attempt_id=? and next_ordinal=?
                 """)) {
@@ -736,9 +744,11 @@ public final class JdbcBulkDurableExecution {
                 || execution.nextOrdinal() >= execution.targetCount())
             throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
         try (var statement = connection.prepareStatement("""
+                with terminal_clock as materialized (select clock_timestamp() as observed_at)
                 update praxis_bulk.praxis_bulk_execution
                 set status='STOPPED', terminal_reason_code='CANCELLED_BY_USER',
-                    terminal_at=clock_timestamp(), updated_at=clock_timestamp()
+                    terminal_at=terminal_clock.observed_at, updated_at=terminal_clock.observed_at
+                from terminal_clock
                 where execution_id=? and namespace_id=? and owner_epoch=? and status='RUNNING'
                   and cancel_requested_at is not null and next_ordinal=?
                 """)) {
@@ -781,11 +791,13 @@ public final class JdbcBulkDurableExecution {
         boolean completed = ordinal + 1 == execution.targetCount();
         boolean cancelled = !completed && execution.cancelRequestedAt() != null;
         try (var statement = connection.prepareStatement("""
+                with terminal_clock as materialized (select clock_timestamp() as observed_at)
                 update praxis_bulk.praxis_bulk_execution
                 set next_ordinal=?, status=?, active_attempt_id=null, active_attempt_ordinal=null,
                     active_target_digest=null, active_attempt_epoch=null, active_unit_deadline_at=null,
-                    terminal_reason_code=?, updated_at=clock_timestamp(),
-                    terminal_at=case when ? then clock_timestamp() else null end
+                    terminal_reason_code=?, updated_at=terminal_clock.observed_at,
+                    terminal_at=case when ? then terminal_clock.observed_at else null end
+                from terminal_clock
                 where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
                   and status='UNIT_COMMITTED_PENDING_ACK' and active_attempt_id=?
                 """)) {
@@ -824,11 +836,13 @@ public final class JdbcBulkDurableExecution {
                         || !observedAt.isBefore(attempt.unitDeadline())
                         ? BulkUnitReasonCode.DEADLINE_EXCEEDED : BulkUnitReasonCode.UNIT_ROLLED_BACK;
                 try (var statement = connection.prepareStatement("""
+                        with terminal_clock as materialized (select clock_timestamp() as observed_at)
                         update praxis_bulk.praxis_bulk_execution
                         set status='STOPPED', terminal_reason_code=?,
                             active_attempt_id=null, active_attempt_ordinal=null,
                             active_target_digest=null, active_attempt_epoch=null, active_unit_deadline_at=null,
-                            updated_at=clock_timestamp(), terminal_at=clock_timestamp()
+                            updated_at=terminal_clock.observed_at, terminal_at=terminal_clock.observed_at
+                        from terminal_clock
                         where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
                           and status='UNIT_IN_FLIGHT' and active_attempt_id=?
                         """)) {
@@ -902,13 +916,15 @@ public final class JdbcBulkDurableExecution {
             { status = admissions.isEmpty() ? BulkDurableExecutionStatus.COMPLETED : BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS; next = durableResults; }
         else { status = BulkDurableExecutionStatus.STOPPED; next = durableResults; }
         try (var statement = connection.prepareStatement("""
+                with terminal_clock as materialized (select clock_timestamp() as observed_at)
                 update praxis_bulk.praxis_bulk_execution
                 set owner_id=?, owner_epoch=?, status=?, next_ordinal=?,
                     terminal_reason_code=case when ?='STOPPED' then ? else null end,
                     active_attempt_id=null, active_attempt_ordinal=null,
                     active_target_digest=null, active_attempt_epoch=null, active_unit_deadline_at=null,
-                    updated_at=clock_timestamp(),
-                    terminal_at=case when ? in ('COMPLETED','COMPLETED_WITH_ERRORS','STOPPED') then clock_timestamp() else null end
+                    updated_at=terminal_clock.observed_at,
+                    terminal_at=case when ? in ('COMPLETED','COMPLETED_WITH_ERRORS','STOPPED') then terminal_clock.observed_at else null end
+                from terminal_clock
                 where execution_id=? and namespace_id=? and owner_epoch=?
                 """)) {
             statement.setString(1, owner); statement.setLong(2, epoch); statement.setString(3, status.name());
