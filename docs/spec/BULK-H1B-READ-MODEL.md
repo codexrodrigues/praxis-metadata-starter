@@ -922,8 +922,8 @@ aplicar os limites correspondentes e preservar a transação do owner.
 Validação focal deste incremento: `BulkPreviewPageReaderPostgresTest`, com
 PostgreSQL real, preserva as provas anteriores de integridade e acrescenta
 composição com criador histórico, negativas, retenção após expiry e descarte de
-resposta atrasada. A suíte de 15 casos foi complementada por um caso de deadline,
-reexecutando dois métodos focais (16 casos distintos, sem contar o rerun duas vezes).
+resposta atrasada. A suíte contém 15 casos distintos; dois métodos foram reexecutados focalmente
+para conferir expiry/deadline, sem somar esses reruns novamente.
 O Quickstart acrescenta consumidor real para delegado, alvo fora da página,
 transação ambiente e interleavings de grant/lotação. Evidências e árvore exata
 estão no registro `internal-planning/bulk-operations/EXECUCAO.md` do consumidor.
