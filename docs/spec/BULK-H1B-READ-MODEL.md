@@ -1157,3 +1157,59 @@ a conclusão inclusive na última página. Revisão independente da fonte e dos
 oráculos exigida antes da integração.
 Publicação, adoção, budget durável de emissão na frota e HTTP continuam gates
 separados; Angular aguarda o aceite completo do backend.
+
+
+## RS1 autorizado — proposta com projeção explícita do domínio
+
+`BulkAuthorizedProposalReader` retorna o `BulkProposal` público existente apenas
+quando o host autoriza o conjunto histórico completo. O `BulkProposalProjectionProvider`
+é um componente puro do servidor, vinculado ao recurso, operationId de confirmação
+e revisão da projeção. Ele recebe a avaliação protegida e produz exclusivamente a
+intenção redigida. Não autoriza acesso nem deve abrir conexões, consultar descriptors
+atuais ou reconstruir fatos do domínio. A segurança dos valores de negócio publicados
+continua sendo responsabilidade explícita do domínio; o SDK não infere permissão de
+anotações de apresentação. Provider incompatível ou projeção ausente não produz `{}`
+como substituto.
+
+O leitor usa uma única transação `REQUIRES_NEW`, `REPEATABLE READ`, read-only.
+A autorização global precede o lookup protegido; a autorização corrente integral
+recebe todos os alvos e seus fatos históricos na mesma conexão. Ausência, escopo
+incompatível, proposta sem avaliação ou corrupção anterior à autorização integral
+permanecem `NOT_FOUND_OR_DENIED`, sem payload. Depois da autorização, uma proposta
+retida expirada resulta em `GONE`, sem copiar o conteúdo. Remoção sem evidência de
+escopo continua indistinguível de ausência. O leitor não usa tombstones de execução
+para reconstruir uma proposta removida.
+
+Para uma proposta autorizada ainda válida, a elegibilidade tipada certifica os
+totais históricos. `READY` significa que todos os alvos da avaliação são executáveis;
+`BLOCKED` conserva os impedimentos daquela avaliação. Nenhum desses valores concede
+permissão atual para confirmar ou estabelece readiness operacional. A composição
+não recalcula elegibilidade a partir de Config, domínio ou schema correntes.
+
+O preview V11 persistido é validado com `BulkPreviewPageReader` na mesma conexão,
+em páginas internas de até200. Todos os ordinais, identidades, decisões e sequências
+de categoria/código correspondem à avaliação protegida; o texto público vem somente
+da allowlist persistida. Diagnósticos agregados são deduplicados pela tripla estruturada
+categoria/código/texto, em ordem determinística, com no máximo64 definições. Não há
+truncamento, target público ou metadata arbitrário. Este corte publica evidence vazio
+por política explícita de não divulgação: coordenadas de política e fingerprints
+protegidos não se transformam automaticamente em referências públicas.
+
+O orçamento monotônico de3s é rechecado antes de cada página e depois da conclusão
+transacional. O total conservador de bytes selecionados do preview, incluindo headers e lookahead
+repetidos, não pode superar20MiB; o limite de página existente permanece em vigor.
+O orçamento do preview não inclui os blobs protegidos já lidos pelo lookup, que
+conservam seus limites próprios de codec/storage. Excesso de volume ou prazo impede
+a publicação inteira. Não se promete cancelamento
+absoluto de queries no prazo, memória total do processo ou SLA corporativo. A proposta
+que cruza sua validade antes da publicação tem o DTO descartado e resulta em `GONE`;
+negativas de autorização não são convertidas em expiração. Deadline vencido prevalece
+como `UNAVAILABLE`.
+
+Avaliação legacy sem elegibilidade tipada, preview deliberadamente indisponível,
+projector incompatível e corrupção depois da autorização integral resultam em
+`UNAVAILABLE`, sem proposta parcial. RS1 não importa `PREVIEW_UNAVAILABLE` ou409 de RS2.
+A observação é opaca à serialização; apenas o DTO de `COMPLETE` pode integrar uma
+resposta pública. O host futuro traduzirá COMPLETE/GONE/global denial/ausência/
+indisponibilidade para200/410/403/404/503 com envelopes e no-store canônicos. Esta
+fachada não cria controller, links, capability, release ou deployment.
