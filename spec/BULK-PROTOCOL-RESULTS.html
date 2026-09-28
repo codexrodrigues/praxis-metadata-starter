@@ -314,10 +314,20 @@ de banco/outbox.</p>
 (Integer/String), o estado
 CONFIRMED/UNCHANGED/DENIED/INVALID/CONFLICT/NOT_PROCESSED/UNKNOWN e
 diagnósticos. É resultado de execução, não avaliação: não emitir
-CONFIRMED em uma prévia. O endpoint futuro de resultados de avaliação
-deverá materializar elegibilidade e candidato sem fingir receipt. As
-páginas futuras usam o contrato canônico de paginação e o teto 200; este
-DTO não embute toda a população na execução.</p>
+CONFIRMED em uma prévia. As páginas de avaliação usam o DTO distinto
+<code>BulkProposalItemResult&lt;WI&gt;</code>, com identidade wire
+String ou Integer, decisão <code>EXECUTABLE</code> ou
+<code>BLOCKED</code> e até 16 diagnósticos públicos. Não inclui ordinal,
+facts, plan, versões, digests, parâmetros ou comparação before/after.
+<code>BLOCKED</code> exige ao menos um diagnóstico;
+<code>EXECUTABLE</code> não aceita diagnóstico. Em todos os diagnósticos
+publicados, <code>code</code> e <code>message</code> são não vazios,
+<code>target</code> é nulo e <code>metadata</code> é vazio. O host e o
+provider continuam responsáveis por autorizar a população completa e
+selecionar mensagens públicas permitidas; a forma do DTO não comprova
+autorização nem sanitiza texto livre. A página usa
+<code>CursorPage</code> e limita-se ao tamanho operacional configurado
+(1–200); não embute toda a população.</p>
 <p>Diagnósticos reutilizam <code>ResourceCommandMessage</code>, com
 metadata vazio obrigatório para impedir objetos arbitrários mutáveis.
 Código, categoria, mensagem e target continuam submetidos à política de
@@ -325,9 +335,13 @@ redaction do provedor; o construtor não certifica segurança de texto
 livre. Listas são copiadas e valores de JSON têm cópia defensiva.
 <code>toString()</code> das projeções não imprime payload.</p>
 <p>Links pertencem ao envelope <code>RestApiResponse._links</code>, sem
-<code>links</code> paralelo dentro das projeções. O binding HTTP futuro
-resolve links e schemas pela operação real e aplica
-autenticação/autorização, paginação, códigos HTTP e redaction.</p>
+<code>links</code> paralelo dentro das projeções. O binding HTTP resolve
+links e schemas pela operação real e aplica autenticação/autorização,
+paginação, códigos HTTP e redaction. O
+<code>BulkAuthorizedProposalResultsReader</code> compõe páginas
+autorizadas com continuação AEAD; essa API Java não define sozinha a
+rota HTTP, o mapeamento público de estados ou uma capability
+<code>READY</code>.</p>
 <p>Ao desserializar essas projeções em Java com JSON arbitrário, usar
 mapper isolado com suporte a Instant (<code>JavaTimeModule</code>, datas
 ISO), <code>USE_BIG_DECIMAL_FOR_FLOATS=true</code> e
