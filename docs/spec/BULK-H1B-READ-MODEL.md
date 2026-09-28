@@ -928,6 +928,71 @@ O Quickstart acrescenta consumidor real para delegado, alvo fora da página,
 transação ambiente e interleavings de grant/lotação. Evidências e árvore exata
 estão no registro `internal-planning/bulk-operations/EXECUCAO.md` do consumidor.
 
+## G3b — continuação RS2 autorizada e contrato Java de página
+
+Classificação `contrato-publico` e `arquitetural`. O Metadata passa a oferecer
+continuação Java server-side em `BulkAuthorizedProposalResultsReader`, ainda sem
+controller, rota HTTP, capability ou `READY`. O overload sem cursor continua
+iniciando a primeira janela; o overload com `after` recebe somente o token opaco
+emitido pela página anterior. O retorno completo usa o envelope canônico
+`CursorPage<BulkProposalItemResult<Object>>`: identidade wire `String|Integer`,
+decisão `EXECUTABLE|BLOCKED` e diagnostics previamente allowlisted, sempre sem
+target ou metadata. A lista é imutável, `prev` é nulo e nenhuma estrutura
+protegida de avaliação é publicada.
+
+`BulkReadCursorConfiguration` é um snapshot imutável de rotação AES-256: chave
+ativa, até oito chaves retidas e TTL estritamente positivo de no máximo quinze
+minutos. A configuração não expõe getters de segredo, é ignorada como tipo pelo
+Jackson e seu `toString` é redigido. Uma rotação mantém a chave anterior somente
+pelo período em que os tokens emitidos precisam continuar legíveis; retirar a
+chave torna o token inválido. A continuação preserva `issuedAt` e `expiresAt` do
+primeiro cursor, mesmo quando a configuração nova possui TTL maior. Cada chamada
+usa um snapshot de configuração; não há sessão nem renovação silenciosa.
+
+O decode AEAD acontece antes de abrir a transação. Depois dele, cada página abre
+uma nova transação `REQUIRES_NEW`, `REPEATABLE READ` e read-only. A permissão
+global continua precedendo lookup. Lookup protegido, autorização granular de
+**todos** os alvos e página RS2 pertencem ao mesmo snapshot físico. A página
+solicitada nunca reduz o conjunto reautorizado. O fingerprint guardado pelo
+cursor combina, com framing versionado e SHA-256, o sujeito autenticado atual e
+o fingerprint de escopo entregue pelo provider. A comparação é constante no
+tempo. Assim, copiar um token para outro sujeito ou mudar grant/lotação/facts
+produz a mesma negativa não enumerável usada por ausência e cross-scope.
+
+Precedência server-side para o futuro adaptador HTTP:
+
+1. envelope ilegível, adulterado, com chave desconhecida ou purpose incompatível
+   resulta em `INVALID_CURSOR`, sem tocar storage ou provider;
+2. `GLOBAL_DENIED` e `GLOBAL_UNAVAILABLE` precedem lookup;
+3. proposta ausente/incompleta/cross-scope, sujeito ou fingerprint diferentes,
+   cursor de outra proposta e posição autenticada que não pode ter sido emitida
+   resultam em `NOT_FOUND_OR_DENIED`;
+4. somente proposta viva no storage e conjunto integralmente autorizado podem
+   revelar `PRECONDITION_FAILED` por expiração, tamanho, watermark ou revisão do
+   projector incompatíveis;
+5. corrupção do registro protegido antes da autorização granular permanece
+   indistinguível de ausência (`NOT_FOUND_OR_DENIED`); primeira leitura de
+   projeção legacy/indisponível depois da autorização resulta em
+   `PREVIEW_UNAVAILABLE`; corrupção, falha SQL e timeout resultam em
+   `UNAVAILABLE` somente quando já existe autorização integral suficiente para
+   consultar a projeção.
+
+Esses estados não são, por si, uma API HTTP. O host continua responsável por
+principal confiável, configuração obrigatória sem default de segredo e tradução
+não enumerável de erro. O deadline monotônico inclui decode, snapshot, provider,
+leitura e emissão; a validade do token é reavaliada após autorização e antes da
+publicação. Depois do deadline nenhuma página é retornada. Isso não promete
+hard-cancel de CPU, aquisição ou driver.
+
+As provas PostgreSQL cobrem página inicial/intermediária/final com watermark
+fixo, reautorização full-set, cópia entre sujeitos, mudança de fingerprint,
+precondições autenticadas, expiração durante a autorização, rotação e
+reconstrução do reader, além de rejeição antes de banco. A fixture não reinicia
+o processo nem o PostgreSQL. Provas de configuração/DTO cobrem cópia defensiva,
+serialização sem segredo, limites de TTL, identidades suportadas e diagnostics
+sem target/metadata. A adoção HTTP do consumidor e seu schema concreto de
+identidade `Integer` permanecem um incremento separado.
+
 ## Caracterização de capacidade para o RC após G3a
 
 Em 28/09/2026, `BulkReadCapacityPostgresTest` passou 2/2 em PostgreSQL 14.22

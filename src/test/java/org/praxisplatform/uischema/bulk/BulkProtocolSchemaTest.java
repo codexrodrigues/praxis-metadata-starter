@@ -23,6 +23,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BulkProtocolSchemaTest {
@@ -135,10 +136,18 @@ class BulkProtocolSchemaTest {
                 Instant.parse("2026-09-13T12:02:00Z"),
                 new BulkExecutionTotals(2, 0, 1, 0, 1, 0, 0, 0, 0), List.of(diagnostic));
         BulkItemResult<String> item = new BulkItemResult<>("001", BulkItemStatus.DENIED, List.of(diagnostic));
+        ResourceCommandMessage publicDiagnostic = new ResourceCommandMessage(
+                ResourceCommandErrorCategory.VALIDATION, "RULE_BLOCKED", "A safe message", null, Map.of());
+        BulkProposalItemResult<Integer> integerProposalItem = new BulkProposalItemResult<>(
+                7, BulkProposalItemResult.Decision.BLOCKED, List.of(publicDiagnostic));
+        BulkProposalItemResult<String> stringProposalItem = new BulkProposalItemResult<>(
+                "001", BulkProposalItemResult.Decision.EXECUTABLE, List.of());
 
         assertRoundTripAndSchema("BulkProposal", proposal, BulkProposal.class);
         assertRoundTripAndSchema("BulkExecution", execution, BulkExecution.class);
         assertRoundTripAndSchema("StringBulkItemResult", item, BulkItemResult.class);
+        assertRoundTripAndSchema("IntegerBulkProposalItemResult", integerProposalItem, BulkProposalItemResult.class);
+        assertRoundTripAndSchema("StringBulkProposalItemResult", stringProposalItem, BulkProposalItemResult.class);
         assertEquals(new BigDecimal("12345678901234567890.123400"), proposal.redactedIntent().path("amount").decimalValue());
 
         ObjectNode operationWithoutGroup = (ObjectNode) objectMapper.readTree("""
@@ -153,6 +162,48 @@ class BulkProtocolSchemaTest {
         ObjectNode invalidCategory = (ObjectNode) objectMapper.readTree(objectMapper.writeValueAsBytes(item));
         ((ObjectNode) invalidCategory.path("diagnostics").path(0)).put("category", "UNTRUSTED");
         assertFalse(schemaFor("StringBulkItemResult").validate(invalidCategory).isEmpty());
+
+        assertInvalid("IntegerBulkProposalItemResult", """
+                {"id":"7","decision":"BLOCKED","diagnostics":[{"category":"VALIDATION","code":"RULE_BLOCKED","message":"Safe","target":null,"metadata":{}}]}
+                """);
+        assertInvalid("StringBulkProposalItemResult", """
+                {"id":"001","decision":"EXECUTABLE","diagnostics":[{"category":"VALIDATION","code":"RULE_BLOCKED","message":"Safe","target":null,"metadata":{}}]}
+                """);
+        assertInvalid("IntegerBulkProposalItemResult", """
+                {"id":7,"decision":"BLOCKED","diagnostics":[]}
+                """);
+        assertInvalid("IntegerBulkProposalItemResult", """
+                {"id":7,"decision":"EXECUTABLE","diagnostics":[{"category":"VALIDATION","code":"RULE_BLOCKED","message":"Safe","target":null,"metadata":{}}]}
+                """);
+        assertInvalid("IntegerBulkProposalItemResult", """
+                {"id":7,"decision":"BLOCKED","diagnostics":[{"category":"VALIDATION","code":"RULE_BLOCKED","message":"Safe","target":"7","metadata":{}}]}
+                """);
+        assertInvalid("StringBulkProposalItemResult", """
+                {"id":"001","decision":"BLOCKED","diagnostics":[{"category":"VALIDATION","code":"RULE_BLOCKED","message":"Safe","target":null,"metadata":{"secret":"x"}}]}
+                """);
+        assertInvalid("IntegerBulkProposalItemResult", """
+                {"id":7,"decision":"BLOCKED","diagnostics":[{"category":"VALIDATION","code":"RULE_BLOCKED","message":"   ","target":null,"metadata":{}}]}
+                """);
+        assertInvalid("IntegerBulkProposalItemResult", """
+                {"id":7,"decision":"CONFIRMED","diagnostics":[]}
+                """);
+        ObjectNode excessiveDiagnostics = objectMapper.createObjectNode();
+        excessiveDiagnostics.put("id", 7);
+        excessiveDiagnostics.put("decision", "BLOCKED");
+        var diagnostics = excessiveDiagnostics.putArray("diagnostics");
+        JsonNode diagnosticNode = objectMapper.readTree("""
+                {"category":"VALIDATION","code":"RULE_BLOCKED","message":"Safe","target":null,"metadata":{}}
+                """);
+        for (int index = 0; index < 17; index++) diagnostics.add(diagnosticNode);
+        assertFalse(schemaFor("IntegerBulkProposalItemResult").validate(excessiveDiagnostics).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> new BulkProposalItemResult<>(
+                7, BulkProposalItemResult.Decision.BLOCKED, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new BulkProposalItemResult<>(
+                7, BulkProposalItemResult.Decision.EXECUTABLE, List.of(publicDiagnostic)));
+        ResourceCommandMessage targetedDiagnostic = new ResourceCommandMessage(
+                ResourceCommandErrorCategory.VALIDATION, "RULE_BLOCKED", "A safe message", "7", Map.of());
+        assertThrows(IllegalArgumentException.class, () -> new BulkProposalItemResult<>(
+                7, BulkProposalItemResult.Decision.BLOCKED, List.of(targetedDiagnostic)));
     }
 
     private <T> void assertRoundTripAndSchema(String definition, T value, Class<?> type) throws Exception {

@@ -13,6 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import javax.sql.DataSource;
+import javax.crypto.spec.SecretKeySpec;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -101,15 +102,16 @@ class BulkPreviewPageReaderPostgresTest {
                 BulkReadAuthorizationProvider.GlobalDecision.ALLOWED,
                 BulkReadAuthorizationProvider.ScopeDecision.authorized(new byte[32]));
         var authorized = new BulkAuthorizedProposalResultsReader(
-                infrastructure, CONTEXT.resourceKey(), provider)
+                infrastructure, CONTEXT.resourceKey(), provider, cursorConfiguration())
                 .readProposalResults("delegated-reader", id, 1);
 
         assertThat(authorized.state()).isEqualTo(BulkAuthorizedProposalResultsReader.State.COMPLETE);
-        assertThat(authorized.page().targetCount()).isEqualTo(1);
-        assertThat(authorized.page().items()).singleElement().satisfies(item -> {
-            assertThat(item.ordinal()).isZero();
-            assertThat(item.wireIdentity()).isEqualTo("101");
-            assertThat(item.decision()).isEqualTo(BulkTargetEligibility.Decision.EXECUTABLE);
+        assertThat(authorized.page().size()).isEqualTo(1);
+        assertThat(authorized.page().next()).isNull();
+        assertThat(authorized.page().prev()).isNull();
+        assertThat(authorized.page().content()).singleElement().satisfies(item -> {
+            assertThat(item.id()).isEqualTo("101");
+            assertThat(item.decision()).isEqualTo(BulkProposalItemResult.Decision.EXECUTABLE);
             assertThat(item.diagnostics()).isEmpty();
         });
         assertThat(provider.requester).isEqualTo("delegated-reader");
@@ -127,7 +129,7 @@ class BulkPreviewPageReaderPostgresTest {
                 BulkReadAuthorizationProvider.GlobalDecision.DENIED,
                 BulkReadAuthorizationProvider.ScopeDecision.authorized(new byte[32]));
         var deniedReader = new BulkAuthorizedProposalResultsReader(
-                infrastructure, CONTEXT.resourceKey(), deniedProvider);
+                infrastructure, CONTEXT.resourceKey(), deniedProvider, cursorConfiguration());
         assertThat(deniedReader.readProposalResults("denied-reader", UUID.randomUUID(), 10).state())
                 .isEqualTo(BulkAuthorizedProposalResultsReader.State.GLOBAL_DENIED);
         assertThat(deniedProvider.authorizeCalls).isZero();
@@ -136,7 +138,7 @@ class BulkPreviewPageReaderPostgresTest {
                 BulkReadAuthorizationProvider.GlobalDecision.ALLOWED,
                 BulkReadAuthorizationProvider.ScopeDecision.unavailable());
         var unavailableReader = new BulkAuthorizedProposalResultsReader(
-                infrastructure, CONTEXT.resourceKey(), unavailableProvider);
+                infrastructure, CONTEXT.resourceKey(), unavailableProvider, cursorConfiguration());
         assertThat(unavailableReader.readProposalResults("reader", UUID.randomUUID(), 10).state())
                 .isEqualTo(BulkAuthorizedProposalResultsReader.State.NOT_FOUND_OR_DENIED);
         var pending = proposal();
@@ -144,6 +146,30 @@ class BulkPreviewPageReaderPostgresTest {
         assertThat(unavailableReader.readProposalResults("reader", pending.id(), 10).state())
                 .isEqualTo(BulkAuthorizedProposalResultsReader.State.NOT_FOUND_OR_DENIED);
         assertThat(unavailableProvider.authorizeCalls).isZero();
+    }
+
+    @Test void corruptProtectedEvaluationAndAbsentProposalRemainIndistinguishableBeforeFullAuthorization() {
+        var value = evaluation(proposal());
+        UUID id = persist(value, preview(value));
+        var provider = new RecordingAuthorizationProvider(infrastructure,
+                BulkReadAuthorizationProvider.GlobalDecision.ALLOWED,
+                BulkReadAuthorizationProvider.ScopeDecision.denied());
+        var authorized = new BulkAuthorizedProposalResultsReader(
+                infrastructure, CONTEXT.resourceKey(), provider, cursorConfiguration());
+        assertThat(authorized.readProposalResults("reader", UUID.randomUUID(), 10).state())
+                .isEqualTo(BulkAuthorizedProposalResultsReader.State.NOT_FOUND_OR_DENIED);
+
+        sql.execute("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user");
+        try {
+            sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
+                    "protected-corrupt".getBytes(StandardCharsets.UTF_8), id);
+        } finally {
+            sql.execute("alter table praxis_bulk.praxis_bulk_evaluation enable trigger user");
+        }
+
+        assertThat(authorized.readProposalResults("reader", id, 10).state())
+                .isEqualTo(BulkAuthorizedProposalResultsReader.State.NOT_FOUND_OR_DENIED);
+        assertThat(provider.authorizeCalls).isZero();
     }
 
     @Test void lateAuthorizationCannotPublishAResultAfterTheAbsoluteDeadline() {
@@ -166,7 +192,8 @@ class BulkPreviewPageReaderPostgresTest {
             }
         };
 
-        var result = new BulkAuthorizedProposalResultsReader(infrastructure, CONTEXT.resourceKey(), provider)
+        var result = new BulkAuthorizedProposalResultsReader(infrastructure, CONTEXT.resourceKey(), provider,
+                cursorConfiguration())
                 .readProposalResults("reader", id, 1);
 
         assertThat(result.state()).isEqualTo(BulkAuthorizedProposalResultsReader.State.UNAVAILABLE);
@@ -693,5 +720,10 @@ class BulkPreviewPageReaderPostgresTest {
             assertThat(remainingBudget).isPositive().isLessThanOrEqualTo(Duration.ofSeconds(3));
             return scoped;
         }
+    }
+
+    private static BulkReadCursorConfiguration cursorConfiguration() {
+        return new BulkReadCursorConfiguration("test-key", Map.of("test-key",
+                new SecretKeySpec(new byte[32], "AES")), Duration.ofMinutes(5));
     }
 }
