@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,7 @@ class BulkPreviewPageReaderPostgresTest {
     private TransactionTemplate tx;
     private JdbcBulkProposalStore store;
     private BulkPreviewPageReader reader;
+    private BulkExecutionInfrastructure infrastructure;
 
     @BeforeAll void start() throws Exception {
         postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
@@ -47,7 +50,7 @@ class BulkPreviewPageReaderPostgresTest {
         sql = new JdbcTemplate(owner);
         var manager = new DataSourceTransactionManager(runtime);
         tx = new TransactionTemplate(manager);
-        var infrastructure = new BulkExecutionInfrastructure(runtime, manager, CONTEXT.namespaceId(),
+        infrastructure = new BulkExecutionInfrastructure(runtime, manager, CONTEXT.namespaceId(),
                 BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration());
         store = new JdbcBulkProposalStore(infrastructure);
         reader = new BulkPreviewPageReader(infrastructure);
@@ -72,12 +75,14 @@ class BulkPreviewPageReaderPostgresTest {
 
     @Test void returnsOnlyPublicDecisionAndDiagnosticsFromOneBoundedPage() {
         var value = evaluation(proposal());
+        assertThat(value.proposal().expiresAt()).isBefore(Instant.now());
         UUID id = persist(value, preview(value));
         var page = page(id, -1, 1, 200);
         assertThat(page.kind()).isEqualTo(BulkPreviewPageReader.Kind.COMPLETE);
         assertThat(page.targetCount()).isEqualTo(1);
         assertThat(page.items()).hasSize(1);
         assertThat(page.items().getFirst().ordinal()).isZero();
+        assertThat(page.items().getFirst().wireIdentity()).isEqualTo("101");
         assertThat(page.items().getFirst().decision()).isEqualTo(BulkTargetEligibility.Decision.EXECUTABLE);
         assertThat(page.items().getFirst().diagnostics()).isEmpty();
         assertThat(page.hasMore()).isFalse();
@@ -86,6 +91,86 @@ class BulkPreviewPageReaderPostgresTest {
         assertThatThrownBy(() -> page(id, -1, 2, 200))
                 .isInstanceOfSatisfying(BulkProposalStorageException.class,
                         error -> assertThat(error.reason()).isEqualTo(BulkProposalStorageException.Reason.CORRUPT));
+    }
+
+    @Test void authorizedFacadeUsesHistoricalCreatorAndReturnsOnlySafeRs2Projection() {
+        var value = evaluation(proposal());
+        assertThat(value.proposal().expiresAt()).isBefore(Instant.now());
+        UUID id = persist(value, preview(value));
+        var provider = new RecordingAuthorizationProvider(infrastructure,
+                BulkReadAuthorizationProvider.GlobalDecision.ALLOWED,
+                BulkReadAuthorizationProvider.ScopeDecision.authorized(new byte[32]));
+        var authorized = new BulkAuthorizedProposalResultsReader(
+                infrastructure, CONTEXT.resourceKey(), provider)
+                .readProposalResults("delegated-reader", id, 1);
+
+        assertThat(authorized.state()).isEqualTo(BulkAuthorizedProposalResultsReader.State.COMPLETE);
+        assertThat(authorized.page().targetCount()).isEqualTo(1);
+        assertThat(authorized.page().items()).singleElement().satisfies(item -> {
+            assertThat(item.ordinal()).isZero();
+            assertThat(item.wireIdentity()).isEqualTo("101");
+            assertThat(item.decision()).isEqualTo(BulkTargetEligibility.Decision.EXECUTABLE);
+            assertThat(item.diagnostics()).isEmpty();
+        });
+        assertThat(provider.requester).isEqualTo("delegated-reader");
+        assertThat(provider.creator).isEqualTo(CONTEXT.subjectId());
+        assertThat(provider.targets).singleElement().satisfies(target -> {
+            assertThat(target.ordinal()).isZero();
+            assertThat(target.wireIdentity()).isEqualTo("101");
+            assertThat(target.facts()).isEqualTo(value.targets().getFirst().facts());
+        });
+        assertThat(authorized.toString()).doesNotContain("delegated-reader", CONTEXT.subjectId(), "101");
+    }
+
+    @Test void globalDenialPrecedesLookupAndPostLookupFailuresAreNonEnumerating() {
+        var deniedProvider = new RecordingAuthorizationProvider(infrastructure,
+                BulkReadAuthorizationProvider.GlobalDecision.DENIED,
+                BulkReadAuthorizationProvider.ScopeDecision.authorized(new byte[32]));
+        var deniedReader = new BulkAuthorizedProposalResultsReader(
+                infrastructure, CONTEXT.resourceKey(), deniedProvider);
+        assertThat(deniedReader.readProposalResults("denied-reader", UUID.randomUUID(), 10).state())
+                .isEqualTo(BulkAuthorizedProposalResultsReader.State.GLOBAL_DENIED);
+        assertThat(deniedProvider.authorizeCalls).isZero();
+
+        var unavailableProvider = new RecordingAuthorizationProvider(infrastructure,
+                BulkReadAuthorizationProvider.GlobalDecision.ALLOWED,
+                BulkReadAuthorizationProvider.ScopeDecision.unavailable());
+        var unavailableReader = new BulkAuthorizedProposalResultsReader(
+                infrastructure, CONTEXT.resourceKey(), unavailableProvider);
+        assertThat(unavailableReader.readProposalResults("reader", UUID.randomUUID(), 10).state())
+                .isEqualTo(BulkAuthorizedProposalResultsReader.State.NOT_FOUND_OR_DENIED);
+        var pending = proposal();
+        tx.executeWithoutResult(status -> store.insert(pending));
+        assertThat(unavailableReader.readProposalResults("reader", pending.id(), 10).state())
+                .isEqualTo(BulkAuthorizedProposalResultsReader.State.NOT_FOUND_OR_DENIED);
+        assertThat(unavailableProvider.authorizeCalls).isZero();
+    }
+
+    @Test void lateAuthorizationCannotPublishAResultAfterTheAbsoluteDeadline() {
+        var value = evaluation(proposal());
+        UUID id = persist(value, preview(value));
+        var provider = new BulkReadAuthorizationProvider() {
+            @Override public String confirmationOperationId() { return CONTEXT.operationRef().operationId(); }
+            @Override public BulkExecutionInfrastructure executionInfrastructure() { return infrastructure; }
+            @Override public GlobalDecision preAuthorize(Context context, Duration remainingBudget) {
+                return GlobalDecision.ALLOWED;
+            }
+            @Override public ScopeDecision authorize(Context context, String creatorSubjectId,
+                    List<Target> fullTargetSet, Duration remainingBudget) {
+                try { Thread.sleep(3_050L); }
+                catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return ScopeDecision.unavailable();
+                }
+                return ScopeDecision.authorized(new byte[32]);
+            }
+        };
+
+        var result = new BulkAuthorizedProposalResultsReader(infrastructure, CONTEXT.resourceKey(), provider)
+                .readProposalResults("reader", id, 1);
+
+        assertThat(result.state()).isEqualTo(BulkAuthorizedProposalResultsReader.State.UNAVAILABLE);
+        assertThat(result.page()).isNull();
     }
 
     @Test void absenceAndUnavailableAreDistinctAndScopeBound() {
@@ -566,6 +651,47 @@ class BulkPreviewPageReaderPostgresTest {
                     sql.execute("update praxis_bulk." + marker + " set phase='COMPLETE'");
                 }
             }
+        }
+    }
+
+    private static final class RecordingAuthorizationProvider implements BulkReadAuthorizationProvider {
+        private final BulkExecutionInfrastructure infrastructure;
+        private final GlobalDecision global;
+        private final ScopeDecision scoped;
+        private String requester;
+        private String creator;
+        private List<Target> targets = List.of();
+        private int authorizeCalls;
+
+        private RecordingAuthorizationProvider(BulkExecutionInfrastructure infrastructure,
+                GlobalDecision global, ScopeDecision scoped) {
+            this.infrastructure = infrastructure;
+            this.global = global;
+            this.scoped = scoped;
+        }
+
+        @Override public String confirmationOperationId() {
+            return CONTEXT.operationRef().operationId();
+        }
+
+        @Override public BulkExecutionInfrastructure executionInfrastructure() {
+            return infrastructure;
+        }
+
+        @Override public GlobalDecision preAuthorize(Context context, Duration remainingBudget) {
+            requester = context.requesterSubjectId();
+            assertThat(remainingBudget).isPositive().isLessThanOrEqualTo(Duration.ofSeconds(3));
+            return global;
+        }
+
+        @Override public ScopeDecision authorize(Context context, String creatorSubjectId,
+                List<Target> fullTargetSet, Duration remainingBudget) {
+            authorizeCalls++;
+            requester = context.requesterSubjectId();
+            creator = creatorSubjectId;
+            targets = List.copyOf(fullTargetSet);
+            assertThat(remainingBudget).isPositive().isLessThanOrEqualTo(Duration.ofSeconds(3));
+            return scoped;
         }
     }
 }

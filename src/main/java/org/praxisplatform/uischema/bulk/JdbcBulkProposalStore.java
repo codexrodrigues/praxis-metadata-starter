@@ -78,24 +78,50 @@ public final class JdbcBulkProposalStore {
             statement.setString(5, scope.operationRef().operationId());
             try (var rows = statement.executeQuery()) {
                 if (!rows.next()) return Optional.empty();
-                try {
-                    var snapshot = BulkSnapshotStorageCodec.decode(rows.getBytes(4), rows.getString(3));
-                    var stored = snapshot.context();
-                    if (!stored.namespaceId().equals(scope.namespaceId()) || !stored.subjectId().equals(scope.subjectId())
-                            || !stored.resourceKey().equals(scope.resourceKey())
-                            || !stored.operationRef().operationId().equals(scope.operationRef().operationId())) {
-                        throw new IllegalArgumentException("Protected scope mismatch");
-                    }
-                    var result = new BulkStoredProposal(id,
-                            rows.getObject(1, OffsetDateTime.class).toInstant(),
-                            rows.getObject(2, OffsetDateTime.class).toInstant(), snapshot,
-                            expectation(rows.getObject(5, Long.class), rows.getString(6), rows.getString(7)));
-                    if (rows.next()) throw new IllegalArgumentException("Duplicate protected proposal");
-                    return Optional.of(result);
-                } catch (RuntimeException error) {
-                    throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
-                }
+                return Optional.of(decodedProposal(rows, id, scope.namespaceId(), scope.subjectId(),
+                        scope.resourceKey(), scope.operationRef().operationId()));
             }
+        }
+    }
+
+    /** Route-bound locator used only by the authorized read compositor before the creator is known. */
+    static Optional<BulkStoredProposal> locateProposal(Connection connection, String namespaceId,
+            String resourceKey, String operationId, UUID id) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select created_at, expires_at, fingerprint, payload,
+                       control_generation, control_descriptor_fingerprint, control_structural_revision,
+                       subject_id
+                from praxis_bulk.praxis_bulk_proposal
+                where proposal_id=? and namespace_id=? and resource_key=? and operation_id=?
+                """)) {
+            statement.setObject(1, id); statement.setString(2, namespaceId);
+            statement.setString(3, resourceKey); statement.setString(4, operationId);
+            try (var rows = statement.executeQuery()) {
+                if (!rows.next()) return Optional.empty();
+                return Optional.of(decodedProposal(rows, id, namespaceId, rows.getString(8),
+                        resourceKey, operationId));
+            }
+        }
+    }
+
+    private static BulkStoredProposal decodedProposal(java.sql.ResultSet rows, UUID id,
+            String namespaceId, String subjectId, String resourceKey, String operationId) throws SQLException {
+        try {
+            var snapshot = BulkSnapshotStorageCodec.decode(rows.getBytes(4), rows.getString(3));
+            var stored = snapshot.context();
+            if (!stored.namespaceId().equals(namespaceId) || !stored.subjectId().equals(subjectId)
+                    || !stored.resourceKey().equals(resourceKey)
+                    || !stored.operationRef().operationId().equals(operationId)) {
+                throw new IllegalArgumentException("Protected scope mismatch");
+            }
+            var result = new BulkStoredProposal(id,
+                    rows.getObject(1, OffsetDateTime.class).toInstant(),
+                    rows.getObject(2, OffsetDateTime.class).toInstant(), snapshot,
+                    expectation(rows.getObject(5, Long.class), rows.getString(6), rows.getString(7)));
+            if (rows.next()) throw new IllegalArgumentException("Duplicate protected proposal");
+            return result;
+        } catch (RuntimeException error) {
+            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
         }
     }
 

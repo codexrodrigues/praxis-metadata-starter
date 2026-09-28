@@ -53,6 +53,19 @@ final class BulkProtectedProposalReader {
     private static Observation read(Connection connection, BulkFingerprintContext scope,
             UUID proposalId) throws SQLException {
         var proposal = JdbcBulkProposalStore.readProposal(connection, scope, proposalId);
+        return observe(connection, proposal, proposalId);
+    }
+
+    /** Internal route-bound lookup. It resolves the historical creator but never authorizes it. */
+    static Observation readForAuthorizedComposition(Connection connection, String namespaceId,
+            String resourceKey, String operationId, UUID proposalId) throws SQLException {
+        var proposal = JdbcBulkProposalStore.locateProposal(
+                connection, namespaceId, resourceKey, operationId, proposalId);
+        return observe(connection, proposal, proposalId);
+    }
+
+    private static Observation observe(Connection connection,
+            java.util.Optional<BulkStoredProposal> proposal, UUID proposalId) throws SQLException {
         if (proposal.isEmpty()) return new Observation(Kind.ABSENT, null, null);
         var stored = proposal.orElseThrow();
         var evaluation = JdbcBulkProposalStore.readEvaluation(connection, stored);
