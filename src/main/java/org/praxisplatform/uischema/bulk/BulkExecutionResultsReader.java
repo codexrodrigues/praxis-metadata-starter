@@ -41,6 +41,7 @@ final class BulkExecutionResultsReader {
         }
         int ordinal() { return ordinal; }
         byte[] wireIdentity() { return wireIdentity.clone(); }
+        Object decodedWireIdentity() { return BulkExecutionResultsReader.wireIdentity(wireIdentity); }
         BulkItemStatus status() { return status; }
         BulkUnitReasonCode reasonCode() { return reasonCode; }
         @Override public String toString() { return "BulkExecutionResultItem[protected]"; }
@@ -98,15 +99,9 @@ final class BulkExecutionResultsReader {
 
     private Page read(BulkFingerprintContext scope, UUID executionId, int lastOrdinal, int size,
             Integer fixedWatermarkExclusive) {
-        Objects.requireNonNull(scope, "scope");
-        Objects.requireNonNull(executionId, "executionId");
-        if (!infrastructure.namespace().equals(scope.namespaceId()) || lastOrdinal < -1
-                || lastOrdinal > 9999 || size < 1 || size > 200
-                || (fixedWatermarkExclusive != null && (fixedWatermarkExclusive < 0
-                    || fixedWatermarkExclusive > 10000 || lastOrdinal >= fixedWatermarkExclusive)))
-            throw new IllegalArgumentException("Invalid result window");
+        validateWindow(scope, executionId, lastOrdinal, size, fixedWatermarkExclusive);
         try {
-            return infrastructure.withConsistentRead(connection -> read(connection, scope,
+            return infrastructure.withConsistentRead(connection -> readPage(connection, scope,
                     executionId, lastOrdinal, size, fixedWatermarkExclusive));
         } catch (BulkDurableExecutionException failure) {
             throw failure;
@@ -115,7 +110,32 @@ final class BulkExecutionResultsReader {
         }
     }
 
-    private static Page read(Connection connection, BulkFingerprintContext scope, UUID executionId,
+    Page read(Connection connection, BulkFingerprintContext scope, UUID executionId,
+            int lastOrdinal, int size) throws SQLException {
+        validateWindow(scope, executionId, lastOrdinal, size, null);
+        if (lastOrdinal != -1) throw new IllegalArgumentException("Continuation requires a fixed watermark");
+        return readPage(connection, scope, executionId, lastOrdinal, size, null);
+    }
+
+    Page read(Connection connection, BulkFingerprintContext scope, UUID executionId,
+            int lastOrdinal, int size, int fixedWatermarkExclusive) throws SQLException {
+        validateWindow(scope, executionId, lastOrdinal, size, fixedWatermarkExclusive);
+        return readPage(connection, scope, executionId, lastOrdinal, size,
+                Integer.valueOf(fixedWatermarkExclusive));
+    }
+
+    private void validateWindow(BulkFingerprintContext scope, UUID executionId,
+            int lastOrdinal, int size, Integer fixedWatermarkExclusive) {
+        Objects.requireNonNull(scope, "scope");
+        Objects.requireNonNull(executionId, "executionId");
+        if (!infrastructure.namespace().equals(scope.namespaceId()) || lastOrdinal < -1
+                || lastOrdinal > 9999 || size < 1 || size > 200
+                || (fixedWatermarkExclusive != null && (fixedWatermarkExclusive < 0
+                    || fixedWatermarkExclusive > 10000 || lastOrdinal >= fixedWatermarkExclusive)))
+            throw new IllegalArgumentException("Invalid result window");
+    }
+
+    private static Page readPage(Connection connection, BulkFingerprintContext scope, UUID executionId,
             int lastOrdinal, int size, Integer fixedWatermarkExclusive) throws SQLException {
         Header header = header(connection, scope, executionId);
         String tombstone = JdbcBulkDurableExecution.scopedTombstone(connection, scope, executionId);

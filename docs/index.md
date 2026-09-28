@@ -17,7 +17,7 @@ plataforma.
 
 - [Núcleo durável de execução](spec/BULK-DURABLE-EXECUTION.html): reserva, unidade transacional, ledger de capacidade V5, retenção/tombstones e recuperação; fundação sem exposição HTTP nem adoção completa no host.
 - [Evidência protegida da avaliação](spec/BULK-EVALUATION-EVIDENCE.html): fatos/plano por alvo vinculados à proposta, sem decisão de elegibilidade.
-- [Decisão H1b de leitura](spec/BULK-H1B-READ-MODEL.html): manifest privado V8, projeção física segura V9, reader autorizado de resultados de proposta e continuação G3b, resumo autorizado de execução e tombstone G3c-a; a biblioteca não cria endpoint HTTP.
+- [Decisão H1b de leitura](spec/BULK-H1B-READ-MODEL.html): manifest privado V8, projeção física segura V9, reader autorizado de resultados de proposta e continuação G3b, resumo autorizado de execução e tombstone G3c-a, composição paginada RS4 G3c-b; a biblioteca não cria endpoint HTTP.
 
 - [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html): API Java, sem runtime executável ou integração de discovery neste incremento.
 

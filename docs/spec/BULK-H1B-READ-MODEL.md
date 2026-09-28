@@ -1087,3 +1087,73 @@ A fonte produtiva e o novo teste têm SHA256
 `JdbcBulkDurableExecution` e `BulkAuthorizedExecutionReaderPostgresTest`).
 Publicação e adoção são gates distintos: o host precisa adotar o artefato publicado
 antes de anunciar o correspondente endpoint HTTP.
+
+
+## G3c-b — composição autorizada dos resultados de execução
+
+Composição Java: `BulkAuthorizedExecutionResultsReader` compõe
+o RS4 existente com `BulkReadAuthorizationProvider` e `BulkReadCursorConfiguration`.
+A entrada pública Java é sujeito autenticado, UUID da execução, tamanho1–200 e
+continuação opcional. Infraestrutura, namespace, recurso e operação são bindings
+confiáveis do servidor. O resultado usa o DTO existente
+`CursorPage<BulkItemResult<Object>>`; somente a observação COMPLETE possui página.
+Não há controller ou schema HTTP novo neste corte.
+
+O reader decodifica o token para o purpose EXECUTION_RESULTS antes de consultar
+SQL protegido ou autorização dentro do core. O budget externo de emissão do host
+é reservado antes da chamada ao core. A permissão global precede lookup protegido. A correlação
+input/evaluation fingerprint da execução deve corresponder à avaliação decodificada
+antes de construir os alvos ou autorizar. Toda página viva reautoriza todos os alvos
+históricos na fonte atual de autoridade do host. Autorização e certificação RS4
+usam uma única conexão física REPEATABLE READ READ ONLY; a seam interna de RS4 não
+abre outra transação. A certificação por página permanece limitada aos itens e
+lookahead; não se usa a varredura RS3 para servir uma página.
+
+A primeira leitura fixa o watermark certificado disponível; zero resulta em página
+vazia sem cursor. O token oculta e autentica proposalId, executionId, scope do
+criador, fingerprint do solicitante/autoridade atual, ordinal, size, watermark,
+revisão execution-results-v1 e tempos. Propósito criptográfico separa RS2 de RS4.
+Continuações conservam o watermark, tamanho e vencimento originais. Novos ACKs ou
+terminalização não ampliam a janela aberta. Uma leitura nova pode observar o sufixo
+NOT_PROCESSED de STOPPED, incluindo cancelamento confirmado; o RS4 exige ausência
+física de receipt/admission em cada ordinal daquele sufixo. Pending-ACK e
+reconciliação não publicam UNKNOWN nem resultados futuros.
+
+Identidade integer/string e status vêm da evidência certificada. CONFIRMED e
+UNCHANGED têm diagnósticos vazios. DENIED, INVALID, CONFLICT e NOT_PROCESSED recebem
+diagnósticos fechados e genéricos por status, sem reason interno, causa, versão,
+fatos, parâmetros, target adicional ou metadata arbitrário. O status INVALID não
+é refinado em “não existe” a partir de uma razão privada. A revisão de projeção
+fixa no token permite rejeitar uma precondição obsoleta sem misturar shapes.
+
+Após autorização integral de uma execução retida, cursor expirado, size alterado
+ou revisão diferente produzem PRECONDITION_FAILED; vínculo/solicitante/fingerprint
+incompatível permanece NOT_FOUND_OR_DENIED. Claim autenticado impossível, como
+watermark maior que targetCount ou ordinal desalinhado, também normaliza negativa.
+Um watermark antigo maior que o prefixo atualmente certificado é UNAVAILABLE,
+sem fallback ou ampliação da janela. Corrupção pré-auth não enumera; corrupção de
+item pós-auth é UNAVAILABLE. O orçamento monotônico3s e expiração do token são
+conferidos antes de publicar, inclusive após a conclusão da transação. Também se
+confere o vencimento do primeiro cursor emitido: caso já tenha expirado nessa
+fronteira, a primeira leitura é UNAVAILABLE; na continuação, PRECONDITION_FAILED.
+Não entregar um next já vencido nem renovar seu TTL.
+
+Tombstone é uma autorização mínima independente após purge: digest histórico do
+criador + grant global atual permitem GONE sem página/status/contagens. Quando há
+cursor, purpose, executionId, namespace/recurso/operação e requester==claim.creator
+devem corresponder. Já não há evidência para verificar proposalId ou fingerprint
+dos alvos purgados. Um token originalmente delegado copiado ao criador pode receber
+GONE, pois esse criador já obtém a mesma observação sem token; a garantia integral
+contra cópia de cursor aplica-se às páginas vivas. Delegado e desconhecido continuam
+indistinguíveis. Não reconstruir targets ou autorização de domínio a partir do
+tombstone.
+
+Validação focal em PostgreSQL real: 10 testes da composição autorizada aprovados,
+com 30 regressões RS4/codec/contrato preservadas na árvore correspondente (40
+testes distintos; reruns não somados). Cobertura inclui autorização JDBC na mesma
+conexão RR/RO com revogação externa, purge concorrente com cursor real, correlação
+inválida antes de auth, corrupção após auth sem página parcial e vencimento após
+a conclusão inclusive na última página. Revisão independente da fonte e dos
+oráculos exigida antes da integração.
+Publicação, adoção, budget durável de emissão na frota e HTTP continuam gates
+separados; Angular aguarda o aceite completo do backend.
