@@ -927,3 +927,38 @@ para conferir expiry/deadline, sem somar esses reruns novamente.
 O Quickstart acrescenta consumidor real para delegado, alvo fora da página,
 transação ambiente e interleavings de grant/lotação. Evidências e árvore exata
 estão no registro `internal-planning/bulk-operations/EXECUCAO.md` do consumidor.
+
+## Caracterização de capacidade para o RC após G3a
+
+Em 28/09/2026, `BulkReadCapacityPostgresTest` passou 2/2 em PostgreSQL 14.22
+real, Java 21.0.10, macOS arm64, fork com `-Xmx256m` (máximo observado
+268.435.456 bytes). Execução reproduzível:
+
+```sh
+mvn -B -Dpraxis.bulk.capacity=true -Dtest=BulkReadCapacityPostgresTest -DargLine=-Xmx256m test
+```
+
+A fixture válida de 200 alvos usa 16 diagnostics allowlisted por item, cada
+mensagem pública com 512 caracteres: 1.857.400 bytes de diagnostics e leitura
+RS2 de 47 ms. A fixture de uma proposta com 10.000 alvos usa um diagnostic por
+item: 5.810.000 bytes de diagnostics e 2.550.668 bytes de avaliação protegida.
+Páginas de 200 no início/fim levaram 48/37 ms; três leituras subsequentes do
+início levaram 30/29/29 ms. A validação integral pública do migrator, com V13
+e markers já `COMPLETE`, levou 354 ms. O teste confere conteúdo, ordinais,
+allowlist, limites físicos e contagem das três tabelas derivadas.
+
+A soma conservadora dos picos dos pools de heap durante a validação foi
+173.803.536 bytes; heap antes/depois foi 47.200.752/95.236.648 bytes,
+com 19 coletas e 35 ms de GC. Essa soma não é pico simultâneo de heap nem RSS.
+Setup da fixture fica fora da medição; resultados não são percentis nem
+benchmark de cold-start. O teste é opt-in e não deve ser apresentado como
+executado por uma suite que não habilitou a propriedade.
+
+Esta evidência fecha a caracterização local RS2/scan para distribuição do RC
+neste cenário explícito. Preserva os gates anteriores para adoção produtiva:
+medir base representativa completa, concorrência, linhas próximas do máximo
+físico e custo da autorização integral do host; definir orçamento de startup
+antes de readiness. A fixture de 10.000 alvos não demonstra suporte G3a/G2 a
+esse tamanho. Não certifica SLA, heap do driver em qualquer carga, HTTP,
+cursores públicos, tombstones autorizados ou backend completo. `fetchSize(1)`
+permanece estratégia conservadora, não uma garantia geral de memória.
