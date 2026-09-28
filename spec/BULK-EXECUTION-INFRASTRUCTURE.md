@@ -31,7 +31,7 @@ O host também fornece uma `BulkExecutionRoleConfiguration` proveniente do provi
 
 O namespace tem de 1 a 200 caracteres Java, sem espaços nas extremidades, controles ou valor vazio; não é normalizado, inferido de headers nem recebe default. Identifica o binding operacional e precisa permanecer estável e não ser reutilizado para outro escopo. Não substitui tenant/ambiente/ator autenticados, autorização por operação ou isolamento do ledger futuro.
 
-Os corpos SQL esperados das migrations V5/V6/V7 são extraídos e normalizados uma vez por classloader para um holder lazy e imutável, falhando fechado se a extração não for possível. Só esses valores imutáveis são reutilizados; roles, memberships, grants, ownership, atributos e fences do catálogo PostgreSQL são consultados novamente em toda entrada pública.
+Os corpos SQL esperados das migrations V5/V6/V7/V8/V9 são extraídos e normalizados uma vez por classloader para um holder lazy e imutável, falhando fechado se a extração não for possível. Só esses valores imutáveis são reutilizados; roles, memberships, grants, ownership, atributos e fences do catálogo PostgreSQL são consultados novamente em toda entrada pública. A V8 acrescenta manifest privado de avaliação; a V9 acrescenta projeção física segura e guarda de commit para ela. Nenhuma delas é uma resposta pública neste corte.
 
 ## Participação e falhas
 

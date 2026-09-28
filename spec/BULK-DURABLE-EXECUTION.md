@@ -131,7 +131,7 @@ validada e sem cascade. Trigger recusa `UPDATE` e `DELETE`; a credencial runtime
 
 A execução é a única linha mutável. Um trigger recusa alteração de proposal/fingerprints,
 contexto, digest da chave, deadline, createdAt e total de alvos; somente owner/epoch, estado,
-progresso, tentativa ativa, updatedAt e terminalAt formam o controle mutável. A credencial
+progresso, tentativa ativa, updatedAt, terminalAt e a marca única de cancelamento V10 formam o controle mutável. A credencial
 runtime precisa de `SELECT/INSERT/UPDATE` nela, `SELECT` nas propostas/evidências e
 `SELECT/INSERT` nos receipts. O migrator não concede privilégios. A validação física confere
 tabelas permanentes, colunas/tipos/null/defaults, PKs, UNIQUEs, FKs imediatas e validadas,
@@ -212,6 +212,41 @@ reconciliar a allocation; checksums de Flyway não bastam.
 
 ## Estados e sequência
 
+### Pedido de cancelamento protegido V10
+
+`JdbcBulkDurableExecution.requestCancel(BulkFingerprintContext scope, UUID executionId)`
+é o comando Java do kernel, chamado somente após autorização corrente do host. Ele rejeita
+transação ambiente, confere namespace/subject/resource/operação sem enumerar outro escopo,
+toma os locks de lifecycle na ordem binding → control → buckets → proposta → execução,
+e confirma `cancel_requested_at` com o relógio do banco. Não invoca callback de domínio.
+Execução já terminal ou pedido repetido retorna a snapshot corrente sem regravar a marca;
+timeout ou commit incerto não é resposta de cancelamento admitido e exige reconciliação/retry
+escopado. O host ainda não expõe este comando por HTTP neste corte.
+
+Se a execução está `RUNNING` e seu prefixo de evidência é válido, o mesmo commit encerra
+`STOPPED+CANCELLED_BY_USER` e o trigger libera a allocation ativa uma vez. Com tentativa em
+voo ou receipt pendente, a marca persiste, o prefixo anterior pode ser reconhecido por
+ACK/recovery, e nenhuma callback nova começa. Se a evidência é incoerente, prevalece
+`RECONCILIATION_REQUIRED`: nem a presença da marca autoriza declarar `CANCELLED`. Quando o
+último ordinal já foi confirmado, ACK/recovery conclui `COMPLETED` ou
+`COMPLETED_WITH_ERRORS` normalmente, mesmo com pedido anterior. `BulkExecutionSnapshot`
+expõe a marca internamente; `BulkUnitReasonCode.CANCELLED_BY_USER` distingue o terminal
+cancelado de outros `STOPPED`. A futura projeção pública deve mapear a marca intermediária
+para `CANCEL_REQUESTED` e esse terminal comprovado para `CANCELLED`, mantendo UNKNOWN
+quando a reconciliação é exigida.
+
+O trigger V10 bloqueia `RUNNING→UNIT_IN_FLIGHT` após a marca inclusive no writer V9. Se
+esse writer já havia preparado a tentativa, o guard de INSERT de receipt/admission a
+rejeita após o pedido; como domínio e evidência compartilham a mesma transação local,
+ambos revertem. Evidência confirmada antes do pedido permanece imutável e reexecutá-la
+é proibido. `recover(scope, executionId, recoveryOwner)` usa a ordem de lifecycle e
+continua sem executar domínio. Retenção exige terminalidade reconciliada por 30 dias;
+`STOPPED+CANCELLED_BY_USER` produz tombstone `CANCELLED`, mantendo tombstones `STOPPED`
+históricas. As garantias JDBC/JPA estão limitadas à mesma transação local testada.
+
+Detalhes de constraints, ACL, migração e provas estão em
+[Cancelamento durável H1b](BULK-DURABLE-CANCELLATION.md).
+
 Os estados protegidos do kernel são:
 
 | Estado | Significado e entradas permitidas |
@@ -220,7 +255,7 @@ Os estados protegidos do kernel são:
 | `UNIT_IN_FLIGHT` | Marcador de tentativa confirmado antes da callback. Bloqueia qualquer outro ordinal. |
 | `UNIT_COMMITTED_PENDING_ACK` | Domínio e receipt confirmaram juntos; ainda não houve avanço confirmado do controle. Callback nunca é repetida. |
 | `COMPLETED` | Todos os ordinais possuem receipt e o avanço final foi confirmado. |
-| `STOPPED` | Recuperação ou rollback conhecido encerrou a execução; unidades restantes não são executadas. |
+| `STOPPED` | Recuperação, rollback conhecido ou cancelamento reconciliado encerrou a execução; unidades restantes não são executadas. |
 | `RECONCILIATION_REQUIRED` | Invariante/evidência está ausente ou contraditória; nenhuma nova mutação é permitida. |
 
 `STOPPED` e `COMPLETED` são terminais neste recorte. `RECONCILIATION_REQUIRED` é bloqueante,
@@ -239,7 +274,7 @@ epoch são comparados sob o lock. Recuperação explícita, autorizada pelo host
 lock, incrementa o epoch e troca owner. Lease/horário não prova perda do lock e não permite
 roubo por fora da linha.
 
-A ordem de locks é fixa: execução, receipt do ordinal/digest, proposta/evidência já vinculada,
+Na transação de uma unidade, a ordem dos locks é: execução, receipt do ordinal/digest, proposta/evidência já vinculada,
 locks do domínio feitos pela callback, inserção do receipt, atualização da execução. Não há
 transação externa cobrindo o loop PER_ITEM.
 

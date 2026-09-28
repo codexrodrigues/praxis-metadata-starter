@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>H1b — decisão de base para leitura de operações em lote</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">H1b — decisão de base para leitura de operações em
+lote</h1>
+</header>
+<h1 id="h1b-decisão-de-base-para-leitura-de-operações-em-lote">H1b —
+decisão de base para leitura de operações em lote</h1>
+<p>Estado atual: V8–V13, readers internos RS1–RS4 e codec AEAD de cursor
+estão integrados; ainda não existe serviço de leitura
+autorizado/publicamente consumível, endpoint, cursor HTTP ou
+<code>READY</code>. Baseline inicialmente auditado: Metadata main
+<code>fdc4fac8cf6bdf6129282db6b0ada26c82ac03cb</code>
+(<code>8.0.0-rc.136</code>) e consumidor Quickstart PR #311. O plano do
+consumidor está em
+<code>internal-planning/bulk-operations/H1B-WRITE-SETS.md</code> no
+Quickstart. B0 continua definindo invariantes e semântica pública;
+divergências devem ser corrigidas ali e revisadas antes de modificar um
+contrato público.</p>
+<h2 id="decisão-v11-integridade-bounded-de-página-rs2">Decisão V11 —
+integridade bounded de página RS2</h2>
+<p>Base: Metadata main
+<code>c13e5d8706b3f4b6d0e40e0f1673192d689122eb</code>, com V9 e RS3.
+Classificação: <code>arquitetural</code> e <code>transversal</code> para
+a integridade física de projeção paginada; nenhum contrato público é
+alterado nesta análise. Aderência:
+<code>praxis_bulk_preview_state</code> já vincula a projeção inteira à
+avaliação exata, revisão/allowlist e digest global
+(<code>suportado-parcialmente</code>); cada
+<code>praxis_bulk_target_preview</code> está indexado por ordinal e
+referenciado ao manifest V8
+(<code>ja-suportado-mal-materializado</code>). Falta um checksum
+versionado verificável <strong>por página limitada</strong> contra
+alteração de diagnostics de um item sem ler todos os demais
+(<code>lacuna-real-de-contrato</code> físico, não HTTP).</p>
+<p>O consumidor concreto futuro é <code>proposal-results</code> no
+Quickstart, somente depois de autorização atual e integral de
+alvos/campos/referências. O caminho interno pretendido usa
+<code>withConsistentRead</code> em PostgreSQL
+<code>REPEATABLE READ READ ONLY</code>, consulta scoped por
+namespace/sujeito/recurso/operationId e keyset por ordinal exclusivo
+dentro de <code>0 &lt;= ordinal &lt; watermarkExclusive</code>, com
+limite 1–200 e <code>LIMIT size+1</code>; RS2 imutável fixa
+<code>watermarkExclusive=targetCount</code>. Estado
+<code>UNAVAILABLE</code>/<code>UNAVAILABLE_LEGACY</code> é
+indisponibilidade explícita, nunca página vazia. Falta, drift ou
+duplicidade falham fechados. Nenhuma leitura pode chamar domínio,
+decodificar blob protegido por página, emitir 404/410 antes da
+autorização, criar cursor/endpoint ou declarar <code>READY</code>.</p>
+<p>Duas opções de integridade foram confrontadas:</p>
+<ol type="1">
+<li>Recalcular o digest global V9 a cada página dentro do mesmo
+snapshot. Detecta drift de texto e exige somente código reader, sem DDL
+ou nova ACL, mas lê todos os itens até 10.000 em cada página. No máximo
+físico de <code>diagnostics</code> (65.536 bytes por item), isso pode
+atingir cerca de 655 MB por chamada e repetir-se até 50 vezes para
+páginas de 200. A resposta HTTP teria poucas linhas, porém o trabalho
+não seria bounded e ameaçaria o timeout curto do RS3.</li>
+<li>Adicionar V11 com digest versionado <strong>por item</strong>. O
+digest local inclui fingerprint/revisão/allowlist/digest V9, ordinal,
+decisão, diagnostics canônicos e identidade/versão/digest do manifest. O
+reader lê somente <code>size+1</code> itens e recalcula os digests
+locais na mesma transação curta, mantendo o digest global V9 como
+auditoria integral no bootstrap/migrator. Uma árvore Merkle
+acrescentaria prova contra alteração simultânea de item e seu digest por
+um schema owner, mas esse owner também pode substituir raiz, árvore e
+DDL e está fora do modelo de ameaça deste corte. O custo adicional da
+árvore não se justifica sob as ACLs/immutabilidade governadas.</li>
+</ol>
+<p><strong>Decisão arquitetural: opção 2, digest local V11 sem
+Merkle.</strong> O write set é um campo
+<code>integrity_version=11</code> obrigatório <strong>sem
+default</strong> no parent state e uma linha <code>item_digest</code>
+por ordinal, com FK ao preview V9 e algoritmo fechado. O DDL de Flyway é
+atômico no PostgreSQL: adiciona a coluna
+<code>integrity_version integer NOT NULL DEFAULT 11</code>, preenchendo
+linhas V9 sem disparar o trigger de imutabilidade; remove o default
+<strong>antes do commit</strong>, fixa o <code>CHECK</code> e instala,
+na mesma transação, o marker V11 <code>PENDING</code> e um trigger de
+admissão no parent que exige marker <code>COMPLETE</code> para
+<strong>todo INSERT</strong>, inclusive writer V11; essa proteção não
+pode depender da velocidade nem do sucesso do bootstrap Java. Assim,
+entre commit do DDL e commit do bootstrap, falha, crash ou role
+incorreta só podem deixar <code>PENDING</code> e impedir novas
+avaliações. Writer V9 omite <code>integrity_version</code> e continua
+barrado após <code>COMPLETE</code>. O guard diferido exige todos os
+digests de uma nova avaliação <code>COMPLETE</code> antes de commit;
+<code>UNAVAILABLE</code> não admite linha. O marker é owner-only; a
+função de guard é definida sem <code>search_path</code> mutável pelo
+chamador, roda <code>SECURITY DEFINER</code> com owner governado, tem
+<code>PUBLIC EXECUTE</code> revogado e não concede leitura do marker à
+role runtime.</p>
+<p>O transcript é fechado e binário, com prefixo de domínio e versão.
+<strong>Todo</strong> campo, inclusive inteiro e domínio, é
+<code>comprimento uint32 big-endian || bytes</code>; um inteiro é
+exatamente quatro bytes signed big-endian, portanto seu frame começa em
+<code>00 00 00 04</code>. Strings são UTF-8; bytea usa bytes
+persistidos, sem normalizar texto/JSON após a gravação.
+<code>SHA-256(public_allowlist bytea)</code> é calculado sobre bytes
+crus, e o resultado de 32 bytes entra como campo framed no parent. O
+contexto do parent é
+<code>SHA-256("praxis.bulk.preview-parent/1", proposal UUID canônico, integrity_version int32=11, evaluation_fingerprint UTF-8, projector_revision UTF-8, target_count int32, SHA-256(public_allowlist bytea), projection_digest UTF-8, projection_state UTF-8="COMPLETE")</code>.
+O item é
+<code>SHA-256("praxis.bulk.preview-item/1", parent_context_digest, digest_version int32=1, ordinal int32, manifest.wire_identity bytea, manifest.wire_identity_digest UTF-8, manifest.expected_version bytea, manifest.target_digest UTF-8, preview.decision UTF-8, preview.diagnostics bytea)</code>.
+O identificador UUID é sua representação canônica ASCII de 36 bytes,
+também length-framed. <code>null</code> é proibido nos campos do
+transcript; o framing impede concatenações ambíguas. O digest armazenado
+é <code>sha256:</code> seguido de 64 caracteres hexadecimais minúsculos.
+Vetor de ouro independente (<code>hashlib</code>/<code>struct</code>,
+também fixado em teste): UUID
+<code>123e4567-e89b-12d3-a456-426614174000</code>, fingerprint
+<code>sha256:</code> + 64 <code>a</code>, revision
+<code>prévia\0v1🚀</code>, count <code>2</code>, allowlist UTF-8
+<code>[{"message":"Café\\u0000"}]</code>, projection digest
+<code>sha256:</code> + 64 <code>b</code> produzem contexto
+<code>9f5a40eb25d55c1e0394984b739bf8abfe0b8f27c6e1c78bf39313c7ecfd28e4</code>.
+Com ordinal <code>1</code>, wire identity ASCII
+<code>"id\\u0000"</code>, wire digest <code>sha256:</code> + 64
+<code>c</code>, expected version bytes <code>00 01 00 ff 80</code>,
+target digest <code>sha256:</code> + 64 <code>d</code>, decisão
+<code>BLOCKED</code> e diagnostics
+<code>[{"message":"Café\\u0000"}]</code>, a folha é
+<code>sha256:1afcd8ccf9bb8aca82898b8247b4cd05967ff74c867db2938e068a0a59a4f70b</code>.
+Durante <code>PENDING</code>, é permitido calcular folhas para parents
+V9 cujo <code>projection_state</code> já é <code>COMPLETE</code>: o
+valor <code>COMPLETE</code> no transcript é o estado imutável daquele
+parent, não a fase do marker V11. Nenhum reader aceita essas folhas
+enquanto o marker não for <code>COMPLETE</code>. O writer calcula a
+folha dos bytes <strong>persistidos</strong> no mesmo transaction scope
+da avaliação, manifest e preview, e nunca de uma segunda serialização em
+memória. O reader futuro calcula o contexto uma vez por página no mesmo
+snapshot RR e verifica cada folha retornada; não recalcula a allowlist
+por item nem decodifica a avaliação protegida.</p>
+<p>O bootstrap em uma única transação com advisory lock valida primeiro
+V8 manifest e V9 <strong>global</strong> contra a avaliação protegida,
+incluindo revision, allowlist e mensagens; só então faz backfill das
+folhas V11 dos bytes persistidos.
+<code>UNAVAILABLE</code>/<code>UNAVAILABLE_LEGACY</code> não recebem
+folhas. Na mesma transação valida folhas/constraints, grants, corpo dos
+guards, triggers, owner e catálogo, marca V11 <code>COMPLETE</code> por
+último e atesta o marker antes de commit. Qualquer falha reverte
+backfill, ACL e marker juntos; em <code>PENDING</code> o retry repete a
+validação integral, sem confiar em folhas prévias. Após
+<code>COMPLETE</code>, migrator apenas valida e <strong>não
+repara</strong> drift. A role runtime recebe só
+<code>SELECT,INSERT</code> na nova relação, sem
+<code>UPDATE,DELETE</code>; triggers de imutabilidade e ACL protegem os
+bytes. A FK da folha ao preview é <code>ON DELETE RESTRICT</code>; as
+duas funções governadas de retenção,
+<code>expire_unconsumed_proposal</code> e
+<code>purge_terminal_execution</code>, removem folhas
+<strong>após</strong> obter locks binding → control → buckets →
+proposal/execution e <strong>antes</strong> do preview. O trigger de
+deleção exige o definer <code>praxis_bulk_retention_owner</code>, sem
+grant direto ao executor; falha em qualquer DELETE reverte o write set
+inteiro. O cutover <strong>exige</strong> drenar writers V9 e os
+executores de retenção <code>expire</code>/<code>purge</code>, aguardar
+transações em voo, aplicar Flyway V11, executar bootstrap até marker
+<code>COMPLETE</code> e <code>validate</code> com roles exatas, e só
+então reativar retenção e writers V11. O marker owner-only não serializa
+retenção; uma corrida fora desse procedimento durante
+<code>PENDING</code> pode remover um parent entre validação V9 e
+backfill V11, fazendo a transação de bootstrap abortar por FK ou
+revalidar somente o conjunto sobrevivente. O resultado aceitável de
+falha é marker ainda <code>PENDING</code>, grants/folhas revertidos e
+retry <strong>após</strong> dreno; não há promessa de upgrade
+zero-downtime. Lock order existente binding → operation-control →
+buckets → proposal/execution é preservado, bootstrap serializa no
+advisory lock e reader não toma lock de escrita. O release/adoption deve
+tratar o dreno como gate operacional auditável e não reabrir admissão se
+marker, ACL, folhas ou validação não estiverem completos. Consumidor,
+docs públicos, corpus HTTP e Angular continuam sem mudança até
+reader/autorização. Writers V9 devem migrar antes da reabertura da
+admissão, exigência intencional no beta.</p>
+<p>O teto bruto de diagnostics numa página de 200 é 12,5 MiB, além de
+identidade, resultados e overhead; o reader futuro deve impor orçamento
+agregado de bytes e tempo de transação, sem transformar
+<code>size+1</code> em varredura global. O scan V9 integral
+<strong>permanece em todo <code>migrate</code>/<code>validate</code> e
+startup que os invoca</strong>, inclusive após marker V11
+<code>COMPLETE</code>: com 10.000 itens de diagnostics de 65.536 bytes,
+pode ler cerca de 655 MB por proposta, além do blob protegido, manifest
+e folhas. O gate operacional do V11 deve medir tempo/memória dessa
+validação em bases representativas, definir orçamento de startup e
+impedir readiness quando o scan falhar; a paginação bounded resolve o
+custo de cada leitura RS2, não esse custo de bootstrap/attestation. Na
+fixture PostgreSQL de 10.000 itens deste corte, <code>validateAll</code>
+levou 234 ms com heap usado antes/depois de 62/151 MB no JVM padrão; com
+<code>-Xmx256m</code>, levou 303 ms e o heap usado antes/depois foi
+51/80 MB. Esses valores não medem o pico, nem representam carga
+concorrente ou uma base corporativa; não aprovam ainda um orçamento de
+startup. Um teste separado com heap limitado a 256 MiB rejeitou uma
+projeção de 10.000 diagnostics de 32 KiB corrompidos sem OOM,
+demonstrando streaming na falha, não um SLA de inicialização. Essa
+decisão detecta corrupção/drift que não seja reescrito coerentemente
+junto com o checksum, sob ACL e imutabilidade; schema owner/superuser
+que edita coerentemente dados, folhas e DDL está fora do modelo de
+ameaça. SHA-256 aqui é checksum de integridade sob ACL e imutabilidade,
+não autenticação criptográfica contra writer runtime malicioso com
+<code>INSERT</code> autorizado.</p>
+<p>Provas PostgreSQL de aceite do físico V11: 10.000 itens, alteração
+isolada de diagnostics, alteração do digest ou manifest, estado
+indisponível, rollback, writers V9/V11 barrados no <code>PENDING</code>,
+writer aguardando commit do DDL, wrong-role rollback seguido de retry,
+writer V9 após cutover, ACL/marker/<code>COMPLETE</code> no-heal,
+expiração/purge e concorrência. O reader RS2 bounded é um corte
+separado, depois da revisão do V11. O schema owner capaz de alterar
+simultaneamente todos os dados e DDL está fora do modelo de ameaça;
+runtime não possui esses privilégios.</p>
+<h2 id="corte-interno-rs2-página-limitada-sobre-v11">Corte interno RS2 —
+página limitada sobre V11</h2>
+<p>Base: Metadata main
+<code>7f5f7bbd54efd0e3813b3c422181571c331daec5</code>. Classificação
+<code>arquitetural</code>/<code>transversal</code>, sem contrato
+público. V8 manifest, V9 preview e V11 checksum individual fornecem a
+evidência física; RS3 <code>withConsistentRead</code> fornece transação
+PostgreSQL independente <code>REPEATABLE READ READ ONLY</code>
+(<code>suportado-parcialmente</code>). A lacuna interna era a consulta
+por janela limitada com validação local por item. O consumidor futuro é
+<code>bulk-proposal-results</code> do Quickstart, <strong>após</strong>
+autorização atual e integral do conjunto, contrato de response/cursor e
+revisão próprios. Este corte não registra rota, capability, DTO público
+ou <code>READY</code>.</p>
+<p><code>BulkPreviewPageReader</code> permanece package-private. A
+primeira consulta lê somente o vínculo scoped de proposta, avaliação e
+parent V9/V11, sem selecionar ou decodificar seus blobs protegidos. A
+segunda usa o índice do manifest como eixo,
+<code>ordinal &gt; lastOrdinal AND ordinal &lt; watermarkExclusive</code>,
+ordenação ascendente e <code>LIMIT size+1</code> (<code>size</code> de 1
+a 200); o watermark RS2 deve ser igual ao <code>targetCount</code>
+imutável. Preview e folha entram por <code>LEFT JOIN</code>, para que
+uma ausência não se transforme em página vazia. Cada linha verifica
+continuidade de ordinal, fingerprint, count, wire identity digest,
+transcript V11 e diagnostics canônicos contra a allowlist pública do
+parent. Uma consulta indexada adicional
+<code>ordinal &gt;= targetCount LIMIT 1</code> rejeita sufixo físico
+indevido. Só ordinal, decisão e diagnósticos aprovados saem na
+observação interna; wire identity, expectedVersion, targetDigest e
+digest da folha servem apenas à verificação. <code>ABSENT</code>,
+<code>NOT_EVALUATED</code>, <code>UNAVAILABLE</code> e
+<code>UNAVAILABLE_LEGACY</code> são estados internos distintos e não
+decidem 404/409 antes do authorizer do host. Drift, falta, duplicidade,
+shape inválido ou checksum divergente falham fechados sem detalhe
+protegido na exceção. Estados sem avaliação/projeção usam probes
+indexados <code>LIMIT 1</code> para rejeitar manifest, preview ou folhas
+que não deveriam existir, em vez de aceitar um estado de
+indisponibilidade aparentemente legítimo após drift.</p>
+<p>O orçamento agregado é 20 MiB por chamada, incluindo allowlist,
+manifest, diagnostics e a linha extra <code>size+1</code>; excedê-lo
+produz indisponibilidade operacional segura, jamais página truncada.
+Como V8 admite até 8 MiB de identidade e 8 MiB de versão por linha, até
+uma página máxima fisicamente válida pode ser recusada por esse
+orçamento. O <code>PreparedStatement</code> usa
+<code>fetchSize(1)</code> <strong>antes</strong> de
+<code>executeQuery</code> como estratégia para reduzir a materialização
+antecipada de linhas grandes; o orçamento rejeita a página quando
+excedido. Isso não prova um limite de heap no driver e pode custar até
+201 fetches de rede numa página de 200. A prova de heap e latência com
+PostgreSQL e dados representativos ainda é pendente antes da
+API/release; não aumentar fetch sem essa evidência. A janela usa o
+timeout existente da infraestrutura RS3 (transação 3 s, statement
+limitado a 2 s), sem SLA novo prometido. Nenhum lock de escrita,
+callback de domínio ou mutação é introduzido.</p>
+<p>Provas focais PostgreSQL incluem 10.000 itens e fronteira keyset,
+estado indisponível/legado, escopo cruzado, drift de
+mensagem/folha/manifest e expiração concorrente pausada após o primeiro
+SELECT: o snapshot antigo retém uma página íntegra e uma nova leitura
+observa ausência. A garantia de JPA e read-only físico é herdada e
+comprovada em RS3; este reader usa a mesma infraestrutura, sem prometer
+suporte para outra topologia. Nenhum documento HTTP, corpus, Angular ou
+exemplo público muda neste corte. Impacto em skill:
+<code>atualizar-existente</code> para guidance de paginação
+segura/limite de fetch no
+<code>praxis-java-command-concurrency-authoring</code>, sob coordenação
+da atualização canônica antes de adoção pública.</p>
+<h3 id="gate-de-bootstrap-v11-para-o-reader-corte-v12-candidato">Gate de
+bootstrap V11 para o reader — corte V12 candidato</h3>
+<p><strong>Estado da decisão:</strong> revisão arquitetural aprovada;
+implementação V12 e reader RS2 são candidatos sob provas PostgreSQL e
+revisão independente. Nenhum deles pode ser ativado publicamente antes
+do aceite completo deste gate. Reprodução PostgreSQL: após persistir uma
+avaliação <code>COMPLETE</code>, o owner muda
+<code>praxis_bulk_preview_integrity_bootstrap.phase</code> para
+<code>PENDING</code>; o reader inicial continuava devolvendo
+<code>COMPLETE</code>, pois validava parent e folhas, mas não consultava
+o marker. A revisão classificou a falha como P1. Aderência: o V11 já
+possui o marker owner-only e um trigger <code>SECURITY DEFINER</code>
+que barra <em>inserts</em> no parent; falta uma leitura atestada do
+mesmo marker sob o snapshot RS3. Classificação
+<code>arquitetural</code>/<code>transversal</code> de contrato físico
+privado, sem endpoint, DTO ou semântica pública nova. Fonte canônica:
+Metadata Starter. Consumidor concreto:
+<code>BulkPreviewPageReader</code> package-private; o Quickstart só
+poderá consumi-lo após autorização e contrato de leitura próprios.</p>
+<p>Alternativas descartadas: conceder <code>SELECT</code> no marker à
+role runtime rompe o limite owner-only e amplia a superfície de
+catálogo; cache de lifecycle pode ficar obsoleto após
+<code>COMPLETE</code> → <code>PENDING</code>; chamar a função V11
+existente é impossível porque ela retorna <code>trigger</code>. A menor
+solução correta é uma função PL/pgSQL versionada V12, por exemplo
+<code>praxis_bulk.assert_preview_integrity_complete() RETURNS boolean</code>,
+<code>SECURITY DEFINER</code>, <code>STABLE</code> (nunca
+<code>IMMUTABLE</code>), owner igual ao schema owner atestado,
+<code>search_path</code> fixo <code>pg_catalog, pg_temp</code>,
+<code>PUBLIC EXECUTE</code> revogado, <code>EXECUTE</code> concedido
+somente às roles runtime explicitamente configuradas. Ela devolve
+<code>true</code> apenas quando há <strong>exatamente uma</strong> linha
+de cada marker V11 e V12 e ambas estão <code>COMPLETE</code>, e levanta
+SQLSTATE <code>55000</code> se faltar marker ou a fase divergir. Não
+recebe identificadores nem expõe conteúdo da tabela; o runtime continua
+sem <code>SELECT</code> nos markers. O reader a executa <strong>antes do
+header</strong>, na mesma conexão e transação
+<code>REPEATABLE READ READ ONLY</code> de
+<code>withConsistentRead</code>; erro, privilégio ausente ou função
+ausente falha fechado como indisponibilidade, sem página ou detalhe do
+marker. O reader exige exatamente uma linha e valor booleano
+<code>TRUE</code> da função; qualquer outra forma ou erro é
+indisponibilidade. A atestação viva já feita uma vez por
+<code>withConsistentRead</code> deve passar a conferir assinatura,
+owner, <code>SECURITY DEFINER</code>, <code>STABLE</code>,
+<code>search_path</code>, corpo extraído do SQL V12, ACL efetiva,
+ausência de <code>PUBLIC</code>/grant option e membership. Não repetir a
+atestação por item. Se uma transição owner para <code>PENDING</code>
+ocorrer depois de fixado o snapshot, a leitura conserva a versão
+anterior íntegra; a nova transação vê <code>PENDING</code> e falha.</p>
+<p>V12 cria a função e um marker owner-only
+<code>praxis_bulk_preview_reader_bootstrap</code>
+(<code>bootstrap_version=12</code>, fase <code>PENDING/COMPLETE</code>)
+em uma transação Flyway. Não há novo write set de proposta, avaliação,
+preview ou folha. O marker V12 autoriza <strong>uma única vez</strong> o
+grant dinâmico da função às roles runtime; sem ele, um bootstrap que
+falha depois do DDL teria de reparar ACL sem distinguir instalação de
+drift. O migrator, sob seu advisory lock existente, bloqueia markers na
+ordem V8 → V9 → V11 → V12, verifica roles e catálogo, concede
+<code>EXECUTE</code> exato apenas durante V12 <code>PENDING</code>,
+valida assinatura, linguagem, volatilidade, owner,
+<code>SECURITY DEFINER</code>, <code>search_path</code>, corpo derivado
+do SQL versionado, ACL de função e owner-only de ambos os markers; muda
+V12 para <code>COMPLETE</code> e revalida no <strong>mesmo
+commit</strong>. Falha ou role incorreta reverte grant e fase,
+permitindo retry em <code>PENDING</code>. Depois de
+<code>COMPLETE</code>, revogação/alteração de grant, função ou marker é
+drift e <strong>não</strong> sofre auto-heal. A função testa os dois
+markers ao vivo em cada snapshot e não depende de validação apenas no
+startup. Não introduz row lock no reader nem altera a ordem de locks da
+retenção ou do writer.</p>
+<p>O DDL novo é aditivo, mas binários V11 antigos rejeitam
+relações/funções desconhecidas no catálogo; portanto drenar hosts V11 e
+jobs de retenção antes do Flyway V12, aguardar transações em voo,
+executar DDL e bootstrap V12, validar com roles exatas e só então
+reabrir o serviço. Não se promete deploy sem interrupção nem rollback
+binário V11 após o schema V12: falha após DDL deixa o marker V12
+<code>PENDING</code> e a função sem grant runtime até retry; reversão de
+release requer restauração governada ou correção progressiva, nunca
+remover fence/ACL ad hoc. Superuser/schema owner capaz de editar função,
+marker e catálogo de forma coerente está fora do modelo de ameaça;
+runtime role não tem essa autoridade.</p>
+<p>Provas PostgreSQL mínimas do V12: instalação fresca V1→V12 e upgrade
+V11→V12, leitura <code>COMPLETE</code> normal; owner muda V11 ou V12
+para <code>PENDING</code> após avaliação e a próxima leitura recusa,
+inclusive com parent/folhas íntegros; snapshot anterior à transição
+permanece consistente; runtime não consegue
+<code>SELECT</code>/<code>UPDATE</code> marker nem alterar função;
+chamada direta só é possível para grantee runtime exato; revogação de
+<code>EXECUTE</code>, grant ao <code>PUBLIC</code>,
+owner/corpo/search_path desviados e marker ausente falham na validação
+sem reparo; bootstrap com role incorreta reverte grant e fase e retry
+controlado conclui; o validator do binário V11 rejeita o catálogo V12.
+Writer V9 é barrado pelo fence físico V11; writer V11 durante V12 exige
+o dreno operacional, não um fence V12 que não existe no write set.</p>
+<p>P2 do mesmo aceite: contabilizar o orçamento por bytes UTF-8/bytea
+<strong>de todas</strong> as colunas selecionadas do header e de cada
+linha, inclusive fingerprints, digest V11, decisão, campos de tamanho
+fixo e a linha <code>size+1</code>, com overhead conservador
+documentado. Fazer a cobrança antes de interpretar diagnostics ou
+adicionar item ao resultado. Um teste de fronteira com duas linhas
+fisicamente válidas e checksum V11 coerente, <code>size=1</code>, deve
+provar que a segunda linha excede 20 MiB e recusa a chamada completa;
+outro teste prova página abaixo do limite. Igualdade exata com 20 MiB é
+aceita; o primeiro byte acima, inclusive na linha extra, é recusado. O
+orçamento limita bytes processados, <strong>não</strong> é promessa de
+pico de heap ou SLA; <code>fetchSize(1)</code> e benchmark
+representativo continuam obrigatórios antes da superfície HTTP.</p>
+<h2 id="corte-interno-rs4-resultados-duráveis-por-página">Corte interno
+RS4 — resultados duráveis por página</h2>
+<p>Base: Metadata main
+<code>712eb13f1bad382b8cb6f4a57ae619d24e8e7c1b</code> (RS1/RS2/V12).
+Classificação <code>arquitetural</code> interna; nenhum contrato
+público, SQL físico, grant, endpoint, cursor ou <code>READY</code> é
+criado. Consumidor futuro: handler <code>execution-results</code> no
+Quickstart, após autorização corrente integral do conjunto. Docs
+HTTP/corpus/Angular não derivam deste corte.</p>
+<p>Inventário de aderência: <code>BulkConsistentExecutionRead</code> e
+<code>JdbcBulkDurableExecution.inspectConsistent</code> já certificam
+controle/prefixo, mas percorrem avaliação protegida, manifest e todo o
+ledger de até 10.000 unidades (<code>suportado-parcialmente</code>,
+inadequado para página). Manifest V8 já vincula ordinal, identidade wire
+e versão à avaliação; receipts V3 e admissions V4 guardam outcome e
+digest duráveis, enquanto tombstone V5 preserva somente estado terminal
+(<code>ja-suportado-mal-materializado</code>).
+<code>BulkExecutionInfrastructure</code> já fornece
+<code>withConsistentRead</code> independente
+<code>REPEATABLE READ READ ONLY</code>; não existe lacuna de contrato
+público para a <strong>fundação interna</strong>.
+<code>BulkItemResult</code> é contrato futuro; não é resposta deste
+leitor nem autoriza expor reason/facts.</p>
+<p>Write set mínimo: somente leitor package-private e provas PostgreSQL;
+queries indexadas no mesmo snapshot observam header de execution,
+vínculo proposal/evaluation e tombstone scoped, depois keyset por
+ordinal do manifest com LEFT JOIN das receipts/admissions,
+<code>LIMIT size+1</code> e limite agregado de bytes. Escopo confiável
+inclui namespace, subject, resource e operationId; fingerprints,
+targetCount, digest da identidade wire, versão e targetDigest são
+comparados antes de aceitar um item. A primeira página fixa e devolve
+<code>watermarkExclusive</code>; toda continuação interna exige esse
+valor explícito e jamais amplia a janela quando ACK ou
+<code>STOPPED</code> avança <code>nextOrdinal</code>/status. O futuro
+cursor público deve vincular o watermark ao escopo/shape governado. O
+prefixo servido deve estar em <code>ordinal &lt; nextOrdinal</code> e
+ter exatamente uma evidência durável coerente por ordinal. Evidência no
+sufixo de <code>RECONCILIATION_REQUIRED</code> nunca vira item
+<code>UNKNOWN</code>; ele fica fora da página até reconciliar. Em
+<code>STOPPED</code> terminal, <code>NOT_PROCESSED</code> é permitido
+apenas em ordinal &gt;= <code>nextOrdinal</code> com ausência física
+comprovada de receipt e admission na própria linha. Estados não
+terminais não fabricam itens futuros. <code>COMPLETED</code> e
+<code>COMPLETED_WITH_ERRORS</code> exigem
+<code>nextOrdinal=targetCount</code> e evidência por item. Um
+<code>EXISTS</code> indexado do ledger de admission exige ausência para
+<code>COMPLETED</code> e presença para
+<code>COMPLETED_WITH_ERRORS</code>, sem scan global por página. A
+garantia do leitor é local aos itens retornados e ao estado terminal
+mínimo; a auditoria integral do prefixo, contagens e allocations
+continua em RS3. Drift/duplicidade/shape impossível falha
+<code>CORRUPT</code>; SQL/ACL/timeout falha <code>UNAVAILABLE</code>,
+sem payload ou razão privada na exceção. O orçamento de 20 MiB inclui
+bytes do manifest e a linha de lookahead; aceita igualdade e rejeita o
+primeiro byte acima do limite. Ele limita bytes processados, não prova
+pico de heap nem estabelece SLA; <code>fetchSize(1)</code> preserva a
+estratégia conservadora até benchmark representativo antes de HTTP.</p>
+<p>Locks: nenhum lock de escrita; o primeiro SELECT fixa a visão MVCC,
+então ACK/receipt, cancelamento, recovery e purge podem confirmar em
+outra conexão sem página híbrida. Tombstone scoped nunca é convertido em
+410 antes de autorização do host. O valor interno contém apenas bytes
+wire canônicos, ordinal e outcome/razão de código para interpretação
+posterior e tem serialização/toString opacos. Não lê o blob da avaliação
+por página; portanto este corte comprova a integridade
+<strong>local</strong> dos itens servidos contra manifest imutável e
+controle durável, não reexecuta a auditoria integral RS3 em cada
+requisição. A ordenação, a linha extra e o orçamento são verificáveis em
+PostgreSQL com 10.000 alvos, corrupção, fronteira de bytes, escopo
+cruzado e barreiras determinísticas de ACK/purge. Antes de expor HTTP
+ainda faltam authorizer granular, cursor protegido e redaction explícita
+de razões/identidade.</p>
+<p>Prova focal em PostgreSQL 14.22: dez métodos de
+<code>BulkDurableExecutionPostgresTest</code> cobrem
+prefixo/<code>STOPPED</code>, admission, reconciliação sem
+<code>UNKNOWN</code>, escopo cruzado, manifest/receipt drift, ACK e
+purge concorrentes entre SELECTs, watermark fixado entre páginas,
+admission/status terminal incompatíveis, 10.000 alvos e orçamento da
+linha extra. O método de 10.000 alvos mediu 69 ms para duas páginas de
+200 itens no PG embedded local; isto não é orçamento de latência de
+produção. A bateria final tem 10/10 sem falhas/erros no XML Surefire
+desta árvore, log local <code>/tmp/praxis-rs4-ten.log</code>. RS3 já
+prova o <code>withConsistentRead</code> físico com JDBC e JPA; RS4 não
+altera essa infraestrutura. Impacto de skill:
+<code>atualizar-existente</code> em
+<code>praxis-java-command-concurrency-authoring</code>; o arquivo
+canônico consultado em <code>praxis-codex-skills</code> HEAD
+<code>d99aef0</code> ensina outcomes em lote, mas ainda não descreve
+esta leitura protegida bounded e seus limites. A coordenação entrega e
+valida a atualização na fonte canônica; este pacote Metadata não edita
+skills.</p>
+<h2 id="corte-interno-rs3-pré-análise-de-27092026">Corte interno RS3 —
+pré-análise de 27/09/2026</h2>
+<p>Base de implementação: Metadata main
+<code>7117f96cb6f34e612711fa57212f13e4f943ba65</code> (V10).
+Classificação: <code>arquitetural</code> pela fronteira de snapshot
+físico e <code>transversal</code> entre infraestrutura JDBC/JPA, ledger,
+validação e docs; sem alteração de contrato público. Inventário de
+aderência: <code>JdbcBulkDurableExecution.find</code> já filtra
+execution pelo escopo, mas lê linha/contagens sem prova de prefixo nem
+tombstone (<code>suportado-parcialmente</code>);
+<code>loadEvaluation</code>,
+<code>BulkOrdinalManifest.validateOne</code>,
+<code>durablePrefixConsistent</code> e os codecs já verificam o vínculo
+protegido (<code>ja-suportado-mal-materializado</code>);
+<code>BulkExecutionInfrastructure.withLifecycleRead</code> usa
+<code>READ_COMMITTED</code> e transaction writable, portanto uma leitura
+curta <code>REPEATABLE_READ READ ONLY</code> é lacuna real de
+infraestrutura. O consumidor concreto futuro é o handler
+<code>execution-read</code> do Quickstart PR #311, após authorizer
+integral atual do conjunto; não serializar
+<code>BulkExecutionSnapshot</code>, avaliação ou blob protegido.</p>
+<p>Write set mínimo: um caminho interno sem HTTP que abre conexão
+runtime independente, fixa isolamento <code>REPEATABLE READ</code> e
+<code>READ ONLY</code> antes da primeira consulta de dados, aplica
+timeouts locais, lê execution/proposal/evaluation, manifest,
+receipt/admission, allocation e tombstone no mesmo snapshot MVCC e
+finaliza/fecha a transação. Faltas, duplicidades, drift de
+fingerprint/digest/versão, prefixo inválido e combinações impossíveis de
+status/allocation falham fechadas. Leitura não adquire locks de escrita,
+não chama domínio, não altera quota/epoch e não decide 404/410; até a
+identificação interna de tombstone só pode ser usada depois da
+autorização corrente pelo host. Não expor campos protegidos ou
+<code>NOT_PROCESSED</code> público neste corte. Provas PostgreSQL
+focais: commit de receipt concorrente, purge concorrente, corrupção e
+escopo cruzado, conferindo que o resultado inteiro vem de um único
+snapshot.</p>
+<h3 id="candidato-implementado-e-limite-de-uso">Candidato implementado e
+limite de uso</h3>
+<p><code>BulkExecutionInfrastructure.withConsistentRead</code> abre
+transação independente e verifica no PostgreSQL físico
+<code>transaction_isolation=repeatable read</code> e
+<code>transaction_read_only=on</code>, inclusive sob
+<code>JpaTransactionManager</code>; o vínculo da conexão, role runtime,
+namespace e timeouts são revalidados. O caminho package-private
+<code>JdbcBulkDurableExecution.inspectConsistent</code> lê tudo na mesma
+transação, valida a avaliação protegida contra a proposta, o manifest
+V8, o prefixo de receipts/admissions, estado e duas allocations, e
+devolve somente uma observação interna <code>ABSENT</code>,
+<code>LIVE</code> ou <code>TOMBSTONE</code>. Esta observação contém
+controle protegido e <strong>não</strong> é contrato/response público;
+não pode gerar 404/410 antes de autorização atual do host. Nenhum blob,
+fato, plano ou texto de diagnóstico é serializado. Nenhum novo write
+set, migration, grant ou bean é introduzido.</p>
+<p>Em <code>RECONCILIATION_REQUIRED</code>, receipts/admissions
+fisicamente presentes depois de <code>nextOrdinal</code> permanecem
+evidência incerta. O read model valida sua forma, digest, versão e
+unicidade, mas conta como <code>CONFIRMED</code>/outro outcome apenas o
+prefixo certificado. O snapshot interno apresenta contagens
+certificadas, e <code>unknown = targetCount - nextOrdinal</code> cobre
+conservadoramente todo o sufixo; não transforma receipt posterior em
+sucesso nem em <code>NOT_PROCESSED</code>. O ledger físico pode,
+portanto, ter mais linhas do que a contagem certificada no read model.
+Duplicidade ou digest/versão impossível continuam
+<code>CORRUPT</code>.</p>
+<p>Prova focal em PostgreSQL 14.22:
+<code>BulkDurableExecutionPostgresTest</code> selecionou
+<code>internalConsistentRead*</code> e dois cenários existentes de
+recuperação, 11 testes, 0 falhas/erros. Inclui isolamento físico de
+escrita (<code>SQLSTATE 25006</code>), JPA, escopo cruzado, commit
+concorrente de receipt, purge concorrente com tombstone, e corrupção de
+versão/ordinal, digest do manifest e lifecycle de allocation, além de
+10.000 alvos e de receipt incerto após recuperação com prefixo
+certificado zero ou um. A barreira de teste pausa a leitura depois do
+primeiro SELECT que fixa o snapshot: commits concorrentes aparecem
+apenas numa nova leitura, nunca como mistura de épocas na mesma
+observação. Log local:
+<code>/tmp/praxis-h1b-rs3-reconciliation.log</code>; relatório Surefire:
+<code>target/surefire-reports/TEST-org.praxisplatform.uischema.bulk.BulkDurableExecutionPostgresTest.xml</code>.</p>
+<p>Este validador interno percorre até o limite do snapshot protegido;
+ele <strong>não</strong> é um reader paginado. O futuro reader público
+precisa de consulta limitada por ordinal e prova própria de
+custo/latência para 10.000 alvos, autorização atual, redaction/projeção
+e cursor seguro. Não declarar RS1/RS3 público ou <code>READY</code> com
+esta fundação. O material canônico inspecionado em
+<code>praxis-codex-skills</code> <code>origin/main cff2c46</code> local
+cobre V8/V9, mas não ensina o snapshot físico
+<code>REPEATABLE READ READ ONLY</code>. Como essa referência local pode
+estar defasada, a classificação é provisória:
+<code>atualizar-existente</code>
+(<code>praxis-java-command-concurrency-authoring</code>, com ajuste de
+manutenção de starter se necessário), sujeita a confronto com o HEAD
+canônico atual pelo coordenador. A atualização canônica fica sob a
+coordenação do pacote de skills, antes do aceite final. Docs HTTP,
+corpus, playgrounds, Angular e exemplos públicos não têm superfície nova
+neste corte.</p>
+<h3 id="projeção-interna-de-resumo-rs3">Projeção interna de resumo
+RS3</h3>
+<p>Base: Metadata main
+<code>ff0d6b074c0d7922cc887340b01edec81285417e</code>. Classificação
+<code>arquitetural</code> interna, sem contrato público. O inventário é
+<code>suportado-parcialmente</code>: <code>inspectConsistent</code> já
+certifica o vínculo protegido, o prefixo durável, as allocations, os
+tempos e as contagens, enquanto <code>BulkExecutionTotals</code> já
+valida a soma. Faltava somente materializar um resumo interno coerente
+para o futuro handler <code>execution-read</code> do Quickstart. Não há
+migration, grant, endpoint, cursor, DTO público ou <code>READY</code>
+neste corte.</p>
+<p><code>BulkExecutionSummary</code> é package-private e opaco à
+serialização. A projeção usa somente a observação consistente RS3.
+<code>RUNNING</code>, <code>UNIT_IN_FLIGHT</code> e
+<code>UNIT_COMMITTED_PENDING_ACK</code> viram <code>RUNNING</code> sem
+pedido de cancelamento, ou <code>CANCEL_REQUESTED</code> quando
+<code>cancelRequestedAt</code> já está persistido; em ambos os casos o
+sufixo não reconhecido fica em <code>pending</code>. O receipt pendente
+de ACK não entra nas contagens certificadas.
+<code>RECONCILIATION_REQUIRED</code> mantém todo o sufixo
+<code>UNKNOWN</code>, inclusive quando há receipt físico incerto.
+<code>STOPPED</code> só projeta o sufixo como <code>NOT_PROCESSED</code>
+após a prova de ausência de receipt/admission em
+<code>inspectConsistent</code>; a razão <code>CANCELLED_BY_USER</code>
+distingue <code>CANCELLED</code>, sem antecipar terminalização de um
+pedido de cancelamento. <code>COMPLETED</code> e
+<code>COMPLETED_WITH_ERRORS</code> exigem prefixo integral e evidência
+compatível. A soma dos totais deve ser <code>targetCount</code>; drift
+de estado, tempos ou contagens falha <code>CORRUPT</code> sem causa
+protegida. O resumo preserva os instantes persistidos. Antes de V13, os
+writers chamavam <code>clock_timestamp()</code> separadamente para
+<code>terminal_at</code> e <code>updated_at</code>, e um terminal
+fisicamente válido podia ter <code>terminalAt</code> microssegundos após
+<code>updatedAt</code>. Este corte RS3 não reescreve instantes nem
+constrói o DTO público.</p>
+<p><strong>Integridade temporal V13 (implementada após RS3):</strong> a
+migração substitui apenas o bloco de tempo do guard V5, preservando os
+fences e provas de terminal. Ela atesta owner, corpo, ACL e trigger
+V5/V10 antes da troca, repara o skew histórico conhecido
+(<code>terminal_at &gt; updated_at</code>) sob lock transacional e
+valida uma constraint para <code>created_at &lt;= updated_at</code>,
+<code>terminal_at &lt;= updated_at</code> e
+<code>cancel_requested_at &lt;= terminal_at</code> quando ambos existem.
+Cronologia histórica impossível interrompe a migração e reverte DDL,
+função, privilégios e dados. Os writers usam um instante SQL por UPDATE
+terminal; o trigger V5 reestampa <code>terminal_at</code> e eleva
+<code>updated_at</code>, enquanto V10 continua elevando o terminal no
+UPDATE que aceita cancelamento. O migrator rejeita drift posterior de
+corpo, ACL, owner, trigger ou constraint. A projeção RS3 continua
+preservando os instantes certificados sem normalização de leitura; o
+gate público de autorização, contrato e HTTP permanece separado. O corte
+V13 exige drenar writers e retenção V12 antes do Flyway: binários V12
+reatestam o corpo V5 e falham fechados após o commit V13. Reiniciar e
+reabrir tráfego somente com binários V13; esta migração não declara
+rolling upgrade. O preflight V13 atesta os guards V5/V10 que governam a
+cronologia e a forma dos seis triggers de UPDATE da execução; drift em
+outras superfícies continua sob a validação mais ampla do migrator.</p>
+<p><code>ABSENT</code> e <code>TOMBSTONE</code> continuam observações
+internas distintas, sem decisão de 404/410 antes da autorização atual e
+integral no host. Não se fabrica <code>QUEUED</code>, modo, atomicidade,
+<code>operationRef</code> ou diagnostics: esses campos não foram
+certificados por este read model. <code>CANCEL_REQUESTED</code> depende
+exclusivamente de <code>cancelRequestedAt</code> persistido. O resumo
+não constrói <code>BulkExecution</code>. Docs HTTP, corpus, playgrounds
+e Angular não possuem artefato derivado neste corte. Provas PostgreSQL
+focais cobrem o estado inicial, sucessos/admissions, sufixo de STOPPED,
+receipt pendente de ACK, cancelamento antes/depois de reconciliação,
+escopo cruzado, tombstone e corrupção; as provas RS3 preexistentes
+continuam cobrindo snapshot físico, receipt/purge concorrentes e limite
+de 10.000 alvos. O impacto em skill permanece sob a coordenação do
+pacote canônico
+<code>praxis-java-command-concurrency-authoring</code>.</p>
+<h2 id="corte-interno-rs1-proposta-e-avaliação-no-mesmo-snapshot">Corte
+interno RS1 — proposta e avaliação no mesmo snapshot</h2>
+<p>Base: Metadata main
+<code>17d102ec69c5e00c4b75101ad8c6f0f9652bb228</code> (V12). A mudança é
+<code>arquitetural</code> interna: cria uma observação protegida
+coerente, mas não altera contrato público, endpoint, autorização,
+projeção segura ou estado <code>READY</code>. Fonte canônica:
+<code>praxis-metadata-starter</code>; consumidor concreto futuro:
+handler <code>bulk-proposal-read</code> do Quickstart, somente após
+autorização corrente e redaction explícita do provider. Não há artefato
+HTTP, corpus, Angular ou playground derivado deste corte.</p>
+<p>Inventário de aderência: <code>JdbcBulkProposalStore.find</code> já
+verifica escopo e fingerprint da intenção; <code>findEvaluation</code>
+já verifica o vínculo da avaliação, mas chama <code>find</code> e abre
+outra conexão/observação. Os codecs protegidos
+<code>BulkSnapshotStorageCodec</code> e
+<code>BulkEvaluationStorageCodec</code> já validam shape, fingerprints e
+vínculo do conteúdo.
+<code>BulkExecutionInfrastructure.withConsistentRead</code> já
+estabelece transação física independente
+<code>REPEATABLE READ READ ONLY</code>, escopo operacional, ACL viva e
+timeout curto. Classificação: <code>suportado-parcialmente</code>; falta
+somente a composição desses leitores em <strong>um</strong> snapshot.
+Não se cria DTO de resposta, registry, SPI ou nova migration.</p>
+<p>Write set: nenhum. O reader package-private observa proposta e
+avaliação por <code>proposal_id</code> e escopo confiável
+<code>(namespace, subject, resource, operationId)</code>; decodifica
+ambas na mesma conexão após o primeiro SELECT fixar o snapshot.
+<code>ABSENT</code>, <code>NOT_EVALUATED</code> e <code>EVALUATED</code>
+são estados internos, não códigos HTTP. Se a proposta estiver presente
+sem avaliação, a observação exige ausência de manifest/projeção/folhas;
+se houver avaliação, exige vínculo de fingerprint exato. Duplicidade,
+bytes inválidos, vínculo/escopo divergente ou linha dependente
+inesperada sob proposta sem avaliação falham <code>CORRUPT</code> sem
+incluir payload na exceção. SQL/ACL/timeout falham
+<code>UNAVAILABLE</code>. A leitura não usa locks de escrita: o snapshot
+MVCC permite expiração concorrente e impede misturar proposta anterior
+com avaliação posterior ou vice-versa. O futuro host não deve converter
+<code>ABSENT</code> em 404/410 antes de autenticação, autorização atual
+e decisão sobre histórico/tombstone.</p>
+<p>Mapa de impacto: apenas pacote <code>bulk</code> e testes PostgreSQL
+do Metadata; a API pública existente de
+<code>JdbcBulkProposalStore</code> mantém a semântica. Risco material é
+vazamento de <code>facts</code>, <code>plan</code> ou intenção protegida
+por serialização acidental: o valor interno fica
+package-private/<code>@JsonIgnoreType</code>, com <code>toString</code>
+opaco. Não produzir <code>redactedIntent</code> genérico; a autorização
+histórica ambígua, delegação, expiração pública e shape da projeção do
+provider permanecem lacunas separadas de RS1. Provas focais: PostgreSQL
+real em conexões independentes, cross-scope, proposta sem avaliação,
+corrupção dos dois blobs/vínculo, read-only físico e expiração da
+proposta não consumida entre SELECTs, com snapshot antigo coerente e
+leitura nova ausente. A prova focal executada em PostgreSQL 14.22 foi
+<code>BulkProtectedProposalReaderPostgresTest</code> (4 testes, sem
+falhas/erros): estados, escopo, conteúdo opaco em
+<code>toString</code>/Jackson, corrupção de ambos os blobs, ACL revogada
+como indisponibilidade e expiração confirmada entre os dois SELECTs. Log
+local <code>/tmp/praxis-h1b-rs1-reader.log</code> e XML Surefire
+homônimo da classe; a infraestrutura RS3 já possui prova própria de
+transação física READ ONLY/JPA. Skill: <code>atualizar-existente</code>
+em <code>praxis-java-command-concurrency-authoring</code> (fonte
+canônica <code>praxis-codex-skills</code> HEAD <code>d99aef06</code>
+inspecionada): o guidance atual cobre comando/retry, mas não ensina
+leitura protegida coerente e autorização posterior. A atualização
+canônica fica com a coordenação; esta árvore Metadata não modifica
+skills.</p>
+<h2 id="classificação-fonte-e-impacto">Classificação, fonte e
+impacto</h2>
+<p>Esta decisão nasceu como <code>docs-apenas</code>; o corte V9 é
+<code>contrato-publico</code>, <code>arquitetural</code> e
+<code>transversal</code>: pacote <code>bulk</code>, migrations,
+migrator, codecs, readers, projeções públicas e composição MVC do
+Metadata; Quickstart como consumidor concreto; documentação
+<code>docs/spec</code>, guias, corpus HTTP e skills correspondentes.
+Config não é dono dos resultados; Angular só consumirá depois do aceite
+do backend. Há risco de quebra para armazenamentos já migrados e de
+vazamento de fatos/planos protegidos. Cada corte físico exige PostgreSQL
+real, teste de migração a partir de V1–V7, ACL/retention e revisão
+independente. Nenhuma rota/DTO novo será considerada pronta por um teste
+isolado de serialização.</p>
+<h2 id="inventário-de-aderência">Inventário de aderência</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Necessidade</th>
+<th>Evidência existente</th>
+<th>Aderência / lacuna</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Proposta</td>
+<td><code>BulkProposal</code> público e
+<code>JdbcBulkProposalStore.find</code> scoped</td>
+<td><code>suportado-parcialmente</code>: falta projeção/redaction do
+provider para <code>redactedIntent</code>, diagnostics e evidence, além
+de snapshot coerente e autorização corrente; <code>findEvaluation</code>
+abre outra conexão</td>
+</tr>
+<tr class="even">
+<td>Avaliação por alvo</td>
+<td><code>BulkEvaluationSnapshot</code> imutável e protegido, até 10.000
+alvos</td>
+<td><code>lacuna-real-de-contrato</code>: <code>BulkItemResult</code> é
+outcome da execução; falta DTO seguro da avaliação e fonte
+paginável</td>
+</tr>
+<tr class="odd">
+<td>Execução</td>
+<td><code>BulkExecution</code>/<code>BulkExecutionTotals</code>,
+<code>JdbcBulkDurableExecution.find</code> e
+<code>BulkExecutionSummary</code> interno</td>
+<td><code>suportado-parcialmente</code>: status/resumo existe na
+fundação protegida; falta serviço público/autorizado que faça a projeção
+segura e a associe ao principal e ao scope atual.
+<code>requestCancel</code> no kernel não é rota nem read model de
+cancelamento</td>
+</tr>
+<tr class="even">
+<td>Resultado por alvo</td>
+<td><code>BulkItemResult</code>, receipts/admissions por ordinal e
+<code>BulkExecutionResultsReader</code> RS4 interno</td>
+<td><code>suportado-parcialmente</code>: leitor paginado e cursor
+interno existem, mas são package-private e não há serviço/projeção
+externa autorizada; identidade wire e razão terminal precisam de
+redaction/associação segura</td>
+</tr>
+<tr class="odd">
+<td>Cursor</td>
+<td><code>CursorPage</code> é envelope; <code>BulkReadCursorCodec</code>
+AEAD interno e readers RS2/RS4</td>
+<td><code>suportado-parcialmente</code>: codec autenticado/confidencial
+integrado, mas sem API pública de emissão/continuação ligada à
+reautorização por página</td>
+</tr>
+</tbody>
+</table>
+<p><code>BulkProtocolReader</code> valida <strong>entrada</strong> JSON;
+não é reader de resultados. Os blobs protegidos guardam fatos, plano,
+governança, seleção e versões para replay. Os readers RS1–RS4 atuais são
+internos e não produzem, por si, response público nem autorização. Os
+blobs e snapshots protegidos não podem ser serializados como response. A
+existência dos DTOs públicos não prova que há serviço autorizado que os
+projete corretamente.</p>
+<h2 id="decisão-1-índice-privado-imutável-por-ordinal">Decisão 1 —
+índice privado imutável por ordinal</h2>
+<p>O primeiro incremento implementável é um manifest privado por
+<code>(proposal_id, ordinal)</code>, vinculado por FK composta à
+avaliação exata <code>(proposal_id, evaluation_fingerprint)</code>, além
+da proposta. Ele guarda apenas identidade wire canônica, versão esperada
+e vínculo verificável ao snapshot/target original, sob o schema e as
+ACLs de <code>praxis_bulk</code>. É índice de leitura derivado, não
+substitui o blob protegido como autoridade para replay/admissão. Não
+guardar <code>facts</code>, <code>plan</code>, mensagens livres ou
+parâmetros de negócio nesse índice. Identidade wire também pode ser dado
+sensível: só código autorizado a consulta, nunca uma serialização
+automática da linha SQL. O vínculo por alvo deve reutilizar a fórmula
+versionada <code>praxis.bulk.unit/1</code> já usada por
+<code>JdbcBulkDurableExecution.targetDigest</code>, sem copiar uma
+segunda fórmula no store. O produtor e o validador precisam compartilhar
+o mesmo helper canônico.</p>
+<p><code>JdbcBulkProposalStore.insert</code> também admite uma proposta
+<strong>sem</strong> avaliação. Para ela, a cardinalidade correta é zero
+linhas de manifest e nenhum reader de resultado pode afirmar avaliação
+concluída. Para toda proposta com avaliação, o manifest deve conter
+exatamente <code>targetCount</code> ordinais válidos; ausência ou
+parcialidade é corrupção, não página vazia.</p>
+<p><code>insertEvaluated</code> deve gravar proposta, avaliação,
+manifest e allocation na mesma transação do chamador. Qualquer falha
+marca rollback de tudo; nunca deixar proposta com manifest incompleto. A
+ordem de lock existente (<code>namespace binding</code> →
+<code>operation-control</code> → deployment bucket → subject bucket →
+proposal → execution) deve ser preservada. O índice precisa impor
+ordinal contíguo de 0 a <code>targetCount-1</code>, identidade única do
+alvo por proposta, FKs à proposta e à avaliação exata e imutabilidade,
+com custo de escrita e tamanho limitados pelo perfil. A verificação de
+contiguidade e vínculo ao blob é responsabilidade do migrator/reader,
+não uma suposição derivada do número de linhas.</p>
+<p>Migration posterior à V7 deve incluir tabela, checks, índices,
+triggers de imutabilidade, grants mínimos, proteção de DELETE e
+alteração das funções de expiração/purge. Proposta nunca consumida
+expira com avaliação/manifest em uma transação, sem tombstone; execução
+terminal reconciliada conserva o conjunto até seu horizonte e o purga
+junto com as evidências, emitindo apenas tombstone mínimo.
+<code>RECONCILIATION_REQUIRED</code> não pode ser purgada. Migrator
+valida estrutura física, ACL, triggers, funções e consistência de linhas
+existentes. Backfill Java de avaliações legadas ocorre no bootstrap
+antes da validação final, de modo repetível e atômico: decodifica e
+verifica integralmente input/evaluation fingerprint, ordinal e digest;
+falha fechado se não provar equivalência e não fabrica preview público.
+Nenhuma instância rc.136 pode continuar a gravar avaliação durante ou
+após esse backfill: suspender admissão e controle, drenar/parar writers
+antigos, aplicar migration, backfill e validação, subir somente writers
+compatíveis e então reabrir. Alternativa automática só é admissível com
+constraint/trigger transacional que faça o writer antigo falhar fechado.
+Testes devem provar a janela de cutover e mixed-version, inclusive nó
+antigo aguardando lock.</p>
+<p>Expiração preserva a transição de allocation <code>PENDING</code> →
+<code>RELEASED</code> e libera o slot exatamente uma vez antes de
+excluir manifest, avaliação e proposta. Purge conserva tombstone e
+elimina receipts/admissions e ambas as allocations antes de execution,
+manifest, evaluation e proposal, respeitando as FKs. Triggers e
+privilégios de DELETE devem permitir somente essas funções governadas;
+testes verificam contadores e ausência de dupla liberação sob
+concorrência.</p>
+<p>Este primeiro incremento <strong>não</strong> introduz API de
+leitura, cursor, DTO de avaliação ou READY. Seu aceite depende de testes
+PostgreSQL reais para atomicidade de inserção/rollback, ordem/limites,
+migração V1–V7, corrupção/ACL, backfill, cutover mixed-version,
+expiração e purge/quota. A evidência precisa corresponder ao commit e às
+roles exatas.</p>
+<h2 id="decisão-2-projeções-e-autorização-subsequentes">Decisão 2 —
+projeções e autorização subsequentes</h2>
+<p>RS1 reutiliza o shape <code>BulkProposal</code>, mas
+<code>redactedIntent</code>, diagnostics e evidence exigem
+projeção/redaction do provider com campos explicitamente permitidos. O
+Metadata não deduz o conteúdo seguro a partir do blob, e o manifest
+privado não resolve essa lacuna. Sem projeção compatível, RS1 fica
+indisponível de modo seguro; não preencher valores fictícios para
+satisfazer o DTO. RS3 reutiliza <code>BulkExecution</code> e seus
+totais; RS4 reutiliza <code>BulkItemResult</code> e
+<code>CursorPage</code>. Esses readers serão construídos no Metadata em
+um snapshot SQL consistente, sem ler os 10.000 alvos para devolver uma
+página pequena. Não pedir ao Quickstart que leia tabelas, faça joins
+sobre blobs ou redefina estado de execução.</p>
+<p>RS2 exige um resultado <strong>de avaliação</strong>, distinto do
+outcome de execução. Before/after genérico não é seguro: apenas o
+provider do domínio pode produzir uma projeção tipada, explicitamente
+permitida para campos de negócio específicos. Metadata valida shape,
+identidade, limites e proveniência; nunca copia <code>facts</code> ou
+<code>plan</code> arbitrários para HTTP. Ausência de projector
+compatível deixa o preview indisponível, sem inventar resultado a partir
+do blob. O contrato público final de RS2 e o ajuste correspondente de B0
+precisam de decisão/revisão própria antes de código público.</p>
+<h3 id="corte-v9-projeção-física-rs2">Corte V9 — projeção física
+RS2</h3>
+<p><code>BulkPreviewProjection</code> é a entrada explícita do provider
+para o armazenamento: revisão versionada e allowlist de diagnósticos
+públicos por categoria/código com mensagem segura. A decisão
+<code>EXECUTABLE|BLOCKED</code> vem da elegibilidade tipada; diagnóstico
+privado sem definição pública recusa a projeção inteira. O provider não
+fornece mensagens copiadas de <code>facts</code>, <code>plan</code>,
+alvo ou metadata; a coluna <code>diagnostics</code> guarda apenas
+categoria, código e texto seguro, em bytes UTF-8 JSON para não perder
+caracteres aceitos pelo contrato. O estado <code>COMPLETE</code> guarda
+também a allowlist pública canônica e um digest versionado da revisão,
+avaliação, allowlist e de cada item (inclusive texto seguro). Validação
+recompõe o digest e compara cada mensagem à allowlist, detectando drift
+parcial de texto. O schema owner continua confiável: alguém que altera
+simultaneamente linhas, digest e DDL está fora dessa garantia. Nenhuma
+comparação antes/depois genérica é fabricada neste corte.</p>
+<p><code>JdbcBulkProposalStore.insertEvaluated(evaluation, projection)</code>
+exige esse valor na mesma transação física que proposta, avaliação,
+manifest e allocation. A projeção é vinculada à avaliação exata, possui
+estado <code>COMPLETE</code> e linhas contíguas por ordinal; um trigger
+diferido exige a projeção completa antes do commit da avaliação.
+Instâncias anteriores à V9 não podem continuar a gravar após o cutover:
+mesmo se aguardarem lock, o commit sem projeção falha. A assinatura
+anterior de <code>insertEvaluated</code> foi removida no beta; o host
+consumidor deve passar a projeção do provider. Propostas históricas
+recebem <code>UNAVAILABLE_LEGACY</code>, sem itens e sem preview
+inventado. Para uma avaliação nova tipada sem projector seguro, o
+provider escolhe explicitamente
+<code>BulkPreviewProjection.unavailable(evaluation)</code>; a avaliação
+válida persiste com estado <code>UNAVAILABLE</code> sem itens. O trigger
+exige estado explícito e por isso continua a rejeitar writer antigo que
+não gravou a projeção. Um guard de <code>INSERT</code> no item consulta
+o estado pai antes de admitir dados e recusa
+<code>UNAVAILABLE</code>/<code>UNAVAILABLE_LEGACY</code> mesmo em
+transação posterior ao commit da avaliação. A FK do item adquire o lock
+de chave do pai e impede corrida com DELETE de retenção. A retenção
+trava a proposta e remove o item antes do estado. O futuro reader deve
+tratar ambos os estados indisponíveis com
+<code>BULK_PREVIEW_UNAVAILABLE</code> após autorização atual.</p>
+<p>A V9 adiciona ACL focal para as mesmas roles runtime já aptas à
+avaliação, marcador de bootstrap <code>PENDING/COMPLETE</code> exclusivo
+do owner, validação de constraints/funções/triggers/linhas e ordem de
+expiração/purge
+<code>preview_item → preview_state → manifest → evaluation → proposal</code>.
+Após <code>COMPLETE</code>, migração/validação não restauram grants
+revogados nem preenchem projeções ausentes. O corte não expõe leitor,
+paginação, cursor, HTTP ou capability. Autorização atual, forma pública
+de RS2 e paginação continuam gates separados.</p>
+<p>Toda leitura, inclusive proposta, status e totais agregados, valida
+autenticação e autorização <strong>atuais</strong> para o conjunto
+armazenado, com permissões granulares de alvo, campo e referência
+exigidas pelo perfil. Uma permissão parcial ou revogada fecha a resposta
+inteira; não filtra nem renumera silenciosamente a página, nem publica
+contagens ou diagnósticos do conjunto inacessível. Os testes devem
+cobrir grants parciais, revogação e troca de sujeito em RS1–RS4. Leitura
+histórica usa namespace, sujeito, recurso e <code>operationId</code>
+imutáveis; mudança posterior de schema, path ou grupo OpenAPI não
+invalida o replay autorizado. Tombstone produz 410 só após prova
+autorizada de vínculo; ausência de tal prova produz 404. Um cursor de
+recurso retido pode produzir 412 por precondição obsoleta, nunca como
+substituto de expurgo.</p>
+<p>O cursor futuro precisa autenticar e ocultar escopo,
+execução/proposta, ordinal, limite/direção, validade, versão do
+projector/shape e <code>watermarkExclusive</code>. Em execução ativa ele
+fixa apenas o prefixo reconciliado
+<code>0 &lt;= ordinal &lt; watermarkExclusive</code>; item incerto e
+sufixo ficam fora da página, sem <code>NOT_PROCESSED</code> inventado.
+Novos commits em ordinal igual ou maior preservam o cursor já aberto.
+Uma nova consulta após terminalização comprovada pode incluir o sufixo
+comprovadamente não processado. Status e totais atuais são lidos
+separadamente; não exigem igualdade com uma página antiga. O desenho de
+token, segredo/rotação, autorização granular e snapshot SQL são gates da
+etapa de reader.</p>
+<p>Cancelamento é outro corte: <code>cancel_requested_at</code>, razão
+terminal, guards de ACK/recovery, allocation/retenção e projeção
+pública. Não inferir cancelamento confirmado de um pedido recebido
+enquanto há commit incerto. Ele exige provas de duas conexões e
+interleavings antes de ser usado pelos handlers.</p>
+<h2 id="sequência-e-critérios-de-saída">Sequência e critérios de
+saída</h2>
+<ol type="1">
+<li>Implementar manifest privado e evolução física completa, validar
+PostgreSQL e revisão independente; integrar corte autocontido na
+main.</li>
+<li>Integrar a projeção física V9 RS2 após testes e revisão
+independente; fechar cursor/ACL em B0, revisar contratos públicos e
+construir readers RS1–RS4 sobre manifest/projeção, com testes de
+paginação, auth e purge.</li>
+<li>Implementar cancelamento durável, corridas com ACK/recovery e
+projection.</li>
+<li>Publicar o Metadata no marco autorizado, adotar no Quickstart e
+implementar os sete handlers. Somente composição real, readback e provas
+HTTP/PostgreSQL podem retirar o host de <code>UNCOMPOSED</code>.</li>
+</ol>
+<p>Nenhum desses passos autoriza mutação automática na recuperação,
+expurgo de efeito incerto ou anúncio antecipado de backend completo.</p>
+<h2 id="corte-interno-para-cursor-criptográfico-rs2rs4">Corte interno
+para cursor criptográfico RS2/RS4</h2>
+<p>Classificação <code>arquitetural</code> e <code>transversal</code>,
+ainda sem endpoint, DTO HTTP, annotation, capability ou alteração de
+contrato publicado. Este codec interno foi integrado pelo Metadata PR
+#194 (<code>27a010e2aba0e2e56cd24f539bd49d8c9f609375</code>, merge
+<code>15ab5935d020cce3cd6d49e14f5188ef75fd4b2f</code>); não equivale a
+cursor público ou serviço de leitura. Fonte canônica: Metadata para
+token e claims; o Quickstart continua dono do principal autenticado e de
+toda decisão/grant de leitura. Aderência: <code>CursorPage</code> é
+somente envelope e <code>CursorEncoder.BASE64_URL</code> não oculta nem
+autentica seus valores (<code>suportado-parcialmente</code>);
+<code>BulkReadCursorCodec</code> fornece continuação protegida para os
+readers internos RS2/RS4. Continua
+<code>lacuna-real-de-contrato/integração</code> somente a composição
+pública que reautoriza o principal atual, liga cursor a scope/shape e
+projeta DTOs seguros. Consumidor concreto futuro: leitores
+<code>BulkPreviewPageReader</code> e
+<code>BulkExecutionResultsReader</code>, chamados por handlers
+Quickstart somente depois de lookup scoped e autorização corrente
+integral.</p>
+<p>Este corte pode avançar sem escolher acesso creator-only versus
+delegação nem a data de entitlement departamental: o token separa o
+sujeito histórico criador de um fingerprint opaco do escopo de leitura
+efetivo, ambos fornecidos pelo servidor. O codec nunca calcula grants,
+autentica principal, executa lookup, redige dados, ou usa claims para
+autorizar. Cada página futura deve refazer a autorização completa e
+comparar o fingerprint efetivo depois dessa decisão. Repetir uma leitura
+durante a validade é permitido e não produz nova mutação.</p>
+<p>Implementação interna já integrada: codec package-private de
+AES-256-GCM, claims binários canônicos, dois propósitos distintos
+(<code>PROPOSAL_RESULTS</code> RS2 e <code>EXECUTION_RESULTS</code>
+RS4), key set imutável com uma chave ativa e antigas somente para
+decriptação. AAD inclui namespace de protocolo/versão, propósito e
+<code>kid</code>; o envelope expõe apenas versão, <code>kid</code>,
+nonce aleatório de 96 bits e ciphertext/tag. Claims cifrados ligam
+proposta, execução quando aplicável,
+<code>{namespace, subject criador, resource, operationId}</code>,
+fingerprint efetivo de autorização de 32 bytes, direção
+<code>NEXT</code>, último ordinal exclusivo, page size,
+<code>watermarkExclusive</code>, revisão de projector/shape e
+<code>issuedAt</code>/<code>expiresAt</code>. Path, grupo, schema e
+atomicity correntes não participam do vínculo histórico. O codec limita
+páginas a 1–200, ordinal a
+<code>0 &lt;= lastOrdinal &lt; watermark &lt;= 10.000</code>,
+texto/frame e tamanho total do token. Emissão limita TTL a 15 minutos;
+esse é o teto local conservador da versão interna, sujeito à revisão de
+B0 antes de qualquer contrato HTTP. Chaves anteriores precisam
+permanecer disponíveis em todas as réplicas até esse teto mais
+tolerância de relógio. Decode autentica claims expiradas e as marca para
+que o host possa fazer lookup/autorização antes de mapear um 412; token
+malformado, <code>kid</code> ausente ou tag incorreta falham sem detalhe
+sensível.</p>
+<p>O nonce aleatório requer rotação operacional da chave ativa antes de
+2^32 emissões agregadas em toda a frota; esse limite não é contabilizado
+pelo codec stateless. A configuração futura do host precisa documentar e
+provar a política de rotação e observabilidade da emissão antes de
+habilitar cursor HTTP. Não colocar nonce, token, claims ou fingerprint
+em logs, métricas ou traces.</p>
+<p>Estados e recursos: cursor é stateless e imutável; não abre sessão,
+não consome cursor uma única vez, não renova TTL e não toma locks. A
+página RS2 fixa o watermark imutável da proposta; a RS4 conserva o
+prefixo certificado inicial. Queries futuras permanecem no snapshot
+<code>REPEATABLE READ READ ONLY</code>; a ordem de locks de escrita B0
+não muda. A expiração/tombstone/revogação são verificadas pela camada
+futura, não inferidas do token.</p>
+<p>Mapa de impacto: somente pacote <code>bulk</code>, testes unitários e
+esta especificação no Metadata. Host, Config, schemas OpenAPI, corpus
+HTTP, landing/playground e Angular não mudam enquanto os leitores
+permanecerem internos. Skills: classificação
+<code>atualizar-existente</code>; a orientação reutilizável de
+continuação/autorização foi integrada em
+<code>praxis-java-filter-query-authoring</code> pela PR #606, merge
+<code>793a4ac0f3c51e3b025d51079dc6e04e3722b761</code>, e sincronizada
+seletivamente. A skill de comandos de negócio não foi alterada, pois
+este codec não executa transições nem controla concorrência de
+mutações.</p>
+<p>Critérios de aceite deste corte integrado: round-trip em instância
+nova (prova de restart), rotação ativa/antiga, propósito/AAD trocado,
+tamper/tag, <code>kid</code> removido, fingerprint e escopo cruzado,
+nonce aleatório distinto, UTF-8 inválido, truncamento/trailing bytes
+autenticados, flags binárias não canônicas, claims e token excedentes,
+limites positivos e negativos de ordinal/page/TTL, decode
+autenticado-expirado sem autorização implícita. Revisão independente de
+segurança deve confirmar ausência de logging de bearer/claims e ausência
+de decisões HTTP/autorização no codec. O corte não declara leitura
+pública nem resolve os dois pontos pendentes do host.</p>
+<h2 id="g3a-composição-java-de-autorização-e-primeira-página">G3a —
+composição Java de autorização e primeira página</h2>
+<p>Este incremento introduz
+<code>BulkAuthorizedProposalResultsReader</code> como entrada Java
+server-side de primeira página RS2 e
+<code>BulkReadAuthorizationProvider</code> como fronteira semântica de
+autorização do host. Ainda não é uma API HTTP, emissor de cursor ou
+condição de READY. A prova do consumidor Quickstart usa artefato
+candidato isolado; adoção de uma versão publicada é um gate
+separado.</p>
+<p>O wiring confiável fixa recurso e operação; a chamada informa
+solicitante autenticado, proposta e tamanho da página. Não transportar
+esses valores de binding por headers/DTOs não verificados. O provider
+declara a mesma instância <code>BulkExecutionInfrastructure</code>; essa
+identidade configura a integração, não é um sandbox contra código
+malicioso do próprio host. O adaptador concreto deve comprovar que
+participa da conexão física já vinculada, sem abrir outra conexão.</p>
+<p>Dentro de uma única transação RR/RO, a permissão global precede o
+lookup. O locator interno mantém namespace/recurso/operação e resolve o
+criador histórico a partir do registro validado pelo decoder existente.
+O criador não é substituído pelo solicitante. A autorização recebe todos
+os alvos da avaliação protegida, em ordem, por uma view mínima de
+ordinal, identidade wire e facts; nenhum novo storage ou codec é criado.
+Essa view é protegida e não pode ser usada como resposta pública. Não
+recebe plan/parameters por conveniência.</p>
+<p>Somente autorização integral libera a projeção RS2 já validada por
+manifest, digest e allowlist. Os bytes de identidade já verificados
+alimentam a identidade da projeção; não há consulta ao domínio para
+reconstruí-la. Uma página pequena não reduz o conjunto que precisa ser
+autorizado. Ausência de avaliação ou facts suficientes não autoriza
+consulta baseada apenas em permissão global, nem permite reconstruir
+dependências históricas com dados atuais. Nenhuma negativa contém
+página, identidade ou total. Estados Java ainda não são mapeamentos
+HTTP.</p>
+<p>O prazo de nova execução não é prazo de leitura: resultados retidos
+não são negados somente porque <code>proposal.expiresAt</code> passou.
+Purge/tombstone, continuação, redaction de RS1 e códigos HTTP permanecem
+gates separados. Não expor snapshots protegidos como
+<code>BulkProposal</code> nem improvisar redaction genérica.</p>
+<p>O orçamento monotônico começa antes da abertura da transação e é
+conferido após sua conclusão, antes de devolver dados. O proxy JDBC
+existente aplica o TTL transacional aos statements; limites por fase
+preservam <code>statement_timeout</code> menor e o host recebe apenas o
+saldo restante. Isso impede publicação de uma página depois do prazo,
+mas não promete cancelamento instantâneo de aquisição, CPU ou SQL no
+instante exato de três segundos. A conexão obtida diretamente pelo host
+não herda automaticamente o proxy do JdbcTemplate: o adaptador deve
+aplicar os limites correspondentes e preservar a transação do owner.</p>
+<p>Validação focal deste incremento:
+<code>BulkPreviewPageReaderPostgresTest</code>, com PostgreSQL real,
+preserva as provas anteriores de integridade e acrescenta composição com
+criador histórico, negativas, retenção após expiry e descarte de
+resposta atrasada. A suíte contém 15 casos distintos; dois métodos foram
+reexecutados focalmente para conferir expiry/deadline, sem somar esses
+reruns novamente. O Quickstart acrescenta consumidor real para delegado,
+alvo fora da página, transação ambiente e interleavings de
+grant/lotação. Evidências e árvore exata estão no registro
+<code>internal-planning/bulk-operations/EXECUCAO.md</code> do
+consumidor.</p>
+<h2 id="caracterização-de-capacidade-para-o-rc-após-g3a">Caracterização
+de capacidade para o RC após G3a</h2>
+<p>Em 28/09/2026, <code>BulkReadCapacityPostgresTest</code> passou 2/2
+em PostgreSQL 14.22 real, Java 21.0.10, macOS arm64, fork com
+<code>-Xmx256m</code> (máximo observado 268.435.456 bytes). Execução
+reproduzível:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> <span class="at">-B</span> <span class="at">-Dpraxis.bulk.capacity</span><span class="op">=</span>true <span class="at">-Dtest</span><span class="op">=</span>BulkReadCapacityPostgresTest <span class="at">-DargLine</span><span class="op">=</span>-Xmx256m test</span></code></pre></div>
+<p>A fixture válida de 200 alvos usa 16 diagnostics allowlisted por
+item, cada mensagem pública com 512 caracteres: 1.857.400 bytes de
+diagnostics e leitura RS2 de 47 ms. A fixture de uma proposta com 10.000
+alvos usa um diagnostic por item: 5.810.000 bytes de diagnostics e
+2.550.668 bytes de avaliação protegida. Páginas de 200 no início/fim
+levaram 48/37 ms; três leituras subsequentes do início levaram 30/29/29
+ms. A validação integral pública do migrator, com V13 e markers já
+<code>COMPLETE</code>, levou 354 ms. O teste confere conteúdo, ordinais,
+allowlist, limites físicos e contagem das três tabelas derivadas.</p>
+<p>A soma conservadora dos picos dos pools de heap durante a validação
+foi 173.803.536 bytes; heap antes/depois foi 47.200.752/95.236.648
+bytes, com 19 coletas e 35 ms de GC. Essa soma não é pico simultâneo de
+heap nem RSS. Setup da fixture fica fora da medição; resultados não são
+percentis nem benchmark de cold-start. O teste é opt-in e não deve ser
+apresentado como executado por uma suite que não habilitou a
+propriedade.</p>
+<p>Esta evidência fecha a caracterização local RS2/scan para
+distribuição do RC neste cenário explícito. Preserva os gates anteriores
+para adoção produtiva: medir base representativa completa, concorrência,
+linhas próximas do máximo físico e custo da autorização integral do
+host; definir orçamento de startup antes de readiness. A fixture de
+10.000 alvos não demonstra suporte G3a/G2 a esse tamanho. Não certifica
+SLA, heap do driver em qualquer carga, HTTP, cursores públicos,
+tombstones autorizados ou backend completo. <code>fetchSize(1)</code>
+permanece estratégia conservadora, não uma garantia geral de
+memória.</p>
+</body>
+</html>

@@ -409,9 +409,10 @@ credencial runtime recebe <code>SELECT/INSERT</code>, nunca
 <p>A execução é a única linha mutável. Um trigger recusa alteração de
 proposal/fingerprints, contexto, digest da chave, deadline, createdAt e
 total de alvos; somente owner/epoch, estado, progresso, tentativa ativa,
-updatedAt e terminalAt formam o controle mutável. A credencial runtime
-precisa de <code>SELECT/INSERT/UPDATE</code> nela, <code>SELECT</code>
-nas propostas/evidências e <code>SELECT/INSERT</code> nos receipts. O
+updatedAt, terminalAt e a marca única de cancelamento V10 formam o
+controle mutável. A credencial runtime precisa de
+<code>SELECT/INSERT/UPDATE</code> nela, <code>SELECT</code> nas
+propostas/evidências e <code>SELECT/INSERT</code> nos receipts. O
 migrator não concede privilégios. A validação física confere tabelas
 permanentes, colunas/tipos/null/defaults, PKs, UNIQUEs, FKs imediatas e
 validadas, checks, trigger/função de imutabilidade e allowlists pré e
@@ -509,6 +510,49 @@ allocation ativa. Migração e validação física após um caminho de trigger
 desabilitado precisam falhar até o operador reconciliar a allocation;
 checksums de Flyway não bastam.</p>
 <h2 id="estados-e-sequência">Estados e sequência</h2>
+<h3 id="pedido-de-cancelamento-protegido-v10">Pedido de cancelamento
+protegido V10</h3>
+<p><code>JdbcBulkDurableExecution.requestCancel(BulkFingerprintContext scope, UUID executionId)</code>
+é o comando Java do kernel, chamado somente após autorização corrente do
+host. Ele rejeita transação ambiente, confere
+namespace/subject/resource/operação sem enumerar outro escopo, toma os
+locks de lifecycle na ordem binding → control → buckets → proposta →
+execução, e confirma <code>cancel_requested_at</code> com o relógio do
+banco. Não invoca callback de domínio. Execução já terminal ou pedido
+repetido retorna a snapshot corrente sem regravar a marca; timeout ou
+commit incerto não é resposta de cancelamento admitido e exige
+reconciliação/retry escopado. O host ainda não expõe este comando por
+HTTP neste corte.</p>
+<p>Se a execução está <code>RUNNING</code> e seu prefixo de evidência é
+válido, o mesmo commit encerra <code>STOPPED+CANCELLED_BY_USER</code> e
+o trigger libera a allocation ativa uma vez. Com tentativa em voo ou
+receipt pendente, a marca persiste, o prefixo anterior pode ser
+reconhecido por ACK/recovery, e nenhuma callback nova começa. Se a
+evidência é incoerente, prevalece <code>RECONCILIATION_REQUIRED</code>:
+nem a presença da marca autoriza declarar <code>CANCELLED</code>. Quando
+o último ordinal já foi confirmado, ACK/recovery conclui
+<code>COMPLETED</code> ou <code>COMPLETED_WITH_ERRORS</code>
+normalmente, mesmo com pedido anterior.
+<code>BulkExecutionSnapshot</code> expõe a marca internamente;
+<code>BulkUnitReasonCode.CANCELLED_BY_USER</code> distingue o terminal
+cancelado de outros <code>STOPPED</code>. A futura projeção pública deve
+mapear a marca intermediária para <code>CANCEL_REQUESTED</code> e esse
+terminal comprovado para <code>CANCELLED</code>, mantendo UNKNOWN quando
+a reconciliação é exigida.</p>
+<p>O trigger V10 bloqueia <code>RUNNING→UNIT_IN_FLIGHT</code> após a
+marca inclusive no writer V9. Se esse writer já havia preparado a
+tentativa, o guard de INSERT de receipt/admission a rejeita após o
+pedido; como domínio e evidência compartilham a mesma transação local,
+ambos revertem. Evidência confirmada antes do pedido permanece imutável
+e reexecutá-la é proibido.
+<code>recover(scope, executionId, recoveryOwner)</code> usa a ordem de
+lifecycle e continua sem executar domínio. Retenção exige terminalidade
+reconciliada por 30 dias; <code>STOPPED+CANCELLED_BY_USER</code> produz
+tombstone <code>CANCELLED</code>, mantendo tombstones
+<code>STOPPED</code> históricas. As garantias JDBC/JPA estão limitadas à
+mesma transação local testada.</p>
+<p>Detalhes de constraints, ACL, migração e provas estão em <a
+href="BULK-DURABLE-CANCELLATION.md">Cancelamento durável H1b</a>.</p>
 <p>Os estados protegidos do kernel são:</p>
 <table>
 <colgroup>
@@ -544,8 +588,8 @@ confirmado.</td>
 </tr>
 <tr class="odd">
 <td><code>STOPPED</code></td>
-<td>Recuperação ou rollback conhecido encerrou a execução; unidades
-restantes não são executadas.</td>
+<td>Recuperação, rollback conhecido ou cancelamento reconciliado
+encerrou a execução; unidades restantes não são executadas.</td>
 </tr>
 <tr class="even">
 <td><code>RECONCILIATION_REQUIRED</code></td>
@@ -573,10 +617,10 @@ progresso. Owner e epoch são comparados sob o lock. Recuperação
 explícita, autorizada pelo host, adquire o mesmo lock, incrementa o
 epoch e troca owner. Lease/horário não prova perda do lock e não permite
 roubo por fora da linha.</p>
-<p>A ordem de locks é fixa: execução, receipt do ordinal/digest,
-proposta/evidência já vinculada, locks do domínio feitos pela callback,
-inserção do receipt, atualização da execução. Não há transação externa
-cobrindo o loop PER_ITEM.</p>
+<p>Na transação de uma unidade, a ordem dos locks é: execução, receipt
+do ordinal/digest, proposta/evidência já vinculada, locks do domínio
+feitos pela callback, inserção do receipt, atualização da execução. Não
+há transação externa cobrindo o loop PER_ITEM.</p>
 <h2 id="reserva-idempotente">Reserva idempotente</h2>
 <p><code>reserve(scope, proposalId, idempotencyKey, ownerId, structuralRevision, deadline)</code>
 rejeita transação Spring ambiente e abre uma transação operacional
