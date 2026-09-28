@@ -38,6 +38,7 @@ class BulkControlPlaneInfrastructurePostgresTest {
             adminSql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
             adminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest, praxis_bulk.praxis_bulk_preview_state, praxis_bulk.praxis_bulk_target_preview, praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_control");
             var roles = new BulkExecutionRoleConfiguration("postgres", Set.of("bulk_runtime"),
                     Set.of("bulk_retention_group", "bulk_retention_login"), Set.of("bulk_control"));
@@ -124,6 +125,7 @@ class BulkControlPlaneInfrastructurePostgresTest {
             otherAdminSql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
             otherAdminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest, praxis_bulk.praxis_bulk_preview_state, praxis_bulk.praxis_bulk_target_preview, praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
             otherAdminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
+            otherAdminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
             otherAdminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_control");
             BulkExecutionMigrator.validate(otherAdmin, roles);
             var otherControlDs = new DriverManagerDataSource(
@@ -223,6 +225,7 @@ class BulkControlPlaneInfrastructurePostgresTest {
             adminSql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
             adminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest, praxis_bulk.praxis_bulk_preview_state, praxis_bulk.praxis_bulk_target_preview, praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_control");
             var roles = new BulkExecutionRoleConfiguration("postgres", Set.of("bulk_runtime"), Set.of(), Set.of("bulk_control"));
             assertThatThrownBy(() -> new BulkExecutionRoleConfiguration("postgres",

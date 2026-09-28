@@ -52,8 +52,10 @@ acrescentar itens tardios a estados indisponíveis. O bootstrap V9 tem marcador 
 `PENDING`, concede `SELECT, INSERT` nas tabelas de projeção somente às roles
 runtime já aptas à avaliação e explicitamente configuradas; depois de
 `COMPLETE`, não restaura grants nem reconstrói linhas. Valide estrutura, ACL,
-linhas e roles antes de reabrir admissão. Não há reader ou endpoint RS2 neste
-corte.
+linhas e roles antes de reabrir admissão. V9 isoladamente não publicou reader
+ou endpoint RS2. A árvore atual acrescenta checksum V11, gate/leitor interno V12
+e a fachada Java G3a de primeira página autorizada; continua sem rota HTTP,
+continuação/cursor público ou `READY`.
 
 ## Identidade, validade e proteção
 
@@ -76,7 +78,7 @@ As dependências Flyway core e PostgreSQL 11.17.0 são opcionais no starter. O h
 - histórico `praxis_bulk_schema_history`;
 - `baselineOnMigrate=false`, `cleanDisabled=true` e validação de checksums.
 
-Não copiar o SQL para `db/migration`, reutilizar o histórico do host ou aplicar baseline em um schema desconhecido. Um schema `public` com tabelas existentes não participa dessa linha de migração. O schema próprio é reservado ao SDK. A única concessão automatizada é a da nova tabela privada V8 às roles runtime explicitamente configuradas e pré-qualificadas no upgrade; não há provisionamento genérico de contas ou permissões. PostgreSQL é obrigatório; as provas deste incremento usam PostgreSQL 14.22 real. A validação estrutural usa as formas de expressão retornadas pelo catálogo dessa versão: diferenças falham de modo fechado. Outras versões exigem prova de compatibilidade antes da adoção; não estão certificadas por esta suíte.
+Não copiar o SQL para `db/migration`, reutilizar o histórico do host ou aplicar baseline em um schema desconhecido. Um schema `public` com tabelas existentes não participa dessa linha de migração. O schema próprio é reservado ao SDK. As migrations V8–V12 automatizam somente as ACLs focais dos objetos que introduzem: manifest V8, projeção V9, folhas de integridade V11 e `EXECUTE` da função de atestação V12, sempre para roles runtime explicitamente configuradas e pré-qualificadas durante o bootstrap correspondente. V10/V13 substituem funções governadas preservando owner e ACLs validados. Não há provisionamento genérico de contas ou permissões, e markers `COMPLETE` não autorizam reparar grants revogados. PostgreSQL é obrigatório; as provas destes incrementos usam PostgreSQL 14.22 real. A validação estrutural usa as formas de expressão retornadas pelo catálogo dessa versão: diferenças falham de modo fechado. Outras versões exigem prova de compatibilidade antes da adoção; não estão certificadas por esta suíte.
 
 O migrator valida o owner esperado, grantees runtime/control-plane e membros do executor de retenção contra o catálogo PostgreSQL, incluindo os privilégios mínimos por tabela/coluna/função e funções `SECURITY DEFINER`. O host obtém esses nomes do provisionamento real e executa a validação antes de habilitar o consumo. Cada entrada de runtime também revalida identidade e ACLs protegidas na própria conexão autenticada, antes do binding/callback. Configure uma identidade de login runtime não privilegiada; usar o owner como runtime, ou chegar ao papel permitido por `SET ROLE`, falha fechado. O runtime não recebe escrita direta no controle de operação; lock e CAS governado são concedidos por funções dedicadas da V6. Não conceder `CREATE`, `DELETE` ou escrita direta em tombstone ao runtime. Detalhes de lock, limites 100/10/80 e grants estão em [execução durável](BULK-DURABLE-EXECUTION.md), [infraestrutura transacional](BULK-EXECUTION-INFRASTRUCTURE.md) e [controle de operação](BULK-OPERATION-CONTROL.md). Privilégios administrativos ainda podem alterar o schema; portanto, a composição operacional precisa controlar credenciais e repetir validação estrutural no provisionamento.
 
@@ -84,4 +86,4 @@ O migrator valida o owner esperado, grantees runtime/control-plane e membros do 
 
 `BulkSnapshotStorageCodecTest` cobre as três modalidades, quatro codecs, tipos numéricos, limites decimais programáticos, cópias defensivas e corrupção sanitizada. `JdbcBulkProposalStorePostgresTest` usa PostgreSQL real e conexões independentes para migração repetida/concorrente, schema estranho, drift, commit/rollback conjunto da proposta e allocation pendente, unicidade concorrente, limites de quota, acesso contextual, imutabilidade, conteúdo corrompido e credenciais restritas.
 
-Este pacote não altera x-ui, discovery, endpoints, capability, corpus HTTP ou Angular. As regressões do host provam compatibilidade com o JAR candidato; não demonstram adoção do store pelo host. A composição da avaliação governada, a integração real do host com configuração/grants/migrator e a prova HTTP operacional continuam necessárias antes de declarar o protocolo P1 pronto ou iniciar a evolução Angular.
+Este pacote não altera x-ui, discovery, endpoints, capability, corpus HTTP ou Angular. A árvore atual contém composição Java autorizada da primeira página RS2 e prova candidata no host, mas isso não equivale a artefato publicado, adoção pelo host, rota HTTP ou protocolo `READY`. Continuação com cursor, contrato HTTP, integração operacional do host e respectivas provas permanecem gates antes da evolução Angular.
