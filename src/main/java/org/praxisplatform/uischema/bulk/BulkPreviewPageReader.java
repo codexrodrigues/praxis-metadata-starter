@@ -27,7 +27,7 @@ final class BulkPreviewPageReader {
     enum Kind { ABSENT, NOT_EVALUATED, COMPLETE, UNAVAILABLE, UNAVAILABLE_LEGACY }
 
     @JsonIgnoreType
-    record Item(int ordinal, BulkTargetEligibility.Decision decision,
+    record Item(int ordinal, Object wireIdentity, BulkTargetEligibility.Decision decision,
             List<ResourceCommandMessage> diagnostics) {
         Item { diagnostics = List.copyOf(diagnostics); }
     }
@@ -64,7 +64,7 @@ final class BulkPreviewPageReader {
         }
     }
 
-    private Page read(Connection connection, BulkFingerprintContext scope, UUID proposalId,
+    Page read(Connection connection, BulkFingerprintContext scope, UUID proposalId,
             int lastOrdinal, int watermarkExclusive, int size) throws SQLException {
         requireReadGate(connection);
         Header header = header(connection, scope, proposalId);
@@ -145,9 +145,10 @@ final class BulkPreviewPageReader {
                                 wire, wireDigest, version, targetDigest, decision, diagnostics);
                     } catch (RuntimeException failure) { throw corrupt(); }
                     if (!expectedDigest.equals(itemDigest)) throw corrupt();
+                    Object wireIdentity = wireIdentity(wire);
                     List<ResourceCommandMessage> safe = diagnostics(decision, diagnostics, allowlist);
                     if (items.size() == size) hasMore = true;
-                    else items.add(new Item(ordinal,
+                    else items.add(new Item(ordinal, wireIdentity,
                             BulkTargetEligibility.Decision.valueOf(decision), safe));
                 }
             }
@@ -278,6 +279,20 @@ final class BulkPreviewPageReader {
             } catch (RuntimeException failure) { throw corrupt(); }
         }
         return List.copyOf(result);
+    }
+
+    private static Object wireIdentity(byte[] wire) {
+        try {
+            JsonNode node = BulkSnapshotStorageCodec.readDocument(wire);
+            if (!Arrays.equals(BulkSnapshotStorageCodec.json(node), wire)) throw corrupt();
+            if (node.isTextual() && !node.textValue().isEmpty()) return node.textValue();
+            if (node.isNumber()) return node.decimalValue().intValueExact();
+        } catch (BulkProposalStorageException failure) {
+            throw failure;
+        } catch (RuntimeException invalid) {
+            throw corrupt();
+        }
+        throw corrupt();
     }
 
     private record Header(Kind kind, String fingerprint, String revision, int targetCount,

@@ -871,3 +871,59 @@ decode autenticado-expirado sem autorização implícita. Revisão independente 
 segurança deve confirmar ausência de logging de bearer/claims e ausência de
 decisões HTTP/autorização no codec. O corte não declara leitura pública nem
 resolve os dois pontos pendentes do host.
+
+
+## G3a — composição Java de autorização e primeira página
+
+Este incremento introduz `BulkAuthorizedProposalResultsReader` como
+entrada Java server-side de primeira página RS2 e `BulkReadAuthorizationProvider`
+como fronteira semântica de autorização do host. Ainda não é uma API HTTP,
+emissor de cursor ou condição de READY. A prova do consumidor Quickstart usa
+artefato candidato isolado; adoção de uma versão publicada é um gate separado.
+
+O wiring confiável fixa recurso e operação; a chamada informa solicitante
+autenticado, proposta e tamanho da página. Não transportar esses valores de
+binding por headers/DTOs não verificados. O provider declara a mesma instância
+`BulkExecutionInfrastructure`; essa identidade configura a integração, não é
+um sandbox contra código malicioso do próprio host. O adaptador concreto deve
+comprovar que participa da conexão física já vinculada, sem abrir outra conexão.
+
+Dentro de uma única transação RR/RO, a permissão global precede o lookup.
+O locator interno mantém namespace/recurso/operação e resolve o criador
+histórico a partir do registro validado pelo decoder existente. O criador
+não é substituído pelo solicitante. A autorização recebe todos os alvos da
+avaliação protegida, em ordem, por uma view mínima de ordinal, identidade wire
+e facts; nenhum novo storage ou codec é criado. Essa view é protegida e não
+pode ser usada como resposta pública. Não recebe plan/parameters por conveniência.
+
+Somente autorização integral libera a projeção RS2 já validada por manifest,
+digest e allowlist. Os bytes de identidade já verificados alimentam a identidade
+da projeção; não há consulta ao domínio para reconstruí-la. Uma página pequena
+não reduz o conjunto que precisa ser autorizado. Ausência de avaliação ou facts
+suficientes não autoriza consulta baseada apenas em permissão global, nem permite
+reconstruir dependências históricas com dados atuais. Nenhuma negativa contém
+página, identidade ou total. Estados Java ainda não são mapeamentos HTTP.
+
+O prazo de nova execução não é prazo de leitura: resultados retidos não são
+negados somente porque `proposal.expiresAt` passou. Purge/tombstone, continuação,
+redaction de RS1 e códigos HTTP permanecem gates separados. Não expor snapshots
+protegidos como `BulkProposal` nem improvisar redaction genérica.
+
+O orçamento monotônico começa antes da abertura da transação e é conferido
+após sua conclusão, antes de devolver dados. O proxy JDBC existente aplica o
+TTL transacional aos statements; limites por fase preservam `statement_timeout`
+menor e o host recebe apenas o saldo restante. Isso impede publicação de uma
+página depois do prazo, mas não promete cancelamento instantâneo de aquisição,
+CPU ou SQL no instante exato de três segundos. A conexão obtida diretamente
+pelo host não herda automaticamente o proxy do JdbcTemplate: o adaptador deve
+aplicar os limites correspondentes e preservar a transação do owner.
+
+
+Validação focal deste incremento: `BulkPreviewPageReaderPostgresTest`, com
+PostgreSQL real, preserva as provas anteriores de integridade e acrescenta
+composição com criador histórico, negativas, retenção após expiry e descarte de
+resposta atrasada. A suíte de 15 casos foi complementada por um caso de deadline,
+reexecutando dois métodos focais (16 casos distintos, sem contar o rerun duas vezes).
+O Quickstart acrescenta consumidor real para delegado, alvo fora da página,
+transação ambiente e interleavings de grant/lotação. Evidências e árvore exata
+estão no registro `internal-planning/bulk-operations/EXECUCAO.md` do consumidor.
