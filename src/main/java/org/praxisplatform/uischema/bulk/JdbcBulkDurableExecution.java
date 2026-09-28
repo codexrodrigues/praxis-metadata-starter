@@ -148,7 +148,7 @@ public final class JdbcBulkDurableExecution {
         return BulkExecutionSummary.from(inspectConsistent(scope, executionId));
     }
 
-    private BulkConsistentExecutionRead inspectConsistent(Connection connection, BulkFingerprintContext scope,
+    BulkConsistentExecutionRead inspectConsistent(Connection connection, BulkFingerprintContext scope,
             UUID executionId) throws SQLException {
         Optional<BulkExecutionSnapshot> scoped = findScoped(connection, scope, executionId, false);
         String tombstone = scopedTombstone(connection, scope, executionId);
@@ -209,6 +209,14 @@ public final class JdbcBulkDurableExecution {
                 certified, times[0], times[1], times[2],
                 confirmed, unchanged, denied, invalid, conflict,
                 reconciling ? execution.targetCount() - execution.nextOrdinal() : 0, null);
+    }
+
+    /** Same-snapshot RS3 projection for an authorized compositor that owns the connection boundary. */
+    BulkExecutionSummary summarizeConsistent(Connection connection, BulkFingerprintContext scope,
+            UUID executionId) throws SQLException {
+        requireScope(scope);
+        Objects.requireNonNull(executionId, "executionId");
+        return BulkExecutionSummary.from(inspectConsistent(connection, scope, executionId));
     }
 
     /**
@@ -1148,8 +1156,14 @@ public final class JdbcBulkDurableExecution {
 
     static String scopedTombstone(Connection connection, BulkFingerprintContext scope,
             UUID executionId) throws SQLException {
-        String digest = BulkScopeDigests.authorizationScopeDigest(scope.namespaceId(), scope.subjectId(),
-                scope.resourceKey(), scope.operationRef().operationId());
+        return scopedTombstone(connection, scope.namespaceId(), scope.subjectId(), scope.resourceKey(),
+                scope.operationRef().operationId(), executionId);
+    }
+
+    static String scopedTombstone(Connection connection, String namespaceId, String subjectId,
+            String resourceKey, String operationId, UUID executionId) throws SQLException {
+        String digest = BulkScopeDigests.authorizationScopeDigest(namespaceId, subjectId,
+                resourceKey, operationId);
         try (var statement = connection.prepareStatement("""
                 select terminal_status from praxis_bulk.praxis_bulk_tombstone
                 where execution_id=? and namespace_id=?
@@ -1157,11 +1171,11 @@ public final class JdbcBulkDurableExecution {
                   and resource_key=? and operation_id=?
                 """)) {
             statement.setObject(1, executionId);
-            statement.setString(2, scope.namespaceId());
+            statement.setString(2, namespaceId);
             statement.setInt(3, BulkScopeDigests.VERSION);
             statement.setString(4, digest);
-            statement.setString(5, scope.resourceKey());
-            statement.setString(6, scope.operationRef().operationId());
+            statement.setString(5, resourceKey);
+            statement.setString(6, operationId);
             try (ResultSet rows = statement.executeQuery()) {
                 if (!rows.next()) return null;
                 String terminal = rows.getString(1);
