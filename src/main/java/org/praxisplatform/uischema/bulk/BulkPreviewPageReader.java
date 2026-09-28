@@ -34,9 +34,12 @@ final class BulkPreviewPageReader {
 
     @JsonIgnoreType
     record Page(Kind kind, int targetCount, String projectorRevision, List<Item> items,
-            boolean hasMore, int nextOrdinal) {
-        Page { items = List.copyOf(items); }
-        static Page state(Kind kind) { return new Page(kind, 0, null, List.of(), false, -1); }
+            boolean hasMore, int nextOrdinal, long selectedBytes) {
+        Page {
+            items = List.copyOf(items);
+            if (selectedBytes < 0) throw new IllegalArgumentException("selectedBytes must not be negative");
+        }
+        static Page state(Kind kind) { return new Page(kind, 0, null, List.of(), false, -1, 0); }
     }
 
     /** A cursor is not accepted here: position and scope must come from a future authorized caller. */
@@ -155,7 +158,7 @@ final class BulkPreviewPageReader {
         }
         if (!hasMore && expected != watermarkExclusive) throw corrupt();
         return new Page(Kind.COMPLETE, header.targetCount(), header.revision(), items,
-                hasMore, items.isEmpty() ? lastOrdinal : items.getLast().ordinal());
+                hasMore, items.isEmpty() ? lastOrdinal : items.getLast().ordinal(), budget);
     }
 
     private static void requireReadGate(Connection connection) throws SQLException {
