@@ -324,6 +324,7 @@
     "BulkProposalStatus": { "type": "string", "enum": ["READY", "BLOCKED"] },
     "BulkExecutionStatus": { "type": "string", "enum": ["QUEUED", "RUNNING", "CANCEL_REQUESTED", "COMPLETED", "COMPLETED_WITH_ERRORS", "CANCELLED", "STOPPED", "RECONCILIATION_REQUIRED"] },
     "BulkItemStatus": { "type": "string", "enum": ["CONFIRMED", "UNCHANGED", "DENIED", "INVALID", "CONFLICT", "NOT_PROCESSED", "UNKNOWN"] },
+    "BulkProposalItemDecision": { "type": "string", "enum": ["EXECUTABLE", "BLOCKED"] },
     "BulkProposalTotals": {
       "type": "object",
       "additionalProperties": false,
@@ -428,6 +429,48 @@
       "type": "object", "additionalProperties": false,
       "required": ["id", "status", "diagnostics"],
       "properties": { "id": { "$ref": "#/$defs/StringIdentity" }, "status": { "$ref": "#/$defs/BulkItemStatus" }, "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/ResourceCommandMessage" } } }
+    },
+    "BulkProposalItemDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "code", "message", "target", "metadata"],
+      "properties": {
+        "category": { "type": "string", "enum": ["VALIDATION", "PERMISSION", "NOT_FOUND", "CONFLICT_DUPLICATE", "CONFLICT_DEPENDENCY", "PRECONDITION", "UNEXPECTED_SANITIZED"] },
+        "code": { "$ref": "#/$defs/NonBlankText" },
+        "message": { "$ref": "#/$defs/NonBlankText" },
+        "target": { "type": "null" },
+        "metadata": { "type": "object", "additionalProperties": false, "maxProperties": 0 }
+      }
+    },
+    "IntegerBulkProposalItemResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "decision", "diagnostics"],
+      "properties": {
+        "id": { "$ref": "#/$defs/IntegerIdentity" },
+        "decision": { "$ref": "#/$defs/BulkProposalItemDecision" },
+        "diagnostics": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/BulkProposalItemDiagnostic" } }
+      },
+      "allOf": [{
+        "if": { "properties": { "decision": { "const": "BLOCKED" } } },
+        "then": { "properties": { "diagnostics": { "minItems": 1 } } },
+        "else": { "properties": { "diagnostics": { "maxItems": 0 } } }
+      }]
+    },
+    "StringBulkProposalItemResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "decision", "diagnostics"],
+      "properties": {
+        "id": { "$ref": "#/$defs/StringIdentity" },
+        "decision": { "$ref": "#/$defs/BulkProposalItemDecision" },
+        "diagnostics": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/BulkProposalItemDiagnostic" } }
+      },
+      "allOf": [{
+        "if": { "properties": { "decision": { "const": "BLOCKED" } } },
+        "then": { "properties": { "diagnostics": { "minItems": 1 } } },
+        "else": { "properties": { "diagnostics": { "maxItems": 0 } } }
+      }]
     },
     "UuidBulkItemResult": {
       "type": "object", "additionalProperties": false,
