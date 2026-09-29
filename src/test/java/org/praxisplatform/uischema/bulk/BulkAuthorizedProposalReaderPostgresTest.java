@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.praxisplatform.uischema.action.ActionCollectionAtomicity;
 import org.praxisplatform.uischema.command.ResourceCommandErrorCategory;
 import org.praxisplatform.uischema.command.ResourceCommandMessage;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -49,6 +50,7 @@ class BulkAuthorizedProposalReaderPostgresTest {
     private JdbcTemplate sql;
     private TransactionTemplate tx;
     private JdbcBulkProposalStore store;
+    private JdbcBulkDurableExecution executions;
     private BulkExecutionInfrastructure infrastructure;
 
     @BeforeAll void start() throws Exception {
@@ -62,6 +64,7 @@ class BulkAuthorizedProposalReaderPostgresTest {
         infrastructure = new BulkExecutionInfrastructure(runtime, manager, CONTEXT.namespaceId(),
                 BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration());
         store = new JdbcBulkProposalStore(infrastructure);
+        executions = new JdbcBulkDurableExecution(infrastructure);
     }
 
     @AfterAll void stop() throws Exception { if (postgres != null) postgres.close(); }
@@ -199,6 +202,107 @@ class BulkAuthorizedProposalReaderPostgresTest {
         }
         assertThat(reader.readProposal("reader", evaluation.proposal().id()).state())
                 .isEqualTo(BulkAuthorizedProposalReader.State.NOT_FOUND_OR_DENIED);
+    }
+
+    @Test void returnsGoneForCreatorOnlyWhenAnExecutionTombstoneRetainsTheProposalId() {
+        BulkFingerprintContext executionContext = new BulkFingerprintContext(CONTEXT.namespaceId(),
+                CONTEXT.subjectId(), CONTEXT.resourceKey(), CONTEXT.operationRef(),
+                CONTEXT.schemaRevision(), ActionCollectionAtomicity.PER_ITEM);
+        BulkEvaluationSnapshot stale = evaluation(executionContext, 1, -1);
+        Instant created = Instant.now().minusSeconds(5);
+        BulkStoredProposal freshProposal = new BulkStoredProposal(UUID.randomUUID(), created,
+                created.plusSeconds(600), stale.proposal().snapshot(),
+                stale.proposal().controlExpectation());
+        BulkEvaluationGovernance freshGovernance = new BulkEvaluationGovernance(
+                "test-evaluator-r1", "test-grants-r1", List.of(new BulkPolicyObservation(
+                "tenant", "test", "approval_policy", "resource-action-approval",
+                "resource:approve", "NEVER_APPLIED", "test-policy-r1", created.plusMillis(500))));
+        BulkEvaluationSnapshot evaluation = new BulkEvaluationSnapshot(freshProposal,
+                created.plusSeconds(1), stale.targets(), freshGovernance);
+        persist(evaluation, projection(evaluation));
+        BulkExecutionReservation reservation = executions.reserve(executionContext, freshProposal.id(),
+                "proposal-purge-key", "owner", freshProposal.controlExpectation().structuralRevision(),
+                Instant.now().plusSeconds(120));
+        executions.requestCancel(CONTEXT, reservation.executionId());
+        ageTerminalForRetention(reservation.executionId());
+        purge(reservation.executionId());
+
+        var authorization = new MutableAuthorizationProvider();
+        var reader = reader(authorization, Clock.systemUTC(), projectionProvider());
+        assertThat(reader.readProposal(executionContext.subjectId(), freshProposal.id()).state())
+                .isEqualTo(BulkAuthorizedProposalReader.State.TOMBSTONED);
+        assertThat(authorization.authorizeCalls).isZero();
+        assertThat(reader.readProposal("another-subject", freshProposal.id()).state())
+                .isEqualTo(BulkAuthorizedProposalReader.State.NOT_FOUND_OR_DENIED);
+        assertThat(reader.readProposal(CONTEXT.subjectId(), UUID.randomUUID()).state())
+                .isEqualTo(BulkAuthorizedProposalReader.State.NOT_FOUND_OR_DENIED);
+
+        sql.execute("alter table praxis_bulk.praxis_bulk_tombstone "
+                + "drop constraint praxis_bulk_tombstone_terminal_check");
+        sql.execute("alter table praxis_bulk.praxis_bulk_tombstone disable trigger user");
+        try {
+            assertThat(sql.update("update praxis_bulk.praxis_bulk_tombstone set terminal_status=? where proposal_id=?",
+                    "RUNNING", freshProposal.id())).isEqualTo(1);
+        } finally {
+            sql.execute("alter table praxis_bulk.praxis_bulk_tombstone enable trigger user");
+        }
+        assertThat(reader.readProposal(executionContext.subjectId(), freshProposal.id()).state())
+                .isEqualTo(BulkAuthorizedProposalReader.State.NOT_FOUND_OR_DENIED);
+
+        authorization.global = BulkReadAuthorizationProvider.GlobalDecision.DENIED;
+        assertThat(reader.readProposal(executionContext.subjectId(), freshProposal.id()).state())
+                .isEqualTo(BulkAuthorizedProposalReader.State.GLOBAL_DENIED);
+    }
+
+    private void ageTerminalForRetention(UUID executionId) {
+        sql.execute("alter table praxis_bulk.praxis_bulk_execution "
+                + "disable trigger praxis_bulk_execution_guard_terminal");
+        sql.execute("alter table praxis_bulk.praxis_bulk_execution "
+                + "disable trigger praxis_bulk_execution_protect_cancel");
+        sql.execute("alter table praxis_bulk.praxis_bulk_execution "
+                + "disable trigger praxis_bulk_execution_protect_binding");
+        sql.execute("alter table praxis_bulk.praxis_bulk_allocation "
+                + "disable trigger praxis_bulk_allocation_protect_transition");
+        try {
+            assertThat(sql.update("""
+                    with aged as materialized (select clock_timestamp() - interval '31 days' as terminal)
+                    update praxis_bulk.praxis_bulk_execution
+                    set created_at=aged.terminal - interval '2 seconds',
+                        cancel_requested_at=aged.terminal - interval '1 second',
+                        terminal_at=aged.terminal, updated_at=aged.terminal
+                    from aged where execution_id=?
+                    """, executionId)).isEqualTo(1);
+            assertThat(sql.update("""
+                    update praxis_bulk.praxis_bulk_allocation a
+                    set created_at=e.created_at, released_at=e.terminal_at
+                    from praxis_bulk.praxis_bulk_execution e
+                    where a.execution_id=e.execution_id and e.execution_id=?
+                    """, executionId)).isEqualTo(1);
+        } finally {
+            sql.execute("alter table praxis_bulk.praxis_bulk_allocation "
+                    + "enable trigger praxis_bulk_allocation_protect_transition");
+            sql.execute("alter table praxis_bulk.praxis_bulk_execution "
+                    + "enable trigger praxis_bulk_execution_protect_binding");
+            sql.execute("alter table praxis_bulk.praxis_bulk_execution "
+                    + "enable trigger praxis_bulk_execution_protect_cancel");
+            sql.execute("alter table praxis_bulk.praxis_bulk_execution "
+                    + "enable trigger praxis_bulk_execution_guard_terminal");
+        }
+    }
+
+    private void purge(UUID executionId) {
+        sql.execute("grant praxis_bulk_retention_executor to postgres");
+        try {
+            var ownerTx = new TransactionTemplate(new DataSourceTransactionManager(owner));
+            Boolean purged = ownerTx.execute(status -> {
+                sql.execute("set local role praxis_bulk_retention_executor");
+                return sql.queryForObject("select praxis_bulk.purge_terminal_execution(?)",
+                        Boolean.class, executionId);
+            });
+            assertThat(purged).isTrue();
+        } finally {
+            sql.execute("revoke praxis_bulk_retention_executor from postgres");
+        }
     }
 
     @Test void mapsUnavailablePreviewProjectorDriftAndPostAuthorizationCorruptionToUnavailable() {
@@ -420,6 +524,11 @@ class BulkAuthorizedProposalReaderPostgresTest {
     }
 
     private static BulkEvaluationSnapshot evaluation(int count, int... blockedOrdinals) {
+        return evaluation(CONTEXT, count, blockedOrdinals);
+    }
+
+    private static BulkEvaluationSnapshot evaluation(BulkFingerprintContext context, int count,
+            int... blockedOrdinals) {
         boolean[] blocked = new boolean[count];
         for (int ordinal : blockedOrdinals) {
             if (ordinal >= 0) blocked[ordinal] = true;
@@ -442,7 +551,7 @@ class BulkAuthorizedProposalReaderPostgresTest {
                 BulkExecutionMode.SYNC,
                 new BulkSelection<>(BulkSelectionMode.EXPLICIT, selected, null, null),
                 JsonNodeFactory.instance.objectNode().put("private", "protected"));
-        var stored = proposal(BulkIntentSnapshot.command(CONTEXT, BulkIdentityCodecs.strings(),
+        var stored = proposal(BulkIntentSnapshot.command(context, BulkIdentityCodecs.strings(),
                 request, JsonNode::deepCopy, JsonNode::deepCopy));
         return new BulkEvaluationSnapshot(stored, stored.createdAt().plusSeconds(1),
                 evidence, governance());
