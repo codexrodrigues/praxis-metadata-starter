@@ -28,6 +28,13 @@ import org.praxisplatform.uischema.command.ResourceCommandMessage;
  * target set, current authorization and persisted RS2 projection are read in one Metadata-owned
  * repeatable-read, read-only snapshot. This class does not publish an endpoint, capability or
  * readiness state.</p>
+ *
+ * <p>When retention has removed the protected proposal, a retained tombstone can return only
+ * {@link State#TOMBSTONED}, and only after the current global operation grant and the historical
+ * creator scope digest both match. {@link State#GONE} is reserved for a live, retained proposal
+ * whose TTL elapsed after the full target set was authorized. Tombstones do not retain targets
+ * for granular re-authorization; other subjects therefore receive the same non-enumerating result
+ * as an unknown proposal.</p>
  */
 public final class BulkAuthorizedProposalReader {
     private static final Duration READ_BUDGET = Duration.ofSeconds(3);
@@ -112,6 +119,17 @@ public final class BulkAuthorizedProposalReader {
             deadline.constrain(connection);
             var protectedRead = BulkProtectedProposalReader.readForAuthorizedComposition(connection,
                     infrastructure.namespace(), resourceKey, operationId, proposalId);
+            if (protectedRead.kind() == BulkProtectedProposalReader.Kind.ABSENT) {
+                // A purged proposal has no protected payload left. A retained tombstone can
+                // distinguish its creator from an unrelated requester without restoring data:
+                // preAuthorize above verifies the current operation grant, and this exact digest
+                // comparison is the historical creator check. A mismatch remains non-enumerating.
+                String terminalStatus = JdbcBulkDurableExecution.scopedProposalTombstone(connection,
+                        infrastructure.namespace(), authenticatedSubjectId, resourceKey, operationId,
+                        proposalId);
+                return terminalStatus == null ? Observation.state(State.NOT_FOUND_OR_DENIED)
+                        : Observation.state(State.TOMBSTONED);
+            }
             if (protectedRead.kind() != BulkProtectedProposalReader.Kind.EVALUATED)
                 return Observation.state(State.NOT_FOUND_OR_DENIED);
             evaluation = protectedRead.evaluation();
@@ -271,7 +289,7 @@ public final class BulkAuthorizedProposalReader {
     }
 
     public enum State {
-        COMPLETE, GONE, GLOBAL_DENIED, GLOBAL_UNAVAILABLE, NOT_FOUND_OR_DENIED, UNAVAILABLE
+        COMPLETE, GONE, GLOBAL_DENIED, GLOBAL_UNAVAILABLE, NOT_FOUND_OR_DENIED, TOMBSTONED, UNAVAILABLE
     }
 
     @JsonIgnoreType

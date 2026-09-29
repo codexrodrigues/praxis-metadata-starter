@@ -1176,9 +1176,14 @@ A autorização global precede o lookup protegido; a autorização corrente inte
 recebe todos os alvos e seus fatos históricos na mesma conexão. Ausência, escopo
 incompatível, proposta sem avaliação ou corrupção anterior à autorização integral
 permanecem `NOT_FOUND_OR_DENIED`, sem payload. Depois da autorização, uma proposta
-retida expirada resulta em `GONE`, sem copiar o conteúdo. Remoção sem evidência de
-escopo continua indistinguível de ausência. O leitor não usa tombstones de execução
-para reconstruir uma proposta removida.
+retida expirada resulta em `GONE`, sem copiar o conteúdo. Após o purge da proposta,
+o leitor consulta o tombstone mínimo apenas depois do grant global atual: o criador
+correspondente ao digest histórico recebe `TOMBSTONED`; delegados e IDs desconhecidos
+recebem `NOT_FOUND_OR_DENIED`. Como o tombstone não preserva os alvos, ele não é
+usado para reconstruir uma proposta nem para simular autorização granular atual.
+`GONE` e `TOMBSTONED` materializam somente estados internos distintos: ambos mantêm a
+resposta de leitura HTTP 410. A distinção permite que uma confirmação restrita ao criador
+preserve 404 para propostas vivas expiradas que um leitor delegado possa consultar.
 
 Para uma proposta autorizada ainda válida, a elegibilidade tipada certifica os
 totais históricos. `READY` significa que todos os alvos da avaliação são executáveis;
@@ -1210,6 +1215,6 @@ Avaliação legacy sem elegibilidade tipada, preview deliberadamente indisponív
 projector incompatível e corrupção depois da autorização integral resultam em
 `UNAVAILABLE`, sem proposta parcial. RS1 não importa `PREVIEW_UNAVAILABLE` ou409 de RS2.
 A observação é opaca à serialização; apenas o DTO de `COMPLETE` pode integrar uma
-resposta pública. O host futuro traduzirá COMPLETE/GONE/global denial/ausência/
+resposta pública. O host traduzirá COMPLETE/GONE/TOMBSTONED/global denial/ausência/
 indisponibilidade para200/410/403/404/503 com envelopes e no-store canônicos. Esta
 fachada não cria controller, links, capability, release ou deployment.
