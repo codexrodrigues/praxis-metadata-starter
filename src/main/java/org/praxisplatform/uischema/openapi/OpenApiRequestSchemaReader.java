@@ -64,7 +64,8 @@ final class OpenApiRequestSchemaReader {
         OpenApiRequestSchemaReader reader = new OpenApiRequestSchemaReader(document, version);
         JsonNode requestBody = reader.resolveRequestBody(operationNode.path("requestBody"), new HashSet<>(), 0);
         String mediaType = OpenApiContentSupport.requireJsonMediaType(requestBody.path("content"));
-        JsonNode schema = reader.schema(requestBody.path("content").path(mediaType).path("schema"), new HashSet<>(), 0);
+        JsonNode schema = reader.schema(requestBody.path("content").path(mediaType).path("schema"),
+                new HashSet<>(), 0, false);
         return new CanonicalRequestSchema(operation, mediaType, version, schema);
     }
 
@@ -116,21 +117,27 @@ final class OpenApiRequestSchemaReader {
     }
 
     JsonNode resolveSchema(JsonNode source) {
-        return schema(source, new HashSet<>(), 0);
+        return schema(source, new HashSet<>(), 0, false);
     }
 
-    private JsonNode schema(JsonNode source, Set<String> visited, int depth) {
+    JsonNode resolveResponseSchema(JsonNode source) {
+        return schema(source, new HashSet<>(), 0, true);
+    }
+
+    private JsonNode schema(JsonNode source, Set<String> visited, int depth, boolean allowResponseOneOf) {
         budget(depth);
         if (source.isBoolean() && version == SpecVersion.V31) return source;
-        if (!source.isObject()) throw invalid("Request schema is missing or unsupported");
+        if (!source.isObject()) throw invalid("Schema is missing or unsupported");
         checkDialect(source.get("$schema"), version);
         for (String keyword : UNSUPPORTED) {
-            if (source.has(keyword)) throw invalid("Unresolved or unsupported schema composition: " + keyword);
+            if (source.has(keyword) && !(allowResponseOneOf && "oneOf".equals(keyword))) {
+                throw invalid("Unresolved or unsupported schema composition: " + keyword);
+            }
         }
         if (source.has("$ref")) {
             String ref = reference(source, "#/components/schemas/");
             if (!visited.add(ref)) throw invalid("Cyclic schema reference");
-            JsonNode resolved = schema(target(ref), visited, depth + 1);
+            JsonNode resolved = schema(target(ref), visited, depth + 1, allowResponseOneOf);
             visited.remove(ref);
             return resolved;
         }
@@ -146,16 +153,24 @@ final class OpenApiRequestSchemaReader {
                 var children = value.fields();
                 while (children.hasNext()) {
                     var child = children.next();
-                    properties.set(child.getKey(), schema(child.getValue(), visited, depth + 1));
+                    properties.set(child.getKey(), schema(child.getValue(), visited, depth + 1, allowResponseOneOf));
+                }
+            } else if (allowResponseOneOf && "oneOf".equals(key)) {
+                if (!value.isArray() || value.isEmpty()) {
+                    throw invalid("Response oneOf must contain at least one schema variant");
+                }
+                ArrayNode variants = result.putArray(key);
+                for (JsonNode variant : value) {
+                    variants.add(schema(variant, visited, depth + 1, true));
                 }
             } else if (SCHEMA_VALUES.contains(key)) {
                 // OpenAPI 3.0 explicitly allows boolean additionalProperties.
                 result.set(key, value.isBoolean() && "additionalProperties".equals(key)
-                        ? value : schema(value, visited, depth + 1));
+                        ? value : schema(value, visited, depth + 1, allowResponseOneOf));
             } else if ("prefixItems".equals(key)) {
                 if (version != SpecVersion.V31 || !value.isArray()) throw invalid("Tuple schema is unsupported");
                 ArrayNode items = result.putArray(key);
-                for (JsonNode item : value) items.add(schema(item, visited, depth + 1));
+                for (JsonNode item : value) items.add(schema(item, visited, depth + 1, allowResponseOneOf));
             } else {
                 // Defaults, examples and x-ui are data: a literal $ref there is not a schema reference.
                 result.set(key, copyData(value, depth + 1));

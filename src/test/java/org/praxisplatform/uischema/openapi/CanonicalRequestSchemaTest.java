@@ -237,6 +237,10 @@ class CanonicalRequestSchemaTest {
             assertThrows(IllegalStateException.class, () -> cached(document).requireRequestSchema(UPDATE), keyword);
         }
 
+        ObjectNode validOneOfRequest = basicDocument("3.1.0");
+        requestSchema(validOneOfRequest).putArray("oneOf").addObject().put("type", "object");
+        assertThrows(IllegalStateException.class, () -> cached(validOneOfRequest).requireRequestSchema(UPDATE));
+
         ObjectNode referencedComposition = basicDocument("3.1.0");
         replaceSchemaWithReference(referencedComposition, "#/components/schemas/Composed");
         child(child(referencedComposition, "components"), "schemas").putObject("Composed")
