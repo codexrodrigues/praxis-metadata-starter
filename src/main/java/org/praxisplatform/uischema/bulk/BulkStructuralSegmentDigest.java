@@ -29,7 +29,7 @@ final class BulkStructuralSegmentDigest {
         Objects.requireNonNull(descriptor, "descriptor");
         var factory = JsonNodeFactory.instance;
         var root = factory.objectNode();
-        root.put("structureVersion", "praxis.bulk.structure/1");
+        root.put("structureVersion", "praxis.bulk.structure/2");
         root.put("resourceKey", descriptor.resourceKey());
         root.put("openApiGroup", descriptor.openApiGroup());
         root.put("mode", descriptor.mode().name());
@@ -69,12 +69,22 @@ final class BulkStructuralSegmentDigest {
         result.put("title", action.title());
         result.put("description", action.description());
         result.set("operation", reference(action.operation()));
+        result.set("requestSchemaReference", schemaReference(action.requestSchema()));
+        result.set("responseSchemaReference", schemaReference(action.responseSchema()));
         result.put("order", action.order());
         result.put("successMessage", action.successMessage());
         result.set("requiredAuthorities", strings(action.requiredAuthorities()));
         result.set("allowedStates", strings(action.allowedStates()));
         result.set("tags", strings(action.tags()));
         result.set("execution", execution(action.execution()));
+        return result;
+    }
+
+    private static ObjectNode schemaReference(org.praxisplatform.uischema.schema.CanonicalSchemaRef reference) {
+        var result = JsonNodeFactory.instance.objectNode();
+        result.put("schemaId", reference.schemaId());
+        result.put("schemaType", reference.schemaType());
+        result.put("url", reference.url());
         return result;
     }
 

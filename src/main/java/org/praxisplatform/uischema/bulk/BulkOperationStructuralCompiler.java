@@ -24,10 +24,14 @@ import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+import org.springframework.web.util.UriUtils;
 
 import java.lang.reflect.Type;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -145,7 +149,13 @@ final class BulkOperationStructuralCompiler {
 
         List<BulkOperationStructuralDescriptor.Operation> operations = new ArrayList<>(pending.size());
         for (PendingOperation operation : pending) {
-            CanonicalResponseSchema response = snapshot.requireResponseSchema(operation.reference());
+            CanonicalResponseSchema response;
+            try {
+                response = snapshot.requireResponseSchema(operation.reference());
+            } catch (RuntimeException invalidResponseSchema) {
+                throw invalid("Response schema composition failed for " + operation.role() + " operation "
+                        + operation.reference().operationId(), invalidResponseSchema);
+            }
             CanonicalRequestSchema request = operation.requestBody() == null
                     ? null : snapshot.requireRequestSchema(operation.reference());
             if (operation.requestBody() == null) snapshot.requireNoRequestBody(operation.reference());
@@ -195,12 +205,11 @@ final class BulkOperationStructuralCompiler {
         }
         ActionDefinition action = matches.getFirst();
         String[] resourcePaths = resource.value().length > 0 ? resource.value() : resource.path();
-        if (!hasSchemaReference(action.requestSchema(), "request")
-                || !hasSchemaReference(action.responseSchema(), "response")
-                || !action.requestSchema().equals(schemaReferences.requestSchema(confirmation))
-                || !action.responseSchema().equals(schemaReferences.responseSchema(confirmation)))
-            throw invalid("Canonical workflow action schema references differ from the resolved canonical operation");
-        if (!binding.resourceKey().equals(action.resourceKey()) || !confirmation.group().equals(action.group())
+        if (!hasCanonicalActionSchemaReference(action.requestSchema(), confirmation, "request")
+                || !hasCanonicalActionSchemaReference(action.responseSchema(), confirmation, "response")) {
+            throw invalid("Canonical workflow action schema references do not resolve to its operation");
+        }
+        if (!binding.resourceKey().equals(action.resourceKey())
                 || resourcePaths.length == 0 || !normalizePath(resourcePaths[0]).equals(action.resourcePath()))
             throw invalid("Canonical workflow action resource identity/path differs from @ApiResource/OpenAPI");
         if (!workflowMatches(action, workflow))
@@ -213,6 +222,49 @@ final class BulkOperationStructuralCompiler {
         return reference != null && expectedType.equals(reference.schemaType())
                 && reference.schemaId() != null && !reference.schemaId().isBlank()
                 && reference.url() != null && !reference.url().isBlank();
+    }
+
+    /**
+     * Action catalog references intentionally include the resource's {@code idField} and
+     * {@code readOnly=false} schema projections. They must be the canonical resolver output for
+     * the same action operation, not byte-for-byte equal to the generic operation references.
+     */
+    private boolean hasCanonicalActionSchemaReference(
+            org.praxisplatform.uischema.schema.CanonicalSchemaRef reference,
+            CanonicalOperationRef operation,
+            String expectedType) {
+        if (!hasSchemaReference(reference, expectedType)) return false;
+        try {
+            Map<String, String> query = queryParameters(URI.create(reference.url()).getRawQuery());
+            String idField = query.get("idField");
+            if (!operation.path().equals(query.get("path"))
+                    || !operation.method().equalsIgnoreCase(query.get("operation"))
+                    || !expectedType.equalsIgnoreCase(query.get("schemaType"))
+                    || idField == null || idField.isBlank()
+                    || !"false".equals(query.get("readOnly"))
+                    || query.containsKey("includeInternalSchemas")) {
+                return false;
+            }
+            var expected = schemaReferences.resolve(operation.path(), operation.method(), expectedType,
+                    false, null, null, idField, false);
+            return reference.equals(expected);
+        } catch (IllegalArgumentException invalidReference) {
+            return false;
+        }
+    }
+
+    private static Map<String, String> queryParameters(String rawQuery) {
+        if (rawQuery == null || rawQuery.isBlank()) throw new IllegalArgumentException("Missing schema query");
+        Map<String, String> result = new HashMap<>();
+        for (String pair : rawQuery.split("&")) {
+            int separator = pair.indexOf('=');
+            if (separator <= 0) throw new IllegalArgumentException("Malformed schema query");
+            // These are URI query components, not form-urlencoded values: '+' is literal data.
+            String name = UriUtils.decode(pair.substring(0, separator), StandardCharsets.UTF_8);
+            String value = UriUtils.decode(pair.substring(separator + 1), StandardCharsets.UTF_8);
+            if (result.putIfAbsent(name, value) != null) throw new IllegalArgumentException("Duplicate schema query parameter");
+        }
+        return result;
     }
 
     static boolean workflowMatches(ActionDefinition action, WorkflowAction workflow) {
@@ -285,6 +337,10 @@ final class BulkOperationStructuralCompiler {
 
     private static IllegalStateException invalid(String message) {
         return new IllegalStateException("Bulk structural composition is unavailable: " + message);
+    }
+
+    private static IllegalStateException invalid(String message, RuntimeException cause) {
+        return new IllegalStateException("Bulk structural composition is unavailable: " + message, cause);
     }
 
     private record PendingOperation(BulkOperationStructuralDescriptor.Role role,

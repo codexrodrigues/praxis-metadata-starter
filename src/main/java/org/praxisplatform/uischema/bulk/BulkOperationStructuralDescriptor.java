@@ -7,6 +7,7 @@ import org.praxisplatform.uischema.action.ActionCollectionAtomicity;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalRequestSchema;
 import org.praxisplatform.uischema.openapi.CanonicalResponseSchema;
+import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
 
 import java.util.List;
 import java.util.Objects;
@@ -115,6 +116,8 @@ final class BulkOperationStructuralDescriptor {
             String title,
             String description,
             CanonicalOperationRef operation,
+            CanonicalSchemaRef requestSchema,
+            CanonicalSchemaRef responseSchema,
             int order,
             String successMessage,
             List<String> requiredAuthorities,
@@ -131,6 +134,8 @@ final class BulkOperationStructuralDescriptor {
             title = Objects.requireNonNull(title, "action.title");
             description = Objects.requireNonNull(description, "action.description");
             operation = Objects.requireNonNull(operation, "action.operation");
+            requestSchema = Objects.requireNonNull(requestSchema, "action.requestSchema");
+            responseSchema = Objects.requireNonNull(responseSchema, "action.responseSchema");
             successMessage = Objects.requireNonNull(successMessage, "action.successMessage");
             requiredAuthorities = List.copyOf(requiredAuthorities);
             allowedStates = List.copyOf(allowedStates);
@@ -141,7 +146,8 @@ final class BulkOperationStructuralDescriptor {
         static Action from(ActionDefinition definition) {
             return new Action(definition.id(), definition.resourceKey(), definition.resourcePath(),
                     definition.group(), definition.scope(), definition.title(), definition.description(),
-                    definition.operation(), definition.order(), definition.successMessage(),
+                    definition.operation(), definition.requestSchema(), definition.responseSchema(),
+                    definition.order(), definition.successMessage(),
                     definition.requiredAuthorities(), definition.allowedStates(), definition.tags(),
                     definition.execution());
         }

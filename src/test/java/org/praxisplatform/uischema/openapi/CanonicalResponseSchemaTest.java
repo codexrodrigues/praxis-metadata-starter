@@ -141,6 +141,66 @@ class CanonicalResponseSchemaTest {
     }
 
     @Test
+    void preservesAndResolvesBoundedOneOfResponseVariants() {
+        ObjectNode document = responseDocument();
+        ObjectNode schemas = child(child(document, "components"), "schemas");
+        child(schemas, "Link").put("type", "object").putObject("properties")
+                .putObject("href").put("type", "string");
+        child(schemas, "LinkList").put("type", "array").putObject("items")
+                .put("$ref", "#/components/schemas/Link");
+        ObjectNode responseSchema = schemaWith("title", "Item");
+        ObjectNode linkValue = responseSchema.putObject("additionalProperties");
+        var variants = linkValue.putArray("oneOf");
+        variants.addObject().put("$ref", "#/components/schemas/Link");
+        variants.addObject().put("$ref", "#/components/schemas/LinkList");
+        ((ObjectNode) response200(document).path("content").path("application/json")).set("schema", responseSchema);
+
+        JsonNode resolved = readResponse(document).schema().path("additionalProperties").path("oneOf");
+
+        assertEquals(2, resolved.size());
+        assertEquals("object", resolved.get(0).path("type").asText());
+        assertEquals("string", resolved.get(0).path("properties").path("href").path("type").asText());
+        assertEquals("array", resolved.get(1).path("type").asText());
+        assertEquals("object", resolved.get(1).path("items").path("type").asText());
+        assertEquals("string", resolved.get(1).path("items").path("properties").path("href").path("type").asText());
+        assertEquals(false, resolved.get(0).has("$ref"));
+        assertEquals(false, resolved.get(1).path("items").has("$ref"));
+    }
+
+    @Test
+    void rejectsEmptyMalformedAndCyclicOneOfResponseVariants() {
+        ObjectNode empty = responseDocument();
+        schema(empty).putArray("oneOf");
+
+        ObjectNode malformed = responseDocument();
+        schema(malformed).putArray("oneOf").add("not-a-schema");
+
+        ObjectNode nonArray = responseDocument();
+        schema(nonArray).putObject("oneOf").put("type", "object");
+
+        ObjectNode cyclic = responseDocument();
+        child(child(cyclic, "components"), "schemas").putObject("Loop")
+                .putObject("properties").putObject("again").put("$ref", "#/components/schemas/Loop");
+        schema(cyclic).putArray("oneOf").addObject().put("$ref", "#/components/schemas/Loop");
+
+        ObjectNode tooDeep = responseDocument();
+        ObjectNode nested = schema(tooDeep);
+        for (int i = 0; i < 65; i++) {
+            nested = nested.putObject("properties").putObject("nested");
+            nested.put("type", "object");
+        }
+        nested.putArray("oneOf").addObject().put("type", "string");
+
+        ObjectNode tooMany = responseDocument();
+        var variants = schema(tooMany).putArray("oneOf");
+        for (int i = 0; i <= 10_000; i++) variants.addObject().put("type", "string");
+
+        for (ObjectNode document : List.of(empty, malformed, nonArray, cyclic, tooDeep, tooMany)) {
+            assertThrows(IllegalStateException.class, () -> readResponse(document));
+        }
+    }
+
+    @Test
     void rejectsExternalMissingCyclicAndSiblingReferences() {
         ObjectNode external = responseDocument();
         response200(external).removeAll().put("$ref", "https://example.test/response");
@@ -193,6 +253,10 @@ class CanonicalResponseSchemaTest {
 
     private static ObjectNode response200(ObjectNode document) {
         return (ObjectNode) operation(document).path("responses").path("200");
+    }
+
+    private static ObjectNode schema(ObjectNode document) {
+        return (ObjectNode) response200(document).path("content").path("application/json").path("schema");
     }
 
     private static void response(JsonNode responses, String status, String mediaType, JsonNode schema) {

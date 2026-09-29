@@ -95,6 +95,10 @@ class BulkOperationStructuralCompilerTest {
             assertEquals(1, documents.strictReads(), "all seven schema reads must use one exact group snapshot");
             assertEquals("approveSelectedItems", descriptor.action().id());
             assertEquals(List.of("BULK_APPROVE"), descriptor.action().requiredAuthorities());
+            assertEquals("/api/items/actions/bulk-approve|post|request|internal:false|idField:id|readOnly:false",
+                    descriptor.action().requestSchema().schemaId());
+            assertEquals("/api/items/actions/bulk-approve|post|response|internal:false|idField:id|readOnly:false",
+                    descriptor.action().responseSchema().schemaId());
 
             var returnedSchema = (com.fasterxml.jackson.databind.node.ObjectNode) descriptor
                     .operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION)
@@ -104,6 +108,43 @@ class BulkOperationStructuralCompilerTest {
                     .requestSchema().orElseThrow().schema().has("type"));
             assertNotSame(returnedSchema, descriptor.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION)
                     .requestSchema().orElseThrow().schema());
+        }
+    }
+
+    @Test
+    void acceptsCanonicalActionSchemaProjectionWhenIdFieldContainsPlus() {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(document(true));
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
+            var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
+                    registry(actionDefinition("item+id")), new ObjectMapper().getTypeFactory(),
+                    new FilteredSchemaReferenceResolver());
+
+            var descriptor = compiler.compileAll().getFirst();
+
+            assertEquals("/api/items/actions/bulk-approve|post|request|internal:false|idField:item+id|readOnly:false",
+                    descriptor.action().requestSchema().schemaId());
+        }
+    }
+
+    @Test
+    void preservesBusinessCatalogGroupSeparatelyFromStrictOpenApiGroup() {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(document(true));
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
+            var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
+                    registry(actionDefinition("id", "inventory-business")), new ObjectMapper().getTypeFactory(),
+                    new FilteredSchemaReferenceResolver());
+
+            var descriptor = compiler.compileAll().getFirst();
+
+            assertEquals("inventory-business", descriptor.action().group());
+            assertEquals("inventory", descriptor.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION)
+                    .reference().group());
         }
     }
 
@@ -135,7 +176,7 @@ class BulkOperationStructuralCompilerTest {
                     structural, providerWithCodec("deployment-a", alternateLongCodec())).descriptorFingerprint()));
             assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(
                     structural, providerWithCodec("deployment-a", BulkIdentityCodecs.integers())));
-            assertEquals("sha256:74404c34f0516d6d6f80cca40a37bd0287bdc5a04fe4f570e073ed0e55869d80",
+            assertEquals("sha256:de8b98f775e78fca9a187ef76900df02688605fc122a92b3bc285f323d646074",
                     first.descriptorFingerprint(), "operational framing is a versioned digest contract");
         }
     }
@@ -525,7 +566,7 @@ class BulkOperationStructuralCompilerTest {
                     registry(actionDefinition()), mapper.getTypeFactory(), new FilteredSchemaReferenceResolver());
             var firstDescriptor = firstCompiler.compileAll().getFirst();
             String firstDigest = BulkStructuralSegmentDigest.compute(firstDescriptor);
-            assertEquals("sha256:dfd892e1153c0fbbd498e43da9d90aeeeb4a56411db55d2bb6358bae8e10a9c1",
+            assertEquals("sha256:f598700cdb04aa3eda9dbd45c8791263143cbc5e3e1beb3a7849fd743047fadb",
                     firstDigest);
 
             var repeatedDocuments = new TestDocuments(original);
@@ -552,6 +593,7 @@ class BulkOperationStructuralCompilerTest {
             // Object member order is not semantic input to the digest.
             JsonNode canonicalContent = BulkStructuralSegmentDigest.canonicalContent(firstDescriptor);
             assertDigestChanges(canonicalContent, "/action/id", "different-action");
+            assertDigestChanges(canonicalContent, "/action/requestSchemaReference/schemaId", "different-action-schema");
             assertDigestChanges(canonicalContent, "/action/execution/selection/maxItems", 51);
             assertDigestChanges(canonicalContent, "/operations/0/reference/path", "/api/items/changed");
             assertDigestChanges(canonicalContent, "/operations/5/requestJavaType", "example.ChangedRequest");
@@ -755,6 +797,27 @@ class BulkOperationStructuralCompilerTest {
     }
 
     @Test
+    void rejectsActionSchemaReferenceWithCanonicalUrlButAlteredSchemaId() {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(document(true));
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
+            ActionDefinition canonical = actionDefinition();
+            ActionDefinition stale = new ActionDefinition(canonical.id(), canonical.resourceKey(),
+                    canonical.resourcePath(), canonical.group(), canonical.scope(), canonical.title(),
+                    canonical.description(), canonical.operation(),
+                    new CanonicalSchemaRef("tampered-schema-id", "request", canonical.requestSchema().url()),
+                    canonical.responseSchema(), canonical.order(), canonical.successMessage(),
+                    canonical.requiredAuthorities(), canonical.allowedStates(), canonical.tags(), canonical.execution());
+            var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
+                    registry(stale), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+
+            assertThrows(IllegalStateException.class, compiler::compileAll);
+        }
+    }
+
+    @Test
     void rejectsMatchingButInvalidActionExecutionContract() throws Exception {
         WorkflowAction workflow = InvalidCollectionIfMatch.class
                 .getDeclaredMethod("action").getAnnotation(WorkflowAction.class);
@@ -835,12 +898,23 @@ class BulkOperationStructuralCompilerTest {
     }
 
     private ActionDefinition actionDefinition() {
+        return actionDefinition("id");
+    }
+
+    private ActionDefinition actionDefinition(String idField) {
+        return actionDefinition(idField, "inventory");
+    }
+
+    private ActionDefinition actionDefinition(String idField, String actionGroup) {
         var schemaReferences = new FilteredSchemaReferenceResolver();
         CanonicalOperationRef operation = new CanonicalOperationRef("inventory",
                 ACTION_ID, "/api/items/actions/bulk-approve", "POST");
-        return new ActionDefinition("approveSelectedItems", RESOURCE, "/api/items", "inventory",
+        return new ActionDefinition("approveSelectedItems", RESOURCE, "/api/items", actionGroup,
                 ActionScope.COLLECTION, "Aprovar selecionados", "", operation,
-                schemaReferences.requestSchema(operation), schemaReferences.responseSchema(operation), 10, "Aprovados",
+                schemaReferences.resolve(operation.path(), operation.method(), "request",
+                        false, null, null, idField, false),
+                schemaReferences.resolve(operation.path(), operation.method(), "response",
+                        false, null, null, idField, false), 10, "Aprovados",
                 List.of("BULK_APPROVE"), List.of("READY"), List.of("workflow"),
                 new ActionExecutionContract(
                         new ActionInteractionPolicy(null, null, false, false),

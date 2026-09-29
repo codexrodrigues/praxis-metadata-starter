@@ -69,7 +69,7 @@ final class OpenApiResponseSchemaReader {
             JsonNode response = resolveResponse(responses.path(key), schemaReader, new HashSet<>(), 0);
             JsonNode content = response.path("content");
             String mediaType = OpenApiContentSupport.requireJsonMediaType(content);
-            JsonNode resolvedSchema = schemaReader.resolveSchema(content.path(mediaType).path("schema"));
+            JsonNode resolvedSchema = schemaReader.resolveResponseSchema(content.path(mediaType).path("schema"));
             JsonNode canonicalSchema = canonicalizer.canonicalize(resolvedSchema);
             if (commonSchema == null) commonSchema = canonicalSchema;
             else if (!commonSchema.equals(canonicalSchema)) {
