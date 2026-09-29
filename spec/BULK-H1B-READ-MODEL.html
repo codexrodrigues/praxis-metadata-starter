@@ -1615,9 +1615,17 @@ e seus fatos históricos na mesma conexão. Ausência, escopo incompatível,
 proposta sem avaliação ou corrupção anterior à autorização integral
 permanecem <code>NOT_FOUND_OR_DENIED</code>, sem payload. Depois da
 autorização, uma proposta retida expirada resulta em <code>GONE</code>,
-sem copiar o conteúdo. Remoção sem evidência de escopo continua
-indistinguível de ausência. O leitor não usa tombstones de execução para
-reconstruir uma proposta removida.</p>
+sem copiar o conteúdo. Após o purge da proposta, o leitor consulta o
+tombstone mínimo apenas depois do grant global atual: o criador
+correspondente ao digest histórico recebe <code>TOMBSTONED</code>;
+delegados e IDs desconhecidos recebem <code>NOT_FOUND_OR_DENIED</code>.
+Como o tombstone não preserva os alvos, ele não é usado para reconstruir
+uma proposta nem para simular autorização granular atual.
+<code>GONE</code> e <code>TOMBSTONED</code> materializam somente estados
+internos distintos: ambos mantêm a resposta de leitura HTTP 410. A
+distinção permite que uma confirmação restrita ao criador preserve 404
+para propostas vivas expiradas que um leitor delegado possa
+consultar.</p>
 <p>Para uma proposta autorizada ainda válida, a elegibilidade tipada
 certifica os totais históricos. <code>READY</code> significa que todos
 os alvos da avaliação são executáveis; <code>BLOCKED</code> conserva os
@@ -1652,8 +1660,8 @@ indisponível, projector incompatível e corrupção depois da autorização
 integral resultam em <code>UNAVAILABLE</code>, sem proposta parcial. RS1
 não importa <code>PREVIEW_UNAVAILABLE</code> ou409 de RS2. A observação
 é opaca à serialização; apenas o DTO de <code>COMPLETE</code> pode
-integrar uma resposta pública. O host futuro traduzirá
-COMPLETE/GONE/global denial/ausência/ indisponibilidade
+integrar uma resposta pública. O host traduzirá
+COMPLETE/GONE/TOMBSTONED/global denial/ausência/ indisponibilidade
 para200/410/403/404/503 com envelopes e no-store canônicos. Esta fachada
 não cria controller, links, capability, release ou deployment.</p>
 </body>
