@@ -1186,6 +1186,33 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
+    static String scopedProposalTombstone(Connection connection, String namespaceId, String subjectId,
+            String resourceKey, String operationId, UUID proposalId) throws SQLException {
+        String digest = BulkScopeDigests.authorizationScopeDigest(namespaceId, subjectId,
+                resourceKey, operationId);
+        try (var statement = connection.prepareStatement("""
+                select terminal_status from praxis_bulk.praxis_bulk_tombstone
+                where proposal_id=? and namespace_id=?
+                  and authorization_scope_digest_version=? and authorization_scope_digest=?
+                  and resource_key=? and operation_id=?
+                """)) {
+            statement.setObject(1, proposalId);
+            statement.setString(2, namespaceId);
+            statement.setInt(3, BulkScopeDigests.VERSION);
+            statement.setString(4, digest);
+            statement.setString(5, resourceKey);
+            statement.setString(6, operationId);
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) return null;
+                String terminalStatus = rows.getString(1);
+                if (!List.of("COMPLETED", "COMPLETED_WITH_ERRORS", "STOPPED", "CANCELLED")
+                        .contains(terminalStatus) || rows.next())
+                    throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                return terminalStatus;
+            }
+        }
+    }
+
     private static void validateReadState(ExecutionRow execution, Evaluation evaluation,
             List<Receipt> receipts, List<AdmissionRecord> admissions) {
         boolean active = execution.status() == BulkDurableExecutionStatus.UNIT_IN_FLIGHT
