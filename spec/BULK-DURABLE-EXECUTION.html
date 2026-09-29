@@ -326,8 +326,33 @@ descrições, exemplos e extensões, portanto a igualdade é conservadora. A
 tupla ordenada de status/media type e JSON canônico completo do schema
 deve entrar diretamente no fingerprint do descriptor; o cache de hash de
 <code>/schemas/filtered</code> não substitui essa evidência. Esses
-readers ainda não compõem/publicam o descriptor, não projetam
-action/capability e não elevam o estado a <code>READY</code>.</p>
+readers fornecem apenas os contratos; composição/publicação do
+descriptor, projeções e transição a <code>READY</code> dependem dos
+componentes de lifecycle e do CAS durável.</p>
+<p>O reader de resposta preserva <code>oneOf</code> somente como uma
+lista não vazia de variantes, resolvendo recursivamente cada schema no
+mesmo snapshot e mantendo o operador no JSON canônico que entra no
+fingerprint. Essa exceção materializa, por exemplo,
+<code>RestApiLinks</code>: cada relação HATEOAS serializa um link como
+objeto único ou como lista quando há ocorrências repetidas. O reader de
+request continua rejeitando <code>oneOf</code> e as demais composições;
+variante malformada, referência cíclica, snapshot incompleto ou limite
+estrutural excedido continuam falhando fechados.</p>
+<p>A referência da action no descriptor preserva a projeção canônica
+publicada pelo registry para o mesmo <code>CanonicalOperationRef</code>,
+incluindo <code>idField</code> e <code>readOnly=false</code>; ela não é
+igual à referência genérica do schema de operação. O digest estrutural
+enquadra essas duas referências junto do schema completo da operação
+(<code>praxis.bulk.structure/2</code>). Assim, alteração dos
+links/projeções da action também muda a revisão estrutural e exige nova
+composição antes do CAS de readiness.</p>
+<p><code>ActionDefinition.group</code> permanece a categoria de catálogo
+produzida por <code>@ApiGroup</code>; não é a identidade do grupo
+OpenAPI estrito em <code>CanonicalOperationRef.group</code>. A
+composição valida separadamente a operação exata da action e o grupo
+OpenAPI comum das sete operações bulk. Não equiparar esses nomes permite
+que grupos agregados de negócio coexistam com documentos OpenAPI
+individuais sem enfraquecer a resolução por snapshot.</p>
 <p>O inventário anterior é reaproveitado assim:</p>
 <ul>
 <li>intenção e evidência protegidas, vínculo de contexto e

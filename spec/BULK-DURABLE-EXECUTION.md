@@ -66,8 +66,28 @@ a faixa `2XX`, resolve referências locais de Response Object/schema com os limi
 e falha se schemas canonizados ou media/status forem ambíguos/divergentes. O canonicalizer conserva
 descrições, exemplos e extensões, portanto a igualdade é conservadora. A tupla ordenada de
 status/media type e JSON canônico completo do schema deve entrar diretamente no fingerprint do
-descriptor; o cache de hash de `/schemas/filtered` não substitui essa evidência. Esses readers ainda
-não compõem/publicam o descriptor, não projetam action/capability e não elevam o estado a `READY`.
+descriptor; o cache de hash de `/schemas/filtered` não substitui essa evidência. Esses readers
+fornecem apenas os contratos; composição/publicação do descriptor, projeções e transição a `READY`
+dependem dos componentes de lifecycle e do CAS durável.
+
+O reader de resposta preserva `oneOf` somente como uma lista não vazia de variantes, resolvendo
+recursivamente cada schema no mesmo snapshot e mantendo o operador no JSON canônico que entra no
+fingerprint. Essa exceção materializa, por exemplo, `RestApiLinks`: cada relação HATEOAS serializa
+um link como objeto único ou como lista quando há ocorrências repetidas. O reader de request continua
+rejeitando `oneOf` e as demais composições; variante malformada, referência cíclica, snapshot
+incompleto ou limite estrutural excedido continuam falhando fechados.
+
+A referência da action no descriptor preserva a projeção canônica publicada pelo registry para o
+mesmo `CanonicalOperationRef`, incluindo `idField` e `readOnly=false`; ela não é igual à referência
+genérica do schema de operação. O digest estrutural enquadra essas duas referências junto do schema
+completo da operação (`praxis.bulk.structure/2`). Assim, alteração dos links/projeções da action
+também muda a revisão estrutural e exige nova composição antes do CAS de readiness.
+
+`ActionDefinition.group` permanece a categoria de catálogo produzida por `@ApiGroup`; não é a
+identidade do grupo OpenAPI estrito em `CanonicalOperationRef.group`. A composição valida
+separadamente a operação exata da action e o grupo OpenAPI comum das sete operações bulk. Não
+equiparar esses nomes permite que grupos agregados de negócio coexistam com documentos OpenAPI
+individuais sem enfraquecer a resolução por snapshot.
 
 O inventário anterior é reaproveitado assim:
 
