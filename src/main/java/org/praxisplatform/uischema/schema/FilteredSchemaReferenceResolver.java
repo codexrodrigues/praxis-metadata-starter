@@ -4,7 +4,6 @@ import org.praxisplatform.uischema.id.SchemaIdBuilder;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.web.util.UriUtils;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -60,19 +59,19 @@ public class FilteredSchemaReferenceResolver implements SchemaReferenceResolver 
         StringBuilder urlBuilder = new StringBuilder("/schemas/filtered?path=")
                 .append(URLEncoder.encode(normalizedPath, StandardCharsets.UTF_8).replace("+", "%20"))
                 .append("&operation=")
-                .append(UriUtils.encodeQueryParam(normalizedMethod, StandardCharsets.UTF_8))
+                .append(encodeQueryParameter(normalizedMethod))
                 .append("&schemaType=")
-                .append(UriUtils.encodeQueryParam(normalizedSchemaType, StandardCharsets.UTF_8));
+                .append(encodeQueryParameter(normalizedSchemaType));
         if (includeInternalSchemas) {
             urlBuilder.append("&includeInternalSchemas=true");
         }
         if (StringUtils.hasText(idField)) {
             urlBuilder.append("&idField=")
-                    .append(UriUtils.encodeQueryParam(idField, StandardCharsets.UTF_8));
+                    .append(encodeQueryParameter(idField));
         }
         if (readOnly != null) {
             urlBuilder.append("&readOnly=")
-                    .append(UriUtils.encodeQueryParam(String.valueOf(readOnly), StandardCharsets.UTF_8));
+                    .append(encodeQueryParameter(String.valueOf(readOnly)));
         }
         String url = urlBuilder.toString();
         String schemaId = SchemaIdBuilder.build(
@@ -112,5 +111,9 @@ public class FilteredSchemaReferenceResolver implements SchemaReferenceResolver 
             return "response";
         }
         return schemaType.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String encodeQueryParameter(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 }

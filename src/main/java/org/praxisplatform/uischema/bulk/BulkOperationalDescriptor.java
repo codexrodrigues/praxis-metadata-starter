@@ -10,6 +10,7 @@ record BulkOperationalDescriptor(
         String providerId,
         String providerRevision,
         BulkOperationalProfile profile,
+        BulkOperationStructuralDescriptor structural,
         BulkExecutionInfrastructure infrastructure) {
 
     BulkOperationalDescriptor {
@@ -21,6 +22,7 @@ record BulkOperationalDescriptor(
         text(providerId, "providerId");
         text(providerRevision, "providerRevision");
         Objects.requireNonNull(profile, "profile");
+        Objects.requireNonNull(structural, "structural");
         Objects.requireNonNull(infrastructure, "infrastructure");
         if (!identity.namespaceId().equals(infrastructure.namespace()))
             throw new IllegalArgumentException("Control identity and runtime infrastructure namespaces differ");

@@ -722,12 +722,17 @@ public class OpenApiUiSchemaAutoConfiguration {
     public ActionCatalogService actionCatalogService(
             ActionDefinitionRegistry actionDefinitionRegistry,
             ActionAvailabilityEvaluator actionAvailabilityEvaluator,
-            ActionAvailabilityContextResolver actionAvailabilityContextResolver
+            ActionAvailabilityContextResolver actionAvailabilityContextResolver,
+            ObjectProvider<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle
     ) {
         return new ActionCatalogService(
                 actionDefinitionRegistry,
                 actionAvailabilityEvaluator,
-                actionAvailabilityContextResolver
+                actionAvailabilityContextResolver,
+                definitions -> {
+                    var lifecycle = bulkLifecycle.getIfAvailable();
+                    return lifecycle == null ? java.util.Map.of() : lifecycle.projectReadyActions(definitions);
+                }
         );
     }
 

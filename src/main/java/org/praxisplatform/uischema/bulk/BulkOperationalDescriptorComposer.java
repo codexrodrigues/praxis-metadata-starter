@@ -71,13 +71,17 @@ final class BulkOperationalDescriptorComposer {
         profileNode.put("proposalLifetimeMillis", profile.proposalLifetime().toMillis());
         profileNode.put("unitDeadlineMillis", profile.unitDeadline().toMillis());
 
-        return new BulkOperationalDescriptor(
+        var descriptor = new BulkOperationalDescriptor(
                 new BulkOperationControlIdentity(infrastructure.namespace(), confirmation.operationId()),
                 structuralRevision,
                 BulkCanonicalJson.operationalDescriptorDigest(root),
                 providerId,
                 providerRevision,
-                profile, infrastructure);
+                profile, structural, infrastructure);
+        // Readiness includes the usable evaluation/confirmation UI protocol. A transport-only
+        // descriptor must never publish READY and expose a direct workflow without that protocol.
+        BulkExecutionContract.from(descriptor);
+        return descriptor;
     }
 
     private static String canonical(String value, String name) {

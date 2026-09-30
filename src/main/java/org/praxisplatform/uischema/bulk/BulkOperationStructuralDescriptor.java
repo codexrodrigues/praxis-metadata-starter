@@ -79,16 +79,22 @@ final class BulkOperationStructuralDescriptor {
         private final String responseJavaType;
         private final CanonicalRequestSchema requestSchema;
         private final CanonicalResponseSchema responseSchema;
+        private final org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved filteredRequest;
+        private final org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved filteredResponse;
 
         Operation(Role role, CanonicalOperationRef reference, String requestJavaType,
                 String responseJavaType, CanonicalRequestSchema requestSchema,
-                CanonicalResponseSchema responseSchema) {
+                CanonicalResponseSchema responseSchema,
+                org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved filteredRequest,
+                org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved filteredResponse) {
             this.role = Objects.requireNonNull(role, "role");
             this.reference = Objects.requireNonNull(reference, "reference");
             this.requestJavaType = requestJavaType;
             this.responseJavaType = requireText(responseJavaType, "responseJavaType");
             this.requestSchema = requestSchema;
             this.responseSchema = Objects.requireNonNull(responseSchema, "responseSchema");
+            this.filteredRequest = filteredRequest;
+            this.filteredResponse = filteredResponse;
             if ((role == Role.EVALUATION || role == Role.CONFIRMATION)
                     != (requestJavaType != null && requestSchema != null)) {
                 throw new IllegalArgumentException("Only evaluation and confirmation roles have request bodies");
@@ -104,6 +110,8 @@ final class BulkOperationStructuralDescriptor {
         String responseJavaType() { return responseJavaType; }
         Optional<CanonicalRequestSchema> requestSchema() { return Optional.ofNullable(requestSchema); }
         CanonicalResponseSchema responseSchema() { return responseSchema; }
+        org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved filteredRequest() { return filteredRequest; }
+        org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved filteredResponse() { return filteredResponse; }
     }
 
     /** Defensive projection of the canonical action registry entry; schemas come from the group snapshot. */

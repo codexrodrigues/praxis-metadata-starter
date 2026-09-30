@@ -88,9 +88,22 @@ public interface OpenApiDocumentService {
     }
 
     /**
-     * Fetches the supplied exact groups into an isolated, immutable lifecycle snapshot and makes
-     * that snapshot visible to strict reads only for the duration of {@code action}. It must not
-     * replace the ordinary shared document cache.
+     * Holds the document/hash-cache read side for one complete public schema materialization.
+     * Implementations with mutable caches must prevent invalidation between document selection,
+     * payload construction and hash insertion.
+     */
+    default <T> T withSchemaCacheReadLock(Supplier<T> action) {
+        if (action == null) throw new IllegalArgumentException("action is required");
+        return action.get();
+    }
+
+    /**
+     * Fetches the supplied exact groups into an isolated, immutable lifecycle snapshot, verifies
+     * that ordinary public document reads on this node resolve the same JSON, and makes the
+     * snapshot visible to strict reads only for the duration of {@code action}. If the public
+     * cache differs, implementations must run the invalidation guard, clear document and schema
+     * hash caches, and fail before executing {@code action}. The snapshot itself must not replace
+     * the ordinary shared document cache.
      */
     default <T> T withFreshBulkLifecycleDocuments(Set<String> groups, Supplier<T> action) {
         throw new UnsupportedOperationException(
@@ -99,6 +112,9 @@ public interface OpenApiDocumentService {
 
     /** Whether strict refreshes use a regenerated source rather than a source-side document cache. */
     default boolean supportsFreshBulkLifecycleComposition() { return false; }
+
+    /** Whether lifecycle snapshots also prove equality with this node's public cached documents. */
+    default boolean supportsFreshBulkLifecyclePublicCacheCoherence() { return false; }
 
     /**
      * Reads an explicit operation's JSON request schema for backend compilation.

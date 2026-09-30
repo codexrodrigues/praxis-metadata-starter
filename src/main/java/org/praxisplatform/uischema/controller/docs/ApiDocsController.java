@@ -14,6 +14,7 @@ import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
+import org.praxisplatform.uischema.schema.FilteredSchemaProjection;
 import org.praxisplatform.uischema.schema.ApiResourceIdentityResolver;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.praxisplatform.uischema.util.OpenApiUiUtils;
@@ -73,7 +74,6 @@ public class ApiDocsController {
     private static final String COMPONENTS = "components";
     private static final String SCHEMAS = "schemas";
     private static final String X_UI = "x-ui";
-    private static final String RESPONSE_SCHEMA = "responseSchema";
     private static final String PROPERTIES = "properties";
     private static final String REF = "$ref";
     private static final String ITEMS = "items";
@@ -307,6 +307,14 @@ public class ApiDocsController {
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Tenant", required = false) String tenant,
             java.util.Locale locale) {
 
+        return openApiDocumentService.withSchemaCacheReadLock(() -> getFilteredSchemaWithStableCache(
+                path, operation, includeInternalSchemas, schemaType, idField, readOnly, ifNoneMatch, tenant, locale));
+    }
+
+    private org.springframework.http.ResponseEntity<Map<String, Object>> getFilteredSchemaWithStableCache(
+            String path, String operation, boolean includeInternalSchemas, String schemaType,
+            String idField, Boolean readOnly, String ifNoneMatch, String tenant, java.util.Locale locale) {
+
         if (!"response".equalsIgnoreCase(schemaType) && !"request".equalsIgnoreCase(schemaType)) {
             throw new IllegalArgumentException("Parameter 'schemaType' must be 'response' or 'request'.");
         }
@@ -344,54 +352,11 @@ public class ApiDocsController {
 
         LOGGER.info("Path and operation node retrieved successfully");
 
-        // Escolhe o schema conforme o schemaType indicado
-        String schemaName = null;
-        JsonNode directSchemaNode = null;
-        if ("request".equalsIgnoreCase(schemaType)) {
-            // Tenta localizar schema do corpo de requisicao
-            JsonNode bodySchema = openApiDocsSupport.selectPreferredContentNode(
-                    pathsNode.path("requestBody").path("content")
-            ).path("schema");
-
-            if (!bodySchema.isMissingNode()) {
-                if (bodySchema.has(REF)) {
-                    schemaName = extractSchemaNameFromRef(bodySchema.path(REF).asText());
-                    LOGGER.info("Request schema encontrado por $ref: {}", schemaName);
-                } else {
-                    // Schema inline (sem $ref): usar diretamente (posteriormente tentaremos extrair o FilterDTO real)
-                    directSchemaNode = bodySchema;
-                    LOGGER.info("Request schema inline detectado (sem $ref). Usando schema inline.");
-                }
-            }
-        } else {
-            schemaName = findResponseSchema(pathsNode, rootNode, operationRef.method(), canonicalPath);
-        }
-
-        if ((schemaName == null || schemaName.isEmpty()) && (directSchemaNode == null)) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "The requested schema was not found or is not defined for the specified path and operation."
-            );
-        }
-
-        LOGGER.info("Schema found: {}", schemaName != null ? schemaName : "<inline>");
-
-        // Recupera o no do schema: de components/schemas quando ha nome; ou o no inline quando aplicavel
-        JsonNode schemasNode;
+        FilteredSchemaProjection projection = new FilteredSchemaProjection(objectMapper);
+        FilteredSchemaProjection.Selection selected = projection.select(rootNode, canonicalPath, normalizedOperation, schemaType);
+        String schemaName = selected.schemaName();
+        JsonNode schemasNode = selected.schema();
         JsonNode allSchemas = rootNode.path(COMPONENTS).path(SCHEMAS);
-        if (directSchemaNode != null) {
-            // Heuristica: quando o corpo e um objeto com propriedades (ex.: filterDTO, pageable), tentar extrair o schema do filtro
-            JsonNode extracted = tryExtractFilterSchemaFromInline(directSchemaNode, allSchemas);
-            schemasNode = extracted != null ? extracted : directSchemaNode;
-        } else {
-            schemasNode = allSchemas.path(schemaName);
-            if (schemasNode.isMissingNode()) {
-                throw new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "The specified component schema was not found in the documentation."
-                );
-            }
-        }
 
         LOGGER.info("Schema node retrieved successfully");
 
@@ -433,10 +398,7 @@ public class ApiDocsController {
         // Anotar x-ui.resource.idField para o frontend
         String resolvedIdField = resolveIdField(idField, schemaMap, rootNode, basePath, schemaType);
         Map<String, Boolean> caps = computeCapabilities(rootNode, basePath);
-        boolean computedReadOnly = (readOnly != null) ? readOnly.booleanValue() :
-                !(Boolean.TRUE.equals(caps.getOrDefault("create", false))
-                        || Boolean.TRUE.equals(caps.getOrDefault("update", false))
-                        || Boolean.TRUE.equals(caps.getOrDefault("delete", false)));
+        boolean computedReadOnly = FilteredSchemaProjection.readOnly(readOnly, caps);
         @SuppressWarnings("unchecked")
         Map<String, Object> resourceMeta = (Map<String, Object>) xUiMap.get("resource");
         if (resourceMeta == null) {
@@ -571,134 +533,7 @@ public class ApiDocsController {
                                   JsonNode rootNode,
                                   String basePath,
                                   String schemaType) {
-        try {
-            if (requestedIdField != null && !requestedIdField.isBlank()) {
-                return requestedIdField;
-            }
-            String canonicalIdField = resolveCanonicalIdFieldFromResourceResponse(rootNode, basePath);
-            boolean responseSchema = "response".equalsIgnoreCase(schemaType);
-            if (canonicalIdField != null
-                    && !canonicalIdField.isBlank()
-                    && (!responseSchema || hasSchemaProperty(schemaMap, canonicalIdField))) {
-                return canonicalIdField;
-            }
-            if (hasSchemaProperty(schemaMap, "id")) {
-                return "id";
-            }
-            if (responseSchema) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> props = (Map<String, Object>) schemaMap.get("properties");
-                if (props != null) {
-                    for (String key : props.keySet()) {
-                        if (key != null && key.endsWith("Id")) {
-                            return key;
-                        }
-                    }
-                }
-            }
-            if (canonicalIdField != null && !canonicalIdField.isBlank()) {
-                return canonicalIdField;
-            }
-            // Conservative fallback
-            return "id";
-        } catch (Exception e) {
-            LOGGER.debug("Falha ao resolver idField: {}", e.getMessage());
-            return "id";
-        }
-    }
-
-    private String resolveCanonicalIdFieldFromResourceResponse(JsonNode rootNode, String basePath) {
-        if (rootNode == null || basePath == null || basePath.isBlank()) {
-            return null;
-        }
-
-        JsonNode resourceSchema = findResourceResponseSchema(rootNode, basePath + "/{id}", "get");
-        if (resourceSchema == null || resourceSchema.isMissingNode()) {
-            resourceSchema = findResourceResponseSchema(rootNode, basePath + "/all", "get");
-        }
-        if (resourceSchema == null || resourceSchema.isMissingNode()) {
-            resourceSchema = findResourceResponseSchema(rootNode, basePath, "post");
-        }
-        if (resourceSchema == null || resourceSchema.isMissingNode()) {
-            resourceSchema = findResourceResponseSchema(rootNode, basePath + "/filter", "post");
-        }
-        if (resourceSchema == null || resourceSchema.isMissingNode()) {
-            return null;
-        }
-
-        Map<String, Object> resourceSchemaMap = objectMapper.convertValue(
-                resourceSchema,
-                new TypeReference<Map<String, Object>>() { });
-        if (hasSchemaProperty(resourceSchemaMap, "id")) {
-            return "id";
-        }
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> props = (Map<String, Object>) resourceSchemaMap.get(PROPERTIES);
-        if (props != null) {
-            for (String key : props.keySet()) {
-                if (key != null && key.endsWith("Id")) {
-                    return key;
-                }
-            }
-        }
-        String requiredIdentifier = resolveSingleRequiredIdentifierField(resourceSchemaMap);
-        if (requiredIdentifier != null) {
-            return requiredIdentifier;
-        }
-        return null;
-    }
-
-    private String resolveSingleRequiredIdentifierField(Map<String, Object> schemaMap) {
-        Object requiredValue = schemaMap.get("required");
-        if (!(requiredValue instanceof List<?> requiredFields) || requiredFields.size() != 1) {
-            return null;
-        }
-
-        Object candidateValue = requiredFields.get(0);
-        if (!(candidateValue instanceof String candidate) || candidate.isBlank()) {
-            return null;
-        }
-        if (!hasSchemaProperty(schemaMap, candidate)) {
-            return null;
-        }
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> props = (Map<String, Object>) schemaMap.get(PROPERTIES);
-        if (props == null || !isScalarIdentifierProperty(props.get(candidate))) {
-            return null;
-        }
-        return candidate;
-    }
-
-    private boolean isScalarIdentifierProperty(Object propertyValue) {
-        if (!(propertyValue instanceof Map<?, ?> property)) {
-            return false;
-        }
-        Object typeValue = property.get("type");
-        if (!(typeValue instanceof String type)) {
-            return false;
-        }
-        return "integer".equals(type) || "number".equals(type) || "string".equals(type);
-    }
-
-    private JsonNode findResourceResponseSchema(JsonNode rootNode, String path, String operation) {
-        if (rootNode == null || path == null || path.isBlank()) {
-            return null;
-        }
-
-        JsonNode operationNode = rootNode.path(PATHS).path(path).path(operation);
-        if (operationNode == null || operationNode.isMissingNode()) {
-            return null;
-        }
-
-        String schemaName = findResponseSchema(operationNode, rootNode, operation, path);
-        if (!StringUtils.hasText(schemaName)) {
-            return null;
-        }
-
-        JsonNode schemaNode = rootNode.path(COMPONENTS).path(SCHEMAS).path(schemaName);
-        return (schemaNode == null || schemaNode.isMissingNode()) ? null : schemaNode;
+        return new FilteredSchemaProjection(objectMapper).resolveIdField(requestedIdField, schemaMap, rootNode, basePath, schemaType);
     }
 
     /**
@@ -710,41 +545,7 @@ public class ApiDocsController {
      * </p>
      */
     private String deriveBasePathFrom(String fullPath) {
-        if (fullPath == null || fullPath.isBlank()) return fullPath;
-        String p = fullPath;
-        // normaliza barras
-        p = p.replaceAll("/+", "/");
-        if (p.endsWith("/") && p.length() > 1) p = p.substring(0, p.length() - 1);
-
-        String[] suffixes = new String[]{
-                "/stats/distribution",
-                "/stats/timeseries",
-                "/stats/comparison",
-                "/stats/group-by",
-                "/options/by-ids",
-                "/options/filter",
-                "/filter/cursor",
-                "/by-ids",
-                "/schemas/filtered",
-                "/schemas",
-                "/filter",
-                "/locate",
-                "/batch",
-                "/{id}",
-                "/all"
-        };
-        for (String s : suffixes) {
-            if (p.endsWith(s)) {
-                return p.substring(0, p.length() - s.length());
-            }
-        }
-
-        int variableSegmentIndex = p.indexOf("/{");
-        if (variableSegmentIndex > 0) {
-            return p.substring(0, variableSegmentIndex);
-        }
-
-        return p; // ja e base
+        return new FilteredSchemaProjection(objectMapper).deriveBasePathFrom(fullPath);
     }
 
     /**
@@ -1086,10 +887,7 @@ public class ApiDocsController {
      */
     @SuppressWarnings("unchecked")
     private boolean hasSchemaProperty(Map<String, Object> schemaMap, String prop) {
-        if (schemaMap == null || prop == null) return false;
-        Object propsObj = schemaMap.get("properties");
-        if (!(propsObj instanceof Map)) return false;
-        return ((Map<String, Object>) propsObj).containsKey(prop);
+        return new FilteredSchemaProjection(objectMapper).hasSchemaProperty(schemaMap, prop);
     }
 
     private void normalizeEmptyObjectProperties(Map<String, Object> schemaMap) {
@@ -1465,44 +1263,7 @@ public class ApiDocsController {
      * </p>
      */
     private JsonNode tryExtractFilterSchemaFromInline(JsonNode inlineSchema, JsonNode allSchemas) {
-        if (inlineSchema == null || inlineSchema.isMissingNode()) return null;
-        JsonNode props = inlineSchema.path(PROPERTIES);
-        if (props.isMissingNode() || !props.fieldNames().hasNext()) return null;
-
-        // 1) Preferencia por propriedade explicitamente chamada 'filterDTO'
-        JsonNode filterDtoNode = props.path("filterDTO");
-        if (!filterDtoNode.isMissingNode()) {
-            JsonNode refNode = filterDtoNode.path(REF);
-            if (!refNode.isMissingNode()) {
-                String refName = extractSchemaNameFromRef(refNode.asText());
-                JsonNode resolved = allSchemas.path(refName);
-                if (!resolved.isMissingNode()) {
-                    LOGGER.info("Extraido FilterDTO via propriedade 'filterDTO': {}", refName);
-                    return resolved;
-                }
-            }
-        }
-
-        // 2) Caso nao exista 'filterDTO', procurar qualquer propriedade com $ref que termine com 'FilterDTO'
-        Iterator<Entry<String, JsonNode>> it = props.fields();
-        while (it.hasNext()) {
-            Entry<String, JsonNode> entry = it.next();
-            JsonNode val = entry.getValue();
-            JsonNode ref = val.path(REF);
-            if (!ref.isMissingNode()) {
-                String refName = extractSchemaNameFromRef(ref.asText());
-                if (refName != null && refName.endsWith("FilterDTO")) {
-                    JsonNode resolved = allSchemas.path(refName);
-                    if (!resolved.isMissingNode()) {
-                    LOGGER.info("Extraido FilterDTO via heuristica de sufixo: {}", refName);
-                        return resolved;
-                    }
-                }
-            }
-        }
-
-        // 3) Nao foi possivel extrair um FilterDTO especifico
-        return null;
+        return new FilteredSchemaProjection(objectMapper).tryExtractFilterSchemaFromInline(inlineSchema, allSchemas);
     }
 
     /**
@@ -1610,10 +1371,6 @@ public class ApiDocsController {
         }
     }
 
-
-
-
-
     // processControlTypes method is now removed as its logic is integrated into processSpecialFields
     // and OpenApiUiUtils.determineSmartControlTypeByFieldName
 
@@ -1634,233 +1391,10 @@ public class ApiDocsController {
     }
 
     /**
-     * Localiza o schema de resposta usando as heuristicas canonicas atuais.
-     *
-     * <p>
-     * A busca prioriza {@code x-ui.responseSchema}, depois o schema da resposta HTTP e, por fim,
-     * heuristicas para wrappers como {@code RestApiResponse}.
-     * </p>
-     */
-    private String findResponseSchema(JsonNode pathsNode, JsonNode rootNode, String operation, String decodedPath) {
-        // 1. Primeiro tenta encontrar no no x-ui (abordagem atual)
-        JsonNode xUiNode = pathsNode.path(X_UI);
-        if (!xUiNode.isMissingNode() && !xUiNode.path(RESPONSE_SCHEMA).isMissingNode()) {
-            String responseSchema = xUiNode.path(RESPONSE_SCHEMA).asText();
-            LOGGER.info("Response schema encontrado em x-ui: {}", responseSchema);
-            return responseSchema;
-        }
-
-        // 2. Tenta extrair do schema de resposta 200 OK
-        JsonNode responses = pathsNode.path("responses");
-        JsonNode okResponse = openApiDocsSupport.selectPreferredContentNode(
-                responses.path("200").path("content")
-        ).path("schema");
-        if (okResponse.isMissingNode()) {
-            okResponse = openApiDocsSupport.selectPreferredContentNode(
-                    responses.path("201").path("content")
-            ).path("schema");
-        }
-
-        if (!okResponse.isMissingNode() && okResponse.has("$ref")) {
-            String schemaRef = okResponse.path("$ref").asText();
-            String wrapperSchemaName = extractSchemaNameFromRef(schemaRef);
-            LOGGER.info("Schema wrapper encontrado: {}", wrapperSchemaName);
-
-            // Agora temos o nome do schema wrapper, vamos localizar o tipo real dentro do wrapper
-            JsonNode wrapperSchema = rootNode.path(COMPONENTS).path(SCHEMAS).path(wrapperSchemaName);
-
-            if (!wrapperSchema.isMissingNode()) {
-            // Verificar se e RestApiResponseTestDTO ou RestApiResponseListTestDTO
-                if (wrapperSchemaName.startsWith("RestApiResponse")) {
-                // Encontrar o tipo generico dentro do RestApiResponse
-                    String realTypeName = extractRealTypeFromRestApiResponse(
-                            wrapperSchema,
-                            wrapperSchemaName,
-                            rootNode.path(COMPONENTS).path(SCHEMAS)
-                    );
-                    if (realTypeName != null) {
-                    LOGGER.info("Tipo real extraido de {}: {}", wrapperSchemaName, realTypeName);
-                        return realTypeName;
-                    }
-                } else {
-                    // Quando a resposta referencia diretamente um DTO sem wrapper
-                    return wrapperSchemaName;
-                }
-            }
-        }
-
-        // 3. Tenta inferir pelo nome do endpoint
-        String[] pathParts = decodedPath.split("/");
-        if (pathParts.length > 0) {
-            String lastSegment = pathParts[pathParts.length - 1];
-            // Se o ultimo segmento do path for "list", podemos inferir que o retorno e uma lista
-            // de algum tipo, provavelmente relacionado ao penultimo segmento
-            if ("list".equals(lastSegment) && pathParts.length > 1) {
-                String entityName = pathParts[pathParts.length - 2];
-                String capitalizedName = entityName.substring(0, 1).toUpperCase() + entityName.substring(1);
-                if (capitalizedName.endsWith("s")) {
-                    capitalizedName = capitalizedName.substring(0, capitalizedName.length() - 1);
-                }
-                String potentialTypeName = capitalizedName + "DTO";
-
-                // Verifica se o schema inferido existe
-                if (!rootNode.path(COMPONENTS).path(SCHEMAS).path(potentialTypeName).isMissingNode()) {
-                    LOGGER.info("Schema inferido pela URL: {}", potentialTypeName);
-                    return potentialTypeName;
-                }
-            }
-        }
-
-        LOGGER.warn("Nao foi possivel encontrar um responseSchema para {}", decodedPath);
-        return null;
-    }
-
-    /**
-     * Extrai o tipo de dominio encapsulado por wrappers como {@code RestApiResponse}.
-     */
-    private String extractRealTypeFromRestApiResponse(JsonNode wrapperSchema, String wrapperSchemaName, JsonNode allSchemas) {
-        String structuralType = resolveDomainSchemaName(
-                wrapperSchema.path("properties").path("data"),
-                allSchemas,
-                new LinkedHashSet<>()
-        );
-        if (StringUtils.hasText(structuralType)) {
-            return structuralType;
-        }
-
-        // Analise do nome para casos comuns como "RestApiResponseTestDTO" ou "RestApiResponseListTestDTO"
-        if (wrapperSchemaName.startsWith("RestApiResponse")) {
-            String remaining = wrapperSchemaName.substring("RestApiResponse".length());
-
-            // Verifica se e uma lista (RestApiResponseListXXX)
-            if (remaining.startsWith("List")) {
-                String typeName = remaining.substring("List".length());
-                return typeName; // Retorna o tipo contido na lista (ex: "TestDTO")
-            } else {
-                return remaining; // Retorna o tipo direto (ex: "TestDTO")
-            }
-        }
-
-        // Se a analise pelo nome nao funcionar, tenta analisar a estrutura do schema
-        // Especificamente, buscamos a propriedade "data" do RestApiResponse
-        JsonNode dataSchema = wrapperSchema.path("properties").path("data");
-
-        // Verifica se data e um array
-        if (dataSchema.has("type") && "array".equals(dataSchema.path("type").asText()) && dataSchema.has("items") && dataSchema.path("items").has("$ref")) {
-            // E um array, extrai o tipo dos items
-            return extractSchemaNameFromRef(dataSchema.path("items").path("$ref").asText());
-        }
-        // Se data tem referencia direta
-        else if (dataSchema.has("$ref")) {
-            return extractSchemaNameFromRef(dataSchema.path("$ref").asText());
-        }
-
-        // Segunda tentativa: olhar propriedades do schema wrapper
-        JsonNode properties = wrapperSchema.path("properties");
-        if (!properties.isMissingNode()) {
-            JsonNode dataProperty = properties.path("data");
-
-            // Verifica se data e um objeto ou array
-            if (!dataProperty.isMissingNode()) {
-                // Se data e um array
-                if (dataProperty.has("type") && "array".equals(dataProperty.path("type").asText())) {
-                    // Verifica se o array tem referencia para o tipo dos itens
-                    if (dataProperty.has("items") && dataProperty.path("items").has("$ref")) {
-                        String itemRef = dataProperty.path("items").path("$ref").asText();
-                        return extractSchemaNameFromRef(itemRef);
-                    }
-                }
-                // Se data tem referencia direta
-                else if (dataProperty.has("$ref")) {
-                    return extractSchemaNameFromRef(dataProperty.path("$ref").asText());
-                }
-            }
-        }
-
-        // Nao conseguiu extrair o tipo
-        return null;
-    }
-
-    private String resolveDomainSchemaName(JsonNode schemaNode, JsonNode allSchemas, Set<String> visited) {
-        if (schemaNode == null || schemaNode.isMissingNode() || schemaNode.isNull()) {
-            return null;
-        }
-
-        if (schemaNode.has(REF)) {
-            String schemaName = extractSchemaNameFromRef(schemaNode.path(REF).asText());
-            if (!StringUtils.hasText(schemaName)) {
-                return null;
-            }
-            if (!visited.add(schemaName)) {
-                return unwrapWrapperSchemaName(schemaName);
-            }
-
-            JsonNode referencedSchema = allSchemas == null ? null : allSchemas.path(schemaName);
-            String nestedType = resolveDomainSchemaName(referencedSchema, allSchemas, visited);
-            if (StringUtils.hasText(nestedType) && !isLinkInfrastructureSchema(nestedType)) {
-                return nestedType;
-            }
-            return unwrapWrapperSchemaName(schemaName);
-        }
-
-        if (schemaNode.has("items")) {
-            String nestedType = resolveDomainSchemaName(schemaNode.path("items"), allSchemas, visited);
-            if (StringUtils.hasText(nestedType)) {
-                return nestedType;
-            }
-        }
-
-        JsonNode contentNode = schemaNode.path("properties").path("content");
-        if (!contentNode.isMissingNode()) {
-            String nestedType = resolveDomainSchemaName(contentNode, allSchemas, visited);
-            if (StringUtils.hasText(nestedType)) {
-                return nestedType;
-            }
-        }
-
-        JsonNode dataNode = schemaNode.path("properties").path("data");
-        if (!dataNode.isMissingNode()) {
-            String nestedType = resolveDomainSchemaName(dataNode, allSchemas, visited);
-            if (StringUtils.hasText(nestedType)) {
-                return nestedType;
-            }
-        }
-
-        JsonNode allOf = schemaNode.path("allOf");
-        if (allOf.isArray()) {
-            for (JsonNode candidate : allOf) {
-                String nestedType = resolveDomainSchemaName(candidate, allSchemas, visited);
-                if (StringUtils.hasText(nestedType) && !isLinkInfrastructureSchema(nestedType)) {
-                    return nestedType;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private String unwrapWrapperSchemaName(String schemaName) {
-        if (!StringUtils.hasText(schemaName)) {
-            return null;
-        }
-        if (schemaName.startsWith("RestApiResource")) {
-            return schemaName.substring("RestApiResource".length());
-        }
-        if (schemaName.startsWith("EntityModel")) {
-            return schemaName.substring("EntityModel".length());
-        }
-        return schemaName;
-    }
-
-    private boolean isLinkInfrastructureSchema(String schemaName) {
-        return "RestApiLinks".equals(schemaName) || "RestApiLinkObject".equals(schemaName);
-    }
-
-    /**
      * Extrai apenas o nome do schema a partir de um {@code $ref}.
      */
     private String extractSchemaNameFromRef(String ref) {
-        return ref.substring(ref.lastIndexOf('/') + 1);
+        return new FilteredSchemaProjection(objectMapper).extractSchemaNameFromRef(ref);
     }
 
     // ------------------------------------------------------------------------
