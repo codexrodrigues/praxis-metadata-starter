@@ -4,6 +4,8 @@ All notable changes to this module will be documented in this file.
 
 ## Unreleased
 
+- A integração Springdoc isola as informações de respostas genéricas por geração do OpenAPI, preservando handlers e schemas sem acumular listas históricas entre grupos. O bean canônico precede o default Springdoc e respeita override explícito do host; o caminho sem respostas genéricas e as invocações diretas não HTTP possuem provas focais. A prioridade explícita do converter Praxis preserva os adaptadores Springdoc antes da resolução terminal, sem depender da ordem incidental das definições. Não modifica budgets, cache de autoridade ou lifecycle durável.
+
 ### Added
 - Strict cache reads reject a changed exact-group document before replacing public JSON or retaining an obsolete schema hash. Identical promotion and cold strict reads remain supported; changes require the existing guarded refresh/invalidation path.
 - S4c/P1 materializa `ActionExecutionContract.bulk` somente para `DOMAIN_COMMAND` com composição corrente e controle durável `READY` estável em geração, fingerprint e revisão. O catálogo recebe o lote em uma composição, preserva availability contextual e omite `bulk` em falhas/stale. `CapabilityOperation.bulk` para updates permanece fora deste corte.
