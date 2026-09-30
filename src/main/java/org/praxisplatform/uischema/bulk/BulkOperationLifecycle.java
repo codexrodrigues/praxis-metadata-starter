@@ -35,10 +35,20 @@ public final class BulkOperationLifecycle {
             SchemaReferenceResolver schemaReferences, BulkExecutionInfrastructure runtime,
             BulkControlPlaneInfrastructure controlPlane,
             List<BulkOperationDescriptorProvider> providers) {
+        this(bindings, operationResolver, documents, actionDefinitions, typeFactory, schemaReferences, runtime,
+                controlPlane, providers, new org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver(documents));
+    }
+
+    public BulkOperationLifecycle(BulkResourceOperationBindings bindings,
+            CanonicalOperationResolver operationResolver, OpenApiDocumentService documents,
+            ActionDefinitionRegistry actionDefinitions, TypeFactory typeFactory,
+            SchemaReferenceResolver schemaReferences, BulkExecutionInfrastructure runtime,
+            BulkControlPlaneInfrastructure controlPlane, List<BulkOperationDescriptorProvider> providers,
+            org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilities) {
         this.bindings = Objects.requireNonNull(bindings, "bindings");
         this.operationResolver = Objects.requireNonNull(operationResolver, "operationResolver");
         this.compiler = new BulkOperationStructuralCompiler(bindings, operationResolver, documents,
-                actionDefinitions, typeFactory, schemaReferences);
+                actionDefinitions, typeFactory, schemaReferences, capabilities);
         this.documents = Objects.requireNonNull(documents, "documents");
         this.runtime = Objects.requireNonNull(runtime, "runtime");
         this.controlPlane = Objects.requireNonNull(controlPlane, "controlPlane");
@@ -46,8 +56,9 @@ public final class BulkOperationLifecycle {
         if (!runtime.namespace().equals(controlPlane.namespace())
                 || !runtime.deploymentId().equals(controlPlane.deploymentId()))
             throw new IllegalArgumentException("Runtime and control plane must bind the same namespace and logical deployment");
-        if (!documents.supportsFreshBulkLifecycleComposition())
-            throw new IllegalStateException("Bulk lifecycle requires an OpenAPI source that can regenerate current group documents");
+        if (!documents.supportsFreshBulkLifecycleComposition()
+                || !documents.supportsFreshBulkLifecyclePublicCacheCoherence())
+            throw new IllegalStateException("Bulk lifecycle requires fresh OpenAPI composition coherent with this node's public document cache");
         documents.installBulkLifecycleInvalidationGuard(() -> {
             if (!lifecycleCacheFence.get()) suspendAllBeforeCacheClear();
         });
@@ -75,6 +86,65 @@ public final class BulkOperationLifecycle {
                 return descriptor.expectation(current.generation());
             });
         });
+    }
+
+    /**
+     * Resolves all requested action projections in one fresh composition. The same captured
+     * descriptor supplies both its fingerprint and its public contract. A second durable read
+     * rejects generation changes during composition, including suspend/republish with equal
+     * content. Contextual availability and later transactional admission remain independent.
+     */
+    public Map<String, org.praxisplatform.uischema.action.ActionExecutionContract> projectReadyActions(
+            List<org.praxisplatform.uischema.action.ActionDefinition> actions) {
+        if (actions == null || actions.isEmpty() || bindings.bulkOperations().isEmpty()) return Map.of();
+        Set<String> declaredIds = bindings.bulkOperations().stream().map(BulkOperationBinding::confirmationOperationId)
+                .collect(java.util.stream.Collectors.toSet());
+        if (actions.stream().filter(Objects::nonNull).noneMatch(action -> action.operation() != null
+                && declaredIds.contains(action.operation().operationId()))) return Map.of();
+        try {
+            return documents.withBulkLifecycleCompositionLock(() -> {
+                Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> before = runtime.withLifecycleRead(connection -> {
+                    Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> captured = new LinkedHashMap<>();
+                    for (var operationId : declaredIds.stream().sorted().toList()) {
+                        var identity = new BulkOperationControlIdentity(runtime.namespace(), operationId);
+                        captured.put(identity, JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(), operationId));
+                    }
+                    return captured;
+                });
+                Set<String> requiredGroups = requiredOpenApiGroups();
+                List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
+                return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
+                    operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
+                    List<BulkOperationalDescriptor> descriptors = descriptors(false).stream()
+                            .sorted(Comparator.comparing(value -> value.identity().confirmationOperationId())).toList();
+                    return runtime.withLifecycleRead(connection -> {
+                        Map<String, org.praxisplatform.uischema.action.ActionExecutionContract> result = new LinkedHashMap<>();
+                        for (var descriptor : descriptors) {
+                            var initial = before.get(descriptor.identity());
+                            if (initial == null || !initial.ready()) continue;
+                            var current = JdbcBulkOperationControl.lockForAdmission(connection,
+                                    descriptor.identity().namespaceId(), descriptor.identity().confirmationOperationId());
+                            if (!matches(initial, "READY", initial.generation(), descriptor)
+                                    || !matches(current, "READY", initial.generation(), descriptor)) continue;
+                            for (var action : actions) {
+                                if (action != null && descriptor.structural().action().operation().equals(action.operation())
+                                        && BulkOperationStructuralDescriptor.Action.from(action).equals(descriptor.structural().action())) {
+                                    try {
+                                        result.put(action.operation().operationId(), action.execution().withBulk(BulkExecutionContract.from(descriptor)));
+                                    } catch (IllegalStateException unavailableProjection) {
+                                        // Raw transport validity does not imply a renderable filtered UI variant.
+                                    }
+                                }
+                            }
+                        }
+                        return Map.copyOf(result);
+                    });
+                });
+            });
+        } catch (RuntimeException unavailableComposition) {
+            // Discovery remains useful for ordinary actions while bulk fails closed.
+            return Map.of();
+        }
     }
 
     /**
@@ -216,6 +286,11 @@ public final class BulkOperationLifecycle {
 
     private BulkOperationalDescriptor descriptor(BulkOperationControlIdentity identity, boolean fresh) {
         requireIdentity(identity);
+        return descriptors(fresh).stream().filter(value -> value.identity().equals(identity)).findFirst()
+                .orElseThrow(() -> unavailable("Bulk operation identity is not a validated lifecycle binding"));
+    }
+
+    private List<BulkOperationalDescriptor> descriptors(boolean fresh) {
         if (!bindings.diagnostics().isEmpty())
             throw unavailable("Bulk MVC declarations contain diagnostics: " + String.join("; ", bindings.diagnostics()));
         List<BulkOperationStructuralDescriptor> structures = compiler.compileAll(fresh);
@@ -234,8 +309,7 @@ public final class BulkOperationLifecycle {
             descriptors.add(composed);
         }
         if (!byOperation.isEmpty()) throw unavailable("A descriptor provider has no validated bulk confirmation binding");
-        return descriptors.stream().filter(value -> value.identity().equals(identity)).findFirst()
-                .orElseThrow(() -> unavailable("Bulk operation identity is not a validated lifecycle binding"));
+        return List.copyOf(descriptors);
     }
 
     private Map<String, BulkOperationDescriptorProvider> providerSnapshot() {

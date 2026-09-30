@@ -145,7 +145,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             runBulkLifecycleInvalidationGuard();
             if (groupName == null || groupName.isBlank())
                 throw new IllegalArgumentException("An exact published OpenAPI group is required");
-            return documentCache.compute(groupName, (group, ignored) -> {
+            JsonNode refreshed = documentCache.compute(groupName, (group, ignored) -> {
                 try {
                     JsonNode groupDoc = openApiDocsSupport.fetchFreshOpenApiGroupDocument(
                             restTemplate, openApiBasePath, group, LOGGER);
@@ -159,6 +159,8 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                     throw new IllegalStateException("Failed to refresh the exact OpenAPI document for group: " + group, e);
                 }
             }).document();
+            schemaHashCache.clear();
+            return refreshed;
         });
     }
 
@@ -217,6 +219,12 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     }
 
     @Override
+    public <T> T withSchemaCacheReadLock(Supplier<T> action) {
+        if (action == null) throw new IllegalArgumentException("action is required");
+        return withCacheReadLock(action);
+    }
+
+    @Override
     public <T> T withFreshBulkLifecycleDocuments(Set<String> groups, Supplier<T> action) {
         if (groups == null || groups.isEmpty() || action == null)
             throw new IllegalArgumentException("groups and action are required");
@@ -237,6 +245,15 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                     throw new IllegalStateException("Failed to fetch fresh exact OpenAPI group: " + group, e);
                 }
             }
+            for (String group : groups.stream().sorted().toList()) {
+                JsonNode publiclyServed = getDocumentForGroup(group);
+                if (!fresh.get(group).equals(publiclyServed)) {
+                    // Fence before dropping either cache, so this node cannot publish a contract
+                    // backed by a stale local view. The guard suspends the shared durable rows.
+                    clearCaches();
+                    throw new IllegalStateException("Public OpenAPI cache differs from the fresh lifecycle document: " + group);
+                }
+            }
             lifecycleSnapshot.set(Map.copyOf(fresh));
             try {
                 return action.get();
@@ -249,6 +266,11 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     @Override
     public boolean supportsFreshBulkLifecycleComposition() {
         return springdocCacheDisabled && !openApiDocsSupport.usesConfiguredInternalBaseUrl();
+    }
+
+    @Override
+    public boolean supportsFreshBulkLifecyclePublicCacheCoherence() {
+        return supportsFreshBulkLifecycleComposition();
     }
 
     private void runBulkLifecycleInvalidationGuard() {

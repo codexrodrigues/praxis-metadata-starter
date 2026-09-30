@@ -19,6 +19,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class ActionCatalogServiceTest {
 
     @Test
+    void resolvesLifecycleOnceForTheWholeCatalogAndKeepsNonBulkExecutionJsonUnchanged() {
+        var definitions = List.of(definition("approve"), definition("reject"));
+        var registry = new StaticActionDefinitionRegistry(definitions);
+        AtomicInteger projectionCalls = new AtomicInteger();
+        var service = new ActionCatalogService(registry, allowAllEvaluator(), contextualResolver(), actions -> {
+            projectionCalls.incrementAndGet();
+            return Map.of();
+        });
+        var response = service.findByResourceKey("example.employees");
+        assertEquals(1, projectionCalls.get(), "bulk composition is resolved once for the whole catalog");
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (var item : response.actions()) {
+            com.fasterxml.jackson.databind.JsonNode json = mapper.valueToTree(item.execution());
+            org.junit.jupiter.api.Assertions.assertFalse(json.has("bulk"));
+            assertEquals(5, json.size(), "ordinary actions retain the five existing execution policies");
+            assertEquals(mapper.valueToTree(definitions.getFirst().execution()), json);
+        }
+    }
+
+    @Test
     void resolvesAvailabilityContextOncePerResourceCatalogInsteadOfOncePerAction() {
         AtomicInteger resolverCalls = new AtomicInteger();
         ActionDefinitionRegistry registry = new StaticActionDefinitionRegistry(List.of(

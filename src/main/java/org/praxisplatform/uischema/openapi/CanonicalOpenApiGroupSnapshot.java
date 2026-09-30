@@ -52,6 +52,28 @@ public final class CanonicalOpenApiGroupSnapshot {
         return OpenApiResponseSchemaReader.read(documents, this, operation);
     }
 
+    /** Resolves the filtered UI projection on this same immutable group copy, without a cache read. */
+    public org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved resolveFilteredProjection(
+            CanonicalOperationRef operation, String schemaType,
+            org.praxisplatform.uischema.schema.SchemaReferenceResolver references,
+            org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilities,
+            String idField, Boolean readOnly) {
+        if (!group.equals(operation.group())) throw new IllegalArgumentException("Operation belongs to another group");
+        OpenApiRequestSchemaReader.validateOperationReference(operation);
+        if (!operation.operationId().equals(document.path("paths").path(operation.path())
+                .path(operation.method().toLowerCase(java.util.Locale.ROOT)).path("operationId").asText()))
+            throw new IllegalStateException("Filtered projection operation differs from the captured group identity");
+        var projection = new org.praxisplatform.uischema.schema.FilteredSchemaProjection(new com.fasterxml.jackson.databind.ObjectMapper())
+                .resolve(document.deepCopy(), operation, schemaType, references, capabilities, idField, readOnly);
+        var evidence = (com.fasterxml.jackson.databind.node.ObjectNode) projection.evidence();
+        var reader = new OpenApiRequestSchemaReader(document, OpenApiRequestSchemaReader.version(document.path("openapi")));
+        // Resolve the selected UI component independently: its nested references may differ
+        // from the raw transport schema. Missing/cyclic refs cannot become public links.
+        evidence.set("resolvedSchema", "response".equals(schemaType)
+                ? reader.resolveResponseSchema(evidence.path("schema")) : reader.resolveSchema(evidence.path("schema")));
+        return new org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved(projection.reference(), evidence);
+    }
+
     /**
      * Verifies that the exact operation in this group snapshot does not publish a request body.
      * This is stronger than checking the MVC handler: OpenAPI customizers must not add a body to
