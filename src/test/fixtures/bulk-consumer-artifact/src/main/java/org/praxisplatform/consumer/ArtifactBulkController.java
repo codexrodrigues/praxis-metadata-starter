@@ -18,8 +18,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-import java.util.Map;
-
 @ApiResource(value = "/artifact-items", resourceKey = "artifact.items",
         title = "Artifact consumer items")
 @ApiGroup("artifact-consumer")
@@ -42,32 +40,32 @@ public class ArtifactBulkController extends AbstractCollectionCommandResourceCon
 
     @BulkResourceOperation(BulkResourceOperation.Role.PROPOSAL)
     @GetMapping("/bulk/proposals/{proposalId}")
-    public Map<String, String> proposal(@PathVariable("proposalId") String proposalId) {
-        return Map.of("kind", "proposal", "id", proposalId);
+    public ArtifactBulkRouteResponse proposal(@PathVariable("proposalId") String proposalId) {
+        return new ArtifactBulkRouteResponse("proposal", proposalId);
     }
 
     @BulkResourceOperation(BulkResourceOperation.Role.PROPOSAL_RESULTS)
     @GetMapping("/bulk/proposals/{proposalId}/results")
-    public Map<String, String> proposalResults(@PathVariable("proposalId") String proposalId) {
-        return Map.of("kind", "proposal-results", "id", proposalId);
+    public ArtifactBulkRouteResponse proposalResults(@PathVariable("proposalId") String proposalId) {
+        return new ArtifactBulkRouteResponse("proposal-results", proposalId);
     }
 
     @BulkResourceOperation(BulkResourceOperation.Role.EXECUTION)
     @GetMapping("/bulk/executions/{executionId}")
-    public Map<String, String> execution(@PathVariable("executionId") String executionId) {
-        return Map.of("kind", "execution", "id", executionId);
+    public ArtifactBulkRouteResponse execution(@PathVariable("executionId") String executionId) {
+        return new ArtifactBulkRouteResponse("execution", executionId);
     }
 
     @BulkResourceOperation(BulkResourceOperation.Role.EXECUTION_RESULTS)
     @GetMapping("/bulk/executions/{executionId}/results")
-    public Map<String, String> executionResults(@PathVariable("executionId") String executionId) {
-        return Map.of("kind", "execution-results", "id", executionId);
+    public ArtifactBulkRouteResponse executionResults(@PathVariable("executionId") String executionId) {
+        return new ArtifactBulkRouteResponse("execution-results", executionId);
     }
 
     @BulkResourceOperation(BulkResourceOperation.Role.CANCEL)
     @PostMapping("/bulk/executions/{executionId}/cancel")
-    public Map<String, String> cancel(@PathVariable("executionId") String executionId) {
-        return Map.of("kind", "cancel", "id", executionId);
+    public ArtifactBulkRouteResponse cancel(@PathVariable("executionId") String executionId) {
+        return new ArtifactBulkRouteResponse("cancel", executionId);
     }
 
     @Operation(operationId = EVALUATION)
@@ -85,6 +83,9 @@ public class ArtifactBulkController extends AbstractCollectionCommandResourceCon
     public ArtifactConfirmationResponse confirm(@RequestBody ArtifactConfirmationRequest request) {
         return new ArtifactConfirmationResponse("route-dispatch-only", request.proposalId());
     }
+
+    /** Concrete OpenAPI component for the operational routes, with their actual JSON shape. */
+    public record ArtifactBulkRouteResponse(String kind, String id) { }
 
     public record ArtifactEvaluationRequest(
             @ArraySchema(schema = @Schema(type = "string", minLength = 1))

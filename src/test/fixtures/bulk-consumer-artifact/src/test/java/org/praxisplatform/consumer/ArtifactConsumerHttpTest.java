@@ -2,6 +2,7 @@ package org.praxisplatform.consumer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -14,6 +15,9 @@ import org.praxisplatform.uischema.bulk.BulkIdentityCodecs;
 import org.praxisplatform.uischema.bulk.BulkOperationControlIdentity;
 import org.praxisplatform.uischema.bulk.BulkOperationLifecycle;
 import org.praxisplatform.uischema.bulk.BulkResourceOperationBindings;
+import org.praxisplatform.uischema.hash.SchemaCanonicalizer;
+import org.praxisplatform.uischema.hash.SchemaHashUtil;
+import org.praxisplatform.uischema.id.SchemaIdBuilder;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.context.WebServerApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -34,6 +38,8 @@ import java.time.Duration;
 import java.util.EnumSet;
 import java.sql.Connection;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -142,6 +148,26 @@ class ArtifactConsumerHttpTest {
                 assertThat(evaluationRequestSchema.at("/properties/targetIds/items/minLength").asInt())
                         .isEqualTo(1);
 
+                JsonNode openApi = responseJson(awaitGet(http,
+                        baseUrl + "/v3/api-docs/artifact-consumer"), mapper);
+                assertOperation(openApi, "/artifact-items/bulk/proposals/{proposalId}", "get",
+                        ArtifactBulkController.PROPOSAL, "ArtifactBulkRouteResponse");
+                assertOperation(openApi, "/artifact-items/bulk/proposals/{proposalId}/results", "get",
+                        ArtifactBulkController.PROPOSAL_RESULTS, "ArtifactBulkRouteResponse");
+                assertOperation(openApi, "/artifact-items/bulk/executions/{executionId}", "get",
+                        ArtifactBulkController.EXECUTION, "ArtifactBulkRouteResponse");
+                assertOperation(openApi, "/artifact-items/bulk/executions/{executionId}/results", "get",
+                        ArtifactBulkController.EXECUTION_RESULTS, "ArtifactBulkRouteResponse");
+                assertOperation(openApi, "/artifact-items/bulk/executions/{executionId}/cancel", "post",
+                        ArtifactBulkController.CANCEL, "ArtifactBulkRouteResponse");
+                assertOperation(openApi, "/artifact-items/actions/bulk-approve/evaluation", "post",
+                        ArtifactBulkController.EVALUATION, "ArtifactEvaluationResponse");
+                assertOperation(openApi, "/artifact-items/actions/bulk-approve", "post",
+                        ArtifactBulkController.CONFIRMATION, "ArtifactConfirmationResponse");
+                evidence.setProperty("http.openApi", "true");
+                evidence.setProperty("http.openApiReserializedJsonUtf8Sha256", sha256(
+                        mapper.writeValueAsBytes(openApi)));
+
                 JsonNode lifecyclePublication = responseJson(httpPost(http,
                         baseUrl + "/_test/bulk-lifecycle/publish-and-verify", null), mapper);
                 assertThat(lifecyclePublication.path("verified").asBoolean()).isTrue();
@@ -169,26 +195,6 @@ class ArtifactConsumerHttpTest {
                         "{\"proposalId\":\"proposal-1\"}"), mapper, "state", "route-dispatch-only");
                 evidence.setProperty("http.bulkActionRouteDispatch", "true");
 
-                JsonNode openApi = responseJson(awaitGet(http,
-                        baseUrl + "/v3/api-docs/artifact-consumer"), mapper);
-                assertOperation(openApi, "/artifact-items/bulk/proposals/{proposalId}", "get",
-                        ArtifactBulkController.PROPOSAL);
-                assertOperation(openApi, "/artifact-items/bulk/proposals/{proposalId}/results", "get",
-                        ArtifactBulkController.PROPOSAL_RESULTS);
-                assertOperation(openApi, "/artifact-items/bulk/executions/{executionId}", "get",
-                        ArtifactBulkController.EXECUTION);
-                assertOperation(openApi, "/artifact-items/bulk/executions/{executionId}/results", "get",
-                        ArtifactBulkController.EXECUTION_RESULTS);
-                assertOperation(openApi, "/artifact-items/bulk/executions/{executionId}/cancel", "post",
-                        ArtifactBulkController.CANCEL);
-                assertOperation(openApi, "/artifact-items/actions/bulk-approve/evaluation", "post",
-                        ArtifactBulkController.EVALUATION);
-                assertOperation(openApi, "/artifact-items/actions/bulk-approve", "post",
-                        ArtifactBulkController.CONFIRMATION);
-                evidence.setProperty("http.openApi", "true");
-                evidence.setProperty("http.openApiReserializedJsonUtf8Sha256", sha256(
-                        mapper.writeValueAsBytes(openApi)));
-
                 HttpResponse<String> filteredSchema = httpGet(http,
                         baseUrl + "/schemas/filtered?path=%2Fartifact-items%2Factions%2Fbulk-approve"
                                 + "&operation=post&schemaType=request");
@@ -207,6 +213,12 @@ class ArtifactConsumerHttpTest {
                         baseUrl + "/schemas/actions?resource=artifact.items"), mapper);
                 assertThat(actions.path("actions").findValuesAsText("id"))
                         .contains("bulk-approve");
+                JsonNode action = null;
+                for (JsonNode candidate : actions.path("actions")) {
+                    if ("bulk-approve".equals(candidate.path("id").asText())) action = candidate;
+                }
+                assertThat(action).isNotNull();
+                assertBulkFilteredProjections(http, baseUrl, mapper, action, openApi, evidence);
                 evidence.setProperty("http.actionCatalog", "true");
             }
         }
@@ -346,9 +358,104 @@ class ArtifactConsumerHttpTest {
         return mapper.readTree(response.body());
     }
 
-    private static void assertOperation(JsonNode document, String path, String method, String operationId) {
-        assertThat(document.path("paths").path(path).path(method).path("operationId").asText())
-                .isEqualTo(operationId);
+    private static void assertOperation(JsonNode document, String path, String method, String operationId,
+            String responseComponent) {
+        JsonNode operation = document.path("paths").path(path).path(method);
+        assertThat(operation.path("operationId").asText()).isEqualTo(operationId);
+        JsonNode content = operation.path("responses").path("200").path("content");
+        assertThat(content.size()).as("response content for %s", operationId).isPositive();
+        for (JsonNode mediaType : content) {
+            assertThat(mediaType.path("schema").path("$ref").asText())
+                    .as("selectable response component for %s", operationId)
+                    .isEqualTo("#/components/schemas/" + responseComponent);
+        }
+        assertThat(document.path("components").path("schemas").path(responseComponent)
+                .path("properties").size()).isPositive();
+    }
+
+    private static void assertBulkFilteredProjections(HttpClient http, String baseUrl, ObjectMapper mapper,
+            JsonNode action, JsonNode openApi, Properties evidence) throws Exception {
+        JsonNode bulk = action.path("execution").path("bulk");
+        assertThat(bulk.path("mode").asText()).isEqualTo("DOMAIN_COMMAND");
+        Map<String, String> roles = Map.of(
+                "evaluationOperation", ArtifactBulkController.EVALUATION,
+                "confirmationOperation", ArtifactBulkController.CONFIRMATION,
+                "proposalOperation", ArtifactBulkController.PROPOSAL,
+                "proposalResultsOperation", ArtifactBulkController.PROPOSAL_RESULTS,
+                "executionOperation", ArtifactBulkController.EXECUTION,
+                "resultsOperation", ArtifactBulkController.EXECUTION_RESULTS,
+                "cancelOperation", ArtifactBulkController.CANCEL);
+        for (var role : roles.entrySet()) {
+            JsonNode projected = bulk.path(role.getKey());
+            JsonNode operation = projected.path("operation");
+            assertThat(operation.path("operationId").asText()).isEqualTo(role.getValue());
+            assertThat(openApi.path("paths").path(operation.path("path").asText())
+                    .path(operation.path("method").asText().toLowerCase(Locale.ROOT))
+                    .path("operationId").asText()).isEqualTo(role.getValue());
+            Map<String, String> properties = switch (role.getKey()) {
+                case "evaluationOperation" -> Map.of("state", "string", "itemCount", "integer");
+                case "confirmationOperation" -> Map.of("state", "string", "proposalId", "string");
+                default -> Map.of("kind", "string", "id", "string");
+            };
+            assertFilteredReference(http, baseUrl, mapper, operation, projected.path("responseSchema"),
+                    "response", properties, evidence, role.getKey());
+            if ("evaluationOperation".equals(role.getKey()) || "confirmationOperation".equals(role.getKey())) {
+                Map<String, String> requestProperties = "evaluationOperation".equals(role.getKey())
+                        ? Map.of("targetIds", "array") : Map.of("proposalId", "string");
+                assertFilteredReference(http, baseUrl, mapper, operation, projected.path("requestSchema"),
+                        "request", requestProperties, evidence, role.getKey());
+            } else {
+                assertThat(projected.path("requestSchema").isMissingNode()
+                        || projected.path("requestSchema").isNull()).isTrue();
+            }
+        }
+        JsonNode confirmation = bulk.path("confirmationOperation");
+        for (String type : List.of("request", "response")) {
+            assertThat(confirmation.path(type + "Schema").path("schemaId").asText())
+                    .isEqualTo(action.path(type + "SchemaId").asText());
+            assertThat(confirmation.path(type + "Schema").path("url").asText())
+                    .isEqualTo(action.path(type + "SchemaUrl").asText());
+        }
+        evidence.setProperty("http.bulkFilteredProjectionRoles", Integer.toString(roles.size()));
+        evidence.setProperty("http.bulkFilteredProjectionSchemas", "9");
+    }
+
+    private static void assertFilteredReference(HttpClient http, String baseUrl, ObjectMapper mapper,
+            JsonNode operation, JsonNode reference, String type, Map<String, String> properties,
+            Properties evidence, String role) throws Exception {
+        assertThat(reference.path("schemaType").asText()).isEqualTo(type);
+        String schemaUrl = reference.path("url").asText();
+        assertThat(schemaUrl).startsWith("/schemas/filtered?");
+        HttpResponse<String> response = httpGet(http, baseUrl + schemaUrl);
+        JsonNode body = responseJson(response, mapper);
+        assertThat(body.path("properties").size()).isEqualTo(properties.size());
+        properties.forEach((field, expectedType) -> assertThat(body.path("properties")
+                .path(field).path("type").asText()).as("%s %s %s", role, type, field).isEqualTo(expectedType));
+        JsonNode resource = body.at("/x-ui/resource");
+        assertThat(resource.path("idField").isTextual()).isTrue();
+        assertThat(resource.path("readOnly").isBoolean()).isTrue();
+        assertThat(reference.path("schemaId").asText()).isEqualTo(SchemaIdBuilder.build(
+                operation.path("path").asText(), operation.path("method").asText().toLowerCase(Locale.ROOT),
+                type, false, resource.path("idField").asText(), resource.path("readOnly").asBoolean()));
+
+        ObjectNode structural = body.deepCopy();
+        if (structural.path("x-ui") instanceof ObjectNode ui) ui.remove("operationExamples");
+        String hash = SchemaHashUtil.sha256Hex(new SchemaCanonicalizer().canonicalize(structural));
+        String etag = "\"" + hash + "\"";
+        assertThat(response.headers().firstValue("X-Schema-Hash")).contains(hash);
+        assertThat(response.headers().firstValue("ETag")).contains(etag);
+        HttpResponse<String> cached = http.send(HttpRequest.newBuilder(URI.create(baseUrl + schemaUrl))
+                        .timeout(Duration.ofSeconds(5)).header("If-None-Match", etag).GET().build(),
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        assertThat(cached.statusCode()).as(cached.body()).isEqualTo(304);
+        assertThat(cached.body()).isEmpty();
+        assertThat(cached.headers().firstValue("X-Schema-Hash")).contains(hash);
+        assertThat(cached.headers().firstValue("ETag")).contains(etag);
+        String key = "http.bulk." + role + "." + type;
+        evidence.setProperty(key + ".schemaId", reference.path("schemaId").asText());
+        evidence.setProperty(key + ".schemaUrl", schemaUrl);
+        evidence.setProperty(key + ".structuralHash", hash);
+        evidence.setProperty(key + ".responseUtf8Sha256", sha256(response.body().getBytes(StandardCharsets.UTF_8)));
     }
 
     private static void assertPublishedPomVersion(String expectedVersion) throws Exception {
