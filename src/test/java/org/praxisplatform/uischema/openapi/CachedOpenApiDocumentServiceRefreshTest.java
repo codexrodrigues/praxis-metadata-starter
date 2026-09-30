@@ -26,13 +26,13 @@ class CachedOpenApiDocumentServiceRefreshTest {
     @Test
     void freshnessCapabilityRequiresSpringdocSourceCacheToBeDisabled() {
         OpenApiDocsSupport support = mock(OpenApiDocsSupport.class);
-        assertThat(new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support)
+        assertThat(new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(), support)
                 .supportsFreshBulkLifecycleComposition()).isFalse();
-        assertThat(new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support, true)
+        assertThat(new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(), support, true)
                 .supportsFreshBulkLifecycleComposition()).isTrue();
         OpenApiDocsSupport externallyConfigured = new OpenApiDocsSupport();
         ReflectionTestUtils.setField(externallyConfigured, "openApiInternalBaseUrl", "https://other-node.internal");
-        assertThat(new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), externallyConfigured, true)
+        assertThat(new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(), externallyConfigured, true)
                 .supportsFreshBulkLifecycleComposition()).isFalse();
     }
 
@@ -62,7 +62,7 @@ class CachedOpenApiDocumentServiceRefreshTest {
                 .thenReturn(cached);
         when(support.fetchFreshOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
                 .thenReturn(refreshed);
-        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support);
+        var service = new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(), support);
         ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
 
         assertThat(service.getDocumentForGroupStrict("inventory").at("/info/version").asText()).isEqualTo("cached");
@@ -85,7 +85,7 @@ class CachedOpenApiDocumentServiceRefreshTest {
                 .thenReturn(cached);
         when(support.fetchFreshOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
                 .thenReturn(refreshed);
-        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support, true);
+        var service = new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(), support, true);
         ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
         var guardCalls = new AtomicInteger();
         service.installBulkLifecycleInvalidationGuard(guardCalls::incrementAndGet);
@@ -109,7 +109,7 @@ class CachedOpenApiDocumentServiceRefreshTest {
                 .thenReturn(same);
         when(support.fetchFreshOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
                 .thenReturn(same);
-        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support, true);
+        var service = new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(), support, true);
         ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
 
         assertThat(service.withFreshBulkLifecycleDocuments(Set.of("inventory"), () -> "composed"))
@@ -126,7 +126,7 @@ class CachedOpenApiDocumentServiceRefreshTest {
                 .thenReturn(cached);
         when(support.fetchFreshOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
                 .thenReturn(refreshed);
-        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support, true);
+        var service = new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(), support, true);
         ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
 
         String oldHash = service.getOrComputeSchemaHash("same-id", () -> cached);
@@ -138,7 +138,7 @@ class CachedOpenApiDocumentServiceRefreshTest {
 
     @Test
     void schemaMaterializationReadLockPreventsCacheInvalidationFromInterleaving() throws Exception {
-        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(),
+        var service = new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(),
                 mock(OpenApiDocsSupport.class), true);
         var readStarted = new CountDownLatch(1);
         var releaseRead = new CountDownLatch(1);
@@ -169,7 +169,7 @@ class CachedOpenApiDocumentServiceRefreshTest {
 
     @Test
     void cacheMutationCannotInterleaveWithLifecycleComposition() throws Exception {
-        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(),
+        var service = new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(),
                 mock(OpenApiDocsSupport.class), true);
         var guardCalls = new AtomicInteger();
         service.installBulkLifecycleInvalidationGuard(guardCalls::incrementAndGet);
@@ -208,7 +208,7 @@ class CachedOpenApiDocumentServiceRefreshTest {
         JsonNode source = new ObjectMapper().readTree("{\"info\":{\"version\":\"original\"}}");
         when(support.fetchOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
                 .thenReturn(source);
-        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support);
+        var service = new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(), support);
         ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
 
         JsonNode exposed = service.getDocumentForGroupStrict("inventory");
@@ -232,7 +232,7 @@ class CachedOpenApiDocumentServiceRefreshTest {
                     if (!releaseFetch.await(2, TimeUnit.SECONDS)) throw new IllegalStateException("fetch not released");
                     return stale;
                 }).thenReturn(fresh);
-        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support);
+        var service = new CachedOpenApiDocumentService(new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)), new ObjectMapper(), support);
         ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
         var executor = Executors.newFixedThreadPool(2);
         try {

@@ -81,6 +81,9 @@ public interface OpenApiDocumentService {
     /**
      * Serializes lifecycle publication (through its durable READY CAS) against any public cache
      * invalidation (through the cache mutation). Implementations without this exclusion fail closed.
+     * Re-entry from a fresh composition must enforce its remaining admission budget before running
+     * the action. A committed transition is not retroactively timed out. Do not hold this lock
+     * around the HTTP preparation performed by {@link #withFreshBulkLifecycleDocuments}.
      */
     default <T> T withBulkLifecycleCompositionLock(Supplier<T> action) {
         throw new UnsupportedOperationException(
@@ -102,8 +105,14 @@ public interface OpenApiDocumentService {
      * that ordinary public document reads on this node resolve the same JSON, and makes the
      * snapshot visible to strict reads only for the duration of {@code action}. If the public
      * cache differs, implementations must run the invalidation guard, clear document and schema
-     * hash caches, and fail before executing {@code action}. The snapshot itself must not replace
-     * the ordinary shared document cache.
+     * hash caches, and fail before executing {@code action}. Preparation must occur outside the
+     * public cache write lock; callers must not hold either side of that lock on entry. A local
+     * invalidation during preparation discards it without retry or callback. Cold entries require
+     * an independent ordinary read matching the fresh document before installation; existing
+     * entries are never replaced by the snapshot. The callback, including any durable READY CAS,
+     * runs under the publication/cache-invalidation exclusion. Implementations must bound queue,
+     * lock and HTTP admission waits; this does not promise cancellation of remote server work,
+     * arbitrary custom source code or a database transaction already admitted.
      */
     default <T> T withFreshBulkLifecycleDocuments(Set<String> groups, Supplier<T> action) {
         throw new UnsupportedOperationException(

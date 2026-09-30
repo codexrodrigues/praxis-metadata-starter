@@ -22,7 +22,7 @@ O digest estrutural passa a `praxis.bulk.structure/3`, incluindo a referência U
 
 ## Fence e limites
 
-`ActionCatalogService` consulta o lifecycle uma vez por resposta. O lifecycle recompõe sobre uma única fotografia fresca sob o lock de composição/invalidação, compara as mesmas linhas duráveis antes/depois (estado, geração, fingerprint e revisão) e entrega o contrato derivado dessa composição. Action diferente, provider ausente, composição parcial, seleção UI indisponível, `UNCOMPOSED`, `SUSPENDED`, revisão/fingerprint stale, geração alterada durante a composição ou falha de leitura omitem `bulk`.
+`ActionCatalogService` consulta o lifecycle uma vez por resposta. O lifecycle prepara uma única fotografia fresca fora do lock público exclusivo e recompõe na seção final de composição/invalidação, compara as mesmas linhas duráveis antes/depois (estado, geração, fingerprint e revisão) e entrega o contrato derivado dessa composição. Action diferente, provider ausente, composição parcial, seleção UI indisponível, `UNCOMPOSED`, `SUSPENDED`, revisão/fingerprint stale, geração alterada durante a composição ou falha de leitura omitem `bulk`.
 
 Essa metadata é descritiva. Availability contextual permanece independente, e avaliação/confirmação precisam revalidar o gate e a autorização dentro da transação. A projeção não certifica mutação de domínio, receipt, autorização empresarial, deploy, release, B7 ou backend completo. Angular, Config e bindings/handlers do host não mudam neste corte.
 
@@ -54,3 +54,8 @@ Impacto na skill `praxis-metadata-schema-contracts`: `atualizar-existente`. O gu
 `getDocumentForGroupStrict` não é uma operação de atualização: pode carregar um grupo ausente ou confirmar a mesma representação de uma entrada pública ainda não marcada como exata. Se o fetch exato diferir do documento publicado, rejeita sem substituir documento ou hash; a recuperação usa `refreshDocumentForGroupStrict` ou a invalidação explícita, com guard durável e lock exclusivo, seguida da republicação necessária. Isso evita uma leitura publicar JSON novo com ETag antigo e evita upgrade de read lock durante a materialização HTTP.
 
 Regressão focal: `CachedOpenApiDocumentServiceStrictPromotionTest` cobre fonte alterada, promoção idêntica e primeiro acesso strict; `CachedOpenApiDocumentServiceRefreshTest` preserva as provas do fluxo de atualização, guard e limpeza de hashes. Este corretivo não cria uma revisão autoritativa da origem nem remove o custo de composição do collision domain; esses gates continuam anteriores à adoção P1.
+
+
+### Preparação fora do lock público
+
+A composição multigrupo usa o mutex de preparação e o orçamento do cliente oficial descritos no [lifecycle](BULK-OPERATION-LIFECYCLE.md#preparação-e-orçamento-do-cliente-oficial). Leitores podem materializar o cache confirmado durante as buscas HTTP; o callback final continua protegido contra invalidação. A revisão local é reconferida e drift não-alvo ainda suspende antes de limpar. Expiração, troca de factory ou invalidação intercalada não projetam `bulk`; o contrato comum da action permanece disponível. O corte não autoriza reutilização indefinida da origem nem garante cancelamento de trabalho do servidor.

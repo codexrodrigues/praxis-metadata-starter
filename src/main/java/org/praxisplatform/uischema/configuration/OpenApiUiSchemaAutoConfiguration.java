@@ -141,8 +141,12 @@ public class OpenApiUiSchemaAutoConfiguration {
      */
     @Bean(name = "openApiUiSchemaRestTemplate")
     @ConditionalOnMissingBean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
+    public RestTemplate restTemplate(
+            @Value("${praxis.openapi.http.connect-timeout:1s}") String connectTimeout,
+            @Value("${praxis.openapi.http.read-timeout:10s}") String readTimeout) {
+        return new org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate(
+                org.springframework.boot.convert.DurationStyle.detectAndParse(connectTimeout),
+                org.springframework.boot.convert.DurationStyle.detectAndParse(readTimeout));
     }
 
     /**
@@ -444,10 +448,11 @@ public class OpenApiUiSchemaAutoConfiguration {
             RestTemplate restTemplate,
             ObjectMapper objectMapper,
             OpenApiDocsSupport openApiDocsSupport,
-            @Value("${springdoc.cache.disabled:false}") boolean springdocCacheDisabled
+            @Value("${springdoc.cache.disabled:false}") boolean springdocCacheDisabled,
+            @Value("${praxis.openapi.bulk-composition-timeout:60s}") String bulkCompositionTimeout
     ) {
         return new CachedOpenApiDocumentService(restTemplate, objectMapper, openApiDocsSupport,
-                springdocCacheDisabled);
+                springdocCacheDisabled, org.springframework.boot.convert.DurationStyle.detectAndParse(bulkCompositionTimeout));
     }
 
     /**
