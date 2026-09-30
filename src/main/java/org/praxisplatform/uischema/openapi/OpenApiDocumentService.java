@@ -119,6 +119,26 @@ public interface OpenApiDocumentService {
                 "This OpenApiDocumentService cannot provide an isolated fresh lifecycle snapshot");
     }
 
+    /**
+     * Captures an ephemeral local document/transport fence inside a fresh snapshot callback.
+     * The owner may use it after that callback to verify captured descriptors under a short
+     * cache read lock, with the original admission deadline. It supplies no documents, source
+     * revision, readiness or authorization. Close it when the synchronous discovery response
+     * finishes; it must reject later use, other threads and known invalidation/transport changes.
+     */
+    default BulkLifecycleDocumentFence captureBulkLifecycleDocumentFence() {
+        throw new UnsupportedOperationException(
+                "This OpenApiDocumentService cannot fence a captured lifecycle descriptor after composition");
+    }
+
+    interface BulkLifecycleDocumentFence extends AutoCloseable {
+        /** Validates before and after short verification work; never run a response builder here. */
+        <T> T read(Supplier<T> verification);
+
+        @Override
+        void close();
+    }
+
     /** Whether strict refreshes use a regenerated source rather than a source-side document cache. */
     default boolean supportsFreshBulkLifecycleComposition() { return false; }
 

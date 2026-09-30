@@ -396,6 +396,209 @@ class BulkOperationStructuralCompilerTest {
     }
 
     @Test
+    void scopedDiscoveryReusesOneCaptureOutsideLocksAndKeepsAuthorization() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
+                var context = context(); var fixture = discoveryFixture(postgres, context);
+                var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var capturedFence = new java.util.concurrent.atomic.AtomicReference<OpenApiDocumentService.BulkLifecycleDocumentFence>();
+            var catalog = new org.praxisplatform.uischema.action.ActionCatalogService(registry(fixture.action),
+                    (definition, availabilityContext) -> {
+                        org.junit.jupiter.api.Assertions.assertSame(fixture.action, definition);
+                        assertDiscoveryConsumerUnlocked(fixture);
+                        try {
+                            assertTrue(executor.submit(() -> fixture.documents.withBulkLifecycleCompositionLock(() -> true))
+                                    .get(1, java.util.concurrent.TimeUnit.SECONDS), "another writer can enter while the consumer runs");
+                        } catch (Exception failure) { throw new AssertionError(failure); }
+                        capturedFence.set(currentDiscoveryFence(fixture.lifecycle));
+                        assertEquals(fixture.ready, fixture.lifecycle.requireReady(fixture.identity));
+                        assertEquals(fixture.ready, fixture.lifecycle.requireReady(fixture.identity));
+                        return new org.praxisplatform.uischema.action.RequiredAuthoritiesActionAvailabilityRule()
+                                .evaluate(definition, availabilityContext);
+                    }, (key, path, id) -> new org.praxisplatform.uischema.action.ActionAvailabilityContext(
+                            key, path, id, "tenant-a", java.util.Locale.ROOT, () -> "reader",
+                            java.util.Set.of(), null), fixture.lifecycle::projectReadyActions);
+            int before = fixture.freshReads.get();
+            for (int request = 1; request <= 2; request++) {
+                var item = catalog.findByResourceKey(RESOURCE).actions().getFirst();
+                assertFalse(item.availability().allowed());
+                assertEquals("missing-authority", item.availability().reason());
+                org.junit.jupiter.api.Assertions.assertNotNull(item.execution().bulk());
+                assertEquals(before + request, fixture.freshReads.get(), "two readiness checks reuse only this response capture");
+                assertThrows(IllegalStateException.class, () -> capturedFence.get().read(() -> true),
+                        "the lifecycle closes its handle when the response finishes");
+            }
+            assertEquals(fixture.ready, fixture.lifecycle.requireReady(fixture.identity));
+            assertEquals(before + 3, fixture.freshReads.get(), "outside discovery readiness always starts fresh");
+        }
+    }
+
+    @Test
+    void scopedDiscoveryRejectsCaughtProviderDriftAndDurableRepublishOfIdenticalContent() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
+                var context = context(); var fixture = discoveryFixture(postgres, context)) {
+            var calls = new AtomicInteger();
+            var providerReadsAfterCaughtFailure = new AtomicInteger();
+            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
+                calls.incrementAndGet();
+                fixture.provider.revision = "provider.r2";
+                assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(fixture.identity));
+                fixture.provider.revision = "provider.r1";
+                providerReadsAfterCaughtFailure.set(fixture.provider.providerRevisionReads.get());
+                return false; // The real host rule also catches readiness failures and returns denied.
+            }));
+            assertEquals(1, calls.get());
+            assertTrue(fixture.provider.providerRevisionReads.get() > providerReadsAfterCaughtFailure.get(),
+                    "the final provider check still executes after the host catches a scoped failure");
+            assertFalse(fixture.lifecycle.projectReadyActions(List.of(fixture.action)).isEmpty());
+
+            calls.set(0);
+            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
+                calls.incrementAndGet();
+                assertEquals(fixture.ready, fixture.lifecycle.requireReady(fixture.identity));
+                fixture.control.withConnection(connection -> {
+                    assertTrue(JdbcBulkOperationControl.transition(connection, fixture.identity.namespaceId(), ACTION_ID, 1,
+                            JdbcBulkOperationControl.Target.SUSPENDED, null, null).applied());
+                    assertTrue(JdbcBulkOperationControl.transition(connection, fixture.identity.namespaceId(), ACTION_ID, 2,
+                            JdbcBulkOperationControl.Target.READY, fixture.ready.descriptorFingerprint(),
+                            fixture.ready.structuralRevision()).applied());
+                    return null;
+                });
+                assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(fixture.identity));
+                return false;
+            }));
+            assertEquals(1, calls.get());
+            assertEquals(3, fixture.lifecycle.requireReady(fixture.identity).generation());
+
+            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
+                fixture.control.withConnection(connection -> JdbcBulkOperationControl.transition(connection,
+                        fixture.identity.namespaceId(), ACTION_ID, 3, JdbcBulkOperationControl.Target.SUSPENDED, null, null));
+                return true; // No scoped readiness call: the final durable fence must catch this.
+            }));
+            assertFalse(fixture.lifecycle.<Boolean>projectReadyActions(List.of(fixture.action), contracts -> {
+                assertTrue(contracts.isEmpty());
+                assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(fixture.identity));
+                return false;
+            }));
+        }
+    }
+
+    @Test
+    void scopedDiscoveryCleansFailuresAndIsolatesConcurrentResponsesWithoutRetry() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
+                var context = context(); var fixture = discoveryFixture(postgres, context)) {
+            int before = fixture.freshReads.get();
+            var calls = new AtomicInteger();
+            fixture.failFresh.set(true);
+            assertFalse(fixture.lifecycle.<Boolean>projectReadyActions(List.of(fixture.action), contracts -> {
+                calls.incrementAndGet();
+                assertTrue(contracts.isEmpty());
+                assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(fixture.identity));
+                return false;
+            }));
+            assertEquals(1, calls.get());
+            assertEquals(before + 1, fixture.freshReads.get(), "preparation failure cannot retry from the host availability rule");
+            fixture.failFresh.set(false);
+
+            var failure = new IllegalArgumentException("consumer failed");
+            var escapedFence = new java.util.concurrent.atomic.AtomicReference<OpenApiDocumentService.BulkLifecycleDocumentFence>();
+            org.junit.jupiter.api.Assertions.assertSame(failure, assertThrows(IllegalArgumentException.class,
+                    () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
+                        calls.incrementAndGet();
+                        escapedFence.set(currentDiscoveryFence(fixture.lifecycle));
+                        throw failure;
+                    })));
+            assertEquals(2, calls.get());
+            assertThrows(IllegalStateException.class, () -> escapedFence.get().read(() -> true));
+            assertFalse(fixture.lifecycle.projectReadyActions(List.of(fixture.action)).isEmpty());
+
+            int beforeConcurrent = fixture.freshReads.get();
+            var entered = new java.util.concurrent.CountDownLatch(2);
+            try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+                java.util.concurrent.Callable<Boolean> request = () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
+                    assertDiscoveryConsumerUnlocked(fixture);
+                    entered.countDown();
+                    try { assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS), "consumers do not retain preparation mutex"); }
+                    catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new AssertionError(interrupted); }
+                    assertEquals(fixture.ready, fixture.lifecycle.requireReady(fixture.identity));
+                    assertEquals(fixture.ready, fixture.lifecycle.requireReady(fixture.identity));
+                    return !contracts.isEmpty();
+                });
+                var first = executor.submit(request);
+                var second = executor.submit(request);
+                assertTrue(first.get(5, java.util.concurrent.TimeUnit.SECONDS));
+                assertTrue(second.get(5, java.util.concurrent.TimeUnit.SECONDS));
+            }
+            assertEquals(beforeConcurrent + 2, fixture.freshReads.get(), "each concurrent response owns exactly one fresh capture");
+        }
+    }
+
+    private DiscoveryFixture discoveryFixture(EmbeddedPostgres postgres, AnnotationConfigWebApplicationContext context) {
+        var identity = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
+        var admin = postgres.getPostgresDatabase();
+        BulkExecutionMigrator.migrateWithOperations(admin, java.util.Map.of("test-namespace", "deployment-a"), List.of(identity));
+        var roles = controlPlaneTestRoles(admin);
+        var runtimeDs = BulkPostgresTestSupport.runtimeDataSource(postgres);
+        var controlDs = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_control_test", "postgres"), "bulk_control_test", "");
+        var runtime = new BulkExecutionInfrastructure(runtimeDs, new DataSourceTransactionManager(runtimeDs),
+                "test-namespace", "deployment-a", roles);
+        var control = new BulkControlPlaneInfrastructure(controlDs, new DataSourceTransactionManager(controlDs),
+                "test-namespace", "deployment-a", "bulk_control_test", runtime);
+        var freshReads = new AtomicInteger();
+        var failFresh = new java.util.concurrent.atomic.AtomicBoolean();
+        JsonNode document = projectedDocument();
+        var source = new org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport() {
+            @Override public String resolveGroupFromPath(String path) { return "inventory"; }
+            @Override public JsonNode fetchOpenApiDocument(org.springframework.web.client.RestTemplate client,
+                    String base, String group, org.slf4j.Logger logger) { return document.deepCopy(); }
+            @Override public JsonNode fetchOpenApiGroupDocument(org.springframework.web.client.RestTemplate client,
+                    String base, String group, org.slf4j.Logger logger) { return document.deepCopy(); }
+            @Override public JsonNode fetchFreshOpenApiGroupDocument(org.springframework.web.client.RestTemplate client,
+                    String base, String group, org.slf4j.Logger logger) {
+                freshReads.incrementAndGet();
+                if (failFresh.get()) throw new IllegalStateException("fresh source unavailable");
+                return document.deepCopy();
+            }
+        };
+        var client = new org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(10));
+        var documents = new org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService(client, new ObjectMapper(), source, true);
+        org.springframework.test.util.ReflectionTestUtils.setField(documents, "openApiBasePath", "/v3/api-docs");
+        var mvc = context.getBean(RequestMappingHandlerMapping.class);
+        var bindings = BulkResourceOperationBindings.from(mvc);
+        var action = actionDefinition();
+        var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
+        var lifecycle = new BulkOperationLifecycle(bindings, new OpenApiCanonicalOperationResolver(documents, mvc, bindings),
+                documents, registry(action), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver(),
+                runtime, control, List.of(provider));
+        var ready = lifecycle.publish(identity, 0);
+        return new DiscoveryFixture(documents, client, lifecycle, provider, action, identity, control, ready, freshReads, failFresh);
+    }
+
+    private static void assertDiscoveryConsumerUnlocked(DiscoveryFixture fixture) {
+        var lock = (java.util.concurrent.locks.ReentrantReadWriteLock)
+                org.springframework.test.util.ReflectionTestUtils.getField(fixture.documents, "cacheLifecycleLock");
+        var preparation = (java.util.concurrent.locks.ReentrantLock)
+                org.springframework.test.util.ReflectionTestUtils.getField(fixture.documents, "compositionPreparationLock");
+        assertFalse(lock.isWriteLockedByCurrentThread());
+        assertEquals(0, lock.getReadHoldCount());
+        assertFalse(preparation.isHeldByCurrentThread());
+        assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+    }
+
+    private static OpenApiDocumentService.BulkLifecycleDocumentFence currentDiscoveryFence(BulkOperationLifecycle lifecycle) {
+        var frames = (ThreadLocal<?>) org.springframework.test.util.ReflectionTestUtils.getField(lifecycle, "actionProjection");
+        return (OpenApiDocumentService.BulkLifecycleDocumentFence)
+                org.springframework.test.util.ReflectionTestUtils.getField(frames.get(), "documentFence");
+    }
+
+    private record DiscoveryFixture(org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService documents,
+            org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate client, BulkOperationLifecycle lifecycle,
+            TestProvider provider, ActionDefinition action, BulkOperationControlIdentity identity,
+            BulkControlPlaneInfrastructure control, BulkOperationControlExpectation ready, AtomicInteger freshReads,
+            java.util.concurrent.atomic.AtomicBoolean failFresh) implements AutoCloseable {
+        @Override public void close() { client.close(); }
+    }
+
+    @Test
     void actionProjectionUsesOneFreshCompositionAndRejectsEveryStaleFenceAndMissingUiSelection() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start(); var context = context()) {
@@ -437,7 +640,7 @@ class BulkOperationStructuralCompilerTest {
 
             var catalog = new org.praxisplatform.uischema.action.ActionCatalogService(registry(action),
                     (definition, ctx) -> org.praxisplatform.uischema.capability.AvailabilityDecision.allow(java.util.Map.of()),
-                    (key, path, id) -> null, definitions -> lifecycle.projectReadyActions(definitions));
+                    (key, path, id) -> null, lifecycle::projectReadyActions);
             before = documents.freshReads();
             assertEquals(bulk, catalog.findByResourceKey(RESOURCE).actions().getFirst().execution().bulk());
             assertEquals(before + 1, documents.freshReads());
@@ -1262,6 +1465,7 @@ class BulkOperationStructuralCompilerTest {
         private final AtomicInteger cacheClears = new AtomicInteger();
         private volatile Runnable invalidationGuard;
         private Runnable onFreshSnapshot;
+        private long documentEpoch;
         private final ThreadLocal<java.util.Map<String, JsonNode>> freshSnapshot = new ThreadLocal<>();
         private TestDocuments(JsonNode document) { this(document, null, document, null); }
         private TestDocuments(JsonNode primary, JsonNode other) {
@@ -1317,6 +1521,25 @@ class BulkOperationStructuralCompilerTest {
         @Override public void installBulkLifecycleInvalidationGuard(Runnable guard) { invalidationGuard = guard; }
         @Override public boolean supportsFreshBulkLifecycleComposition() { return true; }
         @Override public boolean supportsFreshBulkLifecyclePublicCacheCoherence() { return true; }
+        @Override public BulkLifecycleDocumentFence captureBulkLifecycleDocumentFence() {
+            if (freshSnapshot.get() == null) throw new IllegalStateException("no captured test document snapshot");
+            long capturedEpoch = documentEpoch;
+            Thread owner = Thread.currentThread();
+            return new BulkLifecycleDocumentFence() {
+                private boolean closed;
+                private void validate() {
+                    if (closed || Thread.currentThread() != owner || documentEpoch != capturedEpoch)
+                        throw new IllegalStateException("test document capture is no longer valid");
+                }
+                @Override public <T> T read(Supplier<T> verification) {
+                    validate();
+                    T result = verification.get();
+                    validate();
+                    return result;
+                }
+                @Override public void close() { closed = true; }
+            };
+        }
         @Override public <T> T withBulkLifecycleCompositionLock(Supplier<T> action) { return action.get(); }
         @Override public <T> T withFreshBulkLifecycleDocuments(java.util.Set<String> groups, Supplier<T> action) {
             var snapshot = new java.util.HashMap<String, JsonNode>();
@@ -1345,6 +1568,9 @@ class BulkOperationStructuralCompilerTest {
             refreshDocuments.forEach((group, document) -> documents.put(group, document.deepCopy()));
             cacheClears.incrementAndGet();
         }
-        private void runGuard() { if (invalidationGuard != null) invalidationGuard.run(); }
+        private void runGuard() {
+            documentEpoch = Math.incrementExact(documentEpoch);
+            if (invalidationGuard != null) invalidationGuard.run();
+        }
     }
 }

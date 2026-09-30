@@ -326,6 +326,45 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         }));
     }
 
+    @Override
+    public BulkLifecycleDocumentFence captureBulkLifecycleDocumentFence() {
+        if (lifecycleSnapshot.get() == null || !cacheLifecycleLock.isWriteLockedByCurrentThread())
+            throw new IllegalStateException("A document fence must be captured inside its fresh lifecycle snapshot");
+        var owner = Thread.currentThread();
+        var deadline = compositionDeadline.get();
+        long epoch = cacheInvalidationEpoch;
+        var internal = (OpenApiInternalRestTemplate) restTemplate;
+        long transportRevision = internal.transportRevision();
+        internal.requireTransportRevision(transportRevision);
+        deadline.remainingNanos();
+        return new BulkLifecycleDocumentFence() {
+            private volatile boolean closed;
+
+            private void validate() {
+                if (closed || Thread.currentThread() != owner)
+                    throw new IllegalStateException("The lifecycle document fence is closed or belongs to another thread");
+                deadline.remainingNanos();
+                if (cacheInvalidationEpoch != epoch)
+                    throw new IllegalStateException("OpenAPI caches changed after lifecycle descriptor capture");
+                internal.requireTransportRevision(transportRevision);
+            }
+
+            @Override public <T> T read(Supplier<T> verification) {
+                java.util.Objects.requireNonNull(verification, "verification");
+                if (closed || Thread.currentThread() != owner)
+                    throw new IllegalStateException("The lifecycle document fence is closed or belongs to another thread");
+                return withTimedLock(cacheLifecycleLock.readLock(), deadline, () -> {
+                    validate();
+                    T result = verification.get();
+                    validate();
+                    return result;
+                });
+            }
+
+            @Override public void close() { closed = true; }
+        };
+    }
+
     private <T> T withCompositionDeadline(Supplier<T> action) {
         boolean owner = compositionDeadline.get() == null;
         if (owner) compositionDeadline.set(new OpenApiInternalRestTemplate.Deadline(bulkCompositionTimeout));
@@ -338,15 +377,19 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     }
 
     private <T> T withTimedLock(Lock lock, Supplier<T> action) {
+        return withTimedLock(lock, compositionDeadline.get(), action);
+    }
+
+    private <T> T withTimedLock(Lock lock, OpenApiInternalRestTemplate.Deadline deadline, Supplier<T> action) {
         try {
-            if (!lock.tryLock(compositionDeadline.get().remainingNanos(), TimeUnit.NANOSECONDS))
+            if (!lock.tryLock(deadline.remainingNanos(), TimeUnit.NANOSECONDS))
                 throw new IllegalStateException("Bulk OpenAPI composition admission budget exhausted waiting for a lock");
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while waiting for the bulk OpenAPI composition lock", interrupted);
         }
         try {
-            compositionDeadline.get().remainingNanos();
+            deadline.remainingNanos();
             return action.get();
         } finally {
             lock.unlock();
