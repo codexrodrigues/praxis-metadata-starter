@@ -164,6 +164,8 @@ public class OpenApiUiSchemaAutoConfiguration {
      * Publica o {@link CustomOpenApiResolver} que enriquece schemas OpenAPI com metadados de UI.
      */
     @Bean
+    // Springdoc prepends converters: register this terminal resolver before its decorators.
+    @Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
     public CustomOpenApiResolver modelResolver(ObjectMapper mapper) {
         return new CustomOpenApiResolver(mapper);
     }

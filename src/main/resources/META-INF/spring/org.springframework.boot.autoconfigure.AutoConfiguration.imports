@@ -1,3 +1,4 @@
 org.praxisplatform.uischema.configuration.OpenApiUiSchemaAutoConfiguration
 org.praxisplatform.uischema.configuration.PraxisMetadataAutoConfiguration
 org.praxisplatform.uischema.configuration.BulkOperationLifecycleAutoConfiguration
+org.praxisplatform.uischema.configuration.OpenApiResponseGenerationAutoConfiguration
