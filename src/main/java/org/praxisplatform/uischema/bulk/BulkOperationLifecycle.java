@@ -70,21 +70,19 @@ public final class BulkOperationLifecycle {
      * re-check this expectation under the database lock; this method alone is not authorization.
      */
     public BulkOperationControlExpectation requireReady(BulkOperationControlIdentity identity) {
-        return documents.withBulkLifecycleCompositionLock(() -> {
-            Set<String> requiredGroups = requiredOpenApiGroups();
-            List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
-            return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
-                operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
-                BulkOperationalDescriptor descriptor = descriptor(identity, false);
-                JdbcBulkOperationControl.Snapshot current = runtime.withLifecycleRead(connection ->
-                        JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(),
-                                identity.confirmationOperationId()));
-                if (current == null || !current.ready()
-                        || !descriptor.descriptorFingerprint().equals(current.descriptorFingerprint())
-                        || !descriptor.structuralRevision().equals(current.structuralRevision()))
-                    throw unavailable("Bulk operation is not durably READY for the current composed descriptor");
-                return descriptor.expectation(current.generation());
-            });
+        Set<String> requiredGroups = requiredOpenApiGroups();
+        List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
+        return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
+            operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
+            BulkOperationalDescriptor descriptor = descriptor(identity, false);
+            JdbcBulkOperationControl.Snapshot current = runtime.withLifecycleRead(connection ->
+                    JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(),
+                            identity.confirmationOperationId()));
+            if (current == null || !current.ready()
+                    || !descriptor.descriptorFingerprint().equals(current.descriptorFingerprint())
+                    || !descriptor.structuralRevision().equals(current.structuralRevision()))
+                throw unavailable("Bulk operation is not durably READY for the current composed descriptor");
+            return descriptor.expectation(current.generation());
         });
     }
 
@@ -102,43 +100,41 @@ public final class BulkOperationLifecycle {
         if (actions.stream().filter(Objects::nonNull).noneMatch(action -> action.operation() != null
                 && declaredIds.contains(action.operation().operationId()))) return Map.of();
         try {
-            return documents.withBulkLifecycleCompositionLock(() -> {
-                Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> before = runtime.withLifecycleRead(connection -> {
-                    Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> captured = new LinkedHashMap<>();
-                    for (var operationId : declaredIds.stream().sorted().toList()) {
-                        var identity = new BulkOperationControlIdentity(runtime.namespace(), operationId);
-                        captured.put(identity, JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(), operationId));
-                    }
-                    return captured;
-                });
-                Set<String> requiredGroups = requiredOpenApiGroups();
-                List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
-                return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
-                    operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
-                    List<BulkOperationalDescriptor> descriptors = descriptors(false).stream()
-                            .sorted(Comparator.comparing(value -> value.identity().confirmationOperationId())).toList();
-                    return runtime.withLifecycleRead(connection -> {
-                        Map<String, org.praxisplatform.uischema.action.ActionExecutionContract> result = new LinkedHashMap<>();
-                        for (var descriptor : descriptors) {
-                            var initial = before.get(descriptor.identity());
-                            if (initial == null || !initial.ready()) continue;
-                            var current = JdbcBulkOperationControl.lockForAdmission(connection,
-                                    descriptor.identity().namespaceId(), descriptor.identity().confirmationOperationId());
-                            if (!matches(initial, "READY", initial.generation(), descriptor)
-                                    || !matches(current, "READY", initial.generation(), descriptor)) continue;
-                            for (var action : actions) {
-                                if (action != null && descriptor.structural().action().operation().equals(action.operation())
-                                        && BulkOperationStructuralDescriptor.Action.from(action).equals(descriptor.structural().action())) {
-                                    try {
-                                        result.put(action.operation().operationId(), action.execution().withBulk(BulkExecutionContract.from(descriptor)));
-                                    } catch (IllegalStateException unavailableProjection) {
-                                        // Raw transport validity does not imply a renderable filtered UI variant.
-                                    }
+            Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> before = runtime.withLifecycleRead(connection -> {
+                Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> captured = new LinkedHashMap<>();
+                for (var operationId : declaredIds.stream().sorted().toList()) {
+                    var identity = new BulkOperationControlIdentity(runtime.namespace(), operationId);
+                    captured.put(identity, JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(), operationId));
+                }
+                return captured;
+            });
+            Set<String> requiredGroups = requiredOpenApiGroups();
+            List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
+            return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
+                operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
+                List<BulkOperationalDescriptor> descriptors = descriptors(false).stream()
+                        .sorted(Comparator.comparing(value -> value.identity().confirmationOperationId())).toList();
+                return runtime.withLifecycleRead(connection -> {
+                    Map<String, org.praxisplatform.uischema.action.ActionExecutionContract> result = new LinkedHashMap<>();
+                    for (var descriptor : descriptors) {
+                        var initial = before.get(descriptor.identity());
+                        if (initial == null || !initial.ready()) continue;
+                        var current = JdbcBulkOperationControl.lockForAdmission(connection,
+                                descriptor.identity().namespaceId(), descriptor.identity().confirmationOperationId());
+                        if (!matches(initial, "READY", initial.generation(), descriptor)
+                                || !matches(current, "READY", initial.generation(), descriptor)) continue;
+                        for (var action : actions) {
+                            if (action != null && descriptor.structural().action().operation().equals(action.operation())
+                                    && BulkOperationStructuralDescriptor.Action.from(action).equals(descriptor.structural().action())) {
+                                try {
+                                    result.put(action.operation().operationId(), action.execution().withBulk(BulkExecutionContract.from(descriptor)));
+                                } catch (IllegalStateException unavailableProjection) {
+                                    // Raw transport validity does not imply a renderable filtered UI variant.
                                 }
                             }
                         }
-                        return Map.copyOf(result);
-                    });
+                    }
+                    return Map.copyOf(result);
                 });
             });
         } catch (RuntimeException unavailableComposition) {
@@ -153,11 +149,6 @@ public final class BulkOperationLifecycle {
      * fingerprint and a stale generation never retries implicitly.
      */
     public BulkOperationControlExpectation publish(BulkOperationControlIdentity identity, long expectedGeneration) {
-        return documents.withBulkLifecycleCompositionLock(() -> publishUnderCompositionLock(identity, expectedGeneration));
-    }
-
-    private BulkOperationControlExpectation publishUnderCompositionLock(
-            BulkOperationControlIdentity identity, long expectedGeneration) {
         requireIdentity(identity);
         if (expectedGeneration < 0 || expectedGeneration == Long.MAX_VALUE)
             throw new IllegalArgumentException("expectedGeneration must be nonnegative and incrementable");
@@ -168,18 +159,31 @@ public final class BulkOperationLifecycle {
 
         Set<String> requiredGroups = requiredOpenApiGroups();
         List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
-        BulkOperationalDescriptor descriptor = documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
-                    operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
-                    return descriptor(identity, false);
-                });
+        return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
+            operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
+            BulkOperationalDescriptor descriptor = descriptor(identity, false);
+            // Re-enter the real publication boundary to check the remaining admission budget
+            // immediately before CAS. No deadline check may turn a committed READY into failure.
+            return documents.withBulkLifecycleCompositionLock(() -> publishPrepared(identity, expectedGeneration, descriptor));
+        });
+    }
+
+    private BulkOperationControlExpectation publishPrepared(BulkOperationControlIdentity identity,
+            long expectedGeneration, BulkOperationalDescriptor descriptor) {
         JdbcBulkOperationControl.Transition transition;
+        var transitionStarted = new java.util.concurrent.atomic.AtomicBoolean();
         try {
-            transition = controlPlane.withConnection(connection ->
-                    JdbcBulkOperationControl.transition(connection, identity.namespaceId(),
-                            identity.confirmationOperationId(), expectedGeneration,
-                            JdbcBulkOperationControl.Target.READY, descriptor.descriptorFingerprint(),
-                            descriptor.structuralRevision()));
+            transition = controlPlane.withConnection(connection -> {
+                // Acquiring the connection may have consumed the remaining admission budget.
+                var admittedConnection = documents.withBulkLifecycleCompositionLock(() -> connection);
+                transitionStarted.set(true);
+                return JdbcBulkOperationControl.transition(admittedConnection, identity.namespaceId(),
+                        identity.confirmationOperationId(), expectedGeneration,
+                        JdbcBulkOperationControl.Target.READY, descriptor.descriptorFingerprint(),
+                        descriptor.structuralRevision());
+            });
         } catch (RuntimeException uncertain) {
+            if (!transitionStarted.get()) throw uncertain;
             JdbcBulkOperationControl.Snapshot after = readAfterUncertainCommit(identity, uncertain);
             if (matches(after, "READY", expectedGeneration + 1, descriptor))
                 return descriptor.expectation(after.generation());

@@ -791,6 +791,19 @@ Exemplo:
 app.openapi.internal-base-url=http://localhost:4003
 ```
 
+The official internal HTTP client uses positive `Duration` values for
+`praxis.openapi.http.connect-timeout` (default `1s`) and
+`praxis.openapi.http.read-timeout` (default `10s`). The latter limits the complete
+HTTP response wait, including headers and body. Governed bulk composition also
+uses `praxis.openapi.bulk-composition-timeout` (default `60s`) for preparation and
+admission, including lock waits. Fresh multigroup fetches occur outside the public
+cache write lock; final coherence checks and publication remain protected.
+The client does not follow redirects. A custom RestTemplate/request factory does
+not automatically prove fresh bounded bulk composition. See the
+[lifecycle limits](docs/spec/BULK-OPERATION-LIFECYCLE.md#preparação-e-orçamento-do-cliente-oficial)
+for epoch fencing, cold-cache parity, custom code and server cancellation limits.
+
+
 ## Read-only Resources
 
 Read-only continua sendo um caso de primeira classe:

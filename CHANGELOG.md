@@ -43,6 +43,7 @@ All notable changes to this module will be documented in this file.
 - Fundação Java `bulk` com requests das três modalidades, confirmação por proposalId, codecs Integer/Long/String/UUID, parser isolado com limites e validação estrutural SET/CLEAR/omissão. Ainda sem endpoints, discovery ou executor; ver `docs/spec/BULK-PROTOCOL-INPUT.md`.
 
 ### Fixed
+- Composição bulk prepara documentos fora do write lock público e reconfere a revisão local de invalidação antes do callback/CAS; preserva comparação pública/fresh independente em cache frio. Cliente HTTP oficial recebe timeouts positivos e orçamento agregado de admissão, sem prometer cancelamento do servidor. Falha pré-CAS não reconcilia READY concorrente como sucesso próprio. Ver limites no lifecycle.
 - Commons Lang alinhado à versão 3.20.0 para compatibilidade com a cadeia Commons Compress/POI/PostgreSQL; prova permanente extrai e inicia PostgreSQL sem reutilizar cache de binários.
 - O profile E2E cria um banco H2 por contexto Spring; o encerramento de uma suíte com `@DirtiesContext` não remove tabelas de outro contexto ainda cacheado.
 - Parser bulk preserva decimais válidos além da faixa double; normalização mantém snapshots numericamente válidos após persistência, sem alterar fingerprints. BulkStoredProposal recusa tokens wire incompatíveis com o codec canônico declarado.

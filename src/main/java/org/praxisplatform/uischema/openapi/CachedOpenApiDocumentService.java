@@ -10,10 +10,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 
@@ -48,6 +52,12 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     private final Map<String, CachedDocument> documentCache = new ConcurrentHashMap<>();
     private final Map<String, String> schemaHashCache = new ConcurrentHashMap<>();
     private final ReentrantReadWriteLock cacheLifecycleLock = new ReentrantReadWriteLock(true);
+    private final ReentrantLock compositionPreparationLock = new ReentrantLock(true);
+    private final Duration bulkCompositionTimeout;
+    private final ThreadLocal<OpenApiInternalRestTemplate.Deadline> compositionDeadline = new ThreadLocal<>();
+    private final ThreadLocal<Boolean> invalidationFence = ThreadLocal.withInitial(() -> false);
+    // Local cache invalidation fence only; this is not a revision of the upstream OpenAPI source.
+    private long cacheInvalidationEpoch;
     private volatile Runnable bulkLifecycleInvalidationGuard;
     private final ThreadLocal<Map<String, JsonNode>> lifecycleSnapshot = new ThreadLocal<>();
 
@@ -65,6 +75,13 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             OpenApiDocsSupport openApiDocsSupport,
             boolean springdocCacheDisabled
     ) {
+        this(restTemplate, objectMapper, openApiDocsSupport, springdocCacheDisabled, Duration.ofSeconds(60));
+    }
+
+    public CachedOpenApiDocumentService(RestTemplate restTemplate, ObjectMapper objectMapper,
+            OpenApiDocsSupport openApiDocsSupport, boolean springdocCacheDisabled, Duration bulkCompositionTimeout) {
+        OpenApiInternalRestTemplate.positiveMillis(bulkCompositionTimeout, "bulkCompositionTimeout");
+        this.bulkCompositionTimeout = bulkCompositionTimeout;
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.openApiDocsSupport = openApiDocsSupport;
@@ -148,6 +165,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             return document.deepCopy();
         }
         return withBulkLifecycleCompositionLock(() -> {
+            cacheInvalidationEpoch = Math.incrementExact(cacheInvalidationEpoch);
             runBulkLifecycleInvalidationGuard();
             if (groupName == null || groupName.isBlank())
                 throw new IllegalArgumentException("An exact published OpenAPI group is required");
@@ -190,19 +208,30 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
 
     @Override
     public void clearCaches() {
-        withBulkLifecycleCompositionLock(() -> {
+        // Once a caller holds the publication lock, suspension/cleanup is an obligation, not
+        // a new admission. In particular known drift must still fence after its budget expires.
+        if (cacheLifecycleLock.isWriteLockedByCurrentThread()) {
+            invalidateUnderWriteLock();
+        } else {
+            withBulkLifecycleCompositionLock(() -> { invalidateUnderWriteLock(); return null; });
+        }
+    }
+
+    private void invalidateUnderWriteLock() {
+        cacheInvalidationEpoch = Math.incrementExact(cacheInvalidationEpoch);
+        boolean previousFence = invalidationFence.get();
+        invalidationFence.set(true);
+        try {
             runBulkLifecycleInvalidationGuard();
             int cacheSize = documentCache.size();
             int schemaCacheSize = schemaHashCache.size();
             documentCache.clear();
             schemaHashCache.clear();
-            LOGGER.info(
-                    "Cache de documentos OpenAPI limpo. {} entradas removidas. Cache de schemaHash limpo. {} entradas removidas.",
-                    cacheSize,
-                    schemaCacheSize
-            );
-            return null;
-        });
+            LOGGER.info("OpenAPI document and schema-hash caches cleared: {} documents, {} hashes", cacheSize, schemaCacheSize);
+        } finally {
+            if (previousFence) invalidationFence.set(true);
+            else invalidationFence.remove();
+        }
     }
 
     @Override
@@ -216,12 +245,11 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     @Override
     public <T> T withBulkLifecycleCompositionLock(Supplier<T> action) {
         if (action == null) throw new IllegalArgumentException("action is required");
-        cacheLifecycleLock.writeLock().lock();
-        try {
+        if (cacheLifecycleLock.isWriteLockedByCurrentThread() && invalidationFence.get())
             return action.get();
-        } finally {
-            cacheLifecycleLock.writeLock().unlock();
-        }
+        if (cacheLifecycleLock.getReadHoldCount() > 0 && !cacheLifecycleLock.isWriteLockedByCurrentThread())
+            throw new IllegalStateException("A schema read cannot upgrade to the bulk lifecycle write lock");
+        return withCompositionDeadline(() -> withTimedLock(cacheLifecycleLock.writeLock(), action));
     }
 
     @Override
@@ -234,44 +262,101 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     public <T> T withFreshBulkLifecycleDocuments(Set<String> groups, Supplier<T> action) {
         if (groups == null || groups.isEmpty() || action == null)
             throw new IllegalArgumentException("groups and action are required");
-        return withBulkLifecycleCompositionLock(() -> {
-            if (lifecycleSnapshot.get() != null)
-                throw new IllegalStateException("Nested fresh lifecycle snapshots are not supported");
+        if (!supportsFreshBulkLifecycleComposition())
+            throw new IllegalStateException("Fresh bulk composition requires a local uncached source and Metadata-owned bounded HTTP transport");
+        if (lifecycleSnapshot.get() != null || cacheLifecycleLock.isWriteLockedByCurrentThread()
+                || cacheLifecycleLock.getReadHoldCount() > 0)
+            throw new IllegalStateException("Fresh lifecycle preparation must start outside cache locks and snapshots");
+        for (String group : groups) {
+            if (group == null || group.isBlank() || !group.equals(group.strip()))
+                throw new IllegalArgumentException("OpenAPI group identities must be canonical");
+        }
+        var internal = (OpenApiInternalRestTemplate) restTemplate;
+        long transportRevision = internal.transportRevision();
+        return withCompositionDeadline(() -> withTimedLock(compositionPreparationLock, () -> {
+            internal.requireTransportRevision(transportRevision);
+            Map<String, JsonNode> publicDocuments = new LinkedHashMap<>();
+            long capturedEpoch = withTimedLock(cacheLifecycleLock.readLock(), () -> {
+                for (String group : groups) {
+                    CachedDocument cached = documentCache.get(group);
+                    if (cached != null) publicDocuments.put(group, cached.document());
+                }
+                return cacheInvalidationEpoch;
+            });
             Map<String, JsonNode> fresh = new LinkedHashMap<>();
             for (String group : groups.stream().sorted().toList()) {
-                if (group == null || group.isBlank() || !group.equals(group.strip()))
-                    throw new IllegalArgumentException("OpenAPI group identities must be canonical");
+                if (!publicDocuments.containsKey(group)) {
+                    JsonNode ordinary = ((OpenApiInternalRestTemplate) restTemplate).withDeadline(compositionDeadline.get(),
+                            () -> openApiDocsSupport.fetchOpenApiDocument(restTemplate, openApiBasePath, group, LOGGER));
+                    if (ordinary == null || !ordinary.isObject())
+                        throw new IllegalStateException("Public OpenAPI group document is unavailable: " + group);
+                    publicDocuments.put(group, ordinary.deepCopy());
+                }
+                JsonNode document = ((OpenApiInternalRestTemplate) restTemplate).withDeadline(compositionDeadline.get(),
+                        () -> openApiDocsSupport.fetchFreshOpenApiGroupDocument(
+                                restTemplate, openApiBasePath, group, LOGGER));
+                if (document == null || !document.isObject())
+                    throw new IllegalStateException("Fresh exact OpenAPI group document is unavailable: " + group);
+                fresh.put(group, document.deepCopy());
+            }
+            return withBulkLifecycleCompositionLock(() -> {
+                if (cacheInvalidationEpoch != capturedEpoch)
+                    throw new IllegalStateException("OpenAPI caches were invalidated during fresh lifecycle preparation");
+                for (var entry : fresh.entrySet()) {
+                    CachedDocument cached = documentCache.get(entry.getKey());
+                    if (!entry.getValue().equals(publicDocuments.get(entry.getKey()))
+                            || (cached != null && !entry.getValue().equals(cached.document()))) {
+                        // The durable guard observes the old cache before either cache is cleared.
+                        clearCaches();
+                        throw new IllegalStateException("Public OpenAPI cache differs from the fresh lifecycle document: " + entry.getKey());
+                    }
+                }
+                internal.requireTransportRevision(transportRevision);
+                compositionDeadline.get().remainingNanos();
+                // Only publish cold entries after every independent public/fresh comparison passed.
+                for (var entry : fresh.entrySet())
+                    documentCache.putIfAbsent(entry.getKey(), new CachedDocument(entry.getValue(), true));
+                lifecycleSnapshot.set(Map.copyOf(fresh));
                 try {
-                    JsonNode document = openApiDocsSupport.fetchFreshOpenApiGroupDocument(
-                            restTemplate, openApiBasePath, group, LOGGER);
-                    if (document == null || !document.isObject())
-                        throw new IllegalStateException("Fresh exact OpenAPI group document is unavailable: " + group);
-                    fresh.put(group, document.deepCopy());
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to fetch fresh exact OpenAPI group: " + group, e);
+                    return action.get();
+                } finally {
+                    lifecycleSnapshot.remove();
                 }
-            }
-            for (String group : groups.stream().sorted().toList()) {
-                JsonNode publiclyServed = getDocumentForGroup(group);
-                if (!fresh.get(group).equals(publiclyServed)) {
-                    // Fence before dropping either cache, so this node cannot publish a contract
-                    // backed by a stale local view. The guard suspends the shared durable rows.
-                    clearCaches();
-                    throw new IllegalStateException("Public OpenAPI cache differs from the fresh lifecycle document: " + group);
-                }
-            }
-            lifecycleSnapshot.set(Map.copyOf(fresh));
-            try {
-                return action.get();
-            } finally {
-                lifecycleSnapshot.remove();
-            }
-        });
+            });
+        }));
+    }
+
+    private <T> T withCompositionDeadline(Supplier<T> action) {
+        boolean owner = compositionDeadline.get() == null;
+        if (owner) compositionDeadline.set(new OpenApiInternalRestTemplate.Deadline(bulkCompositionTimeout));
+        try {
+            compositionDeadline.get().remainingNanos();
+            return action.get();
+        } finally {
+            if (owner) compositionDeadline.remove();
+        }
+    }
+
+    private <T> T withTimedLock(Lock lock, Supplier<T> action) {
+        try {
+            if (!lock.tryLock(compositionDeadline.get().remainingNanos(), TimeUnit.NANOSECONDS))
+                throw new IllegalStateException("Bulk OpenAPI composition admission budget exhausted waiting for a lock");
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for the bulk OpenAPI composition lock", interrupted);
+        }
+        try {
+            compositionDeadline.get().remainingNanos();
+            return action.get();
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
     public boolean supportsFreshBulkLifecycleComposition() {
-        return springdocCacheDisabled && !openApiDocsSupport.usesConfiguredInternalBaseUrl();
+        return springdocCacheDisabled && !openApiDocsSupport.usesConfiguredInternalBaseUrl()
+                && restTemplate instanceof OpenApiInternalRestTemplate internal && internal.hasOwnedRequestFactory();
     }
 
     @Override

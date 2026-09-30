@@ -256,6 +256,90 @@ class BulkOperationStructuralCompilerTest {
     }
 
     @Test
+    void lifecyclePublicationCasRemainsInsideTheFreshSnapshotAndCacheWriteLock() throws Exception {
+        verifyPublicationAdmission(false);
+    }
+
+    @Test
+    void poolWaitExpiryBeforeCasCannotReconcileAnotherPublishersReadyRowAsSuccess() throws Exception {
+        verifyPublicationAdmission(true);
+    }
+
+    private void verifyPublicationAdmission(boolean expireWhileAcquiringConnection) throws Exception {
+        try (var context = context();
+             var http = new org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(2));
+             var sql = org.mockito.Mockito.mockStatic(JdbcBulkOperationControl.class,
+                     org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE))) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            JsonNode document = operationalDocument(BulkIdentityCodecs.longs());
+            var source = new org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport() {
+                @Override public String resolveGroupFromPath(String path) { return "inventory"; }
+                @Override public JsonNode fetchOpenApiDocument(org.springframework.web.client.RestTemplate client,
+                        String base, String group, org.slf4j.Logger logger) { return document.deepCopy(); }
+                @Override public JsonNode fetchOpenApiGroupDocument(org.springframework.web.client.RestTemplate client,
+                        String base, String group, org.slf4j.Logger logger) { return document.deepCopy(); }
+                @Override public JsonNode fetchFreshOpenApiGroupDocument(org.springframework.web.client.RestTemplate client,
+                        String base, String group, org.slf4j.Logger logger) { return document.deepCopy(); }
+            };
+            var documents = new org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService(
+                    http, new ObjectMapper(), source, true, Duration.ofMillis(400));
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("inventory"));
+            var runtime = org.mockito.Mockito.mock(BulkExecutionInfrastructure.class,
+                    org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+            org.mockito.Mockito.when(runtime.namespace()).thenReturn("test-namespace");
+            org.mockito.Mockito.when(runtime.deploymentId()).thenReturn("deployment-a");
+            var control = org.mockito.Mockito.mock(BulkControlPlaneInfrastructure.class,
+                    org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+            org.mockito.Mockito.when(control.namespace()).thenReturn("test-namespace");
+            org.mockito.Mockito.when(control.deploymentId()).thenReturn("deployment-a");
+            var connection = org.mockito.Mockito.mock(java.sql.Connection.class);
+            org.mockito.Mockito.when(runtime.withLifecycleRead(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
+                org.springframework.jdbc.core.ConnectionCallback<?> callback = invocation.getArgument(0);
+                return callback.doInConnection(connection);
+            });
+            org.mockito.Mockito.when(control.withConnection(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
+                if (expireWhileAcquiringConnection) java.util.concurrent.TimeUnit.MILLISECONDS.sleep(600);
+                org.springframework.jdbc.core.ConnectionCallback<?> callback = invocation.getArgument(0);
+                return callback.doInConnection(connection);
+            });
+            var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
+            var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents, registry(actionDefinition()),
+                    new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+            var descriptor = BulkOperationalDescriptorComposer.compose(compiler.compileAll().getFirst(), provider);
+            var reads = new AtomicInteger();
+            var attempts = new AtomicInteger();
+            sql.when(() -> JdbcBulkOperationControl.lockForAdmission(connection, "test-namespace", ACTION_ID))
+                    .thenAnswer(invocation -> reads.incrementAndGet() == 1
+                            ? new JdbcBulkOperationControl.Snapshot("UNCOMPOSED", 0, null, null)
+                            : new JdbcBulkOperationControl.Snapshot("READY", 1,
+                                    descriptor.descriptorFingerprint(), descriptor.structuralRevision()));
+            sql.when(() -> JdbcBulkOperationControl.transition(connection, "test-namespace", ACTION_ID, 0,
+                    JdbcBulkOperationControl.Target.READY, descriptor.descriptorFingerprint(), descriptor.structuralRevision()))
+                    .thenAnswer(invocation -> {
+                        attempts.incrementAndGet();
+                        var lock = (java.util.concurrent.locks.ReentrantReadWriteLock)
+                                org.springframework.test.util.ReflectionTestUtils.getField(documents, "cacheLifecycleLock");
+                        var snapshot = (ThreadLocal<?>) org.springframework.test.util.ReflectionTestUtils.getField(documents, "lifecycleSnapshot");
+                        assertTrue(lock.isWriteLockedByCurrentThread(), "durable CAS must exclude cache invalidation");
+                        assertTrue(snapshot.get() != null, "durable CAS must remain inside the captured fresh composition");
+                        return new JdbcBulkOperationControl.Transition(true, 1);
+                    });
+            var lifecycle = new BulkOperationLifecycle(bindings, resolver, documents, registry(actionDefinition()),
+                    new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver(), runtime, control, List.of(provider));
+            var identity = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
+            if (expireWhileAcquiringConnection) {
+                assertThrows(IllegalStateException.class, () -> lifecycle.publish(identity, 0));
+                assertEquals(0, attempts.get(), "pool expiry must not start a CAS");
+                assertEquals(1, reads.get(), "pre-CAS failure cannot reconcile a concurrent READY row as our commit");
+            } else {
+                assertEquals(1, lifecycle.publish(identity, 0).generation());
+                assertEquals(1, attempts.get());
+            }
+        }
+    }
+
+    @Test
     void lifecyclePublishesOnlyFreshCompositionAndSuspendsBeforeInvalidatingCaches() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start(); var context = context()) {
