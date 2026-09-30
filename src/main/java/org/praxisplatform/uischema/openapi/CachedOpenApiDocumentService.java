@@ -122,6 +122,12 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                     if (groupDoc == null) {
                         throw new IllegalStateException("OpenAPI strict group helper returned null for: " + group);
                     }
+                    // A strict read may prove an existing public entry exact, but cannot replace
+                    // its content under the read lock. Changes require the guarded refresh path.
+                    if (cached != null && !groupDoc.equals(cached.document())) {
+                        throw new IllegalStateException("Strict OpenAPI group differs from the public cache; "
+                                + "a guarded refresh is required: " + group);
+                    }
                     long sizeKB = estimateJsonSize(groupDoc) / 1024;
                     LOGGER.info("Documento OpenAPI exato cacheado para grupo '{}' (~{}KB)", group, sizeKB);
                     return new CachedDocument(groupDoc, true);
