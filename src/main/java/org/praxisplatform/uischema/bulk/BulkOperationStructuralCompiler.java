@@ -51,12 +51,23 @@ final class BulkOperationStructuralCompiler {
     private final ActionDefinitionRegistry actionDefinitions;
     private final TypeFactory typeFactory;
     private final SchemaReferenceResolver schemaReferences;
+    private final org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilities;
 
     BulkOperationStructuralCompiler(BulkResourceOperationBindings bindings,
             CanonicalOperationResolver operationResolver,
             OpenApiDocumentService documents,
             ActionDefinitionRegistry actionDefinitions, TypeFactory typeFactory,
             SchemaReferenceResolver schemaReferences) {
+        this(bindings, operationResolver, documents, actionDefinitions, typeFactory, schemaReferences,
+                new org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver(documents));
+    }
+
+    BulkOperationStructuralCompiler(BulkResourceOperationBindings bindings,
+            CanonicalOperationResolver operationResolver, OpenApiDocumentService documents,
+            ActionDefinitionRegistry actionDefinitions, TypeFactory typeFactory,
+            SchemaReferenceResolver schemaReferences,
+            org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilities) {
+        this.capabilities = Objects.requireNonNull(capabilities, "capabilities");
         this.bindings = Objects.requireNonNull(bindings, "bindings");
         this.operationResolver = Objects.requireNonNull(operationResolver, "operationResolver");
         this.documents = Objects.requireNonNull(documents, "documents");
@@ -168,11 +179,38 @@ final class BulkOperationStructuralCompiler {
             String requestJavaType = operation.requestBody() == null ? null
                     : operation.requestBody().bodyType().toCanonical();
             String responseJavaType = returnJavaType(operation.handler());
+            // UI projection failure never weakens strict raw-schema validation above. It makes
+            // this structural evidence unprojectable; operational composition rejects it before READY.
+            String idField = operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION
+                    ? queryParameters(URI.create(action.responseSchema().url()).getRawQuery()).get("idField") : null;
+            Boolean readOnly = operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION ? false : null;
+            var filteredResponse = filteredProjection(snapshot, operation.reference(), "response", idField, readOnly);
+            String requestIdField = operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION
+                    ? queryParameters(URI.create(action.requestSchema().url()).getRawQuery()).get("idField") : null;
+            var filteredRequest = request == null ? null
+                    : filteredProjection(snapshot, operation.reference(), "request", requestIdField, readOnly);
+            if (operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION) {
+                if (filteredResponse != null && !filteredResponse.reference().equals(action.responseSchema()))
+                    throw invalid("Confirmation filtered response differs from the captured action reference");
+                if (filteredRequest != null && !filteredRequest.reference().equals(action.requestSchema()))
+                    throw invalid("Confirmation filtered request differs from the captured action reference");
+            }
             operations.add(new BulkOperationStructuralDescriptor.Operation(
-                    operation.role(), operation.reference(), requestJavaType, responseJavaType, request, response));
+                    operation.role(), operation.reference(), requestJavaType, responseJavaType, request, response,
+                    filteredRequest, filteredResponse));
         }
         return new BulkOperationStructuralDescriptor(binding.resourceKey(), group, binding.mode(),
                 binding.atomicity(), BulkOperationStructuralDescriptor.Action.from(action), operations);
+    }
+
+    private org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved filteredProjection(
+            CanonicalOpenApiGroupSnapshot snapshot, CanonicalOperationRef operation, String type,
+            String idField, Boolean readOnly) {
+        try {
+            return snapshot.resolveFilteredProjection(operation, type, schemaReferences, capabilities, idField, readOnly);
+        } catch (RuntimeException unavailableProjection) {
+            return null;
+        }
     }
 
     private PendingOperation bodyOperation(BulkOperationStructuralDescriptor.Role role, String operationId,

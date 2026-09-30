@@ -22,12 +22,20 @@ public class ActionCatalogService {
     private final ActionDefinitionRegistry actionDefinitionRegistry;
     private final ActionAvailabilityEvaluator availabilityEvaluator;
     private final ActionAvailabilityContextResolver contextResolver;
+    private final java.util.function.Function<List<ActionDefinition>, Map<String, ActionExecutionContract>> bulkProjector;
 
     public ActionCatalogService(
             ActionDefinitionRegistry actionDefinitionRegistry,
             ActionAvailabilityEvaluator availabilityEvaluator,
             ActionAvailabilityContextResolver contextResolver
     ) {
+        this(actionDefinitionRegistry, availabilityEvaluator, contextResolver, ignored -> Map.of());
+    }
+
+    public ActionCatalogService(ActionDefinitionRegistry actionDefinitionRegistry,
+            ActionAvailabilityEvaluator availabilityEvaluator, ActionAvailabilityContextResolver contextResolver,
+            java.util.function.Function<List<ActionDefinition>, Map<String, ActionExecutionContract>> bulkProjector) {
+        this.bulkProjector = java.util.Objects.requireNonNull(bulkProjector, "bulkProjector");
         this.actionDefinitionRegistry = actionDefinitionRegistry;
         this.availabilityEvaluator = availabilityEvaluator;
         this.contextResolver = contextResolver;
@@ -44,12 +52,13 @@ public class ActionCatalogService {
         String resolvedResourcePath = singleValue(definitions, ActionDefinition::resourcePath);
         String resolvedGroup = singleValue(definitions, ActionDefinition::group);
         Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, null);
+        Map<String, ActionExecutionContract> executions = executions(definitions);
         return new ActionCatalogResponse(
                 resourceKey,
                 resolvedResourcePath,
                 resolvedGroup,
                 null,
-                definitions.stream().map(def -> toCatalogItem(def, contexts, null)).toList()
+                definitions.stream().map(def -> toCatalogItem(def, contexts, null, executions)).toList()
         );
     }
 
@@ -62,12 +71,13 @@ public class ActionCatalogService {
                 ActionCatalogNotFoundException.unknownGroup(group)
         );
         Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, null);
+        Map<String, ActionExecutionContract> executions = executions(definitions);
         return new ActionCatalogResponse(
                 null,
                 null,
                 group,
                 null,
-                definitions.stream().map(def -> toCatalogItem(def, contexts, null)).toList()
+                definitions.stream().map(def -> toCatalogItem(def, contexts, null, executions)).toList()
         );
     }
 
@@ -86,12 +96,13 @@ public class ActionCatalogService {
         String resolvedResourcePath = singleValue(definitions, ActionDefinition::resourcePath);
         String resolvedGroup = singleValue(definitions, ActionDefinition::group);
         Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, resourceId);
+        Map<String, ActionExecutionContract> executions = executions(definitions);
         return new ActionCatalogResponse(
                 resourceKey,
                 resolvedResourcePath,
                 resolvedGroup,
                 resourceId,
-                definitions.stream().map(def -> toCatalogItem(def, contexts, resourceId)).toList()
+                definitions.stream().map(def -> toCatalogItem(def, contexts, resourceId, executions)).toList()
         );
     }
 
@@ -110,19 +121,21 @@ public class ActionCatalogService {
         String resolvedResourcePath = singleValue(definitions, ActionDefinition::resourcePath);
         String resolvedGroup = singleValue(definitions, ActionDefinition::group);
         Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, null);
+        Map<String, ActionExecutionContract> executions = executions(definitions);
         return new ActionCatalogResponse(
                 resourceKey,
                 resolvedResourcePath,
                 resolvedGroup,
                 null,
-                definitions.stream().map(def -> toCatalogItem(def, contexts, null)).toList()
+                definitions.stream().map(def -> toCatalogItem(def, contexts, null, executions)).toList()
         );
     }
 
     private ActionCatalogItem toCatalogItem(
             ActionDefinition definition,
             Map<ContextKey, ActionAvailabilityContext> contexts,
-            Object requestedResourceId
+            Object requestedResourceId,
+            Map<String, ActionExecutionContract> executions
     ) {
         Object scopedResourceId = definition.scope() == ActionScope.ITEM ? requestedResourceId : null;
         ActionAvailabilityContext context = contexts.get(new ContextKey(
@@ -149,8 +162,12 @@ public class ActionCatalogService {
                 definition.order(),
                 definition.successMessage(),
                 definition.tags(),
-                definition.execution()
+                executions.getOrDefault(definition.operation().operationId(), definition.execution().withBulk(null))
         );
+    }
+
+    private Map<String, ActionExecutionContract> executions(List<ActionDefinition> definitions) {
+        return bulkProjector.apply(definitions);
     }
 
     private List<String> emptyToNull(List<String> values) {

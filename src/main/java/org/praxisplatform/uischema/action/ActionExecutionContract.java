@@ -11,7 +11,9 @@ public record ActionExecutionContract(
         ActionPreconditionPolicy preconditions,
         ActionSelectionPolicy selection,
         ActionOutcomePolicy outcome,
-        ActionRefreshPolicy refresh
+        ActionRefreshPolicy refresh,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        org.praxisplatform.uischema.bulk.BulkExecutionContract bulk
 ) {
     public ActionExecutionContract {
         interaction = interaction == null
@@ -23,6 +25,15 @@ public record ActionExecutionContract(
         selection = selection == null ? new ActionSelectionPolicy(null, null, null) : selection;
         outcome = outcome == null ? new ActionOutcomePolicy(null, null) : outcome;
         refresh = refresh == null ? new ActionRefreshPolicy(false, true, true, true, null) : refresh;
+    }
+
+    public ActionExecutionContract(ActionInteractionPolicy interaction, ActionPreconditionPolicy preconditions,
+            ActionSelectionPolicy selection, ActionOutcomePolicy outcome, ActionRefreshPolicy refresh) {
+        this(interaction, preconditions, selection, outcome, refresh, null);
+    }
+
+    public ActionExecutionContract withBulk(org.praxisplatform.uischema.bulk.BulkExecutionContract bulk) {
+        return new ActionExecutionContract(interaction, preconditions, selection, outcome, refresh, bulk);
     }
 
     public static ActionExecutionContract defaults(ActionScope scope) {

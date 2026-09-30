@@ -58,6 +58,8 @@ class CachedOpenApiDocumentServiceRefreshTest {
         JsonNode refreshed = new ObjectMapper().readTree("{\"info\":{\"version\":\"fresh\"}}");
         when(support.fetchOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
                 .thenReturn(cached);
+        when(support.fetchOpenApiDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(cached);
         when(support.fetchFreshOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
                 .thenReturn(refreshed);
         var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support);
@@ -79,18 +81,90 @@ class CachedOpenApiDocumentServiceRefreshTest {
         JsonNode refreshed = new ObjectMapper().readTree("{\"info\":{\"version\":\"fresh\"}}");
         when(support.fetchOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
                 .thenReturn(cached);
+        when(support.fetchOpenApiDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(cached);
+        when(support.fetchFreshOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(refreshed);
+        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support, true);
+        ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
+        var guardCalls = new AtomicInteger();
+        service.installBulkLifecycleInvalidationGuard(guardCalls::incrementAndGet);
+
+        assertThat(service.getDocumentForGroupStrict("inventory").at("/info/version").asText()).isEqualTo("cached");
+        assertThrows(IllegalStateException.class, () -> service.withFreshBulkLifecycleDocuments(
+                Set.of("inventory"), () -> { throw new AssertionError("divergent cache must stop the callback"); }));
+        assertThat(guardCalls).hasValue(1);
+        assertThat(service.getDocumentForGroupStrict("inventory").at("/info/version").asText()).isEqualTo("cached");
+        verify(support, times(2)).fetchOpenApiGroupDocument(any(RestTemplate.class), anyString(),
+                eq("inventory"), any());
+    }
+
+    @Test
+    void lifecycleSnapshotRunsWhenPublicCacheMatchesFreshDocument() throws Exception {
+        OpenApiDocsSupport support = mock(OpenApiDocsSupport.class);
+        JsonNode same = new ObjectMapper().readTree("{\"info\":{\"version\":\"same\"}}");
+        when(support.fetchOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(same);
+        when(support.fetchOpenApiDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(same);
+        when(support.fetchFreshOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(same);
+        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support, true);
+        ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
+
+        assertThat(service.withFreshBulkLifecycleDocuments(Set.of("inventory"), () -> "composed"))
+                .isEqualTo("composed");
+        assertThat(service.getDocumentForGroupStrict("inventory").at("/info/version").asText()).isEqualTo("same");
+    }
+
+    @Test
+    void strictRefreshInvalidatesHashesBeforePublishingTheNewDocument() throws Exception {
+        OpenApiDocsSupport support = mock(OpenApiDocsSupport.class);
+        JsonNode cached = new ObjectMapper().readTree("{\"info\":{\"version\":\"cached\"}}");
+        JsonNode refreshed = new ObjectMapper().readTree("{\"info\":{\"version\":\"fresh\"}}");
+        when(support.fetchOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(cached);
         when(support.fetchFreshOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
                 .thenReturn(refreshed);
         var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(), support, true);
         ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
 
-        assertThat(service.getDocumentForGroupStrict("inventory").at("/info/version").asText()).isEqualTo("cached");
-        service.withFreshBulkLifecycleDocuments(Set.of("inventory"), () -> {
-            assertThat(service.refreshDocumentForGroupStrict("inventory").at("/info/version").asText())
-                    .isEqualTo("fresh");
-            return null;
-        });
-        assertThat(service.getDocumentForGroupStrict("inventory").at("/info/version").asText()).isEqualTo("cached");
+        String oldHash = service.getOrComputeSchemaHash("same-id", () -> cached);
+        service.refreshDocumentForGroupStrict("inventory");
+        String newHash = service.getOrComputeSchemaHash("same-id", () -> refreshed);
+
+        assertThat(newHash).isNotEqualTo(oldHash);
+    }
+
+    @Test
+    void schemaMaterializationReadLockPreventsCacheInvalidationFromInterleaving() throws Exception {
+        var service = new CachedOpenApiDocumentService(mock(RestTemplate.class), new ObjectMapper(),
+                mock(OpenApiDocsSupport.class), true);
+        var readStarted = new CountDownLatch(1);
+        var releaseRead = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var read = executor.submit(() -> service.withSchemaCacheReadLock(() -> {
+                readStarted.countDown();
+                try {
+                    if (!releaseRead.await(2, TimeUnit.SECONDS))
+                        throw new IllegalStateException("test read lock was not released");
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(interrupted);
+                }
+                return null;
+            }));
+            assertThat(readStarted.await(2, TimeUnit.SECONDS)).isTrue();
+            var invalidation = executor.submit(service::clearCaches);
+            assertThrows(TimeoutException.class, () -> invalidation.get(100, TimeUnit.MILLISECONDS));
+            releaseRead.countDown();
+            read.get(2, TimeUnit.SECONDS);
+            invalidation.get(2, TimeUnit.SECONDS);
+        } finally {
+            releaseRead.countDown();
+            executor.shutdownNow();
+        }
     }
 
     @Test

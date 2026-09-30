@@ -29,7 +29,7 @@ final class BulkStructuralSegmentDigest {
         Objects.requireNonNull(descriptor, "descriptor");
         var factory = JsonNodeFactory.instance;
         var root = factory.objectNode();
-        root.put("structureVersion", "praxis.bulk.structure/2");
+        root.put("structureVersion", "praxis.bulk.structure/3");
         root.put("resourceKey", descriptor.resourceKey());
         root.put("openApiGroup", descriptor.openApiGroup());
         root.put("mode", descriptor.mode().name());
@@ -44,10 +44,20 @@ final class BulkStructuralSegmentDigest {
             item.put("responseJavaType", operation.responseJavaType());
             operation.requestSchema().ifPresent(schema -> item.set("requestSchema", requestSchema(schema)));
             item.set("responseSchema", responseSchema(operation.responseSchema()));
+            item.set("filteredRequest", filteredSchema(operation.filteredRequest()));
+            item.set("filteredResponse", filteredSchema(operation.filteredResponse()));
             operations.add(item);
         }
         root.set("operations", operations);
         return root;
+    }
+
+    private static JsonNode filteredSchema(org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved projection) {
+        if (projection == null) return JsonNodeFactory.instance.nullNode();
+        var result = JsonNodeFactory.instance.objectNode();
+        result.set("reference", schemaReference(projection.reference()));
+        result.set("selection", SCHEMA_CANONICALIZER.canonicalize(projection.evidence()));
+        return result;
     }
 
     private static ObjectNode reference(org.praxisplatform.uischema.openapi.CanonicalOperationRef reference) {
