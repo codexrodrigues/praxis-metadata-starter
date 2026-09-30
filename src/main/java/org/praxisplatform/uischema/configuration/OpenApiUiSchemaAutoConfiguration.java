@@ -736,9 +736,10 @@ public class OpenApiUiSchemaAutoConfiguration {
                 actionDefinitionRegistry,
                 actionAvailabilityEvaluator,
                 actionAvailabilityContextResolver,
-                definitions -> {
+                (definitions, consumer) -> {
                     var lifecycle = bulkLifecycle.getIfAvailable();
-                    return lifecycle == null ? java.util.Map.of() : lifecycle.projectReadyActions(definitions);
+                    return lifecycle == null ? consumer.apply(java.util.Map.of())
+                            : lifecycle.projectReadyActions(definitions, consumer);
                 }
         );
     }

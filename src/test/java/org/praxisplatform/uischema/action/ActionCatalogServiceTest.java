@@ -19,13 +19,49 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class ActionCatalogServiceTest {
 
     @Test
+    void allFourEntrypointsEvaluateOriginalDefinitionsInsideOneResponseScope() {
+        var item = definition("approve", 1, "example.employees", "/employees", "example", ActionScope.ITEM);
+        var collection = definition("collect", 2, "example.employees", "/employees", "example", ActionScope.COLLECTION);
+        var definitions = List.of(item, collection);
+        var active = new java.util.concurrent.atomic.AtomicBoolean();
+        var scopes = new AtomicInteger();
+        var contexts = new AtomicInteger();
+        var registry = new MapActionDefinitionRegistry(Map.of("example.employees", definitions), Map.of("example", definitions));
+        var service = new ActionCatalogService(registry, (definition, context) -> {
+            org.junit.jupiter.api.Assertions.assertTrue(active.get());
+            org.junit.jupiter.api.Assertions.assertTrue(definition == item || definition == collection);
+            return AvailabilityDecision.deny("missing-authority", Map.of());
+        }, (resource, path, id) -> {
+            org.junit.jupiter.api.Assertions.assertFalse(active.get(), "context resolution precedes composition");
+            contexts.incrementAndGet();
+            return contextualResolver().resolve(resource, path, id);
+        }, (actions, consumer) -> {
+            scopes.incrementAndGet();
+            active.set(true);
+            try { return consumer.apply(Map.of()); }
+            finally { active.set(false); }
+        });
+        for (var response : List.of(service.findByResourceKey("example.employees"), service.findByGroup("example"),
+                service.findItemActions("example.employees", 42L), service.findCollectionActions("example.employees"))) {
+            for (var action : response.actions()) {
+                org.junit.jupiter.api.Assertions.assertFalse(action.availability().allowed());
+                assertEquals("missing-authority", action.availability().reason());
+                org.junit.jupiter.api.Assertions.assertNull(action.execution().bulk());
+            }
+        }
+        assertEquals(4, scopes.get());
+        assertEquals(4, contexts.get());
+        org.junit.jupiter.api.Assertions.assertFalse(active.get());
+    }
+
+    @Test
     void resolvesLifecycleOnceForTheWholeCatalogAndKeepsNonBulkExecutionJsonUnchanged() {
         var definitions = List.of(definition("approve"), definition("reject"));
         var registry = new StaticActionDefinitionRegistry(definitions);
         AtomicInteger projectionCalls = new AtomicInteger();
-        var service = new ActionCatalogService(registry, allowAllEvaluator(), contextualResolver(), actions -> {
+        var service = new ActionCatalogService(registry, allowAllEvaluator(), contextualResolver(), (actions, consumer) -> {
             projectionCalls.incrementAndGet();
-            return Map.of();
+            return consumer.apply(Map.of());
         });
         var response = service.findByResourceKey("example.employees");
         assertEquals(1, projectionCalls.get(), "bulk composition is resolved once for the whole catalog");

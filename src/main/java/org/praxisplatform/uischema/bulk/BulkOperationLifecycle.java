@@ -28,6 +28,7 @@ public final class BulkOperationLifecycle {
     private final BulkControlPlaneInfrastructure controlPlane;
     private final List<BulkOperationDescriptorProvider> providers;
     private final ThreadLocal<Boolean> lifecycleCacheFence = ThreadLocal.withInitial(() -> false);
+    private final ThreadLocal<ActionProjectionFrame> actionProjection = new ThreadLocal<>();
 
     public BulkOperationLifecycle(BulkResourceOperationBindings bindings,
             CanonicalOperationResolver operationResolver, OpenApiDocumentService documents,
@@ -70,6 +71,9 @@ public final class BulkOperationLifecycle {
      * re-check this expectation under the database lock; this method alone is not authorization.
      */
     public BulkOperationControlExpectation requireReady(BulkOperationControlIdentity identity) {
+        requireIdentity(identity);
+        ActionProjectionFrame frame = actionProjection.get();
+        if (frame != null) return frame.requireReady(identity);
         Set<String> requiredGroups = requiredOpenApiGroups();
         List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
         return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
@@ -86,60 +90,172 @@ public final class BulkOperationLifecycle {
         });
     }
 
-    /**
-     * Resolves all requested action projections in one fresh composition. The same captured
-     * descriptor supplies both its fingerprint and its public contract. A second durable read
-     * rejects generation changes during composition, including suspend/republish with equal
-     * content. Contextual availability and later transactional admission remain independent.
-     */
+    /** Resolves the projection through the same scoped path used by action discovery. */
     public Map<String, org.praxisplatform.uischema.action.ActionExecutionContract> projectReadyActions(
             List<org.praxisplatform.uischema.action.ActionDefinition> actions) {
-        if (actions == null || actions.isEmpty() || bindings.bulkOperations().isEmpty()) return Map.of();
+        return projectReadyActions(actions, java.util.function.Function.identity());
+    }
+
+    /**
+     * Captures one fresh composition, then invokes the synchronous consumer outside all document
+     * locks and preparation mutexes. Scoped requireReady calls reuse only captured descriptors:
+     * provider composition and durable READY/generation are checked again under a short document
+     * read fence. The final fence rejects drift during consumer execution. No context escapes this
+     * call, no callback is retried, and this projection is never transactional authorization.
+     * Preparation failure supplies an empty projection with scoped readiness denied; a consumer
+     * or final-verification failure propagates without rebuilding an ordinary response.
+     */
+    public <T> T projectReadyActions(List<org.praxisplatform.uischema.action.ActionDefinition> actions,
+            java.util.function.Function<Map<String, org.praxisplatform.uischema.action.ActionExecutionContract>, T> consumer) {
+        Objects.requireNonNull(consumer, "consumer");
+        if (actionProjection.get() != null)
+            throw unavailable("Nested action projection scopes are not supported");
+        if (actions == null || actions.isEmpty() || bindings.bulkOperations().isEmpty())
+            return consumer.apply(Map.of());
         Set<String> declaredIds = bindings.bulkOperations().stream().map(BulkOperationBinding::confirmationOperationId)
                 .collect(java.util.stream.Collectors.toSet());
         if (actions.stream().filter(Objects::nonNull).noneMatch(action -> action.operation() != null
-                && declaredIds.contains(action.operation().operationId()))) return Map.of();
+                && declaredIds.contains(action.operation().operationId()))) return consumer.apply(Map.of());
+
+        ActionProjectionFrame frame;
         try {
-            Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> before = runtime.withLifecycleRead(connection -> {
-                Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> captured = new LinkedHashMap<>();
-                for (var operationId : declaredIds.stream().sorted().toList()) {
-                    var identity = new BulkOperationControlIdentity(runtime.namespace(), operationId);
-                    captured.put(identity, JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(), operationId));
-                }
-                return captured;
-            });
-            Set<String> requiredGroups = requiredOpenApiGroups();
-            List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
-            return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
-                operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
-                List<BulkOperationalDescriptor> descriptors = descriptors(false).stream()
-                        .sorted(Comparator.comparing(value -> value.identity().confirmationOperationId())).toList();
-                return runtime.withLifecycleRead(connection -> {
-                    Map<String, org.praxisplatform.uischema.action.ActionExecutionContract> result = new LinkedHashMap<>();
-                    for (var descriptor : descriptors) {
-                        var initial = before.get(descriptor.identity());
-                        if (initial == null || !initial.ready()) continue;
-                        var current = JdbcBulkOperationControl.lockForAdmission(connection,
-                                descriptor.identity().namespaceId(), descriptor.identity().confirmationOperationId());
-                        if (!matches(initial, "READY", initial.generation(), descriptor)
-                                || !matches(current, "READY", initial.generation(), descriptor)) continue;
-                        for (var action : actions) {
-                            if (action != null && descriptor.structural().action().operation().equals(action.operation())
-                                    && BulkOperationStructuralDescriptor.Action.from(action).equals(descriptor.structural().action())) {
-                                try {
-                                    result.put(action.operation().operationId(), action.execution().withBulk(BulkExecutionContract.from(descriptor)));
-                                } catch (IllegalStateException unavailableProjection) {
-                                    // Raw transport validity does not imply a renderable filtered UI variant.
-                                }
+            frame = prepareActionProjection(actions, declaredIds);
+        } catch (RuntimeException unavailableComposition) {
+            // The consumer runs once, with readiness denied rather than starting a second fetch.
+            frame = new ActionProjectionFrame(Map.of(), List.of(), Map.of(), null);
+        }
+        actionProjection.set(frame);
+        Throwable failure = null;
+        try {
+            T result = consumer.apply(frame.executions);
+            frame.verifyFinal();
+            return result;
+        } catch (RuntimeException | Error failed) {
+            failure = failed;
+            throw failed;
+        } finally {
+            actionProjection.remove();
+            try {
+                frame.close();
+            } catch (RuntimeException | Error cleanupFailure) {
+                if (failure == null) throw cleanupFailure;
+                if (failure != cleanupFailure) failure.addSuppressed(cleanupFailure);
+            }
+        }
+    }
+
+    private ActionProjectionFrame prepareActionProjection(
+            List<org.praxisplatform.uischema.action.ActionDefinition> actions, Set<String> declaredIds) {
+        Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> before = runtime.withLifecycleRead(connection -> {
+            Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> captured = new LinkedHashMap<>();
+            for (var operationId : declaredIds.stream().sorted().toList()) {
+                var identity = new BulkOperationControlIdentity(runtime.namespace(), operationId);
+                captured.put(identity, JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(), operationId));
+            }
+            return captured;
+        });
+        Set<String> requiredGroups = requiredOpenApiGroups();
+        List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
+        return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
+            operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
+            List<BulkOperationalDescriptor> descriptors = descriptors(false).stream()
+                    .sorted(Comparator.comparing(value -> value.identity().confirmationOperationId())).toList();
+            Map<String, org.praxisplatform.uischema.action.ActionExecutionContract> result = new LinkedHashMap<>();
+            Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> approved = new LinkedHashMap<>();
+            runtime.withLifecycleRead(connection -> {
+                for (var descriptor : descriptors) {
+                    var initial = before.get(descriptor.identity());
+                    if (initial == null || !initial.ready()) continue;
+                    var current = JdbcBulkOperationControl.lockForAdmission(connection,
+                            descriptor.identity().namespaceId(), descriptor.identity().confirmationOperationId());
+                    if (!matches(initial, "READY", initial.generation(), descriptor)
+                            || !matches(current, "READY", initial.generation(), descriptor)) continue;
+                    for (var action : actions) {
+                        if (action != null && descriptor.structural().action().operation().equals(action.operation())
+                                && BulkOperationStructuralDescriptor.Action.from(action).equals(descriptor.structural().action())) {
+                            try {
+                                result.put(action.operation().operationId(), action.execution().withBulk(BulkExecutionContract.from(descriptor)));
+                                approved.put(descriptor.identity(), initial);
+                            } catch (IllegalStateException unavailableProjection) {
+                                // Raw transport validity does not imply a renderable filtered UI variant.
                             }
                         }
                     }
-                    return Map.copyOf(result);
-                });
+                }
+                return null;
             });
-        } catch (RuntimeException unavailableComposition) {
-            // Discovery remains useful for ordinary actions while bulk fails closed.
-            return Map.of();
+            return new ActionProjectionFrame(Map.copyOf(result), descriptors, Map.copyOf(approved),
+                    documents.captureBulkLifecycleDocumentFence());
+        });
+    }
+
+    private final class ActionProjectionFrame implements AutoCloseable {
+        private final Map<String, org.praxisplatform.uischema.action.ActionExecutionContract> executions;
+        private final List<BulkOperationalDescriptor> descriptors;
+        private final Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> approved;
+        private final OpenApiDocumentService.BulkLifecycleDocumentFence documentFence;
+        private RuntimeException rejection;
+
+        private ActionProjectionFrame(Map<String, org.praxisplatform.uischema.action.ActionExecutionContract> executions,
+                List<BulkOperationalDescriptor> descriptors,
+                Map<BulkOperationControlIdentity, JdbcBulkOperationControl.Snapshot> approved,
+                OpenApiDocumentService.BulkLifecycleDocumentFence documentFence) {
+            this.executions = executions;
+            this.descriptors = descriptors;
+            this.approved = approved;
+            this.documentFence = documentFence;
+        }
+
+        private BulkOperationControlExpectation requireReady(BulkOperationControlIdentity identity) {
+            if (documentFence == null || !approved.containsKey(identity))
+                throw unavailable("Bulk operation is not READY in this action projection");
+            verify(Set.of(identity), false);
+            return descriptors.stream().filter(value -> value.identity().equals(identity)).findFirst().orElseThrow()
+                    .expectation(approved.get(identity).generation());
+        }
+
+        private void verifyFinal() {
+            if (documentFence != null) {
+                // A host rule may catch a readiness exception. Always run the final checks,
+                // then preserve any earlier rejection even if the provider changed back.
+                verify(approved.keySet(), true);
+                if (rejection != null) throw rejection;
+            }
+        }
+
+        private void verify(Set<BulkOperationControlIdentity> identities, boolean finalCheck) {
+            if (!finalCheck && rejection != null) throw rejection;
+            try {
+                documentFence.read(() -> {
+                    Map<String, BulkOperationDescriptorProvider> currentProviders = providerSnapshot();
+                    if (currentProviders.size() != descriptors.size())
+                        throw unavailable("Descriptor provider bindings changed during action discovery");
+                    for (var descriptor : descriptors) {
+                        var provider = currentProviders.remove(descriptor.identity().confirmationOperationId());
+                        if (provider == null || !descriptor.equals(
+                                BulkOperationalDescriptorComposer.compose(descriptor.structural(), provider)))
+                            throw unavailable("Descriptor provider composition changed during action discovery");
+                    }
+                    return runtime.withLifecycleRead(connection -> {
+                        for (var descriptor : descriptors) {
+                            if (!identities.contains(descriptor.identity())) continue;
+                            var current = JdbcBulkOperationControl.lockForAdmission(connection,
+                                    descriptor.identity().namespaceId(), descriptor.identity().confirmationOperationId());
+                            if (!matches(current, "READY", approved.get(descriptor.identity()).generation(), descriptor))
+                                throw unavailable("Bulk operation changed after action projection capture");
+                        }
+                        return null;
+                    });
+                });
+            } catch (RuntimeException unavailableProjection) {
+                if (rejection == null) rejection = unavailableProjection;
+                else if (rejection != unavailableProjection) rejection.addSuppressed(unavailableProjection);
+                throw rejection;
+            }
+        }
+
+        @Override public void close() {
+            if (documentFence != null) documentFence.close();
         }
     }
 

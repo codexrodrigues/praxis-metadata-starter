@@ -4,6 +4,8 @@ All notable changes to this module will be documented in this file.
 
 ## Unreleased
 
+- Catálogo de actions e capabilities de coleção reutilizam uma composição estrutural por resposta síncrona, com availability fora dos locks de preparo/cache. Readiness scoped revalida provider e geração durável; um fence efêmero preserva época, revisão de transporte e saldo do prazo em reads curtos. Cleanup impede reutilização entre respostas, e falhas após o início do builder propagam sem retry. Não altera autorização ou admissão transacional. Na API Java beta, o construtor de quatro argumentos de `ActionCatalogService` passa a receber o projetor com consumer; callers explícitos devem migrar a assinatura. O construtor de três argumentos permanece disponível.
+
 - A integração Springdoc isola as informações de respostas genéricas por geração do OpenAPI, preservando handlers e schemas sem acumular listas históricas entre grupos. O bean canônico precede o default Springdoc e respeita override explícito do host; o caminho sem respostas genéricas e as invocações diretas não HTTP possuem provas focais. A prioridade explícita do converter Praxis preserva os adaptadores Springdoc antes da resolução terminal, sem depender da ordem incidental das definições. Não modifica budgets, cache de autoridade ou lifecycle durável.
 
 ### Added
