@@ -47,3 +47,10 @@ mvn '-Dtest=FilteredSchemaProjectionTest,BulkOperationStructuralCompilerTest,Bul
 README, índice, changelog e especificação do lifecycle foram sincronizados. Não mudou o vocabulário `x-ui` nem os defaults da referência; os schemas `docs/spec/*.schema.json`, exemplos de componentes e guia de consumo Angular não exigem atualização neste corte. A regressão do Quickstart e do consumidor de artefato permanece gate separado do coordenador. Landing e corpus HTTP não publicam este campo neste recorte.
 
 Impacto na skill `praxis-metadata-schema-contracts`: `atualizar-existente`. O guidance deve ensinar a derivação compartilhada por role, distinguir variante UI de transporte bruto, exigir dimensões explícitas em referências compostas e explicar digest `/3`, seleção materializável e composição/fence em lote. O guidance foi integrado pelo PR canônico praxis-codex-skills #628 (merge `d1ac8d25fedc24896ed263c29e432493b211e7a4`), validado com hashes de arquivo/árvore no manifesto e sincronizado seletivamente para a skill instalada. Dois drifts locais alheios foram preservados.
+
+
+### Promoção de leitura strict e atualização explícita
+
+`getDocumentForGroupStrict` não é uma operação de atualização: pode carregar um grupo ausente ou confirmar a mesma representação de uma entrada pública ainda não marcada como exata. Se o fetch exato diferir do documento publicado, rejeita sem substituir documento ou hash; a recuperação usa `refreshDocumentForGroupStrict` ou a invalidação explícita, com guard durável e lock exclusivo, seguida da republicação necessária. Isso evita uma leitura publicar JSON novo com ETag antigo e evita upgrade de read lock durante a materialização HTTP.
+
+Regressão focal: `CachedOpenApiDocumentServiceStrictPromotionTest` cobre fonte alterada, promoção idêntica e primeiro acesso strict; `CachedOpenApiDocumentServiceRefreshTest` preserva as provas do fluxo de atualização, guard e limpeza de hashes. Este corretivo não cria uma revisão autoritativa da origem nem remove o custo de composição do collision domain; esses gates continuam anteriores à adoção P1.
