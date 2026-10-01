@@ -159,6 +159,8 @@ class BulkOperationStructuralCompilerTest {
                     registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver()).compileAll().getFirst();
             var first = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
+            assertEquals("sha256:f3993230845dcce3c8ad40ab2a4101eb29e406151534a2d6a48d36b999e8d8ea", first.descriptorFingerprint(),
+                    "independent baseline rc146 operational/1 command oracle");
             var repeated = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
 
             assertEquals(first.structuralRevision(), repeated.structuralRevision());
@@ -585,7 +587,7 @@ class BulkOperationStructuralCompilerTest {
     }
 
     private static OpenApiDocumentService.BulkLifecycleDocumentFence currentDiscoveryFence(BulkOperationLifecycle lifecycle) {
-        var frames = (ThreadLocal<?>) org.springframework.test.util.ReflectionTestUtils.getField(lifecycle, "actionProjection");
+        var frames = (ThreadLocal<?>) org.springframework.test.util.ReflectionTestUtils.getField(lifecycle, "responseProjection");
         return (OpenApiDocumentService.BulkLifecycleDocumentFence)
                 org.springframework.test.util.ReflectionTestUtils.getField(frames.get(), "documentFence");
     }
@@ -1304,7 +1306,7 @@ class BulkOperationStructuralCompilerTest {
     }
 
     @Test
-    void structuralUpdatesNeverReadOrMutateControlRowsEvenWhenTheirRowsExist() throws Exception {
+    void missingUpdateProvidersDenyAdmissionAndMalformedUpdatesNeverTouchControlRows() throws Exception {
         for (var controller : List.of(MixedBulkController.class, InvalidMixedBulkController.class, OrphanUpdateController.class)) {
             try (var context = context(controller)) {
                 var mvc = context.getBean(RequestMappingHandlerMapping.class);
@@ -1339,7 +1341,8 @@ class BulkOperationStructuralCompilerTest {
                 var update = new BulkOperationControlIdentity("test-namespace", "crud.uniform");
                 org.mockito.Mockito.clearInvocations(runtime, control);
                 assertThrows(IllegalStateException.class, () -> lifecycle.publish(update, 3));
-                assertThrows(IllegalStateException.class, () -> lifecycle.suspend(update, 3));
+                if (controller != MixedBulkController.class)
+                    assertThrows(IllegalStateException.class, () -> lifecycle.suspend(update, 3));
                 assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(update));
                 org.mockito.Mockito.verify(runtime, org.mockito.Mockito.never()).withLifecycleRead(org.mockito.ArgumentMatchers.any());
                 org.mockito.Mockito.verify(control, org.mockito.Mockito.never()).withConnection(org.mockito.ArgumentMatchers.any());
@@ -1347,8 +1350,8 @@ class BulkOperationStructuralCompilerTest {
                 assertTrue(transitions.isEmpty());
                 if (controller == MixedBulkController.class) {
                     docs.clearCaches();
-                    assertEquals(List.of(ACTION_ID), reads);
-                    assertEquals(List.of(ACTION_ID), transitions);
+                    assertEquals(java.util.Set.of(ACTION_ID, "crud.uniform"), java.util.Set.copyOf(reads));
+                    assertEquals(java.util.Set.of(ACTION_ID, "crud.uniform"), java.util.Set.copyOf(transitions));
                     assertEquals(1, docs.cacheClears());
                 }
             }
@@ -1431,17 +1434,22 @@ class BulkOperationStructuralCompilerTest {
             docs.clearCaches();
             assertEquals("SUSPENDED", sql.queryForObject("select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", String.class,
                     "test-namespace", ACTION_ID));
-            assertEquals("UNCOMPOSED", sql.queryForObject("select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", String.class,
+            assertEquals("SUSPENDED", sql.queryForObject("select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", String.class,
                     "test-namespace", "crud.uniform"));
-            assertEquals(0L, sql.queryForObject("select generation from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", Long.class,
+            assertEquals(1L, sql.queryForObject("select generation from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", Long.class,
                     "test-namespace", "crud.uniform"));
             var updateProvider = provider("provider.r1", "deployment-a", 200, "crud.uniform", runtime);
             var unsupportedDocs = new TestDocuments(mixed);
             var unsupported = new BulkOperationLifecycle(bindings,
                     new OpenApiCanonicalOperationResolver(unsupportedDocs, mvc, bindings), unsupportedDocs, registry(actionDefinition()), mapper,
                     new FilteredSchemaReferenceResolver(), runtime, control, List.of(provider, updateProvider));
-            var unsupportedProvider = assertThrows(IllegalStateException.class, () -> unsupported.requireReady(identity));
-            assertTrue(unsupportedProvider.getMessage().contains("descriptor provider"));
+            var unsupportedProvider = assertThrows(IllegalArgumentException.class, () -> unsupported.requireReady(identity));
+            var updateStructure = structures.stream().filter(value -> value.mode() == BulkMode.UNIFORM_UPDATE).findFirst().orElseThrow();
+            assertTrue(updateStructure.operation(BulkOperationStructuralDescriptor.Role.EVALUATION)
+                    .requestSchema().orElseThrow().schema()
+                    .at("/properties/selection/properties/targets/items/properties/id").isMissingNode(),
+                    "the structural-only S1 wrapper has no operational target identity");
+            assertEquals("Identity codec wire schema differs from the canonical evaluation request", unsupportedProvider.getMessage());
         }
     }
 

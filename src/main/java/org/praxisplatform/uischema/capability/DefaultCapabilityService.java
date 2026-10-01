@@ -40,6 +40,7 @@ public class DefaultCapabilityService implements CapabilityService {
     private final ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider;
     private final ResourceStateSnapshotProvider resourceStateSnapshotProvider;
     private final ResourceStructuralCapabilityResolver structuralCapabilityResolver;
+    private final java.util.function.Supplier<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle;
 
     public DefaultCapabilityService(
             CanonicalCapabilityResolver canonicalCapabilityResolver,
@@ -86,6 +87,18 @@ public class DefaultCapabilityService implements CapabilityService {
             ResourceStateSnapshotProvider resourceStateSnapshotProvider,
             ResourceStructuralCapabilityResolver structuralCapabilityResolver
     ) {
+        this(canonicalCapabilityResolver, surfaceCatalogService, actionCatalogService, openApiDocumentService,
+                resourceOperationAvailabilityProvider, resourceStateSnapshotProvider, structuralCapabilityResolver, () -> null);
+    }
+
+    public DefaultCapabilityService(CanonicalCapabilityResolver canonicalCapabilityResolver,
+            SurfaceCatalogService surfaceCatalogService, ActionCatalogService actionCatalogService,
+            OpenApiDocumentService openApiDocumentService,
+            ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
+            ResourceStateSnapshotProvider resourceStateSnapshotProvider,
+            ResourceStructuralCapabilityResolver structuralCapabilityResolver,
+            java.util.function.Supplier<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle) {
+        this.bulkLifecycle = java.util.Objects.requireNonNull(bulkLifecycle, "bulkLifecycle");
         this.canonicalCapabilityResolver = canonicalCapabilityResolver;
         this.surfaceCatalogService = surfaceCatalogService;
         this.actionCatalogService = actionCatalogService;
@@ -181,6 +194,22 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
     ) {
+        var lifecycle = bulkLifecycle.get();
+        if (lifecycle == null) return buildCollectionCapabilities(resourceKey, resourcePath, collectionExportSupported,
+                collectionExportCapability, statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode,
+                distributionStatsSupportMode, comparisonStatsSupportMode, Map.of());
+        return lifecycle.projectReadyCapabilities(resourceKey, contracts -> buildCollectionCapabilities(
+                resourceKey, resourcePath, collectionExportSupported, collectionExportCapability, statsFieldRegistry,
+                groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
+                comparisonStatsSupportMode, contracts));
+    }
+
+    private CapabilitySnapshot buildCollectionCapabilities(String resourceKey, String resourcePath,
+            boolean collectionExportSupported, CollectionExportCapability collectionExportCapability,
+            StatsFieldRegistry statsFieldRegistry, StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
+            StatsSupportMode comparisonStatsSupportMode,
+            Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts) {
         ResourceStructuralCapabilities structural = structuralCapabilities(resourcePath);
         if (structural != null) {
             collectionExportSupported = structural.export();
@@ -224,7 +253,8 @@ public class DefaultCapabilityService implements CapabilityService {
                         distributionStatsSupportMode
                 )
         );
-        return snapshot.withOperations(applyCollectionAvailability(snapshot.operations(), resourceKey, resourcePath));
+        return snapshot.withOperations(applyCollectionAvailability(
+                withBulkOperations(snapshot.operations(), bulkContracts), resourceKey, resourcePath));
     }
 
     @Override
@@ -270,6 +300,20 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
     ) {
+        var lifecycle = bulkLifecycle.get();
+        if (lifecycle == null) return buildItemCapabilities(resourceKey, resourcePath, resourceId, statsFieldRegistry,
+                groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
+                comparisonStatsSupportMode, Map.of());
+        return lifecycle.projectReadyCapabilities(resourceKey, contracts -> buildItemCapabilities(resourceKey,
+                resourcePath, resourceId, statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode,
+                distributionStatsSupportMode, comparisonStatsSupportMode, contracts));
+    }
+
+    private CapabilitySnapshot buildItemCapabilities(String resourceKey, String resourcePath, Object resourceId,
+            StatsFieldRegistry statsFieldRegistry, StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
+            StatsSupportMode comparisonStatsSupportMode,
+            Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts) {
         ResourceStructuralCapabilities structural = structuralCapabilities(resourcePath);
         Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
         if (structural == null) {
@@ -302,7 +346,20 @@ public class DefaultCapabilityService implements CapabilityService {
                         distributionStatsSupportMode
                 )
         );
-        return snapshot.withOperations(applyItemAvailability(snapshot.operations(), resourceKey, resourcePath, resourceId, stateSnapshot));
+        return snapshot.withOperations(applyItemAvailability(withBulkOperations(snapshot.operations(), bulkContracts),
+                resourceKey, resourcePath, resourceId, stateSnapshot));
+    }
+
+    private Map<String, CapabilityOperation> withBulkOperations(Map<String, CapabilityOperation> ordinary,
+            Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts) {
+        Map<String, CapabilityOperation> operations = new LinkedHashMap<>(ordinary);
+        bulkContracts.forEach((id, contract) -> {
+            CapabilityOperation operation = new CapabilityOperation(id, true, "COLLECTION", "POST", id,
+                    AvailabilityDecision.allowAll(), List.of(), List.of(), Map.of(), null, contract);
+            if (operations.putIfAbsent(id, operation) != null)
+                throw new IllegalStateException("A bulk capability ID collides with an existing resource operation");
+        });
+        return Map.copyOf(operations);
     }
 
     private void applyStatsSupport(
@@ -567,7 +624,8 @@ public class DefaultCapabilityService implements CapabilityService {
                         ? surface.method()
                         : operation.preferredMethod(),
                 operation.preferredRel(),
-                surface.availability()
+                surface.availability(), operation.formats(), operation.scopes(), operation.maxRows(),
+                operation.async(), operation.bulk()
         );
     }
 

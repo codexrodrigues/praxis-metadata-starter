@@ -209,13 +209,12 @@ class BulkCrudStructuralCompilerTest {
     }
 
     @Test
-    void structurallyValidUpdatesCannotBecomeAnOperationalDescriptorOrActionProjection() {
+    void structurallyValidUpdatesStillRequireACompleteOperationalProvider() {
         try (var context = context(CrudController.class)) {
             var descriptor = compile(context, mapper(), new Documents(document())).getFirst();
             var provider = mock(BulkOperationDescriptorProvider.class);
-            var failure = assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(descriptor, provider));
-            assertTrue(failure.getMessage().contains("not supported"));
-            verifyNoInteractions(provider);
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(descriptor, provider));
+            verify(provider).providerId();
         }
     }
 

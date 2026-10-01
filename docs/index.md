@@ -32,6 +32,7 @@ plataforma.
 
 - [Campos editáveis em lote](spec/BULK-EDITABLE-FIELDS.html): annotation e compilação estrutural de SET/CLEAR.
 - [Composição estrutural CRUD](spec/BULK-CRUD-STRUCTURE.html): fonte PUT e DTO reais, campos protegidos e allowlists; sem disponibilidade operacional de update bulk.
+- [Composição operacional CRUD candidata](spec/BULK-CRUD-OPERATIONS.html): duas operações de coleção com schemas, campos elegíveis e fence READY; sem autorização P3 ou mutação automática no host.
 
 ## Comece por objetivo
 
