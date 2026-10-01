@@ -292,6 +292,8 @@ public class OpenApiUiUtils {
         if (enumValues != null && !enumValues.isEmpty() && !xUiMap.containsKey(FieldConfigProperties.OPTIONS.getValue())) {
             ArrayNode optionsNode = objectMapper.createArrayNode();
             for (Object enumValue : enumValues) {
+                // JSON null is absence/CLEAR, never an automatically generated domain option.
+                if (enumValue == null || enumValue instanceof JsonNode node && node.isNull()) continue;
                 ObjectNode optionNode = objectMapper.createObjectNode();
                 // Assuming enumValue can be reasonably converted to string for value and label
                 // For more complex objects, specific handling for value/label might be needed.

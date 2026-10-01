@@ -74,6 +74,49 @@ public class CustomOpenApiResolver extends ModelResolver {
         return schema;
     }
 
+    @Override
+    protected void resolveSchemaMembers(Schema schema, io.swagger.v3.core.converter.AnnotatedType annotatedType,
+                                        io.swagger.v3.core.converter.ModelConverterContext context,
+                                        java.util.Iterator<io.swagger.v3.core.converter.ModelConverter> next) {
+        super.resolveSchemaMembers(schema, annotatedType, context, next);
+        if (isOpenapi31() || schema == null || annotatedType == null || annotatedType.getType() == null
+                || !Boolean.TRUE.equals(schema.getNullable()) || schema.get$ref() != null
+                || schema.getEnum() == null || schema.getEnum().isEmpty()) return;
+        var javaType = _mapper.constructType(annotatedType.getType());
+        if (!javaType.isEnumType()) return;
+        Annotation merged = io.swagger.v3.core.util.AnnotationsUtils.mergeSchemaAnnotations(
+                annotatedType.getCtxAnnotations(), javaType);
+        if (!(merged instanceof io.swagger.v3.oas.annotations.media.Schema declaration)
+                || !declaration.nullable() || declaration.allowableValues().length != 0
+                || !Void.class.equals(declaration.implementation()) || !declaration.ref().isEmpty()
+                || declaration.enumAsRef() || ModelResolver.enumsAsRef
+                || Boolean.TRUE.equals(schema.getReadOnly()) || declaration.readOnly()
+                || declaration.accessMode() == io.swagger.v3.oas.annotations.media.Schema.AccessMode.READ_ONLY)
+            return;
+        Annotation[] annotations = annotatedType.getCtxAnnotations();
+        if (annotations != null) {
+            for (Annotation annotation : annotations) {
+                if (annotation instanceof jakarta.validation.constraints.NotNull
+                        || annotation instanceof jakarta.validation.constraints.NotBlank
+                        || annotation instanceof jakarta.validation.constraints.NotEmpty) return;
+            }
+        }
+
+        // Only the automatic inline Java enum is completed. Never widen a shared component
+        // or an explicit domain enumeration. Required means presence, not non-null; null is
+        // structural admissibility, not a UI choice.
+        if (!schema.getEnum().contains(null)) {
+            List<Object> values = new ArrayList<>(schema.getEnum());
+            values.add(null);
+            schema.setEnum(values);
+        }
+    }
+
+    private static int enumOptionCount(List<?> values) {
+        return values == null ? 0 : (int) values.stream().filter(value -> value != null
+                && !(value instanceof com.fasterxml.jackson.databind.JsonNode node && node.isNull())).count();
+    }
+
     private void propagateOptionsInSchema(Schema<?> schema, io.swagger.v3.core.converter.ModelConverterContext context, Set<Schema<?>> visited) {
         if (schema == null || !visited.add(schema)) {
             return;
@@ -107,7 +150,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                     if (enumValues != null) {
                         parentUi = getUIExtensionMap(arraySchema);
                         OpenApiUiUtils.populateUiOptionsFromEnum(parentUi, enumValues, this._mapper);
-                        applyArrayEnumUiContract(parentUi, enumValues.size());
+                        applyArrayEnumUiContract(parentUi, enumOptionCount(enumValues));
                     } else {
                         Map<String, Object> childUi = getExistingUIExtensionMap(targetSchema);
                         if (childUi != null && childUi.containsKey("options")) {
@@ -151,7 +194,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                 Map<String, Object> childUi = getUIExtensionMap(property);
                 if (childUi.containsKey("options") && !parentUi.containsKey("options")) {
                     parentUi.put("options", childUi.get("options"));
-                    applyArrayEnumUiContract(parentUi, property.getEnum() == null ? 0 : property.getEnum().size());
+                    applyArrayEnumUiContract(parentUi, enumOptionCount(property.getEnum()));
                 }
             }
         }
@@ -963,7 +1006,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                 detectedControlType = FieldControlType.INPUT.getValue();
 
                 if (hasEnum) {
-                    int count = property.getEnum().size();
+                    int count = enumOptionCount(property.getEnum());
                     detectedControlType = OpenApiUiUtils.determineEnumControlBySize(count);
                 } else if (openApiFormat != null) {
                     switch (openApiFormat) {
@@ -1033,7 +1076,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                 detectedDataType = FieldDataType.BOOLEAN.getValue();
                 // Evitar SELECT por padrão. Se enum binário estiver presente, preferir RADIO; caso contrário, CHECKBOX.
                 if (hasEnum) {
-                    int size = property.getEnum().size();
+                    int size = enumOptionCount(property.getEnum());
                     detectedControlType = (size == 2) ? FieldControlType.RADIO.getValue() : FieldControlType.CHECKBOX.getValue();
                 } else {
                     detectedControlType = FieldControlType.CHECKBOX.getValue();
@@ -1047,7 +1090,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                     publishArrayContract(property, uiExtension);
                 } else if (property.getItems() != null && property.getItems().getEnum() != null &&
                     !property.getItems().getEnum().isEmpty()) {
-                    int c = property.getItems().getEnum().size();
+                    int c = enumOptionCount(property.getItems().getEnum());
                     detectedControlType = OpenApiUiUtils.determineArrayEnumControlBySize(c);
                 } else {
                     detectedControlType = FieldControlType.CHIP_INPUT.getValue();
