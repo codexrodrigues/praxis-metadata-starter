@@ -174,8 +174,11 @@ operações em lote</h1>
 A composição estrutural existente valida os sete handlers MVC, a action
 canônica e um snapshot OpenAPI exato; a migração V6/V7 já mantém CAS,
 geração e fence durável. Este incremento liga essas fontes em um
-lifecycle fail-closed. Ele não publica endpoint bulk, action, capability
-nem política de autorização administrativa.</p>
+lifecycle fail-closed. Ele não cria endpoint bulk nem política de
+autorização administrativa. A <a
+href="BULK-ACTION-PROJECTION.md">projeção P1 de action</a> usa esse
+lifecycle para enriquecer a action já declarada; não concede execução ou
+autorização.</p>
 <h2 id="fonte-e-responsabilidade">Fonte e responsabilidade</h2>
 <p><code>BulkOperationLifecycle</code> é a fronteira canônica entre os
 bindings MVC já validados, a action, o grupo OpenAPI estrito, um
@@ -209,9 +212,10 @@ positivos. Modos <code>QUERY</code>, <code>ASYNC</code>,
 e contrato próprios; não são aceitos por este perfil.</p>
 <h2 id="api-e-semântica">API e semântica</h2>
 <ul>
-<li><code>requireReady(identity)</code> lê novamente, em snapshot
-isolado, todos os grupos OpenAPI publicados e recompõe o descritor antes
-de ler/travar a linha durável pela conexão runtime. Só retorna
+<li>Fora do scope síncrono de discovery,
+<code>requireReady(identity)</code> lê novamente, em snapshot isolado,
+todos os grupos OpenAPI publicados e recompõe o descritor antes de
+ler/travar a linha durável pela conexão runtime. Só retorna
 <code>BulkOperationControlExpectation</code> quando estado, fingerprint
 e revisão estrutural correspondem exatamente. Esse valor é uma
 expectativa para a criação/reserva; o writer ainda deve revalidá-lo sob
@@ -246,9 +250,19 @@ operação <code>READY</code>. O resolver valida colisões contra o
 snapshot completo, não contra grupos não-alvo em cache anterior. A
 composição governada só é habilitada quando
 <code>OpenApiDocumentService.supportsFreshBulkLifecycleComposition()</code>
-afirma que a origem consegue regenerar a descrição corrente. Na
-implementação Springdoc padrão, a auto-configuração só concede essa
-capacidade quando <code>springdoc.cache.disabled=true</code> e
+afirma que a origem consegue regenerar a descrição corrente
+<strong>e</strong>
+<code>supportsFreshBulkLifecyclePublicCacheCoherence()</code> afirma que
+o resultado fresco corresponde ao documento que a superfície pública
+serve. A implementação padrão declara a segunda capacidade somente
+quando consegue comparar a fonte fresca exata com os documentos públicos
+de cada grupo. Essa comparação ocorre antes do callback de
+composição/publicação: em divergência, o guard suspende duravelmente as
+identidades declaradas e limpa caches locais de documento e hash, depois
+aborta sem readiness ou republicação automática. Uma publicação nova e
+explícita deve vencer a geração resultante. Na implementação Springdoc
+padrão, a auto-configuração só concede frescor quando
+<code>springdoc.cache.disabled=true</code> e
 <code>app.openapi.internal-base-url</code> não está configurada: a
 origem é consultada no endereço da interface e na porta locais da
 requisição, sem permitir apontar silenciosamente para outra
@@ -257,11 +271,145 @@ armazena a descrição uma vez por padrão, e seu FAQ documenta a
 propriedade para desativar esse cache <a
 href="https://springdoc.org/faq.html">Springdoc FAQ</a>. Uma
 implementação customizada só pode declarar a capacidade se seu refresh
-estrito realmente regenerar a origem; headers HTTP não são prova disso.
-O fetch HTTP também envia
-<code>Cache-Control: no-cache, no-store</code>, não usa fallback para o
-documento OpenAPI base e falha fechado se a origem/proxy não entregar o
-grupo exato.</p>
+estrito realmente regenerar a origem e comparar o resultado com a
+superfície pública; headers HTTP não são prova disso. O fetch HTTP
+também envia <code>Cache-Control: no-cache, no-store</code>, não usa
+fallback para o documento OpenAPI base e falha fechado se a origem/proxy
+não entregar o grupo exato.</p>
+<p><code>projectReadyActions(definitions, consumer)</code> recebe as
+actions de uma resposta inteira e fornece ao consumer somente os
+contratos P1 cujo descriptor corresponde à mesma definição capturada. Lê
+os controles, prepara uma única fotografia fresca fora do lock público
+exclusivo e, na seção final protegida, compõe os descriptors e confere
+novamente as linhas em ordem canônica. Geração, estado
+<code>READY</code>, fingerprint e revisão precisam continuar idênticos.
+A projeção vem desse próprio descriptor, sem reler/recompilar o schema
+após o gate. Falha de preparação antes do consumer omite
+<code>bulk</code> e permite montar as actions comuns uma única vez.
+Depois que a montagem inicia, falhas de coherence ou do consumer
+propagam, sem retry ou reconstrução silenciosa. A composição operacional
+também exige as sete variantes UI materializáveis antes de
+<code>publish</code> e <code>requireReady</code>, impedindo READY sem
+protocolo de avaliação/confirmacão renderizável. A chamada não substitui
+availability contextual ou revalidação transacional.</p>
+<h2 id="uma-fotografia-por-resposta-de-discovery">Uma fotografia por
+resposta de discovery</h2>
+<p>A variante de <code>projectReadyActions</code> com consumer compõe os
+descriptors e suas projeções uma vez e monta a resposta de catálogo fora
+dos locks de preparo/cache e de transações JDBC. Os quatro entrypoints
+do catálogo preservam os contextos e as definições de actions originais;
+capabilities de coleção usa a mesma composição canônica. O frame é
+privado à instância, thread e chamada síncrona, removido em
+<code>finally</code>. Não há cache de readiness entre requisições.</p>
+<p>Dentro desse frame, <code>requireReady</code> reutiliza somente a
+estrutura capturada. Confere novamente identidade/namespace, composição
+corrente do provider e a linha durável contra estado READY, geração
+inicial, fingerprint e revisão. A expectativa continua precisando da
+revalidação transacional no writer e não substitui autorização do
+domínio. Fora do frame, a chamada mantém o preparo fresh
+independente.</p>
+<p>O fence efêmero <code>captureBulkLifecycleDocumentFence</code> só
+pode ser capturado dentro da fotografia fresh real. Seus reads curtos
+usam o saldo original para adquirir o lock de leitura e verificam época
+de invalidação, revisão do transporte, thread e prazo antes e depois. O
+frame fecha esse handle ao terminar. As regras de availability e o
+builder não executam dentro de <code>read</code> nem sob lock público ou
+transação mantida pelo lifecycle. A recaptura do provider, sua
+composição/codec e a leitura transacional durável executam dentro desse
+read; o prazo limita admissão e é reconferido ao retornar, mas não
+interrompe código customizado ou uma transação já iniciada. Portanto
+“read curto” descreve o trabalho previsto e não constitui duração máxima
+garantida. Troca/restauração da factory de transporte e uma invalidação
+cujo guard falhe rejeitam a fotografia. A revisão utilizada é a já
+existente em <code>setRequestFactory</code>, inclusive ABA; não sela
+toda configuração HTTP, interceptors/error handlers arbitrários ou
+identidade da origem além das garantias já anunciadas.</p>
+<p>Falha de preparação pode montar uma resposta uma única vez com
+projeção bulk vazia e readiness negada. Depois que o builder inicia, sua
+exceção ou falha do recheck final propaga, sem retry ou montagem
+duplicada. Após o builder retornar, o lifecycle revalida os fences e o
+estado durável mesmo quando uma regra do host capturou erro de readiness
+e devolveu denied. Suspensão/republicação com conteúdo igual invalida a
+geração original. Esse resultado é uma fotografia conferida no gate
+final, não garantia de estabilidade após o retorno HTTP.</p>
+<h2 id="preparação-e-orçamento-do-cliente-oficial">Preparação e
+orçamento do cliente oficial</h2>
+<p><code>CachedOpenApiDocumentService</code> serializa preparações com
+um mutex separado. Captura as entradas públicas e a revisão local de
+invalidação sob leitura curta, busca os grupos privadamente sem manter o
+write lock público e reconfere revisão/coerência antes de instalar
+entradas frias e executar o callback protegido. Um clear ou refresh
+intercalado, inclusive uma tentativa cujo guard falhe, descarta a
+preparação. A revisão local não sela a origem Springdoc nem permite
+reutilização indefinida. Todos os grupos publicados continuam no domínio
+de colisão.</p>
+<p>Para cache frio, a comparação é independente: prepara documento
+público ordinary e documento fresh, depois confere também entradas que
+leitores criaram durante o preparo. Não instala fresh apenas para
+compará-lo consigo mesmo. Não há callback, fotografia parcial publicada
+ou retry automático quando a preparação falha. Se drift é detectado já
+sob write lock, o guard de suspensão deve executar antes da limpeza
+mesmo se o prazo de nova admissão expirar; usa o orçamento próprio do
+control plane. Falha do guard conserva documento/hash.</p>
+<p>O bean oficial <code>openApiUiSchemaRestTemplate</code> usa
+<code>OpenApiInternalRestTemplate</code> com cliente HTTP JDK
+compartilhado. As propriedades aceitam <code>Duration</code> positiva
+entre 1ms e <code>Integer.MAX_VALUE</code> ms:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Propriedade</th>
+<th>Default</th>
+<th>Limite</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>praxis.openapi.http.connect-timeout</code></td>
+<td><code>1s</code></td>
+<td>Conexão HTTP</td>
+</tr>
+<tr class="even">
+<td><code>praxis.openapi.http.read-timeout</code></td>
+<td><code>10s</code></td>
+<td>Espera por resposta HTTP completa, incluindo cabeçalhos e corpo; não
+é renovada a cada byte</td>
+</tr>
+<tr class="odd">
+<td><code>praxis.openapi.bulk-composition-timeout</code></td>
+<td><code>60s</code></td>
+<td>Admissão agregada: espera pelos locks, preparo HTTP e gates antes do
+callback/CAS</td>
+</tr>
+</tbody>
+</table>
+<p>O cliente recebe o corpo integral sob a menor espera entre o prazo
+por request e o saldo da composição. Em expiração/interrupção, solicita
+cancelamento da requisição cliente. Isso não garante encerramento do
+trabalho no servidor. Interceptores, conversores, error handlers e
+callbacks arbitrários do host não recebem cancelamento forçado; o gate
+final impede admissão vencida. Guard, pool/transação e reconciliação
+mantêm seus próprios limites; o orçamento não é um timeout absoluto para
+toda operação de negócio. Um commit confirmado não é convertido em falha
+por uma checagem posterior de prazo.</p>
+<p>O transporte não segue redirects. A composição oficial exige o
+cliente e a factory próprios, origem local e cache Springdoc desativado.
+Um <code>RestTemplate</code> substituto continua disponível para
+leituras ordinárias, mas não anuncia automaticamente a capacidade fresh
+governada. Troca de factory durante o preparo, inclusive
+troca/restauração, rejeita o resultado antes do callback. Implementações
+substitutas de <code>OpenApiDocumentService</code> precisam provar as
+garantias anunciadas independentemente.</p>
+<p>O refresh estrito explícito conserva sua seção exclusiva histórica:
+este corte remove HTTP longo da composição multigrupo, não de todo
+preenchimento frio ou refresh público. Leituras ordinárias ainda
+participam do protocolo read/write para não reinserir documento/hash
+stale após limpeza.</p>
 <h2 id="transações-e-concorrência">Transações e concorrência</h2>
 <p><code>BulkExecutionInfrastructure</code> continua sendo a
 conexão/manager runtime usada por proposta e execução. Sua leitura curta
@@ -277,16 +425,19 @@ control plane segura um advisory lock transacional aleatório e exige que
 a conexão runtime veja o mesmo lock no mesmo OID de database em
 <code>pg_locks</code>; duas bases com namespace/deployment clonados não
 passam. O teste Postgres também verifica esse caso negativo.</p>
-<p>O fluxo preserva a ordem: ler o controle via role runtime; obter
-composição local (e refresh exato antes de publicar); aplicar CAS via
-role control plane; reconciliar commit incerto por leitura runtime
-independente. Na criação de proposta, a expectativa retornada deve
-entrar no escritor existente; V7 continua sendo o fence autoritativo sob
-transação. Suspensão primeiro avança a geração durável e só depois limpa
-o cache. Uma instância que mantinha schema antigo não consegue
-reutilizá-lo para republicar o fingerprint antigo: <code>publish</code>
-busca a representação estrita sem o cache local e precisa vencer o CAS
-da geração atual.</p>
+<p>O fluxo preserva a ordem: ler o controle via role runtime; preparar
+composição local fora do write lock; reconferir/installar snapshot e
+compor sob seção final exclusiva; conferir admissão depois da obtenção
+da conexão control plane e antes do CAS; reconciliar falha de
+confirmação após tentativa de transição por leitura runtime
+independente. Falha antes de iniciar o CAS não reconcilia um READY
+concorrente como sucesso próprio. Na criação de proposta, a expectativa
+retornada deve entrar no escritor existente; V7 continua sendo o fence
+autoritativo sob transação. Suspensão primeiro avança a geração durável
+e só depois limpa o cache. Uma instância que mantinha schema antigo não
+consegue reutilizá-lo para republicar o fingerprint antigo:
+<code>publish</code> busca a representação estrita sem o cache local e
+precisa vencer o CAS da geração atual.</p>
 <p>As credenciais do control plane recebem apenas <code>EXECUTE</code>
 no CAS governado, conforme provisionamento e validação explícitos do
 <code>BulkExecutionMigrator</code>; não recebem leitura nem DML direto
@@ -307,17 +458,30 @@ invalidação quando o lifecycle é composto. <code>clearCaches()</code> e
 <code>refreshDocumentForGroupStrict()</code> chamados pelo controller ou
 diretamente pelo host suspendem duravelmente, em ordem, todas as
 identidades bulk declaradas antes de alterar o cache. Leituras que
-preenchem caches participam do lock de leitura comum; a limpeza toma o
-lock exclusivo, de modo que um fetch/hash iniciado antes da limpeza não
-pode reinserir valor depois dela. As mutações públicas retornam cópias
-profundas: consumidores não podem alterar um <code>JsonNode</code>
-compartilhado sem passar pelo guard. Implementações substitutas precisam
-oferecer isolamento do snapshot, lock comum de composição/invalidação,
-frescor e guard; os métodos default falham fechado. A operação de
-suspensão individual avança seu CAS esperado, suspende as demais
-identidades antes da limpeza global e devolve a geração daquela
-operação. O fingerprint durável impede writers antigos, mas não
-substitui a revisão do provider nem a autorização do domínio.</p>
+preenchem caches participam do lock de leitura comum;
+<code>/schemas/filtered</code> mantém esse lock por toda a
+seleção/materialização do schema e sua associação ao hash,
+<code>ETag</code> e resposta <code>304</code>, e a limpeza toma o lock
+exclusivo. Portanto um fetch/hash iniciado antes da limpeza não pode
+reinserir valor depois dela. O refresh estrito substitui o documento e
+remove seu hash sob o lock exclusivo. Uma leitura
+<code>getDocumentForGroupStrict()</code> pode preencher um cache vazio
+ou promover uma entrada pública não estrita somente quando a
+representação exata é igual à já publicada. Se a origem exata divergir,
+a leitura rejeita com <code>IllegalStateException</code> sem alterar
+documento/hash; usar o refresh explícito guardado para atualizar. A
+leitura não pode tentar adquirir lock exclusivo enquanto
+<code>/schemas/filtered</code> mantém o lock de leitura externo. As
+mutações públicas retornam cópias profundas: consumidores não podem
+alterar um <code>JsonNode</code> compartilhado sem passar pelo guard.
+Implementações substitutas precisam oferecer isolamento do snapshot,
+lock comum de composição/invalidação, comparação entre documento fresco
+e documento/hash público, frescor e guard; os métodos default falham
+fechado. A operação de suspensão individual avança seu CAS esperado,
+suspende as demais identidades antes da limpeza global e devolve a
+geração daquela operação. O fingerprint durável impede writers antigos,
+mas não substitui a revisão do provider nem a autorização do
+domínio.</p>
 <p>O Quickstart ainda precisa comprovar os sete handlers produtivos,
 provider de avaliação/admissão/mutação, expectativa V7 no writer,
 autorização contextual, commit atômico de domínio+receipt, resultados,
@@ -334,9 +498,11 @@ provider ausente e geração velha, devolve a expectation corrente e
 suspende antes de invalidar cache;</li>
 <li>falha simulada da confirmação do commit após o PostgreSQL confirmar
 a transação é reconciliada por leitura independente;</li>
-<li>duas instâncias com cache divergente: a segunda não reativa o
-descritor antigo depois da suspensão e só republica após refresh exato e
-nova geração;</li>
+<li>duas instâncias com cache divergente: a instância que ainda serve D0
+detecta D0 versus fonte fresca D1, suspende o fence compartilhado antes
+do callback e limpa seu cache; nenhuma instância projeta
+<code>bulk</code> até refresh exato e republicação explícita na nova
+geração;</li>
 <li><code>CachedOpenApiDocumentService</code> substitui o documento
 cacheado após refresh e a requisição exige diretivas HTTP de
 revalidação.</li>

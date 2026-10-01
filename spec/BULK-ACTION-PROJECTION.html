@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Projeção P1 de execução bulk nas actions</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Projeção P1 de execução bulk nas actions</h1>
+</header>
+<h1 id="projeção-p1-de-execução-bulk-nas-actions">Projeção P1 de
+execução bulk nas actions</h1>
+<p>Classificação: contrato público, arquitetural e transversal. Fonte
+canônica: Metadata. O inventário encontrou
+<code>BulkOperationStructuralDescriptor</code>, perfil operacional,
+referências de action, snapshot OpenAPI e lifecycle existentes; a lacuna
+de materialização era <code>ActionExecutionContract.bulk</code>. A
+seleção de variante já existia em <code>/schemas/filtered</code>, mas o
+atalho do resolver não capturava os defaults derivados pelo endpoint. O
+corte reutiliza essas fontes, sem registry, endpoint ou autorização
+paralela.</p>
+<h2 id="contrato-publicado">Contrato publicado</h2>
+<p><code>ActionExecutionContract.bulk</code> é opcional e ausente do
+JSON de actions comuns ou indisponíveis. Neste corte ele descreve
+somente <code>DOMAIN_COMMAND</code>, seleção <code>EXPLICIT</code>,
+execução <code>SYNC</code> e atomicidade <code>PER_ITEM</code> do perfil
+operacional já aceito. Não publica
+<code>CapabilityOperation.bulk</code>; esse contrato pertence às
+operações concretas de bulk update em corte próprio.</p>
+<p><code>BulkExecutionContract</code> contém <code>mode</code>,
+<code>evaluationOperation</code>, <code>confirmationOperation</code>,
+<code>proposalOperation</code>, <code>proposalResultsOperation</code>,
+<code>executionOperation</code>, <code>resultsOperation</code>,
+<code>cancelOperation</code>, <code>selectionModes</code>,
+<code>executionModes</code>, <code>atomicity</code>, <code>limits</code>
+e, quando presente no schema resolvido da avaliação,
+<code>parametersPointer=/properties/parameters</code>.
+<code>editableFields</code> pertence aos futuros modos de update e não é
+publicado pelo P1.</p>
+<p>Cada entrada de operação contém
+<code>operation: CanonicalOperationRef</code>,
+<code>responseSchema: CanonicalSchemaRef</code> e
+<code>requestSchema</code> apenas para avaliação e confirmação. A
+confirmação reutiliza exatamente as referências capturadas da action; os
+links <code>ActionCatalogItem.requestSchemaUrl/responseSchemaUrl</code>
+permanecem os da confirmação. Limites são os valores efetivos do
+provider: <code>maxTargets</code>, <code>maxRequestBytes</code>,
+<code>proposalLifetimeMillis</code> e <code>unitDeadlineMillis</code>
+(durações inteiras em milissegundos).</p>
+<h2 id="variante-ui-e-transporte">Variante UI e transporte</h2>
+<p><code>CanonicalSchemaRef</code> identifica a variante UI de
+<code>/schemas/filtered</code>, que pode desembrulhar
+<code>RestApiResponse&lt;T&gt;</code>, enriquecer <code>x-ui</code> e
+publicar o DTO de apresentação. Não promete igualdade com o schema HTTP
+bruto. O compiler continua verificando todos os 2xx explícitos, mídia
+JSON e igualdade canônica dos schemas brutos na mesma cópia imutável do
+grupo OpenAPI.</p>
+<p><code>FilteredSchemaProjection</code> concentra a regra existente do
+endpoint: seleção de componente/inline request, extração de
+wrapper/filtro, base de recurso, <code>idField</code> e default de
+<code>readOnly</code>. Endpoint e composição consomem essa
+implementação. Cada uma das seis roles além da confirmação resolve suas
+próprias dimensões; não recebe os overrides de CRUD da confirmação. O
+resolver canônico recebe as dimensões explicitamente, mantendo URL e
+<code>schemaId</code> coerentes. Nenhum default global de
+<code>SchemaReferenceResolver</code> ou do endpoint foi alterado.</p>
+<p>Bulk exige <code>x-ui.responseSchema</code> ou a seleção declarada
+suportada de 200/201; a inferência documental por nome de path que o
+endpoint já permite não habilita uma referência bulk. Componente
+ausente, seleção indisponível ou referência local
+ausente/cíclica/incompatível torna a role não projetável. O reader
+estrutural existente resolve separadamente as dependências do componente
+UI para que uma alteração nelas não escape do fingerprint. A evidência
+estrutural de transporte continua separada; sem projeção UI completa, a
+composição operacional falha antes de
+<code>publish</code>/<code>requireReady</code>. Portanto uma linha READY
+antiga não habilita uma action direta quando o contrato de avaliação
+ficou indisponível.</p>
+<p>O digest estrutural passa a <code>praxis.bulk.structure/3</code>,
+incluindo a referência UI, seleção, componente resolvido, metadados de
+operação e capabilities que determinam a variante, separadamente dos
+schemas HTTP brutos. A migração é beta limpa: um controle publicado com
+a revisão anterior não passa no matching; o host deve suspender,
+recompor e publicar via CAS do lifecycle. Não se mantém uma lane de
+compatibilidade ou READY sintético.</p>
+<h2 id="fence-e-limites">Fence e limites</h2>
+<p><code>ActionCatalogService</code> consulta o lifecycle uma vez por
+resposta. O lifecycle prepara uma única fotografia fresca fora do lock
+público exclusivo e recompõe na seção final de composição/invalidação,
+compara as mesmas linhas duráveis antes/depois (estado, geração,
+fingerprint e revisão) e entrega o contrato derivado dessa composição.
+Action diferente, provider ausente, composição parcial, seleção UI
+indisponível, <code>UNCOMPOSED</code>, <code>SUSPENDED</code>,
+revisão/fingerprint stale, geração alterada durante a preparação ou
+falha de leitura pré-consumer omitem <code>bulk</code>. A montagem
+síncrona e availability usam o scope da mesma resposta fora dos locks de
+cache/preparo; readiness scoped reutiliza somente a estrutura capturada
+e revalida provider e controle durável. Um fence efêmero preserva epoch,
+revisão da factory de transporte e prazo original. Depois do início do
+consumer, exceções do consumer ou falhas de coerência/recheck final
+propagam sem retry; uma negação contextual normal de availability
+continua sendo uma resposta válida, conforme <a
+href="BULK-OPERATION-LIFECYCLE.md#uma-fotografia-por-resposta-de-discovery">o
+lifecycle</a>.</p>
+<p>Essa metadata é descritiva. Availability contextual permanece
+independente, e avaliação/confirmação precisam revalidar o gate e a
+autorização dentro da transação. A projeção não certifica mutação de
+domínio, receipt, autorização empresarial, deploy, release, B7 ou
+backend completo. Angular, Config e bindings/handlers do host não mudam
+neste corte.</p>
+<h2 id="coerência-dos-documentos-servidos-e-hashes">Coerência dos
+documentos servidos e hashes</h2>
+<p>Antes de <code>publish</code>, <code>requireReady</code> ou da
+projeção de actions, a fotografia fresca dos grupos OpenAPI deve
+corresponder exatamente aos documentos públicos que
+<code>/schemas/filtered</code> serve naquela instância. A comparação
+ocorre antes do callback da composição e antes de instalar a fotografia
+no contexto da requisição. Se houver divergência, o guard avança
+primeiro o fence durável para <code>SUSPENDED</code>; só depois limpa os
+caches locais de documento e <code>schemaHash</code>. A operação falha
+fechada: não devolve <code>READY</code>, não executa o callback de
+publicação/projeção e não tenta republicar automaticamente. Depois de
+corrigir a fonte, uma nova publicação explícita precisa vencer a geração
+atual.</p>
+<p>Isso também cobre outra réplica com cache antigo: ao observar que seu
+documento público não corresponde à fonte fresca, ela suspende a geração
+compartilhada e limpa os próprios caches; as outras réplicas passam a
+falhar no fence até uma republicação explícita. O caminho HTTP de
+<code>/schemas/filtered</code> mantém o lock de leitura desde a
+resolução/materialização do schema até a escrita do hash,
+<code>ETag</code> e resposta <code>304</code>; refresh estrito substitui
+o documento e invalida o hash sob lock exclusivo. Assim, uma resposta
+iniciada antes da invalidação não pode repovoar um hash antigo depois
+dela.</p>
+<p>Implementações customizadas de <code>OpenApiDocumentService</code> só
+podem habilitar a composição declarando tanto
+<code>supportsFreshBulkLifecycleComposition()</code> quanto
+<code>supportsFreshBulkLifecyclePublicCacheCoherence()</code>. A segunda
+garantia significa comparar a fonte recém-gerada com o documento que o
+endpoint público efetivamente serve, e proteger a operação HTTP completa
+de schema/hash com o mesmo protocolo de lock da invalidação. Os valores
+default não constituem prova dessas capacidades. Para reutilizar uma
+composição na mesma resposta, a implementação também precisa prover o
+fence efêmero concreto <code>captureBulkLifecycleDocumentFence</code>; o
+default unsupported fecha a projeção e não transfere validade estrutural
+para outro request. Na query de <code>/schemas/filtered</code>, valores
+literais de <code>idField</code> com <code>+</code> são codificados como
+<code>%2B</code> (e espaços como <code>%20</code>) para que URL,
+<code>schemaId</code>, corpo, hash e <code>ETag</code> preservem a mesma
+identidade após a decodificação HTTP.</p>
+<h2 id="validação-e-artefatos-derivados">Validação e artefatos
+derivados</h2>
+<p>Os testes adicionados cobrem seleção/variantes, overrides e falha de
+seleção; composição única, estados e geração concorrente; ausência de
+<code>bulk</code> no JSON comum; e HTTP real de
+<code>/schemas/filtered</code> para as sete operações (nove referências
+contando os dois requests), com identidade derivada do corpo, URL,
+<code>ETag</code>, <code>X-Schema-Hash</code> e 304. A fixture HTTP
+compara o corpo default com a variante explícita nas seis roles, além de
+um recurso comum com id não default e overrides explícitos. As provas de
+coerência de cache cobrem igualdade, divergência que suspende antes do
+callback, duas instâncias com cache divergente, lock de leitura contra
+invalidação e invalidação de hash após refresh; a regressão de
+<code>idField</code> com <code>+</code> confere corpo, hash e 304. A
+fixture HTTP valida apenas schema/discovery: não executa os handlers de
+domínio nem prova provider/autorização reais. Os testes isolados de
+lifecycle podem construir controles <code>READY</code> sintéticos para
+validar sua semântica; isso não publica nem comprova um provider
+operacional.</p>
+<p>Comando focal sugerido (execução e evidência ficam a cargo do
+coordenador):</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> <span class="st">&#39;-Dtest=FilteredSchemaProjectionTest,BulkOperationStructuralCompilerTest,BulkActionSchemaProjectionHttpTest,ActionExecutionContractTest,ActionCatalogServiceTest,CachedOpenApiDocumentServiceRefreshTest,ApiDocsControllerTest,ApiDocsControllerReadOnlyMetaTest,ApiDocsControllerPathResolutionTest,ApiDocsControllerSchemaHashTest,ApiDocsControllerAllOfTest,DomainCatalogControllerTest,FilteredSchemaReferenceResolverTest&#39;</span> test</span></code></pre></div>
+<p>README, índice, changelog e especificação do lifecycle foram
+sincronizados. Não mudou o vocabulário <code>x-ui</code> nem os defaults
+da referência; os schemas <code>docs/spec/*.schema.json</code>, exemplos
+de componentes e guia de consumo Angular não exigem atualização neste
+corte. A regressão do Quickstart e do consumidor de artefato permanece
+gate separado do coordenador. Landing e corpus HTTP não publicam este
+campo neste recorte.</p>
+<p>Impacto na skill <code>praxis-metadata-schema-contracts</code>:
+<code>atualizar-existente</code>. O guidance deve ensinar a derivação
+compartilhada por role, distinguir variante UI de transporte bruto,
+exigir dimensões explícitas em referências compostas e explicar digest
+<code>/3</code>, seleção materializável e composição/fence em lote. O
+guidance foi integrado pelo PR canônico praxis-codex-skills #628 (merge
+<code>d1ac8d25fedc24896ed263c29e432493b211e7a4</code>), validado com
+hashes de arquivo/árvore no manifesto e sincronizado seletivamente para
+a skill instalada. Dois drifts locais alheios foram preservados.</p>
+<h3 id="promoção-de-leitura-strict-e-atualização-explícita">Promoção de
+leitura strict e atualização explícita</h3>
+<p><code>getDocumentForGroupStrict</code> não é uma operação de
+atualização: pode carregar um grupo ausente ou confirmar a mesma
+representação de uma entrada pública ainda não marcada como exata. Se o
+fetch exato diferir do documento publicado, rejeita sem substituir
+documento ou hash; a recuperação usa
+<code>refreshDocumentForGroupStrict</code> ou a invalidação explícita,
+com guard durável e lock exclusivo, seguida da republicação necessária.
+Isso evita uma leitura publicar JSON novo com ETag antigo e evita
+upgrade de read lock durante a materialização HTTP.</p>
+<p>Regressão focal:
+<code>CachedOpenApiDocumentServiceStrictPromotionTest</code> cobre fonte
+alterada, promoção idêntica e primeiro acesso strict;
+<code>CachedOpenApiDocumentServiceRefreshTest</code> preserva as provas
+do fluxo de atualização, guard e limpeza de hashes. Este corretivo não
+cria uma revisão autoritativa da origem nem remove o custo de composição
+do collision domain; esses gates continuam anteriores à adoção P1.</p>
+<h3 id="preparação-fora-do-lock-público">Preparação fora do lock
+público</h3>
+<p>A composição multigrupo usa o mutex de preparação e o orçamento do
+cliente oficial descritos no <a
+href="BULK-OPERATION-LIFECYCLE.md#preparação-e-orçamento-do-cliente-oficial">lifecycle</a>.
+Leitores podem materializar o cache confirmado durante as buscas HTTP; o
+callback final continua protegido contra invalidação. A revisão local é
+reconferida e drift não-alvo ainda suspende antes de limpar. Expiração,
+troca de factory ou invalidação durante preparação não projetam
+<code>bulk</code>; o contrato comum da action pode ser montado uma única
+vez. Depois do início dessa montagem, a resposta depende do recheck
+final e uma falha propaga sem reconstrução silenciosa. O corte não
+autoriza reutilização indefinida da origem nem garante cancelamento de
+trabalho do servidor.</p>
+</body>
+</html>

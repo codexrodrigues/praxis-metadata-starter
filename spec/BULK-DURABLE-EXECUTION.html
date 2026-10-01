@@ -798,6 +798,45 @@ histórica quando a atomicidade do mesmo banco não pode ser provada. O
 receipt preserva o epoch/attempt original; o novo owner apenas fecha o
 controle.</p>
 <h2 id="api-protegida-prevista">API protegida prevista</h2>
+<h3 id="candidato-de-avanço-síncrono-comum-b3">Candidato de avanço
+síncrono comum (B3)</h3>
+<p>O corte B3 propõe acrescentar
+<code>void advance(BulkExecutionReservation reservation, BulkUnitAdmissionCallback admission, BulkUnitMutationCallback mutation)</code>
+ao <code>JdbcBulkDurableExecution</code>. A reserva é o token interno
+protegido devolvido por <code>reserve(scope, ...)</code> na mesma
+chamada do host: não é credencial recebida do cliente, não substitui
+autenticação/autorização atual e não deve ser exposta no wire. O host
+conserva <code>executionId</code> para leitura autorizada, inclusive se
+o avanço posterior falhar.</p>
+<p>Antes de qualquer retorno, inclusive terminal sem trabalho,
+<code>advance</code> rejeita transação Spring ambiente. Uma transação
+operacional curta e limitada usa o lock de control existente para
+conferir namespace, owner e epoch, vínculo imutável de proposta e
+contagem de alvos, e que o ordinal da reserva não ultrapassa o
+<code>nextOrdinal</code> durável. Terminal coerente não despacha
+unidade. Nos demais estados, consulta primeiro receipt ou admission do
+ordinal da reserva, inclusive quando o agregado está
+<code>UNIT_IN_FLIGHT</code> ou <code>RECONCILIATION_REQUIRED</code>;
+replay reconhecido encerra esta chamada, sem despachar o ordinal
+seguinte. <code>advance</code> também chama <code>executeUnit</code>
+para reconhecer replay; só resultado não replay em <code>RUNNING</code>
+permite despachar o próximo ordinal, e uma unidade inédita pode chamar a
+callback de admission; somente <code>admit()</code> permite chamar a
+callback de mutação. Replay de receipt/admission não chama nenhuma das
+duas. Cada unidade mantém sua própria barreira, transações e orçamento;
+nenhum lock ou transação cobre a composição inteira. Qualquer replay,
+terminal, stop, cancelamento ou incerteza interrompe a chamada. Perda do
+ACK na segunda unidade de três não pode executar a terceira na mesma
+chamada. Não há retry, recovery ou troca de owner automáticos.</p>
+<p>Essa API Java é <strong>candidata</strong>, implementada e comprovada
+por 17 casos PostgreSQL focais únicos do kernel e 32 casos HTTP focais
+P1/P2 no host com artefato candidato rastreado; revisão independente do
+código foi aceita. <code>verify</code> integral não foi executado neste
+corte; integração da fonte, publicação e adoção sem override são etapas
+separadas. Não declara operação <code>READY</code>, endpoint HTTP novo
+ou backend/Angular completos. A chamada manual de
+<code>executeUnit</code> abaixo continua válida para quem executa um
+ordinal explícito.</p>
 <p>As classes ficam em <code>org.praxisplatform.uischema.bulk</code>,
 usam <code>@JsonIgnoreType</code>, não têm constructors públicos para
 forjar controle/receipt e redigem <code>toString</code>:</p>

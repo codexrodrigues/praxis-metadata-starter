@@ -19,6 +19,7 @@ plataforma.
 - [Evidência protegida da avaliação](spec/BULK-EVALUATION-EVIDENCE.html): fatos/plano por alvo vinculados à proposta, sem decisão de elegibilidade.
 - [Decisão H1b de leitura](spec/BULK-H1B-READ-MODEL.html): manifest privado V8, projeção física segura V9, reader autorizado de resultados de proposta e continuação G3b, resumo autorizado de execução e tombstone G3c-a, composição paginada RS4 G3c-b e proposta RS1 com projeção explícita do domínio; a biblioteca não cria endpoint HTTP.
 
+- [Projeção P1 de action bulk](spec/BULK-ACTION-PROJECTION.html): sete referências UI por role, composição única e fence READY; não concede execução/autorização.
 - [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html): API Java, sem runtime executável ou integração de discovery neste incremento.
 
 - [Propostas, resultados e fingerprint de intenção](spec/BULK-PROTOCOL-RESULTS.html): snapshots e schemas de SDK, sem execução durável.

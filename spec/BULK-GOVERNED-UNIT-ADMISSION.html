@@ -421,11 +421,44 @@ receipt/admission and advances only the corresponding durable result. It
 does not dispatch the next unit in the same call. Historical S4a
 receipts remain replayable only within the verified prefix and retain
 their prior behavior.</p>
+<p>The proposed B3 synchronous
+<code>JdbcBulkDurableExecution.advance(reservation, admission, mutation)</code>
+composes fresh units without changing this per-unit contract. Its
+protected reservation comes from <code>reserve(scope, ...)</code> in the
+same host call, never from an HTTP client as authority. It rejects an
+ambient Spring transaction even for a terminal no-op. A bounded
+operational transaction checks namespace, owner, epoch, immutable
+proposal/target-count binding and reservation ordinal against durable
+<code>nextOrdinal</code> under the existing control lock. A coherent
+terminal state dispatches nothing. For nonterminal states it checks the
+reservation ordinal’s receipt/admission first, even in
+<code>UNIT_IN_FLIGHT</code> or <code>RECONCILIATION_REQUIRED</code>; any
+replay ends this invocation. <code>advance</code> also calls
+<code>executeUnit</code> to recognize replay. Only a non-replay result
+in <code>RUNNING</code> permits dispatch of the next ordinal. A fresh
+unit may invoke the admission callback; only <code>admit()</code>
+permits the mutation callback. Receipt/admission replay invokes neither
+callback. Each unit keeps its own transaction and deadline budget; no
+transaction or lock spans the whole sequence. Replay, stop,
+cancellation, terminal state or uncertainty ends the call without
+automatic retry or recovery. A lost ACK on the second of three units
+cannot dispatch the third in that same call. This additive Java API
+remains a candidate, implemented and proven by 17 unique focused kernel
+PostgreSQL cases and 32 focused P1/P2 host HTTP cases against the traced
+candidate artifact; independent code review passed. Full
+<code>verify</code> was not run for this cut. Source integration,
+publication and adoption without an override are separate remaining
+steps. It does not establish HTTP readiness or a complete backend
+release.</p>
 <h2 id="transaction-and-lock-order-p1-consumer">Transaction and lock
 order — P1 consumer</h2>
 <ol type="1">
-<li>Lock <code>praxis_bulk_execution</code>; verify namespace,
-execution/proposal binding, owner and epoch.</li>
+<li>Read the operation identity without a row lock, then acquire the
+shared operation-control lock before locking
+<code>praxis_bulk_execution FOR UPDATE</code>; verify namespace,
+execution/proposal binding, owner and epoch under that execution lock.
+Current grant/policy checks and host parent/target locks occur later in
+the unit callback, in the domain’s declared deterministic order.</li>
 <li>Read and validate the receipt and V4 admission result for the
 requested ordinal <strong>before</strong> proposal expiry, execution
 deadline, policy/grant or new-mutation gates. A prior confirmed result
