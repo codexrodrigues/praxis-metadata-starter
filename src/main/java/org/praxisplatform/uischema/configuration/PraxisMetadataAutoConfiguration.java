@@ -13,15 +13,18 @@ import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionScope;
 import org.praxisplatform.uischema.concurrency.ResourceVersionScopeProvider;
 import org.praxisplatform.uischema.rest.response.RestApiResource;
+import org.springdoc.core.configuration.SpringDocConfiguration;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigurationExcludeFilter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.hateoas.EntityModel;
 
 import java.util.ArrayList;
@@ -40,7 +43,8 @@ import java.util.Set;
  * a qual as demais configuracoes especificas do metadata-driven sao montadas.
  * </p>
  */
-@AutoConfiguration
+// Group definitions must exist when Springdoc decides whether its OpenAPI builder is per group.
+@AutoConfiguration(before = SpringDocConfiguration.class)
 @ComponentScan(basePackages = {
     "org.praxisplatform.uischema.controller.cockpit",
     "org.praxisplatform.uischema.controller.docs",
@@ -48,7 +52,7 @@ import java.util.Set;
     "org.praxisplatform.uischema.service",
     "org.praxisplatform.uischema.filter",
     "org.praxisplatform.uischema.configuration"
-})
+}, excludeFilters = @ComponentScan.Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class))
 public class PraxisMetadataAutoConfiguration {
 
     @Bean
