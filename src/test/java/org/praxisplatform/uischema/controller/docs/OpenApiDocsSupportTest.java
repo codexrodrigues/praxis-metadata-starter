@@ -2,8 +2,11 @@ package org.praxisplatform.uischema.controller.docs;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.hash.SchemaCanonicalizer;
+import org.praxisplatform.uischema.hash.SchemaHashUtil;
 import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
@@ -17,6 +20,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -104,12 +108,18 @@ class OpenApiDocsSupportTest {
     }
 
     @Test
-    void strictGroupDocumentReplacesPreviouslyCachedBaseFallbackForAllReaders() {
+    void strictGroupReadRejectsCachedFallbackUntilGuardedRefresh() {
+        var guardCalls = new AtomicInteger();
         server.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
                 .andRespond(withStatus(NOT_FOUND));
         server.expect(once(), requestTo("http://localhost/v3/api-docs"))
                 .andRespond(withSuccess("{\"paths\":{\"/base-only\":{}}}", MediaType.APPLICATION_JSON));
         server.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                .andRespond(withSuccess("{\"paths\":{\"/exact-group\":{}}}", MediaType.APPLICATION_JSON));
+        server.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store"))
+                .andExpect(request -> assertEquals(1, guardCalls.get()))
                 .andRespond(withSuccess("{\"paths\":{\"/exact-group\":{}}}", MediaType.APPLICATION_JSON));
 
         CachedOpenApiDocumentService documents = new CachedOpenApiDocumentService(
@@ -118,10 +128,39 @@ class OpenApiDocsSupportTest {
 
         JsonNode legacyRead = documents.getDocumentForGroup("stats");
         assertEquals(true, legacyRead.path("paths").has("/base-only"));
-        JsonNode strictRead = documents.getDocumentForGroupStrict("stats");
-        assertEquals(true, strictRead.path("paths").has("/exact-group"));
-        JsonNode subsequentSchemaReader = documents.getDocumentForGroup("stats");
-        assertEquals(true, subsequentSchemaReader.path("paths").has("/exact-group"));
+        String oldHash = documents.getOrComputeSchemaHash("stats.schema", () -> legacyRead.path("paths"));
+        documents.installBulkLifecycleInvalidationGuard(() -> {
+            assertEquals(legacyRead, documents.getDocumentForGroup("stats"));
+            assertEquals(oldHash, documents.getOrComputeSchemaHash("stats.schema", () -> {
+                throw new AssertionError("Guard must run before the old schema hash is invalidated");
+            }));
+            guardCalls.incrementAndGet();
+        });
+
+        IllegalStateException rejection = assertThrows(IllegalStateException.class,
+                () -> documents.getDocumentForGroupStrict("stats"));
+        assertEquals(true, rejection.getCause().getMessage().contains("guarded refresh"));
+        assertEquals(0, guardCalls.get());
+        assertEquals(legacyRead, documents.getDocumentForGroup("stats"));
+        assertEquals(oldHash, documents.getOrComputeSchemaHash("stats.schema", () -> {
+            throw new AssertionError("Rejected strict promotion must preserve the cached schema hash");
+        }));
+
+        JsonNode refreshed = documents.refreshDocumentForGroupStrict("stats");
+        assertEquals(1, guardCalls.get());
+        assertEquals(true, refreshed.path("paths").has("/exact-group"));
+        assertEquals(false, refreshed.path("paths").has("/base-only"));
+        assertEquals(refreshed, documents.getDocumentForGroup("stats"));
+        assertEquals(refreshed, documents.getDocumentForGroupStrict("stats"));
+        var hashComputations = new AtomicInteger();
+        String newHash = documents.getOrComputeSchemaHash("stats.schema", () -> {
+            hashComputations.incrementAndGet();
+            return refreshed.path("paths");
+        });
+        assertEquals(1, hashComputations.get());
+        assertNotEquals(oldHash, newHash);
+        assertEquals(SchemaHashUtil.sha256Hex(new SchemaCanonicalizer().canonicalize(refreshed.path("paths"))),
+                newHash);
         server.verify();
     }
 
