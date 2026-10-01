@@ -383,6 +383,51 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    void nullableArrayEnumsKeepFiveChoicesForInlineAndReferencedSchemas() {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = """
+                {"paths":{"/missions/filter":{"post":{"requestBody":{"content":{"application/json":{
+                  "schema":{"$ref":"#/components/schemas/MissionFilterDTO"}}}}}}},
+                 "components":{"schemas":{
+                  "MissionFilterDTO":{"type":"object","properties":{
+                   "referenced":{"type":"array","items":{"$ref":"#/components/schemas/Outcome"},
+                      "x-ui":{"controlType":"array","array":{"itemSchemaRef":"#/components/schemas/Outcome"}}},
+                   "inline":{"type":"array","items":{"type":"string","nullable":true,
+                      "enum":["OK","FERIDO","DESAPARECIDO","MORTO","NA",null]},
+                      "x-ui":{"controlType":"array"}}
+                  }},
+                  "Outcome":{"type":"string","nullable":true,
+                      "enum":["OK","FERIDO","DESAPARECIDO","MORTO","NA",null]}
+                }}}
+                """;
+        server.expect(requestTo("http://localhost/v3/api-docs/missions"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        try {
+            var response = controller.getFilteredSchema("/missions/filter", "post", false,
+                    "request", null, null, java.util.Locale.ENGLISH);
+            JsonNode schema = mapper.valueToTree(response.getBody());
+            for (String name : List.of("inline", "referenced")) {
+                JsonNode ui = schema.path("properties").path(name).path("x-ui");
+                assertEquals("chipInput", ui.path("controlType").asText(), name);
+                assertFalse(ui.has("array"), name);
+                assertEquals(5, ui.path("options").size(), name);
+                for (JsonNode option : ui.path("options")) {
+                    assertTrue(option.path("value").isTextual(), name);
+                    assertNotEquals("null", option.path("value").asText(), name);
+                }
+            }
+            server.verify();
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void getFilteredSchemaPreservesAnalyticsWithoutOverwritingExistingXUiKeys() {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);

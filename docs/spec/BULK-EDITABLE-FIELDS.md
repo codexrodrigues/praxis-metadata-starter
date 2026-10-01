@@ -44,6 +44,25 @@ O compilador não decide se um schema pertence à operação correta: essa é a 
 
 O perfil executável ainda precisa de BulkOperation, registry, validação de bootstrap, schemas de avaliação/confirmação, providers e operações comuns de proposta/execução/resultados/cancelamento. A implementação Java da annotation não significa que o runtime Angular já a consome.
 
+## Enum nullable gerado pelo resolver canônico
+
+O candidato de correção P3b materializa JSON `null` na enumeração automática de
+um enum Java inline quando o campo declara `@Schema(nullable=true)` em OpenAPI
+3.0. A lista estrutural conserva os valores do enum e admite null uma única vez.
+A apresentação `x-ui.options` e a contagem de escolhas continuam contendo apenas
+valores do domínio; CLEAR não exige inventar uma opção chamada "null".
+
+Esse ajuste não amplia enumerações explícitas de `allowableValues`, referências ou
+implementações de schema substitutas, nem resolve declarações contraditórias com
+`@NotNull`, `@NotBlank` ou `@NotEmpty`. `required` exige presença da
+propriedade, sem proibir um valor null explicitamente admitido; o campo continua
+na lista required quando assim declarado. Também não converte o flag legado nullable em autorização de
+null no dialeto 3.1. Um enum referenciado/compartilhado não pode ser ampliado por
+uma propriedade nullable local, pois isso alteraria consumidores não nullable.
+Nesses casos a prova estrutural de CLEAR continua sendo responsabilidade do schema
+canônico efetivo e o SDK permanece fail-closed. Não corrigir somente fixtures
+para simular a nullabilidade ausente na geração real.
+
 ## Composição estrutural CRUD candidata (P3b-S1)
 
 O binding de `UNIFORM_UPDATE` e `PER_ITEM_UPDATE` deve partir do PUT real do mesmo

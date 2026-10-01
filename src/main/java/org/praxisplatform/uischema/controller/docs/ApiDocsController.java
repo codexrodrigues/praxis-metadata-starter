@@ -1455,6 +1455,7 @@ public class ApiDocsController {
                                 if (enumNode != null && enumNode.isArray() && enumNode.size() > 0) {
                                     enumValues = new ArrayList<>();
                                     for (JsonNode val : enumNode) {
+                                        if (val.isNull()) continue;
                                         if (val.isTextual()) {
                                             enumValues.add(val.asText());
                                         } else {
@@ -1467,6 +1468,8 @@ public class ApiDocsController {
                     }
 
                     if (enumValues != null && !enumValues.isEmpty()) {
+                        enumValues = enumValues.stream().filter(value -> value != null
+                                && !(value instanceof JsonNode node && node.isNull())).toList();
                         Map<String, Object> parentXui = ensureNestedMap(propSchema, X_UI);
                         if (!parentXui.containsKey("options")) {
                             OpenApiUiUtils.populateUiOptionsFromEnum(parentXui, enumValues, this.objectMapper);
