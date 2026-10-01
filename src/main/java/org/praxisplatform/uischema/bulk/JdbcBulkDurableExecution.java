@@ -74,6 +74,57 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
+    /**
+     * Advances a scoped reservation synchronously through fresh, acknowledged units. The host
+     * obtains this protected token from {@link #reserve} after resolving the authenticated scope;
+     * it is not a public input or an independent subject-authorization boundary. Durable control
+     * is reread before even a terminal no-op, and each unit retains its own transaction and fences.
+     * A replay, uncertain outcome or non-running state ends this call without dispatching a suffix.
+     * No public result is synthesized; authorized readers remain the source of execution results.
+     *
+     * @param reservation protected reservation obtained from the scoped reserve operation
+     * @param admission current per-unit admission in the kernel-owned operational transaction
+     * @param mutation domain mutation in the same transaction as its durable receipt
+     */
+    public void advance(BulkExecutionReservation reservation, BulkUnitAdmissionCallback admission,
+            BulkUnitMutationCallback mutation) {
+        requireNoAmbientTransaction();
+        Objects.requireNonNull(reservation, "reservation");
+        Objects.requireNonNull(admission, "admission");
+        Objects.requireNonNull(mutation, "mutation");
+        final boolean terminal;
+        try {
+            terminal = unitTransaction(connection -> {
+                ExecutionRow execution = lockControl(connection, reservation.control());
+                if (!execution.executionId().equals(reservation.executionId())
+                        || !execution.proposalId().equals(reservation.proposalId())
+                        || execution.targetCount() != reservation.targetCount()
+                        || reservation.nextOrdinal() < 0
+                        || reservation.nextOrdinal() > execution.nextOrdinal())
+                    throw failure(BulkDurableExecutionException.Reason.CONFLICT);
+                return execution.status() == BulkDurableExecutionStatus.COMPLETED
+                        || execution.status() == BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS
+                        || execution.status() == BulkDurableExecutionStatus.STOPPED;
+            });
+        } catch (BulkDurableExecutionException error) {
+            throw error;
+        } catch (RuntimeException error) {
+            throw failure(BulkDurableExecutionException.Reason.UNAVAILABLE);
+        }
+        if (terminal) return;
+
+        int ordinal = reservation.nextOrdinal();
+        while (ordinal < reservation.targetCount()) {
+            BulkUnitExecutionResult result = executeUnit(reservation.control(), ordinal, admission, mutation);
+            // Includes ACK readback after a later unit in this call: its suffix requires another
+            // explicit request, even when the acknowledged durable state is already RUNNING.
+            if (result.replayed() || result.status() != BulkDurableExecutionStatus.RUNNING) return;
+            if (!result.durableResultPresent() || result.execution().nextOrdinal() != ordinal + 1)
+                throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            ordinal = result.execution().nextOrdinal();
+        }
+    }
+
     public BulkUnitExecutionResult executeUnit(BulkExecutionControl control, int expectedOrdinal,
             BulkUnitAdmissionCallback admission, BulkUnitMutationCallback callback) {
         requireNoAmbientTransaction();

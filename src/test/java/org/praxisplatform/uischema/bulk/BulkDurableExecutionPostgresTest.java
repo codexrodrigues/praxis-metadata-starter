@@ -140,6 +140,316 @@ class BulkDurableExecutionPostgresTest {
     }
 
     @Test
+    void advanceProcessesFreshReceiptAndAdmissionWithoutAnAmbientTransaction() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "advance-decisions", "owner-a");
+        var admissions = new ArrayList<Integer>();
+        var mutations = new ArrayList<Integer>();
+        kernel.advance(reservation, unit -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            admissions.add(unit.ordinal());
+            return unit.ordinal() == 0 ? BulkUnitAdmission.admit()
+                    : BulkUnitAdmission.conflict(BulkUnitReasonCode.TARGET_VERSION_CONFLICT);
+        }, unit -> {
+            mutations.add(unit.ordinal());
+            runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+            return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(admissions).containsExactly(0, 1);
+        assertThat(mutations).containsExactly(0);
+        var state = kernel.find(CONTEXT, reservation.executionId()).orElseThrow();
+        assertThat(state.status()).isEqualTo(BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS);
+        assertThat(state.nextOrdinal()).isEqualTo(2);
+        assertThat(state.receiptCount()).isEqualTo(1);
+        assertThat(state.admissionCount()).isEqualTo(1);
+        assertThat(writes("bulk_durable_domain", 1)).isEqualTo(1);
+        assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+    }
+
+    @Test
+    void advanceReplaysTheReservedOrdinalWithoutSkippingToTheCurrentSuffix() {
+        var kernel = kernel();
+        var evaluation = persist(twoTargetEvaluation());
+        var reservation = reserve(kernel, evaluation, "advance-prefix", "owner-a");
+        kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(),
+                unit -> BulkUnitMutationResult.confirmed());
+        var calls = new AtomicInteger();
+        BulkUnitAdmissionCallback admission = unit -> { calls.incrementAndGet(); return BulkUnitAdmission.admit(); };
+        BulkUnitMutationCallback mutation = unit -> { calls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); };
+        kernel.advance(reservation, admission, mutation);
+        assertThat(calls).hasValue(0);
+        assertThat(kernel.find(CONTEXT, reservation.executionId()).orElseThrow().nextOrdinal()).isEqualTo(1);
+        kernel.advance(reserve(kernel, evaluation, "advance-prefix", "owner-a"), admission, mutation);
+        assertThat(calls).hasValue(2);
+        assertThat(kernel.find(CONTEXT, reservation.executionId()).orElseThrow().status())
+                .isEqualTo(BulkDurableExecutionStatus.COMPLETED);
+        kernel.advance(reservation, admission, mutation);
+        assertThat(calls).hasValue(2);
+        assertThatThrownBy(() -> kernel.advance(reservation, null, mutation)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> kernel.advance(reservation, admission, null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> transactions.executeWithoutResult(status -> kernel.advance(reservation, admission, mutation)))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void advanceValidatesDurableBindingAndFenceBeforeTerminalNoOp() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "advance-binding", "owner-a");
+        kernel.advance(reservation, unit -> BulkUnitAdmission.admit(), unit -> BulkUnitMutationResult.confirmed());
+        var terminal = kernel.find(CONTEXT, reservation.executionId()).orElseThrow();
+        BulkUnitAdmissionCallback admission = unit -> { throw new AssertionError("no admission expected"); };
+        BulkUnitMutationCallback mutation = unit -> { throw new AssertionError("no mutation expected"); };
+        for (var invalid : List.of(
+                advanceHint(terminal, UUID.randomUUID(), terminal.targetCount(), terminal.nextOrdinal(), terminal.control()),
+                advanceHint(terminal, terminal.proposalId(), terminal.targetCount() + 1, terminal.nextOrdinal(), terminal.control()),
+                advanceHint(terminal, terminal.proposalId(), terminal.targetCount(), terminal.nextOrdinal() + 1, terminal.control()))) {
+            assertThatThrownBy(() -> kernel.advance(invalid, admission, mutation))
+                    .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                            error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.CONFLICT));
+        }
+        var wrongOwner = new BulkExecutionControl(terminal.executionId(), "other-owner", terminal.control().epoch());
+        assertThatThrownBy(() -> kernel.advance(advanceHint(terminal, terminal.proposalId(), terminal.targetCount(),
+                terminal.nextOrdinal(), wrongOwner), admission, mutation))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.FENCED));
+        var staleEpoch = new BulkExecutionControl(terminal.executionId(), terminal.control().ownerId(), terminal.control().epoch() + 1);
+        assertThatThrownBy(() -> kernel.advance(advanceHint(terminal, terminal.proposalId(), terminal.targetCount(),
+                terminal.nextOrdinal(), staleEpoch), admission, mutation))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.FENCED));
+        var foreign = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(runtimeDataSource, manager,
+                "another-namespace", BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
+        // An unprovisioned namespace fails infrastructure attestation before control lookup.
+        assertThatThrownBy(() -> foreign.advance(reservation, admission, mutation))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.UNAVAILABLE));
+        BulkPostgresTestSupport.migrate(dataSource, java.util.Map.of(
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                "another-namespace", BulkPostgresTestSupport.DEPLOYMENT_ID));
+        // With a valid binding the foreign execution is absent, even though its ID is known.
+        assertThatThrownBy(() -> foreign.advance(reservation, admission, mutation))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_FOUND));
+    }
+
+    @Test
+    void advanceDoesNotTrustATerminalReservationHintOverRunningDurableControl() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "advance-status", "owner-a");
+        var state = reservation.execution();
+        var misleading = new BulkExecutionReservation(new BulkExecutionSnapshot(state.executionId(), state.proposalId(),
+                BulkDurableExecutionStatus.STOPPED, state.nextOrdinal(), state.targetCount(), 0, 0,
+                state.deadlineAt(), state.control(), BulkUnitReasonCode.RECOVERY_STOPPED, null), true);
+        var calls = new AtomicInteger();
+        kernel.advance(misleading, unit -> BulkUnitAdmission.admit(), unit -> {
+            calls.incrementAndGet(); return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(calls).hasValue(2);
+        assertThat(kernel.find(CONTEXT, state.executionId()).orElseThrow().status())
+                .isEqualTo(BulkDurableExecutionStatus.COMPLETED);
+    }
+
+    @Test
+    void advanceStopsAfterKnownRollbackWithoutMutatingTheSuffix() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "advance-rollback", "owner-a");
+        var calls = new AtomicInteger();
+        kernel.advance(reservation, unit -> BulkUnitAdmission.admit(), unit -> {
+            calls.incrementAndGet();
+            runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+            throw new IllegalStateException("injected domain rollback");
+        });
+        assertThat(calls).hasValue(1);
+        var stopped = kernel.find(CONTEXT, reservation.executionId()).orElseThrow();
+        assertThat(stopped.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(stopped.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.UNIT_ROLLED_BACK);
+        assertThat(stopped.nextOrdinal()).isZero();
+        assertThat(writes("bulk_durable_domain", 1)).isZero();
+        assertThat(count("praxis_bulk_item_receipt")).isZero();
+    }
+
+    @Test
+    void advanceReplaysAnOlderPrefixWhilePendingAckAndRequiresAnotherRequestForTheSuffix() {
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
+        var faultManager = new DataSourceTransactionManager(faults);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
+        var evaluation = persist(threeTargetEvaluation());
+        var reservation = reserve(kernel, evaluation, "advance-pending", "owner-a");
+        var calls = new ArrayList<Integer>();
+        BulkUnitMutationCallback mutation = unit -> {
+            calls.add(unit.ordinal());
+            if (unit.ordinal() == 1) faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+            return BulkUnitMutationResult.confirmed();
+        };
+        assertThatThrownBy(() -> kernel.advance(reservation, unit -> BulkUnitAdmission.admit(), mutation))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+        assertThat(calls).containsExactly(0, 1);
+        kernel.advance(reservation, unit -> { throw new AssertionError("prefix admission"); }, mutation);
+        assertThat(kernel.find(CONTEXT, reservation.executionId()).orElseThrow().nextOrdinal()).isEqualTo(1);
+        kernel.advance(reserve(kernel, evaluation, "advance-pending", "owner-a"),
+                unit -> { throw new AssertionError("pending ACK admission"); }, mutation);
+        assertThat(calls).containsExactly(0, 1);
+        assertThat(kernel.find(CONTEXT, reservation.executionId()).orElseThrow().nextOrdinal()).isEqualTo(2);
+        kernel.advance(reserve(kernel, evaluation, "advance-pending", "owner-a"), unit -> BulkUnitAdmission.admit(), mutation);
+        assertThat(calls).containsExactly(0, 1, 2);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(3);
+    }
+
+    @Test
+    void advanceStopsAfterLostAckOfTheSecondUnitEvenWhenReadbackIsRunning() {
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
+        var faultManager = new DataSourceTransactionManager(faults);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
+        var evaluation = persist(threeTargetEvaluation());
+        var reservation = reserve(kernel, evaluation, "advance-ack", "owner-a");
+        var calls = new ArrayList<Integer>();
+        BulkUnitMutationCallback mutation = unit -> {
+            calls.add(unit.ordinal());
+            if (unit.ordinal() == 1) TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() {
+                    faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+                }
+            });
+            return BulkUnitMutationResult.confirmed();
+        };
+        kernel.advance(reservation, unit -> BulkUnitAdmission.admit(), mutation);
+        assertThat(calls).containsExactly(0, 1);
+        var acknowledged = kernel.find(CONTEXT, reservation.executionId()).orElseThrow();
+        assertThat(acknowledged.status()).isEqualTo(BulkDurableExecutionStatus.RUNNING);
+        assertThat(acknowledged.nextOrdinal()).isEqualTo(2);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(2);
+        kernel.advance(reserve(kernel, evaluation, "advance-ack", "owner-a"), unit -> BulkUnitAdmission.admit(), mutation);
+        assertThat(calls).containsExactly(0, 1, 2);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(3);
+    }
+
+    @Test
+    void advancePreservesCommittedPrefixWhenCancellationWinsBeforeTheNextUnit() {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "advance-cancel", "owner-a");
+        var calls = new AtomicInteger();
+        kernel.advance(reservation, unit -> BulkUnitAdmission.admit(), unit -> {
+            calls.incrementAndGet();
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() {
+                    observer.update("update praxis_bulk.praxis_bulk_execution set cancel_requested_at=clock_timestamp() where execution_id=?",
+                            reservation.executionId());
+                }
+            });
+            return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(calls).hasValue(1);
+        var state = kernel.find(CONTEXT, reservation.executionId()).orElseThrow();
+        assertThat(state.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(state.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.CANCELLED_BY_USER);
+        assertThat(state.nextOrdinal()).isEqualTo(1);
+        assertThat(state.receiptCount()).isEqualTo(1);
+    }
+
+    @Test
+    void advanceReplaysConfirmedPrefixWhileAnotherOrdinalIsInFlight() {
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
+        var faultManager = new DataSourceTransactionManager(faults);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
+        var evaluation = persist(twoTargetEvaluation());
+        var reservation = reserve(kernel, evaluation, "advance-in-flight", "owner-a");
+        kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> BulkUnitMutationResult.confirmed());
+        faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+        BulkUnitAdmissionCallback noAdmission = unit -> { throw new AssertionError("no admission expected"); };
+        BulkUnitMutationCallback noMutation = unit -> { throw new AssertionError("no mutation expected"); };
+        // The prepare marker commits, but its acknowledgement is lost before admission.
+        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 1, noAdmission, noMutation))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+        assertThat(kernel.find(CONTEXT, reservation.executionId()).orElseThrow().status())
+                .isEqualTo(BulkDurableExecutionStatus.UNIT_IN_FLIGHT);
+        kernel.advance(reservation, noAdmission, noMutation);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+        assertThat(kernel.find(CONTEXT, reservation.executionId()).orElseThrow().nextOrdinal()).isEqualTo(1);
+        assertThatThrownBy(() -> kernel.advance(reserve(kernel, evaluation, "advance-in-flight", "owner-a"), noAdmission, noMutation))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+    }
+
+    @Test
+    void advanceReplaysIntactPrefixWhenAnotherReceiptRequiresReconciliation() throws Exception {
+        var faults = new BulkCommitFaultDataSource(runtimeDataSource);
+        var faultManager = new DataSourceTransactionManager(faults);
+        var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(faults, faultManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration()));
+        var evaluation = persist(threeTargetEvaluation());
+        var reservation = reserve(kernel, evaluation, "advance-reconciliation", "owner-a");
+        kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> BulkUnitMutationResult.confirmed());
+        assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 1, unit -> BulkUnitAdmission.admit(), unit -> {
+            faults.arm(Thread.currentThread(), BulkCommitFaultDataSource.Mode.COMMIT_THEN_ACK_LOST);
+            return BulkUnitMutationResult.confirmed();
+        })).isInstanceOf(BulkDurableExecutionException.class);
+        corruptPendingReceiptEpochAsFixtureOwner(reservation.executionId(), 1);
+        // The real cancellation transition detects the inconsistent pending receipt and keeps
+        // the same owner/epoch while moving control into reconciliation.
+        assertThat(kernel.requestCancel(CONTEXT, reservation.executionId()).status())
+                .isEqualTo(BulkDurableExecutionStatus.RECONCILIATION_REQUIRED);
+        BulkUnitAdmissionCallback noAdmission = unit -> { throw new AssertionError("no admission expected"); };
+        BulkUnitMutationCallback noMutation = unit -> { throw new AssertionError("no mutation expected"); };
+        kernel.advance(reservation, noAdmission, noMutation);
+        assertThat(kernel.find(CONTEXT, reservation.executionId()).orElseThrow().nextOrdinal()).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(2);
+        assertThatThrownBy(() -> kernel.advance(reserve(kernel, evaluation, "advance-reconciliation", "owner-a"), noAdmission, noMutation))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED));
+    }
+
+    @Test
+    void advanceReplaysAfterSuspensionButDoesNotAdmitTheFreshSuffix() throws Exception {
+        var kernel = kernel();
+        var evaluation = persist(twoTargetEvaluation());
+        var reservation = reserve(kernel, evaluation, "advance-suspended", "owner-a");
+        kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> BulkUnitMutationResult.confirmed());
+        try (var connection = dataSource.getConnection()) {
+            assertThat(JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
+                    CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED, null, null).applied()).isTrue();
+        }
+        BulkUnitAdmissionCallback noAdmission = unit -> { throw new AssertionError("no admission expected"); };
+        BulkUnitMutationCallback noMutation = unit -> { throw new AssertionError("no mutation expected"); };
+        kernel.advance(reservation, noAdmission, noMutation);
+        assertThatThrownBy(() -> kernel.advance(reserve(kernel, evaluation, "advance-suspended", "owner-a"), noAdmission, noMutation))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_EXECUTABLE));
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+        assertThat(kernel.find(CONTEXT, reservation.executionId()).orElseThrow().nextOrdinal()).isEqualTo(1);
+    }
+
+    @Test
+    void advanceReplaysAfterDeadlineButStopsTheFreshSuffix() throws Exception {
+        var kernel = kernel();
+        var evaluation = persist(twoTargetEvaluation());
+        var reservation = kernel.reserve(CONTEXT, evaluation.proposal().id(), "advance-expired", "owner-a",
+                "structural-r1", Instant.now().plusSeconds(2));
+        kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> BulkUnitMutationResult.confirmed());
+        Thread.sleep(Math.max(1, Duration.between(Instant.now(), reservation.execution().deadlineAt()).toMillis() + 50));
+        BulkUnitAdmissionCallback noAdmission = unit -> { throw new AssertionError("no admission expected"); };
+        BulkUnitMutationCallback noMutation = unit -> { throw new AssertionError("no mutation expected"); };
+        kernel.advance(reservation, noAdmission, noMutation);
+        kernel.advance(reserve(kernel, evaluation, "advance-expired", "owner-a"), noAdmission, noMutation);
+        var stopped = kernel.find(CONTEXT, reservation.executionId()).orElseThrow();
+        assertThat(stopped.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
+        assertThat(stopped.terminalReasonCode()).isEqualTo(BulkUnitReasonCode.DEADLINE_EXCEEDED);
+        assertThat(stopped.nextOrdinal()).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+    }
+
+    private static BulkExecutionReservation advanceHint(BulkExecutionSnapshot state, UUID proposalId,
+            int targetCount, int nextOrdinal, BulkExecutionControl control) {
+        return new BulkExecutionReservation(new BulkExecutionSnapshot(state.executionId(), proposalId, state.status(),
+                nextOrdinal, targetCount, state.receiptCount(), state.admissionCount(), state.deadlineAt(), control,
+                state.terminalReasonCode(), state.cancelRequestedAt()), true);
+    }
+
+    @Test
     void terminalRetentionClockCannotBeBackdatedByTheCaller() {
         var evaluation = persist(twoTargetEvaluation());
         var reservation = reserve(kernel(), evaluation, "terminal-clock", "owner-a");
@@ -2692,11 +3002,20 @@ class BulkDurableExecutionPostgresTest {
     }
 
     private BulkEvaluationSnapshot twoTargetEvaluation(BulkFingerprintContext context) {
+        return targetEvaluation(context, false);
+    }
+
+    private BulkEvaluationSnapshot threeTargetEvaluation() {
+        return targetEvaluation(CONTEXT, true);
+    }
+
+    private BulkEvaluationSnapshot targetEvaluation(BulkFingerprintContext context, boolean thirdTarget) {
         var reader = new BulkProtocolReader<>(BulkIdentityCodecs.strings());
         var request = reader.<com.fasterxml.jackson.databind.JsonNode, com.fasterxml.jackson.databind.JsonNode>readCommand(bytes("""
                 {"executionMode":"SYNC","selection":{"mode":"EXPLICIT","targets":[
-                  {"id":"1","expectedVersion":"v1"},{"id":"2","expectedVersion":"v2"}]},"parameters":{"reason":"fixture"}}
-                """), com.fasterxml.jackson.databind.JsonNode::deepCopy, com.fasterxml.jackson.databind.JsonNode::deepCopy);
+                  {"id":"1","expectedVersion":"v1"},{"id":"2","expectedVersion":"v2"}%s]},"parameters":{"reason":"fixture"}}
+                """.formatted(thirdTarget ? ",{\"id\":\"3\",\"expectedVersion\":\"v3\"}" : "")),
+                com.fasterxml.jackson.databind.JsonNode::deepCopy, com.fasterxml.jackson.databind.JsonNode::deepCopy);
         Instant created = Instant.now().minusSeconds(5);
         var snapshot = BulkIntentSnapshot.command(context, BulkIdentityCodecs.strings(), request,
                 com.fasterxml.jackson.databind.JsonNode::deepCopy, com.fasterxml.jackson.databind.JsonNode::deepCopy);
@@ -2705,6 +3024,7 @@ class BulkDurableExecutionPostgresTest {
         var evidence = new ArrayList<BulkTargetEvidence<?>>();
         evidence.add(new BulkTargetEvidence<>(new BulkTarget<>("1", "v1"), "observed-v1", JSON.objectNode(), JSON.objectNode(), BulkTargetEligibility.executable()));
         evidence.add(new BulkTargetEvidence<>(new BulkTarget<>("2", "v2"), "observed-v2", JSON.objectNode(), JSON.objectNode(), BulkTargetEligibility.executable()));
+        if (thirdTarget) evidence.add(new BulkTargetEvidence<>(new BulkTarget<>("3", "v3"), "observed-v3", JSON.objectNode(), JSON.objectNode(), BulkTargetEligibility.executable()));
         Instant evaluatedAt = created.plusSeconds(1);
         var governance = new BulkEvaluationGovernance("test-evaluator-r1", "test-grants-r1", List.of(
                 new BulkPolicyObservation("tenant", "test", "approval_policy", "resource-action-approval",

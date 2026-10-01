@@ -142,10 +142,36 @@ advances only the corresponding durable result. It does not dispatch the next un
 the same call. Historical S4a receipts remain replayable only within the verified
 prefix and retain their prior behavior.
 
+The proposed B3 synchronous `JdbcBulkDurableExecution.advance(reservation, admission,
+mutation)` composes fresh units without changing this per-unit contract. Its protected
+reservation comes from `reserve(scope, ...)` in the same host call, never from an HTTP
+client as authority. It rejects an ambient Spring transaction even for a terminal
+no-op. A bounded operational transaction checks namespace, owner, epoch, immutable
+proposal/target-count binding and reservation ordinal against durable `nextOrdinal`
+under the existing control lock. A coherent terminal state dispatches nothing. For
+nonterminal states it checks the reservation ordinal's receipt/admission first, even
+in `UNIT_IN_FLIGHT` or `RECONCILIATION_REQUIRED`; any replay ends this invocation.
+`advance` also calls `executeUnit` to recognize replay. Only a non-replay result in
+`RUNNING` permits dispatch of the next ordinal. A fresh unit may invoke the admission
+callback; only `admit()` permits the mutation callback. Receipt/admission replay invokes
+neither callback. Each unit keeps its own transaction and deadline budget;
+no transaction or lock spans the whole sequence. Replay, stop,
+cancellation, terminal state or uncertainty ends the call without automatic retry or
+recovery. A lost ACK on the second of three units cannot dispatch the third in that
+same call. This additive Java API remains a candidate, implemented and proven by
+17 unique focused kernel PostgreSQL cases and 32 focused P1/P2 host HTTP cases against
+the traced candidate artifact; independent code review passed. Full `verify` was
+not run for this cut. Source integration, publication and adoption without an
+override are separate remaining steps. It does not establish
+HTTP readiness or a complete backend release.
+
 ## Transaction and lock order — P1 consumer
 
-1. Lock `praxis_bulk_execution`; verify namespace, execution/proposal binding, owner
-   and epoch.
+1. Read the operation identity without a row lock, then acquire the shared
+   operation-control lock before locking `praxis_bulk_execution FOR UPDATE`; verify
+   namespace, execution/proposal binding, owner and epoch under that execution lock.
+   Current grant/policy checks and host parent/target locks occur later in the unit
+   callback, in the domain's declared deterministic order.
 2. Read and validate the receipt and V4 admission result for the requested ordinal
    **before** proposal expiry, execution deadline, policy/grant or new-mutation gates.
    A prior confirmed result remains readable after those gates expire, subject to the
