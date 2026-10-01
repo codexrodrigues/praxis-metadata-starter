@@ -1,6 +1,6 @@
 package org.praxisplatform.uischema.bulk;
 
-import com.fasterxml.jackson.databind.type.TypeFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -32,24 +32,24 @@ public final class BulkOperationLifecycle {
 
     public BulkOperationLifecycle(BulkResourceOperationBindings bindings,
             CanonicalOperationResolver operationResolver, OpenApiDocumentService documents,
-            ActionDefinitionRegistry actionDefinitions, TypeFactory typeFactory,
+            ActionDefinitionRegistry actionDefinitions, ObjectMapper mapper,
             SchemaReferenceResolver schemaReferences, BulkExecutionInfrastructure runtime,
             BulkControlPlaneInfrastructure controlPlane,
             List<BulkOperationDescriptorProvider> providers) {
-        this(bindings, operationResolver, documents, actionDefinitions, typeFactory, schemaReferences, runtime,
+        this(bindings, operationResolver, documents, actionDefinitions, mapper, schemaReferences, runtime,
                 controlPlane, providers, new org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver(documents));
     }
 
     public BulkOperationLifecycle(BulkResourceOperationBindings bindings,
             CanonicalOperationResolver operationResolver, OpenApiDocumentService documents,
-            ActionDefinitionRegistry actionDefinitions, TypeFactory typeFactory,
+            ActionDefinitionRegistry actionDefinitions, ObjectMapper mapper,
             SchemaReferenceResolver schemaReferences, BulkExecutionInfrastructure runtime,
             BulkControlPlaneInfrastructure controlPlane, List<BulkOperationDescriptorProvider> providers,
             org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilities) {
         this.bindings = Objects.requireNonNull(bindings, "bindings");
         this.operationResolver = Objects.requireNonNull(operationResolver, "operationResolver");
         this.compiler = new BulkOperationStructuralCompiler(bindings, operationResolver, documents,
-                actionDefinitions, typeFactory, schemaReferences, capabilities);
+                actionDefinitions, mapper, schemaReferences, capabilities);
         this.documents = Objects.requireNonNull(documents, "documents");
         this.runtime = Objects.requireNonNull(runtime, "runtime");
         this.controlPlane = Objects.requireNonNull(controlPlane, "controlPlane");
@@ -112,7 +112,8 @@ public final class BulkOperationLifecycle {
             throw unavailable("Nested action projection scopes are not supported");
         if (actions == null || actions.isEmpty() || bindings.bulkOperations().isEmpty())
             return consumer.apply(Map.of());
-        Set<String> declaredIds = bindings.bulkOperations().stream().map(BulkOperationBinding::confirmationOperationId)
+        Set<String> declaredIds = bindings.bulkOperations().stream().filter(binding -> binding.mode() == BulkMode.DOMAIN_COMMAND)
+                .map(BulkOperationBinding::confirmationOperationId)
                 .collect(java.util.stream.Collectors.toSet());
         if (actions.stream().filter(Objects::nonNull).noneMatch(action -> action.operation() != null
                 && declaredIds.contains(action.operation().operationId()))) return consumer.apply(Map.of());
@@ -357,7 +358,7 @@ public final class BulkOperationLifecycle {
 
     /**
      * Called by the canonical documentation-cache invalidation hook. Suspends every currently
-     * declared confirmation identity before the shared cache is cleared. A partial suspension
+     * declared operational command identity before the shared cache is cleared. A partial suspension
      * aborts the cache clear; already-suspended rows remain safely closed.
      */
     public void suspendAllBeforeCacheClear() {
@@ -371,6 +372,7 @@ public final class BulkOperationLifecycle {
         if (!bindings.diagnostics().isEmpty())
             throw unavailable("Cannot invalidate OpenAPI caches with malformed bulk declarations");
         List<BulkOperationControlIdentity> identities = bindings.bulkOperations().stream()
+                .filter(binding -> binding.mode() == BulkMode.DOMAIN_COMMAND)
                 .map(binding -> new BulkOperationControlIdentity(runtime.namespace(), binding.confirmationOperationId()))
                 .sorted(Comparator.comparing(BulkOperationControlIdentity::namespaceId)
                         .thenComparing(BulkOperationControlIdentity::confirmationOperationId))
@@ -413,7 +415,10 @@ public final class BulkOperationLifecycle {
     private List<BulkOperationalDescriptor> descriptors(boolean fresh) {
         if (!bindings.diagnostics().isEmpty())
             throw unavailable("Bulk MVC declarations contain diagnostics: " + String.join("; ", bindings.diagnostics()));
-        List<BulkOperationStructuralDescriptor> structures = compiler.compileAll(fresh);
+        // Structural CRUD opt-in is not operational support. Every declaration is still compiled;
+        // only proven command profiles may have providers or reach the durable READY fence.
+        List<BulkOperationStructuralDescriptor> structures = compiler.compileAll(fresh).stream()
+                .filter(structural -> structural.mode() == BulkMode.DOMAIN_COMMAND).toList();
         Map<String, BulkOperationDescriptorProvider> byOperation = providerSnapshot();
         if (structures.size() != byOperation.size())
             throw unavailable("Every validated bulk confirmation binding must have exactly one descriptor provider");
@@ -471,6 +476,8 @@ public final class BulkOperationLifecycle {
 
     private void requireIdentity(BulkOperationControlIdentity identity) {
         Objects.requireNonNull(identity, "identity");
+        if (bindings.declaresUpdateConfirmation(identity.confirmationOperationId()))
+            throw unavailable("Structural bulk updates have no operational lifecycle support");
         if (!runtime.namespace().equals(identity.namespaceId()))
             throw new IllegalArgumentException("Bulk operation identity is outside the configured namespace");
     }

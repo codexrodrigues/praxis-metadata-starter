@@ -81,6 +81,8 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
         );
     }
 
+    @org.praxisplatform.uischema.bulk.BulkResourceOperation(
+            org.praxisplatform.uischema.bulk.BulkResourceOperation.Role.UPDATE_SOURCE)
     @PutMapping("/{id}")
     @Operation(summary = "Editar item")
     @ApiResponses({
