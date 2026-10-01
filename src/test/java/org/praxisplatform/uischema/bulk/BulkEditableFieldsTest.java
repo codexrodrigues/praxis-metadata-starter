@@ -40,6 +40,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BulkEditableFieldsTest {
 
     @Test
+    void configuredIgnoredEditableRecordInputsCannotEnterTheAllowlist() throws Exception {
+        var plain = new ObjectMapper();
+        var schema = plain.readTree("{\"type\":\"object\",\"properties\":{\"note\":{\"type\":\"string\"}}}");
+        var classIgnored = new ObjectMapper().addMixIn(IgnorableUpdate.class, IgnoredEditableClass.class);
+        var accessorIgnored = new ObjectMapper().addMixIn(IgnorableUpdate.class, IgnoredEditableAccessor.class);
+        var overrideIgnored = new ObjectMapper();
+        overrideIgnored.configOverride(IgnorableUpdate.class).setIgnorals(
+                com.fasterxml.jackson.annotation.JsonIgnoreProperties.Value.forIgnoredProperties("note"));
+        for (var configured : java.util.List.of(classIgnored, accessorIgnored, overrideIgnored)) {
+            assertEquals(null, configured.readValue("{\"note\":\"input\"}", IgnorableUpdate.class).note());
+            assertThrows(IllegalArgumentException.class, () -> BulkEditableFields.compile(configured,
+                    configured.constructType(IgnorableUpdate.class), schema, SpecVersion.V30, Set.of()));
+        }
+        var allowed = new ObjectMapper().addMixIn(IgnorableUpdate.class, AllowedEditableClass.class);
+        assertEquals("input", allowed.readValue("{\"note\":\"input\"}", IgnorableUpdate.class).note());
+        assertEquals(Set.of("note"), BulkEditableFields.compile(allowed, allowed.constructType(IgnorableUpdate.class),
+                schema, SpecVersion.V30, Set.of()).writableFields(BulkMode.UNIFORM_UPDATE));
+    }
+    record IgnorableUpdate(@BulkEditable String note) { }
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties("note") abstract static class IgnoredEditableClass { }
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(value = "note", allowSetters = true)
+    abstract static class AllowedEditableClass { }
+    abstract static class IgnoredEditableAccessor { @JsonIgnore abstract String note(); }
+
+    @Test
     void compilesResolvedModelConverterSchemaUsingWireNamesInheritanceAndNamingStrategy() {
         ObjectMapper mapper = snakeCaseMapper();
         ObjectNode schema = resolvedSchema(mapper, ChildUpdate.class);

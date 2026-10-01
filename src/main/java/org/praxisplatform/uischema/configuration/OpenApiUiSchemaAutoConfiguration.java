@@ -778,7 +778,8 @@ public class OpenApiUiSchemaAutoConfiguration {
             OpenApiDocumentService openApiDocumentService,
             ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
             ResourceStateSnapshotProvider resourceStateSnapshotProvider,
-            ResourceStructuralCapabilityResolver resourceStructuralCapabilityResolver
+            ResourceStructuralCapabilityResolver resourceStructuralCapabilityResolver,
+            ObjectProvider<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle
     ) {
         return new DefaultCapabilityService(
                 canonicalCapabilityResolver,
@@ -787,7 +788,8 @@ public class OpenApiUiSchemaAutoConfiguration {
                 openApiDocumentService,
                 resourceOperationAvailabilityProvider,
                 resourceStateSnapshotProvider,
-                resourceStructuralCapabilityResolver
+                resourceStructuralCapabilityResolver,
+                bulkLifecycle::getIfAvailable
         );
     }
 

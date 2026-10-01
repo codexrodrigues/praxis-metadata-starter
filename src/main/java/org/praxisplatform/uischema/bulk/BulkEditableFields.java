@@ -93,9 +93,10 @@ public final class BulkEditableFields {
                 }
             }
         }
+        var dto = mapper.getDeserializationConfig().introspect(updateType);
         Map<Field, BeanPropertyDefinition> bindings = new HashMap<>();
         try {
-            for (BeanPropertyDefinition property : mapper.getDeserializationConfig().introspect(updateType).findProperties()) {
+            for (BeanPropertyDefinition property : dto.findProperties()) {
                 Field member = property.getField() != null
                         && property.getField().getMember() instanceof Field field ? field : recordField(updateType, property);
                 if (member != null && declarations.containsKey(member)) {
@@ -114,7 +115,7 @@ public final class BulkEditableFields {
             Field field = entry.getKey();
             BulkEditable annotation = entry.getValue();
             BeanPropertyDefinition property = bindings.get(field);
-            if (property == null || !property.couldDeserialize()) {
+            if (property == null || !acceptsInput(mapper, dto, property)) {
                 throw invalid("annotated field is absent or not writable in the Jackson update contract");
             }
             String name = property.getName();
@@ -177,6 +178,18 @@ public final class BulkEditableFields {
     public Set<String> clearableFields(BulkMode mode) {
         requireUpdateMode(mode);
         return clearable.get(mode);
+    }
+
+    static boolean acceptsInput(ObjectMapper mapper, com.fasterxml.jackson.databind.BeanDescription dto,
+            BeanPropertyDefinition property) {
+        if (!property.couldDeserialize()) return false;
+        var config = mapper.getDeserializationConfig();
+        var ignorals = config.getDefaultPropertyIgnorals(dto.getBeanClass(), dto.getClassInfo());
+        if (ignorals != null && ignorals.findIgnoredForDeserialization().contains(property.getName())) return false;
+        if (!dto.getType().isRecordType()) return true;
+        // Record creators can survive ignored accessors in Jackson's deserialization property list.
+        var accessor = dto.getClassInfo().findMethod(property.getInternalName(), new Class<?>[0]);
+        return accessor == null || !config.getAnnotationIntrospector().hasIgnoreMarker(accessor);
     }
 
     private static void requireResolved(JsonNode schema, String description) {

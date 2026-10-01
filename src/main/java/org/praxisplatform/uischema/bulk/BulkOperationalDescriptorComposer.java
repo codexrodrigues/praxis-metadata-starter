@@ -14,8 +14,6 @@ final class BulkOperationalDescriptorComposer {
             BulkOperationDescriptorProvider provider) {
         Objects.requireNonNull(structural, "structural");
         Objects.requireNonNull(provider, "provider");
-        if (structural.mode() != BulkMode.DOMAIN_COMMAND)
-            throw new IllegalArgumentException("Bulk update operational composition is not supported");
         var confirmation = structural.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION).reference();
         // Take one immutable local snapshot. A host bean is user code; repeated getter calls must
         // never let its fingerprint and the value later stored for readiness disagree.
@@ -29,6 +27,13 @@ final class BulkOperationalDescriptorComposer {
         var wireSchema = codec.canonicalWireSchema();
         if (wireSchema == null) throw new IllegalArgumentException("Identity codec requires a wire schema");
         String identitySchemaPointer = canonicalPointer(provider.identitySchemaPointer());
+        if (structural.mode() != BulkMode.DOMAIN_COMMAND) {
+            String requiredPointer = structural.mode() == BulkMode.UNIFORM_UPDATE
+                    ? "/properties/selection/properties/targets/items/properties/id"
+                    : "/properties/items/items/properties/id";
+            if (!requiredPointer.equals(identitySchemaPointer))
+                throw new IllegalArgumentException("Update identity pointer must identify its canonical target ID");
+        }
         var evaluationSchema = structural.operation(BulkOperationStructuralDescriptor.Role.EVALUATION)
                 .requestSchema().orElseThrow(() -> new IllegalArgumentException("Evaluation request schema is required"))
                 .schema();
@@ -38,11 +43,12 @@ final class BulkOperationalDescriptorComposer {
             throw new IllegalArgumentException("Identity codec wire schema differs from the canonical evaluation request");
         if (!confirmation.operationId().equals(confirmationOperationId))
             throw new IllegalArgumentException("Provider is not bound to this canonical confirmation operation");
-        if (!profile.operationModes().contains(structural.mode()))
+        if (!profile.operationModes().equals(java.util.Set.of(structural.mode())))
             throw new IllegalArgumentException("Provider profile does not allow this declared operation mode");
         if (structural.atomicity() != org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM)
             throw new IllegalArgumentException("This P1 descriptor composer only supports the proven PER_ITEM profile");
-        Integer actionLimit = structural.action().execution().selection().maxItems();
+        Integer actionLimit = structural.mode() == BulkMode.DOMAIN_COMMAND
+                ? structural.action().execution().selection().maxItems() : null;
         if (actionLimit != null && profile.maxTargets() > actionLimit)
             throw new IllegalArgumentException("Operational target limit exceeds the canonical action selection limit");
         if (!infrastructure.namespace().equals(infrastructure.namespace().strip()))

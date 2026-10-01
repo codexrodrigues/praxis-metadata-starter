@@ -184,7 +184,7 @@ final class BulkOperationStructuralCompiler {
                     capabilities, null, null);
             var dto = mapper.getDeserializationConfig().introspect(updateBody.bodyType());
             var dtoFields = dto.findProperties().stream()
-                    .filter(property -> acceptsProtectedInput(dto, property))
+                    .filter(property -> BulkEditableFields.acceptsInput(mapper, dto, property))
                     .map(com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition::getName)
                     .collect(java.util.stream.Collectors.toSet());
             for (String protectedField : binding.protectedUpdateFields()) {
@@ -252,19 +252,6 @@ final class BulkOperationStructuralCompiler {
         } catch (RuntimeException unavailableProjection) {
             return null;
         }
-    }
-
-    private boolean acceptsProtectedInput(com.fasterxml.jackson.databind.BeanDescription dto,
-            com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition property) {
-        if (!property.couldDeserialize()) return false;
-        var config = mapper.getDeserializationConfig();
-        var ignorals = config.getDefaultPropertyIgnorals(dto.getBeanClass(), dto.getClassInfo());
-        if (ignorals != null && ignorals.findIgnoredForDeserialization().contains(property.getName())) return false;
-        if (!dto.getType().isRecordType()) return true;
-        // Jackson can retain the record creator parameter while an ignored accessor removes
-        // the input value. Consult its configured class metadata so mix-ins remain effective.
-        var accessor = dto.getClassInfo().findMethod(property.getInternalName(), new Class<?>[0]);
-        return accessor == null || !config.getAnnotationIntrospector().hasIgnoreMarker(accessor);
     }
 
     private PendingOperation bodyOperation(BulkOperationStructuralDescriptor.Role role, String operationId,

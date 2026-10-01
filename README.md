@@ -56,6 +56,8 @@ A [declaração de campos editáveis](docs/spec/BULK-EDITABLE-FIELDS.md) compila
 
 A [composição estrutural CRUD P3b-S1](docs/spec/BULK-CRUD-STRUCTURE.md) vincula os dois modos de update bulk ao PUT real do recurso, ao DTO de update e ao `ObjectMapper` configurado. O recurso declara a identidade da fonte e os campos protegidos; a composição não concede autorização nem habilita execução bulk. A API Java beta de `BulkOperationLifecycle` recebe agora `ObjectMapper` no lugar de `TypeFactory`; callers explícitos precisam migrar.
 
+O candidato [P3b-S2 de composição operacional CRUD](docs/spec/BULK-CRUD-OPERATIONS.md) materializa `bulk-update` e `bulk-update-items` em `CapabilityOperation.bulk` somente quando o provider e o controle durável compõem a operação corrente. Os modos mantêm seleção explícita, execução síncrona e atomicidade por item. A projeção referencia o PUT fonte e os campos elegíveis; o host continua responsável por autorização, avaliação e mutação real. Publicação, adoção pública e prova P3 do host são gates separados.
+
 A [leitura estrita do request canônico](docs/spec/CANONICAL-REQUEST-SCHEMA.md) fornece schema JSON resolvido e dialeto para compilação backend, preservando a projeção documental existente.
 
 ## Public Documentation

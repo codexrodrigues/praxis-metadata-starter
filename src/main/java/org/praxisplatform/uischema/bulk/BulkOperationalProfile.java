@@ -30,10 +30,10 @@ public record BulkOperationalProfile(
             throw new IllegalArgumentException("maxRequestBytes exceeds the bulk protocol ceiling");
         positive(proposalLifetime, "proposalLifetime");
         positive(unitDeadline, "unitDeadline");
-        if (!operationModes.equals(EnumSet.of(BulkMode.DOMAIN_COMMAND))
+        if (operationModes.size() != 1
                 || !executionModes.equals(EnumSet.of(BulkExecutionMode.SYNC))
                 || !selectionModes.equals(EnumSet.of(BulkSelectionMode.EXPLICIT))) {
-            throw new IllegalArgumentException("This P1 operational profile only supports DOMAIN_COMMAND/SYNC/EXPLICIT");
+            throw new IllegalArgumentException("An operational profile requires exactly one operation mode with SYNC/EXPLICIT");
         }
         if (maxTargets > 200) throw new IllegalArgumentException("P1 SYNC/PER_ITEM is limited to 200 targets");
         if (proposalLifetime.compareTo(Duration.ofMinutes(15)) > 0)
