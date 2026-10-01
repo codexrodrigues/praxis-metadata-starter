@@ -54,6 +54,8 @@ A [evidência protegida de avaliação](docs/spec/BULK-EVALUATION-EVIDENCE.md) v
 
 A [declaração de campos editáveis](docs/spec/BULK-EDITABLE-FIELDS.md) compila `@BulkEditable`, nomes Jackson e schema real em listas estruturais para SET/CLEAR. Ainda sem anúncio de capability ou executor.
 
+A [composição estrutural CRUD P3b-S1](docs/spec/BULK-CRUD-STRUCTURE.md) vincula os dois modos de update bulk ao PUT real do recurso, ao DTO de update e ao `ObjectMapper` configurado. O recurso declara a identidade da fonte e os campos protegidos; a composição não concede autorização nem habilita execução bulk. A API Java beta de `BulkOperationLifecycle` recebe agora `ObjectMapper` no lugar de `TypeFactory`; callers explícitos precisam migrar.
+
 A [leitura estrita do request canônico](docs/spec/CANONICAL-REQUEST-SCHEMA.md) fornece schema JSON resolvido e dialeto para compilação backend, preservando a projeção documental existente.
 
 ## Public Documentation

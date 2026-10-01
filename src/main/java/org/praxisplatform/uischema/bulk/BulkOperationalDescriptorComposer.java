@@ -14,6 +14,8 @@ final class BulkOperationalDescriptorComposer {
             BulkOperationDescriptorProvider provider) {
         Objects.requireNonNull(structural, "structural");
         Objects.requireNonNull(provider, "provider");
+        if (structural.mode() != BulkMode.DOMAIN_COMMAND)
+            throw new IllegalArgumentException("Bulk update operational composition is not supported");
         var confirmation = structural.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION).reference();
         // Take one immutable local snapshot. A host bean is user code; repeated getter calls must
         // never let its fingerprint and the value later stored for readiness disagree.

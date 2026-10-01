@@ -14,7 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Immutable structural composition of one validated bulk action and its seven real HTTP operations.
+ * Immutable structural composition of one validated bulk operation and its seven real HTTP protocol operations.
  *
  * <p>This value contains no provider, limits, persistence authority, fingerprint or readiness state.
  * It is an input to a later complete operational descriptor and must never be used as a
@@ -29,15 +29,24 @@ final class BulkOperationStructuralDescriptor {
     private final BulkMode mode;
     private final ActionCollectionAtomicity atomicity;
     private final Action action;
+    private final Update update;
     private final List<Operation> operations;
 
     BulkOperationStructuralDescriptor(String resourceKey, String openApiGroup, BulkMode mode,
             ActionCollectionAtomicity atomicity, Action action, List<Operation> operations) {
+        this(resourceKey, openApiGroup, mode, atomicity, action, null, operations);
+    }
+
+    BulkOperationStructuralDescriptor(String resourceKey, String openApiGroup, BulkMode mode,
+            ActionCollectionAtomicity atomicity, Action action, Update update, List<Operation> operations) {
         this.resourceKey = requireText(resourceKey, "resourceKey");
         this.openApiGroup = requireText(openApiGroup, "openApiGroup");
         this.mode = Objects.requireNonNull(mode, "mode");
         this.atomicity = Objects.requireNonNull(atomicity, "atomicity");
-        this.action = Objects.requireNonNull(action, "action");
+        this.action = action;
+        this.update = update;
+        if (mode == BulkMode.DOMAIN_COMMAND ? action == null || update != null : action != null || update == null)
+            throw new IllegalArgumentException("Exactly the structural branch for the declared bulk mode is required");
         this.operations = List.copyOf(operations);
         if (this.operations.size() != Role.values().length) {
             throw new IllegalArgumentException("A structural bulk descriptor requires all seven operation roles");
@@ -53,11 +62,34 @@ final class BulkOperationStructuralDescriptor {
     String openApiGroup() { return openApiGroup; }
     BulkMode mode() { return mode; }
     ActionCollectionAtomicity atomicity() { return atomicity; }
-    Action action() { return action; }
+    Action action() {
+        if (action == null) throw new IllegalStateException("Bulk update has no workflow action");
+        return action;
+    }
+    Update update() {
+        if (update == null) throw new IllegalStateException("Domain command has no unit update source");
+        return update;
+    }
     List<Operation> operations() { return operations; }
 
     Operation operation(Role role) {
         return operations.get(Objects.requireNonNull(role, "role").ordinal());
+    }
+
+    /** Captured unit-update source; it is not an eighth bulk protocol role or executable authority. */
+    record Update(CanonicalOperationRef operation, String requestJavaType, CanonicalRequestSchema requestSchema,
+            org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved filteredRequest,
+            java.util.Set<String> protectedFields, BulkEditableFields editableFields) {
+        Update {
+            Objects.requireNonNull(operation, "update.operation");
+            requestJavaType = requireText(requestJavaType, "update.requestJavaType");
+            Objects.requireNonNull(requestSchema, "update.requestSchema");
+            Objects.requireNonNull(filteredRequest, "update.filteredRequest");
+            protectedFields = java.util.Set.copyOf(protectedFields);
+            Objects.requireNonNull(editableFields, "update.editableFields");
+            if (!"PUT".equals(operation.method()) || !operation.equals(requestSchema.operation()))
+                throw new IllegalArgumentException("Unit update source must retain its exact PUT schema identity");
+        }
     }
 
     /** Fixed role ordering is part of structural descriptor canonicalization. */

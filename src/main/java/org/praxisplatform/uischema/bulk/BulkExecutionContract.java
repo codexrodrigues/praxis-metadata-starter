@@ -75,6 +75,8 @@ public record BulkExecutionContract(
 
     static BulkExecutionContract from(BulkOperationalDescriptor descriptor) {
         var structural = descriptor.structural();
+        if (structural.mode() != BulkMode.DOMAIN_COMMAND)
+            throw new IllegalArgumentException("Bulk update execution projection is not supported");
         var profile = descriptor.profile();
         var evaluationSchema = structural.operation(BulkOperationStructuralDescriptor.Role.EVALUATION)
                 .requestSchema().orElseThrow().schema();

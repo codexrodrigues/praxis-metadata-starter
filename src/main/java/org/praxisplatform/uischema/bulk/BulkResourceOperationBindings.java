@@ -46,13 +46,15 @@ public final class BulkResourceOperationBindings {
     private final Map<HandlerMethod, BulkOperationBinding> bulkOperationsByConfirmation;
     private final Set<String> bodylessLifecycleOperationIds;
     private final Set<String> declaredOperationIds;
+    private final Set<String> declaredUpdateConfirmationIds;
     private final List<String> diagnostics;
 
     private BulkResourceOperationBindings(Map<HandlerMethod, String> operationIdsByHandler,
             Map<String, HandlerMethod> handlersByOperationId,
             Map<HandlerMethod, List<RequestMappingInfo>> mappingsByHandler,
             Map<HandlerMethod, BulkOperationBinding> bulkOperationsByConfirmation,
-            Set<String> bodylessLifecycleOperationIds, Set<String> declaredOperationIds, List<String> diagnostics) {
+            Set<String> bodylessLifecycleOperationIds, Set<String> declaredOperationIds,
+            Set<String> declaredUpdateConfirmationIds, List<String> diagnostics) {
         this.operationIdsByHandler = Map.copyOf(operationIdsByHandler);
         this.handlersByOperationId = Map.copyOf(handlersByOperationId);
         this.mappingsByHandler = mappingsByHandler.entrySet().stream().collect(Collectors.toUnmodifiableMap(
@@ -60,11 +62,12 @@ public final class BulkResourceOperationBindings {
         this.bulkOperationsByConfirmation = Map.copyOf(bulkOperationsByConfirmation);
         this.bodylessLifecycleOperationIds = Set.copyOf(bodylessLifecycleOperationIds);
         this.declaredOperationIds = Set.copyOf(declaredOperationIds);
+        this.declaredUpdateConfirmationIds = Set.copyOf(declaredUpdateConfirmationIds);
         this.diagnostics = List.copyOf(diagnostics);
     }
 
     public static BulkResourceOperationBindings empty() {
-        return new BulkResourceOperationBindings(Map.of(), Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), List.of());
+        return new BulkResourceOperationBindings(Map.of(), Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), Set.of(), List.of());
     }
 
     /**
@@ -77,6 +80,7 @@ public final class BulkResourceOperationBindings {
 
         Map<Class<?>, ResourceCandidate> candidates = new LinkedHashMap<>();
         Set<String> orphanDeclaredIds = new HashSet<>();
+        Set<String> orphanUpdateIds = new HashSet<>();
         List<String> orphanDiagnostics = new ArrayList<>();
         for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : mapping.getHandlerMethods().entrySet()) {
             HandlerMethod handler = entry.getValue();
@@ -87,7 +91,11 @@ public final class BulkResourceOperationBindings {
                         handler.getMethod(), BulkOperation.class);
                 if (orphan != null) {
                     String confirmationId = explicitOperationId(handler);
-                    if (StringUtils.hasText(confirmationId)) orphanDeclaredIds.add(confirmationId);
+                    if (StringUtils.hasText(confirmationId)) {
+                        orphanDeclaredIds.add(confirmationId);
+                        if (orphan.mode() == BulkMode.UNIFORM_UPDATE || orphan.mode() == BulkMode.PER_ITEM_UPDATE)
+                            orphanUpdateIds.add(confirmationId);
+                    }
                     if (StringUtils.hasText(orphan.evaluationOperationId()))
                         orphanDeclaredIds.add(orphan.evaluationOperationId());
                     orphanDiagnostics.add(handler.getBeanType().getName()
@@ -108,15 +116,21 @@ public final class BulkResourceOperationBindings {
         List<String> diagnostics = new ArrayList<>();
         diagnostics.addAll(orphanDiagnostics);
         Set<String> declaredIds = new HashSet<>(orphanDeclaredIds);
+        Set<String> declaredUpdateIds = new HashSet<>(orphanUpdateIds);
         Set<String> bodylessLifecycleIds = new HashSet<>();
         List<BoundResource> valid = new ArrayList<>();
         for (ResourceCandidate candidate : candidates.values()) {
             operationIds(candidate.declaration).values().stream().filter(StringUtils::hasText).forEach(declaredIds::add);
-            operationIds(candidate.declaration).values().stream().filter(StringUtils::hasText)
-                    .forEach(bodylessLifecycleIds::add);
+            operationIds(candidate.declaration).entrySet().stream()
+                    .filter(entry -> entry.getKey() != BulkResourceOperation.Role.UPDATE_SOURCE)
+                    .map(Map.Entry::getValue).filter(StringUtils::hasText).forEach(bodylessLifecycleIds::add);
             candidate.actions.forEach(action -> {
                 String confirmationId = explicitOperationId(action.handler);
-                if (StringUtils.hasText(confirmationId)) declaredIds.add(confirmationId);
+                if (StringUtils.hasText(confirmationId)) {
+                    declaredIds.add(confirmationId);
+                    if (action.declaration.mode() == BulkMode.UNIFORM_UPDATE || action.declaration.mode() == BulkMode.PER_ITEM_UPDATE)
+                        declaredUpdateIds.add(confirmationId);
+                }
                 if (StringUtils.hasText(action.declaration.evaluationOperationId()))
                     declaredIds.add(action.declaration.evaluationOperationId());
             });
@@ -197,7 +211,7 @@ public final class BulkResourceOperationBindings {
                 .collect(Collectors.groupingBy(Map.Entry::getValue,
                         Collectors.mapping(Map.Entry::getKey, Collectors.toList())));
         return new BulkResourceOperationBindings(byHandler, byId, mappingsByHandler, bulkByConfirmation,
-                bodylessLifecycleIds, declaredIds, diagnostics);
+                bodylessLifecycleIds, declaredIds, declaredUpdateIds, diagnostics);
     }
 
     public Optional<String> operationIdFor(HandlerMethod handler) {
@@ -236,6 +250,11 @@ public final class BulkResourceOperationBindings {
         return declaredOperationIds.contains(operationId);
     }
 
+    /** Retains explicit UPDATE claims even when their enclosing resource failed validation. */
+    boolean declaresUpdateConfirmation(String operationId) {
+        return declaredUpdateConfirmationIds.contains(operationId);
+    }
+
     /** Diagnostics indicate omitted opt-in declarations; callers must not project them as ready. */
     public List<String> diagnostics() {
         return diagnostics;
@@ -252,7 +271,7 @@ public final class BulkResourceOperationBindings {
             if (!isCanonicalText(id)) errors.add("operationId for " + role + " must be canonical nonblank text");
             else if (!uniqueIds.add(id)) errors.add("declared bulk operationIds must be unique");
         });
-        for (BulkResourceOperation.Role role : BulkResourceOperation.Role.values()) {
+        for (BulkResourceOperation.Role role : ids.keySet()) {
             List<MappedHandler> matches = candidate.roles.getOrDefault(role, List.of());
             if (matches.size() != 1) {
                 errors.add("exactly one MVC handler is required for role " + role);
@@ -265,7 +284,7 @@ public final class BulkResourceOperationBindings {
                 errors.add("role " + role + " requires one canonical path and HTTP " + role.httpMethod());
             }
             if (!mapping.getParamsCondition().isEmpty() || !mapping.getHeadersCondition().isEmpty()
-                    || !mapping.getConsumesCondition().getExpressions().isEmpty()
+                    || role != BulkResourceOperation.Role.UPDATE_SOURCE && !mapping.getConsumesCondition().getExpressions().isEmpty()
                     || mapping.getCustomCondition() != null) {
                 errors.add("conditional routing and request consumes constraints are not supported for role " + role);
             }
@@ -287,16 +306,36 @@ public final class BulkResourceOperationBindings {
             if (StringUtils.hasText(explicitId) && !explicitId.equals(ids.get(role))) {
                 errors.add("@Operation operationId conflicts with the declared identity for role " + role);
             }
-            if (java.util.Arrays.stream(handler.getMethodParameters()).anyMatch(parameter -> {
+            boolean hasBody = java.util.Arrays.stream(handler.getMethodParameters()).anyMatch(parameter -> {
                 Class<?> parameterType = parameter.getParameterType();
                 return AnnotatedElementUtils.hasAnnotation(parameter.getParameter(), RequestBody.class)
                         || AnnotatedElementUtils.hasAnnotation(parameter.getParameter(), RequestPart.class)
                         || HttpEntity.class.isAssignableFrom(parameterType)
                         || RequestEntity.class.isAssignableFrom(parameterType);
-            })) {
+            });
+            if (role == BulkResourceOperation.Role.UPDATE_SOURCE) {
+                if (!hasBody) errors.add("unit update source requires a direct request DTO");
+                if (AnnotatedElementUtils.hasAnnotation(handler.getMethod(), WorkflowAction.class)
+                        || AnnotatedElementUtils.hasAnnotation(handler.getMethod(), BulkOperation.class))
+                    errors.add("unit update source cannot be a workflow or bulk confirmation");
+            } else if (hasBody) {
                 errors.add("request bodies and HTTP entity parameters are not supported for shared lifecycle role " + role);
             }
         }
+        String updateId = candidate.declaration.updateSourceOperationId();
+        boolean declaresUpdate = candidate.actions.stream().anyMatch(action ->
+                action.declaration.mode() == BulkMode.UNIFORM_UPDATE || action.declaration.mode() == BulkMode.PER_ITEM_UPDATE);
+        if (!updateId.isEmpty() && !declaresUpdate)
+            errors.add("updateSourceOperationId requires at least one declared bulk update mode");
+        if (!updateId.isEmpty() && !isCanonicalText(updateId))
+            errors.add("updateSourceOperationId must be empty or canonical nonblank text");
+        Set<String> protectedFields = new HashSet<>();
+        for (String field : candidate.declaration.protectedUpdateFields()) {
+            if (!isCanonicalText(field) || !protectedFields.add(field))
+                errors.add("protectedUpdateFields must contain unique canonical wire names");
+        }
+        if (updateId.isEmpty() && !protectedFields.isEmpty())
+            errors.add("protectedUpdateFields requires the declared unit update source");
         errors.addAll(validateActions(candidate, registry, uniqueIds));
         return errors;
     }
@@ -331,10 +370,14 @@ public final class BulkResourceOperationBindings {
 
             WorkflowAction workflow = AnnotatedElementUtils.findMergedAnnotation(confirmation.getMethod(),
                     WorkflowAction.class);
-            if (workflow == null) {
-                errors.add("bulk confirmation handler must also declare @WorkflowAction");
-            } else if (workflow.atomicity() != atomicity) {
-                errors.add("@WorkflowAction atomicity must match @BulkOperation atomicity");
+            if (action.declaration.mode() == BulkMode.DOMAIN_COMMAND) {
+                if (workflow == null) errors.add("bulk confirmation handler must also declare @WorkflowAction");
+                else if (workflow.atomicity() != atomicity)
+                    errors.add("@WorkflowAction atomicity must match @BulkOperation atomicity");
+            } else {
+                if (workflow != null) errors.add("bulk update confirmation must not declare @WorkflowAction");
+                if (!isCanonicalText(candidate.declaration.updateSourceOperationId()))
+                    errors.add("bulk update requires a declared updateSourceOperationId");
             }
             if (AnnotatedElementUtils.hasAnnotation(confirmation.getBeanType(), Hidden.class)
                     || AnnotatedElementUtils.hasAnnotation(confirmation.getMethod(), Hidden.class)) {
@@ -416,7 +459,11 @@ public final class BulkResourceOperationBindings {
                     .findFirst().orElseThrow();
             return new BulkOperationBinding(resource.resourceKey(), confirmationId,
                     action.declaration.evaluationOperationId(), action.declaration.mode(),
-                    action.declaration.atomicity(), action.handler, evaluationHandler);
+                    action.declaration.atomicity(), action.handler, evaluationHandler,
+                    candidate.declaration.updateSourceOperationId().isEmpty() ? null : candidate.declaration.updateSourceOperationId(),
+                    candidate.declaration.updateSourceOperationId().isEmpty() ? null
+                            : candidate.roles.get(BulkResourceOperation.Role.UPDATE_SOURCE).getFirst().handler,
+                    Set.of(candidate.declaration.protectedUpdateFields()));
         }).toList();
         return new BoundResource(candidate.controllerType, resource.resourceKey(),
                 Collections.unmodifiableMap(byRole), actions);
@@ -429,6 +476,8 @@ public final class BulkResourceOperationBindings {
         result.put(BulkResourceOperation.Role.EXECUTION, declaration.executionOperationId());
         result.put(BulkResourceOperation.Role.EXECUTION_RESULTS, declaration.executionResultsOperationId());
         result.put(BulkResourceOperation.Role.CANCEL, declaration.cancelOperationId());
+        if (!declaration.updateSourceOperationId().isEmpty())
+            result.put(BulkResourceOperation.Role.UPDATE_SOURCE, declaration.updateSourceOperationId());
         return result;
     }
 

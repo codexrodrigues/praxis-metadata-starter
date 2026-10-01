@@ -1,6 +1,6 @@
 package org.praxisplatform.uischema.bulk;
 
-import com.fasterxml.jackson.databind.type.TypeFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import org.praxisplatform.uischema.action.ActionDefinition;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
@@ -49,22 +49,22 @@ final class BulkOperationStructuralCompiler {
     private final CanonicalOperationResolver operationResolver;
     private final OpenApiDocumentService documents;
     private final ActionDefinitionRegistry actionDefinitions;
-    private final TypeFactory typeFactory;
+    private final ObjectMapper mapper;
     private final SchemaReferenceResolver schemaReferences;
     private final org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilities;
 
     BulkOperationStructuralCompiler(BulkResourceOperationBindings bindings,
             CanonicalOperationResolver operationResolver,
             OpenApiDocumentService documents,
-            ActionDefinitionRegistry actionDefinitions, TypeFactory typeFactory,
+            ActionDefinitionRegistry actionDefinitions, ObjectMapper mapper,
             SchemaReferenceResolver schemaReferences) {
-        this(bindings, operationResolver, documents, actionDefinitions, typeFactory, schemaReferences,
+        this(bindings, operationResolver, documents, actionDefinitions, mapper, schemaReferences,
                 new org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver(documents));
     }
 
     BulkOperationStructuralCompiler(BulkResourceOperationBindings bindings,
             CanonicalOperationResolver operationResolver, OpenApiDocumentService documents,
-            ActionDefinitionRegistry actionDefinitions, TypeFactory typeFactory,
+            ActionDefinitionRegistry actionDefinitions, ObjectMapper mapper,
             SchemaReferenceResolver schemaReferences,
             org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilities) {
         this.capabilities = Objects.requireNonNull(capabilities, "capabilities");
@@ -72,7 +72,7 @@ final class BulkOperationStructuralCompiler {
         this.operationResolver = Objects.requireNonNull(operationResolver, "operationResolver");
         this.documents = Objects.requireNonNull(documents, "documents");
         this.actionDefinitions = Objects.requireNonNull(actionDefinitions, "actionDefinitions");
-        this.typeFactory = Objects.requireNonNull(typeFactory, "typeFactory");
+        this.mapper = Objects.requireNonNull(mapper, "mapper");
         this.schemaReferences = Objects.requireNonNull(schemaReferences, "schemaReferences");
     }
 
@@ -107,7 +107,8 @@ final class BulkOperationStructuralCompiler {
                 binding.confirmationHandler().getMethod(), BulkOperation.class);
         WorkflowAction workflow = AnnotatedElementUtils.findMergedAnnotation(
                 binding.confirmationHandler().getMethod(), WorkflowAction.class);
-        if (resource == null || lifecycle == null || declaration == null || workflow == null
+        if (resource == null || lifecycle == null || declaration == null
+                || (binding.mode() == BulkMode.DOMAIN_COMMAND ? workflow == null : workflow != null)
                 || !binding.resourceKey().equals(resource.resourceKey())
                 || !binding.mode().equals(declaration.mode()) || binding.atomicity() != declaration.atomicity()
                 || !binding.evaluationOperationId().equals(declaration.evaluationOperationId())) {
@@ -118,9 +119,12 @@ final class BulkOperationStructuralCompiler {
             throw invalid("Bulk confirmation/evaluation operation IDs changed after binding");
         }
 
+        if (!Objects.equals(binding.updateSourceOperationId().orElse(""), lifecycle.updateSourceOperationId())
+                || !binding.protectedUpdateFields().equals(java.util.Set.of(lifecycle.protectedUpdateFields())))
+            throw invalid("Unit update declaration changed after MVC binding");
         Map<BulkResourceOperation.Role, String> lifecycleIds = lifecycleIds(lifecycle);
         List<PendingOperation> pending = new ArrayList<>(BulkOperationStructuralDescriptor.Role.values().length);
-        for (BulkResourceOperation.Role role : BulkResourceOperation.Role.values()) {
+        for (BulkResourceOperation.Role role : lifecycleIds.keySet()) {
             String operationId = lifecycleIds.get(role);
             HandlerMethod actual = bindings.handlerFor(operationId).orElseThrow(() ->
                     invalid("Validated lifecycle role " + role + " has no real MVC handler"));
@@ -148,15 +152,52 @@ final class BulkOperationStructuralCompiler {
         if (pending.stream().anyMatch(operation -> !group.equals(operation.reference().group()))) {
             throw invalid("All seven bulk operations must belong to one exact OpenAPI group");
         }
+        CanonicalRequestBodyBinding updateBody = null;
+        if (binding.mode() != BulkMode.DOMAIN_COMMAND) {
+            HandlerMethod source = binding.updateSourceHandler().orElseThrow(() -> invalid("Unit update source is required"));
+            String sourceId = binding.updateSourceOperationId().orElseThrow();
+            if (!source.getBeanType().equals(binding.confirmationHandler().getBeanType())
+                    || !bindings.handlerFor(sourceId).filter(source::equals).isPresent())
+                throw invalid("Unit update source differs from the bound resource controller");
+            var mapping = bindings.mappingFor(source).orElseThrow(() -> invalid("Unit update mapping is ambiguous"));
+            var reference = operationResolver.resolve(source, mapping);
+            if (!sourceId.equals(reference.operationId()) || !"PUT".equals(reference.method()) || !group.equals(reference.group()))
+                throw invalid("Unit update source must be the declared PUT in the same exact group");
+            updateBody = operationResolver.requireResourceRequestBody(binding.resourceKey(), reference, mapper.getTypeFactory());
+            if (!reference.equals(updateBody.operation())) throw invalid("Unit update DTO binding changed operation identity");
+        }
         CanonicalOpenApiGroupSnapshot snapshot = snapshots.computeIfAbsent(group, exactGroup -> refreshOpenApi
                 ? CanonicalOpenApiGroupSnapshot.captureFresh(documents, exactGroup)
                 : CanonicalOpenApiGroupSnapshot.capture(documents, exactGroup));
-        List<CanonicalOperationRef> resolved = operationResolver.requireResourceOperations(binding.resourceKey(),
-                pending.stream().map(PendingOperation::reference).toList(), snapshot);
-        if (!resolved.equals(pending.stream().map(PendingOperation::reference).toList())) {
+        List<CanonicalOperationRef> requested = new ArrayList<>(pending.stream().map(PendingOperation::reference).toList());
+        if (updateBody != null) requested.add(updateBody.operation());
+        List<CanonicalOperationRef> resolved = operationResolver.requireResourceOperations(binding.resourceKey(), requested, snapshot);
+        if (!resolved.equals(requested)) {
             throw invalid("Batch strict resolver returned a different operation ordering or identity");
         }
-        ActionDefinition action = requireAction(binding, workflow, resource, pending.getLast().reference());
+        ActionDefinition action = binding.mode() == BulkMode.DOMAIN_COMMAND
+                ? requireAction(binding, workflow, resource, pending.getLast().reference()) : null;
+        BulkOperationStructuralDescriptor.Update update = null;
+        if (updateBody != null) {
+            var request = snapshot.requireRequestSchema(updateBody.operation());
+            var projection = snapshot.resolveFilteredProjection(updateBody.operation(), "request", schemaReferences,
+                    capabilities, null, null);
+            var dto = mapper.getDeserializationConfig().introspect(updateBody.bodyType());
+            var dtoFields = dto.findProperties().stream()
+                    .filter(property -> acceptsProtectedInput(dto, property))
+                    .map(com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition::getName)
+                    .collect(java.util.stream.Collectors.toSet());
+            for (String protectedField : binding.protectedUpdateFields()) {
+                if (!dtoFields.contains(protectedField) || !request.schema().path("properties").has(protectedField))
+                    throw invalid("Protected update wire name is absent from the actual DTO or request schema: " + protectedField);
+            }
+            var fields = BulkEditableFields.compile(mapper, updateBody.bodyType(), request.schema(), request.specVersion(),
+                    binding.protectedUpdateFields());
+            if (fields.writableFields(binding.mode()).isEmpty())
+                throw invalid("Declared bulk update mode has no structurally editable fields");
+            update = new BulkOperationStructuralDescriptor.Update(updateBody.operation(), updateBody.bodyType().toCanonical(),
+                    request, projection, binding.protectedUpdateFields(), fields);
+        }
 
         List<BulkOperationStructuralDescriptor.Operation> operations = new ArrayList<>(pending.size());
         for (PendingOperation operation : pending) {
@@ -181,15 +222,15 @@ final class BulkOperationStructuralCompiler {
             String responseJavaType = returnJavaType(operation.handler());
             // UI projection failure never weakens strict raw-schema validation above. It makes
             // this structural evidence unprojectable; operational composition rejects it before READY.
-            String idField = operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION
+            String idField = action != null && operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION
                     ? queryParameters(URI.create(action.responseSchema().url()).getRawQuery()).get("idField") : null;
-            Boolean readOnly = operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION ? false : null;
+            Boolean readOnly = action != null && operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION ? false : null;
             var filteredResponse = filteredProjection(snapshot, operation.reference(), "response", idField, readOnly);
-            String requestIdField = operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION
+            String requestIdField = action != null && operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION
                     ? queryParameters(URI.create(action.requestSchema().url()).getRawQuery()).get("idField") : null;
             var filteredRequest = request == null ? null
                     : filteredProjection(snapshot, operation.reference(), "request", requestIdField, readOnly);
-            if (operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION) {
+            if (action != null && operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION) {
                 if (filteredResponse != null && !filteredResponse.reference().equals(action.responseSchema()))
                     throw invalid("Confirmation filtered response differs from the captured action reference");
                 if (filteredRequest != null && !filteredRequest.reference().equals(action.requestSchema()))
@@ -200,7 +241,7 @@ final class BulkOperationStructuralCompiler {
                     filteredRequest, filteredResponse));
         }
         return new BulkOperationStructuralDescriptor(binding.resourceKey(), group, binding.mode(),
-                binding.atomicity(), BulkOperationStructuralDescriptor.Action.from(action), operations);
+                binding.atomicity(), action == null ? null : BulkOperationStructuralDescriptor.Action.from(action), update, operations);
     }
 
     private org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved filteredProjection(
@@ -211,6 +252,19 @@ final class BulkOperationStructuralCompiler {
         } catch (RuntimeException unavailableProjection) {
             return null;
         }
+    }
+
+    private boolean acceptsProtectedInput(com.fasterxml.jackson.databind.BeanDescription dto,
+            com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition property) {
+        if (!property.couldDeserialize()) return false;
+        var config = mapper.getDeserializationConfig();
+        var ignorals = config.getDefaultPropertyIgnorals(dto.getBeanClass(), dto.getClassInfo());
+        if (ignorals != null && ignorals.findIgnoredForDeserialization().contains(property.getName())) return false;
+        if (!dto.getType().isRecordType()) return true;
+        // Jackson can retain the record creator parameter while an ignored accessor removes
+        // the input value. Consult its configured class metadata so mix-ins remain effective.
+        var accessor = dto.getClassInfo().findMethod(property.getInternalName(), new Class<?>[0]);
+        return accessor == null || !config.getAnnotationIntrospector().hasIgnoreMarker(accessor);
     }
 
     private PendingOperation bodyOperation(BulkOperationStructuralDescriptor.Role role, String operationId,
@@ -225,7 +279,7 @@ final class BulkOperationStructuralCompiler {
             throw invalid("Bulk body operation is not the declared POST handler: " + operationId);
         }
         CanonicalRequestBodyBinding body = operationResolver.requireResourceRequestBody(resourceKey,
-                reference, typeFactory);
+                reference, mapper.getTypeFactory());
         if (!body.operation().equals(reference)) throw invalid("Request DTO binding changed its operation identity");
         return new PendingOperation(role, reference, handler, body);
     }
@@ -360,6 +414,7 @@ final class BulkOperationStructuralCompiler {
             case EXECUTION -> BulkOperationStructuralDescriptor.Role.EXECUTION;
             case EXECUTION_RESULTS -> BulkOperationStructuralDescriptor.Role.EXECUTION_RESULTS;
             case CANCEL -> BulkOperationStructuralDescriptor.Role.CANCEL;
+            case UPDATE_SOURCE -> throw invalid("Unit update source is not a bulk protocol role");
         };
     }
 
@@ -370,7 +425,7 @@ final class BulkOperationStructuralCompiler {
 
     private String returnJavaType(HandlerMethod handler) {
         Type responseType = handler.getMethod().getGenericReturnType();
-        return typeFactory.constructType(responseType, handler.getBeanType()).toCanonical();
+        return mapper.getTypeFactory().constructType(responseType, handler.getBeanType()).toCanonical();
     }
 
     private static IllegalStateException invalid(String message) {

@@ -36,7 +36,7 @@ public class BulkOperationLifecycleAutoConfiguration {
             ObjectProvider<BulkOperationDescriptorProvider> providers,
             org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilities) {
         return new BulkOperationLifecycle(bindings, operations, documents, actions,
-                objectMapper.getTypeFactory(), schemaReferences, runtime, controlPlane,
+                objectMapper, schemaReferences, runtime, controlPlane,
                 providers.orderedStream().toList(), capabilities);
     }
 }

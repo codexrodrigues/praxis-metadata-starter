@@ -64,7 +64,7 @@ class BulkActionSchemaProjectionHttpTest {
     void allSevenRolesServeTheirOwnUiVariantIdentityAndStructuralHashOverHttp() throws Exception {
         ReflectionTestUtils.setField(docsSupport, "openApiInternalBaseUrl", url(""));
         var compiler = new BulkOperationStructuralCompiler(bindings, operations, documents, actions,
-                mapper.getTypeFactory(), references, capabilities);
+                mapper, references, capabilities);
         var descriptor = compiler.compileAll().stream().filter(value -> RESOURCE.equals(value.resourceKey())).findFirst().orElseThrow();
         assertEquals(7, descriptor.operations().size());
         List<Boolean> readOnlyValues = new ArrayList<>();

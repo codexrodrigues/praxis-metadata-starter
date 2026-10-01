@@ -358,6 +358,94 @@ class BulkResourceOperationBindingsTest {
         }
     }
 
+    @Test
+    void unitUpdateSourceIsSharedByModesAndNeverBodyless() {
+        try (var context = context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            assertTrue(bindings.diagnostics().isEmpty(), bindings.diagnostics().toString());
+            assertEquals(2, bindings.bulkOperations().size());
+            var source = bindings.handlerFor("crud.update").orElseThrow();
+            assertFalse(bindings.requiresBodylessLifecycle("crud.update"));
+            for (var operation : bindings.bulkOperations()) {
+                assertEquals(source, operation.updateSourceHandler().orElseThrow());
+                assertEquals(java.util.Set.of("identity", "revision"), operation.protectedUpdateFields());
+            }
+            var documentOperation = new io.swagger.v3.oas.models.Operation().operationId("implicitUpdate");
+            new BulkResourceOperationIdCustomizer(bindings).customize(documentOperation, source);
+            assertEquals("crud.update", documentOperation.getOperationId());
+        }
+    }
+
+    @Test
+    void commandOnlyResourceCannotOptIntoAnUnusedUpdateSource() {
+        try (var context = context(UnusedUpdateSource.class)) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            assertTrue(bindings.diagnostics().stream().anyMatch(message ->
+                    message.contains("requires at least one declared bulk update mode")));
+            assertTrue(bindings.bulkOperations().isEmpty());
+            var source = handler(mvc, "ordinaryUpdate");
+            assertTrue(bindings.operationIdFor(source).isEmpty());
+            var operation = new io.swagger.v3.oas.models.Operation().operationId("ordinaryUpdate");
+            new BulkResourceOperationIdCustomizer(bindings).customize(operation, source);
+            assertEquals("ordinaryUpdate", operation.getOperationId());
+        }
+    }
+
+    @BulkResourceOperations(proposalOperationId = "items.bulk.proposal", proposalResultsOperationId = "items.bulk.proposal-results",
+            executionOperationId = "items.bulk.execution", executionResultsOperationId = "items.bulk.execution-results",
+            cancelOperationId = "items.bulk.cancel", updateSourceOperationId = "items.update", protectedUpdateFields = {"identity"})
+    static class UnusedUpdateSource extends CompleteBulkController {
+        @BulkResourceOperation(BulkResourceOperation.Role.UPDATE_SOURCE)
+        @org.springframework.web.bind.annotation.PutMapping("/{id}")
+        public String ordinaryUpdate(@org.springframework.web.bind.annotation.RequestBody String body) { return body; }
+    }
+
+    @Test
+    void incompleteOrAmbiguousUpdateSourceRejectsTheWholeResource() {
+        for (var controller : List.of(MissingUpdateSource.class, HiddenUpdateSource.class,
+                ConflictingUpdateSource.class, DuplicateUpdateSource.class, WrongVerbUpdateSource.class)) {
+            try (var context = context(controller)) {
+                var bindings = BulkResourceOperationBindings.from(context.getBean(RequestMappingHandlerMapping.class));
+                assertFalse(bindings.diagnostics().isEmpty(), controller.getName());
+                assertTrue(bindings.bulkOperations().isEmpty(), controller.getName());
+                assertTrue(bindings.handlerFor("crud.uniform").isEmpty());
+            }
+        }
+        try (var context = context(BulkCrudStructuralCompilerTest.CrudController.class, ForeignUpdateCollision.class)) {
+            var bindings = BulkResourceOperationBindings.from(context.getBean(RequestMappingHandlerMapping.class));
+            assertFalse(bindings.diagnostics().isEmpty());
+            assertTrue(bindings.handlerFor("crud.update").isEmpty());
+        }
+    }
+
+    @BulkResourceOperations(proposalOperationId = "crud.proposal", proposalResultsOperationId = "crud.proposal-results",
+            executionOperationId = "crud.execution", executionResultsOperationId = "crud.results", cancelOperationId = "crud.cancel")
+    static class MissingUpdateSource extends BulkCrudStructuralCompilerTest.CrudController { }
+    static class HiddenUpdateSource extends BulkCrudStructuralCompilerTest.CrudController {
+        @Override @io.swagger.v3.oas.annotations.Hidden
+        public BulkCrudStructuralCompilerTest.Update update(@org.springframework.web.bind.annotation.RequestBody BulkCrudStructuralCompilerTest.Update body) { return body; }
+    }
+    static class ConflictingUpdateSource extends BulkCrudStructuralCompilerTest.CrudController {
+        @Override @Operation(operationId = "different.update")
+        public BulkCrudStructuralCompilerTest.Update update(@org.springframework.web.bind.annotation.RequestBody BulkCrudStructuralCompilerTest.Update body) { return body; }
+    }
+    static class DuplicateUpdateSource extends BulkCrudStructuralCompilerTest.CrudController {
+        @BulkResourceOperation(BulkResourceOperation.Role.UPDATE_SOURCE)
+        @org.springframework.web.bind.annotation.PutMapping("/other")
+        public BulkCrudStructuralCompilerTest.Update other(@org.springframework.web.bind.annotation.RequestBody BulkCrudStructuralCompilerTest.Update body) { return body; }
+    }
+    static class WrongVerbUpdateSource extends BulkCrudStructuralCompilerTest.CrudController {
+        @Override @org.springframework.web.bind.annotation.PatchMapping("/{id}")
+        public BulkCrudStructuralCompilerTest.Update update(@org.springframework.web.bind.annotation.RequestBody BulkCrudStructuralCompilerTest.Update body) { return body; }
+    }
+    @ApiResource(value = "/foreign-update", resourceKey = "foreign.update")
+    static class ForeignUpdateCollision {
+        @Operation(operationId = "crud.update") @org.springframework.web.bind.annotation.PutMapping("/{id}")
+        public String update(@org.springframework.web.bind.annotation.RequestBody String value) { return value; }
+    }
+
     private AnnotationConfigWebApplicationContext context(Class<?>... controllers) {
         AnnotationConfigWebApplicationContext context = new AnnotationConfigWebApplicationContext();
         context.setServletContext(new MockServletContext());

@@ -6,7 +6,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Marks a real MVC handler with its structural role in the shared bulk lifecycle. */
+/** Marks a real MVC handler with its structural role in a bulk resource composition. */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
@@ -18,7 +18,9 @@ public @interface BulkResourceOperation {
         PROPOSAL_RESULTS("GET"),
         EXECUTION("GET"),
         EXECUTION_RESULTS("GET"),
-        CANCEL("POST");
+        CANCEL("POST"),
+        /** Unit update source, never a bodyless lifecycle or protocol role. */
+        UPDATE_SOURCE("PUT");
 
         private final String httpMethod;
 

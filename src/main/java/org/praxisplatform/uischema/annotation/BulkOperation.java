@@ -10,11 +10,12 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declares the bulk contract of a real workflow confirmation handler.
+ * Declares the bulk contract of a real bulk confirmation handler.
  *
  * <p>The evaluation operation is an explicit operationId on another POST handler of the same
  * {@code @ApiResource}. This annotation declares metadata only: it creates no route, permission,
- * provider, durable readiness or executable capability.</p>
+ * provider, durable readiness or executable capability. DOMAIN_COMMAND requires a workflow
+ * action; update modes use the unit source declared by {@code @BulkResourceOperations}.</p>
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

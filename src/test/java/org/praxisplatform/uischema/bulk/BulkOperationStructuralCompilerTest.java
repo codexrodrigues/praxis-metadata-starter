@@ -76,7 +76,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(document(true));
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("inventory"));
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver());
 
             BulkOperationStructuralDescriptor descriptor = compiler.compileAll().getFirst();
 
@@ -119,7 +119,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(document(true));
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(actionDefinition("item+id")), new ObjectMapper().getTypeFactory(),
+                    registry(actionDefinition("item+id")), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver());
 
             var descriptor = compiler.compileAll().getFirst();
@@ -137,7 +137,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(document(true));
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(actionDefinition("id", "inventory-business")), new ObjectMapper().getTypeFactory(),
+                    registry(actionDefinition("id", "inventory-business")), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver());
 
             var descriptor = compiler.compileAll().getFirst();
@@ -156,7 +156,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
             var structural = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver()).compileAll().getFirst();
             var first = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
             var repeated = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
@@ -189,7 +189,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
             var structural = new BulkOperationStructuralCompiler(bindings,
                     new OpenApiCanonicalOperationResolver(documents, mvc, bindings), documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver()).compileAll().getFirst();
             assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(
                     structural, provider("provider.r1", "deployment-a", "another.confirmation")));
@@ -204,7 +204,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
             var structural = new BulkOperationStructuralCompiler(bindings,
                     new OpenApiCanonicalOperationResolver(documents, mvc, bindings), documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver()).compileAll().getFirst();
             var atomic = new BulkOperationStructuralDescriptor(structural.resourceKey(), structural.openApiGroup(),
                     structural.mode(), ActionCollectionAtomicity.ATOMIC, structural.action(), structural.operations());
@@ -221,7 +221,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
             var structural = new BulkOperationStructuralCompiler(bindings,
                     new OpenApiCanonicalOperationResolver(documents, mvc, bindings), documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver()).compileAll().getFirst();
             var provider = provider("provider.r1", "deployment-a");
             BulkOperationalDescriptorComposer.compose(structural, provider);
@@ -305,7 +305,7 @@ class BulkOperationStructuralCompilerTest {
             });
             var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents, registry(actionDefinition()),
-                    new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    new ObjectMapper(), new FilteredSchemaReferenceResolver());
             var descriptor = BulkOperationalDescriptorComposer.compose(compiler.compileAll().getFirst(), provider);
             var reads = new AtomicInteger();
             var attempts = new AtomicInteger();
@@ -326,7 +326,7 @@ class BulkOperationStructuralCompilerTest {
                         return new JdbcBulkOperationControl.Transition(true, 1);
                     });
             var lifecycle = new BulkOperationLifecycle(bindings, resolver, documents, registry(actionDefinition()),
-                    new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver(), runtime, control, List.of(provider));
+                    new ObjectMapper(), new FilteredSchemaReferenceResolver(), runtime, control, List.of(provider));
             var identity = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
             if (expireWhileAcquiringConnection) {
                 assertThrows(IllegalStateException.class, () -> lifecycle.publish(identity, 0));
@@ -362,7 +362,7 @@ class BulkOperationStructuralCompilerTest {
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
             var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
             var lifecycle = new BulkOperationLifecycle(bindings, resolver, documents, registry(actionDefinition()),
-                    new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver(), runtime, control,
+                    new ObjectMapper(), new FilteredSchemaReferenceResolver(), runtime, control,
                     List.of(provider));
 
             assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(operation));
@@ -567,7 +567,7 @@ class BulkOperationStructuralCompilerTest {
         var action = actionDefinition();
         var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
         var lifecycle = new BulkOperationLifecycle(bindings, new OpenApiCanonicalOperationResolver(documents, mvc, bindings),
-                documents, registry(action), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver(),
+                documents, registry(action), new ObjectMapper(), new FilteredSchemaReferenceResolver(),
                 runtime, control, List.of(provider));
         var ready = lifecycle.publish(identity, 0);
         return new DiscoveryFixture(documents, client, lifecycle, provider, action, identity, control, ready, freshReads, failFresh);
@@ -619,7 +619,7 @@ class BulkOperationStructuralCompilerTest {
             var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
             var action = actionDefinition();
             var lifecycle = new BulkOperationLifecycle(bindings, new OpenApiCanonicalOperationResolver(documents, mvc, bindings),
-                    documents, registry(action), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver(),
+                    documents, registry(action), new ObjectMapper(), new FilteredSchemaReferenceResolver(),
                     runtime, control, List.of(provider));
             assertTrue(lifecycle.projectReadyActions(List.of(action)).isEmpty(), "UNCOMPOSED cannot expose bulk");
             var ready = lifecycle.publish(identity, 0);
@@ -755,7 +755,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
             var lifecycle = new BulkOperationLifecycle(bindings,
                     new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("inventory")), documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver(), runtime, control, List.of());
 
             assertThrows(IllegalStateException.class, () -> lifecycle.publish(operation, 0));
@@ -782,7 +782,7 @@ class BulkOperationStructuralCompilerTest {
                     resolver.refreshPublishedOpenApiGroupsStrict(java.util.Set.of("inventory")));
             assertEquals(2, documents.freshReads(), "both the target and non-target collision domain are refreshed");
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver());
             assertThrows(IllegalStateException.class, compiler::compileAll,
                     "a newly duplicated operationId outside the target group must prevent composition");
@@ -824,12 +824,12 @@ class BulkOperationStructuralCompilerTest {
             var bindings = BulkResourceOperationBindings.from(mvc);
             var nodeA = new BulkOperationLifecycle(bindings,
                     new OpenApiCanonicalOperationResolver(nodeADocuments, mvc, bindings, List.of("inventory")), nodeADocuments,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver(), nodeARuntime, nodeAControl,
                     List.of(provider("provider.r1", "deployment-a", 200, ACTION_ID, nodeARuntime)));
             var nodeB = new BulkOperationLifecycle(bindings,
                     new OpenApiCanonicalOperationResolver(nodeBDocuments, mvc, bindings, List.of("inventory")), nodeBDocuments,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(),
+                    registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver(), nodeBRuntime, nodeBControl,
                     List.of(provider("provider.r1", "deployment-a", 200, ACTION_ID, nodeBRuntime)));
 
@@ -976,9 +976,11 @@ class BulkOperationStructuralCompilerTest {
             var firstDocuments = new TestDocuments(original);
             var firstResolver = new OpenApiCanonicalOperationResolver(firstDocuments, mvc, bindings);
             var firstCompiler = new BulkOperationStructuralCompiler(bindings, firstResolver, firstDocuments,
-                    registry(actionDefinition()), mapper.getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(actionDefinition()), mapper, new FilteredSchemaReferenceResolver());
             var firstDescriptor = firstCompiler.compileAll().getFirst();
             String firstDigest = BulkStructuralSegmentDigest.compute(firstDescriptor);
+            assertEquals("sha256:bb246583bcfd30c128f113670abe0c07c5f0ca25526ad30d318386b9edafa7b5", firstDigest,
+                    "golden produced independently from the published rc146 baseline, structure/3 unchanged");
             assertEquals("praxis.bulk.structure/3", BulkStructuralSegmentDigest.canonicalContent(firstDescriptor)
                     .path("structureVersion").asText());
             assertTrue(firstDigest.matches("sha256:[0-9a-f]{64}"));
@@ -994,7 +996,7 @@ class BulkOperationStructuralCompilerTest {
             var repeatedDocuments = new TestDocuments(original);
             var repeatedResolver = new OpenApiCanonicalOperationResolver(repeatedDocuments, mvc, bindings);
             var repeatedCompiler = new BulkOperationStructuralCompiler(bindings, repeatedResolver, repeatedDocuments,
-                    registry(actionDefinition()), mapper.getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(actionDefinition()), mapper, new FilteredSchemaReferenceResolver());
             assertEquals(firstDigest, BulkStructuralSegmentDigest.compute(
                     repeatedCompiler.compileAll().getFirst()));
 
@@ -1008,7 +1010,7 @@ class BulkOperationStructuralCompilerTest {
             var changedDocuments = new TestDocuments(changed);
             var changedResolver = new OpenApiCanonicalOperationResolver(changedDocuments, mvc, bindings);
             var changedCompiler = new BulkOperationStructuralCompiler(bindings, changedResolver, changedDocuments,
-                    registry(actionDefinition()), mapper.getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(actionDefinition()), mapper, new FilteredSchemaReferenceResolver());
             assertFalse(firstDigest.equals(BulkStructuralSegmentDigest.compute(
                     changedCompiler.compileAll().getFirst())));
 
@@ -1080,7 +1082,7 @@ class BulkOperationStructuralCompilerTest {
         var documents = new TestDocuments(document);
         var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
         var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                registry(actionDefinition()), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver());
         return BulkStructuralSegmentDigest.compute(compiler.compileAll().getFirst());
     }
 
@@ -1118,7 +1120,7 @@ class BulkOperationStructuralCompilerTest {
                     List.of(), List.of(), List.of(), ActionExecutionContract.defaults(ActionScope.COLLECTION));
 
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(wrongAction), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(wrongAction), new ObjectMapper(), new FilteredSchemaReferenceResolver());
 
             assertThrows(IllegalStateException.class, compiler::compileAll);
         }
@@ -1132,7 +1134,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(document(false));
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver());
 
             assertThrows(IllegalStateException.class, compiler::compileAll);
         }
@@ -1149,7 +1151,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(document);
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver());
 
             assertThrows(IllegalStateException.class, compiler::compileAll);
             assertEquals(1, documents.strictReads(), "lifecycle validation must use the captured group snapshot");
@@ -1164,7 +1166,7 @@ class BulkOperationStructuralCompilerTest {
             var documents = new TestDocuments(document(true));
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver());
             var confirmation = mvc.getHandlerMethods().entrySet().stream()
                     .map(java.util.Map.Entry::getValue)
                     .filter(handler -> handler.getMethod().getName().equals("confirm"))
@@ -1191,7 +1193,7 @@ class BulkOperationStructuralCompilerTest {
                     canonical.order(), canonical.successMessage(), canonical.requiredAuthorities(),
                     canonical.allowedStates(), canonical.tags(), canonical.execution());
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(stale), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(stale), new ObjectMapper(), new FilteredSchemaReferenceResolver());
 
             assertThrows(IllegalStateException.class, compiler::compileAll);
         }
@@ -1212,7 +1214,7 @@ class BulkOperationStructuralCompilerTest {
                     canonical.responseSchema(), canonical.order(), canonical.successMessage(),
                     canonical.requiredAuthorities(), canonical.allowedStates(), canonical.tags(), canonical.execution());
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(stale), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(stale), new ObjectMapper(), new FilteredSchemaReferenceResolver());
 
             assertThrows(IllegalStateException.class, compiler::compileAll);
         }
@@ -1233,7 +1235,7 @@ class BulkOperationStructuralCompilerTest {
                     canonical.responseSchema(), canonical.order(), canonical.successMessage(),
                     canonical.requiredAuthorities(), canonical.allowedStates(), canonical.tags(), canonical.execution());
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(stale), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(stale), new ObjectMapper(), new FilteredSchemaReferenceResolver());
 
             assertThrows(IllegalStateException.class, compiler::compileAll);
         }
@@ -1275,7 +1277,7 @@ class BulkOperationStructuralCompilerTest {
             TestDocuments documents = new TestDocuments(primaryAlias, other);
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("inventory", "other"));
             var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver());
 
             assertEquals(7, compiler.compileAll().getFirst().operations().size());
             assertEquals(2, documents.strictReads());
@@ -1286,7 +1288,7 @@ class BulkOperationStructuralCompilerTest {
             var changedResolver = new OpenApiCanonicalOperationResolver(changedTarget, mvc, bindings,
                     List.of("inventory", "other"));
             var changedCompiler = new BulkOperationStructuralCompiler(bindings, changedResolver, changedTarget,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver());
             assertThrows(IllegalStateException.class, changedCompiler::compileAll);
 
             JsonNode duplicateElsewhere = aliasProposalTemplate(document(true));
@@ -1296,9 +1298,176 @@ class BulkOperationStructuralCompilerTest {
             var duplicateResolver = new OpenApiCanonicalOperationResolver(duplicateDocument, mvc, bindings,
                     List.of("inventory", "other"));
             var duplicateCompiler = new BulkOperationStructuralCompiler(bindings, duplicateResolver, duplicateDocument,
-                    registry(actionDefinition()), new ObjectMapper().getTypeFactory(), new FilteredSchemaReferenceResolver());
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver());
             assertThrows(IllegalStateException.class, duplicateCompiler::compileAll);
         }
+    }
+
+    @Test
+    void structuralUpdatesNeverReadOrMutateControlRowsEvenWhenTheirRowsExist() throws Exception {
+        for (var controller : List.of(MixedBulkController.class, InvalidMixedBulkController.class, OrphanUpdateController.class)) {
+            try (var context = context(controller)) {
+                var mvc = context.getBean(RequestMappingHandlerMapping.class);
+                var bindings = BulkResourceOperationBindings.from(mvc);
+                assertEquals(controller == MixedBulkController.class, bindings.diagnostics().isEmpty());
+                assertTrue(bindings.declaresUpdateConfirmation("crud.uniform"));
+                var runtime = org.mockito.Mockito.mock(BulkExecutionInfrastructure.class,
+                        org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+                var control = org.mockito.Mockito.mock(BulkControlPlaneInfrastructure.class,
+                        org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+                org.mockito.Mockito.when(runtime.namespace()).thenReturn("test-namespace");
+                org.mockito.Mockito.when(control.namespace()).thenReturn("test-namespace");
+                org.mockito.Mockito.when(runtime.deploymentId()).thenReturn("deployment-a");
+                org.mockito.Mockito.when(control.deploymentId()).thenReturn("deployment-a");
+                var reads = new java.util.ArrayList<String>();
+                var transitions = new java.util.ArrayList<String>();
+                // Both IDs have a row in this JDBC fixture. Observe the actual SQL-bound ID, not a
+                // mocked lifecycle answer, so any UPDATE read or transition fails the final oracle.
+                var readConnection = controlConnection(reads, false);
+                var transitionConnection = controlConnection(transitions, true);
+                org.mockito.Mockito.doAnswer(call -> {
+                    org.springframework.jdbc.core.ConnectionCallback<?> work = call.getArgument(0);
+                    return work.doInConnection(readConnection);
+                }).when(runtime).withLifecycleRead(org.mockito.ArgumentMatchers.any());
+                org.mockito.Mockito.doAnswer(call -> {
+                    org.springframework.jdbc.core.ConnectionCallback<?> work = call.getArgument(0);
+                    return work.doInConnection(transitionConnection);
+                }).when(control).withConnection(org.mockito.ArgumentMatchers.any());
+                var docs = new TestDocuments(projectedDocument());
+                var lifecycle = new BulkOperationLifecycle(bindings, new OpenApiCanonicalOperationResolver(docs, mvc, bindings),
+                        docs, registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver(), runtime, control, List.of());
+                var update = new BulkOperationControlIdentity("test-namespace", "crud.uniform");
+                org.mockito.Mockito.clearInvocations(runtime, control);
+                assertThrows(IllegalStateException.class, () -> lifecycle.publish(update, 3));
+                assertThrows(IllegalStateException.class, () -> lifecycle.suspend(update, 3));
+                assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(update));
+                org.mockito.Mockito.verify(runtime, org.mockito.Mockito.never()).withLifecycleRead(org.mockito.ArgumentMatchers.any());
+                org.mockito.Mockito.verify(control, org.mockito.Mockito.never()).withConnection(org.mockito.ArgumentMatchers.any());
+                assertTrue(reads.isEmpty());
+                assertTrue(transitions.isEmpty());
+                if (controller == MixedBulkController.class) {
+                    docs.clearCaches();
+                    assertEquals(List.of(ACTION_ID), reads);
+                    assertEquals(List.of(ACTION_ID), transitions);
+                    assertEquals(1, docs.cacheClears());
+                }
+            }
+        }
+    }
+
+    private java.sql.Connection controlConnection(List<String> operations, boolean transition) throws Exception {
+        var connection = org.mockito.Mockito.mock(java.sql.Connection.class);
+        org.mockito.Mockito.when(connection.prepareStatement(org.mockito.ArgumentMatchers.anyString())).thenAnswer(call -> {
+            var statement = org.mockito.Mockito.mock(java.sql.PreparedStatement.class);
+            org.mockito.Mockito.doAnswer(binding -> {
+                operations.add(binding.getArgument(1));
+                return null;
+            }).when(statement).setString(org.mockito.ArgumentMatchers.eq(2), org.mockito.ArgumentMatchers.anyString());
+            org.mockito.Mockito.when(statement.executeQuery()).thenAnswer(query -> {
+                var rows = org.mockito.Mockito.mock(java.sql.ResultSet.class);
+                org.mockito.Mockito.when(rows.next()).thenReturn(true, false);
+                org.mockito.Mockito.when(rows.getString(1)).thenReturn("READY");
+                org.mockito.Mockito.when(rows.getLong(2)).thenReturn(transition ? 4L : 3L);
+                org.mockito.Mockito.when(rows.getBoolean(1)).thenReturn(true);
+                return rows;
+            });
+            return statement;
+        });
+        return connection;
+    }
+
+    @Test
+    void mixedResourceKeepsCommandFingerprintAndReadinessWhileUpdatesRemainUncomposed() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
+                var context = context(MixedBulkController.class)) {
+            var identity = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
+            var updateIdentity = new BulkOperationControlIdentity("test-namespace", "crud.uniform");
+            var admin = postgres.getPostgresDatabase();
+            BulkExecutionMigrator.migrateWithOperations(admin, java.util.Map.of("test-namespace", "deployment-a"), List.of(identity, updateIdentity));
+            var roles = controlPlaneTestRoles(admin);
+            var runtimeDs = BulkPostgresTestSupport.runtimeDataSource(postgres);
+            var controlDs = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_control_test", "postgres"), "bulk_control_test", "");
+            var runtime = new BulkExecutionInfrastructure(runtimeDs, new DataSourceTransactionManager(runtimeDs), "test-namespace", "deployment-a", roles);
+            var control = new BulkControlPlaneInfrastructure(controlDs, new DataSourceTransactionManager(controlDs), "test-namespace", "deployment-a", "bulk_control_test", runtime);
+            var mapper = BulkCrudStructuralCompilerTest.mapper();
+            var original = projectedDocument();
+            String originalDigest;
+            try (var commandOnly = context()) {
+                var mvc = commandOnly.getBean(RequestMappingHandlerMapping.class);
+                var binding = BulkResourceOperationBindings.from(mvc);
+                var docs = new TestDocuments(original);
+                originalDigest = BulkStructuralSegmentDigest.compute(new BulkOperationStructuralCompiler(binding,
+                        new OpenApiCanonicalOperationResolver(docs, mvc, binding), docs, registry(actionDefinition()), mapper,
+                        new FilteredSchemaReferenceResolver()).compileAll().getFirst());
+            }
+            ObjectNode mixed = original.deepCopy();
+            var crud = BulkCrudStructuralCompilerTest.document();
+            var displayName = BulkCrudStructuralCompilerTest.property(crud, "display_name");
+            displayName.remove("nullable"); displayName.putArray("type").add("string").add("null");
+            crud.path("paths").fields().forEachRemaining(entry -> {
+                if (entry.getKey().contains("/uniform") || entry.getKey().endsWith("/{id}"))
+                    ((ObjectNode) mixed.path("paths")).set(entry.getKey().replace("/crud-items", "/api/items"), entry.getValue());
+            });
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var docs = new TestDocuments(mixed);
+            var resolver = new OpenApiCanonicalOperationResolver(docs, mvc, bindings);
+            var structures = new BulkOperationStructuralCompiler(bindings, resolver, docs, registry(actionDefinition()), mapper,
+                    new FilteredSchemaReferenceResolver()).compileAll();
+            assertEquals(2, structures.size());
+            assertEquals(originalDigest, BulkStructuralSegmentDigest.compute(structures.stream()
+                    .filter(value -> value.mode() == BulkMode.DOMAIN_COMMAND).findFirst().orElseThrow()));
+            var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
+            var lifecycle = new BulkOperationLifecycle(bindings, resolver, docs, registry(actionDefinition()), mapper,
+                    new FilteredSchemaReferenceResolver(), runtime, control, List.of(provider));
+            var ready = lifecycle.publish(identity, 0);
+            assertEquals(ready, lifecycle.requireReady(identity));
+            assertEquals(java.util.Set.of(ACTION_ID), lifecycle.projectReadyActions(List.of(actionDefinition())).keySet());
+            assertThrows(IllegalStateException.class, () -> lifecycle.publish(updateIdentity, 0));
+            assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(updateIdentity));
+            var sql = new JdbcTemplate(admin);
+            assertEquals("UNCOMPOSED", sql.queryForObject("select state from praxis_bulk.praxis_bulk_operation_control where namespace_id = ? and operation_id = ?", String.class,
+                    "test-namespace", "crud.uniform"));
+            docs.clearCaches();
+            assertEquals("SUSPENDED", sql.queryForObject("select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", String.class,
+                    "test-namespace", ACTION_ID));
+            assertEquals("UNCOMPOSED", sql.queryForObject("select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", String.class,
+                    "test-namespace", "crud.uniform"));
+            assertEquals(0L, sql.queryForObject("select generation from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", Long.class,
+                    "test-namespace", "crud.uniform"));
+            var updateProvider = provider("provider.r1", "deployment-a", 200, "crud.uniform", runtime);
+            var unsupportedDocs = new TestDocuments(mixed);
+            var unsupported = new BulkOperationLifecycle(bindings,
+                    new OpenApiCanonicalOperationResolver(unsupportedDocs, mvc, bindings), unsupportedDocs, registry(actionDefinition()), mapper,
+                    new FilteredSchemaReferenceResolver(), runtime, control, List.of(provider, updateProvider));
+            var unsupportedProvider = assertThrows(IllegalStateException.class, () -> unsupported.requireReady(identity));
+            assertTrue(unsupportedProvider.getMessage().contains("descriptor provider"));
+        }
+    }
+
+    @ApiResource(value = "/api/items", resourceKey = RESOURCE)
+    @BulkResourceOperations(proposalOperationId = "items.bulk.proposal", proposalResultsOperationId = "items.bulk.proposal-results",
+            executionOperationId = "items.bulk.execution", executionResultsOperationId = "items.bulk.execution-results", cancelOperationId = "items.bulk.cancel",
+            updateSourceOperationId = "crud.update", protectedUpdateFields = {"identity", "revision"})
+    static class MixedBulkController extends CompleteBulkController {
+        @BulkResourceOperation(BulkResourceOperation.Role.UPDATE_SOURCE) @org.springframework.web.bind.annotation.PutMapping("/{id}")
+        public BulkCrudStructuralCompilerTest.Update update(@RequestBody BulkCrudStructuralCompilerTest.Update body) { return body; }
+        @Operation(operationId = "crud.uniform.evaluation") @PostMapping("/bulk/uniform/evaluation")
+        public BulkCrudStructuralCompilerTest.Confirmation evaluateUpdate(@RequestBody BulkCrudStructuralCompilerTest.Evaluation body) { return null; }
+        @BulkOperation(mode = BulkMode.UNIFORM_UPDATE, evaluationOperationId = "crud.uniform.evaluation", atomicity = ActionCollectionAtomicity.PER_ITEM)
+        @Operation(operationId = "crud.uniform") @PostMapping("/bulk/uniform")
+        public BulkCrudStructuralCompilerTest.Confirmation confirmUpdate(@RequestBody BulkCrudStructuralCompilerTest.Confirmation body) { return body; }
+    }
+
+    @BulkResourceOperations(proposalOperationId = "items.bulk.proposal", proposalResultsOperationId = "items.bulk.proposal-results",
+            executionOperationId = "items.bulk.execution", executionResultsOperationId = "items.bulk.execution-results", cancelOperationId = "items.bulk.cancel")
+    static class InvalidMixedBulkController extends MixedBulkController { }
+
+    @ApiResource(value = "/orphan-update", resourceKey = "orphan.update")
+    static class OrphanUpdateController {
+        @BulkOperation(mode = BulkMode.UNIFORM_UPDATE, evaluationOperationId = "crud.uniform.evaluation", atomicity = ActionCollectionAtomicity.PER_ITEM)
+        @Operation(operationId = "crud.uniform") @PostMapping("/bulk/uniform")
+        public BulkCrudStructuralCompilerTest.Confirmation confirmUpdate(@RequestBody BulkCrudStructuralCompilerTest.Confirmation body) { return body; }
     }
 
     private AnnotationConfigWebApplicationContext context(Class<?>... controllers) {

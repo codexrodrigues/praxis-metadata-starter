@@ -31,6 +31,7 @@ plataforma.
 - [Infraestrutura transacional de lote](spec/BULK-EXECUTION-INFRASTRUCTURE.html): vínculo JDBC/JPA explícito, sem store ou DDL.
 
 - [Campos editáveis em lote](spec/BULK-EDITABLE-FIELDS.html): annotation e compilação estrutural de SET/CLEAR.
+- [Composição estrutural CRUD](spec/BULK-CRUD-STRUCTURE.html): fonte PUT e DTO reais, campos protegidos e allowlists; sem disponibilidade operacional de update bulk.
 
 ## Comece por objetivo
 

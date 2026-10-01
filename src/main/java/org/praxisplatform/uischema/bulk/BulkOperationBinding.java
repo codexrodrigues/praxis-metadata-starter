@@ -5,7 +5,7 @@ import org.springframework.web.method.HandlerMethod;
 
 import java.util.Objects;
 
-/** Immutable structural binding between a workflow confirmation and its evaluation handler. */
+/** Immutable structural binding between a bulk confirmation, evaluation and optional unit update source. */
 public final class BulkOperationBinding {
     private final String resourceKey;
     private final String confirmationOperationId;
@@ -14,10 +14,25 @@ public final class BulkOperationBinding {
     private final ActionCollectionAtomicity atomicity;
     private final HandlerMethod confirmationHandler;
     private final HandlerMethod evaluationHandler;
+    private final String updateSourceOperationId;
+    private final HandlerMethod updateSourceHandler;
+    private final java.util.Set<String> protectedUpdateFields;
 
     BulkOperationBinding(String resourceKey, String confirmationOperationId, String evaluationOperationId,
             BulkMode mode, ActionCollectionAtomicity atomicity,
-            HandlerMethod confirmationHandler, HandlerMethod evaluationHandler) {
+            HandlerMethod confirmationHandler, HandlerMethod evaluationHandler,
+            String updateSourceOperationId, HandlerMethod updateSourceHandler,
+            java.util.Set<String> protectedUpdateFields) {
+        this.updateSourceOperationId = updateSourceOperationId;
+        this.updateSourceHandler = updateSourceHandler;
+        this.protectedUpdateFields = java.util.Set.copyOf(protectedUpdateFields);
+        if ((updateSourceOperationId == null) != (updateSourceHandler == null))
+            throw new IllegalArgumentException("Unit update identity and handler must be present together");
+        if (mode != BulkMode.DOMAIN_COMMAND && updateSourceHandler == null)
+            throw new IllegalArgumentException("Bulk update requires its unit update source");
+        if (updateSourceOperationId != null) canonical(updateSourceOperationId, "updateSourceOperationId");
+        if (updateSourceHandler != null && !confirmationHandler.getBeanType().equals(updateSourceHandler.getBeanType()))
+            throw new IllegalArgumentException("Unit update source must belong to the same resource controller");
         this.resourceKey = canonical(resourceKey, "resourceKey");
         this.confirmationOperationId = canonical(confirmationOperationId, "confirmationOperationId");
         this.evaluationOperationId = canonical(evaluationOperationId, "evaluationOperationId");
@@ -40,6 +55,10 @@ public final class BulkOperationBinding {
     public ActionCollectionAtomicity atomicity() { return atomicity; }
     public HandlerMethod confirmationHandler() { return confirmationHandler; }
     public HandlerMethod evaluationHandler() { return evaluationHandler; }
+
+    public java.util.Optional<String> updateSourceOperationId() { return java.util.Optional.ofNullable(updateSourceOperationId); }
+    public java.util.Optional<HandlerMethod> updateSourceHandler() { return java.util.Optional.ofNullable(updateSourceHandler); }
+    public java.util.Set<String> protectedUpdateFields() { return protectedUpdateFields; }
 
     private static String canonical(String value, String name) {
         if (value == null || value.isBlank() || !value.equals(value.strip())

@@ -4,7 +4,7 @@ import io.swagger.v3.oas.models.Operation;
 import org.springdoc.core.customizers.GlobalOperationCustomizer;
 import org.springframework.web.method.HandlerMethod;
 
-/** Materializes the declared bulk lifecycle identity on the corresponding real OpenAPI operation. */
+/** Materializes the declared bulk lifecycle or unit-update source identity on the corresponding real OpenAPI operation. */
 public final class BulkResourceOperationIdCustomizer implements GlobalOperationCustomizer {
 
     private final BulkResourceOperationBindings bindings;

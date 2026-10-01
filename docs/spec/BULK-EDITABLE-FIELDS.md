@@ -44,6 +44,35 @@ O compilador não decide se um schema pertence à operação correta: essa é a 
 
 O perfil executável ainda precisa de BulkOperation, registry, validação de bootstrap, schemas de avaliação/confirmação, providers e operações comuns de proposta/execução/resultados/cancelamento. A implementação Java da annotation não significa que o runtime Angular já a consome.
 
+## Composição estrutural CRUD candidata (P3b-S1)
+
+O binding de `UNIFORM_UPDATE` e `PER_ITEM_UPDATE` deve partir do PUT real do mesmo
+`@ApiResource`: `BulkResourceOperations.updateSourceOperationId` identifica a operação
+fonte e `protectedUpdateFields` declara os nomes wire protegidos do recurso. O
+`@BulkResourceOperation(UPDATE_SOURCE)` marca o handler PUT herdado ou seu override;
+o resolver confronta o `operationId`, o grupo, o schema canônico de update e o
+`JavaType` do DTO concreto, incluindo anotações mescladas no override. A lista
+protegida não vem do request. O compilador usa o `ObjectMapper` configurado pelo
+host para construir o tipo e compilar `@BulkEditable`; não reconstrói o mapper
+com `TypeFactory` isolado. O schema e grupo do binding ficam imutáveis junto à
+allowlist de escrita e à sublista CLEAR.
+
+`UPDATE_SOURCE` é papel estrutural adicional do CRUD, não uma sexta operação HTTP
+comum sem body nem uma oitava operação de action. O caminho `DOMAIN_COMMAND`
+conserva suas sete funções e os bytes do digest `praxis.bulk.structure/3`. A
+identidade estrutural do CRUD usa `praxis.bulk.structure/4` e incorpora fonte,
+schema e allowlists/proteções; uma identidade
+antiga de comando não pode servir como prova de equivalência para UPDATE.
+Essa composição ainda não declara perfil operacional, capabilities CRUD ou
+readiness: provider, autorização, execução, prova do host e publicação são gates
+separados. Este texto registra o desenho candidato P3b-S1; os testes focais da
+fonte e a compilação consumidora da migração para o construtor `ObjectMapper`
+são obrigatórios neste corte e aguardam evidência da árvore final.
+O lifecycle compila todas as declarações antes de filtrar os modos operacionais:
+UPDATE estrutural válido sem provider não degrada command READY coexistente,
+mas UPDATE/source/schema inválido deixa a composição indisponível de modo
+fail-closed; não há isolamento de erro prometido por operação.
+
 ## Prova focal
 
 `BulkEditableFieldsTest` confronta declarações com conversão Swagger real com `ModelConverters` e `CustomOpenApiResolver`, além de casos inválidos, wire names, herança/records, imutabilidade e aplicação pelo SDK. Executar também `BulkFieldChangeValidationTest` e os gates do consumidor com o JAR candidato exato. A prova do DTO não certifica o futuro endpoint de avaliação nem encerra B1-B/T01.

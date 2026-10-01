@@ -29,12 +29,14 @@ final class BulkStructuralSegmentDigest {
         Objects.requireNonNull(descriptor, "descriptor");
         var factory = JsonNodeFactory.instance;
         var root = factory.objectNode();
-        root.put("structureVersion", "praxis.bulk.structure/3");
+        root.put("structureVersion", descriptor.mode() == BulkMode.DOMAIN_COMMAND
+                ? "praxis.bulk.structure/3" : "praxis.bulk.structure/4");
         root.put("resourceKey", descriptor.resourceKey());
         root.put("openApiGroup", descriptor.openApiGroup());
         root.put("mode", descriptor.mode().name());
         root.put("atomicity", descriptor.atomicity().name());
-        root.set("action", action(descriptor.action()));
+        if (descriptor.mode() == BulkMode.DOMAIN_COMMAND) root.set("action", action(descriptor.action()));
+        else root.set("update", update(descriptor.update()));
         var operations = factory.arrayNode();
         for (var operation : descriptor.operations()) {
             var item = factory.objectNode();
@@ -50,6 +52,22 @@ final class BulkStructuralSegmentDigest {
         }
         root.set("operations", operations);
         return root;
+    }
+
+    private static JsonNode update(BulkOperationStructuralDescriptor.Update update) {
+        var result = JsonNodeFactory.instance.objectNode();
+        result.set("operation", reference(update.operation()));
+        result.put("requestJavaType", update.requestJavaType());
+        result.set("requestSchema", requestSchema(update.requestSchema()));
+        result.set("filteredRequest", filteredSchema(update.filteredRequest()));
+        result.set("protectedFields", strings(update.protectedFields().stream().sorted().toList()));
+        var modes = result.putObject("editableFields");
+        for (var mode : java.util.List.of(BulkMode.UNIFORM_UPDATE, BulkMode.PER_ITEM_UPDATE)) {
+            var fields = modes.putObject(mode.name());
+            fields.set("writable", strings(update.editableFields().writableFields(mode).stream().sorted().toList()));
+            fields.set("clearable", strings(update.editableFields().clearableFields(mode).stream().sorted().toList()));
+        }
+        return result;
     }
 
     private static JsonNode filteredSchema(org.praxisplatform.uischema.schema.FilteredSchemaProjection.Resolved projection) {
