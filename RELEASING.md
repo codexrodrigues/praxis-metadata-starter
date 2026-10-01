@@ -77,6 +77,15 @@ Checklist minima para esse caso:
   `Verify Maven Central availability` para distinguir fila/propagação de uma
   versão já consumível pelo Maven Central público.
 
+O job tem teto de 90 minutos: 30 para o limite configurado de upload, uma janela
+nominal de 40 para disponibilidade e 20 de margem para build/preparação/limpeza.
+É um limite externo, não uma garantia por fase ou de publicação do Sonatype;
+`curl` e `dependency:get` não têm timeout individual nesse fluxo. Upload aceito ou
+estado `PUBLISHING` não comprovam disponibilidade pública. Cancelar o job não
+cancela automaticamente um deployment já aceito: preserve e acompanhe o mesmo
+deployment ID, confira a disponibilidade e repita somente a verificação quando
+necessário. Não refaça upload, tag ou release por reflexo diante da demora.
+
 ## Fluxo (Versão Final)
 - Mesmo dispatch, com versao estavel sem sufixo RC; nao criar tag manual como atalho.
 
