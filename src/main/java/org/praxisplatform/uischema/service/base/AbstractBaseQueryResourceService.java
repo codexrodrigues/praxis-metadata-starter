@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.Id;
 import jakarta.persistence.PersistenceContext;
+import org.praxisplatform.uischema.concurrency.ResourceRepresentationResult;
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
@@ -294,8 +295,31 @@ public abstract class AbstractBaseQueryResourceService<
 
     @Override
     @Transactional(readOnly = true)
-    public ResponseDTO findById(ID id) {
-        return getResourceMapper().toResponse(findEntityById(id));
+    public ResourceRepresentationResult<ResponseDTO> findById(ID id) {
+        return toResourceRepresentation(findEntityById(id));
+    }
+
+    /**
+     * Explicit opt-in for a persisted item revision. Read the supplied entity only: this hook
+     * must not reload it, query a second revision or use an expected client version.
+     * Versioned resources override this hook; ordinary resources retain an empty revision.
+     */
+    protected OptionalLong getEntityResourceVersion(E entity) {
+        return OptionalLong.empty();
+    }
+
+    /**
+     * Captures the projection and revision while the supplied entity still belongs to the
+     * caller's transaction. Mutation implementations call this after their last modifying
+     * hook and flush, so optimistic-lock failure occurs before returning a successful result.
+     */
+    protected final ResourceRepresentationResult<ResponseDTO> toResourceRepresentation(E entity) {
+        ResourceRepresentationResult<ResponseDTO> result = new ResourceRepresentationResult<>(
+                getResourceMapper().toResponse(entity), getEntityResourceVersion(entity));
+        if (this instanceof VersionedCreateUpdateResourceService<?, ?, ?, ?, ?>) {
+            result.requirePersistedVersion();
+        }
+        return result;
     }
 
     @Override

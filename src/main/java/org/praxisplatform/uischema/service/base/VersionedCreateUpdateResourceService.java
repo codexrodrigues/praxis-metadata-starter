@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.service.base;
 
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
 import org.praxisplatform.uischema.concurrency.ResourceVersionUpdatePrecondition;
+import org.praxisplatform.uischema.concurrency.ResourceRepresentationResult;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 
 /**
@@ -24,5 +25,16 @@ public interface VersionedCreateUpdateResourceService<
         throw ResourceVersionPreconditionException.required();
     }
 
-    ResponseDTO update(ID id, UpdateDTO dto, ResourceVersionUpdatePrecondition<ID> precondition);
+    /**
+     * Returns the body and its persisted revision after the last modifying hook and flush,
+     * inside the mutation transaction. The revision must be present; a pre-flush revision,
+     * the expected input revision or a later independent lookup cannot certify this result.
+     * Implementations must validate the captured result with
+     * {@link ResourceRepresentationResult#requirePersistedVersion()} before leaving that
+     * transaction, so a missing revision rolls back the mutation. The controller's defensive
+     * validation occurs after the service returns and cannot roll back an already committed
+     * implementation that violates this contract.
+     */
+    ResourceRepresentationResult<ResponseDTO> update(
+            ID id, UpdateDTO dto, ResourceVersionUpdatePrecondition<ID> precondition);
 }

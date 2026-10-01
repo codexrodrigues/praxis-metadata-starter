@@ -63,6 +63,13 @@ Marque todos os itens abaixo antes de abrir a adocao do piloto.
 - [ ] teste focal prova pelo menos um allow e um deny item-level
 - [ ] action de item versionada prova ETag valido, ausente e obsoleto, replay idempotente,
       conflito de payload e colisao concorrente materializada como HTTP `412`
+- [x] B4-R1, prova focal do candidato local: GET e PUT versionado devolvem
+      corpo/ETag da mesma versão persistida sob barreiras PostgreSQL; revisão vazia
+      em service versionado reverte a escrita na própria transação após flush/hook.
+      Replay sem revisão histórica omite ETag; token de DTO, quando existente,
+      coincide com header. Evidência: 46 testes Metadata e 28 testes focais host: 13 com PostgreSQL (5 JPA/MockMvc e 8 receipt/replay),
+      1 unitário de providers e 14 TCP/H2. Este check não aprova release, B7,
+      grants de role ou domínio RuleLab inteiro em PostgreSQL.
 
 ## Testes e validacao
 

@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.concurrency.ResourceRepresentationResult;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
@@ -47,7 +48,7 @@ class AbstractReadOnlyResourceControllerLinksTest {
     @Test
     void getByIdOmitsWriteLinks() throws Exception {
         ReadOnlyService service = mock(ReadOnlyService.class);
-        when(service.findById(1L)).thenReturn(new SimpleDto(1L));
+        when(service.findById(1L)).thenReturn(ResourceRepresentationResult.unversioned(new SimpleDto(1L)));
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controllerWith(service)).build();
 
         mockMvc.perform(get("/ro/1"))

@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
+import org.praxisplatform.uischema.concurrency.ResourceRepresentationResult;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.rest.response.RestApiErrorResponse;
@@ -100,16 +101,19 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
         assertItemOperationAvailable("edit", id);
         BaseCreateUpdateResourceService<ResponseDTO, ID, FD, CreateDTO, UpdateDTO> service = getService();
         ResponseDTO updated;
+        ResourceRepresentationResult<ResponseDTO> versionedResult = null;
         boolean versioned = service instanceof VersionedCreateUpdateResourceService<?, ?, ?, ?, ?>;
         if (versioned) {
             @SuppressWarnings("unchecked")
             VersionedCreateUpdateResourceService<ResponseDTO, ID, FD, CreateDTO, UpdateDTO> versionedService =
                     (VersionedCreateUpdateResourceService<ResponseDTO, ID, FD, CreateDTO, UpdateDTO>) service;
-            updated = versionedService.update(
+            versionedResult = versionedService.update(
                     id,
                     dto,
                     resourceVersionUpdatePrecondition(id, request.getHeader(HttpHeaders.IF_MATCH))
             );
+            versionedResult.requirePersistedVersion();
+            updated = versionedResult.body();
         } else {
             updated = service.update(id, dto);
         }
@@ -127,7 +131,9 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
             return withResourceVersion(
                     ResponseEntity.ok(),
                     id,
-                    RestApiResponse.success(updated, hateoasOrNull(Links.of(linkList)))
+                    new ResourceRepresentationResult<>(
+                            RestApiResponse.success(updated, hateoasOrNull(Links.of(linkList))),
+                            versionedResult.persistedVersion())
             );
         }
         return withVersion(ResponseEntity.ok(), RestApiResponse.success(updated, hateoasOrNull(Links.of(linkList))));

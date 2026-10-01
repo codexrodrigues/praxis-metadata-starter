@@ -15,6 +15,7 @@ import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
+import org.praxisplatform.uischema.concurrency.ResourceRepresentationResult;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditions;
 import org.praxisplatform.uischema.concurrency.ResourceVersionUpdatePrecondition;
 import org.praxisplatform.uischema.concurrency.ResourceVersionScope;
@@ -49,6 +50,7 @@ import org.praxisplatform.uischema.rest.response.RestApiResponseGroupByStatsResp
 import org.praxisplatform.uischema.rest.response.RestApiResponseTimeSeriesStatsResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseComparisonStatsResponse;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
+import org.praxisplatform.uischema.service.base.VersionedCreateUpdateResourceService;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
@@ -1189,7 +1191,10 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     @GetMapping("/{id}")
     @Operation(summary = "Abrir item")
     public ResponseEntity<RestApiResponse<ResponseDTO>> getById(@PathVariable ID id) {
-        ResponseDTO dto = getService().findById(id);
+        ResourceRepresentationResult<ResponseDTO> result = getService().findById(id);
+        if (getService() instanceof VersionedCreateUpdateResourceService<?, ?, ?, ?, ?>) {
+            result.requirePersistedVersion();
+        }
 
         List<Link> linkList = new ArrayList<>();
         linkList.add(linkToSelf(id));
@@ -1203,7 +1208,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         return withResourceVersion(
                 ResponseEntity.ok(),
                 id,
-                RestApiResponse.success(dto, hateoasOrNull(Links.of(linkList)))
+                new ResourceRepresentationResult<>(
+                        RestApiResponse.success(result.body(), hateoasOrNull(Links.of(linkList))),
+                        result.persistedVersion())
         );
     }
 
@@ -1616,21 +1623,23 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     }
 
     protected <T> ResponseEntity<T> withVersion(ResponseEntity.BodyBuilder builder, T body) {
-        getService().getDatasetVersion().ifPresent(v -> builder.header(HDR, v));
+        getService().getDatasetVersion().ifPresent(v -> builder.headers(headers -> headers.set(HDR, v)));
         return builder.body(body);
     }
 
     /**
-     * Adds a record ETag only for resources that explicitly expose a persisted item version.
+     * Adds an item ETag from the revision captured with this body, without rereading the item.
+     * A replay must supply its historical revision or an empty revision, never the current one.
      * This is intentionally distinct from {@code X-Data-Version}, which describes collection data.
      */
-    protected <T> ResponseEntity<T> withResourceVersion(ResponseEntity.BodyBuilder builder, ID id, T body) {
+    protected <T> ResponseEntity<T> withResourceVersion(
+            ResponseEntity.BodyBuilder builder, ID id, ResourceRepresentationResult<T> result) {
         if (resourceVersionEtagService != null) {
-            getService().getResourceVersion(id).ifPresent(version -> builder.eTag(
+            result.persistedVersion().ifPresent(version -> builder.eTag(
                     resourceVersionEtagService.create(resourceVersionScope(), getResourceKey(), id, version)
             ));
         }
-        return withVersion(builder, body);
+        return withVersion(builder, result.body());
     }
 
     /**
@@ -1643,7 +1652,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                     "Resource version ETag support is not configured. Set praxis.resource-version.etag.secret."
             );
         }
-        OptionalLong version = getService().getResourceVersion(id);
+        OptionalLong version = getService().findById(id).persistedVersion();
         if (version.isEmpty()) {
             throw new IllegalStateException(
                     "Resource " + getResourceKey() + " does not expose a persisted record version."

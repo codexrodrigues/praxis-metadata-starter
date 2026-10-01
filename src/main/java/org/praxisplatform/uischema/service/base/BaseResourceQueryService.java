@@ -1,5 +1,7 @@
 package org.praxisplatform.uischema.service.base;
 
+import org.praxisplatform.uischema.concurrency.ResourceRepresentationResult;
+
 import org.praxisplatform.uischema.dto.CursorPage;
 import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.capability.ResourceStructuralCapabilities;
@@ -58,14 +60,6 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
 
     Optional<String> getDatasetVersion();
 
-    /**
-     * Versao persistida de um item, quando este recurso opta pelo contrato de concorrencia de
-     * registro. A ausencia preserva recursos que ainda nao publicam ETag de item.
-     */
-    default OptionalLong getResourceVersion(ID id) {
-        return OptionalLong.empty();
-    }
-
     default Optional<String> getOptionSourceDatasetVersion(String sourceKey) {
         return getDatasetVersion();
     }
@@ -88,7 +82,12 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
 
     OptionSourceDescriptor resolveOptionSource(String sourceKey);
 
-    ResponseDTO findById(ID id);
+    /**
+     * Captures the response projection and its optional persisted revision from the same state.
+     * Implementations must preserve their lookup/authorization boundary and must not assemble
+     * this result from independent body and version queries.
+     */
+    ResourceRepresentationResult<ResponseDTO> findById(ID id);
 
     List<ResponseDTO> findAll();
 

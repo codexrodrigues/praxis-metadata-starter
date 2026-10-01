@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.controller.base;
 
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.concurrency.ResourceRepresentationResult;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.WorkflowAction;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
@@ -55,7 +56,7 @@ class AbstractResourceControllerMappedCrudTest {
     @Test
     void getByIdUsesResourceQueryService() throws Exception {
         when(service.getDatasetVersion()).thenReturn(Optional.of("1"));
-        when(service.findById(eq(7L))).thenReturn(new SimpleResponseDto(7L));
+        when(service.findById(eq(7L))).thenReturn(ResourceRepresentationResult.unversioned(new SimpleResponseDto(7L)));
 
         mockMvc.perform(get("/simple/7"))
                 .andExpect(status().isOk())

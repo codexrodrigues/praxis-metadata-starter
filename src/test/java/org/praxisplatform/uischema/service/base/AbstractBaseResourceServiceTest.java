@@ -44,7 +44,7 @@ class AbstractBaseResourceServiceTest {
 
         when(repository.findById(7L)).thenReturn(Optional.of(entity(7L, "Alice")));
 
-        TestResponseDTO response = service.findById(7L);
+        TestResponseDTO response = service.findById(7L).body();
 
         assertEquals(7L, response.id());
         assertEquals("Alice", response.name());
