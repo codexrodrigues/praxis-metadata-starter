@@ -230,6 +230,32 @@ Recursos que implementam `VersionedCreateUpdateResourceService` publicam update 
    transacao do update;
 4. a resposta bem-sucedida devolve o novo `ETag`.
 
+No contrato Java candidato B4-R1, `ResourceRepresentationResult` carrega corpo e
+`persistedVersion` capturados da **mesma entidade**. `findById` projeta ambos na
+transação de leitura; o PUT versionado de três argumentos captura ambos após o último
+hook e `flush`, sem reconsulta tardia para formar o header.
+Na migração Java beta, remover overrides de `getResourceVersion(id)` e implementar
+`getEntityResourceVersion(entity)`; consumidores Java de `findById` passam a usar
+`.body()`, e o PUT versionado de três argumentos devolve o par. Não manter alias ou
+segunda API de consulta de versão. O service deve exigir
+`result.requirePersistedVersion()` **dentro da mesma transação de escrita** antes de
+retornar, para que ausência de versão reverta domínio e versão juntos. O controller
+também valida o resultado, mas sua checagem posterior ao commit não substitui esse
+guard transacional em implementações próprias do SPI. O mapper não aceita versão
+esperada do payload, e a entrada Java de dois argumentos permanece protegida por
+`428`. Em replay histórico de action, reutilize revisão historicamente capturada ou
+omita ETag; nunca assine a versão atual para um corpo antigo. Esse par certifica a
+linha do recurso, não um snapshot de links, grants ou relações.
+
+Antes de adotar o candidato, prove com PostgreSQL e barreiras entre projeção/header
+do GET e resultado/header do PUT: corpo/token pareados, token anterior rejeitado em
+`412`, token de DTO igual ao header quando ambos existem, replay sem token renovado
+e rollback quando um service versionado tenta retornar revisão vazia. O candidato
+local passou 46 testes focais Metadata e 28 testes focais host: 13 com PostgreSQL (5 JPA/MockMvc e 8 receipt/replay), 1 unitário de providers
+e 14 TCP/H2, sem prova de grants de role ou domínio RuleLab
+inteiro em PostgreSQL. Revisão final, integração, release e adoção sem override
+continuam separadas; não usar esse resultado para declarar backend completo.
+
 O `ETag` tambem e vinculado ao escopo de isolamento resolvido pelo servidor. Por padrao o
 starter usa o escopo global; hosts multi-tenant devem publicar um
 `ResourceVersionScopeProvider` baseado no contexto autenticado de tenant e ambiente. O provider
