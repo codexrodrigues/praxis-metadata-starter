@@ -159,8 +159,10 @@ no transaction or lock spans the whole sequence. Replay, stop,
 cancellation, terminal state or uncertainty ends the call without automatic retry or
 recovery. A lost ACK on the second of three units cannot dispatch the third in that
 same call. This additive Java API remains a candidate, implemented and proven by
-focused kernel PostgreSQL tests; host consumer HTTP proof, final review, integration
-and publication/adoption remain pending. It does not establish
+17 unique focused kernel PostgreSQL cases and 32 focused P1/P2 host HTTP cases against
+the traced candidate artifact; independent code review passed. Full `verify` was
+not run for this cut. Source integration, publication and adoption without an
+override are separate remaining steps. It does not establish
 HTTP readiness or a complete backend release.
 
 ## Transaction and lock order — P1 consumer

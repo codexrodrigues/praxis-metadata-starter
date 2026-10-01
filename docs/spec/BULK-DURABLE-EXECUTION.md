@@ -447,9 +447,11 @@ terminal, stop, cancelamento ou incerteza interrompe a chamada. Perda do ACK na 
 unidade de três não pode executar a terceira na mesma chamada. Não há retry, recovery
 ou troca de owner automáticos.
 
-Essa API Java é **candidata**, implementada e comprovada por testes PostgreSQL focais
-do kernel; prova HTTP dos consumidores, revisão final, integração e eventual
-publicação/adoção seguem pendentes. Não declara
+Essa API Java é **candidata**, implementada e comprovada por 17 casos PostgreSQL
+focais únicos do kernel e 32 casos HTTP focais P1/P2 no host com artefato candidato
+rastreado; revisão independente do código foi aceita. `verify` integral não foi
+executado neste corte; integração da fonte, publicação e adoção sem override são
+etapas separadas. Não declara
 operação `READY`, endpoint HTTP novo ou backend/Angular completos. A chamada manual
 de `executeUnit` abaixo continua válida para quem executa um ordinal explícito.
 
