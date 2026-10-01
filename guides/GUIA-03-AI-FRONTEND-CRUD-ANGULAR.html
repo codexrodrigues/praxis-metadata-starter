@@ -445,6 +445,39 @@ condicional:</p>
 dentro da mesma transacao do update;</li>
 <li>a resposta bem-sucedida devolve o novo <code>ETag</code>.</li>
 </ol>
+<p>No contrato Java candidato B4-R1,
+<code>ResourceRepresentationResult</code> carrega corpo e
+<code>persistedVersion</code> capturados da <strong>mesma
+entidade</strong>. <code>findById</code> projeta ambos na transação de
+leitura; o PUT versionado de três argumentos captura ambos após o último
+hook e <code>flush</code>, sem reconsulta tardia para formar o header.
+Na migração Java beta, remover overrides de
+<code>getResourceVersion(id)</code> e implementar
+<code>getEntityResourceVersion(entity)</code>; consumidores Java de
+<code>findById</code> passam a usar <code>.body()</code>, e o PUT
+versionado de três argumentos devolve o par. Não manter alias ou segunda
+API de consulta de versão. O service deve exigir
+<code>result.requirePersistedVersion()</code> <strong>dentro da mesma
+transação de escrita</strong> antes de retornar, para que ausência de
+versão reverta domínio e versão juntos. O controller também valida o
+resultado, mas sua checagem posterior ao commit não substitui esse guard
+transacional em implementações próprias do SPI. O mapper não aceita
+versão esperada do payload, e a entrada Java de dois argumentos
+permanece protegida por <code>428</code>. Em replay histórico de action,
+reutilize revisão historicamente capturada ou omita ETag; nunca assine a
+versão atual para um corpo antigo. Esse par certifica a linha do
+recurso, não um snapshot de links, grants ou relações.</p>
+<p>Antes de adotar o candidato, prove com PostgreSQL e barreiras entre
+projeção/header do GET e resultado/header do PUT: corpo/token pareados,
+token anterior rejeitado em <code>412</code>, token de DTO igual ao
+header quando ambos existem, replay sem token renovado e rollback quando
+um service versionado tenta retornar revisão vazia. O candidato local
+passou 46 testes focais Metadata e 28 testes focais host: 13 com
+PostgreSQL (5 JPA/MockMvc e 8 receipt/replay), 1 unitário de providers e
+14 TCP/H2, sem prova de grants de role ou domínio RuleLab inteiro em
+PostgreSQL. Revisão final, integração, release e adoção sem override
+continuam separadas; não usar esse resultado para declarar backend
+completo.</p>
 <p>O <code>ETag</code> tambem e vinculado ao escopo de isolamento
 resolvido pelo servidor. Por padrao o starter usa o escopo global; hosts
 multi-tenant devem publicar um <code>ResourceVersionScopeProvider</code>
