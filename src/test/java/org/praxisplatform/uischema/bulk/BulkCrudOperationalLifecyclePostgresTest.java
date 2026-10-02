@@ -29,6 +29,327 @@ class BulkCrudOperationalLifecyclePostgresTest {
     static final String NAMESPACE = "crud-test";
 
     @Test
+    void ordinaryMetadataAndHashesUseTheInstalledPhotographWithoutDynamicFallback() throws Exception {
+        try (var fixture = fixture()) {
+            var calls = new AtomicInteger();
+            assertThrows(IllegalStateException.class, () -> fixture.documents.getOrComputeSchemaHash("crud-proof", () -> {
+                calls.incrementAndGet(); return fixture.sourceDocument;
+            }));
+            assertEquals(0, calls.get(), "cold governance denies before invoking the payload builder");
+            fixture.lifecycle.publish(identity("crud.uniform"), 0);
+            var published = fixture.documents.getDocumentForGroup("crud");
+            String hash = fixture.documents.getOrComputeSchemaHash("crud-proof", () -> fixture.documents.getDocumentForGroup("crud"));
+            fixture.sourceDocument.withObject("/info").put("version", "unpublished-source-change");
+            assertEquals(published, fixture.documents.getDocumentForGroupStrict("crud"));
+            assertEquals(hash, fixture.documents.getOrComputeSchemaHash("crud-proof", () -> {
+                fail("a committed hash must not rebuild from the unpublished source"); return null;
+            }));
+            assertThrows(IllegalStateException.class, () -> fixture.documents.getDocumentForGroup("missing"));
+            assertEquals(1, fixture.fresh.get());
+            fixture.lifecycle.suspend(identity("crud.uniform"), 1);
+            assertThrows(IllegalStateException.class, () -> fixture.documents.getDocumentForGroup("crud"));
+            assertThrows(IllegalStateException.class, () -> fixture.documents.getOrComputeSchemaHash("crud-proof", () -> published));
+        }
+    }
+
+    @Test
+    void publishedSchemaAndHashesReadTheSamePhotographInsideTheBoundOperationalTransaction() throws Exception {
+        try (var fixture = fixture()) {
+            fixture.lifecycle.publish(identity("crud.uniform"), 0);
+            var published = fixture.documents.getDocumentForGroup("crud");
+            var source = updateSourceOperation();
+            var expectedSchema = fixture.documents.requireRequestSchema(source).schema();
+            int producerReads = fixture.fresh.get();
+            fixture.sourceDocument.withObject("/info").put("version", "unpublished-transactional-change");
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(fixture.store.runtime.transactionManager());
+            transaction.execute(status -> fixture.store.runtime.withConnection(connection -> {
+                int boundPid = backendPid(connection);
+                var publication = JdbcBulkOpenApiPublication.lockForRead(connection, NAMESPACE, "deployment-test");
+                assertTrue(publication.published());
+                fixture.documents.withPublishedBulkOpenApiPublication((candidate, generation) -> {
+                    assertNoCacheLocks(fixture.documents);
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
+                    assertEquals(publication.generation(), generation.longValue());
+                    assertEquals(publication.documentDigest(), candidate.digest());
+                    assertEquals(published, fixture.documents.getDocumentForGroupStrict("crud"));
+                    var schema = fixture.documents.requireRequestSchema(source);
+                    assertEquals(expectedSchema, schema.schema());
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) schema.schema()).put("tampered", true);
+                    assertFalse(fixture.documents.requireRequestSchema(source).schema().has("tampered"),
+                            "a unit receives a defensive schema copy from the immutable photograph");
+                    var document = fixture.documents.getDocumentForGroup("crud");
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) document).put("tampered", true);
+                    assertEquals(published, fixture.documents.getDocumentForGroup("crud"));
+                    assertEquals(boundPid, fixture.store.runtime.withConnection(BulkCrudOperationalLifecyclePostgresTest::backendPid).intValue());
+                    return null;
+                });
+                String hash = fixture.documents.getOrComputeSchemaHash("bound-update-schema", () ->
+                        fixture.documents.requireRequestSchema(source).schema());
+                assertEquals(hash, fixture.documents.getOrComputeSchemaHash("bound-update-schema", () -> {
+                    fail("a committed schema hash cannot rebuild from the dynamic producer"); return null;
+                }));
+                assertNoCacheLocks(fixture.documents);
+                assertEquals(boundPid, backendPid(connection), "schema and hash reads preserve the operational connection");
+                assertEquals(producerReads, fixture.fresh.get());
+                return null;
+            }));
+            assertEquals(producerReads, fixture.fresh.get(), "transactional metadata reads perform no producer I/O");
+            assertEquals(published, fixture.documents.getDocumentForGroupStrict("crud"));
+        }
+    }
+
+    @Test
+    void publishedReadsRejectReadOnlyRollbackOnlyAndUnrelatedTransactionsBeforePayloadWork() throws Exception {
+        try (var fixture = fixture()) {
+            fixture.lifecycle.publish(identity("crud.uniform"), 0);
+            int producerReads = fixture.fresh.get();
+            var payloadCalls = new AtomicInteger();
+            java.util.function.Supplier<JsonNode> payload = () -> {
+                payloadCalls.incrementAndGet(); return fixture.sourceDocument;
+            };
+            var readOnly = new org.springframework.transaction.support.TransactionTemplate(fixture.store.runtime.transactionManager());
+            readOnly.setReadOnly(true);
+            assertThrows(IllegalStateException.class, () -> readOnly.execute(status ->
+                    fixture.documents.getOrComputeSchemaHash("read-only-denied", payload)));
+            var rollbackOnly = new org.springframework.transaction.support.TransactionTemplate(fixture.store.runtime.transactionManager());
+            assertThrows(IllegalStateException.class, () -> rollbackOnly.execute(status -> {
+                // A failed MANDATORY participant marks the shared operational resource rollback-only.
+                var rejectedUnit = new IllegalArgumentException("unit rejected before schema read");
+                assertSame(rejectedUnit, assertThrows(IllegalArgumentException.class, () ->
+                        fixture.store.runtime.withConnection(connection -> { throw rejectedUnit; })));
+                return fixture.documents.getOrComputeSchemaHash("rollback-only-denied", payload);
+            }));
+            // The same physical database and credentials do not make another datasource/manager the operational binding.
+            var unrelatedSource = new DriverManagerDataSource(fixture.store.postgres.getJdbcUrl("bulk_runtime_test", "postgres"),
+                    "bulk_runtime_test", "");
+            var unrelated = new org.springframework.transaction.support.TransactionTemplate(new DataSourceTransactionManager(unrelatedSource));
+            assertThrows(org.springframework.transaction.IllegalTransactionStateException.class, () -> unrelated.execute(status ->
+                    fixture.documents.getOrComputeSchemaHash("unrelated-denied", payload)));
+            assertEquals(0, payloadCalls.get(), "transaction attestation denies before schema payload construction");
+            assertEquals(producerReads, fixture.fresh.get());
+            assertNoCacheLocks(fixture.documents);
+            assertEquals(1, fixture.lifecycle.requireReady(identity("crud.uniform")).generation(),
+                    "denied callers cannot mutate the durable publication or leak their response scope");
+        }
+    }
+
+    @Test
+    void readinessAndDiscoveryRejectAnAmbientOperationalTransactionBeforeEvenEmptyConsumers() throws Exception {
+        try (var fixture = fixture()) {
+            var ready = fixture.lifecycle.publish(identity("crud.uniform"), 0);
+            var publication = fixture.store.publication();
+            int producerReads = fixture.fresh.get();
+            var consumerCalls = new AtomicInteger();
+            var frames = (ThreadLocal<?>) ReflectionTestUtils.getField(fixture.lifecycle, "responseProjection");
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(fixture.store.runtime.transactionManager());
+            transaction.execute(status -> {
+                fixture.store.runtime.withConnection(connection -> {
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
+                    assertNull(frames.get());
+                    assertNoCacheLocks(fixture.documents);
+                    var readinessDenied = assertThrows(IllegalStateException.class, () ->
+                            fixture.lifecycle.requireReady(identity("crud.uniform")));
+                    assertEquals("Readiness composition must start outside operational transactions", readinessDenied.getMessage());
+                    // Empty actions must not bypass the entry guard through their consumer short circuit.
+                    var actionsDenied = assertThrows(IllegalStateException.class, () ->
+                            fixture.lifecycle.projectReadyActions(List.of(), contracts -> {
+                                consumerCalls.incrementAndGet(); return contracts;
+                            }));
+                    assertEquals("Response projection must start outside operational transactions", actionsDenied.getMessage());
+                    // Cover both the actual resource and a resource with no declared bindings.
+                    for (String resource : List.of("crud.items", "crud-items")) {
+                        var capabilitiesDenied = assertThrows(IllegalStateException.class, () ->
+                                fixture.lifecycle.projectReadyCapabilities(resource, contracts -> {
+                                    consumerCalls.incrementAndGet(); return contracts;
+                                }));
+                        assertEquals("Response projection must start outside operational transactions", capabilitiesDenied.getMessage());
+                    }
+                    assertEquals(0, consumerCalls.get());
+                    assertEquals(producerReads, fixture.fresh.get());
+                    assertNull(frames.get(), "entry denial cannot create or retain a response frame");
+                    assertNoCacheLocks(fixture.documents);
+                    return null;
+                });
+                assertFalse(status.isRollbackOnly(), "entrypoint denial does not enlist a failing runtime participant");
+                status.setRollbackOnly();
+                return null;
+            });
+            assertEquals(0, consumerCalls.get());
+            assertEquals(producerReads, fixture.fresh.get());
+            assertEquals(publication, fixture.store.publication(), "the rolled-back caller cannot mutate the publication");
+            assertEquals(ready, fixture.lifecycle.requireReady(identity("crud.uniform")));
+            assertEquals("READY", fixture.store.state("crud.uniform").state());
+            assertNull(frames.get());
+            assertNoCacheLocks(fixture.documents);
+        }
+    }
+
+    @Test
+    void boundSchemaReadCompletesWhileCacheWriterWaitsForTheReadersGlobalShareLock() throws Exception {
+        try (var fixture = fixture(); var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            fixture.lifecycle.publish(identity("crud.uniform"), 0);
+            var expected = fixture.documents.requireRequestSchema(updateSourceOperation()).schema();
+            int producerReads = fixture.fresh.get();
+            var writerEntered = new java.util.concurrent.CountDownLatch(1);
+            var writerPid = new AtomicInteger();
+            var monitor = new JdbcTemplate(fixture.store.postgres.getPostgresDatabase());
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(fixture.store.runtime.transactionManager());
+            java.util.concurrent.Future<JdbcBulkOpenApiPublication.Transition> writer = transaction.execute(status ->
+                    fixture.store.runtime.withConnection(connection -> {
+                        int readerPid = backendPid(connection);
+                        var publication = JdbcBulkOpenApiPublication.lockForRead(connection, NAMESPACE, "deployment-test");
+                        assertTrue(publication.published());
+                        var pending = executor.submit(() -> fixture.documents.withBulkLifecycleCompositionLock(() ->
+                                fixture.store.control.withConnection(controlConnection -> {
+                                    writerPid.set(backendPid(controlConnection));
+                                    writerEntered.countDown();
+                                    return JdbcBulkOpenApiPublication.transition(controlConnection, NAMESPACE, "deployment-test",
+                                            publication.generation(), JdbcBulkOpenApiPublication.Target.SUSPENDED, null);
+                                })));
+                        try { assertTrue(writerEntered.await(2, java.util.concurrent.TimeUnit.SECONDS)); }
+                        catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt(); throw new AssertionError(interrupted);
+                        }
+                        assertNotEquals(readerPid, writerPid.get(), "the writer uses its independent control-plane connection");
+                        awaitGlobalPublicationWait(monitor, writerPid.get(), readerPid);
+                        var lock = (java.util.concurrent.locks.ReentrantReadWriteLock)
+                                ReflectionTestUtils.getField(fixture.documents, "cacheLifecycleLock");
+                        assertTrue(lock.isWriteLocked(), "the waiting publisher owns CACHE WRITE");
+                        assertFalse(lock.isWriteLockedByCurrentThread());
+                        assertEquals(0, lock.getReadHoldCount());
+                        // This writer deliberately holds the canonical cache fence without changing its epoch yet.
+                        // A bound reader must finish successfully, not wait for CACHE READ or open REQUIRES_NEW.
+                        assertTimeout(Duration.ofMillis(500), () -> {
+                            var actual = fixture.documents.requireRequestSchema(updateSourceOperation());
+                            assertEquals(expected, actual.schema());
+                            assertNoCacheLocks(fixture.documents);
+                            assertEquals(readerPid, backendPid(connection));
+                        });
+                        assertFalse(pending.isDone(), "the writer remains blocked until this outer transaction releases its SHARE");
+                        assertEquals(producerReads, fixture.fresh.get());
+                        return pending;
+                    }));
+            assertNotNull(writer);
+            var transition = writer.get(3, java.util.concurrent.TimeUnit.SECONDS);
+            assertTrue(transition.applied(), "the writer completes after the unit transaction commits");
+            assertEquals(3, transition.generation());
+            assertEquals("SUSPENDED", fixture.store.publication().state());
+            assertThrows(IllegalStateException.class, () -> fixture.documents.requireRequestSchema(updateSourceOperation()),
+                    "the later read must reject the now-suspended durable photograph");
+            assertEquals(producerReads, fixture.fresh.get());
+        }
+    }
+
+    private static org.praxisplatform.uischema.openapi.CanonicalOperationRef updateSourceOperation() {
+        return new org.praxisplatform.uischema.openapi.CanonicalOperationRef("crud", BulkCrudStructuralCompilerTest.SOURCE,
+                "/crud-items/{id}", "PUT");
+    }
+
+    private static int backendPid(java.sql.Connection connection) throws java.sql.SQLException {
+        try (var query = connection.createStatement(); var rows = query.executeQuery("select pg_backend_pid()")) {
+            assertTrue(rows.next());
+            int pid = rows.getInt(1);
+            assertFalse(rows.next());
+            return pid;
+        }
+    }
+
+    private static void assertNoCacheLocks(CachedOpenApiDocumentService documents) {
+        var lock = (java.util.concurrent.locks.ReentrantReadWriteLock) ReflectionTestUtils.getField(documents, "cacheLifecycleLock");
+        var preparation = (java.util.concurrent.locks.ReentrantLock) ReflectionTestUtils.getField(documents, "compositionPreparationLock");
+        assertFalse(lock.isWriteLockedByCurrentThread());
+        assertEquals(0, lock.getReadHoldCount(), "bound reads cannot acquire CACHE READ after the durable SHARE");
+        assertFalse(preparation.isHeldByCurrentThread());
+    }
+
+    private static void awaitGlobalPublicationWait(JdbcTemplate monitor, int writerPid, int readerPid) {
+        // The control connection has a 1s lock_timeout; observe its real wait before that boundary.
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(700);
+        do {
+            if (Boolean.TRUE.equals(monitor.queryForObject("""
+                    select exists (select 1 from pg_catalog.pg_stat_activity a
+                     where a.pid=? and a.wait_event_type='Lock'
+                       and ? = any(pg_catalog.pg_blocking_pids(a.pid))
+                       and a.query like '%transition_openapi_publication%')
+                    """, Boolean.class, writerPid, readerPid))) return;
+            try { java.util.concurrent.TimeUnit.MILLISECONDS.sleep(5); }
+            catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt(); throw new AssertionError(interrupted);
+            }
+        } while (System.nanoTime() < deadline);
+        fail("the control-plane global UPDATE was not observed waiting for this operational SHARE");
+    }
+
+    @Test
+    void aStaleReplicaReconcilesTheOtherNodesPublicationWithoutSuspendingIt() throws Exception {
+        try (var a = fixture(); var b = fixture(a.store, false)) {
+            a.lifecycle.publish(identity("crud.uniform"), 0);
+            assertEquals(1, b.lifecycle.reconcilePublished(identity("crud.uniform"), 1).generation());
+            b.lifecycle.suspend(identity("crud.uniform"), 1);
+            assertEquals(3, b.lifecycle.publish(identity("crud.uniform"), 2).generation());
+            var current = a.store.publication();
+            assertThrows(IllegalStateException.class, () -> a.lifecycle.requireReady(identity("crud.uniform")));
+            assertEquals(3, a.lifecycle.reconcilePublished(identity("crud.uniform"), 3).generation());
+            assertEquals(current, a.store.publication());
+            assertEquals(3, b.lifecycle.requireReady(identity("crud.uniform")).generation());
+            assertEquals(3, a.lifecycle.requireReady(identity("crud.uniform")).generation());
+            assertEquals(2, a.fresh.get());
+            assertEquals(2, b.fresh.get());
+        }
+    }
+
+    @Test
+    void uncertainCommittedPublicationIsReconciledWithoutRepeatingTheTransition() throws Exception {
+        try (var fixture = fixture()) {
+            fixture.store.commitFault.set("after");
+            assertEquals(1, fixture.lifecycle.publish(identity("crud.uniform"), 0).generation());
+            assertEquals(1, fixture.store.publicationCommits.get());
+            assertEquals(2, fixture.store.publication().generation());
+            assertEquals(1, fixture.lifecycle.requireReady(identity("crud.uniform")).generation());
+            assertEquals(1, fixture.fresh.get());
+        }
+    }
+
+    @Test
+    void failedPublicationCommitRollsBackBothGlobalAndOperationAndInstallsNothing() throws Exception {
+        try (var fixture = fixture()) {
+            fixture.store.commitFault.set("before");
+            assertThrows(RuntimeException.class, () -> fixture.lifecycle.publish(identity("crud.uniform"), 0));
+            assertEquals("SUSPENDED", fixture.store.publication().state());
+            assertEquals(1, fixture.store.publication().generation());
+            assertEquals("UNCOMPOSED", fixture.store.state("crud.uniform").state());
+            assertEquals(0, fixture.store.state("crud.uniform").generation());
+            assertFalse(fixture.documents.hasLocalPublishedBulkOpenApiPublication());
+            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(identity("crud.uniform")));
+        }
+    }
+
+    @Test
+    void coldAndStaleLocalPhotographsReconcileOnlyTheExactDurablePublication() throws Exception {
+        try (var fixture = fixture()) {
+            fixture.lifecycle.publish(identity("crud.uniform"), 0);
+            Object oldSnapshot = ReflectionTestUtils.getField(fixture.documents, "publishedSnapshot");
+            ReflectionTestUtils.setField(fixture.documents, "publishedSnapshot", null);
+            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(identity("crud.uniform")));
+            var committed = fixture.store.publication();
+            assertEquals(1, fixture.lifecycle.reconcilePublished(identity("crud.uniform"), 1).generation());
+            assertEquals(committed, fixture.store.publication(), "recovery performs no control-plane mutation");
+            fixture.lifecycle.suspend(identity("crud.uniform"), 1);
+            fixture.lifecycle.publish(identity("crud.uniform"), 2);
+            ReflectionTestUtils.setField(fixture.documents, "publishedSnapshot", oldSnapshot);
+            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(identity("crud.uniform")));
+            committed = fixture.store.publication();
+            assertEquals(3, fixture.lifecycle.reconcilePublished(identity("crud.uniform"), 3).generation());
+            assertEquals(committed, fixture.store.publication());
+            fixture.sourceDocument.withObject("/info").put("version", "divergent");
+            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.reconcilePublished(identity("crud.uniform"), 3));
+            assertEquals(committed, fixture.store.publication(), "a divergent source cannot change the valid durable tuple");
+        }
+    }
+
+    @Test
     void bothFamiliesPublishWithCasAndShareOneUnlockedResponseCapture() throws Exception {
         try (var fixture = fixture()) {
             for (var id : List.of("crud.uniform", "crud.items")) {
@@ -46,10 +367,10 @@ class BulkCrudOperationalLifecyclePostgresTest {
                 assertTrue(fixture.lifecycle.projectReadyActions(List.of()).isEmpty());
                 return contracts;
             });
-            assertEquals(before + 1, fixture.fresh.get());
+            assertEquals(before, fixture.fresh.get());
             assertEquals(BulkMode.PER_ITEM_UPDATE, projected.get("bulk-update-items").mode());
             fixture.lifecycle.projectReadyCapabilities("crud.items", contracts -> contracts);
-            assertEquals(before + 2, fixture.fresh.get(), "each response owns a new fresh composition");
+            assertEquals(before, fixture.fresh.get(), "responses reuse the committed immutable photograph without producer I/O");
             assertEquals(2, fixture.lifecycle.suspend(identity("crud.uniform"), 1));
             assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(identity("crud.items")));
             assertTrue(fixture.lifecycle.<Boolean>projectReadyCapabilities("crud.items", Map::isEmpty).booleanValue());
@@ -122,11 +443,45 @@ class BulkCrudOperationalLifecyclePostgresTest {
     }
 
     private Fixture fixture() throws Exception {
-        var store = new Store(List.of("crud.uniform", "crud.items"));
+        return fixture(new Store(List.of("crud.uniform", "crud.items")), true);
+    }
+
+    private Fixture fixture(Store store, boolean ownsStore) throws Exception {
         var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class);
         var fresh = new AtomicInteger();
-        JsonNode value = BulkCrudOperationalCompositionTest.document();
+        var value = BulkCrudOperationalCompositionTest.document();
+        value.put("openapi", "3.0.3");
+        value.putObject("info").put("title", "CRUD publication fixture").put("version", "1");
+        var filterHolder = new org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationFilter[1];
+        var registration = mock(jakarta.servlet.FilterRegistration.class);
+        org.mockito.Mockito.when(registration.getClassName()).thenReturn(org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationFilter.class.getName());
+        org.mockito.Mockito.when(registration.getUrlPatternMappings()).thenReturn(List.of("/*"));
+        org.mockito.Mockito.when(registration.getServletNameMappings()).thenReturn(List.of());
+        var servletContext = new org.springframework.mock.web.MockServletContext() {
+            @Override public jakarta.servlet.FilterRegistration getFilterRegistration(String name) { return registration; }
+        };
         var source = new OpenApiDocsSupport() {
+            @Override public String localPublicationContextPath() { return ""; }
+            @Override public org.praxisplatform.uischema.openapi.OpenApiDocumentCapture fetchFreshOpenApiResponseCapture(
+                    RestTemplate client, String path, org.slf4j.Logger logger, ObjectMapper mapper) {
+                // Servlet admission fixture; actual HTTP/security is proved separately by the Boot test.
+                var request = new org.springframework.mock.web.MockHttpServletRequest(servletContext, "GET", path);
+                request.setServletPath(path);
+                request.addHeader(OpenApiInternalRestTemplate.PRODUCER_CAPTURE_HEADER,
+                        ((OpenApiInternalRestTemplate) client).producerCaptureToken(path));
+                var response = new org.springframework.mock.web.MockHttpServletResponse();
+                try {
+                    filterHolder[0].doFilter(request, response, (input, output) -> {
+                        if (path.endsWith("/crud")) fresh.incrementAndGet();
+                        byte[] bytes = path.endsWith("/swagger-config")
+                                ? "{\"urls\":[{\"name\":\"crud\",\"url\":\"/v3/api-docs/crud\"}]}".getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                                : mapper.writeValueAsBytes(value);
+                        output.getOutputStream().write(bytes);
+                    });
+                    assertEquals(200, response.getStatus());
+                    return org.praxisplatform.uischema.openapi.OpenApiDocumentCapture.parse(response.getContentAsByteArray(), mapper);
+                } catch (Exception failure) { throw new IllegalStateException("Servlet producer fixture failed", failure); }
+            }
             @Override public String resolveGroupFromPath(String path) { return "crud"; }
             @Override public JsonNode fetchOpenApiDocument(RestTemplate client, String base, String group, org.slf4j.Logger logger) { return value.deepCopy(); }
             @Override public JsonNode fetchOpenApiGroupDocument(RestTemplate client, String base, String group, org.slf4j.Logger logger) { return value.deepCopy(); }
@@ -137,6 +492,8 @@ class BulkCrudOperationalLifecyclePostgresTest {
         var client = new OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(10));
         var documents = new CachedOpenApiDocumentService(client, new ObjectMapper(), source, true);
         ReflectionTestUtils.setField(documents, "openApiBasePath", "/v3/api-docs");
+        filterHolder[0] = new org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationFilter(documents);
+        filterHolder[0].init(new org.springframework.mock.web.MockFilterConfig(servletContext, "bulkPublication"));
         var mvc = context.getBean(RequestMappingHandlerMapping.class);
         var bindings = BulkResourceOperationBindings.from(mvc);
         var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("crud"));
@@ -147,20 +504,23 @@ class BulkCrudOperationalLifecyclePostgresTest {
         var lifecycle = new BulkOperationLifecycle(bindings, resolver, documents, mock(ActionDefinitionRegistry.class),
                 BulkCrudStructuralCompilerTest.mapper(), new FilteredSchemaReferenceResolver(), store.runtime, store.control,
                 List.copyOf(providers));
-        return new Fixture(store, context, client, documents, bindings, resolver, providers, lifecycle, fresh);
+        return new Fixture(store, context, client, documents, bindings, resolver, providers, lifecycle, fresh, value, ownsStore);
     }
 
     record Fixture(Store store, org.springframework.web.context.support.AnnotationConfigWebApplicationContext context,
             OpenApiInternalRestTemplate client, CachedOpenApiDocumentService documents, BulkResourceOperationBindings bindings,
             OpenApiCanonicalOperationResolver resolver, List<BulkCrudOperationalCompositionTest.Provider> providers,
-            BulkOperationLifecycle lifecycle, AtomicInteger fresh) implements AutoCloseable {
-        public void close() throws Exception { try { context.close(); } finally { try { client.close(); } finally { store.close(); } } }
+            BulkOperationLifecycle lifecycle, AtomicInteger fresh, com.fasterxml.jackson.databind.node.ObjectNode sourceDocument, boolean ownsStore) implements AutoCloseable {
+        public void close() throws Exception { try { context.close(); } finally { try { client.close(); } finally { if (ownsStore) store.close(); } } }
     }
 
     static final class Store implements AutoCloseable {
         final EmbeddedPostgres postgres;
         final BulkExecutionInfrastructure runtime;
         final BulkControlPlaneInfrastructure control;
+        final java.util.concurrent.atomic.AtomicReference<String> commitFault = new java.util.concurrent.atomic.AtomicReference<>();
+        final AtomicInteger publicationCommits = new AtomicInteger();
+        final AtomicInteger skipFaultCommits = new AtomicInteger(1);
         Store(List<String> operations) throws Exception {
             postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
             var admin = postgres.getPostgresDatabase();
@@ -172,7 +532,23 @@ class BulkCrudOperationalLifecyclePostgresTest {
             var runtimeDs = BulkPostgresTestSupport.runtimeDataSource(postgres);
             var controlDs = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_control_test", "postgres"), "bulk_control_test", "");
             runtime = new BulkExecutionInfrastructure(runtimeDs, new DataSourceTransactionManager(runtimeDs), NAMESPACE, "deployment-test", roles);
-            control = new BulkControlPlaneInfrastructure(controlDs, new DataSourceTransactionManager(controlDs), NAMESPACE, "deployment-test", "bulk_control_test", runtime);
+            var controlManager = new DataSourceTransactionManager(controlDs) {
+                @Override protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
+                    // A publish has a separate suspension commit followed by the atomic publication commit.
+                    // Fault only the latter; do not grant the control role table SELECT for test instrumentation.
+                    String fault = commitFault.get() != null && skipFaultCommits.getAndDecrement() == 0
+                            ? commitFault.getAndSet(null) : null;
+                    if ("before".equals(fault)) throw new org.springframework.transaction.TransactionSystemException("injected pre-commit failure");
+                    super.doCommit(status);
+                    if (fault != null) publicationCommits.incrementAndGet();
+                    if ("after".equals(fault)) throw new org.springframework.transaction.TransactionSystemException("injected lost commit acknowledgement");
+                }
+            };
+            controlManager.setRollbackOnCommitFailure(true);
+            control = new BulkControlPlaneInfrastructure(controlDs, controlManager, NAMESPACE, "deployment-test", "bulk_control_test", runtime);
+        }
+        JdbcBulkOpenApiPublication.Snapshot publication() {
+            return runtime.withLifecycleRead(connection -> JdbcBulkOpenApiPublication.lockForRead(connection, NAMESPACE, "deployment-test"));
         }
         JdbcBulkOperationControl.Snapshot state(String operation) {
             return runtime.withLifecycleRead(connection -> JdbcBulkOperationControl.lockForAdmission(connection, NAMESPACE, operation));

@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.bulk;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Objects;
 import org.praxisplatform.uischema.hash.SchemaCanonicalizer;
 
@@ -37,8 +38,8 @@ final class BulkOperationalDescriptorComposer {
         var evaluationSchema = structural.operation(BulkOperationStructuralDescriptor.Role.EVALUATION)
                 .requestSchema().orElseThrow(() -> new IllegalArgumentException("Evaluation request schema is required"))
                 .schema();
-        var codecSchema = SCHEMAS.canonicalize(wireSchema);
-        var publishedIdentitySchema = SCHEMAS.canonicalize(evaluationSchema.at(identitySchemaPointer));
+        var codecSchema = canonicalIdentitySchema(wireSchema);
+        var publishedIdentitySchema = canonicalIdentitySchema(evaluationSchema.at(identitySchemaPointer));
         if (!codecSchema.equals(publishedIdentitySchema))
             throw new IllegalArgumentException("Identity codec wire schema differs from the canonical evaluation request");
         if (!confirmation.operationId().equals(confirmationOperationId))
@@ -90,6 +91,21 @@ final class BulkOperationalDescriptorComposer {
         // descriptor must never publish READY and expose a direct workflow without that protocol.
         BulkExecutionContract.from(descriptor);
         return descriptor;
+    }
+
+    /** OpenAPI defines int32 as a signed 32-bit integer even when SpringDoc omits redundant bounds. */
+    private static com.fasterxml.jackson.databind.JsonNode canonicalIdentitySchema(
+            com.fasterxml.jackson.databind.JsonNode schema) {
+        var canonical = SCHEMAS.canonicalize(schema);
+        if (canonical != null && canonical.isObject()
+                && "integer".equals(canonical.path("type").asText())
+                && "int32".equals(canonical.path("format").asText())) {
+            ObjectNode normalized = (ObjectNode) canonical;
+            if (!normalized.has("minimum")) normalized.put("minimum", Integer.MIN_VALUE);
+            if (!normalized.has("maximum")) normalized.put("maximum", Integer.MAX_VALUE);
+            return SCHEMAS.canonicalize(normalized);
+        }
+        return canonical;
     }
 
     private static String canonical(String value, String name) {

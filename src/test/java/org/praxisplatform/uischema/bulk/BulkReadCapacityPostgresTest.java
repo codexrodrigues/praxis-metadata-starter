@@ -32,7 +32,7 @@ import static org.praxisplatform.uischema.bulk.BulkSnapshotStorageCodecTest.CONT
 import static org.praxisplatform.uischema.bulk.BulkSnapshotStorageCodecTest.proposal;
 
 /**
- * Opt-in characterization of the V13 validation and bounded RS2 reader under a small JVM heap.
+ * Opt-in characterization of the V15 validation and bounded RS2 reader under a small JVM heap.
  *
  * <p>Run in a dedicated fork with {@code -Xmx256m -Dpraxis.bulk.capacity=true}. Measurements are
  * descriptive evidence for this embedded PostgreSQL fixture. They are not an SLA, a production
@@ -76,10 +76,10 @@ class BulkReadCapacityPostgresTest {
     @BeforeEach
     void reset() {
         sql.execute("drop schema if exists praxis_bulk cascade");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(13);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(15);
         BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(),
                 CONTEXT.operationRef().operationId());
-        assertV13Complete();
+        assertV15Complete();
     }
 
     @Test
@@ -101,7 +101,7 @@ class BulkReadCapacityPostgresTest {
     }
 
     @Test
-    void readsFirstLastAndWarmPagesThenValidatesTenThousandItemsOnV13() {
+    void readsFirstLastAndWarmPagesThenValidatesTenThousandItemsOnV15() {
         Fixture fixture = fixture(10_000, 1, "D".repeat(512));
         persist(fixture);
         UUID proposalId = fixture.evaluation().proposal().id();
@@ -132,7 +132,7 @@ class BulkReadCapacityPostgresTest {
             BulkExecutionMigrator.validate(owner, BulkPostgresTestSupport.testRoleConfiguration());
             return null;
         });
-        assertV13Complete();
+        assertV15Complete();
         assertThat(footprint.manifestRows()).isEqualTo(10_000);
         assertThat(footprint.previewRows()).isEqualTo(10_000);
         assertThat(footprint.integrityRows()).isEqualTo(10_000);
@@ -233,11 +233,11 @@ class BulkReadCapacityPostgresTest {
         return value.longValue();
     }
 
-    private void assertV13Complete() {
+    private void assertV15Complete() {
         assertThat(sql.queryForObject("""
                 select version from praxis_bulk.praxis_bulk_schema_history
                  where success order by installed_rank desc limit 1
-                """, String.class)).isEqualTo("13");
+                """, String.class)).isEqualTo("15");
         for (String marker : List.of("praxis_bulk_manifest_bootstrap",
                 "praxis_bulk_preview_bootstrap", "praxis_bulk_preview_integrity_bootstrap",
                 "praxis_bulk_preview_reader_bootstrap")) {

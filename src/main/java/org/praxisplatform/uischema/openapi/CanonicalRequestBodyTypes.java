@@ -94,7 +94,11 @@ final class CanonicalRequestBodyTypes {
         }
         if (type.isArrayType()) validateHierarchy(type.getContentType(), seen, declarations, depth + 1);
         validateHierarchy(type.getSuperClass(), seen, declarations, depth + 1);
-        for (JavaType implemented : type.getInterfaces()) validateHierarchy(implemented, seen, declarations, depth + 1);
+        // Do not treat Jackson's inferred interface JavaTypes as declarations. Some
+        // SimpleTypes (for example Integer) expose generic JDK interfaces without
+        // resolved bindings even though reflection reports a closed declaration such
+        // as Comparable<Integer>. validateDeclaredAncestors already inspects the
+        // declared superclass/interface graph and rejects raw or wildcard ancestors.
     }
 
     private static JavaType concrete(Type type, Map<TypeVariable, Type> variables, TypeFactory factory,

@@ -661,7 +661,8 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
         return null;
     }
 
-    @EnableAutoConfiguration
+    // Domain/JPA fixture only; keep the authenticated publication fixture independent.
+    @EnableAutoConfiguration(exclude = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
     @EnableJpaRepositories(
             considerNestedRepositories = true,
             basePackageClasses = AbstractResourceControllerJpaWriteIntegrationTest.class

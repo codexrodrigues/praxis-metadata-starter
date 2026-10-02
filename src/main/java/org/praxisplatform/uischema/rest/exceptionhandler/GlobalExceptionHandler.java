@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.rest.exceptionhandler;
 
 import lombok.extern.slf4j.Slf4j;
+import org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationUnavailableException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.BusinessException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import org.praxisplatform.uischema.rest.failure.ResourceOperationFailure;
@@ -192,6 +193,14 @@ public class GlobalExceptionHandler {
                 request,
                 "STALE_RESOURCE_VERSION"
         );
+    }
+
+    @ExceptionHandler(GovernedOpenApiPublicationUnavailableException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleGovernedOpenApiPublicationUnavailable(
+            GovernedOpenApiPublicationUnavailableException ex, WebRequest request) {
+        return buildStatusResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                "Governed OpenAPI publication is temporarily unavailable.", request,
+                "GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE");
     }
 
     @ExceptionHandler(ResponseStatusException.class)

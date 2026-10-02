@@ -40,7 +40,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(value = AbstractResourceControllerMappedCrudTest.SimpleController.class)
+// Mapping/validation slice has no IAM contract; security-chain proof has its own authenticated fixture.
+@WebMvcTest(excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class, value = AbstractResourceControllerMappedCrudTest.SimpleController.class)
 @Import({AbstractResourceControllerMappedCrudTest.SimpleController.class, GlobalExceptionHandler.class})
 class AbstractResourceControllerMappedCrudTest {
 

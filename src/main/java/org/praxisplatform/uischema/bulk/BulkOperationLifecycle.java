@@ -60,6 +60,11 @@ public final class BulkOperationLifecycle {
         if (!documents.supportsFreshBulkLifecycleComposition()
                 || !documents.supportsFreshBulkLifecyclePublicCacheCoherence())
             throw new IllegalStateException("Bulk lifecycle requires fresh OpenAPI composition coherent with this node's public document cache");
+        documents.installBulkLifecyclePublicationGuard((generation, digest) -> {
+            var current = readPublicationForDocumentGuard();
+            if (!current.published() || current.generation() != generation || !Objects.equals(current.documentDigest(), digest))
+                throw unavailable("Local OpenAPI photograph does not match the durable publication");
+        });
         documents.installBulkLifecycleInvalidationGuard(() -> {
             if (!lifecycleCacheFence.get()) suspendAllBeforeCacheClear();
         });
@@ -72,12 +77,13 @@ public final class BulkOperationLifecycle {
      */
     public BulkOperationControlExpectation requireReady(BulkOperationControlIdentity identity) {
         requireIdentity(identity);
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw unavailable("Readiness composition must start outside operational transactions");
         ResponseProjectionFrame frame = responseProjection.get();
         if (frame != null) return frame.requireReady(identity);
         requireOperationalIdentity(identity);
         Set<String> requiredGroups = requiredOpenApiGroups();
-        List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
-        return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
+        return documents.withPublishedBulkOpenApiPublication((candidate, publicationGeneration) -> {
             operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
             BulkOperationalDescriptor descriptor = descriptor(identity, false);
             JdbcBulkOperationControl.Snapshot current = runtime.withLifecycleRead(connection ->
@@ -106,6 +112,8 @@ public final class BulkOperationLifecycle {
     public <T> T projectReadyActions(List<org.praxisplatform.uischema.action.ActionDefinition> actions,
             java.util.function.Function<Map<String, org.praxisplatform.uischema.action.ActionExecutionContract>, T> consumer) {
         Objects.requireNonNull(consumer, "consumer");
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw unavailable("Response projection must start outside operational transactions");
         var nested = responseProjection.get();
         if (nested != null) {
             if (nested.resourceKey == null || actions == null || actions.stream().filter(Objects::nonNull)
@@ -140,6 +148,8 @@ public final class BulkOperationLifecycle {
             java.util.function.Function<Map<String, BulkExecutionContract>, T> consumer) {
         Objects.requireNonNull(resourceKey, "resourceKey");
         Objects.requireNonNull(consumer, "consumer");
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw unavailable("Response projection must start outside operational transactions");
         if (responseProjection.get() != null) throw unavailable("Nested capability responses are not supported");
         Set<String> declaredIds = bindings.bulkOperations().stream()
                 .filter(binding -> resourceKey.equals(binding.resourceKey()))
@@ -191,9 +201,10 @@ public final class BulkOperationLifecycle {
             }
             return captured;
         });
+        if (before.values().stream().noneMatch(value -> value != null && value.ready()))
+            return new ResponseProjectionFrame(resourceKey, Map.of(), List.of(), Map.of(), null);
         Set<String> requiredGroups = requiredOpenApiGroups();
-        List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
-        return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
+        return documents.withPublishedBulkOpenApiPublication((candidate, publicationGeneration) -> {
             operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
             List<BulkOperationalDescriptor> descriptors = descriptors(false).stream()
                     .sorted(Comparator.comparing(value -> value.identity().confirmationOperationId())).toList();
@@ -322,47 +333,158 @@ public final class BulkOperationLifecycle {
         requireOperationalIdentity(identity);
         if (expectedGeneration < 0 || expectedGeneration == Long.MAX_VALUE)
             throw new IllegalArgumentException("expectedGeneration must be nonnegative and incrementable");
-        JdbcBulkOperationControl.Snapshot before = read(identity);
+        documents.requireBulkOpenApiServing();
+        var before = read(identity);
         if (before == null || before.generation() != expectedGeneration
                 || !("UNCOMPOSED".equals(before.state()) || "SUSPENDED".equals(before.state())))
             throw unavailable("Bulk operation control is not publishable at the expected generation");
-
-        Set<String> requiredGroups = requiredOpenApiGroups();
-        List<String> publishedGroups = operationResolver.publishedOpenApiGroups(requiredGroups);
-        return documents.withFreshBulkLifecycleDocuments(Set.copyOf(publishedGroups), () -> {
-            operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
-            BulkOperationalDescriptor descriptor = descriptor(identity, false);
-            // Re-enter the real publication boundary to check the remaining admission budget
-            // immediately before CAS. No deadline check may turn a committed READY into failure.
-            return documents.withBulkLifecycleCompositionLock(() -> publishPrepared(identity, expectedGeneration, descriptor));
+        var initialPublication = readPublication(); // This SHARE transaction ends before any control UPDATE.
+        var publication = initialPublication;
+        if (publication.published() && documents.hasLocalPublishedBulkOpenApiPublication()) {
+            PreparedPublication prepared = documents.withPublishedBulkOpenApiPublication((candidate, generation) -> {
+                requireSamePublication(initialPublication, candidate, generation);
+                operationResolver.refreshPublishedOpenApiGroupsStrict(requiredOpenApiGroups());
+                return new PreparedPublication(candidate, descriptor(identity, false));
+            });
+            return commitPrepared(identity, expectedGeneration, prepared, publication, false);
+        }
+        if (!publication.published()) {
+            // Initial/uncomposed ledgers must be durably suspended before capture. Direct UPDATE,
+            // never a publication SHARE lock converted in the same physical transaction.
+            documents.withBulkLifecycleCompositionLock(() -> {
+                suspendGlobalPublication(initialPublication);
+                withLifecycleCacheFence(() -> { documents.clearCaches(); return null; });
+                return null;
+            });
+            publication = readPublication();
+        }
+        var capturedPublication = publication;
+        var candidate = documents.prepareBulkOpenApiPublication(Set.copyOf(
+                operationResolver.publishedOpenApiGroups(requiredOpenApiGroups())));
+        if (capturedPublication.published()) requireSamePublication(capturedPublication, candidate, capturedPublication.generation());
+        var descriptor = documents.withPreparedBulkOpenApiPublication(candidate, () -> {
+            operationResolver.refreshPublishedOpenApiGroupsStrict(requiredOpenApiGroups());
+            return descriptor(identity, false);
         });
+        return commitPrepared(identity, expectedGeneration, new PreparedPublication(candidate, descriptor),
+                capturedPublication, !capturedPublication.published());
     }
 
-    private BulkOperationControlExpectation publishPrepared(BulkOperationControlIdentity identity,
-            long expectedGeneration, BulkOperationalDescriptor descriptor) {
-        JdbcBulkOperationControl.Transition transition;
-        var transitionStarted = new java.util.concurrent.atomic.AtomicBoolean();
+    private record PreparedPublication(org.praxisplatform.uischema.openapi.OpenApiPublicationCandidate candidate,
+            BulkOperationalDescriptor descriptor) {}
+
+    private BulkOperationControlExpectation commitPrepared(BulkOperationControlIdentity identity, long expectedGeneration,
+            PreparedPublication prepared, JdbcBulkOpenApiPublication.Snapshot before, boolean newPublication) {
+        long publicationGeneration = newPublication ? Math.incrementExact(before.generation()) : before.generation();
+        documents.withPreparedBulkOpenApiCommit(prepared.candidate(), () -> {
+            var admitted = descriptor(identity, false);
+            // Structural descriptors are immutable objects, not identity-comparable values.
+            // Their canonical digest and the operational fingerprint bind the complete content.
+            if (!prepared.descriptor().identity().equals(admitted.identity())
+                    || !prepared.descriptor().structuralRevision().equals(admitted.structuralRevision())
+                    || !prepared.descriptor().descriptorFingerprint().equals(admitted.descriptorFingerprint())
+                    || prepared.descriptor().infrastructure() != admitted.infrastructure())
+                throw unavailable("Bulk descriptor changed before publication admission");
+            var started = new java.util.concurrent.atomic.AtomicBoolean();
+            try {
+                controlPlane.withConnection(connection -> {
+                    documents.withBulkLifecycleCompositionLock(() -> connection);
+                    started.set(true);
+                    if (newPublication) {
+                        var global = JdbcBulkOpenApiPublication.transition(connection, runtime.namespace(), runtime.deploymentId(),
+                                before.generation(), JdbcBulkOpenApiPublication.Target.PUBLISHED, prepared.candidate().digest());
+                        if (!global.applied() || global.generation() != publicationGeneration)
+                            throw unavailable("OpenAPI publication lost its generation race");
+                    }
+                    var operation = JdbcBulkOperationControl.transition(connection, identity.namespaceId(),
+                            identity.confirmationOperationId(), expectedGeneration, JdbcBulkOperationControl.Target.READY,
+                            prepared.descriptor().descriptorFingerprint(), prepared.descriptor().structuralRevision(),
+                            publicationGeneration, prepared.candidate().digest());
+                    // Throw inside the control transaction so a losing operation also rolls back global publication.
+                    if (!operation.applied() || operation.generation() != expectedGeneration + 1)
+                        throw unavailable("Bulk operation publication lost its generation race");
+                    return null;
+                });
+            } catch (RuntimeException uncertain) {
+                if (!started.get()) throw uncertain;
+                try {
+                    runtime.withLifecycleRead(connection -> {
+                        var global = JdbcBulkOpenApiPublication.lockForRead(connection, runtime.namespace(), runtime.deploymentId());
+                        requireSamePublication(global, prepared.candidate(), publicationGeneration);
+                        var operation = JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(), identity.confirmationOperationId());
+                        if (!matches(operation, "READY", expectedGeneration + 1, prepared.descriptor()))
+                            throw unavailable("Publication commit was not reconciled to its exact global and operation identities");
+                        return null;
+                    });
+                } catch (RuntimeException unreconciled) {
+                    uncertain.addSuppressed(unreconciled);
+                    throw uncertain;
+                }
+            }
+            return null;
+        });
+        // Successful commit/reconciliation precedes installation. If installation fails, no READY
+        // is returned locally; explicit read-only reconciliation may install the exact photograph.
+        documents.installBulkOpenApiPublication(prepared.candidate(), publicationGeneration);
+        return prepared.descriptor().expectation(expectedGeneration + 1);
+    }
+
+    /** Reconciles an already committed publication without control CAS or domain mutation. */
+    public BulkOperationControlExpectation reconcilePublished(BulkOperationControlIdentity identity, long readyGeneration) {
+        requireOperationalIdentity(identity);
+        documents.requireBulkOpenApiServing();
+        var publication = readPublication();
+        if (!publication.published()) throw unavailable("No committed OpenAPI publication can be reconciled");
+        // Explicit off-path reconciliation may replace a stale local generation. It never clears
+        // caches through the global invalidation hook or trusts presence of the old photograph.
+        var candidate = documents.prepareBulkOpenApiPublication(Set.copyOf(
+                operationResolver.publishedOpenApiGroups(requiredOpenApiGroups())));
+        requireSamePublication(publication, candidate, publication.generation());
+        PreparedPublication prepared = documents.withPreparedBulkOpenApiPublication(candidate, () ->
+                new PreparedPublication(candidate, descriptor(identity, false)));
+        runtime.withLifecycleRead(connection -> {
+            var global = JdbcBulkOpenApiPublication.lockForRead(connection, runtime.namespace(), runtime.deploymentId());
+            requireSamePublication(global, prepared.candidate(), publication.generation());
+            var operation = JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(), identity.confirmationOperationId());
+            if (!matches(operation, "READY", readyGeneration, prepared.descriptor()))
+                throw unavailable("Committed operation does not match reconciliation identity");
+            return null;
+        });
+        documents.installBulkOpenApiPublication(prepared.candidate(), publication.generation());
+        return prepared.descriptor().expectation(readyGeneration);
+    }
+
+    private JdbcBulkOpenApiPublication.Snapshot readPublicationForDocumentGuard() {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            return runtime.withConnection(connection -> JdbcBulkOpenApiPublication.lockForRead(connection,
+                    runtime.namespace(), runtime.deploymentId()));
+        return readPublication();
+    }
+
+    private JdbcBulkOpenApiPublication.Snapshot readPublication() {
+        return runtime.withLifecycleRead(connection -> JdbcBulkOpenApiPublication.lockForRead(connection,
+                runtime.namespace(), runtime.deploymentId()));
+    }
+
+    private static void requireSamePublication(JdbcBulkOpenApiPublication.Snapshot snapshot,
+            org.praxisplatform.uischema.openapi.OpenApiPublicationCandidate candidate, long generation) {
+        if (!snapshot.published() || snapshot.generation() != generation || !Objects.equals(snapshot.documentDigest(), candidate.digest()))
+            throw unavailable("Captured OpenAPI photograph differs from the durable publication");
+    }
+
+    private void suspendGlobalPublication(JdbcBulkOpenApiPublication.Snapshot before) {
         try {
-            transition = controlPlane.withConnection(connection -> {
-                // Acquiring the connection may have consumed the remaining admission budget.
-                var admittedConnection = documents.withBulkLifecycleCompositionLock(() -> connection);
-                transitionStarted.set(true);
-                return JdbcBulkOperationControl.transition(admittedConnection, identity.namespaceId(),
-                        identity.confirmationOperationId(), expectedGeneration,
-                        JdbcBulkOperationControl.Target.READY, descriptor.descriptorFingerprint(),
-                        descriptor.structuralRevision());
-            });
+            var transition = controlPlane.withConnection(connection -> JdbcBulkOpenApiPublication.transition(connection,
+                    runtime.namespace(), runtime.deploymentId(), before.generation(), JdbcBulkOpenApiPublication.Target.SUSPENDED, null));
+            if (!transition.applied() || transition.generation() != before.generation() + 1)
+                throw unavailable("Global OpenAPI suspension lost its generation race");
         } catch (RuntimeException uncertain) {
-            if (!transitionStarted.get()) throw uncertain;
-            JdbcBulkOperationControl.Snapshot after = readAfterUncertainCommit(identity, uncertain);
-            if (matches(after, "READY", expectedGeneration + 1, descriptor))
-                return descriptor.expectation(after.generation());
-            throw uncertain;
+            try {
+                var after = readPublication();
+                if (!"SUSPENDED".equals(after.state()) || after.generation() != before.generation() + 1 || after.documentDigest() != null)
+                    throw unavailable("Global suspension could not be reconciled");
+            } catch (RuntimeException unreconciled) { uncertain.addSuppressed(unreconciled); throw uncertain; }
         }
-        if (!transition.applied()) throw unavailable("Bulk operation publication lost its generation race");
-        if (transition.generation() != expectedGeneration + 1)
-            throw unavailable("Bulk operation publication returned a noncanonical generation");
-        return descriptor.expectation(transition.generation());
     }
 
     /**
@@ -379,7 +501,7 @@ public final class BulkOperationLifecycle {
         if (before == null || before.generation() != expectedGeneration)
             throw unavailable("Bulk operation suspension lost its expected generation");
         long generation = suspendDurably(identity, expectedGeneration);
-        suspendDeclaredOperations(identity);
+        suspendGlobalPublication(readPublication());
         withLifecycleCacheFence(() -> { documents.clearCaches(); return null; });
         return generation;
     }
@@ -393,7 +515,7 @@ public final class BulkOperationLifecycle {
             transition = controlPlane.withConnection(connection ->
                     JdbcBulkOperationControl.transition(connection, identity.namespaceId(),
                             identity.confirmationOperationId(), expectedGeneration,
-                            JdbcBulkOperationControl.Target.SUSPENDED, null, null));
+                            JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null));
         } catch (RuntimeException uncertain) {
             JdbcBulkOperationControl.Snapshot after = readAfterUncertainCommit(identity, uncertain);
             if (after != null && "SUSPENDED".equals(after.state())
@@ -416,29 +538,11 @@ public final class BulkOperationLifecycle {
      */
     public void suspendAllBeforeCacheClear() {
         documents.withBulkLifecycleCompositionLock(() -> {
-            suspendDeclaredOperations(null);
+            if (!bindings.diagnostics().isEmpty())
+                throw unavailable("Cannot invalidate OpenAPI caches with malformed bulk declarations");
+            suspendGlobalPublication(readPublication());
             return null;
         });
-    }
-
-    private void suspendDeclaredOperations(BulkOperationControlIdentity except) {
-        if (!bindings.diagnostics().isEmpty())
-            throw unavailable("Cannot invalidate OpenAPI caches with malformed bulk declarations");
-        List<BulkOperationControlIdentity> identities = bindings.bulkOperations().stream()
-                .map(binding -> new BulkOperationControlIdentity(runtime.namespace(), binding.confirmationOperationId()))
-                .sorted(Comparator.comparing(BulkOperationControlIdentity::namespaceId)
-                        .thenComparing(BulkOperationControlIdentity::confirmationOperationId))
-                .toList();
-        for (BulkOperationControlIdentity identity : identities) {
-            if (identity.equals(except)) continue;
-            JdbcBulkOperationControl.Snapshot current = read(identity);
-            if (current == null) continue;
-            // Include already-suspended rows: advancing the generation fences a publication
-            // that started before invalidation and has not yet reached its CAS.
-            long next = suspendDurably(identity, current.generation());
-            if (next != current.generation() + 1)
-                throw unavailable("Bulk operation cache-invalidation fence did not advance");
-        }
     }
 
     private Set<String> requiredOpenApiGroups() {

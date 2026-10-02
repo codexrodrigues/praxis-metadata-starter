@@ -120,7 +120,55 @@ public interface OpenApiDocumentService {
     }
 
     /**
-     * Captures an ephemeral local document/transport fence inside a fresh snapshot callback.
+     * Composes against a prepared response set owned by this service, without HTTP fetch or
+     * installing it in public document/hash caches. The synchronous structural callback must
+     * not publish READY or mutate the database. This scope proves local capture coherence only;
+     * durable publication and installation after commit require their own fences. Implementations
+     * must reject foreign/invalidated candidates, nesting and entry from transactions/cache locks,
+     * and isolate schema hashes until this unpublished scope closes.
+     */
+    default <T> T withPreparedBulkOpenApiPublication(OpenApiPublicationCandidate candidate, Supplier<T> composition) {
+        throw new UnsupportedOperationException("This OpenApiDocumentService cannot compose a prepared publication");
+    }
+
+    /** Prepares root, config and the whole group set through attested producer captures. */
+    default OpenApiPublicationCandidate prepareBulkOpenApiPublication(Set<String> groups) {
+        throw new UnsupportedOperationException("This service cannot prepare a governed OpenAPI publication");
+    }
+    /**
+     * Registers a durable global tuple validator. Outside operational transactions the validator
+     * owns a short read transaction. Inside a writable operational transaction it must use the
+     * attested bound connection, retain its SHARE fence until completion and never open another transaction.
+     */
+    default void installBulkLifecyclePublicationGuard(java.util.function.BiConsumer<Long, String> guard) {
+        throw new UnsupportedOperationException("This service cannot validate a durable OpenAPI publication");
+    }
+    /** Requires a registered Servlet serving boundary before any durable publication attempt. */
+    default void requireBulkOpenApiServing() {
+        throw new UnsupportedOperationException("This service cannot attest governed OpenAPI serving");
+    }
+    /** Installs the locally owned photograph only after commit of its exact global tuple. */
+    default void installBulkOpenApiPublication(OpenApiPublicationCandidate candidate, long generation) {
+        throw new UnsupportedOperationException("This service cannot install a committed OpenAPI publication");
+    }
+    /** Short writer fence for admission of the prepared candidate's control transaction. No HTTP. */
+    default <T> T withPreparedBulkOpenApiCommit(OpenApiPublicationCandidate candidate, Supplier<T> commit) {
+        throw new UnsupportedOperationException("This service cannot fence a prepared publication commit");
+    }
+    /** Local presence only, not authority; any following scope must still validate the durable tuple. */
+    default boolean hasLocalPublishedBulkOpenApiPublication() { return false; }
+    /**
+     * Structural composition against the locally installed, durably validated photograph; no HTTP.
+     * Group getters return defensive copies of the requested group only. Bound operational reads
+     * must validate the photograph before and after composition without acquiring cache locks;
+     * this scope grants neither readiness nor domain authorization.
+     */
+    default <T> T withPublishedBulkOpenApiPublication(java.util.function.BiFunction<OpenApiPublicationCandidate, Long, T> composition) {
+        throw new UnsupportedOperationException("This service cannot compose a published OpenAPI photograph");
+    }
+
+    /**
+     * Captures an ephemeral local document/transport fence inside a scoped prepared or published lifecycle photograph callback outside operational transactions.
      * The owner may use it after that callback to verify captured descriptors under a short
      * cache read lock, with the original admission deadline. It supplies no documents, source
      * revision, readiness or authorization. Close it when the synchronous discovery response

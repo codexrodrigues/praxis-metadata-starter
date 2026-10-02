@@ -86,6 +86,10 @@ final class BulkPostgresTestSupport {
                 + "on praxis_bulk.praxis_bulk_allocation to " + runtimeRole);
         admin.execute("grant select on praxis_bulk.praxis_bulk_tombstone to " + runtimeRole);
         admin.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to " + runtimeRole);
+        if (Boolean.TRUE.equals(admin.queryForObject(
+                "select to_regprocedure('praxis_bulk.lock_openapi_publication(text,text)') is not null", Boolean.class))) {
+            admin.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to " + runtimeRole);
+        }
         if (Boolean.TRUE.equals(admin.queryForObject("""
                 select to_regprocedure('praxis_bulk.assert_preview_integrity_complete()') is not null
                 """, Boolean.class))) {
@@ -103,8 +107,15 @@ final class BulkPostgresTestSupport {
         admin.execute("do $$ begin create role " + controlRole
                 + " login; exception when duplicate_object then null; end $$");
         admin.execute("grant usage on schema praxis_bulk to " + controlRole);
-        admin.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to "
-                + controlRole);
+        String transitionArguments = Boolean.TRUE.equals(admin.queryForObject(
+                "select to_regprocedure('praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text)') is not null", Boolean.class))
+                ? "text,text,bigint,text,text,text,bigint,text" : "text,text,bigint,text,text,text";
+        admin.execute("grant execute on function praxis_bulk.transition_operation_control(" + transitionArguments + ") to " + controlRole);
+        if (Boolean.TRUE.equals(admin.queryForObject(
+                "select to_regprocedure('praxis_bulk.transition_openapi_publication(text,text,bigint,text,text)') is not null", Boolean.class))) {
+            admin.execute("grant execute on function praxis_bulk.transition_openapi_publication(text,text,bigint,text,text) to "
+                    + controlRole);
+        }
     }
 
     static void insertLegacyProposal(JdbcTemplate jdbc, BulkStoredProposal proposal) {
@@ -132,7 +143,43 @@ final class BulkPostgresTestSupport {
                 BulkEvaluationStorageCodec.encode(evaluation));
     }
 
-    /** Explicit composition fixture for tests that exercise a runtime mutation path. */
+    /** Test-only current publication observation through the real physical transaction. */
+    static JdbcBulkOpenApiPublication.Snapshot publication(DataSource schemaOwner, String namespaceId) {
+        String deployment = new JdbcTemplate(schemaOwner).queryForObject(
+                "select deployment_id from praxis_bulk.praxis_bulk_namespace_binding where namespace_id=?", String.class, namespaceId);
+        try (var connection = schemaOwner.getConnection()) {
+            connection.setAutoCommit(false);
+            var result = JdbcBulkOpenApiPublication.lockForRead(connection, namespaceId, deployment);
+            connection.commit(); return result;
+        } catch (java.sql.SQLException failure) {
+            throw new IllegalStateException("Unable to observe the test publication", failure);
+        }
+    }
+
+    /** Fixture publication only; never presented as a production OpenAPI capture. */
+    static void publishFixture(DataSource schemaOwner, String namespaceId) {
+        String deployment = new JdbcTemplate(schemaOwner).queryForObject(
+                "select deployment_id from praxis_bulk.praxis_bulk_namespace_binding where namespace_id=?", String.class, namespaceId);
+        try (var connection = schemaOwner.getConnection()) {
+            connection.setAutoCommit(false);
+            var current = JdbcBulkOpenApiPublication.lockForRead(connection, namespaceId, deployment);
+            if (!current.published()) {
+                long generation = current.generation();
+                if ("UNCOMPOSED".equals(current.state())) generation = JdbcBulkOpenApiPublication.transition(connection,
+                        namespaceId, deployment, generation, JdbcBulkOpenApiPublication.Target.SUSPENDED, null).generation();
+                if (!JdbcBulkOpenApiPublication.transition(connection, namespaceId, deployment, generation,
+                        JdbcBulkOpenApiPublication.Target.PUBLISHED, "sha256:" + "0".repeat(64)).applied())
+                    throw new java.sql.SQLException("Test publication lost CAS");
+            }
+            connection.commit();
+        } catch (java.sql.SQLException failure) { throw new IllegalStateException("Unable to publish the test fixture", failure); }
+    }
+
+    /**
+     * Concrete test-only publication and operation composition. The fixed digest is fixture
+     * evidence, not a production OpenAPI capture or a claim of operational readiness.
+     * Historical migration fixtures retain their historical physical READY shape only.
+     */
     static void ready(DataSource dataSource, String namespaceId, String operationId) {
         var jdbc = new JdbcTemplate(dataSource);
         jdbc.update("""
@@ -142,11 +189,52 @@ final class BulkPostgresTestSupport {
                 values (?, ?, 'UNCOMPOSED', 0, null, null, clock_timestamp())
                 on conflict (namespace_id, operation_id) do nothing
                 """, namespaceId, operationId);
-        jdbc.update("""
-                update praxis_bulk.praxis_bulk_operation_control
-                set state='READY', generation=generation+1, descriptor_fingerprint=?,
-                    structural_revision='structural-r1', updated_at=clock_timestamp()
-                where namespace_id=? and operation_id=? and state in ('UNCOMPOSED','SUSPENDED')
-                """, "sha256:" + "0".repeat(64), namespaceId, operationId);
+        boolean publicationBound = Boolean.TRUE.equals(jdbc.queryForObject("""
+                select exists(select 1 from information_schema.columns where table_schema='praxis_bulk'
+                 and table_name='praxis_bulk_operation_control' and column_name='publication_generation')
+                """, Boolean.class));
+        if (!publicationBound) {
+            jdbc.update("""
+                    update praxis_bulk.praxis_bulk_operation_control
+                    set state='READY', generation=generation+1, descriptor_fingerprint=?,
+                        structural_revision='structural-r1', updated_at=clock_timestamp()
+                    where namespace_id=? and operation_id=? and state in ('UNCOMPOSED','SUSPENDED')
+                    """, "sha256:" + "0".repeat(64), namespaceId, operationId);
+            return;
+        }
+        String deployment = jdbc.queryForObject("select deployment_id from praxis_bulk.praxis_bulk_namespace_binding where namespace_id=?",
+                String.class, namespaceId);
+        try (var connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                var publication = JdbcBulkOpenApiPublication.lockForRead(connection, namespaceId, deployment);
+                if (!publication.published()) {
+                    long generation = publication.generation();
+                    if ("UNCOMPOSED".equals(publication.state())) {
+                        var suspended = JdbcBulkOpenApiPublication.transition(connection, namespaceId, deployment,
+                                generation, JdbcBulkOpenApiPublication.Target.SUSPENDED, null);
+                        if (!suspended.applied()) throw new java.sql.SQLException("Test publication lost suspension CAS");
+                        generation = suspended.generation();
+                    }
+                    var published = JdbcBulkOpenApiPublication.transition(connection, namespaceId, deployment,
+                            generation, JdbcBulkOpenApiPublication.Target.PUBLISHED, "sha256:" + "0".repeat(64));
+                    if (!published.applied()) throw new java.sql.SQLException("Test publication lost publication CAS");
+                    publication = JdbcBulkOpenApiPublication.lockForRead(connection, namespaceId, deployment);
+                }
+                var control = JdbcBulkOperationControl.lockForAdmission(connection, namespaceId, operationId);
+                if (control == null) throw new java.sql.SQLException("Test control publication tuple is corrupt");
+                if (!control.ready()) {
+                    var changed = JdbcBulkOperationControl.transition(connection, namespaceId, operationId, control.generation(),
+                            JdbcBulkOperationControl.Target.READY, "sha256:" + "0".repeat(64), "structural-r1",
+                            publication.generation(), publication.documentDigest());
+                    if (!changed.applied()) throw new java.sql.SQLException("Test control lost CAS");
+                }
+                connection.commit();
+            } catch (java.sql.SQLException | RuntimeException failure) {
+                connection.rollback(); throw failure;
+            }
+        } catch (java.sql.SQLException failure) {
+            throw new IllegalStateException("Unable to compose the test-only publication fence", failure);
+        }
     }
 }

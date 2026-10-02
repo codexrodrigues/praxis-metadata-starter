@@ -26,6 +26,34 @@ class CachedOpenApiDocumentServiceDocumentFenceTest {
     private static final JsonNode NEW = JSON.createObjectNode().put("version", "new");
 
     @Test
+    void responseFenceRejectsAnAmbientTransactionBeforeLockOrCallbackAndAfterVerification() {
+        try (var client = client()) {
+            var service = service(client, new Source(), Duration.ofSeconds(5));
+            try (var fence = capture(service)) {
+                var callbacks = new AtomicInteger();
+                org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+                try {
+                    assertThrows(IllegalStateException.class, () -> fence.read(() -> callbacks.incrementAndGet()));
+                    assertThat(callbacks).hasValue(0);
+                    assertThat(lock(service).getReadHoldCount()).isZero();
+                } finally {
+                    org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(false);
+                }
+                try {
+                    assertThrows(IllegalStateException.class, () -> fence.read(() -> {
+                        org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+                        return true;
+                    }));
+                    assertThat(lock(service).getReadHoldCount()).isZero();
+                } finally {
+                    org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(false);
+                }
+                assertThat(fence.read(() -> true)).isTrue();
+            }
+        }
+    }
+
+    @Test
     void captureRequiresFreshProvenanceAndVerificationUsesOnlyAShortReadLock() {
         try (var client = client()) {
             var service = service(client, new Source(), Duration.ofSeconds(5));

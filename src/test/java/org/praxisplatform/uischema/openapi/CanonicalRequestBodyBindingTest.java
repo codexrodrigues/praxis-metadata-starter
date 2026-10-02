@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.bulk.BulkItemEvaluationRequest;
+import org.praxisplatform.uischema.bulk.BulkUniformEvaluationRequest;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.RequestEntity;
@@ -115,6 +117,12 @@ class CanonicalRequestBodyBindingTest {
     }
 
     @Test
+    void rejectsRawAndWildcardGenericInterfacesDeclaredByDtos() {
+        assertRejected(RawGenericInterfaceController.class, "raw.interface", "raw.interface.evaluate");
+        assertRejected(WildcardGenericInterfaceController.class, "wildcard.interface", "wildcard.interface.evaluate");
+    }
+
+    @Test
     void acceptsAConcreteDtoThatBindsItsGenericSuperclass() {
         try (AnnotationConfigWebApplicationContext context = context(ConcreteGenericChildController.class)) {
             JavaType body = resolver(context).requireResourceRequestBody(
@@ -123,6 +131,25 @@ class CanonicalRequestBodyBindingTest {
 
             assertEquals(ConcreteGenericChild.class, body.getRawClass());
             assertEquals(String.class, body.getSuperClass().containedTypeOrUnknown(0).getRawClass());
+        }
+    }
+
+    @Test
+    void acceptsCanonicalBulkBodiesWithBoxedIntegerIdentifiers() {
+        try (AnnotationConfigWebApplicationContext uniform = context(BoxedUniformBulkController.class)) {
+            JavaType body = resolver(uniform).requireResourceRequestBody(
+                    "boxed.uniform", "boxed.uniform.evaluate", "POST", JSON.getTypeFactory()
+            ).bodyType();
+            assertEquals(BulkUniformEvaluationRequest.class, body.getRawClass());
+            assertEquals(Integer.class, body.containedTypeOrUnknown(0).getRawClass());
+        }
+
+        try (AnnotationConfigWebApplicationContext perItem = context(BoxedPerItemBulkController.class)) {
+            JavaType body = resolver(perItem).requireResourceRequestBody(
+                    "boxed.per-item", "boxed.per-item.evaluate", "POST", JSON.getTypeFactory()
+            ).bodyType();
+            assertEquals(BulkItemEvaluationRequest.class, body.getRawClass());
+            assertEquals(Integer.class, body.containedTypeOrUnknown(0).getRawClass());
         }
     }
 
@@ -212,6 +239,41 @@ class CanonicalRequestBodyBindingTest {
     }
 
     record DirectRecord(String name) {
+    }
+
+    @ApiResource(value = "/boxed-uniform", resourceKey = "boxed.uniform")
+    static class BoxedUniformBulkController {
+        @PostMapping("/evaluate")
+        @Operation(operationId = "boxed.uniform.evaluate")
+        public void evaluate(@RequestBody BulkUniformEvaluationRequest<Integer, Void> body) { }
+    }
+
+    @ApiResource(value = "/boxed-per-item", resourceKey = "boxed.per-item")
+    static class BoxedPerItemBulkController {
+        @PostMapping("/evaluate")
+        @Operation(operationId = "boxed.per-item.evaluate")
+        public void evaluate(@RequestBody BulkItemEvaluationRequest<Integer> body) { }
+    }
+
+    interface GenericInterface<T> { }
+
+    @SuppressWarnings("rawtypes")
+    static class RawGenericInterfaceBody implements GenericInterface { }
+
+    static class WildcardGenericInterfaceBody implements GenericInterface<List<? extends String>> { }
+
+    @ApiResource(value = "/raw-interface", resourceKey = "raw.interface")
+    static class RawGenericInterfaceController {
+        @PostMapping("/evaluate")
+        @Operation(operationId = "raw.interface.evaluate")
+        public void evaluate(@RequestBody RawGenericInterfaceBody body) { }
+    }
+
+    @ApiResource(value = "/wildcard-interface", resourceKey = "wildcard.interface")
+    static class WildcardGenericInterfaceController {
+        @PostMapping("/evaluate")
+        @Operation(operationId = "wildcard.interface.evaluate")
+        public void evaluate(@RequestBody WildcardGenericInterfaceBody body) { }
     }
 
     interface GenericEndpoint<T> {
