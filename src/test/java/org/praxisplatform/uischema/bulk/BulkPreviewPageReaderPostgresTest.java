@@ -61,7 +61,7 @@ class BulkPreviewPageReaderPostgresTest {
 
     @BeforeEach void reset() {
         sql.execute("drop schema if exists praxis_bulk cascade");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(13);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(15);
         BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 
@@ -225,7 +225,7 @@ class BulkPreviewPageReaderPostgresTest {
                 .target("2").load().migrate();
         var value = evaluation(proposal());
         BulkPostgresTestSupport.insertLegacyInput(sql, value);
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(11);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(13);
         assertThat(page(value.proposal().id(), -1, 1, 10).kind())
                 .isEqualTo(BulkPreviewPageReader.Kind.UNAVAILABLE_LEGACY);
     }
@@ -288,7 +288,7 @@ class BulkPreviewPageReaderPostgresTest {
                 .schemas("praxis_bulk").defaultSchema("praxis_bulk")
                 .table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true)
                 .target("11").load().migrate();
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(2);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(4);
         sql.execute("update praxis_bulk.praxis_bulk_preview_reader_bootstrap set phase='PENDING'");
         sql.execute("revoke execute on function praxis_bulk.assert_preview_integrity_complete() "
                 + "from bulk_runtime_test, durable_runtime");

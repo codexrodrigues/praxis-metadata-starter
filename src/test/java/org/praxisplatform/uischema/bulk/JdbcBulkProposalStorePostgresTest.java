@@ -38,7 +38,7 @@ class JdbcBulkProposalStorePostgresTest {
     @AfterAll void stop() throws Exception { if (postgres != null) postgres.close(); }
     @BeforeEach void reset() { sql.execute("drop schema if exists praxis_bulk cascade"); }
     void migrate() {
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(13);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(15);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count() { return sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal", Integer.class); }
@@ -75,7 +75,7 @@ class JdbcBulkProposalStorePostgresTest {
                         java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
             };
             var first = executor.submit(task); var second = executor.submit(task);
-            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(13);
+            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(15);
         }
         BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId());
         BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
@@ -257,6 +257,7 @@ class JdbcBulkProposalStorePostgresTest {
         sql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
         sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
         sql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
+        sql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
         sql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
         sql.execute("grant select on praxis_bulk.praxis_bulk_deployment_bucket to bulk_runtime");
         sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_deployment_bucket to bulk_runtime");

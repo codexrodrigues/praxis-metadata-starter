@@ -38,6 +38,37 @@ public final class OpenApiInternalRestTemplate extends RestTemplate implements A
     private volatile ClientHttpRequestFactory configuredFactory;
     private volatile long transportRevision;
     private final ThreadLocal<ClientHttpRequestFactory> activeFactory = new ThreadLocal<>();
+    private final ThreadLocal<ProducerRequest> producerRequest = new ThreadLocal<>();
+    public static final String PRODUCER_CAPTURE_HEADER = OpenApiProducerCaptureAccess.HEADER;
+
+    /** Returns a token only inside the owned exact-route producer scope. Never an IAM credential. */
+    public String producerCaptureToken(String exactPath) {
+        ProducerRequest request = producerRequest.get();
+        if (request == null) return null;
+        if (!request.path().equals(exactPath))
+            throw new IllegalStateException("Producer capture cannot change its exact source route");
+        return request.token();
+    }
+
+    <T> T withProducerCapture(OpenApiProducerCaptureAccess access, String contextPath, String exactPath,
+            Deadline deadline, Supplier<T> action) {
+        if (!hasUnmodifiedProducerTransport())
+            throw new IllegalStateException("Producer capture cannot use interceptors or request initializers");
+        if (producerRequest.get() != null)
+            throw new IllegalStateException("Nested producer capture is not supported");
+        try (var lease = access.issue(contextPath, exactPath, deadline.remainingNanos())) {
+            producerRequest.set(new ProducerRequest(exactPath, lease.token()));
+            try {
+                return withDeadline(deadline, () -> {
+                    T result = action.get();
+                    lease.requireConsumed();
+                    return result;
+                });
+            } finally { producerRequest.remove(); }
+        }
+    }
+
+    private record ProducerRequest(String path, String token) {}
 
     public OpenApiInternalRestTemplate(Duration connectTimeout, Duration readTimeout) {
         this(new DeadlineRequestFactory(connectTimeout, readTimeout));
@@ -54,9 +85,33 @@ public final class OpenApiInternalRestTemplate extends RestTemplate implements A
     @Override
     public synchronized void setRequestFactory(ClientHttpRequestFactory factory) {
         long next = Math.incrementExact(transportRevision);
+        transportRevision = next;
         super.setRequestFactory(factory);
         configuredFactory = factory;
+    }
+
+    @Override
+    public synchronized void setInterceptors(java.util.List<org.springframework.http.client.ClientHttpRequestInterceptor> interceptors) {
+        long next = Math.incrementExact(transportRevision);
         transportRevision = next;
+        super.setInterceptors(java.util.List.copyOf(interceptors));
+    }
+
+    @Override
+    public java.util.List<org.springframework.http.client.ClientHttpRequestInterceptor> getInterceptors() {
+        return java.util.List.copyOf(super.getInterceptors());
+    }
+
+    @Override
+    public synchronized void setClientHttpRequestInitializers(java.util.List<org.springframework.http.client.ClientHttpRequestInitializer> initializers) {
+        long next = Math.incrementExact(transportRevision);
+        transportRevision = next;
+        super.setClientHttpRequestInitializers(java.util.List.copyOf(initializers));
+    }
+
+    @Override
+    public java.util.List<org.springframework.http.client.ClientHttpRequestInitializer> getClientHttpRequestInitializers() {
+        return java.util.List.copyOf(super.getClientHttpRequestInitializers());
     }
 
     @Override
@@ -67,7 +122,7 @@ public final class OpenApiInternalRestTemplate extends RestTemplate implements A
 
     long transportRevision() { return transportRevision; }
 
-    void requireTransportRevision(long captured) {
+    synchronized void requireTransportRevision(long captured) {
         if (!hasOwnedRequestFactory() || transportRevision != captured)
             throw new IllegalStateException("OpenAPI HTTP transport changed during bulk composition");
     }
@@ -76,12 +131,21 @@ public final class OpenApiInternalRestTemplate extends RestTemplate implements A
         return configuredFactory == ownedFactory;
     }
 
+    boolean hasUnmodifiedProducerTransport() {
+        // Interceptors may synthesize a response or rewrite its URI/headers without invoking
+        // the owned transport. Initializers can rewrite the exact producer request as well.
+        return hasOwnedRequestFactory() && super.getInterceptors().isEmpty()
+                && super.getClientHttpRequestInitializers().isEmpty();
+    }
+
     <T> T withDeadline(Deadline deadline, Supplier<T> action) {
         if (ownedFactory.deadline.get() != null)
             throw new IllegalStateException("Nested HTTP composition budgets are not supported");
         deadline.remainingNanos();
         long capturedRevision;
         synchronized (this) {
+            if (producerRequest.get() != null && !hasUnmodifiedProducerTransport())
+                throw new IllegalStateException("Producer capture transport changed before request admission");
             if (!hasOwnedRequestFactory())
                 throw new IllegalStateException("Fresh bulk composition requires the Metadata-owned HTTP request factory");
             capturedRevision = transportRevision;

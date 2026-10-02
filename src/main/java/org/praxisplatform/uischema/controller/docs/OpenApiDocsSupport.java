@@ -193,6 +193,56 @@ public class OpenApiDocsSupport {
     }
 
     /**
+     * Captures one exact group response using the publication owner's configured mapper.
+     * The caller must govern mapper changes through the publication lifecycle.
+     */
+    public org.praxisplatform.uischema.openapi.OpenApiDocumentCapture fetchFreshOpenApiGroupCapture(
+            RestTemplate restTemplate, String openApiBasePath, String group, Logger logger,
+            com.fasterxml.jackson.databind.ObjectMapper publicationMapper) {
+        java.util.Objects.requireNonNull(publicationMapper, "publicationMapper");
+        if (!StringUtils.hasText(group)) throw new IllegalArgumentException("OpenAPI group name must not be blank");
+        return fetchFreshOpenApiResponseCapture(restTemplate,
+                openApiBasePath + "/" + UriUtils.encodePathSegment(group, StandardCharsets.UTF_8), logger, publicationMapper);
+    }
+
+    /** Captures one exact local producer route: HTTP 200 application/json, never a redirect or fallback. */
+    public org.praxisplatform.uischema.openapi.OpenApiDocumentCapture fetchFreshOpenApiResponseCapture(
+            RestTemplate restTemplate, String exactPath, Logger logger,
+            com.fasterxml.jackson.databind.ObjectMapper publicationMapper) {
+        java.util.Objects.requireNonNull(publicationMapper, "publicationMapper");
+        if (exactPath == null || !exactPath.startsWith("/") || exactPath.contains("?") || exactPath.contains("#")
+                || exactPath.contains("\\") || exactPath.chars().anyMatch(Character::isISOControl))
+            throw new IllegalArgumentException("Exact OpenAPI source path is required");
+        String groupDocUrl = resolveOpenApiBaseUrl() + exactPath;
+        try {
+            var builder = RequestEntity.get(java.net.URI.create(groupDocUrl))
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store")
+                    .accept(MediaType.APPLICATION_JSON);
+            if (restTemplate instanceof org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate internal) {
+                String token = internal.producerCaptureToken(exactPath);
+                if (token != null) builder.header(
+                        org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate.PRODUCER_CAPTURE_HEADER, token);
+            }
+            var request = builder.build();
+            ResponseEntity<byte[]> response = restTemplate.exchange(request, byte[].class);
+            MediaType contentType = response.getHeaders().getContentType();
+            if (response.getStatusCode().value() != HttpStatus.OK.value()
+                    || contentType == null || !"application".equalsIgnoreCase(contentType.getType())
+                    || !"json".equalsIgnoreCase(contentType.getSubtype())
+                    || (contentType.getCharset() != null && !StandardCharsets.UTF_8.equals(contentType.getCharset())))
+                throw new IllegalStateException("Fresh OpenAPI producer requires HTTP 200 application/json UTF-8: " + groupDocUrl);
+            byte[] document = response.getBody();
+            if (document == null) throw new IllegalStateException("Fresh OpenAPI group document is null: " + groupDocUrl);
+            return org.praxisplatform.uischema.openapi.OpenApiDocumentCapture.parse(
+                    document, publicationMapper);
+        } catch (Exception ex) {
+            logger.error("Failed to fetch fresh exact OpenAPI group document {}", groupDocUrl, ex);
+            if (ex instanceof IllegalStateException illegalStateException) throw illegalStateException;
+            throw new IllegalStateException("Failed to fetch fresh exact OpenAPI group document " + groupDocUrl, ex);
+        }
+    }
+
+    /**
      * Seleciona o content node preferencial dentro de um bloco OpenAPI {@code content}.
      *
      * <p>
@@ -230,6 +280,20 @@ public class OpenApiDocsSupport {
             builder.append('/').append(segment);
         }
         return builder.length() == 0 ? "/" : builder.toString();
+    }
+
+    /** Local publication uses this exact Servlet context, never a guessed origin or remote bridge. */
+    public String localPublicationContextPath() {
+        if (usesConfiguredInternalBaseUrl())
+            throw new IllegalStateException("Local publication cannot use a configured remote OpenAPI origin");
+        var attributes = RequestContextHolder.getRequestAttributes();
+        if (!(attributes instanceof ServletRequestAttributes servlet))
+            throw new IllegalStateException("Local publication requires an active Servlet request context");
+        var request = servlet.getRequest();
+        String containerContext = request.getServletContext().getContextPath();
+        if (!java.util.Objects.equals(containerContext, request.getContextPath()))
+            throw new IllegalStateException("Publication request context differs from the Servlet container context");
+        return containerContext;
     }
 
     private String resolveOpenApiBaseUrl() {

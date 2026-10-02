@@ -68,6 +68,7 @@ public final class BulkExecutionMigrator {
     private static final String EXECUTION_INSERT_FENCE_TRIGGER = "praxis_bulk_execution_descriptor_fence";
     private static final String NAMESPACE_BINDING_TABLE = "praxis_bulk_namespace_binding";
     private static final String OPERATION_CONTROL_TABLE = "praxis_bulk_operation_control";
+    private static final String OPENAPI_PUBLICATION_TABLE = "praxis_bulk_openapi_publication";
     private static final String DEPLOYMENT_BUCKET_TABLE = "praxis_bulk_deployment_bucket";
     private static final String SUBJECT_BUCKET_TABLE = "praxis_bulk_subject_bucket";
     private static final String ALLOCATION_TABLE = "praxis_bulk_allocation";
@@ -78,7 +79,7 @@ public final class BulkExecutionMigrator {
             PREVIEW_INTEGRITY_BOOTSTRAP_TABLE,
             PREVIEW_READER_BOOTSTRAP_TABLE,
             EXECUTION_TABLE, RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE,
-            OPERATION_CONTROL_TABLE, DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE,
+            OPERATION_CONTROL_TABLE, OPENAPI_PUBLICATION_TABLE, DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE,
             ALLOCATION_TABLE, TOMBSTONE_TABLE);
     private static final Set<String> V5_INDEXES = Set.of(
             "praxis_bulk_allocation_pending_deployment_idx", "praxis_bulk_allocation_pending_subject_idx",
@@ -94,10 +95,16 @@ public final class BulkExecutionMigrator {
             "release_active_allocation_on_terminal()",
             "purge_terminal_execution(p_execution_id uuid)",
             "expire_unconsumed_proposal(p_proposal_id uuid)");
+    // Historical schema recognition must retain V6's exact signature until V15 runs.
     private static final Set<String> V6_FUNCTIONS = Set.of(
             "guard_new_bulk_admission()", "guard_new_bulk_evaluation()",
             "lock_operation_control(p_namespace_id text, p_operation_id text)",
             "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text)");
+    // Current attestation permits only the publication-bound CAS, never the historical overload.
+    private static final Set<String> V15_CONTROL_FUNCTIONS = Set.of(
+            "guard_new_bulk_admission()", "guard_new_bulk_evaluation()",
+            "lock_operation_control(p_namespace_id text, p_operation_id text)",
+            "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text, p_expected_publication_generation bigint, p_expected_publication_digest text)");
     private static final Set<String> V7_FUNCTIONS = Set.of(INSERT_FENCE_FUNCTION + "()");
     private static final Set<String> V8_FUNCTIONS = Set.of(
             "require_complete_target_manifest()", "reject_target_manifest_mutation()");
@@ -109,6 +116,9 @@ public final class BulkExecutionMigrator {
             "require_complete_preview_integrity_bootstrap()",
             "require_complete_preview_item_integrity()");
     private static final Set<String> V12_FUNCTIONS = Set.of("assert_preview_integrity_complete()");
+    private static final Set<String> V14_FUNCTIONS = Set.of(
+            "lock_openapi_publication(p_namespace_id text, p_deployment_id text)",
+            "transition_openapi_publication(p_namespace_id text, p_deployment_id text, p_expected_generation bigint, p_target_state text, p_document_digest text)");
     private static final Set<String> V5_TRIGGERS = Set.of(
             PROPOSAL_TABLE + ".praxis_bulk_proposal_guard_delete",
             EVALUATION_TABLE + ".praxis_bulk_evaluation_guard_delete",
@@ -283,6 +293,7 @@ public final class BulkExecutionMigrator {
                 // its grants. Do not defer ACL attestation until after bootstrap commits.
                 validateV5RolesAndPrivileges(connection, roles);
                 validateV5Functions(connection, roles);
+                validateOpenApiPublicationCatalog(connection);
                 validateManifestCatalog(connection, roles);
                 validatePreviewCatalog(connection, roles);
                 BulkPreviewStorage.validateAll(connection);
@@ -470,6 +481,8 @@ public final class BulkExecutionMigrator {
         Map<String, String> bound = readNamespaceBindings(connection);
         require(bound.equals(deployments), "Bulk namespace deployment binding differs from explicit map");
 
+        // Create absent bucket identities without locking/updating existing quota rows.
+        // The active bucket FOR UPDATE locks remain after global/operation locks below.
         for (String deployment : deployments.values().stream().distinct().sorted().toList()) {
             try (var statement = connection.prepareStatement("""
                     insert into praxis_bulk.praxis_bulk_deployment_bucket(deployment_id)
@@ -479,6 +492,27 @@ public final class BulkExecutionMigrator {
                 statement.executeUpdate();
             }
         }
+        // Provision deny-only rows without changing an existing global publication. Acquire
+        // namespace -> global -> operation controls -> buckets, including bootstrap retries.
+        try (var statement = connection.createStatement()) {
+            statement.executeQuery("""
+                    select namespace_id from praxis_bulk.praxis_bulk_namespace_binding
+                    order by namespace_id for share
+                    """).close();
+            statement.executeUpdate("""
+                    insert into praxis_bulk.praxis_bulk_openapi_publication
+                        (deployment_id, state, generation, document_digest, updated_at)
+                    select deployment_id, 'UNCOMPOSED', 0, null, clock_timestamp()
+                      from (select distinct deployment_id from praxis_bulk.praxis_bulk_namespace_binding) b
+                      order by deployment_id
+                    on conflict (deployment_id) do nothing
+                    """);
+            statement.executeQuery("""
+                    select deployment_id from praxis_bulk.praxis_bulk_openapi_publication
+                    order by deployment_id for share
+                    """).close();
+        }
+
         try (var statement = connection.createStatement()) {
             statement.executeUpdate("""
                     insert into praxis_bulk.praxis_bulk_operation_control
@@ -505,12 +539,8 @@ public final class BulkExecutionMigrator {
         }
 
         // A bootstrap retry may run while already-published operations are active.
-        // Lock controls first, then every deployment bucket, before reading history.
+        // Namespace/global SHARE locks are already held; controls precede quota buckets.
         try (var statement = connection.createStatement()) {
-            statement.executeQuery("""
-                    select namespace_id from praxis_bulk.praxis_bulk_namespace_binding
-                    order by namespace_id for share
-                    """).close();
             statement.executeQuery("""
                     select namespace_id, operation_id from praxis_bulk.praxis_bulk_operation_control
                     order by namespace_id, operation_id for share
@@ -721,6 +751,18 @@ public final class BulkExecutionMigrator {
     }
 
     private static void validateLifecycleRows(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select count(*) from praxis_bulk.praxis_bulk_operation_control c
+                join praxis_bulk.praxis_bulk_namespace_binding b on b.namespace_id=c.namespace_id
+                left join praxis_bulk.praxis_bulk_openapi_publication p on p.deployment_id=b.deployment_id
+                where c.state='READY' and (p.state is distinct from 'PUBLISHED'
+                    or c.publication_generation is distinct from p.generation
+                    or c.publication_document_digest is distinct from p.document_digest)
+                """)) {
+            require(rows.next() && rows.getLong(1)==0 && !rows.next(),
+                    "READY operation publication tuple is not current");
+        }
+
         Map<String, String> bindings = readNamespaceBindings(connection);
         var proposals = readProposals(connection);
         var executions = readExecutions(connection);
@@ -918,7 +960,7 @@ public final class BulkExecutionMigrator {
                           and t.typname in ('praxis_bulk_schema_history', 'praxis_bulk_proposal',
                               'praxis_bulk_evaluation', 'praxis_bulk_execution', 'praxis_bulk_item_receipt',
                               'praxis_bulk_admission', 'praxis_bulk_namespace_binding',
-                              'praxis_bulk_operation_control', 'praxis_bulk_deployment_bucket',
+                              'praxis_bulk_operation_control', 'praxis_bulk_openapi_publication', 'praxis_bulk_deployment_bucket',
                               'praxis_bulk_subject_bucket', 'praxis_bulk_allocation',
                               'praxis_bulk_target_manifest', 'praxis_bulk_manifest_bootstrap',
                               'praxis_bulk_preview_state', 'praxis_bulk_target_preview',
@@ -942,7 +984,7 @@ public final class BulkExecutionMigrator {
                     && orphanIndexes.isEmpty() && triggers.isEmpty() && rules.isEmpty() && policies.isEmpty()) return;
             if (!relations.contains(HISTORY_TABLE)
                     || !allowedRelations().containsAll(relations)
-                    || !allowedFunctions().containsAll(functions)
+                    || !governedHistoricalFunctions().containsAll(functions)
                     || !types.isEmpty()
                     || !orphanIndexes.isEmpty()
                     || !rules.isEmpty() || !policies.isEmpty()
@@ -961,18 +1003,26 @@ public final class BulkExecutionMigrator {
                 MANIFEST_BOOTSTRAP_TABLE, PREVIEW_STATE_TABLE, TARGET_PREVIEW_TABLE,
                 PREVIEW_BOOTSTRAP_TABLE, PREVIEW_INTEGRITY_TABLE,
                 PREVIEW_INTEGRITY_BOOTSTRAP_TABLE, PREVIEW_READER_BOOTSTRAP_TABLE, EXECUTION_TABLE,
-                RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE, OPERATION_CONTROL_TABLE,
+                RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE, OPERATION_CONTROL_TABLE, OPENAPI_PUBLICATION_TABLE,
                 DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE, ALLOCATION_TABLE, TOMBSTONE_TABLE);
+    }
+
+    /** Recognition before Flyway only; never used by current exact catalog attestation. */
+    private static Set<String> governedHistoricalFunctions() {
+        var names = new LinkedHashSet<>(allowedFunctions());
+        names.addAll(V6_FUNCTIONS);
+        return names;
     }
 
     private static Set<String> allowedFunctions() {
         var names = new LinkedHashSet<>(V5_FUNCTIONS);
-        names.addAll(V6_FUNCTIONS);
+        names.addAll(V15_CONTROL_FUNCTIONS);
         names.addAll(V8_FUNCTIONS);
         names.addAll(V9_FUNCTIONS);
         names.addAll(V10_FUNCTIONS);
         names.addAll(V11_FUNCTIONS);
         names.addAll(V12_FUNCTIONS);
+        names.addAll(V14_FUNCTIONS);
         names.addAll(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
                 BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
                 RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()", DESCRIPTOR_FUNCTION + "()",
@@ -1095,7 +1145,7 @@ public final class BulkExecutionMigrator {
                           and t.typname in ('praxis_bulk_schema_history', 'praxis_bulk_proposal',
                               'praxis_bulk_evaluation', 'praxis_bulk_execution', 'praxis_bulk_item_receipt',
                               'praxis_bulk_admission', 'praxis_bulk_namespace_binding',
-                              'praxis_bulk_operation_control', 'praxis_bulk_deployment_bucket',
+                              'praxis_bulk_operation_control', 'praxis_bulk_openapi_publication', 'praxis_bulk_deployment_bucket',
                               'praxis_bulk_subject_bucket', 'praxis_bulk_allocation',
                               'praxis_bulk_target_manifest', 'praxis_bulk_manifest_bootstrap',
                               'praxis_bulk_preview_state', 'praxis_bulk_target_preview',
@@ -1615,7 +1665,30 @@ public final class BulkExecutionMigrator {
         validateV5Triggers(connection);
         validateV5Functions(connection, roles);
         validateV5RolesAndPrivileges(connection, roles);
+        validateOpenApiPublicationCatalog(connection);
         validateDescriptorFenceCatalog(connection);
+    }
+
+    private static void validateOpenApiPublicationCatalog(Connection connection) throws SQLException {
+        validateDurableColumns(connection, OPENAPI_PUBLICATION_TABLE, Map.ofEntries(
+                Map.entry("deployment_id", "text|true"),
+                Map.entry("state", "text|true"), Map.entry("generation", "bigint|true"),
+                Map.entry("document_digest", "text|false"), Map.entry("updated_at", "timestamp with time zone|true")));
+        validateDurableConstraints(connection, OPENAPI_PUBLICATION_TABLE, false, Map.ofEntries(
+                Map.entry("praxis_bulk_openapi_publication_pkey", "PRIMARY KEY (deployment_id)"),
+                Map.entry("praxis_bulk_openapi_publication_binding_fkey", "FOREIGN KEY (deployment_id) REFERENCES praxis_bulk.praxis_bulk_deployment_bucket(deployment_id) ON DELETE RESTRICT"),
+                Map.entry("praxis_bulk_openapi_publication_deployment_check", "CHECK (((deployment_id <> ''::text) AND (deployment_id !~ '^[[:space:]]|[[:space:]]$|[[:cntrl:]]'::text)))"),
+                Map.entry("praxis_bulk_openapi_publication_generation_check", "CHECK ((generation >= 0))"),
+                Map.entry("praxis_bulk_openapi_publication_state_check", "CHECK ((state = ANY (ARRAY['UNCOMPOSED'::text, 'SUSPENDED'::text, 'PUBLISHED'::text])))"),
+                Map.entry("praxis_bulk_openapi_publication_digest_check", "CHECK ((((state = 'PUBLISHED'::text) AND (document_digest IS NOT NULL) AND (document_digest ~ '^sha256:[0-9a-f]{64}$'::text)) OR ((state = ANY (ARRAY['UNCOMPOSED'::text, 'SUSPENDED'::text])) AND (document_digest IS NULL))))")));
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select count(*) from (select distinct deployment_id from praxis_bulk.praxis_bulk_namespace_binding) b
+                left join praxis_bulk.praxis_bulk_openapi_publication p on p.deployment_id=b.deployment_id
+                where p.deployment_id is null
+                """)) {
+            require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+                    "every bound deployment requires its durable OpenAPI publication row");
+        }
     }
 
     private static void validateManifestCatalog(Connection connection,
@@ -2016,6 +2089,8 @@ public final class BulkExecutionMigrator {
                 Map.entry("state", "text|true"), Map.entry("generation", "bigint|true"),
                 Map.entry("descriptor_fingerprint", "text|false"),
                 Map.entry("structural_revision", "text|false"),
+                Map.entry("publication_generation", "bigint|false"),
+                Map.entry("publication_document_digest", "text|false"),
                 Map.entry("updated_at", "timestamp with time zone|true")));
         validateDurableColumns(connection, DEPLOYMENT_BUCKET_TABLE,
                 Map.of("deployment_id", "text|true"));
@@ -2058,6 +2133,7 @@ public final class BulkExecutionMigrator {
                 Map.entry("praxis_bulk_operation_control_operation_check", "CHECK ((btrim(operation_id) <> ''::text))"),
                 Map.entry("praxis_bulk_operation_control_generation_check", "CHECK ((generation >= 0))"),
                 Map.entry("praxis_bulk_operation_control_state_check", "CHECK ((state = ANY (ARRAY['UNCOMPOSED'::text, 'SUSPENDED'::text, 'READY'::text])))"),
+                Map.entry("praxis_bulk_operation_control_publication_check", "CHECK ((((state = 'READY'::text) AND (publication_generation IS NOT NULL) AND (publication_generation >= 1) AND (publication_document_digest IS NOT NULL) AND (publication_document_digest ~ '^sha256:[0-9a-f]{64}$'::text)) OR ((state <> 'READY'::text) AND (publication_generation IS NULL) AND (publication_document_digest IS NULL))))"),
                 Map.entry("praxis_bulk_operation_control_ready_check", "CHECK ((((state = 'READY'::text) AND (descriptor_fingerprint IS NOT NULL) AND (descriptor_fingerprint ~ '^sha256:[0-9a-f]{64}$'::text) AND (structural_revision IS NOT NULL) AND (btrim(structural_revision) <> ''::text)) OR ((state <> 'READY'::text) AND (descriptor_fingerprint IS NULL) AND (structural_revision IS NULL))))")));
         validateDurableConstraints(connection, DEPLOYMENT_BUCKET_TABLE, false, Map.ofEntries(
                 Map.entry("praxis_bulk_deployment_bucket_pkey", "PRIMARY KEY (deployment_id)"),
@@ -2182,20 +2258,29 @@ public final class BulkExecutionMigrator {
 
     private static void validateV5Functions(Connection connection,
             BulkExecutionRoleConfiguration roleConfiguration) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select to_regprocedure('praxis_bulk.transition_operation_control(text,text,bigint,text,text,text)') is null
+                """)) {
+            require(rows.next() && rows.getBoolean(1) && !rows.next(),
+                    "legacy operation-control CAS must be absent after publication cutover");
+        }
         Map<String, FunctionBodyExpectation> expectedBodies = migrationExpectations().functionBodies();
         var keys = new LinkedHashSet<>(V5_FUNCTIONS);
-        keys.addAll(V6_FUNCTIONS);
+        keys.addAll(V15_CONTROL_FUNCTIONS);
         keys.addAll(V8_FUNCTIONS);
         keys.addAll(V9_FUNCTIONS);
         keys.addAll(V10_FUNCTIONS);
         keys.addAll(V11_FUNCTIONS);
         keys.addAll(V12_FUNCTIONS);
+        keys.addAll(V14_FUNCTIONS);
         keys.add(RECEIPT_FUNCTION + "()");
         keys.add(ADMISSION_FUNCTION + "()");
         Set<String> definer = Set.of("protect_allocation_transition()", "validate_allocation_binding()",
                 "guard_new_bulk_admission()", "guard_new_bulk_evaluation()",
                 "lock_operation_control(p_namespace_id text, p_operation_id text)",
-                "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text)",
+                "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text, p_expected_publication_generation bigint, p_expected_publication_digest text)",
+                "lock_openapi_publication(p_namespace_id text, p_deployment_id text)",
+                "transition_openapi_publication(p_namespace_id text, p_deployment_id text, p_expected_generation bigint, p_target_state text, p_document_digest text)",
                 "guard_terminal_execution()", "release_active_allocation_on_terminal()",
                 "purge_terminal_execution(p_execution_id uuid)",
                 "expire_unconsumed_proposal(p_proposal_id uuid)",
@@ -2224,7 +2309,8 @@ public final class BulkExecutionMigrator {
                             || name.equals("expire_unconsumed_proposal")
                             || name.equals("assert_preview_integrity_complete");
                     boolean recordResult = name.equals("lock_operation_control")
-                            || name.equals("transition_operation_control");
+                            || name.equals("transition_operation_control")
+                            || name.equals("lock_openapi_publication") || name.equals("transition_openapi_publication");
                     require((sqlHelper ? "sql" : "plpgsql").equals(rows.getString(3))
                                     && (recordResult ? "record" : booleanResult ? "boolean" : "trigger").equals(rows.getString(4))
                                     && rows.getBoolean(5) == definer.contains(key)
@@ -2235,6 +2321,7 @@ public final class BulkExecutionMigrator {
                             "governed lifecycle function attributes differ: " + key);
                     if (key.startsWith("lock_operation_control(")
                             || key.startsWith("transition_operation_control(")
+                            || V14_FUNCTIONS.contains(key)
                             || key.equals("guard_new_bulk_admission()")
                             || key.equals("guard_new_bulk_evaluation()")) {
                         require("praxis_bulk_control_owner".equals(rows.getString(11)),
@@ -2359,6 +2446,26 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    private static String readV15Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V15__bulk_operation_publication_fence.sql")) {
+            require(input != null, "V15 operation publication-fence migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V15 operation publication-fence migration", failure);
+        }
+    }
+
+    private static String readV14Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V14__bulk_openapi_publication.sql")) {
+            require(input != null, "V14 OpenAPI publication migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V14 OpenAPI publication migration", failure);
+        }
+    }
+
     private static MigrationExpectations migrationExpectations() {
         MigrationExpectations cached = migrationExpectations;
         if (cached != null) return cached;
@@ -2430,6 +2537,19 @@ public final class BulkExecutionMigrator {
         String v13Migration = readV13Migration();
         expectedBodies.put("guard_terminal_execution", new FunctionBodyExpectation("V13",
                 normalizeExpression(extractFunctionBody(v13Migration, "guard_terminal_execution", "V13"))));
+        String v14Migration = readV14Migration();
+        for (String signature : V14_FUNCTIONS) {
+            String function = functionName(signature);
+            expectedBodies.put(function, new FunctionBodyExpectation("V14",
+                    normalizeExpression(extractFunctionBody(v14Migration, function, "V14"))));
+        }
+        String v15Migration = readV15Migration();
+        for (String function : Set.of("lock_operation_control", "transition_operation_control",
+                "guard_new_bulk_admission", "guard_new_bulk_evaluation", "transition_openapi_publication",
+                "purge_terminal_execution", "expire_unconsumed_proposal")) {
+            expectedBodies.put(function, new FunctionBodyExpectation("V15",
+                    normalizeExpression(extractFunctionBody(v15Migration, function, "V15"))));
+        }
         return new MigrationExpectations(expectedBodies,
                 normalizeExpression(extractFunctionBody(v7Migration, INSERT_FENCE_FUNCTION, "V7")));
     }
@@ -2469,14 +2589,19 @@ public final class BulkExecutionMigrator {
             BulkExecutionRoleConfiguration roles) throws SQLException {
         var expected = new LinkedHashSet<String>(Set.of(
                 "terminal_evidence_complete(p_execution_id uuid, p_required_count integer)|praxis_bulk_retention_owner|EXECUTE",
+                "lock_operation_control(p_namespace_id text, p_operation_id text)|praxis_bulk_retention_owner|EXECUTE",
                 "purge_terminal_execution(p_execution_id uuid)|praxis_bulk_retention_executor|EXECUTE",
                 "expire_unconsumed_proposal(p_proposal_id uuid)|praxis_bulk_retention_executor|EXECUTE"));
         roles.runtimeGranteeRoles().forEach(role -> expected.add(
                 "lock_operation_control(p_namespace_id text, p_operation_id text)|" + role + "|EXECUTE"));
         roles.runtimeGranteeRoles().forEach(role -> expected.add(
                 "assert_preview_integrity_complete()|" + role + "|EXECUTE"));
+        roles.runtimeGranteeRoles().forEach(role -> expected.add(
+                "lock_openapi_publication(p_namespace_id text, p_deployment_id text)|" + role + "|EXECUTE"));
         roles.controlPlaneGranteeRoles().forEach(role -> expected.add(
-                "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text)|" + role + "|EXECUTE"));
+                "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text, p_expected_publication_generation bigint, p_expected_publication_digest text)|" + role + "|EXECUTE"));
+        roles.controlPlaneGranteeRoles().forEach(role -> expected.add(
+                "transition_openapi_publication(p_namespace_id text, p_deployment_id text, p_expected_generation bigint, p_target_state text, p_document_digest text)|" + role + "|EXECUTE"));
         var actual = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
                 select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
@@ -2490,13 +2615,14 @@ public final class BulkExecutionMigrator {
                 """)) {
             statement.setString(1, SCHEMA);
             var functionKeys = new LinkedHashSet<>(V5_FUNCTIONS);
-            functionKeys.addAll(V6_FUNCTIONS);
+            functionKeys.addAll(V15_CONTROL_FUNCTIONS);
             functionKeys.addAll(V7_FUNCTIONS);
             functionKeys.addAll(V8_FUNCTIONS);
             functionKeys.addAll(V9_FUNCTIONS);
             functionKeys.addAll(V10_FUNCTIONS);
             functionKeys.addAll(V11_FUNCTIONS);
             functionKeys.addAll(V12_FUNCTIONS);
+            functionKeys.addAll(V14_FUNCTIONS);
             statement.setArray(2, connection.createArrayOf("text", functionKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
@@ -2564,7 +2690,8 @@ public final class BulkExecutionMigrator {
 
         Map<String, Set<String>> expectedOwner = Map.ofEntries(
                 Map.entry(NAMESPACE_BINDING_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
-                Map.entry(OPERATION_CONTROL_TABLE, Set.of("T:SELECT", "C:state:UPDATE")),
+                Map.entry(OPENAPI_PUBLICATION_TABLE, Set.of()),
+                Map.entry(OPERATION_CONTROL_TABLE, Set.of()),
                 Map.entry(DEPLOYMENT_BUCKET_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
                 Map.entry(SUBJECT_BUCKET_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
                 Map.entry(PROPOSAL_TABLE, Set.of("T:SELECT", "T:DELETE", "C:proposal_id:UPDATE")),
@@ -2591,8 +2718,15 @@ public final class BulkExecutionMigrator {
         require(tableRolePrivileges(connection, OPERATION_CONTROL_TABLE, "praxis_bulk_control_owner")
                         .equals(Set.of("T:SELECT", "C:state:UPDATE", "C:generation:UPDATE",
                                 "C:descriptor_fingerprint:UPDATE", "C:structural_revision:UPDATE",
-                                "C:updated_at:UPDATE")),
+                                "C:updated_at:UPDATE", "C:publication_generation:UPDATE", "C:publication_document_digest:UPDATE")),
                 "operation-control definer-owner privileges differ");
+        require(tableRolePrivileges(connection, OPENAPI_PUBLICATION_TABLE, "praxis_bulk_control_owner")
+                        .equals(Set.of("T:SELECT", "C:state:UPDATE", "C:generation:UPDATE",
+                                "C:document_digest:UPDATE", "C:updated_at:UPDATE")),
+                "OpenAPI publication definer-owner privileges differ");
+        require(tableRolePrivileges(connection, NAMESPACE_BINDING_TABLE, "praxis_bulk_control_owner")
+                        .equals(Set.of("T:SELECT", "C:deployment_id:UPDATE")),
+                "publication definer-owner namespace-lock privileges differ");
         require(tableRolePrivileges(connection, PROPOSAL_TABLE, "praxis_bulk_control_owner")
                         .equals(Set.of("C:proposal_id:SELECT", "C:namespace_id:SELECT", "C:operation_id:SELECT",
                                 "C:control_generation:SELECT", "C:control_descriptor_fingerprint:SELECT",
@@ -2602,7 +2736,8 @@ public final class BulkExecutionMigrator {
                 "operation-control definer-owner must not read execution payloads");
         for (String table : V5_TABLES) {
             if (!OPERATION_CONTROL_TABLE.equals(table) && !PROPOSAL_TABLE.equals(table)
-                    && !EXECUTION_TABLE.equals(table)) {
+                    && !EXECUTION_TABLE.equals(table) && !OPENAPI_PUBLICATION_TABLE.equals(table)
+                    && !NAMESPACE_BINDING_TABLE.equals(table)) {
                 require(tableRolePrivileges(connection, table, "praxis_bulk_control_owner").isEmpty(),
                         "operation-control definer-owner has unrelated table privileges: " + table);
             }
@@ -2754,6 +2889,7 @@ public final class BulkExecutionMigrator {
         Map<String, Set<String>> allowedByTable = Map.ofEntries(
                 Map.entry(NAMESPACE_BINDING_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
                 Map.entry(OPERATION_CONTROL_TABLE, Set.of()),
+                Map.entry(OPENAPI_PUBLICATION_TABLE, Set.of()),
                 Map.entry(DEPLOYMENT_BUCKET_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
                 Map.entry(SUBJECT_BUCKET_TABLE, Set.of("T:SELECT", "T:INSERT", "C:deployment_id:UPDATE")),
                 Map.entry(PROPOSAL_TABLE, Set.of("T:SELECT", "T:INSERT", "C:proposal_id:UPDATE")),

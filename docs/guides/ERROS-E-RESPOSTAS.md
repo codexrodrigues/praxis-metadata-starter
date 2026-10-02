@@ -70,6 +70,11 @@ Erros são padronizados com `CustomProblemDetail` e categorias (`ErrorCategory`)
 - `MissingRequestHeaderException` → 400 (header obrigatório ausente)
 - `MissingServletRequestParameterException` → 400 (parâmetro obrigatório ausente)
 - `ResponseStatusException` → preserva status original (ex.: 400/403/404/409/410/429/503), sem rebaixar para 500
+- Candidato R2: `GovernedOpenApiPublicationUnavailableException` → 503 com categoria `SYSTEM` e
+  código `GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE`. A leitura governada sem fotografia utilizável
+  não recaptura a origem nem repete mutações; a recuperação exige publicação/reconciliação explícita.
+  O handler usa mensagem pública fixa e não expõe a causa privada. Demais `IllegalStateException`
+  não recebem esse mapeamento. Ver [lifecycle governado](../spec/BULK-OPERATION-LIFECYCLE.md).
 - `InvalidFilterPayloadException` → 400 (payload de filtro inválido)
 - `BusinessException` → 400 com categoria `BUSINESS_LOGIC`
 - `ResourceOperationFailureException` → status, categoria, codigo e target derivados de uma

@@ -33,6 +33,105 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 class OpenApiDocsSupportTest {
 
+    @Test
+    void freshCaptureRejectsUtf16BytesEvenWhenJsonHasNoCharsetParameter() {
+        var client = new RestTemplate();
+        var sourceServer = MockRestServiceServer.createServer(client);
+        var source = new OpenApiDocsSupport();
+        ReflectionTestUtils.setField(source, "openApiInternalBaseUrl", "http://localhost");
+        byte[] oas = "{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"Pilot\",\"version\":\"1\"},\"paths\":{}}"
+                .getBytes(java.nio.charset.StandardCharsets.UTF_16LE);
+        sourceServer.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                .andRespond(withSuccess(oas, MediaType.APPLICATION_JSON));
+        assertThrows(IllegalStateException.class, () -> source.fetchFreshOpenApiResponseCapture(
+                client, "/v3/api-docs/stats", LoggerFactory.getLogger(OpenApiDocsSupportTest.class), new ObjectMapper()));
+        sourceServer.verify();
+    }
+
+    @Test
+    void freshCaptureRejectsUnexpectedStatusesEvenWithValidOpenApiJson() {
+        String oas = "{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"Pilot\",\"version\":\"1\"},\"paths\":{}}";
+        for (int status : new int[]{201, 202, 204, 206, 301, 302, 307, 308, 304, 404, 500}) {
+            var client = new RestTemplate();
+            var sourceServer = MockRestServiceServer.createServer(client);
+            var source = new OpenApiDocsSupport();
+            ReflectionTestUtils.setField(source, "openApiInternalBaseUrl", "http://localhost");
+            sourceServer.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                    .andRespond(withStatus(org.springframework.http.HttpStatusCode.valueOf(status))
+                            .contentType(MediaType.APPLICATION_JSON).body(oas));
+            assertThrows(IllegalStateException.class, () -> source.fetchFreshOpenApiResponseCapture(
+                    client, "/v3/api-docs/stats", LoggerFactory.getLogger(OpenApiDocsSupportTest.class), new ObjectMapper()));
+            sourceServer.verify();
+        }
+    }
+
+    @Test
+    void freshCaptureRejectsMissingOrIncorrectMediaEvenWithValidOpenApiJson() {
+        String oas = "{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"Pilot\",\"version\":\"1\"},\"paths\":{}}";
+        for (String media : new String[]{null, "text/plain", "text/html", "application/octet-stream",
+                "application/*", "application/problem+json", "application/json;charset=UTF-16"}) {
+            var client = new RestTemplate();
+            var sourceServer = MockRestServiceServer.createServer(client);
+            var source = new OpenApiDocsSupport();
+            ReflectionTestUtils.setField(source, "openApiInternalBaseUrl", "http://localhost");
+            var response = withSuccess().body(oas);
+            if (media != null) {
+                var headers = new HttpHeaders();
+                headers.add(HttpHeaders.CONTENT_TYPE, media);
+                response.headers(headers);
+            }
+            sourceServer.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                    .andRespond(response);
+            assertThrows(IllegalStateException.class, () -> source.fetchFreshOpenApiResponseCapture(
+                    client, "/v3/api-docs/stats", LoggerFactory.getLogger(OpenApiDocsSupportTest.class), new ObjectMapper()));
+            sourceServer.verify();
+        }
+    }
+
+    @Test
+    void publicationContextRequiresActualLocalServletContextWithoutRemoteOriginFallback() {
+        var source = new OpenApiDocsSupport();
+        RequestContextHolder.resetRequestAttributes();
+        assertThrows(IllegalStateException.class, source::localPublicationContextPath);
+        var context = new org.springframework.mock.web.MockServletContext();
+        context.setContextPath("/host");
+        var request = new MockHttpServletRequest(context);
+        request.setContextPath("/host");
+        request.addHeader("X-Forwarded-Prefix", "/untrusted");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        try {
+            assertEquals("/host", source.localPublicationContextPath());
+            var forwarded = new jakarta.servlet.http.HttpServletRequestWrapper(request) {
+                @Override public String getContextPath() { return "/untrusted/host"; }
+            };
+            RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(forwarded));
+            assertThrows(IllegalStateException.class, source::localPublicationContextPath);
+            RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+            ReflectionTestUtils.setField(source, "openApiInternalBaseUrl", "https://elsewhere.example");
+            assertThrows(IllegalStateException.class, source::localPublicationContextPath);
+        } finally { RequestContextHolder.resetRequestAttributes(); }
+    }
+
+    @Test
+    void freshGroupCapturePreservesResponseBytesAndUsesExactRevalidatedRoute() {
+        var client = new RestTemplate();
+        var sourceServer = MockRestServiceServer.createServer(client);
+        var source = new OpenApiDocsSupport();
+        ReflectionTestUtils.setField(source, "openApiInternalBaseUrl", "http://localhost");
+        String response = " { \"openapi\":\"3.1.0\", \"info\":{\"title\":\"Pilot\",\"version\":\"1\"}, \"x-count\" : 7, \"paths\" : { \"/stats\" : {} } }\n";
+        sourceServer.expect(once(), requestTo("http://localhost/v3/api-docs/stats"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store"))
+                .andRespond(withSuccess(response, MediaType.parseMediaType("application/json;charset=UTF-8")));
+        var capture = source.fetchFreshOpenApiGroupCapture(client, "/v3/api-docs", "stats",
+                LoggerFactory.getLogger(OpenApiDocsSupportTest.class),
+                new ObjectMapper().enable(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_INTEGER_FOR_INTS));
+        assertEquals(response, new String(capture.bytes(), java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals(true, capture.document().path("paths").has("/stats"));
+        assertEquals(true, capture.document().path("x-count").isBigInteger());
+        sourceServer.verify();
+    }
+
     private RestTemplate restTemplate;
     private MockRestServiceServer server;
     private OpenApiDocsSupport support;

@@ -184,6 +184,31 @@ class BulkOperationStructuralCompilerTest {
     }
 
     @Test
+    void int32IdentityAcceptsOpenApiImplicitSignedBoundsButStillRejectsNarrowedRange() {
+        try (var context = context()) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.integers(), false));
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
+            var structural = new BulkOperationStructuralCompiler(bindings, resolver, documents,
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver()).compileAll().getFirst();
+
+            assertTrue(BulkOperationalDescriptorComposer.compose(structural,
+                    providerWithCodec("deployment-int32", BulkIdentityCodecs.integers())) != null);
+
+            JsonNode narrowed = operationalDocument(BulkIdentityCodecs.integers(), false);
+            ((ObjectNode) narrowed.at("/paths/~1api~1items~1actions~1bulk-approve~1evaluation/post/requestBody/content/application~1json/schema/properties/selection/properties/targets/items/properties/id"))
+                    .put("minimum", 1);
+            var narrowedDocuments = new TestDocuments(narrowed);
+            var narrowedResolver = new OpenApiCanonicalOperationResolver(narrowedDocuments, mvc, bindings);
+            var narrowedStructure = new BulkOperationStructuralCompiler(bindings, narrowedResolver, narrowedDocuments,
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver()).compileAll().getFirst();
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(narrowedStructure,
+                    providerWithCodec("deployment-int32-narrowed", BulkIdentityCodecs.integers())));
+        }
+    }
+
+    @Test
     void operationalCompositionRejectsProviderForDifferentConfirmationIdentity() {
         try (var context = context()) {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
@@ -269,23 +294,14 @@ class BulkOperationStructuralCompilerTest {
 
     private void verifyPublicationAdmission(boolean expireWhileAcquiringConnection) throws Exception {
         try (var context = context();
-             var http = new org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(2));
              var sql = org.mockito.Mockito.mockStatic(JdbcBulkOperationControl.class,
+                     org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+             var globalSql = org.mockito.Mockito.mockStatic(JdbcBulkOpenApiPublication.class,
                      org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE))) {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
-            JsonNode document = operationalDocument(BulkIdentityCodecs.longs());
-            var source = new org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport() {
-                @Override public String resolveGroupFromPath(String path) { return "inventory"; }
-                @Override public JsonNode fetchOpenApiDocument(org.springframework.web.client.RestTemplate client,
-                        String base, String group, org.slf4j.Logger logger) { return document.deepCopy(); }
-                @Override public JsonNode fetchOpenApiGroupDocument(org.springframework.web.client.RestTemplate client,
-                        String base, String group, org.slf4j.Logger logger) { return document.deepCopy(); }
-                @Override public JsonNode fetchFreshOpenApiGroupDocument(org.springframework.web.client.RestTemplate client,
-                        String base, String group, org.slf4j.Logger logger) { return document.deepCopy(); }
-            };
-            var documents = new org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService(
-                    http, new ObjectMapper(), source, true, Duration.ofMillis(400));
+            var documents = LifecycleDocuments.create(context, operationalDocument(BulkIdentityCodecs.longs()),
+                    new ObjectMapper(), Duration.ofMillis(400));
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("inventory"));
             var runtime = org.mockito.Mockito.mock(BulkExecutionInfrastructure.class,
                     org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
@@ -300,31 +316,51 @@ class BulkOperationStructuralCompilerTest {
                 org.springframework.jdbc.core.ConnectionCallback<?> callback = invocation.getArgument(0);
                 return callback.doInConnection(connection);
             });
+            var controlEntries = new AtomicInteger();
             org.mockito.Mockito.when(control.withConnection(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
-                if (expireWhileAcquiringConnection) java.util.concurrent.TimeUnit.MILLISECONDS.sleep(600);
+                // Initial global suspension is admitted before preparation; only publication waits in the pool.
+                if (expireWhileAcquiringConnection && controlEntries.incrementAndGet() == 2)
+                    java.util.concurrent.TimeUnit.MILLISECONDS.sleep(600);
                 org.springframework.jdbc.core.ConnectionCallback<?> callback = invocation.getArgument(0);
                 return callback.doInConnection(connection);
             });
             var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
-            var compiler = new BulkOperationStructuralCompiler(bindings, resolver, documents, registry(actionDefinition()),
-                    new ObjectMapper(), new FilteredSchemaReferenceResolver());
-            var descriptor = BulkOperationalDescriptorComposer.compose(compiler.compileAll().getFirst(), provider);
+            var publication = new java.util.concurrent.atomic.AtomicReference<>(
+                    new JdbcBulkOpenApiPublication.Snapshot("UNCOMPOSED", 0, null, java.time.Instant.EPOCH));
+            globalSql.when(() -> JdbcBulkOpenApiPublication.lockForRead(connection, "test-namespace", "deployment-a"))
+                    .thenAnswer(invocation -> publication.get());
+            globalSql.when(() -> JdbcBulkOpenApiPublication.transition(connection, "test-namespace", "deployment-a", 0,
+                    JdbcBulkOpenApiPublication.Target.SUSPENDED, null)).thenAnswer(invocation -> {
+                        publication.set(new JdbcBulkOpenApiPublication.Snapshot("SUSPENDED", 1, null, java.time.Instant.EPOCH));
+                        return new JdbcBulkOpenApiPublication.Transition(true, 1);
+                    });
+            var globalAttempts = new AtomicInteger();
+            globalSql.when(() -> JdbcBulkOpenApiPublication.transition(org.mockito.ArgumentMatchers.same(connection),
+                    org.mockito.ArgumentMatchers.eq("test-namespace"), org.mockito.ArgumentMatchers.eq("deployment-a"),
+                    org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(JdbcBulkOpenApiPublication.Target.PUBLISHED),
+                    org.mockito.ArgumentMatchers.anyString())).thenAnswer(invocation -> {
+                        globalAttempts.incrementAndGet();
+                        publication.set(new JdbcBulkOpenApiPublication.Snapshot("PUBLISHED", 2, invocation.getArgument(5), java.time.Instant.EPOCH));
+                        return new JdbcBulkOpenApiPublication.Transition(true, 2);
+                    });
             var reads = new AtomicInteger();
             var attempts = new AtomicInteger();
             sql.when(() -> JdbcBulkOperationControl.lockForAdmission(connection, "test-namespace", ACTION_ID))
                     .thenAnswer(invocation -> reads.incrementAndGet() == 1
                             ? new JdbcBulkOperationControl.Snapshot("UNCOMPOSED", 0, null, null)
-                            : new JdbcBulkOperationControl.Snapshot("READY", 1,
-                                    descriptor.descriptorFingerprint(), descriptor.structuralRevision()));
-            sql.when(() -> JdbcBulkOperationControl.transition(connection, "test-namespace", ACTION_ID, 0,
-                    JdbcBulkOperationControl.Target.READY, descriptor.descriptorFingerprint(), descriptor.structuralRevision()))
-                    .thenAnswer(invocation -> {
+                            : new JdbcBulkOperationControl.Snapshot("READY", 1, "alien-fingerprint", "alien-revision"));
+            sql.when(() -> JdbcBulkOperationControl.transition(org.mockito.ArgumentMatchers.same(connection),
+                    org.mockito.ArgumentMatchers.eq("test-namespace"), org.mockito.ArgumentMatchers.eq(ACTION_ID),
+                    org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(JdbcBulkOperationControl.Target.READY),
+                    org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.eq(2L), org.mockito.ArgumentMatchers.anyString())).thenAnswer(invocation -> {
                         attempts.incrementAndGet();
                         var lock = (java.util.concurrent.locks.ReentrantReadWriteLock)
                                 org.springframework.test.util.ReflectionTestUtils.getField(documents, "cacheLifecycleLock");
                         var snapshot = (ThreadLocal<?>) org.springframework.test.util.ReflectionTestUtils.getField(documents, "lifecycleSnapshot");
                         assertTrue(lock.isWriteLockedByCurrentThread(), "durable CAS must exclude cache invalidation");
-                        assertTrue(snapshot.get() != null, "durable CAS must remain inside the captured fresh composition");
+                        assertTrue(snapshot.get() != null, "durable CAS must remain inside the captured composition");
+                        assertEquals(publication.get().documentDigest(), invocation.getArgument(8), "operation and global CAS bind the exact same photograph");
                         return new JdbcBulkOperationControl.Transition(true, 1);
                     });
             var lifecycle = new BulkOperationLifecycle(bindings, resolver, documents, registry(actionDefinition()),
@@ -332,11 +368,14 @@ class BulkOperationStructuralCompilerTest {
             var identity = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
             if (expireWhileAcquiringConnection) {
                 assertThrows(IllegalStateException.class, () -> lifecycle.publish(identity, 0));
-                assertEquals(0, attempts.get(), "pool expiry must not start a CAS");
+                assertEquals(0, attempts.get(), "pool expiry must not start an operation CAS");
+                assertEquals(0, globalAttempts.get(), "pool expiry must not start a global publication CAS");
                 assertEquals(1, reads.get(), "pre-CAS failure cannot reconcile a concurrent READY row as our commit");
             } else {
                 assertEquals(1, lifecycle.publish(identity, 0).generation());
                 assertEquals(1, attempts.get());
+                assertEquals(1, globalAttempts.get());
+                assertTrue(documents.hasLocalPublishedBulkOpenApiPublication(), "installation follows the admitted commit");
             }
         }
     }
@@ -360,7 +399,7 @@ class BulkOperationStructuralCompilerTest {
                     uncertainCommitManager, "test-namespace", "deployment-a", "bulk_control_test", runtime);
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
-            var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
+            var documents = LifecycleDocuments.create(context, operationalDocument(BulkIdentityCodecs.longs()));
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
             var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
             var lifecycle = new BulkOperationLifecycle(bindings, resolver, documents, registry(actionDefinition()),
@@ -370,17 +409,18 @@ class BulkOperationStructuralCompilerTest {
             assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(operation));
             var ready = lifecycle.publish(operation, 0);
             assertEquals(1, ready.generation());
-            assertEquals(2, documents.freshReads(), "initial readiness and publication each compose a fresh snapshot");
+            assertEquals(1, documents.freshReads(), "cold readiness performs no I/O; publication captures the producer once");
             assertEquals(ready, lifecycle.requireReady(operation));
 
+            int clearsBeforeSuspend = documents.cacheClears();
             uncertainCommitManager.failNextCommitAcknowledgement();
             assertEquals(2, lifecycle.suspend(operation, 1));
-            assertEquals(1, documents.cacheClears());
+            assertEquals(clearsBeforeSuspend + 1, documents.cacheClears());
             assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(operation));
             assertThrows(IllegalStateException.class, () -> lifecycle.publish(operation, 1));
             var republished = lifecycle.publish(operation, 2);
             assertEquals(3, republished.generation());
-            assertEquals(5, documents.freshReads(), "readiness revalidates its source after each state transition");
+            assertEquals(2, documents.freshReads(), "only the two publications capture producer documents");
             assertEquals(republished, lifecycle.requireReady(operation));
             assertEquals("READY", new JdbcTemplate(admin).queryForObject(
                     "select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?",
@@ -398,7 +438,7 @@ class BulkOperationStructuralCompilerTest {
     }
 
     @Test
-    void scopedDiscoveryReusesOneCaptureOutsideLocksAndKeepsAuthorization() throws Exception {
+    void scopedDiscoveryReusesPublishedPhotographOutsideLocksAndKeepsAuthorization() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
                 var context = context(); var fixture = discoveryFixture(postgres, context);
                 var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
@@ -425,12 +465,12 @@ class BulkOperationStructuralCompilerTest {
                 assertFalse(item.availability().allowed());
                 assertEquals("missing-authority", item.availability().reason());
                 org.junit.jupiter.api.Assertions.assertNotNull(item.execution().bulk());
-                assertEquals(before + request, fixture.freshReads.get(), "two readiness checks reuse only this response capture");
+                assertEquals(before, fixture.freshReads.get(), "response readiness uses the published photograph without producer I/O");
                 assertThrows(IllegalStateException.class, () -> capturedFence.get().read(() -> true),
                         "the lifecycle closes its handle when the response finishes");
             }
             assertEquals(fixture.ready, fixture.lifecycle.requireReady(fixture.identity));
-            assertEquals(before + 3, fixture.freshReads.get(), "outside discovery readiness always starts fresh");
+            assertEquals(before, fixture.freshReads.get(), "standalone readiness also uses the published photograph");
         }
     }
 
@@ -459,10 +499,10 @@ class BulkOperationStructuralCompilerTest {
                 assertEquals(fixture.ready, fixture.lifecycle.requireReady(fixture.identity));
                 fixture.control.withConnection(connection -> {
                     assertTrue(JdbcBulkOperationControl.transition(connection, fixture.identity.namespaceId(), ACTION_ID, 1,
-                            JdbcBulkOperationControl.Target.SUSPENDED, null, null).applied());
+                            JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null).applied());
                     assertTrue(JdbcBulkOperationControl.transition(connection, fixture.identity.namespaceId(), ACTION_ID, 2,
                             JdbcBulkOperationControl.Target.READY, fixture.ready.descriptorFingerprint(),
-                            fixture.ready.structuralRevision()).applied());
+                            fixture.ready.structuralRevision(), BulkPostgresTestSupport.publication(fixture.owner, fixture.identity.namespaceId()).generation(), BulkPostgresTestSupport.publication(fixture.owner, fixture.identity.namespaceId()).documentDigest()).applied());
                     return null;
                 });
                 assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(fixture.identity));
@@ -473,7 +513,7 @@ class BulkOperationStructuralCompilerTest {
 
             assertThrows(IllegalStateException.class, () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
                 fixture.control.withConnection(connection -> JdbcBulkOperationControl.transition(connection,
-                        fixture.identity.namespaceId(), ACTION_ID, 3, JdbcBulkOperationControl.Target.SUSPENDED, null, null));
+                        fixture.identity.namespaceId(), ACTION_ID, 3, JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null));
                 return true; // No scoped readiness call: the final durable fence must catch this.
             }));
             assertFalse(fixture.lifecycle.<Boolean>projectReadyActions(List.of(fixture.action), contracts -> {
@@ -485,12 +525,13 @@ class BulkOperationStructuralCompilerTest {
     }
 
     @Test
-    void scopedDiscoveryCleansFailuresAndIsolatesConcurrentResponsesWithoutRetry() throws Exception {
+    void scopedDiscoveryCleansColdNodeFailuresAndIsolatesConcurrentResponsesWithoutRetry() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
                 var context = context(); var fixture = discoveryFixture(postgres, context)) {
             int before = fixture.freshReads.get();
             var calls = new AtomicInteger();
-            fixture.failFresh.set(true);
+            Object photograph = org.springframework.test.util.ReflectionTestUtils.getField(fixture.documents, "publishedSnapshot");
+            org.springframework.test.util.ReflectionTestUtils.setField(fixture.documents, "publishedSnapshot", null);
             assertFalse(fixture.lifecycle.<Boolean>projectReadyActions(List.of(fixture.action), contracts -> {
                 calls.incrementAndGet();
                 assertTrue(contracts.isEmpty());
@@ -498,8 +539,8 @@ class BulkOperationStructuralCompilerTest {
                 return false;
             }));
             assertEquals(1, calls.get());
-            assertEquals(before + 1, fixture.freshReads.get(), "preparation failure cannot retry from the host availability rule");
-            fixture.failFresh.set(false);
+            assertEquals(before, fixture.freshReads.get(), "cold-node denial cannot retry producer I/O from host availability");
+            org.springframework.test.util.ReflectionTestUtils.setField(fixture.documents, "publishedSnapshot", photograph);
 
             var failure = new IllegalArgumentException("consumer failed");
             var escapedFence = new java.util.concurrent.atomic.AtomicReference<OpenApiDocumentService.BulkLifecycleDocumentFence>();
@@ -530,7 +571,7 @@ class BulkOperationStructuralCompilerTest {
                 assertTrue(first.get(5, java.util.concurrent.TimeUnit.SECONDS));
                 assertTrue(second.get(5, java.util.concurrent.TimeUnit.SECONDS));
             }
-            assertEquals(beforeConcurrent + 2, fixture.freshReads.get(), "each concurrent response owns exactly one fresh capture");
+            assertEquals(beforeConcurrent, fixture.freshReads.get(), "concurrent responses own isolated fences over the immutable photograph");
         }
     }
 
@@ -545,25 +586,9 @@ class BulkOperationStructuralCompilerTest {
                 "test-namespace", "deployment-a", roles);
         var control = new BulkControlPlaneInfrastructure(controlDs, new DataSourceTransactionManager(controlDs),
                 "test-namespace", "deployment-a", "bulk_control_test", runtime);
-        var freshReads = new AtomicInteger();
-        var failFresh = new java.util.concurrent.atomic.AtomicBoolean();
-        JsonNode document = projectedDocument();
-        var source = new org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport() {
-            @Override public String resolveGroupFromPath(String path) { return "inventory"; }
-            @Override public JsonNode fetchOpenApiDocument(org.springframework.web.client.RestTemplate client,
-                    String base, String group, org.slf4j.Logger logger) { return document.deepCopy(); }
-            @Override public JsonNode fetchOpenApiGroupDocument(org.springframework.web.client.RestTemplate client,
-                    String base, String group, org.slf4j.Logger logger) { return document.deepCopy(); }
-            @Override public JsonNode fetchFreshOpenApiGroupDocument(org.springframework.web.client.RestTemplate client,
-                    String base, String group, org.slf4j.Logger logger) {
-                freshReads.incrementAndGet();
-                if (failFresh.get()) throw new IllegalStateException("fresh source unavailable");
-                return document.deepCopy();
-            }
-        };
-        var client = new org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(10));
-        var documents = new org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService(client, new ObjectMapper(), source, true);
-        org.springframework.test.util.ReflectionTestUtils.setField(documents, "openApiBasePath", "/v3/api-docs");
+        var documents = LifecycleDocuments.create(context, projectedDocument());
+        var freshReads = documents.source.freshReads;
+        var client = documents.client;
         var mvc = context.getBean(RequestMappingHandlerMapping.class);
         var bindings = BulkResourceOperationBindings.from(mvc);
         var action = actionDefinition();
@@ -572,7 +597,7 @@ class BulkOperationStructuralCompilerTest {
                 documents, registry(action), new ObjectMapper(), new FilteredSchemaReferenceResolver(),
                 runtime, control, List.of(provider));
         var ready = lifecycle.publish(identity, 0);
-        return new DiscoveryFixture(documents, client, lifecycle, provider, action, identity, control, ready, freshReads, failFresh);
+        return new DiscoveryFixture(documents, client, lifecycle, provider, action, identity, control, ready, freshReads, admin);
     }
 
     private static void assertDiscoveryConsumerUnlocked(DiscoveryFixture fixture) {
@@ -596,12 +621,12 @@ class BulkOperationStructuralCompilerTest {
             org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate client, BulkOperationLifecycle lifecycle,
             TestProvider provider, ActionDefinition action, BulkOperationControlIdentity identity,
             BulkControlPlaneInfrastructure control, BulkOperationControlExpectation ready, AtomicInteger freshReads,
-            java.util.concurrent.atomic.AtomicBoolean failFresh) implements AutoCloseable {
+            javax.sql.DataSource owner) implements AutoCloseable {
         @Override public void close() { client.close(); }
     }
 
     @Test
-    void actionProjectionUsesOneFreshCompositionAndRejectsEveryStaleFenceAndMissingUiSelection() throws Exception {
+    void actionProjectionUsesPublishedPhotographAndRejectsStaleFencesAndMissingUiSelection() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start(); var context = context()) {
             var admin = postgres.getPostgresDatabase();
@@ -617,7 +642,7 @@ class BulkOperationStructuralCompilerTest {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
             var document = projectedDocument();
-            var documents = new TestDocuments(document);
+            var documents = LifecycleDocuments.create(context, document);
             var provider = provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime);
             var action = actionDefinition();
             var lifecycle = new BulkOperationLifecycle(bindings, new OpenApiCanonicalOperationResolver(documents, mvc, bindings),
@@ -627,7 +652,7 @@ class BulkOperationStructuralCompilerTest {
             var ready = lifecycle.publish(identity, 0);
             int before = documents.freshReads();
             var contracts = lifecycle.projectReadyActions(List.of(action));
-            assertEquals(before + 1, documents.freshReads(), "one fresh composition per response");
+            assertEquals(before, documents.freshReads(), "response composition reads the published photograph without producer I/O");
             var bulk = contracts.get(ACTION_ID).bulk();
             org.junit.jupiter.api.Assertions.assertNotNull(bulk);
             org.junit.jupiter.api.Assertions.assertSame(action.operation(), bulk.confirmationOperation().operation());
@@ -645,18 +670,21 @@ class BulkOperationStructuralCompilerTest {
                     (key, path, id) -> null, lifecycle::projectReadyActions);
             before = documents.freshReads();
             assertEquals(bulk, catalog.findByResourceKey(RESOURCE).actions().getFirst().execution().bulk());
-            assertEquals(before + 1, documents.freshReads());
+            assertEquals(before, documents.freshReads());
 
             var changed = document.deepCopy();
             ((ObjectNode) changed.path("components").path("schemas").path("ProposalView"))
                     .put("description", "Changed UI component, identical HTTP transport");
             documents.setRefreshedDocument("inventory", changed);
-            assertTrue(lifecycle.projectReadyActions(List.of(action)).isEmpty(), "stale UI revision must close the projection");
+            assertEquals(ready, lifecycle.requireReady(identity), "dynamic producer changes cannot mutate the installed photograph");
+            assertFalse(lifecycle.projectReadyActions(List.of(action)).isEmpty());
+            assertEquals(before, documents.freshReads(), "request reads do not observe the dynamic producer");
+            documents.clearCaches();
+            assertTrue(lifecycle.projectReadyActions(List.of(action)).isEmpty(), "governed invalidation closes the stale UI projection");
             documents.setRefreshedDocument("inventory", document);
-            documents.setPublicDocument("inventory", document);
             var afterCacheDrift = runtime.withLifecycleRead(connection -> JdbcBulkOperationControl.lockForAdmission(
                     connection, identity.namespaceId(), ACTION_ID));
-            assertEquals("SUSPENDED", afterCacheDrift.state(), "a divergent public cache must durably suspend projection");
+            assertEquals("SUSPENDED", afterCacheDrift.state(), "governed cache invalidation must durably suspend projection");
             ready = lifecycle.publish(identity, afterCacheDrift.generation());
             provider.revision = "provider.r2";
             assertTrue(lifecycle.projectReadyActions(List.of(action)).isEmpty(), "operational-only fingerprint drift closes projection");
@@ -664,11 +692,11 @@ class BulkOperationStructuralCompilerTest {
 
             // A remote suspend + republish can preserve content but must not preserve this read's generation.
             var readyForRace = ready;
-            documents.onFreshSnapshot = () -> control.withConnection(connection -> {
+            documents.onPublishedSnapshot = () -> control.withConnection(connection -> {
                 JdbcBulkOperationControl.transition(connection, identity.namespaceId(), ACTION_ID, readyForRace.generation(),
-                        JdbcBulkOperationControl.Target.SUSPENDED, null, null);
+                        JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null);
                 return JdbcBulkOperationControl.transition(connection, identity.namespaceId(), ACTION_ID, readyForRace.generation() + 1,
-                        JdbcBulkOperationControl.Target.READY, readyForRace.descriptorFingerprint(), readyForRace.structuralRevision());
+                        JdbcBulkOperationControl.Target.READY, readyForRace.descriptorFingerprint(), readyForRace.structuralRevision(), BulkPostgresTestSupport.publication(admin, identity.namespaceId()).generation(), BulkPostgresTestSupport.publication(admin, identity.namespaceId()).documentDigest());
             });
             assertTrue(lifecycle.projectReadyActions(List.of(action)).isEmpty(), "generation changes during composition are stale");
             assertFalse(lifecycle.projectReadyActions(List.of(action)).isEmpty(), "a later read can observe the newly stable generation");
@@ -692,12 +720,16 @@ class BulkOperationStructuralCompilerTest {
                     "select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?",
                     String.class, identity.namespaceId(), ACTION_ID));
             documents.setRefreshedDocument("inventory", document);
-            documents.setPublicDocument("inventory", document);
             suspended = runtime.withLifecycleRead(connection -> JdbcBulkOperationControl.lockForAdmission(
                     connection, identity.namespaceId(), ACTION_ID));
             lifecycle.publish(identity, suspended.generation());
             documents.setRefreshedDocument("inventory", unprojectable);
-            assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(identity), "an existing READY row cannot bypass broken UI composition");
+            assertFalse(lifecycle.projectReadyActions(List.of(action)).isEmpty(), "the installed valid UI photograph remains immutable");
+            documents.clearCaches();
+            assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(identity), "invalidated UI composition cannot reuse an old READY row");
+            long missingUiGeneration = runtime.withLifecycleRead(connection -> JdbcBulkOperationControl.lockForAdmission(
+                    connection, identity.namespaceId(), ACTION_ID)).generation();
+            assertThrows(IllegalStateException.class, () -> lifecycle.publish(identity, missingUiGeneration));
             org.junit.jupiter.api.Assertions.assertNull(catalog.findByResourceKey(RESOURCE).actions().getFirst().execution().bulk());
         }
     }
@@ -754,7 +786,7 @@ class BulkOperationStructuralCompilerTest {
                     new DataSourceTransactionManager(controlDs), "test-namespace", "deployment-a", "bulk_control_test", runtime);
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
-            var documents = new TestDocuments(operationalDocument(BulkIdentityCodecs.longs()));
+            var documents = LifecycleDocuments.create(context, operationalDocument(BulkIdentityCodecs.longs()));
             var lifecycle = new BulkOperationLifecycle(bindings,
                     new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("inventory")), documents,
                     registry(actionDefinition()), new ObjectMapper(),
@@ -820,8 +852,8 @@ class BulkOperationStructuralCompilerTest {
                         .path("responses").path(status).path("content").path("application/json")
                         .path("schema").path("properties").path("accepted")).put("type", "string");
             }
-            var nodeADocuments = new TestDocuments(cachedDocument);
-            var nodeBDocuments = new TestDocuments(cachedDocument);
+            var nodeADocuments = LifecycleDocuments.create(context, cachedDocument);
+            var nodeBDocuments = LifecycleDocuments.create(context, cachedDocument);
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
             var nodeA = new BulkOperationLifecycle(bindings,
@@ -836,7 +868,10 @@ class BulkOperationStructuralCompilerTest {
                     List.of(provider("provider.r1", "deployment-a", 200, ACTION_ID, nodeBRuntime)));
 
             var publishedA = nodeA.publish(operation, 0);
-            assertEquals(publishedA, nodeB.requireReady(operation), "node B initially has the same cached composition");
+            assertThrows(IllegalStateException.class, () -> nodeB.requireReady(operation), "a cold replica must not trust a READY row alone");
+            assertEquals(0, nodeBDocuments.freshReads());
+            assertEquals(publishedA, nodeB.reconcilePublished(operation, publishedA.generation()), "read-only reconciliation installs the exact committed photograph");
+            assertEquals(publishedA, nodeB.requireReady(operation));
             assertEquals(2, nodeA.suspend(operation, publishedA.generation()));
             nodeBDocuments.setRefreshedDocument("inventory", refreshedDocument);
             assertThrows(IllegalStateException.class, () -> nodeB.requireReady(operation));
@@ -847,7 +882,10 @@ class BulkOperationStructuralCompilerTest {
 
             assertEquals(suspendedB.generation() + 1, publishedB.generation());
             assertTrue(!publishedA.descriptorFingerprint().equals(publishedB.descriptorFingerprint()));
-            assertEquals(3, nodeBDocuments.freshReads(), "initial readiness, suspended readiness, and publication use isolated snapshots");
+            assertEquals(2, nodeBDocuments.freshReads(), "only explicit reconciliation and publication capture producer documents");
+            assertThrows(IllegalStateException.class, () -> nodeA.requireReady(operation));
+            assertThrows(IllegalStateException.class, () -> nodeA.reconcilePublished(operation, publishedB.generation()),
+                    "a stale producer cannot install the other replica's newly published photograph");
             assertEquals(publishedB, nodeB.requireReady(operation));
         }
     }
@@ -877,6 +915,10 @@ class BulkOperationStructuralCompilerTest {
     }
 
     private JsonNode operationalDocument(BulkIdentityCodec<?, ?> codec) {
+        return operationalDocument(codec, true);
+    }
+
+    private JsonNode operationalDocument(BulkIdentityCodec<?, ?> codec, boolean includeInt32Bounds) {
         var root = document(true).deepCopy();
         var requestSchema = JsonNodeFactory.instance.objectNode();
         requestSchema.put("type", "object");
@@ -887,6 +929,10 @@ class BulkOperationStructuralCompilerTest {
         var item = targets.putObject("items");
         item.put("type", "object");
         var identitySchema = codec.canonicalWireSchema().deepCopy();
+        if (!includeInt32Bounds && "integer".equals(identitySchema.path("type").asText())
+                && "int32".equals(identitySchema.path("format").asText())) {
+            ((ObjectNode) identitySchema).remove(List.of("minimum", "maximum"));
+        }
         item.putObject("properties").set("id", identitySchema);
         ((ObjectNode) root.path("paths").path("/api/items/actions/bulk-approve/evaluation").path("post")
                 .path("requestBody").path("content").path("application/json")).set("schema", requestSchema);
@@ -1335,7 +1381,7 @@ class BulkOperationStructuralCompilerTest {
                     org.springframework.jdbc.core.ConnectionCallback<?> work = call.getArgument(0);
                     return work.doInConnection(transitionConnection);
                 }).when(control).withConnection(org.mockito.ArgumentMatchers.any());
-                var docs = new TestDocuments(projectedDocument());
+                var docs = LifecycleDocuments.create(context, projectedDocument());
                 var lifecycle = new BulkOperationLifecycle(bindings, new OpenApiCanonicalOperationResolver(docs, mvc, bindings),
                         docs, registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver(), runtime, control, List.of());
                 var update = new BulkOperationControlIdentity("test-namespace", "crud.uniform");
@@ -1349,10 +1395,21 @@ class BulkOperationStructuralCompilerTest {
                 assertTrue(reads.isEmpty());
                 assertTrue(transitions.isEmpty());
                 if (controller == MixedBulkController.class) {
-                    docs.clearCaches();
-                    assertEquals(java.util.Set.of(ACTION_ID, "crud.uniform"), java.util.Set.copyOf(reads));
-                    assertEquals(java.util.Set.of(ACTION_ID, "crud.uniform"), java.util.Set.copyOf(transitions));
-                    assertEquals(1, docs.cacheClears());
+                    // Global V15 invalidation is one deployment transition; operation invalidation is SQL-owned.
+                    try (var globalSql = org.mockito.Mockito.mockStatic(JdbcBulkOpenApiPublication.class,
+                            org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE))) {
+                        globalSql.when(() -> JdbcBulkOpenApiPublication.lockForRead(readConnection, "test-namespace", "deployment-a"))
+                                .thenReturn(new JdbcBulkOpenApiPublication.Snapshot("PUBLISHED", 2, "sha256:" + "0".repeat(64), java.time.Instant.EPOCH));
+                        globalSql.when(() -> JdbcBulkOpenApiPublication.transition(transitionConnection, "test-namespace", "deployment-a", 2,
+                                JdbcBulkOpenApiPublication.Target.SUSPENDED, null))
+                                .thenReturn(new JdbcBulkOpenApiPublication.Transition(true, 3));
+                        docs.clearCaches();
+                        globalSql.verify(() -> JdbcBulkOpenApiPublication.transition(transitionConnection, "test-namespace", "deployment-a", 2,
+                                JdbcBulkOpenApiPublication.Target.SUSPENDED, null), org.mockito.Mockito.times(1));
+                        assertTrue(reads.isEmpty(), "global SQL owns deployment-wide operation invalidation");
+                        assertTrue(transitions.isEmpty(), "the lifecycle does not repeat per-operation CAS");
+                        assertEquals(1, docs.cacheClears());
+                    }
                 }
             }
         }
@@ -1413,7 +1470,7 @@ class BulkOperationStructuralCompilerTest {
             });
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
-            var docs = new TestDocuments(mixed);
+            var docs = LifecycleDocuments.create(context, mixed, mapper, Duration.ofSeconds(10));
             var resolver = new OpenApiCanonicalOperationResolver(docs, mvc, bindings);
             var structures = new BulkOperationStructuralCompiler(bindings, resolver, docs, registry(actionDefinition()), mapper,
                     new FilteredSchemaReferenceResolver()).compileAll();
@@ -1434,16 +1491,27 @@ class BulkOperationStructuralCompilerTest {
             docs.clearCaches();
             assertEquals("SUSPENDED", sql.queryForObject("select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", String.class,
                     "test-namespace", ACTION_ID));
-            assertEquals("SUSPENDED", sql.queryForObject("select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", String.class,
-                    "test-namespace", "crud.uniform"));
-            assertEquals(1L, sql.queryForObject("select generation from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", Long.class,
-                    "test-namespace", "crud.uniform"));
+            assertEquals("UNCOMPOSED", sql.queryForObject("select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", String.class,
+                    "test-namespace", "crud.uniform"), "global suspension only invalidates operations that were READY");
+            assertEquals(0L, sql.queryForObject("select generation from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", Long.class,
+                    "test-namespace", "crud.uniform"), "a structural-only update retains its uncomposed generation");
             var updateProvider = provider("provider.r1", "deployment-a", 200, "crud.uniform", runtime);
-            var unsupportedDocs = new TestDocuments(mixed);
+            var unsupportedDocs = LifecycleDocuments.create(context, mixed, mapper, Duration.ofSeconds(10));
             var unsupported = new BulkOperationLifecycle(bindings,
                     new OpenApiCanonicalOperationResolver(unsupportedDocs, mvc, bindings), unsupportedDocs, registry(actionDefinition()), mapper,
                     new FilteredSchemaReferenceResolver(), runtime, control, List.of(provider, updateProvider));
-            var unsupportedProvider = assertThrows(IllegalArgumentException.class, () -> unsupported.requireReady(identity));
+            var candidate = unsupportedDocs.prepareBulkOpenApiPublication(java.util.Set.of("inventory"));
+            var unsupportedProvider = assertThrows(IllegalArgumentException.class, () ->
+                    unsupportedDocs.withPreparedBulkOpenApiPublication(candidate, () -> {
+                        var unsupportedStructure = new BulkOperationStructuralCompiler(bindings,
+                                new OpenApiCanonicalOperationResolver(unsupportedDocs, mvc, bindings), unsupportedDocs,
+                                registry(actionDefinition()), mapper, new FilteredSchemaReferenceResolver()).compileAll().stream()
+                                .filter(value -> value.mode() == BulkMode.UNIFORM_UPDATE).findFirst().orElseThrow();
+                        return BulkOperationalDescriptorComposer.compose(unsupportedStructure, updateProvider);
+                    }));
+            assertThrows(IllegalArgumentException.class, () -> unsupported.publish(identity,
+                    runtime.withLifecycleRead(connection -> JdbcBulkOperationControl.lockForAdmission(
+                            connection, identity.namespaceId(), ACTION_ID)).generation()));
             var updateStructure = structures.stream().filter(value -> value.mode() == BulkMode.UNIFORM_UPDATE).findFirst().orElseThrow();
             assertTrue(updateStructure.operation(BulkOperationStructuralDescriptor.Role.EVALUATION)
                     .requestSchema().orElseThrow().schema()
@@ -1634,16 +1702,120 @@ class BulkOperationStructuralCompilerTest {
     record ConfirmationRequest(String reason) { }
     record EvaluationRequest(List<String> ids) { }
 
+    /** Real cache/attestation fixture. It does not stand in for the Boot HTTP or PostgreSQL proofs. */
+    private static final class LifecycleDocuments extends org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService
+            implements AutoCloseable {
+        private final LifecycleSource source;
+        private final org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate client;
+        private final AtomicInteger cacheClears = new AtomicInteger();
+        private Runnable onPublishedSnapshot;
+
+        private LifecycleDocuments(LifecycleSource source,
+                org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate client, ObjectMapper mapper, Duration budget) {
+            super(client, mapper, source, true, budget);
+            this.source = source;
+            this.client = client;
+            org.springframework.test.util.ReflectionTestUtils.setField(this, "openApiBasePath", "/v3/api-docs");
+            source.filter = new org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationFilter(this);
+            try { source.filter.init(new org.springframework.mock.web.MockFilterConfig(source.servletContext, "bulkPublication")); }
+            catch (jakarta.servlet.ServletException failure) { throw new IllegalStateException(failure); }
+        }
+
+        static LifecycleDocuments create(AnnotationConfigWebApplicationContext context, JsonNode document) {
+            return create(context, document, new ObjectMapper(), Duration.ofSeconds(10));
+        }
+
+        static LifecycleDocuments create(AnnotationConfigWebApplicationContext context, JsonNode document,
+                ObjectMapper mapper, Duration budget) {
+            var source = new LifecycleSource(document);
+            var client = new org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(10));
+            var result = new LifecycleDocuments(source, client, mapper, budget);
+            context.addApplicationListener(event -> {
+                if (event instanceof org.springframework.context.event.ContextClosedEvent) result.close();
+            });
+            return result;
+        }
+
+        int freshReads() { return source.freshReads.get(); }
+        int cacheClears() { return cacheClears.get(); }
+        void setRefreshedDocument(String group, JsonNode document) { source.documents.put(group, publicationDocument(document)); }
+        @Override public void clearCaches() { super.clearCaches(); cacheClears.incrementAndGet(); }
+        @Override public <T> T withPublishedBulkOpenApiPublication(
+                java.util.function.BiFunction<org.praxisplatform.uischema.openapi.OpenApiPublicationCandidate, Long, T> composition) {
+            return super.withPublishedBulkOpenApiPublication((candidate, generation) -> {
+                Runnable hook = onPublishedSnapshot;
+                onPublishedSnapshot = null;
+                if (hook != null) hook.run();
+                return composition.apply(candidate, generation);
+            });
+        }
+        @Override public void close() { client.close(); }
+    }
+
+    private static JsonNode publicationDocument(JsonNode document) {
+        ObjectNode result = document.deepCopy();
+        result.put("openapi", "3.1.0");
+        result.putObject("info").put("title", "bulk lifecycle fixture").put("version", "1");
+        return result;
+    }
+
+    private static final class LifecycleSource extends org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport {
+        private final java.util.Map<String, JsonNode> documents = new java.util.concurrent.ConcurrentHashMap<>();
+        private final AtomicInteger freshReads = new AtomicInteger();
+        private final MockServletContext servletContext;
+        private org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationFilter filter;
+        private LifecycleSource(JsonNode document) {
+            documents.put("inventory", publicationDocument(document));
+            var registration = org.mockito.Mockito.mock(jakarta.servlet.FilterRegistration.class);
+            org.mockito.Mockito.when(registration.getClassName()).thenReturn(
+                    org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationFilter.class.getName());
+            org.mockito.Mockito.when(registration.getUrlPatternMappings()).thenReturn(List.of("/*"));
+            org.mockito.Mockito.when(registration.getServletNameMappings()).thenReturn(List.of());
+            servletContext = new MockServletContext() {
+                @Override public jakarta.servlet.FilterRegistration getFilterRegistration(String name) { return registration; }
+            };
+        }
+        @Override public String localPublicationContextPath() { return ""; }
+        @Override public String resolveGroupFromPath(String path) { return "inventory"; }
+        @Override public JsonNode fetchOpenApiDocument(org.springframework.web.client.RestTemplate client,
+                String base, String group, org.slf4j.Logger logger) { return documents.get(group).deepCopy(); }
+        @Override public JsonNode fetchOpenApiGroupDocument(org.springframework.web.client.RestTemplate client,
+                String base, String group, org.slf4j.Logger logger) { return documents.get(group).deepCopy(); }
+        @Override public org.praxisplatform.uischema.openapi.OpenApiDocumentCapture fetchFreshOpenApiResponseCapture(
+                org.springframework.web.client.RestTemplate client, String path, org.slf4j.Logger logger, ObjectMapper mapper) {
+            var request = new org.springframework.mock.web.MockHttpServletRequest(servletContext, "GET", path);
+            request.setServletPath(path);
+            request.addHeader(org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate.PRODUCER_CAPTURE_HEADER,
+                    ((org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate) client).producerCaptureToken(path));
+            var response = new org.springframework.mock.web.MockHttpServletResponse();
+            try {
+                filter.doFilter(request, response, (input, output) -> {
+                    JsonNode payload;
+                    if (path.endsWith("/swagger-config")) {
+                        ObjectNode config = mapper.createObjectNode();
+                        var urls = config.putArray("urls");
+                        documents.keySet().stream().sorted().forEach(group -> urls.addObject().put("name", group)
+                                .put("url", "/v3/api-docs/" + group));
+                        payload = config;
+                    } else {
+                        String group = path.equals("/v3/api-docs") ? "inventory" : path.substring("/v3/api-docs/".length());
+                        if (!path.equals("/v3/api-docs")) freshReads.incrementAndGet();
+                        payload = documents.get(group);
+                    }
+                    output.getOutputStream().write(mapper.writeValueAsBytes(payload));
+                });
+                assertEquals(200, response.getStatus());
+                return org.praxisplatform.uischema.openapi.OpenApiDocumentCapture.parse(response.getContentAsByteArray(), mapper);
+            } catch (Exception failure) { throw new IllegalStateException("Servlet producer fixture failed", failure); }
+        }
+    }
+
+    /** Structural-only source: operational publication intentionally requires the real cache fixture. */
     private static final class TestDocuments implements OpenApiDocumentService {
         private final java.util.Map<String, JsonNode> documents;
         private final java.util.Map<String, JsonNode> refreshDocuments;
         private final AtomicInteger strictReads = new AtomicInteger();
         private final AtomicInteger freshReads = new AtomicInteger();
-        private final AtomicInteger cacheClears = new AtomicInteger();
-        private volatile Runnable invalidationGuard;
-        private Runnable onFreshSnapshot;
-        private long documentEpoch;
-        private final ThreadLocal<java.util.Map<String, JsonNode>> freshSnapshot = new ThreadLocal<>();
         private TestDocuments(JsonNode document) { this(document, null, document, null); }
         private TestDocuments(JsonNode primary, JsonNode other) {
             this(primary, other, primary, other);
@@ -1662,25 +1834,12 @@ class BulkOperationStructuralCompilerTest {
         @Override public String resolveGroupFromPath(String path) { return "inventory"; }
         @Override public JsonNode getDocumentForGroup(String groupName) { return getDocumentForGroupStrict(groupName); }
         @Override public JsonNode getDocumentForGroupStrict(String groupName) {
-            var snapshot = freshSnapshot.get();
-            if (snapshot != null) {
-                JsonNode fresh = snapshot.get(groupName);
-                if (fresh == null) throw new IllegalStateException("unexpected fresh group " + groupName);
-                return fresh.deepCopy();
-            }
             strictReads.incrementAndGet();
             JsonNode document = documents.get(groupName);
             if (document == null) throw new IllegalStateException("unexpected group " + groupName);
             return document.deepCopy();
         }
         @Override public JsonNode refreshDocumentForGroupStrict(String groupName) {
-            var snapshot = freshSnapshot.get();
-            if (snapshot != null) {
-                JsonNode document = snapshot.get(groupName);
-                if (document == null) throw new IllegalStateException("unexpected fresh group " + groupName);
-                return document.deepCopy();
-            }
-            runGuard();
             freshReads.incrementAndGet();
             JsonNode document = refreshDocuments.get(groupName);
             if (document == null) throw new IllegalStateException("unexpected group " + groupName);
@@ -1689,65 +1848,11 @@ class BulkOperationStructuralCompilerTest {
         }
         int strictReads() { return strictReads.get(); }
         int freshReads() { return freshReads.get(); }
-        void setRefreshedDocument(String group, JsonNode document) { refreshDocuments.put(group, document.deepCopy()); }
-        void setPublicDocument(String group, JsonNode document) { documents.put(group, document.deepCopy()); }
-        int cacheClears() { return cacheClears.get(); }
         @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) {
             throw new UnsupportedOperationException("schema hash is not part of structural composition");
         }
-        @Override public void installBulkLifecycleInvalidationGuard(Runnable guard) { invalidationGuard = guard; }
-        @Override public boolean supportsFreshBulkLifecycleComposition() { return true; }
-        @Override public boolean supportsFreshBulkLifecyclePublicCacheCoherence() { return true; }
-        @Override public BulkLifecycleDocumentFence captureBulkLifecycleDocumentFence() {
-            if (freshSnapshot.get() == null) throw new IllegalStateException("no captured test document snapshot");
-            long capturedEpoch = documentEpoch;
-            Thread owner = Thread.currentThread();
-            return new BulkLifecycleDocumentFence() {
-                private boolean closed;
-                private void validate() {
-                    if (closed || Thread.currentThread() != owner || documentEpoch != capturedEpoch)
-                        throw new IllegalStateException("test document capture is no longer valid");
-                }
-                @Override public <T> T read(Supplier<T> verification) {
-                    validate();
-                    T result = verification.get();
-                    validate();
-                    return result;
-                }
-                @Override public void close() { closed = true; }
-            };
-        }
-        @Override public <T> T withBulkLifecycleCompositionLock(Supplier<T> action) { return action.get(); }
-        @Override public <T> T withFreshBulkLifecycleDocuments(java.util.Set<String> groups, Supplier<T> action) {
-            var snapshot = new java.util.HashMap<String, JsonNode>();
-            for (String group : groups) {
-                JsonNode document = refreshDocuments.get(group);
-                if (document == null) throw new IllegalStateException("unexpected fresh group " + group);
-                snapshot.put(group, document.deepCopy());
-                freshReads.incrementAndGet();
-            }
-            for (String group : groups) {
-                JsonNode publiclyServed = documents.get(group);
-                if (publiclyServed == null || !publiclyServed.equals(snapshot.get(group))) {
-                    clearCaches();
-                    throw new IllegalStateException("public document cache differs from the fresh lifecycle document");
-                }
-            }
-            freshSnapshot.set(snapshot);
-            Runnable hook = onFreshSnapshot;
-            onFreshSnapshot = null;
-            if (hook != null) hook.run();
-            try { return action.get(); }
-            finally { freshSnapshot.remove(); }
-        }
         @Override public void clearCaches() {
-            runGuard();
-            refreshDocuments.forEach((group, document) -> documents.put(group, document.deepCopy()));
-            cacheClears.incrementAndGet();
-        }
-        private void runGuard() {
-            documentEpoch = Math.incrementExact(documentEpoch);
-            if (invalidationGuard != null) invalidationGuard.run();
+            throw new UnsupportedOperationException("structural-only source cannot invalidate a governed publication");
         }
     }
 }

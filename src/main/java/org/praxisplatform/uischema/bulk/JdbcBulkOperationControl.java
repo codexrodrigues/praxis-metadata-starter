@@ -3,11 +3,11 @@ package org.praxisplatform.uischema.bulk;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-/** Restricted SQL-function boundary for the durable V5 operation-control row. */
+/** Restricted SQL-function boundary for the publication-bound operation-control row. */
 final class JdbcBulkOperationControl {
     private JdbcBulkOperationControl() { }
 
-    /** Acquires the operation-control share lock through the SECURITY DEFINER function. */
+    /** Acquires namespace/global/control SHARE locks; only publication-current READY is returned. */
     static Snapshot lockForAdmission(Connection connection, String namespaceId, String operationId)
             throws SQLException {
         try (var statement = connection.prepareStatement("""
@@ -27,10 +27,11 @@ final class JdbcBulkOperationControl {
 
     /** Performs the only supported durable control transition through the governance function. */
     static Transition transition(Connection connection, String namespaceId, String operationId,
-            long expectedGeneration, Target target, String descriptorFingerprint, String structuralRevision)
+            long expectedGeneration, Target target, String descriptorFingerprint, String structuralRevision,
+            Long expectedPublicationGeneration, String expectedPublicationDigest)
             throws SQLException {
         try (var statement = connection.prepareStatement("""
-                select applied, generation from praxis_bulk.transition_operation_control(?, ?, ?, ?, ?, ?)
+                select applied, generation from praxis_bulk.transition_operation_control(?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             statement.setString(1, namespaceId);
             statement.setString(2, operationId);
@@ -38,6 +39,8 @@ final class JdbcBulkOperationControl {
             statement.setString(4, target.name());
             statement.setString(5, descriptorFingerprint);
             statement.setString(6, structuralRevision);
+            statement.setObject(7, expectedPublicationGeneration, java.sql.Types.BIGINT);
+            statement.setString(8, expectedPublicationDigest);
             try (var rows = statement.executeQuery()) {
                 if (!rows.next()) throw new SQLException("Operation-control transition returned no result");
                 var result = new Transition(rows.getBoolean(1), rows.getLong(2));

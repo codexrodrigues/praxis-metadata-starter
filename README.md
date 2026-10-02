@@ -41,7 +41,7 @@ O [read model protegido H1b](docs/spec/BULK-H1B-READ-MODEL.md) evolui o armazena
 
 O núcleo Java oferece RS1–RS4 internos, codec AEAD de cursor e `JdbcBulkDurableExecution.requestCancel(...)`. A evolução G3b da fachada `BulkAuthorizedProposalResultsReader` publica páginas allowlisted e continuação vinculada ao solicitante, com autorização integral pelo provider do host no mesmo snapshot PostgreSQL `REPEATABLE READ READ ONLY`. O construtor exige `BulkReadCursorConfiguration` com chaves estáveis provisionadas e TTL positivo até15min; cada continuação preserva o vencimento original e o tamanho da página. O resultado é `CursorPage<BulkProposalItemResult<Object>>`, distinto do resultado de execução. Consulte [o contrato de leitura](docs/spec/BULK-H1B-READ-MODEL.md). A biblioteca não cria controller, action, capability ou READY; publicação do artefato, adoção do host e prova HTTP são gates separados. A composição G3c-a `BulkAuthorizedExecutionReader` acrescenta resumo autorizado de execução e observação de tombstone: reautoriza todos os alvos no mesmo snapshot, certifica o vínculo com a avaliação histórica e reserva `GONE` sem payload ao criador com grant global atual. A composição G3c-b acrescenta páginas `CursorPage<BulkItemResult<Object>>` com cursor EXECUTION_RESULTS, watermark fixo e reautorização integral em cada continuação. A fachada RS1 `BulkAuthorizedProposalReader` compõe o `BulkProposal` existente com `BulkProposalProjectionProvider` explícito do domínio, autorização integral e diagnósticos allowlisted persistidos na mesma fotografia. Propostas retidas expiradas retornam observação `GONE` após autorização; projeções incompatíveis ou indisponíveis não geram DTO fictício. A validação integral do preview usa páginas internas de até200 itens, prazo monotônico3s e orçamento agregado conservador20MiB. Esses limites podem tornar uma proposta indisponível e não constituem SLA. A biblioteca não cria endpoint RS1, publica artefato ou implanta o host automaticamente.
 
-O [lifecycle governado](docs/spec/BULK-OPERATION-LIFECYCLE.md) recompõe bindings MVC, action, schemas OpenAPI exatos e um provider por confirmação, publica/suspende o descriptor por CAS V6/V7 em datasources runtime/control-plane separados e instala um fence central antes de qualquer limpeza/refresh de cache. Ao ativá-lo, o host precisa configurar `springdoc.cache.disabled=true`; o Starter valida também que runtime e control plane chegam ao mesmo banco PostgreSQL. Ele não cria endpoint, capability ou autorização do host; os sete handlers e a adoção produtiva continuam sendo gates do Quickstart.
+O candidato R2 do [lifecycle governado](docs/spec/BULK-OPERATION-LIFECYCLE.md) captura a fotografia OpenAPI completa fora da transação, vincula a publicação global V14 e o descriptor de operação V15 na mesma transação e instala os bytes imutáveis somente após commit ou reconciliação exata. O registro Servlet oficial atende as leituras públicas pela mesma fotografia e valida a geração/digest duráveis; contexto frio, divergência ou suspensão falham fechado. O handler HTTP traduz indisponibilidade reconhecida pelo guard de leitura publicada em `503`/`GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE`, sem detalhes privados e sem recaptura ou retry de mutação implícito. A reconciliação explícita recaptura a fonte e exige o digest publicado, sem nova mutação. Ao ativá-lo, o host configura `springdoc.cache.disabled=true`, usa o produtor interno oficial sem override de origem e preserva o filtro após a cadeia de segurança Boot. O starter não concede autorização do domínio; prova HTTP do host, publicação do artefato e adoção sem override permanecem gates separados.
 
 No discovery de lote, a resposta de actions e a capability de coleção reutilizam uma única composição estrutural. Availability mantém o principal/contexto original e reconsulta provider e controle durável; a montagem ocorre fora de locks de cache e transações mantidas pelo lifecycle. O fence efêmero confere época, transporte e prazo em reads curtos, é fechado ao terminar e não autoriza execução nem reutilização entre requisições. Falha depois do início da montagem não provoca retry silencioso.
 
@@ -784,6 +784,8 @@ acesso de `FilterDTO`, `includeIds`, aliases, palavras-chave ou outro payload co
 
 ## Internal OpenAPI Base Resolution
 
+A resolução de origem abaixo aplica-se às leituras convencionais sem lifecycle governado. No candidato R2, publicação/reconciliação de lote exigem o produtor local atestado e recusam `app.openapi.internal-base-url`; prewarm não instala uma publicação durável nem concede readiness.
+
 ### Optional OpenAPI document prewarm
 
 Hosts that present a semantic catalog or cockpit on their first screen can enable
@@ -810,12 +812,13 @@ The official internal HTTP client uses positive `Duration` values for
 `praxis.openapi.http.read-timeout` (default `10s`). The latter limits the complete
 HTTP response wait, including headers and body. Governed bulk composition also
 uses `praxis.openapi.bulk-composition-timeout` (default `60s`) for preparation and
-admission, including lock waits. Fresh multigroup fetches occur outside the public
-cache write lock; final coherence checks and publication remain protected.
+admission, including lock waits. Candidate R2 captures the whole producer photograph
+outside the public cache write lock and transaction; normal governed reads use the
+installed immutable photograph and its durable generation/digest guard.
 The client does not follow redirects. A custom RestTemplate/request factory does
 not automatically prove fresh bounded bulk composition. See the
-[lifecycle limits](docs/spec/BULK-OPERATION-LIFECYCLE.md#preparação-e-orçamento-do-cliente-oficial)
-for epoch fencing, cold-cache parity, custom code and server cancellation limits.
+[lifecycle limits](docs/spec/BULK-OPERATION-LIFECYCLE.md)
+for epoch fencing, cold-node reconciliation, custom code and server cancellation limits.
 
 
 ## Read-only Resources

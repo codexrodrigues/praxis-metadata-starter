@@ -51,6 +51,12 @@
 
 
     <dependencies>
+        <!-- Real Servlet security-chain integration proof; not a runtime security policy. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- MapStruct API for @MapperConfig -->
         <dependency>
             <groupId>org.mapstruct</groupId>

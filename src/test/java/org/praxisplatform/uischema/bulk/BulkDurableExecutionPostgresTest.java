@@ -108,7 +108,7 @@ class BulkDurableExecutionPostgresTest {
         observer.execute("truncate bulk_durable_domain, bulk_durable_jpa_domain");
         observer.update("insert into bulk_durable_domain(id) values (1), (2)");
         observer.update("insert into bulk_durable_jpa_domain(id) values (1), (2)");
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(13);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(15);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 
@@ -411,7 +411,7 @@ class BulkDurableExecutionPostgresTest {
         kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> BulkUnitMutationResult.confirmed());
         try (var connection = dataSource.getConnection()) {
             assertThat(JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
-                    CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED, null, null).applied()).isTrue();
+                    CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null).applied()).isTrue();
         }
         BulkUnitAdmissionCallback noAdmission = unit -> { throw new AssertionError("no admission expected"); };
         BulkUnitMutationCallback noMutation = unit -> { throw new AssertionError("no mutation expected"); };
@@ -421,6 +421,106 @@ class BulkDurableExecutionPostgresTest {
                         error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_EXECUTABLE));
         assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
         assertThat(kernel.find(CONTEXT, reservation.executionId()).orElseThrow().nextOrdinal()).isEqualTo(1);
+    }
+
+    @Test
+    void globalPublicationSuspensionReplaysPrefixButDeniesFreshSuffix() throws Exception {
+        var kernel = kernel();
+        var evaluation = persist(twoTargetEvaluation());
+        var reservation = reserve(kernel, evaluation, "advance-global-suspended", "owner-a");
+        kernel.executeUnit(reservation.control(), 0, unit -> BulkUnitAdmission.admit(), unit -> BulkUnitMutationResult.confirmed());
+        suspendGlobalPublicationAsFixtureOwner();
+        BulkUnitAdmissionCallback noAdmission = unit -> { throw new AssertionError("global closure cannot enter admission"); };
+        BulkUnitMutationCallback noMutation = unit -> { throw new AssertionError("global closure cannot enter mutation"); };
+        kernel.advance(reservation, noAdmission, noMutation);
+        var replay = reserve(kernel, evaluation, "advance-global-suspended", "owner-a");
+        assertThat(replay.replayed()).isTrue();
+        assertThatThrownBy(() -> kernel.advance(replay, noAdmission, noMutation))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                        error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_EXECUTABLE));
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+        assertThat(kernel.find(CONTEXT, reservation.executionId()).orElseThrow().nextOrdinal()).isEqualTo(1);
+    }
+
+    @Test
+    void globalSuspensionWaitsForRealDomainAndReceiptCommitAndPreservesReplay() throws Exception {
+        globalSuspensionWaitsForDomainTransaction(false);
+    }
+
+    @Test
+    void globalSuspensionWaitsForDomainRollbackWithoutCreatingAReceipt() throws Exception {
+        globalSuspensionWaitsForDomainTransaction(true);
+    }
+
+    private void globalSuspensionWaitsForDomainTransaction(boolean rollback) throws Exception {
+        var kernel = kernel();
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "global-inflight", "owner-a");
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var calls = new AtomicInteger();
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var unit = executor.submit(() -> kernel.executeUnit(reservation.control(), 0,
+                    admission -> BulkUnitAdmission.admit(), mutation -> {
+                        calls.incrementAndGet();
+                        runtimeJdbc.update("update bulk_durable_domain set writes=writes+1 where id=1");
+                        entered.countDown();
+                        try {
+                            if (!release.await(5, TimeUnit.SECONDS))
+                                throw new AssertionError("domain transaction was not released");
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            throw new AssertionError(interrupted);
+                        }
+                        if (rollback) throw new IllegalStateException("injected domain rollback");
+                        return BulkUnitMutationResult.confirmed();
+                    }));
+            assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
+            assertThat(writes("bulk_durable_domain", 1)).as("uncommitted domain write is invisible").isZero();
+            assertThat(count("praxis_bulk_item_receipt")).isZero();
+            var suspension = executor.submit(() -> {
+                suspendGlobalPublicationAsFixtureOwner();
+                return true;
+            });
+            assertDatabaseLockWait("%transition_openapi_publication%");
+            assertThat(suspension.isDone()).as("global closure waits for the domain transaction").isFalse();
+            release.countDown();
+            var result = unit.get(3, TimeUnit.SECONDS);
+            assertThat(suspension.get(3, TimeUnit.SECONDS)).isTrue();
+            assertThat(result.receiptPresent()).isEqualTo(!rollback);
+            assertThat(writes("bulk_durable_domain", 1)).isEqualTo(rollback ? 0 : 1);
+            assertThat(count("praxis_bulk_item_receipt")).isEqualTo(rollback ? 0 : 1);
+            assertThat(BulkPostgresTestSupport.publication(dataSource, CONTEXT.namespaceId()).state())
+                    .isEqualTo("SUSPENDED");
+            if (!rollback) {
+                var replay = kernel.executeUnit(reservation.control(), 0,
+                        admission -> { throw new AssertionError("receipt replay must not read new admission"); },
+                        mutation -> { throw new AssertionError("receipt replay must not mutate"); });
+                assertThat(replay.replayed()).isTrue();
+                assertThat(replay.receiptPresent()).isTrue();
+            }
+            assertThatThrownBy(() -> kernel.executeUnit(reservation.control(), 1,
+                    admission -> { throw new AssertionError("closed publication cannot admit the suffix"); },
+                    mutation -> { throw new AssertionError("closed publication cannot mutate the suffix"); }))
+                    .isInstanceOf(BulkDurableExecutionException.class);
+        } finally {
+            release.countDown();
+        }
+        assertThat(calls).hasValue(1);
+        assertThat(writes("bulk_durable_domain", 2)).isZero();
+        assertThat(count("praxis_bulk_admission")).isZero();
+    }
+
+    private void suspendGlobalPublicationAsFixtureOwner() throws Exception {
+        // Finish the read transaction before taking the publication UPDATE lock: simultaneous
+        // publishers must not retain SHARE locks and then attempt to upgrade them.
+        var current = BulkPostgresTestSupport.publication(dataSource, CONTEXT.namespaceId());
+        try (var connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try (var statement = connection.createStatement()) { statement.execute("set local statement_timeout='3s'"); }
+            assertThat(JdbcBulkOpenApiPublication.transition(connection, CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
+                    current.generation(), JdbcBulkOpenApiPublication.Target.SUSPENDED, null).applied()).isTrue();
+            connection.commit();
+        }
     }
 
     @Test
@@ -535,7 +635,7 @@ class BulkDurableExecutionPostgresTest {
         try (var connection = dataSource.getConnection()) {
             var transition = JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
                     CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED,
-                    null, null);
+                    null, null, null, null);
             assertThat(transition.applied()).isTrue();
             assertThat(transition.generation()).isEqualTo(2);
         }
@@ -596,7 +696,7 @@ class BulkDurableExecutionPostgresTest {
                 try (var connection = dataSource.getConnection()) {
                     return JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
                             CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED,
-                            null, null);
+                            null, null, null, null);
                 }
             });
             assertDatabaseWait("transactionid", "%transition_operation_control%");
@@ -640,7 +740,7 @@ class BulkDurableExecutionPostgresTest {
                 try (var connection = dataSource.getConnection()) {
                     return JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
                             CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED,
-                            null, null);
+                            null, null, null, null);
                 }
             });
             assertDatabaseWait("transactionid", "%transition_operation_control%");
@@ -665,11 +765,11 @@ class BulkDurableExecutionPostgresTest {
         var reservation = reserve(kernel, persist(twoTargetEvaluation()), "recomposed-generation", "owner-a");
         try (var connection = dataSource.getConnection()) {
             var suspended = JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
-                    CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED, null, null);
+                    CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null);
             assertThat(suspended.generation()).isEqualTo(2);
             var republished = JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
                     CONTEXT.operationRef().operationId(), 2, JdbcBulkOperationControl.Target.READY,
-                    "sha256:" + "0".repeat(64), "structural-r1");
+                    "sha256:" + "0".repeat(64), "structural-r1", BulkPostgresTestSupport.publication(dataSource, CONTEXT.namespaceId()).generation(), BulkPostgresTestSupport.publication(dataSource, CONTEXT.namespaceId()).documentDigest());
             assertThat(republished.applied()).isTrue();
             assertThat(republished.generation()).isEqualTo(3);
         }
@@ -1057,7 +1157,7 @@ class BulkDurableExecutionPostgresTest {
         int v2Checksum = observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='2'", Integer.class);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(11);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(13);
         assertThat(observer.queryForObject(
                 "select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'", Integer.class))
                 .isEqualTo(v1Checksum);
@@ -1096,7 +1196,7 @@ class BulkDurableExecutionPostgresTest {
         seedV3Execution(activeProposal, activeLegacy, "legacy-key-active", activeExecutionId, now.minusSeconds(3), now.plusSeconds(30),
                 null, false);
 
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(10);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(12);
         var kernel = kernel();
         var replayReservation = kernel.reserve(CONTEXT, proposal.id(), "legacy-key", "owner-a", "structural-r1",
                 now.plusSeconds(60));
@@ -2529,7 +2629,7 @@ class BulkDurableExecutionPostgresTest {
         try (var connection = dataSource.getConnection()) {
             assertThat(JdbcBulkOperationControl.transition(connection, CONTEXT.namespaceId(),
                     CONTEXT.operationRef().operationId(), 1, JdbcBulkOperationControl.Target.SUSPENDED,
-                    null, null).applied()).isTrue();
+                    null, null, null, null).applied()).isTrue();
         }
         var cancelled = kernel.requestCancel(CONTEXT, reservation.executionId());
         assertThat(cancelled.status()).isEqualTo(BulkDurableExecutionStatus.STOPPED);
@@ -2783,12 +2883,13 @@ class BulkDurableExecutionPostgresTest {
     }
 
     @Test
-    void cancellationTombstoneSurvivesPurgingAndDeniesReservationReplay() {
+    void cancellationTombstoneSurvivesGlobalClosureAndPurgingAndDeniesReservationReplay() throws Exception {
         var kernel = kernel();
         var evaluated = persist(twoTargetEvaluation());
         var reservation = reserve(kernel, evaluated, "cancel-retention", "owner-a");
         kernel.requestCancel(CONTEXT, reservation.executionId());
         ageTerminalForRetentionAsFixtureOwner(reservation.executionId());
+        suspendGlobalPublicationAsFixtureOwner();
         BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
         observer.execute("grant praxis_bulk_retention_executor to postgres");
         try {

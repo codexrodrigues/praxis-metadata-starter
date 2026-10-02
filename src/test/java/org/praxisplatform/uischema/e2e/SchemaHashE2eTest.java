@@ -13,7 +13,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(
         classes = TestApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "spring.data.jpa.repositories.enabled=false"
+        // This fixture proves schema caching, not IAM; keep the dedicated authenticated fixture protected.
+        properties = {"spring.data.jpa.repositories.enabled=false",
+                "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration"}
 )
 class SchemaHashE2eTest {
 
@@ -30,6 +32,9 @@ class SchemaHashE2eTest {
         // 1) First fetch (request schema for POST /e2e)
         ResponseEntity<String> r1 = rest.getForEntity(url("?path=/e2e&operation=post&schemaType=request&includeInternalSchemas=true"), String.class);
         assertEquals(200, r1.getStatusCodeValue(), "First call should return 200");
+        assertTrue(r1.getHeaders().getContentType() != null
+                && r1.getHeaders().getContentType().isCompatibleWith(MediaType.APPLICATION_JSON),
+                "The response must be the schema, not an HTML login page");
         String etag = r1.getHeaders().getETag();
         assertNotNull(etag, "ETag must be present");
         assertTrue(r1.getHeaders().getCacheControl() != null && r1.getHeaders().getCacheControl().contains("must-revalidate"));

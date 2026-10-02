@@ -38,8 +38,10 @@ class BulkControlPlaneInfrastructurePostgresTest {
             adminSql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
             adminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest, praxis_bulk.praxis_bulk_preview_state, praxis_bulk.praxis_bulk_target_preview, praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
-            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_control");
+            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_control");
+            adminSql.execute("grant execute on function praxis_bulk.transition_openapi_publication(text,text,bigint,text,text) to bulk_control");
             var roles = new BulkExecutionRoleConfiguration("postgres", Set.of("bulk_runtime"),
                     Set.of("bulk_retention_group", "bulk_retention_login"), Set.of("bulk_control"));
             BulkExecutionMigrator.validate(admin, roles);
@@ -59,24 +61,24 @@ class BulkControlPlaneInfrastructurePostgresTest {
                 BulkExecutionMigrator.validateLiveRuntimeRoleAccess(runtimeConnection, roles);
                 BulkExecutionMigrator.validateLiveControlPlaneRoleAccess(controlConnection, roles, "bulk_control");
             }
-            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_runtime");
             try (var runtimeConnection = runtimeDs.getConnection()) {
                 assertThatThrownBy(() -> BulkExecutionMigrator.validateLiveRuntimeRoleAccess(runtimeConnection, roles))
                         .isInstanceOf(IllegalStateException.class)
                         .hasMessageContaining("governed lifecycle function grants differ");
             }
-            adminSql.execute("revoke execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) from bulk_runtime");
+            adminSql.execute("revoke execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) from bulk_runtime");
             BulkExecutionMigrator.validate(admin, roles);
             try (var runtimeConnection = runtimeDs.getConnection()) {
                 BulkExecutionMigrator.validateLiveRuntimeRoleAccess(runtimeConnection, roles);
             }
-            adminSql.execute("alter function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) owner to bulk_runtime");
+            adminSql.execute("alter function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) owner to bulk_runtime");
             try (var runtimeConnection = runtimeDs.getConnection()) {
                 assertThatThrownBy(() -> BulkExecutionMigrator.validateLiveRuntimeRoleAccess(runtimeConnection, roles))
                         .isInstanceOf(IllegalStateException.class)
                         .hasMessageContaining("operation-control function has unexpected owner");
             }
-            adminSql.execute("alter function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) owner to praxis_bulk_control_owner");
+            adminSql.execute("alter function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) owner to praxis_bulk_control_owner");
             BulkExecutionMigrator.validate(admin, roles);
             try (var runtimeConnection = admin.getConnection(); var statement = runtimeConnection.createStatement()) {
                 statement.execute("set role bulk_control");
@@ -86,9 +88,10 @@ class BulkControlPlaneInfrastructurePostgresTest {
                         .hasMessageContaining("session and effective PostgreSQL identities must match");
             }
 
+            BulkPostgresTestSupport.publishFixture(admin, NAMESPACE);
             var ready = control.withConnection(connection -> JdbcBulkOperationControl.transition(connection,
                     NAMESPACE, OPERATION, 0, JdbcBulkOperationControl.Target.READY,
-                    "sha256:" + "c".repeat(64), "structural-r1"));
+                    "sha256:" + "c".repeat(64), "structural-r1", 2L, "sha256:" + "0".repeat(64)));
             assertThat(ready).isEqualTo(new JdbcBulkOperationControl.Transition(true, 1));
             JdbcBulkOperationControl.Snapshot readySnapshot = runtime.withLifecycleRead(connection ->
                     JdbcBulkOperationControl.lockForAdmission(connection, NAMESPACE, OPERATION));
@@ -96,7 +99,7 @@ class BulkControlPlaneInfrastructurePostgresTest {
                             "READY", 1, "sha256:" + "c".repeat(64), "structural-r1"));
 
             var suspended = control.withConnection(connection -> JdbcBulkOperationControl.transition(connection,
-                    NAMESPACE, OPERATION, 1, JdbcBulkOperationControl.Target.SUSPENDED, null, null));
+                    NAMESPACE, OPERATION, 1, JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null));
             assertThat(suspended).isEqualTo(new JdbcBulkOperationControl.Transition(true, 2));
             JdbcBulkOperationControl.Snapshot suspendedSnapshot = runtime.withLifecycleRead(connection ->
                     JdbcBulkOperationControl.lockForAdmission(connection, NAMESPACE, OPERATION));
@@ -104,7 +107,7 @@ class BulkControlPlaneInfrastructurePostgresTest {
                             "SUSPENDED", 2, null, null));
             assertThatThrownBy(() -> runtime.withLifecycleRead(connection ->
                     JdbcBulkOperationControl.transition(connection, NAMESPACE, OPERATION, 2,
-                            JdbcBulkOperationControl.Target.READY, "sha256:" + "d".repeat(64), "structural-r2")))
+                            JdbcBulkOperationControl.Target.READY, "sha256:" + "d".repeat(64), "structural-r2", 2L, "sha256:" + "0".repeat(64))))
                     .isInstanceOf(RuntimeException.class);
 
             // A cloned logical namespace in another database is not a valid control-plane peer.
@@ -125,8 +128,10 @@ class BulkControlPlaneInfrastructurePostgresTest {
             otherAdminSql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
             otherAdminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest, praxis_bulk.praxis_bulk_preview_state, praxis_bulk.praxis_bulk_target_preview, praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
             otherAdminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
+            otherAdminSql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             otherAdminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
-            otherAdminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_control");
+            otherAdminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_control");
+            otherAdminSql.execute("grant execute on function praxis_bulk.transition_openapi_publication(text,text,bigint,text,text) to bulk_control");
             BulkExecutionMigrator.validate(otherAdmin, roles);
             var otherControlDs = new DriverManagerDataSource(
                     postgres.getJdbcUrl("bulk_control", "bulk_control_other"), "bulk_control", "");
@@ -135,7 +140,7 @@ class BulkControlPlaneInfrastructurePostgresTest {
                     "logical-deployment", "bulk_control", runtime);
             assertThatThrownBy(() -> otherControl.withConnection(connection ->
                     JdbcBulkOperationControl.transition(connection, NAMESPACE, OPERATION, 2,
-                            JdbcBulkOperationControl.Target.READY, "sha256:" + "d".repeat(64), "structural-r2")))
+                            JdbcBulkOperationControl.Target.READY, "sha256:" + "d".repeat(64), "structural-r2", 2L, "sha256:" + "0".repeat(64))))
                     .isInstanceOf(IllegalStateException.class).hasMessageContaining("same PostgreSQL database");
 
             // Existing tighter operator deadlines survive the infrastructure's bounded lifecycle defaults.
@@ -161,7 +166,7 @@ class BulkControlPlaneInfrastructurePostgresTest {
             assertThatThrownBy(() -> control.withConnection(connection -> {
                 controlCallback.set(true);
                 return JdbcBulkOperationControl.transition(connection, NAMESPACE, OPERATION, 3,
-                        JdbcBulkOperationControl.Target.SUSPENDED, null, null);
+                        JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null);
             })).isInstanceOf(IllegalStateException.class).hasMessageContaining("descriptor insert fence differs");
             assertThat(controlCallback).isFalse();
 
@@ -225,8 +230,10 @@ class BulkControlPlaneInfrastructurePostgresTest {
             adminSql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
             adminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest, praxis_bulk.praxis_bulk_preview_state, praxis_bulk.praxis_bulk_target_preview, praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
-            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_control");
+            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_control");
+            adminSql.execute("grant execute on function praxis_bulk.transition_openapi_publication(text,text,bigint,text,text) to bulk_control");
             var roles = new BulkExecutionRoleConfiguration("postgres", Set.of("bulk_runtime"), Set.of(), Set.of("bulk_control"));
             assertThatThrownBy(() -> new BulkExecutionRoleConfiguration("postgres",
                     Set.of("bulk_runtime"), Set.of(), Set.of("bulk_runtime")))
@@ -244,11 +251,11 @@ class BulkControlPlaneInfrastructurePostgresTest {
             assertThat(controlState(adminSql)).isEqualTo("UNCOMPOSED:0");
 
             // Each drift is introduced after composition, then rejected at the public boundary.
-            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_runtime");
             assertRuntimeEntryRejected(runtime, "governed lifecycle function grants differ");
             assertControlPlaneEntryRejected(control, "governed lifecycle function grants differ");
             assertThat(controlState(adminSql)).isEqualTo("UNCOMPOSED:0");
-            adminSql.execute("revoke execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) from bulk_runtime");
+            adminSql.execute("revoke execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) from bulk_runtime");
 
             adminSql.execute("grant insert on praxis_bulk.praxis_bulk_operation_control to bulk_runtime");
             assertRuntimeEntryRejected(runtime, "bulk runtime privilege exceeds its table allowlist");
@@ -279,22 +286,24 @@ class BulkControlPlaneInfrastructurePostgresTest {
             assertRuntimeEntryRejected(runtime, "governed lifecycle function grants differ");
             assertControlPlaneEntryRejected(control, "governed lifecycle function grants differ");
             adminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
 
-            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to public");
+            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to public");
             assertControlPlaneEntryRejected(control, "governed lifecycle function grants differ");
             assertThat(controlState(adminSql)).isEqualTo("UNCOMPOSED:0");
-            adminSql.execute("revoke execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) from public");
+            adminSql.execute("revoke execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) from public");
 
-            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_control with grant option");
+            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_control with grant option");
             assertControlPlaneEntryRejected(control, "retention function grant option is forbidden");
             assertThat(controlState(adminSql)).isEqualTo("UNCOMPOSED:0");
-            adminSql.execute("revoke execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) from bulk_control");
-            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to bulk_control");
+            adminSql.execute("revoke execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) from bulk_control");
+            adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_control");
+            adminSql.execute("grant execute on function praxis_bulk.transition_openapi_publication(text,text,bigint,text,text) to bulk_control");
 
-            adminSql.execute("alter function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) owner to bulk_runtime");
+            adminSql.execute("alter function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) owner to bulk_runtime");
             assertRuntimeEntryRejected(runtime, "operation-control function has unexpected owner");
             assertControlPlaneEntryRejected(control, "operation-control function has unexpected owner");
-            adminSql.execute("alter function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) owner to praxis_bulk_control_owner");
+            adminSql.execute("alter function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) owner to praxis_bulk_control_owner");
 
             var switchedRole = "bulk_runtime_switch";
             adminSql.execute("create role " + switchedRole + " nologin noinherit");
@@ -378,7 +387,7 @@ class BulkControlPlaneInfrastructurePostgresTest {
         assertThatThrownBy(() -> control.withConnection(connection -> {
             callback.set(true);
             return JdbcBulkOperationControl.transition(connection, NAMESPACE, OPERATION, 0,
-                    JdbcBulkOperationControl.Target.READY, "sha256:" + "e".repeat(64), "structural-r1");
+                    JdbcBulkOperationControl.Target.READY, "sha256:" + "e".repeat(64), "structural-r1", 2L, "sha256:" + "0".repeat(64));
         })).isInstanceOf(IllegalStateException.class).hasMessageContaining(message);
         assertThat(callback).isFalse();
     }

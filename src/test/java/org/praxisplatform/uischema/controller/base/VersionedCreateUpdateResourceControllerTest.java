@@ -34,7 +34,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(value = VersionedCreateUpdateResourceControllerTest.VersionedController.class)
+// Mapping/validation slice has no IAM contract; security-chain proof has its own authenticated fixture.
+@WebMvcTest(excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class, value = VersionedCreateUpdateResourceControllerTest.VersionedController.class)
 @Import({
         VersionedCreateUpdateResourceControllerTest.VersionedController.class,
         VersionedCreateUpdateResourceControllerTest.VersionConfiguration.class,

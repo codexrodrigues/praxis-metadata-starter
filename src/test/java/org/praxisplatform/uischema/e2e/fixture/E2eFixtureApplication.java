@@ -6,7 +6,8 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-@SpringBootApplication
+// Schema/domain fixture only; real IAM is proved by BulkOpenApiPublicationRegistrationHttpTest.
+@SpringBootApplication(exclude = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 @EntityScan(basePackageClasses = E2eFixtureApplication.class)
 @ComponentScan(
         basePackageClasses = E2eFixtureApplication.class,

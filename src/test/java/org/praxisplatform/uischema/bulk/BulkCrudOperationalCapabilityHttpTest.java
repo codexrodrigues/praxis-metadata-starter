@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.servlet.ServletContext;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -48,9 +49,9 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -75,87 +76,127 @@ class BulkCrudOperationalCapabilityHttpTest {
     @Autowired OpenApiDocumentService documents;
     @Autowired CanonicalOperationResolver operations;
     @Autowired Probe probe;
+    @Autowired ProducerGenerationProbe producer;
+    @Autowired ServletContext servletContext;
     @Autowired BulkCrudOperationalLifecyclePostgresTest.Store store;
 
     @Test
-    void readyCrudAndCommandShareOneCaptureOnBothCapabilityRoutesAndServeEverySchemaRef() throws Exception {
-        var internal = (org.springframework.web.client.RestTemplate) ReflectionTestUtils.getField(documents, "restTemplate");
-        var original = List.copyOf(internal.getInterceptors());
-        var fresh = new AtomicInteger();
-        var interceptors = new java.util.ArrayList<>(original);
-        interceptors.add((request, body, execution) -> {
-            if ("no-cache, no-store".equals(request.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL))) fresh.incrementAndGet();
-            return execution.execute(request, body);
+    void readyCrudAndCommandReusePublishedPhotographOnBothCapabilityRoutesAndServeEverySchemaRef() throws Exception {
+        int coldGenerations = producer.visits.get();
+        assertPublicationUnavailable(PATH + "/capabilities");
+        assertEquals(coldGenerations, producer.visits.get(),
+                "cold capability discovery must not invoke the producer outside publication");
+        withLocalRequest(() -> {
+            int beforePublication = producer.visits.get();
+            lifecycle.publish(identity("crud.uniform"), 0);
+            int generatedForPublication = producer.visits.get();
+            assertTrue(generatedForPublication > beforePublication,
+                    "first publication must invoke the real SpringDoc producer");
+            lifecycle.publish(identity("crud.items"), 0);
+            lifecycle.publish(identity("crud.command"), 0);
+            assertEquals(generatedForPublication, producer.visits.get(),
+                    "subsequent operations must share the published document generation");
+            Map<String, CanonicalOpenApiGroupSnapshot> snapshots = new java.util.HashMap<>();
+            var canonicalizer = new SchemaCanonicalizer();
+            for (String family : List.of("uniform", "items", "command")) {
+                var operation = operations.requireResourceOperation(RESOURCE, "crud." + family + ".evaluation", "POST");
+                var snapshot = snapshots.computeIfAbsent(operation.group(), group -> CanonicalOpenApiGroupSnapshot.capture(documents, group));
+                String pointer = family.equals("items") ? BulkCrudOperationalCompositionTest.ITEMS_POINTER
+                        : BulkCrudOperationalCompositionTest.UNIFORM_POINTER;
+                JsonNode actual = snapshot.requireRequestSchema(operation).schema().at(pointer);
+                assertEquals(canonicalizer.canonicalize(BulkIdentityCodecs.integers().canonicalWireSchema()),
+                        canonicalizer.canonicalize(actual), family + " published identity schema: " + actual);
+            }
+            return null;
         });
-        internal.setInterceptors(interceptors);
-        try {
-            withLocalRequest(() -> {
-                Map<String, CanonicalOpenApiGroupSnapshot> snapshots = new java.util.HashMap<>();
-                var canonicalizer = new SchemaCanonicalizer();
-                for (String family : List.of("uniform", "items", "command")) {
-                    var operation = operations.requireResourceOperation(RESOURCE, "crud." + family + ".evaluation", "POST");
-                    org.slf4j.LoggerFactory.getLogger(getClass()).info("CRUD fixture evaluation reference: {}", operation);
-                    var snapshot = snapshots.computeIfAbsent(operation.group(), group -> CanonicalOpenApiGroupSnapshot.capture(documents, group));
-                    String pointer = family.equals("items") ? BulkCrudOperationalCompositionTest.ITEMS_POINTER
-                            : BulkCrudOperationalCompositionTest.UNIFORM_POINTER;
-                    JsonNode actual = snapshot.requireRequestSchema(operation).schema().at(pointer);
-                    assertEquals(canonicalizer.canonicalize(BulkIdentityCodecs.integers().canonicalWireSchema()),
-                            canonicalizer.canonicalize(actual), family + " published identity schema: " + actual);
-                }
-                for (String id : List.of("crud.uniform", "crud.items", "crud.command")) lifecycle.publish(identity(id), 0);
-                return null;
-            });
-            int groups = operations.publishedOpenApiGroups(Set.of(operations.resolveGroup(PATH))).size();
-            for (String endpoint : List.of(PATH + "/capabilities", PATH + "/7/capabilities")) {
-                int before = fresh.get();
-                probe.visits.set(0);
-                var response = rest.getForEntity(url(endpoint), JsonNode.class);
-                assertEquals(200, response.getStatusCode().value(), String.valueOf(response.getBody()));
-                assertEquals(before + groups, fresh.get(), "one composition, including the action catalog and availability");
-                assertEquals(2, probe.visits.get());
-                JsonNode body = response.getBody();
-                assertNotNull(body);
-                for (String id : List.of("bulk-update", "bulk-update-items")) {
-                    JsonNode operation = body.path("operations").path(id);
-                    assertTrue(operation.path("supported").asBoolean());
-                    assertEquals("COLLECTION", operation.path("scope").asText());
-                    assertTrue(operation.path("availability").path("allowed").asBoolean());
-                    JsonNode bulk = operation.path("bulk");
-                    assertFalse(bulk.has("parametersPointer"));
-                    assertEquals(id.equals("bulk-update") ? "UNIFORM_UPDATE" : "PER_ITEM_UPDATE", bulk.path("mode").asText());
-                    JsonNode editable = bulk.path("editableFields");
-                    assertEquals("crud.update", editable.at("/sourceOperation/operationId").asText());
-                    assertEquals(List.of("active", "count", "note"), mapper.convertValue(editable.path("writableFields"), List.class));
-                    assertEquals(List.of("note"), mapper.convertValue(editable.path("clearableFields"), List.class));
-                    assertSchema(editable.path("sourceOperation"), editable.path("requestSchema"));
-                    for (String role : List.of("evaluationOperation", "confirmationOperation", "proposalOperation", "proposalResultsOperation",
-                            "executionOperation", "resultsOperation", "cancelOperation")) {
-                        JsonNode ref = bulk.path(role);
-                        assertSchema(ref.path("operation"), ref.path("responseSchema"));
-                        if (ref.has("requestSchema")) assertSchema(ref.path("operation"), ref.path("requestSchema"));
-                    }
-                }
-                if (endpoint.equals(PATH + "/capabilities")) {
-                    JsonNode command = body.path("actions").findValue("bulk");
-                    assertNotNull(command);
-                    assertEquals("DOMAIN_COMMAND", command.path("mode").asText());
-                    assertEquals("/properties/parameters", command.path("parametersPointer").asText());
-                    assertFalse(command.has("editableFields"));
+        int publishedGenerations = producer.visits.get();
+        for (String endpoint : List.of(PATH + "/capabilities", PATH + "/7/capabilities")) {
+            probe.visits.set(0);
+            var response = rest.getForEntity(url(endpoint), JsonNode.class);
+            assertEquals(200, response.getStatusCode().value(), String.valueOf(response.getBody()));
+            assertEquals(publishedGenerations, producer.visits.get(),
+                    "capability discovery must reuse the installed photograph without regenerating SpringDoc");
+            assertEquals(2, probe.visits.get());
+            JsonNode body = response.getBody();
+            assertNotNull(body);
+            for (String id : List.of("bulk-update", "bulk-update-items")) {
+                JsonNode operation = body.path("operations").path(id);
+                assertTrue(operation.path("supported").asBoolean());
+                assertEquals("COLLECTION", operation.path("scope").asText());
+                assertTrue(operation.path("availability").path("allowed").asBoolean());
+                JsonNode bulk = operation.path("bulk");
+                assertFalse(bulk.has("parametersPointer"));
+                assertEquals(id.equals("bulk-update") ? "UNIFORM_UPDATE" : "PER_ITEM_UPDATE", bulk.path("mode").asText());
+                JsonNode editable = bulk.path("editableFields");
+                assertEquals("crud.update", editable.at("/sourceOperation/operationId").asText());
+                assertEquals(List.of("active", "count", "note"), mapper.convertValue(editable.path("writableFields"), List.class));
+                assertEquals(List.of("note"), mapper.convertValue(editable.path("clearableFields"), List.class));
+                assertSchema(editable.path("sourceOperation"), editable.path("requestSchema"));
+                for (String role : List.of("evaluationOperation", "confirmationOperation", "proposalOperation", "proposalResultsOperation",
+                        "executionOperation", "resultsOperation", "cancelOperation")) {
+                    JsonNode ref = bulk.path(role);
+                    assertSchema(ref.path("operation"), ref.path("responseSchema"));
+                    if (ref.has("requestSchema")) assertSchema(ref.path("operation"), ref.path("requestSchema"));
                 }
             }
-            var deniedHeaders = new HttpHeaders(); deniedHeaders.set("X-Fixture-Deny", "true");
-            var denied = rest.exchange(url(PATH + "/capabilities"), HttpMethod.GET, new HttpEntity<>(deniedHeaders), JsonNode.class);
-            assertEquals(200, denied.getStatusCode().value());
-            assertFalse(denied.getBody().at("/operations/bulk-update/availability/allowed").asBoolean());
-            assertTrue(denied.getBody().at("/operations/bulk-update/bulk").isObject(), "authorization does not erase structural evidence");
-            assertRealProtocolPayloads();
-            withLocalRequest(() -> lifecycle.suspend(identity("crud.uniform"), 1));
-            var suspended = rest.getForEntity(url(PATH + "/capabilities"), JsonNode.class);
-            assertEquals(200, suspended.getStatusCode().value());
-            assertFalse(suspended.getBody().path("operations").has("bulk-update"));
-            assertFalse(suspended.getBody().path("operations").has("bulk-update-items"));
-            assertNull(suspended.getBody().path("actions").findValue("bulk"));
-        } finally { internal.setInterceptors(original); }
+            if (endpoint.equals(PATH + "/capabilities")) {
+                JsonNode command = body.path("actions").findValue("bulk");
+                assertNotNull(command);
+                assertEquals("DOMAIN_COMMAND", command.path("mode").asText());
+                assertEquals("/properties/parameters", command.path("parametersPointer").asText());
+                assertFalse(command.has("editableFields"));
+            }
+        }
+        var deniedHeaders = new HttpHeaders(); deniedHeaders.set("X-Fixture-Deny", "true");
+        var denied = rest.exchange(url(PATH + "/capabilities"), HttpMethod.GET, new HttpEntity<>(deniedHeaders), JsonNode.class);
+        assertEquals(200, denied.getStatusCode().value());
+        assertFalse(denied.getBody().at("/operations/bulk-update/availability/allowed").asBoolean());
+        assertTrue(denied.getBody().at("/operations/bulk-update/bulk").isObject(), "authorization does not erase structural evidence");
+        assertRealProtocolPayloads();
+        assertEquals(publishedGenerations, producer.visits.get(),
+                "schema references and protocol reads must not regenerate the producer");
+        long suspendedGeneration = withLocalRequest(() -> lifecycle.suspend(identity("crud.uniform"), 1));
+        withLocalRequest(() -> {
+            for (String id : List.of("crud.uniform", "crud.items", "crud.command")) {
+                assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(identity(id)),
+                        id + " must lose READY after global suspension");
+            }
+            return null;
+        });
+        assertPublicationUnavailable(PATH + "/capabilities");
+        assertEquals(publishedGenerations, producer.visits.get(),
+                "global suspension and failed reads must not regenerate the producer");
+        withLocalRequest(() -> {
+            lifecycle.publish(identity("crud.uniform"), suspendedGeneration);
+            return null;
+        });
+        int republishedGenerations = producer.visits.get();
+        assertTrue(republishedGenerations > publishedGenerations,
+                "explicit republication must capture a new producer generation");
+        var recovered = rest.getForEntity(url(PATH + "/capabilities"), JsonNode.class);
+        assertEquals(200, recovered.getStatusCode().value(), String.valueOf(recovered.getBody()));
+        assertTrue(recovered.getBody().path("operations").has("bulk-update"));
+        assertFalse(recovered.getBody().path("operations").has("bulk-update-items"));
+        assertNull(recovered.getBody().path("actions").findValue("bulk"));
+        assertEquals(republishedGenerations, producer.visits.get(),
+                "recovered discovery must read the newly published photograph without recapture");
+    }
+
+    private void assertPublicationUnavailable(String endpoint) {
+        var response = rest.getForEntity(url(endpoint), JsonNode.class);
+        assertEquals(503, response.getStatusCode().value(), String.valueOf(response.getBody()));
+        JsonNode body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.path("status").asText());
+        assertEquals("Governed OpenAPI publication is temporarily unavailable.", body.path("message").asText());
+        assertEquals("SYSTEM", body.at("/errors/0/category").asText());
+        assertEquals("GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE",
+                body.at("/errors/0/properties/code").asText());
+        assertFalse(body.toString().contains("No governed OpenAPI publication is installed locally"),
+                "the internal snapshot guard message must stay private");
+        assertTrue(body.path("data").isMissingNode() || body.path("data").isNull());
+        assertFalse(body.has("operations"));
+        assertFalse(body.has("actions"));
     }
 
     private void assertRealProtocolPayloads() throws Exception {
@@ -200,7 +241,10 @@ class BulkCrudOperationalCapabilityHttpTest {
 
     private <T> T withLocalRequest(java.util.function.Supplier<T> work) {
         var previous = RequestContextHolder.getRequestAttributes();
-        var request = new MockHttpServletRequest(); request.setLocalAddr("127.0.0.1"); request.setLocalPort(port); request.setServerPort(port);
+        var request = new MockHttpServletRequest(servletContext, "GET", PATH);
+        request.setContextPath(servletContext.getContextPath());
+        request.setServletPath(PATH);
+        request.setLocalAddr("127.0.0.1"); request.setLocalPort(port); request.setServerPort(port);
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
         try { return work.get(); } finally { if (previous == null) RequestContextHolder.resetRequestAttributes(); else RequestContextHolder.setRequestAttributes(previous); }
     }
@@ -209,6 +253,10 @@ class BulkCrudOperationalCapabilityHttpTest {
 
     @TestConfiguration
     static class Configuration {
+        @Bean ProducerGenerationProbe producerGenerationProbe() { return new ProducerGenerationProbe(); }
+        @Bean GlobalOpenApiCustomizer producerGenerationCustomizer(ProducerGenerationProbe probe) {
+            return document -> probe.visits.incrementAndGet();
+        }
         @Bean(destroyMethod = "close") BulkCrudOperationalLifecyclePostgresTest.Store bulkStore() throws Exception {
             return new BulkCrudOperationalLifecyclePostgresTest.Store(List.of("crud.uniform", "crud.items", "crud.command"));
         }
@@ -228,6 +276,10 @@ class BulkCrudOperationalCapabilityHttpTest {
                 @Qualifier("employeeResourceOperationAvailabilityProvider") ResourceOperationAvailabilityProvider delegate) {
             return new Probe(lifecycle, documents, delegate);
         }
+    }
+
+    static final class ProducerGenerationProbe {
+        final AtomicInteger visits = new AtomicInteger();
     }
 
     static final class Probe implements ResourceOperationAvailabilityProvider {
