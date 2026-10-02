@@ -170,342 +170,152 @@
 </header>
 <h1 id="lifecycle-governado-de-operações-em-lote">Lifecycle governado de
 operações em lote</h1>
-<p>Classificação: <strong>contrato público Java e arquitetura</strong>.
-A composição estrutural existente valida os sete handlers MVC, a action
-canônica e um snapshot OpenAPI exato; a migração V6/V7 já mantém CAS,
-geração e fence durável. Este incremento liga essas fontes em um
-lifecycle fail-closed. Ele não cria endpoint bulk nem política de
-autorização administrativa. A <a
-href="BULK-ACTION-PROJECTION.md">projeção P1 de action</a> usa esse
-lifecycle para enriquecer a action já declarada; não concede execução ou
-autorização.</p>
-<h2 id="fonte-e-responsabilidade">Fonte e responsabilidade</h2>
-<p><code>BulkOperationLifecycle</code> é a fronteira canônica entre os
-bindings MVC já validados, a action, o grupo OpenAPI estrito, um
-provider host para cada operação de confirmação e o controle durável
-V6/V7. O host ainda é responsável por fornecer a avaliação e a mutação
-reais no seu provider, configurar os dois pares de
-datasource/transaction manager e controlar quem pode invocar
-<code>publish</code>/<code>suspend</code>. O serviço não infere
-identidade, operação, role, deployment, credencial ou autoridade de
-usuário.</p>
-<p><code>BulkOperationDescriptorProvider</code> descreve uma operação já
-declarada. O seu <code>providerRevision</code> precisa cobrir avaliação,
-autorização/admissão e mutação, não apenas o avaliador. IDs e revisões
-entram no fingerprint: não podem conter tokens, segredo, tenant, sujeito
-ou identificador de pod. <code>deploymentId</code> é a identidade lógica
-estável da implantação, compartilhada por todas as réplicas.</p>
-<p>O <code>BulkIdentityCodec</code> deve fornecer
-<code>canonicalWireSchema()</code> além de <code>wireSchema()</code>. O
-compositor compara a forma canônica exata desse schema com a identidade
-selecionada pelo JSON Pointer do schema de avaliação OpenAPI.
-Implementações customizadas devem migrar e provar que ambos descrevem os
-mesmos valores wire. Não se serializa um Swagger <code>Schema</code>
-arbitrário para inferir essa equivalência.</p>
-<p><code>BulkOperationalProfile</code> deste corte aceita somente
-<code>DOMAIN_COMMAND</code>, <code>SYNC</code>, <code>EXPLICIT</code>,
-atomicidade <code>PER_ITEM</code>, até 200 alvos, lifetime de proposta
-até 15 minutos, deadline por unidade até 5 segundos, limite de request
-dentro do teto do protocolo e duração em milissegundos inteiros
-positivos. Modos <code>QUERY</code>, <code>ASYNC</code>,
-<code>ATOMIC</code> ou outras combinações exigem evidência, dependências
-e contrato próprios; não são aceitos por este perfil.</p>
-<h2 id="api-e-semântica">API e semântica</h2>
-<ul>
-<li>Fora do scope síncrono de discovery,
-<code>requireReady(identity)</code> lê novamente, em snapshot isolado,
-todos os grupos OpenAPI publicados e recompõe o descritor antes de
-ler/travar a linha durável pela conexão runtime. Só retorna
-<code>BulkOperationControlExpectation</code> quando estado, fingerprint
-e revisão estrutural correspondem exatamente. Esse valor é uma
-expectativa para a criação/reserva; o writer ainda deve revalidá-lo sob
-a transação e locks de V7. A chamada não é, sozinha, autorização nem uma
-capability.</li>
-<li><code>publish(identity, expectedGeneration)</code> aceita somente
-uma linha <code>UNCOMPOSED</code> ou <code>SUSPENDED</code> na geração
-informada. Primeiro consulta a linha; depois busca o OpenAPI exato
-novamente, recompõe todos os bindings e providers, e aplica CAS pelo
-datasource/role de control plane. Hash não é recebido do host nem de
-entrada HTTP. Geração concorrente obsoleta falha sem retry
-automático.</li>
-<li><code>suspend(identity, expectedGeneration)</code> grava
-<code>SUSPENDED</code> e incrementa a geração antes de limpar os caches
-locais. Se a confirmação do commit ficar incerta, o serviço faz leitura
-independente e só considera a operação concluída se o banco confirmar
-exatamente o estado esperado na nova geração.</li>
-<li><code>suspendAllBeforeCacheClear()</code> suspende, em ordem
-canônica, todas as identidades de confirmação declaradas neste contexto
-antes do controlador canônico limpar os caches. Falha parcial aborta a
-limpeza; as suspensões que já confirmaram permanecem fechadas. O
-endpoint não deve continuar fingindo sucesso se o lifecycle não puder
-completar o fence.</li>
-</ul>
-<p>A publicação e cada leitura de readiness obtêm todos os grupos
-OpenAPI publicados mais os grupos necessários aos bindings, em ordem
-canônica, dentro de um snapshot isolado que não substitui o cache
-compartilhado de documentos. A composição e o CAS de publicação são
-serializados contra invalidações locais; assim, a publicação de uma
-operação não troca silenciosamente o documento cacheado sob outra
-operação <code>READY</code>. O resolver valida colisões contra o
-snapshot completo, não contra grupos não-alvo em cache anterior. A
-composição governada só é habilitada quando
-<code>OpenApiDocumentService.supportsFreshBulkLifecycleComposition()</code>
-afirma que a origem consegue regenerar a descrição corrente
-<strong>e</strong>
-<code>supportsFreshBulkLifecyclePublicCacheCoherence()</code> afirma que
-o resultado fresco corresponde ao documento que a superfície pública
-serve. A implementação padrão declara a segunda capacidade somente
-quando consegue comparar a fonte fresca exata com os documentos públicos
-de cada grupo. Essa comparação ocorre antes do callback de
-composição/publicação: em divergência, o guard suspende duravelmente as
-identidades declaradas e limpa caches locais de documento e hash, depois
-aborta sem readiness ou republicação automática. Uma publicação nova e
-explícita deve vencer a geração resultante. Na implementação Springdoc
-padrão, a auto-configuração só concede frescor quando
-<code>springdoc.cache.disabled=true</code> e
-<code>app.openapi.internal-base-url</code> não está configurada: a
-origem é consultada no endereço da interface e na porta locais da
-requisição, sem permitir apontar silenciosamente para outra
-réplica/proxy com política de cache diferente. Springdoc calcula e
-armazena a descrição uma vez por padrão, e seu FAQ documenta a
-propriedade para desativar esse cache <a
-href="https://springdoc.org/faq.html">Springdoc FAQ</a>. Uma
-implementação customizada só pode declarar a capacidade se seu refresh
-estrito realmente regenerar a origem e comparar o resultado com a
-superfície pública; headers HTTP não são prova disso. O fetch HTTP
-também envia <code>Cache-Control: no-cache, no-store</code>, não usa
-fallback para o documento OpenAPI base e falha fechado se a origem/proxy
-não entregar o grupo exato.</p>
-<p><code>projectReadyActions(definitions, consumer)</code> recebe as
-actions de uma resposta inteira e fornece ao consumer somente os
-contratos P1 cujo descriptor corresponde à mesma definição capturada. Lê
-os controles, prepara uma única fotografia fresca fora do lock público
-exclusivo e, na seção final protegida, compõe os descriptors e confere
-novamente as linhas em ordem canônica. Geração, estado
-<code>READY</code>, fingerprint e revisão precisam continuar idênticos.
-A projeção vem desse próprio descriptor, sem reler/recompilar o schema
-após o gate. Falha de preparação antes do consumer omite
-<code>bulk</code> e permite montar as actions comuns uma única vez.
-Depois que a montagem inicia, falhas de coherence ou do consumer
-propagam, sem retry ou reconstrução silenciosa. A composição operacional
-também exige as sete variantes UI materializáveis antes de
-<code>publish</code> e <code>requireReady</code>, impedindo READY sem
-protocolo de avaliação/confirmacão renderizável. A chamada não substitui
-availability contextual ou revalidação transacional.</p>
-<h2 id="uma-fotografia-por-resposta-de-discovery">Uma fotografia por
-resposta de discovery</h2>
-<p>A variante de <code>projectReadyActions</code> com consumer compõe os
-descriptors e suas projeções uma vez e monta a resposta de catálogo fora
-dos locks de preparo/cache e de transações JDBC. Os quatro entrypoints
-do catálogo preservam os contextos e as definições de actions originais;
-capabilities de coleção usa a mesma composição canônica. O frame é
-privado à instância, thread e chamada síncrona, removido em
-<code>finally</code>. Não há cache de readiness entre requisições.</p>
-<p>Dentro desse frame, <code>requireReady</code> reutiliza somente a
-estrutura capturada. Confere novamente identidade/namespace, composição
-corrente do provider e a linha durável contra estado READY, geração
-inicial, fingerprint e revisão. A expectativa continua precisando da
-revalidação transacional no writer e não substitui autorização do
-domínio. Fora do frame, a chamada mantém o preparo fresh
-independente.</p>
-<p>O fence efêmero <code>captureBulkLifecycleDocumentFence</code> só
-pode ser capturado dentro da fotografia fresh real. Seus reads curtos
-usam o saldo original para adquirir o lock de leitura e verificam época
-de invalidação, revisão do transporte, thread e prazo antes e depois. O
-frame fecha esse handle ao terminar. As regras de availability e o
-builder não executam dentro de <code>read</code> nem sob lock público ou
-transação mantida pelo lifecycle. A recaptura do provider, sua
-composição/codec e a leitura transacional durável executam dentro desse
-read; o prazo limita admissão e é reconferido ao retornar, mas não
-interrompe código customizado ou uma transação já iniciada. Portanto
-“read curto” descreve o trabalho previsto e não constitui duração máxima
-garantida. Troca/restauração da factory de transporte e uma invalidação
-cujo guard falhe rejeitam a fotografia. A revisão utilizada é a já
-existente em <code>setRequestFactory</code>, inclusive ABA; não sela
-toda configuração HTTP, interceptors/error handlers arbitrários ou
-identidade da origem além das garantias já anunciadas.</p>
-<p>Falha de preparação pode montar uma resposta uma única vez com
-projeção bulk vazia e readiness negada. Depois que o builder inicia, sua
-exceção ou falha do recheck final propaga, sem retry ou montagem
-duplicada. Após o builder retornar, o lifecycle revalida os fences e o
-estado durável mesmo quando uma regra do host capturou erro de readiness
-e devolveu denied. Suspensão/republicação com conteúdo igual invalida a
-geração original. Esse resultado é uma fotografia conferida no gate
-final, não garantia de estabilidade após o retorno HTTP.</p>
-<h2 id="preparação-e-orçamento-do-cliente-oficial">Preparação e
-orçamento do cliente oficial</h2>
-<p><code>CachedOpenApiDocumentService</code> serializa preparações com
-um mutex separado. Captura as entradas públicas e a revisão local de
-invalidação sob leitura curta, busca os grupos privadamente sem manter o
-write lock público e reconfere revisão/coerência antes de instalar
-entradas frias e executar o callback protegido. Um clear ou refresh
-intercalado, inclusive uma tentativa cujo guard falhe, descarta a
-preparação. A revisão local não sela a origem Springdoc nem permite
-reutilização indefinida. Todos os grupos publicados continuam no domínio
-de colisão.</p>
-<p>Para cache frio, a comparação é independente: prepara documento
-público ordinary e documento fresh, depois confere também entradas que
-leitores criaram durante o preparo. Não instala fresh apenas para
-compará-lo consigo mesmo. Não há callback, fotografia parcial publicada
-ou retry automático quando a preparação falha. Se drift é detectado já
-sob write lock, o guard de suspensão deve executar antes da limpeza
-mesmo se o prazo de nova admissão expirar; usa o orçamento próprio do
-control plane. Falha do guard conserva documento/hash.</p>
-<p>O bean oficial <code>openApiUiSchemaRestTemplate</code> usa
-<code>OpenApiInternalRestTemplate</code> com cliente HTTP JDK
-compartilhado. As propriedades aceitam <code>Duration</code> positiva
-entre 1ms e <code>Integer.MAX_VALUE</code> ms:</p>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th>Propriedade</th>
-<th>Default</th>
-<th>Limite</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>praxis.openapi.http.connect-timeout</code></td>
-<td><code>1s</code></td>
-<td>Conexão HTTP</td>
-</tr>
-<tr class="even">
-<td><code>praxis.openapi.http.read-timeout</code></td>
-<td><code>10s</code></td>
-<td>Espera por resposta HTTP completa, incluindo cabeçalhos e corpo; não
-é renovada a cada byte</td>
-</tr>
-<tr class="odd">
-<td><code>praxis.openapi.bulk-composition-timeout</code></td>
-<td><code>60s</code></td>
-<td>Admissão agregada: espera pelos locks, preparo HTTP e gates antes do
-callback/CAS</td>
-</tr>
-</tbody>
-</table>
-<p>O cliente recebe o corpo integral sob a menor espera entre o prazo
-por request e o saldo da composição. Em expiração/interrupção, solicita
-cancelamento da requisição cliente. Isso não garante encerramento do
-trabalho no servidor. Interceptores, conversores, error handlers e
-callbacks arbitrários do host não recebem cancelamento forçado; o gate
-final impede admissão vencida. Guard, pool/transação e reconciliação
-mantêm seus próprios limites; o orçamento não é um timeout absoluto para
-toda operação de negócio. Um commit confirmado não é convertido em falha
-por uma checagem posterior de prazo.</p>
-<p>O transporte não segue redirects. A composição oficial exige o
-cliente e a factory próprios, origem local e cache Springdoc desativado.
-Um <code>RestTemplate</code> substituto continua disponível para
-leituras ordinárias, mas não anuncia automaticamente a capacidade fresh
-governada. Troca de factory durante o preparo, inclusive
-troca/restauração, rejeita o resultado antes do callback. Implementações
-substitutas de <code>OpenApiDocumentService</code> precisam provar as
-garantias anunciadas independentemente.</p>
-<p>O refresh estrito explícito conserva sua seção exclusiva histórica:
-este corte remove HTTP longo da composição multigrupo, não de todo
-preenchimento frio ou refresh público. Leituras ordinárias ainda
-participam do protocolo read/write para não reinserir documento/hash
-stale após limpeza.</p>
-<h2 id="transações-e-concorrência">Transações e concorrência</h2>
-<p><code>BulkExecutionInfrastructure</code> continua sendo a
-conexão/manager runtime usada por proposta e execução. Sua leitura curta
-do controle usa <code>REQUIRES_NEW</code>, <code>READ_COMMITTED</code>,
-timeout curto e a função compartilhada autorizada à role runtime.
-<code>BulkControlPlaneInfrastructure</code> é uma segunda ligação direta
-e explícita, com datasource e manager locais próprios e diferentes do
-runtime. Confere datasource efetivamente associado ao manager,
-<code>current_user</code> PostgreSQL configurado, namespace e deployment
-lógico; rejeita wrappers, routing datasource, manager global e conexões
-que não sejam a conexão física transacional. Antes de cada CAS, o
-control plane segura um advisory lock transacional aleatório e exige que
-a conexão runtime veja o mesmo lock no mesmo OID de database em
-<code>pg_locks</code>; duas bases com namespace/deployment clonados não
-passam. O teste Postgres também verifica esse caso negativo.</p>
-<p>O fluxo preserva a ordem: ler o controle via role runtime; preparar
-composição local fora do write lock; reconferir/installar snapshot e
-compor sob seção final exclusiva; conferir admissão depois da obtenção
-da conexão control plane e antes do CAS; reconciliar falha de
-confirmação após tentativa de transição por leitura runtime
-independente. Falha antes de iniciar o CAS não reconcilia um READY
-concorrente como sucesso próprio. Na criação de proposta, a expectativa
-retornada deve entrar no escritor existente; V7 continua sendo o fence
-autoritativo sob transação. Suspensão primeiro avança a geração durável
-e só depois limpa o cache. Uma instância que mantinha schema antigo não
-consegue reutilizá-lo para republicar o fingerprint antigo:
-<code>publish</code> busca a representação estrita sem o cache local e
-precisa vencer o CAS da geração atual.</p>
-<p>As credenciais do control plane recebem apenas <code>EXECUTE</code>
-no CAS governado, conforme provisionamento e validação explícitos do
-<code>BulkExecutionMigrator</code>; não recebem leitura nem DML direto
-na tabela de controle. A role runtime lê/trava pelo helper de segurança
-da V6 e também não tem permissão para efetuar a transição.</p>
-<h2 id="uso-e-limites-atuais">Uso e limites atuais</h2>
-<p>O host deve criar o datasource/manager runtime, a ligação separada de
-control plane, um provider real para cada binding de confirmação e
-invocar o lifecycle por uma superfície administrativa governada pelo
-host. O starter não cria essa superfície nem define sua autenticação. O
-autoconfigurador só monta <code>BulkOperationLifecycle</code> quando as
-dependências explícitas existem. Sem provider único, diagnóstico de
-binding, grupo exato, schema compatível, perfil permitido, linha
-provisionada, geração esperada ou privilégio correto, a publicação falha
-fechada.</p>
-<p>O próprio <code>OpenApiDocumentService</code> instala um guard de
-invalidação quando o lifecycle é composto. <code>clearCaches()</code> e
-<code>refreshDocumentForGroupStrict()</code> chamados pelo controller ou
-diretamente pelo host suspendem duravelmente, em ordem, todas as
-identidades bulk declaradas antes de alterar o cache. Leituras que
-preenchem caches participam do lock de leitura comum;
-<code>/schemas/filtered</code> mantém esse lock por toda a
-seleção/materialização do schema e sua associação ao hash,
-<code>ETag</code> e resposta <code>304</code>, e a limpeza toma o lock
-exclusivo. Portanto um fetch/hash iniciado antes da limpeza não pode
-reinserir valor depois dela. O refresh estrito substitui o documento e
-remove seu hash sob o lock exclusivo. Uma leitura
-<code>getDocumentForGroupStrict()</code> pode preencher um cache vazio
-ou promover uma entrada pública não estrita somente quando a
-representação exata é igual à já publicada. Se a origem exata divergir,
-a leitura rejeita com <code>IllegalStateException</code> sem alterar
-documento/hash; usar o refresh explícito guardado para atualizar. A
-leitura não pode tentar adquirir lock exclusivo enquanto
-<code>/schemas/filtered</code> mantém o lock de leitura externo. As
-mutações públicas retornam cópias profundas: consumidores não podem
-alterar um <code>JsonNode</code> compartilhado sem passar pelo guard.
-Implementações substitutas precisam oferecer isolamento do snapshot,
-lock comum de composição/invalidação, comparação entre documento fresco
-e documento/hash público, frescor e guard; os métodos default falham
-fechado. A operação de suspensão individual avança seu CAS esperado,
-suspende as demais identidades antes da limpeza global e devolve a
-geração daquela operação. O fingerprint durável impede writers antigos,
-mas não substitui a revisão do provider nem a autorização do
-domínio.</p>
-<p>O Quickstart ainda precisa comprovar os sete handlers produtivos,
-provider de avaliação/admissão/mutação, expectativa V7 no writer,
-autorização contextual, commit atômico de domínio+receipt, resultados,
-cancelamento e testes HTTP reais. Nenhum dos serviços internos ou testes
-MVC desta fase certifica adoção produtiva, endpoint executável ou
-conclusão do backend.</p>
-<h2 id="provas-desta-fatia">Provas desta fatia</h2>
-<ul>
-<li>PostgreSQL real com runtime e control plane usando logins/funções
-diferentes: publicação/suspensão CAS confirmadas e runtime sem permissão
-de transição;</li>
-<li>lifecycle publica da geração <code>UNCOMPOSED</code>, rejeita
-provider ausente e geração velha, devolve a expectation corrente e
-suspende antes de invalidar cache;</li>
-<li>falha simulada da confirmação do commit após o PostgreSQL confirmar
-a transação é reconciliada por leitura independente;</li>
-<li>duas instâncias com cache divergente: a instância que ainda serve D0
-detecta D0 versus fonte fresca D1, suspende o fence compartilhado antes
-do callback e limpa seu cache; nenhuma instância projeta
-<code>bulk</code> até refresh exato e republicação explícita na nova
-geração;</li>
-<li><code>CachedOpenApiDocumentService</code> substitui o documento
-cacheado após refresh e a requisição exige diretivas HTTP de
-revalidação.</li>
-</ul>
+<h2 id="estado-e-fronteira">Estado e fronteira</h2>
+<p>Este documento descreve o candidato R2/V15 desta árvore. O artefato
+publicado de referência permanece rc.146; código e provas locais não
+certificam adoção no host, conclusão de R2/R3 ou liberação do Angular. O
+planejamento e as evidências versionadas ficam em
+<code>internal-planning/bulk-operations</code> no host de
+referência.</p>
+<p>O Metadata é dono da semântica. Providers do host vinculam
+identidade, revisão, codec, limites e infraestrutura a operações reais.
+Metadata, capabilities e ações consomem a mesma composição; não definem
+uma segunda regra de negócio. Readiness não substitui autorização,
+tenant, validação do domínio ou o fence transacional de cada
+execução.</p>
+<h2 id="fotografia-openapi-e-produtor">Fotografia OpenAPI e
+produtor</h2>
+<p>A preparação captura raiz, todos os grupos publicados/necessários e
+<code>swagger-config</code>, preservando bytes imutáveis e árvores
+isoladas. O digest cobre os paths e os bytes exatos em ordem canônica. A
+interpretação exige JSON estrito sem duplicatas/trailing tokens, UTF-8
+estrito, OpenAPI 3.0/3.1 e URLs de grupos correspondentes às rotas
+locais. UTF-16/32, redirects, status diferente de 200, Content-Type
+diferente de application/json ou charset diferente de UTF-8 são
+rejeitados.</p>
+<p>O cliente oficial é owned, sem interceptors/initializers de produtor,
+com factory própria e sem redirects. A captura usa contexto, interface e
+porta da request local; não aceita
+<code>app.openapi.internal-base-url</code>. Requer
+<code>springdoc.cache.disabled=true</code>. Mudanças de
+factory/interceptors/initializers, inclusive ABA, invalidam a revisão de
+transporte. Não há promessa de detectar mutações arbitrárias dentro de
+customizers/helpers/converters: esses inputs precisam de invalidação e
+republicação governadas.</p>
+<p>Cada rota recebe uma permissão aleatória de 256 bits, single-use,
+limitada por contexto/path/GET REQUEST e prazo monotônico. O filtro deve
+consumir a permissão exata e o transporte exige o atestado enquanto a
+lease está aberta e no prazo. HTTP 200 válido sem consumo, erro após
+consumo, query, redispatch, replay e close/expiry não produzem
+candidato. O header interno não é credencial IAM e não deve contornar a
+cadeia de segurança.</p>
+<p>O registro oficial cobre <code>/*</code>, todos os dispatcher types e
+suporta async. Quando a cadeia Spring Security existe, exige o registro
+Boot canônico <code>securityFilterChainRegistration</code>, habilitado e
+com cobertura REQUEST completa, e usa sua ordem efetiva + 1. Assim uma
+ordem efetiva diferente de <code>SecurityProperties.filter.order</code>
+não coloca o produtor antes da segurança. Topologia incompleta,
+cobertura parcial ou overflow nega startup. Sem cadeia/registro, a ordem
+derivada da propriedade não atesta IAM. Targets arbitrários de proxy ou
+filtros customizados exigem prova própria do host; não há introspecção
+de campos protegidos. A inicialização real atesta o contexto; construir
+o filtro não o instala. Testes Boot com Spring Security real e HttpBasic
+de fixture não provam a política JWT/tenant/domínio do host, que
+continua gate obrigatório.</p>
+<h2 id="publicação-locks-e-commit">Publicação, locks e commit</h2>
+<p><code>publish(identity, expectedGeneration)</code> aceita somente
+UNCOMPOSED/SUSPENDED na geração esperada. Não recebe fingerprint/digest
+do operador. A primeira publicação suspende duravelmente o ledger global
+antes da captura; compõe os documentos fora de transações JDBC e
+recompõe o descritor antes da admissão. O fence local impede invalidação
+durante a admissão.</p>
+<p>A transação de control plane aplica CAS global PUBLISHED e CAS
+operacional READY com a geração/digest da mesma fotografia. Falha do CAS
+operacional aborta também a publicação global. Namespace → global →
+operação é a ordem durável; um SHARE de consulta termina antes de um
+UPDATE de controle. Não converter SHARE em UPDATE no mesmo commit. V15
+rejeita tuple NULL, geração divergente ou digest divergente. Consulte <a
+href="BULK-OPERATION-CONTROL.md">Controle de operações em lote</a>.</p>
+<p>O descritor recomposto é comparado pela identidade, revisão
+estrutural canônica, fingerprint operacional e infraestrutura vinculada;
+instâncias diferentes do objeto estrutural não representam, por si só,
+drift. Uma segunda operação reutiliza a fotografia publicada e aplica
+somente seu CAS operacional, preservando as operações READY
+anteriores.</p>
+<p>Commit incerto admite apenas reconciliação por leitura independente
+do tuple global e da operação exatos. Não repete CAS nem mutação de
+domínio. A instalação local ocorre depois do commit
+confirmado/reconciliado, verificando owner/época/transporte/contexto e o
+guard JDBC de geração/digest. Uma falha de instalação pode deixar um
+commit durável válido e o nó local fechado; não declarar rollback apenas
+pela exceção de instalação.</p>
+<h2 id="leituras-suspensão-e-recuperação">Leituras, suspensão e
+recuperação</h2>
+<p><code>requireReady</code>, projeções, documentos e hashes usam a
+fotografia instalada, com guard durável antes/depois. Leituras não
+regeneram SpringDoc nem fazem fallback para a origem dinâmica quando o
+lifecycle governado está instalado. Nó frio ou fotografia divergente
+falha fechado. A indisponibilidade reconhecida no guard de leitura
+publicada é materializada pelo handler HTTP canônico como
+<code>503</code>, envelope <code>failure</code>, categoria
+<code>SYSTEM</code> e código
+<code>GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE</code>, sem expor a causa
+privada. Isso não autoriza recaptura automática nem retry de mutação;
+publicação ou reconciliação continuam explícitas. Erros inesperados fora
+dessa fronteira preservam sua classificação.</p>
+<p>Dentro de uma unidade operacional writable, a leitura estrutural
+captura a referência local publicada sem lock de cache e valida sua
+tupla pela mesma conexão atestada da unidade, antes e depois da
+composição. O SHARE global permanece até commit/rollback; não abrir
+REQUIRES_NEW nem adquirir CACHE READ nesse caminho. Transações
+read-only, rollback-only ou vinculadas a outro datasource são negadas
+antes de construir payload. A consulta ao receipt continua anterior aos
+gates exclusivos de nova mutação.</p>
+<p>Cada getter copia defensivamente apenas o grupo solicitado. Isso não
+promete resolução de custo constante: a verificação canônica de
+grupos/colisões pode percorrer o conjunto publicado e deve respeitar o
+orçamento existente. <code>requireReady</code>,
+captura/instalação/reconciliação e frames de resposta começam fora da
+transação operacional; a leitura estrutural vinculada não autoriza esses
+fluxos nem substitui autorização, tenant ou gates de domínio.</p>
+<p>A resposta de capabilities/actions usa um frame síncrono isolado. O
+builder do host roda fora dos locks de cache/preparação e de transações;
+o gate final revalida fotografia, providers e gerações, inclusive quando
+o host capturou uma negação intermediária. Falha de preparação pode
+gerar projeção bulk vazia uma vez; após começar o builder, erro propaga
+sem retry ou resposta duplicada. O resultado não promete estabilidade
+após o retorno HTTP.</p>
+<p><code>suspend(identity, expectedGeneration)</code> suspende a
+operação e depois o ledger global antes de limpar os caches. O ledger
+suspende operações READY de todas as namespaces do deployment.
+<code>clearCaches</code>/refresh estrito explícito usam esse guard antes
+de mutar caches; não são ferramentas de recuperação local de uma
+réplica. Falha do guard conserva dados locais, mas a época invalida a
+autoridade anterior. Nova publicação exige a geração resultante.</p>
+<p><code>reconcilePublished(identity, readyGeneration)</code> recaptura
+a fotografia explicitamente fora do caminho de request, mesmo quando o
+nó mantém uma fotografia antiga. Exige digest igual ao ledger atual,
+descritor igual à operação READY e nova verificação durável antes de
+instalar. Não escreve controle, não suspende a publicação de outra
+réplica nem executa domínio. Fonte divergente é negada.
+<code>publish</code> em nó warm divergente também nega: reconciliar
+explicitamente antes de publicar outra operação; não usar
+<code>clearCaches</code> para isso.</p>
+<h2 id="orçamentos-e-aceite">Orçamentos e aceite</h2>
+<p>Preparação e composição têm budgets de admissão separados; não são
+prazo acumulado ponta a ponta. Locks/HTTP respeitam o prazo, mas
+callbacks arbitrários não são interrompidos. Um commit admitido não vira
+rollback declarado porque o prazo de nova admissão expirou. A instalação
+mantém os fences locais/duráveis próprios.</p>
+<p>Provas candidatas incluem Servlet/HTTP de captura, Boot/Tomcat de
+registro e PostgreSQL real. Evidências precisam identificar a árvore e
+as fontes testadas. Recovery local simulada não equivale a duas
+instâncias; IAM de fixture não equivale à segurança do host. Permanecem
+gates de fechamento: revisão independente do corte integrado, cadeia
+real de segurança, HTTP + PostgreSQL no host com budget de 8s nos dois
+modos, documentação/skill canônica, integração e adoção conforme
+autorização. As provas antigas do protocolo fresh V6/V7 não certificam
+V15. Nenhuma publicação/deploy ou Angular é autorizada pela aprovação de
+um teste isolado.</p>
 </body>
 </html>

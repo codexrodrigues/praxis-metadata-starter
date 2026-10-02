@@ -183,6 +183,10 @@ da plataforma.</p>
 </ul>
 <h2 id="sdk-em-desenvolvimento">SDK em desenvolvimento</h2>
 <ul>
+<li><p><a href="spec/BULK-OPERATION-LIFECYCLE.html">Lifecycle governado
+candidato R2</a>: fotografia OpenAPI imutável, publicação
+global/operação V14/V15 e reconciliação explícita; prova HTTP do host e
+adoção pública são gates separados.</p></li>
 <li><p><a href="spec/BULK-DURABLE-EXECUTION.html">Núcleo durável de
 execução</a>: reserva, unidade transacional, ledger de capacidade V5,
 retenção/tombstones e recuperação; fundação sem exposição HTTP nem
@@ -219,6 +223,13 @@ transacional de lote</a>: vínculo JDBC/JPA explícito, sem store ou
 DDL.</p></li>
 <li><p><a href="spec/BULK-EDITABLE-FIELDS.html">Campos editáveis em
 lote</a>: annotation e compilação estrutural de SET/CLEAR.</p></li>
+<li><p><a href="spec/BULK-CRUD-STRUCTURE.html">Composição estrutural
+CRUD</a>: fonte PUT e DTO reais, campos protegidos e allowlists; sem
+disponibilidade operacional de update bulk.</p></li>
+<li><p><a href="spec/BULK-CRUD-OPERATIONS.html">Composição operacional
+CRUD candidata</a>: duas operações de coleção com schemas, campos
+elegíveis e fence READY; sem autorização P3 ou mutação automática no
+host.</p></li>
 </ul>
 <h2 id="comece-por-objetivo">Comece por objetivo</h2>
 <h3 id="quero-adotar-o-baseline-atual">Quero adotar o baseline

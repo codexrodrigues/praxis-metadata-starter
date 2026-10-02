@@ -277,5 +277,127 @@ e reconciliação de commit incerto, ficam em <a
 href="BULK-OPERATION-LIFECYCLE.md">BULK-OPERATION-LIFECYCLE.md</a>.
 Estas garantias não são evidência de endpoint executável nem de adoção
 do host.</p>
+<h2 id="publicação-global-openapi-v14-preparatória-r1">Publicação global
+OpenAPI — V14 preparatória (R1)</h2>
+<p>Este corte acrescenta armazenamento de controle, não ativa uma nova
+fonte OpenAPI nem altera a admissão atual. A tabela
+<code>praxis_bulk_openapi_publication</code> mantém uma única geração
+por <code>deployment_id</code>, pois namespaces diferentes podem
+compartilhar o mesmo documento público. A FK aponta para o deployment
+bucket; o bootstrap cria uma linha <code>UNCOMPOSED/0</code> sem digest
+e preserva publicações existentes em retries.</p>
+<p><code>lock_openapi_publication(namespace, deployment)</code> valida o
+vínculo imutável, trava os bindings do deployment em ordem e retém SHARE
+da publicação até a transação terminar.
+<code>transition_openapi_publication(namespace, deployment, expectedGeneration, target, digest)</code>
+aplica CAS; geração obsoleta não muda linhas. Somente
+<code>SUSPENDED</code> pode originar <code>PUBLISHED</code>, inclusive
+na primeira publicação. PUBLISHED exige digest <code>sha256:</code> com
+64 caracteres hexadecimais minúsculos. Toda suspensão incrementa a
+geração global e limpa o digest; as operações atualmente READY em todos
+os namespaces desse deployment são suspensas e seus
+fingerprints/revisions são limpos na mesma transação. Overflow em
+qualquer geração afetada ou falha posterior reverte o conjunto
+inteiro.</p>
+<p>A ordem é bindings de namespace SHARE → publicação SHARE/UPDATE →
+controles ordenados por <code>(namespace_id, operation_id)</code> →
+locks de quota. O bootstrap provisiona buckets ausentes com INSERT ON
+CONFLICT DO NOTHING antes do ledger, por necessidade da FK, e mantém os
+locks efetivos de quota depois dos controles. JDBC é package-private e
+exige conexão com transação física pertencente ao chamador.</p>
+<p>O deployment owner provisiona explicitamente EXECUTE da função de
+leitura para as roles runtime configuradas e da transição para as roles
+control plane configuradas. Runtime e control plane não recebem DML
+direto no ledger nem membership do definer. V14 usa o definer restrito
+existente, revoga PUBLIC enquanto o criador ainda é owner e só então
+transfere ownership; os privilégios temporários de CREATE e membership
+são revogados antes do commit. Após DDL, ausência de grants host impede
+o bootstrap/validação; concedê-los explicitamente e repetir o migrator
+conserva o histórico. O migrator não restaura ACL revogada
+automaticamente.</p>
+<p>Limite obrigatório: a função V6 ainda pode tornar uma operação READY
+sem consultar o ledger global. Locks SHARE dos bindings também não
+impedem inserção de um namespace novo. R2 deve vincular toda transição
+READY e toda leitura pública à mesma geração durável antes de ativar a
+fonte publicada; réplica sem fotografia correspondente deve falhar
+fechada. R1 não garante essa integração e não autoriza anunciar endpoint
+executável, fast path, disponibilidade corporativa ou backend
+concluído.</p>
+<p><code>BulkOpenApiPublicationPostgresTest</code> prova CAS concorrente
+em conexões físicas distintas, duas namespaces no mesmo deployment,
+isolamento entre deployments, suspensão/rollback conjunto, overflow,
+binding inválido, locks retidos, privilégios negativos, ausência de
+autorreparo e concorrência do bootstrap com quota real.
+<code>BulkDurableMigrationPostgresTest.v10MigrationRunsAsDedicatedNonSuperuserOwner</code>
+cobre DDL sob owner sem superuser, ausência de EXECUTE PUBLIC, falha
+fechada antes do grant host e retry validado. Essas provas não
+substituem a campanha HTTP/replica/deadline de R3.</p>
+<h2 id="v15-vínculo-global-do-operation-control-armazenamento-de-r2">V15
+— vínculo global do operation-control (armazenamento de R2)</h2>
+<p>V15 fecha o limite SQL descrito para R1: toda transição suportada
+para READY exige a geração e o digest da publicação global corrente. O
+controle persiste <code>publication_generation</code> e
+<code>publication_document_digest</code>; READY exige ambos, e os demais
+estados exigem ambos NULL. A geração de operação, fingerprint e revisão
+estrutural continuam sendo o fence do descritor usado nas propostas e
+execuções.</p>
+<p>A assinatura corrente é
+<code>transition_operation_control(namespace, operation, expectedGeneration, target, descriptorFingerprint, structuralRevision, expectedPublicationGeneration, expectedPublicationDigest)</code>.
+READY só aplica quando o deployment vinculado está PUBLISHED e o tuple
+recebido coincide exatamente com o ledger travado. SUSPENDED exige os
+quatro valores de descritor/publicação NULL. A assinatura histórica de
+seis argumentos é removida; o host deve conceder EXECUTE explicitamente
+na assinatura de oito argumentos. O migrator não copia grants nem mantém
+um overload de compatibilidade. Inventários históricos servem
+exclusivamente para reconhecer upgrades certificados; a validação
+corrente exige que a assinatura antiga esteja ausente.</p>
+<p><code>lock_operation_control(namespace, operation)</code> mantém sua
+assinatura de leitura. Ele adquire namespace → publicação global →
+operation-control e só retorna uma linha READY quando seu tuple
+corresponde ao ledger corrente. Controles UNCOMPOSED/SUSPENDED continuam
+legíveis. As triggers de novas propostas, avaliações e execuções usam
+esse fence; retenção também adquire a mesma ordem antes dos locks de
+quota/proposta/execução. Reconhecimento de receipt e tombstone precede
+os gates exclusivos de nova mutação, preservando efeitos confirmados
+após suspensão global. Um namespace novo começa UNCOMPOSED; enquanto o
+ledger estiver SUSPENDED ou se o tuple usado for obsoleto, o SQL nega
+READY. A presença da operação na fotografia publicada ainda precisa ser
+verificada pelo lifecycle.</p>
+<p>O cutover beta exige drenar escritores antigos antes da migração; não
+é um upgrade rolling. A transação adquire namespaces e publicações antes
+do DDL do controle, invalida controles READY legados e publicações
+PUBLISHED, limpa seus tuples e incrementa suas respectivas gerações.
+Estados globais já UNCOMPOSED/SUSPENDED conservam suas gerações.
+Overflow é verificado antes da mutação e reverte também o DDL. O
+controle mantém os definers restritos, sem novos privilégios de escrita
+para runtime ou membership permanente.</p>
+<p>Esse corte de armazenamento não instala a fotografia OpenAPI em
+memória nem ativa serving ou o lifecycle de publicação. O consumidor
+ainda precisa passar o tuple da captura efetivamente compilada,
+confirmar o commit, instalar sob o fence local e negar réplicas
+frias/divergentes. Uma leitura do ledger seguida de uso de documento
+dinâmico não satisfaz essa obrigação. A adoção no host e o aceite HTTP
+dependem da integração restante de R2/R3; este fundamento não autoriza
+anunciar backend concluído.</p>
+<h3 id="provas-corporativas-focais-adicionais-candidato-v15">Provas
+corporativas focais adicionais — candidato V15</h3>
+<p>Dois casos em <code>BulkOperationPublicationFencePostgresTest</code>
+observam conexões/PIDs distintos e <code>pg_blocking_pids</code>:
+bootstrap real de namespace concorrente com suspensão global permanece
+bloqueado até commit e termina UNCOMPOSED sem aceitar READY stale; dois
+publicadores por CAS direto serializam no lock global, o perdedor recebe
+geração corrente sem publicar. Não manter SHARE e tentar convertê-lo
+para UPDATE na mesma transação de publicação.</p>
+<p>Dois casos em <code>BulkDurableExecutionPostgresTest</code> suspendem
+a publicação enquanto uma escrita de domínio JDBC está em voo: suspensão
+aguarda a transação física; commit confirma domínio e receipt juntos,
+permite replay sem callbacks e nega o sufixo; rollback deixa ambos
+ausentes. A fixture lê a geração em transação concluída antes do CAS de
+suspensão, sem conversão de locks nem retry implícito.</p>
+<p>Essas provas exercitam PostgreSQL real e contratos SQL/JDBC
+existentes. Não certificam publicação do lifecycle, instalação em
+memória, serving ou réplicas. Esses gates permanecem descritos no <a
+href="BULK-OPERATION-LIFECYCLE.md">estado candidato do
+lifecycle</a>.</p>
 </body>
 </html>

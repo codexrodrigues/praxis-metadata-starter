@@ -292,6 +292,17 @@ writer antigo sem manifest, mas essa proteção não substitui o cutover
 operacional. Na instalação inicial, ainda não existem grants V7: use a
 sequência em duas fases do exemplo e valide após o provisionamento. O
 migrator não provisiona as demais ACLs da aplicação.</p>
+<p>No candidato corrente V15, o trecho V7→V8 acima descreve o bootstrap
+histórico do manifest, não a sequência completa de upgrade. Drene os
+escritores antigos, aplique o DDL até V15, conceda explicitamente os
+grants novos de publicação e a assinatura de oito argumentos do
+controle, e só então execute
+<code>BulkExecutionMigrator.migrate(migrationDataSource, namespaceToDeploymentId, roles)</code>
+para concluir os bootstraps pendentes e validar o catálogo completo.
+Essa chamada pode executar zero migrations Flyway sem deixar de realizar
+o bootstrap. Siga os grants e o cutover de <a
+href="BULK-OPERATION-CONTROL.md">V14/V15</a>; o migrator não corrige ACL
+revogada depois de <code>COMPLETE</code>.</p>
 <p>A V8 registra um marcador privado <code>PENDING</code> após o DDL.
 Backfill, grant focal e transição para <code>COMPLETE</code> ocorrem na
 mesma transação de bootstrap. Se o processo cair ou a transação falhar

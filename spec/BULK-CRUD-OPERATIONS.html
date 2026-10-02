@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Operações bulk CRUD — contrato operacional candidato P3b-S2</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Operações bulk CRUD — contrato operacional candidato
+P3b-S2</h1>
+</header>
+<h1
+id="operações-bulk-crud-contrato-operacional-candidato-p3b-s2">Operações
+bulk CRUD — contrato operacional candidato P3b-S2</h1>
+<p>O vínculo estrutural entre PUT e DTO de update está em <a
+href="BULK-CRUD-STRUCTURE.md">BULK-CRUD-STRUCTURE.md</a>. Este corte
+candidato compõe a projeção de descoberta e o perfil operacional
+síncrono por item. Não transforma um descriptor estrutural em
+autorização nem certifica mutação do domínio no host.</p>
+<h2 id="descoberta-coerente">Descoberta coerente</h2>
+<p>Uma operação UPDATE operacionalmente completa projeta
+<code>bulk-update</code> ou <code>bulk-update-items</code> em
+<code>capabilities.operations</code>, com escopo
+<code>COLLECTION</code>, método <code>POST</code>, caminho
+<code>.bulk</code> e referências canônicas às sete operações do ciclo. O
+frame de resposta é comum a action e capability: a mesma geração,
+fingerprint e revisão estrutural governam o resultado publicado e
+<code>requireReady</code>. A projeção inclui
+<code>editableFields.sourceOperation</code>
+(<code>CanonicalOperationRef</code>), <code>requestSchema</code>,
+<code>writableFields</code> e <code>clearableFields</code> ordenados,
+derivados do DTO de update real. Disponibilidade contextual é calculada
+fora dos locks de preparação/cache e não substitui autenticação ou
+autorização da execução. <code>collectionOperationAvailability</code>
+continua sendo decisão contextual do provider, inclusive para IDs de
+operação desconhecidos; ela não prova suporte estrutural nem READY. A
+projeção READY deste corte é a capability no mesmo snapshot/frame, com
+caminho <code>.bulk</code> e sete <code>CanonicalOperationRef</code>. As
+bases não acrescentam <code>_links</code> bulk automaticamente aqui. Um
+futuro link bulk terá de derivar da operação desse mesmo snapshot e
+cerca, sem lookup paralelo ou URL por convenção.</p>
+<p>Uma declaração UPDATE válida sem provider fica sem READY; não se
+anuncia capability executável a partir do PUT ou da allowlist isolados.
+Se coexistir um command operacional, uma declaração UPDATE estrutural
+válida sem provider não deve degradar o READY desse command. Declaração
+órfã, fonte/schema inválidos ou binding malformado falham na composição:
+o lifecycle compila todas as declarações antes de filtrar modos
+operacionais e não promete isolamento de erro por operação. Os gates de
+identidade de <code>publish</code> e <code>requireReady</code> rejeitam
+órfãos antes de I/O durável; a preparação de resposta pode capturar
+evidência durável antes de compilar. Retirar o provider faz
+<code>requireReady</code> negar, mas não muda automaticamente a linha
+READY durável. <code>suspend</code> ou invalidação seguem o próprio
+protocolo para fechá-la; um snapshot antigo não autoriza execução.</p>
+<h2 id="perfil-e-limites">Perfil e limites</h2>
+<p>O perfil UPDATE candidato é singular por operação, com execução
+síncrona, seleção explícita e resultado por item (<code>SYNC</code>,
+<code>EXPLICIT</code>, <code>PER_ITEM</code>). Não acrescenta consulta
+de seleção, execução assíncrona nem semântica atômica do lote.
+<code>DOMAIN_COMMAND</code> conserva os bytes do digest
+<code>praxis.bulk.structure/3</code>; UPDATE usa
+<code>praxis.bulk.structure/4</code> com fonte, schema, allowlists e
+campos protegidos. <code>parametersPointer</code> é exclusivo do command
+e fica ausente em UPDATE. O provider continua fornecendo
+<code>identitySchemaPointer</code>: para seleção explícita,
+<code>/properties/selection/properties/targets/items/properties/id</code>;
+para itens, <code>/properties/items/items/properties/id</code>. Os gates
+de identidade de <code>publish</code> e <code>requireReady</code> negam
+órfãos antes de I/O durável; nenhuma inferência por nome de operação ou
+capability pode preencher uma declaração ausente.</p>
+<p>O frame mantém a cerca de snapshot e a verificação final mesmo quando
+uma regra do host captura uma negativa; após falha da verificação final,
+a resposta é envenenada e não pode ser convertida em disponibilidade. O
+escopo e a cerca devem ser descartados em <code>finally</code>, sem
+reter lock de cache nem transação JDBC ao chamar regras do host ou
+montar a resposta. Esta composição não cria grants P3, autorização para
+mutação, rotina de domínio, release ou adoção Angular.</p>
+<h2 id="evidência-focal-e-limites">Evidência focal e limites</h2>
+<p>Na fonte candidata congelada, as campanhas <code>focal-01</code> (75
+passes reutilizados), <code>focal-02</code> (8), <code>http-04</code> (1
+TCP) e <code>regressions-01</code> (12) aprovaram <strong>95 casos
+Metadata distintos após deduplicação</strong>. As falhas iniciais de
+fixture foram diagnosticadas e corrigidas sem retirar os gates; não
+houve falha no resultado focal final. O oráculo do command
+<code>praxis.bulk.operational/1</code> permaneceu preservado. A prova
+inclui PostgreSQL 14.22 para controle e HTTP TCP real para discovery,
+frame, controle e referências; não certifica mutação de domínio nem
+receipt CRUD executado. Dois focais existentes do kernel de replay
+<code>receipt-first</code> passaram, sem ampliar esta afirmação à
+execução CRUD.</p>
+<p>A revisão independente aceitou o corte focal. Dois testes candidatos
+do host também passaram contra o artefato local, sem mudança de fonte
+durante a prova; os registros estão em
+<code>/tmp/praxis-p3b-operational-proof-20261001</code>. A integração da
+fonte é distinta da publicação e adoção do binário; não houve suíte
+total, release, adoção pública ou validação Angular. O perfil
+operacional UPDATE focal não equivale a backend completo ou READY para
+todo consumidor.</p>
+</body>
+</html>

@@ -309,22 +309,23 @@ recompor e publicar via CAS do lifecycle. Não se mantém uma lane de
 compatibilidade ou READY sintético.</p>
 <h2 id="fence-e-limites">Fence e limites</h2>
 <p><code>ActionCatalogService</code> consulta o lifecycle uma vez por
-resposta. O lifecycle prepara uma única fotografia fresca fora do lock
-público exclusivo e recompõe na seção final de composição/invalidação,
-compara as mesmas linhas duráveis antes/depois (estado, geração,
-fingerprint e revisão) e entrega o contrato derivado dessa composição.
-Action diferente, provider ausente, composição parcial, seleção UI
-indisponível, <code>UNCOMPOSED</code>, <code>SUSPENDED</code>,
-revisão/fingerprint stale, geração alterada durante a preparação ou
-falha de leitura pré-consumer omitem <code>bulk</code>. A montagem
-síncrona e availability usam o scope da mesma resposta fora dos locks de
-cache/preparo; readiness scoped reutiliza somente a estrutura capturada
-e revalida provider e controle durável. Um fence efêmero preserva epoch,
-revisão da factory de transporte e prazo original. Depois do início do
-consumer, exceções do consumer ou falhas de coerência/recheck final
-propagam sem retry; uma negação contextual normal de availability
-continua sendo uma resposta válida, conforme <a
-href="BULK-OPERATION-LIFECYCLE.md#uma-fotografia-por-resposta-de-discovery">o
+resposta. O lifecycle captura a estrutura da fotografia imutável
+instalada, validando a tupla global publicada e as mesmas linhas
+operacionais antes/depois (estado, geração, fingerprint e revisão), sem
+gerar SpringDoc nem buscar HTTP no discovery ordinário. Action
+diferente, provider ausente, composição parcial, seleção UI
+indisponível, <code>UNCOMPOSED</code>, <code>SUSPENDED</code>, nó
+frio/divergente ou revisão/fingerprint stale omitem <code>bulk</code>
+quando a preparação falha antes do consumer. A montagem síncrona e
+availability usam o scope da mesma resposta fora dos locks de
+cache/preparo e de transações operacionais; readiness scoped reutiliza
+somente a estrutura capturada e revalida provider e controle durável. Um
+fence efêmero preserva a identidade da fotografia, epoch, revisão de
+transporte e prazo original. Depois do início do consumer, suas exceções
+ou falhas de coerência/recheck final propagam sem retry; uma negação
+contextual normal de availability continua sendo uma resposta válida,
+conforme <a
+href="BULK-OPERATION-LIFECYCLE.md#leituras-suspensão-e-recuperação">o
 lifecycle</a>.</p>
 <p>Essa metadata é descritiva. Availability contextual permanece
 independente, e avaliação/confirmação precisam revalidar o gate e a
@@ -334,44 +335,35 @@ backend completo. Angular, Config e bindings/handlers do host não mudam
 neste corte.</p>
 <h2 id="coerência-dos-documentos-servidos-e-hashes">Coerência dos
 documentos servidos e hashes</h2>
-<p>Antes de <code>publish</code>, <code>requireReady</code> ou da
-projeção de actions, a fotografia fresca dos grupos OpenAPI deve
-corresponder exatamente aos documentos públicos que
-<code>/schemas/filtered</code> serve naquela instância. A comparação
-ocorre antes do callback da composição e antes de instalar a fotografia
-no contexto da requisição. Se houver divergência, o guard avança
-primeiro o fence durável para <code>SUSPENDED</code>; só depois limpa os
-caches locais de documento e <code>schemaHash</code>. A operação falha
-fechada: não devolve <code>READY</code>, não executa o callback de
-publicação/projeção e não tenta republicar automaticamente. Depois de
-corrigir a fonte, uma nova publicação explícita precisa vencer a geração
-atual.</p>
-<p>Isso também cobre outra réplica com cache antigo: ao observar que seu
-documento público não corresponde à fonte fresca, ela suspende a geração
-compartilhada e limpa os próprios caches; as outras réplicas passam a
-falhar no fence até uma republicação explícita. O caminho HTTP de
-<code>/schemas/filtered</code> mantém o lock de leitura desde a
-resolução/materialização do schema até a escrita do hash,
-<code>ETag</code> e resposta <code>304</code>; refresh estrito substitui
-o documento e invalida o hash sob lock exclusivo. Assim, uma resposta
-iniciada antes da invalidação não pode repovoar um hash antigo depois
-dela.</p>
-<p>Implementações customizadas de <code>OpenApiDocumentService</code> só
-podem habilitar a composição declarando tanto
-<code>supportsFreshBulkLifecycleComposition()</code> quanto
-<code>supportsFreshBulkLifecyclePublicCacheCoherence()</code>. A segunda
-garantia significa comparar a fonte recém-gerada com o documento que o
-endpoint público efetivamente serve, e proteger a operação HTTP completa
-de schema/hash com o mesmo protocolo de lock da invalidação. Os valores
-default não constituem prova dessas capacidades. Para reutilizar uma
-composição na mesma resposta, a implementação também precisa prover o
-fence efêmero concreto <code>captureBulkLifecycleDocumentFence</code>; o
-default unsupported fecha a projeção e não transfere validade estrutural
-para outro request. Na query de <code>/schemas/filtered</code>, valores
+<p>Antes de publicar, preparar a fotografia completa por capturas
+atestadas do produtor fora de transações JDBC. A admissão confirma a
+tupla global e operacional na mesma transação, e a instalação local
+ocorre somente após confirmação ou reconciliação exata do commit.
+<code>requireReady</code>, projeções e <code>/schemas/filtered</code>
+usam a fotografia instalada e validam autoridade durável e fences
+locais, sem comparar novamente uma origem dinâmica por request ou
+republicar automaticamente.</p>
+<p>Nó frio ou divergente falha fechado até
+<code>reconcilePublished</code> explícito confirmar fotografia e
+descritor iguais ao ledger. Essa recuperação não limpa caches nem
+suspende a publicação de outra réplica. Invalidação/refresh explícitos
+são caminhos diferentes: suspendem a publicação durável antes de alterar
+caches e hashes. Leituras comuns fora da unidade usam o protocolo de
+lock de cache; leituras estruturais dentro da unidade operacional
+writable usam a conexão atestada e SHARE global, sem CACHE READ ou
+REQUIRES_NEW. Nenhuma leitura pode transformar a origem dinâmica em nova
+autoridade.</p>
+<p>Implementações customizadas de <code>OpenApiDocumentService</code>
+precisam implementar o protocolo de preparação atestada, guard durável,
+instalação pós-commit, serving e leitura publicada, além do fence
+efêmero concreto <code>captureBulkLifecycleDocumentFence</code>. Os
+defaults unsupported e as flags de composição fresh anteriores não
+provam suporte ao lifecycle governado. O fence pertence somente à
+resposta síncrona capturada, não a outro request, readiness ou
+autorização. Na query de <code>/schemas/filtered</code>, valores
 literais de <code>idField</code> com <code>+</code> são codificados como
-<code>%2B</code> (e espaços como <code>%20</code>) para que URL,
-<code>schemaId</code>, corpo, hash e <code>ETag</code> preservem a mesma
-identidade após a decodificação HTTP.</p>
+<code>%2B</code> (e espaços como <code>%20</code>) para preservar a
+identidade de URL, schema, corpo, hash e ETag.</p>
 <h2 id="validação-e-artefatos-derivados">Validação e artefatos
 derivados</h2>
 <p>Os testes adicionados cobrem seleção/variantes, overrides e falha de
@@ -410,37 +402,27 @@ guidance foi integrado pelo PR canônico praxis-codex-skills #628 (merge
 <code>d1ac8d25fedc24896ed263c29e432493b211e7a4</code>), validado com
 hashes de arquivo/árvore no manifesto e sincronizado seletivamente para
 a skill instalada. Dois drifts locais alheios foram preservados.</p>
-<h3 id="promoção-de-leitura-strict-e-atualização-explícita">Promoção de
-leitura strict e atualização explícita</h3>
-<p><code>getDocumentForGroupStrict</code> não é uma operação de
-atualização: pode carregar um grupo ausente ou confirmar a mesma
-representação de uma entrada pública ainda não marcada como exata. Se o
-fetch exato diferir do documento publicado, rejeita sem substituir
-documento ou hash; a recuperação usa
-<code>refreshDocumentForGroupStrict</code> ou a invalidação explícita,
-com guard durável e lock exclusivo, seguida da republicação necessária.
-Isso evita uma leitura publicar JSON novo com ETag antigo e evita
-upgrade de read lock durante a materialização HTTP.</p>
-<p>Regressão focal:
-<code>CachedOpenApiDocumentServiceStrictPromotionTest</code> cobre fonte
-alterada, promoção idêntica e primeiro acesso strict;
-<code>CachedOpenApiDocumentServiceRefreshTest</code> preserva as provas
-do fluxo de atualização, guard e limpeza de hashes. Este corretivo não
-cria uma revisão autoritativa da origem nem remove o custo de composição
-do collision domain; esses gates continuam anteriores à adoção P1.</p>
-<h3 id="preparação-fora-do-lock-público">Preparação fora do lock
-público</h3>
-<p>A composição multigrupo usa o mutex de preparação e o orçamento do
-cliente oficial descritos no <a
-href="BULK-OPERATION-LIFECYCLE.md#preparação-e-orçamento-do-cliente-oficial">lifecycle</a>.
-Leitores podem materializar o cache confirmado durante as buscas HTTP; o
-callback final continua protegido contra invalidação. A revisão local é
-reconferida e drift não-alvo ainda suspende antes de limpar. Expiração,
-troca de factory ou invalidação durante preparação não projetam
-<code>bulk</code>; o contrato comum da action pode ser montado uma única
-vez. Depois do início dessa montagem, a resposta depende do recheck
-final e uma falha propaga sem reconstrução silenciosa. O corte não
-autoriza reutilização indefinida da origem nem garante cancelamento de
-trabalho do servidor.</p>
+<h3 id="leitura-publicada-e-atualização-explícita">Leitura publicada e
+atualização explícita</h3>
+<p>Com o lifecycle governado instalado,
+<code>getDocumentForGroupStrict</code> e o refresh solicitado dentro do
+scope publicado devolvem cópia defensiva do grupo da fotografia
+instalada, sem fetch ou promoção da origem dinâmica. Fora desse scope,
+refresh explícito passa pela suspensão/invalidação governada antes de
+limpar caches; não é ferramenta para recuperar localmente réplica fria.
+O comportamento strict de promoção/comparação continua aplicável ao
+serviço sem publicação governada, provado pelos testes de strict
+promotion e refresh.</p>
+<h3 id="preparação-e-orçamento">Preparação e orçamento</h3>
+<p>Preparação HTTP acontece somente para publicação ou reconciliação
+explícita, fora de transações JDBC e do lock público, conforme <a
+href="BULK-OPERATION-LIFECYCLE.md#orçamentos-e-aceite">o lifecycle</a>.
+O orçamento agregado do cliente e seus fences de origem/transporte
+continuam obrigatórios. Discovery ordinário reutiliza a fotografia
+instalada por scopes duravelmente validados; a resolução canônica ainda
+pode percorrer grupos/colisões e não promete custo constante. Falhas
+após o início do consumer propagam sem reconstrução silenciosa. O corte
+não garante cancelamento absoluto do servidor, SLA corporativo ou
+validade após o retorno HTTP.</p>
 </body>
 </html>

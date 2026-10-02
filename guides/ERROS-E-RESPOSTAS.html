@@ -312,6 +312,15 @@ ausente)</li>
 (parâmetro obrigatório ausente)</li>
 <li><code>ResponseStatusException</code> → preserva status original
 (ex.: 400/403/404/409/410/429/503), sem rebaixar para 500</li>
+<li>Candidato R2:
+<code>GovernedOpenApiPublicationUnavailableException</code> → 503 com
+categoria <code>SYSTEM</code> e código
+<code>GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE</code>. A leitura
+governada sem fotografia utilizável não recaptura a origem nem repete
+mutações; a recuperação exige publicação/reconciliação explícita. O
+handler usa mensagem pública fixa e não expõe a causa privada. Demais
+<code>IllegalStateException</code> não recebem esse mapeamento. Ver <a
+href="../spec/BULK-OPERATION-LIFECYCLE.md">lifecycle governado</a>.</li>
 <li><code>InvalidFilterPayloadException</code> → 400 (payload de filtro
 inválido)</li>
 <li><code>BusinessException</code> → 400 com categoria
