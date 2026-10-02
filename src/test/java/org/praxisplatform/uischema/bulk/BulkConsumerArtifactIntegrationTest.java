@@ -54,6 +54,8 @@ class BulkConsumerArtifactIntegrationTest {
         Path project = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
         assertTrue(Files.isRegularFile(project.resolve("pom.xml")), "test must run from the starter root");
 
+        requireCommittedProduction(project);
+
         String gitRevision = capture(project, "git", "rev-parse", "HEAD").strip();
         assertTrue(gitRevision.matches("[0-9a-f]{40}"), "expected a full Git revision");
         String srcMainGitTree = capture(project, "git", "rev-parse", "HEAD:src/main").strip();
@@ -228,6 +230,42 @@ class BulkConsumerArtifactIntegrationTest {
                 else Files.copy(path, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
             }
         }
+    }
+
+    @Test
+    void rejectsUncommittedProductionBeforeArchivingAnOlderCandidate() throws Exception {
+        Path project = temporaryDirectory.resolve("source-provenance");
+        Files.createDirectories(project.resolve("src/main"));
+        Path pom = project.resolve("pom.xml");
+        Path source = project.resolve("src/main/fixture.txt");
+        Files.writeString(pom, "committed-pom\n", StandardCharsets.UTF_8);
+        Files.writeString(source, "committed-production\n", StandardCharsets.UTF_8);
+        capture(project, "git", "init", "--quiet");
+        capture(project, "git", "add", "pom.xml", "src/main");
+        capture(project, "git", "-c", "user.name=Praxis Test", "-c", "user.email=praxis-test@example.invalid",
+                "commit", "--quiet", "-m", "provenance baseline");
+        requireCommittedProduction(project);
+        Files.writeString(source, "uncommitted-production\n", StandardCharsets.UTF_8);
+        org.junit.jupiter.api.Assertions.assertThrows(AssertionError.class, () -> requireCommittedProduction(project));
+        Files.writeString(source, "committed-production\r\n", StandardCharsets.UTF_8);
+        requireCommittedProduction(project); // Checkout EOL alone does not change the candidate semantics.
+        Files.writeString(pom, "uncommitted-pom\n", StandardCharsets.UTF_8);
+        org.junit.jupiter.api.Assertions.assertThrows(AssertionError.class, () -> requireCommittedProduction(project));
+        Files.writeString(pom, "committed-pom\n", StandardCharsets.UTF_8);
+        Files.writeString(project.resolve("src/main/untracked.txt"), "new production\n", StandardCharsets.UTF_8);
+        org.junit.jupiter.api.Assertions.assertThrows(AssertionError.class, () -> requireCommittedProduction(project));
+    }
+
+    private static void requireCommittedProduction(Path project) throws Exception {
+        // This consumer builds HEAD, so a green result must not silently certify older production.
+        // Ignore only line endings/trailing whitespace for portable Git checkouts.
+        assertTrue(capture(project, "git", "-c", "core.safecrlf=false", "diff", "--no-ext-diff", "--ignore-space-at-eol", "HEAD",
+                "--", "pom.xml", "src/main").isBlank(),
+                "Commit the intended production sources and POM before the independent artifact proof");
+        assertTrue(capture(project, "git", "ls-files", "--others", "--exclude-standard",
+                "--", "src/main").isBlank(),
+                "Untracked production sources are absent from the committed candidate archive");
+
     }
 
     private static void archiveCommittedCandidate(Path project, Path destination) throws Exception {

@@ -73,11 +73,13 @@ class ArtifactConsumerHttpTest {
         assertThat(sha256(codeSource)).isEqualTo(expectedJarSha256);
         assertThat(Path.of(ApiResource.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath())
                 .isEqualTo(expectedJar);
-        var migrationResource = BulkExecutionMigrator.class.getResource(
-                "/db/praxis-bulk-migrations/V13__bulk_execution_time_order.sql");
-        assertThat(migrationResource).isNotNull();
-        assertThat(migrationResource.getProtocol()).isEqualTo("jar");
-        assertThat(migrationResource.toString()).contains(expectedJar.getFileName().toString());
+        for (String migration : List.of("V13__bulk_execution_time_order.sql",
+                "V14__bulk_openapi_publication.sql", "V15__bulk_operation_publication_fence.sql")) {
+            var migrationResource = BulkExecutionMigrator.class.getResource("/db/praxis-bulk-migrations/" + migration);
+            assertThat(migrationResource).as("packaged migration %s", migration).isNotNull();
+            assertThat(migrationResource.getProtocol()).isEqualTo("jar");
+            assertThat(migrationResource.toString()).contains(expectedJar.getFileName().toString());
+        }
         assertThat(System.getProperty("java.class.path")).doesNotContain(candidateSource.toString())
                 .doesNotContain(candidateSource.resolve("src/main").toString())
                 .doesNotContain(candidateSource.resolve("target/classes").toString());
@@ -114,7 +116,7 @@ class ArtifactConsumerHttpTest {
                     "postgres", Set.of(RUNTIME_ROLE), Set.of(), Set.of(CONTROL_ROLE));
             BulkExecutionMigrator.migrate(deploymentDataSource,
                     Map.of(NAMESPACE, DEPLOYMENT), roles, java.util.List.of(OPERATION));
-            assertThat(migrations).isGreaterThanOrEqualTo(13);
+            assertThat(migrations).isEqualTo(15);
             BulkExecutionMigrator.validate(deploymentDataSource, roles);
             assertThat(tableExists(deploymentDataSource.getConnection(), "praxis_bulk.praxis_bulk_proposal"))
                     .isTrue();
@@ -140,6 +142,58 @@ class ArtifactConsumerHttpTest {
                 ObjectMapper mapper = application.getBean(ObjectMapper.class);
                 HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
 
+                // A registered, cold R2 node must deny public reads rather than fetch a dynamic schema.
+                var coldOpenApi = httpGet(http, baseUrl + "/v3/api-docs/artifact-consumer");
+                assertThat(coldOpenApi.statusCode()).isEqualTo(503);
+                assertThat(coldOpenApi.headers().firstValue("Cache-Control")).contains("no-store");
+                var coldSchema = httpGet(http, baseUrl
+                        + "/schemas/filtered?path=%2Fartifact-items%2Factions%2Fbulk-approve%2Fevaluation"
+                        + "&operation=post&schemaType=request");
+                assertThat(coldSchema.statusCode()).as(coldSchema.body()).isEqualTo(503);
+                var coldFailure = mapper.readTree(coldSchema.body());
+                assertThat(coldFailure.path("status").asText()).isEqualTo("failure");
+                assertThat(coldFailure.path("message").asText())
+                        .isEqualTo("Governed OpenAPI publication is temporarily unavailable.");
+                assertThat(coldFailure.at("/errors/0/category").asText()).isEqualTo("SYSTEM");
+                assertThat(coldFailure.toString()).doesNotContain(
+                        "No governed OpenAPI publication is installed locally", "praxis_bulk");
+                assertThat(coldFailure.at("/errors/0/code").asText())
+                        .isEqualTo("GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE");
+                var admin = new org.springframework.jdbc.core.JdbcTemplate(deploymentDataSource);
+                assertThat(admin.queryForObject("""
+                        select state from praxis_bulk.praxis_bulk_operation_control
+                         where namespace_id=? and operation_id=?
+                        """, String.class, NAMESPACE, ArtifactBulkController.CONFIRMATION)).isEqualTo("UNCOMPOSED");
+                assertThat(admin.queryForObject("""
+                        select state from praxis_bulk.praxis_bulk_openapi_publication where deployment_id=?
+                        """, String.class, DEPLOYMENT)).isEqualTo("UNCOMPOSED");
+                evidence.setProperty("bulk.coldPublishedReadsDenied", "true");
+
+                // The existing test route invokes publish/requireReady inside the actual HTTP request.
+                // Its production producer filter attests root, all groups and swagger-config captures.
+                JsonNode lifecyclePublication = responseJson(httpPost(http,
+                        baseUrl + "/_test/bulk-lifecycle/publish-and-verify", null), mapper);
+                assertThat(lifecyclePublication.path("verified").asBoolean()).isTrue();
+                assertThat(lifecyclePublication.path("generation").asLong()).isEqualTo(1L);
+                assertThat(new org.springframework.jdbc.core.JdbcTemplate(deploymentDataSource).queryForObject(
+                        "select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?",
+                        String.class, NAMESPACE, ArtifactBulkController.CONFIRMATION)).isEqualTo("READY");
+                evidence.setProperty("bulk.readyPublished", "true");
+
+                assertThat(application.getBean(org.praxisplatform.uischema.openapi.OpenApiDocumentService.class)
+                        .hasLocalPublishedBulkOpenApiPublication()).isTrue();
+                assertThat(admin.queryForObject("""
+                        select count(*) from praxis_bulk.praxis_bulk_operation_control c
+                        join praxis_bulk.praxis_bulk_openapi_publication p
+                          on p.deployment_id=?
+                         where c.namespace_id=? and c.operation_id=? and c.state='READY' and c.generation=1
+                           and p.state='PUBLISHED' and p.generation>0
+                           and c.publication_generation=p.generation
+                           and c.publication_document_digest=p.document_digest
+                           and p.document_digest ~ '^sha256:[0-9a-f]{64}$'
+                        """, Integer.class, DEPLOYMENT, NAMESPACE, ArtifactBulkController.CONFIRMATION)).isEqualTo(1);
+                evidence.setProperty("bulk.readyPublicationTupleMatches", "true");
+
                 JsonNode evaluationRequestSchema = responseJson(httpGet(http, baseUrl
                         + "/schemas/filtered?path=%2Fartifact-items%2Factions%2Fbulk-approve%2Fevaluation"
                         + "&operation=post&schemaType=request"), mapper);
@@ -148,8 +202,16 @@ class ArtifactConsumerHttpTest {
                 assertThat(evaluationRequestSchema.at("/properties/targetIds/items/minLength").asInt())
                         .isEqualTo(1);
 
-                JsonNode openApi = responseJson(awaitGet(http,
-                        baseUrl + "/v3/api-docs/artifact-consumer"), mapper);
+                // All three publication surfaces now come from the installed attested photograph.
+                JsonNode publishedRoot = responseJson(httpGet(http, baseUrl + "/v3/api-docs"), mapper);
+                assertThat(publishedRoot.path("openapi").asText()).startsWith("3.");
+                assertThat(publishedRoot.path("paths").has("/artifact-items/actions/bulk-approve")).isTrue();
+                JsonNode publishedConfig = responseJson(httpGet(http, baseUrl + "/v3/api-docs/swagger-config"), mapper);
+                assertThat(publishedConfig.path("urls").findValuesAsText("name")).contains("artifact-consumer");
+                evidence.setProperty("http.publishedRootAndConfig", "true");
+                var openApiResponse = awaitGet(http, baseUrl + "/v3/api-docs/artifact-consumer");
+                assertThat(openApiResponse.headers().firstValue("Cache-Control")).contains("no-store");
+                JsonNode openApi = responseJson(openApiResponse, mapper);
                 assertOperation(openApi, "/artifact-items/bulk/proposals/{proposalId}", "get",
                         ArtifactBulkController.PROPOSAL, "ArtifactBulkRouteResponse");
                 assertOperation(openApi, "/artifact-items/bulk/proposals/{proposalId}/results", "get",
@@ -167,15 +229,6 @@ class ArtifactConsumerHttpTest {
                 evidence.setProperty("http.openApi", "true");
                 evidence.setProperty("http.openApiReserializedJsonUtf8Sha256", sha256(
                         mapper.writeValueAsBytes(openApi)));
-
-                JsonNode lifecyclePublication = responseJson(httpPost(http,
-                        baseUrl + "/_test/bulk-lifecycle/publish-and-verify", null), mapper);
-                assertThat(lifecyclePublication.path("verified").asBoolean()).isTrue();
-                assertThat(lifecyclePublication.path("generation").asLong()).isEqualTo(1L);
-                assertThat(new org.springframework.jdbc.core.JdbcTemplate(deploymentDataSource).queryForObject(
-                        "select state from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?",
-                        String.class, NAMESPACE, ArtifactBulkController.CONFIRMATION)).isEqualTo("READY");
-                evidence.setProperty("bulk.readyPublished", "true");
 
                 assertJson(httpGet(http, baseUrl + "/artifact-items/bulk/proposals/proposal-1"),
                         mapper, "kind", "proposal");
@@ -220,6 +273,10 @@ class ArtifactConsumerHttpTest {
                 assertThat(action).isNotNull();
                 assertBulkFilteredProjections(http, baseUrl, mapper, action, openApi, evidence);
                 evidence.setProperty("http.actionCatalog", "true");
+                var repeatedOpenApi = httpGet(http, baseUrl + "/v3/api-docs/artifact-consumer");
+                assertThat(repeatedOpenApi.statusCode()).isEqualTo(200);
+                assertThat(repeatedOpenApi.body()).isEqualTo(openApiResponse.body());
+                evidence.setProperty("http.publishedGroupBytesStable", "true");
             }
         }
 
@@ -286,6 +343,7 @@ class ArtifactConsumerHttpTest {
                 + "on praxis_bulk.praxis_bulk_allocation to " + role);
         admin.execute("grant select on praxis_bulk.praxis_bulk_tombstone to " + role);
         admin.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to " + role);
+        admin.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to " + role);
         if (Boolean.TRUE.equals(admin.queryForObject(
                 "select to_regprocedure('praxis_bulk.assert_preview_integrity_complete()') is not null", Boolean.class))) {
             admin.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to " + role);
@@ -296,7 +354,9 @@ class ArtifactConsumerHttpTest {
         assertThat(role).matches("[a-z][a-z0-9_]{0,62}");
         var admin = new org.springframework.jdbc.core.JdbcTemplate(schemaOwner);
         admin.execute("grant usage on schema praxis_bulk to " + role);
-        admin.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text) to "
+        admin.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to "
+                + role);
+        admin.execute("grant execute on function praxis_bulk.transition_openapi_publication(text,text,bigint,text,text) to "
                 + role);
     }
 
