@@ -2,7 +2,9 @@ package org.praxisplatform.uischema.bulk;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.time.Duration;
 import java.util.Objects;
+import org.praxisplatform.uischema.action.ActionCollectionAtomicity;
 import org.praxisplatform.uischema.hash.SchemaCanonicalizer;
 
 /** Builds the server-side operational fingerprint from the verified structural segment and host binding. */
@@ -46,8 +48,13 @@ final class BulkOperationalDescriptorComposer {
             throw new IllegalArgumentException("Provider is not bound to this canonical confirmation operation");
         if (!profile.operationModes().equals(java.util.Set.of(structural.mode())))
             throw new IllegalArgumentException("Provider profile does not allow this declared operation mode");
-        if (structural.atomicity() != org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM)
-            throw new IllegalArgumentException("This P1 descriptor composer only supports the proven PER_ITEM profile");
+        if (structural.atomicity() == ActionCollectionAtomicity.ATOMIC) {
+            if (structural.mode() == BulkMode.DOMAIN_COMMAND || profile.maxTargets() > 50
+                    || profile.unitDeadline().compareTo(Duration.ofSeconds(5)) > 0)
+                throw new IllegalArgumentException("ATOMIC composition requires a bounded CRUD update profile");
+        } else if (structural.atomicity() != ActionCollectionAtomicity.PER_ITEM) {
+            throw new IllegalArgumentException("Bulk composition requires supported atomicity");
+        }
         Integer actionLimit = structural.mode() == BulkMode.DOMAIN_COMMAND
                 ? structural.action().execution().selection().maxItems() : null;
         if (actionLimit != null && profile.maxTargets() > actionLimit)

@@ -30,8 +30,9 @@ public record BulkExecutionContract(
         EditableFields editableFields) {
 
     public BulkExecutionContract {
-        if (mode == null || atomicity != ActionCollectionAtomicity.PER_ITEM)
-            throw new IllegalArgumentException("This projection requires a mode and PER_ITEM atomicity");
+        if (mode == null || (atomicity != ActionCollectionAtomicity.PER_ITEM
+                && atomicity != ActionCollectionAtomicity.ATOMIC))
+            throw new IllegalArgumentException("This projection requires a mode and supported atomicity");
         Objects.requireNonNull(evaluationOperation, "evaluationOperation");
         Objects.requireNonNull(confirmationOperation, "confirmationOperation");
         Objects.requireNonNull(proposalOperation, "proposalOperation");
@@ -45,6 +46,12 @@ public record BulkExecutionContract(
         if (!selectionModes.equals(List.of(BulkSelectionMode.EXPLICIT))
                 || !executionModes.equals(List.of(BulkExecutionMode.SYNC)))
             throw new IllegalArgumentException("This projection supports only P1 EXPLICIT/SYNC");
+        if (atomicity == ActionCollectionAtomicity.ATOMIC
+                && (mode == BulkMode.DOMAIN_COMMAND || limits.maxTargets() > 50
+                        || limits.unitDeadlineMillis() > 5_000))
+            throw new IllegalArgumentException("ATOMIC projection requires a bounded CRUD update profile");
+        if (atomicity == ActionCollectionAtomicity.PER_ITEM && limits.maxTargets() > 200)
+            throw new IllegalArgumentException("PER_ITEM projection exceeds its target ceiling");
         if (evaluationOperation.requestSchema() == null || confirmationOperation.requestSchema() == null
                 || proposalOperation.requestSchema() != null || proposalResultsOperation.requestSchema() != null
                 || executionOperation.requestSchema() != null || resultsOperation.requestSchema() != null
@@ -54,6 +61,24 @@ public record BulkExecutionContract(
             throw new IllegalArgumentException("Only updates require editable fields; only commands accept parameters");
         if (parametersPointer != null && !"/properties/parameters".equals(parametersPointer))
             throw new IllegalArgumentException("parametersPointer must identify the canonical parameters property");
+    }
+
+    /** Stable CRUD capability identity; domain commands retain their workflow action identity. */
+    public String crudCapabilityId() {
+        return crudCapabilityId(mode, atomicity);
+    }
+
+    static String crudCapabilityId(BulkMode mode, ActionCollectionAtomicity atomicity) {
+        String base = switch (Objects.requireNonNull(mode, "mode")) {
+            case UNIFORM_UPDATE -> "bulk-update";
+            case PER_ITEM_UPDATE -> "bulk-update-items";
+            case DOMAIN_COMMAND -> throw new IllegalArgumentException("Domain commands have no CRUD capability identity");
+        };
+        return switch (Objects.requireNonNull(atomicity, "atomicity")) {
+            case PER_ITEM -> base;
+            case ATOMIC -> base + "-atomic";
+            default -> throw new IllegalArgumentException("Unsupported CRUD bulk atomicity");
+        };
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

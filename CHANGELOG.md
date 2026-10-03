@@ -2,6 +2,18 @@
 
 All notable changes to this module will be documented in this file.
 
+## [Unreleased] — candidato de composição CRUD ATOMIC
+
+- Deriva as identidades CRUD de `(mode, atomicity)`, preservando `bulk-update` e
+  `bulk-update-items` e acrescentando suas variantes `-atomic`. Declaração duplicada
+  do trio resource/mode/atomicity é rejeitada.
+- Compõe ATOMIC somente para UPDATE EXPLICIT/SYNC, 1–50 alvos e até 5 segundos;
+  DOMAIN_COMMAND/ATOMIC permanece fechado. Provider, controle e refs são exatos;
+  a fence global e a publicação individual por variante permanecem coerentes.
+- 83 testes focais de estrutura, composição, lifecycle PostgreSQL e capabilities
+  HTTP aprovados; consumidor Maven/revisão final/skills são gates separados.
+  Este candidato não altera o artefato publicado rc.150 nem prova ATOMIC no host.
+
 ## [8.0.0-rc.150] — publicado em 03/10/2026
 
 - Publica o núcleo Java ATOMIC/V16 e ERROR-WIRE após correções de preservação de

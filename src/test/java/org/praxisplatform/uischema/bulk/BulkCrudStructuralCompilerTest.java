@@ -69,6 +69,33 @@ class BulkCrudStructuralCompilerTest {
     }
 
     @Test
+    void bothAtomicitiesOfEachUpdateModeKeepDistinctOperationsInOneGroupSnapshot() {
+        try (var context = context(AtomicCrudController.class)) {
+            var documents = new Documents(atomicDocument());
+            var descriptors = compile(context, mapper(), documents);
+            assertEquals(4, descriptors.size());
+            assertEquals(1, documents.reads.get());
+            assertEquals(Set.of("crud.uniform", "crud.items", "crud.uniform-atomic", "crud.items-atomic"),
+                    descriptors.stream().map(value -> value.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION)
+                            .reference().operationId()).collect(java.util.stream.Collectors.toSet()));
+            for (var descriptor : descriptors) {
+                assertEquals(descriptor.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION)
+                        .reference().operationId().endsWith("-atomic")
+                                ? ActionCollectionAtomicity.ATOMIC : ActionCollectionAtomicity.PER_ITEM,
+                        descriptor.atomicity());
+                assertEquals("crud", descriptor.openApiGroup());
+                assertEquals(7, descriptor.operations().size());
+                assertEquals(2, descriptor.operations().stream().filter(value -> value.requestSchema().isPresent()).count());
+            }
+            var uniform = descriptors.stream().filter(value -> "crud.uniform".equals(value.operation(
+                    BulkOperationStructuralDescriptor.Role.CONFIRMATION).reference().operationId())).findFirst().orElseThrow();
+            var atomic = descriptors.stream().filter(value -> "crud.uniform-atomic".equals(value.operation(
+                    BulkOperationStructuralDescriptor.Role.CONFIRMATION).reference().operationId())).findFirst().orElseThrow();
+            assertNotEquals(BulkStructuralSegmentDigest.compute(uniform), BulkStructuralSegmentDigest.compute(atomic));
+        }
+    }
+
+    @Test
     void mapperNamingAndNullHandlingComeFromTheConfiguredMapper() {
         try (var context = context(CrudController.class)) {
             assertThrows(IllegalArgumentException.class, () -> compile(context, new ObjectMapper(), new Documents(document())));
@@ -268,6 +295,19 @@ class BulkCrudStructuralCompilerTest {
         response(update);
         return root;
     }
+    static ObjectNode atomicDocument() {
+        var document = document();
+        var paths = (ObjectNode) document.path("paths");
+        for (String mode : List.of("uniform", "items")) {
+            for (String suffix : List.of("/evaluation", "")) {
+                var source = (ObjectNode) paths.path("/crud-items/bulk/" + mode + suffix).path("post");
+                var target = source.deepCopy();
+                target.put("operationId", "crud." + mode + "-atomic" + (suffix.isEmpty() ? "" : ".evaluation"));
+                paths.putObject("/crud-items/bulk/" + mode + "-atomic" + suffix).set("post", target);
+            }
+        }
+        return document;
+    }
     static ObjectNode operation(ObjectNode paths, String path, String method, String id) { return paths.putObject(path).putObject(method).put("operationId", id); }
     static ObjectNode request(ObjectNode op) { return op.putObject("requestBody").putObject("content").putObject("application/json").putObject("schema").put("type", "object"); }
     static void response(ObjectNode op) { op.putObject("responses").putObject("200").putObject("content").putObject("application/json").putObject("schema").put("type", "object").putObject("properties").putObject("proposalId").put("type", "string"); }
@@ -310,6 +350,36 @@ class BulkCrudStructuralCompilerTest {
         @Operation(operationId = "crud.uniform") @PostMapping("/bulk/uniform") public Confirmation confirm(@RequestBody Confirmation body) { return body; }
         @BulkOperation(mode = BulkMode.PER_ITEM_UPDATE, evaluationOperationId = "crud.items.evaluation", atomicity = ActionCollectionAtomicity.PER_ITEM)
         @Operation(operationId = "crud.items") @PostMapping("/bulk/items") public Confirmation confirmItems(@RequestBody Confirmation body) { return body; }
+    }
+    @ApiResource(value = "/crud-items", resourceKey = RESOURCE)
+    @BulkResourceOperations(proposalOperationId = "crud.proposal", proposalResultsOperationId = "crud.proposal-results",
+            executionOperationId = "crud.execution", executionResultsOperationId = "crud.results", cancelOperationId = "crud.cancel",
+            updateSourceOperationId = SOURCE, protectedUpdateFields = {"identity", "revision"})
+    public static class AtomicCrudController extends CrudController {
+        @Operation(operationId = "crud.uniform-atomic.evaluation") @PostMapping("/bulk/uniform-atomic/evaluation")
+        public Confirmation evaluateAtomic(@RequestBody Evaluation body) { return null; }
+        @Operation(operationId = "crud.items-atomic.evaluation") @PostMapping("/bulk/items-atomic/evaluation")
+        public Confirmation evaluateItemsAtomic(@RequestBody Evaluation body) { return null; }
+        @BulkOperation(mode = BulkMode.UNIFORM_UPDATE, evaluationOperationId = "crud.uniform-atomic.evaluation",
+                atomicity = ActionCollectionAtomicity.ATOMIC)
+        @Operation(operationId = "crud.uniform-atomic") @PostMapping("/bulk/uniform-atomic")
+        public Confirmation confirmAtomic(@RequestBody Confirmation body) { return body; }
+        @BulkOperation(mode = BulkMode.PER_ITEM_UPDATE, evaluationOperationId = "crud.items-atomic.evaluation",
+                atomicity = ActionCollectionAtomicity.ATOMIC)
+        @Operation(operationId = "crud.items-atomic") @PostMapping("/bulk/items-atomic")
+        public Confirmation confirmItemsAtomic(@RequestBody Confirmation body) { return body; }
+    }
+    @ApiResource(value = "/crud-items", resourceKey = RESOURCE)
+    @BulkResourceOperations(proposalOperationId = "crud.proposal", proposalResultsOperationId = "crud.proposal-results",
+            executionOperationId = "crud.execution", executionResultsOperationId = "crud.results", cancelOperationId = "crud.cancel",
+            updateSourceOperationId = SOURCE, protectedUpdateFields = {"identity", "revision"})
+    public static class DuplicateAtomicCrudController extends AtomicCrudController {
+        @Operation(operationId = "crud.uniform-atomic-again.evaluation") @PostMapping("/bulk/uniform-atomic-again/evaluation")
+        public Confirmation evaluateAtomicAgain(@RequestBody Evaluation body) { return null; }
+        @BulkOperation(mode = BulkMode.UNIFORM_UPDATE, evaluationOperationId = "crud.uniform-atomic-again.evaluation",
+                atomicity = ActionCollectionAtomicity.ATOMIC)
+        @Operation(operationId = "crud.uniform-atomic-again") @PostMapping("/bulk/uniform-atomic-again")
+        public Confirmation confirmAtomicAgain(@RequestBody Confirmation body) { return body; }
     }
     @ApiResource(value = "/crud-items", resourceKey = RESOURCE)
     @BulkResourceOperations(proposalOperationId = "crud.proposal", proposalResultsOperationId = "crud.proposal-results",

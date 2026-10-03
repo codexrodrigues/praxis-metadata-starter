@@ -4,8 +4,8 @@ Estado em 03/10/2026: núcleo Java e V16 publicados no Metadata `8.0.0-rc.150`,
 tag `v8.0.0-rc.150`, apontando para o commit
 `986d6f3f8268bd6c3d85aa4b3e87036050af05a5`. O workflow oficial `37135766711`
 concluiu, e POM/JAR foram conferidos no Maven Central. A adoção sem override no host
-está em validação; a composição operacional e as rotas HTTP ATOMIC continuam
-pendentes. Esta nota não anuncia READY, adoção HTTP ATOMIC ou garantia B4–B7.
+está em validação; publicação/adoção da composição operacional ATOMIC e as
+rotas HTTP ATOMIC do host continuam pendentes. Esta nota não anuncia READY, adoção HTTP ATOMIC ou garantia B4–B7.
 
 ## Fonte e aderência
 
@@ -162,3 +162,25 @@ independente do mixin do mapper. Plain ObjectMapper e Spring/MVC devem preservar
 campos tipados únicos, extensões flat e rejeição do wrapper `properties` de entrada.
 Essas correções não habilitam composer/HTTP ATOMIC ou substituem a disponibilidade
 pública do artefato e a adoção sem override pelo host.
+
+
+## Planejamento do incremento de composição B4 (ainda não publicado)
+
+Baseline Metadata main `7206c53009e3a4ef9921d3e3df8a0282108ee086`. Esta seção preserva o inventário histórico anterior ao patch, revisado por B003; não altera o estado publicado rc.150. No candidato atual, a composição já foi implementada e passou em 83 testes focais. Consumidor Maven, revisão final, skills, integração/publicação e HTTP ATOMIC do host são gates separados.
+
+
+**Classificação:** arquitetural/contrato-publico; desenho anterior ao patch. Adoção rc.150 e esta decisão são gates distintos. A decisão não publica capability, endpoint ou READY; a implementação requer revisão e provas próprias.
+
+**Inventário de aderência.** `atomicity` já pertence ao descriptor, binding, fingerprint estrutural e `BulkExecutionContract`; as anotações e o compiler já distinguem operações globais de avaliação/confirmação. O kernel ATOMIC e V16 estão publicados em rc.150. Na baseline anterior ao patch, `BulkOperationalDescriptorComposer` e `BulkExecutionContract` restringiam composição operacional a PER_ITEM; `CapabilityOperation`, a projeção de updates e a cardinalidade em `BulkOperationLifecycle` distinguiam apenas mode. A classificação histórica `suportado-parcialmente` identificava a falta de materialização e invariantes para coexistência, não um segundo modelo de operação. O consumidor privado do host não substitui provider/mapping/composição/HTTP reais.
+
+**Decisão canônica.** A identidade local CRUD é derivada por regra fechada de `(mode, atomicity)`: UNIFORM_UPDATE/PER_ITEM → `bulk-update`; PER_ITEM_UPDATE/PER_ITEM → `bulk-update-items`; UNIFORM_UPDATE/ATOMIC → `bulk-update-atomic`; PER_ITEM_UPDATE/ATOMIC → `bulk-update-items-atomic`. Preservar as duas identidades PER_ITEM e seu wire. Uma única declaração por `(resourceKey, mode, atomicity)`; repetição é erro, nunca escolha silenciosa. A regra vive em um único dono canônico Metadata e é reutilizada por validação/projeção, sem campo novo em annotation, enum artificial de todas as capabilities, registry paralelo ou mapas aninhados de variantes. DOMAIN_COMMAND continua action de domínio com identidade própria; esta regra não o converte em CRUD.
+
+A autoridade durável continua `(namespace, confirmationOperationId)`; não usar capability local como chave do ledger ou substituir operationId por alias. Provider e operações HTTP globais explícitos são exclusivos de cada variante. Os cinco handlers de leitura/cancelamento continuam compartilhados por resource; avaliação e confirmação ATOMIC são operações próprias, com referências e schemas reais distintos das PER_ITEM. Não renomear/reinterpretar rotas PER_ITEM, nem permitir que request/UI troquem atomicidade. Paths novos devem ser normatizados em ApiPaths no pacote host antes de criar mappings, não derivados no cliente.
+
+**Limites e invariantes.** Composição ATOMIC inicial somente EXPLICIT/SYNC, conjunto inteiro 1–50 e orçamento agregado de 5s. Perfil genérico mantém teto PER_ITEM200; verificar os limites ao combinar descriptor e perfil, sem copiar atomicity para outro contrato. Ausência/duplicação/troca de provider, divergência de confirmationOperationId, mapping/schema/OpenAPI incompatível ou limites inválidos fecham composição. Provider, identidade e registro de controle/generation/fingerprint são exatos por variante. A fotografia de publicação e sua fence são globais: suspender uma identidade invalida a fotografia e fecha todas as variantes; nenhuma outra ganha autoridade por essa suspensão. Republicar uma identidade recaptura e valida a fotografia global, mas somente essa variante volta a READY e à projeção de capabilities; as demais permanecem indisponíveis até sua própria publicação. Não confundir a fence global com autorização ou prontidão coletiva. O protocolo mantém estados duráveis e ordem de locks de domínio P3 já aprovada G→E→M→P, subordinada à ordem operacional de binding/publicação/control/execution/evidência; esta decisão de discovery não altera transação, fences, receipts ou recuperação e não autoriza novas mutações durante recuperação.
+
+**Mapa de impacto.** Fonte: Metadata composer, BulkExecutionContract, CapabilityOperation e BulkOperationLifecycle, compiler e respectivos testes. Consumidor concreto: MissaoParticipanteController/provider do quickstart, duas modalidades de atualização e cinco handlers compartilhados; integração ATOMIC futura reutiliza consumer privado após composição real. Derivados: docs canônicas de capabilities/ATOMIC, runbooks host e skills concurrency/discovery. Corpus/receita pública só após prova HTTP; Angular/landing permanecem depois B7. Risco público: novas identidades de capability e cardinalidade; PER_ITEM deve permanecer byte a byte compatível. Não há mudança no formato do request de confirmação, ledger ou token.
+
+**Provas de aceite antes da publicação.** Coexistência PER_ITEM/ATOMIC para mesmo resource e mode; rejeição de duplicatas do mesmo trio; controle exato por variante, suspensão invalidando a fotografia global e republicação reabrindo somente a identidade publicada, com as demais ausentes até publicação própria; provider ausente/trocado/duplicado não executável; limite ATOMIC1/50 aceito e51 rejeitado antes de gravar proposta/mutação, PER_ITEM200 preservado; refs/schema/fingerprint consistentes no mesmo documento OpenAPI e cinco handlers sem body. No host real: avaliar/confirmar com provider ATOMIC, provar domínio e receipt conjunto na mesma transação, rollback integral, replay sem domínio, autorização/precondições e leitura/cancelamento existentes, em PostgreSQL e HTTP. Prova privada existente é complementar; não declarar T14/T15 ou B4–B7 concluídos por este desenho.
+
+**Ordem registrada antes do patch (estado atual no checkpoint acima):** adoção pública rc.150/verify/PR364 e implementação canônica podem avançar em paralelo apenas com isolamento comprovado: host congelado usa JAR Central imutável, novo checkout Metadata tem fonte/target próprios, sem instalar coordenada pública, publicar ou alterar a campanha host. Antes da escrita registrar baseline/recursos e revisar esta decisão; implementar materialização e testes canônicos delimitados; revisão independente; consumer real host e provas HTTP/PG; docs/skills e integração com SHAs exatos. Nenhuma release adicional é autorizada apenas pela aprovação do desenho.

@@ -33,6 +33,30 @@ import org.praxisplatform.uischema.annotation.BulkOperation;
 class BulkResourceOperationBindingsTest {
 
     @Test
+    void fourUpdateBindingsShareOnlyTheFiveBodylessLifecycleHandlers() {
+        try (var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.AtomicCrudController.class)) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            assertTrue(bindings.diagnostics().isEmpty(), bindings.diagnostics().toString());
+            assertEquals(4, bindings.bulkOperations().size());
+            assertEquals(java.util.Set.of("crud.uniform", "crud.items", "crud.uniform-atomic", "crud.items-atomic"),
+                    bindings.bulkOperations().stream().map(BulkOperationBinding::confirmationOperationId)
+                            .collect(java.util.stream.Collectors.toSet()));
+            assertEquals(2, bindings.bulkOperations().stream()
+                    .filter(binding -> binding.atomicity() == ActionCollectionAtomicity.ATOMIC).count());
+            for (String role : List.of("crud.proposal", "crud.proposal-results", "crud.execution", "crud.results", "crud.cancel")) {
+                assertTrue(bindings.requiresBodylessLifecycle(role));
+                assertTrue(bindings.handlerFor(role).isPresent());
+            }
+            for (var binding : bindings.bulkOperations()) {
+                assertFalse(bindings.requiresBodylessLifecycle(binding.confirmationOperationId()));
+                assertTrue(bindings.handlerFor(binding.evaluationOperationId()).isPresent());
+                assertTrue(bindings.handlerFor(binding.confirmationOperationId()).isPresent());
+            }
+        }
+    }
+
+    @Test
     void sameBindingDrivesStrictResolverAndOpenApiOperationIdentity() {
         try (AnnotationConfigWebApplicationContext context = context(CompleteBulkController.class)) {
             RequestMappingHandlerMapping mvc = context.getBean(RequestMappingHandlerMapping.class);

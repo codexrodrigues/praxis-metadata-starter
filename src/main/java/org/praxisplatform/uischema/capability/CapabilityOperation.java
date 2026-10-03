@@ -38,11 +38,7 @@ public record CapabilityOperation(
     public CapabilityOperation {
         if (!supported) bulk = null;
         if (bulk != null) {
-            String expected = switch (bulk.mode()) {
-                case UNIFORM_UPDATE -> "bulk-update";
-                case PER_ITEM_UPDATE -> "bulk-update-items";
-                default -> throw new IllegalArgumentException("Capability bulk is only a CRUD update projection");
-            };
+            String expected = bulk.crudCapabilityId();
             if (!expected.equals(id) || !"COLLECTION".equals(scope) || !"POST".equals(preferredMethod))
                 throw new IllegalArgumentException("CRUD bulk requires its canonical collection operation identity");
         }

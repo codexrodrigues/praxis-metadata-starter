@@ -379,6 +379,48 @@ class BulkCrudOperationalLifecyclePostgresTest {
     }
 
     @Test
+    void fourCrudVariantsPublishIndependentlyInsideOneGovernedPhotograph() throws Exception {
+        try (var fixture = atomicFixture()) {
+            var ids = List.of("crud.uniform", "crud.items", "crud.uniform-atomic", "crud.items-atomic");
+            for (String id : ids) assertEquals(1, fixture.lifecycle.publish(identity(id), 0).generation());
+            assertEquals(1, fixture.fresh.get(), "one global OpenAPI photograph covers all four operations");
+            var projected = fixture.lifecycle.projectReadyCapabilities("crud.items", contracts -> {
+                assertUnlocked(fixture.documents);
+                assertEquals(Set.of("bulk-update", "bulk-update-items", "bulk-update-atomic", "bulk-update-items-atomic"),
+                        contracts.keySet());
+                for (String id : ids) assertEquals(1, fixture.lifecycle.requireReady(identity(id)).generation());
+                return contracts;
+            });
+            assertEquals(org.praxisplatform.uischema.action.ActionCollectionAtomicity.ATOMIC,
+                    projected.get("bulk-update-atomic").atomicity());
+            assertEquals(org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM,
+                    projected.get("bulk-update").atomicity());
+            assertEquals(1, fixture.fresh.get(), "discovery must use the installed photograph");
+            var atomicProvider = fixture.providers.get(2);
+            atomicProvider.revision = "changed";
+            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(identity("crud.uniform-atomic")));
+            assertEquals(1, fixture.lifecycle.requireReady(identity("crud.uniform")).generation(),
+                    "provider drift is bound to the exact confirmation identity");
+            atomicProvider.revision = "r1";
+            assertEquals(2, fixture.lifecycle.suspend(identity("crud.uniform-atomic"), 1));
+            for (String id : ids) assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(identity(id)),
+                    "global suspension invalidates every variant, including still READY operation rows");
+            assertTrue(fixture.lifecycle.<Boolean>projectReadyCapabilities("crud.items", Map::isEmpty).booleanValue());
+        }
+    }
+
+    @Test
+    void duplicateModeAndAtomicityInOneResourceCannotPublishAnyVariant() throws Exception {
+        try (var fixture = fixture(new Store(List.of("crud.uniform", "crud.items", "crud.uniform-atomic", "crud.items-atomic")),
+                true, true, true)) {
+            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.publish(identity("crud.uniform"), 0));
+            assertEquals("UNCOMPOSED", fixture.store.state("crud.uniform").state());
+            assertEquals("UNCOMPOSED", fixture.store.state("crud.uniform-atomic").state());
+            assertTrue(fixture.lifecycle.<Boolean>projectReadyCapabilities("crud.items", Map::isEmpty).booleanValue());
+        }
+    }
+
+    @Test
     void finalFenceRejectsSuspensionRepublishAndCaughtProviderDriftWithoutRetry() throws Exception {
         try (var fixture = fixture()) {
             fixture.lifecycle.publish(identity("crud.uniform"), 0);
@@ -446,10 +488,26 @@ class BulkCrudOperationalLifecyclePostgresTest {
         return fixture(new Store(List.of("crud.uniform", "crud.items")), true);
     }
 
+    private Fixture atomicFixture() throws Exception {
+        return fixture(new Store(List.of("crud.uniform", "crud.items", "crud.uniform-atomic", "crud.items-atomic")), true, true);
+    }
+
     private Fixture fixture(Store store, boolean ownsStore) throws Exception {
-        var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class);
+        return fixture(store, ownsStore, false);
+    }
+
+    private Fixture fixture(Store store, boolean ownsStore, boolean atomic) throws Exception {
+        return fixture(store, ownsStore, atomic, false);
+    }
+
+    private Fixture fixture(Store store, boolean ownsStore, boolean atomic, boolean duplicate) throws Exception {
+        var controller = duplicate ? BulkCrudStructuralCompilerTest.DuplicateAtomicCrudController.class
+                : atomic ? BulkCrudStructuralCompilerTest.AtomicCrudController.class
+                : BulkCrudStructuralCompilerTest.CrudController.class;
+        var context = BulkCrudStructuralCompilerTest.context(controller);
         var fresh = new AtomicInteger();
-        var value = BulkCrudOperationalCompositionTest.document();
+        var value = duplicate ? BulkCrudOperationalCompositionTest.duplicateAtomicDocument()
+                : atomic ? BulkCrudOperationalCompositionTest.atomicDocument() : BulkCrudOperationalCompositionTest.document();
         value.put("openapi", "3.0.3");
         value.putObject("info").put("title", "CRUD publication fixture").put("version", "1");
         var filterHolder = new org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationFilter[1];
@@ -497,10 +555,17 @@ class BulkCrudOperationalLifecyclePostgresTest {
         var mvc = context.getBean(RequestMappingHandlerMapping.class);
         var bindings = BulkResourceOperationBindings.from(mvc);
         var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("crud"));
-        var providers = List.of(new BulkCrudOperationalCompositionTest.Provider("crud.uniform", "r1",
-                        BulkCrudOperationalCompositionTest.UNIFORM_POINTER, BulkMode.UNIFORM_UPDATE, store.runtime),
-                new BulkCrudOperationalCompositionTest.Provider("crud.items", "r1",
-                        BulkCrudOperationalCompositionTest.ITEMS_POINTER, BulkMode.PER_ITEM_UPDATE, store.runtime));
+        var providers = new java.util.ArrayList<BulkCrudOperationalCompositionTest.Provider>();
+        providers.add(new BulkCrudOperationalCompositionTest.Provider("crud.uniform", "r1",
+                BulkCrudOperationalCompositionTest.UNIFORM_POINTER, BulkMode.UNIFORM_UPDATE, store.runtime));
+        providers.add(new BulkCrudOperationalCompositionTest.Provider("crud.items", "r1",
+                BulkCrudOperationalCompositionTest.ITEMS_POINTER, BulkMode.PER_ITEM_UPDATE, store.runtime));
+        if (atomic) {
+            providers.add(new BulkCrudOperationalCompositionTest.Provider("crud.uniform-atomic", "r1",
+                    BulkCrudOperationalCompositionTest.UNIFORM_POINTER, BulkMode.UNIFORM_UPDATE, store.runtime));
+            providers.add(new BulkCrudOperationalCompositionTest.Provider("crud.items-atomic", "r1",
+                    BulkCrudOperationalCompositionTest.ITEMS_POINTER, BulkMode.PER_ITEM_UPDATE, store.runtime));
+        }
         var lifecycle = new BulkOperationLifecycle(bindings, resolver, documents, mock(ActionDefinitionRegistry.class),
                 BulkCrudStructuralCompilerTest.mapper(), new FilteredSchemaReferenceResolver(), store.runtime, store.control,
                 List.copyOf(providers));
