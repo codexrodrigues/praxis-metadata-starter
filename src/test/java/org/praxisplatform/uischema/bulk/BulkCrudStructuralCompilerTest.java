@@ -109,8 +109,9 @@ class BulkCrudStructuralCompilerTest {
     void protectedWireNamesMustBeDeserializableWithTheConfiguredMapper() throws Exception {
         try (var context = context(CrudController.class)) {
             var readOnly = mapper().addMixIn(Update.class, ReadOnlyIdentity.class);
-            assertThrows(com.fasterxml.jackson.databind.exc.InvalidDefinitionException.class,
-                    () -> readOnly.readValue("{\"identity\":7,\"revision\":2}", Update.class));
+            var readOnlyDecoded = readOnly.readValue("{\"identity\":7,\"revision\":2}", Update.class);
+            assertNull(readOnlyDecoded.identity(), "the real configured decoder discards the read-only protected input");
+            assertEquals(2L, readOnlyDecoded.revision().longValue());
             var readOnlyFailure = assertThrows(IllegalStateException.class,
                     () -> compile(context, readOnly, new Documents(document())));
             assertTrue(readOnlyFailure.getMessage().contains("absent from the actual DTO or request schema"));

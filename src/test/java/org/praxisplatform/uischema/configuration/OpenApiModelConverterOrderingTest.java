@@ -26,10 +26,10 @@ import org.springdoc.core.converters.FileSupportConverter;
 import org.springdoc.core.converters.ResponseSupportConverter;
 import org.springdoc.core.converters.WebFluxSupportConverter;
 import org.springdoc.core.models.MethodAttributes;
-import org.springdoc.core.parsers.ReturnTypeParser;
 import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springdoc.core.service.GenericResponseService;
 import org.springdoc.core.service.OperationService;
+import org.springdoc.core.utils.SpringDocAnnotationsUtils;
 import org.springdoc.core.utils.PropertyResolverUtils;
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -55,14 +55,17 @@ class OpenApiModelConverterOrderingTest {
         // User configuration registers the real Metadata definitions before auto-configurations;
         // the normal auto-config path registers them after Springdoc core in this integration.
         for (boolean metadataFirst : new boolean[] {true, false}) {
-            ModelConverters registry = ModelConverters.getInstance();
+            var documentProperties = new SpringDocConfigProperties();
+            documentProperties.getApiDocs().setVersion(SpringDocConfigProperties.ApiDocs.OpenApiVersion.OPENAPI_3_0);
+            ModelConverters registry = ModelConverters.getInstance(documentProperties.isOpenapi31());
             List<ModelConverter> previous = List.copyOf(registry.getConverters());
             try {
                 WebApplicationContextRunner runner = new WebApplicationContextRunner()
                         .withConfiguration(AutoConfigurations.of(SpringDocConfiguration.class,
                                 OpenApiResponseGenerationAutoConfiguration.class,
                                 SpringDocWebMvcConfiguration.class, WebMvcAutoConfiguration.class))
-                        .withBean(SpringDocConfigProperties.class, SpringDocConfigProperties::new);
+                        .withBean(SpringDocConfigProperties.class, () -> documentProperties)
+                        .withBean(ErrorAdvice.class, ErrorAdvice::new);
                 runner = metadataFirst
                         ? runner.withUserConfiguration(OpenApiUiSchemaAutoConfiguration.class)
                         : runner.withConfiguration(AutoConfigurations.of(OpenApiUiSchemaAutoConfiguration.class));
@@ -93,13 +96,15 @@ class OpenApiModelConverterOrderingTest {
 
                     var adapter = context.getBean(GenerationScopedGenericResponseService.class);
                     var original = new GenericResponseService(context.getBean(OperationService.class),
-                            context.getBeanProvider(ReturnTypeParser.class).orderedStream().toList(),
                             context.getBean(SpringDocConfigProperties.class), context.getBean(PropertyResolverUtils.class));
-                    JsonNode snapshot = responses(adapter);
-                    assertThat(snapshot).isEqualTo(responses(original));
+                    original.setApplicationContext(context);
+                    ErrorAdvice advice = context.getBean(ErrorAdvice.class);
+                    JsonNode snapshot = responses(adapter, advice);
+                    assertThat(snapshot).isEqualTo(responses(original, advice));
                     snapshots.add(snapshot);
                 });
             } finally {
+                SpringDocAnnotationsUtils.clearCache(null);
                 // ModelConverters is process-global; restore exact converter identities and order.
                 List.copyOf(registry.getConverters()).forEach(registry::removeConverter);
                 for (int index = previous.size() - 1; index >= 0; index--) registry.addConverter(previous.get(index));
@@ -115,9 +120,9 @@ class OpenApiModelConverterOrderingTest {
         return -1;
     }
 
-    private static JsonNode responses(GenericResponseService builder) throws Exception {
+    private static JsonNode responses(GenericResponseService builder, ErrorAdvice advice) throws Exception {
         Components components = new Components();
-        builder.buildGenericResponse(components, Map.of("advice", new ErrorAdvice()), Locale.ROOT);
+        builder.buildGenericResponse(components, Map.of("advice", advice), Locale.ROOT);
         HandlerMethod handler = new HandlerMethod(new Endpoint(), Endpoint.class.getMethod("read"));
         var attributes = new MethodAttributes("application/json", "application/json", Locale.ROOT);
         attributes.calculateConsumesProduces(handler.getMethod());

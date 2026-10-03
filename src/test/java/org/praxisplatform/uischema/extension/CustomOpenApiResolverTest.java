@@ -30,6 +30,26 @@ class CustomOpenApiResolverTest {
         String descricao;
     }
 
+    private static class RequiredDummy {
+        @jakarta.validation.constraints.NotNull
+        @UISchema(label = "Required field")
+        String value;
+    }
+
+    @Test
+    void beanValidationRequiredResultRemainsVisibleToSwaggerAfterUiEnrichment() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        Schema<?> parent = new Schema<>();
+        Schema<?> property = new Schema<>().name("value").type("string");
+        Annotation[] annotations = RequiredDummy.class.getDeclaredField("value").getAnnotations();
+
+        boolean validatorUpdated = resolver.applyBeanValidatorAnnotations(property, annotations, parent, true);
+
+        assertTrue(validatorUpdated);
+        assertEquals(java.util.List.of("value"), parent.getRequired());
+        assertEquals("Required field", getXui(property).get(FieldConfigProperties.LABEL.getValue()));
+    }
+
     private static class PercentDummy {
         @UISchema(numericFormat = NumericFormat.PERCENT)
         Double taxaDesconto;

@@ -21,7 +21,13 @@ class OpenApiResponseGenerationAutoConfigurationTest {
             .withConfiguration(AutoConfigurations.of(SpringDocWebMvcConfiguration.class,
                     OpenApiResponseGenerationAutoConfiguration.class, SpringDocConfiguration.class,
                     WebMvcAutoConfiguration.class))
-            .withBean(SpringDocConfigProperties.class, SpringDocConfigProperties::new);
+            .withBean(SpringDocConfigProperties.class, OpenApiResponseGenerationAutoConfigurationTest::openApi30Properties);
+
+    private static SpringDocConfigProperties openApi30Properties() {
+        var properties = new SpringDocConfigProperties();
+        properties.getApiDocs().setVersion(SpringDocConfigProperties.ApiDocs.OpenApiVersion.OPENAPI_3_0);
+        return properties;
+    }
 
     @Test
     void selectsOneBuilderBeforeSpringdocAndDiscoversTheSameGlobalCustomizer() {

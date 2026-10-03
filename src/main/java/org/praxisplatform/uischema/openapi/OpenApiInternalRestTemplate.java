@@ -10,7 +10,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -223,10 +225,12 @@ public final class OpenApiInternalRestTemplate extends RestTemplate implements A
             Deadline composition = deadline.get();
             return new ClientHttpRequest() {
                 private final HttpHeaders headers = new HttpHeaders();
+                private final Map<String, Object> attributes = new LinkedHashMap<>();
                 private final ByteArrayOutputStream body = new ByteArrayOutputStream();
                 @Override public HttpMethod getMethod() { return method; }
                 @Override public URI getURI() { return uri; }
                 @Override public HttpHeaders getHeaders() { return headers; }
+                @Override public Map<String, Object> getAttributes() { return attributes; }
                 @Override public OutputStream getBody() { return body; }
                 @Override public ClientHttpResponse execute() throws IOException {
                     Deadline request = new Deadline(responseTimeout);
