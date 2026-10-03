@@ -96,11 +96,12 @@ class BulkCrudOperationalCapabilityHttpTest {
             lifecycle.publish(identity("crud.uniform-atomic"), 0);
             lifecycle.publish(identity("crud.items-atomic"), 0);
             lifecycle.publish(identity("crud.command"), 0);
+            lifecycle.publish(identity("crud.command-atomic"), 0);
             assertEquals(generatedForPublication, producer.visits.get(),
                     "subsequent operations must share the published document generation");
             Map<String, CanonicalOpenApiGroupSnapshot> snapshots = new java.util.HashMap<>();
             var canonicalizer = new SchemaCanonicalizer();
-            for (String family : List.of("uniform", "items", "uniform-atomic", "items-atomic", "command")) {
+            for (String family : List.of("uniform", "items", "uniform-atomic", "items-atomic", "command", "command-atomic")) {
                 var operation = operations.requireResourceOperation(RESOURCE, "crud." + family + ".evaluation", "POST");
                 var snapshot = snapshots.computeIfAbsent(operation.group(), group -> CanonicalOpenApiGroupSnapshot.capture(documents, group));
                 String pointer = family.startsWith("items") ? BulkCrudOperationalCompositionTest.ITEMS_POINTER
@@ -121,7 +122,15 @@ class BulkCrudOperationalCapabilityHttpTest {
             assertEquals(4, probe.visits.get());
             JsonNode body = response.getBody();
             assertNotNull(body);
-            for (String id : List.of("bulk-update", "bulk-update-items", "bulk-update-atomic", "bulk-update-items-atomic")) {
+            Set<String> expectedCrud = Set.of("bulk-update", "bulk-update-items",
+                    "bulk-update-atomic", "bulk-update-items-atomic");
+            Set<String> actualBulkOperations = new java.util.HashSet<>();
+            body.path("operations").fieldNames().forEachRemaining(id -> {
+                if (id.startsWith("bulk-")) actualBulkOperations.add(id);
+            });
+            assertEquals(expectedCrud, actualBulkOperations,
+                    "domain command actions must not become CRUD capabilities");
+            for (String id : expectedCrud) {
                 JsonNode operation = body.path("operations").path(id);
                 assertTrue(operation.path("supported").asBoolean());
                 assertEquals("COLLECTION", operation.path("scope").asText());
@@ -143,13 +152,23 @@ class BulkCrudOperationalCapabilityHttpTest {
                 }
             }
             if (endpoint.equals(PATH + "/capabilities")) {
-                JsonNode command = body.path("actions").findValue("bulk");
-                assertNotNull(command);
-                assertEquals("DOMAIN_COMMAND", command.path("mode").asText());
-                assertEquals("/properties/parameters", command.path("parametersPointer").asText());
-                assertFalse(command.has("editableFields"));
+                assertCommandAction(body, "crud.command", "PER_ITEM");
+                assertCommandAction(body, "crud.command-atomic", "ATOMIC");
             }
         }
+        var actions = rest.getForEntity(url("/schemas/actions?resource=" + RESOURCE), JsonNode.class);
+        assertEquals(200, actions.getStatusCode().value(), String.valueOf(actions.getBody()));
+        JsonNode atomicAction = null;
+        JsonNode perItemAction = null;
+        for (JsonNode action : actions.getBody().path("actions")) {
+            if ("command-atomic".equals(action.path("id").asText())) atomicAction = action;
+            if ("command".equals(action.path("id").asText())) perItemAction = action;
+        }
+        assertNotNull(perItemAction, "the existing PER_ITEM action must remain published");
+        assertEquals("PER_ITEM", perItemAction.at("/execution/outcome/atomicity").asText());
+        assertNotNull(atomicAction, "the action catalog must retain the command identity");
+        assertEquals("ATOMIC", atomicAction.at("/execution/outcome/atomicity").asText());
+        assertEquals("crud.command-atomic", atomicAction.path("operationId").asText());
         var deniedHeaders = new HttpHeaders(); deniedHeaders.set("X-Fixture-Deny", "true");
         var denied = rest.exchange(url(PATH + "/capabilities"), HttpMethod.GET, new HttpEntity<>(deniedHeaders), JsonNode.class);
         assertEquals(200, denied.getStatusCode().value());
@@ -160,7 +179,7 @@ class BulkCrudOperationalCapabilityHttpTest {
                 "schema references and protocol reads must not regenerate the producer");
         long suspendedGeneration = withLocalRequest(() -> lifecycle.suspend(identity("crud.uniform"), 1));
         withLocalRequest(() -> {
-            for (String id : List.of("crud.uniform", "crud.items", "crud.uniform-atomic", "crud.items-atomic", "crud.command")) {
+            for (String id : List.of("crud.uniform", "crud.items", "crud.uniform-atomic", "crud.items-atomic", "crud.command", "crud.command-atomic")) {
                 assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(identity(id)),
                         id + " must lose READY after global suspension");
             }
@@ -171,6 +190,12 @@ class BulkCrudOperationalCapabilityHttpTest {
                 "global suspension and failed reads must not regenerate the producer");
         withLocalRequest(() -> {
             lifecycle.publish(identity("crud.uniform"), suspendedGeneration);
+            assertNotNull(lifecycle.requireReady(identity("crud.uniform")));
+            for (String id : List.of("crud.items", "crud.uniform-atomic", "crud.items-atomic",
+                    "crud.command", "crud.command-atomic")) {
+                assertThrows(IllegalStateException.class, () -> lifecycle.requireReady(identity(id)),
+                        id + " must remain unready after another operation is republished");
+            }
             return null;
         });
         int republishedGenerations = producer.visits.get();
@@ -185,6 +210,33 @@ class BulkCrudOperationalCapabilityHttpTest {
         assertNull(recovered.getBody().path("actions").findValue("bulk"));
         assertEquals(republishedGenerations, producer.visits.get(),
                 "recovered discovery must read the newly published photograph without recapture");
+    }
+
+    private void assertCommandAction(JsonNode capabilities, String confirmationId,
+            String atomicity) throws Exception {
+        var matches = capabilities.path("actions").findValues("bulk").stream()
+                .filter(value -> confirmationId.equals(value.at("/confirmationOperation/operation/operationId").asText()))
+                .toList();
+        assertEquals(1, matches.size(), "exactly one governed action must own " + confirmationId);
+        JsonNode bulk = matches.getFirst();
+        assertEquals("DOMAIN_COMMAND", bulk.path("mode").asText());
+        assertEquals(atomicity, bulk.path("atomicity").asText());
+        assertEquals("/properties/parameters", bulk.path("parametersPointer").asText());
+        assertFalse(bulk.has("editableFields"));
+        assertEquals(20, bulk.at("/limits/maxTargets").asInt());
+        assertEquals(2_000, bulk.at("/limits/unitDeadlineMillis").asInt());
+        assertFalse(capabilities.path("operations").has("bulk-command"));
+        assertFalse(capabilities.path("operations").has("bulk-command-atomic"));
+        for (String role : List.of("evaluationOperation", "confirmationOperation", "proposalOperation",
+                "proposalResultsOperation", "executionOperation", "resultsOperation", "cancelOperation")) {
+            JsonNode ref = bulk.path(role);
+            assertSchema(ref.path("operation"), ref.path("responseSchema"));
+            if (role.equals("evaluationOperation") || role.equals("confirmationOperation")) {
+                assertSchema(ref.path("operation"), ref.path("requestSchema"));
+            } else {
+                assertFalse(ref.has("requestSchema"), role + " must remain bodyless");
+            }
+        }
     }
 
     private void assertPublicationUnavailable(String endpoint) {
@@ -219,6 +271,16 @@ class BulkCrudOperationalCapabilityHttpTest {
             assertEquals(200, response.getStatusCode().value(), String.valueOf(response.getBody()));
             assertEquals(1, response.getBody().at("/data/targets").asInt());
         }
+        String command = """
+                {"executionMode":"SYNC","selection":{"mode":"EXPLICIT","targets":[{"id":7,"expectedVersion":"v0"}]},
+                 "parameters":{"reason":"approved by governed command"}}
+                """;
+        var commandHeaders = new HttpHeaders();
+        commandHeaders.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+        var commandEvaluation = rest.postForEntity(url(PATH + "/bulk/command-atomic/evaluation"),
+                new HttpEntity<>(command, commandHeaders), JsonNode.class);
+        assertEquals(200, commandEvaluation.getStatusCode().value(), String.valueOf(commandEvaluation.getBody()));
+        assertEquals(1, commandEvaluation.getBody().at("/data/targets").asInt());
         var request = new BulkProtocolReader<>(BulkIdentityCodecs.integers()).readUniform(uniform.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         ObjectNode current = mapper.createObjectNode().put("active", true).put("count", 3).put("note", "old").put("omitted", "kept");
         var applied = BulkFieldChanges.applyTo(current, request.changes(), Set.of("active", "count", "note"), Set.of("note"));
@@ -265,7 +327,7 @@ class BulkCrudOperationalCapabilityHttpTest {
         }
         @Bean(destroyMethod = "close") BulkCrudOperationalLifecyclePostgresTest.Store bulkStore() throws Exception {
             return new BulkCrudOperationalLifecyclePostgresTest.Store(List.of("crud.uniform", "crud.items",
-                    "crud.uniform-atomic", "crud.items-atomic", "crud.command"));
+                    "crud.uniform-atomic", "crud.items-atomic", "crud.command", "crud.command-atomic"));
         }
         @Bean BulkExecutionInfrastructure bulkRuntime(BulkCrudOperationalLifecyclePostgresTest.Store store) { return store.runtime; }
         @Bean BulkControlPlaneInfrastructure bulkControl(BulkCrudOperationalLifecyclePostgresTest.Store store) { return store.control; }
@@ -283,6 +345,9 @@ class BulkCrudOperationalCapabilityHttpTest {
         }
         @Bean BulkOperationDescriptorProvider commandProvider(BulkExecutionInfrastructure runtime) {
             return new BulkCrudOperationalCompositionTest.Provider("crud.command", "r1", BulkCrudOperationalCompositionTest.UNIFORM_POINTER, BulkMode.DOMAIN_COMMAND, runtime);
+        }
+        @Bean BulkOperationDescriptorProvider atomicCommandProvider(BulkExecutionInfrastructure runtime) {
+            return new BulkCrudOperationalCompositionTest.Provider("crud.command-atomic", "r1", BulkCrudOperationalCompositionTest.UNIFORM_POINTER, BulkMode.DOMAIN_COMMAND, runtime);
         }
         @Bean @Primary
         Probe availabilityProbe(ObjectProvider<BulkOperationLifecycle> lifecycle, OpenApiDocumentService documents,
@@ -390,6 +455,19 @@ class BulkCrudOperationalCapabilityHttpTest {
         @BulkOperation(mode = BulkMode.DOMAIN_COMMAND, evaluationOperationId = "crud.command.evaluation", atomicity = ActionCollectionAtomicity.PER_ITEM)
         @WorkflowAction(id = "command", title = "Command fixture", scope = ActionScope.COLLECTION, atomicity = ActionCollectionAtomicity.PER_ITEM)
         @Operation(operationId = "crud.command") @PostMapping("/actions/command") public RestApiResponse<View> confirmCommand(@RequestBody BulkConfirmationRequest request) { return view(0); }
+        @Operation(operationId = "crud.command-atomic.evaluation") @PostMapping("/bulk/command-atomic/evaluation")
+        public RestApiResponse<View> evaluateAtomicCommand(@RequestBody Command input) throws Exception {
+            var parsed = new BulkProtocolReader<>(BulkIdentityCodecs.integers()).readCommand(
+                    mapper.writeValueAsBytes(input), node -> mapper.convertValue(node, Parameters.class),
+                    ignored -> { throw new IllegalArgumentException("EXPLICIT selection is required"); });
+            return view(parsed.selection().targets().size());
+        }
+        @BulkOperation(mode = BulkMode.DOMAIN_COMMAND, evaluationOperationId = "crud.command-atomic.evaluation",
+                atomicity = ActionCollectionAtomicity.ATOMIC)
+        @WorkflowAction(id = "command-atomic", title = "Atomic command fixture", scope = ActionScope.COLLECTION,
+                atomicity = ActionCollectionAtomicity.ATOMIC, maxSelection = 20)
+        @Operation(operationId = "crud.command-atomic") @PostMapping("/actions/command-atomic")
+        public RestApiResponse<View> confirmAtomicCommand(@RequestBody BulkConfirmationRequest request) { return view(0); }
         private static RestApiResponse<View> view(int count) { return RestApiResponse.success(new View("fixture", count), null); }
     }
 }

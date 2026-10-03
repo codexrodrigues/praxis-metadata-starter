@@ -236,7 +236,84 @@ class BulkOperationStructuralCompilerTest {
             var atomic = new BulkOperationStructuralDescriptor(structural.resourceKey(), structural.openApiGroup(),
                     structural.mode(), ActionCollectionAtomicity.ATOMIC, structural.action(), structural.operations());
             assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(
-                    atomic, provider("provider.r1", "deployment-a")));
+                    atomic, provider("provider.r1", "deployment-a", 50)));
+        }
+    }
+
+    @Test
+    void composesRealAtomicDomainCommandWithTypedParametersAndBoundedProfile() {
+        try (var context = context(AtomicBulkController.class)) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(atomicCommandDocument());
+            var mapper = new ObjectMapper();
+            var structural = new BulkOperationStructuralCompiler(bindings,
+                    new OpenApiCanonicalOperationResolver(documents, mvc, bindings), documents,
+                    registry(actionDefinition(ActionCollectionAtomicity.ATOMIC)), mapper,
+                    new FilteredSchemaReferenceResolver()).compileAll().getFirst();
+            JsonNode wire = mapper.valueToTree(new AtomicEvaluationRequest(BulkExecutionMode.SYNC,
+                    new AtomicSelection(BulkSelectionMode.EXPLICIT, List.of(new AtomicTarget("7", "v0"))),
+                    new AtomicParameters("approved")));
+            assertEquals("SYNC", wire.path("executionMode").asText());
+            assertEquals("EXPLICIT", wire.at("/selection/mode").asText());
+            assertEquals("7", wire.at("/selection/targets/0/id").textValue());
+            assertEquals(7L, BulkIdentityCodecs.longs().decode(
+                    BulkIdentityCodecs.longs().readWire(wire.at("/selection/targets/0/id"))));
+            assertEquals("v0", wire.at("/selection/targets/0/expectedVersion").asText());
+            assertEquals("approved", wire.at("/parameters/reason").asText());
+            JsonNode publishedIdentity = structural.operation(BulkOperationStructuralDescriptor.Role.EVALUATION)
+                    .requestSchema().orElseThrow().schema()
+                    .at("/properties/selection/properties/targets/items/properties/id");
+            assertEquals(new org.praxisplatform.uischema.hash.SchemaCanonicalizer().canonicalize(
+                    BulkIdentityCodecs.longs().canonicalWireSchema()),
+                    new org.praxisplatform.uischema.hash.SchemaCanonicalizer().canonicalize(publishedIdentity));
+            assertEquals(BulkMode.DOMAIN_COMMAND, structural.mode());
+            assertEquals(ActionCollectionAtomicity.ATOMIC, structural.atomicity());
+            assertEquals(List.of(BulkOperationStructuralDescriptor.Role.values()),
+                    structural.operations().stream().map(BulkOperationStructuralDescriptor.Operation::role).toList());
+            for (int limit : List.of(1, 50)) {
+                var descriptor = BulkOperationalDescriptorComposer.compose(structural,
+                        provider("provider.r1", "deployment-a", limit));
+                var contract = BulkExecutionContract.from(descriptor);
+                assertEquals(BulkMode.DOMAIN_COMMAND, contract.mode());
+                assertEquals(ActionCollectionAtomicity.ATOMIC, contract.atomicity());
+                assertEquals(limit, contract.limits().maxTargets());
+                assertEquals("/properties/parameters", contract.parametersPointer());
+                assertEquals(null, contract.editableFields());
+                assertEquals(ACTION_ID, contract.confirmationOperation().operation().operationId());
+                assertThrows(IllegalArgumentException.class, contract::crudCapabilityId);
+            }
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(
+                    structural, provider("provider.r1", "deployment-a", 51)));
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(
+                    structural, provider("provider.r1", "deployment-a", 50, "wrong.confirmation")));
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(
+                    structural, providerWithCodec("deployment-a", BulkIdentityCodecs.integers())));
+            // The profile constructor rejects this before a provider can reach the composer.
+            assertThrows(IllegalArgumentException.class, () -> new BulkOperationalProfile(
+                    EnumSet.of(BulkMode.DOMAIN_COMMAND), EnumSet.of(BulkExecutionMode.SYNC),
+                    EnumSet.of(BulkSelectionMode.EXPLICIT), 50, 1024 * 1024,
+                    Duration.ofMinutes(5), Duration.ofMillis(5_001)));
+
+            var actionLimitedToForty = new BulkOperationStructuralDescriptor(
+                    structural.resourceKey(), structural.openApiGroup(), structural.mode(),
+                    structural.atomicity(), BulkOperationStructuralDescriptor.Action.from(
+                            actionDefinition(ActionCollectionAtomicity.ATOMIC, 40)), structural.operations());
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(
+                    actionLimitedToForty, provider("provider.r1", "deployment-a", 50)));
+        }
+    }
+
+    @Test
+    void atomicCommandCannotBorrowThePerItemActionCatalogEntry() {
+        try (var context = context(AtomicBulkController.class)) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = new TestDocuments(atomicCommandDocument());
+            var compiler = new BulkOperationStructuralCompiler(bindings,
+                    new OpenApiCanonicalOperationResolver(documents, mvc, bindings), documents,
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver());
+            assertThrows(IllegalStateException.class, compiler::compileAll);
         }
     }
 
@@ -943,6 +1020,26 @@ class BulkOperationStructuralCompilerTest {
         return root;
     }
 
+    private JsonNode atomicCommandDocument() {
+        var root = (ObjectNode) operationalDocument(BulkIdentityCodecs.longs());
+        var evaluation = (ObjectNode) root.path("paths").path("/api/items/actions/bulk-approve/evaluation")
+                .path("post").path("requestBody").path("content").path("application/json").path("schema");
+        var properties = (ObjectNode) evaluation.path("properties");
+        properties.putObject("executionMode").put("type", "string");
+        var selection = (ObjectNode) properties.path("selection");
+        ((ObjectNode) selection.path("properties")).putObject("mode").put("type", "string");
+        var target = (ObjectNode) selection.path("properties").path("targets").path("items");
+        ((ObjectNode) target.path("properties")).putObject("expectedVersion").put("type", "string");
+        target.putArray("required").add("id").add("expectedVersion");
+        selection.putArray("required").add("mode").add("targets");
+        var parameters = properties.putObject("parameters");
+        parameters.put("type", "object");
+        parameters.putObject("properties").putObject("reason").put("type", "string");
+        parameters.putArray("required").add("reason");
+        evaluation.putArray("required").add("executionMode").add("selection").add("parameters");
+        return root;
+    }
+
     private JsonNode collisionDocument() {
         var document = new ObjectMapper().createObjectNode();
         document.putObject("paths").putObject("/new-collision").putObject("get").put("operationId", ACTION_ID);
@@ -1573,6 +1670,25 @@ class BulkOperationStructuralCompilerTest {
     }
 
     private ActionDefinition actionDefinition(String idField, String actionGroup) {
+        return actionDefinition(idField, actionGroup, ActionCollectionAtomicity.PER_ITEM);
+    }
+
+    private ActionDefinition actionDefinition(ActionCollectionAtomicity atomicity) {
+        return actionDefinition(atomicity, atomicity == ActionCollectionAtomicity.ATOMIC ? 50 : null);
+    }
+
+    private ActionDefinition actionDefinition(ActionCollectionAtomicity atomicity, Integer maxSelection) {
+        return actionDefinition("id", "inventory", atomicity, maxSelection);
+    }
+
+    private ActionDefinition actionDefinition(String idField, String actionGroup,
+            ActionCollectionAtomicity atomicity) {
+        return actionDefinition(idField, actionGroup, atomicity,
+                atomicity == ActionCollectionAtomicity.ATOMIC ? 50 : null);
+    }
+
+    private ActionDefinition actionDefinition(String idField, String actionGroup,
+            ActionCollectionAtomicity atomicity, Integer maxSelection) {
         var schemaReferences = new FilteredSchemaReferenceResolver();
         CanonicalOperationRef operation = new CanonicalOperationRef("inventory",
                 ACTION_ID, "/api/items/actions/bulk-approve", "POST");
@@ -1586,8 +1702,8 @@ class BulkOperationStructuralCompilerTest {
                 new ActionExecutionContract(
                         new ActionInteractionPolicy(null, null, false, false),
                         new ActionPreconditionPolicy(null, null, null, ActionResourceVersionTransport.NONE),
-                        new ActionSelectionPolicy(null, null, null),
-                        new ActionOutcomePolicy(ActionOutcomeMode.SINGLE, ActionCollectionAtomicity.PER_ITEM),
+                        new ActionSelectionPolicy(null, null, maxSelection),
+                        new ActionOutcomePolicy(ActionOutcomeMode.SINGLE, atomicity),
                         new ActionRefreshPolicy(false, true, true, true, List.of())));
     }
 
@@ -1678,6 +1794,40 @@ class BulkOperationStructuralCompilerTest {
         public String evaluate(@RequestBody EvaluationRequest request) { return ""; }
     }
 
+    @ApiResource(value = "/api/items", resourceKey = RESOURCE)
+    @BulkResourceOperations(proposalOperationId = "items.bulk.proposal",
+            proposalResultsOperationId = "items.bulk.proposal-results",
+            executionOperationId = "items.bulk.execution",
+            executionResultsOperationId = "items.bulk.execution-results",
+            cancelOperationId = "items.bulk.cancel")
+    static class AtomicBulkController {
+        @BulkResourceOperation(BulkResourceOperation.Role.PROPOSAL)
+        @GetMapping("/bulk/proposals/{proposalId}") public String proposal() { return ""; }
+        @BulkResourceOperation(BulkResourceOperation.Role.PROPOSAL_RESULTS)
+        @GetMapping("/bulk/proposals/{proposalId}/results") public String proposalResults() { return ""; }
+        @BulkResourceOperation(BulkResourceOperation.Role.EXECUTION)
+        @GetMapping("/bulk/executions/{executionId}") public String execution() { return ""; }
+        @BulkResourceOperation(BulkResourceOperation.Role.EXECUTION_RESULTS)
+        @GetMapping("/bulk/executions/{executionId}/results") public String executionResults() { return ""; }
+        @BulkResourceOperation(BulkResourceOperation.Role.CANCEL)
+        @PostMapping("/bulk/executions/{executionId}/cancel") public String cancel() { return ""; }
+
+        @BulkOperation(mode = BulkMode.DOMAIN_COMMAND, evaluationOperationId = EVALUATION_ID,
+                atomicity = ActionCollectionAtomicity.ATOMIC)
+        @WorkflowAction(id = "approveSelectedItems", title = "Aprovar selecionados",
+                scope = ActionScope.COLLECTION, order = 10, successMessage = "Aprovados",
+                atomicity = ActionCollectionAtomicity.ATOMIC, maxSelection = 50,
+                requiredAuthorities = {"BULK_APPROVE"},
+                allowedStates = {"READY"}, tags = {"workflow"})
+        @Operation(operationId = ACTION_ID)
+        @PostMapping("/actions/bulk-approve")
+        public String confirm(@RequestBody ConfirmationRequest request) { return ""; }
+
+        @Operation(operationId = EVALUATION_ID)
+        @PostMapping("/actions/bulk-approve/evaluation")
+        public String evaluate(@RequestBody AtomicEvaluationRequest request) { return ""; }
+    }
+
     @ApiResource(value = "/api/orphan", resourceKey = "inventory.orphan")
     static class OrphanBulkController {
         @BulkOperation(mode = BulkMode.DOMAIN_COMMAND, evaluationOperationId = "orphan.evaluation",
@@ -1701,6 +1851,11 @@ class BulkOperationStructuralCompilerTest {
 
     record ConfirmationRequest(String reason) { }
     record EvaluationRequest(List<String> ids) { }
+    record AtomicEvaluationRequest(BulkExecutionMode executionMode, AtomicSelection selection,
+            AtomicParameters parameters) { }
+    record AtomicSelection(BulkSelectionMode mode, List<AtomicTarget> targets) { }
+    record AtomicTarget(String id, String expectedVersion) { }
+    record AtomicParameters(String reason) { }
 
     /** Real cache/attestation fixture. It does not stand in for the Boot HTTP or PostgreSQL proofs. */
     private static final class LifecycleDocuments extends org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService

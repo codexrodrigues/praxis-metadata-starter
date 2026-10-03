@@ -2,7 +2,17 @@
 
 All notable changes to this module will be documented in this file.
 
-## [Unreleased] — candidato de composição CRUD ATOMIC
+## [Unreleased] — candidato de composição DOMAIN_COMMAND ATOMIC
+
+- Reutiliza a semântica de comando governado, parâmetros tipados e identidade da
+  ação. A composição e a projeção aceitam ATOMIC somente com WorkflowAction e
+  declaração bulk concordantes, provider e referências exatos, EXPLICIT/SYNC,
+  até 50 alvos e orçamento agregado máximo de cinco segundos para o conjunto.
+- Não cria capability CRUD, DTO, ledger, migration ou endpoint do host. Provas
+  focais e revisão deste candidato permanecem gates próprios; não inclui CREATE
+  com versão de ausência inventada nem encerra a prova de outbox T15.
+
+## [8.0.0-rc.151] — publicado em 03/10/2026
 
 - Deriva as identidades CRUD de `(mode, atomicity)`, preservando `bulk-update` e
   `bulk-update-items` e acrescentando suas variantes `-atomic`. Declaração duplicada
@@ -11,8 +21,14 @@ All notable changes to this module will be documented in this file.
   DOMAIN_COMMAND/ATOMIC permanece fechado. Provider, controle e refs são exatos;
   a fence global e a publicação individual por variante permanecem coerentes.
 - 83 testes focais de estrutura, composição, lifecycle PostgreSQL e capabilities
-  HTTP aprovados; consumidor Maven/revisão final/skills são gates separados.
-  Este candidato não altera o artefato publicado rc.150 nem prova ATOMIC no host.
+  HTTP aprovados, além de duas provas de artefato isolado e 47 casos downstream
+  contra a árvore privada exata; revisão independente e skills concluídas.
+  A adoção do JAR público no host permanece um gate separado.
+  Tag `v8.0.0-rc.151`/commit `ce4aa3fb86a8ec26517d8bcd8295634e3112c401`,
+  workflow oficial `37153312491`: publicação e gate Central aprovados. POM e JAR
+  públicos conferidos. Preparação local: 1.491 testes reportados, zero falhas/erros,
+  três skips explícitos, Javadoc e gate público aprovados. A adoção HTTP ATOMIC
+  do host permanece separada; este artefato não compõe DOMAIN_COMMAND/ATOMIC.
 
 ## [8.0.0-rc.150] — publicado em 03/10/2026
 
