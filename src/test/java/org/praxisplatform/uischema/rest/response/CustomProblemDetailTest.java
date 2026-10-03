@@ -149,11 +149,51 @@ class CustomProblemDetailTest {
         assertThat(strictTree(mapper.writeValueAsString(decoded))).isEqualTo(tree);
     }
 
+    @Test
+    void plainMapperRoundTripsFlatTypedMembersAndExtensionsWithoutSpringMixin() throws Exception {
+        ObjectMapper plain = new ObjectMapper();
+        assertThat(plain.findMixInClassFor(ProblemDetail.class)).isNull();
+        var original = populatedProblem();
+        original.setProperty("traceId", "request-plain");
+        original.setProperty("outcome", "VALIDATION_FAILED");
+        original.setProperty("optionalEvidence", null);
+
+        String json = plain.writeValueAsString(original);
+        JsonNode tree = strictTree(plain, json);
+        assertThat(tree.path("code").asText()).isEqualTo("PUBLIC_CODE");
+        assertThat(tree.path("target").asText()).isEqualTo("name");
+        assertThat(tree.path("traceId").asText()).isEqualTo("request-plain");
+        assertThat(tree.path("outcome").asText()).isEqualTo("VALIDATION_FAILED");
+        assertThat(tree.has("optionalEvidence")).isTrue();
+        assertThat(tree.path("optionalEvidence").isNull()).isTrue();
+        assertThat(tree.has("properties")).isFalse();
+
+        var decoded = plain.readValue(json, CustomProblemDetail.class);
+        assertThat(decoded.getCode()).isEqualTo(original.getCode());
+        assertThat(decoded.getTarget()).isEqualTo(original.getTarget());
+        assertThat(decoded.getType()).isEqualTo(original.getType());
+        assertThat(decoded.getTitle()).isEqualTo(original.getTitle());
+        assertThat(decoded.getStatus()).isEqualTo(original.getStatus());
+        assertThat(decoded.getDetail()).isEqualTo(original.getDetail());
+        assertThat(decoded.getInstance()).isEqualTo(original.getInstance());
+        assertThat(decoded.getProperties()).isEqualTo(original.getProperties());
+        assertThat(strictTree(plain, plain.writeValueAsString(decoded))).isEqualTo(tree);
+
+        var empty = new CustomProblemDetail("Safe");
+        assertThat(strictTree(plain, plain.writeValueAsString(empty)).has("properties")).isFalse();
+        assertThatThrownBy(() -> strictTree(plain, "{\"code\":\"A\",\"code\":\"B\"}"))
+                .isInstanceOf(JsonProcessingException.class).hasMessageContaining("Duplicate field 'code'");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"null", "{}", "{\"traceId\":\"legacy-wrapper\"}", "{\"code\":\"shadow\"}",
             "[]", "\"scalar-wrapper\"", "123", "true"})
     void objectReadPolicyRejectsEveryPropertiesWrapper(String wrapper) {
         assertThatThrownBy(() -> mapper.readValue(
+                "{\"message\":\"Safe\",\"properties\":" + wrapper + "}",
+                CustomProblemDetail.class)).isInstanceOf(JsonProcessingException.class)
+                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ObjectMapper().readValue(
                 "{\"message\":\"Safe\",\"properties\":" + wrapper + "}",
                 CustomProblemDetail.class)).isInstanceOf(JsonProcessingException.class)
                 .hasRootCauseInstanceOf(IllegalArgumentException.class);
@@ -172,9 +212,13 @@ class CustomProblemDetailTest {
     }
 
     private JsonNode strictTree(String json) throws Exception {
-        try (JsonParser parser = mapper.createParser(json)) {
+        return strictTree(mapper, json);
+    }
+
+    private JsonNode strictTree(ObjectMapper selectedMapper, String json) throws Exception {
+        try (JsonParser parser = selectedMapper.createParser(json)) {
             parser.enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
-            return mapper.readTree(parser);
+            return selectedMapper.readTree(parser);
         }
     }
 

@@ -101,17 +101,36 @@ class BulkProtectedProposalReaderPostgresTest {
                             .isEqualTo(BulkProposalStorageException.Reason.CORRUPT);
                     assertThat(error.toString()).doesNotContain("protected-customer-value");
                 });
+        sql.execute("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user");
+        try {
+            sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
+                    BulkEvaluationStorageCodec.encode(evaluated), evaluated.proposal().id());
+        } finally {
+            sql.execute("alter table praxis_bulk.praxis_bulk_evaluation enable trigger user");
+        }
+        assertThat(reader.read(CONTEXT, evaluated.proposal().id()).kind())
+                .isEqualTo(BulkProtectedProposalReader.Kind.EVALUATED);
         sql.execute("alter table praxis_bulk.praxis_bulk_proposal disable trigger user");
         try {
+            var corrupted = (com.fasterxml.jackson.databind.node.ObjectNode)
+                    evaluated.proposal().snapshot().storageDocument().deepCopy();
+            corrupted.put("mode", "protected-customer-value-corrupt");
             sql.update("update praxis_bulk.praxis_bulk_proposal set payload=? where proposal_id=?",
-                    bytes("protected-customer-value-corrupt"), evaluated.proposal().id());
+                    BulkSnapshotStorageCodec.json(corrupted), evaluated.proposal().id());
         } finally {
             sql.execute("alter table praxis_bulk.praxis_bulk_proposal enable trigger user");
         }
+        assertThat(sql.queryForObject("""
+                select (convert_from(payload, 'UTF8')::json ->> 'atomicity') = atomicity
+                from praxis_bulk.praxis_bulk_proposal where proposal_id=?
+                """, Boolean.class, evaluated.proposal().id())).isTrue();
         assertThatThrownBy(() -> reader.read(CONTEXT, evaluated.proposal().id()))
                 .isInstanceOf(BulkProposalStorageException.class)
-                .satisfies(error -> assertThat(((BulkProposalStorageException) error).reason())
-                        .isEqualTo(BulkProposalStorageException.Reason.CORRUPT));
+                .satisfies(error -> {
+                    assertThat(((BulkProposalStorageException) error).reason())
+                            .isEqualTo(BulkProposalStorageException.Reason.CORRUPT);
+                    assertThat(error.toString()).doesNotContain("protected-customer-value");
+                });
     }
 
     @Test void missingRuntimeReadGrantIsUnavailableRatherThanCorrupt() {

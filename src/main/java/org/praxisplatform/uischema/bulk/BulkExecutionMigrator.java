@@ -1518,7 +1518,7 @@ public final class BulkExecutionMigrator {
                 Map.entry("praxis_bulk_proposal_payload_length_check",
                         "((octet_length(payload)>=1)and(octet_length(payload)<=8388608))"),
                 Map.entry("praxis_bulk_proposal_atomicity_check",
-                        "((atomicity=any(array['PER_ITEM'::text,'ATOMIC'::text]))and(atomicity=((convert_from(payload,'UTF8'::name))::jsonb->>'atomicity'::text)))"),
+                        "((atomicity=any(array['PER_ITEM'::text,'ATOMIC'::text]))and(not(atomicityisdistinctfrom((replace(convert_from(payload,'UTF8'::name),(chr(92)||'u0000'::text),(chr(92)||'uFFFD'::text)))::json->>'atomicity'::text))))"),
                 Map.entry("praxis_bulk_proposal_protocol_check",
                         "(protocol_version=any(array[1,2]))"));
         Map<String, ConstraintDefinition> actual = new LinkedHashMap<>();

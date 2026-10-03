@@ -1,5 +1,7 @@
 package org.praxisplatform.uischema.rest.response;
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
@@ -65,6 +67,7 @@ public class CustomProblemDetail extends ProblemDetail {
 
     /** Adds an extension without shadowing a typed or RFC problem member. */
     @Override
+    @JsonAnySetter
     public void setProperty(String name, Object value) {
         requireExtensionName(name);
         super.setProperty(name, value);
@@ -90,6 +93,7 @@ public class CustomProblemDetail extends ProblemDetail {
      * Typed members are accessed through their getters, never through this map.
      */
     @Override
+    @JsonAnyGetter
     @Schema(hidden = true)
     public Map<String, Object> getProperties() {
         Map<String, Object> properties = super.getProperties();

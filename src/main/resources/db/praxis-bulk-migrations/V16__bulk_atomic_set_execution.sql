@@ -24,18 +24,21 @@ end $$;
 alter table praxis_bulk.praxis_bulk_proposal
     add column atomicity text,
     add column protocol_version smallint;
+-- Parse only a lexical copy for metadata: JSON operators also de-escape unrelated strings.
+-- Replace escaped NUL in that copy only; never rewrite protected payload/fingerprint.
+-- json (not jsonb) preserves the canonical codec numeric domain.
 -- Historical input remains byte-identical. Invalid UTF-8/JSON/missing atomicity aborts
 -- rather than silently interpreting an ATOMIC proposal as PER_ITEM.
 alter table praxis_bulk.praxis_bulk_proposal disable trigger praxis_bulk_proposal_reject_update;
 update praxis_bulk.praxis_bulk_proposal
-   set atomicity=convert_from(payload,'UTF8')::jsonb->>'atomicity',protocol_version=1;
+   set atomicity=replace(convert_from(payload,'UTF8'),pg_catalog.chr(92)||'u0000',pg_catalog.chr(92)||'uFFFD')::json->>'atomicity',protocol_version=1;
 alter table praxis_bulk.praxis_bulk_proposal enable trigger praxis_bulk_proposal_reject_update;
 alter table praxis_bulk.praxis_bulk_proposal
     alter column atomicity set not null,
     alter column protocol_version set not null,
     add constraint praxis_bulk_proposal_atomicity_check check
         (atomicity in ('PER_ITEM','ATOMIC')
-         and atomicity = convert_from(payload,'UTF8')::jsonb->>'atomicity'),
+         and atomicity is not distinct from (replace(convert_from(payload,'UTF8'),pg_catalog.chr(92)||'u0000',pg_catalog.chr(92)||'uFFFD')::json->>'atomicity')),
     add constraint praxis_bulk_proposal_protocol_check check (protocol_version in (1,2)),
     add constraint praxis_bulk_proposal_atomicity_protocol_key
         unique (proposal_id,atomicity,protocol_version);

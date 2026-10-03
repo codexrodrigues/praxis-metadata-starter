@@ -191,7 +191,8 @@ class BulkCrudOperationalCapabilityHttpTest {
         assertEquals("Governed OpenAPI publication is temporarily unavailable.", body.path("message").asText());
         assertEquals("SYSTEM", body.at("/errors/0/category").asText());
         assertEquals("GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE",
-                body.at("/errors/0/properties/code").asText());
+                body.at("/errors/0/code").asText());
+        assertFalse(body.at("/errors/0").has("properties"));
         assertFalse(body.toString().contains("No governed OpenAPI publication is installed locally"),
                 "the internal snapshot guard message must stay private");
         assertTrue(body.path("data").isMissingNode() || body.path("data").isNull());
