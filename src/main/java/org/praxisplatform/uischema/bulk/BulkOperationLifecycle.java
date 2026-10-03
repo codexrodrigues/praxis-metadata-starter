@@ -269,7 +269,7 @@ public final class BulkOperationLifecycle {
             Map<String, BulkExecutionContract> result = new LinkedHashMap<>();
             for (var contract : contracts.values()) {
                 if (contract.mode() == BulkMode.DOMAIN_COMMAND) continue;
-                String id = contract.mode() == BulkMode.UNIFORM_UPDATE ? "bulk-update" : "bulk-update-items";
+                String id = contract.crudCapabilityId();
                 if (result.putIfAbsent(id, contract) != null)
                     throw unavailable("More than one bulk update maps to the same capability ID");
             }
@@ -578,8 +578,9 @@ public final class BulkOperationLifecycle {
         Set<String> updateSlots = new java.util.HashSet<>();
         for (var structural : structures) {
             if (structural.mode() != BulkMode.DOMAIN_COMMAND
-                    && !updateSlots.add(structural.resourceKey() + ":" + structural.mode().name()))
-                throw unavailable("Bulk update capability IDs collide within a resource");
+                    && !updateSlots.add(structural.resourceKey() + ":"
+                            + BulkExecutionContract.crudCapabilityId(structural.mode(), structural.atomicity())))
+                throw unavailable("Bulk update mode and atomicity collide within a resource");
         }
         List<BulkOperationalDescriptor> descriptors = new ArrayList<>(structures.size());
         for (BulkOperationStructuralDescriptor structural : structures) {

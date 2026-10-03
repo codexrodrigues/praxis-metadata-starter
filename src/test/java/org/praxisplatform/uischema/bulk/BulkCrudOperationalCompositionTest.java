@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
+import org.praxisplatform.uischema.action.ActionCollectionAtomicity;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CapabilityOperation;
@@ -37,6 +38,75 @@ class BulkCrudOperationalCompositionTest {
                 assertEquals(descriptor, BulkOperationalDescriptorComposer.compose(structure, provider));
                 assertNotEquals(descriptor.descriptorFingerprint(), BulkOperationalDescriptorComposer.compose(structure,
                         provider(structure.mode(), "next", pointer(structure.mode()), structure.mode())).descriptorFingerprint());
+            }
+        }
+    }
+
+    @Test
+    void fourCrudVariantsComposeFromOneSnapshotWithDistinctCapabilityIdsAndExactProviders() {
+        try (var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.AtomicCrudController.class)) {
+            var documents = new BulkCrudStructuralCompilerTest.Documents(atomicDocument());
+            var structures = BulkCrudStructuralCompilerTest.compile(context, BulkCrudStructuralCompilerTest.mapper(), documents);
+            assertEquals(4, structures.size());
+            assertEquals(1, documents.reads.get());
+            assertEquals(Set.of("bulk-update", "bulk-update-items", "bulk-update-atomic", "bulk-update-items-atomic"),
+                    structures.stream().map(structure -> {
+                        var descriptor = BulkOperationalDescriptorComposer.compose(structure, provider(structure));
+                        var contract = BulkExecutionContract.from(descriptor);
+                        assertEquals(structure.atomicity(), contract.atomicity());
+                        assertEquals(structure.mode(), contract.mode());
+                        assertEquals(structure.update().operation(), contract.editableFields().sourceOperation());
+                        assertEquals(7, structure.operations().size());
+                        return contract.crudCapabilityId();
+                    }).collect(java.util.stream.Collectors.toSet()));
+            var atomic = structures.stream().filter(value -> value.atomicity() == ActionCollectionAtomicity.ATOMIC).findFirst().orElseThrow();
+            var wrong = provider(atomic.mode());
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(atomic, wrong),
+                    "a PER_ITEM confirmation provider cannot materialize an ATOMIC operation");
+            var tooWide = new Provider(atomic.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION).reference().operationId(),
+                    "r1", pointer(atomic.mode()), atomic.mode(), provider(atomic.mode()).runtime) {
+                @Override public BulkOperationalProfile profile() {
+                    return new BulkOperationalProfile(Set.of(mode), Set.of(BulkExecutionMode.SYNC), Set.of(BulkSelectionMode.EXPLICIT),
+                            51, 65536, Duration.ofMinutes(2), Duration.ofSeconds(2));
+                }
+            };
+            assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(atomic, tooWide));
+            var perItem = structures.stream().filter(value -> value.atomicity() == ActionCollectionAtomicity.PER_ITEM
+                    && value.mode() == atomic.mode()).findFirst().orElseThrow();
+            var fullPerItemCeiling = new Provider(perItem.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION)
+                    .reference().operationId(), "r1", pointer(perItem.mode()), perItem.mode(), provider(perItem.mode()).runtime) {
+                @Override public BulkOperationalProfile profile() {
+                    return new BulkOperationalProfile(Set.of(mode), Set.of(BulkExecutionMode.SYNC), Set.of(BulkSelectionMode.EXPLICIT),
+                            200, 65536, Duration.ofMinutes(2), Duration.ofSeconds(2));
+                }
+            };
+            assertEquals(200, BulkExecutionContract.from(BulkOperationalDescriptorComposer.compose(perItem, fullPerItemCeiling))
+                    .limits().maxTargets(), "ATOMIC's 50-target ceiling must not reduce PER_ITEM");
+        }
+    }
+
+    @Test
+    void bothAtomicUpdateModesComposeAtOneAndFiftyTargetsWithExactFiveSecondDeadline() {
+        try (var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.AtomicCrudController.class)) {
+            var structures = BulkCrudStructuralCompilerTest.compile(context, BulkCrudStructuralCompilerTest.mapper(),
+                    new BulkCrudStructuralCompilerTest.Documents(atomicDocument()));
+            var atomicUpdates = structures.stream().filter(value -> value.atomicity() == ActionCollectionAtomicity.ATOMIC).toList();
+            assertEquals(Set.of(BulkMode.UNIFORM_UPDATE, BulkMode.PER_ITEM_UPDATE), atomicUpdates.stream()
+                    .map(BulkOperationStructuralDescriptor::mode).collect(java.util.stream.Collectors.toSet()));
+            for (var structure : atomicUpdates) {
+                for (int maxTargets : List.of(1, 50)) {
+                    var descriptor = BulkOperationalDescriptorComposer.compose(structure,
+                            boundedProvider(structure, maxTargets, Duration.ofSeconds(5)));
+                    var contract = BulkExecutionContract.from(descriptor);
+                    assertEquals(ActionCollectionAtomicity.ATOMIC, contract.atomicity());
+                    assertEquals(maxTargets, contract.limits().maxTargets());
+                    assertEquals(5_000, contract.limits().unitDeadlineMillis());
+                    assertEquals(structure.mode() == BulkMode.UNIFORM_UPDATE
+                            ? "bulk-update-atomic" : "bulk-update-items-atomic", contract.crudCapabilityId());
+                }
+                assertThrows(IllegalArgumentException.class, () -> BulkOperationalDescriptorComposer.compose(structure,
+                        boundedProvider(structure, 51, Duration.ofSeconds(5))),
+                        "51 targets must fail even at the exact five-second deadline");
             }
         }
     }
@@ -123,7 +193,24 @@ class BulkCrudOperationalCompositionTest {
                 new BulkCrudStructuralCompilerTest.Documents(document()));
     }
     static ObjectNode document() {
-        var document = BulkCrudStructuralCompilerTest.document();
+        return enrich(BulkCrudStructuralCompilerTest.document(), List.of("uniform", "items"));
+    }
+    static ObjectNode atomicDocument() {
+        return enrich(BulkCrudStructuralCompilerTest.atomicDocument(),
+                List.of("uniform", "items", "uniform-atomic", "items-atomic"));
+    }
+    static ObjectNode duplicateAtomicDocument() {
+        var document = atomicDocument();
+        var paths = (ObjectNode) document.path("paths");
+        for (String suffix : List.of("/evaluation", "")) {
+            var source = (ObjectNode) paths.path("/crud-items/bulk/uniform-atomic" + suffix).path("post");
+            var copy = source.deepCopy();
+            copy.put("operationId", "crud.uniform-atomic-again" + (suffix.isEmpty() ? "" : ".evaluation"));
+            paths.putObject("/crud-items/bulk/uniform-atomic-again" + suffix).set("post", copy);
+        }
+        return document;
+    }
+    private static ObjectNode enrich(ObjectNode document, List<String> modes) {
         // The S1 document deliberately had transport-only inline responses. Operational UI
         // references need the same concrete Confirmation DTO exposed as a selectable component.
         document.putObject("components").putObject("schemas").putObject("CrudConfirmation")
@@ -131,12 +218,12 @@ class BulkCrudOperationalCompositionTest {
         document.path("paths").forEach(path -> path.forEach(operation ->
                 ((ObjectNode) operation.at("/responses/200/content/application~1json"))
                         .set("schema", document.objectNode().put("$ref", "#/components/schemas/CrudConfirmation"))));
-        for (String mode : List.of("uniform", "items")) {
+        for (String mode : modes) {
             var schema = (ObjectNode) document.at("/paths/~1crud-items~1bulk~1" + mode + "~1evaluation/post/requestBody/content/application~1json/schema");
             var properties = schema.putObject("properties");
             properties.putObject("executionMode").put("type", "string");
             ObjectNode item;
-            if (mode.equals("uniform")) {
+            if (mode.startsWith("uniform")) {
                 var selection = properties.putObject("selection").put("type", "object").putObject("properties");
                 selection.putObject("mode").put("type", "string");
                 item = selection.putObject("targets").put("type", "array").putObject("items").put("type", "object").putObject("properties");
@@ -145,7 +232,7 @@ class BulkCrudOperationalCompositionTest {
             }
             item.set("id", BulkIdentityCodecs.integers().canonicalWireSchema());
             item.putObject("expectedVersion").put("type", "string");
-            var changes = (mode.equals("uniform") ? properties : item).putObject("changes").put("type", "array")
+            var changes = (mode.startsWith("uniform") ? properties : item).putObject("changes").put("type", "array")
                     .putObject("items").put("type", "object").putObject("properties");
             changes.putObject("field").put("type", "string");
             changes.putObject("operator").put("type", "string");
@@ -159,6 +246,20 @@ class BulkCrudOperationalCompositionTest {
                 20, 65536, Duration.ofMinutes(2), Duration.ofSeconds(2));
     }
     static Provider provider(BulkMode mode) { return provider(mode, "r1", pointer(mode), mode); }
+    static Provider provider(BulkOperationStructuralDescriptor structure) {
+        var original = provider(structure.mode());
+        return new Provider(structure.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION).reference().operationId(),
+                "r1", pointer(structure.mode()), structure.mode(), original.runtime);
+    }
+    private static Provider boundedProvider(BulkOperationStructuralDescriptor structure, int maxTargets, Duration deadline) {
+        var original = provider(structure);
+        return new Provider(original.operationId, original.revision, original.pointer, original.mode, original.runtime) {
+            @Override public BulkOperationalProfile profile() {
+                return new BulkOperationalProfile(Set.of(mode), Set.of(BulkExecutionMode.SYNC), Set.of(BulkSelectionMode.EXPLICIT),
+                        maxTargets, 65536, Duration.ofMinutes(2), deadline);
+            }
+        };
+    }
     static Provider provider(BulkMode mode, String revision, String pointer, BulkMode profileMode) {
         var runtime = mock(BulkExecutionInfrastructure.class, withSettings().mockMaker(org.mockito.MockMakers.INLINE));
         when(runtime.namespace()).thenReturn("crud-test");
