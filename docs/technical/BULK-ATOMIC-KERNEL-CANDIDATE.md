@@ -1,7 +1,8 @@
 # Candidato privado: execução ATOMIC de conjunto
 
-Estado: implementação e validação em andamento. Esta nota não anuncia publicação,
-composição operacional, READY, adoção HTTP ou garantia B4–B7.
+Estado: núcleo integrado e provas focais aprovadas; publicação e adoção operacional
+ainda pendentes. Esta nota não anuncia composição operacional, READY, adoção HTTP
+ou garantia B4–B7.
 
 ## Fonte e aderência
 
@@ -89,15 +90,35 @@ marcador PENDING e nunca reparados silenciosamente após COMPLETE.
 `migrate` e `validate` atestam os mesmos grants e o marcador COMPLETE; nenhum
 dos dois repara ACL alterada depois da conclusão.
 
-## Gates ainda abertos
+## Provas aprovadas e gates ainda abertos
 
-O candidato requer compilação, migração e testes PostgreSQL reais, inclusive
-1/50/51 alvos nos três modos `DOMAIN_COMMAND`, `UNIFORM_UPDATE` e
-`PER_ITEM_UPDATE`, rollback após efeito tardio e admissão dirty, commit
-incerto, ACK, recuperação, leitores, ACL e catálogo. A prova de um consumidor
-de domínio real e dos receipts/outbox na mesma conexão é obrigatória antes
-de qualquer integração ou publicação. Não foi habilitado composer `ATOMIC`,
-capability, endpoint ou adoção host.
+O núcleo foi integrado pelo PR223; a correção ERROR-WIRE pelo PR224. Campanhas
+focais aprovadas em PostgreSQL: núcleo 101, regressão Durable 84/Reader 10 e
+Proposal 16 após correção test-only. A fixture histórica rc.149 passou também
+com POM público; package/Javadoc não substituem essas provas. Elas cobrem o
+kernel/ledger, incluindo 1/50/51 nos três modos, rollback tardio, admissão dirty,
+ACK, reconciliação, leitura, ACL e catálogo. Não certificam HTTP de domínio.
+
+O host implementou um consumidor privado package-private de participantes de
+missão, validado com SDK DEV identificado da fonte Metadata integrada, mantendo
+o pin público rc.149. A evidência composta tem 56 testes distintos verdes:
+18 ATOMIC PostgreSQL, provider 12 PostgreSQL/8 unitários e executor 18 PostgreSQL.
+Admissão coletiva e mutação usam a mesma conexão operacional/JPA com domínio,
+receipt e filhos; provas incluem rollback SQL na última escrita, replay sem
+callback após mudança de grant/policy, versões/fatos, schema, modo cruzado,
+plano protegido inconsistente e recuperação de reserva RUNNING com epoch novo
+e controle antigo FENCED. Esta última não certifica recuperação UNIT_IN_FLIGHT
+ou commit incerto. A fixture usa binding MVC compilado e OpenAPI resolver simulado:
+é prova de consumo do kernel, sem produtor/lifecycle/HTTP. Não há outbox no domínio
+desse piloto; referências de efeitos não foram inventadas.
+
+Antes da publicação, concluir preparação/revisão documental e gates oficiais
+`RELEASING.md`, incluindo contrato acumulado contra a última tag publicada e
+clean verify. Depois comprovar disponibilidade Central e adotar exatamente o
+artefato público no host sem override; não integrar um consumidor que dependa
+de APIs ausentes no pin. Composição, capability, lifecycle/producer/HTTP ATOMIC,
+outbox quando aplicável, purge maduro e demais B4–B7 continuam gates próprios.
+A publicação do núcleo protegido não é liberação automática de endpoint ou READY.
 
 ## Fixture histórica de publicação
 

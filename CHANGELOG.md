@@ -11,6 +11,17 @@ All notable changes to this module will be documented in this file.
 
 ## Unreleased
 
+- Núcleo Java ATOMIC protegido integrado: `executeAtomic` e ledger V16 confirmam admissão,
+  mutação, receipt agregado, resultados ordenados e referências reais de efeitos na mesma
+  transação. Replay consulta receipt antes dos gates de nova mutação; recuperação reconcilia
+  sob epoch durável sem repetir callbacks. ACL/catálogo e retenção verificam evidência terminal.
+  V16 suspende publicações/controles READY anteriores; requer republicação governada, sem
+  reinterpretar receipts PER_ITEM históricos. O corte sustenta 1–50 alvos EXPLICIT/SYNC e
+  prazo agregado máximo de 5 s, mas não habilita composer, capability ou HTTP ATOMIC.
+  Provas focais PostgreSQL do núcleo e do consumidor privado foram aprovadas; a publicação
+  oficial, adoção sem override e prova operacional HTTP continuam gates separados.
+  Ver `docs/technical/BULK-ATOMIC-KERNEL-CANDIDATE.md`.
+
 - Candidato ERROR-WIRE: `CustomProblemDetail` publica `code`, `target`, `message`, `category` e
   membros RFC por fonte tipada única, sem duplicar chaves JSON no mapa de extensões. A API Java
   beta deixa de espelhar `code`/`target` em `getProperties()`; consumidores usam os getters tipados
