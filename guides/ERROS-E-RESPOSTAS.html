@@ -276,6 +276,25 @@ mesmo <code>rel</code>.</p>
 </summary>
 <p>Erros são padronizados com <code>CustomProblemDetail</code> e
 categorias (<code>ErrorCategory</code>).</p>
+<p>Cada membro aparece uma única vez no objeto JSON. <code>code</code>,
+<code>target</code>, <code>message</code>, <code>category</code> e os
+membros RFC (<code>type</code>, <code>title</code>, <code>status</code>,
+<code>detail</code>, <code>instance</code>) têm fonte tipada única. Leia
+<code>errors[].code</code> e <code>errors[].target</code>; não há
+espelhamento em <code>errors[].properties</code>. <code>target</code>
+nulo ou em branco representa ausência e é omitido na serialização
+Spring.</p>
+<p>Extensões legítimas, como <code>traceId</code> e
+<code>outcome</code>, aparecem nesse mesmo nível. Na API Java, use
+<code>setProperty</code> ou <code>setProperties</code> para escrevê-las;
+nomes tipados/RFC e <code>properties</code> são reservados e rejeitados.
+<code>setProperties</code> valida todo o mapa antes de substituí-lo e
+aceita valores nulos. <code>getProperties()</code> devolve um snapshot
+superficial imutável, vazio quando não há extensões; os campos tipados
+são lidos por seus getters. O JSON de leitura é um objeto, com extensões
+desconhecidas preservadas; o wrapper <code>properties</code> (inclusive
+nulo ou vazio) é rejeitado, e uma string isolada não representa um
+problema.</p>
 <div class="sourceCode" id="cb2"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;status&quot;</span><span class="fu">:</span> <span class="st">&quot;failure&quot;</span><span class="fu">,</span></span>

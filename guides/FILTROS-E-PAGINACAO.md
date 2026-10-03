@@ -109,7 +109,7 @@ protected ResourceFilterAccessScope<Funcionario> resolveResourceFilterAccessScop
 - Payload escalar de range é inválido e retorna `400`.
 - Use lista canonica (`[min]`, `[null, max]`, `[min, max]`) ou objeto canonico com limites reconhecidos.
 - Não há flag para aceitar escalar em runtime.
-- Erros de payload de filtro retornam `400` com `errors[].properties.code = FILTER_PAYLOAD_INVALID`.
+- Erros de payload de filtro retornam `400` com `errors[].code = FILTER_PAYLOAD_INVALID`.
 
 </details>
 
