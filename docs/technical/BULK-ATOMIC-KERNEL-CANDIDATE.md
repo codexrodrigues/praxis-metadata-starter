@@ -1,13 +1,16 @@
-# Candidato privado: execução ATOMIC de conjunto
+# Núcleo publicado: execução ATOMIC de conjunto
 
-Estado: núcleo integrado e provas focais aprovadas; publicação e adoção operacional
-ainda pendentes. Esta nota não anuncia composição operacional, READY, adoção HTTP
-ou garantia B4–B7.
+Estado em 03/10/2026: núcleo Java e V16 publicados no Metadata `8.0.0-rc.150`,
+tag `v8.0.0-rc.150`, apontando para o commit
+`986d6f3f8268bd6c3d85aa4b3e87036050af05a5`. O workflow oficial `37135766711`
+concluiu, e POM/JAR foram conferidos no Maven Central. A adoção sem override no host
+está em validação; a composição operacional e as rotas HTTP ATOMIC continuam
+pendentes. Esta nota não anuncia READY, adoção HTTP ATOMIC ou garantia B4–B7.
 
 ## Fonte e aderência
 
-O descriptor e a intenção já carregam `atomicity`; o kernel durável publicado só
-executava `PER_ITEM`. A classificação é `suportado-parcialmente` na estrutura e
+O descriptor e a intenção já carregam `atomicity`; até a rc.149 o kernel durável
+publicado só executava `PER_ITEM`. A classificação é `suportado-parcialmente` na estrutura e
 `lacuna-real-de-contrato` no ledger/executor. A fonte canônica da execução é
 `praxis-metadata-starter`; o host fornece admissão e mutação de domínio em uma
 transação operacional compartilhada. Consumidores futuros são composer, host
@@ -99,9 +102,10 @@ com POM público; package/Javadoc não substituem essas provas. Elas cobrem o
 kernel/ledger, incluindo 1/50/51 nos três modos, rollback tardio, admissão dirty,
 ACK, reconciliação, leitura, ACL e catálogo. Não certificam HTTP de domínio.
 
-O host implementou um consumidor privado package-private de participantes de
-missão, validado com SDK DEV identificado da fonte Metadata integrada, mantendo
-o pin público rc.149. A evidência composta tem 56 testes distintos verdes:
+No checkpoint histórico, o host implementou um consumidor privado package-private
+de participantes de missão, validado com SDK DEV identificado da fonte Metadata
+integrada, mantendo então o pin público rc.149. Essa evidência não substitui a
+validação atual da adoção pública rc.150. A evidência composta tem 56 testes distintos verdes:
 18 ATOMIC PostgreSQL, provider 12 PostgreSQL/8 unitários e executor 18 PostgreSQL.
 Admissão coletiva e mutação usam a mesma conexão operacional/JPA com domínio,
 receipt e filhos; provas incluem rollback SQL na última escrita, replay sem
@@ -112,10 +116,10 @@ ou commit incerto. A fixture usa binding MVC compilado e OpenAPI resolver simula
 é prova de consumo do kernel, sem produtor/lifecycle/HTTP. Não há outbox no domínio
 desse piloto; referências de efeitos não foram inventadas.
 
-Antes da publicação, concluir preparação/revisão documental e gates oficiais
-`RELEASING.md`, incluindo contrato acumulado contra a última tag publicada e
-clean verify. Depois comprovar disponibilidade Central e adotar exatamente o
-artefato público no host sem override; não integrar um consumidor que dependa
+O gate de preparação/publicação rc.150 concluiu os passos de `RELEASING.md`,
+incluindo contrato acumulado contra a tag149, clean verify e Javadoc. A
+disponibilidade Central também foi confirmada. O gate atual é adotar exatamente
+o artefato público no host sem override; não integrar um consumidor que dependa
 de APIs ausentes no pin. Composição, capability, lifecycle/producer/HTTP ATOMIC,
 outbox quando aplicável, purge maduro e demais B4–B7 continuam gates próprios.
 A publicação do núcleo protegido não é liberação automática de endpoint ou READY.
