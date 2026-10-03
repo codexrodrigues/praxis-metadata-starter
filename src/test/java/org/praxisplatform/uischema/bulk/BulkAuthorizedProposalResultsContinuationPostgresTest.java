@@ -61,7 +61,7 @@ class BulkAuthorizedProposalResultsContinuationPostgresTest {
 
     @BeforeEach void reset() {
         new JdbcTemplate(owner).execute("drop schema if exists praxis_bulk cascade");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(15);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(16);
         BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 

@@ -38,7 +38,7 @@ class JdbcBulkProposalStorePostgresTest {
     @AfterAll void stop() throws Exception { if (postgres != null) postgres.close(); }
     @BeforeEach void reset() { sql.execute("drop schema if exists praxis_bulk cascade"); }
     void migrate() {
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(15);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(16);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count() { return sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal", Integer.class); }
@@ -75,7 +75,7 @@ class JdbcBulkProposalStorePostgresTest {
                         java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
             };
             var first = executor.submit(task); var second = executor.submit(task);
-            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(15);
+            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(16);
         }
         BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId());
         BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
@@ -237,10 +237,31 @@ class JdbcBulkProposalStorePostgresTest {
     }
     @Test void ownerCannotUpdateAndCorruptPayloadFailsClosedWithoutProtectedCause() {
         migrate(); var value = proposal(); tx.executeWithoutResult(status -> store.insert(value));
-        assertThatThrownBy(() -> sql.update("update praxis_bulk.praxis_bulk_proposal set payload=?", bytes("protected-customer-value"))).isInstanceOf(RuntimeException.class);
-        sql.execute("alter table praxis_bulk.praxis_bulk_proposal disable trigger user");
-        sql.update("update praxis_bulk.praxis_bulk_proposal set payload=?", bytes("protected-customer-value"));
-        sql.execute("alter table praxis_bulk.praxis_bulk_proposal enable trigger user");
+        // V16 requires valid storage JSON and its original atomicity; corrupt only the semantic mode.
+        var corrupted = (com.fasterxml.jackson.databind.node.ObjectNode) value.snapshot().storageDocument().deepCopy();
+        corrupted.put("mode", "protected-customer-value");
+        byte[] corruptedPayload = BulkSnapshotStorageCodec.json(corrupted);
+        assertThatThrownBy(() -> sql.update("update praxis_bulk.praxis_bulk_proposal set payload=? where proposal_id=?",
+                corruptedPayload, value.id())).isInstanceOfSatisfying(org.springframework.dao.DataAccessException.class,
+                        error -> {
+                            assertThat(error.getRootCause()).isInstanceOf(java.sql.SQLException.class);
+                            var cause = (java.sql.SQLException) error.getRootCause();
+                            assertThat(cause.getSQLState()).isEqualTo("55000");
+                            assertThat((Throwable) cause).hasMessageContaining("praxis_bulk.praxis_bulk_proposal is immutable");
+                        });
+        // Deliberate isolated owner corruption bypasses only immutability, never a storage constraint.
+        sql.execute("alter table praxis_bulk.praxis_bulk_proposal disable trigger praxis_bulk_proposal_reject_update");
+        try {
+            assertThat(sql.update("update praxis_bulk.praxis_bulk_proposal set payload=? where proposal_id=?",
+                    corruptedPayload, value.id())).isEqualTo(1);
+        } finally {
+            sql.execute("alter table praxis_bulk.praxis_bulk_proposal enable trigger praxis_bulk_proposal_reject_update");
+        }
+        assertThat(sql.queryForObject("""
+                select (convert_from(payload,'UTF8')::jsonb->>'atomicity')=atomicity
+                   and (convert_from(payload,'UTF8')::jsonb->>'mode')=?
+                from praxis_bulk.praxis_bulk_proposal where proposal_id=?
+                """, Boolean.class, "protected-customer-value", value.id())).isTrue();
         assertThatThrownBy(() -> tx.execute(status -> store.find(CONTEXT, value.id())))
                 .isInstanceOfSatisfying(BulkProposalStorageException.class, error -> assertThat(error.reason()).isEqualTo(BulkProposalStorageException.Reason.CORRUPT))
                 .hasNoCause().hasMessageNotContaining("protected-customer-value");
@@ -254,6 +275,9 @@ class JdbcBulkProposalStorePostgresTest {
 
         sql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_preview to bulk_runtime");
         sql.execute("grant select, insert on praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
+        sql.execute("grant select, insert on praxis_bulk.praxis_bulk_atomic_receipt, "
+                + "praxis_bulk.praxis_bulk_atomic_item_result, praxis_bulk.praxis_bulk_atomic_effect_ref, praxis_bulk.praxis_bulk_atomic_rejection to bulk_runtime");
+        sql.execute("grant execute on function praxis_bulk.atomic_evidence_complete(uuid,integer) to bulk_runtime");
         sql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
         sql.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
         sql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");

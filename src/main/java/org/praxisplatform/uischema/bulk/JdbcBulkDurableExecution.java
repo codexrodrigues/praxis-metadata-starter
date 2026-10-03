@@ -167,6 +167,617 @@ public final class JdbcBulkDurableExecution {
                 write.stopReason(), false, write.snapshot());
     }
 
+    /** One set attempt, with one durable header and all child projections in the domain transaction. */
+    public BulkAtomicExecutionResult executeAtomic(BulkExecutionControl control,
+            BulkAtomicAdmissionCallback admission, BulkAtomicMutationCallback mutation) {
+        requireNoAmbientTransaction();
+        Objects.requireNonNull(control, "control");
+        Objects.requireNonNull(admission, "admission");
+        Objects.requireNonNull(mutation, "mutation");
+        AtomicPreparation preparation;
+        try {
+            preparation = unitTransaction(connection -> prepareAtomic(connection, control));
+        } catch (BulkDurableExecutionException error) { throw error; }
+        catch (RuntimeException error) {
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        }
+        if (preparation.header() != null)
+            return acknowledgeAtomic(control, preparation.header(), true);
+        if (preparation.stopped() != null)
+            return new BulkAtomicExecutionResult(preparation.stopped(), true, false);
+
+        AtomicHeader written;
+        try {
+            written = unitTransaction(connection -> applyAtomic(connection, control,
+                    preparation.attempt(), admission, mutation));
+        } catch (AtomicAdmissionRejected rejected) {
+            return resolveFailedAtomic(control, preparation.attempt(), rejected.reason());
+        } catch (CallbackFailure error) {
+            return resolveFailedAtomic(control, preparation.attempt(), BulkUnitReasonCode.UNIT_ROLLED_BACK);
+        } catch (BulkDurableExecutionException error) {
+            if (error.reason() == BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED)
+                return resolveFailedAtomic(control, preparation.attempt(), BulkUnitReasonCode.DEADLINE_EXCEEDED);
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        } catch (RuntimeException error) {
+            // A SQL/commit failure may have lost its ACK. The receipt must be read before
+            // any retry, and absence is not proof that a domain callback did not commit.
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        }
+        return acknowledgeAtomic(control, written, false);
+    }
+
+    private AtomicHeader atomicHeader(Connection connection, UUID executionId) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select attempt_id,owner_epoch,set_digest,target_count,effect_count,effect_digest,
+                       confirmed_at,unit_deadline_at
+                  from praxis_bulk.praxis_bulk_atomic_receipt where execution_id=?
+                """)) {
+            statement.setObject(1, executionId);
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) return null;
+                AtomicHeader header = new AtomicHeader((UUID) rows.getObject(1), rows.getLong(2),
+                        rows.getString(3), rows.getInt(4), rows.getInt(5), rows.getString(6),
+                        rows.getObject(7, OffsetDateTime.class).toInstant(),
+                        rows.getObject(8, OffsetDateTime.class).toInstant());
+                if (rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                return header;
+            }
+        }
+    }
+
+    private String atomicSetDigest(Evaluation evaluation) {
+        var targets = evaluation.snapshot().targets();
+        var digests = new ArrayList<String>(targets.size());
+        for (int ordinal = 0; ordinal < targets.size(); ordinal++)
+            digests.add(targetDigest(evaluation, ordinal, targets.get(ordinal)));
+        return BulkTargetDigest.setOf(evaluation.snapshot().fingerprint(), digests);
+    }
+
+    private boolean validAtomicHeader(Connection connection, ExecutionRow execution,
+            Evaluation evaluation, AtomicHeader header) throws SQLException {
+        if (execution.atomicity() != ActionCollectionAtomicity.ATOMIC || execution.protocolVersion() != 2
+                || header.targetCount() != execution.targetCount() || header.ownerEpoch() > execution.ownerEpoch()
+                || !header.setDigest().equals(atomicSetDigest(evaluation))
+                || !header.confirmedAt().isBefore(header.unitDeadline())
+                || !header.confirmedAt().isBefore(execution.deadlineAt())) return false;
+        try (var statement = connection.prepareStatement("""
+                select exists(select 1 from praxis_bulk.praxis_bulk_item_receipt r
+                               where r.execution_id=?)
+                    or exists(select 1 from praxis_bulk.praxis_bulk_admission a
+                               where a.execution_id=?)
+                    or exists(select 1 from praxis_bulk.praxis_bulk_atomic_rejection j
+                               where j.execution_id=?)
+                    or exists(select 1 from praxis_bulk.praxis_bulk_atomic_effect_ref f
+                               join praxis_bulk.praxis_bulk_atomic_item_result i
+                                 on i.execution_id=f.execution_id and i.unit_ordinal=f.unit_ordinal
+                              where f.execution_id=? and i.outcome='UNCHANGED')
+                    or exists(select 1 from praxis_bulk.praxis_bulk_atomic_effect_ref f
+                               where f.execution_id=? group by f.unit_ordinal having count(*)>8)
+                """)) {
+            for (int index = 1; index <= 5; index++) statement.setObject(index, execution.executionId());
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next() || rows.getBoolean(1) || rows.next()) return false;
+            }
+        }
+        int ordinal = 0;
+        try (var statement = connection.prepareStatement("""
+                select unit_ordinal,target_digest,expected_version,outcome
+                  from praxis_bulk.praxis_bulk_atomic_item_result
+                 where execution_id=? order by unit_ordinal
+                """)) {
+            statement.setObject(1, execution.executionId());
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    if (ordinal >= execution.targetCount() || rows.getInt(1) != ordinal) return false;
+                    var evidence = evaluation.snapshot().targets().get(ordinal);
+                    if (!targetDigest(evaluation, ordinal, evidence).equals(rows.getString(2))
+                            || !evidence.target().expectedVersion().equals(rows.getString(3))) return false;
+                    try { BulkUnitOutcome.valueOf(rows.getString(4)); }
+                    catch (RuntimeException invalid) { return false; }
+                    ordinal++;
+                }
+            }
+        }
+        if (ordinal != execution.targetCount()) return false;
+        List<BulkTargetDigest.EffectReference> effects = atomicEffects(connection, execution.executionId());
+        if (header.effectCount() != effects.size()
+                || !header.effectDigest().equals(BulkTargetDigest.effectsOf(effects))) return false;
+        if (execution.status() == BulkDurableExecutionStatus.UNIT_COMMITTED_PENDING_ACK)
+            return execution.nextOrdinal() == 0
+                    && header.attemptId().equals(execution.activeAttemptId())
+                    && header.setDigest().equals(execution.activeSetDigest())
+                    && Objects.equals(header.ownerEpoch(), execution.activeAttemptEpoch())
+                    && header.unitDeadline().equals(execution.activeUnitDeadline());
+        return execution.status() == BulkDurableExecutionStatus.COMPLETED
+                && execution.nextOrdinal() == execution.targetCount()
+                || execution.status() == BulkDurableExecutionStatus.RECONCILIATION_REQUIRED
+                && execution.nextOrdinal() == 0;
+    }
+
+    private static List<BulkTargetDigest.EffectReference> atomicEffects(Connection connection,
+            UUID executionId) throws SQLException {
+        var effects = new ArrayList<BulkTargetDigest.EffectReference>();
+        try (var statement = connection.prepareStatement("""
+                select unit_ordinal,effect_ref from praxis_bulk.praxis_bulk_atomic_effect_ref
+                 where execution_id=? order by unit_ordinal,effect_ref collate "C"
+                """)) {
+            statement.setObject(1, executionId);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    if (effects.size() >= 400)
+                        throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                    effects.add(new BulkTargetDigest.EffectReference(rows.getInt(1), rows.getString(2)));
+                }
+            }
+        }
+        return effects;
+    }
+
+    private BulkAtomicExecutionResult acknowledgeAtomic(BulkExecutionControl control,
+            AtomicHeader expected, boolean replayed) {
+        try {
+            BulkExecutionSnapshot state = unitTransaction(connection -> {
+                ExecutionRow execution = lockControl(connection, control);
+                Evaluation evaluation = loadEvaluation(connection, execution, false);
+                AtomicHeader actual = atomicHeader(connection, execution.executionId());
+                if (!Objects.equals(expected, actual) || !validAtomicHeader(connection, execution, evaluation, actual))
+                    throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                if (execution.status() == BulkDurableExecutionStatus.UNIT_COMMITTED_PENDING_ACK) {
+                    try (var statement = connection.prepareStatement("""
+                            update praxis_bulk.praxis_bulk_execution
+                               set status='COMPLETED',next_ordinal=target_count,
+                                   active_attempt_id=null,active_attempt_ordinal=null,
+                                   active_target_digest=null,active_set_digest=null,
+                                   active_attempt_epoch=null,active_unit_deadline_at=null,
+                                   updated_at=clock_timestamp(),terminal_at=clock_timestamp()
+                             where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
+                               and status='UNIT_COMMITTED_PENDING_ACK' and active_attempt_id=?
+                            """)) {
+                        statement.setObject(1, control.executionId());
+                        statement.setString(2, infrastructure.namespace());
+                        statement.setString(3, control.ownerId()); statement.setLong(4, control.epoch());
+                        statement.setObject(5, expected.attemptId());
+                        if (statement.executeUpdate() != 1)
+                            throw failure(BulkDurableExecutionException.Reason.FENCED);
+                    }
+                    execution = row(connection, control.executionId(), false);
+                }
+                return snapshot(execution);
+            });
+            return new BulkAtomicExecutionResult(state, replayed, true);
+        } catch (RuntimeException uncertain) {
+            try {
+                return unitTransaction(connection -> {
+                    ExecutionRow execution = row(connection, control.executionId(), false);
+                    Evaluation evaluation = loadEvaluation(connection, execution, false);
+                    AtomicHeader actual = atomicHeader(connection, execution.executionId());
+                    if (!Objects.equals(expected, actual)
+                            || !validAtomicHeader(connection, execution, evaluation, actual))
+                        throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+                    return new BulkAtomicExecutionResult(snapshot(execution), true, true);
+                });
+            } catch (RuntimeException unreadable) {
+                throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+            }
+        }
+    }
+
+    private BulkAtomicExecutionResult resolveFailedAtomic(BulkExecutionControl control,
+            AtomicAttempt attempt, BulkUnitReasonCode reason) {
+        try {
+            return unitTransaction(connection -> {
+                ExecutionRow execution = lockControl(connection, control);
+                if (atomicHeader(connection, execution.executionId()) != null)
+                    throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+                if (execution.status() != BulkDurableExecutionStatus.UNIT_IN_FLIGHT
+                        || !attempt.attemptId().equals(execution.activeAttemptId())
+                        || !attempt.setDigest().equals(execution.activeSetDigest())
+                        || attempt.epoch() != execution.ownerEpoch())
+                    throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+                BulkUnitReasonCode stop = reason == BulkUnitReasonCode.DEADLINE_EXCEEDED
+                        ? reason : BulkUnitReasonCode.UNIT_ROLLED_BACK;
+                try (var statement = connection.prepareStatement("""
+                        insert into praxis_bulk.praxis_bulk_atomic_rejection
+                          (execution_id,attempt_id,set_digest,reason_code,recorded_at)
+                        values (?,?,?,?,clock_timestamp())
+                        """)) {
+                    statement.setObject(1, execution.executionId()); statement.setObject(2, attempt.attemptId());
+                    statement.setString(3, attempt.setDigest()); statement.setString(4, reason.name());
+                    if (statement.executeUpdate() != 1)
+                        throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                }
+                try (var statement = connection.prepareStatement("""
+                        update praxis_bulk.praxis_bulk_execution
+                           set status='STOPPED',terminal_reason_code=?,
+                               active_attempt_id=null,active_attempt_ordinal=null,
+                               active_target_digest=null,active_set_digest=null,
+                               active_attempt_epoch=null,active_unit_deadline_at=null,
+                               updated_at=clock_timestamp(),terminal_at=clock_timestamp()
+                         where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
+                           and status='UNIT_IN_FLIGHT' and active_attempt_id=?
+                        """)) {
+                    statement.setString(1, stop.name()); statement.setObject(2, execution.executionId());
+                    statement.setString(3, infrastructure.namespace()); statement.setString(4, control.ownerId());
+                    statement.setLong(5, control.epoch()); statement.setObject(6, attempt.attemptId());
+                    if (statement.executeUpdate() != 1)
+                        throw failure(BulkDurableExecutionException.Reason.FENCED);
+                }
+                return new BulkAtomicExecutionResult(snapshot(row(connection, execution.executionId(), false)),
+                        false, false);
+            });
+        } catch (RuntimeException uncertain) {
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        }
+    }
+
+    private BulkConsistentExecutionRead inspectAtomic(Connection connection, BulkFingerprintContext scope,
+            ExecutionRow execution, Evaluation evaluation) throws SQLException {
+        AtomicHeader header = atomicHeader(connection, execution.executionId());
+        boolean committed = execution.status() == BulkDurableExecutionStatus.COMPLETED;
+        boolean pending = execution.status() == BulkDurableExecutionStatus.UNIT_COMMITTED_PENDING_ACK;
+        if ((committed || pending) != (header != null)
+                && execution.status() != BulkDurableExecutionStatus.RECONCILIATION_REQUIRED)
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        if (header != null && !validAtomicHeader(connection, execution, evaluation, header))
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        if (header == null && atomicItemCount(connection, execution.executionId()) != 0)
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        if (header == null && !validAtomicAbsence(connection, execution, evaluation))
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        if (committed && execution.nextOrdinal() != execution.targetCount()
+                || !committed && execution.nextOrdinal() != 0)
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        validateReadAllocations(connection, scope, execution);
+        Instant[] times = readExecutionTimes(connection, execution.executionId());
+        int confirmed = 0, unchanged = 0;
+        if (committed) {
+            try (var statement = connection.prepareStatement("""
+                    select outcome,count(*) from praxis_bulk.praxis_bulk_atomic_item_result
+                     where execution_id=? group by outcome
+                    """)) {
+                statement.setObject(1, execution.executionId());
+                try (ResultSet rows = statement.executeQuery()) {
+                    while (rows.next()) {
+                        if ("CONFIRMED".equals(rows.getString(1))) confirmed = rows.getInt(2);
+                        else if ("UNCHANGED".equals(rows.getString(1))) unchanged = rows.getInt(2);
+                        else throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                    }
+                }
+            }
+            if (confirmed + unchanged != execution.targetCount())
+                throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        }
+        int visible = committed ? execution.targetCount() : 0;
+        BulkExecutionSnapshot certified = new BulkExecutionSnapshot(execution.executionId(),
+                execution.proposalId(), execution.status(), visible, execution.targetCount(),
+                visible, 0, execution.deadlineAt(), new BulkExecutionControl(execution.executionId(),
+                execution.ownerId(), execution.ownerEpoch()), execution.terminalReasonCode(),
+                execution.cancelRequestedAt());
+        return new BulkConsistentExecutionRead(BulkConsistentExecutionRead.Kind.LIVE,
+                certified, times[0], times[1], times[2], confirmed, unchanged, 0, 0, 0,
+                execution.status() == BulkDurableExecutionStatus.RECONCILIATION_REQUIRED
+                        ? execution.targetCount() : 0, null);
+    }
+
+    private static int atomicItemCount(Connection connection, UUID executionId) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select count(*) from praxis_bulk.praxis_bulk_atomic_item_result where execution_id=?
+                """)) {
+            statement.setObject(1, executionId);
+            try (ResultSet rows = statement.executeQuery()) { rows.next(); return rows.getInt(1); }
+        }
+    }
+
+    private BulkExecutionSnapshot requestAtomicCancel(Connection connection, ExecutionRow execution,
+            Evaluation evaluation) throws SQLException {
+        AtomicHeader header = atomicHeader(connection, execution.executionId());
+        if (header != null && !validAtomicHeader(connection, execution, evaluation, header))
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        if (execution.status() == BulkDurableExecutionStatus.RUNNING && header == null) {
+            try (var statement = connection.prepareStatement("""
+                    update praxis_bulk.praxis_bulk_execution
+                       set status='STOPPED',terminal_reason_code='CANCELLED_BY_USER',
+                           cancel_requested_at=clock_timestamp(),terminal_at=clock_timestamp(),
+                           updated_at=clock_timestamp()
+                     where execution_id=? and namespace_id=? and owner_epoch=? and status='RUNNING'
+                    """)) {
+                statement.setObject(1, execution.executionId());
+                statement.setString(2, infrastructure.namespace());
+                statement.setLong(3, execution.ownerEpoch());
+                if (statement.executeUpdate() != 1)
+                    throw failure(BulkDurableExecutionException.Reason.FENCED);
+            }
+        } else {
+            try (var statement = connection.prepareStatement("""
+                    update praxis_bulk.praxis_bulk_execution
+                       set status='RECONCILIATION_REQUIRED',cancel_requested_at=clock_timestamp(),
+                           updated_at=clock_timestamp()
+                     where execution_id=? and namespace_id=? and owner_epoch=?
+                       and status in ('UNIT_IN_FLIGHT','UNIT_COMMITTED_PENDING_ACK','RECONCILIATION_REQUIRED')
+                       and cancel_requested_at is null
+                    """)) {
+                statement.setObject(1, execution.executionId());
+                statement.setString(2, infrastructure.namespace());
+                statement.setLong(3, execution.ownerEpoch());
+                if (statement.executeUpdate() != 1)
+                    throw failure(BulkDurableExecutionException.Reason.FENCED);
+            }
+        }
+        return snapshot(row(connection, execution.executionId(), false));
+    }
+
+    private BulkExecutionRecovery recoverAtomic(Connection connection, ExecutionRow execution,
+            Evaluation evaluation, String owner) throws SQLException {
+        AtomicHeader header = atomicHeader(connection, execution.executionId());
+        if (header != null && !validAtomicHeader(connection, execution, evaluation, header))
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        if (header == null && atomicItemCount(connection, execution.executionId()) != 0)
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        if (header == null && !validAtomicAbsence(connection, execution, evaluation))
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        if (terminal(execution.status())) return new BulkExecutionRecovery(snapshot(execution));
+        if (execution.status() == BulkDurableExecutionStatus.UNIT_IN_FLIGHT
+                && execution.activeUnitDeadline() != null
+                && clock(connection).isBefore(execution.activeUnitDeadline()))
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        if (execution.status() == BulkDurableExecutionStatus.UNIT_COMMITTED_PENDING_ACK && header == null)
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        long epoch = Math.addExact(execution.ownerEpoch(), 1);
+        boolean committed = header != null;
+        String status = committed ? "COMPLETED" : "STOPPED";
+        String reason = committed ? null : execution.cancelRequestedAt() != null
+                ? "CANCELLED_BY_USER" : "RECOVERY_STOPPED";
+        try (var statement = connection.prepareStatement("""
+                update praxis_bulk.praxis_bulk_execution
+                   set owner_id=?,owner_epoch=?,status=?,next_ordinal=?,terminal_reason_code=?,
+                       active_attempt_id=null,active_attempt_ordinal=null,
+                       active_target_digest=null,active_set_digest=null,
+                       active_attempt_epoch=null,active_unit_deadline_at=null,
+                       updated_at=clock_timestamp(),terminal_at=clock_timestamp()
+                 where execution_id=? and namespace_id=? and owner_epoch=?
+                """)) {
+            statement.setString(1, owner); statement.setLong(2, epoch); statement.setString(3, status);
+            statement.setInt(4, committed ? execution.targetCount() : 0);
+            statement.setString(5, reason); statement.setObject(6, execution.executionId());
+            statement.setString(7, infrastructure.namespace()); statement.setLong(8, execution.ownerEpoch());
+            if (statement.executeUpdate() != 1)
+                throw failure(BulkDurableExecutionException.Reason.FENCED);
+        }
+        return new BulkExecutionRecovery(snapshot(row(connection, execution.executionId(), false)));
+    }
+
+    private boolean validAtomicAbsence(Connection connection, ExecutionRow execution,
+            Evaluation evaluation) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select attempt_id,set_digest,reason_code
+                  from praxis_bulk.praxis_bulk_atomic_rejection where execution_id=?
+                """)) {
+            statement.setObject(1, execution.executionId());
+            try (ResultSet rows = statement.executeQuery()) {
+                if (execution.status() != BulkDurableExecutionStatus.STOPPED)
+                    return !rows.next();
+                if (rows.next()) {
+                    if (rows.getObject(1, UUID.class) == null
+                            || !atomicSetDigest(evaluation).equals(rows.getString(2))) return false;
+                    String reason = rows.getString(3);
+                    if (execution.terminalReasonCode() == BulkUnitReasonCode.DEADLINE_EXCEEDED) {
+                        if (!"DEADLINE_EXCEEDED".equals(reason)) return false;
+                    } else if (execution.terminalReasonCode() != BulkUnitReasonCode.UNIT_ROLLED_BACK
+                            || "DEADLINE_EXCEEDED".equals(reason)) return false;
+                    if (rows.next()) return false;
+                } else if (execution.terminalReasonCode() == BulkUnitReasonCode.UNIT_ROLLED_BACK)
+                    return false;
+            }
+        }
+        try (var statement = connection.prepareStatement("""
+                select praxis_bulk.atomic_evidence_complete(?,0)
+                """)) {
+            statement.setObject(1, execution.executionId());
+            try (ResultSet rows = statement.executeQuery()) {
+                return rows.next() && rows.getBoolean(1) && !rows.next();
+            }
+        }
+    }
+
+    private AtomicPreparation prepareAtomic(Connection connection, BulkExecutionControl control)
+            throws SQLException {
+        ExecutionRow execution = lockControl(connection, control);
+        if (execution.atomicity() != ActionCollectionAtomicity.ATOMIC || execution.protocolVersion() != 2)
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+        AtomicHeader header = atomicHeader(connection, execution.executionId());
+        Evaluation evaluation = loadEvaluation(connection, execution, false);
+        if (header != null) {
+            if (!validAtomicHeader(connection, execution, evaluation, header))
+                throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+            return new AtomicPreparation(null, header, null);
+        }
+        if (execution.status() == BulkDurableExecutionStatus.STOPPED
+                && execution.nextOrdinal() == 0) {
+            if (atomicItemCount(connection, execution.executionId()) != 0
+                    || !validAtomicAbsence(connection, execution, evaluation))
+                throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            return new AtomicPreparation(null, null, snapshot(execution));
+        }
+        if (execution.status() != BulkDurableExecutionStatus.RUNNING
+                || execution.nextOrdinal() != 0 || execution.activeAttemptId() != null)
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        if (execution.cancelRequestedAt() != null)
+            return new AtomicPreparation(null, null, finishCancelled(connection, execution));
+        validateExecutionSubset(evaluation);
+        BulkOrdinalManifest.validateOne(connection, evaluation.snapshot());
+        requireReadyControlFence(connection, execution, evaluation);
+        if (!clock(connection).isBefore(execution.deadlineAt())) {
+            try (var statement = connection.prepareStatement("""
+                    update praxis_bulk.praxis_bulk_execution
+                       set status='STOPPED',terminal_reason_code='DEADLINE_EXCEEDED',
+                           terminal_at=clock_timestamp(),updated_at=clock_timestamp()
+                     where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
+                       and status='RUNNING' and next_ordinal=0 and atomicity='ATOMIC'
+                    """)) {
+                statement.setObject(1, execution.executionId());
+                statement.setString(2, infrastructure.namespace());
+                statement.setString(3, control.ownerId()); statement.setLong(4, control.epoch());
+                if (statement.executeUpdate() != 1)
+                    throw failure(BulkDurableExecutionException.Reason.FENCED);
+            }
+            return new AtomicPreparation(null, null,
+                    snapshot(row(connection, execution.executionId(), false)));
+        }
+        String setDigest = atomicSetDigest(evaluation);
+        UUID attemptId = UUID.randomUUID();
+        Instant unitDeadline;
+        try (var statement = connection.prepareStatement("""
+                with attempt_clock as (select clock_timestamp() as started_at)
+                update praxis_bulk.praxis_bulk_execution e
+                set status='UNIT_IN_FLIGHT',active_attempt_id=?,active_set_digest=?,
+                    active_attempt_epoch=owner_epoch,
+                    active_unit_deadline_at=least(e.deadline_at,
+                        attempt_clock.started_at + (? * interval '1 millisecond')),
+                    updated_at=attempt_clock.started_at
+                from attempt_clock
+                where e.execution_id=? and e.namespace_id=? and e.owner_id=? and e.owner_epoch=?
+                  and e.atomicity='ATOMIC' and e.protocol_version=2 and e.status='RUNNING'
+                  and e.next_ordinal=0 and attempt_clock.started_at<e.deadline_at
+                returning e.active_unit_deadline_at
+                """)) {
+            statement.setObject(1, attemptId); statement.setString(2, setDigest);
+            statement.setLong(3, UNIT_BUDGET.toMillis()); statement.setObject(4, control.executionId());
+            statement.setString(5, infrastructure.namespace()); statement.setString(6, control.ownerId());
+            statement.setLong(7, control.epoch());
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+                unitDeadline = rows.getObject(1, OffsetDateTime.class).toInstant();
+                if (rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+        }
+        long started = System.nanoTime();
+        long remaining = Duration.between(clock(connection), unitDeadline).toNanos()
+                - Math.max(0, System.nanoTime() - started);
+        if (remaining <= 0) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+        return new AtomicPreparation(new AtomicAttempt(attemptId, setDigest, control.epoch(),
+                unitDeadline, System.nanoTime() + remaining), null, null);
+    }
+
+    private AtomicHeader applyAtomic(Connection connection, BulkExecutionControl control,
+            AtomicAttempt attempt, BulkAtomicAdmissionCallback admissionCallback,
+            BulkAtomicMutationCallback mutationCallback) throws SQLException {
+        ExecutionRow execution = lockControl(connection, control);
+        if (execution.atomicity() != ActionCollectionAtomicity.ATOMIC
+                || execution.status() != BulkDurableExecutionStatus.UNIT_IN_FLIGHT
+                || !attempt.attemptId().equals(execution.activeAttemptId())
+                || !attempt.setDigest().equals(execution.activeSetDigest())
+                || attempt.epoch() != execution.ownerEpoch()
+                || !attempt.unitDeadline().equals(execution.activeUnitDeadline()))
+            throw failure(BulkDurableExecutionException.Reason.FENCED);
+        if (atomicHeader(connection, execution.executionId()) != null)
+            throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+        if (execution.cancelRequestedAt() != null)
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+        Evaluation evaluation = loadEvaluation(connection, execution, false);
+        validateExecutionSubset(evaluation);
+        BulkOrdinalManifest.validateOne(connection, evaluation.snapshot());
+        if (!attempt.setDigest().equals(atomicSetDigest(evaluation)))
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        requireReadyControlFence(connection, execution, evaluation);
+        setDeadlineBudget(connection, min(execution.deadlineAt(), attempt.unitDeadline()));
+        var units = new ArrayList<BulkExecutionUnit>(execution.targetCount());
+        for (int ordinal = 0; ordinal < execution.targetCount(); ordinal++)
+            units.add(new BulkExecutionUnit(execution.executionId(), attempt.attemptId(), ordinal,
+                    evaluation.snapshot().targets().get(ordinal), evaluation.proposal().snapshot(),
+                    evaluation.snapshot().governance(), execution.deadlineAt(), attempt.unitDeadline(),
+                    attempt.monotonicDeadlineNanos(), control));
+        BulkAtomicExecutionSet set = new BulkAtomicExecutionSet(execution.executionId(),
+                attempt.attemptId(), attempt.setDigest(), units, attempt.unitDeadline(),
+                attempt.monotonicDeadlineNanos());
+        BulkAtomicAdmission admission;
+        try { admission = Objects.requireNonNull(admissionCallback.admit(set), "atomic admission"); }
+        catch (RuntimeException error) { throw new CallbackFailure(); }
+        setDeadlineBudget(connection, min(execution.deadlineAt(), attempt.unitDeadline()));
+        if (!admission.admitted()) {
+            // Even an admission callback can have dirtied the operational transaction.
+            // Abort it first; a separate fenced transaction records only the rejection.
+            throw new AtomicAdmissionRejected(admission.rejection());
+        }
+        BulkAtomicMutationResult result;
+        try { result = Objects.requireNonNull(mutationCallback.apply(set), "atomic mutation"); }
+        catch (RuntimeException error) { throw new CallbackFailure(); }
+        if (result.items().size() != execution.targetCount()) throw new CallbackFailure();
+        var declaredEffects = new ArrayList<BulkTargetDigest.EffectReference>();
+        for (BulkAtomicMutationResult.Item outcome : result.items())
+            for (String reference : outcome.effectReferences())
+                declaredEffects.add(new BulkTargetDigest.EffectReference(outcome.ordinal(), reference));
+        String effectDigest = BulkTargetDigest.effectsOf(declaredEffects);
+        requireAtomicAppendBudget(connection, execution, attempt);
+        Instant confirmedAt;
+        try (var statement = connection.prepareStatement("""
+                insert into praxis_bulk.praxis_bulk_atomic_receipt
+                  (execution_id,attempt_id,owner_epoch,set_digest,target_count,effect_count,
+                   effect_digest,confirmed_at,unit_deadline_at)
+                select execution_id,active_attempt_id,owner_epoch,active_set_digest,target_count,?,?,
+                       clock_timestamp(),active_unit_deadline_at
+                  from praxis_bulk.praxis_bulk_execution
+                 where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
+                   and atomicity='ATOMIC' and status='UNIT_IN_FLIGHT' and active_attempt_id=?
+                   and clock_timestamp()<deadline_at and clock_timestamp()<active_unit_deadline_at
+                returning confirmed_at
+                """)) {
+            statement.setInt(1, declaredEffects.size()); statement.setString(2, effectDigest);
+            statement.setObject(3, execution.executionId()); statement.setString(4, infrastructure.namespace());
+            statement.setString(5, control.ownerId()); statement.setLong(6, control.epoch());
+            statement.setObject(7, attempt.attemptId());
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+                confirmedAt = rows.getObject(1, OffsetDateTime.class).toInstant();
+                if (rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+        }
+        try (var item = connection.prepareStatement("""
+                insert into praxis_bulk.praxis_bulk_atomic_item_result
+                  (execution_id,unit_ordinal,target_digest,expected_version,outcome)
+                values (?,?,?,?,?)
+                """); var effect = connection.prepareStatement("""
+                insert into praxis_bulk.praxis_bulk_atomic_effect_ref
+                  (execution_id,unit_ordinal,effect_ref) values (?,?,?)
+                """)) {
+            for (int ordinal = 0; ordinal < execution.targetCount(); ordinal++) {
+                requireAtomicAppendBudget(connection, execution, attempt);
+                BulkAtomicMutationResult.Item outcome = result.items().get(ordinal);
+                var target = evaluation.snapshot().targets().get(ordinal).target();
+                item.setObject(1, execution.executionId()); item.setInt(2, ordinal);
+                item.setString(3, targetDigest(evaluation, ordinal,
+                        evaluation.snapshot().targets().get(ordinal)));
+                item.setString(4, target.expectedVersion()); item.setString(5, outcome.outcome().name());
+                if (item.executeUpdate() != 1) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                for (String reference : outcome.effectReferences()) {
+                    requireAtomicMonotonicBudget(attempt);
+                    effect.setObject(1, execution.executionId()); effect.setInt(2, ordinal);
+                    effect.setString(3, reference);
+                    if (effect.executeUpdate() != 1) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                }
+            }
+        }
+        requireAtomicAppendBudget(connection, execution, attempt);
+        try (var statement = connection.prepareStatement("""
+                update praxis_bulk.praxis_bulk_execution
+                   set status='UNIT_COMMITTED_PENDING_ACK',updated_at=clock_timestamp()
+                 where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?
+                   and status='UNIT_IN_FLIGHT' and active_attempt_id=?
+                   and clock_timestamp()<deadline_at and clock_timestamp()<active_unit_deadline_at
+                """)) {
+            statement.setObject(1, execution.executionId()); statement.setString(2, infrastructure.namespace());
+            statement.setString(3, control.ownerId()); statement.setLong(4, control.epoch());
+            statement.setObject(5, attempt.attemptId());
+            if (statement.executeUpdate() != 1) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+        }
+        // A slow transition trigger cannot make an over-budget set appear committed.
+        requireAtomicMonotonicBudget(attempt);
+        if (!clock(connection).isBefore(min(execution.deadlineAt(), attempt.unitDeadline())))
+            throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+        return new AtomicHeader(attempt.attemptId(), attempt.epoch(), attempt.setDigest(),
+                execution.targetCount(), declaredEffects.size(), effectDigest,
+                confirmedAt, attempt.unitDeadline());
+    }
+
     public Optional<BulkExecutionSnapshot> find(BulkFingerprintContext scope, UUID executionId) {
         requireNoAmbientTransaction();
         requireScope(scope);
@@ -222,6 +833,8 @@ public final class JdbcBulkDurableExecution {
         } catch (RuntimeException invalid) {
             throw failure(BulkDurableExecutionException.Reason.CORRUPT);
         }
+        if (execution.atomicity() == ActionCollectionAtomicity.ATOMIC)
+            return inspectAtomic(connection, scope, execution, evaluation);
         List<Receipt> receipts = receipts(connection, executionId);
         List<AdmissionRecord> admissions = admissions(connection, executionId);
         if (receipts.size() != execution.receiptCount()
@@ -310,6 +923,8 @@ public final class JdbcBulkDurableExecution {
         if (terminal(execution.status()) || execution.cancelRequestedAt() != null)
             return snapshot(execution);
         Evaluation evaluation = loadEvaluation(connection, execution, false);
+        if (execution.atomicity() == ActionCollectionAtomicity.ATOMIC)
+            return requestAtomicCancel(connection, execution, evaluation);
         boolean prefixConsistent = durablePrefixConsistent(connection, execution, evaluation);
         if (execution.status() == BulkDurableExecutionStatus.RUNNING
                 && prefixConsistent) {
@@ -385,6 +1000,10 @@ public final class JdbcBulkDurableExecution {
         Optional<BulkExecutionSnapshot> existing = findReservation(connection, scope, proposalId,
                 keyDigest, reservationFingerprint);
         if (existing.isPresent()) return new ReservationWrite(existing.orElseThrow(), false);
+        // Historical protocol-1 proposals remain readable/replayable, but cannot create
+        // a new protocol-2 execution or enter its callback path.
+        if (evaluation.protocolVersion() != 2)
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         if (expectation == null || !expectation.structuralRevision().equals(revision))
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         validateExecutionSubset(evaluation);
@@ -401,8 +1020,9 @@ public final class JdbcBulkDurableExecution {
                  idempotency_key_digest, reservation_fingerprint, input_fingerprint,
                  evaluation_fingerprint, structural_revision, control_generation,
                  control_descriptor_fingerprint, owner_id, owner_epoch, status,
-                 next_ordinal, target_count, deadline_at, created_at, updated_at)
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'RUNNING', 0, ?, ?, clock_timestamp(), clock_timestamp())
+                 next_ordinal, target_count, deadline_at, created_at, updated_at,
+                 atomicity, protocol_version)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'RUNNING', 0, ?, ?, clock_timestamp(), clock_timestamp(), ?, 2)
                 on conflict do nothing
                 """)) {
             statement.setObject(1, executionId); statement.setObject(2, proposalId);
@@ -420,6 +1040,7 @@ public final class JdbcBulkDurableExecution {
             }
             statement.setString(14, owner); statement.setInt(15, evaluation.snapshot().targets().size());
             statement.setObject(16, deadline.atOffset(ZoneOffset.UTC));
+            statement.setString(17, evaluation.proposal().snapshot().context().atomicity().name());
             inserted = statement.executeUpdate();
         }
         if (inserted == 1) BulkQuotaLedger.activateExecution(connection, scope, proposalId, executionId, quota);
@@ -448,8 +1069,11 @@ public final class JdbcBulkDurableExecution {
     private Optional<BulkExecutionSnapshot> findReservation(Connection connection, BulkFingerprintContext scope,
             UUID proposalId, String keyDigest, String expectedBinding) throws SQLException {
         try (var statement = connection.prepareStatement("""
-                select e.*, (select count(*) from praxis_bulk.praxis_bulk_item_receipt r
-                             where r.execution_id=e.execution_id) receipt_count,
+                select e.*, (case when e.atomicity='ATOMIC' then
+                            (select count(*) from praxis_bulk.praxis_bulk_atomic_item_result r
+                             where r.execution_id=e.execution_id)
+                        else (select count(*) from praxis_bulk.praxis_bulk_item_receipt r
+                             where r.execution_id=e.execution_id) end) receipt_count,
                        (select count(*) from praxis_bulk.praxis_bulk_admission a where a.execution_id=e.execution_id) admission_count
                 from praxis_bulk.praxis_bulk_execution e
                 where e.namespace_id=? and e.subject_id=? and e.resource_key=? and e.operation_id=?
@@ -472,6 +1096,8 @@ public final class JdbcBulkDurableExecution {
 
     private Preparation prepare(Connection connection, BulkExecutionControl control, int ordinal) throws SQLException {
         ExecutionRow execution = lockControl(connection, control);
+        if (execution.atomicity() != ActionCollectionAtomicity.PER_ITEM)
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         Optional<Receipt> existing = findReceipt(connection, control.executionId(), ordinal);
         Optional<AdmissionRecord> existingAdmission = findAdmission(connection, control.executionId(), ordinal);
         if (existing.isPresent() && existingAdmission.isPresent())
@@ -489,6 +1115,10 @@ public final class JdbcBulkDurableExecution {
                 throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
             return new Preparation(null, null, existingAdmission.orElseThrow(), null);
         }
+        // Historical protocol-one receipts remain replayable, but no protocol-one
+        // execution may enter a fresh callback after the non-rolling V16 cutover.
+        if (execution.protocolVersion() != 2)
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         if (!durablePrefixConsistent(connection, execution, evaluation))
             throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
         if (execution.cancelRequestedAt() != null) {
@@ -925,6 +1555,8 @@ public final class JdbcBulkDurableExecution {
             UUID executionId, String owner) throws SQLException {
         ExecutionRow execution = lockLifecycle(connection, scope, executionId);
         Evaluation evaluation = loadEvaluation(connection, execution, false);
+        if (execution.atomicity() == ActionCollectionAtomicity.ATOMIC)
+            return recoverAtomic(connection, execution, evaluation, owner);
         List<Receipt> receipts = receipts(connection, executionId);
         List<AdmissionRecord> admissions = admissions(connection, executionId);
         var byOrdinal = new java.util.HashMap<Integer, Object>();
@@ -1002,7 +1634,7 @@ public final class JdbcBulkDurableExecution {
         try (var statement = connection.prepareStatement("""
                 select p.created_at, p.expires_at, p.fingerprint, p.payload,
                        p.control_generation, p.control_descriptor_fingerprint, p.control_structural_revision,
-                       e.evaluation_fingerprint, e.payload
+                       e.evaluation_fingerprint, e.payload, p.atomicity, p.protocol_version
                 from praxis_bulk.praxis_bulk_proposal p
                 join praxis_bulk.praxis_bulk_evaluation e on e.proposal_id=p.proposal_id
                   and e.input_fingerprint=p.fingerprint
@@ -1013,6 +1645,11 @@ public final class JdbcBulkDurableExecution {
             try (ResultSet rows = statement.executeQuery()) {
                 if (!rows.next()) throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
                 BulkIntentSnapshot intent = BulkSnapshotStorageCodec.decode(rows.getBytes(4), rows.getString(3));
+                if (!intent.context().atomicity().name().equals(rows.getString(10)))
+                    throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                short protocolVersion = rows.getShort(11);
+                if (protocolVersion != 1 && protocolVersion != 2)
+                    throw failure(BulkDurableExecutionException.Reason.CORRUPT);
                 BulkStoredProposal proposal = new BulkStoredProposal(proposalId,
                         rows.getObject(1, OffsetDateTime.class).toInstant(),
                         rows.getObject(2, OffsetDateTime.class).toInstant(), intent,
@@ -1026,7 +1663,7 @@ public final class JdbcBulkDurableExecution {
                 BulkEvaluationSnapshot evaluation = BulkEvaluationStorageCodec.decode(proposal,
                         rows.getBytes(9), rows.getString(8));
                 if (rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
-                return new Evaluation(proposal, evaluation);
+                return new Evaluation(proposal, evaluation, protocolVersion);
             } catch (BulkDurableExecutionException error) { throw error; }
             catch (RuntimeException error) { throw failure(BulkDurableExecutionException.Reason.CORRUPT); }
         }
@@ -1038,18 +1675,22 @@ public final class JdbcBulkDurableExecution {
         // Only namespace/subject/resource/operation participate in the SQL scope. The exact
         // operation path/group/schema are reloaded and verified from the protected payload below.
         BulkFingerprintContext queryScope = new BulkFingerprintContext(execution.namespaceId(), execution.subjectId(),
-                execution.resourceKey(), operation, execution.structuralRevision(), ActionCollectionAtomicity.PER_ITEM);
+                execution.resourceKey(), operation, execution.structuralRevision(), execution.atomicity());
         Evaluation evaluation = loadEvaluation(connection, queryScope, execution.proposalId(), lock);
         if (!evaluation.proposal().snapshot().fingerprint().equals(execution.inputFingerprint())
-                || !evaluation.snapshot().fingerprint().equals(execution.evaluationFingerprint()))
+                || !evaluation.snapshot().fingerprint().equals(execution.evaluationFingerprint())
+                || evaluation.proposal().snapshot().context().atomicity() != execution.atomicity()
+                || evaluation.protocolVersion() != execution.protocolVersion())
             throw failure(BulkDurableExecutionException.Reason.CORRUPT);
         return evaluation;
     }
 
     private void validateExecutionSubset(Evaluation evaluation) {
         JsonNode intent = evaluation.proposal().snapshot().intent();
+        ActionCollectionAtomicity atomicity = evaluation.proposal().snapshot().context().atomicity();
         if (!"SYNC".equals(intent.path("executionMode").asText())
-                || evaluation.proposal().snapshot().context().atomicity() != ActionCollectionAtomicity.PER_ITEM)
+                || (atomicity != ActionCollectionAtomicity.PER_ITEM && atomicity != ActionCollectionAtomicity.ATOMIC)
+                || (atomicity == ActionCollectionAtomicity.ATOMIC && evaluation.protocolVersion() != 2))
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         JsonNode targets = evaluation.proposal().snapshot().mode() == BulkMode.PER_ITEM_UPDATE
                 ? intent.get("items") : intent.at("/selection/targets");
@@ -1059,6 +1700,8 @@ public final class JdbcBulkDurableExecution {
         if (targets == null || !targets.isArray() || targets.isEmpty()
                 || targets.size() != evaluation.snapshot().targets().size())
             throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        if (atomicity == ActionCollectionAtomicity.ATOMIC && targets.size() > 50)
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         if (!evaluation.snapshot().hasTypedEligibility() || evaluation.snapshot().targets().stream()
                 .anyMatch(target -> target.eligibility().isEmpty() || !target.eligibility().orElseThrow().isExecutable()))
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
@@ -1188,8 +1831,11 @@ public final class JdbcBulkDurableExecution {
             UUID executionId, boolean lock) throws SQLException {
         String suffix = lock ? " for update" : "";
         try (var statement = connection.prepareStatement("""
-                select e.*, (select count(*) from praxis_bulk.praxis_bulk_item_receipt r
-                             where r.execution_id=e.execution_id) receipt_count,
+                select e.*, (case when e.atomicity='ATOMIC' then
+                            (select count(*) from praxis_bulk.praxis_bulk_atomic_item_result r
+                             where r.execution_id=e.execution_id)
+                        else (select count(*) from praxis_bulk.praxis_bulk_item_receipt r
+                             where r.execution_id=e.execution_id) end) receipt_count,
                        (select count(*) from praxis_bulk.praxis_bulk_admission a where a.execution_id=e.execution_id) admission_count
                 from praxis_bulk.praxis_bulk_execution e
                 where e.execution_id=? and e.namespace_id=? and e.subject_id=?
@@ -1386,8 +2032,11 @@ public final class JdbcBulkDurableExecution {
     private ExecutionRow row(Connection connection, UUID executionId, boolean lock) throws SQLException {
         String suffix = lock ? " for update" : "";
         try (var statement = connection.prepareStatement("""
-                select e.*, (select count(*) from praxis_bulk.praxis_bulk_item_receipt r
-                             where r.execution_id=e.execution_id) receipt_count,
+                select e.*, (case when e.atomicity='ATOMIC' then
+                            (select count(*) from praxis_bulk.praxis_bulk_atomic_item_result r
+                             where r.execution_id=e.execution_id)
+                        else (select count(*) from praxis_bulk.praxis_bulk_item_receipt r
+                             where r.execution_id=e.execution_id) end) receipt_count,
                        (select count(*) from praxis_bulk.praxis_bulk_admission a where a.execution_id=e.execution_id) admission_count
                 from praxis_bulk.praxis_bulk_execution e where e.execution_id=? and e.namespace_id=?
                 """ + suffix)) {
@@ -1417,7 +2066,9 @@ public final class JdbcBulkDurableExecution {
                 rows.getInt("receipt_count"), rows.getInt("admission_count"),
                 rows.getString("terminal_reason_code") == null ? null : BulkUnitReasonCode.valueOf(rows.getString("terminal_reason_code")),
                 rows.getObject("cancel_requested_at", OffsetDateTime.class) == null ? null
-                        : rows.getObject("cancel_requested_at", OffsetDateTime.class).toInstant());
+                        : rows.getObject("cancel_requested_at", OffsetDateTime.class).toInstant(),
+                ActionCollectionAtomicity.valueOf(rows.getString("atomicity")), rows.getShort("protocol_version"),
+                rows.getString("active_set_digest"));
     }
 
     private static BulkExecutionSnapshot snapshot(ExecutionRow row) {
@@ -1695,6 +2346,17 @@ public final class JdbcBulkDurableExecution {
         setLocalTimeout(connection, "idle_in_transaction_session_timeout", remainingMillis);
     }
 
+    private static void requireAtomicMonotonicBudget(AtomicAttempt attempt) {
+        if (System.nanoTime() - attempt.monotonicDeadlineNanos() >= 0)
+            throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+    }
+
+    private static void requireAtomicAppendBudget(Connection connection, ExecutionRow execution,
+            AtomicAttempt attempt) throws SQLException {
+        requireAtomicMonotonicBudget(attempt);
+        setDeadlineBudget(connection, min(execution.deadlineAt(), attempt.unitDeadline()));
+    }
+
     private static Instant min(Instant first, Instant second) {
         return first.isBefore(second) ? first : second;
     }
@@ -1744,10 +2406,25 @@ public final class JdbcBulkDurableExecution {
 
     @FunctionalInterface private interface SqlWork<T> { T apply(Connection connection) throws SQLException; }
     private static final class CallbackFailure extends RuntimeException { private CallbackFailure() { super("Domain callback failed"); } }
-    private record Evaluation(BulkStoredProposal proposal, BulkEvaluationSnapshot snapshot) { }
+    private static final class AtomicAdmissionRejected extends RuntimeException {
+        private final BulkUnitReasonCode reason;
+        private AtomicAdmissionRejected(BulkUnitReasonCode reason) {
+            super("Atomic admission rejected");
+            this.reason = reason;
+        }
+        private BulkUnitReasonCode reason() { return reason; }
+    }
+    private record Evaluation(BulkStoredProposal proposal, BulkEvaluationSnapshot snapshot,
+            short protocolVersion) { }
     private record ReservationWrite(BulkExecutionSnapshot snapshot, boolean created) { }
     private record Attempt(UUID attemptId, int ordinal, String targetDigest, long epoch, Instant unitDeadline,
             long monotonicDeadlineNanos) { }
+    private record AtomicAttempt(UUID attemptId, String setDigest, long epoch, Instant unitDeadline,
+            long monotonicDeadlineNanos) { }
+    private record AtomicHeader(UUID attemptId, long ownerEpoch, String setDigest, int targetCount,
+            int effectCount, String effectDigest, Instant confirmedAt, Instant unitDeadline) { }
+    private record AtomicPreparation(AtomicAttempt attempt, AtomicHeader header,
+            BulkExecutionSnapshot stopped) { }
     private record Receipt(int ordinal, String targetDigest, String expectedVersion, UUID attemptId,
             long epoch, BulkUnitOutcome outcome, Instant confirmedAt, Instant unitDeadline) { }
     private record Preparation(Attempt attempt, Receipt receipt, AdmissionRecord admission, BulkExecutionSnapshot stoppedSnapshot) { }
@@ -1762,5 +2439,6 @@ public final class JdbcBulkDurableExecution {
             BulkDurableExecutionStatus status, int nextOrdinal, int targetCount, Instant deadlineAt,
             UUID activeAttemptId, Integer activeAttemptOrdinal, String activeTargetDigest,
             Long activeAttemptEpoch, Instant activeUnitDeadline, int receiptCount, int admissionCount,
-            BulkUnitReasonCode terminalReasonCode, Instant cancelRequestedAt) { }
+            BulkUnitReasonCode terminalReasonCode, Instant cancelRequestedAt,
+            ActionCollectionAtomicity atomicity, short protocolVersion, String activeSetDigest) { }
 }

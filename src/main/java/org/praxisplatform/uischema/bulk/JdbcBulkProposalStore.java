@@ -69,7 +69,8 @@ public final class JdbcBulkProposalStore {
             BulkFingerprintContext scope, UUID id) throws SQLException {
         try (var statement = connection.prepareStatement("""
                 select created_at, expires_at, fingerprint, payload,
-                       control_generation, control_descriptor_fingerprint, control_structural_revision
+                       control_generation, control_descriptor_fingerprint, control_structural_revision,
+                       atomicity, protocol_version
                 from praxis_bulk.praxis_bulk_proposal
                 where proposal_id=? and namespace_id=? and subject_id=? and resource_key=? and operation_id=?
                 """)) {
@@ -90,7 +91,7 @@ public final class JdbcBulkProposalStore {
         try (var statement = connection.prepareStatement("""
                 select created_at, expires_at, fingerprint, payload,
                        control_generation, control_descriptor_fingerprint, control_structural_revision,
-                       subject_id
+                       atomicity, protocol_version, subject_id
                 from praxis_bulk.praxis_bulk_proposal
                 where proposal_id=? and namespace_id=? and resource_key=? and operation_id=?
                 """)) {
@@ -98,7 +99,7 @@ public final class JdbcBulkProposalStore {
             statement.setString(3, resourceKey); statement.setString(4, operationId);
             try (var rows = statement.executeQuery()) {
                 if (!rows.next()) return Optional.empty();
-                return Optional.of(decodedProposal(rows, id, namespaceId, rows.getString(8),
+                return Optional.of(decodedProposal(rows, id, namespaceId, rows.getString("subject_id"),
                         resourceKey, operationId));
             }
         }
@@ -109,6 +110,9 @@ public final class JdbcBulkProposalStore {
         try {
             var snapshot = BulkSnapshotStorageCodec.decode(rows.getBytes(4), rows.getString(3));
             var stored = snapshot.context();
+            if (!stored.atomicity().name().equals(rows.getString("atomicity"))
+                    || (rows.getShort("protocol_version") != 1 && rows.getShort("protocol_version") != 2))
+                throw new IllegalArgumentException("Protected atomicity or protocol mismatch");
             if (!stored.namespaceId().equals(namespaceId) || !stored.subjectId().equals(subjectId)
                     || !stored.resourceKey().equals(resourceKey)
                     || !stored.operationRef().operationId().equals(operationId)) {
@@ -189,8 +193,9 @@ public final class JdbcBulkProposalStore {
         try (var statement = connection.prepareStatement("""
                 insert into praxis_bulk.praxis_bulk_proposal
                 (proposal_id, namespace_id, subject_id, resource_key, operation_id, created_at, expires_at,
-                 fingerprint, payload, control_generation, control_descriptor_fingerprint, control_structural_revision)
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 fingerprint, payload, control_generation, control_descriptor_fingerprint, control_structural_revision,
+                 atomicity, protocol_version)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2)
                 """)) {
             BulkOperationControlExpectation expectation = proposal.controlExpectation();
             statement.setObject(1, proposal.id()); statement.setString(2, context.namespaceId());
@@ -202,6 +207,7 @@ public final class JdbcBulkProposalStore {
             statement.setLong(10, expectation.generation());
             statement.setString(11, expectation.descriptorFingerprint());
             statement.setString(12, expectation.structuralRevision());
+            statement.setString(13, context.atomicity().name());
             statement.executeUpdate();
         }
     }
