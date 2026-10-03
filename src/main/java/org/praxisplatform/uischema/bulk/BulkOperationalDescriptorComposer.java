@@ -48,10 +48,13 @@ final class BulkOperationalDescriptorComposer {
             throw new IllegalArgumentException("Provider is not bound to this canonical confirmation operation");
         if (!profile.operationModes().equals(java.util.Set.of(structural.mode())))
             throw new IllegalArgumentException("Provider profile does not allow this declared operation mode");
+        if (structural.mode() == BulkMode.DOMAIN_COMMAND
+                && structural.action().execution().outcome().atomicity() != structural.atomicity())
+            throw new IllegalArgumentException("Workflow action atomicity differs from the bulk declaration");
         if (structural.atomicity() == ActionCollectionAtomicity.ATOMIC) {
-            if (structural.mode() == BulkMode.DOMAIN_COMMAND || profile.maxTargets() > 50
+            if (profile.maxTargets() > 50
                     || profile.unitDeadline().compareTo(Duration.ofSeconds(5)) > 0)
-                throw new IllegalArgumentException("ATOMIC composition requires a bounded CRUD update profile");
+                throw new IllegalArgumentException("ATOMIC composition requires at most 50 targets and a five-second unit deadline");
         } else if (structural.atomicity() != ActionCollectionAtomicity.PER_ITEM) {
             throw new IllegalArgumentException("Bulk composition requires supported atomicity");
         }

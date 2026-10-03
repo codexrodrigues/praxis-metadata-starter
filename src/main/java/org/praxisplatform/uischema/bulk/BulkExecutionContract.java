@@ -47,9 +47,9 @@ public record BulkExecutionContract(
                 || !executionModes.equals(List.of(BulkExecutionMode.SYNC)))
             throw new IllegalArgumentException("This projection supports only P1 EXPLICIT/SYNC");
         if (atomicity == ActionCollectionAtomicity.ATOMIC
-                && (mode == BulkMode.DOMAIN_COMMAND || limits.maxTargets() > 50
+                && (limits.maxTargets() > 50
                         || limits.unitDeadlineMillis() > 5_000))
-            throw new IllegalArgumentException("ATOMIC projection requires a bounded CRUD update profile");
+            throw new IllegalArgumentException("ATOMIC projection requires at most 50 targets and a five-second unit deadline");
         if (atomicity == ActionCollectionAtomicity.PER_ITEM && limits.maxTargets() > 200)
             throw new IllegalArgumentException("PER_ITEM projection exceeds its target ceiling");
         if (evaluationOperation.requestSchema() == null || confirmationOperation.requestSchema() == null

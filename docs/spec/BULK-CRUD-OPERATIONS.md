@@ -2,7 +2,7 @@
 
 O vínculo estrutural entre PUT e DTO de update está em
 [BULK-CRUD-STRUCTURE.md](BULK-CRUD-STRUCTURE.md). Este corte candidato compõe a
-projeção de descoberta síncrona. O SDK publicado rc.150 compõe PER_ITEM; o incremento B4 desta fonte candidata acrescenta composição ATOMIC para CRUD, ainda sem artefato público novo ou adoção ATOMIC do host. Não transforma
+projeção de descoberta síncrona. O SDK publicado rc.151 compõe PER_ITEM e ATOMIC para CRUD. A adoção HTTP ATOMIC do host permanece um gate próprio. Não transforma
 um descriptor estrutural em autorização nem certifica mutação do domínio no host.
 
 ## Descoberta coerente
@@ -37,7 +37,7 @@ autoriza execução. Provider, confirmação e controle durável são exatos por
 
 ## Perfil e limites
 
-O perfil UPDATE é singular por operação, com execução síncrona e seleção explícita (`SYNC`, `EXPLICIT`). PER_ITEM mantém teto de 200 alvos. O candidato ATOMIC aceita 1–50 alvos e prazo agregado da unidade de até 5 segundos; perfil fora desses limites não compõe. Atomicidade pertence à operação, nunca ao request/UI. DOMAIN_COMMAND/ATOMIC permanece fechado neste composer. Não acrescenta consulta de seleção ou execução assíncrona; a composição não prova mutação, receipt ou recuperação do domínio do host.
+O perfil UPDATE é singular por operação, com execução síncrona e seleção explícita (`SYNC`, `EXPLICIT`). PER_ITEM mantém teto de 200 alvos. O candidato ATOMIC aceita 1–50 alvos e prazo agregado da unidade de até 5 segundos; perfil fora desses limites não compõe. Atomicidade pertence à operação, nunca ao request/UI. O artefato publicado rc.151 mantém DOMAIN_COMMAND/ATOMIC fechado. O candidato posterior desta fonte acrescenta composição de comandos concordantes, com limites e identidade da ação próprios; ver [plano e limites](../technical/BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md). Não acrescenta consulta de seleção ou execução assíncrona; a composição não prova mutação, receipt ou recuperação do domínio do host.
 `DOMAIN_COMMAND` conserva os bytes do digest `praxis.bulk.structure/3`;
 UPDATE usa `praxis.bulk.structure/4` com fonte, schema, allowlists e campos
 protegidos. `parametersPointer` é exclusivo do command e fica ausente em

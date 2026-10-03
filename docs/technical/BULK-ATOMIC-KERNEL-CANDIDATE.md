@@ -184,3 +184,16 @@ A autoridade durável continua `(namespace, confirmationOperationId)`; não usar
 **Provas de aceite antes da publicação.** Coexistência PER_ITEM/ATOMIC para mesmo resource e mode; rejeição de duplicatas do mesmo trio; controle exato por variante, suspensão invalidando a fotografia global e republicação reabrindo somente a identidade publicada, com as demais ausentes até publicação própria; provider ausente/trocado/duplicado não executável; limite ATOMIC1/50 aceito e51 rejeitado antes de gravar proposta/mutação, PER_ITEM200 preservado; refs/schema/fingerprint consistentes no mesmo documento OpenAPI e cinco handlers sem body. No host real: avaliar/confirmar com provider ATOMIC, provar domínio e receipt conjunto na mesma transação, rollback integral, replay sem domínio, autorização/precondições e leitura/cancelamento existentes, em PostgreSQL e HTTP. Prova privada existente é complementar; não declarar T14/T15 ou B4–B7 concluídos por este desenho.
 
 **Ordem registrada antes do patch (estado atual no checkpoint acima):** adoção pública rc.150/verify/PR364 e implementação canônica podem avançar em paralelo apenas com isolamento comprovado: host congelado usa JAR Central imutável, novo checkout Metadata tem fonte/target próprios, sem instalar coordenada pública, publicar ou alterar a campanha host. Antes da escrita registrar baseline/recursos e revisar esta decisão; implementar materialização e testes canônicos delimitados; revisão independente; consumer real host e provas HTTP/PG; docs/skills e integração com SHAs exatos. Nenhuma release adicional é autorizada apenas pela aprovação do desenho.
+
+
+## Composição posterior de comandos ATOMIC — candidato separado
+
+A composição CRUD acima foi publicada no Metadata rc.151; sua adoção HTTP no host
+continua gate independente. O próximo candidato elimina apenas os vetos de
+DOMAIN_COMMAND/ATOMIC no composer e na projeção, mantendo ação, provider, identidade,
+parâmetros tipados, sete referências e limites canônicos. WorkflowAction e declaração
+bulk devem concordar na atomicidade. Não projeta comando como capability CRUD nem
+altera o kernel/ledger. O orçamento de cinco segundos é agregado para o único conjunto
+ATOMIC. Provas, consumidores e skills deste novo candidato permanecem gates próprios.
+Ver [inventário, impacto e aceite](BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md). Não fecha
+CREATE/requestReference, versão de ausência, IAM/provider RuleLab ou outbox T15.
