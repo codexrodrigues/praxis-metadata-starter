@@ -53,6 +53,13 @@ public final class BulkExecutionMigrator {
     private static final String EXECUTION_TABLE = "praxis_bulk_execution";
     private static final String RECEIPT_TABLE = "praxis_bulk_item_receipt";
     private static final String ADMISSION_TABLE = "praxis_bulk_admission";
+    private static final String ATOMIC_RECEIPT_TABLE = "praxis_bulk_atomic_receipt";
+    private static final String ATOMIC_ITEM_TABLE = "praxis_bulk_atomic_item_result";
+    private static final String ATOMIC_EFFECT_TABLE = "praxis_bulk_atomic_effect_ref";
+    private static final String ATOMIC_REJECTION_TABLE = "praxis_bulk_atomic_rejection";
+    private static final String ATOMIC_BOOTSTRAP_TABLE = "praxis_bulk_atomic_bootstrap";
+    private static final List<String> ATOMIC_RUNTIME_TABLES = List.of(ATOMIC_RECEIPT_TABLE,
+            ATOMIC_ITEM_TABLE, ATOMIC_EFFECT_TABLE, ATOMIC_REJECTION_TABLE);
     private static final String BINDING_FUNCTION = "protect_praxis_bulk_execution_binding";
     private static final String BINDING_TRIGGER = "praxis_bulk_execution_protect_binding";
     private static final String TERMINAL_REASON_FUNCTION = "protect_praxis_bulk_terminal_reason";
@@ -80,7 +87,8 @@ public final class BulkExecutionMigrator {
             PREVIEW_READER_BOOTSTRAP_TABLE,
             EXECUTION_TABLE, RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE,
             OPERATION_CONTROL_TABLE, OPENAPI_PUBLICATION_TABLE, DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE,
-            ALLOCATION_TABLE, TOMBSTONE_TABLE);
+            ALLOCATION_TABLE, TOMBSTONE_TABLE, ATOMIC_RECEIPT_TABLE, ATOMIC_ITEM_TABLE,
+            ATOMIC_EFFECT_TABLE, ATOMIC_REJECTION_TABLE, ATOMIC_BOOTSTRAP_TABLE);
     private static final Set<String> V5_INDEXES = Set.of(
             "praxis_bulk_allocation_pending_deployment_idx", "praxis_bulk_allocation_pending_subject_idx",
             "praxis_bulk_allocation_active_deployment_idx", "praxis_bulk_execution_retention_idx",
@@ -119,6 +127,12 @@ public final class BulkExecutionMigrator {
     private static final Set<String> V14_FUNCTIONS = Set.of(
             "lock_openapi_publication(p_namespace_id text, p_deployment_id text)",
             "transition_openapi_publication(p_namespace_id text, p_deployment_id text, p_expected_generation bigint, p_target_state text, p_document_digest text)");
+    private static final Set<String> V16_FUNCTIONS = Set.of(
+            "guard_bulk_protocol_insert()", "guard_atomic_receipt_insert()",
+            "guard_atomic_item_insert()", "guard_atomic_effect_insert()",
+            "guard_atomic_rejection_insert()", "reject_atomic_evidence_mutation()",
+            "atomic_evidence_complete(p_execution_id uuid, p_required_count integer)",
+            "guard_atomic_attempt_transition()", "guard_per_item_evidence_insert()");
     private static final Set<String> V5_TRIGGERS = Set.of(
             PROPOSAL_TABLE + ".praxis_bulk_proposal_guard_delete",
             EVALUATION_TABLE + ".praxis_bulk_evaluation_guard_delete",
@@ -158,6 +172,24 @@ public final class BulkExecutionMigrator {
             EVALUATION_TABLE + ".praxis_bulk_evaluation_require_preview_item_integrity",
             PREVIEW_INTEGRITY_TABLE + ".praxis_bulk_preview_item_integrity_immutable",
             PREVIEW_INTEGRITY_TABLE + ".praxis_bulk_preview_item_integrity_guard_delete");
+    private static final Set<String> V16_TRIGGERS = Set.of(
+            PROPOSAL_TABLE + ".praxis_bulk_proposal_protocol_insert",
+            EXECUTION_TABLE + ".praxis_bulk_execution_protocol_insert",
+            EXECUTION_TABLE + ".praxis_bulk_execution_guard_atomic_attempt",
+            RECEIPT_TABLE + ".praxis_bulk_receipt_per_item_only",
+            ADMISSION_TABLE + ".praxis_bulk_admission_per_item_only",
+            ATOMIC_RECEIPT_TABLE + ".praxis_bulk_atomic_receipt_guard_insert",
+            ATOMIC_RECEIPT_TABLE + ".praxis_bulk_atomic_receipt_reject_mutation",
+            ATOMIC_RECEIPT_TABLE + ".praxis_bulk_atomic_receipt_guard_delete",
+            ATOMIC_ITEM_TABLE + ".praxis_bulk_atomic_item_result_guard_insert",
+            ATOMIC_ITEM_TABLE + ".praxis_bulk_atomic_item_result_reject_mutation",
+            ATOMIC_ITEM_TABLE + ".praxis_bulk_atomic_item_result_guard_delete",
+            ATOMIC_EFFECT_TABLE + ".praxis_bulk_atomic_effect_ref_guard_insert",
+            ATOMIC_EFFECT_TABLE + ".praxis_bulk_atomic_effect_ref_reject_mutation",
+            ATOMIC_EFFECT_TABLE + ".praxis_bulk_atomic_effect_ref_guard_delete",
+            ATOMIC_REJECTION_TABLE + ".praxis_bulk_atomic_rejection_guard_insert",
+            ATOMIC_REJECTION_TABLE + ".praxis_bulk_atomic_rejection_reject_mutation",
+            ATOMIC_REJECTION_TABLE + ".praxis_bulk_atomic_rejection_guard_delete");
     private static volatile MigrationExpectations migrationExpectations;
 
     private BulkExecutionMigrator() { }
@@ -277,8 +309,10 @@ public final class BulkExecutionMigrator {
                 boolean pendingPreviewBootstrap = lockPreviewBootstrap(connection);
                 boolean pendingIntegrityBootstrap = lockPreviewIntegrityBootstrap(connection);
                 boolean pendingReaderBootstrap = lockPreviewReaderBootstrap(connection);
+                boolean pendingAtomicBootstrap = lockAtomicBootstrap(connection);
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
+                validateAtomicRows(connection);
                 bootstrapLifecycle(connection, deployments, operations);
                 if (pendingManifestBootstrap) BulkOrdinalManifest.backfillAndValidate(connection);
                 else BulkOrdinalManifest.validateAll(connection);
@@ -286,6 +320,7 @@ public final class BulkExecutionMigrator {
                 if (pendingPreviewBootstrap) provisionPreviewRuntimeGrants(connection, roles);
                 if (pendingIntegrityBootstrap) provisionPreviewIntegrityRuntimeGrants(connection, roles);
                 if (pendingReaderBootstrap) provisionPreviewReaderRuntimeGrants(connection, roles);
+                if (pendingAtomicBootstrap) provisionAtomicRuntimeGrants(connection, roles);
                 validateLifecycleRows(connection);
                 if (pendingManifestBootstrap) completeManifestBootstrap(connection);
                 if (pendingPreviewBootstrap) completePreviewBootstrap(connection);
@@ -306,6 +341,9 @@ public final class BulkExecutionMigrator {
                 validatePreviewReaderCatalog(connection, pendingReaderBootstrap ? "PENDING" : "COMPLETE");
                 if (pendingReaderBootstrap) completePreviewReaderBootstrap(connection);
                 validatePreviewReaderCatalog(connection, "COMPLETE");
+                validateAtomicBootstrap(connection, pendingAtomicBootstrap ? "PENDING" : "COMPLETE", roles);
+                if (pendingAtomicBootstrap) completeAtomicBootstrap(connection);
+                validateAtomicBootstrap(connection, "COMPLETE", roles);
                 connection.commit();
             } catch (SQLException | RuntimeException failure) {
                 try { connection.rollback(); } catch (SQLException rollback) { failure.addSuppressed(rollback); }
@@ -432,6 +470,91 @@ public final class BulkExecutionMigrator {
             require(!rows.next() && ("PENDING".equals(phase) || "COMPLETE".equals(phase)),
                     "V12 reader bootstrap marker differs");
             return "PENDING".equals(phase);
+        }
+    }
+
+    private static boolean lockAtomicBootstrap(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select bootstrap_version,phase from praxis_bulk.praxis_bulk_atomic_bootstrap for update
+                """)) {
+            require(rows.next() && rows.getInt(1) == 16, "V16 atomic bootstrap marker is missing");
+            String phase = rows.getString(2);
+            require(!rows.next() && ("PENDING".equals(phase) || "COMPLETE".equals(phase)),
+                    "V16 atomic bootstrap marker differs");
+            return "PENDING".equals(phase);
+        }
+    }
+
+    private static void provisionAtomicRuntimeGrants(Connection connection,
+            BulkExecutionRoleConfiguration roles) throws SQLException {
+        for (String role : roles.runtimeGranteeRoles()) {
+            require(tableRolePrivileges(connection, RECEIPT_TABLE, role)
+                            .equals(Set.of("T:SELECT", "T:INSERT"))
+                            && tableRolePrivileges(connection, ADMISSION_TABLE, role)
+                            .equals(Set.of("T:SELECT", "T:INSERT")),
+                    "atomic upgrade requires an existing exact execution runtime grant: " + role);
+            String quotedRole = "\"" + role.replace("\"", "\"\"") + "\"";
+            for (String table : ATOMIC_RUNTIME_TABLES) {
+                try (var statement = connection.createStatement()) {
+                    statement.execute("grant select,insert on praxis_bulk." + table + " to " + quotedRole);
+                }
+            }
+            try (var statement = connection.createStatement()) {
+                statement.execute("grant execute on function praxis_bulk.atomic_evidence_complete(uuid,integer) to "
+                        + quotedRole);
+            }
+        }
+    }
+
+    private static void validateAtomicBootstrap(Connection connection, String expectedPhase,
+            BulkExecutionRoleConfiguration roles) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select bootstrap_version,phase from praxis_bulk.praxis_bulk_atomic_bootstrap
+                """)) {
+            require(rows.next() && rows.getInt(1) == 16 && expectedPhase.equals(rows.getString(2))
+                    && !rows.next(), "V16 atomic bootstrap state differs");
+        }
+        for (String table : ATOMIC_RUNTIME_TABLES) {
+            for (String role : roles.runtimeGranteeRoles())
+                require(tableRolePrivileges(connection, table, role).equals(Set.of("T:SELECT", "T:INSERT")),
+                        "V16 runtime grants differ: " + role + " " + table);
+            require(tableRolePrivileges(connection, table, "praxis_bulk_retention_owner")
+                            .equals(Set.of("T:SELECT", "T:DELETE")),
+                    "V16 retention grants differ: " + table);
+            require(tableRolePrivileges(connection, table, "PUBLIC").isEmpty(),
+                    "V16 table cannot grant PUBLIC: " + table);
+        }
+        require(tableRolePrivileges(connection, ATOMIC_BOOTSTRAP_TABLE, "PUBLIC").isEmpty(),
+                "V16 bootstrap marker cannot grant PUBLIC");
+        try (var statement = connection.prepareStatement("""
+                select count(*) from (
+                    select acl.grantee,c.relowner
+                    from pg_class c,
+                         lateral aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) acl
+                    where c.oid=?::regclass
+                    union all
+                    select acl.grantee,c.relowner
+                    from pg_class c join pg_attribute a on a.attrelid=c.oid,
+                         lateral aclexplode(a.attacl) acl
+                    where c.oid=?::regclass and a.attnum>0 and not a.attisdropped
+                      and a.attacl is not null
+                ) grants where grantee<>relowner
+                """)) {
+            statement.setString(1, SCHEMA + "." + ATOMIC_BOOTSTRAP_TABLE);
+            statement.setString(2, SCHEMA + "." + ATOMIC_BOOTSTRAP_TABLE);
+            try (var rows = statement.executeQuery()) {
+                require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+                        "V16 bootstrap marker must remain owner-only");
+            }
+        }
+    }
+
+    private static void completeAtomicBootstrap(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement()) {
+            require(statement.executeUpdate("""
+                    update praxis_bulk.praxis_bulk_atomic_bootstrap set phase='COMPLETE'
+                     where bootstrap_version=16 and phase='PENDING'
+                    """) == 1, "V16 atomic bootstrap transition failed");
         }
     }
 
@@ -895,6 +1018,8 @@ public final class BulkExecutionMigrator {
                         EVALUATION_REJECTION_FUNCTION, "praxis_bulk.praxis_bulk_evaluation");
                 validateDurableExecution(connection);
                 validateDurableAdmission(connection);
+                validateAtomicCatalog(connection);
+                validateAtomicBootstrap(connection, "COMPLETE", roleConfiguration);
                 validateGovernedLifecycleCatalog(connection, roleConfiguration);
                 validateManifestCatalog(connection, roleConfiguration);
                 BulkOrdinalManifest.validateAll(connection);
@@ -906,6 +1031,7 @@ public final class BulkExecutionMigrator {
                 validateDescriptorFenceRows(connection);
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
+                validateAtomicRows(connection);
                 validateLifecycleRows(connection);
                 validateOwnedSchema(connection);
             } finally {
@@ -968,6 +1094,9 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_preview_item_integrity',
                               'praxis_bulk_preview_integrity_bootstrap',
                               'praxis_bulk_preview_reader_bootstrap',
+                              'praxis_bulk_atomic_receipt', 'praxis_bulk_atomic_item_result',
+                              'praxis_bulk_atomic_effect_ref', 'praxis_bulk_atomic_rejection',
+                              'praxis_bulk_atomic_bootstrap',
                               'praxis_bulk_tombstone'))
                     """);
             Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
@@ -1004,7 +1133,9 @@ public final class BulkExecutionMigrator {
                 PREVIEW_BOOTSTRAP_TABLE, PREVIEW_INTEGRITY_TABLE,
                 PREVIEW_INTEGRITY_BOOTSTRAP_TABLE, PREVIEW_READER_BOOTSTRAP_TABLE, EXECUTION_TABLE,
                 RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE, OPERATION_CONTROL_TABLE, OPENAPI_PUBLICATION_TABLE,
-                DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE, ALLOCATION_TABLE, TOMBSTONE_TABLE);
+                DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE, ALLOCATION_TABLE, TOMBSTONE_TABLE,
+                ATOMIC_RECEIPT_TABLE, ATOMIC_ITEM_TABLE, ATOMIC_EFFECT_TABLE,
+                ATOMIC_REJECTION_TABLE, ATOMIC_BOOTSTRAP_TABLE);
     }
 
     /** Recognition before Flyway only; never used by current exact catalog attestation. */
@@ -1023,6 +1154,7 @@ public final class BulkExecutionMigrator {
         names.addAll(V11_FUNCTIONS);
         names.addAll(V12_FUNCTIONS);
         names.addAll(V14_FUNCTIONS);
+        names.addAll(V16_FUNCTIONS);
         names.addAll(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
                 BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
                 RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()", DESCRIPTOR_FUNCTION + "()",
@@ -1045,6 +1177,7 @@ public final class BulkExecutionMigrator {
         names.addAll(V9_TRIGGERS);
         names.addAll(V10_TRIGGERS);
         names.addAll(V11_TRIGGERS);
+        names.addAll(V16_TRIGGERS);
         return names;
     }
 
@@ -1153,7 +1286,10 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_preview_item_integrity',
                               'praxis_bulk_preview_integrity_bootstrap',
                               'praxis_bulk_preview_reader_bootstrap',
-                              'praxis_bulk_tombstone'))
+                              'praxis_bulk_tombstone',
+                              'praxis_bulk_atomic_receipt', 'praxis_bulk_atomic_item_result',
+                              'praxis_bulk_atomic_effect_ref', 'praxis_bulk_atomic_rejection',
+                              'praxis_bulk_atomic_bootstrap'))
                 """);
         Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
         Set<String> triggers = queryNames(connection, """
@@ -1187,7 +1323,9 @@ public final class BulkExecutionMigrator {
                 Map.entry("payload", new ColumnDefinition("bytea", false, null, "NEVER", null)),
                 Map.entry("control_generation", new ColumnDefinition("bigint", true, null, "NEVER", null)),
                 Map.entry("control_descriptor_fingerprint", new ColumnDefinition("text", true, null, "NEVER", null)),
-                Map.entry("control_structural_revision", new ColumnDefinition("text", true, null, "NEVER", null)));
+                Map.entry("control_structural_revision", new ColumnDefinition("text", true, null, "NEVER", null)),
+                Map.entry("atomicity", new ColumnDefinition("text", false, null, "NEVER", null)),
+                Map.entry("protocol_version", new ColumnDefinition("smallint", false, null, "NEVER", null)));
         Map<String, ColumnDefinition> actual = new LinkedHashMap<>();
         try (var statement = connection.prepareStatement("""
                 select column_name, data_type, is_nullable, column_default, is_generated, datetime_precision
@@ -1297,9 +1435,14 @@ public final class BulkExecutionMigrator {
             statement.setString(1, SCHEMA);
             statement.setString(2, SCHEMA + "." + PROPOSAL_TABLE);
             try (ResultSet result = statement.executeQuery()) {
-                require(result.next() && "proposal_id,fingerprint".equals(result.getString(1))
-                                && !result.getBoolean(2) && !result.getBoolean(3) && result.getBoolean(4) && !result.next(),
-                        "proposal_id and fingerprint must have the only immediate validated unique key");
+                var found = new LinkedHashSet<String>();
+                while (result.next()) {
+                    require(!result.getBoolean(2) && !result.getBoolean(3) && result.getBoolean(4),
+                            "proposal unique key must be immediate and validated");
+                    found.add(result.getString(1));
+                }
+                require(found.equals(Set.of("proposal_id,fingerprint", "proposal_id,atomicity,protocol_version")),
+                        "proposal unique bindings differ from V16");
             }
         }
     }
@@ -1373,7 +1516,11 @@ public final class BulkExecutionMigrator {
                 Map.entry("praxis_bulk_proposal_control_tuple_check",
                         "(((control_generationisnull)and(control_descriptor_fingerprintisnull)and(control_structural_revisionisnull))or((control_generationisnotnull)and(control_generation>=1)and(control_descriptor_fingerprintisnotnull)and(control_descriptor_fingerprint~'^sha256:[0-9a-f]{64}$'::text)and(control_structural_revisionisnotnull)and(btrim(control_structural_revision)<>''::text)and(length(control_structural_revision)<=200)))"),
                 Map.entry("praxis_bulk_proposal_payload_length_check",
-                        "((octet_length(payload)>=1)and(octet_length(payload)<=8388608))"));
+                        "((octet_length(payload)>=1)and(octet_length(payload)<=8388608))"),
+                Map.entry("praxis_bulk_proposal_atomicity_check",
+                        "((atomicity=any(array['PER_ITEM'::text,'ATOMIC'::text]))and(atomicity=((convert_from(payload,'UTF8'::name))::jsonb->>'atomicity'::text)))"),
+                Map.entry("praxis_bulk_proposal_protocol_check",
+                        "(protocol_version=any(array[1,2]))"));
         Map<String, ConstraintDefinition> actual = new LinkedHashMap<>();
         try (var statement = connection.prepareStatement("""
                 select c.conname, c.convalidated, pg_get_expr(c.conbin, c.conrelid)
@@ -1481,6 +1628,9 @@ public final class BulkExecutionMigrator {
                 Map.entry("active_target_digest", "text|false"),
                 Map.entry("active_attempt_epoch", "bigint|false"),
                 Map.entry("active_unit_deadline_at", "timestamp(6) with time zone|false"),
+                Map.entry("atomicity", "text|true"),
+                Map.entry("protocol_version", "smallint|true"),
+                Map.entry("active_set_digest", "text|false"),
                 Map.entry("created_at", "timestamp(6) with time zone|true"),
                 Map.entry("updated_at", "timestamp(6) with time zone|true"),
                 Map.entry("terminal_at", "timestamp(6) with time zone|false"),
@@ -1499,7 +1649,11 @@ public final class BulkExecutionMigrator {
         validateDurableConstraints(connection, "praxis_bulk_evaluation", true, Map.ofEntries(
                 Map.entry("praxis_bulk_evaluation_proposal_fingerprint_key", "UNIQUE (proposal_id, evaluation_fingerprint)")));
         validateDurableConstraints(connection, "praxis_bulk_execution", false, Map.ofEntries(
-                Map.entry("praxis_bulk_execution_attempt_shape_check", "CHECK ((((active_attempt_id IS NULL) = (active_attempt_ordinal IS NULL)) AND ((active_attempt_id IS NULL) = (active_target_digest IS NULL)) AND ((active_attempt_id IS NULL) = (active_attempt_epoch IS NULL)) AND ((active_attempt_id IS NULL) OR ((active_attempt_ordinal = next_ordinal) AND ((active_attempt_ordinal >= 0) AND (active_attempt_ordinal <= (target_count - 1))) AND ((active_attempt_epoch >= 1) AND (active_attempt_epoch <= owner_epoch)) AND (active_target_digest ~ '^sha256:[0-9a-f]{64}$'::text)))))"),
+                Map.entry("praxis_bulk_execution_attempt_shape_check", "CHECK ((((atomicity = 'PER_ITEM'::text) AND (active_set_digest IS NULL) AND ((active_attempt_id IS NULL) = (active_attempt_ordinal IS NULL)) AND ((active_attempt_id IS NULL) = (active_target_digest IS NULL)) AND ((active_attempt_id IS NULL) = (active_attempt_epoch IS NULL)) AND ((active_attempt_id IS NULL) OR ((active_attempt_ordinal = next_ordinal) AND ((active_attempt_ordinal >= 0) AND (active_attempt_ordinal <= (target_count - 1))) AND ((active_attempt_epoch >= 1) AND (active_attempt_epoch <= owner_epoch)) AND (active_target_digest ~ '^sha256:[0-9a-f]{64}$'::text)))) OR ((atomicity = 'ATOMIC'::text) AND ((target_count >= 1) AND (target_count <= 50)) AND ((next_ordinal = 0) OR (next_ordinal = target_count)) AND (active_attempt_ordinal IS NULL) AND (active_target_digest IS NULL) AND ((active_attempt_id IS NULL) = (active_attempt_epoch IS NULL)) AND ((active_attempt_id IS NULL) = (active_set_digest IS NULL)) AND ((active_attempt_id IS NULL) OR ((next_ordinal = 0) AND ((active_attempt_epoch >= 1) AND (active_attempt_epoch <= owner_epoch)) AND (active_set_digest ~ '^sha256:[0-9a-f]{64}$'::text))))))"),
+                Map.entry("praxis_bulk_execution_atomicity_check", "CHECK ((atomicity = ANY (ARRAY['PER_ITEM'::text, 'ATOMIC'::text])))"),
+                Map.entry("praxis_bulk_execution_protocol_check", "CHECK ((protocol_version = ANY (ARRAY[1, 2])))"),
+                Map.entry("praxis_bulk_execution_atomic_terminal_check", "CHECK (((atomicity <> 'ATOMIC'::text) OR (status <> 'COMPLETED_WITH_ERRORS'::text)))"),
+                Map.entry("praxis_bulk_execution_atomicity_protocol_fkey", "FOREIGN KEY (proposal_id, atomicity, protocol_version) REFERENCES praxis_bulk.praxis_bulk_proposal(proposal_id, atomicity, protocol_version)"),
                 Map.entry("praxis_bulk_execution_control_tuple_check", "CHECK ((((control_generation IS NULL) AND (control_descriptor_fingerprint IS NULL)) OR ((control_generation IS NOT NULL) AND (control_generation >= 1) AND (control_descriptor_fingerprint IS NOT NULL) AND (control_descriptor_fingerprint ~ '^sha256:[0-9a-f]{64}$'::text))))"),
                 Map.entry("praxis_bulk_execution_deadline_check", "CHECK ((deadline_at > created_at))"),
                 Map.entry("praxis_bulk_execution_digest_format_check", "CHECK ((idempotency_key_digest ~ '^sha256:[0-9a-f]{64}$'::text))"),
@@ -1551,6 +1705,8 @@ public final class BulkExecutionMigrator {
                        or new.input_fingerprint is distinct from old.input_fingerprint
                        or new.evaluation_fingerprint is distinct from old.evaluation_fingerprint
                        or new.structural_revision is distinct from old.structural_revision
+                       or new.atomicity is distinct from old.atomicity
+                       or new.protocol_version is distinct from old.protocol_version
                        or new.target_count is distinct from old.target_count
                        or new.deadline_at is distinct from old.deadline_at
                        or new.created_at is distinct from old.created_at then
@@ -1591,6 +1747,153 @@ public final class BulkExecutionMigrator {
                     raise exception 'praxis_bulk.praxis_bulk_item_receipt is immutable' using errcode = '55000';
                 end;
                 """);
+    }
+
+    /** V16 evidence is a separate closed topology, never an alias for per-item receipts. */
+    private static void validateAtomicCatalog(Connection connection) throws SQLException {
+        validateDurableColumns(connection, ATOMIC_RECEIPT_TABLE, Map.ofEntries(
+                Map.entry("execution_id", "uuid|true"), Map.entry("attempt_id", "uuid|true"),
+                Map.entry("owner_epoch", "bigint|true"), Map.entry("set_digest", "text|true"),
+                Map.entry("target_count", "integer|true"),
+                Map.entry("effect_count", "integer|true"),
+                Map.entry("effect_digest", "text|true"),
+                Map.entry("confirmed_at", "timestamp with time zone|true"),
+                Map.entry("unit_deadline_at", "timestamp with time zone|true")));
+        validateDurableColumns(connection, ATOMIC_ITEM_TABLE, Map.ofEntries(
+                Map.entry("execution_id", "uuid|true"), Map.entry("unit_ordinal", "integer|true"),
+                Map.entry("target_digest", "text|true"), Map.entry("expected_version", "text|true"),
+                Map.entry("outcome", "text|true")));
+        validateDurableColumns(connection, ATOMIC_EFFECT_TABLE, Map.ofEntries(
+                Map.entry("execution_id", "uuid|true"), Map.entry("unit_ordinal", "integer|true"),
+                Map.entry("effect_ref", "text|true")));
+        validateDurableColumns(connection, ATOMIC_REJECTION_TABLE, Map.ofEntries(
+                Map.entry("execution_id", "uuid|true"), Map.entry("attempt_id", "uuid|true"),
+                Map.entry("set_digest", "text|true"), Map.entry("reason_code", "text|true"),
+                Map.entry("recorded_at", "timestamp with time zone|true")));
+        validateDurableColumns(connection, ATOMIC_BOOTSTRAP_TABLE,
+                Map.of("bootstrap_version", "integer|true", "phase", "text|true"));
+        validateAtomicConstraintTopology(connection, ATOMIC_RECEIPT_TABLE, Set.of(
+                "praxis_bulk_atomic_receipt_pkey", "praxis_bulk_atomic_receipt_attempt_id_key",
+                "praxis_bulk_atomic_receipt_execution_id_fkey",
+                "praxis_bulk_atomic_receipt_owner_epoch_check",
+                "praxis_bulk_atomic_receipt_set_digest_check",
+                "praxis_bulk_atomic_receipt_target_count_check",
+                "praxis_bulk_atomic_receipt_effect_count_check",
+                "praxis_bulk_atomic_receipt_effect_digest_check",
+                "praxis_bulk_atomic_receipt_time_check"));
+        validateAtomicConstraintTopology(connection, ATOMIC_ITEM_TABLE, Set.of(
+                "praxis_bulk_atomic_item_result_pkey", "praxis_bulk_atomic_item_result_target_key",
+                "praxis_bulk_atomic_item_result_execution_id_fkey",
+                "praxis_bulk_atomic_item_result_unit_ordinal_check",
+                "praxis_bulk_atomic_item_result_target_digest_check",
+                "praxis_bulk_atomic_item_result_expected_version_check",
+                "praxis_bulk_atomic_item_result_outcome_check"));
+        validateAtomicConstraintTopology(connection, ATOMIC_EFFECT_TABLE, Set.of(
+                "praxis_bulk_atomic_effect_ref_pkey", "praxis_bulk_atomic_effect_ref_item_fkey",
+                "praxis_bulk_atomic_effect_ref_effect_ref_check"));
+        validateAtomicConstraintTopology(connection, ATOMIC_REJECTION_TABLE, Set.of(
+                "praxis_bulk_atomic_rejection_pkey", "praxis_bulk_atomic_rejection_attempt_id_key",
+                "praxis_bulk_atomic_rejection_execution_id_fkey",
+                "praxis_bulk_atomic_rejection_set_digest_check",
+                "praxis_bulk_atomic_rejection_reason_code_check"));
+        validateAtomicConstraintTopology(connection, ATOMIC_BOOTSTRAP_TABLE, Set.of(
+                "praxis_bulk_atomic_bootstrap_pkey",
+                "praxis_bulk_atomic_bootstrap_bootstrap_version_check",
+                "praxis_bulk_atomic_bootstrap_phase_check"));
+    }
+
+    private static void validateAtomicConstraintTopology(Connection connection, String table,
+            Set<String> expected) throws SQLException {
+        var actual = new LinkedHashSet<String>();
+        try (var statement = connection.prepareStatement("""
+                select c.conname,pg_get_constraintdef(c.oid),c.convalidated,c.condeferrable,c.condeferred,
+                       i.indisvalid,i.indisready,i.indislive,i.indimmediate
+                  from pg_constraint c left join pg_index i on i.indexrelid=c.conindid
+                 where c.conrelid=?::regclass
+                """)) {
+            statement.setString(1, SCHEMA + "." + table);
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    require(rows.getBoolean(3) && !rows.getBoolean(4) && !rows.getBoolean(5),
+                            "V16 atomic constraint is not validated/immediate: " + table);
+                    if (rows.getObject(6) != null)
+                        require(rows.getBoolean(6) && rows.getBoolean(7)
+                                        && rows.getBoolean(8) && rows.getBoolean(9),
+                                "V16 atomic constraint index is invalid: " + table);
+                    String name = rows.getString(1);
+                    require(normalizeExpression(rows.getString(2)).equals(
+                                    normalizeExpression(atomicConstraintDefinition(name))),
+                            "V16 atomic constraint definition differs: " + name);
+                    require(actual.add(name), "duplicate V16 atomic constraint");
+                }
+            }
+        }
+        require(actual.equals(expected), "V16 atomic constraint topology differs: " + table);
+    }
+
+    private static String atomicConstraintDefinition(String name) {
+        return switch (name) {
+            case "praxis_bulk_atomic_receipt_pkey" -> "PRIMARY KEY (execution_id)";
+            case "praxis_bulk_atomic_receipt_attempt_id_key" -> "UNIQUE (attempt_id)";
+            case "praxis_bulk_atomic_receipt_execution_id_fkey" ->
+                    "FOREIGN KEY (execution_id) REFERENCES praxis_bulk.praxis_bulk_execution(execution_id)";
+            case "praxis_bulk_atomic_receipt_owner_epoch_check" -> "CHECK ((owner_epoch >= 1))";
+            case "praxis_bulk_atomic_receipt_set_digest_check" ->
+                    "CHECK ((set_digest ~ '^sha256:[0-9a-f]{64}$'::text))";
+            case "praxis_bulk_atomic_receipt_target_count_check" ->
+                    "CHECK (((target_count >= 1) AND (target_count <= 50)))";
+            case "praxis_bulk_atomic_receipt_effect_count_check" ->
+                    "CHECK (((effect_count >= 0) AND (effect_count <= 400)))";
+            case "praxis_bulk_atomic_receipt_effect_digest_check" ->
+                    "CHECK ((effect_digest ~ '^sha256:[0-9a-f]{64}$'::text))";
+            case "praxis_bulk_atomic_receipt_time_check" ->
+                    "CHECK ((confirmed_at < unit_deadline_at))";
+            case "praxis_bulk_atomic_item_result_pkey" ->
+                    "PRIMARY KEY (execution_id, unit_ordinal)";
+            case "praxis_bulk_atomic_item_result_target_key" ->
+                    "UNIQUE (execution_id, target_digest)";
+            case "praxis_bulk_atomic_item_result_execution_id_fkey" ->
+                    "FOREIGN KEY (execution_id) REFERENCES praxis_bulk.praxis_bulk_atomic_receipt(execution_id)";
+            case "praxis_bulk_atomic_item_result_unit_ordinal_check" ->
+                    "CHECK (((unit_ordinal >= 0) AND (unit_ordinal <= 49)))";
+            case "praxis_bulk_atomic_item_result_target_digest_check" ->
+                    "CHECK ((target_digest ~ '^sha256:[0-9a-f]{64}$'::text))";
+            case "praxis_bulk_atomic_item_result_expected_version_check" ->
+                    "CHECK ((btrim(expected_version) <> ''::text))";
+            case "praxis_bulk_atomic_item_result_outcome_check" ->
+                    "CHECK ((outcome = ANY (ARRAY['CONFIRMED'::text, 'UNCHANGED'::text])))";
+            case "praxis_bulk_atomic_effect_ref_pkey" ->
+                    "PRIMARY KEY (execution_id, effect_ref)";
+            case "praxis_bulk_atomic_effect_ref_item_fkey" ->
+                    "FOREIGN KEY (execution_id, unit_ordinal) REFERENCES praxis_bulk.praxis_bulk_atomic_item_result(execution_id, unit_ordinal)";
+            case "praxis_bulk_atomic_effect_ref_effect_ref_check" ->
+                    "CHECK ((((length(effect_ref) >= 1) AND (length(effect_ref) <= 200))"
+                            + " AND (effect_ref = btrim(effect_ref, concat("
+                            + atomicChrArguments(BulkTargetDigest.edgeWhitespaceCodePoints()) + ")))"
+                            + " AND (effect_ref = translate(effect_ref, concat("
+                            + atomicChrArguments(BulkTargetDigest.storedControlCodePoints())
+                            + "), ''::text))))";
+            case "praxis_bulk_atomic_rejection_pkey" -> "PRIMARY KEY (execution_id)";
+            case "praxis_bulk_atomic_rejection_attempt_id_key" -> "UNIQUE (attempt_id)";
+            case "praxis_bulk_atomic_rejection_execution_id_fkey" ->
+                    "FOREIGN KEY (execution_id) REFERENCES praxis_bulk.praxis_bulk_execution(execution_id)";
+            case "praxis_bulk_atomic_rejection_set_digest_check" ->
+                    "CHECK ((set_digest ~ '^sha256:[0-9a-f]{64}$'::text))";
+            case "praxis_bulk_atomic_rejection_reason_code_check" ->
+                    "CHECK ((reason_code = ANY (ARRAY['TARGET_VERSION_CONFLICT'::text, 'TARGET_STATE_CONFLICT'::text, 'TARGET_NOT_FOUND'::text, 'TARGET_DENIED'::text, 'TARGET_INVALID'::text, 'TARGET_DEPENDENCY_CHANGED'::text, 'DEADLINE_EXCEEDED'::text, 'AUTHORIZATION_REVOKED'::text, 'POLICY_BLOCKED'::text, 'COMMON_GOVERNANCE_CHANGED'::text, 'COMMON_GOVERNANCE_UNAVAILABLE'::text, 'DEPENDENCY_UNAVAILABLE'::text, 'UNIT_ROLLED_BACK'::text, 'RECOVERY_STOPPED'::text, 'EVALUATOR_UNAVAILABLE'::text, 'STRUCTURAL_REVISION_CHANGED'::text])))";
+            case "praxis_bulk_atomic_bootstrap_pkey" -> "PRIMARY KEY (bootstrap_version)";
+            case "praxis_bulk_atomic_bootstrap_bootstrap_version_check" ->
+                    "CHECK ((bootstrap_version = 16))";
+            case "praxis_bulk_atomic_bootstrap_phase_check" ->
+                    "CHECK ((phase = ANY (ARRAY['PENDING'::text, 'COMPLETE'::text])))";
+            default -> throw new IllegalStateException("Unexpected V16 atomic constraint: " + name);
+        };
+    }
+
+    private static String atomicChrArguments(int[] codePoints) {
+        var arguments = new ArrayList<String>(codePoints.length);
+        for (int codePoint : codePoints) arguments.add("chr(" + codePoint + ")");
+        return String.join(", ", arguments);
     }
 
     /** V4 never widens the meaning of a V3 receipt: admission certifies no mutation. */
@@ -2223,7 +2526,24 @@ public final class BulkExecutionMigrator {
                 trigger(EXECUTION_TABLE, "praxis_bulk_execution_protect_cancel", "BEFORE INSERT OR UPDATE", "protect_cancel_request"),
                 trigger(EXECUTION_TABLE, "praxis_bulk_execution_release_active_allocation", "AFTER UPDATE", "release_active_allocation_on_terminal"),
                 trigger(RECEIPT_TABLE, "praxis_bulk_receipt_guard_terminal", "BEFORE INSERT", "guard_terminal_evidence_insert"),
-                trigger(ADMISSION_TABLE, "praxis_bulk_admission_guard_terminal", "BEFORE INSERT", "guard_terminal_evidence_insert"));
+                trigger(ADMISSION_TABLE, "praxis_bulk_admission_guard_terminal", "BEFORE INSERT", "guard_terminal_evidence_insert"),
+                trigger(PROPOSAL_TABLE, "praxis_bulk_proposal_protocol_insert", "BEFORE INSERT", "guard_bulk_protocol_insert"),
+                trigger(EXECUTION_TABLE, "praxis_bulk_execution_protocol_insert", "BEFORE INSERT", "guard_bulk_protocol_insert"),
+                trigger(EXECUTION_TABLE, "praxis_bulk_execution_guard_atomic_attempt", "BEFORE UPDATE", "guard_atomic_attempt_transition"),
+                trigger(RECEIPT_TABLE, "praxis_bulk_receipt_per_item_only", "BEFORE INSERT", "guard_per_item_evidence_insert"),
+                trigger(ADMISSION_TABLE, "praxis_bulk_admission_per_item_only", "BEFORE INSERT", "guard_per_item_evidence_insert"),
+                trigger(ATOMIC_RECEIPT_TABLE, "praxis_bulk_atomic_receipt_guard_insert", "BEFORE INSERT", "guard_atomic_receipt_insert"),
+                trigger(ATOMIC_RECEIPT_TABLE, "praxis_bulk_atomic_receipt_reject_mutation", "BEFORE UPDATE", "reject_atomic_evidence_mutation"),
+                trigger(ATOMIC_RECEIPT_TABLE, "praxis_bulk_atomic_receipt_guard_delete", "BEFORE DELETE", "guard_lifecycle_delete"),
+                trigger(ATOMIC_ITEM_TABLE, "praxis_bulk_atomic_item_result_guard_insert", "BEFORE INSERT", "guard_atomic_item_insert"),
+                trigger(ATOMIC_ITEM_TABLE, "praxis_bulk_atomic_item_result_reject_mutation", "BEFORE UPDATE", "reject_atomic_evidence_mutation"),
+                trigger(ATOMIC_ITEM_TABLE, "praxis_bulk_atomic_item_result_guard_delete", "BEFORE DELETE", "guard_lifecycle_delete"),
+                trigger(ATOMIC_EFFECT_TABLE, "praxis_bulk_atomic_effect_ref_guard_insert", "BEFORE INSERT", "guard_atomic_effect_insert"),
+                trigger(ATOMIC_EFFECT_TABLE, "praxis_bulk_atomic_effect_ref_reject_mutation", "BEFORE UPDATE", "reject_atomic_evidence_mutation"),
+                trigger(ATOMIC_EFFECT_TABLE, "praxis_bulk_atomic_effect_ref_guard_delete", "BEFORE DELETE", "guard_lifecycle_delete"),
+                trigger(ATOMIC_REJECTION_TABLE, "praxis_bulk_atomic_rejection_guard_insert", "BEFORE INSERT", "guard_atomic_rejection_insert"),
+                trigger(ATOMIC_REJECTION_TABLE, "praxis_bulk_atomic_rejection_reject_mutation", "BEFORE UPDATE", "reject_atomic_evidence_mutation"),
+                trigger(ATOMIC_REJECTION_TABLE, "praxis_bulk_atomic_rejection_guard_delete", "BEFORE DELETE", "guard_lifecycle_delete"));
         var actual = new LinkedHashMap<String, TriggerSpec>();
         try (var statement = connection.prepareStatement("""
                 select r.relname, t.tgname, t.tgenabled, pg_get_triggerdef(t.oid),
@@ -2237,6 +2557,7 @@ public final class BulkExecutionMigrator {
             statement.setString(1, SCHEMA);
             var triggerKeys = new LinkedHashSet<>(V5_TRIGGERS);
             triggerKeys.addAll(V10_TRIGGERS);
+            triggerKeys.addAll(V16_TRIGGERS);
             statement.setArray(2, connection.createArrayOf("text", triggerKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
@@ -2273,6 +2594,7 @@ public final class BulkExecutionMigrator {
         keys.addAll(V11_FUNCTIONS);
         keys.addAll(V12_FUNCTIONS);
         keys.addAll(V14_FUNCTIONS);
+        keys.addAll(V16_FUNCTIONS);
         keys.add(RECEIPT_FUNCTION + "()");
         keys.add(ADMISSION_FUNCTION + "()");
         Set<String> definer = Set.of("protect_allocation_transition()", "validate_allocation_binding()",
@@ -2304,7 +2626,8 @@ public final class BulkExecutionMigrator {
                 while (rows.next()) {
                     String key = rows.getString(1);
                     String name = rows.getString(2);
-                    boolean sqlHelper = name.equals("terminal_evidence_complete");
+                    boolean sqlHelper = name.equals("terminal_evidence_complete")
+                            || name.equals("atomic_evidence_complete");
                     boolean booleanResult = sqlHelper || name.equals("purge_terminal_execution")
                             || name.equals("expire_unconsumed_proposal")
                             || name.equals("assert_preview_integrity_complete");
@@ -2466,6 +2789,16 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    private static String readV16Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V16__bulk_atomic_set_execution.sql")) {
+            require(input != null, "V16 atomic execution migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V16 atomic execution migration", failure);
+        }
+    }
+
     private static MigrationExpectations migrationExpectations() {
         MigrationExpectations cached = migrationExpectations;
         if (cached != null) return cached;
@@ -2550,6 +2883,15 @@ public final class BulkExecutionMigrator {
             expectedBodies.put(function, new FunctionBodyExpectation("V15",
                     normalizeExpression(extractFunctionBody(v15Migration, function, "V15"))));
         }
+        String v16Migration = readV16Migration();
+        for (String signature : V16_FUNCTIONS) {
+            String function = functionName(signature);
+            expectedBodies.put(function, new FunctionBodyExpectation("V16",
+                    normalizeExpression(extractFunctionBody(v16Migration, function, "V16"))));
+        }
+        for (String function : Set.of("terminal_evidence_complete", "purge_terminal_execution"))
+            expectedBodies.put(function, new FunctionBodyExpectation("V16",
+                    normalizeExpression(extractFunctionBody(v16Migration, function, "V16"))));
         return new MigrationExpectations(expectedBodies,
                 normalizeExpression(extractFunctionBody(v7Migration, INSERT_FENCE_FUNCTION, "V7")));
     }
@@ -2589,6 +2931,7 @@ public final class BulkExecutionMigrator {
             BulkExecutionRoleConfiguration roles) throws SQLException {
         var expected = new LinkedHashSet<String>(Set.of(
                 "terminal_evidence_complete(p_execution_id uuid, p_required_count integer)|praxis_bulk_retention_owner|EXECUTE",
+                "atomic_evidence_complete(p_execution_id uuid, p_required_count integer)|praxis_bulk_retention_owner|EXECUTE",
                 "lock_operation_control(p_namespace_id text, p_operation_id text)|praxis_bulk_retention_owner|EXECUTE",
                 "purge_terminal_execution(p_execution_id uuid)|praxis_bulk_retention_executor|EXECUTE",
                 "expire_unconsumed_proposal(p_proposal_id uuid)|praxis_bulk_retention_executor|EXECUTE"));
@@ -2598,6 +2941,8 @@ public final class BulkExecutionMigrator {
                 "assert_preview_integrity_complete()|" + role + "|EXECUTE"));
         roles.runtimeGranteeRoles().forEach(role -> expected.add(
                 "lock_openapi_publication(p_namespace_id text, p_deployment_id text)|" + role + "|EXECUTE"));
+        roles.runtimeGranteeRoles().forEach(role -> expected.add(
+                "atomic_evidence_complete(p_execution_id uuid, p_required_count integer)|" + role + "|EXECUTE"));
         roles.controlPlaneGranteeRoles().forEach(role -> expected.add(
                 "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text, p_expected_publication_generation bigint, p_expected_publication_digest text)|" + role + "|EXECUTE"));
         roles.controlPlaneGranteeRoles().forEach(role -> expected.add(
@@ -2623,6 +2968,7 @@ public final class BulkExecutionMigrator {
             functionKeys.addAll(V11_FUNCTIONS);
             functionKeys.addAll(V12_FUNCTIONS);
             functionKeys.addAll(V14_FUNCTIONS);
+            functionKeys.addAll(V16_FUNCTIONS);
             statement.setArray(2, connection.createArrayOf("text", functionKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
@@ -2703,6 +3049,10 @@ public final class BulkExecutionMigrator {
                 Map.entry(EXECUTION_TABLE, Set.of("T:SELECT", "T:DELETE", "C:execution_id:UPDATE")),
                 Map.entry(RECEIPT_TABLE, Set.of("T:SELECT", "T:DELETE")),
                 Map.entry(ADMISSION_TABLE, Set.of("T:SELECT", "T:DELETE")),
+                Map.entry(ATOMIC_RECEIPT_TABLE, Set.of("T:SELECT", "T:DELETE")),
+                Map.entry(ATOMIC_ITEM_TABLE, Set.of("T:SELECT", "T:DELETE")),
+                Map.entry(ATOMIC_EFFECT_TABLE, Set.of("T:SELECT", "T:DELETE")),
+                Map.entry(ATOMIC_REJECTION_TABLE, Set.of("T:SELECT", "T:DELETE")),
                 Map.entry(ALLOCATION_TABLE, Set.of("T:SELECT", "T:DELETE", "C:state:UPDATE",
                         "C:released_at:UPDATE", "C:release_reason:UPDATE")),
                 Map.entry(TOMBSTONE_TABLE, Set.of("T:SELECT", "T:INSERT")));
@@ -2905,6 +3255,11 @@ public final class BulkExecutionMigrator {
                 Map.entry(EXECUTION_TABLE, Set.of("T:SELECT", "T:INSERT", "T:UPDATE")),
                 Map.entry(RECEIPT_TABLE, Set.of("T:SELECT", "T:INSERT")),
                 Map.entry(ADMISSION_TABLE, Set.of("T:SELECT", "T:INSERT")),
+                Map.entry(ATOMIC_RECEIPT_TABLE, Set.of("T:SELECT", "T:INSERT")),
+                Map.entry(ATOMIC_ITEM_TABLE, Set.of("T:SELECT", "T:INSERT")),
+                Map.entry(ATOMIC_EFFECT_TABLE, Set.of("T:SELECT", "T:INSERT")),
+                Map.entry(ATOMIC_REJECTION_TABLE, Set.of("T:SELECT", "T:INSERT")),
+                Map.entry(ATOMIC_BOOTSTRAP_TABLE, Set.of()),
                 Map.entry(ALLOCATION_TABLE, Set.of("T:SELECT", "T:INSERT", "C:state:UPDATE",
                         "C:released_at:UPDATE", "C:release_reason:UPDATE")),
                 Map.entry(TOMBSTONE_TABLE, Set.of("T:SELECT")));
@@ -3062,7 +3417,8 @@ public final class BulkExecutionMigrator {
                 )
                 select count(*)
                 from praxis_bulk.praxis_bulk_execution e left join totals t using (execution_id)
-                where coalesce(t.evidence_count, 0) <> coalesce(t.ordinal_count, 0)
+                where e.atomicity='PER_ITEM' and (
+                      coalesce(t.evidence_count, 0) <> coalesce(t.ordinal_count, 0)
                    or coalesce(t.evidence_count, 0) <> coalesce(t.target_count, 0)
                    or coalesce(t.evidence_count, 0) <> coalesce(t.attempt_count, 0)
                    or (t.evidence_count > 0 and (t.first_ordinal <> 0 or t.last_ordinal <> t.evidence_count - 1))
@@ -3086,13 +3442,126 @@ public final class BulkExecutionMigrator {
                        select 1 from praxis_bulk.praxis_bulk_admission a
                        where a.execution_id = e.execution_id and a.unit_ordinal = e.next_ordinal))
                    or (e.status = 'RECONCILIATION_REQUIRED'
-                       and coalesce(t.evidence_count, 0) not between e.next_ordinal and e.next_ordinal + 1)
+                       and coalesce(t.evidence_count, 0) not between e.next_ordinal and e.next_ordinal + 1))
                 """)) {
             try (var rows = statement.executeQuery()) {
                 require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
                         "admission and receipt evidence must form one unambiguous contiguous prefix");
             }
         }
+    }
+
+    /** Attest each V16 all-or-nothing row against its immutable proposal and manifest. */
+    private static void validateAtomicRows(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select e.execution_id,e.proposal_id,e.atomicity,e.protocol_version,e.status,
+                       e.next_ordinal,e.target_count,e.active_attempt_id,e.active_set_digest,
+                       e.owner_epoch,e.active_attempt_epoch,e.active_unit_deadline_at,
+                       e.terminal_reason_code,p.atomicity,p.protocol_version,p.payload,p.fingerprint,
+                       p.created_at,p.expires_at,v.payload,v.evaluation_fingerprint,
+                       h.attempt_id,h.owner_epoch,h.set_digest,h.target_count,h.confirmed_at,
+                       h.unit_deadline_at,j.attempt_id,j.set_digest,j.reason_code,
+                       h.effect_count,h.effect_digest
+                  from praxis_bulk.praxis_bulk_execution e
+                  join praxis_bulk.praxis_bulk_proposal p on p.proposal_id=e.proposal_id
+                  join praxis_bulk.praxis_bulk_evaluation v on v.proposal_id=e.proposal_id
+                  left join praxis_bulk.praxis_bulk_atomic_receipt h on h.execution_id=e.execution_id
+                  left join praxis_bulk.praxis_bulk_atomic_rejection j on j.execution_id=e.execution_id
+                 where e.atomicity='ATOMIC' or h.execution_id is not null or j.execution_id is not null
+                """)) {
+            while (rows.next()) {
+                try {
+                    require("ATOMIC".equals(rows.getString(3)) && rows.getShort(4) == 2
+                                    && "ATOMIC".equals(rows.getString(14)) && rows.getShort(15) == 2,
+                            "atomic storage binding differs");
+                    UUID executionId = rows.getObject(1, UUID.class);
+                    UUID proposalId = rows.getObject(2, UUID.class);
+                    var intent = BulkSnapshotStorageCodec.decode(rows.getBytes(16), rows.getString(17));
+                    var proposal = new BulkStoredProposal(proposalId,
+                            rows.getObject(18, OffsetDateTime.class).toInstant(),
+                            rows.getObject(19, OffsetDateTime.class).toInstant(), intent);
+                    var evaluated = BulkEvaluationStorageCodec.decode(proposal, rows.getBytes(20),
+                            rows.getString(21));
+                    require(evaluated.targets().size() == rows.getInt(7)
+                                    && evaluated.targets().size() >= 1
+                                    && evaluated.targets().size() <= 50,
+                            "atomic target count differs");
+                    var digests = new ArrayList<String>(evaluated.targets().size());
+                    for (int ordinal = 0; ordinal < evaluated.targets().size(); ordinal++)
+                        digests.add(evidenceTargetDigest(evaluated, ordinal));
+                    String expectedSet = BulkTargetDigest.setOf(evaluated.fingerprint(), digests);
+                    String status = rows.getString(5);
+                    boolean hasHeader = rows.getObject(22) != null;
+                    boolean hasRejection = rows.getObject(28) != null;
+                    require(rows.getInt(6) == ("COMPLETED".equals(status) ? rows.getInt(7) : 0),
+                            "atomic visible watermark differs");
+                    if (hasHeader) {
+                        require(!hasRejection && expectedSet.equals(rows.getString(24))
+                                        && rows.getInt(25) == rows.getInt(7)
+                                        && rows.getLong(23) <= rows.getLong(10)
+                                        && rows.getObject(26, OffsetDateTime.class)
+                                            .isBefore(rows.getObject(27, OffsetDateTime.class))
+                                        && atomicEffectsMatch(connection, executionId,
+                                                rows.getInt(31), rows.getString(32)),
+                                "atomic committed header differs");
+                    }
+                    if (hasRejection) {
+                        String reason = rows.getString(30);
+                        require(!hasHeader && expectedSet.equals(rows.getString(29))
+                                        && "STOPPED".equals(status) && reason != null
+                                        && ("UNIT_ROLLED_BACK".equals(rows.getString(13))
+                                            && !"DEADLINE_EXCEEDED".equals(reason)
+                                            || "DEADLINE_EXCEEDED".equals(rows.getString(13))
+                                            && "DEADLINE_EXCEEDED".equals(reason)),
+                                "atomic rejection differs");
+                    } else if ("STOPPED".equals(status)) {
+                        require(!"UNIT_ROLLED_BACK".equals(rows.getString(13)),
+                                "atomic rollback lacks typed rejection");
+                    }
+                    if ("COMPLETED".equals(status) || "UNIT_COMMITTED_PENDING_ACK".equals(status))
+                        require(hasHeader, "atomic acknowledged state lacks header");
+                    if ("RUNNING".equals(status) || "UNIT_IN_FLIGHT".equals(status)
+                            || "STOPPED".equals(status))
+                        require(!hasHeader, "atomic uncommitted state has header");
+                    if ("UNIT_IN_FLIGHT".equals(status) || "UNIT_COMMITTED_PENDING_ACK".equals(status))
+                        require(expectedSet.equals(rows.getString(9)) && rows.getObject(8) != null
+                                        && rows.getObject(12, OffsetDateTime.class) != null,
+                                "atomic active set differs");
+                    int complete = hasHeader ? rows.getInt(7) : 0;
+                    try (var evidence = connection.prepareStatement("""
+                            select praxis_bulk.atomic_evidence_complete(?,?)
+                            """)) {
+                        evidence.setObject(1, executionId); evidence.setInt(2, complete);
+                        try (var checked = evidence.executeQuery()) {
+                            require(checked.next() && checked.getBoolean(1) && !checked.next(),
+                                    "atomic set evidence differs");
+                        }
+                    }
+                } catch (RuntimeException invalid) {
+                    throw new IllegalStateException("atomic execution differs from protected set", invalid);
+                }
+            }
+        }
+    }
+
+    private static boolean atomicEffectsMatch(Connection connection, UUID executionId,
+            int expectedCount, String expectedDigest) throws SQLException {
+        if (expectedCount < 0 || expectedCount > 400 || expectedDigest == null) return false;
+        var effects = new ArrayList<BulkTargetDigest.EffectReference>();
+        try (var statement = connection.prepareStatement("""
+                select unit_ordinal,effect_ref from praxis_bulk.praxis_bulk_atomic_effect_ref
+                 where execution_id=? order by unit_ordinal,effect_ref collate "C"
+                """)) {
+            statement.setObject(1, executionId);
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    if (effects.size() >= 400) return false;
+                    effects.add(new BulkTargetDigest.EffectReference(rows.getInt(1), rows.getString(2)));
+                }
+            }
+        }
+        return effects.size() == expectedCount
+                && expectedDigest.equals(BulkTargetDigest.effectsOf(effects));
     }
 
     /** Decode the protected evaluation once per execution and bind each durable outcome to its ordered target. */

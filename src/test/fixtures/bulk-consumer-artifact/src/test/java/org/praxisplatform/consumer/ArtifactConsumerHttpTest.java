@@ -74,7 +74,8 @@ class ArtifactConsumerHttpTest {
         assertThat(Path.of(ApiResource.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath())
                 .isEqualTo(expectedJar);
         for (String migration : List.of("V13__bulk_execution_time_order.sql",
-                "V14__bulk_openapi_publication.sql", "V15__bulk_operation_publication_fence.sql")) {
+                "V14__bulk_openapi_publication.sql", "V15__bulk_operation_publication_fence.sql",
+                "V16__bulk_atomic_set_execution.sql")) {
             var migrationResource = BulkExecutionMigrator.class.getResource("/db/praxis-bulk-migrations/" + migration);
             assertThat(migrationResource).as("packaged migration %s", migration).isNotNull();
             assertThat(migrationResource.getProtocol()).isEqualTo("jar");
@@ -116,7 +117,7 @@ class ArtifactConsumerHttpTest {
                     "postgres", Set.of(RUNTIME_ROLE), Set.of(), Set.of(CONTROL_ROLE));
             BulkExecutionMigrator.migrate(deploymentDataSource,
                     Map.of(NAMESPACE, DEPLOYMENT), roles, java.util.List.of(OPERATION));
-            assertThat(migrations).isEqualTo(15);
+            assertThat(migrations).isEqualTo(16);
             BulkExecutionMigrator.validate(deploymentDataSource, roles);
             assertThat(tableExists(deploymentDataSource.getConnection(), "praxis_bulk.praxis_bulk_proposal"))
                     .isTrue();
@@ -332,7 +333,8 @@ class ArtifactConsumerHttpTest {
         admin.execute("grant select, insert, update (proposal_id) on praxis_bulk.praxis_bulk_proposal to " + role);
         admin.execute("grant select, insert on praxis_bulk.praxis_bulk_evaluation to " + role);
         for (String table : Set.of("praxis_bulk_target_manifest", "praxis_bulk_preview_state",
-                "praxis_bulk_target_preview", "praxis_bulk_preview_item_integrity")) {
+                "praxis_bulk_target_preview", "praxis_bulk_preview_item_integrity",
+                "praxis_bulk_atomic_receipt", "praxis_bulk_atomic_item_result", "praxis_bulk_atomic_effect_ref", "praxis_bulk_atomic_rejection")) {
             if (Boolean.TRUE.equals(admin.queryForObject(
                     "select to_regclass(?) is not null", Boolean.class, "praxis_bulk." + table))) {
                 admin.execute("grant select, insert on praxis_bulk." + table + " to " + role);
@@ -346,6 +348,10 @@ class ArtifactConsumerHttpTest {
         admin.execute("grant select on praxis_bulk.praxis_bulk_tombstone to " + role);
         admin.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to " + role);
         admin.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to " + role);
+        if (Boolean.TRUE.equals(admin.queryForObject(
+                "select to_regprocedure('praxis_bulk.atomic_evidence_complete(uuid,integer)') is not null", Boolean.class))) {
+            admin.execute("grant execute on function praxis_bulk.atomic_evidence_complete(uuid,integer) to " + role);
+        }
         if (Boolean.TRUE.equals(admin.queryForObject(
                 "select to_regprocedure('praxis_bulk.assert_preview_integrity_complete()') is not null", Boolean.class))) {
             admin.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to " + role);

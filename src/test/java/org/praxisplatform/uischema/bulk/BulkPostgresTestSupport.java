@@ -82,6 +82,13 @@ final class BulkPostgresTestSupport {
         admin.execute("grant select, insert, update on praxis_bulk.praxis_bulk_execution to " + runtimeRole);
         admin.execute("grant select, insert on praxis_bulk.praxis_bulk_item_receipt to " + runtimeRole);
         admin.execute("grant select, insert on praxis_bulk.praxis_bulk_admission to " + runtimeRole);
+        for (String table : Set.of("praxis_bulk_atomic_receipt", "praxis_bulk_atomic_item_result",
+                "praxis_bulk_atomic_effect_ref", "praxis_bulk_atomic_rejection")) {
+            if (Boolean.TRUE.equals(admin.queryForObject(
+                    "select to_regclass(?) is not null", Boolean.class, "praxis_bulk." + table))) {
+                admin.execute("grant select, insert on praxis_bulk." + table + " to " + runtimeRole);
+            }
+        }
         admin.execute("grant select, insert, update (state, released_at, release_reason) "
                 + "on praxis_bulk.praxis_bulk_allocation to " + runtimeRole);
         admin.execute("grant select on praxis_bulk.praxis_bulk_tombstone to " + runtimeRole);
@@ -94,6 +101,11 @@ final class BulkPostgresTestSupport {
                 select to_regprocedure('praxis_bulk.assert_preview_integrity_complete()') is not null
                 """, Boolean.class))) {
             admin.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to "
+                    + runtimeRole);
+        }
+        if (Boolean.TRUE.equals(admin.queryForObject(
+                "select to_regprocedure('praxis_bulk.atomic_evidence_complete(uuid,integer)') is not null", Boolean.class))) {
+            admin.execute("grant execute on function praxis_bulk.atomic_evidence_complete(uuid,integer) to "
                     + runtimeRole);
         }
         return new BulkExecutionRoleConfiguration("postgres", Set.of(runtimeRole), Set.of(), Set.of());

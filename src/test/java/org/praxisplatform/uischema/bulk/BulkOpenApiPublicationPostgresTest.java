@@ -87,7 +87,7 @@ class BulkOpenApiPublicationPostgresTest {
             admin.update("insert into praxis_bulk.praxis_bulk_namespace_binding values (?, ?, clock_timestamp())", NS, DEPLOYMENT);
             BulkPostgresTestSupport.ready(source, NS, A);
             var checksum = admin.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='13'", Integer.class);
-            assertThat(BulkExecutionMigrator.migrate(source, Map.of(NS, DEPLOYMENT))).isEqualTo(2);
+            assertThat(BulkExecutionMigrator.migrate(source, Map.of(NS, DEPLOYMENT))).isEqualTo(3);
             assertThat(admin.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='13'", Integer.class))
                     .isEqualTo(checksum);
             assertThat(admin.queryForMap("select state,generation,document_digest from praxis_bulk.praxis_bulk_openapi_publication"))
