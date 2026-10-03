@@ -117,7 +117,8 @@ class MutableResourceLifecycleE2ETest extends AbstractE2eH2Test {
         assertEquals("failure", error.path("status").asText());
         assertEquals("Validation error.", error.path("message").asText());
         assertEquals("nome", error.path("errors").get(0).path("title").asText());
-        assertEquals("INVALID_PARAMETER", error.path("errors").get(0).path("properties").path("code").asText());
+        assertEquals("INVALID_PARAMETER", error.path("errors").get(0).path("code").asText());
+        assertFalse(error.path("errors").get(0).has("properties"));
         assertEquals(beforeCount, fixtureData.employeeCount());
     }
 }

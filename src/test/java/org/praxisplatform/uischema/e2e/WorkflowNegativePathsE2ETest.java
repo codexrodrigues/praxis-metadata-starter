@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import java.net.URI;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class WorkflowNegativePathsE2ETest extends AbstractE2eH2Test {
 
@@ -28,7 +29,8 @@ class WorkflowNegativePathsE2ETest extends AbstractE2eH2Test {
         assertEquals("failure", error.path("status").asText());
         assertEquals("Validation error.", error.path("message").asText());
         assertEquals("comentario", error.path("errors").get(0).path("title").asText());
-        assertEquals("INVALID_PARAMETER", error.path("errors").get(0).path("properties").path("code").asText());
+        assertEquals("INVALID_PARAMETER", error.path("errors").get(0).path("code").asText());
+        assertFalse(error.path("errors").get(0).has("properties"));
         assertEquals("INACTIVE", body(get("/employees/" + carolId)).path("data").path("status").asText());
     }
 
@@ -48,7 +50,8 @@ class WorkflowNegativePathsE2ETest extends AbstractE2eH2Test {
         JsonNode error = body(response);
         assertEquals("failure", error.path("status").asText());
         assertEquals("Validation error.", error.path("message").asText());
-        assertEquals("INVALID_PARAMETER", error.path("errors").get(0).path("properties").path("code").asText());
+        assertEquals("INVALID_PARAMETER", error.path("errors").get(0).path("code").asText());
+        assertFalse(error.path("errors").get(0).has("properties"));
         assertEquals("INACTIVE", body(get("/employees/" + carolId)).path("data").path("status").asText());
         assertEquals("LEAVE", body(get("/employees/" + frankId)).path("data").path("status").asText());
     }
@@ -66,7 +69,8 @@ class WorkflowNegativePathsE2ETest extends AbstractE2eH2Test {
         JsonNode error = body(response);
         assertEquals("failure", error.path("status").asText());
         assertEquals("Resource not found.", error.path("message").asText());
-        assertEquals("RESOURCE_NOT_FOUND", error.path("errors").get(0).path("properties").path("code").asText());
+        assertEquals("RESOURCE_NOT_FOUND", error.path("errors").get(0).path("code").asText());
+        assertFalse(error.path("errors").get(0).has("properties"));
     }
 
     @Test
@@ -85,7 +89,8 @@ class WorkflowNegativePathsE2ETest extends AbstractE2eH2Test {
         JsonNode error = body(response);
         assertEquals("failure", error.path("status").asText());
         assertEquals("Resource not found.", error.path("message").asText());
-        assertEquals("RESOURCE_NOT_FOUND", error.path("errors").get(0).path("properties").path("code").asText());
+        assertEquals("RESOURCE_NOT_FOUND", error.path("errors").get(0).path("code").asText());
+        assertFalse(error.path("errors").get(0).has("properties"));
         assertEquals("INACTIVE", body(get("/employees/" + carolId)).path("data").path("status").asText());
         assertEquals("LEAVE", body(get("/employees/" + frankId)).path("data").path("status").asText());
     }

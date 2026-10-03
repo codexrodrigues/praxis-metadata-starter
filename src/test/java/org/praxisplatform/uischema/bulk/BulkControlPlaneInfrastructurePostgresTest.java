@@ -37,6 +37,8 @@ class BulkControlPlaneInfrastructurePostgresTest {
             adminSql.execute("grant usage on schema praxis_bulk to bulk_runtime, bulk_control");
             adminSql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
             adminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest, praxis_bulk.praxis_bulk_preview_state, praxis_bulk.praxis_bulk_target_preview, praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
+            adminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_atomic_receipt, praxis_bulk.praxis_bulk_atomic_item_result, praxis_bulk.praxis_bulk_atomic_effect_ref, praxis_bulk.praxis_bulk_atomic_rejection to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.atomic_evidence_complete(uuid,integer) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
@@ -127,6 +129,8 @@ class BulkControlPlaneInfrastructurePostgresTest {
             otherAdminSql.execute("grant usage on schema praxis_bulk to bulk_runtime, bulk_control");
             otherAdminSql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
             otherAdminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest, praxis_bulk.praxis_bulk_preview_state, praxis_bulk.praxis_bulk_target_preview, praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
+            otherAdminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_atomic_receipt, praxis_bulk.praxis_bulk_atomic_item_result, praxis_bulk.praxis_bulk_atomic_effect_ref, praxis_bulk.praxis_bulk_atomic_rejection to bulk_runtime");
+            otherAdminSql.execute("grant execute on function praxis_bulk.atomic_evidence_complete(uuid,integer) to bulk_runtime");
             otherAdminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
             otherAdminSql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             otherAdminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
@@ -229,6 +233,8 @@ class BulkControlPlaneInfrastructurePostgresTest {
             adminSql.execute("grant usage on schema praxis_bulk to bulk_runtime, bulk_control");
             adminSql.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to bulk_runtime");
             adminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest, praxis_bulk.praxis_bulk_preview_state, praxis_bulk.praxis_bulk_target_preview, praxis_bulk.praxis_bulk_preview_item_integrity to bulk_runtime");
+            adminSql.execute("grant select, insert on praxis_bulk.praxis_bulk_atomic_receipt, praxis_bulk.praxis_bulk_atomic_item_result, praxis_bulk.praxis_bulk_atomic_effect_ref, praxis_bulk.praxis_bulk_atomic_rejection to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.atomic_evidence_complete(uuid,integer) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
