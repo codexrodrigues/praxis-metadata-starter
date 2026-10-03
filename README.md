@@ -2,6 +2,18 @@
 
 `praxis-metadata-starter` e a fonte canonica da semantica metadata-driven do backend Praxis.
 
+## Baseline da preparação rc.149
+
+Esta preparação usa Java 21, Spring Boot 3.5.15 e Springdoc 2.8.17. O BOM Boot
+passa a gerir Spring/Hibernate/Jackson; hosts devem conferir a árvore efetiva e
+usar `springdoc.api-docs.version=OPENAPI_3_0`. OAS 3.1 não está certificado neste
+corte. O construtor beta de `GenerationScopedGenericResponseService` recebe três
+argumentos; consumidores diretos do construtor anterior devem migrar.
+
+A [prova privada de baseline](docs/technical/BOOT35-BASELINE-CANDIDATE.md) é
+histórica e não demonstra disponibilidade pública. A adoção exige POM/JAR no
+Maven Central e validação do host sem override. ATOMIC continua fora deste corte.
+
 Ele publica:
 
 - OpenAPI enriquecido com `x-ui`
