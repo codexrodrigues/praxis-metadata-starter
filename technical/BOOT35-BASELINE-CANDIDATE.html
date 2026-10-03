@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Baseline Boot 3.5 — candidato privado de validação</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Baseline Boot 3.5 — candidato privado de
+validação</h1>
+</header>
+<h1 id="baseline-boot-3.5-candidato-privado-de-validação">Baseline Boot
+3.5 — candidato privado de validação</h1>
+<p>Estado em 02/10/2026: <strong>candidato com provas locais parciais,
+não publicado e não adotado publicamente pelo host</strong>. A versão
+<code>8.0.0-boot35-validation-SNAPSHOT</code> identifica somente esta
+prova isolada. Este corte altera o baseline de dependências do Metadata;
+não altera orçamento, política, IAM, locks, endpoints, DTOs nem as
+regras de admissão ou de receipt.</p>
+<h2 id="decisão-e-aderência">Decisão e aderência</h2>
+<p>Classificação: <code>transversal</code>. O Metadata é o dono do
+baseline Java/OpenAPI; o Config mantém sua semântica própria de
+política; o Quickstart consome ambos. A capacidade de limitar o
+orçamento já existe. A falha observada é
+<code>ja-suportado-mal-nomeado-ou-mal-materializado</code> na combinação
+de runtimes: o Config <code>0.1.0-rc.157</code> foi construído com Boot
+3.5.15/Hibernate 6.6.53, enquanto o host e o Metadata
+<code>8.0.0-rc.148</code> usam Boot 3.2.5/Hibernate 6.4.4. Com timeout
+transacional curto, Hibernate 6.4.4 trunca o saldo para segundos
+inteiros antes de decidir se expirou; Hibernate 6.6.53 só rejeita quando
+não restam milissegundos e então fornece pelo menos um segundo de
+timeout JDBC. A prova forense P1 está registrada no
+<code>EXECUCAO.md</code> do host; ela não autoriza aumentar o orçamento
+nem mudar o contrato do Config.</p>
+<p>O candidato muda o parent para Boot 3.5.15 e o Springdoc para 2.8.17.
+A <a href="https://springdoc.org/v2/">matriz oficial do Springdoc</a>
+associa Boot 3.5.x à linha Springdoc 2.8.x; a <a
+href="https://central.sonatype.com/artifact/org.springdoc/springdoc-openapi-starter-webmvc-ui/2.8.17">coordenada
+2.8.17</a> consta no Maven Central. A dependência direta de
+<code>spring-context</code> permanece, mas sua versão explícita 6.1.6
+foi retirada: o BOM Boot 3.5.15 deve gerir Spring Framework 6.2.19. É
+necessário confirmar a árvore efetiva, não inferir o runtime apenas do
+POM.</p>
+<p>O primeiro focal parou na compilação, antes de executar testes:
+Springdoc 2.8.17 removeu <code>ReturnTypeParser</code> e mudou o
+construtor de <code>GenericResponseService</code> para
+<code>(OperationService, SpringDocConfigProperties, PropertyResolverUtils)</code>.
+A adaptação candidata elimina somente o parâmetro e a construção
+obsoletos no <code>GenerationScopedGenericResponseService</code>, em sua
+autoconfiguração e nos testes consumidores; mantém os mesmos callbacks,
+isolamento por <code>Components</code>, limpeza, condicionais de bean e
+oráculos. A <a
+href="https://github.com/springdoc/springdoc-openapi/blob/v2.8.17/springdoc-openapi-starter-common/src/main/java/org/springdoc/core/service/GenericResponseService.java">fonte
+oficial 2.8.17 do serviço</a> ainda acrescenta
+<code>ControllerAdviceInfo</code> às listas da instância em
+<code>buildGenericResponse</code> e as consulta em <code>build</code>: o
+adapter por geração permanece necessário. A <a
+href="https://github.com/springdoc/springdoc-openapi/blob/v2.8.17/springdoc-openapi-starter-webmvc-api/src/main/java/org/springdoc/webmvc/core/configuration/SpringDocWebMvcConfiguration.java">configuração
+MVC oficial</a> mantém o bean default <code>responseBuilder</code> com
+<code>@ConditionalOnMissingBean</code>; a autoconfiguração Praxis deve
+continuar respeitando overrides do host. O JAR local da coordenada
+2.8.17 confirmou o construtor.</p>
+<p>O focal seguinte também parou na compilação: Swagger Core 2.2.47
+mudou <code>ModelResolver.applyBeanValidatorAnnotations</code> de
+<code>void</code> para <code>boolean</code>, e Spring Framework 6.2
+passou a exigir <code>HttpRequest.getAttributes()</code>. O override
+Praxis agora devolve sem alteração o booleano de <code>super</code>, que
+<a
+href="https://github.com/swagger-api/swagger-core/blob/v2.2.47/modules/swagger-core/src/main/java/io/swagger/v3/core/jackson/ModelResolver.java">o
+Swagger usa para informar se a validação alterou o schema ou os campos
+required</a>; o enriquecimento <code>x-ui</code> e de governança
+continua após a validação. Cada request do transporte interno passa a
+possuir um mapa mutável próprio, retornado por identidade em
+<code>getAttributes()</code> sem convertê-lo em header HTTP. Os testes
+focais devem provar required + <code>x-ui</code>, atributos
+estáveis/isolados e interceptores de <code>RestTemplate</code> sem
+transmitir o atributo como header. Nenhum prazo, pool, origem ou header
+de captura foi alterado.</p>
+<p>O primeiro focal que compilou produção executou 126 testes: 117
+passaram, dois falharam e sete deram erro. A maior parte dos erros
+decorre de <code>GenericResponseService</code> 2.8.17 exigir
+<code>setApplicationContext</code> antes de <code>build</code> em cada
+delegate, inclusive nos testes que constroem o serviço diretamente; o
+adapter agora propaga o contexto Spring real, sem reflexão nem lista de
+advices simulada. A falha de schemas extras veio de outra mudança do
+Springdoc: <code>SpringDocAnnotationsUtils</code> reutiliza um
+<code>ModelConverterContext</code> por thread e <a
+href="https://github.com/springdoc/springdoc-openapi/blob/v2.8.17/springdoc-openapi-starter-common/src/main/java/org/springdoc/api/AbstractOpenApiResource.java">limpa-o
+ao fim da geração HTTP</a>; o teste direto deve reproduzir essa limpeza
+sem remover o oráculo de isolamento.</p>
+<p>Há mudança de default pública: Springdoc 2.6.0 gerava OAS 3.0 sem
+<code>springdoc.api-docs.version</code>; Springdoc 2.8.17 inicializa seu
+<code>ApiDocs.version</code> com <code>OPENAPI_3_1</code>. A adoção do
+host nesta campanha mantém o documento oficial em 3.0 pela
+<strong>propriedade Springdoc já existente</strong>
+<code>springdoc.api-docs.version=OPENAPI_3_0</code>; o
+<code>application.yaml</code> de teste e os runners explícitos usam a
+mesma versão. Assim o registrador de conversores do Springdoc e o
+<code>RelatedResourceResponseSchemaCustomizer</code> atual resolvem no
+mesmo <code>ModelConverters</code> 3.0. Sem essa chave, o Springdoc usa
+o registro 3.1 enquanto o customizer atual usa o registro 3.0; OAS 3.1
+não é suportado nem certificado neste corte e não deve ser usado como
+evidência da adoção do host ou de equivalência de hashes/contrato. Não
+foi criado modo ou alias próprio.</p>
+<h2 id="pins-e-fronteiras-a-verificar">Pins e fronteiras a
+verificar</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Item</th>
+<th>Candidato e risco</th>
+<th>Gate antes de aceitar</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Swagger annotations</td>
+<td>O POM anterior declarava <code>swagger-annotations:2.2.22</code> não
+Jakarta. O JAR antigo e <code>swagger-annotations-jakarta:2.2.47</code>
+contêm ambos <code>io.swagger.v3.oas.annotations.media.Schema</code> com
+o mesmo FQCN. A dependência e sua propriedade foram removidas; Springdoc
+2.8.17 é o dono do grafo Swagger nesta migração beta.</td>
+<td>Confirmar a versão Jakarta resolvida, ausência do JAR não Jakarta e
+compilação dos imports/anotações exportadas. Verificar o shape servido e
+os hashes, não apenas a compilação.</td>
+</tr>
+<tr class="even">
+<td>Spring Framework e Hibernate</td>
+<td>Boot 3.5.15 gerencia Spring 6.2.19 e Hibernate 6.6.53. O pin
+<code>spring-context:6.1.6</code> foi retirado; JPA, transações, filtros
+e lifecycle usam APIs desses componentes.</td>
+<td>Árvore Maven exata e focais de auto-configuração, transação
+PostgreSQL, publication/READY/receipt e segurança Servlet.</td>
+</tr>
+<tr class="odd">
+<td>Jackson</td>
+<td>O BOM Boot 3.5.15 gerencia Jackson 2.21.4; serialização, coerção de
+valores, OpenAPI, ETag e <code>X-Schema-Hash</code> são consumidores
+sensíveis.</td>
+<td>Comparar bytes/estrutura dos documentos publicados e headers em
+casos reais; uma mudança arbitrária de fingerprint não é aceite.</td>
+</tr>
+<tr class="even">
+<td>Lombok e processadores</td>
+<td>O parent gerencia Lombok 1.18.46, mas o
+<code>maven-compiler-plugin</code> ainda fixa o processador 1.18.32;
+MapStruct 1.5.5.Final também segue explícito. Nada foi removido por
+suposição.</td>
+<td>Confirmar árvore e compilação de fontes/testes; resolver
+incompatibilidade demonstrada antes de ampliar o patch.</td>
+</tr>
+<tr class="odd">
+<td>Flyway, testes PostgreSQL e outros pins</td>
+<td>Flyway 11.17.0, embedded PostgreSQL e plugins Maven seguem
+explícitos. O binário PostgreSQL do teste Metadata não prova sozinho a
+matriz do host.</td>
+<td>Migrador V14/V15, ACL/roles e gates PostgreSQL no Metadata; depois
+HTTP real do host com suas dependências efetivas.</td>
+</tr>
+</tbody>
+</table>
+<p>Não há endpoint, DTO ou contrato wire novo. A migração beta muda a
+assinatura Java pública do construtor de
+<code>GenerationScopedGenericResponseService</code> de quatro para três
+argumentos; os consumidores diretos encontrados no monorepo são a
+autoconfiguração Metadata e os testes de geração, migrados no mesmo
+corte. O risco de <em>breaking change</em> inclui também classes e
+comportamento transitivos: versões Spring/Jackson/Swagger podem mudar a
+composição OpenAPI, filtros e transações mesmo com código de produto
+idêntico. O consumidor direto obrigatório é o Quickstart. Angular,
+landing e corpus HTTP só precisam de alteração se a comparação revelar
+mudança de contrato publicado; não há artefato derivado a editar
+preventivamente neste candidato.</p>
+<h2 id="provas-propostas-ao-executor-único-de-mavendb">Provas propostas
+ao executor único de Maven/DB</h2>
+<ol type="1">
+<li>Registrar POM efetivo e árvore resolvida do Metadata: Spring
+Framework, Hibernate, Jackson, Springdoc/Swagger, Lombok e Flyway.
+Rejeitar coexistência de <code>swagger-annotations</code> não Jakarta
+com <code>swagger-annotations-jakarta</code> e qualquer Spring 6.1.x.
+Não usar override de coordenada pública nem publicar o SNAPSHOT.</li>
+<li>Compilar produção e testes, depois executar focais Metadata
+<code>GenerationScopedGenericResponseServiceTest</code>,
+<code>OpenApiResponseGenerationAutoConfigurationTest</code>,
+<code>OpenApiModelConverterOrderingTest</code>,
+<code>CustomOpenApiResolverTest</code>,
+<code>OpenApiInternalRestTemplateTest</code>,
+<code>OpenApiPublicationPreparationTest</code>,
+<code>OpenApiPublicationInstallationTest</code>,
+<code>BulkOpenApiPublicationRegistrationHttpTest</code>,
+<code>OpenApiCanonicalOperationResolverTest</code>,
+<code>ApiDocsControllerSchemaHashTest</code> e
+<code>GlobalExceptionHandlerTest</code>. Isso cobre APIs
+Springdoc/Swagger, isolamento de advice por geração, anotações de
+validação, transporte, geração e resposta HTTP sem presumir que todos os
+contratos já permanecem iguais.</li>
+<li>Executar PostgreSQL real
+<code>BulkCrudOperationalLifecyclePostgresTest</code>,
+<code>BulkDurableExecutionPostgresTest</code> e os testes do
+migrador/ACL V14/V15 afetados. Verificar publicação global e operacional
+na mesma transação, rollback, commit incerto, reconciliação, suspensão,
+locks, role separation, leitura de fotografia e receipt-first.</li>
+<li>Exercitar <code>BulkConsumerArtifactIntegrationTest</code> contra o
+JAR candidato e, no host com dependência privada isolada, os quatro
+seletores P1 que falharam no verify rc.148. Incluir orçamento Config
+próximo de um segundo com caso positivo antes do prazo e negativo depois
+do prazo, sem alargar o limite. Confirmar depois os testes HTTP
+P1/P2/P3, a ordem IAM, headers/schema/hash e uma validação ampla do host
+porque o baseline é transversal. Guardar hashes das fontes, JARs e
+classpaths efetivos para cada prova.</li>
+</ol>
+<p>O Config <code>0.1.0-rc.157</code> permanece a versão pública. A
+composição privada passou a usar um candidato Config próprio: sua
+dependência direta de annotations Jakarta é alinhada a 2.2.47 e o SDK
+OpenAI deixa de introduzir o JAR não Jakarta duplicado. A decisão de
+política permanece exclusivamente no Config. Estas provas não declaram
+readiness, publicação Maven, release, deploy ou conclusão B6/B7. Após as
+provas, um revisor diferente do autor confrontará diff, árvore,
+resultados, docs e skills. A skill
+<code>praxis-api-quickstart-operational-proof</code> foi classificada
+como <code>atualizar-existente</code> para ensinar a validar timeouts no
+runtime efetivo; a atualização canônica foi integrada no PR #657
+(<code>033dbaf</code>) e sincronizada seletivamente, com auditoria
+válida e os demais 771 arquivos preservados.</p>
+<h2 id="estado-das-provas-locais">Estado das provas locais</h2>
+<p>A campanha completa privada executou 1.374 testes, com duas falhas,
+zero erros e três skips. A primeira falha exige <code>pom.xml</code> e
+produção commitados para construir o JAR independente a partir de HEAD;
+esse gate permanece obrigatório. A segunda estava no oráculo de exceção
+do decoder Jackson: o focal posterior de nove testes comprovou que o
+input <code>READ_ONLY</code> é descartado
+(<code>identity == null</code>, <code>revision == 2</code>) e que o
+compilador continua rejeitando o DTO cujo campo protegido não é
+deserializável. Não houve mudança no guard de produção. Evidências:
+<code>boot35-candidate/metadata-full-install</code> e
+<code>metadata-crud-compiler-final</code>, referenciadas no checkpoint
+do host.</p>
+<p>A fixture de consumo independente foi alinhada ao parent Boot 3.5.15
+e à propriedade Springdoc OAS 3.0; seu plugin Surefire 3.2.5 permanece.
+Os documentos raiz e de grupo precisam declarar 3.0.x, preservando os
+oráculos existentes de publicação, schema, hash/ETag, IAM e receipt.
+Após o commit privado de produção <code>72f616b</code>, o install focal
+passou 11 testes; o consumidor independente HTTP/PostgreSQL passou seu
+caso contra o JAR derivado desse commit. O JAR instalado no host e o JAR
+independente do consumer têm coordenadas/hashes distintos, registrados
+nas evidências; não são artefatos públicos. A composição privada do host
+passou oito testes causais e wire, incluindo documentos raiz/grupo
+3.0.x, replay e locks corporativos. Nenhuma comparação bit a bit do
+documento inteiro foi declarada. O commit local com coordenada privada
+serve exclusivamente para cumprir a proveniência exigida pelo consumer
+gate.</p>
+<p>O verify privado amplo do host encerrou com 1.023 testes, zero
+falhas, sete erros e 23 skips. Quatro erros vieram da fixture HTTP ainda
+dependente de OkHttp3; três ocorreram ao persistir entidades novas com
+versão artificial no baseline Hibernate 6.6, incluindo caminhos de
+criação no Config. Os sete erros foram diagnosticados e corrigidos no
+candidato: API pública do cliente de teste, seeds com versão nula e três
+construções canônicas no Config sem versão artificial. A prova posterior
+do Config passou 81 testes, incluindo PostgreSQL de inserção, incremento
+e rejeição de escrita obsoleta. O verify focal final do host passou 15
+testes e empacotou a aplicação, cobrindo os sete casos anteriores e as
+oito provas causais/wire. Os hashes dos dois starters em BOOT-INF/lib
+coincidem com os artefatos privados testados; nenhuma annotations
+Swagger não Jakarta está empacotada. Isso constitui evidência composta
+com a campanha anterior, e não um full verify verde na árvore final. O
+verify oficial sem override continua obrigatório após novas publicações
+autorizadas. Evidências e fontes:
+<code>boot35-candidate/metadata-committed-consumer-install</code>,
+<code>config-swagger-focal</code>,
+<code>host-causal-wire-composed</code>, <code>host-full-verify</code>,
+<code>config-new-entity-persistence</code> e
+<code>host-final-private-package</code>, referenciadas no EXECUCAO do
+host. O próximo gate é o aceite independente da evidência final, a
+preparação das coordenadas públicas e a autorização específica para
+novas publicações; a adoção pública exige confirmação Central, verify
+sem override e revisão do host. A orientação pública de cliente HTTP foi
+integrada pelo PR #658 e sincronizada seletivamente.</p>
+</body>
+</html>
