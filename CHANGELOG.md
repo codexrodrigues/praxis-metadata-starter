@@ -11,6 +11,17 @@ All notable changes to this module will be documented in this file.
 
 ## Unreleased
 
+- V16 preserva snapshots canônicos com NUL escapado em campos opacos: a extração de
+  `atomicity` usa uma cópia lexical para parsing JSON, sem alterar payload ou fingerprint.
+  O CHECK rejeita metadata ausente/nula e divergente, e a validação atesta a expressão
+  exata do catálogo. Upgrade histórico, bytes protegidos e inserts protocol-two possuem
+  contraprovas PostgreSQL; não amplia a linguagem do codec ou a prontidão operacional.
+- ERROR-WIRE independe do mixin Jackson externo: o DTO achata extensões explicitamente
+  e preserva round-trip tanto no mapper simples quanto no mapper Spring. O contêiner
+  `properties` não aparece no wire e continua proibido na entrada; campos tipados e
+  chaves reservadas mantêm autoridade única. Provas HTTP negativas preservam ausência
+  de efeitos e mensagens sanitizadas. Publicação/adoção permanecem gates separados.
+
 - Núcleo Java ATOMIC protegido integrado: `executeAtomic` e ledger V16 confirmam admissão,
   mutação, receipt agregado, resultados ordenados e referências reais de efeitos na mesma
   transação. Replay consulta receipt antes dos gates de nova mutação; recuperação reconcilia

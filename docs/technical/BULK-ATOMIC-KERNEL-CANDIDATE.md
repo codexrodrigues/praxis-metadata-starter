@@ -134,3 +134,27 @@ ausência de V16 antes de usar somente migrate/validate públicos históricos. O
 loader/TCCL é restaurado e fechado. Esse download usa diretamente o Central,
 independentemente de espelhos Maven: exige acesso HTTPS ou cache íntegro; não
 faz instalação local da coordenada pública nem substitui prova de adoção do host.
+
+## Correções antes da primeira publicação V16
+
+A campanha de preparação revelou que operadores PostgreSQL `json` também
+materializam escapes de strings alheias ao campo consultado. Apenas trocar `jsonb`
+por `json` não evita a rejeição de NUL escapado permitido no snapshot canônico.
+V16 extrai `atomicity` de uma cópia lexical que substitui esse escape somente para
+parsing; payload e fingerprint persistidos permanecem byte a byte intactos. O
+CHECK compara com `IS NOT DISTINCT FROM`, impedindo que ausência/null passem por
+SQL UNKNOWN. O migrador atesta a expressão exata; o catálogo anterior é recusado.
+Isso preserva a linguagem validada pelo codec, sem afirmar suporte a JSON arbitrário.
+
+`BulkAtomicProposalJsonConstraintPostgresTest` prova NUL em chaves/valores,
+sequência literal de barras, bytes intactos, metadata ausente/nula/tipo inválido/
+divergente, JSON/UTF-8 inválidos e drift de catálogo. `BulkEvaluationStorePostgresTest`
+preserva os casos reais de upgrade/backfill histórico. Fixtures de inserção usam o
+tuple READY/publicação existente; a prova de catálogo usa banco vazio e não remove
+proposals protegidas nem desabilita guards de admissão/delete.
+
+O envelope ERROR-WIRE correlato passa a usar achatamento explícito no DTO,
+independente do mixin do mapper. Plain ObjectMapper e Spring/MVC devem preservar
+campos tipados únicos, extensões flat e rejeição do wrapper `properties` de entrada.
+Essas correções não habilitam composer/HTTP ATOMIC ou substituem a disponibilidade
+pública do artefato e a adoção sem override pelo host.
