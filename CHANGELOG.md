@@ -2,14 +2,26 @@
 
 All notable changes to this module will be documented in this file.
 
-## [8.0.0-rc.149] — preparação de publicação
+## [8.0.0-rc.150] — publicado em 03/10/2026
+
+- Publica o núcleo Java ATOMIC/V16 e ERROR-WIRE após correções de preservação de
+  payload opaco e achatamento independente do mapper. Não habilita composer,
+  capability ou rotas HTTP ATOMIC; a adoção do host é um gate separado.
+- Tag `v8.0.0-rc.150`/commit `986d6f3f8268bd6c3d85aa4b3e87036050af05a5`,
+  workflow oficial `37135766711` concluído. POM e JAR foram conferidos no Maven
+  Central, incluindo a V16 idêntica à fonte revisada.
+- Preparação local: clean verify com 1.485 testes, zero falhas/erros e três skips
+  explícitos, Javadoc e gate de contrato público aprovados; revisão independente
+  de fonte, consumidores e evidências. Esse resultado não fecha B4–B7 nem outbox.
+
+## [8.0.0-rc.149] — baseline publicado (histórico)
 
 - Baseline Java 21/Boot 3.5.15/Springdoc 2.8.17; Spring/Hibernate/Jackson seguem o BOM, sem pin paralelo de `spring-context` nem Swagger annotations não Jakarta.
 - Adaptações das APIs Springdoc preservam a geração publicada e a materialização `x-ui`; construtor público beta `GenerationScopedGenericResponseService` migra de quatro para três argumentos.
 - Hosts devem fixar `springdoc.api-docs.version=OPENAPI_3_0`; OAS 3.1 não é certificado. Orçamentos, IAM, locks e protocolo de receipt permanecem inalterados.
-- Gates oficiais de publicação e adoção ainda devem concluir; não inclui executor ATOMIC nem fechamento do backend.
+- Publicação e adoção do baseline no host PR340 foram comprovadas; esta versão não incluía o executor ATOMIC nem fechava o backend.
 
-## Unreleased
+## Histórico de preparação — anterior à publicação rc.150
 
 - V16 preserva snapshots canônicos com NUL escapado em campos opacos: a extração de
   `atomicity` usa uma cópia lexical para parsing JSON, sem alterar payload ou fingerprint.
