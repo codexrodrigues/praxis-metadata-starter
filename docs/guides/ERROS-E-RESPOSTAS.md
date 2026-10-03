@@ -38,6 +38,20 @@ quando houver multiplas ocorrencias para o mesmo `rel`.
 
 Erros são padronizados com `CustomProblemDetail` e categorias (`ErrorCategory`).
 
+Cada membro aparece uma única vez no objeto JSON. `code`, `target`, `message`, `category` e os
+membros RFC (`type`, `title`, `status`, `detail`, `instance`) têm fonte tipada única. Leia
+`errors[].code` e `errors[].target`; não há espelhamento em `errors[].properties`.
+`target` nulo ou em branco representa ausência e é omitido na serialização Spring.
+
+Extensões legítimas, como `traceId` e `outcome`, aparecem nesse mesmo nível. Na API Java,
+use `setProperty` ou `setProperties` para escrevê-las; nomes tipados/RFC e `properties` são
+reservados e rejeitados. `setProperties` valida todo o mapa antes de substituí-lo e aceita
+valores nulos. `getProperties()` devolve um snapshot superficial imutável, vazio quando não
+há extensões; os campos tipados são lidos por seus getters. O JSON de leitura é um objeto,
+com extensões desconhecidas preservadas; o wrapper `properties` (inclusive nulo ou vazio) é
+rejeitado, e uma string isolada não representa um problema.
+
+
 ```json
 {
   "status": "failure",

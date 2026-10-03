@@ -37,7 +37,7 @@ class GovernedOpenApiPublicationUnavailableExceptionTest {
         assertThat(problem.getStatus()).isEqualTo(503);
         assertThat(problem.getCategory()).isEqualTo(ErrorCategory.SYSTEM);
         assertThat(problem.getCode()).isEqualTo("GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE");
-        assertThat(problem.getProperties()).containsEntry("code", "GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE");
+        assertThat(problem.getProperties()).doesNotContainKey("code");
         assertThat(problem.getInstance().toString()).isEqualTo("/schemas/filtered");
         assertThat(problem.getMessage()).isEqualTo(body.getMessage());
         assertThat(String.valueOf(problem.getDetail())).doesNotContain("PRIVATE_SQL", "PRIVATE_SECRET");

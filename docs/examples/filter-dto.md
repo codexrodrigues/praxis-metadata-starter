@@ -167,4 +167,4 @@ Contrato canonico de payload:
 
 * payload escalar de range e invalido e retorna `400`.
 * nao ha flag para aceitar escalar em runtime.
-* payload inválido de filtro retorna `400` com `errors[].properties.code = FILTER_PAYLOAD_INVALID`.
+* payload inválido de filtro retorna `400` com `errors[].code = FILTER_PAYLOAD_INVALID`.
