@@ -1,14 +1,13 @@
-# Operações bulk CRUD — contrato operacional candidato P3b-S2
+# Operações bulk CRUD — composição operacional e candidato B4
 
 O vínculo estrutural entre PUT e DTO de update está em
 [BULK-CRUD-STRUCTURE.md](BULK-CRUD-STRUCTURE.md). Este corte candidato compõe a
-projeção de descoberta e o perfil operacional síncrono por item. Não transforma
+projeção de descoberta síncrona. O SDK publicado rc.150 compõe PER_ITEM; o incremento B4 desta fonte candidata acrescenta composição ATOMIC para CRUD, ainda sem artefato público novo ou adoção ATOMIC do host. Não transforma
 um descriptor estrutural em autorização nem certifica mutação do domínio no host.
 
 ## Descoberta coerente
 
-Uma operação UPDATE operacionalmente completa projeta `bulk-update` ou
-`bulk-update-items` em `capabilities.operations`, com escopo `COLLECTION`, método
+A identidade de uma operação UPDATE é derivada uma única vez de `(mode, atomicity)`: UNIFORM_UPDATE/PER_ITEM → `bulk-update`; PER_ITEM_UPDATE/PER_ITEM → `bulk-update-items`; UNIFORM_UPDATE/ATOMIC → `bulk-update-atomic`; PER_ITEM_UPDATE/ATOMIC → `bulk-update-items-atomic`. As duas identidades PER_ITEM permanecem iguais. Rejeitar duplicata de `(resourceKey, mode, atomicity)`, sem escolher uma declaração silenciosamente. A operação projeta essa identidade em `capabilities.operations`, com escopo `COLLECTION`, método
 `POST`, caminho `.bulk` e referências canônicas às sete operações do ciclo.
 O frame de resposta é comum a action e capability: a mesma geração, fingerprint
 e revisão estrutural governam o resultado publicado e `requireReady`. A
@@ -34,13 +33,11 @@ rejeitam órfãos antes de I/O durável; a preparação de resposta pode captura
 evidência durável antes de compilar. Retirar o provider faz `requireReady`
 negar, mas não muda automaticamente a linha READY durável. `suspend` ou
 invalidação seguem o próprio protocolo para fechá-la; um snapshot antigo não
-autoriza execução.
+autoriza execução. Provider, confirmação e controle durável são exatos por variante; a fotografia de publicação e sua fence são globais. Suspender uma identidade invalida a fotografia e fecha todas. Republicar uma identidade recaptura/valida o documento global e reabre somente essa variante; as demais ficam ausentes até publicação própria. Os cinco handlers bodyless de leitura/cancelamento são compartilhados, enquanto avaliação/confirmação pertencem à variante.
 
 ## Perfil e limites
 
-O perfil UPDATE candidato é singular por operação, com execução síncrona,
-seleção explícita e resultado por item (`SYNC`, `EXPLICIT`, `PER_ITEM`). Não acrescenta
-consulta de seleção, execução assíncrona nem semântica atômica do lote.
+O perfil UPDATE é singular por operação, com execução síncrona e seleção explícita (`SYNC`, `EXPLICIT`). PER_ITEM mantém teto de 200 alvos. O candidato ATOMIC aceita 1–50 alvos e prazo agregado da unidade de até 5 segundos; perfil fora desses limites não compõe. Atomicidade pertence à operação, nunca ao request/UI. DOMAIN_COMMAND/ATOMIC permanece fechado neste composer. Não acrescenta consulta de seleção ou execução assíncrona; a composição não prova mutação, receipt ou recuperação do domínio do host.
 `DOMAIN_COMMAND` conserva os bytes do digest `praxis.bulk.structure/3`;
 UPDATE usa `praxis.bulk.structure/4` com fonte, schema, allowlists e campos
 protegidos. `parametersPointer` é exclusivo do command e fica ausente em
@@ -57,7 +54,7 @@ devem ser descartados em `finally`, sem reter lock de cache nem transação JDBC
 ao chamar regras do host ou montar a resposta. Esta composição não cria grants
 P3, autorização para mutação, rotina de domínio, release ou adoção Angular.
 
-## Evidência focal e limites
+## Evidência histórica P3b-S2 e limites
 
 Na fonte candidata congelada, as campanhas `focal-01` (75 passes reutilizados),
 `focal-02` (8), `http-04` (1 TCP) e `regressions-01` (12) aprovaram **95 casos
@@ -74,3 +71,8 @@ também passaram contra o artefato local, sem mudança de fonte durante a prova;
 os registros estão em `/tmp/praxis-p3b-operational-proof-20261001`. A integração da fonte é distinta da publicação e adoção do binário; não houve
 suíte total, release, adoção pública ou validação Angular. O perfil operacional UPDATE focal não equivale a backend
 completo ou READY para todo consumidor.
+
+
+## Evidência do candidato B4 — 03/10/2026
+
+Fonte congelada: 83 testes distintos em seis classes, zero falhas/erros/skips: composição/estrutura/bindings (36), lifecycle PostgreSQL/capabilities HTTP/compiler (47). Os oráculos incluem limites ATOMIC aceitos 1 e 50 nos dois modos com 5s exatos, rejeição 51, PER_ITEM200 preservado, quatro variantes no mesmo recurso/fotografia, provider exato, colisão e suspensão/republicação. Relatórios e freeze estão em `/tmp/praxis-b4-atomic-candidates-20261003/b4-composition-*`. A prova HTTP pertence ao SDK de discovery; não certifica execução ATOMIC do host, publicação do novo artefato, outbox, B4–B7 ou Angular. Revisão final, consumidor Maven isolado e skills são gates separados.

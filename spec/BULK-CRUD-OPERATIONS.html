@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Operações bulk CRUD — contrato operacional candidato P3b-S2</title>
+  <title>Operações bulk CRUD — composição operacional e candidato B4</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,20 +166,29 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Operações bulk CRUD — contrato operacional candidato
-P3b-S2</h1>
+<h1 class="title">Operações bulk CRUD — composição operacional e
+candidato B4</h1>
 </header>
 <h1
-id="operações-bulk-crud-contrato-operacional-candidato-p3b-s2">Operações
-bulk CRUD — contrato operacional candidato P3b-S2</h1>
+id="operações-bulk-crud-composição-operacional-e-candidato-b4">Operações
+bulk CRUD — composição operacional e candidato B4</h1>
 <p>O vínculo estrutural entre PUT e DTO de update está em <a
 href="BULK-CRUD-STRUCTURE.md">BULK-CRUD-STRUCTURE.md</a>. Este corte
-candidato compõe a projeção de descoberta e o perfil operacional
-síncrono por item. Não transforma um descriptor estrutural em
-autorização nem certifica mutação do domínio no host.</p>
+candidato compõe a projeção de descoberta síncrona. O SDK publicado
+rc.150 compõe PER_ITEM; o incremento B4 desta fonte candidata acrescenta
+composição ATOMIC para CRUD, ainda sem artefato público novo ou adoção
+ATOMIC do host. Não transforma um descriptor estrutural em autorização
+nem certifica mutação do domínio no host.</p>
 <h2 id="descoberta-coerente">Descoberta coerente</h2>
-<p>Uma operação UPDATE operacionalmente completa projeta
-<code>bulk-update</code> ou <code>bulk-update-items</code> em
+<p>A identidade de uma operação UPDATE é derivada uma única vez de
+<code>(mode, atomicity)</code>: UNIFORM_UPDATE/PER_ITEM →
+<code>bulk-update</code>; PER_ITEM_UPDATE/PER_ITEM →
+<code>bulk-update-items</code>; UNIFORM_UPDATE/ATOMIC →
+<code>bulk-update-atomic</code>; PER_ITEM_UPDATE/ATOMIC →
+<code>bulk-update-items-atomic</code>. As duas identidades PER_ITEM
+permanecem iguais. Rejeitar duplicata de
+<code>(resourceKey, mode, atomicity)</code>, sem escolher uma declaração
+silenciosamente. A operação projeta essa identidade em
 <code>capabilities.operations</code>, com escopo
 <code>COLLECTION</code>, método <code>POST</code>, caminho
 <code>.bulk</code> e referências canônicas às sete operações do ciclo. O
@@ -211,12 +220,23 @@ identidade de <code>publish</code> e <code>requireReady</code> rejeitam
 evidência durável antes de compilar. Retirar o provider faz
 <code>requireReady</code> negar, mas não muda automaticamente a linha
 READY durável. <code>suspend</code> ou invalidação seguem o próprio
-protocolo para fechá-la; um snapshot antigo não autoriza execução.</p>
+protocolo para fechá-la; um snapshot antigo não autoriza execução.
+Provider, confirmação e controle durável são exatos por variante; a
+fotografia de publicação e sua fence são globais. Suspender uma
+identidade invalida a fotografia e fecha todas. Republicar uma
+identidade recaptura/valida o documento global e reabre somente essa
+variante; as demais ficam ausentes até publicação própria. Os cinco
+handlers bodyless de leitura/cancelamento são compartilhados, enquanto
+avaliação/confirmação pertencem à variante.</p>
 <h2 id="perfil-e-limites">Perfil e limites</h2>
-<p>O perfil UPDATE candidato é singular por operação, com execução
-síncrona, seleção explícita e resultado por item (<code>SYNC</code>,
-<code>EXPLICIT</code>, <code>PER_ITEM</code>). Não acrescenta consulta
-de seleção, execução assíncrona nem semântica atômica do lote.
+<p>O perfil UPDATE é singular por operação, com execução síncrona e
+seleção explícita (<code>SYNC</code>, <code>EXPLICIT</code>). PER_ITEM
+mantém teto de 200 alvos. O candidato ATOMIC aceita 1–50 alvos e prazo
+agregado da unidade de até 5 segundos; perfil fora desses limites não
+compõe. Atomicidade pertence à operação, nunca ao request/UI.
+DOMAIN_COMMAND/ATOMIC permanece fechado neste composer. Não acrescenta
+consulta de seleção ou execução assíncrona; a composição não prova
+mutação, receipt ou recuperação do domínio do host.
 <code>DOMAIN_COMMAND</code> conserva os bytes do digest
 <code>praxis.bulk.structure/3</code>; UPDATE usa
 <code>praxis.bulk.structure/4</code> com fonte, schema, allowlists e
@@ -235,7 +255,8 @@ escopo e a cerca devem ser descartados em <code>finally</code>, sem
 reter lock de cache nem transação JDBC ao chamar regras do host ou
 montar a resposta. Esta composição não cria grants P3, autorização para
 mutação, rotina de domínio, release ou adoção Angular.</p>
-<h2 id="evidência-focal-e-limites">Evidência focal e limites</h2>
+<h2 id="evidência-histórica-p3b-s2-e-limites">Evidência histórica P3b-S2
+e limites</h2>
 <p>Na fonte candidata congelada, as campanhas <code>focal-01</code> (75
 passes reutilizados), <code>focal-02</code> (8), <code>http-04</code> (1
 TCP) e <code>regressions-01</code> (12) aprovaram <strong>95 casos
@@ -256,5 +277,18 @@ fonte é distinta da publicação e adoção do binário; não houve suíte
 total, release, adoção pública ou validação Angular. O perfil
 operacional UPDATE focal não equivale a backend completo ou READY para
 todo consumidor.</p>
+<h2 id="evidência-do-candidato-b4-03102026">Evidência do candidato B4 —
+03/10/2026</h2>
+<p>Fonte congelada: 83 testes distintos em seis classes, zero
+falhas/erros/skips: composição/estrutura/bindings (36), lifecycle
+PostgreSQL/capabilities HTTP/compiler (47). Os oráculos incluem limites
+ATOMIC aceitos 1 e 50 nos dois modos com 5s exatos, rejeição 51,
+PER_ITEM200 preservado, quatro variantes no mesmo recurso/fotografia,
+provider exato, colisão e suspensão/republicação. Relatórios e freeze
+estão em
+<code>/tmp/praxis-b4-atomic-candidates-20261003/b4-composition-*</code>.
+A prova HTTP pertence ao SDK de discovery; não certifica execução ATOMIC
+do host, publicação do novo artefato, outbox, B4–B7 ou Angular. Revisão
+final, consumidor Maven isolado e skills são gates separados.</p>
 </body>
 </html>
