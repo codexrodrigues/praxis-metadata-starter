@@ -11,6 +11,14 @@ All notable changes to this module will be documented in this file.
 
 ## Unreleased
 
+- Candidato ERROR-WIRE: `CustomProblemDetail` publica `code`, `target`, `message`, `category` e
+  membros RFC por fonte tipada única, sem duplicar chaves JSON no mapa de extensões. A API Java
+  beta deixa de espelhar `code`/`target` em `getProperties()`; consumidores usam os getters tipados
+  ou os campos HTTP `errors[].code`/`errors[].target`. Extensões como `traceId`/`outcome` continuam
+  flat; o mapa retornado é um snapshot superficial imutável e nomes reservados são rejeitados
+  antes da substituição. `target` nulo/em branco indica ausência. A leitura Jackson recebe um
+  objeto JSON, sem delegação implícita de string. Não declara release ou adoção do host concluída.
+
 
 - Candidato R2: leitura estrutural sem publicação governada utilizável retorna HTTP `503` com código `GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE` no envelope canônico, preservando a causa privada apenas no servidor. Não há recaptura ou retry de domínio implícito; erros inesperados fora do guard de publicação conservam seu tratamento.
 

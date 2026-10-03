@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.controller.base;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -278,7 +279,11 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode root;
+        try (JsonParser parser = objectMapper.createParser(result.getResponse().getContentAsString())) {
+            parser.enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
+            root = objectMapper.readTree(parser);
+        }
         JsonNode postResponses = root.path("paths").path("/integration-employees").path("post").path("responses");
         JsonNode putResponses = root.path("paths").path("/integration-employees/{id}").path("put").path("responses");
         JsonNode deleteResponses = root.path("paths").path("/integration-employees/{id}").path("delete").path("responses");
@@ -288,12 +293,16 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
         assertTrue(putResponses.has("412"));
         assertTrue(deleteResponses.has("409"));
 
-        JsonNode problemProperties = root.path("components").path("schemas")
-                .path("CustomProblemDetail").path("properties");
+        JsonNode problemSchema = root.path("components").path("schemas").path("CustomProblemDetail");
+        JsonNode problemProperties = problemSchema.path("properties");
         assertTrue(problemProperties.has("code"));
         assertTrue(problemProperties.has("target"));
         assertTrue(problemProperties.has("category"));
         assertTrue(problemProperties.has("status"));
+        assertFalse(problemProperties.has("properties"));
+        // Flat extensions remain permitted; hiding the Java map must not close the wire object.
+        JsonNode additionalProperties = problemSchema.path("additionalProperties");
+        assertFalse(additionalProperties.isBoolean() && !additionalProperties.booleanValue());
     }
 
     @Test

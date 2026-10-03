@@ -131,8 +131,8 @@ class GlobalExceptionHandlerTest {
         assertEquals("CALENDARIO_DUPLICATE", body.getErrors().getFirst().getCode());
         assertEquals("evento", body.getErrors().getFirst().getTarget());
         assertEquals(ErrorCategory.BUSINESS_LOGIC, body.getErrors().getFirst().getCategory());
-        assertEquals("CALENDARIO_DUPLICATE", body.getErrors().getFirst().getProperties().get("code"));
-        assertEquals("evento", body.getErrors().getFirst().getProperties().get("target"));
+        assertFalse(body.getErrors().getFirst().getProperties().containsKey("code"));
+        assertFalse(body.getErrors().getFirst().getProperties().containsKey("target"));
         assertFalse(body.getErrors().getFirst().getProperties().toString().contains("PRIVATE_CONSTRAINT"));
     }
 
