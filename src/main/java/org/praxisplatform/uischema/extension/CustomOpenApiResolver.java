@@ -172,8 +172,8 @@ public class CustomOpenApiResolver extends ModelResolver {
     }
 
     @Override
-    protected void applyBeanValidatorAnnotations(Schema property, Annotation[] annotations, Schema parent, boolean applyNotNullAnnotations) {
-        super.applyBeanValidatorAnnotations(property, annotations, parent, applyNotNullAnnotations);
+    protected boolean applyBeanValidatorAnnotations(Schema property, Annotation[] annotations, Schema parent, boolean applyNotNullAnnotations) {
+        boolean validatorUpdated = super.applyBeanValidatorAnnotations(property, annotations, parent, applyNotNullAnnotations);
 
         if (annotations != null && ResolverUtils.getAnnotation(UISchema.class, annotations) != null) {
             // NOVA ORDEM DE PRECEDÊNCIA (do menor para o maior):
@@ -202,6 +202,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (annotations != null) {
             applyDomainGovernance(property, annotations);
         }
+        return validatorUpdated;
     }
 
     private void applyTextualPresentationOverrides(UISchema annotation, Map<String, Object> uiExtension) {

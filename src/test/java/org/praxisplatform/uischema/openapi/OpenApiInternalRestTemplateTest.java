@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.openapi;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,6 +24,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Timeout(8)
 class OpenApiInternalRestTemplateTest {
+    @Test
+    void ownedRequestAttributesAreMutableStableAndIsolatedPerRequest() throws Exception {
+        try (var client = new OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(2))) {
+            var factory = client.getRequestFactory();
+            var first = factory.createRequest(URI.create("http://127.0.0.1/first"), HttpMethod.GET);
+            var second = factory.createRequest(URI.create("http://127.0.0.1/second"), HttpMethod.GET);
+
+            first.getAttributes().put("local-marker", "first");
+            assertThat(first.getAttributes()).isSameAs(first.getAttributes()).containsEntry("local-marker", "first");
+            assertThat(second.getAttributes()).doesNotContainKey("local-marker");
+            assertThat(first.getHeaders()).doesNotContainKey("local-marker");
+        }
+    }
+
     @Test
     void configuredResponseTimeoutIncludesSlowHeadersAndAllowsTheNextRequest() throws Exception {
         assertSlowResponseIsBounded(false, false);
@@ -90,6 +106,7 @@ class OpenApiInternalRestTemplateTest {
         var errors = new AtomicInteger();
         server.createContext("/docs", exchange -> {
             assertThat(exchange.getRequestHeaders().getFirst("X-Test-Interceptor")).isEqualTo("present");
+            assertThat(exchange.getRequestHeaders().containsKey("local-marker")).isFalse();
             byte[] body = "custom-error-body".getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(409, body.length);
             try (var output = exchange.getResponseBody()) { output.write(body); }
@@ -98,6 +115,11 @@ class OpenApiInternalRestTemplateTest {
         try (var client = new OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(2))) {
             client.setInterceptors(List.of((request, body, execution) -> {
                 intercepted.incrementAndGet(); request.getHeaders().set("X-Test-Interceptor", "present");
+                request.getAttributes().put("local-marker", "interceptor-local");
+                assertThat(request.getAttributes()).containsEntry("local-marker", "interceptor-local");
+                return execution.execute(request, body);
+            }, (request, body, execution) -> {
+                assertThat(request.getAttributes()).containsEntry("local-marker", "interceptor-local");
                 return execution.execute(request, body);
             }));
             client.setErrorHandler(new DefaultResponseErrorHandler() {

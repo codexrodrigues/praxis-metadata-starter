@@ -204,7 +204,7 @@ class ArtifactConsumerHttpTest {
 
                 // All three publication surfaces now come from the installed attested photograph.
                 JsonNode publishedRoot = responseJson(httpGet(http, baseUrl + "/v3/api-docs"), mapper);
-                assertThat(publishedRoot.path("openapi").asText()).startsWith("3.");
+                assertThat(publishedRoot.path("openapi").asText()).startsWith("3.0.");
                 assertThat(publishedRoot.path("paths").has("/artifact-items/actions/bulk-approve")).isTrue();
                 JsonNode publishedConfig = responseJson(httpGet(http, baseUrl + "/v3/api-docs/swagger-config"), mapper);
                 assertThat(publishedConfig.path("urls").findValuesAsText("name")).contains("artifact-consumer");
@@ -212,6 +212,7 @@ class ArtifactConsumerHttpTest {
                 var openApiResponse = awaitGet(http, baseUrl + "/v3/api-docs/artifact-consumer");
                 assertThat(openApiResponse.headers().firstValue("Cache-Control")).contains("no-store");
                 JsonNode openApi = responseJson(openApiResponse, mapper);
+                assertThat(openApi.path("openapi").asText()).startsWith("3.0.");
                 assertOperation(openApi, "/artifact-items/bulk/proposals/{proposalId}", "get",
                         ArtifactBulkController.PROPOSAL, "ArtifactBulkRouteResponse");
                 assertOperation(openApi, "/artifact-items/bulk/proposals/{proposalId}/results", "get",
@@ -305,6 +306,7 @@ class ArtifactConsumerHttpTest {
                         "spring.jpa.hibernate.ddl-auto=none",
                         "spring.flyway.enabled=false",
                         "springdoc.api-docs.enabled=true",
+                        "springdoc.api-docs.version=OPENAPI_3_0",
                         "springdoc.cache.disabled=true",
                         "consumer.bulk.control-url=" + postgres.getJdbcUrl(CONTROL_ROLE, "postgres"),
                         "consumer.bulk.namespace=" + NAMESPACE,

@@ -2,7 +2,15 @@
 
 All notable changes to this module will be documented in this file.
 
+## [8.0.0-rc.149] — preparação de publicação
+
+- Baseline Java 21/Boot 3.5.15/Springdoc 2.8.17; Spring/Hibernate/Jackson seguem o BOM, sem pin paralelo de `spring-context` nem Swagger annotations não Jakarta.
+- Adaptações das APIs Springdoc preservam a geração publicada e a materialização `x-ui`; construtor público beta `GenerationScopedGenericResponseService` migra de quatro para três argumentos.
+- Hosts devem fixar `springdoc.api-docs.version=OPENAPI_3_0`; OAS 3.1 não é certificado. Orçamentos, IAM, locks e protocolo de receipt permanecem inalterados.
+- Gates oficiais de publicação e adoção ainda devem concluir; não inclui executor ATOMIC nem fechamento do backend.
+
 ## Unreleased
+
 
 - Candidato R2: leitura estrutural sem publicação governada utilizável retorna HTTP `503` com código `GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE` no envelope canônico, preservando a causa privada apenas no servidor. Não há recaptura ou retry de domínio implícito; erros inesperados fora do guard de publicação conservam seu tratamento.
 

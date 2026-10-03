@@ -6,18 +6,18 @@ import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springdoc.core.models.MethodAttributes;
-import org.springdoc.core.parsers.ReturnTypeParser;
 import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springdoc.core.service.GenericResponseService;
 import org.springdoc.core.service.OperationService;
 import org.springdoc.core.utils.PropertyResolverUtils;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
 import org.springframework.core.Ordered;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -27,7 +27,7 @@ import org.springframework.web.method.HandlerMethod;
 /**
  * Keeps Springdoc's generic error-response resolution within one OpenAPI generation.
  *
- * <p>Springdoc 2.6 retains advice entries in its response builder across generations. This
+ * <p>Springdoc 2.8 retains advice entries in its response builder across generations. This
  * adapter delegates both public build operations to a fresh builder associated with the
  * identity of the generated {@link Components}; it does not change response/schema parsing.</p>
  *
@@ -45,20 +45,25 @@ import org.springframework.web.method.HandlerMethod;
 public final class GenerationScopedGenericResponseService extends GenericResponseService
         implements GlobalOpenApiCustomizer, Ordered {
     private final OperationService operationService;
-    private final List<ReturnTypeParser> returnTypeParsers;
     private final SpringDocConfigProperties properties;
     private final PropertyResolverUtils propertyResolver;
+    private volatile ApplicationContext applicationContext;
     private final String requestAttribute = getClass().getName() + "." + UUID.randomUUID();
     private final ThreadLocal<Frame> nonServletFrame = new ThreadLocal<>();
 
     public GenerationScopedGenericResponseService(OperationService operationService,
-            List<ReturnTypeParser> returnTypeParsers, SpringDocConfigProperties properties,
+            SpringDocConfigProperties properties,
             PropertyResolverUtils propertyResolver) {
-        super(operationService, returnTypeParsers, properties, propertyResolver);
+        super(operationService, properties, propertyResolver);
         this.operationService = Objects.requireNonNull(operationService);
-        this.returnTypeParsers = List.copyOf(returnTypeParsers);
         this.properties = Objects.requireNonNull(properties);
         this.propertyResolver = Objects.requireNonNull(propertyResolver);
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext context) throws BeansException {
+        super.setApplicationContext(context);
+        this.applicationContext = Objects.requireNonNull(context);
     }
 
     @Override
@@ -106,7 +111,11 @@ public final class GenerationScopedGenericResponseService extends GenericRespons
     public int getOrder() { return Ordered.LOWEST_PRECEDENCE; }
 
     private GenericResponseService newDelegate() {
-        return new GenericResponseService(operationService, returnTypeParsers, properties, propertyResolver);
+        ApplicationContext context = Objects.requireNonNull(applicationContext,
+                "Spring context must initialize the generic response builder");
+        GenericResponseService delegate = new GenericResponseService(operationService, properties, propertyResolver);
+        delegate.setApplicationContext(context);
+        return delegate;
     }
 
     private void install(Frame frame) {

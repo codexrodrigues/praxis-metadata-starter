@@ -1,9 +1,7 @@
 package org.praxisplatform.uischema.configuration;
 
-import java.util.List;
 import org.praxisplatform.uischema.openapi.GenerationScopedGenericResponseService;
 import org.springdoc.core.configuration.SpringDocConfiguration;
-import org.springdoc.core.parsers.ReturnTypeParser;
 import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springdoc.core.service.GenericResponseService;
 import org.springdoc.core.service.OperationService;
@@ -27,9 +25,9 @@ public class OpenApiResponseGenerationAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(GenericResponseService.class)
     public GenerationScopedGenericResponseService generationScopedGenericResponseService(
-            OperationService operationService, List<ReturnTypeParser> returnTypeParsers,
+            OperationService operationService,
             SpringDocConfigProperties properties, PropertyResolverUtils propertyResolver) {
         // The concrete return type also makes the same bean discoverable as a global customizer.
-        return new GenerationScopedGenericResponseService(operationService, returnTypeParsers, properties, propertyResolver);
+        return new GenerationScopedGenericResponseService(operationService, properties, propertyResolver);
     }
 }

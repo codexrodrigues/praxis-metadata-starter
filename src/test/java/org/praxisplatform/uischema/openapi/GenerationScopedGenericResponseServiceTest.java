@@ -10,7 +10,6 @@ import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -21,11 +20,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.hash.SchemaCanonicalizer;
 import org.springdoc.core.models.MethodAttributes;
-import org.springdoc.core.parsers.ReturnTypeParser;
 import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springdoc.core.service.GenericResponseService;
 import org.springdoc.core.service.OperationService;
+import org.springdoc.core.utils.SpringDocAnnotationsUtils;
 import org.springdoc.core.utils.PropertyResolverUtils;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -46,27 +46,46 @@ import static org.mockito.Mockito.*;
 class GenerationScopedGenericResponseServiceTest {
     private final OperationService operations = mock(OperationService.class);
     private final PropertyResolverUtils resolver = mock(PropertyResolverUtils.class);
-    private final SpringDocConfigProperties properties = new SpringDocConfigProperties();
-    private final List<ReturnTypeParser> parsers = List.of(new ReturnTypeParser() { });
+    private final SpringDocConfigProperties properties = openApi30Properties();
+    private final AnnotationConfigApplicationContext applicationContext =
+            new AnnotationConfigApplicationContext(AdviceA.class, AdviceB.class);
     private final Endpoint endpoint = new Endpoint();
     private final Map<String, Object> advice = Map.of("advice", new AdviceA(), "endpoint", endpoint);
     private final GenerationScopedGenericResponseService service = service();
 
+    private static SpringDocConfigProperties openApi30Properties() {
+        var properties = new SpringDocConfigProperties();
+        properties.getApiDocs().setVersion(SpringDocConfigProperties.ApiDocs.OpenApiVersion.OPENAPI_3_0);
+        return properties;
+    }
+
     private GenerationScopedGenericResponseService service() {
         when(resolver.getSpecVersion()).thenReturn(SpecVersion.V30);
         when(resolver.resolve(anyString(), any(Locale.class))).thenAnswer(call -> call.getArgument(0));
-        return new GenerationScopedGenericResponseService(operations, parsers, properties, resolver);
+        var builder = new GenerationScopedGenericResponseService(operations, properties, resolver);
+        builder.setApplicationContext(applicationContext);
+        return builder;
+    }
+
+    private GenericResponseService original() {
+        var builder = new GenericResponseService(operations, properties, resolver);
+        builder.setApplicationContext(applicationContext);
+        return builder;
     }
 
     @AfterEach void releaseRequest() {
         if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)
             attributes.requestCompleted();
         RequestContextHolder.resetRequestAttributes();
+        // AbstractOpenApiResource performs this in its generation finally block. Direct
+        // builder tests must not carry Swagger's per-thread model context into another test.
+        SpringDocAnnotationsUtils.clearCache(null);
+        applicationContext.close();
     }
 
     @Test
     void oneHundredPreloadStyleGenerationsPreserveResponsesAndSchemasWithoutHistory() throws Exception {
-        JsonNode expected = generate(new GenericResponseService(operations, parsers, properties, resolver), advice);
+        JsonNode expected = generate(original(), advice);
         Set<Object> delegates = Collections.newSetFromMap(new IdentityHashMap<>());
         for (int generation = 0; generation < 100; generation++) {
             Components components = new Components();
@@ -98,7 +117,7 @@ class GenerationScopedGenericResponseServiceTest {
         assertThat(responses.get("409").getContent().get("application/json").getSchema().get$ref())
                 .isEqualTo("#/components/schemas/LocalError");
         assertThat(snapshot(components, responses)).isEqualTo(
-                generate(new GenericResponseService(operations, parsers, properties, resolver), advice));
+                generate(original(), advice));
     }
 
     @Test
@@ -145,7 +164,7 @@ class GenerationScopedGenericResponseServiceTest {
         properties.setOverrideWithGenericResponse(false);
         Components actualComponents = new Components();
         Components expectedComponents = new Components();
-        var original = new GenericResponseService(operations, parsers, properties, resolver);
+        var original = original();
         ApiResponses actualResponses = build(service, actualComponents);
         assertThat(snapshot(actualComponents, actualResponses))
                 .isEqualTo(snapshot(expectedComponents, build(original, expectedComponents)));
@@ -198,7 +217,7 @@ class GenerationScopedGenericResponseServiceTest {
                 .isInstanceOf(IllegalStateException.class).hasMessage("advice failure");
         assertThat(nonServletFrame()).isNull();
         assertThat(generate(service, advice)).isEqualTo(
-                generate(new GenericResponseService(operations, parsers, properties, resolver), advice));
+                generate(original(), advice));
     }
 
     @Test
@@ -209,7 +228,7 @@ class GenerationScopedGenericResponseServiceTest {
                 .isInstanceOf(NullPointerException.class);
         assertThat(nonServletFrame()).isNull();
         assertThat(generate(service, advice)).isEqualTo(
-                generate(new GenericResponseService(operations, parsers, properties, resolver), advice));
+                generate(original(), advice));
     }
 
     private ApiResponses concurrentGeneration(Object globalAdvice, CountDownLatch ready, CountDownLatch run) throws Exception {
