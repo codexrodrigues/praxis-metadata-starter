@@ -344,17 +344,46 @@ class BulkOpenApiPublicationPostgresTest {
             int quotaPid = pid(quota);
             var bootstrap = pool.submit(() -> BulkExecutionMigrator.migrate(owner,
                     Map.of(NS, DEPLOYMENT, NS2, DEPLOYMENT), ROLES));
-            // Observe the retry physically waiting at its final deployment lock, rather
-            // than merely assuming that a submitted task acquired the preceding locks.
+            // V17's quota touch may block the bootstrap's identity INSERT ON CONFLICT
+            // before it reaches the final FOR UPDATE. Observe the real quota blocker
+            // and one of those exact bucket statements, not just scheduling delay.
             Integer bootstrapPid = null;
+            String blockedStage = null;
+            Map<String, Object> observedWait = Map.of();
             long expires = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
             while (System.nanoTime() < expires && bootstrapPid == null) {
-                var waiting = sql.queryForList("select pid from pg_stat_activity where wait_event_type='Lock' "
-                        + "and query like '%select deployment_id from praxis_bulk.praxis_bulk_deployment_bucket%for update%'", Integer.class);
-                if (!waiting.isEmpty()) bootstrapPid = waiting.get(0);
-                else Thread.sleep(10);
+                var waiting = sql.queryForList("""
+                        select a.pid, a.query, a.wait_event, pg_catalog.pg_blocking_pids(a.pid)::text as blockers
+                          from pg_catalog.pg_stat_activity a
+                         where a.wait_event_type='Lock'
+                           and pg_catalog.pg_blocking_pids(a.pid)=array[?]::integer[]
+                        """, quotaPid);
+                for (var candidate : waiting) {
+                    observedWait = candidate;
+                    String query = ((String) candidate.get("query")).replaceAll("\\s+", " ").toLowerCase(java.util.Locale.ROOT);
+                    boolean identityInsert = query.contains("insert into praxis_bulk.praxis_bulk_deployment_bucket(deployment_id)")
+                            && query.contains("on conflict (deployment_id) do nothing");
+                    boolean finalLock = query.contains("select deployment_id from praxis_bulk.praxis_bulk_deployment_bucket")
+                            && query.contains("order by deployment_id for update");
+                    if (identityInsert && "transactionid".equals(candidate.get("wait_event")))
+                        blockedStage = "V17 identity insert awaits quota transaction ID";
+                    else if (finalLock) blockedStage = "final deployment FOR UPDATE";
+                    if (blockedStage != null) {
+                        bootstrapPid = ((Number) candidate.get("pid")).intValue();
+                        break;
+                    }
+                }
+                if (bootstrapPid == null) Thread.sleep(10);
             }
-            assertThat(bootstrapPid).isNotNull().isNotEqualTo(quotaPid);
+            assertThat(bootstrapPid).as("expected exact quota-blocked bucket statement; observed=%s", observedWait)
+                    .isNotNull().isNotEqualTo(quotaPid);
+            assertThat(blockedStage).as("observed=%s", observedWait)
+                    .isIn("V17 identity insert awaits quota transaction ID", "final deployment FOR UPDATE");
+            assertThat(observedWait.get("blockers")).as("%s: %s", blockedStage, observedWait)
+                    .isEqualTo("{" + quotaPid + "}");
+            System.out.printf("Observed bootstrap bucket wait: stage=%s waiterPid=%d blockerPids=%s sql=%s%n",
+                    blockedStage, bootstrapPid, observedWait.get("blockers"),
+                    ((String) observedWait.get("query")).replaceAll("\\s+", " "));
             assertThat(bootstrap.isDone()).isFalse();
             // A held quota transaction can acquire the new SHARE publication lock while
             // the bootstrap waits on its bucket: no reverse exclusive global/bucket cycle.

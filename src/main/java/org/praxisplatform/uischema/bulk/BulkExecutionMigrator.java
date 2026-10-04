@@ -604,8 +604,9 @@ public final class BulkExecutionMigrator {
         Map<String, String> bound = readNamespaceBindings(connection);
         require(bound.equals(deployments), "Bulk namespace deployment binding differs from explicit map");
 
-        // Create absent bucket identities without locking/updating existing quota rows.
-        // The active bucket FOR UPDATE locks remain after global/operation locks below.
+        // Create absent bucket identities without updating existing quota rows. Under V17,
+        // ON CONFLICT may wait for an uncommitted quota MVCC touch before the global locks;
+        // the active bucket FOR UPDATE locks remain after global/operation locks below.
         for (String deployment : deployments.values().stream().distinct().sorted().toList()) {
             try (var statement = connection.prepareStatement("""
                     insert into praxis_bulk.praxis_bulk_deployment_bucket(deployment_id)

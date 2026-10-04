@@ -50,7 +50,7 @@ var stored = proposals.find(trustedContext, proposalId);
 
 No **upgrade V7→V8**, primeiro suspenda admissão e drene/pare todos os writers anteriores à V8. Com as roles runtime V7 e seus grants exatos de avaliação já provisionados, `BulkExecutionMigrator.migrate(migrationDataSource, namespaceToDeploymentId, roles)` aplica V8, faz backfill e concede somente `SELECT, INSERT` no novo manifest a essas roles elegíveis. A validação estrita deve passar antes de iniciar writers V8 e reabrir admissão. A V8 impede commit de writer antigo sem manifest, mas essa proteção não substitui o cutover operacional. Na instalação inicial, ainda não existem grants V7: use a sequência em duas fases do exemplo e valide após o provisionamento. O migrator não provisiona as demais ACLs da aplicação.
 
-No candidato corrente V15, o trecho V7→V8 acima descreve o bootstrap histórico do manifest, não a sequência completa de upgrade. Drene os escritores antigos, aplique o DDL até V15, conceda explicitamente os grants novos de publicação e a assinatura de oito argumentos do controle, e só então execute `BulkExecutionMigrator.migrate(migrationDataSource, namespaceToDeploymentId, roles)` para concluir os bootstraps pendentes e validar o catálogo completo. Essa chamada pode executar zero migrations Flyway sem deixar de realizar o bootstrap. Siga os grants e o cutover de [V14/V15](BULK-OPERATION-CONTROL.md); o migrator não corrige ACL revogada depois de `COMPLETE`.
+No upgrade histórico V14→V15, o trecho V7→V8 acima descreve o bootstrap do manifest, não a sequência completa daquele upgrade. Drene os escritores antigos, aplique o DDL até V15, conceda explicitamente os grants novos de publicação e a assinatura de oito argumentos do controle, e só então execute `BulkExecutionMigrator.migrate(migrationDataSource, namespaceToDeploymentId, roles)` para concluir os bootstraps pendentes e validar o catálogo completo. Essa chamada pode executar zero migrations Flyway sem deixar de realizar o bootstrap. Siga os grants e o cutover de [V14/V15](BULK-OPERATION-CONTROL.md); o migrator não corrige ACL revogada depois de `COMPLETE`. Essa sequência histórica não substitui o cutover V16→V17 descrito em [captura sob locks](#captura-sob-locks--candidato-em-validação).
 
 A V8 registra um marcador privado `PENDING` após o DDL. Backfill, grant focal e transição para `COMPLETE` ocorrem na mesma transação de bootstrap. Se o processo cair ou a transação falhar depois do DDL, uma repetição pode concluir o estado `PENDING` mesmo com zero migrations Flyway novas. Antes de `COMPLETE`, o bootstrap confere na mesma transação que as roles configuradas correspondem aos grantees reais da avaliação; uma chamada com roles incompletas não consome a chance de retry. Depois de `COMPLETE`, o migrator não reconstrói linhas ausentes nem restaura grants revogados, inclusive quando uma versão futura de migration for aplicada; drift de dados ou ACL falha na validação e exige intervenção explícita do provisionamento. O marcador é exclusivo do schema owner: runtime, retention owner/executor e `PUBLIC` não recebem privilégios diretos; qualquer grant não-owner nele deve falhar na validação.
 
@@ -75,9 +75,11 @@ acrescentar itens tardios a estados indisponíveis. O bootstrap V9 tem marcador 
 runtime já aptas à avaliação e explicitamente configuradas; depois de
 `COMPLETE`, não restaura grants nem reconstrói linhas. Valide estrutura, ACL,
 linhas e roles antes de reabrir admissão. V9 isoladamente não publicou reader
-ou endpoint RS2. A árvore atual acrescenta checksum V11, gate/leitor interno V12
-e a fachada Java G3a de primeira página autorizada; continua sem rota HTTP,
-continuação/cursor público ou `READY`.
+ou endpoint RS2. O recorte histórico G3a acrescentou checksum V11, gate/leitor interno V12
+e a fachada Java de primeira página autorizada, ainda sem rota HTTP,
+continuação/cursor público ou `READY` naquele corte. Os leitores paginados posteriores
+e o lifecycle têm contratos próprios em [resultados](BULK-PROTOCOL-RESULTS.md)
+e [lifecycle](BULK-OPERATION-LIFECYCLE.md); este store isoladamente não publica HTTP.
 
 ## Identidade, validade e proteção
 
@@ -108,4 +110,4 @@ O migrator valida o owner esperado, grantees runtime/control-plane e membros do 
 
 `BulkSnapshotStorageCodecTest` cobre as três modalidades, quatro codecs, tipos numéricos, limites decimais programáticos, cópias defensivas e corrupção sanitizada. `JdbcBulkProposalStorePostgresTest` usa PostgreSQL real e conexões independentes para migração repetida/concorrente, schema estranho, drift, commit/rollback conjunto da proposta e allocation pendente, unicidade concorrente, limites de quota, acesso contextual, imutabilidade, conteúdo corrompido e credenciais restritas.
 
-Este pacote não altera x-ui, discovery, endpoints, capability, corpus HTTP ou Angular. A árvore atual contém composição Java autorizada da primeira página RS2 e prova candidata no host, mas isso não equivale a artefato publicado, adoção pelo host, rota HTTP ou protocolo `READY`. Continuação com cursor, contrato HTTP, integração operacional do host e respectivas provas permanecem gates antes da evolução Angular.
+O recorte histórico de persistência/primeira página RS2 não alterou x-ui, discovery, endpoints, capability, corpus HTTP ou Angular; sua composição Java e prova candidata no host não certificavam publicação, adoção, HTTP ou `READY`. A continuação com cursor e a leitura posteriores têm contratos próprios em [resultados](BULK-PROTOCOL-RESULTS.md). O candidato de captura sob locks descrito nesta página mantém seus gates de integração e adoção; não habilita QUERY, ASYNC ou Angular por si só.
