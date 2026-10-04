@@ -8,7 +8,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 /**
- * Complete, immutable domain evidence bound to a protected EXPLICIT/SYNC input.
+ * Complete, immutable domain evidence bound to a protected SYNC input.
  * Coverage and integrity do not establish policy eligibility, READY or permission to execute.
  */
 @JsonIgnoreType
@@ -41,8 +41,10 @@ public final class BulkEvaluationSnapshot {
         Objects.requireNonNull(targets, "targets");
         if (targets.isEmpty() || targets.size() > 10000) throw invalid();
         JsonNode intent = proposal.snapshot().intent();
+        boolean query = proposal.snapshot().mode() == BulkMode.UNIFORM_UPDATE
+                && "QUERY".equals(intent.at("/selection/mode").asText());
         JsonNode expected = proposal.snapshot().mode() == BulkMode.PER_ITEM_UPDATE ? intent.get("items") : intent.at("/selection/targets");
-        if (expected == null || !expected.isArray() || expected.size() != targets.size()) throw invalid();
+        if (!query && (expected == null || !expected.isArray() || expected.size() != targets.size())) throw invalid();
         var codec = BulkSnapshotStorageCodec.codec(proposal.snapshot().codecId());
         var byId = new HashMap<Object, BulkTargetEvidence<?>>();
         for (var target : targets) {
@@ -51,6 +53,14 @@ public final class BulkEvaluationSnapshot {
             if (formatVersion == 1 && target.eligibility().isPresent()) throw invalid();
             Object id = codec.readWire(wire(target.target().id()));
             if (byId.put(id, target) != null) throw invalid();
+        }
+        if (query) {
+            var excluded = new HashSet<Object>();
+            for (var id : intent.at("/selection/excludedIds")) excluded.add(codec.readWire(id));
+            if (byId.keySet().stream().anyMatch(excluded::contains)) throw invalid();
+            this.targets = List.copyOf(targets);
+            this.fingerprint = BulkCanonicalJson.evaluationDigest(storageDocument());
+            return;
         }
         var ordered = new ArrayList<BulkTargetEvidence<?>>(targets.size());
         for (var selected : expected) {

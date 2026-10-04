@@ -29,12 +29,12 @@ plataforma.
 - [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html): unicidade, vínculo operação/recurso/método e DTO de request concreto do handler MVC.
 
 - [Leitura estrita de request](spec/CANONICAL-REQUEST-SCHEMA.html): schema da operação, dialeto e limites da composição backend.
-- [Persistência protegida de propostas](spec/BULK-PROPOSAL-STORAGE.html): entradas EXPLICIT/SYNC, allocations pendentes V5 e migração explícita; sem endpoint/fluxo de negócio executável.
+- [Persistência protegida de propostas](spec/BULK-PROPOSAL-STORAGE.html): captura EXPLICIT/SYNC publicada na rc.153, allocations pendentes V5 e migração V17; seleção QUERY descrita apenas como candidato privado, sem endpoint automático do SDK nem adoção do binário público QUERY.
 - [Infraestrutura transacional de lote](spec/BULK-EXECUTION-INFRASTRUCTURE.html): vínculo JDBC/JPA explícito, sem store ou DDL.
 
 - [Campos editáveis em lote](spec/BULK-EDITABLE-FIELDS.html): annotation e compilação estrutural de SET/CLEAR.
 - [Composição estrutural CRUD](spec/BULK-CRUD-STRUCTURE.html): fonte PUT e DTO reais, campos protegidos e allowlists; sem disponibilidade operacional de update bulk.
-- [Composição operacional CRUD candidata](spec/BULK-CRUD-OPERATIONS.html): duas operações de coleção com schemas, campos elegíveis e fence READY; sem autorização P3 ou mutação automática no host.
+- [Composição operacional CRUD](spec/BULK-CRUD-OPERATIONS.html): quatro identidades UPDATE por modo/atomicidade no SDK público, com schemas, campos elegíveis e fence READY; perfil `UNIFORM_UPDATE/SYNC/PER_ITEM/QUERY` somente no candidato privado, sem autorização P3 ou mutação automática no host.
 
 ## Comece por objetivo
 

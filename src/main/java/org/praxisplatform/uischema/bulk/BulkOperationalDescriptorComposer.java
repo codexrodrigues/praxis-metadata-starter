@@ -48,6 +48,20 @@ final class BulkOperationalDescriptorComposer {
             throw new IllegalArgumentException("Provider is not bound to this canonical confirmation operation");
         if (!profile.operationModes().equals(java.util.Set.of(structural.mode())))
             throw new IllegalArgumentException("Provider profile does not allow this declared operation mode");
+        if (profile.selectionModes().contains(BulkSelectionMode.QUERY)
+                && (structural.mode() != BulkMode.UNIFORM_UPDATE
+                    || structural.atomicity() != ActionCollectionAtomicity.PER_ITEM))
+            throw new IllegalArgumentException("QUERY requires UNIFORM_UPDATE/PER_ITEM composition");
+        if (profile.selectionModes().contains(BulkSelectionMode.QUERY)) {
+            var selectionProperties = structural.operation(BulkOperationStructuralDescriptor.Role.EVALUATION)
+                    .filteredRequest().evidence().path("resolvedSchema").path("properties")
+                    .path("selection").path("properties");
+            if (!selectionProperties.path("mode").isObject()
+                    || !selectionProperties.path("filter").isObject()
+                    || !selectionProperties.path("excludedIds").isObject()
+                    || !selectionProperties.path("targets").isObject())
+                throw new IllegalArgumentException("QUERY requires the canonical selection request schema");
+        }
         if (structural.mode() == BulkMode.DOMAIN_COMMAND
                 && structural.action().execution().outcome().atomicity() != structural.atomicity())
             throw new IllegalArgumentException("Workflow action atomicity differs from the bulk declaration");

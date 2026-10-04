@@ -24,6 +24,7 @@ public final class JdbcBulkProposalStore {
     /** Returned insertion is provisional until the owning transaction commits. Duplicate IDs are conflicts. */
     public void insert(BulkStoredProposal proposal) {
         Objects.requireNonNull(proposal, "proposal");
+        requireLegacySelection(proposal);
         requireNamespace(proposal.snapshot().context());
         requireControlExpectation(proposal);
         try {
@@ -43,6 +44,7 @@ public final class JdbcBulkProposalStore {
      */
     public void insertEvaluated(BulkEvaluationSnapshot evaluation, BulkPreviewProjection preview) {
         Objects.requireNonNull(evaluation, "evaluation");
+        requireLegacySelection(evaluation.proposal());
         Objects.requireNonNull(preview, "preview").requireMatches(evaluation);
         BulkStoredProposal proposal = evaluation.proposal();
         requireNamespace(proposal.snapshot().context());
@@ -71,15 +73,27 @@ public final class JdbcBulkProposalStore {
             BiFunction<Connection, Supplier<Duration>, BulkEvaluationSnapshot> capture,
             Function<BulkEvaluationSnapshot, BulkPreviewProjection> project,
             Supplier<Duration> callerRemaining) {
+        return captureAndInsertEvaluated(null, proposal, capture, project, callerRemaining);
+    }
+
+    /** QUERY requires a lifecycle-minted, publication-bound admission before this transaction. */
+    public BulkEvaluationSnapshot captureAndInsertEvaluated(BulkOperationLifecycle.ReadyAdmission admission,
+            BulkStoredProposal proposal,
+            BiFunction<Connection, Supplier<Duration>, BulkEvaluationSnapshot> capture,
+            Function<BulkEvaluationSnapshot, BulkPreviewProjection> project,
+            Supplier<Duration> callerRemaining) {
         Objects.requireNonNull(proposal, "proposal");
         Objects.requireNonNull(capture, "capture");
         Objects.requireNonNull(project, "project");
         Objects.requireNonNull(callerRemaining, "callerRemaining");
         requireNamespace(proposal.snapshot().context());
         requireControlExpectation(proposal);
+        boolean query = "QUERY".equals(proposal.snapshot().intent().at("/selection/mode").asText());
         if (!"SYNC".equals(proposal.snapshot().intent().path("executionMode").asText())
-                || (proposal.snapshot().mode() != BulkMode.PER_ITEM_UPDATE
-                    && !"EXPLICIT".equals(proposal.snapshot().intent().at("/selection/mode").asText())))
+                || query && (admission == null || !matchesQueryAdmission(admission, proposal))
+                || !query && admission != null
+                || !query && proposal.snapshot().mode() != BulkMode.PER_ITEM_UPDATE
+                    && !"EXPLICIT".equals(proposal.snapshot().intent().at("/selection/mode").asText()))
             throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
         long began = System.nanoTime();
         try {
@@ -89,13 +103,19 @@ public final class JdbcBulkProposalStore {
                 CaptureBudget budget = new CaptureBudget(connection, proposal, callerRemaining,
                         began, initial);
                 Throwable failure = null;
+                boolean capturingSelection = false;
                 try {
                     budget.check();
                     BulkQuotaLedger.Scope quota = BulkQuotaLedger.lockProposal(
                             connection, infrastructure, proposal, false, true);
                     budget.check();
+                    capturingSelection = true;
                     BulkEvaluationSnapshot evaluation = Objects.requireNonNull(capture.apply(connection, budget),
                             "capture returned no evaluation");
+                    if (query && (evaluation.targets().isEmpty()
+                            || evaluation.targets().size() > admission.maxTargets()))
+                        throw BulkProposalStorageException.invalidSelection();
+                    capturingSelection = false;
                     requireCapturedProposal(proposal, evaluation.proposal());
                     budget.check();
                     BulkPreviewProjection preview = Objects.requireNonNull(project.apply(evaluation),
@@ -117,7 +137,9 @@ public final class JdbcBulkProposalStore {
                     return evaluation;
                 } catch (RuntimeException error) {
                     failure = error;
-                    if (error instanceof BulkProposalStorageException storage) throw storage;
+                    if (error instanceof BulkProposalStorageException storage
+                            && (storage.reason() != BulkProposalStorageException.Reason.INVALID_SELECTION
+                                || capturingSelection)) throw storage;
                     throw unavailable();
                 } catch (SQLException | Error error) {
                     failure = error;
@@ -133,6 +155,26 @@ public final class JdbcBulkProposalStore {
         } catch (DataAccessException error) { throw safe(error); }
         catch (BulkProposalStorageException safe) { throw safe; }
         catch (RuntimeException unsafe) { throw unavailable(); }
+    }
+
+    private static void requireLegacySelection(BulkStoredProposal proposal) {
+        if ("QUERY".equals(proposal.snapshot().intent().at("/selection/mode").asText()))
+            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
+    }
+
+    private static boolean matchesQueryAdmission(BulkOperationLifecycle.ReadyAdmission admission,
+            BulkStoredProposal proposal) {
+        var snapshot = proposal.snapshot();
+        return admission.mode() == BulkMode.UNIFORM_UPDATE
+                && snapshot.mode() == BulkMode.UNIFORM_UPDATE
+                && admission.atomicity() == org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM
+                && snapshot.context().atomicity() == admission.atomicity()
+                && admission.executionMode() == BulkExecutionMode.SYNC
+                && admission.selectionMode() == BulkSelectionMode.QUERY
+                && admission.identity().namespaceId().equals(snapshot.context().namespaceId())
+                && admission.identity().confirmationOperationId().equals(snapshot.context().operationRef().operationId())
+                && admission.expectation().equals(proposal.controlExpectation())
+                && admission.maxTargets() >= 1 && admission.maxTargets() <= 200;
     }
 
     private static void requireCaptureTransaction(Connection connection) throws SQLException {

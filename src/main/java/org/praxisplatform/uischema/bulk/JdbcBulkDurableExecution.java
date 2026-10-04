@@ -25,7 +25,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Protected PostgreSQL kernel for durable EXPLICIT/SYNC/PER_ITEM execution.
+ * Protected PostgreSQL kernel for durable SYNC/PER_ITEM execution.
  *
  * <p>The callback is invoked only after a durable attempt marker was committed. Domain work,
  * receipt and the pending-ack barrier share one operational transaction. This class performs no
@@ -37,9 +37,15 @@ public final class JdbcBulkDurableExecution {
     private static final Duration CONTROL_LOCK_BUDGET = Duration.ofSeconds(1);
     private static final Duration UNIT_BUDGET = Duration.ofSeconds(5);
     private final BulkExecutionInfrastructure infrastructure;
+    private final BulkOperationLifecycle lifecycle;
 
     public JdbcBulkDurableExecution(BulkExecutionInfrastructure infrastructure) {
+        this(infrastructure, null);
+    }
+
+    public JdbcBulkDurableExecution(BulkExecutionInfrastructure infrastructure, BulkOperationLifecycle lifecycle) {
         this.infrastructure = Objects.requireNonNull(infrastructure, "infrastructure");
+        this.lifecycle = lifecycle;
     }
 
     public BulkExecutionReservation reserve(BulkFingerprintContext scope, UUID proposalId,
@@ -53,8 +59,28 @@ public final class JdbcBulkDurableExecution {
         Instant boundedDeadline = micro(Objects.requireNonNull(deadline, "deadline"));
         String keyDigest = BulkScopeDigests.idempotencyKeyDigest(key);
         try {
+            // A committed reservation is authoritative even after publication is suspended.
+            QueryProbe probe = transaction(connection -> probeQueryReservation(connection, scope,
+                    proposalId, keyDigest, owner, revision, boundedDeadline));
+            if (probe.explicitWrite() != null)
+                return new BulkExecutionReservation(probe.explicitWrite().snapshot(),
+                        !probe.explicitWrite().created());
+            if (probe.existing().isPresent())
+                return new BulkExecutionReservation(probe.existing().orElseThrow(), true);
+            BulkOperationLifecycle.ReadyAdmission queryAdmission = null;
+            if (probe.query()) {
+                if (lifecycle == null) throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+                try {
+                    queryAdmission = lifecycle.requireReady(new BulkOperationControlIdentity(
+                            scope.namespaceId(), scope.operationRef().operationId()),
+                            BulkExecutionMode.SYNC, BulkSelectionMode.QUERY);
+                } catch (RuntimeException unavailable) {
+                    throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+                }
+            }
+            BulkOperationLifecycle.ReadyAdmission admission = queryAdmission;
             ReservationWrite write = transaction(connection -> reserve(connection, scope, proposalId,
-                    keyDigest, owner, revision, boundedDeadline));
+                    keyDigest, owner, revision, boundedDeadline, admission));
             return new BulkExecutionReservation(write.snapshot(), !write.created());
         } catch (BulkDurableExecutionException error) {
             throw error;
@@ -72,6 +98,25 @@ public final class JdbcBulkDurableExecution {
             } catch (RuntimeException ignored) { /* safe failure below, without protected cause */ }
             throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
         }
+    }
+
+    private QueryProbe probeQueryReservation(Connection connection, BulkFingerprintContext scope,
+            UUID proposalId, String keyDigest, String owner, String revision, Instant deadline) throws SQLException {
+        if (tombstoneExists(connection, scope, keyDigest))
+            throw failure(BulkDurableExecutionException.Reason.RESULT_PURGED);
+        Evaluation evaluation = loadEvaluation(connection, scope, proposalId, false);
+        if (!query(evaluation))
+            return new QueryProbe(false, Optional.empty(), reserveLoaded(connection, scope,
+                    proposalId, keyDigest, owner, revision, deadline, null, evaluation));
+        String binding = reservationFingerprint(evaluation, revision);
+        return new QueryProbe(true, findReservation(connection, scope, proposalId, keyDigest, binding), null);
+    }
+
+    private record QueryProbe(boolean query, Optional<BulkExecutionSnapshot> existing,
+            ReservationWrite explicitWrite) { }
+
+    private static boolean query(Evaluation evaluation) {
+        return "QUERY".equals(evaluation.proposal().snapshot().intent().at("/selection/mode").asText());
     }
 
     /**
@@ -971,12 +1016,25 @@ public final class JdbcBulkDurableExecution {
     }
 
     private ReservationWrite reserve(Connection connection, BulkFingerprintContext scope, UUID proposalId,
-            String keyDigest, String owner, String revision, Instant deadline) throws SQLException {
-        String authorizationDigest = BulkScopeDigests.authorizationScopeDigest(scope.namespaceId(),
-                scope.subjectId(), scope.resourceKey(), scope.operationRef().operationId());
-        if (BulkQuotaLedger.tombstoneExists(connection, scope, authorizationDigest, keyDigest))
+            String keyDigest, String owner, String revision, Instant deadline,
+            BulkOperationLifecycle.ReadyAdmission queryAdmission) throws SQLException {
+        if (tombstoneExists(connection, scope, keyDigest))
             throw failure(BulkDurableExecutionException.Reason.RESULT_PURGED);
         Evaluation evaluation = loadEvaluation(connection, scope, proposalId, false);
+        return reserveLoaded(connection, scope, proposalId, keyDigest, owner, revision, deadline,
+                queryAdmission, evaluation);
+    }
+
+    private static boolean tombstoneExists(Connection connection, BulkFingerprintContext scope,
+            String keyDigest) throws SQLException {
+        String authorizationDigest = BulkScopeDigests.authorizationScopeDigest(scope.namespaceId(),
+                scope.subjectId(), scope.resourceKey(), scope.operationRef().operationId());
+        return BulkQuotaLedger.tombstoneExists(connection, scope, authorizationDigest, keyDigest);
+    }
+
+    private ReservationWrite reserveLoaded(Connection connection, BulkFingerprintContext scope, UUID proposalId,
+            String keyDigest, String owner, String revision, Instant deadline,
+            BulkOperationLifecycle.ReadyAdmission queryAdmission, Evaluation evaluation) throws SQLException {
         BulkOperationControlExpectation expectation = evaluation.proposal().controlExpectation();
         String reservationFingerprint = reservationFingerprint(evaluation, revision);
         if (reservationExists(connection, scope, proposalId, keyDigest)) {
@@ -985,6 +1043,10 @@ public final class JdbcBulkDurableExecution {
             if (existing.isEmpty()) throw failure(BulkDurableExecutionException.Reason.CONFLICT);
             return new ReservationWrite(existing.orElseThrow(), false);
         }
+        if (query(evaluation) && !matchesQueryAdmission(queryAdmission, evaluation))
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+        if (!query(evaluation) && queryAdmission != null)
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         BulkQuotaLedger.Scope quota;
         try {
             quota = BulkQuotaLedger.lockProposal(connection, infrastructure, evaluation.proposal(), true, false);
@@ -1048,6 +1110,23 @@ public final class JdbcBulkDurableExecution {
                 reservationFingerprint);
         if (selected.isEmpty()) throw failure(BulkDurableExecutionException.Reason.CONFLICT);
         return new ReservationWrite(selected.orElseThrow(), inserted == 1);
+    }
+
+    private static boolean matchesQueryAdmission(BulkOperationLifecycle.ReadyAdmission admission,
+            Evaluation evaluation) {
+        if (admission == null) return false;
+        var proposal = evaluation.proposal();
+        var scope = proposal.snapshot().context();
+        return admission.mode() == BulkMode.UNIFORM_UPDATE
+                && proposal.snapshot().mode() == BulkMode.UNIFORM_UPDATE
+                && admission.atomicity() == ActionCollectionAtomicity.PER_ITEM
+                && scope.atomicity() == admission.atomicity()
+                && admission.executionMode() == BulkExecutionMode.SYNC
+                && admission.selectionMode() == BulkSelectionMode.QUERY
+                && admission.identity().namespaceId().equals(scope.namespaceId())
+                && admission.identity().confirmationOperationId().equals(scope.operationRef().operationId())
+                && admission.expectation().equals(proposal.controlExpectation())
+                && evaluation.snapshot().targets().size() <= admission.maxTargets();
     }
 
     private boolean reservationExists(Connection connection, BulkFingerprintContext scope, UUID proposalId,
@@ -1694,10 +1773,17 @@ public final class JdbcBulkDurableExecution {
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         JsonNode targets = evaluation.proposal().snapshot().mode() == BulkMode.PER_ITEM_UPDATE
                 ? intent.get("items") : intent.at("/selection/targets");
-        if (evaluation.proposal().snapshot().mode() != BulkMode.PER_ITEM_UPDATE
+        boolean query = query(evaluation);
+        if (query && (evaluation.proposal().snapshot().mode() != BulkMode.UNIFORM_UPDATE
+                || atomicity != ActionCollectionAtomicity.PER_ITEM))
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+        if (!query && evaluation.proposal().snapshot().mode() != BulkMode.PER_ITEM_UPDATE
                 && !"EXPLICIT".equals(intent.at("/selection/mode").asText()))
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
-        if (targets == null || !targets.isArray() || targets.isEmpty()
+        if (query) {
+            if (evaluation.snapshot().targets().isEmpty() || evaluation.snapshot().targets().size() > 200)
+                throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+        } else if (targets == null || !targets.isArray() || targets.isEmpty()
                 || targets.size() != evaluation.snapshot().targets().size())
             throw failure(BulkDurableExecutionException.Reason.CORRUPT);
         if (atomicity == ActionCollectionAtomicity.ATOMIC && targets.size() > 50)

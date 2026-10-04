@@ -97,6 +97,76 @@ public final class BulkOperationLifecycle {
         });
     }
 
+    /**
+     * Mints an opaque, local admission from the currently published descriptor outside a
+     * transaction. The owning storage or execution transaction must still fence its control row.
+     */
+    public ReadyAdmission requireReady(BulkOperationControlIdentity identity,
+            BulkExecutionMode executionMode, BulkSelectionMode selectionMode) {
+        requireIdentity(identity);
+        Objects.requireNonNull(executionMode, "executionMode");
+        Objects.requireNonNull(selectionMode, "selectionMode");
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw unavailable("Readiness composition must start outside operational transactions");
+        requireOperationalIdentity(identity);
+        Set<String> requiredGroups = requiredOpenApiGroups();
+        return documents.withPublishedBulkOpenApiPublication((candidate, publicationGeneration) -> {
+            operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
+            BulkOperationalDescriptor descriptor = descriptor(identity, false);
+            var profile = descriptor.profile();
+            if (!profile.executionModes().contains(executionMode)
+                    || !profile.selectionModes().contains(selectionMode)
+                    || selectionMode == BulkSelectionMode.QUERY
+                        && (descriptor.structural().mode() != BulkMode.UNIFORM_UPDATE
+                            || descriptor.structural().atomicity()
+                                != org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM))
+                throw unavailable("Selection is not published for this operation");
+            JdbcBulkOperationControl.Snapshot current = runtime.withLifecycleRead(connection ->
+                    JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(),
+                            identity.confirmationOperationId()));
+            if (current == null || !current.ready()
+                    || !descriptor.descriptorFingerprint().equals(current.descriptorFingerprint())
+                    || !descriptor.structuralRevision().equals(current.structuralRevision()))
+                throw unavailable("Bulk operation is not durably READY for the current composed descriptor");
+            return new ReadyAdmission(identity, descriptor.expectation(current.generation()),
+                    descriptor.structural().mode(), descriptor.structural().atomicity(),
+                    executionMode, selectionMode, profile);
+        });
+    }
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreType
+    public static final class ReadyAdmission {
+        private final BulkOperationControlIdentity identity;
+        private final BulkOperationControlExpectation expectation;
+        private final BulkMode mode;
+        private final org.praxisplatform.uischema.action.ActionCollectionAtomicity atomicity;
+        private final BulkExecutionMode executionMode;
+        private final BulkSelectionMode selectionMode;
+        private final BulkOperationalProfile profile;
+
+        private ReadyAdmission(BulkOperationControlIdentity identity,
+                BulkOperationControlExpectation expectation, BulkMode mode,
+                org.praxisplatform.uischema.action.ActionCollectionAtomicity atomicity,
+                BulkExecutionMode executionMode, BulkSelectionMode selectionMode,
+                BulkOperationalProfile profile) {
+            this.identity = identity;
+            this.expectation = expectation;
+            this.mode = mode;
+            this.atomicity = atomicity;
+            this.executionMode = executionMode;
+            this.selectionMode = selectionMode;
+            this.profile = profile;
+        }
+        public BulkOperationControlIdentity identity() { return identity; }
+        public BulkOperationControlExpectation expectation() { return expectation; }
+        public BulkMode mode() { return mode; }
+        public org.praxisplatform.uischema.action.ActionCollectionAtomicity atomicity() { return atomicity; }
+        public BulkExecutionMode executionMode() { return executionMode; }
+        public BulkSelectionMode selectionMode() { return selectionMode; }
+        public BulkOperationalProfile profile() { return profile; }
+        public int maxTargets() { return profile.maxTargets(); }
+    }
+
     /** Resolves action discovery through the same scoped response fence as capabilities. */
     public Map<String, org.praxisplatform.uischema.action.ActionExecutionContract> projectReadyActions(
             List<org.praxisplatform.uischema.action.ActionDefinition> actions) {
