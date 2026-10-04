@@ -2,6 +2,8 @@
 
 Este diretorio contem a documentacao principal do `praxis-metadata-starter`.
 
+A rc.154 pública inclui a seleção QUERY delimitada a `UNIFORM_UPDATE/SYNC/PER_ITEM`, com `ReadyAdmission`, captura protegida e reserva governada; consulte [armazenamento](spec/BULK-PROPOSAL-STORAGE.md), [lifecycle](spec/BULK-OPERATION-LIFECYCLE.md) e [execução](spec/BULK-DURABLE-EXECUTION.md). O workflow oficial 37236119846 passou com 1.530 testes, zero falhas/erros e três skips, e POM/JAR estão verificados no Maven Central. O verify e o aceite de adoção do host rc.154 ainda estão em curso.
+
 ## Estrutura resumida
 
 - `guides/` - trilha principal para LLMs e implementacao passo a passo
