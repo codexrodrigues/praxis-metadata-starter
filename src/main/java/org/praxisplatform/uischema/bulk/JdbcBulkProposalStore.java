@@ -3,6 +3,11 @@ package org.praxisplatform.uischema.bulk;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.Optional;
@@ -54,6 +59,203 @@ public final class JdbcBulkProposalStore {
                 return null;
             });
         } catch (DataAccessException error) { throw safe(error); }
+    }
+
+    /**
+     * Captures and stores one EXPLICIT/SYNC evaluation in the caller's writable REPEATABLE READ
+     * operational transaction. The quota/control locks precede the trusted capture callback;
+     * no protected row or allocation is durable until that same transaction commits.
+     * The callback must retain neither the connection nor its supplier and must not manage transactions.
+     */
+    public BulkEvaluationSnapshot captureAndInsertEvaluated(BulkStoredProposal proposal,
+            BiFunction<Connection, Supplier<Duration>, BulkEvaluationSnapshot> capture,
+            Function<BulkEvaluationSnapshot, BulkPreviewProjection> project,
+            Supplier<Duration> callerRemaining) {
+        Objects.requireNonNull(proposal, "proposal");
+        Objects.requireNonNull(capture, "capture");
+        Objects.requireNonNull(project, "project");
+        Objects.requireNonNull(callerRemaining, "callerRemaining");
+        requireNamespace(proposal.snapshot().context());
+        requireControlExpectation(proposal);
+        if (!"SYNC".equals(proposal.snapshot().intent().path("executionMode").asText())
+                || (proposal.snapshot().mode() != BulkMode.PER_ITEM_UPDATE
+                    && !"EXPLICIT".equals(proposal.snapshot().intent().at("/selection/mode").asText())))
+            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
+        long began = System.nanoTime();
+        try {
+            return infrastructure.withConnection(connection -> {
+                requireCaptureTransaction(connection);
+                Duration initial = positive(callerRemaining.get());
+                CaptureBudget budget = new CaptureBudget(connection, proposal, callerRemaining,
+                        began, initial);
+                Throwable failure = null;
+                try {
+                    budget.check();
+                    BulkQuotaLedger.Scope quota = BulkQuotaLedger.lockProposal(
+                            connection, infrastructure, proposal, false, true);
+                    budget.check();
+                    BulkEvaluationSnapshot evaluation = Objects.requireNonNull(capture.apply(connection, budget),
+                            "capture returned no evaluation");
+                    requireCapturedProposal(proposal, evaluation.proposal());
+                    budget.check();
+                    BulkPreviewProjection preview = Objects.requireNonNull(project.apply(evaluation),
+                            "project returned no preview");
+                    preview.requireMatches(evaluation);
+                    budget.check();
+                    byte[] evaluationPayload = BulkEvaluationStorageCodec.encode(evaluation);
+                    budget.check();
+                    insertProposal(connection, proposal);
+                    budget.check();
+                    insertEvaluation(connection, proposal, evaluation, evaluationPayload);
+                    budget.check();
+                    BulkOrdinalManifest.insert(connection, evaluation);
+                    budget.check();
+                    BulkPreviewStorage.insert(connection, evaluation, preview);
+                    budget.check();
+                    BulkQuotaLedger.insertPending(connection, proposal, quota);
+                    budget.check();
+                    return evaluation;
+                } catch (RuntimeException error) {
+                    failure = error;
+                    if (error instanceof BulkProposalStorageException storage) throw storage;
+                    throw unavailable();
+                } catch (SQLException | Error error) {
+                    failure = error;
+                    throw error;
+                } finally {
+                    try { budget.restore(); }
+                    catch (SQLException restore) {
+                        if (failure != null) failure.addSuppressed(restore);
+                        else throw restore;
+                    }
+                }
+            });
+        } catch (DataAccessException error) { throw safe(error); }
+        catch (BulkProposalStorageException safe) { throw safe; }
+        catch (RuntimeException unsafe) { throw unavailable(); }
+    }
+
+    private static void requireCaptureTransaction(Connection connection) throws SQLException {
+        if (connection.getAutoCommit() || connection.isReadOnly())
+            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
+        try (var statement = connection.createStatement();
+                var rows = statement.executeQuery("select current_setting('transaction_isolation'), current_setting('transaction_read_only')")) {
+            if (!rows.next() || !"repeatable read".equals(rows.getString(1))
+                    || !"off".equals(rows.getString(2)) || rows.next())
+                throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
+        }
+    }
+
+    private static void requireCapturedProposal(BulkStoredProposal input, BulkStoredProposal result) {
+        if (!input.id().equals(result.id())
+                || !input.createdAt().equals(result.createdAt())
+                || !input.expiresAt().equals(result.expiresAt())
+                || !input.snapshot().context().equals(result.snapshot().context())
+                || !input.snapshot().fingerprint().equals(result.snapshot().fingerprint())
+                || !input.controlExpectation().equals(result.controlExpectation()))
+            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
+    }
+
+    private static Duration positive(Duration remaining) {
+        if (remaining == null || remaining.isNegative() || remaining.isZero())
+            throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
+        return remaining;
+    }
+
+    private static final class CaptureBudget implements Supplier<Duration> {
+        private final Connection connection;
+        private final BulkStoredProposal proposal;
+        private final Supplier<Duration> caller;
+        private final long began;
+        private final Duration initial;
+        private final Duration expiryWindow;
+        private final long expiryBegan;
+        private final String priorStatement;
+        private final String priorLock;
+
+        CaptureBudget(Connection connection, BulkStoredProposal proposal, Supplier<Duration> caller,
+                long began, Duration initial) throws SQLException {
+            this.connection = connection;
+            this.proposal = proposal;
+            this.caller = caller;
+            this.began = began;
+            this.initial = initial;
+            try (var statement = connection.createStatement();
+                    var rows = statement.executeQuery(
+                            "select current_setting('statement_timeout'), current_setting('lock_timeout')")) {
+                if (!rows.next()) throw unavailable();
+                priorStatement = rows.getString(1);
+                priorLock = rows.getString(2);
+                if (rows.next()) throw unavailable();
+            }
+            try (var statement = connection.createStatement();
+                    var rows = statement.executeQuery("select clock_timestamp()")) {
+                if (!rows.next()) throw unavailable();
+                expiryWindow = Duration.between(rows.getObject(1, OffsetDateTime.class).toInstant(),
+                        proposal.expiresAt());
+                if (rows.next() || expiryWindow.isNegative() || expiryWindow.isZero()) throw unavailable();
+            }
+            expiryBegan = System.nanoTime();
+        }
+
+        @Override public Duration get() {
+            Duration remaining = positive(caller.get());
+            long elapsed = Math.max(0L, System.nanoTime() - began);
+            Duration own = Duration.ofSeconds(30).minusNanos(elapsed);
+            Duration original = initial.minusNanos(elapsed);
+            Duration expiry = expiryWindow.minusNanos(Math.max(0L, System.nanoTime() - expiryBegan));
+            remaining = least(remaining, least(own, least(original, expiry)));
+            if (remaining.isNegative() || remaining.isZero()) throw unavailable();
+            try { tighten(remaining); }
+            catch (SQLException error) { throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE); }
+            return remaining;
+        }
+
+        void check() throws SQLException {
+            get();
+            try (var statement = connection.createStatement();
+                    var rows = statement.executeQuery("select clock_timestamp()")) {
+                if (!rows.next() || !rows.getObject(1, OffsetDateTime.class).toInstant().isBefore(proposal.expiresAt())
+                        || rows.next()) throw unavailable();
+            }
+        }
+
+        private void tighten(Duration remaining) throws SQLException {
+            long milliseconds = remaining.toMillis();
+            if (milliseconds < 1) throw unavailable();
+            String limit = milliseconds + "ms";
+            try (var statement = connection.prepareStatement("""
+                    select set_config('statement_timeout',
+                               case when current_setting('statement_timeout') = '0'
+                                      or current_setting('statement_timeout')::interval > ?::interval
+                                    then ? else current_setting('statement_timeout') end, true),
+                           set_config('lock_timeout',
+                               case when current_setting('lock_timeout') = '0'
+                                      or current_setting('lock_timeout')::interval > ?::interval
+                                    then ? else current_setting('lock_timeout') end, true)
+                    """)) {
+                statement.setString(1, limit); statement.setString(2, limit);
+                statement.setString(3, limit); statement.setString(4, limit);
+                statement.execute();
+            }
+        }
+
+        void restore() throws SQLException {
+            try (var statement = connection.prepareStatement("""
+                    select set_config('statement_timeout', ?, true), set_config('lock_timeout', ?, true)
+                    """)) {
+                statement.setString(1, priorStatement); statement.setString(2, priorLock);
+                statement.execute();
+            }
+        }
+
+        private static Duration least(Duration left, Duration right) {
+            return left.compareTo(right) <= 0 ? left : right;
+        }
+    }
+
+    private static BulkProposalStorageException unavailable() {
+        return new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
     }
 
     /** Scope comes from trusted server context. Current grants/policy/expiry must still be checked by the caller. */

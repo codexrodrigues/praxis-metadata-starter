@@ -75,7 +75,8 @@ class ArtifactConsumerHttpTest {
                 .isEqualTo(expectedJar);
         for (String migration : List.of("V13__bulk_execution_time_order.sql",
                 "V14__bulk_openapi_publication.sql", "V15__bulk_operation_publication_fence.sql",
-                "V16__bulk_atomic_set_execution.sql")) {
+                "V16__bulk_atomic_set_execution.sql",
+                "V17__bulk_pending_quota_snapshot_fence.sql")) {
             var migrationResource = BulkExecutionMigrator.class.getResource("/db/praxis-bulk-migrations/" + migration);
             assertThat(migrationResource).as("packaged migration %s", migration).isNotNull();
             assertThat(migrationResource.getProtocol()).isEqualTo("jar");
@@ -117,7 +118,7 @@ class ArtifactConsumerHttpTest {
                     "postgres", Set.of(RUNTIME_ROLE), Set.of(), Set.of(CONTROL_ROLE));
             BulkExecutionMigrator.migrate(deploymentDataSource,
                     Map.of(NAMESPACE, DEPLOYMENT), roles, java.util.List.of(OPERATION));
-            assertThat(migrations).isEqualTo(16);
+            assertThat(migrations).isEqualTo(17);
             BulkExecutionMigrator.validate(deploymentDataSource, roles);
             assertThat(tableExists(deploymentDataSource.getConnection(), "praxis_bulk.praxis_bulk_proposal"))
                     .isTrue();

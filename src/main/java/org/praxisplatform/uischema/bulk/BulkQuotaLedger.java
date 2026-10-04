@@ -40,7 +40,7 @@ final class BulkQuotaLedger {
                 || !expected.descriptorFingerprint().equals(control.descriptorFingerprint())
                 || !expected.structuralRevision().equals(control.structuralRevision()))
             throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
-        lockDeployment(connection, deployment);
+        lockDeployment(connection, deployment, enforcePendingCapacity);
         String subjectDigest = BulkScopeDigests.subjectQuotaDigest(deployment, context.subjectId());
         String authorizationDigest = BulkScopeDigests.authorizationScopeDigest(context.namespaceId(),
                 context.subjectId(), context.resourceKey(), context.operationRef().operationId());
@@ -183,14 +183,22 @@ final class BulkQuotaLedger {
         }
     }
 
-    private static void lockDeployment(Connection connection, String deployment) throws SQLException {
-        try (var statement = connection.prepareStatement("""
+    private static void lockDeployment(Connection connection, String deployment,
+            boolean enforcePendingCapacity) throws SQLException {
+        // A row lock alone does not refresh an RR snapshot after a competing proposal commits.
+        // V17 permits this identity-preserving MVCC touch only for pending-capacity admission.
+        String sql = enforcePendingCapacity ? """
+                update praxis_bulk.praxis_bulk_deployment_bucket
+                   set deployment_id=deployment_id where deployment_id=? returning deployment_id
+                """ : """
                 select deployment_id from praxis_bulk.praxis_bulk_deployment_bucket
                  where deployment_id=? for update
-                """)) {
+                """;
+        try (var statement = connection.prepareStatement(sql)) {
             statement.setString(1, deployment);
             try (var rows = statement.executeQuery()) {
-                if (!rows.next() || rows.next()) throw new BulkProposalStorageException(
+                if (!rows.next() || !deployment.equals(rows.getString(1)) || rows.next())
+                    throw new BulkProposalStorageException(
                         BulkProposalStorageException.Reason.CORRUPT);
             }
         }

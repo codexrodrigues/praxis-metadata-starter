@@ -72,7 +72,7 @@ class BulkAuthorizedExecutionReaderPostgresTest {
 
     @BeforeEach void reset() {
         admin.execute("drop schema if exists praxis_bulk cascade");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(16);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(17);
         BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(),
                 CONTEXT.operationRef().operationId());
         admin.execute("create table if not exists bulk_g3c_authority "
