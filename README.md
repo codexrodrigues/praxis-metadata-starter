@@ -2,6 +2,10 @@
 
 `praxis-metadata-starter` e a fonte canonica da semantica metadata-driven do backend Praxis.
 
+## Composição publicada em rc.152
+
+Metadata `8.0.0-rc.152` publica a composição e projeção `DOMAIN_COMMAND/ATOMIC`: ação e declaração bulk concordantes, provider e sete referências exatos, seleção EXPLICIT/SYNC, até 50 alvos e prazo agregado de até cinco segundos. O [registro técnico](docs/technical/BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md) preserva as provas e limites. O workflow oficial passou com 1.496 testes reportados, zero falhas/erros e três skips; POM/JAR estão no Maven Central. A publicação do SDK não fornece autorização, provider ou endpoint executável do host nem declara READY. Adoção sem override e provas do domínio permanecem gates separados.
+
 ## Baseline da preparação rc.149
 
 Esta preparação usa Java 21, Spring Boot 3.5.15 e Springdoc 2.8.17. O BOM Boot

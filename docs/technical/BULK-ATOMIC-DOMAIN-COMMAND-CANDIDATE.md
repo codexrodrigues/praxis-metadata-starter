@@ -1,7 +1,15 @@
 # ATOMIC domain command composition — implementation plan
 
-Status: candidate source, not a published release or an executable host endpoint.
-Baseline: `8357c9599b3f2ccee5946d0c7494567246587bcc` (PR228), source tree
+Status: descriptor composition published in Metadata `8.0.0-rc.152` on 04/10/2026;
+not an executable host endpoint. The implementation plan and source evidence below
+are historical. Publication workflow [37178017017](https://github.com/codexrodrigues/praxis-metadata-starter/actions/runs/37178017017)
+passed clean verify (1,496 tests, zero failures/errors, three skips), upload, Central
+availability and documentation. Tag peeled `14f18c81c2c7b77ac1e1a1f4b5bbf2cfeee564b1`;
+public JAR SHA-256 `4594891d98aec7948c44c40cb399b2cf04b44b42380328774cb9f7aab1aa16de`.
+Host adoption, authorization, mutation, outbox and READY require separate proof.
+Published composition source: PR229/main `5944ba7f7c865a08cd5e56fde376a7064a00e589`;
+the release tag above only persists the rc.152 POM version, retaining that source.
+Historical pre-implementation baseline: `8357c9599b3f2ccee5946d0c7494567246587bcc` (PR228), source tree
 `fb52a51f2021b0892ebd358ceee2fe3e8610e25e`. The rc.151 publication is a separate
 increment from this candidate and does not include these changes.
 
@@ -9,7 +17,7 @@ Classification: public contract / transversal. Adherence: partially supported.
 `BulkIntentSnapshot.command`, typed command evaluation requests, action discovery,
 structural compilation and the protected ATOMIC kernel already model domain
 commands. The missing materialization is operational composition and execution
-projection: both currently reject DOMAIN_COMMAND with ATOMIC. Reuse this vocabulary;
+projection: at the planning baseline, both rejected DOMAIN_COMMAND with ATOMIC. Reuse this vocabulary;
 do not model approve/cancel/business commands as CRUD field changes.
 
 ## Scope and impact
