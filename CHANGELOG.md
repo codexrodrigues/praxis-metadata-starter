@@ -2,14 +2,14 @@
 
 All notable changes to this module will be documented in this file.
 
-## [Unreleased] — candidato de composição DOMAIN_COMMAND ATOMIC
+## [8.0.0-rc.152] — publicado em 04/10/2026
 
 - Reutiliza a semântica de comando governado, parâmetros tipados e identidade da
   ação. A composição e a projeção aceitam ATOMIC somente com WorkflowAction e
   declaração bulk concordantes, provider e referências exatos, EXPLICIT/SYNC,
   até 50 alvos e orçamento agregado máximo de cinco segundos para o conjunto.
-- Não cria capability CRUD, DTO, ledger, migration ou endpoint do host. Provas
-  focais e revisão deste candidato permanecem gates próprios; não inclui CREATE
+- Não cria capability CRUD, DTO, ledger, migration ou endpoint do host. Clean verify oficial reportou 1.496 testes, zero falhas/erros e três skips;
+  publicação Central comprovada. Adoção e prova do host permanecem gates próprios; não inclui CREATE
   com versão de ausência inventada nem encerra a prova de outbox T15.
 
 ## [8.0.0-rc.151] — publicado em 03/10/2026
