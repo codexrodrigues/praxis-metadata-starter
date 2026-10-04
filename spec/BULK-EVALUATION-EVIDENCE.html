@@ -262,13 +262,33 @@ dependência, revisões e mecanismos de lock/revalidação pertencem ao
 domínio; colocar um valor arbitrário no objeto não demonstra que sua
 origem é autoritativa. O SDK valida a representação e a integridade do
 vínculo, não a verdade dos fatos.</p>
-<p>O conjunto deve cobrir exatamente os alvos da intenção EXPLICIT/SYNC.
-Para PER_ITEM_UPDATE, o dono da seleção continua sendo
-<code>items</code>; nos demais modos, <code>selection.targets</code>.
-IDs usam os quatro codecs canônicos e preservam o tipo wire. Alvo
-duplicado, estranho, ausente ou com expectedVersion diferente é
-rejeitado. A ordem da evidência fornecida é normalizada para a ordem da
-intenção original, incluindo a ordem de <code>items</code>.</p>
+<p>Para EXPLICIT/SYNC, o conjunto deve cobrir exatamente os alvos da
+intenção. Em PER_ITEM_UPDATE, o dono da seleção continua sendo
+<code>items</code>; nos demais modos explícitos,
+<code>selection.targets</code>. IDs usam os quatro codecs canônicos e
+preservam o tipo wire. Alvo duplicado, estranho, ausente ou com
+expectedVersion diferente é rejeitado. A ordem da evidência explícita é
+normalizada para a ordem da intenção original, incluindo a ordem de
+<code>items</code>.</p>
+<p>No candidato privado
+<code>8.0.0-b5a-uniform-query-20261004-SNAPSHOT</code>, apenas
+<code>UNIFORM_UPDATE/SYNC/PER_ITEM</code> pode usar QUERY quando o
+perfil da operação a publicar. A intenção contém <code>filter</code> e
+<code>excludedIds</code>, mas não contém a população. O host resolve e
+autoriza alvos sob os locks da captura; a evidência protegida não vazia
+congela IDs, versões, fatos e planos na ordem devolvida pelo host, sem
+reexecutar filtro no executor. IDs excluídos, repetidos ou não canônicos
+são recusados. O teto é o menor limite efetivo do perfil publicado, até
+200; não se transforma o limite estrutural de 10.000 em capacidade
+operacional. O fingerprint da intenção vincula filtro/exclusões,
+enquanto o fingerprint da avaliação e o manifesto vinculam a população
+capturada. No
+<code>MissionParticipantUniformQueryHttpPostgresTest</code>, redução
+posterior da cobertura de um alvo com grant global ainda válido termina
+a execução em <code>STOPPED</code>/<code>AUTHORIZATION_REVOKED</code>
+antes de qualquer admission ordinal; o reader exige cobertura corrente
+de todo o manifesto e responde 404 seguro, sem expor esse STOP.
+Negação/indisponibilidade global seguem fronteiras próprias.</p>
 <p>ObservedVersion é obrigatório e pode divergir de expectedVersion:
 isso registra um fato de conflito e <strong>não</strong> o torna
 executável. Se o domínio não consegue obter os fatos de todos os alvos
@@ -297,11 +317,12 @@ escapados expandem o JSON. O decoder rejeita duplicatas, campos
 desconhecidos, conteúdo truncado/excedente, perda de precisão, cobertura
 incorreta ou vínculo/fingerprint incompatível, sem encadear conteúdo
 privado nas exceções do store.</p>
-<p>O payload único é deliberadamente limitado ao recorte EXPLICIT/SYNC.
-Ele não comprova paginação eficiente de resultados por alvo nem admissão
-individual em lotes grandes. Antes dessas superfícies, revisar o
-acesso/indexação com o consumidor real e seus limites. Não reutilizar a
-projeção pública redigida como fonte protegida.</p>
+<p>O mesmo payload protegido atende EXPLICIT/SYNC e, no candidato
+privado, a população QUERY já congelada. Ele não comprova paginação
+eficiente de resultados por alvo nem admissão individual em lotes
+grandes. Antes dessas superfícies, revisar o acesso/indexação com o
+consumidor real e seus limites. Não reutilizar a projeção pública
+redigida como fonte protegida.</p>
 <h2 id="persistência-e-migração-v2">Persistência e migração V2</h2>
 <p>A <a href="BULK-PROPOSAL-STORAGE.md">migração explícita</a> conserva
 V1 e acrescenta V2. A introdução da evidência corresponde à V2. Com a V3
@@ -340,12 +361,13 @@ independente. <code>BulkEvaluationStorePostgresTest</code> prova upgrade
 V1→V2, recuperação, atomicidade, concorrência, FK/trigger/drift,
 contexto, corrupção e grants em PostgreSQL real. A suíte anterior do
 store continua cobrindo V1+V2 e sua coexistência com o host.</p>
-<p>Config já fornece a resolução operacional tipada e o host possui
-consumidores unitários. Ainda faltam composição dos providers de lote
-com fontes reais de grants, resultado/diagnósticos de avaliação
-governada, projeção READY/BLOCKED derivada e admissão/revalidação no
-ponto de mutação. Esses gates impedem anúncio prematuro de capability. O
-backend completo permanece antes da evolução Angular.</p>
+<p>Config já fornece a resolução operacional tipada. O piloto
+MissionParticipant tem agora prova candidata de filtro, grant,
+avaliação, HTTP e admissão/revalidação focal em
+<code>MissionParticipantUniformQueryHttpPostgresTest</code>; isso não
+publica QUERY em rc.153 nem certifica IAM completo, confirmação de 200
+alvos, backend genérico ou Angular. Outros providers e capacidades
+exigem composição e prova próprias antes do anúncio.</p>
 <h2 id="governança-protegida-e-comparação-de-recaptura">Governança
 protegida e comparação de recaptura</h2>
 <p><code>BulkEvaluationGovernance(evaluatorRevision, authorizationFingerprint, policies)</code>

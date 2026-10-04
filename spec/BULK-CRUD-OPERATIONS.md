@@ -37,7 +37,7 @@ autoriza execução. Provider, confirmação e controle durável são exatos por
 
 ## Perfil e limites
 
-O perfil UPDATE é singular por operação, com execução síncrona e seleção explícita (`SYNC`, `EXPLICIT`). PER_ITEM mantém teto de 200 alvos. O candidato ATOMIC aceita 1–50 alvos e prazo agregado da unidade de até 5 segundos; perfil fora desses limites não compõe. Atomicidade pertence à operação, nunca ao request/UI. O artefato publicado rc.151 mantém DOMAIN_COMMAND/ATOMIC fechado. O candidato posterior desta fonte acrescenta composição de comandos concordantes, com limites e identidade da ação próprios; ver [plano e limites](../technical/BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md). Não acrescenta consulta de seleção ou execução assíncrona; a composição não prova mutação, receipt ou recuperação do domínio do host.
+No corte publicado descrito aqui, o perfil UPDATE é singular por operação, com execução síncrona e seleção explícita (`SYNC`, `EXPLICIT`). PER_ITEM mantém teto de 200 alvos. O candidato ATOMIC aceita 1–50 alvos e prazo agregado da unidade de até 5 segundos; perfil fora desses limites não compõe. Atomicidade pertence à operação, nunca ao request/UI. O artefato publicado rc.151 mantém DOMAIN_COMMAND/ATOMIC fechado. O candidato posterior desta fonte acrescenta composição de comandos concordantes, com limites e identidade da ação próprios; ver [plano e limites](../technical/BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md). Essa composição anterior não acrescentou consulta de seleção ou execução assíncrona; tampouco prova mutação, receipt ou recuperação do domínio do host.
 `DOMAIN_COMMAND` conserva os bytes do digest `praxis.bulk.structure/3`;
 UPDATE usa `praxis.bulk.structure/4` com fonte, schema, allowlists e campos
 protegidos. `parametersPointer` é exclusivo do command e fica ausente em
@@ -53,6 +53,12 @@ regra do host captura uma negativa; após falha da verificação final, a respos
 devem ser descartados em `finally`, sem reter lock de cache nem transação JDBC
 ao chamar regras do host ou montar a resposta. Esta composição não cria grants
 P3, autorização para mutação, rotina de domínio, release ou adoção Angular.
+
+## Seleção QUERY no candidato privado B5a
+
+O SDK `8.0.0-b5a-uniform-query-20261004-SNAPSHOT` amplia apenas o perfil de `UNIFORM_UPDATE/SYNC/PER_ITEM` para publicar EXPLICIT e QUERY, com teto QUERY de até 200 alvos. A estrutura conserva a identidade `bulk-update`, os sete vínculos operacionais, o filtro e `excludedIds` da intenção; a população é resolvida pelo host e congelada na avaliação protegida. `PER_ITEM_UPDATE`, `DOMAIN_COMMAND`, `ATOMIC` e `ASYNC` não recebem QUERY neste corte. Uma declaração com modo ou schema inadequado falha na composição/publicação, não vira capability parcial por convenção.
+
+O lifecycle emite admissão QUERY opaca somente a partir do perfil publicado. Isso não substitui o provider real, o grant atual, autorização de cada alvo, cobertura do filtro, orçamento nem os locks de domínio. O candidato teve 25 provas focais compostas no SDK (12 + 1 + 12), incluindo PostgreSQL de captura, reserva e receipt. O host somou 49 provas focais compostas e HTTP real em `MissionParticipantUniformQueryHttpPostgresTest`: captura de 200 alvos e confirmação/replay de um alvo, além da leitura segura após perda de cobertura. No caso com grant global ainda válido, a execução fica `STOPPED`/`AUTHORIZATION_REVOKED` antes de admission ordinal e o HTTP responde 404 `BULK_NOT_FOUND` após exigir o manifesto inteiro; negação ou indisponibilidade global não são convertidas em 404 por essa regra. Essas provas não certificam confirmação de 200 alvos, READY de outros consumidores nem adoção pública QUERY. A versão pública rc.153 continua sem este incremento.
 
 ## Evidência histórica P3b-S2 e limites
 

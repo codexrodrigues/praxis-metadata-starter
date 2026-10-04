@@ -171,12 +171,14 @@
 <h1 id="lifecycle-governado-de-operações-em-lote">Lifecycle governado de
 operações em lote</h1>
 <h2 id="estado-e-fronteira">Estado e fronteira</h2>
-<p>Este documento descreve o candidato R2/V15 desta árvore. O artefato
-publicado de referência permanece rc.146; código e provas locais não
-certificam adoção no host, conclusão de R2/R3 ou liberação do Angular. O
-planejamento e as evidências versionadas ficam em
-<code>internal-planning/bulk-operations</code> no host de
-referência.</p>
+<p>As seções históricas descrevem o corte R2/V15. O artefato público
+atual de referência é rc.153; a seleção QUERY descrita adiante pertence
+somente ao candidato privado
+<code>8.0.0-b5a-uniform-query-20261004-SNAPSHOT</code>. Há prova focal
+do consumidor no host contra esse candidato, sem adoção do binário QUERY
+público nem liberação do Angular. O planejamento e as evidências
+versionadas ficam em <code>internal-planning/bulk-operations</code> no
+host de referência.</p>
 <p>O Metadata é dono da semântica. Providers do host vinculam
 identidade, revisão, codec, limites e infraestrutura a operações reais.
 Metadata, capabilities e ações consomem a mesma composição; não definem
@@ -301,6 +303,44 @@ réplica nem executa domínio. Fonte divergente é negada.
 <code>publish</code> em nó warm divergente também nega: reconciliar
 explicitamente antes de publicar outra operação; não usar
 <code>clearCaches</code> para isso.</p>
+<h2 id="admissão-query-candidata">Admissão QUERY candidata</h2>
+<p>No candidato privado
+<code>8.0.0-b5a-uniform-query-20261004-SNAPSHOT</code>,
+<code>requireReady(identity, SYNC, QUERY)</code> recompõe a operação
+publicada e emite um <code>ReadyAdmission</code> opaco, criado somente
+pelo lifecycle e fora da transação operacional. A composição permite
+QUERY apenas para <code>UNIFORM_UPDATE</code> com atomicidade
+<code>PER_ITEM</code>, perfil que publique explicitamente QUERY e teto
+de até 200 alvos. O método original <code>requireReady(identity)</code>
+conserva seu contrato. O token vincula identidade,
+geração/fingerprint/revisão do controle e perfil; não é autorização de
+usuário, grant ou fotografia de fatos do domínio.</p>
+<p>O store usa esse token para capturar a seleção em uma transação
+gravável <code>REPEATABLE READ</code> e revalida controle e quota antes
+da callback. O executor, para reserva QUERY inédita, consulta primeiro
+reserva/tombstone, obtém uma admissão atual fora da transação e volta a
+validar controle e quota na transação de reserva. Uma
+suspensão/republicação entre a admissão e a escrita fecha o caminho
+inédito. Replay durável existente não exige nova publicação READY;
+receipts, recuperação e leitura não recebem esse gate de admissão nova.
+O host continua responsável por autorização, escopo, elegibilidade e
+locks de domínio.</p>
+<p>As 25 provas focais compostas do SDK candidato (12 + 1 + 12) cobrem o
+núcleo; o host acrescentou 49 provas focais compostas (44 + 5 de
+<code>MissionParticipantUniformQueryShapeTest</code>) e três métodos
+HTTP adicionais em
+<code>MissionParticipantUniformQueryHttpPostgresTest</code> (2 + 1). O
+HTTP real cobre captura de 200 alvos e, separadamente,
+confirmação/replay de um alvo; não comprova confirmação de 200 alvos,
+publicação do binário QUERY nem suporte em rc.153. A perda de cobertura
+de um alvo com grant global ainda válido pode registrar
+<code>STOPPED</code>/<code>AUTHORIZATION_REVOKED</code>, sem admission
+ordinal; a leitura pública exige autorização corrente de todo o
+manifesto e responde 404 <code>BULK_NOT_FOUND</code> sem expor o STOP.
+Negação ou indisponibilidade global conservam seus próprios resultados
+pré-lookup. Não há novo caminho QUERY para <code>ATOMIC</code>,
+<code>DOMAIN_COMMAND</code>, <code>PER_ITEM_UPDATE</code> ou
+<code>ASYNC</code> neste corte.</p>
 <h2 id="orçamentos-e-aceite">Orçamentos e aceite</h2>
 <p>Preparação e composição têm budgets de admissão separados; não são
 prazo acumulado ponta a ponta. Locks/HTTP respeitam o prazo, mas
@@ -310,10 +350,10 @@ mantém os fences locais/duráveis próprios.</p>
 <p>Provas candidatas incluem Servlet/HTTP de captura, Boot/Tomcat de
 registro e PostgreSQL real. Evidências precisam identificar a árvore e
 as fontes testadas. Recovery local simulada não equivale a duas
-instâncias; IAM de fixture não equivale à segurança do host. Permanecem
-gates de fechamento: revisão independente do corte integrado, cadeia
-real de segurança, HTTP + PostgreSQL no host com budget de 8s nos dois
-modos, documentação/skill canônica, integração e adoção conforme
+instâncias; IAM de fixture não equivale à segurança completa do host.
+Permanecem gates de fechamento: revisão independente do corte integrado,
+orçamento host de 8s além dos cenários focais já provados,
+documentação/skill canônica, publicação QUERY e adoção conforme
 autorização. As provas antigas do protocolo fresh V6/V7 não certificam
 V15. Nenhuma publicação/deploy ou Angular é autorizada pela aprovação de
 um teste isolado.</p>
