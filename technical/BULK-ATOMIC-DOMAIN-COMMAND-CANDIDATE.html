@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ATOMIC domain command composition — implementation plan</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">ATOMIC domain command composition — implementation
+plan</h1>
+</header>
+<h1 id="atomic-domain-command-composition-implementation-plan">ATOMIC
+domain command composition — implementation plan</h1>
+<p>Status: candidate source, not a published release or an executable
+host endpoint. Baseline:
+<code>8357c9599b3f2ccee5946d0c7494567246587bcc</code> (PR228), source
+tree <code>fb52a51f2021b0892ebd358ceee2fe3e8610e25e</code>. The rc.151
+publication is a separate increment from this candidate and does not
+include these changes.</p>
+<p>Classification: public contract / transversal. Adherence: partially
+supported. <code>BulkIntentSnapshot.command</code>, typed command
+evaluation requests, action discovery, structural compilation and the
+protected ATOMIC kernel already model domain commands. The missing
+materialization is operational composition and execution projection:
+both currently reject DOMAIN_COMMAND with ATOMIC. Reuse this vocabulary;
+do not model approve/cancel/business commands as CRUD field changes.</p>
+<h2 id="scope-and-impact">Scope and impact</h2>
+<p>The canonical owner is Metadata. Change only the bounded
+composition/projection guards, with source tests for real MVC bindings,
+OpenAPI references, action registry and evaluation provider. A
+WorkflowAction and its bulk declaration must agree on atomicity. ATOMIC
+keeps EXPLICIT/SYNC, at most 50 targets, an aggregate deadline of at
+most five seconds for the single ATOMIC set, exact confirmation binding
+and identity codec, canonical typed parameters, action selection limits
+and all seven operation references. A domain command retains its action
+identity; it does not gain a CRUD capability or editable fields.
+PER_ITEM semantics and existing negative incompatibility tests remain
+intact.</p>
+<p>Consumers are action discovery, lifecycle publication and execution
+metadata, followed by concrete host adapters and eventually Angular.
+Review specification, technical guide, changelog and
+discovery/concurrency skills after implementation. No runtime authoring
+rule, ledger, DTO, migration, compatibility alias or host CREATE
+operation belongs to this increment. Beta contract change is additive
+only for previously rejected, correctly bound commands; mismatched
+action atomicity must fail closed.</p>
+<p>RuleLab CREATE by requestReference currently lacks a canonical
+absent-target version and a governed bulk provider/IAM binding. This
+plan does not invent either and does not close its outbox proof (T15).
+Supporting command composition alone is not evidence of an executable
+command, READY, a public endpoint, or backend closure.</p>
+<h2 id="assignment-and-acceptance">Assignment and acceptance</h2>
+<p>One source writer: auxiliary chat
+<code>01a1037b-7a05-79e2-a380-35309ae1783e</code>, five files (the HTTP
+discovery fixture was added as a bounded second source cut):
+BulkOperationalDescriptorComposer, BulkExecutionContract,
+BulkOperationStructuralCompilerTest, a new BulkExecutionContractTest,
+and BulkCrudOperationalCapabilityHttpTest. Root owns documentation,
+Git/POM, Maven/cache/target/PostgreSQL and acceptance; root reviews the
+source independently of its author. No recursive delegation. Source and
+resources are frozen before tests; preserve 39 unrelated EOL drifts.</p>
+<p>Minimum validation also includes a real HTTP discovery/schema/actions
+consumer with an exact ATOMIC action/provider, seven references, no CRUD
+capability, global photograph suspension and publication of only the
+selected identity. The HTTP discovery fixture and corrected structural
+request passed a focused campaign on 03/10/2026: two tests, zero
+failures/errors/skips, two XML reports, 804 source/POM files with zero
+drift. Evidence:
+<code>atomic-domain-command-wire-http-{freeze,result,reports,log}</code>.
+Structural fixture SHA-256:
+<code>4231ce018b161f138f21bb247bf12b35498a3e95ac7f7bb7403f10976bcb7d39</code>;
+HTTP fixture:
+<code>e91f22d38e33e4602f063b562e1b9dd618fae2265b0bdb9ca63cc2abc947b63e</code>.
+The HTTP proof uses SpringDoc, typed parameters, the integer identity
+codec, two command actions, exactly four CRUD capabilities, seven
+canonical references, global suspension of six bindings and
+republication of only one. It proves discovery and lifecycle, not domain
+mutation, authorization or outbox.</p>
+<p>Historical evidence remains separate: the initial 43 focal cases
+reported 42 successes and one fixture error; a one-method correction
+then passed. Independent review subsequently found the request’s root
+<code>ids</code> shape differed from <code>selection.targets</code>. The
+final correction uses textual decimal IDs as required by
+<code>BulkIdentityCodecs.longs()</code>
+(<code>BulkIdentityCodec&lt;String,Long&gt;</code>), with
+<code>expectedVersion</code>, <code>executionMode</code> and typed
+parameters; it verifies serialization, codec decoding and equality of
+the canonical identity schema. That corrected method is included in the
+final two-test campaign above. The manually constructed compiler schema
+is not presented as SpringDoc evidence; the separate HTTP fixture
+supplies that proof.</p>
+<p>Compiler/composer validation: positive DOMAIN_COMMAND ATOMIC with
+typed parameters and concordant real bindings/action/provider;
+mismatched atomicity, provider binding/codec, excessive targets/deadline
+and action-selection ceilings reject; projection preserves
+parameters/action identity and excludes CRUD identity; existing PER_ITEM
+and CRUD ATOMIC composition regressions stay green. Use focal suites and
+preserve evidence tied to the source tree. A later concrete consumer
+must independently prove domain mutation, receipts, authorization and
+recovery; source composition tests do not certify those guarantees.</p>
+</body>
+</html>

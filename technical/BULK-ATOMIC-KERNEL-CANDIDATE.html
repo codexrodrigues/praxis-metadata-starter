@@ -494,5 +494,20 @@ revisar esta decisão; implementar materialização e testes canônicos
 delimitados; revisão independente; consumer real host e provas HTTP/PG;
 docs/skills e integração com SHAs exatos. Nenhuma release adicional é
 autorizada apenas pela aprovação do desenho.</p>
+<h2
+id="composição-posterior-de-comandos-atomic-candidato-separado">Composição
+posterior de comandos ATOMIC — candidato separado</h2>
+<p>A composição CRUD acima foi publicada no Metadata rc.151; sua adoção
+HTTP no host continua gate independente. O próximo candidato elimina
+apenas os vetos de DOMAIN_COMMAND/ATOMIC no composer e na projeção,
+mantendo ação, provider, identidade, parâmetros tipados, sete
+referências e limites canônicos. WorkflowAction e declaração bulk devem
+concordar na atomicidade. Não projeta comando como capability CRUD nem
+altera o kernel/ledger. O orçamento de cinco segundos é agregado para o
+único conjunto ATOMIC. Provas, consumidores e skills deste novo
+candidato permanecem gates próprios. Ver <a
+href="BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md">inventário, impacto e
+aceite</a>. Não fecha CREATE/requestReference, versão de ausência,
+IAM/provider RuleLab ou outbox T15.</p>
 </body>
 </html>

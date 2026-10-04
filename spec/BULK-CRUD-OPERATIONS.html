@@ -175,10 +175,9 @@ bulk CRUD — composição operacional e candidato B4</h1>
 <p>O vínculo estrutural entre PUT e DTO de update está em <a
 href="BULK-CRUD-STRUCTURE.md">BULK-CRUD-STRUCTURE.md</a>. Este corte
 candidato compõe a projeção de descoberta síncrona. O SDK publicado
-rc.150 compõe PER_ITEM; o incremento B4 desta fonte candidata acrescenta
-composição ATOMIC para CRUD, ainda sem artefato público novo ou adoção
-ATOMIC do host. Não transforma um descriptor estrutural em autorização
-nem certifica mutação do domínio no host.</p>
+rc.151 compõe PER_ITEM e ATOMIC para CRUD. A adoção HTTP ATOMIC do host
+permanece um gate próprio. Não transforma um descriptor estrutural em
+autorização nem certifica mutação do domínio no host.</p>
 <h2 id="descoberta-coerente">Descoberta coerente</h2>
 <p>A identidade de uma operação UPDATE é derivada uma única vez de
 <code>(mode, atomicity)</code>: UNIFORM_UPDATE/PER_ITEM →
@@ -233,11 +232,14 @@ avaliação/confirmação pertencem à variante.</p>
 seleção explícita (<code>SYNC</code>, <code>EXPLICIT</code>). PER_ITEM
 mantém teto de 200 alvos. O candidato ATOMIC aceita 1–50 alvos e prazo
 agregado da unidade de até 5 segundos; perfil fora desses limites não
-compõe. Atomicidade pertence à operação, nunca ao request/UI.
-DOMAIN_COMMAND/ATOMIC permanece fechado neste composer. Não acrescenta
-consulta de seleção ou execução assíncrona; a composição não prova
-mutação, receipt ou recuperação do domínio do host.
-<code>DOMAIN_COMMAND</code> conserva os bytes do digest
+compõe. Atomicidade pertence à operação, nunca ao request/UI. O artefato
+publicado rc.151 mantém DOMAIN_COMMAND/ATOMIC fechado. O candidato
+posterior desta fonte acrescenta composição de comandos concordantes,
+com limites e identidade da ação próprios; ver <a
+href="../technical/BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md">plano e
+limites</a>. Não acrescenta consulta de seleção ou execução assíncrona;
+a composição não prova mutação, receipt ou recuperação do domínio do
+host. <code>DOMAIN_COMMAND</code> conserva os bytes do digest
 <code>praxis.bulk.structure/3</code>; UPDATE usa
 <code>praxis.bulk.structure/4</code> com fonte, schema, allowlists e
 campos protegidos. <code>parametersPointer</code> é exclusivo do command
