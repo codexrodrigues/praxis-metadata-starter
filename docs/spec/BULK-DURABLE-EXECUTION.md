@@ -103,7 +103,7 @@ O inventário anterior é reaproveitado assim:
 
 O recorte publicado de referência é seleção `EXPLICIT`, transporte `SYNC` e atomicidade `PER_ITEM`, nas três
 modalidades de intenção existentes. A proposta deve possuir evidência persistida. Propostas
-V1 sem evidência e combinações ASYNC/ATOMIC falham fechadas. QUERY permanece fechado nesse recorte publicado; o candidato privado delimitado é descrito em [reserva QUERY](#reserva-query-candidata).
+V1 sem evidência e combinações ASYNC/ATOMIC falham fechadas. QUERY permanecia fechado na rc.153; a rc.154 pública delimita sua reserva em [reserva QUERY](#reserva-query-publicada-na-rc154).
 
 Não há artefato derivado de HTTP, landing, Angular ou corpus neste corte. V1–V3 permanecem
 byte a byte; V4 acrescenta a admissão governada por unidade, persistindo resultados sem
@@ -319,13 +319,13 @@ uma execução existente permanece legível sob autorização atual. Erro/ACK in
 reserva exige readback independente sob escopo. Sem readback conclusivo, o retorno é
 `RECONCILIATION_REQUIRED`; nunca se cria chave/UUID substituta automaticamente.
 
-### Reserva QUERY candidata
+### Reserva QUERY publicada na rc.154
 
-O candidato privado `8.0.0-b5a-uniform-query-20261004-SNAPSHOT` aceita reserva inédita somente para avaliação `UNIFORM_UPDATE/SYNC/PER_ITEM/QUERY` com população já congelada e perfil publicado. O construtor antigo do kernel continua apto a ler/reproduzir execução QUERY existente, mas nega sua primeira reserva. O construtor com `BulkOperationLifecycle` consulta tombstone e reserva existente pelo escopo/binding antes de exigir READY: tombstone devolve `RESULT_PURGED` antes de uma eventual avaliação ausente; replay válido mantém UUID, controle e receipts mesmo depois da suspensão. Chave igual com binding diferente continua `CONFLICT`.
+A rc.154 pública aceita reserva inédita somente para avaliação `UNIFORM_UPDATE/SYNC/PER_ITEM/QUERY` com população já congelada e perfil publicado. O construtor antigo do kernel continua apto a ler/reproduzir execução QUERY existente, mas nega sua primeira reserva. O construtor com `BulkOperationLifecycle` consulta tombstone e reserva existente pelo escopo/binding antes de exigir READY: tombstone devolve `RESULT_PURGED` antes de uma eventual avaliação ausente; replay válido mantém UUID, controle e receipts mesmo depois da suspensão. Chave igual com binding diferente continua `CONFLICT`.
 
 Reserva QUERY inédita tem duas transações operacionais curtas: a primeira sonda tombstone e replay; fora de transação o lifecycle emite `ReadyAdmission` da fotografia publicada; a segunda cerca novamente controle, quota, proposta, perfil e binding antes de criar execução. Uma publicação retirada ou alterada entre token e segunda transação nega a criação sem allocation de execução. EXPLICIT preserva a leitura e a reserva na mesma transação, sem essa nova composição. Depois da reserva, unidades, receipts, readback, cancelamento e recuperação seguem seus fences já existentes; não dependem de nova READY para replay.
 
-As 25 provas SDK compostas (12 + 1 + 12) cobrem esse recorte candidato, inclusive mutação e receipts em fixture PostgreSQL. O host acrescentou 49 provas focais compostas e `MissionParticipantUniformQueryHttpPostgresTest`: captura de 200 alvos e confirmação/replay separada de um alvo, com STOP `AUTHORIZATION_REVOKED` antes de admission ordinal na perda de cobertura do alvo. A execução durável continua legível somente sob autorização corrente do manifesto completo; nesse cenário com grant global válido, o HTTP retorna 404 `BULK_NOT_FOUND` em vez de revelar o STOP. Negação e indisponibilidade global têm seus resultados próprios. Isso não prova confirmação de 200 alvos, IAM completo, o experimento de perda de resposta COMMIT fora do corte ou suporte público QUERY em rc.153.
+As 25 provas SDK compostas (12 + 1 + 12) cobriram o candidato antes da publicação oficial rc.154, inclusive mutação e receipts em fixture PostgreSQL. O host acrescentou 49 provas focais compostas e `MissionParticipantUniformQueryHttpPostgresTest`: captura de 200 alvos e confirmação/replay separada de um alvo, com STOP `AUTHORIZATION_REVOKED` antes de admission ordinal na perda de cobertura do alvo. A execução durável continua legível somente sob autorização corrente do manifesto completo; nesse cenário com grant global válido, o HTTP retorna 404 `BULK_NOT_FOUND` em vez de revelar o STOP. Negação e indisponibilidade global têm seus resultados próprios. Isso não prova confirmação de 200 alvos, IAM completo, o experimento de perda de resposta COMMIT fora do corte ou o aceite de adoção pública do host. A rc.153 histórica não incluía QUERY; o SDK rc.154 foi publicado pelo workflow oficial 37236119846, com 1.530 testes, zero falhas/erros, três skips e POM/JAR conferidos no Maven Central.
 
 ## Unidade concreta e barreira de commit incerto
 

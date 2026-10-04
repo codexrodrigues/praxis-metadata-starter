@@ -2,10 +2,10 @@
 
 All notable changes to this module will be documented in this file.
 
-## [Unreleased] — candidato privado B5a QUERY
+## [8.0.0-rc.154] — publicado em 04/10/2026
 
-- O candidato `8.0.0-b5a-uniform-query-20261004-SNAPSHOT` permite ao perfil publicado de `UNIFORM_UPDATE/SYNC/PER_ITEM` oferecer QUERY junto de EXPLICIT, com teto QUERY de até 200 alvos. O filtro e as exclusões vinculam a intenção; a população autorizada pelo host é congelada na avaliação, no manifesto e no preview, sem reconsultar o filtro na confirmação.
-- A captura usa `ReadyAdmission` opaca do lifecycle e a mesma transação gravável sob controle/quota; a reserva inédita revalida a publicação. Provas focais do SDK e HTTP do host cobrem captura de 200 alvos e confirmação/replay separados de um alvo. Não há publicação do binário QUERY, adoção sem override, confirmação de 200 alvos, IAM completo ou READY geral. `PER_ITEM_UPDATE`, `DOMAIN_COMMAND`, ATOMIC e ASYNC não recebem QUERY neste corte. Ver [persistência](docs/spec/BULK-PROPOSAL-STORAGE.md), [evidência](docs/spec/BULK-EVALUATION-EVIDENCE.md), [reserva](docs/spec/BULK-DURABLE-EXECUTION.md), [lifecycle](docs/spec/BULK-OPERATION-LIFECYCLE.md) e [composição CRUD](docs/spec/BULK-CRUD-OPERATIONS.md).
+- A rc.154 permite ao perfil publicado de `UNIFORM_UPDATE/SYNC/PER_ITEM` oferecer QUERY junto de EXPLICIT, com teto QUERY de até 200 alvos. O filtro e as exclusões vinculam a intenção; a população autorizada pelo host é congelada na avaliação, no manifesto e no preview, sem reconsultar o filtro na confirmação.
+- A captura usa `ReadyAdmission` opaca do lifecycle e a mesma transação gravável sob controle/quota; a reserva inédita revalida a publicação. Provas focais do SDK e HTTP do host cobrem captura de 200 alvos e confirmação/replay separados de um alvo. O workflow oficial [37236119846](https://github.com/codexrodrigues/praxis-metadata-starter/actions/runs/37236119846) passou com 1.530 testes, zero falhas/erros e três skips; POM/JAR públicos foram conferidos no Maven Central. A adoção do host na coordenada pública está em verificação e ainda não tem aceite. As provas focais privadas (25 casos compostos SDK, 49 host e três métodos HTTP adicionais) não demonstram confirmação de 200 alvos, IAM completo ou READY geral. `PER_ITEM_UPDATE`, `DOMAIN_COMMAND`, ATOMIC e ASYNC não recebem QUERY neste corte. Ver [persistência](docs/spec/BULK-PROPOSAL-STORAGE.md), [evidência](docs/spec/BULK-EVALUATION-EVIDENCE.md), [reserva](docs/spec/BULK-DURABLE-EXECUTION.md), [lifecycle](docs/spec/BULK-OPERATION-LIFECYCLE.md) e [composição CRUD](docs/spec/BULK-CRUD-OPERATIONS.md).
 
 ## [8.0.0-rc.153] — publicado em 04/10/2026
 
