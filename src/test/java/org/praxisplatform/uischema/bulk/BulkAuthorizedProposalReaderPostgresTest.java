@@ -72,7 +72,7 @@ class BulkAuthorizedProposalReaderPostgresTest {
     @BeforeEach void reset() {
         sql.execute("drop schema if exists praxis_bulk cascade");
         sql.execute("drop table if exists public.rs1_test_grant");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(16);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(17);
         BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 
@@ -368,7 +368,7 @@ class BulkAuthorizedProposalReaderPostgresTest {
                 .target("2").load().migrate();
         BulkEvaluationSnapshot evaluation = evaluation(1, -1);
         BulkPostgresTestSupport.insertLegacyInput(sql, evaluation);
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(14);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(15);
         var authorization = new MutableAuthorizationProvider();
 
         assertThat(reader(authorization, new MutableClock(NOW), projectionProvider())

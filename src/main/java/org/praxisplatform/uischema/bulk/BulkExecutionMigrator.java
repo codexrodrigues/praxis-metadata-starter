@@ -2799,6 +2799,16 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    private static String readV17Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V17__bulk_pending_quota_snapshot_fence.sql")) {
+            require(input != null, "V17 pending quota snapshot fence migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V17 pending quota snapshot fence migration", failure);
+        }
+    }
+
     private static MigrationExpectations migrationExpectations() {
         MigrationExpectations cached = migrationExpectations;
         if (cached != null) return cached;
@@ -2892,6 +2902,9 @@ public final class BulkExecutionMigrator {
         for (String function : Set.of("terminal_evidence_complete", "purge_terminal_execution"))
             expectedBodies.put(function, new FunctionBodyExpectation("V16",
                     normalizeExpression(extractFunctionBody(v16Migration, function, "V16"))));
+        String v17Migration = readV17Migration();
+        expectedBodies.put("guard_bucket_mutation", new FunctionBodyExpectation("V17",
+                normalizeExpression(extractFunctionBody(v17Migration, "guard_bucket_mutation", "V17"))));
         return new MigrationExpectations(expectedBodies,
                 normalizeExpression(extractFunctionBody(v7Migration, INSERT_FENCE_FUNCTION, "V7")));
     }

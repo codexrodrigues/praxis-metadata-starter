@@ -35,7 +35,7 @@ class BulkEvaluationStorePostgresTest {
     @AfterAll void stop() throws Exception {if(postgres!=null)postgres.close();}
     @BeforeEach void reset(){sql.execute("drop schema if exists praxis_bulk cascade");}
     void migrate(){
-        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(16);
+        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(17);
         BulkPostgresTestSupport.ready(schemaOwnerDataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count(String table){return sql.queryForObject("select count(*) from praxis_bulk."+table,Integer.class);}
@@ -44,8 +44,8 @@ class BulkEvaluationStorePostgresTest {
                 .defaultSchema("praxis_bulk").table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true).target("1").load().migrate();
         var value=proposal();BulkPostgresTestSupport.insertLegacyProposal(sql,value);
         var before=sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class);
-        // V1 is already installed by this upgrade fixture, so Flyway executes V2 through V16.
-        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(15);
+        // V1 is already installed by this upgrade fixture, so Flyway executes V2 through V17.
+        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(16);
         BulkPostgresTestSupport.ready(schemaOwnerDataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
         assertThat(sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class)).isEqualTo(before);
         var recovered=tx.execute(status->store.find(CONTEXT,value.id()).orElseThrow());
@@ -798,11 +798,11 @@ class BulkEvaluationStorePostgresTest {
         BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"durable_runtime");
         var value=evaluation(proposal(specialSnapshot("upgrade\u0000id","v\u0000upgrade","payload\u0000upgrade")));
         insertV7Evaluation(value);
-        // Install V8..V16 DDL before the host grants the newly created V14 read function.
+        // Install V8..V17 DDL before the host grants the newly created V14 read function.
         assertThat(Flyway.configure().dataSource(schemaOwnerDataSource)
                 .locations("classpath:db/praxis-bulk-migrations").schemas("praxis_bulk")
                 .defaultSchema("praxis_bulk").table("praxis_bulk_schema_history")
-                .baselineOnMigrate(false).cleanDisabled(true).load().migrate().migrationsExecuted).isEqualTo(9);
+                .baselineOnMigrate(false).cleanDisabled(true).load().migrate().migrationsExecuted).isEqualTo(10);
         grantPublicationReadToExistingRuntimeRoles();
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),

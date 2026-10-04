@@ -185,12 +185,26 @@
 
     <build>
         <plugins>
-            <!-- Pin genuine published V15 bytes independently of this reactor's current GAV. -->
+            <!-- Pin genuine published V15/V16 bytes independently of this reactor's current GAV. -->
             <plugin>
                 <groupId>io.github.download-maven-plugin</groupId>
                 <artifactId>download-maven-plugin</artifactId>
                 <version>2.1.0</version>
                 <executions>
+                    <execution>
+                        <id>download-published-v16-migration-fixture</id>
+                        <phase>generate-test-resources</phase>
+                        <goals><goal>wget</goal></goals>
+                        <configuration>
+                            <url>https://repo.maven.apache.org/maven2/io/github/codexrodrigues/praxis-metadata-starter/8.0.0-rc.152/praxis-metadata-starter-8.0.0-rc.152.jar</url>
+                            <sha256>4594891d98aec7948c44c40cb399b2cf04b44b42380328774cb9f7aab1aa16de</sha256>
+                            <alwaysVerifyChecksum>true</alwaysVerifyChecksum>
+                            <failOnError>true</failOnError>
+                            <outputDirectory>${project.build.directory}/historical-bulk-sdk</outputDirectory>
+                            <outputFileName>metadata-v16-rc152.jar</outputFileName>
+                            <cacheDirectory>${project.build.directory}/historical-bulk-cache</cacheDirectory>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>download-published-v15-migration-fixture</id>
                         <phase>generate-test-resources</phase>
