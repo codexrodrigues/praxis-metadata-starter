@@ -43,9 +43,11 @@ public record BulkExecutionContract(
         selectionModes = List.copyOf(selectionModes);
         executionModes = List.copyOf(executionModes);
         Objects.requireNonNull(limits, "limits");
-        if (!selectionModes.equals(List.of(BulkSelectionMode.EXPLICIT))
+        if (!(selectionModes.equals(List.of(BulkSelectionMode.EXPLICIT))
+                || mode == BulkMode.UNIFORM_UPDATE && atomicity == ActionCollectionAtomicity.PER_ITEM
+                    && selectionModes.equals(List.of(BulkSelectionMode.EXPLICIT, BulkSelectionMode.QUERY)))
                 || !executionModes.equals(List.of(BulkExecutionMode.SYNC)))
-            throw new IllegalArgumentException("This projection supports only P1 EXPLICIT/SYNC");
+            throw new IllegalArgumentException("QUERY requires UNIFORM_UPDATE/PER_ITEM/SYNC with EXPLICIT preserved");
         if (atomicity == ActionCollectionAtomicity.ATOMIC
                 && (limits.maxTargets() > 50
                         || limits.unitDeadlineMillis() > 5_000))

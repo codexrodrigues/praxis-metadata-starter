@@ -33,10 +33,25 @@ public final class BulkStoredProposal {
         this.snapshot = Objects.requireNonNull(snapshot, "snapshot");
         this.controlExpectation = controlExpectation;
         var intent = snapshot.intent();
+        boolean query = "QUERY".equals(intent.path("selection").path("mode").asText());
         if (!"SYNC".equals(intent.path("executionMode").asText())
-                || (snapshot.mode() != BulkMode.PER_ITEM_UPDATE
-                    && !"EXPLICIT".equals(intent.path("selection").path("mode").asText()))) {
-            throw new IllegalArgumentException("Protected storage currently requires EXPLICIT SYNC input");
+                || query && (snapshot.mode() != BulkMode.UNIFORM_UPDATE
+                    || snapshot.context().atomicity() != org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM)
+                || snapshot.mode() != BulkMode.PER_ITEM_UPDATE && !query
+                    && !"EXPLICIT".equals(intent.path("selection").path("mode").asText())) {
+            throw new IllegalArgumentException("Protected storage requires a supported SYNC selection");
+        }
+        if (query) {
+            if (!intent.path("selection").path("filter").isObject()
+                    || !intent.path("selection").path("excludedIds").isArray()
+                    || intent.path("selection").has("targets"))
+                throw new IllegalArgumentException("QUERY requires canonical filter and exclusions");
+            var excluded = new java.util.HashSet<Object>();
+            var queryCodec = BulkSnapshotStorageCodec.codec(snapshot.codecId());
+            for (JsonNode excludedId : intent.path("selection").path("excludedIds"))
+                if (!excluded.add(queryCodec.readWire(excludedId)))
+                    throw new IllegalArgumentException("QUERY exclusions must be unique");
+            return;
         }
         var canonicalCodec = BulkSnapshotStorageCodec.codec(snapshot.codecId());
         JsonNode targets = snapshot.mode() == BulkMode.PER_ITEM_UPDATE

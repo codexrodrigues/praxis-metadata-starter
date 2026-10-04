@@ -101,9 +101,9 @@ O inventário anterior é reaproveitado assim:
 - projeções públicas `BulkExecution`/`BulkItemResult`: continuam sendo vocabulário público,
   mas não são construídas diretamente a partir destas APIs protegidas no S4a.
 
-O recorte aceito é seleção `EXPLICIT`, transporte `SYNC` e atomicidade `PER_ITEM`, nas três
+O recorte publicado de referência é seleção `EXPLICIT`, transporte `SYNC` e atomicidade `PER_ITEM`, nas três
 modalidades de intenção existentes. A proposta deve possuir evidência persistida. Propostas
-V1 sem evidência e combinações QUERY/ASYNC/ATOMIC falham fechadas.
+V1 sem evidência e combinações ASYNC/ATOMIC falham fechadas. QUERY permanece fechado nesse recorte publicado; o candidato privado delimitado é descrito em [reserva QUERY](#reserva-query-candidata).
 
 Não há artefato derivado de HTTP, landing, Angular ou corpus neste corte. V1–V3 permanecem
 byte a byte; V4 acrescenta a admissão governada por unidade, persistindo resultados sem
@@ -302,7 +302,7 @@ transação externa cobrindo o loop PER_ITEM.
 
 `reserve(scope, proposalId, idempotencyKey, ownerId, structuralRevision, deadline)` rejeita
 transação Spring ambiente e abre uma transação operacional própria. Ela recupera proposta e
-evidência pelo escopo confiável, valida EXPLICIT/SYNC/PER_ITEM e exige `now < expiresAt` antes
+evidência pelo escopo confiável, valida o modo admitido e exige `now < expiresAt` antes
 da primeira reserva. O binding da reserva enquadra proposalId, fingerprints de intenção e
 avaliação e structuralRevision com framing versionado. A chave e textos têm limites e são
 validados antes do banco; exceções públicas não carregam SQL, payload ou causa do driver.
@@ -318,6 +318,14 @@ Replay é resolvido antes do TTL inicial. Proposta expirada impede apenas uma re
 uma execução existente permanece legível sob autorização atual. Erro/ACK incerto no commit da
 reserva exige readback independente sob escopo. Sem readback conclusivo, o retorno é
 `RECONCILIATION_REQUIRED`; nunca se cria chave/UUID substituta automaticamente.
+
+### Reserva QUERY candidata
+
+O candidato privado `8.0.0-b5a-uniform-query-20261004-SNAPSHOT` aceita reserva inédita somente para avaliação `UNIFORM_UPDATE/SYNC/PER_ITEM/QUERY` com população já congelada e perfil publicado. O construtor antigo do kernel continua apto a ler/reproduzir execução QUERY existente, mas nega sua primeira reserva. O construtor com `BulkOperationLifecycle` consulta tombstone e reserva existente pelo escopo/binding antes de exigir READY: tombstone devolve `RESULT_PURGED` antes de uma eventual avaliação ausente; replay válido mantém UUID, controle e receipts mesmo depois da suspensão. Chave igual com binding diferente continua `CONFLICT`.
+
+Reserva QUERY inédita tem duas transações operacionais curtas: a primeira sonda tombstone e replay; fora de transação o lifecycle emite `ReadyAdmission` da fotografia publicada; a segunda cerca novamente controle, quota, proposta, perfil e binding antes de criar execução. Uma publicação retirada ou alterada entre token e segunda transação nega a criação sem allocation de execução. EXPLICIT preserva a leitura e a reserva na mesma transação, sem essa nova composição. Depois da reserva, unidades, receipts, readback, cancelamento e recuperação seguem seus fences já existentes; não dependem de nova READY para replay.
+
+As 25 provas SDK compostas (12 + 1 + 12) cobrem esse recorte candidato, inclusive mutação e receipts em fixture PostgreSQL. O host acrescentou 49 provas focais compostas e `MissionParticipantUniformQueryHttpPostgresTest`: captura de 200 alvos e confirmação/replay separada de um alvo, com STOP `AUTHORIZATION_REVOKED` antes de admission ordinal na perda de cobertura do alvo. A execução durável continua legível somente sob autorização corrente do manifesto completo; nesse cenário com grant global válido, o HTTP retorna 404 `BULK_NOT_FOUND` em vez de revelar o STOP. Negação e indisponibilidade global têm seus resultados próprios. Isso não prova confirmação de 200 alvos, IAM completo, o experimento de perda de resposta COMMIT fora do corte ou suporte público QUERY em rc.153.
 
 ## Unidade concreta e barreira de commit incerto
 

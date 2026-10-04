@@ -32,8 +32,10 @@ public record BulkOperationalProfile(
         positive(unitDeadline, "unitDeadline");
         if (operationModes.size() != 1
                 || !executionModes.equals(EnumSet.of(BulkExecutionMode.SYNC))
-                || !selectionModes.equals(EnumSet.of(BulkSelectionMode.EXPLICIT))) {
-            throw new IllegalArgumentException("An operational profile requires exactly one operation mode with SYNC/EXPLICIT");
+                || !(selectionModes.equals(EnumSet.of(BulkSelectionMode.EXPLICIT))
+                    || operationModes.contains(BulkMode.UNIFORM_UPDATE)
+                        && selectionModes.equals(EnumSet.of(BulkSelectionMode.EXPLICIT, BulkSelectionMode.QUERY)))) {
+            throw new IllegalArgumentException("QUERY requires a UNIFORM_UPDATE SYNC profile with EXPLICIT preserved");
         }
         if (maxTargets > 200) throw new IllegalArgumentException("P1 SYNC/PER_ITEM is limited to 200 targets");
         if (proposalLifetime.compareTo(Duration.ofMinutes(15)) > 0)
