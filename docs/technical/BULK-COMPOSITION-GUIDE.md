@@ -1,6 +1,6 @@
 # Compor operações em lote em um host Praxis
 
-Este guia orienta a escolha e a integração do SDK público Metadata `8.0.0-rc.154`. O [Quickstart](https://github.com/codexrodrigues/praxis-api-quickstart/blob/79e37ffa385e2bd9745136edddc0d5367b733168/README.md) é o host de referência, com Metadata rc.154 e Config `0.1.0-rc.158` no POM; ele não define a semântica do SDK. A integração do [PR388](https://github.com/codexrodrigues/praxis-api-quickstart/pull/388) adotou essas coordenadas sem override. Seu verify integral histórico teve 1.209 testes, uma falha, zero erros e 23 skips; o diagnóstico focal e seis repetições posteriores passaram, sem tornar aquele verify verde. Disponibilidade do artefato, composição no host e prova de cada jornada são fatos distintos.
+Este guia orienta a escolha e a integração do SDK público Metadata `8.0.0-rc.154`. O [Quickstart](https://github.com/codexrodrigues/praxis-api-quickstart/blob/79e37ffa385e2bd9745136edddc0d5367b733168/README.md) é o host de referência, com Metadata rc.154 e Config `0.1.0-rc.158` no POM; ele não define a semântica do SDK. A integração do [PR388](https://github.com/codexrodrigues/praxis-api-quickstart/pull/388) adotou essas coordenadas sem override. Seu verify integral histórico teve 1.209 testes, uma falha, zero erros e 23 skips; o diagnóstico focal e uma sequência contextual de seis métodos distintos passaram, sem tornar aquele verify verde. Disponibilidade do artefato, composição no host e prova de cada jornada são fatos distintos.
 
 ## Escolha a intenção antes do perfil
 
@@ -10,6 +10,7 @@ Uma equipe operacional que aplica o mesmo papel a vários participantes usa `UNI
 | --- | --- | --- |
 | `UNIFORM_UPDATE` ou `PER_ITEM_UPDATE` · `EXPLICIT/SYNC/PER_ITEM` | Até 200 alvos por perfil PER_ITEM | Participantes de missão têm bindings e providers concretos; autorização e prova da operação continuam próprias do host. |
 | `UNIFORM_UPDATE` ou `PER_ITEM_UPDATE` · `EXPLICIT/SYNC/ATOMIC` | 1–50 alvos; prazo agregado da unidade até 5 s | Há variantes no recurso de participantes; presença de código ou capability não certifica execução corporativa geral. |
+| `DOMAIN_COMMAND` · `EXPLICIT/SYNC/PER_ITEM` | Até 200 alvos no perfil PER_ITEM; o host pode restringir mais | A action `bulk-approve` de folha declara `@BulkOperation` e `@WorkflowAction` concordantes; o provider do host publica perfil EXPLICIT com teto 200. |
 | `DOMAIN_COMMAND` · `EXPLICIT/SYNC/ATOMIC` | Até 50 alvos e 5 s agregados, sujeitos também ao limite da action | A composição foi publicada na rc.152; o host deve prover comando, autorização, auditoria e efeitos transacionais. |
 | `UNIFORM_UPDATE` · `QUERY/SYNC/PER_ITEM` | Até 200 alvos no perfil QUERY publicado | A rc.154 e o host cobrem captura de 200; a confirmação de 200 não foi certificada. |
 
