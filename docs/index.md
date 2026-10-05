@@ -29,12 +29,13 @@ plataforma.
 - [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html): unicidade, vínculo operação/recurso/método e DTO de request concreto do handler MVC.
 
 - [Leitura estrita de request](spec/CANONICAL-REQUEST-SCHEMA.html): schema da operação, dialeto e limites da composição backend.
-- [Persistência protegida de propostas](spec/BULK-PROPOSAL-STORAGE.html): captura EXPLICIT/SYNC publicada na rc.153, allocations pendentes V5 e migração V17; seleção QUERY descrita apenas como candidato privado, sem endpoint automático do SDK nem adoção do binário público QUERY.
+- [Persistência protegida de propostas](spec/BULK-PROPOSAL-STORAGE.html): captura EXPLICIT/SYNC publicada na rc.153 e captura QUERY sob admissão opaca na rc.154, restrita a `UNIFORM_UPDATE/SYNC/PER_ITEM` com teto de até 200; o SDK não cria endpoint nem autoriza o domínio do host.
 - [Infraestrutura transacional de lote](spec/BULK-EXECUTION-INFRASTRUCTURE.html): vínculo JDBC/JPA explícito, sem store ou DDL.
 
 - [Campos editáveis em lote](spec/BULK-EDITABLE-FIELDS.html): annotation e compilação estrutural de SET/CLEAR.
 - [Composição estrutural CRUD](spec/BULK-CRUD-STRUCTURE.html): fonte PUT e DTO reais, campos protegidos e allowlists; sem disponibilidade operacional de update bulk.
-- [Composição operacional CRUD](spec/BULK-CRUD-OPERATIONS.html): quatro identidades UPDATE por modo/atomicidade no SDK público, com schemas, campos elegíveis e fence READY; perfil `UNIFORM_UPDATE/SYNC/PER_ITEM/QUERY` somente no candidato privado, sem autorização P3 ou mutação automática no host.
+- [Composição operacional CRUD](spec/BULK-CRUD-OPERATIONS.html): quatro identidades UPDATE por modo/atomicidade no SDK público; a rc.154 publica QUERY somente para `UNIFORM_UPDATE/SYNC/PER_ITEM`, mantendo `bulk-update`. `PER_ITEM_UPDATE`, ATOMIC e ASYNC não recebem QUERY; autorização e mutação continuam no host.
+- [Guia de composição de lote](technical/BULK-COMPOSITION-GUIDE.html): escolha de modalidade, fronteira Metadata/Config/host, sequência de composição e limites comprovados da rc.154.
 
 ## Comece por objetivo
 
