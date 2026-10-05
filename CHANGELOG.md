@@ -2,6 +2,12 @@
 
 All notable changes to this module will be documented in this file.
 
+## [Unreleased] — candidato B5b.1a
+
+- Acrescenta o núcleo de emissão de direitos de capacidade em autoridade PostgreSQL separada por implantação/ambiente. Demandas duráveis, cursor por classe e transação global preservam os limites ACTIVE 2/tenant e 8/implantação, QUEUE 20/tenant e 80/implantação, incluindo direitos ainda não entregues.
+- Migrador explícito, catálogo canônico independente do banco e logins restritos; issuer, infrastructure e catalog permanecem package-private. Bootstrap reverte identidade e concessões juntos. A migração foi provada com owner CREATEROLE sem superuser; não há auto-configuração ou DDL automático no host.
+- 10 casos do emissor e 32 de migração passaram em PostgreSQL 14.22/Java 21, zero falhas/erros/skips nos focais finais. Não publica versão nem comprova instalação local, jobs, retirada/reuso, restore invisível, HTTP202, ASYNC ou READY. Ver [escopo e limites](docs/spec/BULK-CAPACITY-AUTHORITY.md).
+
 ## [8.0.0-rc.154] — publicado em 04/10/2026
 
 - A rc.154 permite ao perfil publicado de `UNIFORM_UPDATE/SYNC/PER_ITEM` oferecer QUERY junto de EXPLICIT, com teto QUERY de até 200 alvos. O filtro e as exclusões vinculam a intenção; a população autorizada pelo host é congelada na avaliação, no manifesto e no preview, sem reconsultar o filtro na confirmação.
