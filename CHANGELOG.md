@@ -2,7 +2,17 @@
 
 All notable changes to this module will be documented in this file.
 
-## [Unreleased] — candidato B5b.1a
+## [Unreleased] — candidatos de capacidade
+
+### B5b.1b.A — instalação inicial
+
+- Evolui a autoridade para V2 com leitura individual autenticada e atestado imutável; V18 acrescenta marker local que fixa banco, binding, autoridade UUID/epoch e atestado, além da instalação owner-only. Runtime recebe apenas SELECT local; não há credencial de alocação no leitor.
+- Bootstrap de grants PENDING→COMPLETE é transacional e validate-only após conclusão, inclusive antes do primeiro uso. A validação live não lê histórico/latch owner-only; o owner confronta histórico e catálogo. Fence de instalação é terminal e não permite reassociação, nem após reinício.
+- 97 casos distintos aceitos por composição em PostgreSQL14.22/Java21, sem erro/skip nos casos aceitos: 96 válidos da campanha corretiva e um método rerodado após corrigir somente seu oráculo textual. Inclui quatro JVMs owner, rollback/replay, upgrades e ACLs. Campanhas vermelhas históricas foram preservadas; não houve verify integral nem prova HTTP/host.
+- Não publica versão ou aceita jobs/ocupações, worker, ASYNC/202/READY, executor fence, sucessão/restore-safe ou Angular. Ver [instalação e limites](docs/spec/BULK-CAPACITY-INSTALLATION.md).
+
+### B5b.1a — histórico do emissor
+
 
 - Acrescenta o núcleo de emissão de direitos de capacidade em autoridade PostgreSQL separada por implantação/ambiente. Demandas duráveis, cursor por classe e transação global preservam os limites ACTIVE 2/tenant e 8/implantação, QUEUE 20/tenant e 80/implantação, incluindo direitos ainda não entregues.
 - Migrador explícito, catálogo canônico independente do banco e logins restritos; issuer, infrastructure e catalog permanecem package-private. Bootstrap reverte identidade e concessões juntos. A migração foi provada com owner CREATEROLE sem superuser; não há auto-configuração ou DDL automático no host.
@@ -11,7 +21,7 @@ All notable changes to this module will be documented in this file.
 ## [8.0.0-rc.154] — publicado em 04/10/2026
 
 - A rc.154 permite ao perfil publicado de `UNIFORM_UPDATE/SYNC/PER_ITEM` oferecer QUERY junto de EXPLICIT, com teto QUERY de até 200 alvos. O filtro e as exclusões vinculam a intenção; a população autorizada pelo host é congelada na avaliação, no manifesto e no preview, sem reconsultar o filtro na confirmação.
-- A captura usa `ReadyAdmission` opaca do lifecycle e a mesma transação gravável sob controle/quota; a reserva inédita revalida a publicação. Provas focais do SDK e HTTP do host cobrem captura de 200 alvos e confirmação/replay separados de um alvo. O workflow oficial [37236119846](https://github.com/codexrodrigues/praxis-metadata-starter/actions/runs/37236119846) passou com 1.530 testes, zero falhas/erros e três skips; POM/JAR públicos foram conferidos no Maven Central. A adoção do host na coordenada pública está em verificação e ainda não tem aceite. As provas focais privadas (25 casos compostos SDK, 49 host e três métodos HTTP adicionais) não demonstram confirmação de 200 alvos, IAM completo ou READY geral. `PER_ITEM_UPDATE`, `DOMAIN_COMMAND`, ATOMIC e ASYNC não recebem QUERY neste corte. Ver [persistência](docs/spec/BULK-PROPOSAL-STORAGE.md), [evidência](docs/spec/BULK-EVALUATION-EVIDENCE.md), [reserva](docs/spec/BULK-DURABLE-EXECUTION.md), [lifecycle](docs/spec/BULK-OPERATION-LIFECYCLE.md) e [composição CRUD](docs/spec/BULK-CRUD-OPERATIONS.md).
+- A captura usa `ReadyAdmission` opaca do lifecycle e a mesma transação gravável sob controle/quota; a reserva inédita revalida a publicação. Provas focais do SDK e HTTP do host cobrem captura de 200 alvos e confirmação/replay separados de um alvo. O workflow oficial [37236119846](https://github.com/codexrodrigues/praxis-metadata-starter/actions/runs/37236119846) passou com 1.530 testes, zero falhas/erros e três skips; POM/JAR públicos foram conferidos no Maven Central. A adoção pública no host foi posteriormente integrada pelo [PR388](https://github.com/codexrodrigues/praxis-api-quickstart/pull/388); o verify integral histórico permaneceu com 1.209 testes, uma falha, zero erros e 23 skips, e o aceite foi concluído por composição focal. As provas focais privadas (25 casos compostos SDK, 49 host e três métodos HTTP adicionais) não demonstram confirmação de 200 alvos, IAM completo ou READY geral. `PER_ITEM_UPDATE`, `DOMAIN_COMMAND`, ATOMIC e ASYNC não recebem QUERY neste corte. Ver [persistência](docs/spec/BULK-PROPOSAL-STORAGE.md), [evidência](docs/spec/BULK-EVALUATION-EVIDENCE.md), [reserva](docs/spec/BULK-DURABLE-EXECUTION.md), [lifecycle](docs/spec/BULK-OPERATION-LIFECYCLE.md) e [composição CRUD](docs/spec/BULK-CRUD-OPERATIONS.md).
 
 ## [8.0.0-rc.153] — publicado em 04/10/2026
 

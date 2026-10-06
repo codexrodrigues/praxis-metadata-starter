@@ -16,6 +16,7 @@ plataforma.
 ## SDK em desenvolvimento
 
 - [Autoridade de capacidade candidata B5b.1a](spec/BULK-CAPACITY-AUTHORITY.html): núcleo com 42 provas focais de direitos globais e migração; banco dedicado é pré-requisito de provisionamento; não integra a rc.154 nem aceita jobs, ASYNC ou HTTP202.
+- [Instalação local candidata B5b.1b.A](spec/BULK-CAPACITY-INSTALLATION.html): atestado e direitos reais com 97 casos PostgreSQL compostos; runtime sem history/latch SELECT, bootstrap durável sem healing e quatro processos owner. Sem ocupação/jobs, ASYNC/202/READY, restore-safe, adoção na rc.154 ou Angular.
 
 - [Lifecycle governado candidato R2](spec/BULK-OPERATION-LIFECYCLE.html): fotografia OpenAPI imutável, publicação global/operação V14/V15 e reconciliação explícita; prova HTTP do host e adoção pública são gates separados.
 

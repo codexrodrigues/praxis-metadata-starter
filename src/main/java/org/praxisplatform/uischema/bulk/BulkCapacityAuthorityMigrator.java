@@ -31,9 +31,10 @@ public final class BulkCapacityAuthorityMigrator {
     static final String ALLOCATOR_ROLE = "praxis_bulk_capacity_allocator";
     static final String READER_ROLE = "praxis_bulk_capacity_reader";
     private static final String DEFINER_ROLE = "praxis_bulk_capacity_definer";
-    private static final String RESOURCE = "db/praxis-bulk-capacity-migrations/V1__capacity_authority.sql";
+    private static final String V1_RESOURCE = "db/praxis-bulk-capacity-migrations/V1__capacity_authority.sql";
+    private static final String RESOURCE = "db/praxis-bulk-capacity-migrations/V2__capacity_binding_attestation.sql";
     private static final Set<String> TABLES = Set.of("authority_identity", "deployment_capacity",
-            "tenant_capacity", "capacity_binding", "capacity_request", "capacity_token", "fairness_cursor");
+            "tenant_capacity", "capacity_binding", "capacity_request", "capacity_token", "fairness_cursor", "binding_attestation");
     // Independent source manifest. The live schema comment is only an additional exact drift witness.
     private static final Map<String, String> COLUMNS = Map.of(
             "authority_identity", "deployment_id:text,environment:text,authority_id:uuid,authority_epoch:bigint",
@@ -46,13 +47,18 @@ public final class BulkCapacityAuthorityMigrator {
             "capacity_token", "token_id:uuid,request_id:uuid,token_ordinal:integer,deployment_id:text,"
                     + "tenant_id:text,binding_id:text,capacity_class:text,binding_generation:bigint,"
                     + "state:text,issued_at:timestamp with time zone",
-            "fairness_cursor", "deployment_id:text,capacity_class:text,last_tenant_id:text,cursor_epoch:bigint");
+            "fairness_cursor", "deployment_id:text,capacity_class:text,last_tenant_id:text,cursor_epoch:bigint",
+            "binding_attestation", "attestation_id:uuid,database_id:uuid,binding_id:text,"
+                    + "deployment_id:text,tenant_id:text,environment:text,binding_generation:bigint,"
+                    + "authority_id:uuid,authority_epoch:bigint");
     private static final Map<String, String> FUNCTIONS = Map.of(
             "enroll_binding", "text,text,text,bigint",
             "request_capacity", "uuid,text,text,text,text,integer,text",
             "allocate_next", "text,text",
             "find_issue", "uuid",
-            "assert_authority_identity", "text,text,uuid,bigint");
+            "assert_authority_identity", "text,text,uuid,bigint",
+            "register_attestation", "text,text,text,text,bigint,uuid,uuid",
+            "read_attestation", "uuid", "read_issued_token", "uuid");
     private static final Pattern BODY = Pattern.compile(
             "create function praxis_bulk_capacity\\.([a-z_]+)\\s*\\([^;]*?as \\$\\$(.*?)\\$\\$;",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
@@ -99,7 +105,33 @@ public final class BulkCapacityAuthorityMigrator {
         Boolean historyExists = jdbc.queryForObject(
                 "select to_regclass('praxis_bulk_capacity.praxis_bulk_capacity_schema_history') is not null",
                 Boolean.class);
-        if (Boolean.TRUE.equals(historyExists)) flyway(owner).validate();
+        if (Boolean.TRUE.equals(historyExists)) {
+            Integer unknownVersions = jdbc.queryForObject("""
+                    select count(*) from praxis_bulk_capacity.praxis_bulk_capacity_schema_history
+                    where version is not null and
+                          case when version ~ '^[0-9]+$' then version::integer not in (1,2)
+                               else true end
+                    """, Integer.class);
+            if (unknownVersions == null || unknownVersions != 0)
+                throw new IllegalStateException("Unsupported capacity authority history version");
+            Integer version = jdbc.queryForObject("""
+                    select max(version::integer) from praxis_bulk_capacity.praxis_bulk_capacity_schema_history
+                    where success and version ~ '^[0-9]+$'
+                    """, Integer.class);
+            if (Integer.valueOf(1).equals(version)) {
+                // Targeting only the exact published V1 avoids treating the legitimate pending V2
+                // as drift, while Flyway still verifies the applied V1 checksum and description.
+                flyway(owner, org.flywaydb.core.api.MigrationVersion.fromVersion("1")).validate();
+                try (Connection connection = owner.getConnection()) {
+                    assertV1LiveCatalog(connection, roles.ownerLogin());
+                    preflightV1RowsAndCallers(connection, identity, roles);
+                } catch (SQLException failure) {
+                    throw new IllegalStateException("Capacity authority V1 preflight unavailable", failure);
+                }
+            } else {
+                flyway(owner).validate();
+            }
+        }
         int applied = flyway(owner).migrate().migrationsExecuted;
         var transaction = new TransactionTemplate(new DataSourceTransactionManager(owner));
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_SERIALIZABLE);
@@ -189,7 +221,7 @@ public final class BulkCapacityAuthorityMigrator {
                 where n.nspname='praxis_bulk_capacity' and c.relkind in ('r','p')
                   and c.relname not in ('authority_identity','deployment_capacity',
                       'tenant_capacity','capacity_binding','capacity_request','capacity_token',
-                      'fairness_cursor','praxis_bulk_capacity_schema_history')
+                      'fairness_cursor','binding_attestation','praxis_bulk_capacity_schema_history')
                 """, Integer.class);
         if (unexpected == null || unexpected != 0)
             throw new IllegalStateException("Unexpected capacity authority table");
@@ -235,10 +267,12 @@ public final class BulkCapacityAuthorityMigrator {
         for (String name : FUNCTIONS.keySet()) {
             String signature = SCHEMA + "." + name + "(" + FUNCTIONS.get(name) + ")";
             for (String role : Set.of(PROVISIONER_ROLE, ALLOCATOR_ROLE, READER_ROLE)) {
-                boolean expected = name.equals("enroll_binding") && role.equals(PROVISIONER_ROLE)
+                boolean expected = (name.equals("enroll_binding") || name.equals("register_attestation"))
+                        && role.equals(PROVISIONER_ROLE)
                         || (name.equals("request_capacity") || name.equals("allocate_next"))
                         && role.equals(ALLOCATOR_ROLE)
-                        || name.equals("find_issue") && role.equals(READER_ROLE)
+                        || (name.equals("find_issue") || name.equals("read_attestation")
+                                || name.equals("read_issued_token")) && role.equals(READER_ROLE)
                         || name.equals("assert_authority_identity");
                 Boolean permitted = jdbc.queryForObject(
                         "select has_function_privilege(?, ?, 'EXECUTE')",
@@ -287,17 +321,95 @@ public final class BulkCapacityAuthorityMigrator {
     }
 
     private static Map<String, String> expectedBodies() {
-        try (var input = BulkCapacityAuthorityMigrator.class.getClassLoader().getResourceAsStream(RESOURCE)) {
-            if (input == null) throw new IllegalStateException("Missing capacity authority migration");
-            String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-            var matcher = BODY.matcher(sql);
-            var result = new HashMap<String, String>();
-            while (matcher.find()) result.put(matcher.group(1), matcher.group(2));
-            if (!result.keySet().equals(FUNCTIONS.keySet()))
-                throw new IllegalStateException("Capacity authority function manifest changed");
-            return Map.copyOf(result);
-        } catch (IOException failure) {
-            throw new IllegalStateException("Unable to inspect capacity authority migration", failure);
+        var result = new HashMap<String, String>();
+        for (String resource : Set.of(V1_RESOURCE, RESOURCE)) {
+            try (var input = BulkCapacityAuthorityMigrator.class.getClassLoader().getResourceAsStream(resource)) {
+                if (input == null) throw new IllegalStateException("Missing capacity authority migration");
+                var matcher = BODY.matcher(new String(input.readAllBytes(), StandardCharsets.UTF_8));
+                while (matcher.find()) {
+                    if (result.putIfAbsent(matcher.group(1), matcher.group(2)) != null)
+                        throw new IllegalStateException("Duplicate capacity authority function");
+                }
+            } catch (IOException failure) {
+                throw new IllegalStateException("Unable to inspect capacity authority migration", failure);
+            }
+        }
+        if (!result.keySet().equals(FUNCTIONS.keySet()))
+            throw new IllegalStateException("Capacity authority function manifest changed");
+        return Map.copyOf(result);
+    }
+
+    private static void assertV1LiveCatalog(Connection connection, String owner) throws SQLException {
+        BulkCapacityAuthorityCatalog.validateV1(connection, owner);
+        Map<String, String> bodies = expectedBodies();
+        for (var entry : v1Functions().entrySet()) {
+            try (var statement = connection.prepareStatement("""
+                    select prosrc from pg_catalog.pg_proc where oid=to_regprocedure(?)
+                    """)) {
+                statement.setString(1, SCHEMA + "." + entry.getKey() + "(" + entry.getValue() + ")");
+                try (var rows = statement.executeQuery()) {
+                    if (!rows.next() || !bodies.get(entry.getKey()).strip().equals(rows.getString(1).strip())
+                            || rows.next())
+                        throw new IllegalStateException("Capacity authority V1 function changed");
+                }
+            }
+        }
+        String installed = singleText(connection, """
+                select pg_catalog.obj_description(to_regnamespace('praxis_bulk_capacity'), 'pg_namespace')
+                """);
+        String actual = singleText(connection, catalogQuery(V1_RESOURCE));
+        if (installed == null || !installed.replace("praxis_bulk_capacity.", "")
+                .equals(actual.replace("praxis_bulk_capacity.", "")))
+            throw new IllegalStateException("Capacity authority V1 structural catalog changed");
+    }
+
+    private static void preflightV1RowsAndCallers(Connection connection, Identity identity,
+            RoleConfiguration roles) throws SQLException {
+        int identities = singleInt(connection,
+                "select count(*) from praxis_bulk_capacity.authority_identity");
+        if (identities == 1) {
+            try (var statement = connection.prepareStatement("""
+                    select deployment_id, environment, authority_id, authority_epoch
+                    from praxis_bulk_capacity.authority_identity
+                    """); var rows = statement.executeQuery()) {
+                if (!rows.next() || !identity.deploymentId().equals(rows.getString(1))
+                        || !identity.environment().equals(rows.getString(2))
+                        || !identity.authorityId().equals(rows.getObject(3, UUID.class))
+                        || identity.expectedAuthorityEpoch() != rows.getLong(4) || rows.next())
+                    throw new IllegalStateException("V1 authority identity differs before upgrade");
+            }
+            assertCallers(connection, roles);
+            return;
+        }
+        if (identities != 0)
+            throw new IllegalStateException("V1 authority identity is ambiguous");
+        for (String table : Set.of("deployment_capacity", "tenant_capacity", "capacity_binding",
+                "capacity_request", "capacity_token", "fairness_cursor")) {
+            if (singleInt(connection, "select count(*) from praxis_bulk_capacity." + table) != 0)
+                throw new IllegalStateException("Used V1 authority cannot bootstrap");
+        }
+        for (String login : Set.of(roles.provisionerLogin(), roles.allocatorLogin(), roles.readerLogin())) {
+            try (var statement = connection.prepareStatement("""
+                    select count(*) from pg_catalog.pg_roles
+                    where rolname=? and rolcanlogin and rolinherit and not rolsuper
+                      and not rolcreatedb and not rolcreaterole and not rolreplication and not rolbypassrls
+                    """)) {
+                statement.setString(1, login);
+                try (var rows = statement.executeQuery()) {
+                    if (!rows.next() || rows.getInt(1) != 1 || rows.next())
+                        throw new IllegalStateException("V1 caller login is not bounded");
+                }
+            }
+            try (var statement = connection.prepareStatement("""
+                    select count(*) from pg_catalog.pg_auth_members m
+                    join pg_catalog.pg_roles caller on caller.oid=m.member where caller.rolname=?
+                    """)) {
+                statement.setString(1, login);
+                try (var rows = statement.executeQuery()) {
+                    if (!rows.next() || rows.getInt(1) != 0 || rows.next())
+                        throw new IllegalStateException("V1 caller has premature role membership");
+                }
+            }
         }
     }
 
@@ -309,7 +421,7 @@ public final class BulkCapacityAuthorityMigrator {
         String installed = singleText(connection, """
                 select pg_catalog.obj_description(to_regnamespace('praxis_bulk_capacity'), 'pg_namespace')
                 """);
-        String actual = singleText(connection, catalogQuery());
+        String actual = singleText(connection, catalogQuery(RESOURCE));
         // pg_get_* qualifies this same schema according to the caller's search_path.
         // The independent source manifest above still checks actual OIDs and definitions.
         if (installed == null || !installed.replace("praxis_bulk_capacity.", "")
@@ -388,8 +500,8 @@ public final class BulkCapacityAuthorityMigrator {
         }
     }
 
-    private static String catalogQuery() {
-        try (var input = BulkCapacityAuthorityMigrator.class.getClassLoader().getResourceAsStream(RESOURCE)) {
+    private static String catalogQuery(String resource) {
+        try (var input = BulkCapacityAuthorityMigrator.class.getClassLoader().getResourceAsStream(resource)) {
             if (input == null) throw new IllegalStateException("Missing capacity authority migration");
             String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
             int start = sql.lastIndexOf("select pg_catalog.jsonb_build_object(");
@@ -450,6 +562,18 @@ public final class BulkCapacityAuthorityMigrator {
     static Set<String> tableNames() { return TABLES; }
     static Map<String, String> columns() { return COLUMNS; }
     static Map<String, String> functions() { return FUNCTIONS; }
+    static Map<String, String> v1Columns() {
+        var result = new HashMap<>(COLUMNS);
+        result.remove("binding_attestation");
+        return Map.copyOf(result);
+    }
+    static Map<String, String> v1Functions() {
+        var result = new HashMap<>(FUNCTIONS);
+        result.remove("register_attestation");
+        result.remove("read_attestation");
+        result.remove("read_issued_token");
+        return Map.copyOf(result);
+    }
 
     static void assertCallers(Connection connection, RoleConfiguration roles) throws SQLException {
         String database = singleText(connection, "select current_database()");
@@ -612,11 +736,17 @@ public final class BulkCapacityAuthorityMigrator {
     }
 
     private static Flyway flyway(DataSource source) {
-        return Flyway.configure().dataSource(source)
+        return flyway(source, null);
+    }
+
+    private static Flyway flyway(DataSource source, org.flywaydb.core.api.MigrationVersion target) {
+        var configuration = Flyway.configure().dataSource(source)
                 .locations("classpath:db/praxis-bulk-capacity-migrations")
                 .schemas(SCHEMA).defaultSchema(SCHEMA).table(HISTORY_TABLE)
                 .createSchemas(true).baselineOnMigrate(false).cleanDisabled(true)
-                .validateOnMigrate(true).load();
+                .validateOnMigrate(true);
+        if (target != null) configuration.target(target);
+        return configuration.load();
     }
 
     private static void assertDedicatedDatabase(DataSource source) {

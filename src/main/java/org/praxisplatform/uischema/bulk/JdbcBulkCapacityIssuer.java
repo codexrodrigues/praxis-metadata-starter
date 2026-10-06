@@ -75,6 +75,112 @@ final class JdbcBulkCapacityIssuer {
         }
     }
 
+    /** Immutable copy of the authority's registered physical binding; never caller supplied. */
+    public record Attestation(UUID attestationId, UUID databaseId, String bindingId,
+                              String deploymentId, String tenantId, String environment,
+                              long bindingGeneration, UUID authorityId, long authorityEpoch) {
+        public Attestation {
+            Objects.requireNonNull(attestationId, "attestationId");
+            Objects.requireNonNull(databaseId, "databaseId");
+            bindingId = BulkCapacityAuthorityMigrator.canonical(bindingId);
+            deploymentId = BulkCapacityAuthorityMigrator.canonical(deploymentId);
+            tenantId = BulkCapacityAuthorityMigrator.canonical(tenantId);
+            environment = BulkCapacityAuthorityMigrator.canonical(environment);
+            Objects.requireNonNull(authorityId, "authorityId");
+            if (bindingGeneration <= 0 || authorityEpoch <= 0)
+                throw new IllegalArgumentException("Invalid binding attestation");
+        }
+    }
+
+    /** Complete individual issued right read through the protected authority reader function. */
+    public record IssuedToken(UUID tokenId, UUID requestId, String deploymentId, String tenantId,
+                              String environment, String bindingId, long bindingGeneration,
+                              CapacityClass capacityClass, int ordinal, String payloadDigest,
+                              String tokenState, UUID databaseId, UUID attestationId,
+                              UUID authorityId, long authorityEpoch) {
+        public IssuedToken {
+            Objects.requireNonNull(tokenId, "tokenId");
+            Objects.requireNonNull(requestId, "requestId");
+            deploymentId = BulkCapacityAuthorityMigrator.canonical(deploymentId);
+            tenantId = BulkCapacityAuthorityMigrator.canonical(tenantId);
+            environment = BulkCapacityAuthorityMigrator.canonical(environment);
+            bindingId = BulkCapacityAuthorityMigrator.canonical(bindingId);
+            Objects.requireNonNull(capacityClass, "capacityClass");
+            Objects.requireNonNull(databaseId, "databaseId");
+            Objects.requireNonNull(attestationId, "attestationId");
+            Objects.requireNonNull(authorityId, "authorityId");
+            if (bindingGeneration <= 0 || ordinal <= 0 || authorityEpoch <= 0
+                    || payloadDigest == null || !payloadDigest.matches("sha256:[0-9a-f]{64}")
+                    || !"ISSUED".equals(tokenState))
+                throw new IllegalArgumentException("Invalid issued token snapshot");
+        }
+    }
+
+    /** Reader-only entry point used by installation; no allocator credential or caller proof. */
+    static final class CapacityReader {
+        private final BulkCapacityAuthorityInfrastructure reader;
+
+        CapacityReader(BulkCapacityAuthorityInfrastructure reader) {
+            this.reader = Objects.requireNonNull(reader, "reader");
+            if (reader.access() != BulkCapacityAuthorityInfrastructure.Access.READER)
+                throw new IllegalArgumentException("Issued rights require authority reader credentials");
+        }
+
+        BulkCapacityAuthorityMigrator.Identity identity() { return reader.identity(); }
+
+        Optional<Attestation> readAttestation(UUID attestationId) {
+            Objects.requireNonNull(attestationId, "attestationId");
+            return reader.withConnection(connection -> {
+                try (var statement = connection.prepareStatement(
+                        "select * from praxis_bulk_capacity.read_attestation(?)")) {
+                    statement.setObject(1, attestationId);
+                    try (var rows = statement.executeQuery()) {
+                        if (!rows.next()) return Optional.<Attestation>empty();
+                        Attestation result = new Attestation(rows.getObject("attestation_id", UUID.class),
+                                rows.getObject("database_id", UUID.class), rows.getString("binding_id"),
+                                rows.getString("deployment_id"), rows.getString("tenant_id"),
+                                rows.getString("environment"), rows.getLong("binding_generation"),
+                                rows.getObject("authority_id", UUID.class), rows.getLong("authority_epoch"));
+                        if (rows.next() || !identity().deploymentId().equals(result.deploymentId())
+                                || !identity().environment().equals(result.environment())
+                                || !identity().authorityId().equals(result.authorityId())
+                                || identity().expectedAuthorityEpoch() != result.authorityEpoch())
+                            throw new IllegalStateException("Authority attestation identity changed");
+                        return Optional.of(result);
+                    }
+                }
+            });
+        }
+
+        Optional<IssuedToken> readIssuedToken(UUID tokenId) {
+            Objects.requireNonNull(tokenId, "tokenId");
+            return reader.withConnection(connection -> {
+                try (var statement = connection.prepareStatement(
+                        "select * from praxis_bulk_capacity.read_issued_token(?)")) {
+                    statement.setObject(1, tokenId);
+                    try (var rows = statement.executeQuery()) {
+                        if (!rows.next()) return Optional.<IssuedToken>empty();
+                        IssuedToken result = new IssuedToken(rows.getObject("token_id", UUID.class),
+                                rows.getObject("request_id", UUID.class), rows.getString("deployment_id"),
+                                rows.getString("tenant_id"), rows.getString("environment"),
+                                rows.getString("binding_id"), rows.getLong("binding_generation"),
+                                CapacityClass.valueOf(rows.getString("capacity_class")),
+                                rows.getInt("token_ordinal"), rows.getString("payload_digest"),
+                                rows.getString("token_state"), rows.getObject("database_id", UUID.class),
+                                rows.getObject("attestation_id", UUID.class),
+                                rows.getObject("authority_id", UUID.class), rows.getLong("authority_epoch"));
+                        if (rows.next() || !identity().deploymentId().equals(result.deploymentId())
+                                || !identity().environment().equals(result.environment())
+                                || !identity().authorityId().equals(result.authorityId())
+                                || identity().expectedAuthorityEpoch() != result.authorityEpoch())
+                            throw new IllegalStateException("Issued token authority identity changed");
+                        return Optional.of(result);
+                    }
+                }
+            });
+        }
+    }
+
     private final BulkCapacityAuthorityInfrastructure allocator;
     private final BulkCapacityAuthorityInfrastructure reader;
 

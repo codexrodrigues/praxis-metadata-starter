@@ -9,6 +9,13 @@ The issuer, infrastructure and catalog helper remain package-private in this
 increment. Only the migrator exposes explicit provisioning. The later local
 acceptance bridge must define its safe consumer surface before host adoption.
 
+The separate [B5b.1b.A installation candidate](BULK-CAPACITY-INSTALLATION.md)
+extends this source with authority V2 and operational V18, protected local markers
+and owner-only installation. Its current 97-case evidence does not accept jobs,
+occupy execution slots or make either candidate part of rc.154. The issuer-only
+scope and 42-case historical proof below remain B5b.1a, rather than claims that
+no installation implementation can exist in a later source increment.
+
 ## Why capacity needs a separate authority
 
 A logical deployment can contain several tenants with separate operational
