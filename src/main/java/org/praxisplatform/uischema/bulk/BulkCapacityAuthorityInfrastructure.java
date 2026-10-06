@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.bulk;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -59,12 +60,14 @@ final class BulkCapacityAuthorityInfrastructure {
      */
     <T> T withConnection(ConnectionCallback<T> work) {
         Objects.requireNonNull(work, "work");
-        if (TransactionSynchronizationManager.isActualTransactionActive())
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isSynchronizationActive())
             throw new IllegalStateException("Capacity authority rejects an outer transaction");
         var transaction = new TransactionTemplate(transactionManager);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setReadOnly(access == Access.READER);
+        transaction.setTimeout(3);
         return transaction.execute(status -> jdbc.execute((ConnectionCallback<T>) connection -> {
             if (!TransactionSynchronizationManager.isActualTransactionActive()
                     || !TransactionSynchronizationManager.isSynchronizationActive()
@@ -73,6 +76,7 @@ final class BulkCapacityAuthorityInfrastructure {
                             DataSourceUtils.getTargetConnection(connection), dataSource)
                     || connection.isReadOnly() != (access == Access.READER))
                 throw new IllegalStateException("Capacity authority transaction is not bound to its JDBC connection");
+            BulkExecutionInfrastructure.constrainLifecycleTimeouts(connection);
             attest(connection);
             return work.doInConnection(connection);
         }));
@@ -92,6 +96,31 @@ final class BulkCapacityAuthorityInfrastructure {
                 statement.setString(2, tenant);
                 statement.setString(3, binding);
                 statement.setLong(4, generation);
+                statement.execute();
+            }
+            return null;
+        });
+    }
+
+    /** Registers one physical attestation after the local owner has committed its marker and witness. */
+    public void registerAttestation(String tenantId, String bindingId, long generation,
+                                    UUID databaseId, UUID attestationId) {
+        if (access != Access.PROVISIONER)
+            throw new IllegalStateException("Capacity attestation requires provisioner credentials");
+        String tenant = BulkCapacityAuthorityMigrator.canonical(tenantId);
+        String binding = BulkCapacityAuthorityMigrator.canonical(bindingId);
+        if (generation <= 0 || databaseId == null || attestationId == null)
+            throw new IllegalArgumentException("Capacity attestation identity is incomplete");
+        withConnection(connection -> {
+            try (var statement = connection.prepareStatement(
+                    "select praxis_bulk_capacity.register_attestation(?,?,?,?,?,?,?)")) {
+                statement.setString(1, identity.deploymentId());
+                statement.setString(2, tenant);
+                statement.setString(3, identity.environment());
+                statement.setString(4, binding);
+                statement.setLong(5, generation);
+                statement.setObject(6, databaseId);
+                statement.setObject(7, attestationId);
                 statement.execute();
             }
             return null;
@@ -144,13 +173,15 @@ final class BulkCapacityAuthorityInfrastructure {
                 "enroll_binding(text,text,text,bigint)",
                 "request_capacity(uuid,text,text,text,text,integer,text)",
                 "allocate_next(text,text)", "find_issue(uuid)",
+                "register_attestation(text,text,text,text,bigint,uuid,uuid)",
+                "read_attestation(uuid)", "read_issued_token(uuid)",
                 "assert_authority_identity(text,text,uuid,bigint)"
         };
         for (int index = 0; index < functions.length; index++) {
             boolean expected = switch (access) {
-                case PROVISIONER -> index == 0 || index == 4;
-                case ALLOCATOR -> index == 1 || index == 2 || index == 4;
-                case READER -> index == 3 || index == 4;
+                case PROVISIONER -> index == 0 || index == 4 || index == 7;
+                case ALLOCATOR -> index == 1 || index == 2 || index == 7;
+                case READER -> index == 3 || index == 5 || index == 6 || index == 7;
             };
             try (var statement = connection.prepareStatement(
                     "select has_function_privilege(current_user, ?, 'EXECUTE')")) {

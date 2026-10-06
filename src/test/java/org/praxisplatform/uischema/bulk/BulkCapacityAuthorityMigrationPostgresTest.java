@@ -42,15 +42,45 @@ class BulkCapacityAuthorityMigrationPostgresTest {
             var sql = new JdbcTemplate(owner);
             logins(sql);
 
-            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES)).isEqualTo(1);
+            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES)).isEqualTo(2);
             BulkCapacityAuthorityMigrator.validate(owner, IDENTITY, ROLES);
-            assertExactV1History(sql);
+            assertKnownAuthorityHistory(sql);
             var historyBefore = historySnapshot(sql);
             assertThat(sql.queryForObject("select to_regnamespace('praxis_bulk') is null", Boolean.class)).isTrue();
             assertThat(sql.queryForObject("select count(*) from " + SCHEMA + ".capacity_token", Integer.class)).isZero();
             assertThat(sql.queryForObject("select count(*) from " + SCHEMA + ".capacity_request", Integer.class)).isZero();
             assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES)).isZero();
             assertThat(historySnapshot(sql)).isEqualTo(historyBefore);
+        }
+    }
+
+    @Test
+    void v2SourceCatalogRejectsSameNamedWeakenedCheckAndRetargetedUniqueIndex() throws Exception {
+        try (var postgres = postgres()) {
+            var owner = postgres.getPostgresDatabase();
+            var sql = new JdbcTemplate(owner);
+            logins(sql);
+            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES)).isEqualTo(2);
+            sql.execute("alter table praxis_bulk_capacity.binding_attestation "
+                    + "drop constraint binding_attestation_generation_positive");
+            sql.execute("alter table praxis_bulk_capacity.binding_attestation "
+                    + "add constraint binding_attestation_generation_positive "
+                    + "check (binding_generation > 0 or true)");
+            assertThatThrownBy(() -> BulkCapacityAuthorityMigrator.validate(owner, IDENTITY, ROLES))
+                    .isInstanceOf(RuntimeException.class);
+            sql.execute("alter table praxis_bulk_capacity.binding_attestation "
+                    + "drop constraint binding_attestation_generation_positive");
+            sql.execute("alter table praxis_bulk_capacity.binding_attestation "
+                    + "add constraint binding_attestation_generation_positive check (binding_generation > 0)");
+            BulkCapacityAuthorityMigrator.validate(owner, IDENTITY, ROLES);
+            sql.execute("alter table praxis_bulk_capacity.binding_attestation "
+                    + "drop constraint binding_attestation_database_unique");
+            sql.execute("alter table praxis_bulk_capacity.binding_attestation "
+                    + "add constraint binding_attestation_database_unique unique (authority_id)");
+            assertThatThrownBy(() -> BulkCapacityAuthorityMigrator.validate(owner, IDENTITY, ROLES))
+                    .isInstanceOf(RuntimeException.class);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk_capacity.binding_attestation",
+                    Integer.class)).isZero();
         }
     }
 
@@ -84,7 +114,7 @@ class BulkCapacityAuthorityMigrationPostgresTest {
                     from pg_catalog.pg_database where datname=current_database()
                     """, String.class)).isEqualTo(RESTRICTED_OWNER);
 
-            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, roles)).isEqualTo(1);
+            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, roles)).isEqualTo(2);
             BulkCapacityAuthorityMigrator.validate(owner, IDENTITY, roles);
             assertThat(sql.queryForList("""
                     select n.nspname from pg_catalog.pg_namespace n
@@ -135,7 +165,7 @@ class BulkCapacityAuthorityMigrationPostgresTest {
                     postgres.getJdbcUrl(READER, RESTRICTED_DATABASE), READER, ""));
             assertThat(readerSql.queryForList("select * from " + SCHEMA + ".find_issue(?::uuid)",
                     UUID.randomUUID())).isEmpty();
-            assertExactV1History(sql);
+            assertKnownAuthorityHistory(sql);
             var historyBefore = historySnapshot(sql);
             var aclBefore = sql.queryForObject("""
                     select datacl::text from pg_catalog.pg_database where datname=current_database()
@@ -174,7 +204,7 @@ class BulkCapacityAuthorityMigrationPostgresTest {
                     .isInstanceOf(IllegalStateException.class);
             assertThat(sql.queryForObject("select to_regnamespace('praxis_bulk_capacity') is null", Boolean.class))
                     .isTrue();
-            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES)).isEqualTo(1);
+            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES)).isEqualTo(2);
             assertThatThrownBy(() -> transaction.execute(status -> {
                 BulkCapacityAuthorityMigrator.validate(owner, IDENTITY, ROLES);
                 return null;
@@ -236,7 +266,7 @@ class BulkCapacityAuthorityMigrationPostgresTest {
             sql.execute("create role " + PROVISIONER + " login");
             sql.execute("create role " + ALLOCATOR + " login");
             migrateV1Only(owner);
-            assertExactV1History(sql);
+            assertKnownAuthorityHistory(sql);
             var historyBefore = historySnapshot(sql);
             assertThatThrownBy(() -> BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES))
                     .isInstanceOf(RuntimeException.class);
@@ -251,17 +281,17 @@ class BulkCapacityAuthorityMigrationPostgresTest {
                     select pg_has_role(?, 'praxis_bulk_capacity_allocator', 'MEMBER')
                     """, Boolean.class, ALLOCATOR)).isFalse();
             sql.execute("create role " + READER + " login");
-            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES)).isZero();
+            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES)).isEqualTo(1);
             BulkCapacityAuthorityMigrator.validate(owner, IDENTITY, ROLES);
-            assertExactV1History(sql);
-            assertThat(historySnapshot(sql)).isEqualTo(historyBefore);
+            assertKnownAuthorityHistory(sql);
+            assertThat(historySnapshot(sql)).hasSize(historyBefore.size() + 1);
         }
         try (var postgres = postgres()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
             logins(sql);
             migrateV1Only(owner);
-            assertExactV1History(sql);
+            assertKnownAuthorityHistory(sql);
             var historyBefore = historySnapshot(sql);
             // The reader login must never inherit the allocator's function authority.
             sql.execute("grant praxis_bulk_capacity_allocator to " + READER);
@@ -292,13 +322,13 @@ class BulkCapacityAuthorityMigrationPostgresTest {
             assertThat(sql.queryForObject("""
                     select pg_has_role(?, 'praxis_bulk_capacity_reader', 'MEMBER')
                     """, Boolean.class, READER)).isFalse();
-            assertExactV1History(sql);
+            assertKnownAuthorityHistory(sql);
 
             sql.execute("revoke praxis_bulk_capacity_allocator from " + READER);
             assertThat(callerMemberships(sql)).isZero();
-            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES)).isZero();
+            assertThat(BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES)).isEqualTo(1);
             BulkCapacityAuthorityMigrator.validate(owner, IDENTITY, ROLES);
-            assertThat(historySnapshot(sql)).isEqualTo(historyBefore);
+            assertThat(historySnapshot(sql)).hasSize(historyBefore.size() + 1);
             assertThat(sql.queryForObject("select count(*) from " + SCHEMA + ".authority_identity",
                     Integer.class)).isEqualTo(1);
         }
@@ -326,7 +356,7 @@ class BulkCapacityAuthorityMigrationPostgresTest {
                     Integer.class)).isZero();
             assertThatThrownBy(() -> BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("Partially used");
+                    .hasMessageContaining("Used V1 authority cannot bootstrap");
             assertThat(sql.queryForObject("select count(*) from " + SCHEMA + ".authority_identity",
                     Integer.class)).isZero();
             assertThat(sql.queryForObject("select count(*) from " + SCHEMA + ".deployment_capacity",
@@ -401,7 +431,7 @@ class BulkCapacityAuthorityMigrationPostgresTest {
             var sql = new JdbcTemplate(owner);
             logins(sql);
             BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES);
-            assertExactV1History(sql);
+            assertKnownAuthorityHistory(sql);
             var historyBefore = historySnapshot(sql);
             sql.execute("""
                     create or replace function praxis_bulk_capacity.find_issue(p_request uuid)
@@ -430,7 +460,7 @@ class BulkCapacityAuthorityMigrationPostgresTest {
             var sql = new JdbcTemplate(owner);
             logins(sql);
             BulkCapacityAuthorityMigrator.migrate(owner, IDENTITY, ROLES);
-            assertExactV1History(sql);
+            assertKnownAuthorityHistory(sql);
             var historyBefore = historySnapshot(sql);
             switch (drift) {
                 case "check" -> {
@@ -667,17 +697,13 @@ class BulkCapacityAuthorityMigrationPostgresTest {
         return new DriverManagerDataSource(postgres.getJdbcUrl(role, "postgres"), role, "");
     }
 
-    private static void assertExactV1History(JdbcTemplate sql) {
-        // Flyway records schema creation separately from the sole SQL migration.
-        assertThat(sql.queryForList("select type from " + HISTORY + " order by installed_rank", String.class))
-                .containsExactly("SCHEMA", "SQL");
-        assertThat(sql.queryForList("select version from " + HISTORY + " order by installed_rank", String.class))
-                .containsExactly(null, "1");
-        assertThat(sql.queryForList("select version from " + HISTORY
-                + " where type='SQL' and success order by installed_rank", String.class))
-                .containsExactly("1");
+    private static void assertKnownAuthorityHistory(JdbcTemplate sql) {
+        // V1 remains an immutable historical row; V2 is a separate SQL migration.
+        var versions = sql.queryForList("select version from " + HISTORY
+                + " where type='SQL' and success order by installed_rank", String.class);
+        assertThat(versions).isEqualTo(versions.size() == 1 ? List.of("1") : List.of("1", "2"));
         assertThat(sql.queryForObject("select count(*) from " + HISTORY + " where success", Integer.class))
-                .isEqualTo(2);
+                .isEqualTo(versions.size() + 1);
     }
 
     private static List<Map<String, Object>> historySnapshot(JdbcTemplate sql) {
@@ -690,7 +716,7 @@ class BulkCapacityAuthorityMigrationPostgresTest {
                 .schemas(SCHEMA).defaultSchema(SCHEMA)
                 .table("praxis_bulk_capacity_schema_history")
                 .createSchemas(true).baselineOnMigrate(false).cleanDisabled(true)
-                .validateOnMigrate(true).load().migrate();
+                .validateOnMigrate(true).target("1").load().migrate();
     }
 
     private static Integer callerMemberships(JdbcTemplate owner) {
@@ -707,8 +733,8 @@ class BulkCapacityAuthorityMigrationPostgresTest {
 
     /** Reuses the exact V1 calculation only to forge its mutable database comment. */
     private static String liveCatalogManifest(JdbcTemplate owner) throws Exception {
-        Method query = BulkCapacityAuthorityMigrator.class.getDeclaredMethod("catalogQuery");
+        Method query = BulkCapacityAuthorityMigrator.class.getDeclaredMethod("catalogQuery", String.class);
         query.setAccessible(true);
-        return owner.queryForObject((String) query.invoke(null), String.class);
+        return owner.queryForObject((String) query.invoke(null, "db/praxis-bulk-capacity-migrations/V2__capacity_binding_attestation.sql"), String.class);
     }
 }

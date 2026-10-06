@@ -80,6 +80,16 @@ public final class BulkExecutionMigrator {
     private static final String SUBJECT_BUCKET_TABLE = "praxis_bulk_subject_bucket";
     private static final String ALLOCATION_TABLE = "praxis_bulk_allocation";
     private static final String TOMBSTONE_TABLE = "praxis_bulk_tombstone";
+    private static final String CAPACITY_READ_BOOTSTRAP_TABLE = "praxis_bulk_capacity_read_bootstrap";
+    private static final String CAPACITY_MARKER_TABLE = "praxis_bulk_capacity_marker";
+    private static final String CAPACITY_INSTALLATION_TABLE = "praxis_bulk_capacity_installation";
+    private static final Set<String> V18_FUNCTIONS = Set.of(
+            "protect_capacity_marker()", "reject_capacity_installation_mutation()",
+            "protect_capacity_read_bootstrap()");
+    private static final Set<String> V18_TRIGGERS = Set.of(
+            CAPACITY_READ_BOOTSTRAP_TABLE + ".praxis_bulk_capacity_read_bootstrap_protect",
+            CAPACITY_MARKER_TABLE + ".praxis_bulk_capacity_marker_protect",
+            CAPACITY_INSTALLATION_TABLE + ".praxis_bulk_capacity_installation_immutable");
     private static final Set<String> V5_TABLES = Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE,
             MANIFEST_TABLE, MANIFEST_BOOTSTRAP_TABLE, PREVIEW_STATE_TABLE,
             TARGET_PREVIEW_TABLE, PREVIEW_BOOTSTRAP_TABLE, PREVIEW_INTEGRITY_TABLE,
@@ -89,6 +99,8 @@ public final class BulkExecutionMigrator {
             OPERATION_CONTROL_TABLE, OPENAPI_PUBLICATION_TABLE, DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE,
             ALLOCATION_TABLE, TOMBSTONE_TABLE, ATOMIC_RECEIPT_TABLE, ATOMIC_ITEM_TABLE,
             ATOMIC_EFFECT_TABLE, ATOMIC_REJECTION_TABLE, ATOMIC_BOOTSTRAP_TABLE);
+    private static final Set<String> V18_TABLES = Set.of(
+            CAPACITY_READ_BOOTSTRAP_TABLE, CAPACITY_MARKER_TABLE, CAPACITY_INSTALLATION_TABLE);
     private static final Set<String> V5_INDEXES = Set.of(
             "praxis_bulk_allocation_pending_deployment_idx", "praxis_bulk_allocation_pending_subject_idx",
             "praxis_bulk_allocation_active_deployment_idx", "praxis_bulk_execution_retention_idx",
@@ -241,10 +253,80 @@ public final class BulkExecutionMigrator {
         List<BulkOperationControlIdentity> controlIdentities = canonicalControlIdentities(operations, deployments);
         BulkExecutionRoleConfiguration roleConfiguration = Objects.requireNonNull(roles, "roles");
         assertKnownDedicatedSchema(operationalDataSource);
+        int historyVersion;
+        try (Connection preflight = operationalDataSource.getConnection()) {
+            historyVersion = currentHistoryVersion(preflight);
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to preflight bulk V17 storage", failure);
+        }
+        if (historyVersion == 17) validateV17BeforeUpgrade(operationalDataSource, roleConfiguration);
         int migrationsExecuted = flyway(operationalDataSource).migrate().migrationsExecuted;
         initializeGovernedLifecycle(operationalDataSource, deployments, controlIdentities, roleConfiguration);
+        completeCapacityReadBootstrap(operationalDataSource, roleConfiguration);
         validate(operationalDataSource, roleConfiguration);
         return migrationsExecuted;
+    }
+
+    private static void completeCapacityReadBootstrap(DataSource source,
+            BulkExecutionRoleConfiguration roles) {
+        requireOutsideSpringTransaction();
+        var manager = new org.springframework.jdbc.datasource.DataSourceTransactionManager(source);
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(manager);
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        transaction.setTimeout(10);
+        transaction.execute(status -> new org.springframework.jdbc.core.JdbcTemplate(source).execute(
+                (org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+                    assertPostgreSql(connection);
+                    require(!connection.getAutoCommit(), "V18 capacity bootstrap requires an owner transaction");
+                    try (var statement = connection.createStatement();
+                            var rows = statement.executeQuery("select bootstrap_version, phase from praxis_bulk."
+                                    + CAPACITY_READ_BOOTSTRAP_TABLE + " where bootstrap_version=18 for update")) {
+                        require(rows.next() && rows.getInt(1) == 18, "V18 capacity bootstrap row is absent");
+                        String phase = rows.getString(2);
+                        require(!rows.next(), "V18 capacity bootstrap row is ambiguous");
+                        if ("COMPLETE".equals(phase)) {
+                            validateCapacityInstallationCatalog(connection, roles, "COMPLETE", true);
+                            return null;
+                        }
+                        require("PENDING".equals(phase), "V18 capacity bootstrap phase changed");
+                    }
+                    validateCapacityInstallationCatalog(connection, roles, "PENDING", false);
+                    require(queryCount(connection, "select count(*) from praxis_bulk."
+                                    + CAPACITY_MARKER_TABLE) == 0
+                                    && queryCount(connection, "select count(*) from praxis_bulk."
+                                    + CAPACITY_INSTALLATION_TABLE) == 0,
+                            "V18 pending capacity bootstrap already has a physical identity or right");
+                    String owner = roles.expectedSchemaOwnerRole();
+                    try (var statement = connection.createStatement();
+                            var rows = statement.executeQuery("select current_user")) {
+                        require(rows.next() && owner.equals(rows.getString(1)) && !rows.next(),
+                                "V18 bootstrap requires its explicit schema owner credential");
+                    }
+                    for (String role : new java.util.TreeSet<>(roles.runtimeGranteeRoles())) {
+                        String quoted = "\"" + role.replace("\"", "\"\"") + "\"";
+                        try (var statement = connection.createStatement()) {
+                            statement.execute("grant select on praxis_bulk." + CAPACITY_MARKER_TABLE
+                                    + ", praxis_bulk." + CAPACITY_INSTALLATION_TABLE + " to " + quoted);
+                        }
+                    }
+                    validateCapacityInstallationCatalog(connection, roles, "PENDING", true);
+                    try (var update = connection.prepareStatement("update praxis_bulk."
+                            + CAPACITY_READ_BOOTSTRAP_TABLE
+                            + " set phase='COMPLETE' where bootstrap_version=18 and phase='PENDING'")) {
+                        require(update.executeUpdate() == 1, "V18 capacity bootstrap completion lost");
+                    }
+                    validateCapacityInstallationCatalog(connection, roles, "COMPLETE", true);
+                    return null;
+                }));
+    }
+
+    private static int queryCount(Connection connection, String sql) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery(sql)) {
+            if (!rows.next()) throw new IllegalStateException("Capacity bootstrap count unavailable");
+            int result = rows.getInt(1);
+            if (rows.next()) throw new IllegalStateException("Capacity bootstrap count ambiguous");
+            return result;
+        }
     }
 
     private static List<BulkOperationControlIdentity> canonicalControlIdentities(
@@ -987,11 +1069,30 @@ public final class BulkExecutionMigrator {
 
     /** Validates storage against the exact role identities configured by the host. */
     public static void validate(DataSource dataSource, BulkExecutionRoleConfiguration roles) {
+        validateCurrent(dataSource, roles, false);
+    }
+
+    private static void validateV17BeforeUpgrade(DataSource dataSource,
+            BulkExecutionRoleConfiguration roles) {
+        validateCurrent(dataSource, roles, true);
+    }
+
+    private static void validateCurrent(DataSource dataSource, BulkExecutionRoleConfiguration roles,
+            boolean v17Preflight) {
         requireOutsideSpringTransaction();
         DataSource operationalDataSource = Objects.requireNonNull(dataSource, "dataSource");
         BulkExecutionRoleConfiguration roleConfiguration = Objects.requireNonNull(roles, "roles");
         assertKnownDedicatedSchema(operationalDataSource);
-        flyway(operationalDataSource).validate();
+        if (v17Preflight) {
+            Flyway.configure().dataSource(operationalDataSource)
+                    .locations("classpath:db/praxis-bulk-migrations")
+                    .schemas(SCHEMA).defaultSchema(SCHEMA).table(HISTORY_TABLE)
+                    .target(org.flywaydb.core.api.MigrationVersion.fromVersion("17"))
+                    .createSchemas(true).baselineOnMigrate(false).cleanDisabled(true)
+                    .validateOnMigrate(true).load().validate();
+        } else {
+            flyway(operationalDataSource).validate();
+        }
         try (Connection connection = operationalDataSource.getConnection()) {
             connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
             connection.setAutoCommit(false);
@@ -1003,6 +1104,12 @@ public final class BulkExecutionMigrator {
             try {
                 setCatalogSearchPath(connection, "pg_catalog");
                 assertPostgreSql(connection);
+                int historyVersion = currentHistoryVersion(connection);
+                boolean physicalV18 = isV18Installed(connection);
+                require((historyVersion == 18) == physicalV18,
+                        "V18 history and physical installation disagree");
+                if (v17Preflight) require(historyVersion == 17,
+                        "V17 preflight requires the exact historical version");
                 validateProposalTable(connection);
                 validateColumns(connection);
                 validatePrimaryKey(connection);
@@ -1034,6 +1141,8 @@ public final class BulkExecutionMigrator {
                 validateEvidenceBinding(connection);
                 validateAtomicRows(connection);
                 validateLifecycleRows(connection);
+                if (isV18Installed(connection))
+                    validateCapacityInstallationCatalog(connection, roleConfiguration);
                 validateOwnedSchema(connection);
             } finally {
                 setCatalogSearchPath(connection, previousSearchPath);
@@ -1062,6 +1171,42 @@ public final class BulkExecutionMigrator {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("Bulk storage migration must not run inside an active Spring transaction");
         }
+    }
+
+    private static int currentHistoryVersion(Connection connection) throws SQLException {
+        if (!schemaExists(connection)) return 0;
+        try (var statement = connection.prepareStatement("""
+                select max(version::integer) from praxis_bulk.praxis_bulk_schema_history
+                where success and version ~ '^[0-9]+$'
+                """); var rows = statement.executeQuery()) {
+            if (!rows.next()) return 0;
+            int version = rows.getInt(1);
+            if (rows.wasNull()) version = 0;
+            if (rows.next() || version > 18)
+                throw new IllegalStateException("Unsupported bulk schema history version");
+            return version;
+        }
+    }
+
+    /** Catalog-only physical discriminator: restricted runtime roles cannot read Flyway history. */
+    private static boolean isV18Installed(Connection connection) throws SQLException {
+        var found = new LinkedHashSet<String>();
+        try (var statement = connection.prepareStatement("""
+                select c.relname, c.relkind from pg_catalog.pg_class c
+                join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+                where n.nspname=? and c.relname = any (?::text[])
+                """)) {
+            statement.setString(1, SCHEMA);
+            statement.setArray(2, connection.createArrayOf("text", V18_TABLES.toArray()));
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    require("r".equals(rows.getString(2)), "V18 relation kind changed: " + rows.getString(1));
+                    require(found.add(rows.getString(1)), "V18 relation inventory is ambiguous");
+                }
+            }
+        }
+        require(found.isEmpty() || found.equals(V18_TABLES), "V18 physical installation is partial");
+        return !found.isEmpty();
     }
 
     private static void assertKnownDedicatedSchema(DataSource dataSource) {
@@ -1098,7 +1243,9 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_atomic_receipt', 'praxis_bulk_atomic_item_result',
                               'praxis_bulk_atomic_effect_ref', 'praxis_bulk_atomic_rejection',
                               'praxis_bulk_atomic_bootstrap',
-                              'praxis_bulk_tombstone'))
+                              'praxis_bulk_tombstone',
+                              'praxis_bulk_capacity_read_bootstrap',
+                              'praxis_bulk_capacity_marker', 'praxis_bulk_capacity_installation'))
                     """);
             Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
             Set<String> triggers = queryNames(connection, """
@@ -1113,12 +1260,12 @@ public final class BulkExecutionMigrator {
             if (relations.isEmpty() && functions.isEmpty() && types.isEmpty()
                     && orphanIndexes.isEmpty() && triggers.isEmpty() && rules.isEmpty() && policies.isEmpty()) return;
             if (!relations.contains(HISTORY_TABLE)
-                    || !allowedRelations().containsAll(relations)
-                    || !governedHistoricalFunctions().containsAll(functions)
+                    || !allowedRelations(isV18Installed(connection)).containsAll(relations)
+                    || !governedHistoricalFunctions(isV18Installed(connection)).containsAll(functions)
                     || !types.isEmpty()
                     || !orphanIndexes.isEmpty()
                     || !rules.isEmpty() || !policies.isEmpty()
-                    || !allowedTriggers().containsAll(triggers)) {
+                    || !allowedTriggers(isV18Installed(connection)).containsAll(triggers)) {
                 throw new IllegalStateException("Refusing an unknown nonempty praxis_bulk schema: relations="
                         + relations + ", functions=" + functions + ", types=" + types + ", indexes="
                         + orphanIndexes + ", triggers=" + triggers + ", rules=" + rules + ", policies=" + policies);
@@ -1128,25 +1275,27 @@ public final class BulkExecutionMigrator {
         }
     }
 
-    private static Set<String> allowedRelations() {
-        return Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, MANIFEST_TABLE,
+    private static Set<String> allowedRelations(boolean v18) {
+        var names = new LinkedHashSet<>(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, MANIFEST_TABLE,
                 MANIFEST_BOOTSTRAP_TABLE, PREVIEW_STATE_TABLE, TARGET_PREVIEW_TABLE,
                 PREVIEW_BOOTSTRAP_TABLE, PREVIEW_INTEGRITY_TABLE,
                 PREVIEW_INTEGRITY_BOOTSTRAP_TABLE, PREVIEW_READER_BOOTSTRAP_TABLE, EXECUTION_TABLE,
                 RECEIPT_TABLE, ADMISSION_TABLE, NAMESPACE_BINDING_TABLE, OPERATION_CONTROL_TABLE, OPENAPI_PUBLICATION_TABLE,
                 DEPLOYMENT_BUCKET_TABLE, SUBJECT_BUCKET_TABLE, ALLOCATION_TABLE, TOMBSTONE_TABLE,
                 ATOMIC_RECEIPT_TABLE, ATOMIC_ITEM_TABLE, ATOMIC_EFFECT_TABLE,
-                ATOMIC_REJECTION_TABLE, ATOMIC_BOOTSTRAP_TABLE);
+                ATOMIC_REJECTION_TABLE, ATOMIC_BOOTSTRAP_TABLE));
+        if (v18) names.addAll(V18_TABLES);
+        return names;
     }
 
     /** Recognition before Flyway only; never used by current exact catalog attestation. */
-    private static Set<String> governedHistoricalFunctions() {
-        var names = new LinkedHashSet<>(allowedFunctions());
+    private static Set<String> governedHistoricalFunctions(boolean v18) {
+        var names = new LinkedHashSet<>(allowedFunctions(v18));
         names.addAll(V6_FUNCTIONS);
         return names;
     }
 
-    private static Set<String> allowedFunctions() {
+    private static Set<String> allowedFunctions(boolean v18) {
         var names = new LinkedHashSet<>(V5_FUNCTIONS);
         names.addAll(V15_CONTROL_FUNCTIONS);
         names.addAll(V8_FUNCTIONS);
@@ -1156,6 +1305,7 @@ public final class BulkExecutionMigrator {
         names.addAll(V12_FUNCTIONS);
         names.addAll(V14_FUNCTIONS);
         names.addAll(V16_FUNCTIONS);
+        if (v18) names.addAll(V18_FUNCTIONS);
         names.addAll(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
                 BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
                 RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()", DESCRIPTOR_FUNCTION + "()",
@@ -1163,7 +1313,7 @@ public final class BulkExecutionMigrator {
         return names;
     }
 
-    private static Set<String> allowedTriggers() {
+    private static Set<String> allowedTriggers(boolean v18) {
         var names = new LinkedHashSet<>(V5_TRIGGERS);
         names.addAll(Set.of(PROPOSAL_TABLE + "." + REJECTION_TRIGGER,
                 EVALUATION_TABLE + "." + EVALUATION_REJECTION_TRIGGER,
@@ -1179,6 +1329,7 @@ public final class BulkExecutionMigrator {
         names.addAll(V10_TRIGGERS);
         names.addAll(V11_TRIGGERS);
         names.addAll(V16_TRIGGERS);
+        if (v18) names.addAll(V18_TRIGGERS);
         return names;
     }
 
@@ -1290,7 +1441,9 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_tombstone',
                               'praxis_bulk_atomic_receipt', 'praxis_bulk_atomic_item_result',
                               'praxis_bulk_atomic_effect_ref', 'praxis_bulk_atomic_rejection',
-                              'praxis_bulk_atomic_bootstrap'))
+                              'praxis_bulk_atomic_bootstrap',
+                              'praxis_bulk_capacity_read_bootstrap',
+                              'praxis_bulk_capacity_marker', 'praxis_bulk_capacity_installation'))
                 """);
         Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
         Set<String> triggers = queryNames(connection, """
@@ -1301,12 +1454,12 @@ public final class BulkExecutionMigrator {
                 """);
         Set<String> rules = userRules(connection);
         Set<String> policies = rowSecurityPolicies(connection);
-        require(relations.equals(allowedRelations())
-                        && functions.equals(allowedFunctions())
+        require(relations.equals(allowedRelations(isV18Installed(connection)))
+                        && functions.equals(allowedFunctions(isV18Installed(connection)))
                         && types.isEmpty()
                         && orphanIndexes.isEmpty()
                         && rules.isEmpty() && policies.isEmpty()
-                        && triggers.equals(allowedTriggers()),
+                        && triggers.equals(allowedTriggers(isV18Installed(connection))),
                 "protected bulk storage schema contains unexpected owned objects: indexes=" + orphanIndexes
                         + ", rules=" + rules + ", policies=" + policies);
     }
@@ -2306,7 +2459,7 @@ public final class BulkExecutionMigrator {
         try {
             validateConnectionIdentity(connection, configuration.runtimeGranteeRoles(), null);
             validateV5Functions(connection, configuration);
-            validateV5RolesAndPrivileges(connection, configuration);
+            validateV5RolesAndPrivileges(connection, configuration, true);
             validateDescriptorFenceCatalog(connection);
         } catch (SQLException failure) {
             throw new IllegalStateException("Unable to attest the live bulk runtime role", failure);
@@ -2324,7 +2477,7 @@ public final class BulkExecutionMigrator {
         try {
             validateConnectionIdentity(connection, configuration.controlPlaneGranteeRoles(), expected);
             validateV5Functions(connection, configuration);
-            validateV5RolesAndPrivileges(connection, configuration);
+            validateV5RolesAndPrivileges(connection, configuration, true);
             validateDescriptorFenceCatalog(connection);
         } catch (SQLException failure) {
             throw new IllegalStateException("Unable to attest the live bulk control-plane role", failure);
@@ -2810,6 +2963,376 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    private static String readV18Migration() {
+        try (InputStream input = BulkExecutionMigrator.class.getResourceAsStream(
+                "/db/praxis-bulk-migrations/V18__bulk_capacity_installation.sql")) {
+            require(input != null, "V18 capacity installation migration resource is missing");
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalStateException("Unable to read V18 capacity installation migration", failure);
+        }
+    }
+
+    /** Exact owner/runtime ACL and source-owned V18 structure, also checked on owner entry points. */
+    static void validateCapacityInstallationCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roles) throws SQLException {
+        validateCapacityInstallationCatalog(connection, roles, "COMPLETE", true);
+    }
+
+    private static String capacityReadBootstrapPhase(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement();
+                var rows = statement.executeQuery("select bootstrap_version, phase from praxis_bulk."
+                        + CAPACITY_READ_BOOTSTRAP_TABLE)) {
+            require(rows.next() && rows.getInt(1) == 18, "V18 capacity read bootstrap row is absent");
+            String phase = rows.getString(2);
+            require(("PENDING".equals(phase) || "COMPLETE".equals(phase)) && !rows.next(),
+                    "V18 capacity read bootstrap row changed");
+            return phase;
+        }
+    }
+
+    private static void validateCapacityInstallationCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roles, String expectedPhase, boolean expectedGrant)
+            throws SQLException {
+        require(isV18Installed(connection), "V18 capacity installation is not applied");
+        // During the atomic grant-before-COMPLETE interval the transaction sees the new ACL
+        // while the row still says PENDING. Final validation runs again after the phase CAS.
+        if (expectedGrant == "COMPLETE".equals(expectedPhase))
+            validateV5RolesAndPrivileges(connection, roles);
+        require(expectedPhase.equals(capacityReadBootstrapPhase(connection)),
+                "V18 capacity bootstrap has not completed its expected phase");
+        Map<String, String> bootstrapColumns = Map.of("bootstrap_version", "smallint", "phase", "text");
+        Map<String, String> markerColumns = Map.ofEntries(
+                Map.entry("marker_id", "smallint"), Map.entry("database_id", "uuid"),
+                Map.entry("deployment_id", "text"), Map.entry("tenant_id", "text"),
+                Map.entry("environment", "text"), Map.entry("binding_id", "text"),
+                Map.entry("binding_generation", "bigint"), Map.entry("attestation_id", "uuid"),
+                Map.entry("authority_id", "uuid"), Map.entry("authority_epoch", "bigint"),
+                Map.entry("state", "text"));
+        Map<String, String> installationColumns = Map.ofEntries(
+                Map.entry("token_id", "uuid"), Map.entry("marker_id", "smallint"),
+                Map.entry("database_id", "uuid"), Map.entry("deployment_id", "text"),
+                Map.entry("tenant_id", "text"), Map.entry("environment", "text"),
+                Map.entry("binding_id", "text"), Map.entry("binding_generation", "bigint"),
+                Map.entry("attestation_id", "uuid"), Map.entry("authority_id", "uuid"),
+                Map.entry("authority_epoch", "bigint"), Map.entry("request_id", "uuid"),
+                Map.entry("capacity_class", "text"), Map.entry("token_ordinal", "integer"),
+                Map.entry("payload_digest", "text"), Map.entry("token_state", "text"));
+        validateCapacityColumns(connection, CAPACITY_READ_BOOTSTRAP_TABLE, bootstrapColumns);
+        validateCapacityColumns(connection, CAPACITY_MARKER_TABLE, markerColumns);
+        validateCapacityColumns(connection, CAPACITY_INSTALLATION_TABLE, installationColumns);
+        for (String table : V18_TABLES) {
+            validateCapacityConstraints(connection, table);
+            validateCapacityIndexes(connection, table);
+        }
+        String source = readV18Migration();
+        for (String function : Set.of("protect_capacity_marker", "reject_capacity_installation_mutation",
+                "protect_capacity_read_bootstrap")) {
+            String expectedBody = normalizeExpression(extractFunctionBody(source, function, "V18"));
+            try (var statement = connection.prepareStatement("""
+                    select p.prosrc, p.prosecdef, p.provolatile, p.prokind, p.proparallel,
+                           p.proleakproof, p.proconfig = array['search_path=pg_catalog, pg_temp']::text[],
+                           pg_catalog.pg_get_userbyid(p.proowner), p.prorettype::regtype::text
+                    from pg_catalog.pg_proc p where p.oid=to_regprocedure(?)
+                    """)) {
+                statement.setString(1, SCHEMA + "." + function + "()");
+                try (var rows = statement.executeQuery()) {
+                    require(rows.next() && expectedBody.equals(normalizeExpression(rows.getString(1)))
+                                    && !rows.getBoolean(2) && "v".equals(rows.getString(3))
+                                    && "f".equals(rows.getString(4)) && "u".equals(rows.getString(5))
+                                    && !rows.getBoolean(6) && rows.getBoolean(7)
+                                    && roles.expectedSchemaOwnerRole().equals(rows.getString(8))
+                                    && "trigger".equals(rows.getString(9)) && !rows.next(),
+                            "V18 capacity function changed: " + function);
+                }
+            }
+            try (var statement = connection.prepareStatement("""
+                    select count(*) from pg_catalog.pg_proc p
+                    cross join lateral aclexplode(coalesce(p.proacl, acldefault('f',p.proowner))) acl
+                    where p.oid=to_regprocedure(?) and acl.grantee<>p.proowner
+                    """)) {
+                statement.setString(1, SCHEMA + "." + function + "()");
+                try (var rows = statement.executeQuery()) {
+                    require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+                            "V18 capacity trigger function access changed: " + function);
+                }
+            }
+        }
+        try (var statement = connection.prepareStatement("""
+                select c.relname, t.tgname, t.tgenabled, t.tgtype,
+                       p.proname, t.tgfoid,
+                       t.tgqual is null and t.tgnargs=0 and octet_length(t.tgargs)=0
+                           and t.tgattr::text='' and t.tgconstraint=0 as no_extra_trigger_policy
+                from pg_catalog.pg_trigger t
+                join pg_catalog.pg_class c on c.oid=t.tgrelid
+                join pg_catalog.pg_proc p on p.oid=t.tgfoid
+                where c.oid in (to_regclass(?),to_regclass(?),to_regclass(?)) and not t.tgisinternal
+                """)) {
+            statement.setString(1, SCHEMA + "." + CAPACITY_READ_BOOTSTRAP_TABLE);
+            statement.setString(2, SCHEMA + "." + CAPACITY_MARKER_TABLE);
+            statement.setString(3, SCHEMA + "." + CAPACITY_INSTALLATION_TABLE);
+            var seen = new LinkedHashSet<String>();
+            try (var expectedOid = connection.prepareStatement("select to_regprocedure(?)::oid");
+                    var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    String key = rows.getString(1) + "." + rows.getString(2);
+                    String expectedFunction = rows.getString(1).equals(CAPACITY_READ_BOOTSTRAP_TABLE)
+                            ? "protect_capacity_read_bootstrap"
+                            : rows.getString(1).equals(CAPACITY_MARKER_TABLE)
+                                    ? "protect_capacity_marker" : "reject_capacity_installation_mutation";
+                    expectedOid.setString(1, SCHEMA + "." + expectedFunction + "()");
+                    long functionOid;
+                    try (var function = expectedOid.executeQuery()) {
+                        require(function.next(), "V18 capacity trigger function is absent");
+                        functionOid = function.getLong(1);
+                        require(!function.wasNull() && !function.next(),
+                                "V18 capacity trigger function is ambiguous");
+                    }
+                    require(seen.add(key) && V18_TRIGGERS.contains(key)
+                                    && "O".equals(rows.getString(3)) && rows.getInt(4) == 27
+                                    && expectedFunction.equals(rows.getString(5))
+                                    && rows.getLong(6) == functionOid && rows.getBoolean(7),
+                            "V18 capacity trigger changed");
+                }
+            }
+            require(seen.equals(V18_TRIGGERS), "V18 capacity trigger inventory changed");
+        }
+        for (String role : roles.runtimeGranteeRoles())
+            require(tableRolePrivileges(connection, CAPACITY_READ_BOOTSTRAP_TABLE, role).isEmpty(),
+                    "V18 runtime must not read capacity bootstrap");
+        for (String role : roles.controlPlaneGranteeRoles())
+            require(tableRolePrivileges(connection, CAPACITY_READ_BOOTSTRAP_TABLE, role).isEmpty(),
+                    "V18 control plane must not read capacity bootstrap");
+        require(tableRolePrivileges(connection, CAPACITY_READ_BOOTSTRAP_TABLE, "PUBLIC").isEmpty()
+                        && tableRolePrivileges(connection, CAPACITY_READ_BOOTSTRAP_TABLE,
+                                "praxis_bulk_retention_owner").isEmpty()
+                        && tableRolePrivileges(connection, CAPACITY_READ_BOOTSTRAP_TABLE,
+                                "praxis_bulk_control_owner").isEmpty(),
+                "V18 capacity bootstrap privilege changed");
+        for (String table : V18_TABLES) {
+            if (CAPACITY_READ_BOOTSTRAP_TABLE.equals(table)) continue;
+            for (String role : roles.runtimeGranteeRoles())
+                require(tableRolePrivileges(connection, table, role).equals(
+                                expectedGrant ? Set.of("T:SELECT") : Set.of()),
+                        "V18 runtime capacity grant changed: " + table);
+            for (String role : roles.controlPlaneGranteeRoles())
+                require(tableRolePrivileges(connection, table, role).isEmpty(),
+                        "V18 control-plane capacity grant changed: " + table);
+            require(tableRolePrivileges(connection, table, "praxis_bulk_retention_owner").isEmpty()
+                            && tableRolePrivileges(connection, table, "praxis_bulk_control_owner").isEmpty(),
+                    "V18 internal capacity grant changed: " + table);
+        }
+    }
+
+    private static void validateCapacityColumns(Connection connection, String table,
+            Map<String, String> expected) throws SQLException {
+        var seen = new LinkedHashSet<String>();
+        try (var statement = connection.prepareStatement("""
+                select a.attname, pg_catalog.format_type(a.atttypid,a.atttypmod), a.attnotnull,
+                       pg_catalog.pg_get_expr(d.adbin,d.adrelid), a.attgenerated, a.attidentity
+                from pg_catalog.pg_attribute a
+                left join pg_catalog.pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
+                where a.attrelid=to_regclass(?) and a.attnum>0 and not a.attisdropped
+                """)) {
+            statement.setString(1, SCHEMA + "." + table);
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    String name = rows.getString(1);
+                    String value = rows.getString(4);
+                    boolean defaultOne = name.equals("marker_id");
+                    require(seen.add(name) && expected.get(name) != null
+                                    && expected.get(name).equals(rows.getString(2)) && rows.getBoolean(3)
+                                    && (defaultOne ? "1".equals(value) || "1::smallint".equals(value)
+                                            : value == null)
+                                    && "".equals(rows.getString(5)) && "".equals(rows.getString(6)),
+                            "V18 capacity column changed: " + table + "." + name);
+                }
+            }
+        }
+        require(seen.equals(expected.keySet()), "V18 capacity column inventory changed: " + table);
+    }
+
+    private record CapacityConstraint(String type, String definition, String key, String foreignKey,
+                                      String foreignTable, String updateAction, String deleteAction,
+                                      String matchType) { }
+
+    private static CapacityConstraint capacityKey(String type, String definition, String key) {
+        return new CapacityConstraint(type, definition, key, "-", "-", " ", " ", " ");
+    }
+
+    private static CapacityConstraint capacityCheck(String definition, String key) {
+        return capacityKey("c", definition, key);
+    }
+
+    private static CapacityConstraint capacityForeign(String definition, String key, String foreignKey) {
+        return new CapacityConstraint("f", definition, key, foreignKey, CAPACITY_MARKER_TABLE,
+                "a", "r", "s");
+    }
+
+    /** Fixed PG14 rendering of the reviewed V18 SQL; no live catalog supplies expectations. */
+    private static Map<String, CapacityConstraint> expectedCapacityConstraints(String table) {
+        return switch (table) {
+            case CAPACITY_READ_BOOTSTRAP_TABLE -> Map.of(
+                    "capacity_read_bootstrap_pkey", capacityKey("p", "PRIMARY KEY (bootstrap_version)", "1"),
+                    "capacity_read_bootstrap_version_check", capacityCheck(
+                            "CHECK ((bootstrap_version = 18))", "1"),
+                    "capacity_read_bootstrap_phase_check", capacityCheck(
+                            "CHECK ((phase = ANY (ARRAY['PENDING'::text, 'COMPLETE'::text])))", "2"));
+            case CAPACITY_MARKER_TABLE -> Map.ofEntries(
+                    Map.entry("capacity_marker_pkey", capacityKey("p", "PRIMARY KEY (marker_id)", "1")),
+                    Map.entry("capacity_marker_singleton", capacityCheck("CHECK ((marker_id = 1))", "1")),
+                    Map.entry("capacity_marker_database_unique", capacityKey("u", "UNIQUE (database_id)", "2")),
+                    Map.entry("capacity_marker_generation_positive", capacityCheck(
+                            "CHECK ((binding_generation > 0))", "7")),
+                    Map.entry("capacity_marker_attestation_unique", capacityKey("u", "UNIQUE (attestation_id)", "8")),
+                    Map.entry("capacity_marker_epoch_positive", capacityCheck("CHECK ((authority_epoch > 0))", "10")),
+                    Map.entry("capacity_marker_state_check", capacityCheck(
+                            "CHECK ((state = ANY (ARRAY['PROVISIONED'::text, 'ACTIVE'::text, 'FENCED'::text])))",
+                            "11")),
+                    Map.entry("capacity_marker_full_identity_unique", capacityKey("u",
+                            "UNIQUE (marker_id, database_id, deployment_id, tenant_id, environment, "
+                            + "binding_id, binding_generation, attestation_id, authority_id, authority_epoch)",
+                            "1 2 3 4 5 6 7 8 9 10")),
+                    Map.entry("capacity_marker_deployment_canonical", capacityCheck(
+                            "CHECK (((deployment_id <> ''::text) AND (deployment_id = btrim(deployment_id)) "
+                            + "AND (deployment_id !~ '[[:cntrl:]]'::text)))", "3")),
+                    Map.entry("capacity_marker_tenant_canonical", capacityCheck(
+                            "CHECK (((tenant_id <> ''::text) AND (tenant_id = btrim(tenant_id)) "
+                            + "AND (tenant_id !~ '[[:cntrl:]]'::text)))", "4")),
+                    Map.entry("capacity_marker_environment_canonical", capacityCheck(
+                            "CHECK (((environment <> ''::text) AND (environment = btrim(environment)) "
+                            + "AND (environment !~ '[[:cntrl:]]'::text)))", "5")),
+                    Map.entry("capacity_marker_binding_canonical", capacityCheck(
+                            "CHECK (((binding_id <> ''::text) AND (binding_id = btrim(binding_id)) "
+                            + "AND (binding_id !~ '[[:cntrl:]]'::text)))", "6")));
+            case CAPACITY_INSTALLATION_TABLE -> Map.ofEntries(
+                    Map.entry("capacity_installation_pkey", capacityKey("p", "PRIMARY KEY (token_id)", "1")),
+                    Map.entry("capacity_installation_singleton", capacityCheck("CHECK ((marker_id = 1))", "2")),
+                    Map.entry("capacity_installation_generation_positive", capacityCheck(
+                            "CHECK ((binding_generation > 0))", "8")),
+                    Map.entry("capacity_installation_epoch_positive", capacityCheck(
+                            "CHECK ((authority_epoch > 0))", "11")),
+                    Map.entry("capacity_installation_class_check", capacityCheck(
+                            "CHECK ((capacity_class = ANY (ARRAY['ACTIVE'::text, 'QUEUE'::text])))", "13")),
+                    Map.entry("capacity_installation_ordinal_positive", capacityCheck(
+                            "CHECK ((token_ordinal > 0))", "14")),
+                    Map.entry("capacity_installation_digest_check", capacityCheck(
+                            "CHECK ((payload_digest ~ '^sha256:[0-9a-f]{64}$'::text))", "15")),
+                    Map.entry("capacity_installation_token_state_check", capacityCheck(
+                            "CHECK ((token_state = 'ISSUED'::text))", "16")),
+                    Map.entry("capacity_installation_request_ordinal_unique", capacityKey("u",
+                            "UNIQUE (request_id, token_ordinal)", "12 14")),
+                    Map.entry("capacity_installation_marker_fk", capacityForeign(
+                            "FOREIGN KEY (marker_id, database_id, deployment_id, tenant_id, environment, "
+                            + "binding_id, binding_generation, attestation_id, authority_id, authority_epoch) "
+                            + "REFERENCES praxis_bulk_capacity_marker(marker_id, database_id, deployment_id, "
+                            + "tenant_id, environment, binding_id, binding_generation, attestation_id, "
+                            + "authority_id, authority_epoch) ON DELETE RESTRICT",
+                            "2 3 4 5 6 7 8 9 10 11", "1 2 3 4 5 6 7 8 9 10")));
+            default -> throw new IllegalArgumentException("Unknown V18 capacity table: " + table);
+        };
+    }
+
+    private static String capacityArrayKey(String value) {
+        return value == null ? "-" : value.replace("{", "").replace("}", "").replace(",", " ");
+    }
+
+    private static String capacityDefinition(String value) {
+        if (value == null) return "-";
+        // pg_get_constraintdef alone may qualify the referenced table under pg_catalog
+        // search_path. The FK OID and exact key arrays are checked separately below.
+        return normalizeExpression(value).replace("referencespraxis_bulk.", "references");
+    }
+
+    private static void validateCapacityConstraints(Connection connection, String table) throws SQLException {
+        Map<String, CapacityConstraint> expected = expectedCapacityConstraints(table);
+        var seen = new LinkedHashSet<String>();
+        try (var statement = connection.prepareStatement("""
+                select k.conname, pg_catalog.pg_get_constraintdef(k.oid,false), k.convalidated,
+                       k.condeferrable, k.condeferred, k.contype, k.conkey::text, k.confkey::text,
+                       case when k.confrelid=0 then '-' else k.confrelid::regclass::text end,
+                       k.confupdtype, k.confdeltype, k.confmatchtype
+                from pg_catalog.pg_constraint k where k.conrelid=to_regclass(?)
+                """)) {
+            statement.setString(1, SCHEMA + "." + table);
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    String name = rows.getString(1);
+                    CapacityConstraint source = expected.get(name);
+                    require(seen.add(name) && source != null
+                                    && capacityDefinition(source.definition()).equals(
+                                            capacityDefinition(rows.getString(2)))
+                                    && rows.getBoolean(3) && !rows.getBoolean(4) && !rows.getBoolean(5)
+                                    && source.type().equals(rows.getString(6))
+                                    && source.key().equals(capacityArrayKey(rows.getString(7)))
+                                    && source.foreignKey().equals(capacityArrayKey(rows.getString(8)))
+                                    && source.foreignTable().equals(
+                                            rows.getString(9).replace("praxis_bulk.", ""))
+                                    && source.updateAction().equals(rows.getString(10))
+                                    && source.deleteAction().equals(rows.getString(11))
+                                    && source.matchType().equals(rows.getString(12)),
+                            "V18 capacity constraint changed: " + table + "." + name);
+                }
+            }
+        }
+        require(seen.equals(expected.keySet()), "V18 capacity constraint inventory changed: " + table);
+    }
+
+    private record CapacityIndex(String columns, String key, boolean primary, int width) { }
+
+    private static Map<String, CapacityIndex> expectedCapacityIndexes(String table) {
+        return switch (table) {
+            case CAPACITY_READ_BOOTSTRAP_TABLE -> Map.of(
+                    "capacity_read_bootstrap_pkey", new CapacityIndex("bootstrap_version", "1", true, 1));
+            case CAPACITY_MARKER_TABLE -> Map.of(
+                    "capacity_marker_pkey", new CapacityIndex("marker_id", "1", true, 1),
+                    "capacity_marker_database_unique", new CapacityIndex("database_id", "2", false, 1),
+                    "capacity_marker_attestation_unique", new CapacityIndex("attestation_id", "8", false, 1),
+                    "capacity_marker_full_identity_unique", new CapacityIndex(
+                            "marker_id, database_id, deployment_id, tenant_id, environment, binding_id, "
+                            + "binding_generation, attestation_id, authority_id, authority_epoch",
+                            "1 2 3 4 5 6 7 8 9 10", false, 10));
+            case CAPACITY_INSTALLATION_TABLE -> Map.of(
+                    "capacity_installation_pkey", new CapacityIndex("token_id", "1", true, 1),
+                    "capacity_installation_request_ordinal_unique", new CapacityIndex(
+                            "request_id, token_ordinal", "12 14", false, 2));
+            default -> throw new IllegalArgumentException("Unknown V18 capacity table: " + table);
+        };
+    }
+
+    private static void validateCapacityIndexes(Connection connection, String table) throws SQLException {
+        Map<String, CapacityIndex> expected = expectedCapacityIndexes(table);
+        var seen = new LinkedHashSet<String>();
+        try (var statement = connection.prepareStatement("""
+                select i.relname, pg_catalog.pg_get_indexdef(i.oid), x.indkey::text,
+                       x.indisunique, x.indisprimary, x.indisvalid, x.indisready, x.indislive,
+                       pg_catalog.pg_get_expr(x.indpred,x.indrelid,false), x.indexprs is null,
+                       x.indnkeyatts, x.indnatts
+                from pg_catalog.pg_index x join pg_catalog.pg_class i on i.oid=x.indexrelid
+                where x.indrelid=to_regclass(?)
+                """)) {
+            statement.setString(1, SCHEMA + "." + table);
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    String name = rows.getString(1);
+                    CapacityIndex source = expected.get(name);
+                    require(seen.add(name) && source != null
+                                    && normalizeExpression(rows.getString(2)).equals(normalizeExpression(
+                                            "CREATE UNIQUE INDEX " + name + " ON praxis_bulk." + table
+                                                    + " USING btree (" + source.columns() + ")"))
+                                    && source.key().equals(capacityArrayKey(rows.getString(3)))
+                                    && rows.getBoolean(4) && rows.getBoolean(5) == source.primary()
+                                    && rows.getBoolean(6) && rows.getBoolean(7) && rows.getBoolean(8)
+                                    && rows.getString(9) == null && rows.getBoolean(10)
+                                    && rows.getInt(11) == source.width()
+                                    && rows.getInt(12) == source.width(),
+                            "V18 capacity index changed: " + table + "." + name);
+                }
+            }
+        }
+        require(seen.equals(expected.keySet()), "V18 capacity index inventory changed: " + table);
+    }
+
     private static MigrationExpectations migrationExpectations() {
         MigrationExpectations cached = migrationExpectations;
         if (cached != null) return cached;
@@ -2983,6 +3506,7 @@ public final class BulkExecutionMigrator {
             functionKeys.addAll(V12_FUNCTIONS);
             functionKeys.addAll(V14_FUNCTIONS);
             functionKeys.addAll(V16_FUNCTIONS);
+            if (isV18Installed(connection)) functionKeys.addAll(V18_FUNCTIONS);
             statement.setArray(2, connection.createArrayOf("text", functionKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
@@ -2997,6 +3521,11 @@ public final class BulkExecutionMigrator {
 
     private static void validateV5RolesAndPrivileges(Connection connection,
             BulkExecutionRoleConfiguration roleConfiguration) throws SQLException {
+        validateV5RolesAndPrivileges(connection, roleConfiguration, false);
+    }
+
+    private static void validateV5RolesAndPrivileges(Connection connection,
+            BulkExecutionRoleConfiguration roleConfiguration, boolean liveCaller) throws SQLException {
         validateConfiguredRoles(connection, roleConfiguration);
         validateConfiguredRoleInheritance(connection, roleConfiguration);
         validateSchemaAndTableOwners(connection, roleConfiguration.expectedSchemaOwnerRole());
@@ -3048,7 +3577,7 @@ public final class BulkExecutionMigrator {
         }
         require(actualSchema.equals(expectedSchema), "bulk retention schema grants differ");
 
-        Map<String, Set<String>> expectedOwner = Map.ofEntries(
+        Map<String, Set<String>> expectedOwner = new LinkedHashMap<>(Map.ofEntries(
                 Map.entry(NAMESPACE_BINDING_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
                 Map.entry(OPENAPI_PUBLICATION_TABLE, Set.of()),
                 Map.entry(OPERATION_CONTROL_TABLE, Set.of()),
@@ -3069,7 +3598,12 @@ public final class BulkExecutionMigrator {
                 Map.entry(ATOMIC_REJECTION_TABLE, Set.of("T:SELECT", "T:DELETE")),
                 Map.entry(ALLOCATION_TABLE, Set.of("T:SELECT", "T:DELETE", "C:state:UPDATE",
                         "C:released_at:UPDATE", "C:release_reason:UPDATE")),
-                Map.entry(TOMBSTONE_TABLE, Set.of("T:SELECT", "T:INSERT")));
+                Map.entry(TOMBSTONE_TABLE, Set.of("T:SELECT", "T:INSERT"))));
+        if (isV18Installed(connection)) {
+            expectedOwner.put(CAPACITY_READ_BOOTSTRAP_TABLE, Set.of());
+            expectedOwner.put(CAPACITY_MARKER_TABLE, Set.of());
+            expectedOwner.put(CAPACITY_INSTALLATION_TABLE, Set.of());
+        }
         for (var entry : expectedOwner.entrySet()) {
             Set<String> actual = tableRolePrivileges(connection, entry.getKey(),
                     "praxis_bulk_retention_owner");
@@ -3113,7 +3647,7 @@ public final class BulkExecutionMigrator {
                 require(tableRolePrivileges(connection, table, role).equals(Set.of("T:SELECT", "T:INSERT")),
                         "bulk runtime preview grants differ: " + role + " " + table);
         }
-        validateRuntimeTablePrivileges(connection, roleConfiguration.runtimeGranteeRoles());
+        validateRuntimeTablePrivileges(connection, roleConfiguration.runtimeGranteeRoles(), liveCaller);
         validateRuntimeRoleMemberships(connection, roleConfiguration.runtimeGranteeRoles());
         validateConfiguredRoleMembershipClosure(connection, roleConfiguration.controlPlaneGranteeRoles(),
                 roleConfiguration.controlPlaneGranteeRoles(),
@@ -3185,6 +3719,8 @@ public final class BulkExecutionMigrator {
 
     private static void validateSchemaAndTableOwners(Connection connection, String expectedOwner)
             throws SQLException {
+        var expectedTables = new LinkedHashSet<>(V5_TABLES);
+        if (isV18Installed(connection)) expectedTables.addAll(V18_TABLES);
         try (var statement = connection.prepareStatement("""
                 select r.rolname from pg_namespace n join pg_roles r on r.oid=n.nspowner
                 where n.nspname=?
@@ -3202,7 +3738,7 @@ public final class BulkExecutionMigrator {
                 where n.nspname=? and c.relname = any (?::text[])
                 """)) {
             statement.setString(1, SCHEMA);
-            statement.setArray(2, connection.createArrayOf("text", V5_TABLES.toArray()));
+            statement.setArray(2, connection.createArrayOf("text", expectedTables.toArray()));
             try (var rows = statement.executeQuery()) {
                 var found = new LinkedHashSet<String>();
                 while (rows.next()) {
@@ -3210,7 +3746,7 @@ public final class BulkExecutionMigrator {
                     require(expectedOwner.equals(rows.getString(2)),
                             "bulk table owner differs from explicit migration owner: " + rows.getString(1));
                 }
-                require(found.equals(V5_TABLES), "bulk table ownership inventory differs");
+                require(found.equals(expectedTables), "bulk table ownership inventory differs");
             }
         }
         validateNoOwnerMembership(connection, expectedOwner);
@@ -3248,9 +3784,10 @@ public final class BulkExecutionMigrator {
         }
     }
 
-    private static void validateRuntimeTablePrivileges(Connection connection, Set<String> runtimeRoles)
+    private static void validateRuntimeTablePrivileges(Connection connection, Set<String> runtimeRoles,
+            boolean liveCaller)
             throws SQLException {
-        Map<String, Set<String>> allowedByTable = Map.ofEntries(
+        Map<String, Set<String>> allowedByTable = new LinkedHashMap<>(Map.ofEntries(
                 Map.entry(NAMESPACE_BINDING_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
                 Map.entry(OPERATION_CONTROL_TABLE, Set.of()),
                 Map.entry(OPENAPI_PUBLICATION_TABLE, Set.of()),
@@ -3276,7 +3813,23 @@ public final class BulkExecutionMigrator {
                 Map.entry(ATOMIC_BOOTSTRAP_TABLE, Set.of()),
                 Map.entry(ALLOCATION_TABLE, Set.of("T:SELECT", "T:INSERT", "C:state:UPDATE",
                         "C:released_at:UPDATE", "C:release_reason:UPDATE")),
-                Map.entry(TOMBSTONE_TABLE, Set.of("T:SELECT")));
+                Map.entry(TOMBSTONE_TABLE, Set.of("T:SELECT"))));
+        if (isV18Installed(connection)) {
+            allowedByTable.put(CAPACITY_READ_BOOTSTRAP_TABLE, Set.of());
+            // The owner validates the durable PENDING/COMPLETE row. Restricted callers cannot
+            // read it; on their live path, exact committed read grants are mandatory instead.
+            boolean complete = liveCaller || "COMPLETE".equals(capacityReadBootstrapPhase(connection));
+            allowedByTable.put(CAPACITY_MARKER_TABLE, complete ? Set.of("T:SELECT") : Set.of());
+            allowedByTable.put(CAPACITY_INSTALLATION_TABLE, complete ? Set.of("T:SELECT") : Set.of());
+            if (liveCaller) for (String role : runtimeRoles) {
+                require(tableRolePrivileges(connection, CAPACITY_MARKER_TABLE, role)
+                                .equals(Set.of("T:SELECT")),
+                        "live runtime capacity marker read grant is absent");
+                require(tableRolePrivileges(connection, CAPACITY_INSTALLATION_TABLE, role)
+                                .equals(Set.of("T:SELECT")),
+                        "live runtime capacity installation read grant is absent");
+            }
+        }
         try (var statement = connection.prepareStatement("""
                 select c.relname, coalesce(r.rolname, 'PUBLIC'), acl.privilege_type,
                        acl.is_grantable, 'T'::text as grant_scope, null::text as column_name,

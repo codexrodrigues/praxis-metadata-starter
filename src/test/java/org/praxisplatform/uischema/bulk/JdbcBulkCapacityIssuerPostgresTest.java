@@ -71,7 +71,7 @@ class JdbcBulkCapacityIssuerPostgresTest {
         admin.execute("drop schema if exists praxis_bulk_capacity cascade");
         identity = new BulkCapacityAuthorityMigrator.Identity(
                 DEPLOYMENT, "test", UUID.randomUUID(), 7);
-        assertThat(BulkCapacityAuthorityMigrator.migrate(owner, identity, roles)).isEqualTo(1);
+        assertThat(BulkCapacityAuthorityMigrator.migrate(owner, identity, roles)).isEqualTo(2);
         provisioner = infrastructure(provisionerSource, BulkCapacityAuthorityInfrastructure.Access.PROVISIONER);
         allocator = infrastructure(allocatorSource, BulkCapacityAuthorityInfrastructure.Access.ALLOCATOR);
         reader = infrastructure(readerSource, BulkCapacityAuthorityInfrastructure.Access.READER);

@@ -89,6 +89,13 @@ final class BulkPostgresTestSupport {
                 admin.execute("grant select, insert on praxis_bulk." + table + " to " + runtimeRole);
             }
         }
+        // V18 installation is owner-written; runtime can inspect only its marker and installed rights.
+        for (String table : Set.of("praxis_bulk_capacity_marker", "praxis_bulk_capacity_installation")) {
+            if (Boolean.TRUE.equals(admin.queryForObject(
+                    "select to_regclass(?) is not null", Boolean.class, "praxis_bulk." + table))) {
+                admin.execute("grant select on praxis_bulk." + table + " to " + runtimeRole);
+            }
+        }
         admin.execute("grant select, insert, update (state, released_at, release_reason) "
                 + "on praxis_bulk.praxis_bulk_allocation to " + runtimeRole);
         admin.execute("grant select on praxis_bulk.praxis_bulk_tombstone to " + runtimeRole);

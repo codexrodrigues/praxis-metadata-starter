@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/** Source-owned V1 catalog rules. The database's own photograph is supplementary only. */
+/** Source-owned authority catalog rules. Database photographs are supplementary only. */
 final class BulkCapacityAuthorityCatalog {
     // PG14 V1 source-owned exact structural tuples; the database COMMENT is never an expected value.
     private static final Set<String> EXPECTED_CONSTRAINTS = Set.of("""
@@ -77,6 +77,14 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
     private BulkCapacityAuthorityCatalog() { }
 
     static void validate(Connection connection, String owner) throws SQLException {
+        validate(connection, owner, true);
+    }
+
+    static void validateV1(Connection connection, String owner) throws SQLException {
+        validate(connection, owner, false);
+    }
+
+    private static void validate(Connection connection, String owner, boolean v2) throws SQLException {
         owner = BulkCapacityAuthorityMigrator.canonical(owner);
         try (var statement = connection.prepareStatement("""
                 select pg_catalog.pg_get_userbyid(nspowner)
@@ -94,7 +102,8 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                     || rows.getBoolean(3) || rows.next())
                 throw new IllegalStateException("Capacity authority history owner changed");
         }
-        for (var entry : BulkCapacityAuthorityMigrator.columns().entrySet()) {
+        for (var entry : (v2 ? BulkCapacityAuthorityMigrator.columns()
+                : BulkCapacityAuthorityMigrator.v1Columns()).entrySet()) {
             String table = entry.getKey();
             String[] expected = entry.getValue().split(",");
             try (var statement = connection.prepareStatement("""
@@ -140,14 +149,14 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
             if (!rows.next() || rows.getInt(1) != 0)
                 throw new IllegalStateException("Capacity authority FK trigger was disabled");
         }
-        assertStructuralTuples(connection);
-        var functions = Map.of(
+        assertStructuralTuples(connection, v2);
+        var functions = new java.util.HashMap<>(Map.of(
                 "enroll_binding", "plpgsql:v:void:false",
                 "request_capacity", "plpgsql:v:void:false",
                 "allocate_next", "plpgsql:v:record:true",
                 "find_issue", "sql:s:record:true",
-                "assert_authority_identity", "sql:s:boolean:false");
-        var results = Map.of(
+                "assert_authority_identity", "sql:s:boolean:false"));
+        var results = new java.util.HashMap<>(Map.of(
                 "enroll_binding", "void", "request_capacity", "void",
                 "assert_authority_identity", "boolean",
                 "allocate_next", "TABLE(token_id uuid, request_id uuid, deployment_id text,"
@@ -155,8 +164,22 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                         + " capacity_class text, binding_generation bigint, token_ordinal integer)",
                 "find_issue", "TABLE(found boolean, deployment_id text, tenant_id text, binding_id text,"
                         + " capacity_class text, requested_count integer, issued_count integer,"
-                        + " payload_digest text, token_ids uuid[])");
-        for (var entry : BulkCapacityAuthorityMigrator.functions().entrySet()) {
+                        + " payload_digest text, token_ids uuid[])"));
+        if (v2) {
+            functions.put("register_attestation", "plpgsql:v:void:false");
+            functions.put("read_attestation", "sql:s:record:true");
+            functions.put("read_issued_token", "sql:s:record:true");
+            results.put("register_attestation", "void");
+            results.put("read_attestation", "TABLE(attestation_id uuid, database_id uuid, binding_id text,"
+                    + " deployment_id text, tenant_id text, environment text, binding_generation bigint,"
+                    + " authority_id uuid, authority_epoch bigint)");
+            results.put("read_issued_token", "TABLE(token_id uuid, request_id uuid, deployment_id text,"
+                    + " tenant_id text, environment text, binding_id text, binding_generation bigint,"
+                    + " capacity_class text, token_ordinal integer, payload_digest text, token_state text,"
+                    + " database_id uuid, attestation_id uuid, authority_id uuid, authority_epoch bigint)");
+        }
+        for (var entry : (v2 ? BulkCapacityAuthorityMigrator.functions()
+                : BulkCapacityAuthorityMigrator.v1Functions()).entrySet()) {
             try (var statement = connection.prepareStatement("""
                     select l.lanname, p.provolatile, p.prorettype::regtype::text, p.proretset,
                            p.proisstrict, p.prosecdef,
@@ -182,11 +205,11 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 }
             }
         }
-        validateAcls(connection, owner);
+        validateAcls(connection, owner, v2);
         // The source-owned sets above and below are primary; V1's catalog photograph adds a drift witness.
     }
 
-    private static void validateAcls(Connection connection, String owner) throws SQLException {
+    private static void validateAcls(Connection connection, String owner, boolean v2) throws SQLException {
         var schemaExpected = Set.of("praxis_bulk_capacity_definer|USAGE",
                 "praxis_bulk_capacity_provisioner|USAGE", "praxis_bulk_capacity_allocator|USAGE",
                 "praxis_bulk_capacity_reader|USAGE");
@@ -198,11 +221,16 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 where n.nspname='praxis_bulk_capacity' and a.grantee<>n.nspowner
                 """, schemaExpected, "schema", owner);
         var relationExpected = new HashSet<String>();
-        for (String table : BulkCapacityAuthorityMigrator.tableNames())
+        for (String table : v2 ? BulkCapacityAuthorityMigrator.tableNames()
+                : BulkCapacityAuthorityMigrator.v1Columns().keySet())
             relationExpected.add(table + "|praxis_bulk_capacity_definer|SELECT");
         for (String table : Set.of("tenant_capacity", "capacity_binding", "capacity_request",
                 "capacity_token", "fairness_cursor"))
             relationExpected.add(table + "|praxis_bulk_capacity_definer|INSERT");
+        if (v2) {
+            relationExpected.add("binding_attestation|praxis_bulk_capacity_definer|SELECT");
+            relationExpected.add("binding_attestation|praxis_bulk_capacity_definer|INSERT");
+        }
         assertNamedAcl(connection, """
                 select c.relname, pg_catalog.pg_get_userbyid(a.grantee), a.privilege_type,
                        a.is_grantable, pg_catalog.pg_get_userbyid(a.grantor)
@@ -231,14 +259,20 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 where n.nspname='praxis_bulk_capacity' and c.relkind in ('r','p')
                   and a.attnum>0 and x.grantee<>c.relowner
                 """, columnExpected, "column", owner);
-        var functionExpected = Set.of(
+        var functionExpected = new HashSet<>(Set.of(
                 "enroll_binding(text,text,text,bigint)|praxis_bulk_capacity_provisioner|EXECUTE",
                 "request_capacity(uuid,text,text,text,text,integer,text)|praxis_bulk_capacity_allocator|EXECUTE",
                 "allocate_next(text,text)|praxis_bulk_capacity_allocator|EXECUTE",
                 "find_issue(uuid)|praxis_bulk_capacity_reader|EXECUTE",
                 "assert_authority_identity(text,text,uuid,bigint)|praxis_bulk_capacity_provisioner|EXECUTE",
                 "assert_authority_identity(text,text,uuid,bigint)|praxis_bulk_capacity_allocator|EXECUTE",
-                "assert_authority_identity(text,text,uuid,bigint)|praxis_bulk_capacity_reader|EXECUTE");
+                "assert_authority_identity(text,text,uuid,bigint)|praxis_bulk_capacity_reader|EXECUTE"));
+        if (v2) {
+            functionExpected.add("register_attestation(text,text,text,text,bigint,uuid,uuid)"
+                    + "|praxis_bulk_capacity_provisioner|EXECUTE");
+            functionExpected.add("read_attestation(uuid)|praxis_bulk_capacity_reader|EXECUTE");
+            functionExpected.add("read_issued_token(uuid)|praxis_bulk_capacity_reader|EXECUTE");
+        }
         assertNamedAcl(connection, """
                 select p.oid::regprocedure::text, pg_catalog.pg_get_userbyid(a.grantee), a.privilege_type,
                        a.is_grantable, pg_catalog.pg_get_userbyid(a.grantor)
@@ -279,7 +313,7 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
             throw new IllegalStateException("Capacity authority " + surface + " ACL changed");
     }
 
-    private static void assertStructuralTuples(Connection connection) throws SQLException {
+    private static void assertStructuralTuples(Connection connection, boolean v2) throws SQLException {
         var constraints = new HashSet<String>();
         try (var statement = connection.prepareStatement("""
                 select c.relname, k.conname, k.contype,
@@ -290,7 +324,7 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 from pg_catalog.pg_constraint k
                 join pg_catalog.pg_class c on c.oid=k.conrelid
                 join pg_catalog.pg_namespace n on n.oid=c.relnamespace
-                where n.nspname='praxis_bulk_capacity'
+                where n.nspname='praxis_bulk_capacity' and c.relname<>'binding_attestation'
                 """); var rows = statement.executeQuery()) {
             while (rows.next()) {
                 String tuple = structuralTuple(rows, 12);
@@ -309,7 +343,7 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 join pg_catalog.pg_class c on c.oid=x.indrelid
                 join pg_catalog.pg_class i on i.oid=x.indexrelid
                 join pg_catalog.pg_namespace n on n.oid=c.relnamespace
-                where n.nspname='praxis_bulk_capacity'
+                where n.nspname='praxis_bulk_capacity' and c.relname<>'binding_attestation'
                 """); var rows = statement.executeQuery()) {
             while (rows.next()) {
                 String tuple = structuralTuple(rows, 9);
@@ -319,6 +353,7 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
         }
         if (!indexes.equals(EXPECTED_INDEXES))
             throw new IllegalStateException("Capacity authority index manifest changed");
+        if (v2) assertV2AttestationStructure(connection);
     }
 
     private static String structuralTuple(java.sql.ResultSet rows, int size) throws SQLException {
@@ -328,6 +363,134 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
             parts[index - 1] = value == null ? "-" : value.replace("praxis_bulk_capacity.", "").strip();
         }
         return String.join("|", parts);
+    }
+
+    private static void assertV2AttestationStructure(Connection connection) throws SQLException {
+        var expected = Map.ofEntries(
+                Map.entry("binding_attestation_pkey", new V2Constraint("p", "PRIMARY KEY (attestation_id)",
+                        "1", "-", "-", " ")),
+                Map.entry("binding_attestation_database_unique", new V2Constraint("u", "UNIQUE (database_id)",
+                        "2", "-", "-", " ")),
+                Map.entry("binding_attestation_binding_unique", new V2Constraint("u", "UNIQUE (binding_id)",
+                        "3", "-", "-", " ")),
+                Map.entry("binding_attestation_generation_positive", new V2Constraint("c",
+                        "CHECK ((binding_generation > 0))", "7", "-", "-", " ")),
+                Map.entry("binding_attestation_epoch_positive", new V2Constraint("c",
+                        "CHECK ((authority_epoch > 0))", "9", "-", "-", " ")),
+                Map.entry("binding_attestation_binding_fk", new V2Constraint("f",
+                        "FOREIGN KEY (binding_id, deployment_id, tenant_id) REFERENCES "
+                        + "praxis_bulk_capacity.capacity_binding(binding_id, deployment_id, tenant_id) "
+                        + "ON DELETE RESTRICT", "3 4 5", "1 2 3", "capacity_binding", "r")),
+                Map.entry("binding_attestation_identity_fk", new V2Constraint("f",
+                        "FOREIGN KEY (deployment_id, environment) REFERENCES "
+                        + "praxis_bulk_capacity.authority_identity(deployment_id, environment) "
+                        + "ON DELETE RESTRICT", "4 6", "1 2", "authority_identity", "r")),
+                Map.entry("binding_attestation_binding_canonical", new V2Constraint("c",
+                        "CHECK (((binding_id <> ''::text) AND (binding_id = btrim(binding_id)) "
+                        + "AND (binding_id !~ '[[:cntrl:]]'::text)))", "3", "-", "-", " ")),
+                Map.entry("binding_attestation_deployment_canonical", new V2Constraint("c",
+                        "CHECK (((deployment_id <> ''::text) AND (deployment_id = btrim(deployment_id)) "
+                        + "AND (deployment_id !~ '[[:cntrl:]]'::text)))", "4", "-", "-", " ")),
+                Map.entry("binding_attestation_tenant_canonical", new V2Constraint("c",
+                        "CHECK (((tenant_id <> ''::text) AND (tenant_id = btrim(tenant_id)) "
+                        + "AND (tenant_id !~ '[[:cntrl:]]'::text)))", "5", "-", "-", " ")),
+                Map.entry("binding_attestation_environment_canonical", new V2Constraint("c",
+                        "CHECK (((environment <> ''::text) AND (environment = btrim(environment)) "
+                        + "AND (environment !~ '[[:cntrl:]]'::text)))", "6", "-", "-", " ")));
+        var seen = new HashSet<String>();
+        try (var statement = connection.prepareStatement("""
+                select k.conname, pg_catalog.pg_get_constraintdef(k.oid,false),
+                       k.convalidated, k.condeferrable, k.condeferred, k.contype,
+                       k.conkey::text, k.confkey::text,
+                       case when k.confrelid=0 then '-' else k.confrelid::regclass::text end,
+                       k.confupdtype, k.confdeltype, k.confmatchtype
+                from pg_catalog.pg_constraint k
+                where k.conrelid=to_regclass('praxis_bulk_capacity.binding_attestation')
+                """); var rows = statement.executeQuery()) {
+            while (rows.next()) {
+                String name = rows.getString(1);
+                V2Constraint source = expected.get(name);
+                if (!seen.add(name) || source == null
+                        || !constraintShape(rows.getString(2)).equals(constraintShape(source.definition()))
+                        || !rows.getBoolean(3) || rows.getBoolean(4) || rows.getBoolean(5)
+                        || !source.type().equals(rows.getString(6))
+                        || !source.key().equals(arrayKey(rows.getString(7)))
+                        || !source.foreignKey().equals(arrayKey(rows.getString(8)))
+                        || !source.foreignTable().equals(
+                                rows.getString(9).replace("praxis_bulk_capacity.", ""))
+                        || !(source.type().equals("f") ? "a" : " ").equals(rows.getString(10))
+                        || !source.deleteAction().equals(rows.getString(11))
+                        || !(source.type().equals("f") ? "s" : " ").equals(rows.getString(12)))
+                    throw new IllegalStateException("Capacity attestation constraint changed");
+            }
+        }
+        if (!seen.equals(expected.keySet()))
+            throw new IllegalStateException("Capacity attestation constraint manifest changed");
+        var expectedIndexes = Map.of(
+                "binding_attestation_pkey", new V2Index("attestation_id", "1", true),
+                "binding_attestation_database_unique", new V2Index("database_id", "2", false),
+                "binding_attestation_binding_unique", new V2Index("binding_id", "3", false));
+        var indexes = new HashSet<String>();
+        try (var statement = connection.prepareStatement("""
+                select i.relname, pg_catalog.pg_get_indexdef(i.oid), x.indkey::text,
+                       x.indisunique, x.indisprimary, x.indisvalid,
+                       x.indisready, x.indislive, pg_catalog.pg_get_expr(x.indpred,x.indrelid,false),
+                       x.indexprs is null, x.indnkeyatts, x.indnatts
+                from pg_catalog.pg_index x
+                join pg_catalog.pg_class i on i.oid=x.indexrelid
+                where x.indrelid=to_regclass('praxis_bulk_capacity.binding_attestation')
+                """); var rows = statement.executeQuery()) {
+            while (rows.next()) {
+                String name = rows.getString(1);
+                V2Index source = expectedIndexes.get(name);
+                if (!indexes.add(name) || source == null || !rows.getBoolean(4)
+                        || !rows.getBoolean(6) || !rows.getBoolean(7) || !rows.getBoolean(8)
+                        || rows.getString(9) != null || !rows.getBoolean(10)
+                        || rows.getInt(11) != 1 || rows.getInt(12) != 1
+                        || !constraintShape(rows.getString(2)).equals(constraintShape(
+                                "CREATE UNIQUE INDEX " + name + " ON "
+                                        + "praxis_bulk_capacity.binding_attestation USING btree ("
+                                        + source.column() + ")"))
+                        || !arrayKey(rows.getString(3)).equals(source.key())
+                        || rows.getBoolean(5) != source.primary())
+                    throw new IllegalStateException("Capacity attestation index changed");
+            }
+        }
+        if (!indexes.equals(expectedIndexes.keySet()))
+            throw new IllegalStateException("Capacity attestation index manifest changed");
+    }
+
+    private record V2Constraint(String type, String definition, String key, String foreignKey,
+                                String foreignTable, String deleteAction) { }
+
+    private record V2Index(String column, String key, boolean primary) { }
+
+    private static String arrayKey(String value) {
+        return value == null ? "-" : value.replace("{", "").replace("}", "").replace(",", " ");
+    }
+
+    private static String constraintShape(String value) {
+        if (value == null) return "-";
+        var result = new StringBuilder(value.length());
+        boolean quoted = false;
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (current == '\'') {
+                result.append(current);
+                if (quoted && index + 1 < value.length() && value.charAt(index + 1) == '\'') {
+                    result.append(value.charAt(++index));
+                } else {
+                    quoted = !quoted;
+                }
+            } else if (!quoted && Character.isWhitespace(current)) {
+                continue;
+            } else {
+                result.append(quoted ? current : Character.toLowerCase(current));
+            }
+        }
+        // pg_get_constraintdef qualifies FK targets according to the caller's search_path.
+        // Only that catalog reference is normalized; literals and index/table definitions stay exact.
+        return result.toString().replace("referencespraxis_bulk_capacity.", "references");
     }
 
     private static String expectedDefault(String table, String column) {
