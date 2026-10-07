@@ -46,7 +46,10 @@ public class OpenApiGroupResolver {
      * <p>
      * O algoritmo percorre todos os {@link GroupedOpenApi} registrados, normaliza os
      * {@code pathsToMatch} removendo wildcards e escolhe o match de maior comprimento.
-     * Assim, paths especificos vencem pads genericos.
+     * Assim, paths especificos vencem padroes genericos.
+     * </p>
+     * <p>
+     * Inclui tolerancia a paths sem barra inicial e a presenca ou ausencia do prefixo {@code /api}.
      * </p>
      *
      * @param requestPath path da requisicao HTTP
@@ -62,23 +65,47 @@ public class OpenApiGroupResolver {
             return null;
         }
 
+        String normalizedPath = requestPath.trim().replaceAll("/+", "/");
+        if (!normalizedPath.startsWith("/")) {
+            normalizedPath = "/" + normalizedPath;
+        }
+
+        // 1. Tentar correspondencia direta
+        String match = findBestMatch(groupedOpenApis, normalizedPath);
+        if (match != null) {
+            return match;
+        }
+
+        // 2. Tentar alternar o prefixo /api/
+        if (normalizedPath.startsWith("/api/")) {
+            match = findBestMatch(groupedOpenApis, normalizedPath.substring(4));
+            if (match != null) {
+                return match;
+            }
+        } else {
+            match = findBestMatch(groupedOpenApis, "/api" + normalizedPath);
+            if (match != null) {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private String findBestMatch(List<GroupedOpenApi> groupedOpenApis, String candidatePath) {
         String bestMatch = null;
         int bestMatchLength = 0;
-        
-        // 🔍 PASSO 1: Iterar todos os grupos registrados dinamicamente
+
         for (GroupedOpenApi groupedOpenApi : groupedOpenApis) {
             List<String> patterns = groupedOpenApi.getPathsToMatch();
             if (patterns == null) {
                 continue;
             }
-            
-            // 🎯 PASSO 2: Avaliar cada padrão do grupo atual
+
             for (String pattern : patterns) {
                 String normalized = normalize(pattern);
-                
-                // ✅ PASSO 3: Verificar se o path faz match com o padrão
-                if (matchesPathBoundary(requestPath, normalized)) {
-                    // 🏆 PASSO 4: Priorizar matches mais específicos (padrões mais longos)
+
+                if (matchesPathBoundary(candidatePath, normalized)) {
                     if (normalized.length() > bestMatchLength) {
                         bestMatch = groupedOpenApi.getGroup();
                         bestMatchLength = normalized.length();
@@ -86,7 +113,7 @@ public class OpenApiGroupResolver {
                 }
             }
         }
-        
+
         return bestMatch;
     }
 
@@ -100,18 +127,15 @@ public class OpenApiGroupResolver {
         if (pattern == null) {
             return "";
         }
-        
-        // 🎯 Remove wildcard de múltiplos níveis: "/**"
+
         if (pattern.endsWith("/**")) {
             return pattern.substring(0, pattern.length() - 3);
         }
-        
-        // 🎯 Remove wildcard de nível único: "/*"  
+
         if (pattern.endsWith("/*")) {
             return pattern.substring(0, pattern.length() - 2);
         }
-        
-        // 📋 Retorna padrão inalterado se não tiver wildcards
+
         return pattern;
     }
 

@@ -58,7 +58,10 @@ public class OpenApiDocsSupport {
         if (!StringUtils.hasText(path)) {
             return "application";
         }
-        String normalizedPath = decodePath(path);
+        String normalizedPath = decodePath(path).trim().replaceAll("/+", "/");
+        if (!normalizedPath.startsWith("/")) {
+            normalizedPath = "/" + normalizedPath;
+        }
         if (openApiGroupResolver != null) {
             String resolved = openApiGroupResolver.resolveGroup(normalizedPath);
             if (StringUtils.hasText(resolved)) {

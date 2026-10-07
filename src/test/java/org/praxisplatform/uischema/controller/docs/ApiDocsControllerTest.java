@@ -148,6 +148,68 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    void getFilteredSchemaAcceptsResourcePathAliasAndNormalizesLeadingSlash() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+
+        server.expect(requestTo("http://localhost/v3/api-docs/users"))
+                .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        // path=null, resourcePath="users" (sem barra inicial)
+        var response = controller.getFilteredSchema(null, "users", "post", false, "request", null, null, null, null, java.util.Locale.ENGLISH);
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+        assertTrue(((Map<?,?>) schema.get("properties")).containsKey("name"));
+    }
+
+    @Test
+    void getFilteredSchemaResolvesPathWithoutApiPrefixWhenDocHasApiPrefix() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+
+        String docWithApi = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/api/human-resources/funcionarios/filter\": {\n" +
+                "      \"post\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"application/json\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/FuncionarioFilterDTO\"}\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"FuncionarioFilterDTO\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\"nome\": {\"type\": \"string\"}}\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/human-resources-funcionarios-filter"))
+                .andRespond(withSuccess(docWithApi, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        // Caller envia "human-resources/funcionarios/filter" sem /api/ e sem barra inicial
+        var response = controller.getFilteredSchema("human-resources/funcionarios/filter", null, "post", false, "request", null, null, null, null, java.util.Locale.ENGLISH);
+        Map<String, Object> schema = response.getBody();
+        assertNotNull(schema);
+        assertTrue(((Map<?,?>) schema.get("properties")).containsKey("nome"));
+    }
+
+    @Test
     void getFilteredSchemaPublishesOnlyCompilerResolvedReactiveDeterminations() throws Exception {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
         ReactiveDeterminationMetadataCompiler compiler = mock(ReactiveDeterminationMetadataCompiler.class);
