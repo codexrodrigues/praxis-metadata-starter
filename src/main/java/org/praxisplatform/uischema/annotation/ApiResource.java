@@ -159,6 +159,18 @@ public @interface ApiResource {
     ResourceIdentity identity() default @ResourceIdentity;
 
     /**
+     * Filtros rapidos canonicos declarados para a colecao deste recurso.
+     *
+     * <p>
+     * Runtimes de tabela consomem estes filtros e os renderizam na barra de ferramentas
+     * como seletores rapidos (chips) sem necessidade de configuracao manual no frontend.
+     * </p>
+     *
+     * @return array de filtros rapidos
+     */
+    QuickFilter[] quickFilters() default {};
+
+    /**
      * Define os content types produzidos pelo recurso.
      * Por padrao, produz JSON.
      *

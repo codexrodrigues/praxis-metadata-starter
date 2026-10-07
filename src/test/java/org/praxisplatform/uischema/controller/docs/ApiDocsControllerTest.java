@@ -13,6 +13,7 @@ import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.praxisplatform.uischema.schema.ApiResourceIdentityResolver;
+import org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -577,6 +578,42 @@ class ApiDocsControllerTest {
         Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
         Map<String, Object> resource = (Map<String, Object>) xUi.get("resource");
         assertFalse(resource.containsKey("identity"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getFilteredSchemaPublishesQuickFiltersFromResolver() {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        ApiResourceQuickFilterResolver quickFilterResolver = org.mockito.Mockito.mock(ApiResourceQuickFilterResolver.class);
+        when(quickFilterResolver.resolve("/users")).thenReturn(java.util.List.of(
+                Map.of("id", "active", "label", "Ativos", "filter", Map.of("ativo", true), "icon", "check_circle"),
+                Map.of("id", "highRisk", "label", "Alto Risco", "filter", Map.of("risco", "ALTO"))
+        ));
+        ReflectionTestUtils.setField(controller, "apiResourceQuickFilterResolver", quickFilterResolver);
+
+        server.expect(requestTo("http://localhost/v3/api-docs/users"))
+                .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        Map<String, Object> schema = controller
+                .getFilteredSchema("/users", "post", false, "response", null, null, java.util.Locale.ENGLISH)
+                .getBody();
+
+        assertNotNull(schema);
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        Map<String, Object> resource = (Map<String, Object>) xUi.get("resource");
+        assertTrue(resource.containsKey("quickFilters"));
+        java.util.List<Map<String, Object>> quickFilters = (java.util.List<Map<String, Object>>) resource.get("quickFilters");
+        assertEquals(2, quickFilters.size());
+        assertEquals("active", quickFilters.get(0).get("id"));
+        assertEquals("Ativos", quickFilters.get(0).get("label"));
+        assertEquals("check_circle", quickFilters.get(0).get("icon"));
+        assertEquals(Map.of("ativo", true), quickFilters.get(0).get("filter"));
+        assertEquals("highRisk", quickFilters.get(1).get("id"));
     }
 
     @Test

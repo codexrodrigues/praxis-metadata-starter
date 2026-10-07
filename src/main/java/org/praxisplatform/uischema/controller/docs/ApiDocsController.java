@@ -16,6 +16,7 @@ import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
 import org.praxisplatform.uischema.schema.FilteredSchemaProjection;
 import org.praxisplatform.uischema.schema.ApiResourceIdentityResolver;
+import org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.slf4j.Logger;
@@ -194,6 +195,9 @@ public class ApiDocsController {
 
     @Autowired(required = false)
     private ApiResourceIdentityResolver apiResourceIdentityResolver;
+
+    @Autowired(required = false)
+    private ApiResourceQuickFilterResolver apiResourceQuickFilterResolver;
     private static final Map<String, Set<String>> OPTION_SOURCE_PUBLIC_DEEP_KEYS = Map.of(
             "display.actions", Set.of(
                     "showDetail",
@@ -475,6 +479,13 @@ public class ApiDocsController {
                     publishedIdentity.put("message", "Resource identity references fields not found in schema properties");
                 }
                 resourceMeta.put("identity", publishedIdentity);
+            }
+        }
+
+        if (apiResourceQuickFilterResolver != null) {
+            List<Map<String, Object>> quickFilters = apiResourceQuickFilterResolver.resolve(basePath);
+            if (!quickFilters.isEmpty()) {
+                resourceMeta.put("quickFilters", quickFilters);
             }
         }
 
