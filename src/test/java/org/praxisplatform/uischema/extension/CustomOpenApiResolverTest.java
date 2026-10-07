@@ -684,6 +684,61 @@ class CustomOpenApiResolverTest {
         assertEquals(FieldControlType.MULTI_SELECT.getValue(), xui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
     }
 
+    public static class BooleanPresentationDummy {
+        @UISchema(
+                label = "Status Operacional",
+                icon = "toggle_on",
+                iconTrue = "toggle_on",
+                iconFalse = "toggle_off",
+                tone = "success",
+                toneTrue = "success",
+                toneFalse = "neutral",
+                labelTrue = "Ativo",
+                labelFalse = "Inativo"
+        )
+        public Boolean ativo;
+
+        @UISchema(preset = UISchemaPreset.BOOLEAN_FLAG)
+        public Boolean emMissao;
+    }
+
+    @Test
+    void shouldSerializeDeclarativeBooleanPresentationProperties() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        io.swagger.v3.core.converter.ModelConverters converters = new io.swagger.v3.core.converter.ModelConverters();
+        converters.addConverter(resolver);
+
+        io.swagger.v3.core.converter.ResolvedSchema resolved = converters.readAllAsResolvedSchema(BooleanPresentationDummy.class);
+
+        assertNotNull(resolved);
+        assertNotNull(resolved.referencedSchemas);
+        Schema<?> dummySchema = resolved.referencedSchemas.get("BooleanPresentationDummy");
+        assertNotNull(dummySchema);
+
+        Schema<?> ativoSchema = (Schema<?>) dummySchema.getProperties().get("ativo");
+        assertNotNull(ativoSchema);
+        Map<String, Object> ativoXui = getXui(ativoSchema);
+
+        assertEquals("Status Operacional", ativoXui.get(FieldConfigProperties.LABEL.getValue()));
+        assertEquals("toggle_on", ativoXui.get(FieldConfigProperties.ICON.getValue()));
+        assertEquals("toggle_on", ativoXui.get(FieldConfigProperties.ICON_TRUE.getValue()));
+        assertEquals("toggle_off", ativoXui.get(FieldConfigProperties.ICON_FALSE.getValue()));
+        assertEquals("success", ativoXui.get(FieldConfigProperties.TONE.getValue()));
+        assertEquals("success", ativoXui.get(FieldConfigProperties.TONE_TRUE.getValue()));
+        assertEquals("neutral", ativoXui.get(FieldConfigProperties.TONE_FALSE.getValue()));
+        assertEquals("Ativo", ativoXui.get(FieldConfigProperties.LABEL_TRUE.getValue()));
+        assertEquals("Inativo", ativoXui.get(FieldConfigProperties.LABEL_FALSE.getValue()));
+
+        Schema<?> emMissaoSchema = (Schema<?>) dummySchema.getProperties().get("emMissao");
+        assertNotNull(emMissaoSchema);
+        Map<String, Object> emMissaoXui = getXui(emMissaoSchema);
+        assertEquals("toggle_on", emMissaoXui.get(FieldConfigProperties.ICON.getValue()));
+        assertEquals("toggle_on", emMissaoXui.get(FieldConfigProperties.ICON_TRUE.getValue()));
+        assertEquals("toggle_off", emMissaoXui.get(FieldConfigProperties.ICON_FALSE.getValue()));
+        assertEquals("success", emMissaoXui.get(FieldConfigProperties.TONE_TRUE.getValue()));
+        assertEquals("neutral", emMissaoXui.get(FieldConfigProperties.TONE_FALSE.getValue()));
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> getXui(Schema<?> property) {
         assertNotNull(property.getExtensions(), "Extensions should not be null");

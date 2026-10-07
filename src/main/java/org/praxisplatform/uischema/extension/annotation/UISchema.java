@@ -206,6 +206,13 @@ public @interface UISchema {
     String iconClass() default "";
     String iconStyle() default "";
     String iconFontSize() default "";
+    String iconTrue() default "";
+    String iconFalse() default "";
+    String tone() default "";
+    String toneTrue() default "";
+    String toneFalse() default "";
+    String labelTrue() default "";
+    String labelFalse() default "";
 
     // 9. Opções e Mapeamento
     String valueField() default "";

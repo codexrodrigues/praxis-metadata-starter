@@ -172,6 +172,20 @@ public enum FieldConfigProperties {
     ICON_STYLE("iconStyle"),
     /** Tamanho da fonte para o ícone */
     ICON_FONT_SIZE("iconFontSize"),
+    /** Ícone associado ao estado verdadeiro (booleano) */
+    ICON_TRUE("iconTrue"),
+    /** Ícone associado ao estado falso (booleano) */
+    ICON_FALSE("iconFalse"),
+    /** Tom semântico visual (success, neutral, warning, danger, info) */
+    TONE("tone"),
+    /** Tom semântico associado ao estado verdadeiro */
+    TONE_TRUE("toneTrue"),
+    /** Tom semântico associado ao estado falso */
+    TONE_FALSE("toneFalse"),
+    /** Rótulo exibido quando o valor for verdadeiro */
+    LABEL_TRUE("labelTrue"),
+    /** Rótulo exibido quando o valor for falso */
+    LABEL_FALSE("labelFalse"),
 
     // ----------------------------------------------------------
     // 9. Opções e Mapeamento
