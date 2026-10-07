@@ -565,7 +565,10 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         if (!StringUtils.hasText(path)) {
             return "";
         }
-        String normalized = decodePath(path).replaceAll("/+", "/");
+        String normalized = decodePath(path).replaceAll("/+", "/").trim();
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
         if (normalized.endsWith("/") && normalized.length() > 1) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }

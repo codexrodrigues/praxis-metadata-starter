@@ -52,6 +52,17 @@ class ApiDocsControllerPathResolutionTest {
     }
 
     @Test
+    void testResolveGroupFromPath_WithoutLeadingSlash() {
+        String path = "api/human-resources/funcionarios/all";
+        String expectedGroup = "human-resources";
+        when(openApiGroupResolver.resolveGroup("/api/human-resources/funcionarios/all")).thenReturn(expectedGroup);
+
+        String resolvedGroup = invokeResolveGroupFromPath(path);
+
+        assertEquals(expectedGroup, resolvedGroup);
+    }
+
+    @Test
     void testResolveGroupFromPath_WithPathDerivation() {
         String path = "/api/human-resources/eventos-folha/all";
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);

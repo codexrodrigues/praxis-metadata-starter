@@ -260,6 +260,16 @@ public interface OpenApiDocumentService {
             candidates.add(normalized + "/");
         }
 
+        if (!normalized.startsWith("/api/")) {
+            String withApi = "/api" + normalized;
+            candidates.add(withApi);
+            candidates.add(withApi + "/");
+        } else {
+            String withoutApi = normalized.substring(4);
+            candidates.add(withoutApi);
+            candidates.add(withoutApi + "/");
+        }
+
         for (String candidate : candidates) {
             if (hasText(candidate) && hasOperation(pathsNode, candidate, normalizedOperation)) {
                 return candidate;
@@ -269,6 +279,18 @@ public interface OpenApiDocumentService {
         String structurallyEquivalentPath = findStructurallyEquivalentPath(pathsNode, normalized, operation);
         if (hasText(structurallyEquivalentPath)) {
             return structurallyEquivalentPath;
+        }
+
+        if (!normalized.startsWith("/api/")) {
+            structurallyEquivalentPath = findStructurallyEquivalentPath(pathsNode, "/api" + normalized, operation);
+            if (hasText(structurallyEquivalentPath)) {
+                return structurallyEquivalentPath;
+            }
+        } else {
+            structurallyEquivalentPath = findStructurallyEquivalentPath(pathsNode, normalized.substring(4), operation);
+            if (hasText(structurallyEquivalentPath)) {
+                return structurallyEquivalentPath;
+            }
         }
 
         return normalized;

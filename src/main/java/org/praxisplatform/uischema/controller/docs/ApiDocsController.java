@@ -297,7 +297,8 @@ public class ApiDocsController {
      */
     @GetMapping
     public org.springframework.http.ResponseEntity<Map<String, Object>> getFilteredSchema(
-            @RequestParam String path,
+            @RequestParam(required = false) String path,
+            @RequestParam(required = false) String resourcePath,
             @RequestParam(required = false, defaultValue = DEFAULT_OPERATION) String operation,
             @RequestParam(required = false, defaultValue = "false") boolean includeInternalSchemas,
             @RequestParam(required = false, defaultValue = "response") String schemaType,
@@ -307,8 +308,13 @@ public class ApiDocsController {
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Tenant", required = false) String tenant,
             java.util.Locale locale) {
 
+        String effectivePath = StringUtils.hasText(path) ? path : resourcePath;
+        if (!StringUtils.hasText(effectivePath)) {
+            throw new IllegalArgumentException("Parameter 'path' or 'resourcePath' is required.");
+        }
+
         return openApiDocumentService.withSchemaCacheReadLock(() -> getFilteredSchemaWithStableCache(
-                path, operation, includeInternalSchemas, schemaType, idField, readOnly, ifNoneMatch, tenant, locale));
+                effectivePath, operation, includeInternalSchemas, schemaType, idField, readOnly, ifNoneMatch, tenant, locale));
     }
 
     private org.springframework.http.ResponseEntity<Map<String, Object>> getFilteredSchemaWithStableCache(
@@ -319,7 +325,10 @@ public class ApiDocsController {
             throw new IllegalArgumentException("Parameter 'schemaType' must be 'response' or 'request'.");
         }
 
-        String decodedPath = UriUtils.decode(path, StandardCharsets.UTF_8);
+        String decodedPath = UriUtils.decode(path, StandardCharsets.UTF_8).trim();
+        if (!decodedPath.startsWith("/")) {
+            decodedPath = "/" + decodedPath;
+        }
 
         // 1. Resolver grupo automaticamente baseado no path
         CanonicalOperationRef operationRef = canonicalOperationResolver.resolve(decodedPath, operation);
@@ -342,6 +351,32 @@ public class ApiDocsController {
 
         // Procura o caminho especificado no JSON
         JsonNode pathsNode = rootNode.path(PATHS).path(canonicalPath).path(normalizedOperation);
+
+        if (pathsNode.isMissingNode()) {
+            String alternatePath = decodedPath.startsWith("/api/")
+                    ? decodedPath.substring(4)
+                    : "/api" + decodedPath;
+
+            CanonicalOperationRef alternateOperationRef = canonicalOperationResolver.resolve(alternatePath, operation);
+            String alternateGroup = alternateOperationRef.group();
+            JsonNode alternateRootNode = (alternateGroup != null && !alternateGroup.equals(groupName))
+                    ? openApiDocumentService.getDocumentForGroup(alternateGroup)
+                    : rootNode;
+
+            if (alternateRootNode != null) {
+                String alternateCanonicalPath = openApiDocumentService.resolveDocumentPath(
+                        alternateRootNode.path(PATHS),
+                        alternatePath,
+                        normalizedOperation
+                );
+                JsonNode alternatePathsNode = alternateRootNode.path(PATHS).path(alternateCanonicalPath).path(normalizedOperation);
+                if (!alternatePathsNode.isMissingNode()) {
+                    rootNode = alternateRootNode;
+                    canonicalPath = alternateCanonicalPath;
+                    pathsNode = alternatePathsNode;
+                }
+            }
+        }
 
         if (pathsNode.isMissingNode()) {
             throw new ResponseStatusException(
@@ -507,6 +542,20 @@ public class ApiDocsController {
                 .body(schemaMap);
     }
 
+    // Convenience overload preserving 9-parameter signature (without resourcePath)
+    public org.springframework.http.ResponseEntity<Map<String, Object>> getFilteredSchema(
+            String path,
+            String operation,
+            boolean includeInternalSchemas,
+            String schemaType,
+            String idField,
+            Boolean readOnly,
+            String ifNoneMatch,
+            String tenant,
+            java.util.Locale locale) {
+        return getFilteredSchema(path, null, operation, includeInternalSchemas, schemaType, idField, readOnly, ifNoneMatch, tenant, locale);
+    }
+
     // Convenience overload used by unit tests and callers without idField param.
     public org.springframework.http.ResponseEntity<Map<String, Object>> getFilteredSchema(
             String path,
@@ -516,7 +565,7 @@ public class ApiDocsController {
             String ifNoneMatch,
             String tenant,
             java.util.Locale locale) {
-        return getFilteredSchema(path, operation, includeInternalSchemas, schemaType, null, null, ifNoneMatch, tenant, locale);
+        return getFilteredSchema(path, null, operation, includeInternalSchemas, schemaType, null, null, ifNoneMatch, tenant, locale);
     }
 
     /**

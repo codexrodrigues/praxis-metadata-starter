@@ -45,4 +45,32 @@ public class OpenApiGroupResolverTest {
 
         assertEquals("employees", resolver.resolveGroup("/employees"));
     }
+
+    @Test
+    void resolvesGroupWhenPathLacksLeadingSlashAndApiPrefix() {
+        GroupedOpenApi funcionarios = GroupedOpenApi.builder()
+                .group("funcionarios")
+                .pathsToMatch("/api/human-resources/funcionarios/**")
+                .build();
+
+        OpenApiGroupResolver resolver = new OpenApiGroupResolver(List.of(funcionarios));
+
+        // Sem barra inicial e sem /api
+        String group = resolver.resolveGroup("human-resources/funcionarios/filter");
+        assertEquals("funcionarios", group);
+    }
+
+    @Test
+    void resolvesGroupWhenGroupPatternLacksApiPrefixAndRequestHasIt() {
+        GroupedOpenApi assets = GroupedOpenApi.builder()
+                .group("assets")
+                .pathsToMatch("/assets/**")
+                .build();
+
+        OpenApiGroupResolver resolver = new OpenApiGroupResolver(List.of(assets));
+
+        // Request com /api/ mas grupo definido sem /api/
+        String group = resolver.resolveGroup("/api/assets/equipamentos/filter");
+        assertEquals("assets", group);
+    }
 }
