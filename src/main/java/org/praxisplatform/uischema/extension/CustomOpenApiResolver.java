@@ -949,6 +949,10 @@ public class CustomOpenApiResolver extends ModelResolver {
                 putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.TOGGLE.getValue());
                 putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "8rem");
                 putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "toggle_on");
+                putPreset(uiExtension, FieldConfigProperties.ICON_TRUE.getValue(), "toggle_on");
+                putPreset(uiExtension, FieldConfigProperties.ICON_FALSE.getValue(), "toggle_off");
+                putPreset(uiExtension, FieldConfigProperties.TONE_TRUE.getValue(), "success");
+                putPreset(uiExtension, FieldConfigProperties.TONE_FALSE.getValue(), "neutral");
             }
             case LEGAL_DOCUMENT_REFERENCE -> {
                 putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
@@ -1535,6 +1539,27 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
         if (!annotation.iconFontSize().isEmpty()) {
             uiExtension.put(FieldConfigProperties.ICON_FONT_SIZE.getValue(), annotation.iconFontSize());
+        }
+        if (!annotation.iconTrue().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.ICON_TRUE.getValue(), annotation.iconTrue());
+        }
+        if (!annotation.iconFalse().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.ICON_FALSE.getValue(), annotation.iconFalse());
+        }
+        if (!annotation.tone().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.TONE.getValue(), annotation.tone());
+        }
+        if (!annotation.toneTrue().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.TONE_TRUE.getValue(), annotation.toneTrue());
+        }
+        if (!annotation.toneFalse().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.TONE_FALSE.getValue(), annotation.toneFalse());
+        }
+        if (!annotation.labelTrue().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.LABEL_TRUE.getValue(), annotation.labelTrue());
+        }
+        if (!annotation.labelFalse().isEmpty()) {
+            uiExtension.put(FieldConfigProperties.LABEL_FALSE.getValue(), annotation.labelFalse());
         }
         if (!annotation.helpText().isEmpty()) {
             uiExtension.put(FieldConfigProperties.HELP_TEXT.getValue(), annotation.helpText());

@@ -63,6 +63,13 @@ public final class TestUISchemaDefaults {
         @Override public String iconClass() { return ""; }
         @Override public String iconStyle() { return ""; }
         @Override public String iconFontSize() { return ""; }
+        @Override public String iconTrue() { return ""; }
+        @Override public String iconFalse() { return ""; }
+        @Override public String tone() { return ""; }
+        @Override public String toneTrue() { return ""; }
+        @Override public String toneFalse() { return ""; }
+        @Override public String labelTrue() { return ""; }
+        @Override public String labelFalse() { return ""; }
         @Override public String valueField() { return ""; }
         @Override public String displayField() { return ""; }
         @Override public String endpoint() { return ""; }
