@@ -55,6 +55,123 @@ public final class JdbcBulkDurableExecution {
         this.capacityBinding = capacityBinding;
     }
 
+    /** Protected selector position; hints never authorize ownership or mutation. */
+    record WorkerQueueHint(UUID executionId, Instant createdAt) { }
+
+    JdbcBulkCapacityInstallation.ExpectedBinding workerBindingIdentity() {
+        return Objects.requireNonNull(capacityBinding, "Explicit capacity binding is required");
+    }
+
+    Optional<WorkerQueueHint> workerNextQueued(WorkerQueueHint after) {
+        requireNoAmbientTransaction();
+        return workerTransaction(connection -> {
+            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, false);
+            String position = after == null ? "" : " and (created_at,execution_id) > (?,?)";
+            try (var statement = connection.prepareStatement("""
+                    select execution_id,created_at from praxis_bulk.praxis_bulk_execution
+                    where namespace_id=? and execution_mode='ASYNC' and status='QUEUED'
+                    """ + position + " order by created_at,execution_id limit 1")) {
+                statement.setString(1, infrastructure.namespace());
+                if (after != null) {
+                    statement.setObject(2, OffsetDateTime.ofInstant(after.createdAt(), ZoneOffset.UTC));
+                    statement.setObject(3, after.executionId());
+                }
+                try (var rows = statement.executeQuery()) {
+                    if (!rows.next()) return Optional.empty();
+                    return Optional.of(new WorkerQueueHint(rows.getObject(1, UUID.class),
+                            rows.getObject(2, OffsetDateTime.class).toInstant()));
+                }
+            }
+        });
+    }
+
+    BulkFingerprintContext workerContext(UUID executionId) {
+        requireNoAmbientTransaction();
+        return workerTransaction(connection -> {
+            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, false);
+            ExecutionRow execution = row(connection, executionId, false);
+            if (!infrastructure.namespace().equals(execution.namespaceId())
+                    || !"ASYNC".equals(execution.executionMode()))
+                throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
+            Evaluation evaluation = loadEvaluation(connection, execution, false);
+            validateAsynchronousSubset(evaluation);
+            return evaluation.proposal().snapshot().context();
+        });
+    }
+
+    Optional<UUID> workerAvailableActiveToken() {
+        requireNoAmbientTransaction();
+        return workerTransaction(connection -> {
+            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, true);
+            try (var statement = connection.prepareStatement("""
+                    select s.token_id from praxis_bulk.praxis_bulk_capacity_slot s
+                    join praxis_bulk.praxis_bulk_capacity_installation i on i.token_id=s.token_id
+                    where s.capacity_class='ACTIVE' and s.current_execution_id is null
+                    order by i.token_ordinal,s.token_id limit 1
+                    """); var rows = statement.executeQuery()) {
+                return rows.next() ? Optional.of(rows.getObject(1, UUID.class)) : Optional.empty();
+            }
+        });
+    }
+
+    /** Terminalizes only an expired, certified empty QUEUED prefix; no ACTIVE right is needed. */
+    boolean workerExpireQueued(BulkFingerprintContext scope, UUID executionId) {
+        requireNoAmbientTransaction(); requireScope(scope);
+        return workerTransaction(connection -> {
+            ExecutionRow execution = lockLifecycle(connection, scope, executionId);
+            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, false);
+            if (execution.status() != BulkDurableExecutionStatus.QUEUED
+                    || clock(connection).isBefore(execution.deadlineAt())) return false;
+            Evaluation evaluation = loadEvaluation(connection, execution, false);
+            validateAsynchronousSubset(evaluation);
+            if (execution.ownerEpoch() != 1 || execution.nextOrdinal() != 0
+                    || execution.activeAttemptId() != null
+                    || !durablePrefixConsistent(connection, execution, evaluation))
+                throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            try (var statement = connection.prepareStatement("""
+                    with terminal_clock as materialized (select clock_timestamp() as observed_at)
+                    update praxis_bulk.praxis_bulk_execution
+                    set status='STOPPED',terminal_reason_code='DEADLINE_EXCEEDED',
+                        terminal_at=terminal_clock.observed_at,updated_at=terminal_clock.observed_at
+                    from terminal_clock
+                    where execution_id=? and namespace_id=? and status='QUEUED' and owner_epoch=1
+                      and deadline_at<=terminal_clock.observed_at
+                    """)) {
+                statement.setObject(1, executionId); statement.setString(2, infrastructure.namespace());
+                if (statement.executeUpdate() != 1) throw failure(BulkDurableExecutionException.Reason.FENCED);
+            }
+            return true;
+        });
+    }
+
+    /** Old workers cannot use conservative recovery to fence a successor. */
+    BulkExecutionRecovery workerRecoverOwned(BulkFingerprintContext scope,
+            BulkExecutionReservation reservation, String recoveryOwner) {
+        requireNoAmbientTransaction(); requireScope(scope); Objects.requireNonNull(reservation, "reservation");
+        String owner = text(recoveryOwner, "recoveryOwner");
+        return workerTransaction(connection -> {
+            ExecutionRow execution = lockLifecycle(connection, scope, reservation.executionId());
+            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, false);
+            if (!"ASYNC".equals(execution.executionMode()) || execution.protocolVersion() != 2
+                    || execution.atomicity() != ActionCollectionAtomicity.PER_ITEM
+                    || execution.activeTokenId() == null || execution.ownerEpoch() < 2
+                    || execution.status() == BulkDurableExecutionStatus.QUEUED)
+                throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+            if (!execution.proposalId().equals(reservation.proposalId())
+                    || !execution.ownerId().equals(reservation.control().ownerId())
+                    || execution.ownerEpoch() != reservation.control().epoch())
+                throw failure(BulkDurableExecutionException.Reason.FENCED);
+            validateReadOccupancy(connection, execution);
+            return recover(connection, scope, execution.executionId(), owner);
+        });
+    }
+
+    private <T> T workerTransaction(SqlWork<T> work) {
+        try { return unitTransaction(work); }
+        catch (BulkDurableExecutionException error) { throw error; }
+        catch (RuntimeException error) { throw failure(BulkDurableExecutionException.Reason.UNAVAILABLE); }
+    }
+
     public BulkExecutionReservation reserve(BulkFingerprintContext scope, UUID proposalId,
             String idempotencyKey, String ownerId, String structuralRevision, Instant deadline) {
         requireNoAmbientTransaction();

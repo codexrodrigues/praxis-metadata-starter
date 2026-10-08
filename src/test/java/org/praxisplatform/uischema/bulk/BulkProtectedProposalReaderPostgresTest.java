@@ -48,7 +48,7 @@ class BulkProtectedProposalReaderPostgresTest {
     @AfterAll void stop() throws Exception { if (postgres != null) postgres.close(); }
     @BeforeEach void reset() {
         sql.execute("drop schema if exists praxis_bulk cascade");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(19);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(20);
         BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 

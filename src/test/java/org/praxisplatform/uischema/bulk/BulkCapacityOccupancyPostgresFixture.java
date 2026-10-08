@@ -66,6 +66,7 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
     private final SharedScope scope;
     private final boolean ownsScope;
     private final String localDatabase;
+    private final Map<String, String> namespaceDeployments;
     final String tenant;
     final BulkFingerprintContext context;
     final BulkFingerprintContext syncContext;
@@ -226,6 +227,15 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
         this(caseId, ownedScope(caseId), "capacity_local", TENANT, "occupancy-binding", CONTEXT, SYNC_CONTEXT, true);
     }
 
+    /** Two namespaces are installed by the official migration before any binding activation. */
+    static BulkCapacityOccupancyPostgresFixture withAdditionalNamespace(String caseId, String namespace) throws Exception {
+        if (namespace == null || namespace.isBlank() || namespace.equals(NAMESPACE))
+            throw new IllegalArgumentException("Distinct explicit additional namespace required");
+        return new BulkCapacityOccupancyPostgresFixture(caseId, ownedScope(caseId), "capacity_local", TENANT,
+                "occupancy-binding", CONTEXT, SYNC_CONTEXT, true,
+                Map.of(NAMESPACE, DEPLOYMENT, namespace, DEPLOYMENT));
+    }
+
     private static SharedScope ownedScope(String caseId) throws Exception {
         validateCaseId(caseId);
         return new SharedScope();
@@ -239,7 +249,18 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
     private BulkCapacityOccupancyPostgresFixture(String caseId, SharedScope scope, String localDatabase,
             String tenant, String binding, BulkFingerprintContext context, BulkFingerprintContext syncContext,
             boolean ownsScope) throws Exception {
+        this(caseId, scope, localDatabase, tenant, binding, context, syncContext, ownsScope,
+                Map.of(context.namespaceId(), DEPLOYMENT));
+    }
+
+    private BulkCapacityOccupancyPostgresFixture(String caseId, SharedScope scope, String localDatabase,
+            String tenant, String binding, BulkFingerprintContext context, BulkFingerprintContext syncContext,
+            boolean ownsScope, Map<String, String> namespaceDeployments) throws Exception {
         validateCaseId(caseId);
+        this.namespaceDeployments = Map.copyOf(namespaceDeployments);
+        if (!DEPLOYMENT.equals(this.namespaceDeployments.get(context.namespaceId()))
+                || this.namespaceDeployments.values().stream().anyMatch(value -> !DEPLOYMENT.equals(value)))
+            throw new IllegalArgumentException("Explicit same-deployment migration map required");
         this.caseId = caseId;
         this.scope = scope;
         this.ownsScope = ownsScope;
@@ -255,7 +276,7 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
             reader = scope.reader;
             issuer = scope.issuer;
             ownerSource = source("postgres", localDatabase);
-            assertThat(BulkPostgresTestSupport.migrate(ownerSource, Map.of(context.namespaceId(), DEPLOYMENT))).isEqualTo(19);
+            assertThat(BulkPostgresTestSupport.migrate(ownerSource, this.namespaceDeployments)).isEqualTo(20);
             runtimeSource = source("bulk_runtime_test", localDatabase);
             observer = new JdbcTemplate(ownerSource);
             runtimeSql = new JdbcTemplate(runtimeSource);
@@ -306,38 +327,63 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
     }
 
     /** Real canonical factories and typed eligibility, with no public READY admission. */
-    BulkEvaluationSnapshot persist() {
+    BulkEvaluationSnapshot persist() { return persist(2); }
+
+    /** Test-only target cardinality; existing default and canonical persistence path are unchanged. */
+    BulkEvaluationSnapshot persist(int targetCount) { return persistFor(context, control, targetCount); }
+
+    /** Explicit trusted same-binding context; default factories and storage path are preserved. */
+    BulkEvaluationSnapshot persistFor(BulkFingerprintContext suppliedContext,
+            BulkOperationControlExpectation expectedControl, int targetCount) {
+        java.util.Objects.requireNonNull(suppliedContext, "suppliedContext");
+        java.util.Objects.requireNonNull(expectedControl, "expectedControl");
+        if (!context.namespaceId().equals(suppliedContext.namespaceId())
+                || suppliedContext.atomicity() != ActionCollectionAtomicity.PER_ITEM
+                || !suppliedContext.schemaRevision().equals(expectedControl.structuralRevision()))
+            throw new IllegalArgumentException("Explicit same-namespace PER_ITEM fixture context is required");
+        return persistBound(suppliedContext, expectedControl, targetCount, runtime);
+    }
+
+    private BulkEvaluationSnapshot persistBound(BulkFingerprintContext suppliedContext,
+            BulkOperationControlExpectation expectedControl, int targetCount, BulkExecutionInfrastructure boundRuntime) {
+        if (!namespaceDeployments.containsKey(suppliedContext.namespaceId())
+                || !suppliedContext.namespaceId().equals(boundRuntime.namespace())
+                || suppliedContext.atomicity() != ActionCollectionAtomicity.PER_ITEM
+                || !suppliedContext.schemaRevision().equals(expectedControl.structuralRevision()))
+            throw new IllegalArgumentException("Configured namespace/runtime/control tuple required");
+        if (targetCount < 1 || targetCount > 2) throw new IllegalArgumentException("One or two fixture targets");
         var codec = BulkIdentityCodecs.strings();
         var request = new BulkProtocolReader<>(codec).readUniform("""
                 {"executionMode":"ASYNC","selection":{"mode":"EXPLICIT","targets":[
-                    {"id":"fixture-target-1","expectedVersion":"v1"},
-                    {"id":"fixture-target-2","expectedVersion":"v2"}]},
+                    {"id":"fixture-target-1","expectedVersion":"v1"}%s]},
                  "changes":[{"field":"amount","operator":"SET","value":1.0}]}
-                """.getBytes(StandardCharsets.UTF_8));
-        var snapshot = BulkIntentSnapshot.uniform(context, codec, request, JsonNode::deepCopy);
+                """.formatted(targetCount == 2
+                    ? ",{\"id\":\"fixture-target-2\",\"expectedVersion\":\"v2\"}" : "")
+                .getBytes(StandardCharsets.UTF_8));
+        var snapshot = BulkIntentSnapshot.uniform(suppliedContext, codec, request, JsonNode::deepCopy);
         Instant created = Instant.now().minusSeconds(2);
         var proposal = BulkStoredProposal.asynchronous(UUID.randomUUID(), created, created.plusSeconds(600),
-                snapshot, control);
-        var facts = JSON.objectNode().put("fixtureRevision", context.schemaRevision());
+                snapshot, expectedControl);
+        var facts = JSON.objectNode().put("fixtureRevision", suppliedContext.schemaRevision());
         var plan = JSON.objectNode().put("amount", new java.math.BigDecimal("1.0"));
         var targets = List.<BulkTargetEvidence<?>>of(
                 new BulkTargetEvidence<>(new BulkTarget<>("fixture-target-1", "v1"), "v1", facts, plan,
                         BulkTargetEligibility.executable()),
                 new BulkTargetEvidence<>(new BulkTarget<>("fixture-target-2", "v2"), "v2", facts, plan,
-                        BulkTargetEligibility.executable()));
+                        BulkTargetEligibility.executable())).subList(0, targetCount);
         var governance = new BulkEvaluationGovernance("occupancy-fixture-evaluator-r1",
                 "occupancy-fixture-grants-r1", List.of(new BulkPolicyObservation(tenant, "conformance",
-                "occupancy-policy", "resource-action-approval", "resource:occupancy-fixture", "NEVER_APPLIED",
+                "occupancy-policy", "resource-action-approval", "resource:" + suppliedContext.resourceKey(), "NEVER_APPLIED",
                 "occupancy-fixture-policy-r1", created.plusMillis(100))));
         var evaluation = new BulkEvaluationSnapshot(proposal, created.plusSeconds(1), targets, governance);
         assertThat(BulkSnapshotStorageCodec.decode(BulkSnapshotStorageCodec.encode(snapshot), snapshot.fingerprint())
                 .intent().path("executionMode").asText()).isEqualTo("ASYNC");
         assertThat(BulkEvaluationStorageCodec.decode(proposal, BulkEvaluationStorageCodec.encode(evaluation),
                 evaluation.fingerprint()).hasTypedEligibility()).isTrue();
-        var tx = new TransactionTemplate(runtime.transactionManager());
-        tx.executeWithoutResult(status -> runtime.withConnection(connection -> {
+        var tx = new TransactionTemplate(boundRuntime.transactionManager());
+        tx.executeWithoutResult(status -> boundRuntime.withConnection(connection -> {
             JdbcBulkCapacityOccupancy.lockMarker(connection);
-            var quota = BulkQuotaLedger.lockProposal(connection, runtime, proposal, false, true);
+            var quota = BulkQuotaLedger.lockProposal(connection, boundRuntime, proposal, false, true);
             insertProtectedInput(connection, evaluation);
             BulkOrdinalManifest.insert(connection, evaluation);
             BulkPreviewStorage.insert(connection, evaluation, BulkEvaluationSnapshotTest.preview(evaluation));
@@ -926,6 +972,96 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
                 return new BulkOperationControlExpectation(current.generation(), current.descriptorFingerprint(),
                         current.structuralRevision());
             } catch (Exception | Error failure) { connection.rollback(); throw failure; }
+        }
+    }
+
+    /** Trusted storage-only control on the current photo, not public composition or capture. */
+    BulkOperationControlExpectation composeAdditionalStorageControl(BulkFingerprintContext suppliedContext)
+            throws Exception {
+        java.util.Objects.requireNonNull(suppliedContext, "suppliedContext");
+        if (!context.namespaceId().equals(suppliedContext.namespaceId())
+                || suppliedContext.atomicity() != ActionCollectionAtomicity.PER_ITEM
+                || context.operationRef().operationId().equals(suppliedContext.operationRef().operationId()))
+            throw new IllegalArgumentException("A distinct same-namespace PER_ITEM operation is required");
+        return composeCurrentPublicationControl(suppliedContext);
+    }
+
+    private BulkOperationControlExpectation composeCurrentPublicationControl(BulkFingerprintContext suppliedContext)
+            throws Exception {
+        if (!namespaceDeployments.containsKey(suppliedContext.namespaceId())
+                || suppliedContext.atomicity() != ActionCollectionAtomicity.PER_ITEM)
+            throw new IllegalArgumentException("Configured PER_ITEM namespace required");
+        var ref = suppliedContext.operationRef();
+        String descriptor = BulkCanonicalJson.digest(JSON.objectNode().put("operationId", ref.operationId())
+                .put("group", ref.group()).put("path", ref.path()).put("method", ref.method())
+                .put("executionMode", "ASYNC").put("selectionMode", "EXPLICIT").put("atomicity", "PER_ITEM")
+                .put("structuralRevision", suppliedContext.schemaRevision())
+                .put("scope", "protected-storage-conformance-only"));
+        try (var connection = ownerSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                JdbcBulkCapacityOccupancy.lockMarker(connection);
+                var publication = JdbcBulkOpenApiPublication.lockForRead(connection, suppliedContext.namespaceId(), DEPLOYMENT);
+                assertThat(publication.published()).isTrue();
+                try (var insert = connection.prepareStatement("""
+                        insert into praxis_bulk.praxis_bulk_operation_control
+                            (namespace_id,operation_id,state,generation,descriptor_fingerprint,structural_revision,updated_at)
+                        values (?,?,'UNCOMPOSED',0,null,null,clock_timestamp())
+                        """)) {
+                    insert.setString(1, suppliedContext.namespaceId()); insert.setString(2, ref.operationId());
+                    assertThat(insert.executeUpdate()).isEqualTo(1);
+                }
+                var transition = JdbcBulkOperationControl.transition(connection, suppliedContext.namespaceId(),
+                        ref.operationId(), 0, JdbcBulkOperationControl.Target.READY, descriptor,
+                        suppliedContext.schemaRevision(), publication.generation(), publication.documentDigest());
+                assertThat(transition.applied()).isTrue();
+                var current = JdbcBulkOperationControl.lockForAdmission(connection, suppliedContext.namespaceId(), ref.operationId());
+                assertThat(current.ready()).isTrue();
+                connection.commit();
+                return new BulkOperationControlExpectation(current.generation(), current.descriptorFingerprint(),
+                        current.structuralRevision());
+            } catch (Exception | Error failure) { connection.rollback(); throw failure; }
+        }
+    }
+
+    Map<String, List<Map<String, Object>>> authorityRows() {
+        var result = new LinkedHashMap<String, List<Map<String, Object>>>();
+        for (String table : List.of("capacity_token", "capacity_binding", "binding_attestation", "capacity_request",
+                "deployment_capacity", "tenant_capacity", "fairness_cursor"))
+            result.put(table, scope.authorityObserver.queryForList("select * from praxis_bulk_capacity." + table + " order by 1"));
+        return result;
+    }
+
+    /** Explicit view over the SAME physical database/marker and unchanged deployment publication. */
+    NamespaceView namespaceView(BulkFingerprintContext additional) throws Exception {
+        if (context.namespaceId().equals(additional.namespaceId())
+                || !namespaceDeployments.containsKey(additional.namespaceId())
+                || !context.resourceKey().equals(additional.resourceKey())
+                || !context.operationRef().equals(additional.operationRef())
+                || !context.schemaRevision().equals(additional.schemaRevision()))
+            throw new IllegalArgumentException("Configured additional namespace with matching canonical operation required");
+        return new NamespaceView(additional);
+    }
+
+    final class NamespaceView {
+        final BulkFingerprintContext context;
+        final BulkExecutionInfrastructure runtime;
+        final JdbcBulkDurableExecution kernel;
+        final BulkOperationControlExpectation control;
+
+        private NamespaceView(BulkFingerprintContext context) throws Exception {
+            this.context = context;
+            this.runtime = new BulkExecutionInfrastructure(runtimeSource, new DataSourceTransactionManager(runtimeSource),
+                    context.namespaceId(), DEPLOYMENT, BulkPostgresTestSupport.testRoleConfiguration());
+            this.kernel = new JdbcBulkDurableExecution(runtime, null, expected);
+            this.control = composeCurrentPublicationControl(context);
+        }
+
+        BulkEvaluationSnapshot persist() { return persistBound(context, control, 2, runtime); }
+
+        BulkExecutionReservation enqueue(BulkEvaluationSnapshot evaluation, String key, UUID queue) {
+            return kernel.enqueue(context, evaluation.proposal().id(), key, "fixture-supervisor",
+                    context.schemaRevision(), Instant.now().plusSeconds(300), queue);
         }
     }
 

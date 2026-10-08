@@ -797,7 +797,7 @@ class BulkCapacityLocalInstallationPostgresTest {
             DataSource owner = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", database),
                     "postgres", "");
             assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(NAMESPACE, DEPLOYMENT)))
-                    .isEqualTo(19);
+                    .isEqualTo(20);
             // Explicit fixture role provisioning follows the completed empty-role bootstrap.
             BulkPostgresTestSupport.grantRuntimeRole(owner, "bulk_runtime_test");
             BulkPostgresTestSupport.grantRuntimeRole(owner, "durable_runtime");

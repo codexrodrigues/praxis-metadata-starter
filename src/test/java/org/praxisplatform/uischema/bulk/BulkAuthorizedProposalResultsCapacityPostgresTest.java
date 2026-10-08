@@ -110,7 +110,7 @@ class BulkAuthorizedProposalResultsCapacityPostgresTest {
     @BeforeEach
     void reset() {
         sql.execute("drop schema if exists praxis_bulk cascade");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(19);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(20);
         // Official test-only structural publication; this does not publish an HTTP capability.
         BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
         sql.execute("drop table if exists public.b5c_target_grant");
