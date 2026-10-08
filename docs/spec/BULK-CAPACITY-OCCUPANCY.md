@@ -343,3 +343,51 @@ SYNC-only proposal-reader gate. A genuine published old artifact, verified class
 and a valid SYNC positive must distinguish ASYNC rejection from setup/classpath failure.
 Until the remaining proof is complete, this is a required procedure, not a certified
 mixed-version runtime. Publication, host deployment and Angular are separate gates.
+
+## Database-local clone characterization (C1a)
+
+`BulkCapacityCloneBaselinePostgresTest` characterizes the internal kernel integrated
+in Metadata main `5d68b8e8f52b7e00b744afca58ace0a3046b6262`; it does not make this
+kernel available in the public `8.0.0-rc.154` artifact. The focused test uses the
+existing genuine authority, authenticated QUEUE/ACTIVE rights and an ordinary
+runtime login. It confirms ordinal zero, then copies the quiescent local database
+with PostgreSQL TEMPLATE while retaining the full identity, control, slot and receipt.
+
+Before constructing a kernel against the copy, it compares all bulk/Flyway/domain
+rows by content, including binary values and MVCC identity, and compares schemas,
+columns, constraints, indexes, functions, triggers, owners, ACLs and existing roles.
+Database-level owner, privileges (grantor/grantee/options) and role/database settings
+are observed separately: TEMPLATE does not copy database privileges or settings.
+The copier transfers only observed values; unsupported grantors/settings fail.
+It never migrates, heals, generates a replacement identity or creates a new right
+for the copied binding. Owner/superuser is a trusted administrative boundary.
+
+The original is then fenced. Its next ordinal is denied before admission or domain
+callback, while the copy retains ACTIVE and can commit that ordinal. An independent
+observer first sees no uncommitted domain effect or receipt, and later sees both
+with the callback's physical transaction ID. Replaying the copied first receipt
+invokes no callback; the original authority and fenced database remain unchanged.
+**This passing test demonstrates the existing clone limitation. It does not prove
+a mechanism that prevents it.** Future C1b must test rejection by the chosen
+mechanism; preserve this baseline's frozen evidence when changing that expectation.
+
+Reproduce from a checkout containing the test:
+
+```sh
+mvn -B '-Dtest=BulkCapacityCloneBaselinePostgresTest#cloneBeforeFenceRetainsTheCopiedBindingAndCanCommitAnAsyncUnit' '-Dpraxis.bulk.proof.directory=target/c1a-proof' test
+```
+
+The proof uses an owned EmbeddedPostgres cluster, restores the original connection
+policy in `finally`, verifies zero local backends and closes the cluster. The
+manifest records sanitized phases, database OIDs, callback/observer PIDs and XIDs;
+full protected rows and configuration stay in memory. No callback or unit
+transaction is held open during copying; unit and owner lock budgets are unchanged.
+
+The focused campaign ran one test with no failures, errors or skips on PostgreSQL
+14.22/Java 21. Test SHA256 is
+`c09cf7ec9f6f8445467c389f4f43f105ca5e19418e730867e152a15ea5f20114`.
+Its source archive freezes 836 source/POM files; SHA256 is
+`2c325a32f5fe5c3c787d0472f21025b111cb170e3208f43c5220d481b9c9c0cf`.
+This is a database-local copy within one cluster. It does not cover physical
+cluster restore, authority rollback, restart of an old fleet, external monotonic
+continuity, succession, worker fairness, public ASYNC/READY or backend acceptance.
