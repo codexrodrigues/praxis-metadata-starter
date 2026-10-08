@@ -1037,44 +1037,44 @@ Em 08/10/2026, `BulkAuthorizedProposalResultsCapacityPostgresTest` passou
 2/2, sem falhas/erros/skips, contra a fonte da tag pública Metadata rc.154
 `7c974b5228d1f78fb82f3bc180c1940a886c6275`. Fonte do teste SHA256
 `e9d0aca1d27c41dac49e8e191202d2ccea03e081d597b47e5c9c146cf5e08b5e`,
-809 fontes/POM conferidos sem drift durante a campanha. Ambiente PostgreSQL14.22,
-Java21.0.10, Maven3.9.15, macOS26.6.2 arm64, heap máximo256MiB. Receita focal:
+809 fontes/POM conferidos sem drift durante a campanha. Ambiente PostgreSQL 14.22,
+Java 21.0.10, Maven 3.9.15, macOS 26.6.2 arm64, heap máximo 256 MiB. Receita focal:
 
 ```sh
 mvn -B -Dpraxis.bulk.capacity=true -Dtest=BulkAuthorizedProposalResultsCapacityPostgresTest -DfailIfNoTests=true -DargLine=-Xmx256m test
 ```
 
 A prova chama a composição canônica autorizada, não apenas o reader de storage:
-50 páginas encadeadas de200,10.000 identidades sem duplicação/omissão, cursores
-reais com janela fixa, tamanhos199/200 aceitos e201 rejeitado antes da transação.
-Cada request reautoriza todos os10.000 alvos com grants reais PostgreSQL, na conexão
+50 páginas encadeadas de 200, 10.000 identidades sem duplicação/omissão, cursores
+reais com janela fixa, tamanhos 199/200 aceitos e 201 rejeitado antes da transação.
+Cada request reautoriza todos os 10.000 alvos com grants reais PostgreSQL, na conexão
 operacional Spring já vinculada ao snapshot REPEATABLE READ READ ONLY. O grant
 global continua ALLOWED enquanto owner revoga o último alvo fora da página;
 leitura inicial e continuação negam integralmente, sem página/cursor/efeitos.
 Runtime tem SELECT nos grants e não INSERT/UPDATE/DELETE. Proposta, avaliação,
 manifest, projeção e estado durável conservam-se, com zero execution/admission/receipt.
 
-A campanha de64,659s registrou55 autorizações completas; as50 páginas medidas
-somaram48.227,597ms, com maior request1.423,648ms e budget nativo3.000ms intacto.
-Proposta450.396bytes, avaliação2.600.695bytes, diagnostics5.830.000bytes,
-maior página pública134.161bytes. Heap antes/depois69.234.960/51.990.328bytes,
-soma dos picos de pools217.250.840bytes, máximo268.435.456bytes;
-269 coletas/542ms de GC. Medições incluem o harness e BitSet do oráculo;
+A campanha de 64,659 s registrou 55 autorizações completas; as 50 páginas medidas
+somaram48.227,597 ms, com maior request 1.423,648 ms e budget nativo 3.000 ms intacto.
+Proposta 450.396 bytes, avaliação 2.600.695 bytes, diagnostics 5.830.000 bytes,
+maior página pública 134.161 bytes. Heap antes/depois 69.234.960/51.990.328 bytes,
+soma dos picos de pools 217.250.840 bytes, máximo 268.435.456 bytes;
+269 coletas/542 ms de GC. Medições incluem o harness e BitSet do oráculo;
 soma de picos não é pico simultâneo/RSS, nem demonstra O(page) ou SLA.
 
 A integração foi validada separadamente contra main privada
-`86c2f9a865b74259d0e9ee621010f88230f01288`, com19 migrations: adaptação do teste
-restrita à expectativa fixa17→19, SHA256
+`86c2f9a865b74259d0e9ee621010f88230f01288`, com 19 migrations: adaptação do teste
+restrita à expectativa fixa 17→19, SHA256
 `7a815916137b863d9a1d2997e3c2a1bce16c79027a8aa358a59f6e8370b4fd69`.
-Campanha distinta2/2, sem falhas/erros/skips,71,143s;840 fontes/POM e ZIP exatos.
-Mesmos55 checks/50 páginas/10.000 alvos; maior leitura1.450,580ms,
-total53.890,045ms. Heap antes/depois76.021.760/60.716.800bytes,
-soma picos215.482.368bytes,301coletas/565ms deGC. Launcher e postmaster
+Campanha distinta 2/2, sem falhas/erros/skips, 71,143 s; 840 fontes/POM e ZIP exatos.
+Mesmos 55 checks/50 páginas/10.000 alvos; maior leitura 1.450,580 ms,
+total 53.890,045 ms. Heap antes/depois 76.021.760/60.716.800 bytes,
+soma picos 215.482.368 bytes, 301 coletas/565 ms de GC. Launcher e postmaster
 próprios encerrados. A evidência da fonte rc.154 continua preservada e não é
 substituída por esta prova da árvore privada; nenhuma nova versão foi publicada.
 
 Essa caracterização cobre a composição autorizada neste harness. Não prova
-HTTP200, autorização corporativa universal, cold-start/concorrência/pool de
+HTTP 200, autorização corporativa universal, cold-start/concorrência/pool de
 produção, outras identidades, RS3/RS4, C0/restore ou backend completo. Não altera
 núcleo/POM/contratos públicos nem exige instalar bytes sob coordenada publicada.
 Sem override ou adoção nova do host neste corte; SDK source tag e artefato público
