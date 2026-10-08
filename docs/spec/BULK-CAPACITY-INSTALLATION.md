@@ -1,6 +1,6 @@
 # Local installation of deployment capacity rights — B5b.1b.A candidate
 
-Status: candidate implementation has independent static and composed PostgreSQL acceptance for B5b.1b.A; remote integration and publication remain separate gates. This page is not a published adoption recipe. Metadata rc.154 does not include this candidate. The issuer slice B5b.1a is integrated; it does not make jobs or this installation flow available.
+Status: B5b.1b.A source has independent static and composed PostgreSQL acceptance and is integrated by [Metadata PR239](https://github.com/codexrodrigues/praxis-metadata-starter/pull/239), merge `6443a92507e2da6036a758a1e314cde74e6e3fc9` (2026-10-06). Maven publication and consumer adoption remain separate gates. This page is not a published adoption recipe. Metadata rc.154 does not include this candidate. The issuer slice B5b.1a is integrated; it does not make jobs or this installation flow available.
 
 ## Why installation is separate from issuance
 

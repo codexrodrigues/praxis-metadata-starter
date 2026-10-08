@@ -22,6 +22,25 @@ public final class BulkStoredProposal {
 
     public BulkStoredProposal(UUID id, Instant createdAt, Instant expiresAt, BulkIntentSnapshot snapshot,
             BulkOperationControlExpectation controlExpectation) {
+        this(id, createdAt, expiresAt, snapshot, controlExpectation, false);
+    }
+
+    /** Protected representation only; this factory grants no capture or execution authority. */
+    static BulkStoredProposal asynchronous(UUID id, Instant createdAt, Instant expiresAt,
+            BulkIntentSnapshot snapshot, BulkOperationControlExpectation controlExpectation) {
+        Objects.requireNonNull(controlExpectation, "controlExpectation");
+        return new BulkStoredProposal(id, createdAt, expiresAt, snapshot, controlExpectation, true);
+    }
+
+    static BulkStoredProposal decoded(UUID id, Instant createdAt, Instant expiresAt,
+            BulkIntentSnapshot snapshot, BulkOperationControlExpectation expectation) {
+        return "ASYNC".equals(snapshot.intent().path("executionMode").asText())
+                ? asynchronous(id, createdAt, expiresAt, snapshot, expectation)
+                : new BulkStoredProposal(id, createdAt, expiresAt, snapshot, expectation);
+    }
+
+    private BulkStoredProposal(UUID id, Instant createdAt, Instant expiresAt, BulkIntentSnapshot snapshot,
+            BulkOperationControlExpectation controlExpectation, boolean asynchronous) {
         this.id = Objects.requireNonNull(id, "id");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt").truncatedTo(ChronoUnit.MICROS);
         this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt").truncatedTo(ChronoUnit.MICROS);
@@ -34,7 +53,14 @@ public final class BulkStoredProposal {
         this.controlExpectation = controlExpectation;
         var intent = snapshot.intent();
         boolean query = "QUERY".equals(intent.path("selection").path("mode").asText());
-        if (!"SYNC".equals(intent.path("executionMode").asText())
+        if (asynchronous && (snapshot.mode() != BulkMode.UNIFORM_UPDATE
+                || snapshot.context().atomicity() != org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM
+                || !"EXPLICIT".equals(intent.path("selection").path("mode").asText())
+                || !intent.path("selection").path("targets").isArray()
+                || intent.path("selection").path("targets").isEmpty()
+                || intent.path("selection").path("targets").size() > 10000))
+            throw new IllegalArgumentException("Unsupported protected ASYNC selection");
+        if (!(asynchronous ? "ASYNC" : "SYNC").equals(intent.path("executionMode").asText())
                 || query && (snapshot.mode() != BulkMode.UNIFORM_UPDATE
                     || snapshot.context().atomicity() != org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM)
                 || snapshot.mode() != BulkMode.PER_ITEM_UPDATE && !query

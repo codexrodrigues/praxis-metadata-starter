@@ -30,7 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Physical local installation against a separate V2 authority and two V18 databases. */
+/** Physical local installation against a separate V2 authority and two current V19 databases. */
 class BulkCapacityLocalInstallationPostgresTest {
     private static final String DEPLOYMENT = "deployment-capacity-install-test";
     private static final String ENVIRONMENT = "prod";
@@ -797,7 +797,7 @@ class BulkCapacityLocalInstallationPostgresTest {
             DataSource owner = new DriverManagerDataSource(postgres.getJdbcUrl("postgres", database),
                     "postgres", "");
             assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(NAMESPACE, DEPLOYMENT)))
-                    .isEqualTo(18);
+                    .isEqualTo(19);
             // Explicit fixture role provisioning follows the completed empty-role bootstrap.
             BulkPostgresTestSupport.grantRuntimeRole(owner, "bulk_runtime_test");
             BulkPostgresTestSupport.grantRuntimeRole(owner, "durable_runtime");

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreType;
 /** Protected control state. It is not the public execution projection. */
 @JsonIgnoreType
 public enum BulkDurableExecutionStatus {
+    QUEUED,
     RUNNING,
     UNIT_IN_FLIGHT,
     UNIT_COMMITTED_PENDING_ACK,

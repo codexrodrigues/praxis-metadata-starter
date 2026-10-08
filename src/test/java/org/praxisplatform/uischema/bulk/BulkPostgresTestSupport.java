@@ -60,6 +60,10 @@ final class BulkPostgresTestSupport {
         admin.execute("do $$ begin create role " + runtimeRole
                 + " login; exception when duplicate_object then null; end $$");
         admin.execute("grant usage on schema praxis_bulk to " + runtimeRole);
+        if (Boolean.TRUE.equals(admin.queryForObject("select to_regclass('praxis_bulk.praxis_bulk_capacity_slot') is not null", Boolean.class))) {
+            admin.execute("grant select on praxis_bulk.praxis_bulk_capacity_slot,praxis_bulk.praxis_bulk_capacity_occupation to " + runtimeRole);
+            admin.execute("grant execute on function praxis_bulk.lock_capacity_marker(),praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to " + runtimeRole);
+        }
         admin.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to " + runtimeRole);
         admin.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_namespace_binding to " + runtimeRole);
         admin.execute("grant select, update (deployment_id) on praxis_bulk.praxis_bulk_deployment_bucket to " + runtimeRole);

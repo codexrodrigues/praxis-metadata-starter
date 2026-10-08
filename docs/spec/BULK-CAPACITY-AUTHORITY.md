@@ -11,7 +11,7 @@ acceptance bridge must define its safe consumer surface before host adoption.
 
 The separate [B5b.1b.A installation candidate](BULK-CAPACITY-INSTALLATION.md)
 extends this source with authority V2 and operational V18, protected local markers
-and owner-only installation. Its current 97-case evidence does not accept jobs,
+and owner-only installation. That source is integrated by [Metadata PR239](https://github.com/codexrodrigues/praxis-metadata-starter/pull/239), merge `6443a92507e2da6036a758a1e314cde74e6e3fc9`. Its current 97-case evidence does not accept jobs,
 occupy execution slots or make either candidate part of rc.154. The issuer-only
 scope and 42-case historical proof below remain B5b.1a, rather than claims that
 no installation implementation can exist in a later source increment.

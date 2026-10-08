@@ -41,6 +41,7 @@ record BulkExecutionSummary(Kind kind, UUID executionId, UUID proposalId,
                         ? remainder : 0)) throw corrupt();
 
         BulkExecutionStatus status = switch (execution.status()) {
+            case QUEUED -> BulkExecutionStatus.QUEUED;
             case RUNNING, UNIT_IN_FLIGHT, UNIT_COMMITTED_PENDING_ACK ->
                     execution.cancelRequestedAt() == null
                             ? BulkExecutionStatus.RUNNING : BulkExecutionStatus.CANCEL_REQUESTED;
@@ -50,7 +51,7 @@ record BulkExecutionSummary(Kind kind, UUID executionId, UUID proposalId,
                     ? BulkExecutionStatus.CANCELLED : BulkExecutionStatus.STOPPED;
             case RECONCILIATION_REQUIRED -> BulkExecutionStatus.RECONCILIATION_REQUIRED;
         };
-        long pending = status == BulkExecutionStatus.RUNNING || status == BulkExecutionStatus.CANCEL_REQUESTED
+        long pending = status == BulkExecutionStatus.QUEUED || status == BulkExecutionStatus.RUNNING || status == BulkExecutionStatus.CANCEL_REQUESTED
                 ? remainder : 0;
         long notProcessed = status == BulkExecutionStatus.STOPPED || status == BulkExecutionStatus.CANCELLED
                 ? remainder : 0;

@@ -158,7 +158,8 @@ public final class JdbcBulkProposalStore {
     }
 
     private static void requireLegacySelection(BulkStoredProposal proposal) {
-        if ("QUERY".equals(proposal.snapshot().intent().at("/selection/mode").asText()))
+        if (!"SYNC".equals(proposal.snapshot().intent().path("executionMode").asText())
+                || "QUERY".equals(proposal.snapshot().intent().at("/selection/mode").asText()))
             throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
     }
 
@@ -314,7 +315,7 @@ public final class JdbcBulkProposalStore {
         try (var statement = connection.prepareStatement("""
                 select created_at, expires_at, fingerprint, payload,
                        control_generation, control_descriptor_fingerprint, control_structural_revision,
-                       atomicity, protocol_version
+                       atomicity, protocol_version, execution_mode
                 from praxis_bulk.praxis_bulk_proposal
                 where proposal_id=? and namespace_id=? and subject_id=? and resource_key=? and operation_id=?
                 """)) {
@@ -335,7 +336,7 @@ public final class JdbcBulkProposalStore {
         try (var statement = connection.prepareStatement("""
                 select created_at, expires_at, fingerprint, payload,
                        control_generation, control_descriptor_fingerprint, control_structural_revision,
-                       atomicity, protocol_version, subject_id
+                       atomicity, protocol_version, subject_id, execution_mode
                 from praxis_bulk.praxis_bulk_proposal
                 where proposal_id=? and namespace_id=? and resource_key=? and operation_id=?
                 """)) {
@@ -353,6 +354,9 @@ public final class JdbcBulkProposalStore {
             String namespaceId, String subjectId, String resourceKey, String operationId) throws SQLException {
         try {
             var snapshot = BulkSnapshotStorageCodec.decode(rows.getBytes(4), rows.getString(3));
+            if (!snapshot.intent().path("executionMode").asText().equals(rows.getString("execution_mode"))
+                    || "ASYNC".equals(rows.getString("execution_mode")) && rows.getShort("protocol_version") != 2)
+                throw new IllegalArgumentException("Protected execution mode mismatch");
             var stored = snapshot.context();
             if (!stored.atomicity().name().equals(rows.getString("atomicity"))
                     || (rows.getShort("protocol_version") != 1 && rows.getShort("protocol_version") != 2))
@@ -362,7 +366,7 @@ public final class JdbcBulkProposalStore {
                     || !stored.operationRef().operationId().equals(operationId)) {
                 throw new IllegalArgumentException("Protected scope mismatch");
             }
-            var result = new BulkStoredProposal(id,
+            var result = BulkStoredProposal.decoded(id,
                     rows.getObject(1, OffsetDateTime.class).toInstant(),
                     rows.getObject(2, OffsetDateTime.class).toInstant(), snapshot,
                     expectation(rows.getObject(5, Long.class), rows.getString(6), rows.getString(7)));
@@ -438,8 +442,8 @@ public final class JdbcBulkProposalStore {
                 insert into praxis_bulk.praxis_bulk_proposal
                 (proposal_id, namespace_id, subject_id, resource_key, operation_id, created_at, expires_at,
                  fingerprint, payload, control_generation, control_descriptor_fingerprint, control_structural_revision,
-                 atomicity, protocol_version)
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2)
+                 atomicity, protocol_version, execution_mode)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2, 'SYNC')
                 """)) {
             BulkOperationControlExpectation expectation = proposal.controlExpectation();
             statement.setObject(1, proposal.id()); statement.setString(2, context.namespaceId());
