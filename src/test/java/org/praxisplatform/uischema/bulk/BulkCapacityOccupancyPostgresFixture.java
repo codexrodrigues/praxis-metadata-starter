@@ -102,16 +102,58 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
         final BulkCapacityAuthorityInfrastructure provisioner;
         final JdbcBulkCapacityIssuer.CapacityReader reader;
         final JdbcBulkCapacityIssuer issuer;
+        private final Map<String, String> credentials;
         private final List<BulkCapacityOccupancyPostgresFixture> locals = new java.util.ArrayList<>();
         private boolean closed;
 
         SharedScope() throws Exception {
-            postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false).start();
+            this(EmbeddedPostgres.builder().setCleanDataDirectory(true).setRegisterShutdownHook(false));
+        }
+
+        /** Test-only startup configuration; the default scope retains its original builder policy. */
+        SharedScope(EmbeddedPostgres.Builder builder) throws Exception {
+            this(builder, Map.of(), null);
+        }
+
+        /** Optional authenticated test startup; no secret is published in proof certificates. */
+        SharedScope(EmbeddedPostgres.Builder builder, Map<String, String> credentials,
+                org.springframework.jdbc.core.ConnectionCallback<Void> bootstrap) throws Exception {
+            this.credentials = Map.copyOf(credentials);
+            if (!this.credentials.isEmpty()) {
+                if (!this.credentials.keySet().equals(Set.of("postgres", "occupancy_provisioner",
+                        "occupancy_allocator", "occupancy_reader", "bulk_runtime_test", "durable_runtime"))
+                        || this.credentials.values().stream().anyMatch(value -> value == null || value.isBlank())
+                        || new java.util.HashSet<>(this.credentials.values()).size() != this.credentials.size()
+                        || bootstrap == null)
+                    throw new IllegalArgumentException("Authenticated test startup requires distinct role credentials and bootstrap");
+            }
+            postgres = builder.start();
             try {
-                var cluster = new JdbcTemplate(postgres.getPostgresDatabase());
+                if (bootstrap != null) {
+                    // Only the embedded healthcheck has run. Close trust before any authority,
+                    // migration, domain or runtime setup, using this preopened administrative loan.
+                    try (var connection = postgres.getPostgresDatabase().getConnection()) {
+                        bootstrap.doInConnection(connection);
+                    }
+                }
+                var cluster = new JdbcTemplate(this.credentials.isEmpty()
+                        ? postgres.getPostgresDatabase() : source("postgres", "postgres"));
                 cluster.execute("create role occupancy_provisioner login");
                 cluster.execute("create role occupancy_allocator login");
                 cluster.execute("create role occupancy_reader login");
+                if (!this.credentials.isEmpty()) {
+                    cluster.execute("create role bulk_runtime_test login");
+                    cluster.execute("create role durable_runtime login");
+                    try (var connection = source("postgres", "postgres").getConnection()) {
+                        for (String role : List.of("occupancy_provisioner", "occupancy_allocator",
+                                "occupancy_reader", "bulk_runtime_test", "durable_runtime")) {
+                            char[] password = password(role).toCharArray();
+                            try { connection.unwrap(org.postgresql.PGConnection.class)
+                                    .alterUserPassword(role, password, "scram-sha-256"); }
+                            finally { Arrays.fill(password, '\0'); }
+                        }
+                    }
+                }
                 cluster.execute("create database capacity_global");
                 identity = new BulkCapacityAuthorityMigrator.Identity(DEPLOYMENT, ENVIRONMENT, UUID.randomUUID(), 11);
                 var roles = new BulkCapacityAuthorityMigrator.RoleConfiguration("postgres",
@@ -143,8 +185,15 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
                     "occupancy-global-tenant-" + ordinal, "occupancy-global-binding-" + ordinal, async, sync, false);
         }
 
-        private DataSource source(String role, String database) {
-            return new DriverManagerDataSource(postgres.getJdbcUrl(role, database), role, "");
+        DataSource source(String role, String database) {
+            return new DriverManagerDataSource(postgres.getJdbcUrl(role, database), role, password(role));
+        }
+
+        String password(String role) {
+            if (credentials.isEmpty()) return "";
+            String password = credentials.get(role);
+            if (password == null) throw new IllegalArgumentException("No configured test credential for role");
+            return password;
         }
 
         private BulkCapacityAuthorityInfrastructure authority(String role,
@@ -200,7 +249,8 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
         this.context = context;
         this.syncContext = syncContext;
         try {
-            new JdbcTemplate(postgres.getPostgresDatabase()).execute("create database " + localDatabase);
+            new JdbcTemplate(scope.credentials.isEmpty() ? postgres.getPostgresDatabase()
+                    : scope.source("postgres", "postgres")).execute("create database " + localDatabase);
             provisioner = scope.provisioner;
             reader = scope.reader;
             issuer = scope.issuer;
@@ -913,7 +963,7 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
         if (role.equals("bulk_runtime_test") && Set.of("claim-transfer", "queued-cancel").contains(caseId)) {
             return new DiagnosticDataSource(postgres.getJdbcUrl(role, database), role);
         }
-        return new DriverManagerDataSource(postgres.getJdbcUrl(role, database), role, "");
+        return scope.source(role, database);
     }
 
     /**
@@ -922,7 +972,7 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
      * It is enabled only for the two failing diagnostic cases, leaving other campaigns unchanged.
      */
     private final class DiagnosticDataSource extends DriverManagerDataSource {
-        DiagnosticDataSource(String url, String role) { super(url, role, ""); }
+        DiagnosticDataSource(String url, String role) { super(url, role, scope.password(role)); }
 
         @Override public Connection getConnection() throws SQLException {
             return (Connection) wrap(super.getConnection(), Connection.class);
