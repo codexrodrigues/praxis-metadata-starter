@@ -209,31 +209,37 @@ public final class BulkExecutionMigrator {
     /**
      * Applies pending protected-storage migrations and validates the resulting PostgreSQL catalog.
      * The call must happen outside a Spring transaction because it owns deployment DDL, not a
-     * proposal write transaction.
+     * proposal write transaction. The owner datasource must return clean auto-commit connections
+     * to one stable PostgreSQL database, with an exclusive backend throughout each simultaneous
+     * loan. Observed aliases are rejected; this is not a certification of connection multiplexers.
      *
      * @return the number of migrations executed by Flyway
      */
     public static int migrate(DataSource dataSource, Map<String, String> namespaceToDeploymentId) {
         DataSource operationalDataSource = Objects.requireNonNull(dataSource, "dataSource");
         return migrate(operationalDataSource, namespaceToDeploymentId,
-                BulkExecutionRoleConfiguration.none(currentDatabaseRole(operationalDataSource)), List.of());
+                BulkExecutionRoleConfiguration.none(migrationOwnerRole(operationalDataSource)), List.of());
     }
 
     /**
      * Applies migrations and bootstraps deny-only control rows for the explicitly declared
      * confirmation operations. The identity list is part of deployment configuration; it is
-     * never inferred from request headers or historical proposals.
+     * never inferred from request headers or historical proposals. The owner datasource must
+     * satisfy the clean auto-commit, stable database, and exclusive backend loan requirements
+     * of {@link #migrate(DataSource, Map)}.
      */
     public static int migrateWithOperations(DataSource dataSource, Map<String, String> namespaceToDeploymentId,
             List<BulkOperationControlIdentity> operations) {
         DataSource operationalDataSource = Objects.requireNonNull(dataSource, "dataSource");
         return migrate(operationalDataSource, namespaceToDeploymentId,
-                BulkExecutionRoleConfiguration.none(currentDatabaseRole(operationalDataSource)), operations);
+                BulkExecutionRoleConfiguration.none(migrationOwnerRole(operationalDataSource)), operations);
     }
 
     /**
      * Applies migrations and validates every bulk ACL against the explicitly configured host
-     * runtime, retention-operator, and control-plane PostgreSQL roles.
+     * runtime, retention-operator, and control-plane PostgreSQL roles. The owner datasource must
+     * satisfy the clean auto-commit, stable database, and exclusive backend loan requirements
+     * of {@link #migrate(DataSource, Map)}.
      */
     public static int migrate(DataSource dataSource, Map<String, String> namespaceToDeploymentId,
             BulkExecutionRoleConfiguration roles) {
@@ -243,7 +249,9 @@ public final class BulkExecutionMigrator {
     /**
      * Applies migrations and validates every bulk ACL against the explicitly configured host
      * runtime, retention-operator, and control-plane PostgreSQL roles, while provisioning control
-     * identities for every declared confirmation operation.
+     * identities for every declared confirmation operation. The owner datasource must satisfy
+     * the clean auto-commit, stable database, and exclusive backend loan requirements
+     * of {@link #migrate(DataSource, Map)}.
      */
     public static int migrate(DataSource dataSource, Map<String, String> namespaceToDeploymentId,
             BulkExecutionRoleConfiguration roles, List<BulkOperationControlIdentity> operations) {
@@ -252,20 +260,105 @@ public final class BulkExecutionMigrator {
         Map<String, String> deployments = canonicalDeploymentMap(namespaceToDeploymentId);
         List<BulkOperationControlIdentity> controlIdentities = canonicalControlIdentities(operations, deployments);
         BulkExecutionRoleConfiguration roleConfiguration = Objects.requireNonNull(roles, "roles");
-        assertKnownDedicatedSchema(operationalDataSource);
-        int historyVersion;
-        try (Connection preflight = operationalDataSource.getConnection()) {
-            historyVersion = currentHistoryVersion(preflight);
-        } catch (SQLException failure) {
-            throw new IllegalStateException("Unable to preflight bulk V17 storage", failure);
-        }
-        if (historyVersion == 17) validateV17BeforeUpgrade(operationalDataSource, roleConfiguration);
-        int migrationsExecuted = flyway(operationalDataSource).migrate().migrationsExecuted;
+        int migrationsExecuted = migrateSchemaWithHistoricalPreflight(operationalDataSource, roleConfiguration);
         initializeGovernedLifecycle(operationalDataSource, deployments, controlIdentities, roleConfiguration);
         completeCapacityReadBootstrap(operationalDataSource, roleConfiguration);
+        completeCapacityOccupancyBootstrap(operationalDataSource, roleConfiguration);
         validate(operationalDataSource, roleConfiguration);
         return migrationsExecuted;
     }
+
+    /**
+     * Coordinates owner DDL with the existing lifecycle advisory key. Read history only after
+     * acquiring it, so a waiter observes an upgrade committed by the preceding owner. Flyway
+     * and V18 bootstrap use separate connections and do not acquire this key. Release it before
+     * initializeGovernedLifecycle, which acquires the same key on its own connection.
+     * A re-read of V19 follows the existing owner bootstrap path, not a stale V18 preflight or
+     * public serving validation of an intermediate PENDING V19 installation. The host's owner
+     * pool must accommodate this retained connection plus Flyway's migration connections;
+     * this method does not create a second pool. Before starting that transaction, two live
+     * clean owner loans are checked for an observed backend alias. The second loan closes before
+     * the advisory fence or Flyway. These probes and the new advisory Statement have a
+     * query timeout of at most ten seconds, preserving any shorter positive JDBC timeout
+     * and the host's native PostgreSQL limits. This bounds coordinator waiting, not the
+     * whole migration, Flyway DDL, or the legacy lifecycle initializer's advisory wait.
+     */
+    private static int migrateSchemaWithHistoricalPreflight(DataSource source,
+            BulkExecutionRoleConfiguration roles) {
+        try (Connection coordination = source.getConnection()) {
+            MigrationOwnerBackend owner = readMigrationOwnerBackend(coordination);
+            require(roles.expectedSchemaOwnerRole().equals(owner.role()),
+                    "Bulk schema coordination requires its explicit owner credential");
+            try (Connection probe = source.getConnection()) {
+                MigrationOwnerBackend second = readMigrationOwnerBackend(probe);
+                require(roles.expectedSchemaOwnerRole().equals(second.role()),
+                        "Bulk schema coordination requires its explicit owner credential");
+                require(owner.database().equals(second.database()),
+                        "Bulk schema migration requires owner connections to the same database");
+                require(owner.pid() != second.pid(),
+                        "Bulk schema migration requires independent owner connections");
+            }
+            coordination.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            coordination.setAutoCommit(false);
+            try {
+                try (var statement = coordination.createStatement()) {
+                    int existingTimeout = statement.getQueryTimeout();
+                    statement.setQueryTimeout(existingTimeout > 0 ? Math.min(existingTimeout, 10) : 10);
+                    statement.execute("select pg_advisory_xact_lock(1347574124, 5)");
+                }
+                assertKnownDedicatedSchema(source);
+                int historyVersion = currentHistoryVersion(coordination);
+                if (historyVersion == 17) validateV17BeforeUpgrade(source, roles);
+                if (historyVersion == 18) {
+                    validateV18BeforeUpgrade(source, roles);
+                    // Only V18 may be pending here. Earlier bootstraps were attested COMPLETE;
+                    // this canonical owner transaction rechecks its latch/ACL before any grant.
+                    completeCapacityReadBootstrap(source, roles);
+                }
+                int migrationsExecuted = flyway(source).migrate().migrationsExecuted;
+                coordination.commit();
+                return migrationsExecuted;
+            } catch (SQLException | RuntimeException | Error failure) {
+                try { coordination.rollback(); }
+                catch (SQLException rollback) { failure.addSuppressed(rollback); }
+                throw failure;
+            }
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to coordinate bulk schema upgrade", failure);
+        }
+    }
+
+    /** Migration-only inference: serving validation keeps its existing datasource contract. */
+    private static String migrationOwnerRole(DataSource source) {
+        requireOutsideSpringTransaction();
+        try (Connection connection = source.getConnection()) {
+            return readMigrationOwnerBackend(connection).role();
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to identify the bulk migration owner", failure);
+        }
+    }
+
+    /** Read without changing caller state; a manual transaction is rejected before any SQL. */
+    private static MigrationOwnerBackend readMigrationOwnerBackend(Connection connection) throws SQLException {
+        require(connection.getAutoCommit(), "Bulk schema migration requires auto-commit owner connections");
+        assertPostgreSql(connection);
+        try (var statement = connection.createStatement()) {
+            int existingTimeout = statement.getQueryTimeout();
+            statement.setQueryTimeout(existingTimeout > 0 ? Math.min(existingTimeout, 10) : 10);
+            try (var rows = statement.executeQuery(
+                    "select pg_catalog.pg_backend_pid(), current_user, pg_catalog.current_database()")) {
+                require(rows.next(), "Unable to identify the bulk migration owner backend");
+                int pid = rows.getInt(1);
+                String role = rows.getString(2);
+                String database = rows.getString(3);
+                require(pid > 0 && role != null && !role.isBlank() && database != null && !database.isBlank()
+                        && !rows.next(), "Bulk migration owner backend identity is invalid");
+                return new MigrationOwnerBackend(pid, role, database);
+            }
+        }
+    }
+
+    private record MigrationOwnerBackend(int pid, String role, String database) { }
 
     private static void completeCapacityReadBootstrap(DataSource source,
             BulkExecutionRoleConfiguration roles) {
@@ -316,6 +409,28 @@ public final class BulkExecutionMigrator {
                         require(update.executeUpdate() == 1, "V18 capacity bootstrap completion lost");
                     }
                     validateCapacityInstallationCatalog(connection, roles, "COMPLETE", true);
+                    return null;
+                }));
+    }
+
+    private static void completeCapacityOccupancyBootstrap(DataSource source, BulkExecutionRoleConfiguration roles) {
+        requireOutsideSpringTransaction();
+        var manager = new org.springframework.jdbc.datasource.DataSourceTransactionManager(source);
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(manager);
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        transaction.setTimeout(10);
+        transaction.execute(status -> new org.springframework.jdbc.core.JdbcTemplate(source).execute(
+                (org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+                    assertPostgreSql(connection);
+                    require(!connection.getAutoCommit(), "V19 occupancy bootstrap requires an owner transaction");
+                    try (var statement = connection.createStatement(); var rows = statement.executeQuery("select current_user")) {
+                        require(rows.next() && roles.expectedSchemaOwnerRole().equals(rows.getString(1)) && !rows.next(),
+                                "V19 bootstrap requires explicit owner credential");
+                    }
+                    // Deparse against the canonical catalog scope; the owned transaction restores
+                    // the caller's path on commit or rollback, including an aborted SQL transaction.
+                    setCatalogSearchPath(connection, "pg_catalog", true);
+                    BulkCapacityOccupancyCatalog.bootstrap(connection, roles);
                     return null;
                 }));
     }
@@ -849,21 +964,23 @@ public final class BulkExecutionMigrator {
 
     private static Map<UUID, ExecutionRow> readExecutions(Connection connection) throws SQLException {
         var executions = new LinkedHashMap<UUID, ExecutionRow>();
+        String modeProjection = BulkCapacityOccupancyCatalog.installed(connection)
+                ? "e.execution_mode" : "'SYNC'::text";
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
                 select execution_id, proposal_id, namespace_id, subject_id, resource_key, operation_id,
                        status, created_at, terminal_at, next_ordinal, target_count, owner_epoch,
                        active_attempt_id, terminal_reason_code,
                        (select count(*) from praxis_bulk.praxis_bulk_admission a
-                        where a.execution_id = e.execution_id) as admission_count
+                        where a.execution_id = e.execution_id) as admission_count, %s
                 from praxis_bulk.praxis_bulk_execution e order by execution_id
-                """)) {
+                """.formatted(modeProjection))) {
             while (rows.next()) {
                 OffsetDateTime terminal = rows.getObject(9, OffsetDateTime.class);
                 var execution = new ExecutionRow(rows.getObject(1, UUID.class), rows.getObject(2, UUID.class),
                         rows.getString(3), rows.getString(4), rows.getString(5), rows.getString(6),
                         rows.getString(7), rows.getObject(8, OffsetDateTime.class).toInstant(),
                         terminal == null ? null : terminal.toInstant(), rows.getInt(10), rows.getInt(11),
-                        rows.getLong(12), rows.getObject(13, UUID.class), rows.getString(14), rows.getLong(15));
+                        rows.getLong(12), rows.getObject(13, UUID.class), rows.getString(14), rows.getLong(15), rows.getString(16));
                 executions.put(execution.id(), execution);
             }
         }
@@ -887,9 +1004,12 @@ public final class BulkExecutionMigrator {
     }
 
     private static AllocationRow executionAllocation(ExecutionRow execution, String deployment, ScopeDigests scope) {
+        require(Set.of("SYNC", "ASYNC").contains(execution.executionMode())
+                        && (!execution.status().equals("QUEUED") || execution.executionMode().equals("ASYNC")),
+                "Bulk allocation execution mode differs");
         boolean terminal = switch (execution.status()) {
             case "COMPLETED", "COMPLETED_WITH_ERRORS", "STOPPED" -> true;
-            case "RUNNING", "UNIT_IN_FLIGHT", "UNIT_COMMITTED_PENDING_ACK", "RECONCILIATION_REQUIRED" -> false;
+            case "QUEUED", "RUNNING", "UNIT_IN_FLIGHT", "UNIT_COMMITTED_PENDING_ACK", "RECONCILIATION_REQUIRED" -> false;
             default -> throw new IllegalStateException("Unknown bulk execution status");
         };
         require(!terminal || (execution.terminalAt() != null && execution.activeAttemptId() == null
@@ -898,8 +1018,9 @@ public final class BulkExecutionMigrator {
                         && (execution.status().equals("COMPLETED") == (execution.admissionCount() == 0)
                             || execution.status().equals("STOPPED"))),
                 "Bulk terminal execution cannot be classified for quota release");
-        return new AllocationRow("EXECUTION_ACTIVE", null, execution.id(), execution.namespaceId(), deployment,
-                scope.subjectDigest(), scope.authorizationDigest(), terminal ? "RELEASED" : "ACTIVE",
+        return new AllocationRow("ASYNC".equals(execution.executionMode()) ? "EXECUTION_ASYNC" : "EXECUTION_ACTIVE", null, execution.id(), execution.namespaceId(), deployment,
+                scope.subjectDigest(), scope.authorizationDigest(), terminal ? "RELEASED"
+                        : execution.status().equals("QUEUED") ? "QUEUED" : "ACTIVE",
                 execution.createdAt(), terminal ? execution.terminalAt() : null,
                 terminal ? "TERMINAL_RECONCILED" : null);
     }
@@ -1069,25 +1190,33 @@ public final class BulkExecutionMigrator {
 
     /** Validates storage against the exact role identities configured by the host. */
     public static void validate(DataSource dataSource, BulkExecutionRoleConfiguration roles) {
-        validateCurrent(dataSource, roles, false);
+        validateCurrent(dataSource, roles, 0);
     }
 
     private static void validateV17BeforeUpgrade(DataSource dataSource,
             BulkExecutionRoleConfiguration roles) {
-        validateCurrent(dataSource, roles, true);
+        validateCurrent(dataSource, roles, 17);
+    }
+
+    /** Exact historical V18 serving catalog, or its owner-only zero-ACL read bootstrap. */
+    private static void validateV18BeforeUpgrade(DataSource dataSource,
+            BulkExecutionRoleConfiguration roles) {
+        validateCurrent(dataSource, roles, 18);
     }
 
     private static void validateCurrent(DataSource dataSource, BulkExecutionRoleConfiguration roles,
-            boolean v17Preflight) {
+            int historicalVersion) {
         requireOutsideSpringTransaction();
         DataSource operationalDataSource = Objects.requireNonNull(dataSource, "dataSource");
         BulkExecutionRoleConfiguration roleConfiguration = Objects.requireNonNull(roles, "roles");
         assertKnownDedicatedSchema(operationalDataSource);
-        if (v17Preflight) {
+        require(historicalVersion == 0 || historicalVersion == 17 || historicalVersion == 18,
+                "Unsupported historical bulk preflight");
+        if (historicalVersion != 0) {
             Flyway.configure().dataSource(operationalDataSource)
                     .locations("classpath:db/praxis-bulk-migrations")
                     .schemas(SCHEMA).defaultSchema(SCHEMA).table(HISTORY_TABLE)
-                    .target(org.flywaydb.core.api.MigrationVersion.fromVersion("17"))
+                    .target(org.flywaydb.core.api.MigrationVersion.fromVersion(Integer.toString(historicalVersion)))
                     .createSchemas(true).baselineOnMigrate(false).cleanDisabled(true)
                     .validateOnMigrate(true).load().validate();
         } else {
@@ -1106,10 +1235,10 @@ public final class BulkExecutionMigrator {
                 assertPostgreSql(connection);
                 int historyVersion = currentHistoryVersion(connection);
                 boolean physicalV18 = isV18Installed(connection);
-                require((historyVersion == 18) == physicalV18,
+                require((historyVersion >= 18) == physicalV18,
                         "V18 history and physical installation disagree");
-                if (v17Preflight) require(historyVersion == 17,
-                        "V17 preflight requires the exact historical version");
+                if (historicalVersion != 0) require(historyVersion == historicalVersion,
+                        "V" + historicalVersion + " preflight requires the exact historical version");
                 validateProposalTable(connection);
                 validateColumns(connection);
                 validatePrimaryKey(connection);
@@ -1141,8 +1270,22 @@ public final class BulkExecutionMigrator {
                 validateEvidenceBinding(connection);
                 validateAtomicRows(connection);
                 validateLifecycleRows(connection);
-                if (isV18Installed(connection))
+                if (historicalVersion == 18) {
+                    String phase = capacityReadBootstrapPhase(connection);
+                    validateCapacityInstallationCatalog(connection, roleConfiguration, phase,
+                            "COMPLETE".equals(phase));
+                    if ("PENDING".equals(phase))
+                        require(queryCount(connection, "select count(*) from praxis_bulk." + CAPACITY_MARKER_TABLE) == 0
+                                        && queryCount(connection, "select count(*) from praxis_bulk." + CAPACITY_INSTALLATION_TABLE) == 0,
+                                "V18 pending capacity bootstrap already has a physical identity or right");
+                } else if (isV18Installed(connection)) {
                     validateCapacityInstallationCatalog(connection, roleConfiguration);
+                }
+                if (BulkCapacityOccupancyCatalog.installed(connection)) {
+                    require(historyVersion == 19 && "COMPLETE".equals(BulkCapacityOccupancyCatalog.phase(connection)),
+                            "V19 history/bootstrap disagree");
+                    BulkCapacityOccupancyCatalog.validate(connection, roleConfiguration, true);
+                }
                 validateOwnedSchema(connection);
             } finally {
                 setCatalogSearchPath(connection, previousSearchPath);
@@ -1182,7 +1325,7 @@ public final class BulkExecutionMigrator {
             if (!rows.next()) return 0;
             int version = rows.getInt(1);
             if (rows.wasNull()) version = 0;
-            if (rows.next() || version > 18)
+            if (rows.next() || version > 19)
                 throw new IllegalStateException("Unsupported bulk schema history version");
             return version;
         }
@@ -1245,7 +1388,9 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_atomic_bootstrap',
                               'praxis_bulk_tombstone',
                               'praxis_bulk_capacity_read_bootstrap',
-                              'praxis_bulk_capacity_marker', 'praxis_bulk_capacity_installation'))
+                              'praxis_bulk_capacity_marker', 'praxis_bulk_capacity_installation',
+                              'praxis_bulk_capacity_slot','praxis_bulk_capacity_occupation',
+                              'praxis_bulk_capacity_occupancy_bootstrap'))
                     """);
             Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
             Set<String> triggers = queryNames(connection, """
@@ -1260,12 +1405,12 @@ public final class BulkExecutionMigrator {
             if (relations.isEmpty() && functions.isEmpty() && types.isEmpty()
                     && orphanIndexes.isEmpty() && triggers.isEmpty() && rules.isEmpty() && policies.isEmpty()) return;
             if (!relations.contains(HISTORY_TABLE)
-                    || !allowedRelations(isV18Installed(connection)).containsAll(relations)
-                    || !governedHistoricalFunctions(isV18Installed(connection)).containsAll(functions)
+                    || !allowedRelations(isV18Installed(connection), BulkCapacityOccupancyCatalog.installed(connection)).containsAll(relations)
+                    || !governedHistoricalFunctions(isV18Installed(connection), BulkCapacityOccupancyCatalog.installed(connection)).containsAll(functions)
                     || !types.isEmpty()
                     || !orphanIndexes.isEmpty()
                     || !rules.isEmpty() || !policies.isEmpty()
-                    || !allowedTriggers(isV18Installed(connection)).containsAll(triggers)) {
+                    || !allowedTriggers(isV18Installed(connection), BulkCapacityOccupancyCatalog.installed(connection)).containsAll(triggers)) {
                 throw new IllegalStateException("Refusing an unknown nonempty praxis_bulk schema: relations="
                         + relations + ", functions=" + functions + ", types=" + types + ", indexes="
                         + orphanIndexes + ", triggers=" + triggers + ", rules=" + rules + ", policies=" + policies);
@@ -1275,7 +1420,7 @@ public final class BulkExecutionMigrator {
         }
     }
 
-    private static Set<String> allowedRelations(boolean v18) {
+    private static Set<String> allowedRelations(boolean v18, boolean v19) {
         var names = new LinkedHashSet<>(Set.of(HISTORY_TABLE, PROPOSAL_TABLE, EVALUATION_TABLE, MANIFEST_TABLE,
                 MANIFEST_BOOTSTRAP_TABLE, PREVIEW_STATE_TABLE, TARGET_PREVIEW_TABLE,
                 PREVIEW_BOOTSTRAP_TABLE, PREVIEW_INTEGRITY_TABLE,
@@ -1285,17 +1430,18 @@ public final class BulkExecutionMigrator {
                 ATOMIC_RECEIPT_TABLE, ATOMIC_ITEM_TABLE, ATOMIC_EFFECT_TABLE,
                 ATOMIC_REJECTION_TABLE, ATOMIC_BOOTSTRAP_TABLE));
         if (v18) names.addAll(V18_TABLES);
+        if (v19) names.addAll(BulkCapacityOccupancyCatalog.TABLES);
         return names;
     }
 
     /** Recognition before Flyway only; never used by current exact catalog attestation. */
-    private static Set<String> governedHistoricalFunctions(boolean v18) {
-        var names = new LinkedHashSet<>(allowedFunctions(v18));
+    private static Set<String> governedHistoricalFunctions(boolean v18, boolean v19) {
+        var names = new LinkedHashSet<>(allowedFunctions(v18, v19));
         names.addAll(V6_FUNCTIONS);
         return names;
     }
 
-    private static Set<String> allowedFunctions(boolean v18) {
+    private static Set<String> allowedFunctions(boolean v18, boolean v19) {
         var names = new LinkedHashSet<>(V5_FUNCTIONS);
         names.addAll(V15_CONTROL_FUNCTIONS);
         names.addAll(V8_FUNCTIONS);
@@ -1306,6 +1452,7 @@ public final class BulkExecutionMigrator {
         names.addAll(V14_FUNCTIONS);
         names.addAll(V16_FUNCTIONS);
         if (v18) names.addAll(V18_FUNCTIONS);
+        if (v19) names.addAll(BulkCapacityOccupancyCatalog.FUNCTIONS);
         names.addAll(Set.of(REJECTION_FUNCTION + "()", EVALUATION_REJECTION_FUNCTION + "()",
                 BINDING_FUNCTION + "()", TERMINAL_REASON_FUNCTION + "()",
                 RECEIPT_FUNCTION + "()", ADMISSION_FUNCTION + "()", DESCRIPTOR_FUNCTION + "()",
@@ -1313,7 +1460,7 @@ public final class BulkExecutionMigrator {
         return names;
     }
 
-    private static Set<String> allowedTriggers(boolean v18) {
+    private static Set<String> allowedTriggers(boolean v18, boolean v19) {
         var names = new LinkedHashSet<>(V5_TRIGGERS);
         names.addAll(Set.of(PROPOSAL_TABLE + "." + REJECTION_TRIGGER,
                 EVALUATION_TABLE + "." + EVALUATION_REJECTION_TRIGGER,
@@ -1330,6 +1477,7 @@ public final class BulkExecutionMigrator {
         names.addAll(V11_TRIGGERS);
         names.addAll(V16_TRIGGERS);
         if (v18) names.addAll(V18_TRIGGERS);
+        if (v19) names.addAll(BulkCapacityOccupancyCatalog.triggerKeys());
         return names;
     }
 
@@ -1443,7 +1591,9 @@ public final class BulkExecutionMigrator {
                               'praxis_bulk_atomic_effect_ref', 'praxis_bulk_atomic_rejection',
                               'praxis_bulk_atomic_bootstrap',
                               'praxis_bulk_capacity_read_bootstrap',
-                              'praxis_bulk_capacity_marker', 'praxis_bulk_capacity_installation'))
+                              'praxis_bulk_capacity_marker', 'praxis_bulk_capacity_installation',
+                              'praxis_bulk_capacity_slot','praxis_bulk_capacity_occupation',
+                              'praxis_bulk_capacity_occupancy_bootstrap'))
                 """);
         Set<String> orphanIndexes = unexpectedOrphanIndexes(connection);
         Set<String> triggers = queryNames(connection, """
@@ -1454,12 +1604,12 @@ public final class BulkExecutionMigrator {
                 """);
         Set<String> rules = userRules(connection);
         Set<String> policies = rowSecurityPolicies(connection);
-        require(relations.equals(allowedRelations(isV18Installed(connection)))
-                        && functions.equals(allowedFunctions(isV18Installed(connection)))
+        require(relations.equals(allowedRelations(isV18Installed(connection), BulkCapacityOccupancyCatalog.installed(connection)))
+                        && functions.equals(allowedFunctions(isV18Installed(connection), BulkCapacityOccupancyCatalog.installed(connection)))
                         && types.isEmpty()
                         && orphanIndexes.isEmpty()
                         && rules.isEmpty() && policies.isEmpty()
-                        && triggers.equals(allowedTriggers(isV18Installed(connection))),
+                        && triggers.equals(allowedTriggers(isV18Installed(connection), BulkCapacityOccupancyCatalog.installed(connection))),
                 "protected bulk storage schema contains unexpected owned objects: indexes=" + orphanIndexes
                         + ", rules=" + rules + ", policies=" + policies);
     }
@@ -1480,6 +1630,10 @@ public final class BulkExecutionMigrator {
                 Map.entry("control_structural_revision", new ColumnDefinition("text", true, null, "NEVER", null)),
                 Map.entry("atomicity", new ColumnDefinition("text", false, null, "NEVER", null)),
                 Map.entry("protocol_version", new ColumnDefinition("smallint", false, null, "NEVER", null)));
+        if (BulkCapacityOccupancyCatalog.installed(connection)) {
+            expected = new LinkedHashMap<>(expected);
+            expected.put("execution_mode", new ColumnDefinition("text", false, null, "NEVER", null));
+        }
         Map<String, ColumnDefinition> actual = new LinkedHashMap<>();
         try (var statement = connection.prepareStatement("""
                 select column_name, data_type, is_nullable, column_default, is_generated, datetime_precision
@@ -1595,7 +1749,9 @@ public final class BulkExecutionMigrator {
                             "proposal unique key must be immediate and validated");
                     found.add(result.getString(1));
                 }
-                require(found.equals(Set.of("proposal_id,fingerprint", "proposal_id,atomicity,protocol_version")),
+                require(found.equals(BulkCapacityOccupancyCatalog.installed(connection)
+                        ? Set.of("proposal_id,fingerprint", "proposal_id,atomicity,protocol_version", "proposal_id,execution_mode")
+                        : Set.of("proposal_id,fingerprint", "proposal_id,atomicity,protocol_version")),
                         "proposal unique bindings differ from V16");
             }
         }
@@ -1675,6 +1831,10 @@ public final class BulkExecutionMigrator {
                         "((atomicity=any(array['PER_ITEM'::text,'ATOMIC'::text]))and(not(atomicityisdistinctfrom((replace(convert_from(payload,'UTF8'::name),(chr(92)||'u0000'::text),(chr(92)||'uFFFD'::text)))::json->>'atomicity'::text))))"),
                 Map.entry("praxis_bulk_proposal_protocol_check",
                         "(protocol_version=any(array[1,2]))"));
+        if (BulkCapacityOccupancyCatalog.installed(connection)) {
+            expected = new LinkedHashMap<>(expected);
+            expected.put("proposal_execution_mode_check", normalizeExpression(BulkCapacityOccupancyCatalog.proposalModeExpression()));
+        }
         Map<String, ConstraintDefinition> actual = new LinkedHashMap<>();
         try (var statement = connection.prepareStatement("""
                 select c.conname, c.convalidated, pg_get_expr(c.conbin, c.conrelid)
@@ -2461,6 +2621,8 @@ public final class BulkExecutionMigrator {
             validateV5Functions(connection, configuration);
             validateV5RolesAndPrivileges(connection, configuration, true);
             validateDescriptorFenceCatalog(connection);
+            if (BulkCapacityOccupancyCatalog.installed(connection))
+                BulkCapacityOccupancyCatalog.validateAccess(connection, configuration);
         } catch (SQLException failure) {
             throw new IllegalStateException("Unable to attest the live bulk runtime role", failure);
         }
@@ -2479,6 +2641,8 @@ public final class BulkExecutionMigrator {
             validateV5Functions(connection, configuration);
             validateV5RolesAndPrivileges(connection, configuration, true);
             validateDescriptorFenceCatalog(connection);
+            if (BulkCapacityOccupancyCatalog.installed(connection))
+                BulkCapacityOccupancyCatalog.validateAccess(connection, configuration);
         } catch (SQLException failure) {
             throw new IllegalStateException("Unable to attest the live bulk control-plane role", failure);
         }
@@ -2820,6 +2984,8 @@ public final class BulkExecutionMigrator {
                                 "invoker function is owned by a retention role: " + key);
                     }
                     FunctionBodyExpectation expectedBody = expectedBodies.get(name);
+                    if (BulkCapacityOccupancyCatalog.installed(connection) && BulkCapacityOccupancyCatalog.REPLACED.containsKey(name))
+                        expectedBody = new FunctionBodyExpectation("V19", normalizeExpression(BulkCapacityOccupancyCatalog.functionBody(name)));
                     require(expectedBody != null
                                     && expectedBody.normalizedBody().equals(normalizeExpression(rows.getString(12))),
                             "governed lifecycle function body differs from "
@@ -3076,6 +3242,8 @@ public final class BulkExecutionMigrator {
                     var rows = statement.executeQuery()) {
                 while (rows.next()) {
                     String key = rows.getString(1) + "." + rows.getString(2);
+                    if (BulkCapacityOccupancyCatalog.installed(connection)
+                            && key.equals(CAPACITY_INSTALLATION_TABLE + ".praxis_bulk_capacity_installation_create_slot")) continue;
                     String expectedFunction = rows.getString(1).equals(CAPACITY_READ_BOOTSTRAP_TABLE)
                             ? "protect_capacity_read_bootstrap"
                             : rows.getString(1).equals(CAPACITY_MARKER_TABLE)
@@ -3245,7 +3413,9 @@ public final class BulkExecutionMigrator {
     }
 
     private static void validateCapacityConstraints(Connection connection, String table) throws SQLException {
-        Map<String, CapacityConstraint> expected = expectedCapacityConstraints(table);
+        Map<String, CapacityConstraint> expected = new LinkedHashMap<>(expectedCapacityConstraints(table));
+        if (BulkCapacityOccupancyCatalog.installed(connection) && table.equals(CAPACITY_INSTALLATION_TABLE))
+            expected.put("capacity_installation_token_class_key", capacityKey("u", "UNIQUE (token_id, capacity_class)", "1 13"));
         var seen = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
                 select k.conname, pg_catalog.pg_get_constraintdef(k.oid,false), k.convalidated,
@@ -3301,7 +3471,9 @@ public final class BulkExecutionMigrator {
     }
 
     private static void validateCapacityIndexes(Connection connection, String table) throws SQLException {
-        Map<String, CapacityIndex> expected = expectedCapacityIndexes(table);
+        Map<String, CapacityIndex> expected = new LinkedHashMap<>(expectedCapacityIndexes(table));
+        if (BulkCapacityOccupancyCatalog.installed(connection) && table.equals(CAPACITY_INSTALLATION_TABLE))
+            expected.put("capacity_installation_token_class_key", new CapacityIndex("token_id, capacity_class", "1 13", false, 2));
         var seen = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
                 select i.relname, pg_catalog.pg_get_indexdef(i.oid), x.indkey::text,
@@ -3472,6 +3644,8 @@ public final class BulkExecutionMigrator {
                 "lock_operation_control(p_namespace_id text, p_operation_id text)|praxis_bulk_retention_owner|EXECUTE",
                 "purge_terminal_execution(p_execution_id uuid)|praxis_bulk_retention_executor|EXECUTE",
                 "expire_unconsumed_proposal(p_proposal_id uuid)|praxis_bulk_retention_executor|EXECUTE"));
+        if (BulkCapacityOccupancyCatalog.installed(connection))
+            expected.add("lock_operation_control(p_namespace_id text, p_operation_id text)|" + BulkCapacityOccupancyCatalog.OWNER + "|EXECUTE");
         roles.runtimeGranteeRoles().forEach(role -> expected.add(
                 "lock_operation_control(p_namespace_id text, p_operation_id text)|" + role + "|EXECUTE"));
         roles.runtimeGranteeRoles().forEach(role -> expected.add(
@@ -3556,6 +3730,7 @@ public final class BulkExecutionMigrator {
         expectedSchema.add("praxis_bulk_control_owner|USAGE");
         roleConfiguration.runtimeGranteeRoles().forEach(role -> expectedSchema.add(role + "|USAGE"));
         roleConfiguration.controlPlaneGranteeRoles().forEach(role -> expectedSchema.add(role + "|USAGE"));
+        if (BulkCapacityOccupancyCatalog.installed(connection)) expectedSchema.add(BulkCapacityOccupancyCatalog.OWNER + "|USAGE");
         var actualSchema = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
                 select coalesce(r.rolname, 'PUBLIC'), acl.privilege_type, acl.is_grantable,
@@ -3603,6 +3778,11 @@ public final class BulkExecutionMigrator {
             expectedOwner.put(CAPACITY_READ_BOOTSTRAP_TABLE, Set.of());
             expectedOwner.put(CAPACITY_MARKER_TABLE, Set.of());
             expectedOwner.put(CAPACITY_INSTALLATION_TABLE, Set.of());
+        }
+        if (BulkCapacityOccupancyCatalog.installed(connection)) {
+            expectedOwner.put(BulkCapacityOccupancyCatalog.SLOT, Set.of("T:SELECT"));
+            expectedOwner.put(BulkCapacityOccupancyCatalog.HISTORY, Set.of("T:SELECT", "T:DELETE"));
+            expectedOwner.put(BulkCapacityOccupancyCatalog.BOOTSTRAP, Set.of());
         }
         for (var entry : expectedOwner.entrySet()) {
             Set<String> actual = tableRolePrivileges(connection, entry.getKey(),
@@ -3721,6 +3901,7 @@ public final class BulkExecutionMigrator {
             throws SQLException {
         var expectedTables = new LinkedHashSet<>(V5_TABLES);
         if (isV18Installed(connection)) expectedTables.addAll(V18_TABLES);
+        if (BulkCapacityOccupancyCatalog.installed(connection)) expectedTables.addAll(BulkCapacityOccupancyCatalog.TABLES);
         try (var statement = connection.prepareStatement("""
                 select r.rolname from pg_namespace n join pg_roles r on r.oid=n.nspowner
                 where n.nspname=?
@@ -3830,6 +4011,15 @@ public final class BulkExecutionMigrator {
                         "live runtime capacity installation read grant is absent");
             }
         }
+        if (BulkCapacityOccupancyCatalog.installed(connection)) {
+            boolean complete = liveCaller || "COMPLETE".equals(BulkCapacityOccupancyCatalog.phase(connection));
+            allowedByTable.put(BulkCapacityOccupancyCatalog.BOOTSTRAP, Set.of());
+            for (String table : Set.of(BulkCapacityOccupancyCatalog.SLOT, BulkCapacityOccupancyCatalog.HISTORY)) {
+                allowedByTable.put(table, complete ? Set.of("T:SELECT") : Set.of());
+                if (liveCaller) for (String role : runtimeRoles)
+                    require(tableRolePrivileges(connection, table, role).equals(Set.of("T:SELECT")), "V19 live runtime SELECT absent");
+            }
+        }
         try (var statement = connection.prepareStatement("""
                 select c.relname, coalesce(r.rolname, 'PUBLIC'), acl.privilege_type,
                        acl.is_grantable, 'T'::text as grant_scope, null::text as column_name,
@@ -3864,7 +4054,8 @@ public final class BulkExecutionMigrator {
                             "PUBLIC or grant-option access is forbidden on governed table " + table);
                     if (role.equals("praxis_bulk_retention_owner")
                             || role.equals("praxis_bulk_retention_executor")
-                            || role.equals("praxis_bulk_control_owner")) continue;
+                            || role.equals("praxis_bulk_control_owner")
+                            || role.equals(BulkCapacityOccupancyCatalog.OWNER)) continue;
                     require(runtimeRoles.contains(role), "unconfigured bulk table grantee: " + role);
                     require(allowedByTable.get(table).contains(permission),
                             "bulk runtime privilege exceeds its table allowlist: " + role + " " + table + " " + permission);
@@ -4146,7 +4337,8 @@ public final class BulkExecutionMigrator {
                        x.proposal_id, x.namespace_id, x.subject_id, x.resource_key, x.operation_id,
                        x.input_fingerprint, x.evaluation_fingerprint, x.target_count,
                        p.created_at, p.expires_at, p.fingerprint, p.payload,
-                       v.input_fingerprint, v.evaluation_fingerprint, v.payload
+                       v.input_fingerprint, v.evaluation_fingerprint, v.payload,
+                       p.control_generation,p.control_descriptor_fingerprint,p.control_structural_revision
                 from evidence d
                 join praxis_bulk.praxis_bulk_execution x using (execution_id)
                 join praxis_bulk.praxis_bulk_proposal p on p.proposal_id=x.proposal_id
@@ -4169,9 +4361,10 @@ public final class BulkExecutionMigrator {
                                             && scope.resourceKey().equals(rows.getString(8))
                                             && scope.operationRef().operationId().equals(rows.getString(9)),
                                     "durable evidence scope differs");
-                            var proposal = new BulkStoredProposal(rows.getObject(5, UUID.class),
+                            var proposal = BulkStoredProposal.decoded(rows.getObject(5, UUID.class),
                                     rows.getObject(13, OffsetDateTime.class).toInstant(),
-                                    rows.getObject(14, OffsetDateTime.class).toInstant(), intent);
+                                    rows.getObject(14, OffsetDateTime.class).toInstant(), intent,
+                                    JdbcBulkProposalStore.expectation(rows.getObject(20, Long.class),rows.getString(21),rows.getString(22)));
                             evaluation = BulkEvaluationStorageCodec.decode(proposal, rows.getBytes(19), rows.getString(11));
                             require(evaluation.targets().size() == rows.getInt(12),
                                     "durable evidence target count differs");
@@ -4199,6 +4392,12 @@ public final class BulkExecutionMigrator {
 
     private static void validateDurableColumns(Connection connection, String table,
             Map<String, String> expected) throws SQLException {
+        if (BulkCapacityOccupancyCatalog.installed(connection) && EXECUTION_TABLE.equals(table)) {
+            expected = new LinkedHashMap<>(expected);
+            expected.put("execution_mode", "text|true");
+            expected.put("queue_token_id", "uuid|false");
+            expected.put("active_token_id", "uuid|false");
+        }
         var actual = new LinkedHashMap<String, String>();
         try (var statement = connection.prepareStatement("""
                 select a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull,
@@ -4222,6 +4421,12 @@ public final class BulkExecutionMigrator {
 
     private static void validateDurableConstraints(Connection connection, String table, boolean onlyNewUnique,
             Map<String, String> expected) throws SQLException {
+        // V19 changes the complete execution/allocation constraint inventories only.
+        // Evaluation's unique-only comparison and proposal's dedicated validators stay separate.
+        if (!onlyNewUnique && (EXECUTION_TABLE.equals(table) || ALLOCATION_TABLE.equals(table))
+                && BulkCapacityOccupancyCatalog.installed(connection)) {
+            expected = BulkCapacityOccupancyCatalog.extendConstraints(table, expected);
+        }
         var actual = new LinkedHashMap<String, String>();
         try (var statement = connection.prepareStatement("""
                 select c.conname, pg_get_constraintdef(c.oid), c.convalidated, c.condeferrable,
@@ -4265,7 +4470,9 @@ public final class BulkExecutionMigrator {
             try (var rows = statement.executeQuery()) {
                 require(rows.next() && "O".equals(rows.getString(1))
                                 && normalizeExpression(expectedDefinition).equals(normalizeExpression(rows.getString(2)))
-                                && normalizeExpression(expectedBody).equals(normalizeExpression(rows.getString(3)))
+                                && normalizeExpression(BulkCapacityOccupancyCatalog.installed(connection) && function.equals(BINDING_FUNCTION)
+                                        ? BulkCapacityOccupancyCatalog.functionBody(function) : expectedBody)
+                                        .equals(normalizeExpression(rows.getString(3)))
                                 && "plpgsql".equals(rows.getString(4)) && "trigger".equals(rows.getString(5))
                                 && !rows.getBoolean(6) && function.equals(rows.getString(7))
                                 && SCHEMA.equals(rows.getString(8)) && rows.getInt(9) == 0
@@ -4337,8 +4544,13 @@ public final class BulkExecutionMigrator {
     }
 
     private static void setCatalogSearchPath(Connection connection, String searchPath) throws SQLException {
-        try (var statement = connection.prepareStatement("select set_config('search_path', ?, false)")) {
+        setCatalogSearchPath(connection, searchPath, false);
+    }
+
+    private static void setCatalogSearchPath(Connection connection, String searchPath, boolean local) throws SQLException {
+        try (var statement = connection.prepareStatement("select set_config('search_path', ?, ?)")) {
             statement.setString(1, searchPath);
+            statement.setBoolean(2, local);
             statement.execute();
         }
     }
@@ -4353,7 +4565,7 @@ public final class BulkExecutionMigrator {
     private record ExecutionRow(UUID id, UUID proposalId, String namespaceId, String subjectId,
                                 String resourceKey, String operationId, String status, Instant createdAt,
                                 Instant terminalAt, int nextOrdinal, int targetCount, long ownerEpoch,
-                                UUID activeAttemptId, String terminalReason, long admissionCount) { }
+                                UUID activeAttemptId, String terminalReason, long admissionCount, String executionMode) { }
     private record AllocationRow(String kind, UUID proposalId, UUID executionId, String namespaceId,
                                  String deploymentId, String subjectDigest, String authorizationDigest,
                                  String state, Instant createdAt, Instant releasedAt, String releaseReason) { }

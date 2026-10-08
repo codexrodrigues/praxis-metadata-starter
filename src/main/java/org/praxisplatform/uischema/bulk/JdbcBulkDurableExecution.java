@@ -38,14 +38,21 @@ public final class JdbcBulkDurableExecution {
     private static final Duration UNIT_BUDGET = Duration.ofSeconds(5);
     private final BulkExecutionInfrastructure infrastructure;
     private final BulkOperationLifecycle lifecycle;
+    private final JdbcBulkCapacityInstallation.ExpectedBinding capacityBinding;
 
     public JdbcBulkDurableExecution(BulkExecutionInfrastructure infrastructure) {
         this(infrastructure, null);
     }
 
     public JdbcBulkDurableExecution(BulkExecutionInfrastructure infrastructure, BulkOperationLifecycle lifecycle) {
+        this(infrastructure, lifecycle, null);
+    }
+
+    JdbcBulkDurableExecution(BulkExecutionInfrastructure infrastructure, BulkOperationLifecycle lifecycle,
+            JdbcBulkCapacityInstallation.ExpectedBinding capacityBinding) {
         this.infrastructure = Objects.requireNonNull(infrastructure, "infrastructure");
         this.lifecycle = lifecycle;
+        this.capacityBinding = capacityBinding;
     }
 
     public BulkExecutionReservation reserve(BulkFingerprintContext scope, UUID proposalId,
@@ -90,6 +97,7 @@ public final class JdbcBulkDurableExecution {
             try {
                 Optional<BulkExecutionSnapshot> recovered = transaction(connection -> {
                     Evaluation evaluation = loadEvaluation(connection, scope, proposalId, false);
+                    requireSynchronous(evaluation);
                     validateExecutionSubset(evaluation);
                     String expectedBinding = reservationFingerprint(evaluation, revision);
                     return findReservation(connection, scope, proposalId, keyDigest, expectedBinding);
@@ -100,11 +108,179 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
+    /** Protected enqueue; deliberately unavailable through the public SYNC reservation API. */
+    BulkExecutionReservation enqueue(BulkFingerprintContext scope, UUID proposalId, String idempotencyKey,
+            String supervisorId, String structuralRevision, Instant deadline, UUID queueTokenId) {
+        requireNoAmbientTransaction(); requireScope(scope);
+        Objects.requireNonNull(proposalId, "proposalId"); Objects.requireNonNull(queueTokenId, "queueTokenId");
+        String keyDigest = BulkScopeDigests.idempotencyKeyDigest(text(idempotencyKey, "idempotencyKey"));
+        String owner = text(supervisorId, "supervisorId"); String revision = text(structuralRevision, "structuralRevision");
+        Instant bounded = micro(Objects.requireNonNull(deadline, "deadline"));
+        try {
+        ReservationWrite write = unitTransaction(connection -> {
+            JdbcBulkCapacityOccupancy.lockMarker(connection);
+            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, false);
+            if (tombstoneExists(connection, scope, keyDigest) || purgedProposal(connection, scope, proposalId))
+                throw failure(BulkDurableExecutionException.Reason.RESULT_PURGED);
+            Evaluation evaluation = loadEvaluation(connection, scope, proposalId, false);
+            validateAsynchronousSubset(evaluation);
+            String fingerprint = reservationFingerprint(evaluation, revision);
+            Optional<BulkExecutionSnapshot> replay = findReservation(connection, scope, proposalId, keyDigest, fingerprint);
+            if (replay.isPresent()) return new ReservationWrite(replay.orElseThrow(), false);
+            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, true);
+            BulkQuotaLedger.lockProposal(connection, infrastructure, evaluation.proposal(), true, false);
+            replay = findReservation(connection, scope, proposalId, keyDigest, fingerprint);
+            if (replay.isPresent()) return new ReservationWrite(replay.orElseThrow(), false);
+            BulkOperationControlExpectation expected = evaluation.proposal().controlExpectation();
+            Instant now = clock(connection);
+            if (!expected.structuralRevision().equals(revision)) throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+            if (!now.isBefore(evaluation.proposal().expiresAt())) throw failure(BulkDurableExecutionException.Reason.EXPIRED);
+            if (!bounded.isAfter(now) || bounded.isAfter(now.plus(Duration.ofMinutes(30))))
+                throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+            setDeadlineBudget(connection, bounded);
+            JdbcBulkCapacityOccupancy.requireInstallation(connection, queueTokenId, "QUEUE");
+            UUID executionId = UUID.randomUUID();
+            try (var statement = connection.prepareStatement("""
+                    insert into praxis_bulk.praxis_bulk_execution
+                    (execution_id,proposal_id,namespace_id,subject_id,resource_key,operation_id,
+                     idempotency_key_digest,reservation_fingerprint,input_fingerprint,evaluation_fingerprint,
+                     structural_revision,control_generation,control_descriptor_fingerprint,owner_id,owner_epoch,
+                     status,next_ordinal,target_count,deadline_at,created_at,updated_at,atomicity,protocol_version,
+                     execution_mode,queue_token_id)
+                    values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,'QUEUED',0,?,?,clock_timestamp(),clock_timestamp(),
+                           'PER_ITEM',2,'ASYNC',?)
+                    """)) {
+                statement.setObject(1, executionId); statement.setObject(2, proposalId); bindScope(statement, scope, 3);
+                statement.setString(7, keyDigest); statement.setString(8, fingerprint);
+                statement.setString(9, evaluation.proposal().snapshot().fingerprint());
+                statement.setString(10, evaluation.snapshot().fingerprint()); statement.setString(11, revision);
+                statement.setLong(12, expected.generation()); statement.setString(13, expected.descriptorFingerprint());
+                statement.setString(14, owner); statement.setInt(15, evaluation.snapshot().targets().size());
+                statement.setObject(16, bounded.atOffset(ZoneOffset.UTC)); statement.setObject(17, queueTokenId);
+                statement.executeUpdate();
+            }
+            return new ReservationWrite(snapshot(row(connection, executionId, false)), true);
+        });
+        return new BulkExecutionReservation(write.snapshot(), !write.created());
+        } catch (BulkDurableExecutionException safe) { throw safe; }
+        catch (RuntimeException unsafe) {
+            try {
+                Optional<BulkExecutionSnapshot> recovered = unitTransaction(connection -> {
+                    Evaluation evaluation = loadEvaluation(connection, scope, proposalId, false);
+                    validateAsynchronousSubset(evaluation);
+                    return findReservation(connection, scope, proposalId, keyDigest,
+                            reservationFingerprint(evaluation, revision));
+                });
+                if (recovered.isPresent()) return new BulkExecutionReservation(recovered.orElseThrow(), true);
+            } catch (RuntimeException ignored) { /* no protected SQL details escape */ }
+            throw capacityFailure(unsafe);
+        }
+    }
+
+    /** A claim changes ownership only; this method never invokes a callback. */
+    Optional<BulkExecutionReservation> claim(BulkFingerprintContext scope, UUID executionId,
+            String workerId, UUID activeTokenId) {
+        requireNoAmbientTransaction(); requireScope(scope);
+        Objects.requireNonNull(executionId, "executionId"); Objects.requireNonNull(activeTokenId, "activeTokenId");
+        String worker = text(workerId, "workerId");
+        try {
+        return unitTransaction(connection -> {
+            JdbcBulkCapacityOccupancy.lockMarker(connection);
+            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, true);
+            BulkExecutionSnapshot candidate = findScoped(connection, scope, executionId, false)
+                    .orElseThrow(() -> failure(BulkDurableExecutionException.Reason.NOT_FOUND));
+            Evaluation evaluation = loadEvaluation(connection, scope, candidate.proposalId(), false);
+            validateAsynchronousSubset(evaluation);
+            if (candidate.status() != BulkDurableExecutionStatus.QUEUED) return Optional.empty();
+            JdbcBulkCapacityOccupancy.requireInstallation(connection, activeTokenId, "ACTIVE");
+            try (var statement = connection.prepareStatement("select praxis_bulk.claim_capacity_execution(?,?,?,?,?)")) {
+                statement.setObject(1, executionId); statement.setString(2, scope.namespaceId());
+                statement.setString(3, worker); statement.setObject(4, activeTokenId);
+                statement.setLong(5, candidate.control().epoch());
+                try (var rows = statement.executeQuery()) {
+                    if (!rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                    boolean won = rows.getBoolean(1);
+                    if (rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                    if (!won) return Optional.empty();
+                }
+            }
+            return Optional.of(new BulkExecutionReservation(snapshot(row(connection, executionId, false)), false));
+        });
+        } catch (BulkDurableExecutionException safe) { throw safe; }
+        catch (RuntimeException unsafe) {
+            try {
+                Optional<BulkExecutionReservation> recovered = unitTransaction(connection -> {
+                    ExecutionRow row = row(connection, executionId, false);
+                    if (!scope.namespaceId().equals(row.namespaceId()) || !scope.subjectId().equals(row.subjectId())
+                            || !scope.resourceKey().equals(row.resourceKey())
+                            || !scope.operationRef().operationId().equals(row.operationId()))
+                        throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
+                    if (!worker.equals(row.ownerId()) || row.ownerEpoch() != 2
+                            || !activeTokenId.equals(row.activeTokenId())) return Optional.empty();
+                    validateReadOccupancy(connection, row);
+                    return Optional.of(new BulkExecutionReservation(snapshot(row), true));
+                });
+                if (recovered.isPresent()) return recovered;
+            } catch (RuntimeException ignored) { /* readback uncertainty is never a new claim */ }
+            throw capacityFailure(unsafe);
+        }
+    }
+
+    private static BulkDurableExecutionException capacityFailure(RuntimeException unsafe) {
+        for (Throwable cause = unsafe; cause != null; cause = cause.getCause())
+            if (cause instanceof SQLException sql && "53300".equals(sql.getSQLState()))
+                return failure(BulkDurableExecutionException.Reason.CAPACITY);
+        return failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+    }
+
+    private static boolean purgedProposal(Connection connection, BulkFingerprintContext scope, UUID proposalId)
+            throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select 1 from praxis_bulk.praxis_bulk_tombstone where proposal_id=? and namespace_id=?
+                  and resource_key=? and operation_id=? and authorization_scope_digest_version=?
+                  and authorization_scope_digest=?
+                """)) {
+            statement.setObject(1, proposalId); statement.setString(2, scope.namespaceId());
+            statement.setString(3, scope.resourceKey()); statement.setString(4, scope.operationRef().operationId());
+            statement.setInt(5, BulkScopeDigests.VERSION);
+            statement.setString(6, BulkScopeDigests.authorizationScopeDigest(scope.namespaceId(), scope.subjectId(),
+                    scope.resourceKey(), scope.operationRef().operationId()));
+            try (var rows = statement.executeQuery()) { return rows.next(); }
+        }
+    }
+
+    private static void validateAsynchronousSubset(Evaluation evaluation) {
+        JsonNode intent = evaluation.proposal().snapshot().intent();
+        JsonNode targets = intent.at("/selection/targets");
+        if (!"ASYNC".equals(intent.path("executionMode").asText())
+                || evaluation.protocolVersion() != 2 || evaluation.proposal().controlExpectation() == null
+                || evaluation.proposal().snapshot().mode() != BulkMode.UNIFORM_UPDATE
+                || evaluation.proposal().snapshot().context().atomicity() != ActionCollectionAtomicity.PER_ITEM
+                || !"EXPLICIT".equals(intent.at("/selection/mode").asText())
+                || !targets.isArray() || targets.isEmpty() || targets.size() > 10000
+                || targets.size() != evaluation.snapshot().targets().size()
+                || !evaluation.snapshot().hasTypedEligibility()
+                || evaluation.snapshot().targets().stream().anyMatch(target ->
+                    target.eligibility().isEmpty() || !target.eligibility().orElseThrow().isExecutable()))
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+    }
+
+    private void requireCapacityUnit(Connection connection, ExecutionRow execution, Evaluation evaluation)
+            throws SQLException {
+        if ("ASYNC".equals(evaluation.proposal().snapshot().intent().path("executionMode").asText())) {
+            validateAsynchronousSubset(evaluation);
+            JdbcBulkCapacityOccupancy.requireActive(connection, infrastructure, capacityBinding,
+                    execution.executionId(), execution.ownerEpoch());
+        }
+    }
+
     private QueryProbe probeQueryReservation(Connection connection, BulkFingerprintContext scope,
             UUID proposalId, String keyDigest, String owner, String revision, Instant deadline) throws SQLException {
         if (tombstoneExists(connection, scope, keyDigest))
             throw failure(BulkDurableExecutionException.Reason.RESULT_PURGED);
         Evaluation evaluation = loadEvaluation(connection, scope, proposalId, false);
+        if (!"SYNC".equals(evaluation.proposal().snapshot().intent().path("executionMode").asText()))
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         if (!query(evaluation))
             return new QueryProbe(false, Optional.empty(), reserveLoaded(connection, scope,
                     proposalId, keyDigest, owner, revision, deadline, null, evaluation));
@@ -651,6 +827,7 @@ public final class JdbcBulkDurableExecution {
         validateExecutionSubset(evaluation);
         BulkOrdinalManifest.validateOne(connection, evaluation.snapshot());
         requireReadyControlFence(connection, execution, evaluation);
+        requireCapacityUnit(connection, execution, evaluation);
         if (!clock(connection).isBefore(execution.deadlineAt())) {
             try (var statement = connection.prepareStatement("""
                     update praxis_bulk.praxis_bulk_execution
@@ -971,7 +1148,8 @@ public final class JdbcBulkDurableExecution {
         if (execution.atomicity() == ActionCollectionAtomicity.ATOMIC)
             return requestAtomicCancel(connection, execution, evaluation);
         boolean prefixConsistent = durablePrefixConsistent(connection, execution, evaluation);
-        if (execution.status() == BulkDurableExecutionStatus.RUNNING
+        if ((execution.status() == BulkDurableExecutionStatus.RUNNING
+                || execution.status() == BulkDurableExecutionStatus.QUEUED)
                 && prefixConsistent) {
             try (var statement = connection.prepareStatement("""
                     with terminal_clock as materialized (select clock_timestamp() as observed_at)
@@ -980,7 +1158,7 @@ public final class JdbcBulkDurableExecution {
                         terminal_reason_code='CANCELLED_BY_USER', terminal_at=terminal_clock.observed_at,
                         updated_at=terminal_clock.observed_at
                     from terminal_clock
-                    where execution_id=? and namespace_id=? and status='RUNNING'
+                    where execution_id=? and namespace_id=? and status in ('RUNNING','QUEUED')
                       and cancel_requested_at is null and owner_epoch=?
                     """)) {
                 statement.setObject(1, executionId);
@@ -1035,6 +1213,8 @@ public final class JdbcBulkDurableExecution {
     private ReservationWrite reserveLoaded(Connection connection, BulkFingerprintContext scope, UUID proposalId,
             String keyDigest, String owner, String revision, Instant deadline,
             BulkOperationLifecycle.ReadyAdmission queryAdmission, Evaluation evaluation) throws SQLException {
+        requireSynchronous(evaluation);
+        JdbcBulkCapacityOccupancy.lockMarker(connection);
         BulkOperationControlExpectation expectation = evaluation.proposal().controlExpectation();
         String reservationFingerprint = reservationFingerprint(evaluation, revision);
         if (reservationExists(connection, scope, proposalId, keyDigest)) {
@@ -1068,6 +1248,8 @@ public final class JdbcBulkDurableExecution {
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         if (expectation == null || !expectation.structuralRevision().equals(revision))
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+        if (!"SYNC".equals(evaluation.proposal().snapshot().intent().path("executionMode").asText()))
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         validateExecutionSubset(evaluation);
         Instant databaseNow = clock(connection);
         if (!databaseNow.isBefore(evaluation.proposal().expiresAt()))
@@ -1083,8 +1265,8 @@ public final class JdbcBulkDurableExecution {
                  evaluation_fingerprint, structural_revision, control_generation,
                  control_descriptor_fingerprint, owner_id, owner_epoch, status,
                  next_ordinal, target_count, deadline_at, created_at, updated_at,
-                 atomicity, protocol_version)
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'RUNNING', 0, ?, ?, clock_timestamp(), clock_timestamp(), ?, 2)
+                 atomicity, protocol_version, execution_mode)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'RUNNING', 0, ?, ?, clock_timestamp(), clock_timestamp(), ?, 2, 'SYNC')
                 on conflict do nothing
                 """)) {
             statement.setObject(1, executionId); statement.setObject(2, proposalId);
@@ -1213,6 +1395,7 @@ public final class JdbcBulkDurableExecution {
         if (execution.status() != BulkDurableExecutionStatus.RUNNING || ordinal != execution.nextOrdinal())
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         requireReadyControlFence(connection, execution, evaluation);
+        requireCapacityUnit(connection, execution, evaluation);
         if (!clock(connection).isBefore(execution.deadlineAt())) {
             try (var statement = connection.prepareStatement("""
                     with terminal_clock as materialized (select clock_timestamp() as observed_at)
@@ -1287,6 +1470,7 @@ public final class JdbcBulkDurableExecution {
         // transition which won between prepare and apply therefore fences this attempt before
         // its domain callback can run.
         requireReadyControlFence(connection, execution, evaluation);
+        requireCapacityUnit(connection, execution, evaluation);
         if (!evaluation.snapshot().hasTypedEligibility())
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         BulkTargetEvidence<?> evidence = evaluation.snapshot().targets().get(attempt.ordinal());
@@ -1653,7 +1837,7 @@ public final class JdbcBulkDurableExecution {
         boolean contiguous = verifiedPrefix == byOrdinal.size();
         int durableResults = receipts.size() + admissions.size();
         int expectedReceipts = switch (execution.status()) {
-            case RUNNING, UNIT_IN_FLIGHT, RECONCILIATION_REQUIRED, STOPPED -> execution.nextOrdinal();
+            case QUEUED, RUNNING, UNIT_IN_FLIGHT, RECONCILIATION_REQUIRED, STOPPED -> execution.nextOrdinal();
             case UNIT_COMMITTED_PENDING_ACK -> execution.nextOrdinal() + 1;
             case COMPLETED, COMPLETED_WITH_ERRORS -> execution.targetCount();
         };
@@ -1713,7 +1897,7 @@ public final class JdbcBulkDurableExecution {
         try (var statement = connection.prepareStatement("""
                 select p.created_at, p.expires_at, p.fingerprint, p.payload,
                        p.control_generation, p.control_descriptor_fingerprint, p.control_structural_revision,
-                       e.evaluation_fingerprint, e.payload, p.atomicity, p.protocol_version
+                       e.evaluation_fingerprint, e.payload, p.atomicity, p.protocol_version, p.execution_mode
                 from praxis_bulk.praxis_bulk_proposal p
                 join praxis_bulk.praxis_bulk_evaluation e on e.proposal_id=p.proposal_id
                   and e.input_fingerprint=p.fingerprint
@@ -1729,7 +1913,10 @@ public final class JdbcBulkDurableExecution {
                 short protocolVersion = rows.getShort(11);
                 if (protocolVersion != 1 && protocolVersion != 2)
                     throw failure(BulkDurableExecutionException.Reason.CORRUPT);
-                BulkStoredProposal proposal = new BulkStoredProposal(proposalId,
+                if (!intent.intent().path("executionMode").asText().equals(rows.getString(12))
+                        || "ASYNC".equals(rows.getString(12)) && protocolVersion != 2)
+                    throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                BulkStoredProposal proposal = BulkStoredProposal.decoded(proposalId,
                         rows.getObject(1, OffsetDateTime.class).toInstant(),
                         rows.getObject(2, OffsetDateTime.class).toInstant(), intent,
                         JdbcBulkProposalStore.expectation(rows.getObject(5, Long.class), rows.getString(6), rows.getString(7)));
@@ -1759,7 +1946,8 @@ public final class JdbcBulkDurableExecution {
         if (!evaluation.proposal().snapshot().fingerprint().equals(execution.inputFingerprint())
                 || !evaluation.snapshot().fingerprint().equals(execution.evaluationFingerprint())
                 || evaluation.proposal().snapshot().context().atomicity() != execution.atomicity()
-                || evaluation.protocolVersion() != execution.protocolVersion())
+                || evaluation.protocolVersion() != execution.protocolVersion()
+                || !execution.executionMode().equals(evaluation.proposal().snapshot().intent().path("executionMode").asText()))
             throw failure(BulkDurableExecutionException.Reason.CORRUPT);
         return evaluation;
     }
@@ -1767,6 +1955,10 @@ public final class JdbcBulkDurableExecution {
     private void validateExecutionSubset(Evaluation evaluation) {
         JsonNode intent = evaluation.proposal().snapshot().intent();
         ActionCollectionAtomicity atomicity = evaluation.proposal().snapshot().context().atomicity();
+        if ("ASYNC".equals(intent.path("executionMode").asText())) {
+            validateAsynchronousSubset(evaluation);
+            return;
+        }
         if (!"SYNC".equals(intent.path("executionMode").asText())
                 || (atomicity != ActionCollectionAtomicity.PER_ITEM && atomicity != ActionCollectionAtomicity.ATOMIC)
                 || (atomicity == ActionCollectionAtomicity.ATOMIC && evaluation.protocolVersion() != 2))
@@ -1794,6 +1986,7 @@ public final class JdbcBulkDurableExecution {
     }
 
     private ExecutionRow lockControl(Connection connection, BulkExecutionControl control) throws SQLException {
+        JdbcBulkCapacityOccupancy.lockMarker(connection);
         String operationId;
         try (var statement = connection.prepareStatement("""
                 select operation_id from praxis_bulk.praxis_bulk_execution
@@ -1823,6 +2016,7 @@ public final class JdbcBulkDurableExecution {
     /** Same lifecycle lock order as V9 retention, without requiring a READY descriptor. */
     private ExecutionRow lockLifecycle(Connection connection, BulkFingerprintContext scope,
             UUID executionId) throws SQLException {
+        JdbcBulkCapacityOccupancy.lockMarker(connection);
         BulkExecutionSnapshot candidate = findScoped(connection, scope, executionId, false)
                 .orElseThrow(() -> failure(BulkDurableExecutionException.Reason.NOT_FOUND));
         String subjectDigest = BulkScopeDigests.subjectQuotaDigest(
@@ -1883,7 +2077,7 @@ public final class JdbcBulkDurableExecution {
                 select 1 from praxis_bulk.praxis_bulk_allocation
                 where execution_id=? and namespace_id=? and deployment_id=?
                   and subject_scope_digest_version=? and subject_scope_digest=?
-                  and kind='EXECUTION_ACTIVE'
+                  and kind in ('EXECUTION_ACTIVE','EXECUTION_ASYNC')
                 """)) {
             statement.setObject(1, executionId);
             statement.setString(2, scope.namespaceId());
@@ -1894,6 +2088,7 @@ public final class JdbcBulkDurableExecution {
                 if (!rows.next() || rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
             }
         }
+        validateReadAllocations(connection, scope, execution);
         return execution;
     }
 
@@ -1998,6 +2193,10 @@ public final class JdbcBulkDurableExecution {
 
     private static void validateReadState(ExecutionRow execution, Evaluation evaluation,
             List<Receipt> receipts, List<AdmissionRecord> admissions) {
+        if (execution.status() == BulkDurableExecutionStatus.QUEUED
+                && (!"ASYNC".equals(execution.executionMode()) || execution.nextOrdinal() != 0
+                    || execution.ownerEpoch() != 1 || !receipts.isEmpty() || !admissions.isEmpty()))
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
         boolean active = execution.status() == BulkDurableExecutionStatus.UNIT_IN_FLIGHT
                 || execution.status() == BulkDurableExecutionStatus.UNIT_COMMITTED_PENDING_ACK;
         if (active) {
@@ -2085,14 +2284,50 @@ public final class JdbcBulkDurableExecution {
                             && "CONSUMED".equals(rows.getString(2))
                             && execution.proposalId().equals(rows.getObject(9, UUID.class))
                             && rows.getObject(10, UUID.class) == null) proposal = true;
-                    else if ("EXECUTION_ACTIVE".equals(rows.getString(1))
+                    else if (("ASYNC".equals(execution.executionMode()) ? "EXECUTION_ASYNC" : "EXECUTION_ACTIVE").equals(rows.getString(1))
                             && execution.executionId().equals(rows.getObject(10, UUID.class))
                             && rows.getObject(9, UUID.class) == null
-                            && (terminal(execution.status()) == "RELEASED".equals(rows.getString(2)))) active = true;
+                            && (terminal(execution.status()) ? "RELEASED"
+                                : execution.status() == BulkDurableExecutionStatus.QUEUED ? "QUEUED" : "ACTIVE").equals(rows.getString(2))) active = true;
                     else throw failure(BulkDurableExecutionException.Reason.CORRUPT);
                 }
                 if (count != 2 || !proposal || !active)
                     throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+        }
+        validateReadOccupancy(connection, execution);
+    }
+
+    private static void requireSynchronous(Evaluation evaluation) {
+        if (!"SYNC".equals(evaluation.proposal().snapshot().intent().path("executionMode").asText()))
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+    }
+
+    private static void validateReadOccupancy(Connection connection, ExecutionRow execution) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select s.token_id,s.capacity_class,s.current_owner_epoch,s.occupancy_sequence,
+                    h.execution_id,h.owner_epoch
+                from praxis_bulk.praxis_bulk_capacity_slot s
+                left join praxis_bulk.praxis_bulk_capacity_occupation h
+                    on h.token_id=s.token_id and h.occupancy_sequence=s.occupancy_sequence
+                where s.current_execution_id=?
+                """)) {
+            statement.setObject(1, execution.executionId());
+            try (var rows = statement.executeQuery()) {
+                int count = 0;
+                while (rows.next()) {
+                    count++;
+                    boolean queued = execution.status() == BulkDurableExecutionStatus.QUEUED;
+                    if (!"ASYNC".equals(execution.executionMode()) || terminal(execution.status()) || count > 1
+                            || !(queued ? execution.queueTokenId() : execution.activeTokenId()).equals(rows.getObject(1, UUID.class))
+                            || !(queued ? "QUEUE" : "ACTIVE").equals(rows.getString(2))
+                            || execution.ownerEpoch() != rows.getLong(3) || rows.getLong(4) < 1
+                            || !execution.executionId().equals(rows.getObject(5, UUID.class))
+                            || rows.getLong(6) < 1 || rows.getLong(6) > execution.ownerEpoch())
+                        throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+                }
+                int expected = "ASYNC".equals(execution.executionMode()) && !terminal(execution.status()) ? 1 : 0;
+                if (count != expected) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
             }
         }
     }
@@ -2154,7 +2389,8 @@ public final class JdbcBulkDurableExecution {
                 rows.getObject("cancel_requested_at", OffsetDateTime.class) == null ? null
                         : rows.getObject("cancel_requested_at", OffsetDateTime.class).toInstant(),
                 ActionCollectionAtomicity.valueOf(rows.getString("atomicity")), rows.getShort("protocol_version"),
-                rows.getString("active_set_digest"));
+                rows.getString("active_set_digest"), rows.getString("execution_mode"),
+                rows.getObject("queue_token_id", UUID.class), rows.getObject("active_token_id", UUID.class));
     }
 
     private static BulkExecutionSnapshot snapshot(ExecutionRow row) {
@@ -2259,7 +2495,7 @@ public final class JdbcBulkDurableExecution {
         int expected = switch (execution.status()) {
             case UNIT_COMMITTED_PENDING_ACK -> execution.nextOrdinal() + 1;
             case COMPLETED, COMPLETED_WITH_ERRORS -> execution.targetCount();
-            case RUNNING, UNIT_IN_FLIGHT, RECONCILIATION_REQUIRED, STOPPED -> execution.nextOrdinal();
+            case QUEUED, RUNNING, UNIT_IN_FLIGHT, RECONCILIATION_REQUIRED, STOPPED -> execution.nextOrdinal();
         };
         if (byOrdinal.size() != expected) return false;
         if (execution.status() == BulkDurableExecutionStatus.UNIT_COMMITTED_PENDING_ACK) {
@@ -2526,5 +2762,5 @@ public final class JdbcBulkDurableExecution {
             UUID activeAttemptId, Integer activeAttemptOrdinal, String activeTargetDigest,
             Long activeAttemptEpoch, Instant activeUnitDeadline, int receiptCount, int admissionCount,
             BulkUnitReasonCode terminalReasonCode, Instant cancelRequestedAt,
-            ActionCollectionAtomicity atomicity, short protocolVersion, String activeSetDigest) { }
+            ActionCollectionAtomicity atomicity, short protocolVersion, String activeSetDigest, String executionMode, UUID queueTokenId, UUID activeTokenId) { }
 }

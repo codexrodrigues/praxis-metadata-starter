@@ -38,7 +38,7 @@ class JdbcBulkProposalStorePostgresTest {
     @AfterAll void stop() throws Exception { if (postgres != null) postgres.close(); }
     @BeforeEach void reset() { sql.execute("drop schema if exists praxis_bulk cascade"); }
     void migrate() {
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(17);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(19);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count() { return sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal", Integer.class); }
@@ -63,7 +63,12 @@ class JdbcBulkProposalStorePostgresTest {
                 java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC),
                 java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).plusMinutes(5), snapshot.fingerprint(),
                 BulkSnapshotStorageCodec.encode(snapshot)))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOfSatisfying(org.springframework.dao.DataAccessException.class, error -> {
+                    assertThat(error.getRootCause()).isInstanceOf(java.sql.SQLException.class);
+                    var cause = (java.sql.SQLException) error.getRootCause();
+                    assertThat(cause.getSQLState()).isEqualTo("55000");
+                    assertThat((Throwable) cause).hasMessageContaining("bulk descriptor generation is not current");
+                });
         assertThat(count()).isZero();
     }
     @Test void concurrentMigrationHasOneVersionApplication() throws Exception {
@@ -75,7 +80,7 @@ class JdbcBulkProposalStorePostgresTest {
                         java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
             };
             var first = executor.submit(task); var second = executor.submit(task);
-            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(17);
+            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(19);
         }
         BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId());
         BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
@@ -290,6 +295,11 @@ class JdbcBulkProposalStorePostgresTest {
         sql.execute("grant select, insert on praxis_bulk.praxis_bulk_allocation to bulk_runtime");
         sql.execute("grant update (state) on praxis_bulk.praxis_bulk_allocation to bulk_runtime");
         sql.execute("grant update (proposal_id) on praxis_bulk.praxis_bulk_proposal to bulk_runtime");
+        // Canonical bounded SELECT and EXECUTE grants; bootstrap tables and owner membership stay private.
+        sql.execute("grant select on praxis_bulk.praxis_bulk_capacity_marker, praxis_bulk.praxis_bulk_capacity_installation, "
+                + "praxis_bulk.praxis_bulk_capacity_slot, praxis_bulk.praxis_bulk_capacity_occupation to bulk_runtime");
+        sql.execute("grant execute on function praxis_bulk.lock_capacity_marker(), "
+                + "praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to bulk_runtime");
         var roles = new BulkExecutionRoleConfiguration("postgres",
                 java.util.Set.of("bulk_runtime_test", "durable_runtime", "bulk_runtime"), java.util.Set.of(), java.util.Set.of());
         BulkExecutionMigrator.validate(dataSource, roles);

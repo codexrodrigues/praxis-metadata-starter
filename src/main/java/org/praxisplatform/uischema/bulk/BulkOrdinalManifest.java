@@ -65,7 +65,7 @@ final class BulkOrdinalManifest {
                     UUID id = rows.getObject(1, UUID.class);
                     try {
                         var snapshot = BulkSnapshotStorageCodec.decode(rows.getBytes(5), rows.getString(4));
-                        var proposal = new BulkStoredProposal(id, rows.getObject(2, OffsetDateTime.class).toInstant(),
+                        var proposal = BulkStoredProposal.decoded(id, rows.getObject(2, OffsetDateTime.class).toInstant(),
                                 rows.getObject(3, OffsetDateTime.class).toInstant(), snapshot,
                                 JdbcBulkProposalStore.expectation(rows.getObject(6, Long.class),
                                         rows.getString(7), rows.getString(8)));

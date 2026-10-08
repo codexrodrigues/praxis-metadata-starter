@@ -149,7 +149,7 @@ final class BulkPreviewStorage {
                     if (state == null || !fingerprint.equals(rows.getString(3))) throw invalid();
                     Integer count = rows.getObject(6, Integer.class);
                     var snapshot = BulkSnapshotStorageCodec.decode(rows.getBytes(12), rows.getString(11));
-                    var proposal = new BulkStoredProposal(id,
+                    var proposal = BulkStoredProposal.decoded(id,
                             rows.getObject(9, OffsetDateTime.class).toInstant(),
                             rows.getObject(10, OffsetDateTime.class).toInstant(), snapshot,
                             JdbcBulkProposalStore.expectation(rows.getObject(13, Long.class),

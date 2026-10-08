@@ -20,6 +20,7 @@ plataforma.
 
 - [Lifecycle governado candidato R2](spec/BULK-OPERATION-LIFECYCLE.html): fotografia OpenAPI imutável, publicação global/operação V14/V15 e reconciliação explícita; prova HTTP do host e adoção pública são gates separados.
 
+- [Ocupação local protegida candidata B5b.1b.B](spec/BULK-CAPACITY-OCCUPANCY.html): slots, histórico, QUEUED/claim e lifecycle no ledger existente; 29 casos B compostos, matriz ainda incompleta. Fonte interna não integrada/publicada, sem ASYNC público, worker, HTTP202, adoção do host ou Angular.
 - [Núcleo durável de execução](spec/BULK-DURABLE-EXECUTION.html): reserva, unidade transacional, ledger de capacidade V5, retenção/tombstones e recuperação; fundação sem exposição HTTP nem adoção completa no host.
 - [Evidência protegida da avaliação](spec/BULK-EVALUATION-EVIDENCE.html): fatos/plano por alvo vinculados à proposta, sem decisão de elegibilidade.
 - [Decisão H1b de leitura](spec/BULK-H1B-READ-MODEL.html): manifest privado V8, projeção física segura V9, reader autorizado de resultados de proposta e continuação G3b, resumo autorizado de execução e tombstone G3c-a, composição paginada RS4 G3c-b e proposta RS1 com projeção explícita do domínio; a biblioteca não cria endpoint HTTP.
