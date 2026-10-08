@@ -443,3 +443,38 @@ occurs during the proof. It does not cover clones, PostgreSQL restart, HA, origi
 loss, authority rollback, uncertain-commit recovery, succession or external
 continuity. It adds no production behavior and does not make the internal capacity
 kernel available in rc.154 or close public ASYNC/READY, worker or backend gates.
+
+## External authenticated quarantine (C0-02, bounded proof)
+
+`BulkCapacityExternalQuarantinePostgresTest` proves an external HBA policy in one
+owned cluster with an original database and genuine TEMPLATE copy. The copy retains
+its envelope, ACTIVE marker, rows, receipts, controls, grants and role credentials.
+The HBA file resides outside PGDATA; exact first-match rules allow the runtime only
+on the original database and authority roles only on the authority database.
+IPv6 and local sockets are denied or disabled with readback.
+
+Distinct SCRAM credentials prevent a runtime client from assuming owner/issuer
+identity merely by selecting a privileged username. Initial owner-only loopback
+trust serves the embedded healthcheck and is closed before logical setup. Positive
+original authentication and replay distinguish real quarantine from broken startup.
+Wrong-password 28P01 and the exact PGJDBC empty-password SCRAM 08004 branch are
+separate from HBA rejection28000 with the CORRECT runtime credential. All six roles
+are seeded before the baseline; real pg_authid attributes/verifiers are compared
+only in private parent memory through boolean assertions, never emitted.
+
+Two genuine runtime JVMs receive only a runtime credential through private files.
+A held physical session demonstrates UPDATE then rollback after HBA reload; only
+its attested PID/databaseOID/role/backend_start tuple is terminated and observed
+absent. Original and restarted kernels reject both the copied and retired databases
+without admissions or callbacks. Independent snapshots preserve the confirmed
+prefix, catalog, authority and credentials. Private files, children and the owned
+cluster are closed. The default fixture's enqueue/replay regression also passed.
+
+Focused proof:2 tests, zero failures/errors/skips, PostgreSQL14.22/Java21.0.10;
+source838 frozen, static and raw review independent. This is not PostgreSQL restart,
+HA, physical cluster backup/restore, external monotonic journal, full C0/C1b/C2,
+public ASYNC/READY or an administrative deployment API. No new Maven release.
+
+```bash
+mvn -B '-Dtest=BulkCapacityExternalQuarantinePostgresTest#externalHbaQuarantinesGenuineCloneAndRetiredOriginAcrossJvmRestart,BulkCapacityOccupancyPostgresTest#enqueueCommitsQueuedLedgerAndQueueOccupationAndReplaysTheSameIdentity' '-Dpraxis.bulk.proof.directory=target/external-quarantine-proof' test
+```
