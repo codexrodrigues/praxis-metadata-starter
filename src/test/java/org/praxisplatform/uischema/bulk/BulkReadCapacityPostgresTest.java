@@ -76,7 +76,7 @@ class BulkReadCapacityPostgresTest {
     @BeforeEach
     void reset() {
         sql.execute("drop schema if exists praxis_bulk cascade");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(19);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(20);
         BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(),
                 CONTEXT.operationRef().operationId());
         assertCurrentSchemaComplete();
@@ -237,7 +237,7 @@ class BulkReadCapacityPostgresTest {
         assertThat(sql.queryForObject("""
                 select version from praxis_bulk.praxis_bulk_schema_history
                  where success order by installed_rank desc limit 1
-                """, String.class)).isEqualTo("19");
+                """, String.class)).isEqualTo("20");
         for (String marker : List.of("praxis_bulk_manifest_bootstrap",
                 "praxis_bulk_preview_bootstrap", "praxis_bulk_preview_integrity_bootstrap",
                 "praxis_bulk_preview_reader_bootstrap")) {

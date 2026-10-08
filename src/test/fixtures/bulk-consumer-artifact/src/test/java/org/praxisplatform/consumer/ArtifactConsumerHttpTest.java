@@ -78,11 +78,20 @@ class ArtifactConsumerHttpTest {
                 "V16__bulk_atomic_set_execution.sql",
                 "V17__bulk_pending_quota_snapshot_fence.sql",
                 "V18__bulk_capacity_installation.sql",
-                "V19__bulk_capacity_occupancy.sql")) {
+                "V19__bulk_capacity_occupancy.sql", "V20__bulk_worker_queue_index.sql")) {
             var migrationResource = BulkExecutionMigrator.class.getResource("/db/praxis-bulk-migrations/" + migration);
             assertThat(migrationResource).as("packaged migration %s", migration).isNotNull();
             assertThat(migrationResource.getProtocol()).isEqualTo("jar");
             assertThat(migrationResource.toString()).contains(expectedJar.getFileName().toString());
+            if (migration.equals("V20__bulk_worker_queue_index.sql")) {
+                var jarConnection = (java.net.JarURLConnection) migrationResource.openConnection();
+                assertThat(Path.of(jarConnection.getJarFileURL().toURI()).toRealPath()).isEqualTo(expectedJar);
+                assertThat(jarConnection.getEntryName()).isEqualTo("db/praxis-bulk-migrations/" + migration);
+                try (var input = migrationResource.openStream()) {
+                    assertThat(sha256(input.readAllBytes())).isEqualTo(sha256(Files.readAllBytes(
+                            candidateSource.resolve("src/main/resources/db/praxis-bulk-migrations").resolve(migration))));
+                }
+            }
         }
         assertThat(System.getProperty("java.class.path")).doesNotContain(candidateSource.toString())
                 .doesNotContain(candidateSource.resolve("src/main").toString())
@@ -120,7 +129,7 @@ class ArtifactConsumerHttpTest {
                     "postgres", Set.of(RUNTIME_ROLE), Set.of(), Set.of(CONTROL_ROLE));
             BulkExecutionMigrator.migrate(deploymentDataSource,
                     Map.of(NAMESPACE, DEPLOYMENT), roles, java.util.List.of(OPERATION));
-            assertThat(migrations).isEqualTo(19);
+            assertThat(migrations).isEqualTo(20);
             BulkExecutionMigrator.validate(deploymentDataSource, roles);
             assertThat(tableExists(deploymentDataSource.getConnection(), "praxis_bulk.praxis_bulk_proposal"))
                     .isTrue();

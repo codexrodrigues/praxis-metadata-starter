@@ -90,7 +90,7 @@ class BulkAtomicExecutionPostgresTest {
         observer.execute("drop schema if exists praxis_bulk cascade");
         observer.execute("truncate public.atomic_domain");
         observer.update("insert into public.atomic_domain(id) select generate_series(1,51)");
-        assertThat(BulkPostgresTestSupport.migrate(owner, NAMESPACE)).isEqualTo(19);
+        assertThat(BulkPostgresTestSupport.migrate(owner, NAMESPACE)).isEqualTo(20);
         BulkPostgresTestSupport.ready(owner, NAMESPACE, CONTEXT.operationRef().operationId());
         observer.execute("""
                 create table public.atomic_outbox (

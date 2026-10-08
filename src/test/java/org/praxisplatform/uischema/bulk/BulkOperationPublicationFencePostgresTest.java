@@ -323,7 +323,7 @@ class BulkOperationPublicationFencePostgresTest {
             BulkPostgresTestSupport.ready(source, NS, OP);
             jdbc.update("update praxis_bulk.praxis_bulk_openapi_publication set state='SUSPENDED',generation=7 where deployment_id='other-deployment'");
             Integer checksum = jdbc.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='14'", Integer.class);
-            assertThat(BulkExecutionMigrator.migrate(source, BINDINGS)).isEqualTo(5);
+            assertThat(BulkExecutionMigrator.migrate(source, BINDINGS)).isEqualTo(6);
             assertThat(jdbc.queryForMap("select state,generation,publication_generation,publication_document_digest from praxis_bulk.praxis_bulk_operation_control where namespace_id=?", NS)).containsEntry("state", "SUSPENDED").containsEntry("generation", 2L).containsEntry("publication_generation", null).containsEntry("publication_document_digest", null);
             assertThat(jdbc.queryForObject("select generation from praxis_bulk.praxis_bulk_openapi_publication where deployment_id=?", Long.class, DEP)).isEqualTo(3);
             assertThat(jdbc.queryForObject("select generation from praxis_bulk.praxis_bulk_openapi_publication where deployment_id='other-deployment'", Long.class)).isEqualTo(7);

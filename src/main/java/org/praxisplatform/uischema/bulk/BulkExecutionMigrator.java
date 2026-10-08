@@ -260,10 +260,14 @@ public final class BulkExecutionMigrator {
         Map<String, String> deployments = canonicalDeploymentMap(namespaceToDeploymentId);
         List<BulkOperationControlIdentity> controlIdentities = canonicalControlIdentities(operations, deployments);
         BulkExecutionRoleConfiguration roleConfiguration = Objects.requireNonNull(roles, "roles");
-        int migrationsExecuted = migrateSchemaWithHistoricalPreflight(operationalDataSource, roleConfiguration);
+        // V20 is an access-path extension of a completely bootstrapped V19 catalog.
+        // Never hold migration coordination while initializer takes its own advisory lock.
+        int migrationsExecuted = migrateSchemaWithHistoricalPreflight(operationalDataSource, roleConfiguration, 19, deployments);
+        validateOwnerBootstrapBeforeWrites(operationalDataSource, roleConfiguration, deployments);
         initializeGovernedLifecycle(operationalDataSource, deployments, controlIdentities, roleConfiguration);
         completeCapacityReadBootstrap(operationalDataSource, roleConfiguration);
         completeCapacityOccupancyBootstrap(operationalDataSource, roleConfiguration);
+        migrationsExecuted += migrateSchemaWithHistoricalPreflight(operationalDataSource, roleConfiguration, 20, deployments);
         validate(operationalDataSource, roleConfiguration);
         return migrationsExecuted;
     }
@@ -284,7 +288,7 @@ public final class BulkExecutionMigrator {
      * whole migration, Flyway DDL, or the legacy lifecycle initializer's advisory wait.
      */
     private static int migrateSchemaWithHistoricalPreflight(DataSource source,
-            BulkExecutionRoleConfiguration roles) {
+            BulkExecutionRoleConfiguration roles, int targetVersion, Map<String, String> deployments) {
         try (Connection coordination = source.getConnection()) {
             MigrationOwnerBackend owner = readMigrationOwnerBackend(coordination);
             require(roles.expectedSchemaOwnerRole().equals(owner.role()),
@@ -308,6 +312,18 @@ public final class BulkExecutionMigrator {
                 }
                 assertKnownDedicatedSchema(source);
                 int historyVersion = currentHistoryVersion(coordination);
+                if (historyVersion == 20) {
+                    // Existing current storage is attested before any bootstrap or binding write.
+                    validate(source, roles);
+                    coordination.commit();
+                    return 0;
+                }
+                if (targetVersion == 20) {
+                    require(historyVersion == 19, "V20 requires a completely bootstrapped V19 predecessor");
+                    validateCurrent(source, roles, 19);
+                } else if (historyVersion == 19) {
+                    validateCurrent(source, roles, 19, true, deployments);
+                }
                 if (historyVersion == 17) validateV17BeforeUpgrade(source, roles);
                 if (historyVersion == 18) {
                     validateV18BeforeUpgrade(source, roles);
@@ -315,7 +331,7 @@ public final class BulkExecutionMigrator {
                     // this canonical owner transaction rechecks its latch/ACL before any grant.
                     completeCapacityReadBootstrap(source, roles);
                 }
-                int migrationsExecuted = flyway(source).migrate().migrationsExecuted;
+                int migrationsExecuted = flyway(source, targetVersion).migrate().migrationsExecuted;
                 coordination.commit();
                 return migrationsExecuted;
             } catch (SQLException | RuntimeException | Error failure) {
@@ -507,6 +523,9 @@ public final class BulkExecutionMigrator {
                 boolean pendingIntegrityBootstrap = lockPreviewIntegrityBootstrap(connection);
                 boolean pendingReaderBootstrap = lockPreviewReaderBootstrap(connection);
                 boolean pendingAtomicBootstrap = lockAtomicBootstrap(connection);
+                int historyVersion = currentHistoryVersion(connection);
+                require(historyVersion == 19 || historyVersion == 20, "Owner bootstrap requires V19 or V20");
+                validateProtectedCatalog(connection, roles, historyVersion, 0, historyVersion == 19, deployments);
                 validateAdmissionRows(connection);
                 validateEvidenceBinding(connection);
                 validateAtomicRows(connection);
@@ -705,6 +724,11 @@ public final class BulkExecutionMigrator {
 
     private static void validateAtomicBootstrap(Connection connection, String expectedPhase,
             BulkExecutionRoleConfiguration roles) throws SQLException {
+        validateAtomicBootstrap(connection, expectedPhase, roles, false);
+    }
+
+    private static void validateAtomicBootstrap(Connection connection, String expectedPhase,
+            BulkExecutionRoleConfiguration roles, boolean beforeGrant) throws SQLException {
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
                 select bootstrap_version,phase from praxis_bulk.praxis_bulk_atomic_bootstrap
                 """)) {
@@ -713,7 +737,7 @@ public final class BulkExecutionMigrator {
         }
         for (String table : ATOMIC_RUNTIME_TABLES) {
             for (String role : roles.runtimeGranteeRoles())
-                require(tableRolePrivileges(connection, table, role).equals(Set.of("T:SELECT", "T:INSERT")),
+                require(tableRolePrivileges(connection, table, role).equals(beforeGrant ? bootstrapTableGrants(expectedPhase) : Set.of("T:SELECT", "T:INSERT")),
                         "V16 runtime grants differ: " + role + " " + table);
             require(tableRolePrivileges(connection, table, "praxis_bulk_retention_owner")
                             .equals(Set.of("T:SELECT", "T:DELETE")),
@@ -1078,6 +1102,11 @@ public final class BulkExecutionMigrator {
     }
 
     private static void validateLifecycleRows(Connection connection) throws SQLException {
+        validateLifecycleRows(connection, Map.of(), false);
+    }
+
+    private static void validateLifecycleRows(Connection connection, Map<String, String> deployments,
+            boolean pendingLegacyDerivation) throws SQLException {
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
                 select count(*) from praxis_bulk.praxis_bulk_operation_control c
                 join praxis_bulk.praxis_bulk_namespace_binding b on b.namespace_id=c.namespace_id
@@ -1093,6 +1122,12 @@ public final class BulkExecutionMigrator {
         Map<String, String> bindings = readNamespaceBindings(connection);
         var proposals = readProposals(connection);
         var executions = readExecutions(connection);
+        if (pendingLegacyDerivation) {
+            require(deployments.entrySet().containsAll(bindings.entrySet()),
+                    "Historical namespace binding conflicts with explicit deployment configuration");
+            // Only absent projections may be derived. Existing bindings remain immutable.
+            bindings = deployments;
+        }
         require(!bindings.isEmpty() || (proposals.isEmpty() && executions.isEmpty()),
                 "Historical bulk rows lack deployment bindings");
         var executionByProposal = new LinkedHashMap<UUID, ExecutionRow>();
@@ -1144,11 +1179,12 @@ public final class BulkExecutionMigrator {
                         "Duplicate bulk allocation owner");
             }
         }
-        require(observed.keySet().equals(expected.keySet()),
+        require(pendingLegacyDerivation ? expected.keySet().containsAll(observed.keySet())
+                        : observed.keySet().equals(expected.keySet()),
                 "Bulk allocations do not cover exactly the retained proposals and executions");
-        for (var entry : expected.entrySet()) {
-            AllocationRow actual = observed.get(entry.getKey());
-            AllocationRow required = entry.getValue();
+        for (var entry : observed.entrySet()) {
+            AllocationRow actual = entry.getValue();
+            AllocationRow required = expected.get(entry.getKey());
             require(actual.kind().equals(required.kind())
                             && Objects.equals(actual.proposalId(), required.proposalId())
                             && Objects.equals(actual.executionId(), required.executionId())
@@ -1171,10 +1207,30 @@ public final class BulkExecutionMigrator {
                 ) historical left join praxis_bulk.praxis_bulk_operation_control c using(namespace_id, operation_id)
                 where c.namespace_id is null
                 """)) {
-            require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+            require(rows.next() && (pendingLegacyDerivation || rows.getLong(1) == 0) && !rows.next(),
                     "Historical bulk operation lacks deny-only or validated control row");
         }
+        if (pendingLegacyDerivation) validateProjectedLifecycleQuotas(expected.values());
         requireQuotaWithinLimits(connection);
+    }
+
+    /** Read-only quota check of the entire canonical derivation before inserting absent rows. */
+    private static void validateProjectedLifecycleQuotas(java.util.Collection<AllocationRow> allocations) {
+        var pendingByDeployment = new LinkedHashMap<String, Integer>();
+        var pendingBySubject = new LinkedHashMap<List<String>, Integer>();
+        var activeByDeployment = new LinkedHashMap<String, Integer>();
+        for (AllocationRow allocation : allocations) {
+            if ("PROPOSAL_PENDING".equals(allocation.kind()) && "PENDING".equals(allocation.state())) {
+                require(pendingByDeployment.merge(allocation.deploymentId(), 1, Integer::sum) <= 100,
+                        "Historical bulk allocations exceed governed deployment proposal quota");
+                require(pendingBySubject.merge(List.of(allocation.deploymentId(), allocation.subjectDigest()),
+                                1, Integer::sum) <= 10,
+                        "Historical bulk allocations exceed governed subject proposal quota");
+            } else if ("EXECUTION_ACTIVE".equals(allocation.kind()) && "ACTIVE".equals(allocation.state())) {
+                require(activeByDeployment.merge(allocation.deploymentId(), 1, Integer::sum) <= 80,
+                        "Historical bulk allocations exceed governed execution quota");
+            }
+        }
     }
 
     /**
@@ -1206,11 +1262,54 @@ public final class BulkExecutionMigrator {
 
     private static void validateCurrent(DataSource dataSource, BulkExecutionRoleConfiguration roles,
             int historicalVersion) {
+        validateCurrent(dataSource, roles, historicalVersion, false);
+    }
+
+    private static void validateOwnerBootstrapBeforeWrites(DataSource source,
+            BulkExecutionRoleConfiguration roles, Map<String, String> deployments) {
+        // Serialize dispatch and its exact historical attestation. Release this loan before
+        // initializeGovernedLifecycle acquires the same key on its own connection.
+        try (Connection coordination = source.getConnection()) {
+            MigrationOwnerBackend owner = readMigrationOwnerBackend(coordination);
+            require(roles.expectedSchemaOwnerRole().equals(owner.role()),
+                    "Owner bootstrap requires its explicit owner credential");
+            coordination.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            coordination.setAutoCommit(false);
+            try {
+                try (var statement = coordination.createStatement()) {
+                    int existingTimeout = statement.getQueryTimeout();
+                    statement.setQueryTimeout(existingTimeout > 0 ? Math.min(existingTimeout, 10) : 10);
+                    statement.execute("select pg_advisory_xact_lock(1347574124, 5)");
+                }
+                int historyVersion = currentHistoryVersion(coordination);
+                if (historyVersion == 19) validateCurrent(source, roles, 19, true, deployments);
+                else {
+                    require(historyVersion == 20, "Owner bootstrap requires V19 or V20");
+                    validateCurrent(source, roles, 0, false);
+                }
+                coordination.commit();
+            } catch (SQLException | RuntimeException | Error failure) {
+                try { coordination.rollback(); }
+                catch (SQLException rollback) { failure.addSuppressed(rollback); }
+                throw failure;
+            }
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to attest owner bootstrap predecessor", failure);
+        }
+    }
+
+    private static void validateCurrent(DataSource dataSource, BulkExecutionRoleConfiguration roles,
+            int historicalVersion, boolean ownerBootstrap) {
+        validateCurrent(dataSource, roles, historicalVersion, ownerBootstrap, Map.of());
+    }
+
+    private static void validateCurrent(DataSource dataSource, BulkExecutionRoleConfiguration roles,
+            int historicalVersion, boolean ownerBootstrap, Map<String, String> deployments) {
         requireOutsideSpringTransaction();
         DataSource operationalDataSource = Objects.requireNonNull(dataSource, "dataSource");
         BulkExecutionRoleConfiguration roleConfiguration = Objects.requireNonNull(roles, "roles");
         assertKnownDedicatedSchema(operationalDataSource);
-        require(historicalVersion == 0 || historicalVersion == 17 || historicalVersion == 18,
+        require(historicalVersion == 0 || historicalVersion == 17 || historicalVersion == 18 || historicalVersion == 19,
                 "Unsupported historical bulk preflight");
         if (historicalVersion != 0) {
             Flyway.configure().dataSource(operationalDataSource)
@@ -1239,54 +1338,8 @@ public final class BulkExecutionMigrator {
                         "V18 history and physical installation disagree");
                 if (historicalVersion != 0) require(historyVersion == historicalVersion,
                         "V" + historicalVersion + " preflight requires the exact historical version");
-                validateProposalTable(connection);
-                validateColumns(connection);
-                validatePrimaryKey(connection);
-                validateChecks(connection);
-                validateProposalUnique(connection);
-                validateImmutableUpdateTrigger(connection, PROPOSAL_TABLE, REJECTION_TRIGGER, REJECTION_FUNCTION,
-                        "praxis_bulk.praxis_bulk_proposal");
-                validateEvaluationTable(connection);
-                validateEvaluationColumns(connection);
-                validateEvaluationPrimaryKey(connection);
-                validateEvaluationForeignKey(connection);
-                validateEvaluationChecks(connection);
-                validateImmutableUpdateTrigger(connection, EVALUATION_TABLE, EVALUATION_REJECTION_TRIGGER,
-                        EVALUATION_REJECTION_FUNCTION, "praxis_bulk.praxis_bulk_evaluation");
-                validateDurableExecution(connection);
-                validateDurableAdmission(connection);
-                validateAtomicCatalog(connection);
-                validateAtomicBootstrap(connection, "COMPLETE", roleConfiguration);
-                validateGovernedLifecycleCatalog(connection, roleConfiguration);
-                validateManifestCatalog(connection, roleConfiguration);
-                BulkOrdinalManifest.validateAll(connection);
-                validatePreviewCatalog(connection, roleConfiguration);
-                BulkPreviewStorage.validateAll(connection);
-                validatePreviewIntegrityCatalog(connection, roleConfiguration, "COMPLETE");
-                validatePreviewReaderCatalog(connection, "COMPLETE");
-                BulkPreviewItemIntegrity.validateAll(connection);
-                validateDescriptorFenceRows(connection);
-                validateAdmissionRows(connection);
-                validateEvidenceBinding(connection);
-                validateAtomicRows(connection);
-                validateLifecycleRows(connection);
-                if (historicalVersion == 18) {
-                    String phase = capacityReadBootstrapPhase(connection);
-                    validateCapacityInstallationCatalog(connection, roleConfiguration, phase,
-                            "COMPLETE".equals(phase));
-                    if ("PENDING".equals(phase))
-                        require(queryCount(connection, "select count(*) from praxis_bulk." + CAPACITY_MARKER_TABLE) == 0
-                                        && queryCount(connection, "select count(*) from praxis_bulk." + CAPACITY_INSTALLATION_TABLE) == 0,
-                                "V18 pending capacity bootstrap already has a physical identity or right");
-                } else if (isV18Installed(connection)) {
-                    validateCapacityInstallationCatalog(connection, roleConfiguration);
-                }
-                if (BulkCapacityOccupancyCatalog.installed(connection)) {
-                    require(historyVersion == 19 && "COMPLETE".equals(BulkCapacityOccupancyCatalog.phase(connection)),
-                            "V19 history/bootstrap disagree");
-                    BulkCapacityOccupancyCatalog.validate(connection, roleConfiguration, true);
-                }
-                validateOwnedSchema(connection);
+                validateProtectedCatalog(connection, roleConfiguration, historyVersion,
+                        historicalVersion, ownerBootstrap && historyVersion == 19, deployments);
             } finally {
                 setCatalogSearchPath(connection, previousSearchPath);
             }
@@ -1296,8 +1349,119 @@ public final class BulkExecutionMigrator {
         }
     }
 
+    /** Owner-only retry attestation; serving callers always require COMPLETE. */
+    private static Map<String, String> ownerBootstrapPhases(Connection connection) throws SQLException {
+        Map<String, Integer> markers = Map.of(
+                MANIFEST_BOOTSTRAP_TABLE, 8, PREVIEW_BOOTSTRAP_TABLE, 9,
+                PREVIEW_INTEGRITY_BOOTSTRAP_TABLE, 11, PREVIEW_READER_BOOTSTRAP_TABLE, 12,
+                ATOMIC_BOOTSTRAP_TABLE, 16, CAPACITY_READ_BOOTSTRAP_TABLE, 18,
+                BulkCapacityOccupancyCatalog.BOOTSTRAP, 19);
+        var phases = new LinkedHashMap<String, String>();
+        for (var marker : markers.entrySet()) {
+            try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                    "select bootstrap_version, phase from praxis_bulk." + marker.getKey())) {
+                require(rows.next() && rows.getInt(1) == marker.getValue(), "Owner bootstrap marker version differs");
+                String phase = rows.getString(2);
+                require(Set.of("PENDING", "COMPLETE").contains(phase) && !rows.next(),
+                        "Owner bootstrap marker phase differs");
+                phases.put(marker.getKey(), phase);
+            }
+        }
+        requirePhaseDependency(phases, PREVIEW_BOOTSTRAP_TABLE, MANIFEST_BOOTSTRAP_TABLE);
+        requirePhaseDependency(phases, PREVIEW_INTEGRITY_BOOTSTRAP_TABLE, PREVIEW_BOOTSTRAP_TABLE);
+        requirePhaseDependency(phases, PREVIEW_READER_BOOTSTRAP_TABLE, PREVIEW_INTEGRITY_BOOTSTRAP_TABLE);
+        requirePhaseDependency(phases, ATOMIC_BOOTSTRAP_TABLE, PREVIEW_READER_BOOTSTRAP_TABLE);
+        requirePhaseDependency(phases, CAPACITY_READ_BOOTSTRAP_TABLE, ATOMIC_BOOTSTRAP_TABLE);
+        requirePhaseDependency(phases, BulkCapacityOccupancyCatalog.BOOTSTRAP, CAPACITY_READ_BOOTSTRAP_TABLE);
+        return Map.copyOf(phases);
+    }
+
+    private static void requirePhaseDependency(Map<String, String> phases, String marker, String prerequisite) {
+        require(!"COMPLETE".equals(phase(phases, marker)) || "COMPLETE".equals(phase(phases, prerequisite)),
+                "Owner bootstrap COMPLETE phase has an incomplete prerequisite");
+    }
+
+    private static String phase(Map<String, String> phases, String marker) {
+        return phases.getOrDefault(marker, "COMPLETE");
+    }
+
+    private static Set<String> bootstrapTableGrants(String phase) {
+        return "COMPLETE".equals(phase) ? Set.of("T:SELECT", "T:INSERT") : Set.of();
+    }
+
+    private static void validateProtectedCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roleConfiguration, int historyVersion,
+            int historicalVersion, boolean ownerBootstrap, Map<String, String> deployments) throws SQLException {
+        Map<String, String> phases = ownerBootstrap ? ownerBootstrapPhases(connection) : Map.of();
+        boolean pendingLegacyDerivation = ownerBootstrap && historyVersion == 19
+                && "PENDING".equals(phase(phases, MANIFEST_BOOTSTRAP_TABLE));
+        validateProposalTable(connection);
+        validateColumns(connection);
+        validatePrimaryKey(connection);
+        validateChecks(connection);
+        validateProposalUnique(connection);
+        validateImmutableUpdateTrigger(connection, PROPOSAL_TABLE, REJECTION_TRIGGER, REJECTION_FUNCTION,
+                "praxis_bulk.praxis_bulk_proposal");
+        validateEvaluationTable(connection);
+        validateEvaluationColumns(connection);
+        validateEvaluationPrimaryKey(connection);
+        validateEvaluationForeignKey(connection);
+        validateEvaluationChecks(connection);
+        validateImmutableUpdateTrigger(connection, EVALUATION_TABLE, EVALUATION_REJECTION_TRIGGER,
+                EVALUATION_REJECTION_FUNCTION, "praxis_bulk.praxis_bulk_evaluation");
+        validateDurableExecution(connection);
+        validateDurableAdmission(connection);
+        validateAtomicCatalog(connection);
+        validateAtomicBootstrap(connection, phase(phases, ATOMIC_BOOTSTRAP_TABLE), roleConfiguration, ownerBootstrap);
+        validateGovernedLifecycleCatalog(connection, roleConfiguration, phases, pendingLegacyDerivation);
+        validateManifestCatalog(connection, roleConfiguration, phase(phases, MANIFEST_BOOTSTRAP_TABLE));
+        if ("COMPLETE".equals(phase(phases, MANIFEST_BOOTSTRAP_TABLE))) BulkOrdinalManifest.validateAll(connection);
+        validatePreviewCatalog(connection, roleConfiguration, phase(phases, PREVIEW_BOOTSTRAP_TABLE));
+        if ("COMPLETE".equals(phase(phases, PREVIEW_BOOTSTRAP_TABLE))) BulkPreviewStorage.validateAll(connection);
+        validatePreviewIntegrityCatalog(connection, roleConfiguration, phase(phases, PREVIEW_INTEGRITY_BOOTSTRAP_TABLE), ownerBootstrap);
+        validatePreviewReaderCatalog(connection, phase(phases, PREVIEW_READER_BOOTSTRAP_TABLE));
+        if ("COMPLETE".equals(phase(phases, PREVIEW_INTEGRITY_BOOTSTRAP_TABLE))) BulkPreviewItemIntegrity.validateAll(connection);
+        validateDescriptorFenceRows(connection);
+        validateAdmissionRows(connection);
+        validateEvidenceBinding(connection);
+        validateAtomicRows(connection);
+        validateLifecycleRows(connection, deployments, pendingLegacyDerivation);
+        if (historicalVersion == 18) {
+            String phase = capacityReadBootstrapPhase(connection);
+            validateCapacityInstallationCatalog(connection, roleConfiguration, phase,
+                    "COMPLETE".equals(phase));
+            if ("PENDING".equals(phase))
+                require(queryCount(connection, "select count(*) from praxis_bulk." + CAPACITY_MARKER_TABLE) == 0
+                                && queryCount(connection, "select count(*) from praxis_bulk." + CAPACITY_INSTALLATION_TABLE) == 0,
+                        "V18 pending capacity bootstrap already has a physical identity or right");
+        } else if (isV18Installed(connection)) {
+            String capacityPhase = phase(phases, CAPACITY_READ_BOOTSTRAP_TABLE);
+            validateCapacityInstallationCatalog(connection, roleConfiguration, capacityPhase,
+                    "COMPLETE".equals(capacityPhase), phases);
+            if ("PENDING".equals(capacityPhase))
+                require(queryCount(connection, "select count(*) from praxis_bulk." + CAPACITY_MARKER_TABLE) == 0
+                                && queryCount(connection, "select count(*) from praxis_bulk." + CAPACITY_INSTALLATION_TABLE) == 0,
+                        "V18 pending bootstrap already has a physical identity or right");
+        }
+        if (BulkCapacityOccupancyCatalog.installed(connection)) {
+            require((historyVersion == 19 || historyVersion == 20)
+                            && phase(phases, BulkCapacityOccupancyCatalog.BOOTSTRAP)
+                                    .equals(BulkCapacityOccupancyCatalog.phase(connection)),
+                    "V19 history/bootstrap disagree");
+            BulkCapacityOccupancyCatalog.validate(connection, roleConfiguration,
+                    "COMPLETE".equals(phase(phases, BulkCapacityOccupancyCatalog.BOOTSTRAP)));
+        }
+        validateWorkerQueueIndex(connection, roleConfiguration, historyVersion);
+        validateOwnedSchema(connection);
+    }
+
     private static Flyway flyway(DataSource dataSource) {
-        return Flyway.configure()
+        return flyway(dataSource, 20);
+    }
+
+    private static Flyway flyway(DataSource dataSource, int targetVersion) {
+        return Flyway.configure().target(org.flywaydb.core.api.MigrationVersion.fromVersion(
+                        Integer.toString(targetVersion)))
                 .dataSource(dataSource)
                 .locations("classpath:db/praxis-bulk-migrations")
                 .schemas(SCHEMA)
@@ -1325,7 +1489,7 @@ public final class BulkExecutionMigrator {
             if (!rows.next()) return 0;
             int version = rows.getInt(1);
             if (rows.wasNull()) version = 0;
-            if (rows.next() || version > 19)
+            if (rows.next() || version > 20)
                 throw new IllegalStateException("Unsupported bulk schema history version");
             return version;
         }
@@ -1356,7 +1520,6 @@ public final class BulkExecutionMigrator {
         try (Connection connection = dataSource.getConnection()) {
             assertPostgreSql(connection);
             if (!schemaExists(connection)) return;
-
             Set<String> relations = queryNames(connection, """
                     select c.relname
                     from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -1502,6 +1665,69 @@ public final class BulkExecutionMigrator {
         return names;
     }
 
+    /** Physical access path only: this does not grant execution authority or run online per job. */
+    private static void validateWorkerQueueIndex(Connection connection,
+            BulkExecutionRoleConfiguration roles, int historyVersion) throws SQLException {
+        String expectedDefinition = "CREATE INDEX praxis_bulk_execution_worker_queue_idx ON "
+                + "praxis_bulk.praxis_bulk_execution USING btree (namespace_id, created_at, execution_id) "
+                + "WHERE ((execution_mode = 'ASYNC'::text) AND (status = 'QUEUED'::text))";
+        try (var statement = connection.prepareStatement("""
+                select table_ns.nspname, table_class.relname, owner.rolname, am.amname,
+                       i.indisvalid, i.indisready, i.indislive, i.indisunique, i.indisprimary,
+                       i.indnatts, i.indnkeyatts, i.indexprs is null, pg_get_indexdef(i.indexrelid),
+                       pg_get_expr(i.indpred, i.indrelid), index_class.relacl is null
+                  from pg_class index_class join pg_namespace n on n.oid=index_class.relnamespace
+                  join pg_index i on i.indexrelid=index_class.oid
+                  join pg_class table_class on table_class.oid=i.indrelid
+                  join pg_namespace table_ns on table_ns.oid=table_class.relnamespace
+                  join pg_roles owner on owner.oid=index_class.relowner
+                  join pg_am am on am.oid=index_class.relam
+                 where n.nspname='praxis_bulk' and index_class.relname='praxis_bulk_execution_worker_queue_idx'
+                """ ); var rows = statement.executeQuery()) {
+            if (historyVersion < 20) {
+                require(!rows.next(), "Worker queue index is premature for historical storage");
+                return;
+            }
+            require(historyVersion == 20 && rows.next(), "V20 worker queue index is absent");
+            require(SCHEMA.equals(rows.getString(1)) && EXECUTION_TABLE.equals(rows.getString(2))
+                            && roles.expectedSchemaOwnerRole().equals(rows.getString(3))
+                            && "btree".equals(rows.getString(4))
+                            && rows.getBoolean(5) && rows.getBoolean(6) && rows.getBoolean(7)
+                            && !rows.getBoolean(8) && !rows.getBoolean(9)
+                            && rows.getInt(10) == 3 && rows.getInt(11) == 3 && rows.getBoolean(12)
+                            && normalizeExpression(expectedDefinition).equals(normalizeExpression(rows.getString(13)))
+                            && normalizeExpression("((execution_mode = 'ASYNC'::text) AND (status = 'QUEUED'::text))")
+                                    .equals(normalizeExpression(rows.getString(14)))
+                            && rows.getBoolean(15) && !rows.next(),
+                    "V20 worker queue index definition or ownership differs");
+        }
+        List<String> columns = List.of("namespace_id", "created_at", "execution_id");
+        List<String> classes = List.of("text_ops", "timestamptz_ops", "uuid_ops");
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select keys.ordinality, a.attname, i.indoption[keys.ordinality::integer-1],
+                       i.indcollation[keys.ordinality::integer-1]=a.attcollation,
+                       opns.nspname, op.opcname, op.opcdefault, op.opcintype=a.atttypid,
+                       op.opcmethod=index_class.relam
+                  from pg_index i join pg_class index_class on index_class.oid=i.indexrelid
+                  cross join lateral unnest(i.indkey) with ordinality keys(attnum,ordinality)
+                  join pg_attribute a on a.attrelid=i.indrelid and a.attnum=keys.attnum
+                  join pg_opclass op on op.oid=i.indclass[keys.ordinality::integer-1]
+                  join pg_namespace opns on opns.oid=op.opcnamespace
+                 where i.indexrelid='praxis_bulk.praxis_bulk_execution_worker_queue_idx'::regclass
+                 order by keys.ordinality
+                """)) {
+            for (int ordinal = 0; ordinal < 3; ordinal++) {
+                require(rows.next() && rows.getInt(1) == ordinal + 1
+                                && columns.get(ordinal).equals(rows.getString(2)) && rows.getInt(3) == 0
+                                && rows.getBoolean(4) && "pg_catalog".equals(rows.getString(5))
+                                && classes.get(ordinal).equals(rows.getString(6)) && rows.getBoolean(7)
+                                && rows.getBoolean(8) && rows.getBoolean(9),
+                        "V20 worker queue index key, ordering, collation or opclass differs");
+            }
+            require(!rows.next(), "V20 worker queue index has extra keys");
+        }
+    }
+
     private static Set<String> unexpectedOrphanIndexes(Connection connection) throws SQLException {
         Set<String> names = new LinkedHashSet<>();
         try (var statement = connection.prepareStatement("""
@@ -1524,6 +1750,7 @@ public final class BulkExecutionMigrator {
                        'praxis_bulk_allocation_pending_subject_idx',
                        'praxis_bulk_allocation_active_deployment_idx',
                        'praxis_bulk_execution_retention_idx', 'praxis_bulk_proposal_expiry_idx')
+                  and not (index_class.relname='praxis_bulk_execution_worker_queue_idx' and ?)
                   and not coalesce((index_class.relname = ? and table_class.relname = ?
                     and not i.indisunique and i.indisvalid and i.indisready and i.indislive
                     and i.indpred is null and i.indexprs is null and i.indnatts = 1 and i.indnkeyatts = 1
@@ -1532,8 +1759,9 @@ public final class BulkExecutionMigrator {
                     and opclass.opcdefault), false)
                 """)) {
             statement.setString(1, SCHEMA);
-            statement.setString(2, "praxis_bulk_schema_history_s_idx");
-            statement.setString(3, HISTORY_TABLE);
+            statement.setBoolean(2, currentHistoryVersion(connection) == 20);
+            statement.setString(3, "praxis_bulk_schema_history_s_idx");
+            statement.setString(4, HISTORY_TABLE);
             try (ResultSet result = statement.executeQuery()) {
                 while (result.next()) names.add(result.getString(1));
             }
@@ -2276,17 +2504,35 @@ public final class BulkExecutionMigrator {
     /** V5 is a security boundary, so validate its physical catalog rather than trusting history alone. */
     private static void validateGovernedLifecycleCatalog(Connection connection,
             BulkExecutionRoleConfiguration roles) throws SQLException {
+        validateGovernedLifecycleCatalog(connection, roles, Map.of());
+    }
+
+    private static void validateGovernedLifecycleCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roles, Map<String, String> phases) throws SQLException {
+        validateGovernedLifecycleCatalog(connection, roles, phases, false);
+    }
+
+    private static void validateGovernedLifecycleCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roles, Map<String, String> phases,
+            boolean pendingLegacyDerivation) throws SQLException {
         validateV5Columns(connection);
         validateV5Constraints(connection);
         validateV5Indexes(connection);
         validateV5Triggers(connection);
-        validateV5Functions(connection, roles);
-        validateV5RolesAndPrivileges(connection, roles);
-        validateOpenApiPublicationCatalog(connection);
+        validateV5Functions(connection, roles, phases);
+        validateV5RolesAndPrivileges(connection, roles, false, phases);
+        validateOpenApiPublicationCatalog(connection, pendingLegacyDerivation);
         validateDescriptorFenceCatalog(connection);
     }
 
     private static void validateOpenApiPublicationCatalog(Connection connection) throws SQLException {
+        validateOpenApiPublicationCatalog(connection, false);
+    }
+
+    private static void validateOpenApiPublicationCatalog(Connection connection,
+            boolean pendingLegacyDerivation) throws SQLException {
+        // V14 DDL creates an empty ledger. Only the first owner lifecycle bootstrap
+        // may insert absent UNCOMPOSED identities; existing rows/ACLs remain exact.
         validateDurableColumns(connection, OPENAPI_PUBLICATION_TABLE, Map.ofEntries(
                 Map.entry("deployment_id", "text|true"),
                 Map.entry("state", "text|true"), Map.entry("generation", "bigint|true"),
@@ -2303,13 +2549,18 @@ public final class BulkExecutionMigrator {
                 left join praxis_bulk.praxis_bulk_openapi_publication p on p.deployment_id=b.deployment_id
                 where p.deployment_id is null
                 """)) {
-            require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+            require(rows.next() && (pendingLegacyDerivation || rows.getLong(1) == 0) && !rows.next(),
                     "every bound deployment requires its durable OpenAPI publication row");
         }
     }
 
     private static void validateManifestCatalog(Connection connection,
             BulkExecutionRoleConfiguration roles) throws SQLException {
+        validateManifestCatalog(connection, roles, "COMPLETE");
+    }
+
+    private static void validateManifestCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roles, String expectedPhase) throws SQLException {
         validateDurableColumns(connection, MANIFEST_BOOTSTRAP_TABLE, Map.of(
                 "bootstrap_version", "integer|true", "phase", "text|true"));
         validateDurableConstraints(connection, MANIFEST_BOOTSTRAP_TABLE, false, Map.of(
@@ -2320,7 +2571,7 @@ public final class BulkExecutionMigrator {
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
                 select bootstrap_version, phase from praxis_bulk.praxis_bulk_manifest_bootstrap
                 """)) {
-            require(rows.next() && rows.getInt(1) == 8 && "COMPLETE".equals(rows.getString(2))
+            require(rows.next() && rows.getInt(1) == 8 && expectedPhase.equals(rows.getString(2))
                     && !rows.next(), "V8 manifest bootstrap is not complete");
         }
         validateManifestBootstrapAcl(connection);
@@ -2380,7 +2631,7 @@ public final class BulkExecutionMigrator {
                     "manifest trigger inventory differs");
         }
         for (String role : roles.runtimeGranteeRoles()) {
-            require(tableRolePrivileges(connection, MANIFEST_TABLE, role).equals(Set.of("T:SELECT", "T:INSERT")),
+            require(tableRolePrivileges(connection, MANIFEST_TABLE, role).equals(bootstrapTableGrants(expectedPhase)),
                     "manifest runtime grants differ: " + role);
         }
     }
@@ -2407,6 +2658,11 @@ public final class BulkExecutionMigrator {
 
     private static void validatePreviewCatalog(Connection connection,
             BulkExecutionRoleConfiguration roles) throws SQLException {
+        validatePreviewCatalog(connection, roles, "COMPLETE");
+    }
+
+    private static void validatePreviewCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roles, String expectedPhase) throws SQLException {
         validateDurableColumns(connection, PREVIEW_BOOTSTRAP_TABLE, Map.of(
                 "bootstrap_version", "integer|true", "phase", "text|true"));
         validateDurableColumns(connection, PREVIEW_STATE_TABLE, Map.of(
@@ -2420,7 +2676,7 @@ public final class BulkExecutionMigrator {
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
                 select bootstrap_version, phase from praxis_bulk.praxis_bulk_preview_bootstrap
                 """)) {
-            require(rows.next() && rows.getInt(1) == 9 && "COMPLETE".equals(rows.getString(2))
+            require(rows.next() && rows.getInt(1) == 9 && expectedPhase.equals(rows.getString(2))
                     && !rows.next(), "V9 preview bootstrap is not complete");
         }
         validateOwnerOnlyTableAcl(connection, PREVIEW_BOOTSTRAP_TABLE);
@@ -2482,12 +2738,17 @@ public final class BulkExecutionMigrator {
         require(observed.equals(expected), "preview trigger inventory differs");
         for (String role : roles.runtimeGranteeRoles())
             for (String table : List.of(PREVIEW_STATE_TABLE, TARGET_PREVIEW_TABLE))
-                require(tableRolePrivileges(connection, table, role).equals(Set.of("T:SELECT", "T:INSERT")),
+                require(tableRolePrivileges(connection, table, role).equals(bootstrapTableGrants(expectedPhase)),
                         "preview runtime grants differ: " + role + " " + table);
     }
 
     private static void validatePreviewIntegrityCatalog(Connection connection,
             BulkExecutionRoleConfiguration roles, String expectedPhase) throws SQLException {
+        validatePreviewIntegrityCatalog(connection, roles, expectedPhase, false);
+    }
+
+    private static void validatePreviewIntegrityCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roles, String expectedPhase, boolean beforeGrant) throws SQLException {
         validateDurableColumns(connection, PREVIEW_INTEGRITY_BOOTSTRAP_TABLE, Map.of(
                 "bootstrap_version", "integer|true", "phase", "text|true"));
         validateDurableColumns(connection, PREVIEW_INTEGRITY_TABLE, Map.of(
@@ -2555,7 +2816,7 @@ public final class BulkExecutionMigrator {
         require(observed.equals(V11_TRIGGERS), "V11 trigger inventory differs");
         for (String role : roles.runtimeGranteeRoles())
             require(tableRolePrivileges(connection, PREVIEW_INTEGRITY_TABLE, role)
-                    .equals(Set.of("T:SELECT", "T:INSERT")), "V11 runtime grants differ: " + role);
+                    .equals(beforeGrant ? bootstrapTableGrants(expectedPhase) : Set.of("T:SELECT", "T:INSERT")), "V11 runtime grants differ: " + role);
     }
 
     private static void validatePreviewReaderCatalog(Connection connection, String expectedPhase)
@@ -2897,6 +3158,11 @@ public final class BulkExecutionMigrator {
 
     private static void validateV5Functions(Connection connection,
             BulkExecutionRoleConfiguration roleConfiguration) throws SQLException {
+        validateV5Functions(connection, roleConfiguration, Map.of());
+    }
+
+    private static void validateV5Functions(Connection connection,
+            BulkExecutionRoleConfiguration roleConfiguration, Map<String, String> phases) throws SQLException {
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
                 select to_regprocedure('praxis_bulk.transition_operation_control(text,text,bigint,text,text,text)') is null
                 """)) {
@@ -2996,7 +3262,7 @@ public final class BulkExecutionMigrator {
             }
         }
         require(actual.equals(keys), "governed lifecycle functions are missing");
-        validateV5FunctionPrivileges(connection, roleConfiguration);
+        validateV5FunctionPrivileges(connection, roleConfiguration, phases);
     }
 
     private static String readV5Migration() {
@@ -3160,11 +3426,17 @@ public final class BulkExecutionMigrator {
     private static void validateCapacityInstallationCatalog(Connection connection,
             BulkExecutionRoleConfiguration roles, String expectedPhase, boolean expectedGrant)
             throws SQLException {
+        validateCapacityInstallationCatalog(connection, roles, expectedPhase, expectedGrant, Map.of());
+    }
+
+    private static void validateCapacityInstallationCatalog(Connection connection,
+            BulkExecutionRoleConfiguration roles, String expectedPhase, boolean expectedGrant,
+            Map<String, String> phases) throws SQLException {
         require(isV18Installed(connection), "V18 capacity installation is not applied");
         // During the atomic grant-before-COMPLETE interval the transaction sees the new ACL
         // while the row still says PENDING. Final validation runs again after the phase CAS.
         if (expectedGrant == "COMPLETE".equals(expectedPhase))
-            validateV5RolesAndPrivileges(connection, roles);
+            validateV5RolesAndPrivileges(connection, roles, false, phases);
         require(expectedPhase.equals(capacityReadBootstrapPhase(connection)),
                 "V18 capacity bootstrap has not completed its expected phase");
         Map<String, String> bootstrapColumns = Map.of("bootstrap_version", "smallint", "phase", "text");
@@ -3638,6 +3910,11 @@ public final class BulkExecutionMigrator {
 
     private static void validateV5FunctionPrivileges(Connection connection,
             BulkExecutionRoleConfiguration roles) throws SQLException {
+        validateV5FunctionPrivileges(connection, roles, Map.of());
+    }
+
+    private static void validateV5FunctionPrivileges(Connection connection,
+            BulkExecutionRoleConfiguration roles, Map<String, String> phases) throws SQLException {
         var expected = new LinkedHashSet<String>(Set.of(
                 "terminal_evidence_complete(p_execution_id uuid, p_required_count integer)|praxis_bulk_retention_owner|EXECUTE",
                 "atomic_evidence_complete(p_execution_id uuid, p_required_count integer)|praxis_bulk_retention_owner|EXECUTE",
@@ -3648,12 +3925,14 @@ public final class BulkExecutionMigrator {
             expected.add("lock_operation_control(p_namespace_id text, p_operation_id text)|" + BulkCapacityOccupancyCatalog.OWNER + "|EXECUTE");
         roles.runtimeGranteeRoles().forEach(role -> expected.add(
                 "lock_operation_control(p_namespace_id text, p_operation_id text)|" + role + "|EXECUTE"));
-        roles.runtimeGranteeRoles().forEach(role -> expected.add(
-                "assert_preview_integrity_complete()|" + role + "|EXECUTE"));
+        if ("COMPLETE".equals(phase(phases, PREVIEW_READER_BOOTSTRAP_TABLE)))
+            roles.runtimeGranteeRoles().forEach(role -> expected.add(
+                    "assert_preview_integrity_complete()|" + role + "|EXECUTE"));
         roles.runtimeGranteeRoles().forEach(role -> expected.add(
                 "lock_openapi_publication(p_namespace_id text, p_deployment_id text)|" + role + "|EXECUTE"));
-        roles.runtimeGranteeRoles().forEach(role -> expected.add(
-                "atomic_evidence_complete(p_execution_id uuid, p_required_count integer)|" + role + "|EXECUTE"));
+        if ("COMPLETE".equals(phase(phases, ATOMIC_BOOTSTRAP_TABLE)))
+            roles.runtimeGranteeRoles().forEach(role -> expected.add(
+                    "atomic_evidence_complete(p_execution_id uuid, p_required_count integer)|" + role + "|EXECUTE"));
         roles.controlPlaneGranteeRoles().forEach(role -> expected.add(
                 "transition_operation_control(p_namespace_id text, p_operation_id text, p_expected_generation bigint, p_target_state text, p_descriptor_fingerprint text, p_structural_revision text, p_expected_publication_generation bigint, p_expected_publication_digest text)|" + role + "|EXECUTE"));
         roles.controlPlaneGranteeRoles().forEach(role -> expected.add(
@@ -3700,6 +3979,11 @@ public final class BulkExecutionMigrator {
 
     private static void validateV5RolesAndPrivileges(Connection connection,
             BulkExecutionRoleConfiguration roleConfiguration, boolean liveCaller) throws SQLException {
+        validateV5RolesAndPrivileges(connection, roleConfiguration, liveCaller, Map.of());
+    }
+
+    private static void validateV5RolesAndPrivileges(Connection connection,
+            BulkExecutionRoleConfiguration roleConfiguration, boolean liveCaller, Map<String, String> phases) throws SQLException {
         validateConfiguredRoles(connection, roleConfiguration);
         validateConfiguredRoleInheritance(connection, roleConfiguration);
         validateSchemaAndTableOwners(connection, roleConfiguration.expectedSchemaOwnerRole());
@@ -3821,13 +4105,14 @@ public final class BulkExecutionMigrator {
             }
         }
         for (String role : roleConfiguration.runtimeGranteeRoles()) {
-            require(tableRolePrivileges(connection, MANIFEST_TABLE, role).equals(Set.of("T:SELECT", "T:INSERT")),
+            require(tableRolePrivileges(connection, MANIFEST_TABLE, role).equals(bootstrapTableGrants(phase(phases, MANIFEST_BOOTSTRAP_TABLE))),
                     "bulk runtime manifest grants differ: " + role);
             for (String table : List.of(PREVIEW_STATE_TABLE, TARGET_PREVIEW_TABLE, PREVIEW_INTEGRITY_TABLE))
-                require(tableRolePrivileges(connection, table, role).equals(Set.of("T:SELECT", "T:INSERT")),
+                require(tableRolePrivileges(connection, table, role).equals(bootstrapTableGrants(phase(phases,
+                                PREVIEW_INTEGRITY_TABLE.equals(table) ? PREVIEW_INTEGRITY_BOOTSTRAP_TABLE : PREVIEW_BOOTSTRAP_TABLE))),
                         "bulk runtime preview grants differ: " + role + " " + table);
         }
-        validateRuntimeTablePrivileges(connection, roleConfiguration.runtimeGranteeRoles(), liveCaller);
+        validateRuntimeTablePrivileges(connection, roleConfiguration.runtimeGranteeRoles(), liveCaller, phases);
         validateRuntimeRoleMemberships(connection, roleConfiguration.runtimeGranteeRoles());
         validateConfiguredRoleMembershipClosure(connection, roleConfiguration.controlPlaneGranteeRoles(),
                 roleConfiguration.controlPlaneGranteeRoles(),
@@ -3968,6 +4253,12 @@ public final class BulkExecutionMigrator {
     private static void validateRuntimeTablePrivileges(Connection connection, Set<String> runtimeRoles,
             boolean liveCaller)
             throws SQLException {
+        validateRuntimeTablePrivileges(connection, runtimeRoles, liveCaller, Map.of());
+    }
+
+    private static void validateRuntimeTablePrivileges(Connection connection, Set<String> runtimeRoles,
+            boolean liveCaller, Map<String, String> phases)
+            throws SQLException {
         Map<String, Set<String>> allowedByTable = new LinkedHashMap<>(Map.ofEntries(
                 Map.entry(NAMESPACE_BINDING_TABLE, Set.of("T:SELECT", "C:deployment_id:UPDATE")),
                 Map.entry(OPERATION_CONTROL_TABLE, Set.of()),
@@ -3995,6 +4286,12 @@ public final class BulkExecutionMigrator {
                 Map.entry(ALLOCATION_TABLE, Set.of("T:SELECT", "T:INSERT", "C:state:UPDATE",
                         "C:released_at:UPDATE", "C:release_reason:UPDATE")),
                 Map.entry(TOMBSTONE_TABLE, Set.of("T:SELECT"))));
+        allowedByTable.put(MANIFEST_TABLE, bootstrapTableGrants(phase(phases, MANIFEST_BOOTSTRAP_TABLE)));
+        allowedByTable.put(PREVIEW_STATE_TABLE, bootstrapTableGrants(phase(phases, PREVIEW_BOOTSTRAP_TABLE)));
+        allowedByTable.put(TARGET_PREVIEW_TABLE, bootstrapTableGrants(phase(phases, PREVIEW_BOOTSTRAP_TABLE)));
+        allowedByTable.put(PREVIEW_INTEGRITY_TABLE, bootstrapTableGrants(phase(phases, PREVIEW_INTEGRITY_BOOTSTRAP_TABLE)));
+        for (String table : ATOMIC_RUNTIME_TABLES)
+            allowedByTable.put(table, bootstrapTableGrants(phase(phases, ATOMIC_BOOTSTRAP_TABLE)));
         if (isV18Installed(connection)) {
             allowedByTable.put(CAPACITY_READ_BOOTSTRAP_TABLE, Set.of());
             // The owner validates the durable PENDING/COMPLETE row. Restricted callers cannot

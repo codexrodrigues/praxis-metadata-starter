@@ -220,15 +220,15 @@ class BulkCapacityOccupancyCutoverPostgresTest {
             var before = historicalRows(historical.observer);
             assertThat(before.get(BulkExecutionMigrator.HISTORY_TABLE)).hasSize(18); // SCHEMA plus V1..V17.
             assertThat(BulkExecutionMigrator.migrate(historical.owner, Map.of(NAMESPACE, DEPLOYMENT),
-                    historical.roles)).isEqualTo(2);
+                    historical.roles)).isEqualTo(3);
             historicalUnchanged(historical.observer, before);
             assertSuspended(historical.observer);
             assertThat(historical.observer.queryForObject("select max(version::integer) from "
-                    + "praxis_bulk.praxis_bulk_schema_history where version is not null", Integer.class)).isEqualTo(19);
+                    + "praxis_bulk.praxis_bulk_schema_history where version is not null", Integer.class)).isEqualTo(20);
             assertThat(historical.observer.queryForObject("""
                     select count(*) from praxis_bulk.praxis_bulk_schema_history
-                     where version in ('18','19') and success
-                    """, Long.class)).isEqualTo(2);
+                     where version in ('18','19','20') and success
+                    """, Long.class)).isEqualTo(3);
             assertThat(historical.observer.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_read_bootstrap",
                     String.class)).isEqualTo("COMPLETE");
             assertThat(historical.observer.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap",
@@ -254,7 +254,7 @@ class BulkCapacityOccupancyCutoverPostgresTest {
                 }
                 return null;
             });
-            proof.event("V17_TO_V19_SYNC_BYTES_FINGERPRINTS_AND_HISTORY_PRESERVED", 0, 0);
+            proof.event("V17_TO_V20_SYNC_BYTES_FINGERPRINTS_AND_HISTORY_PRESERVED", 0, 0);
             proof.complete = true;
         }
     }
@@ -306,7 +306,7 @@ class BulkCapacityOccupancyCutoverPostgresTest {
         return rows(observer, false);
     }
 
-    /** V17 columns/history are compared byte for byte across an intentional V18/V19 extension. */
+    /** V17 columns/history are compared byte for byte across an intentional V18/V19/V20 extension. */
     private static Map<String, List<String>> historicalRows(JdbcTemplate observer) {
         return rows(observer, true);
     }
