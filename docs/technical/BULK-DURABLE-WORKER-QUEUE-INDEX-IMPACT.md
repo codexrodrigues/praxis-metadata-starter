@@ -1,3 +1,7 @@
+> **Inventário e decisões históricos de 08/10/2026.** A proposta V3 e as revisões de fonte abaixo registram a evolução desde a baseline `b35483beac248c20bc107dd9e966a7a70a7d67a2`; afirmações “antes de alterar fontes”, “sem build” ou “gate pendente” pertencem à revisão indicada, não ao estado atual.
+>
+> O [status corrente](BULK-DURABLE-WORKER-B5B2-STATUS.md), o [runbook owner/cutover](BULK-DURABLE-WORKER-OWNER-UPGRADE.md) e a implementação canônica definem a operação atual. As fontes e campanhas históricas são preservadas com seus próprios limites; os aceites focais V7/V9 não equivalem a whole verify, publicação/adoção ou fechamento B5b.2.
+
 # B5b.2 — mapa de impacto do acesso ordenado à fila (V3)
 
 Estado: proposta concreta V3 para revisão ROOT antes de alterar fontes de produto; V1 preservada em evidência, sem gate de produto. 08/10/2026.
