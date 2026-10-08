@@ -8,8 +8,9 @@ A [entrada administrativa INSPECT/FENCE](docs/spec/BULK-CAPACITY-LOCAL-ADMINISTR
 permite observação e isolamento terminal local com credenciais OWNER explícitas,
 sem exigir acesso à autoridade D0. A fonte candidata passou 20 testes focais e
 revisão independente; o consumidor foi exercitado pelo JAR real do Quickstart
-contra coordenada privada. Integração final, publicação e adoção sem override são
-marcos separados. Não há comando instalado em rc.154 nem certificação de sessões,
+contra coordenada privada. Código e documentação foram integrados pelo PR250; a prova do host pelo PR409
+e o guidance pelo PR710, sincronizado seletivamente. Publicação e adoção sem
+override permanecem marcos separados. Não há comando instalado em rc.154 nem certificação de sessões,
 cópias, custódia, continuidade/start/restore, C0/C2 integral ou Angular.
 
 ## Composição publicada em rc.152, captura EXPLICIT em rc.153 e QUERY em rc.154
