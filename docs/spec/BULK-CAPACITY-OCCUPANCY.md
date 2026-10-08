@@ -391,3 +391,55 @@ Its source archive freezes 836 source/POM files; SHA256 is
 This is a database-local copy within one cluster. It does not cover physical
 cluster restore, authority rollback, restart of an old fleet, external monotonic
 continuity, succession, worker fairness, public ASYNC/READY or backend acceptance.
+
+## Controlled withdrawal of an accessible origin
+
+`BulkCapacityControlledWithdrawalPostgresTest` proves one administrative withdrawal
+in an owned PostgreSQL cluster with two enumerated runtime JVMs. A real ASYNC
+callback holds the marker lock while a concurrent owner fence waits; PostgreSQL
+blocking PIDs certify that edge. Immediate callback release allows domain and receipt
+to commit with the same physical XID before the fence completes. The fenced next
+ASYNC ordinal is denied before callbacks, while its confirmed receipt remains
+replayable. A genuine SYNC unit still commits after that capacity fence.
+
+The administrator then blocks new database connections with ALLOW_CONNECTIONS=false.
+A preexisting runtime JDBC session can still perform a genuine UPDATE inside a
+reversible transaction. An independent, preopened read-only observer sees no
+uncommitted effect, and the probe rolls back. The ordinary runtime cannot reopen
+the database through a maintenance connection (SQLSTATE 42501); new connections
+are rejected with SQLSTATE 55000. This demonstrates why a connection block alone
+does not withdraw all existing writers.
+
+Termination targets only the attested PID/database OID/role/backend_start tuple,
+with a timeout and readback of actual absence. The original process and a newly
+started JVM then both fail native connections and protected SYNC/ASYNC execution
+without admission or mutation callbacks. Startup class hashes/code sources are
+certified independently of database login. The SDK's safe error is
+RECONCILIATION_REQUIRED; it does not assert rollback or absence of earlier effects.
+The read-only observer proves the confirmed prefix and domain unchanged, then
+closes so the origin has zero backends. Global authority rows remain unchanged.
+
+Reproduce from a checkout containing the test:
+
+```sh
+mvn -B '-Dtest=BulkCapacityControlledWithdrawalPostgresTest#accessibleOriginWithdrawalDrainsAsyncAndExcludesKnownRuntimeSessionsAndRestart' '-Dpraxis.bulk.proof.directory=target/withdrawal-proof' test
+```
+
+The focused campaign ran one test with no failures, errors or skips on
+PostgreSQL14.22/Java21. Test SHA256:
+`4621f6668f8698d7b8ff3e2ff4de71da56b513870b9d373e1ca4a1473205055c`.
+The 837-entry source/POM archive SHA256 is
+`d6118d74231c085a2ba643ad61e4e17272c33b9e0b64dd918d0c6bff40027422`.
+Both runtime JVMs exited successfully, private configuration was removed and the
+owned PostgreSQL cluster closed. Existing kernel and owner lock budgets were
+preserved; the causal observation envelope is 700ms and the held writer probe is
+limited to three seconds. Setup waits do not extend either transaction budget.
+
+This is an internal test, not a public host administration API or a deployment
+recipe. The runtime uses unpooled datasources plus one deliberately held physical
+session; arbitrary pools and supervisors are not certified. Owner/superuser is
+trusted and can reverse the administrative connection block. No database reopening
+occurs during the proof. It does not cover clones, PostgreSQL restart, HA, origin
+loss, authority rollback, uncertain-commit recovery, succession or external
+continuity. It adds no production behavior and does not make the internal capacity
+kernel available in rc.154 or close public ASYNC/READY, worker or backend gates.
