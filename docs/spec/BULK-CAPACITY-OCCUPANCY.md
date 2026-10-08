@@ -93,11 +93,11 @@ owners/membership, function bodies/search paths, triggers or constraints must no
 silent repair. Migration history or a captured live definition cannot legitimize drift.
 
 During genuine PENDING provisioning, the schema owner grants the slot/history reads
-under its own authority. The two capacity functions belong to `capacity_owner`;
+under its own authority. The two capacity functions belong to `praxis_bulk_capacity_owner`;
 the owner transaction temporarily grants membership to the schema owner and uses
-`SET LOCAL ROLE capacity_owner` exclusively for their bounded EXECUTE grants. It
-restores the original local role and revokes membership before COMPLETE and final
-catalog validation. No permanent membership or grant option remains. SQL/runtime
+`SET LOCAL ROLE praxis_bulk_capacity_owner` exclusively for their bounded EXECUTE grants. It
+restores the original local role, revokes membership, validates the final catalog
+and ACLs, and only then publishes COMPLETE. No permanent membership or grant option remains. SQL/runtime
 failure propagates to the owning transaction rollback; no cleanup SQL is attempted
 inside an aborted transaction, and no session-wide RESET ROLE is used.
 
