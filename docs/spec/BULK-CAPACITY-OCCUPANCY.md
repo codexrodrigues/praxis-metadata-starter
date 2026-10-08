@@ -448,7 +448,9 @@ kernel available in rc.154 or close public ASYNC/READY, worker or backend gates.
 
 `BulkCapacityExternalQuarantinePostgresTest` proves an external HBA policy in one
 owned cluster with an original database and genuine TEMPLATE copy. The copy retains
-its envelope, ACTIVE marker, rows, receipts, controls, grants and role credentials.
+its envelope, ACTIVE marker, rows, receipts, controls and grants. Role credentials
+are shared cluster-wide, not copied by CREATE DATABASE TEMPLATE; their unchanged
+state is independently compared against the pre-copy baseline.
 The HBA file resides outside PGDATA; exact first-match rules allow the runtime only
 on the original database and authority roles only on the authority database.
 IPv6 and local sockets are denied or disabled with readback.
