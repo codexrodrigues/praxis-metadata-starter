@@ -529,3 +529,53 @@ HA or PostgreSQL restart. Invalid boot provenance blocks new starts, but does no
 by itself evict existing writers. C0 integral, C1b/C2, worker and public deployment
 retain their own gates. No production/POM/migration change or Angular follows from
 these four focals alone.
+
+## Administered cold whole-cluster copy (C1b, private bounded proof)
+
+`BulkCapacityTwoClusterQuarantinePostgresTest` proves a cold physical copy into
+a second PostgreSQL cluster. Use Java 21 and the official settings/cache ownership;
+choose a new absolute evidence directory for every campaign:
+
+```bash
+mvn -B -DfailIfNoTests=true \
+  '-Dtest=BulkCapacityTwoClusterQuarantinePostgresTest#coldWholeClusterCopyRemainsQuarantinedAndRetirementSurvivesAdminAndRuntimeRestart' \
+  -Dpraxis.bulk.proof.directory=/absolute/new-cold-copy-evidence test
+```
+
+The source first confirms a real domain mutation and receipt, then closes through
+the embedded fixture. Native clean-shutdown records, actual postmaster identity and
+physical absence establish the cold boundary; the fixture does not expose its stop
+exit status. Copy the complete PGDATA, including WAL and transaction status, with
+byte/permission equality and no symlinks or external tablespaces. Two distinct
+actual postmasters restart through the existing embedded fixture; no dump/restore,
+basebackup, external utility or alternate installation protocol is introduced.
+
+External HBA quarantines the clone from its first start for every enumerated
+non-admin login, including copied authority roles. Correct credentials receive
+native 28000; ADMIN separately compares copied OIDs, complete binding, roles and
+private verifiers, marker, rights, catalog and ledger. Equal system_identifier
+is expected after physical copy and is not continuity authority. Original positive
+replay precedes retirement, so broken authentication cannot satisfy quarantine.
+
+Reuse the C0-03 Journal/ProvisioningAgent and C0-02 RuntimeProcess. Retirement
+persists intent before denial and excludes the retained real UPDATE session by
+its complete attested tuple. Physical absence and unchanged prefix/authority
+precede retirement. Original and restarted runtime JVMs cannot reconnect or call
+domain; a restarted administrative agent cannot reopen the retired installation.
+The administrative journal remains private and cooperative, not antirollback custody.
+
+The corrective campaign passed one test, zero failures/errors/skips, 8.176 s on
+Java 21.0.10/PostgreSQL 14.22. Its 840-source/POM snapshot had zero drift; all seven
+owned postmaster/JVM PIDs were absent after cleanup. The initial campaign remains
+a failed startup before copy/oracles: its native log was lost by fixture cleanup.
+The unquoted log-prefix whitespace diagnosis is an inference, not an observed
+run1 native error. The corrected prefix has no whitespace; incomplete campaigns
+retain 0600 private logs, remove child credential handoffs and export fixed
+diagnostic classifications only. Unknown records never imply PASS or a fallback.
+
+This proves administered cold copy and PostgreSQL/JVM restart under explicit
+quarantine. It does not prove clone promotion, authority succession, monotonic
+continuity, journal antirollback, power-loss durability, HA, production supervisor
+custody, C0/C1b/C2 integral completion, HTTP, public ASYNC/READY or Angular readiness.
+The six-minute fixture allowance does not change unit 5 s or native lock 3 s
+budgets. No production, POM, migration or release changes are required.
