@@ -213,7 +213,7 @@ class BulkCapacityProvisioningInterlockPostgresTest {
     private record JournalRow(long sequence, State state) { }
 
     /** One cooperative lock inode lasts across every replacement of the data file. */
-    private static final class Journal {
+    static final class Journal {
         final Path directory;
         final Path lockFile;
         final Path dataFile;
