@@ -183,10 +183,32 @@ da plataforma.</p>
 </ul>
 <h2 id="sdk-em-desenvolvimento">SDK em desenvolvimento</h2>
 <ul>
+<li><p><a href="spec/BULK-CAPACITY-AUTHORITY.html">Autoridade de
+capacidade candidata B5b.1a</a>: núcleo com 42 provas focais de direitos
+globais e migração; banco dedicado é pré-requisito de provisionamento;
+não integra a rc.154 nem aceita jobs, ASYNC ou HTTP202.</p></li>
+<li><p><a href="spec/BULK-CAPACITY-INSTALLATION.html">Instalação local
+candidata B5b.1b.A</a>: atestado e direitos reais com 97 casos
+PostgreSQL compostos; runtime sem history/latch SELECT, bootstrap
+durável sem healing e quatro processos owner. Sem ocupação/jobs,
+ASYNC/202/READY, restore-safe, adoção na rc.154 ou Angular.</p></li>
 <li><p><a href="spec/BULK-OPERATION-LIFECYCLE.html">Lifecycle governado
 candidato R2</a>: fotografia OpenAPI imutável, publicação
 global/operação V14/V15 e reconciliação explícita; prova HTTP do host e
 adoção pública são gates separados.</p></li>
+<li><p><a href="spec/BULK-CAPACITY-OCCUPANCY.html">Ocupação local
+protegida B5b.1b.B e caracterização de clone C1a</a>: slots, histórico,
+QUEUED/claim e lifecycle no ledger existente. Fonte interna integrada
+pelos PR242/243, com provas de capacidade global, quatro JVMs de runtime
+e cópia real do banco. C1a demonstra uma limitação: cercar a origem não
+impede a cópia de executar. Retirada controlada43 e quarentena externa
+autenticada C0-02 acrescentam provas delimitadas (HBA reload/JVM
+restart, cópia TEMPLATE e credenciais distintas); C0-03 acrescenta
+interlock privado cooperativo, três crashes e CAS entre duas JVMs; não
+fecha custódia monotônica. Essas provas não fecham proteção integral de
+clone/restore, continuidade externa, worker ou composição operacional.
+Esse núcleo não integra o artefato público rc.154 e não certifica ASYNC
+público, HTTP202, adoção do host, backend completo ou Angular.</p></li>
 <li><p><a href="spec/BULK-DURABLE-EXECUTION.html">Núcleo durável de
 execução</a>: reserva, unidade transacional, ledger de capacidade V5,
 retenção/tombstones e recuperação; fundação sem exposição HTTP nem
@@ -216,10 +238,10 @@ request concreto do handler MVC.</p></li>
 request</a>: schema da operação, dialeto e limites da composição
 backend.</p></li>
 <li><p><a href="spec/BULK-PROPOSAL-STORAGE.html">Persistência protegida
-de propostas</a>: captura EXPLICIT/SYNC publicada na rc.153, allocations
-pendentes V5 e migração V17; seleção QUERY descrita apenas como
-candidato privado, sem endpoint automático do SDK nem adoção do binário
-público QUERY.</p></li>
+de propostas</a>: captura EXPLICIT/SYNC publicada na rc.153 e captura
+QUERY sob admissão opaca na rc.154, restrita a
+<code>UNIFORM_UPDATE/SYNC/PER_ITEM</code> com teto de até 200; o SDK não
+cria endpoint nem autoriza o domínio do host.</p></li>
 <li><p><a href="spec/BULK-EXECUTION-INFRASTRUCTURE.html">Infraestrutura
 transacional de lote</a>: vínculo JDBC/JPA explícito, sem store ou
 DDL.</p></li>
@@ -229,10 +251,15 @@ lote</a>: annotation e compilação estrutural de SET/CLEAR.</p></li>
 CRUD</a>: fonte PUT e DTO reais, campos protegidos e allowlists; sem
 disponibilidade operacional de update bulk.</p></li>
 <li><p><a href="spec/BULK-CRUD-OPERATIONS.html">Composição operacional
-CRUD</a>: quatro identidades UPDATE por modo/atomicidade no SDK público,
-com schemas, campos elegíveis e fence READY; perfil
-<code>UNIFORM_UPDATE/SYNC/PER_ITEM/QUERY</code> somente no candidato
-privado, sem autorização P3 ou mutação automática no host.</p></li>
+CRUD</a>: quatro identidades UPDATE por modo/atomicidade no SDK público;
+a rc.154 publica QUERY somente para
+<code>UNIFORM_UPDATE/SYNC/PER_ITEM</code>, mantendo
+<code>bulk-update</code>. <code>PER_ITEM_UPDATE</code>, ATOMIC e ASYNC
+não recebem QUERY; autorização e mutação continuam no host.</p></li>
+<li><p><a href="technical/BULK-COMPOSITION-GUIDE.html">Guia de
+composição de lote</a>: escolha de modalidade, fronteira
+Metadata/Config/host, sequência de composição e limites comprovados da
+rc.154.</p></li>
 </ul>
 <h2 id="comece-por-objetivo">Comece por objetivo</h2>
 <h3 id="quero-adotar-o-baseline-atual">Quero adotar o baseline
@@ -329,10 +356,15 @@ limite efetivo e warnings para UI corporativa</li>
 <h2 id="regra-de-leitura">Regra De Leitura</h2>
 <p>Quando houver duvida sobre a superficie publicada:</p>
 <ul>
-<li>priorize os guias desta home</li>
-<li>priorize <code>architecture-overview</code></li>
-<li>use a trilha desta home como referencia principal do baseline
-atual</li>
+<li><p>priorize os guias desta home</p></li>
+<li><p>priorize <code>architecture-overview</code></p></li>
+<li><p>use a trilha desta home como referencia principal do baseline
+atual</p></li>
+<li><p><a
+href="spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.html">Administração local
+de capacidade (candidato C0-04)</a>: INSPECT/FENCE com OWNER e vínculo
+explícitos; provas privadas não são publicação ou adoção
+produtiva.</p></li>
 </ul>
 </body>
 </html>

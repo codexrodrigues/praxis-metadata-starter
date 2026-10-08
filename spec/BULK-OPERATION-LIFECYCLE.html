@@ -172,13 +172,13 @@
 operações em lote</h1>
 <h2 id="estado-e-fronteira">Estado e fronteira</h2>
 <p>As seções históricas descrevem o corte R2/V15. O artefato público
-atual de referência é rc.153; a seleção QUERY descrita adiante pertence
-somente ao candidato privado
-<code>8.0.0-b5a-uniform-query-20261004-SNAPSHOT</code>. Há prova focal
-do consumidor no host contra esse candidato, sem adoção do binário QUERY
-público nem liberação do Angular. O planejamento e as evidências
-versionadas ficam em <code>internal-planning/bulk-operations</code> no
-host de referência.</p>
+rc.154 inclui a seleção QUERY delimitada descrita adiante; o host já usa
+a coordenada pública, com verify integral e aceite de adoção ainda em
+curso. As provas focais anteriores contra o candidato privado não
+equivalem a esse aceite nem liberam Angular. O planejamento e as
+evidências versionadas ficam em
+<code>internal-planning/bulk-operations</code> no host de
+referência.</p>
 <p>O Metadata é dono da semântica. Providers do host vinculam
 identidade, revisão, codec, limites e infraestrutura a operações reais.
 Metadata, capabilities e ações consomem a mesma composição; não definem
@@ -303,18 +303,18 @@ réplica nem executa domínio. Fonte divergente é negada.
 <code>publish</code> em nó warm divergente também nega: reconciliar
 explicitamente antes de publicar outra operação; não usar
 <code>clearCaches</code> para isso.</p>
-<h2 id="admissão-query-candidata">Admissão QUERY candidata</h2>
-<p>No candidato privado
-<code>8.0.0-b5a-uniform-query-20261004-SNAPSHOT</code>,
-<code>requireReady(identity, SYNC, QUERY)</code> recompõe a operação
-publicada e emite um <code>ReadyAdmission</code> opaco, criado somente
-pelo lifecycle e fora da transação operacional. A composição permite
-QUERY apenas para <code>UNIFORM_UPDATE</code> com atomicidade
-<code>PER_ITEM</code>, perfil que publique explicitamente QUERY e teto
-de até 200 alvos. O método original <code>requireReady(identity)</code>
-conserva seu contrato. O token vincula identidade,
-geração/fingerprint/revisão do controle e perfil; não é autorização de
-usuário, grant ou fotografia de fatos do domínio.</p>
+<h2 id="admissão-query-publicada-no-sdk-rc.154">Admissão QUERY publicada
+no SDK rc.154</h2>
+<p>Na rc.154 pública, <code>requireReady(identity, SYNC, QUERY)</code>
+recompõe a operação publicada e emite um <code>ReadyAdmission</code>
+opaco, criado somente pelo lifecycle e fora da transação operacional. A
+composição permite QUERY apenas para <code>UNIFORM_UPDATE</code> com
+atomicidade <code>PER_ITEM</code>, perfil que publique explicitamente
+QUERY e teto de até 200 alvos. O método original
+<code>requireReady(identity)</code> conserva seu contrato. O token
+vincula identidade, geração/fingerprint/revisão do controle e perfil;
+não é autorização de usuário, grant ou fotografia de fatos do
+domínio.</p>
 <p>O store usa esse token para capturar a seleção em uma transação
 gravável <code>REPEATABLE READ</code> e revalida controle e quota antes
 da callback. O executor, para reserva QUERY inédita, consulta primeiro
@@ -331,12 +331,12 @@ núcleo; o host acrescentou 49 provas focais compostas (44 + 5 de
 HTTP adicionais em
 <code>MissionParticipantUniformQueryHttpPostgresTest</code> (2 + 1). O
 HTTP real cobre captura de 200 alvos e, separadamente,
-confirmação/replay de um alvo; não comprova confirmação de 200 alvos,
-publicação do binário QUERY nem suporte em rc.153. A perda de cobertura
-de um alvo com grant global ainda válido pode registrar
-<code>STOPPED</code>/<code>AUTHORIZATION_REVOKED</code>, sem admission
-ordinal; a leitura pública exige autorização corrente de todo o
-manifesto e responde 404 <code>BULK_NOT_FOUND</code> sem expor o STOP.
+confirmação/replay de um alvo; não comprova confirmação de 200 alvos nem
+o aceite de adoção do host; a rc.153 histórica não incluía QUERY. A
+perda de cobertura de um alvo com grant global ainda válido pode
+registrar <code>STOPPED</code>/<code>AUTHORIZATION_REVOKED</code>, sem
+admission ordinal; a leitura pública exige autorização corrente de todo
+o manifesto e responde 404 <code>BULK_NOT_FOUND</code> sem expor o STOP.
 Negação ou indisponibilidade global conservam seus próprios resultados
 pré-lookup. Não há novo caminho QUERY para <code>ATOMIC</code>,
 <code>DOMAIN_COMMAND</code>, <code>PER_ITEM_UPDATE</code> ou
@@ -347,15 +347,16 @@ prazo acumulado ponta a ponta. Locks/HTTP respeitam o prazo, mas
 callbacks arbitrários não são interrompidos. Um commit admitido não vira
 rollback declarado porque o prazo de nova admissão expirou. A instalação
 mantém os fences locais/duráveis próprios.</p>
-<p>Provas candidatas incluem Servlet/HTTP de captura, Boot/Tomcat de
-registro e PostgreSQL real. Evidências precisam identificar a árvore e
-as fontes testadas. Recovery local simulada não equivale a duas
-instâncias; IAM de fixture não equivale à segurança completa do host.
-Permanecem gates de fechamento: revisão independente do corte integrado,
-orçamento host de 8s além dos cenários focais já provados,
-documentação/skill canônica, publicação QUERY e adoção conforme
-autorização. As provas antigas do protocolo fresh V6/V7 não certificam
-V15. Nenhuma publicação/deploy ou Angular é autorizada pela aprovação de
-um teste isolado.</p>
+<p>Provas anteriores do candidato incluem Servlet/HTTP de captura,
+Boot/Tomcat de registro e PostgreSQL real. Evidências precisam
+identificar a árvore e as fontes testadas. Recovery local simulada não
+equivale a duas instâncias; IAM de fixture não equivale à segurança
+completa do host. O SDK rc.154 foi publicado pelo workflow oficial
+37236119846 com 1.530 testes, zero falhas/erros, três skips e POM/JAR
+verificados no Maven Central. Permanecem gates de fechamento do
+consumidor: orçamento host de 8s além dos cenários focais já provados,
+verify integral e aceite de adoção. As provas antigas do protocolo fresh
+V6/V7 não certificam V15. Nenhuma publicação/deploy ou Angular é
+autorizada pela aprovação de um teste isolado.</p>
 </body>
 </html>

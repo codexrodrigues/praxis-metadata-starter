@@ -270,19 +270,17 @@ preservam o tipo wire. Alvo duplicado, estranho, ausente ou com
 expectedVersion diferente é rejeitado. A ordem da evidência explícita é
 normalizada para a ordem da intenção original, incluindo a ordem de
 <code>items</code>.</p>
-<p>No candidato privado
-<code>8.0.0-b5a-uniform-query-20261004-SNAPSHOT</code>, apenas
-<code>UNIFORM_UPDATE/SYNC/PER_ITEM</code> pode usar QUERY quando o
-perfil da operação a publicar. A intenção contém <code>filter</code> e
-<code>excludedIds</code>, mas não contém a população. O host resolve e
-autoriza alvos sob os locks da captura; a evidência protegida não vazia
-congela IDs, versões, fatos e planos na ordem devolvida pelo host, sem
-reexecutar filtro no executor. IDs excluídos, repetidos ou não canônicos
-são recusados. O teto é o menor limite efetivo do perfil publicado, até
-200; não se transforma o limite estrutural de 10.000 em capacidade
-operacional. O fingerprint da intenção vincula filtro/exclusões,
-enquanto o fingerprint da avaliação e o manifesto vinculam a população
-capturada. No
+<p>Na rc.154 pública, apenas <code>UNIFORM_UPDATE/SYNC/PER_ITEM</code>
+pode usar QUERY quando o perfil da operação a publicar. A intenção
+contém <code>filter</code> e <code>excludedIds</code>, mas não contém a
+população. O host resolve e autoriza alvos sob os locks da captura; a
+evidência protegida não vazia congela IDs, versões, fatos e planos na
+ordem devolvida pelo host, sem reexecutar filtro no executor. IDs
+excluídos, repetidos ou não canônicos são recusados. O teto é o menor
+limite efetivo do perfil publicado, até 200; não se transforma o limite
+estrutural de 10.000 em capacidade operacional. O fingerprint da
+intenção vincula filtro/exclusões, enquanto o fingerprint da avaliação e
+o manifesto vinculam a população capturada. No
 <code>MissionParticipantUniformQueryHttpPostgresTest</code>, redução
 posterior da cobertura de um alvo com grant global ainda válido termina
 a execução em <code>STOPPED</code>/<code>AUTHORIZATION_REVOKED</code>
@@ -317,12 +315,12 @@ escapados expandem o JSON. O decoder rejeita duplicatas, campos
 desconhecidos, conteúdo truncado/excedente, perda de precisão, cobertura
 incorreta ou vínculo/fingerprint incompatível, sem encadear conteúdo
 privado nas exceções do store.</p>
-<p>O mesmo payload protegido atende EXPLICIT/SYNC e, no candidato
-privado, a população QUERY já congelada. Ele não comprova paginação
-eficiente de resultados por alvo nem admissão individual em lotes
-grandes. Antes dessas superfícies, revisar o acesso/indexação com o
-consumidor real e seus limites. Não reutilizar a projeção pública
-redigida como fonte protegida.</p>
+<p>O mesmo payload protegido atende EXPLICIT/SYNC e, na rc.154 pública,
+a população QUERY já congelada. Ele não comprova paginação eficiente de
+resultados por alvo nem admissão individual em lotes grandes. Antes
+dessas superfícies, revisar o acesso/indexação com o consumidor real e
+seus limites. Não reutilizar a projeção pública redigida como fonte
+protegida.</p>
 <h2 id="persistência-e-migração-v2">Persistência e migração V2</h2>
 <p>A <a href="BULK-PROPOSAL-STORAGE.md">migração explícita</a> conserva
 V1 e acrescenta V2. A introdução da evidência corresponde à V2. Com a V3
@@ -364,10 +362,12 @@ store continua cobrindo V1+V2 e sua coexistência com o host.</p>
 <p>Config já fornece a resolução operacional tipada. O piloto
 MissionParticipant tem agora prova candidata de filtro, grant,
 avaliação, HTTP e admissão/revalidação focal em
-<code>MissionParticipantUniformQueryHttpPostgresTest</code>; isso não
-publica QUERY em rc.153 nem certifica IAM completo, confirmação de 200
-alvos, backend genérico ou Angular. Outros providers e capacidades
-exigem composição e prova próprias antes do anúncio.</p>
+<code>MissionParticipantUniformQueryHttpPostgresTest</code>; a rc.153
+histórica não incluía QUERY; a publicação rc.154 está comprovada pelo
+workflow oficial e pelo Maven Central, enquanto verify e aceite do host
+continuam em curso. Essas provas não certificam IAM completo,
+confirmação de 200 alvos, backend genérico ou Angular. Outros providers
+e capacidades exigem composição e prova próprias antes do anúncio.</p>
 <h2 id="governança-protegida-e-comparação-de-recaptura">Governança
 protegida e comparação de recaptura</h2>
 <p><code>BulkEvaluationGovernance(evaluatorRevision, authorizationFingerprint, policies)</code>

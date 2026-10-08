@@ -228,18 +228,18 @@ variante; as demais ficam ausentes até publicação própria. Os cinco
 handlers bodyless de leitura/cancelamento são compartilhados, enquanto
 avaliação/confirmação pertencem à variante.</p>
 <h2 id="perfil-e-limites">Perfil e limites</h2>
-<p>No corte publicado descrito aqui, o perfil UPDATE é singular por
-operação, com execução síncrona e seleção explícita (<code>SYNC</code>,
-<code>EXPLICIT</code>). PER_ITEM mantém teto de 200 alvos. O candidato
-ATOMIC aceita 1–50 alvos e prazo agregado da unidade de até 5 segundos;
-perfil fora desses limites não compõe. Atomicidade pertence à operação,
-nunca ao request/UI. O artefato publicado rc.151 mantém
-DOMAIN_COMMAND/ATOMIC fechado. O candidato posterior desta fonte
-acrescenta composição de comandos concordantes, com limites e identidade
-da ação próprios; ver <a
+<p>No corte histórico rc.151, anterior à seleção QUERY publicada na
+rc.154, o perfil UPDATE era singular por operação, com execução síncrona
+e seleção explícita (<code>SYNC</code>, <code>EXPLICIT</code>). PER_ITEM
+mantinha teto de 200 alvos. O candidato ATOMIC aceitava 1–50 alvos e
+prazo agregado da unidade de até 5 segundos; perfil fora desses limites
+não compunha. Atomicidade pertencia à operação, nunca ao request/UI. O
+artefato rc.151 mantinha DOMAIN_COMMAND/ATOMIC fechado. O candidato
+posterior dessa fonte acrescentou composição de comandos concordantes,
+com limites e identidade da ação próprios; ver <a
 href="../technical/BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md">plano e
-limites</a>. Essa composição anterior não acrescentou consulta de
-seleção ou execução assíncrona; tampouco prova mutação, receipt ou
+limites</a>. Essa composição histórica não acrescentou consulta de
+seleção ou execução assíncrona; tampouco provou mutação, receipt ou
 recuperação do domínio do host. <code>DOMAIN_COMMAND</code> conserva os
 bytes do digest <code>praxis.bulk.structure/3</code>; UPDATE usa
 <code>praxis.bulk.structure/4</code> com fonte, schema, allowlists e
@@ -258,14 +258,14 @@ escopo e a cerca devem ser descartados em <code>finally</code>, sem
 reter lock de cache nem transação JDBC ao chamar regras do host ou
 montar a resposta. Esta composição não cria grants P3, autorização para
 mutação, rotina de domínio, release ou adoção Angular.</p>
-<h2 id="seleção-query-no-candidato-privado-b5a">Seleção QUERY no
-candidato privado B5a</h2>
-<p>O SDK <code>8.0.0-b5a-uniform-query-20261004-SNAPSHOT</code> amplia
-apenas o perfil de <code>UNIFORM_UPDATE/SYNC/PER_ITEM</code> para
-publicar EXPLICIT e QUERY, com teto QUERY de até 200 alvos. A estrutura
-conserva a identidade <code>bulk-update</code>, os sete vínculos
-operacionais, o filtro e <code>excludedIds</code> da intenção; a
-população é resolvida pelo host e congelada na avaliação protegida.
+<h2 id="seleção-query-publicada-no-sdk-rc.154">Seleção QUERY publicada
+no SDK rc.154</h2>
+<p>O SDK público <code>8.0.0-rc.154</code> amplia apenas o perfil de
+<code>UNIFORM_UPDATE/SYNC/PER_ITEM</code> para publicar EXPLICIT e
+QUERY, com teto QUERY de até 200 alvos. A estrutura conserva a
+identidade <code>bulk-update</code>, os sete vínculos operacionais, o
+filtro e <code>excludedIds</code> da intenção; a população é resolvida
+pelo host e congelada na avaliação protegida.
 <code>PER_ITEM_UPDATE</code>, <code>DOMAIN_COMMAND</code>,
 <code>ATOMIC</code> e <code>ASYNC</code> não recebem QUERY neste corte.
 Uma declaração com modo ou schema inadequado falha na
@@ -273,9 +273,10 @@ composição/publicação, não vira capability parcial por convenção.</p>
 <p>O lifecycle emite admissão QUERY opaca somente a partir do perfil
 publicado. Isso não substitui o provider real, o grant atual,
 autorização de cada alvo, cobertura do filtro, orçamento nem os locks de
-domínio. O candidato teve 25 provas focais compostas no SDK (12 + 1 +
-12), incluindo PostgreSQL de captura, reserva e receipt. O host somou 49
-provas focais compostas e HTTP real em
+domínio. O candidato privado anterior teve 25 provas focais compostas no
+SDK (12 + 1 + 12), incluindo PostgreSQL de captura, reserva e receipt. O
+host somou 49 provas focais compostas (44 + 5 de shape) e três métodos
+HTTP adicionais (2 + 1) em
 <code>MissionParticipantUniformQueryHttpPostgresTest</code>: captura de
 200 alvos e confirmação/replay de um alvo, além da leitura segura após
 perda de cobertura. No caso com grant global ainda válido, a execução
@@ -283,8 +284,17 @@ fica <code>STOPPED</code>/<code>AUTHORIZATION_REVOKED</code> antes de
 admission ordinal e o HTTP responde 404 <code>BULK_NOT_FOUND</code> após
 exigir o manifesto inteiro; negação ou indisponibilidade global não são
 convertidas em 404 por essa regra. Essas provas não certificam
-confirmação de 200 alvos, READY de outros consumidores nem adoção
-pública QUERY. A versão pública rc.153 continua sem este incremento.</p>
+confirmação de 200 alvos, READY de outros consumidores nem o aceite da
+adoção pública do host. A rc.153 histórica não incluía QUERY; o SDK
+rc.154 foi publicado pelo workflow oficial 37236119846, com POM/JAR
+conferidos no Maven Central. A adoção das coordenadas públicas Metadata
+rc.154/Config rc.158 foi integrada no <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/pull/388">PR388</a>,
+após aceite independente por composição. O verify integral histórico do
+host reportou 1.209 testes, uma falha, zero erros e 23 skips; o focal
+diagnóstico e uma sequência contextual de seis métodos distintos
+passaram, sem converter aquele resultado em verify verde. A confirmação
+QUERY de 200 alvos continua sem prova.</p>
 <h2 id="evidência-histórica-p3b-s2-e-limites">Evidência histórica P3b-S2
 e limites</h2>
 <p>Na fonte candidata congelada, as campanhas <code>focal-01</code> (75

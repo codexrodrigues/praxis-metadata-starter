@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Local installation of deployment capacity rights — B5b.1b.A candidate</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Local installation of deployment capacity rights —
+B5b.1b.A candidate</h1>
+</header>
+<h1
+id="local-installation-of-deployment-capacity-rights-b5b.1b.a-candidate">Local
+installation of deployment capacity rights — B5b.1b.A candidate</h1>
+<p>Status: B5b.1b.A source has independent static and composed
+PostgreSQL acceptance and is integrated by <a
+href="https://github.com/codexrodrigues/praxis-metadata-starter/pull/239">Metadata
+PR239</a>, merge <code>6443a92507e2da6036a758a1e314cde74e6e3fc9</code>
+(2026-10-06). Maven publication and consumer adoption remain separate
+gates. This page is not a published adoption recipe. Metadata rc.154
+does not include this candidate. The issuer slice B5b.1a is integrated;
+it does not make jobs or this installation flow available.</p>
+<h2 id="why-installation-is-separate-from-issuance">Why installation is
+separate from issuance</h2>
+<p>One deployment can contain several tenant databases. The authority
+database counts issued rights across those bindings; each domain
+database must eventually consume its installed rights and create
+execution in the same local transaction. A right in transit remains
+counted. A missing delivery or timeout never refunds it. A
+database-local counter is not a global deployment limit.</p>
+<p>This slice establishes the initial association between a protected
+local marker and an issued global right. It does not occupy a slot,
+create a job, add QUEUED, start a worker or expose HTTP202/ASYNC/READY.
+Occupation, execution admission and executor fencing belong to
+subsequent B5b.1b cuts. Existing SYNC behavior is unchanged.</p>
+<h2 id="trust-and-credentials">Trust and credentials</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Principal</th>
+<th>Responsibility</th>
+<th>Boundary</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Authority owner</td>
+<td>Explicit V1/V2 migration and catalog validation</td>
+<td>Trusted DDL identity, never a job caller</td>
+</tr>
+<tr class="even">
+<td>Authority provisioner</td>
+<td>Register the exact immutable attestation for an enrolled
+binding</td>
+<td>No allocation or domain mutation</td>
+</tr>
+<tr class="odd">
+<td>Authority allocator</td>
+<td>Request and issue global rights through existing functions</td>
+<td>No local installation or domain SQL</td>
+</tr>
+<tr class="even">
+<td>Authority reader</td>
+<td>Read attestation and complete issued-token records through bounded
+functions</td>
+<td>No direct table SELECT or capacity mutation</td>
+</tr>
+<tr class="odd">
+<td>Local owner provisioner</td>
+<td>Bootstrap, observe owner/runtime database witness, activate, install
+and fence</td>
+<td>Trusted owner; runtime cannot forge an installation</td>
+</tr>
+<tr class="even">
+<td>Local runtime</td>
+<td>Read the local marker and installed rights</td>
+<td>No INSERT/UPDATE/DELETE on identity or installation; no access to
+bootstrap latch</td>
+</tr>
+</tbody>
+</table>
+<p>The candidate uses an internal concrete CapacityReader, requiring
+only reader credentials, and an owner installation implementation. It
+does not accept a caller’s token object, boolean verified flag or
+improvised signature as authority. Installation takes a token UUID and
+reads its actual immutable record. Owner/superuser alteration and
+coordinated owner configuration changes remain a trust boundary, not a
+promised defense against hostile DBA actions.</p>
+<h2 id="initial-provision-and-immutable-association">Initial provision
+and immutable association</h2>
+<p>Expected identity comes from trusted provisioning outside request
+headers and outside any restored database copy. Bootstrap fixes database
+UUID, deployment, tenant, environment, binding/generation, attestation
+UUID, authority UUID and authority epoch. A marker is singleton for the
+local database. Equal JDBC URLs, a copied UUID or a matching epoch alone
+cannot establish absence of another writable clone.</p>
+<p>The intended marker transitions are PROVISIONED→ACTIVE→FENCED, with
+PROVISIONED→FENCED also permitted. Identity fields never change.
+PROVISIONED includes the pre-generated attestation UUID but does not
+claim a remote attestation exists. Activation requires an authenticated
+matching global record. FENCED is terminal, including after process
+restart; it cannot be healed or reassociated in this slice.</p>
+<p>Owner/runtime connections perform the existing database-local
+advisory-lock witness. That observation establishes they reached the
+same live database during the witness; it does not certify anti-clone or
+recovery safety. The local transaction completes before global
+registration begins. Activation and installation complete their global
+reader transaction and copy the typed snapshot before opening the owner
+transaction. All entry points reject an ambient Spring transaction,
+including a different manager; REQUIRES_NEW must not hide retained
+foreign locks. Only the same-database owner/runtime witness deliberately
+overlaps two local connections.</p>
+<p>Installed token UUID is the primary identity, matching the
+authority’s existing token key. The complete local tuple binds
+request/digest, ordinal, class, issued state, database/attestation,
+authority UUID/epoch and declared binding fields. Foreign keys refer
+only to local tables, never across databases. Exact replay does not
+create another installation. There is no FREE/OCCUPIED placeholder
+state, deletion, reclaim, retirement or generation succession in A.</p>
+<h2 id="versioned-bootstrap-and-failure-handling">Versioned bootstrap
+and failure handling</h2>
+<p>Authority V2 and operational V18 extend their existing independent
+Flyway lanes; V1–V17 checksums remain unchanged. Upgrade preflight must
+reject existing catalog or ACL drift before applying new DDL. Flyway
+history and a database-generated photograph alone are insufficient:
+source-owned column/constraint/index/function/trigger and grant rules
+also govern validation.</p>
+<p>Operational V18 includes an owner-only capacity-read bootstrap
+singleton. Its PENDING→COMPLETE transition records actual completion of
+runtime SELECT grants. PENDING requires empty capacity tables and
+entirely absent runtime grants, with an otherwise exact catalog. Sorted
+grants, ACL validation and COMPLETE CAS share one transaction; runtime
+and SQL failures roll them back together. COMPLETE only validates, even
+before first installation. Removed privileges, partial or rogue ACLs and
+a divergent configuration must not cause silent regrant. Empty-role
+configuration is handled explicitly. The installer requires COMPLETE.
+Live role attestation remains catalog/ACL-only and never reads the
+owner-only latch or Flyway history; the owner separately reconciles
+physical storage and applied history.</p>
+<p>Local statement and lock limits respect smaller existing values and
+the remaining monotonic local budget. Final budget checks reject expired
+work before allowing the transaction callback to return. This is not an
+instantaneous cancellation or COMMIT acknowledgment time guarantee.
+Ambiguous communication never authorizes returning rights to the
+authority. Proofs in this slice use known rollback and readback after
+durably observed commit; they do not revive the rejected T08 fault-proxy
+experiment.</p>
+<h2 id="operational-interpretation">Operational interpretation</h2>
+<ul>
+<li>Failed local bootstrap or registration leaves a retriable initial
+state only when the protected tuple and catalog are exact. Do not
+rewrite identities or grant missing privileges after COMPLETE.</li>
+<li>Registration failure may leave PROVISIONED locally. That is not a
+job or accepted execution; verify the actual global attestation before
+activation.</li>
+<li>Failed installation does not reduce global issued capacity. Retry
+reads the same token and the same local identity; it does not request a
+replacement right.</li>
+<li>Fencing serializes with installation. A committed installation
+preceding a fence stays recorded; later installation is denied. This
+installation fence does not yet fence SYNC domain callbacks or prove an
+executor lost write authority.</li>
+<li>Restore, clone, authority epoch changes or a replacement database
+require the subsequent governed succession/reconciliation protocol. This
+slice provides no restore-safe API or rebind shortcut.</li>
+</ul>
+<h2 id="accepted-focused-evidence-and-limits">Accepted focused evidence
+and limits</h2>
+<p>The focused PostgreSQL campaign accepts 97 distinct cases on frozen
+production04: 10 issuer, 33 authority migration, one attestation, 11
+local installation and 42 durable migration cases. The full corrective
+run passed 96/97; its single failure was an old message expectation for
+the earlier V1 preflight denial. Only that method was corrected and
+rerun successfully, including both unchanged post-denial state
+assertions. No production or other test behavior changed between those
+two runs. Java21 and PostgreSQL 14.22 x86_64 were used; each run froze
+821 POM/source/SQL files with zero drift. The initial 95-case red run
+and a separate test-compilation failure remain diagnostic history, not
+silently discarded or presented as green evidence.</p>
+<p>The frozen source and fresh JUnit XML assert the actual four owner
+JVMs across two local databases, four distinct OS PIDs/exit0, exactly
+one insertion and one replay per database, and the authoritative row. A
+new owner JVM is rejected after persistent FENCED. The PID/XID test
+asserts positive transaction IDs, different physical backends and reader
+commit before owner acquisition. Raw numeric child PID/XID values were
+temporary and cleaned; no claim of retained per-child numeric logs is
+made. Native PostgreSQL processes observed in each run are checked after
+shutdown. The development-only catalog reference is separate from these
+functional proofs.</p>
+<p>Tests also cover canonical V1→V2/V17→V18 upgrade/checksums, runtime
+denied history/latch SELECT with live read/write verification, owner
+history18 with missing physical V18 storage, source-owned adversarial
+constraints, bootstrap grant rollback and concurrent completion,
+COMPLETE no-healing with empty capacity tables, wrong binding and real
+alternate-authority rejection, known-commit replay/rollback, ambient
+transaction rejection, bounded waits and fence/install interleavings.
+The concurrency bootstrap case observes two migrators and a causal
+waiter on the latch, not a claim that both waited on that row
+simultaneously.</p>
+<p>There was no full SDK verify, host dependency change or HTTP consumer
+test in this slice. It supplies initial attestation/installation only.
+There is no job or occupation accepted, QUEUED, worker, executor fence,
+restore-safe/succession/retirement, HTTP202, ASYNC, READY,
+backend-complete or Angular claim. The previous 42 B5b.1a cases remain
+historical issuer evidence; the current 97-case composition is tied to
+the extended V2/V18 source, not attributed to rc.154. See <a
+href="BULK-CAPACITY-AUTHORITY.md">issuer scope</a>.</p>
+</body>
+</html>

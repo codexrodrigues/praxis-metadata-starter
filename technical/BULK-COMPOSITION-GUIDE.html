@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Compor operações em lote em um host Praxis</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Compor operações em lote em um host Praxis</h1>
+</header>
+<h1 id="compor-operações-em-lote-em-um-host-praxis">Compor operações em
+lote em um host Praxis</h1>
+<p>Este guia orienta a escolha e a integração do SDK público Metadata
+<code>8.0.0-rc.154</code>. O <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/bb5435160441d5a7762cd622e121e014f5c48c94/README.md">Quickstart</a>
+é o host de referência, com Metadata rc.154 e Config
+<code>0.1.0-rc.158</code> no POM; ele não define a semântica do SDK. A
+integração do <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/pull/388">PR388</a>
+adotou essas coordenadas sem override. Seu verify integral histórico
+teve 1.209 testes, uma falha, zero erros e 23 skips; o diagnóstico focal
+e uma sequência contextual de seis métodos distintos passaram, sem
+tornar aquele verify verde. Disponibilidade do artefato, composição no
+host e prova de cada jornada são fatos distintos.</p>
+<h2 id="escolha-a-intenção-antes-do-perfil">Escolha a intenção antes do
+perfil</h2>
+<p>Uma equipe operacional que aplica o mesmo papel a vários
+participantes usa <code>UNIFORM_UPDATE</code>: uma lista de campos
+SET/CLEAR vale para todos os alvos. Se cada participante muda de modo
+diferente, use <code>PER_ITEM_UPDATE</code>, com alterações e versão
+esperada por alvo. Aprovar eventos de folha é
+<code>DOMAIN_COMMAND</code>: a transição de negócio, seus parâmetros e
+regras continuam numa <code>@WorkflowAction</code>; não se converte
+aprovação em campo de PUT. <code>PER_ITEM</code> permite registrar
+resultados independentes por unidade; <code>ATOMIC</code> exige decisão
+e efeito do conjunto na mesma unidade, com rollback integral se a última
+escrita falhar. A seleção <code>EXPLICIT</code> nomeia os alvos;
+<code>QUERY</code> congela uma população filtrada no manifesto da
+proposta, sem consultar novamente o filtro durante a execução.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Perfil no SDK público</th>
+<th>Limite do contrato</th>
+<th>Exemplo e estado no host</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>UNIFORM_UPDATE</code> ou <code>PER_ITEM_UPDATE</code> ·
+<code>EXPLICIT/SYNC/PER_ITEM</code></td>
+<td>Até 200 alvos por perfil PER_ITEM</td>
+<td>Participantes de missão têm bindings e providers concretos;
+autorização e prova da operação continuam próprias do host.</td>
+</tr>
+<tr class="even">
+<td><code>UNIFORM_UPDATE</code> ou <code>PER_ITEM_UPDATE</code> ·
+<code>EXPLICIT/SYNC/ATOMIC</code></td>
+<td>1–50 alvos; prazo agregado da unidade até 5 s</td>
+<td>Há variantes no recurso de participantes; presença de código ou
+capability não certifica execução corporativa geral.</td>
+</tr>
+<tr class="odd">
+<td><code>DOMAIN_COMMAND</code> ·
+<code>EXPLICIT/SYNC/PER_ITEM</code></td>
+<td>Até 200 alvos no perfil PER_ITEM; o host pode restringir mais</td>
+<td>A action <code>bulk-approve</code> de folha declara
+<code>@BulkOperation</code> e <code>@WorkflowAction</code> concordantes;
+o provider do host publica perfil EXPLICIT com teto 200.</td>
+</tr>
+<tr class="even">
+<td><code>DOMAIN_COMMAND</code> · <code>EXPLICIT/SYNC/ATOMIC</code></td>
+<td>Até 50 alvos e 5 s agregados, sujeitos também ao limite da
+action</td>
+<td>A composição foi publicada na rc.152; o host deve prover comando,
+autorização, auditoria e efeitos transacionais.</td>
+</tr>
+<tr class="odd">
+<td><code>UNIFORM_UPDATE</code> · <code>QUERY/SYNC/PER_ITEM</code></td>
+<td>Até 200 alvos no perfil QUERY publicado</td>
+<td>A rc.154 e o host cobrem captura de 200; a confirmação de 200 não
+foi certificada.</td>
+</tr>
+</tbody>
+</table>
+<p>Essas linhas são combinações específicas, não um produto cartesiano.
+A rc.154 não estende QUERY a <code>PER_ITEM_UPDATE</code>,
+<code>DOMAIN_COMMAND</code> ou <code>ATOMIC</code>. <code>ASYNC</code>,
+fila e worker não integram este adapter público. Consulte <a
+href="../spec/BULK-CRUD-OPERATIONS.md">composição CRUD</a>, <a
+href="../spec/BULK-PROPOSAL-STORAGE.md">captura de propostas</a> e o <a
+href="../../README.md">marco público rc.152 de comando atômico</a> para
+os limites de cada corte. Os 200 alvos são teto de perfil/captura no
+caso QUERY, não throughput ou confirmação demonstrada. O orçamento
+nominal de execução de 8 s pertence ao consumidor de referência; cada
+unidade tem seu próprio limite de até 5 s.</p>
+<h2 id="percorra-a-composição-real">Percorra a composição real</h2>
+<ol type="1">
+<li><strong>Declare o recurso e as operações.</strong> Comece pelo
+resource key, DTOs e mapping MVC reais. Para UPDATE, o PUT versionado é
+a fonte de campos editáveis e
+<code>@BulkResourceOperation(UPDATE_SOURCE)</code>; a declaração
+<code>@BulkResourceOperations</code> identifica cinco operações comuns
+de proposta, resultados, execução e cancelamento. Avaliação e
+confirmação completam as sete referências operacionais;
+<code>@BulkOperation</code> fixa modo e atomicidade. Para comando de
+negócio, preserve <code>@WorkflowAction</code> e parâmetros tipados.
+Veja o <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/79e37ffa385e2bd9745136edddc0d5367b733168/src/main/java/com/example/praxis/apiquickstart/operations/controller/MissaoParticipanteController.java#L39">controller
+de participantes</a> e a <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/79e37ffa385e2bd9745136edddc0d5367b733168/src/main/java/com/example/praxis/apiquickstart/hr/controller/EventosFolhaController.java#L129">action
+de folha</a>. IDs, schemas e corpos vêm dos handlers e OpenAPI
+publicados, nunca de nomes presumidos.</li>
+<li><strong>Conecte o host ao banco e à governança.</strong> Configure
+datasource, transaction manager, namespace, migrations e privilégios das
+roles operacionais antes de abrir admissão. O Metadata controla
+lifecycle, quota, armazenamento, fence e receipts; o host fornece
+identidade confiável, grants atuais, políticas do Config, validação de
+negócio e mutação. O <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/79e37ffa385e2bd9745136edddc0d5367b733168/src/main/java/com/example/praxis/apiquickstart/config/GovernedBulkOperationsConfiguration.java#L384">wiring
+do Quickstart</a> liga provider, autorização, proposta e execução sem
+transferir essas decisões ao SDK. Config é a fonte de políticas
+publicadas; a transação de domínio permanece no datasource operacional.
+Confira <a
+href="../spec/BULK-EXECUTION-INFRASTRUCTURE.md">infraestrutura</a> e <a
+href="../spec/BULK-OPERATION-LIFECYCLE.md">lifecycle</a>.</li>
+<li><strong>Publique, avalie e congele.</strong> A publicação vincula
+fotografia OpenAPI, descriptor e controle durável; <code>READY</code>
+estrutural não autoriza um sujeito. A avaliação usa o contexto e a
+política atuais e armazena proposta, evidência e preview protegidos. Em
+QUERY, o host valida filtro/exclusões, retém o grant dentro da captura
+gravável <code>REPEATABLE READ</code> sob controle e quota, resolve a
+população e congela manifesto e projeção na mesma transação. O <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/79e37ffa385e2bd9745136edddc0d5367b733168/src/main/java/com/example/praxis/apiquickstart/operations/service/MissionParticipantProposalService.java#L38">serviço
+de proposta do host</a> mostra essa fronteira. Pré-leitura read-only não
+substitui a captura autorizada.</li>
+<li><strong>Confirme e observe.</strong> A confirmação referencia a
+proposta retida e uma <code>Idempotency-Key</code>, sem reenviar alvos
+ou filtro. O SDK reserva e cerca a execução; o host revalida
+autorização, política, fatos, versões e orçamento em cada unidade.
+Mutação de domínio e receipt compartilham a transação operacional. ACK
+incerto exige leitura/reconciliação durável, nunca repetição cega do
+efeito. Resultados paginados reautorizam o solicitante e o manifesto
+completo; um cursor não concede acesso. Cancelamento, expiração e
+tombstone têm estados próprios. Consulte <a
+href="../spec/BULK-DURABLE-EXECUTION.md">execução durável</a> e <a
+href="../spec/BULK-H1B-READ-MODEL.md">leitura autorizada</a>.</li>
+</ol>
+<p>Para reproduzir o exemplo, comece por <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/bb5435160441d5a7762cd622e121e014f5c48c94/docs/BULK-PAYROLL-EVALUATION.md">avaliação
+de folha e seleção de participantes</a> e <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/blob/79e37ffa385e2bd9745136edddc0d5367b733168/docs/OPERATIONAL-GRANTS-CONTEXT.md">grants
+operacionais</a>. Esses textos documentam o host; não autorizam assumir
+que IAM, provisionamento de produção, confirmação QUERY de 200 alvos,
+<code>READY</code> geral ou Angular estejam certificados. Melhorias
+privadas em validação não fazem parte da rc.154 nem desta receita
+pública.</p>
+</body>
+</html>

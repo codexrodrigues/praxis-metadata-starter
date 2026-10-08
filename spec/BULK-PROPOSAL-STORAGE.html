@@ -253,11 +253,11 @@ reconstituídas. BulkStoredProposal valida os tokens dos alvos com o
 codec canônico antes de admitir o objeto; declarar um codecId conhecido
 em um codec customizado não contorna essa validação. Um codec
 customizado com representação wire realmente compatível permanece
-válido. O candidato privado QUERY exige um manifesto de alvos capturado;
-ASYNC permanece fora deste adapter. Em V5, inserir uma proposta também
-reserva atomicamente a quota pendente; isso não demonstra avaliação
-elegível, autorização, reserva de execução, confirmação ou execução de
-negócio.</p>
+válido. A rc.154 também admite QUERY delimitada, com manifesto de alvos
+capturado; ASYNC permanece fora deste adapter. Em V5, inserir uma
+proposta também reserva atomicamente a quota pendente; isso não
+demonstra avaliação elegível, autorização, reserva de execução,
+confirmação ou execução de negócio.</p>
 <h2 id="captura-sob-locks-publicada-na-rc.153">Captura sob locks —
 publicada na rc.153</h2>
 <p>A corrida de quota em REPEATABLE READ foi corrigida na rc.153:
@@ -298,8 +298,7 @@ separadamente abaixo.</p>
 <code>captureAndInsertEvaluated(proposal, capture, project, callerRemaining)</code>
 compõe a captura confiável do host com a persistência existente para
 SYNC/EXPLICIT, incluindo a população explícita representada por
-<code>items</code> em PER_ITEM_UPDATE. O candidato privado
-<code>8.0.0-b5a-uniform-query-20261004-SNAPSHOT</code> acrescenta o
+<code>items</code> em PER_ITEM_UPDATE. A rc.154 pública acrescenta o
 overload
 <code>captureAndInsertEvaluated(ReadyAdmission, proposal, capture, project, callerRemaining)</code>
 para <code>UNIFORM_UPDATE/SYNC/PER_ITEM/QUERY</code> sob perfil
@@ -307,13 +306,14 @@ publicado com teto de até 200. As APIs antigas <code>insert</code>,
 <code>insertEvaluated</code> e captura sem token continuam negando
 QUERY; o overload não habilita ASYNC ou endpoint por si. O host
 MissionParticipant provou separadamente o consumo candidato, conservando
-seu teto de 200 alvos e orçamento nominal de 8s; isso não publica o SDK
-QUERY.</p>
+seu teto de 200 alvos e orçamento nominal de 8s; isso não substitui a
+publicação oficial rc.154 nem o aceite da adoção do host, cujo verify
+integral está em curso.</p>
 <p>O host prepara intenção, UUID, contexto, tuple de controle e janela
 de validade antes de abrir uma transação física REPEATABLE READ gravável
 no datasource operacional. O store participa com MANDATORY, sem nova
 transação. Binding/controle/buckets de capacidade precedem o callback; o
-callback recebe a mesma conexão. No candidato QUERY, o host captura a
+callback recebe a mesma conexão. Na seleção QUERY, o host captura a
 população e retém o grant autoritativo <strong>dentro da
 callback</strong>, sob esses locks, antes de ler os fatos de domínio; o
 SDK não retém G por conta própria. Readers read-only não mudam de modo
@@ -396,10 +396,14 @@ replay. O host acrescentou 49 provas focais compostas e HTTP real em
 <code>MissionParticipantUniformQueryHttpPostgresTest</code>: captura de
 200 alvos, confirmação/replay de um alvo e perda de cobertura com STOP
 durável sem admission ordinal e leitura pública 404 quando o grant
-global permanece válido. São provas do candidato privado, não certificam
-publicação QUERY em rc.153, IAM completo ou confirmação de 200 alvos.
-Também não atestam o experimento de perda de resposta COMMIT
-anteriormente rejeitado.</p>
+global permanece válido. São provas focais do candidato privado
+anterior; a publicação QUERY rc.154 foi comprovada separadamente pelo
+workflow oficial 37236119846, com 1.530 testes, zero falhas/erros, três
+skips e POM/JAR verificados no Maven Central. O host já usa
+rc.154/Config rc.158, mas seu verify integral e aceite de adoção ainda
+estão em curso. Essas provas não certificam IAM completo ou confirmação
+de 200 alvos. Também não atestam o experimento de perda de resposta
+COMMIT anteriormente rejeitado.</p>
 <h2 id="integração-explícita">Integração explícita</h2>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Instalação inicial: migração fora de qualquer transação Spring.</span></span>
@@ -609,7 +613,7 @@ adoção, HTTP ou <code>READY</code>. A continuação com cursor e a leitura
 posteriores têm contratos próprios em <a
 href="BULK-PROTOCOL-RESULTS.md">resultados</a>. A captura EXPLICIT sob
 locks, publicada na rc.153 e adotada pelo host, não habilita QUERY,
-ASYNC ou Angular por si só; o overload QUERY privado descrito acima
-mantém gates próprios de integração e adoção.</p>
+ASYNC ou Angular por si só; o overload QUERY publicado na rc.154 mantém
+gates próprios de integração e adoção do host.</p>
 </body>
 </html>

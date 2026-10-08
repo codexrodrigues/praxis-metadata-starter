@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Local capacity administration — C0-04 candidate</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Local capacity administration — C0-04 candidate</h1>
+</header>
+<h1 id="local-capacity-administration-c0-04-candidate">Local capacity
+administration — C0-04 candidate</h1>
+<p>Status: private SDK source, 20 focal PostgreSQL/JVM/input tests and
+packaged-host proof have independent review. SDK PR250, host PR409 and
+guidance PR710 are integrated into their canonical mains; the two skills
+were synchronized selectively. Public release and adoption remain
+pending gates. Published Metadata <code>8.0.0-rc.154</code> does not
+contain this entry. Do not present it as an installed container
+command.</p>
+<h2 id="purpose-and-authority">Purpose and authority</h2>
+<p>The candidate entry is
+<code>org.praxisplatform.uischema.bulk.BulkCapacityLocalAdministrationMain</code>.
+It runs in a separate administrative JVM without starting Spring. It
+requires only the local schema-owner credential and complete trusted
+binding; no global authority reader, allocator, credential or
+provisioning agent is required. Here D0 means the independent global
+capacity-authority database. An unavailable or quarantined D0 must not
+prevent trusted ADMIN from observing or fencing an already provisioned
+local marker. This separates local control from the previous composition
+that constructed a global reader before reaching local fence.</p>
+<p><code>INSPECT</code> observes an existing marker without
+initialization or repair. An ACTIVE observation never authorizes boot,
+restore, promotion or authority continuity. <code>FENCE</code>
+terminally changes matching PROVISIONED/ACTIVE to FENCED; an already
+matching FENCED marker is an idempotent replay. It does not stop SYNC,
+evict sessions, fence writable copies, retire authority or
+refund/reissue rights. Trusted deployment administration still controls
+every start, reopen and writer.</p>
+<p>This is functional local administration, not the private C0-03
+Journal becoming a production supervisor. See <a
+href="BULK-CAPACITY-OCCUPANCY.md">capacity occupancy</a> for
+rollback/quarantine evidence and its separate limits.</p>
+<h2 id="input-and-custody">Input and custody</h2>
+<p>Exactly two arguments: <code>INSPECT|FENCE</code> and an absolute
+private JSON path. Never pass URLs, passwords or binding values in
+arguments. The regular file is opened without following symlinks,
+bounded to 16 KiB, with POSIX mode 0600 and parent 0700. Trusted ADMIN
+owns custody. These checks do not defend against a malicious process
+with the same OS identity or establish external monotonicity.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Object</th>
+<th>Required keys</th>
+<th>Canonical source</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>owner</code></td>
+<td><code>url</code>, <code>username</code>, <code>password</code></td>
+<td>Local ADMIN provisioning</td>
+</tr>
+<tr class="even">
+<td><code>roles</code></td>
+<td><code>expectedSchemaOwnerRole</code>,
+<code>runtimeGranteeRoles</code>, <code>retentionExecutorMembers</code>,
+<code>controlPlaneGranteeRoles</code></td>
+<td>Existing <code>BulkExecutionRoleConfiguration</code> for this
+database</td>
+</tr>
+<tr class="odd">
+<td><code>binding</code></td>
+<td><code>deploymentId</code>, <code>tenantId</code>,
+<code>environment</code>, <code>bindingId</code>,
+<code>generation</code>, <code>databaseId</code>,
+<code>attestationId</code>, <code>authorityId</code>,
+<code>authorityEpoch</code></td>
+<td>Existing trusted <code>ExpectedBinding</code>, never inferred from
+restored marker</td>
+</tr>
+</tbody>
+</table>
+<p>Root/object keys are exact. Unknown/duplicate keys, trailing JSON,
+omissions, wrong types and coercions are denied. Role arrays are
+explicit, canonical and distinct; empty sets require explicit input and
+acceptance by the actual catalog. No <code>none()</code> fallback. Owner
+username equals the configured schema owner. Three IDs are canonical
+UUIDs; generation and epoch are positive integral 64-bit values. No new
+ID, epoch or default binding is generated.</p>
+<p>The following JSON is entirely synthetic and illustrates structure
+only. It is not a bootstrap template with usable identities. Replace
+every synthetic value from trusted provisioning and the actual migrated
+role configuration; do not generate a new identity or copy one from a
+restored database. The password marker represents a provisioned secret,
+not a password or an accepted default.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;owner&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;jdbc:postgresql://db.example.invalid:5432/operational&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;username&quot;</span><span class="fu">:</span> <span class="st">&quot;bulk_admin_owner&quot;</span><span class="fu">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;password&quot;</span><span class="fu">:</span> <span class="st">&quot;&lt;from-provisioned-secret&gt;&quot;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;roles&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;expectedSchemaOwnerRole&quot;</span><span class="fu">:</span> <span class="st">&quot;bulk_admin_owner&quot;</span><span class="fu">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;runtimeGranteeRoles&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;bulk_runtime&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;retentionExecutorMembers&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;bulk_operator&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;controlPlaneGranteeRoles&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;bulk_control&quot;</span><span class="ot">]</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;binding&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;deploymentId&quot;</span><span class="fu">:</span> <span class="st">&quot;synthetic-deployment&quot;</span><span class="fu">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;tenantId&quot;</span><span class="fu">:</span> <span class="st">&quot;synthetic-tenant&quot;</span><span class="fu">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;environment&quot;</span><span class="fu">:</span> <span class="st">&quot;synthetic-environment&quot;</span><span class="fu">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;bindingId&quot;</span><span class="fu">:</span> <span class="st">&quot;synthetic-binding&quot;</span><span class="fu">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;generation&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;databaseId&quot;</span><span class="fu">:</span> <span class="st">&quot;11111111-1111-4111-8111-111111111111&quot;</span><span class="fu">,</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;attestationId&quot;</span><span class="fu">:</span> <span class="st">&quot;22222222-2222-4222-8222-222222222222&quot;</span><span class="fu">,</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;authorityId&quot;</span><span class="fu">:</span> <span class="st">&quot;33333333-3333-4333-8333-333333333333&quot;</span><span class="fu">,</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;authorityEpoch&quot;</span><span class="fu">:</span> <span class="dv">1</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>The PostgreSQL URL cannot override explicit owner credentials. Budget
+parameters reject zero, oversized, repeated or ambiguously encoded
+values. Smaller explicit timeouts remain effective. Do not bypass this
+contract with URL credentials.</p>
+<h2 id="transactions-and-deadlines">Transactions and deadlines</h2>
+<p>No ambient Spring transaction is accepted. The exact non-routing
+local owner datasource/manager opens READ COMMITTED; INSPECT is
+read-only. Literal transaction search path
+<code>pg_catalog, pg_temp</code> precedes timeout, credential and
+catalog checks. Marker SQL is qualified. Actual current role, the
+existing V18 installation catalog/ACL gate and all nine binding fields
+must match. This reuses that gate; it does not claim a new complete V19
+validator.</p>
+<p>FENCE obtains the marker lock before mutation and rechecks
+owner/catalog after any lock wait. No D0 lock, transaction or network
+dependency overlaps owner work. Installation/witness behavior remains in
+the shared local implementation.</p>
+<p>One monotonic 20-second deadline covers acquisition, work, known
+commit, fresh readback and publication. Lock budget is at most 3
+seconds. Remaining time is checked between phases and before
+mutation/success. Each acquisition constrains effective native
+connect/socket timeouts to remaining time, retaining stricter limits
+including the driver’s default connect timeout. URL parameters override
+Properties; see <a
+href="https://jdbc.postgresql.org/documentation/use/">pgJDBC
+parameters</a>. This is an admission/publication deadline, not universal
+wall-clock cancellation for DNS, multi-host attempts, OS behavior or a
+fleet SLO. Do not raise unit budgets to make administrative fixtures
+pass.</p>
+<p>FENCE success requires known commit followed by an independent owner
+transaction and connection revalidating catalog, full binding and FENCED
+within that deadline. Failed/late readback cannot publish success.
+Uncertain commit cannot be called rollback or retirement. No automatic
+retry occurs. Preserve external quarantine and reconcile explicitly; a
+failed command never authorizes refund/reissue/reopen.</p>
+<h2 id="closed-output">Closed output</h2>
+<p>Exactly five JSON keys: <code>schemaVersion</code> (1),
+<code>operation</code>, <code>result</code>, <code>markerState</code>,
+<code>code</code>. Invalid operation is null. No URL, IDs, credentials,
+raw input, JDBC cause or exception chain is copied into output.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Exit</th>
+<th>Result</th>
+<th>Marker state</th>
+<th>Code</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0</td>
+<td><code>INSPECTED</code></td>
+<td>Validated PROVISIONED/ACTIVE/FENCED</td>
+<td><code>OK</code></td>
+</tr>
+<tr class="even">
+<td>0</td>
+<td><code>FENCED</code></td>
+<td>FENCED</td>
+<td><code>OK</code></td>
+</tr>
+<tr class="odd">
+<td>0</td>
+<td><code>FENCE_REPLAYED</code></td>
+<td>FENCED</td>
+<td><code>OK</code></td>
+</tr>
+<tr class="even">
+<td>64</td>
+<td><code>DENIED</code></td>
+<td>null</td>
+<td><code>INVALID_INPUT</code></td>
+</tr>
+<tr class="odd">
+<td>2</td>
+<td><code>DENIED</code></td>
+<td>null</td>
+<td><code>LOCAL_OPERATION_NOT_CONFIRMED</code></td>
+</tr>
+</tbody>
+</table>
+<p>Exit 2 does not determine whether an uncertain mutation committed.
+Reconcile against trusted binding; inspection still grants no
+boot/continuity authority. Detailed diagnostics belong in protected
+evidence, not shared logs.</p>
+<p>Illustrative confirmed local result (exit 0):</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;schemaVersion&quot;</span><span class="fu">:</span><span class="dv">1</span><span class="fu">,</span><span class="dt">&quot;operation&quot;</span><span class="fu">:</span><span class="st">&quot;FENCE&quot;</span><span class="fu">,</span><span class="dt">&quot;result&quot;</span><span class="fu">:</span><span class="st">&quot;FENCED&quot;</span><span class="fu">,</span><span class="dt">&quot;markerState&quot;</span><span class="fu">:</span><span class="st">&quot;FENCED&quot;</span><span class="fu">,</span><span class="dt">&quot;code&quot;</span><span class="fu">:</span><span class="st">&quot;OK&quot;</span><span class="fu">}</span></span></code></pre></div>
+<p>Illustrative unconfirmed result (exit 2), deliberately without a
+failure detail:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;schemaVersion&quot;</span><span class="fu">:</span><span class="dv">1</span><span class="fu">,</span><span class="dt">&quot;operation&quot;</span><span class="fu">:</span><span class="st">&quot;FENCE&quot;</span><span class="fu">,</span><span class="dt">&quot;result&quot;</span><span class="fu">:</span><span class="st">&quot;DENIED&quot;</span><span class="fu">,</span><span class="dt">&quot;markerState&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;code&quot;</span><span class="fu">:</span><span class="st">&quot;LOCAL_OPERATION_NOT_CONFIRMED&quot;</span><span class="fu">}</span></span></code></pre></div>
+<h2 id="admin-sequence-on-a-validated-candidate">ADMIN sequence on a
+validated candidate</h2>
+<ol type="1">
+<li>Verify the exact candidate JAR/provenance and the entry it contains.
+Obtain trusted binding, role configuration and owner secret; keep input
+private. The local schema must already exist through the canonical
+migration/provisioning path. This command does not provision it.
+Establish the external custody and quarantine required by the real
+operation before changing writer authority.</li>
+<li>Run INSPECT for observation. Denial means input/catalog/binding or
+operational conditions have not been certified. An ACTIVE result alone
+grants no start.</li>
+<li>If terminal local fencing is the authorized operation, run FENCE
+using the same trusted configuration. Exit 0 with FENCED or
+FENCE_REPLAYED certifies only the matching local marker after known
+commit and independent readback.</li>
+<li>For exit 64, correct the administrative input from canonical
+sources, keeping secrets out of shared diagnostics. For exit 2, retain
+applicable external quarantine and inspect protected evidence. Reconcile
+explicitly with a fresh observation of the trusted local binding and
+state. Do not infer rollback, RETIRED, global-right release or
+permission to reopen from either result. Any further mutation needs its
+real administrative decision; no automated retry or recreation of IDs
+follows from this recipe.</li>
+</ol>
+<p>The JVM recipe below is for a separately validated candidate, not an
+installed container command. Both paths are placeholders to replace with
+the actual packaged host JAR and provisioned private configuration.
+<code>JAVA_HOME</code> must identify the official Java21 runtime used by
+the host. These variables carry paths only.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="va">HOST_CANDIDATE_JAR</span><span class="op">=</span>/absolute/path/to/host-candidate.jar</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="va">ADMIN_CONFIG</span><span class="op">=</span>/absolute/private/directory/local-admin.json</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="va">$JAVA_HOME</span><span class="st">/bin/java&quot;</span> <span class="dt">\</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">-Dloader.main</span><span class="op">=</span>org.praxisplatform.uischema.bulk.BulkCapacityLocalAdministrationMain <span class="dt">\</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">-cp</span> <span class="st">&quot;</span><span class="va">$HOST_CANDIDATE_JAR</span><span class="st">&quot;</span> <span class="dt">\</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  org.springframework.boot.loader.launch.PropertiesLauncher INSPECT <span class="st">&quot;</span><span class="va">$ADMIN_CONFIG</span><span class="st">&quot;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co"># After the separate ADMIN decision to terminally fence the local marker:</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="va">$JAVA_HOME</span><span class="st">/bin/java&quot;</span> <span class="dt">\</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">-Dloader.main</span><span class="op">=</span>org.praxisplatform.uischema.bulk.BulkCapacityLocalAdministrationMain <span class="dt">\</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">-cp</span> <span class="st">&quot;</span><span class="va">$HOST_CANDIDATE_JAR</span><span class="st">&quot;</span> <span class="dt">\</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  org.springframework.boot.loader.launch.PropertiesLauncher FENCE <span class="st">&quot;</span><span class="va">$ADMIN_CONFIG</span><span class="st">&quot;</span></span></code></pre></div>
+<p>The canonical owners and related paths are <a
+href="BULK-CAPACITY-AUTHORITY.md">global capacity authority</a>, <a
+href="BULK-CAPACITY-INSTALLATION.md">local installation</a>, <a
+href="BULK-EXECUTION-INFRASTRUCTURE.md">execution infrastructure</a> and
+<a href="BULK-DURABLE-EXECUTION.md">durable execution</a>. The consumer
+is the <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart">Quickstart
+reference host</a>, which consumes SDK semantics and does not redefine
+them.</p>
+<h2 id="candidate-consumer-and-remaining-gates">Candidate consumer and
+remaining gates</h2>
+<p>Quickstart uses its existing PropertiesLauncher mechanism to select
+SDK main inside a real packaged JAR. Local candidate coordinate is
+distinct: <code>8.0.0-c0-04-local-admin-20261008-SNAPSHOT</code>, with
+isolated Maven repository and provenance. Never install candidate bytes
+under a public release coordinate.</p>
+<p>The opt-in packaging test runs explicitly after package:
+<code>-Dtest=BulkCapacityLocalAdministrationPackagedJarPostgresProof</code>,
+absolute <code>-Dpraxis.bulk.admin.packagedJar=...</code>, new existing
+absolute evidence directory
+<code>-Dpraxis.bulk.proof.directory=...</code>, and
+fail-if-no-specified-tests gates. The Proof suffix excludes it from
+default pre-package tests. Missing inputs fail; no skip or
+classes-directory fallback certifies the packaged consumer.</p>
+<p>Disposable fixture ADMIN migrates owner-only through the public
+migrator, then provisions the explicit bounded runtime ACLs before
+configured-role attestation. The public migrator validates host-owned
+grants; it does not substitute for them. The fixture seeds the marker
+using canonical DDL. Neither its grants nor its seed are production
+bootstrap/enrollment. Proof requires one SDK class origin in the nested
+candidate, separate JVMs, closed results, denial without marker changes,
+commit/replay, artifact hashes and owned-process cleanup. Ambient
+loader/JVM injection or working-directory configuration must not supply
+another classpath. Preserve failed child raw privately and always delete
+its credential-bearing input.</p>
+<p>Launcher proof is distinct from executing a wrapper in a container.
+Official COPY/packaging and execution evidence are required before
+teaching an installed container command. No existing CMD change,
+deployment, worker, HTTP202/ASYNC/READY or Angular readiness follows
+from this cut.</p>
+<p>The private SDK source and 20 focused tests have independent review:
+six strict input tests, ten real PostgreSQL/CLI tests and four
+installation regressions pass without failures or skips on Java
+21.0.10/PostgreSQL 14.22. The candidate source archive matches the
+executed tree; its installed JAR and source JAR have separate
+provenance. This is private candidate evidence, not public release
+adoption.</p>
+<p>The separate packaged-host proof passed with six child JVMs:
+inspection, three negative binding/role/ACL paths, confirmed FENCE and
+its idempotent replay. Its source/POM and nested SDK JAR are recorded
+separately from the SDK campaign. Earlier failed proofs stopped first at
+fixture ACL setup, then at a duplicate logging bridge warning before
+JSON; neither failure was hidden by loosening the parser. The host
+excludes redundant commons-logging on its proven dependency edges while
+retaining spring-jcl and provider/HTTP-client versions. Check the
+complete packaged classpath before using the command; do not filter
+stdout or suppress the warning as a substitute for correcting
+composition.</p>
+<p>The packaged-host raw/source/artifact/cleanup evidence has
+independent review. SDK and host source, runtime and editorial reviews
+are accepted. The code/docs were integrated through SDK PR250 and host
+PR409, and canonical guidance through PR710 with selective
+synchronization of two skills. Public release/adoption and installed
+container packaging/execution remain separate pending gates. No release
+or adoption is recorded.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Milestone</th>
+<th>Meaning</th>
+<th>C0-04 current state</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Candidate source</td>
+<td>Implementation exists in an isolated worktree</td>
+<td>Reviewed; 20 focal SDK tests passed; private artifact packaged</td>
+</tr>
+<tr class="even">
+<td>Integrated</td>
+<td>Reviewed increment is merged into canonical main</td>
+<td>SDK PR250 and host PR409 integrated; planning PR408 retained</td>
+</tr>
+<tr class="odd">
+<td>Published</td>
+<td>Official release artifact is publicly available and verified</td>
+<td>Pending; rc.154 does not contain this entry</td>
+</tr>
+<tr class="even">
+<td>Adopted</td>
+<td>Host pins and validates that public release without local
+override</td>
+<td>Pending</td>
+</tr>
+<tr class="odd">
+<td>Consumer proved</td>
+<td>Real packaged consumer runs the exact entry/artifact with recorded
+evidence</td>
+<td>Private candidate proof passed and independently reviewed</td>
+</tr>
+</tbody>
+</table>
+<p>None of these milestones by itself completes external
+continuity/custody, production supervisor, worker or backend readiness
+for Angular.</p>
+</body>
+</html>

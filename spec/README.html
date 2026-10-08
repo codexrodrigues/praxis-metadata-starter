@@ -204,6 +204,17 @@ href="BULK-OPERATION-LIFECYCLE.md">lifecycle governado</a> especifica
 provider, perfil efetivo, composição e publication/suspension duráveis
 do descriptor. Não expõe endpoints ou capability bulk; a adoção
 produtiva é um gate separado.</p></li>
+<li><p>Capacity bulk: <a href="BULK-CAPACITY-OCCUPANCY.md">ocupação e
+provas privadas</a>, incluindo cópia física fria em dois clusters,
+contraprova de rollback da autoridade com UUID/epoch iguais e quarentena
+externa com recusa após reinícios. Esse corte não certifica HA,
+antirollback, custódia produtiva, C1b/C2 integral ou publicação de
+worker ASYNC.</p></li>
+<li><p>Administração local C0-04: <a
+href="BULK-CAPACITY-LOCAL-ADMINISTRATION.md">contrato e roteiro
+candidato</a>, com INSPECT/FENCE independentes de D0. Fonte, provas e
+adoção ainda pendentes; não disponível na rc.154 nem certificado como
+comando instalado em container.</p></li>
 <li><p>Charts metadata-driven: <code>x-ui-chart-rfc.md</code></p>
 <ul>
 <li>define a direcao canonica de <code>x-ui.chart</code> como extensao

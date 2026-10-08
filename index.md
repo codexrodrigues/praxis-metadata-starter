@@ -15,8 +15,12 @@ plataforma.
 
 ## SDK em desenvolvimento
 
+- [Autoridade de capacidade candidata B5b.1a](spec/BULK-CAPACITY-AUTHORITY.html): núcleo com 42 provas focais de direitos globais e migração; banco dedicado é pré-requisito de provisionamento; não integra a rc.154 nem aceita jobs, ASYNC ou HTTP202.
+- [Instalação local candidata B5b.1b.A](spec/BULK-CAPACITY-INSTALLATION.html): atestado e direitos reais com 97 casos PostgreSQL compostos; runtime sem history/latch SELECT, bootstrap durável sem healing e quatro processos owner. Sem ocupação/jobs, ASYNC/202/READY, restore-safe, adoção na rc.154 ou Angular.
+
 - [Lifecycle governado candidato R2](spec/BULK-OPERATION-LIFECYCLE.html): fotografia OpenAPI imutável, publicação global/operação V14/V15 e reconciliação explícita; prova HTTP do host e adoção pública são gates separados.
 
+- [Ocupação local protegida B5b.1b.B e caracterização de clone C1a](spec/BULK-CAPACITY-OCCUPANCY.html): slots, histórico, QUEUED/claim e lifecycle no ledger existente. Fonte interna integrada pelos PR242/243, com provas de capacidade global, quatro JVMs de runtime e cópia real do banco. C1a demonstra uma limitação: cercar a origem não impede a cópia de executar. Retirada controlada43 e quarentena externa autenticada C0-02 acrescentam provas delimitadas (HBA reload/JVM restart, cópia TEMPLATE e credenciais distintas); C0-03 acrescenta interlock privado cooperativo, três crashes e CAS entre duas JVMs; não fecha custódia monotônica. Essas provas não fecham proteção integral de clone/restore, continuidade externa, worker ou composição operacional. Esse núcleo não integra o artefato público rc.154 e não certifica ASYNC público, HTTP202, adoção do host, backend completo ou Angular.
 - [Núcleo durável de execução](spec/BULK-DURABLE-EXECUTION.html): reserva, unidade transacional, ledger de capacidade V5, retenção/tombstones e recuperação; fundação sem exposição HTTP nem adoção completa no host.
 - [Evidência protegida da avaliação](spec/BULK-EVALUATION-EVIDENCE.html): fatos/plano por alvo vinculados à proposta, sem decisão de elegibilidade.
 - [Decisão H1b de leitura](spec/BULK-H1B-READ-MODEL.html): manifest privado V8, projeção física segura V9, reader autorizado de resultados de proposta e continuação G3b, resumo autorizado de execução e tombstone G3c-a, composição paginada RS4 G3c-b e proposta RS1 com projeção explícita do domínio; a biblioteca não cria endpoint HTTP.
@@ -29,12 +33,13 @@ plataforma.
 - [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html): unicidade, vínculo operação/recurso/método e DTO de request concreto do handler MVC.
 
 - [Leitura estrita de request](spec/CANONICAL-REQUEST-SCHEMA.html): schema da operação, dialeto e limites da composição backend.
-- [Persistência protegida de propostas](spec/BULK-PROPOSAL-STORAGE.html): captura EXPLICIT/SYNC publicada na rc.153, allocations pendentes V5 e migração V17; seleção QUERY descrita apenas como candidato privado, sem endpoint automático do SDK nem adoção do binário público QUERY.
+- [Persistência protegida de propostas](spec/BULK-PROPOSAL-STORAGE.html): captura EXPLICIT/SYNC publicada na rc.153 e captura QUERY sob admissão opaca na rc.154, restrita a `UNIFORM_UPDATE/SYNC/PER_ITEM` com teto de até 200; o SDK não cria endpoint nem autoriza o domínio do host.
 - [Infraestrutura transacional de lote](spec/BULK-EXECUTION-INFRASTRUCTURE.html): vínculo JDBC/JPA explícito, sem store ou DDL.
 
 - [Campos editáveis em lote](spec/BULK-EDITABLE-FIELDS.html): annotation e compilação estrutural de SET/CLEAR.
 - [Composição estrutural CRUD](spec/BULK-CRUD-STRUCTURE.html): fonte PUT e DTO reais, campos protegidos e allowlists; sem disponibilidade operacional de update bulk.
-- [Composição operacional CRUD](spec/BULK-CRUD-OPERATIONS.html): quatro identidades UPDATE por modo/atomicidade no SDK público, com schemas, campos elegíveis e fence READY; perfil `UNIFORM_UPDATE/SYNC/PER_ITEM/QUERY` somente no candidato privado, sem autorização P3 ou mutação automática no host.
+- [Composição operacional CRUD](spec/BULK-CRUD-OPERATIONS.html): quatro identidades UPDATE por modo/atomicidade no SDK público; a rc.154 publica QUERY somente para `UNIFORM_UPDATE/SYNC/PER_ITEM`, mantendo `bulk-update`. `PER_ITEM_UPDATE`, ATOMIC e ASYNC não recebem QUERY; autorização e mutação continuam no host.
+- [Guia de composição de lote](technical/BULK-COMPOSITION-GUIDE.html): escolha de modalidade, fronteira Metadata/Config/host, sequência de composição e limites comprovados da rc.154.
 
 ## Comece por objetivo
 
@@ -100,3 +105,5 @@ Quando houver duvida sobre a superficie publicada:
 - priorize os guias desta home
 - priorize `architecture-overview`
 - use a trilha desta home como referencia principal do baseline atual
+
+- [Administração local de capacidade (candidato C0-04)](spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.html): INSPECT/FENCE com OWNER e vínculo explícitos; provas privadas não são publicação ou adoção produtiva.
