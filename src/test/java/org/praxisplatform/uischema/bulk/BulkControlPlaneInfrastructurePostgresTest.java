@@ -42,6 +42,11 @@ class BulkControlPlaneInfrastructurePostgresTest {
             adminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
+            adminSql.execute("grant select on praxis_bulk.praxis_bulk_capacity_marker, "
+                    + "praxis_bulk.praxis_bulk_capacity_installation, praxis_bulk.praxis_bulk_capacity_slot, "
+                    + "praxis_bulk.praxis_bulk_capacity_occupation to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.lock_capacity_marker(), "
+                    + "praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_control");
             adminSql.execute("grant execute on function praxis_bulk.transition_openapi_publication(text,text,bigint,text,text) to bulk_control");
             var roles = new BulkExecutionRoleConfiguration("postgres", Set.of("bulk_runtime"),
@@ -134,6 +139,11 @@ class BulkControlPlaneInfrastructurePostgresTest {
             otherAdminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
             otherAdminSql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             otherAdminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
+            otherAdminSql.execute("grant select on praxis_bulk.praxis_bulk_capacity_marker, "
+                    + "praxis_bulk.praxis_bulk_capacity_installation, praxis_bulk.praxis_bulk_capacity_slot, "
+                    + "praxis_bulk.praxis_bulk_capacity_occupation to bulk_runtime");
+            otherAdminSql.execute("grant execute on function praxis_bulk.lock_capacity_marker(), "
+                    + "praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to bulk_runtime");
             otherAdminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_control");
             otherAdminSql.execute("grant execute on function praxis_bulk.transition_openapi_publication(text,text,bigint,text,text) to bulk_control");
             BulkExecutionMigrator.validate(otherAdmin, roles);
@@ -238,6 +248,11 @@ class BulkControlPlaneInfrastructurePostgresTest {
             adminSql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
+            adminSql.execute("grant select on praxis_bulk.praxis_bulk_capacity_marker, "
+                    + "praxis_bulk.praxis_bulk_capacity_installation, praxis_bulk.praxis_bulk_capacity_slot, "
+                    + "praxis_bulk.praxis_bulk_capacity_occupation to bulk_runtime");
+            adminSql.execute("grant execute on function praxis_bulk.lock_capacity_marker(), "
+                    + "praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to bulk_runtime");
             adminSql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_control");
             adminSql.execute("grant execute on function praxis_bulk.transition_openapi_publication(text,text,bigint,text,text) to bulk_control");
             var roles = new BulkExecutionRoleConfiguration("postgres", Set.of("bulk_runtime"), Set.of(), Set.of("bulk_control"));

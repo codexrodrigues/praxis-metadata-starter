@@ -107,7 +107,25 @@ final class BulkCapacityOccupancyCatalog {
         }
     }
 
+    /**
+     * Completes the owner-controlled ACL phase in the caller's owned transaction.
+     * The schema owner needs native PostgreSQL authority to grant the dedicated
+     * function-owner role, just as the V19 DDL does; inherited function ownership
+     * is not assumed. Temporary membership and role changes end on success or
+     * on the owner transaction's rollback.
+     */
     static void bootstrap(Connection c, BulkExecutionRoleConfiguration roles) throws SQLException {
+        require(!c.getAutoCommit(), "V19 bootstrap requires an owner transaction");
+        String initialRole;
+        try (var s = c.createStatement();
+             var r = s.executeQuery("select current_user,current_setting('role')")) {
+            require(r.next() && roles.expectedSchemaOwnerRole().equals(r.getString(1)),
+                    "V19 bootstrap requires explicit owner credential");
+            initialRole = r.getString(2);
+            require("none".equals(initialRole) || roles.expectedSchemaOwnerRole().equals(initialRole),
+                    "V19 bootstrap owner role differs");
+            require(!r.next(), "V19 bootstrap owner ambiguous");
+        }
         try (var s = c.createStatement(); var r = s.executeQuery("select bootstrap_version,phase from praxis_bulk." + BOOTSTRAP + " for update")) {
             require(r.next() && r.getInt(1) == 19, "V19 bootstrap absent");
             String phase = r.getString(2);
@@ -119,18 +137,39 @@ final class BulkCapacityOccupancyCatalog {
             require("PENDING".equals(phase), "V19 bootstrap changed");
         }
         validate(c, roles, false);
+        // SET LOCAL ROLE and all grants are owned by the caller's transaction.
+        // Propagate failures without cleanup SQL in an aborted transaction; the
+        // owner transaction rolls back membership, ACLs and role changes together.
         for (String role : new java.util.TreeSet<>(roles.runtimeGranteeRoles())) {
-            String quoted = '"' + role.replace("\"", "\"\"") + '"';
             try (var s = c.createStatement()) {
-                s.execute("grant select on praxis_bulk." + SLOT + ",praxis_bulk." + HISTORY + " to " + quoted);
-                s.execute("grant execute on function praxis_bulk.lock_capacity_marker(),praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to " + quoted);
+                s.execute("grant select on praxis_bulk." + SLOT + ",praxis_bulk." + HISTORY
+                        + " to " + quotedRole(role));
             }
         }
+        if (!roles.runtimeGranteeRoles().isEmpty()) {
+            try (var s = c.createStatement()) {
+                s.execute("grant " + quotedRole(OWNER) + " to " + quotedRole(roles.expectedSchemaOwnerRole()));
+                s.execute("set local role " + quotedRole(OWNER));
+                for (String role : new java.util.TreeSet<>(roles.runtimeGranteeRoles())) {
+                    s.execute("grant execute on function praxis_bulk.lock_capacity_marker(),"
+                            + "praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to " + quotedRole(role));
+                }
+                // Restore only the transaction-local role: RESET ROLE would also
+                // change a pre-existing session role when this transaction commits.
+                s.execute("set local role " + ("none".equals(initialRole) ? "none" : quotedRole(initialRole)));
+                s.execute("revoke " + quotedRole(OWNER) + " from " + quotedRole(roles.expectedSchemaOwnerRole()));
+            }
+        }
+        // Certify the completed ACLs after revocation, before publishing COMPLETE.
+        validate(c, roles, true);
         try (var s = c.createStatement()) {
             require(s.executeUpdate("update praxis_bulk." + BOOTSTRAP + " set phase='COMPLETE' where bootstrap_version=19 and phase='PENDING'") == 1,
                     "V19 completion lost");
         }
-        validate(c, roles, true);
+    }
+
+    private static String quotedRole(String role) {
+        return '"' + role.replace("\"", "\"\"") + '"';
     }
 
     static void validate(Connection c, BulkExecutionRoleConfiguration roles, boolean complete) throws SQLException {

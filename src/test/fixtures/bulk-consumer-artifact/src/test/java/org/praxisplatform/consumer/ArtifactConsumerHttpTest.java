@@ -76,7 +76,9 @@ class ArtifactConsumerHttpTest {
         for (String migration : List.of("V13__bulk_execution_time_order.sql",
                 "V14__bulk_openapi_publication.sql", "V15__bulk_operation_publication_fence.sql",
                 "V16__bulk_atomic_set_execution.sql",
-                "V17__bulk_pending_quota_snapshot_fence.sql")) {
+                "V17__bulk_pending_quota_snapshot_fence.sql",
+                "V18__bulk_capacity_installation.sql",
+                "V19__bulk_capacity_occupancy.sql")) {
             var migrationResource = BulkExecutionMigrator.class.getResource("/db/praxis-bulk-migrations/" + migration);
             assertThat(migrationResource).as("packaged migration %s", migration).isNotNull();
             assertThat(migrationResource.getProtocol()).isEqualTo("jar");
@@ -118,7 +120,7 @@ class ArtifactConsumerHttpTest {
                     "postgres", Set.of(RUNTIME_ROLE), Set.of(), Set.of(CONTROL_ROLE));
             BulkExecutionMigrator.migrate(deploymentDataSource,
                     Map.of(NAMESPACE, DEPLOYMENT), roles, java.util.List.of(OPERATION));
-            assertThat(migrations).isEqualTo(17);
+            assertThat(migrations).isEqualTo(19);
             BulkExecutionMigrator.validate(deploymentDataSource, roles);
             assertThat(tableExists(deploymentDataSource.getConnection(), "praxis_bulk.praxis_bulk_proposal"))
                     .isTrue();
@@ -328,6 +330,11 @@ class ArtifactConsumerHttpTest {
         var admin = new org.springframework.jdbc.core.JdbcTemplate(schemaOwner);
         admin.execute("grant usage on schema praxis_bulk to " + role);
         admin.execute("grant select on praxis_bulk.praxis_bulk_namespace_binding to " + role);
+        admin.execute("grant select on praxis_bulk.praxis_bulk_capacity_marker, "
+                + "praxis_bulk.praxis_bulk_capacity_installation, praxis_bulk.praxis_bulk_capacity_slot, "
+                + "praxis_bulk.praxis_bulk_capacity_occupation to " + role);
+        admin.execute("grant execute on function praxis_bulk.lock_capacity_marker(), "
+                + "praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to " + role);
         admin.execute("grant update (deployment_id) on praxis_bulk.praxis_bulk_namespace_binding to " + role);
         admin.execute("grant select, update (deployment_id) on praxis_bulk.praxis_bulk_deployment_bucket to " + role);
         admin.execute("grant select, insert, update (deployment_id) on praxis_bulk.praxis_bulk_subject_bucket to " + role);

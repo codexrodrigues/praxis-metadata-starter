@@ -24,6 +24,7 @@ class BulkAtomicProposalJsonConstraintPostgresTest {
             var sql = new JdbcTemplate(owner);
             var mapper = new ObjectMapper();
             var document = mapper.createObjectNode().put("atomicity", "PER_ITEM");
+            document.putObject("intent").put("executionMode", "SYNC");
             document.putObject("parameters").put("reason", "opaque\u0000value")
                     .put("key\u0000name", "literal\\u0000value");
             byte[] bytes = mapper.writeValueAsBytes(document);
@@ -37,9 +38,16 @@ class BulkAtomicProposalJsonConstraintPostgresTest {
                     "{\"atomicity\":{}}", "{\"atomicity\":[]}", "{\"atomicity\":\"OTHER\"}",
                     "{\"atomicity\":\"ATOMIC\"}", "{\"atomicity\":\"PER_ITEM\\u0000\"}",
                     "{\"atomicity\\u0000\":\"PER_ITEM\"}"}) {
-                assertThatThrownBy(() -> insert(sql, invalid.getBytes(StandardCharsets.UTF_8), "PER_ITEM"))
+                assertThatThrownBy(() -> insert(sql, (invalid.substring(0, invalid.length() - 1)
+                        + (invalid.length() == 2 ? "" : ",")
+                        + "\"intent\":{\"executionMode\":\"SYNC\"}}").getBytes(StandardCharsets.UTF_8), "PER_ITEM"))
                         .as("invalid metadata: %s", invalid).hasRootCauseInstanceOf(PSQLException.class)
-                        .satisfies(error -> assertThat(((PSQLException) error.getCause()).getSQLState()).isEqualTo("23514"));
+                        .satisfies(error -> {
+                            var cause = (PSQLException) error.getCause();
+                            assertThat(cause.getSQLState()).isEqualTo("23514");
+                            assertThat(cause.getServerErrorMessage().getConstraint())
+                                    .isEqualTo("praxis_bulk_proposal_atomicity_check");
+                        });
             }
             assertThatThrownBy(() -> insert(sql, "not-json".getBytes(StandardCharsets.UTF_8), "PER_ITEM"))
                     .hasRootCauseInstanceOf(PSQLException.class);
@@ -70,10 +78,10 @@ class BulkAtomicProposalJsonConstraintPostgresTest {
         sql.update("""
                 insert into praxis_bulk.praxis_bulk_proposal
                 (proposal_id,namespace_id,subject_id,resource_key,operation_id,created_at,expires_at,
-                 fingerprint,payload,atomicity,protocol_version,control_generation,
+                 fingerprint,payload,atomicity,execution_mode,protocol_version,control_generation,
                  control_descriptor_fingerprint,control_structural_revision)
                 values (?,?,'operator','employees','employee-bulk-approve',clock_timestamp(),
-                        clock_timestamp()+interval '60 seconds',?,?,?,2,
+                        clock_timestamp()+interval '60 seconds',?,?,?,'SYNC',2,
                         (select generation from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id='employee-bulk-approve'),
                         ?, 'structural-r1')
                 """, id, NS, "sha256:" + "a".repeat(64), payload, atomicity, NS, "sha256:" + "0".repeat(64));
