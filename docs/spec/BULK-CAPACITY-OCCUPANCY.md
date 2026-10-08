@@ -579,3 +579,65 @@ continuity, journal antirollback, power-loss durability, HA, production supervis
 custody, C0/C1b/C2 integral completion, HTTP, public ASYNC/READY or Angular readiness.
 The six-minute fixture allowance does not change unit 5 s or native lock 3 s
 budgets. No production, POM, migration or release changes are required.
+
+
+## Restored authority rollback and external quarantine (C2-a, private bounded proof)
+
+`BulkCapacityAuthorityRollbackPostgresTest` has two independent objects of proof.
+The counterexample starts with tenant ACTIVE limit two, one genuinely installed
+right and the same second PENDING demand already present in a clean whole-PGDATA
+backup. Only after the genuine source commits and independently reads the second
+right, still in transit, does the old authority clone start. The clone issues a
+third distinct token for that same pending demand. Copied UUID/epoch, full binding
+and catalog remain equal, while the deduplicated issued rights total three exceeds
+two. Identity parity cannot prove monotonic continuity. Clone allocation is a
+private controlled counterexample, never a recovery or promotion recipe.
+
+The separate quarantine test starts the restored authority with external HBA deny
+for every enumerated non-admin login. Correct credentials receive native 28000.
+The existing C0-03 agent forces CAS_INTENT sequence one before external origin
+denial, with zero administrative actions. Keep the journal at INTENT: with D0
+already unavailable, `ProvisioningAgent.retire` accesses authority before its
+fence/excluder and cannot certify RETIRED sequence two or a local fence. ADMIN
+independently attests the retained physical session's complete tuple, observes a
+real uncommitted UPDATE and rollback, excludes that exact session and performs a
+fresh readback. Original and restarted runtimes deny with zero admissions and
+callbacks; restarted administrative BOOT refuses without administrative actions.
+The confirmed prefix and known in-transit right remain unchanged. Transient D0
+outage alone never fences locally installed rights.
+
+Use Java 21 and official Maven settings/cache ownership, one source writer and
+new absolute evidence directories. Run these methods separately when diagnosis
+requires a retry; preserve the successful object's immutable source/raw/XML and
+all failed campaigns rather than repeating unrelated tests:
+
+```bash
+mvn -B -DfailIfNoTests=true \
+  '-Dtest=BulkCapacityAuthorityRollbackPostgresTest#oldAuthoritySnapshotForgetsCommittedInTransitRightWithoutIdentityDrift' \
+  -Dpraxis.bulk.proof.directory=/absolute/new-counterexample-evidence test
+mvn -B -DfailIfNoTests=true \
+  '-Dtest=BulkCapacityAuthorityRollbackPostgresTest#uncertainAuthorityContinuityKeepsRestoredIssuerAndWritersQuarantinedAcrossRestart' \
+  -Dpraxis.bulk.proof.directory=/absolute/new-quarantine-evidence test
+```
+
+On Java 21.0.10/PostgreSQL 14.22, the first campaign passed the counterexample in
+6.709 s but failed quarantine before origin denial. Its default JSON reader parsed
+small binding integers as IntNode, while the reused journal's full binding used
+LongNode. The test reader now matches the existing C0-03 strict duplicate,
+long-integer and trailing-token policy; full binding equality and digest checks
+remain intact. The quarantine-only corrective campaign passed one test, zero
+failures/errors/skips, in 7.926 s. Both campaigns froze 842 source/POM files with
+zero runtime drift. The counterexample is retained from the first source photograph;
+it was not rerun against the reader-only correction. Its path never reads INTENT.
+The corrective quarantine exports native initial/final clean stops and both clean
+starts with postmaster identity/timestamps; all eight owned process PIDs were absent.
+Incomplete campaigns retain private 0700 directories and 0600 native logs, remove
+child credential handoffs and export only fixed sanitized classifications.
+
+This characterizes rollback risk and administered external quarantine under trusted
+ADMIN custody. It does not detect arbitrary rollback, protect the journal against
+rollback, establish authority succession, HA, power-loss durability, production
+start/restore supervision, full C0/C1b/C2, public worker/ASYNC/READY or Angular
+readiness. Fixture allowance six minutes, unit five seconds, native lock three
+seconds and installation twenty seconds are distinct and unchanged. No production,
+POM, migration, release or host runtime change follows from this proof.
