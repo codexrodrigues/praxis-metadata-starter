@@ -7,15 +7,8 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 import javax.sql.DataSource;
-import org.springframework.jdbc.core.ConnectionCallback;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.praxisplatform.uischema.bulk.JdbcBulkCapacityLocalAdministration.Marker;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.jdbc.datasource.DataSourceUtils;
-import org.springframework.jdbc.datasource.DelegatingDataSource;
-import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /** Trusted, owner-credential local installation of already issued global rights. */
 final class JdbcBulkCapacityInstallation {
@@ -41,15 +34,11 @@ final class JdbcBulkCapacityInstallation {
 
     private final ExpectedBinding expected;
     private final DataSource owner;
-    private final DataSourceTransactionManager ownerManager;
     private final String ownerLogin;
+    private final JdbcBulkCapacityLocalAdministration administration;
     private final BulkExecutionInfrastructure runtime;
     private final BulkCapacityAuthorityInfrastructure provisioner;
     private final JdbcBulkCapacityIssuer.CapacityReader reader;
-    private final int transactionSeconds;
-    private final long transactionMillis;
-    private final long lockMillis;
-    private final JdbcTemplate jdbc;
 
     JdbcBulkCapacityInstallation(ExpectedBinding expected, DataSource owner,
             DataSourceTransactionManager ownerManager, String expectedOwnerLogin,
@@ -58,23 +47,14 @@ final class JdbcBulkCapacityInstallation {
             Duration transactionBudget, Duration lockBudget) {
         this.expected = Objects.requireNonNull(expected, "expected");
         this.owner = Objects.requireNonNull(owner, "owner");
-        this.ownerManager = Objects.requireNonNull(ownerManager, "ownerManager");
+        Objects.requireNonNull(ownerManager, "ownerManager");
         this.ownerLogin = BulkCapacityAuthorityMigrator.canonical(expectedOwnerLogin);
         this.runtime = Objects.requireNonNull(runtime, "runtime");
         this.provisioner = Objects.requireNonNull(provisioner, "provisioner");
         this.reader = Objects.requireNonNull(reader, "reader");
-        Objects.requireNonNull(transactionBudget, "transactionBudget");
-        Objects.requireNonNull(lockBudget, "lockBudget");
-        long txMillis = transactionBudget.toMillis();
-        long requestedLockMillis = lockBudget.toMillis();
-        if (txMillis < 1000 || txMillis > 60_000
-                || requestedLockMillis <= 0 || requestedLockMillis >= txMillis)
-            throw new IllegalArgumentException("Capacity installation requires positive bounded time budgets");
-        this.transactionSeconds = Math.toIntExact((txMillis + 999) / 1000);
-        this.transactionMillis = txMillis;
-        this.lockMillis = requestedLockMillis;
-        if (owner instanceof AbstractRoutingDataSource || owner instanceof DelegatingDataSource
-                || ownerManager.getDataSource() != owner || owner == runtime.dataSource()
+        this.administration = new JdbcBulkCapacityLocalAdministration(expected, owner, ownerManager,
+                ownerLogin, runtime.roleConfiguration(), transactionBudget, lockBudget);
+        if (owner == runtime.dataSource()
                 || !ownerLogin.equals(runtime.roleConfiguration().expectedSchemaOwnerRole())
                 || !expected.deploymentId().equals(runtime.deploymentId())
                 || !expected.deploymentId().equals(reader.identity().deploymentId())
@@ -85,7 +65,6 @@ final class JdbcBulkCapacityInstallation {
                 || expected.authorityEpoch() != reader.identity().expectedAuthorityEpoch()
                 || provisioner.access() != BulkCapacityAuthorityInfrastructure.Access.PROVISIONER)
             throw new IllegalArgumentException("Capacity installation credential or authority binding differs");
-        this.jdbc = new JdbcTemplate(owner);
     }
 
     /** Fixes the physical identity once; a repeated call may only observe the exact same marker. */
@@ -198,63 +177,17 @@ final class JdbcBulkCapacityInstallation {
         return inserted;
     }
 
-    /** Terminal local fence. It serializes with installation on the singleton marker row. */
+    /** Terminal local fence, confirmed by the shared owner-local readback protocol. */
     void fence() {
-        outsideTransaction();
-        withOwner((connection, deadline) -> {
-            Marker marker = lockMarker(connection);
-            requireExpected(marker);
-            if (!"FENCED".equals(marker.state())) {
-                try (var update = connection.prepareStatement(
-                        "update " + MARKER + " set state='FENCED' where marker_id=1")) {
-                    if (update.executeUpdate() != 1)
-                        throw new IllegalStateException("Capacity fence lost");
-                }
-            }
-            return null;
-        });
+        administration.fence();
     }
 
-    private <T> T withOwner(OwnerWork<T> work) {
-        outsideTransaction();
-        var transaction = new TransactionTemplate(ownerManager);
-        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
-        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
-        transaction.setTimeout(transactionSeconds);
-        long deadline = System.nanoTime() + transactionMillis * 1_000_000;
-        return transaction.execute(status -> jdbc.execute((ConnectionCallback<T>) connection -> {
-            if (!TransactionSynchronizationManager.isActualTransactionActive()
-                    || !TransactionSynchronizationManager.isSynchronizationActive()
-                    || connection.getAutoCommit() || connection.isReadOnly()
-                    || !DataSourceUtils.isConnectionTransactional(
-                            DataSourceUtils.getTargetConnection(connection), owner))
-                throw new IllegalStateException("Capacity owner transaction is not bound to its JDBC connection");
-            constrainTimeouts(connection, deadline);
-            try (var statement = connection.createStatement();
-                    var rows = statement.executeQuery("select current_user")) {
-                if (!rows.next() || !ownerLogin.equals(rows.getString(1)) || rows.next())
-                    throw new IllegalStateException("Capacity owner credential changed");
-            }
-            BulkExecutionMigrator.validateCapacityInstallationCatalog(connection,
-                    runtime.roleConfiguration());
-            constrainTimeouts(connection, deadline);
-            T result = work.run(connection, deadline);
-            requireRemaining(deadline);
-            return result;
-        }));
+    private <T> T withOwner(JdbcBulkCapacityLocalAdministration.OwnerWork<T> work) {
+        return administration.withOwner(work);
     }
 
     private void constrainTimeouts(Connection connection, long deadline) throws SQLException {
-        long statement = requireRemaining(deadline);
-        long lock = Math.min(lockMillis, statement);
-        try (var sql = connection.createStatement()) {
-            sql.execute("select set_config('statement_timeout', case when current_setting('statement_timeout')='0' "
-                    + "or current_setting('statement_timeout')::interval > interval '" + statement
-                    + " milliseconds' then '" + statement + "ms' else current_setting('statement_timeout') end, true), "
-                    + "set_config('lock_timeout', case when current_setting('lock_timeout')='0' "
-                    + "or current_setting('lock_timeout')::interval > interval '" + lock
-                    + " milliseconds' then '" + lock + "ms' else current_setting('lock_timeout') end, true)");
-        }
+        administration.constrainTimeouts(connection, deadline);
     }
 
     private void witnessRuntimeOnSameDatabase(Connection ownerConnection, long deadline) throws SQLException {
@@ -298,17 +231,7 @@ final class JdbcBulkCapacityInstallation {
     }
 
     private Marker lockMarker(Connection connection) throws SQLException {
-        try (var statement = connection.prepareStatement("select * from " + MARKER + " where marker_id=1 for update");
-                var rows = statement.executeQuery()) {
-            if (!rows.next()) throw new IllegalStateException("Capacity marker is absent");
-            Marker marker = new Marker(rows.getObject("database_id", UUID.class), rows.getString("deployment_id"),
-                    rows.getString("tenant_id"), rows.getString("environment"), rows.getString("binding_id"),
-                    rows.getLong("binding_generation"), rows.getObject("attestation_id", UUID.class),
-                    rows.getObject("authority_id", UUID.class), rows.getLong("authority_epoch"),
-                    rows.getString("state"));
-            if (rows.next()) throw new IllegalStateException("Multiple capacity markers");
-            return marker;
-        }
+        return administration.lockMarker(connection);
     }
 
     private Installation readInstallation(Connection connection, UUID tokenId) throws SQLException {
@@ -343,16 +266,7 @@ final class JdbcBulkCapacityInstallation {
     }
 
     private void requireExpected(Marker marker) {
-        if (marker == null || !expected.databaseId().equals(marker.databaseId())
-                || !expected.deploymentId().equals(marker.deploymentId())
-                || !expected.tenantId().equals(marker.tenantId())
-                || !expected.environment().equals(marker.environment())
-                || !expected.bindingId().equals(marker.bindingId())
-                || expected.generation() != marker.generation()
-                || !expected.attestationId().equals(marker.attestationId())
-                || !expected.authorityId().equals(marker.authorityId())
-                || expected.authorityEpoch() != marker.authorityEpoch())
-            throw new IllegalStateException("Capacity marker differs from trusted provisioning identity");
+        administration.requireExpected(marker);
     }
 
     private void requireExpected(JdbcBulkCapacityIssuer.Attestation attestation) {
@@ -400,27 +314,9 @@ final class JdbcBulkCapacityInstallation {
             throw new IllegalStateException("Installed capacity right differs from authenticated token");
     }
 
-    private static long requireRemaining(long deadline) {
-        long remaining = (deadline - System.nanoTime()) / 1_000_000;
-        if (remaining <= 0)
-            throw new IllegalStateException("Capacity installation time budget expired");
-        return remaining;
-    }
-
-    @FunctionalInterface
-    private interface OwnerWork<T> {
-        T run(Connection connection, long deadline) throws SQLException;
-    }
-
     private static void outsideTransaction() {
-        if (TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isSynchronizationActive())
-            throw new IllegalStateException("Capacity installation rejects an outer transaction");
+        JdbcBulkCapacityLocalAdministration.outsideTransaction();
     }
-
-    private record Marker(UUID databaseId, String deploymentId, String tenantId, String environment,
-                          String bindingId, long generation, UUID attestationId, UUID authorityId,
-                          long authorityEpoch, String state) { }
 
     private record Installation(UUID tokenId, UUID requestId, String deploymentId, String tenantId,
                                 String environment, String bindingId, long bindingGeneration,
