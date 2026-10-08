@@ -20,7 +20,7 @@
 
 - Operações em lote metadata-driven: [lifecycle governado](BULK-OPERATION-LIFECYCLE.md) especifica provider, perfil efetivo, composição e publication/suspension duráveis do descriptor. Não expõe endpoints ou capability bulk; a adoção produtiva é um gate separado.
 
-- Capacity bulk: [ocupação e provas privadas](BULK-CAPACITY-OCCUPANCY.md), incluindo cópia física fria em dois clusters sob quarentena e recusa após reinícios. Esse corte não certifica HA, antirollback, custódia produtiva, C1b/C2 integral ou publicação de worker ASYNC.
+- Capacity bulk: [ocupação e provas privadas](BULK-CAPACITY-OCCUPANCY.md), incluindo cópia física fria em dois clusters, contraprova de rollback da autoridade com UUID/epoch iguais e quarentena externa com recusa após reinícios. Esse corte não certifica HA, antirollback, custódia produtiva, C1b/C2 integral ou publicação de worker ASYNC.
 
 - Charts metadata-driven: `x-ui-chart-rfc.md`
   - define a direcao canonica de `x-ui.chart` como extensao governada da plataforma
