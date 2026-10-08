@@ -1,3 +1,7 @@
+> **Desenho histórico de 08/10/2026.** Baseline do desenho: `b35483beac248c20bc107dd9e966a7a70a7d67a2`, antes da implementação e das campanhas do worker. Expressões como “sem worker implementado”, “nenhum build” e “revisão pendente” abaixo descrevem aquele momento; não são o estado atual.
+>
+> Consulte o [status atual](BULK-DURABLE-WORKER-B5B2-STATUS.md) e o [runbook owner/cutover](BULK-DURABLE-WORKER-OWNER-UPGRADE.md). Fluxos, ordem de locks e parâmetros propostos abaixo permanecem como registro do desenho original. A implementação canônica, o status e o runbook governam a operação corrente, incluindo o lock de publicação GLOBAL e os limites das provas qualificadas. Integração do candidato privado não significa conclusão B5b.2, publicação, adoção no host ou READY público.
+
 # B5b.2 — worker durável protegido (desenho para revisão)
 
 Estado: proposta de implementação, sem worker implementado ou validação dinâmica nova. Não habilita ASYNC público, HTTP 202, READY, host, Angular ou release.
