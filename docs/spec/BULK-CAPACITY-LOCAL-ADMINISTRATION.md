@@ -1,8 +1,9 @@
 # Local capacity administration — C0-04 candidate
 
 Status: private SDK source, 20 focal PostgreSQL/JVM/input tests and packaged-host
-proof have independent review. Final documentation/guidance and integration,
-public release and adoption remain separate pending gates. Published Metadata
+proof have independent review. SDK PR250, host PR409 and guidance PR710 are
+integrated into their canonical mains; the two skills were synchronized selectively.
+Public release and adoption remain pending gates. Published Metadata
 `8.0.0-rc.154` does not contain this entry. Do not present it as an installed
 container command.
 
@@ -239,14 +240,16 @@ complete packaged classpath before using the command; do not filter stdout or
 suppress the warning as a substitute for correcting composition.
 
 The packaged-host raw/source/artifact/cleanup evidence has independent review.
-Pending: final docs review, canonical skill
-update/integration/selective sync and reviewed PR/main integration.
+SDK and host source, runtime and editorial reviews are accepted. The code/docs
+were integrated through SDK PR250 and host PR409, and canonical guidance through
+PR710 with selective synchronization of two skills. Public release/adoption and
+installed container packaging/execution remain separate pending gates.
 No release or adoption is recorded.
 
 | Milestone | Meaning | C0-04 current state |
 | --- | --- | --- |
 | Candidate source | Implementation exists in an isolated worktree | Reviewed; 20 focal SDK tests passed; private artifact packaged |
-| Integrated | Reviewed increment is merged into canonical main | Operational code pending; planning PR408 integrated separately |
+| Integrated | Reviewed increment is merged into canonical main | SDK PR250 and host PR409 integrated; planning PR408 retained |
 | Published | Official release artifact is publicly available and verified | Pending; rc.154 does not contain this entry |
 | Adopted | Host pins and validates that public release without local override | Pending |
 | Consumer proved | Real packaged consumer runs the exact entry/artifact with recorded evidence | Private candidate proof passed and independently reviewed |
