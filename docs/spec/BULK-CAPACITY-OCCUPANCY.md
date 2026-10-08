@@ -480,3 +480,52 @@ public ASYNC/READY or an administrative deployment API. No new Maven release.
 ```bash
 mvn -B '-Dtest=BulkCapacityExternalQuarantinePostgresTest#externalHbaQuarantinesGenuineCloneAndRetiredOriginAcrossJvmRestart,BulkCapacityOccupancyPostgresTest#enqueueCommitsQueuedLedgerAndQueueOccupationAndReplaysTheSameIdentity' '-Dpraxis.bulk.proof.directory=target/external-quarantine-proof' test
 ```
+
+## Cooperative provisioning interlock (C0-03, private bounded proof)
+
+`BulkCapacityProvisioningInterlockPostgresTest` adds four private PostgreSQL
+focals: terminal retirement across administrative JVM restart; real process death
+at three barriers; contention/timeout and stale CAS between two JVMs; invalid,
+missing or mismatched provenance rejected without healing. The corrective campaign
+passed four tests with zero failures/errors/skips on Java21.0.10/PostgreSQL14.22,
+with atomic replacement and directory force supported on the observed APFS store.
+Run only the four new focals, with Java21 and the project's official Maven settings,
+cache/resource ownership and PostgreSQL fixture prerequisites. Choose an absolute,
+NEW evidence directory for each campaign; do not reuse or overwrite one:
+
+```bash
+mvn -B -ntp -Dtest=BulkCapacityProvisioningInterlockPostgresTest \
+  -Dpraxis.bulk.proof.directory=/absolute/new-evidence-directory test
+```
+
+The class creates private administrative fixtures and owned PostgreSQL resources;
+this command does not install public coordinates or configure a production host.
+The failed first campaign remains evidence: fixture and parent exporters collided
+on the same name. Their manifests are now separate, and overwrite stays forbidden.
+
+The private journal carries the complete existing `ExpectedBinding`, format,
+sequence and KNOWN/INTENT/RETIRED states. Its stable lock file is separate from
+replaceable data. Authoritative read/validation/CAS run under one exclusive
+cooperative FileLock across JVMs. Intent is forced before HBA/fence; confirmation
+requires effective native connection denial, tuple-specific writer exclusion,
+physical absence, marker readback and unchanged genuine SYNC/ASYNC prefix/authority.
+Incomplete intent may reapply exclusion and obtain fresh readbacks; it cannot
+reopen the origin, reissue rights or mutate domain. Crash barriers remain outside
+unit transactions. Missing/corrupt/unsupported-format/overflow/digest/binding/CAS
+errors deny new starts before administrative SQL and never create a replacement.
+
+C0-03 child JVMs are trusted ADMINISTRATIVE agents and receive private owner and
+provisioner credentials for this procedure. They are not HTTP workers or runtime
+executors. C0-02 runtime JVMs still receive only runtime credentials. Keep that
+boundary explicit; neither proof teaches granting owner/issuer credentials to an
+application runtime. Parent configuration is private, removed on cleanup, and is
+never exported in logs, argv, manifests or corpus.
+
+This is an internal cooperative reference, not a public provisioning API or host
+recipe. FileLock is advisory; same-UID agents do not prove independent custody.
+Hash/CAS/force/atomic rename do not detect restoration of a valid old journal,
+prove monotonic continuity, power-loss durability, remote-filesystem guarantees,
+HA or PostgreSQL restart. Invalid boot provenance blocks new starts, but does not
+by itself evict existing writers. C0 integral, C1b/C2, worker and public deployment
+retain their own gates. No production/POM/migration change or Angular follows from
+these four focals alone.
