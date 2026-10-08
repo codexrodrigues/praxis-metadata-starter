@@ -4,6 +4,13 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
 
+### C0-04 — administração local candidata
+
+- Acrescenta `BulkCapacityLocalAdministrationMain` como entrada operacional INSPECT/FENCE com JSON estrito privado, OWNER e vínculo completo explícitos. INSPECT não inicializa; FENCE revalida catálogo sob lock e só confirma após commit conhecido e readback independente. Código local é compartilhado com Installation; sem migração nova ou exposição do núcleo interno.
+- Prazo agregado de 20 segundos, lock de três segundos e limites de driver mais estritos permanecem. Resultados tardios/incertos negam confirmação e exigem reconciliação explícita, sem retry, refund ou reabertura automáticos.
+- 20 testes focais SDK sem falhas/erros/skips e prova candidata do JAR Quickstart com seis JVMs separadas; provas não equivalem a publicação ou adoção pública. A composição do host conserva spring-jcl e exclui o commons-logging redundante que contaminava stdout.
+- Ver [contrato, operação e limites](docs/spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.md). Wrapper Docker instalado, sessões/cópias, custódia e continuidade/start/restore continuam gates separados; sem C0/C2 integral, worker, READY ou Angular.
+
 ### B5b.1b.A — instalação inicial
 
 - Evolui a autoridade para V2 com leitura individual autenticada e atestado imutável; V18 acrescenta marker local que fixa banco, binding, autoridade UUID/epoch e atestado, além da instalação owner-only. Runtime recebe apenas SELECT local; não há credencial de alocação no leitor.

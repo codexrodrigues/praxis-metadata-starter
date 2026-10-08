@@ -641,3 +641,12 @@ start/restore supervision, full C0/C1b/C2, public worker/ASYNC/READY or Angular
 readiness. Fixture allowance six minutes, unit five seconds, native lock three
 seconds and installation twenty seconds are distinct and unchanged. No production,
 POM, migration, release or host runtime change follows from this proof.
+
+## Local administrative consumer (C0-04, candidate)
+
+The [local administration contract](BULK-CAPACITY-LOCAL-ADMINISTRATION.md) describes
+the functional candidate INSPECT/FENCE entry without constructing a global reader
+or provisioning agent. Twenty focal SDK tests and the separate packaged-consumer
+proof passed against a private candidate; final review, guidance and integration
+remain separate from public release/adoption. It does not reinterpret C2-a as a certified local fence, install
+a command into rc.154, or close production custody, continuity or start/restore.
