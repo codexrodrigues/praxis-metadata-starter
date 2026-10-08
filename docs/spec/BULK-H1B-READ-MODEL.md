@@ -1031,6 +1031,55 @@ esse tamanho. Não certifica SLA, heap do driver em qualquer carga, HTTP,
 cursores públicos, tombstones autorizados ou backend completo. `fetchSize(1)`
 permanece estratégia conservadora, não uma garantia geral de memória.
 
+## B5c — composição autorizada RS2 com 10.000 alvos
+
+Em 08/10/2026, `BulkAuthorizedProposalResultsCapacityPostgresTest` passou
+2/2, sem falhas/erros/skips, contra a fonte da tag pública Metadata rc.154
+`7c974b5228d1f78fb82f3bc180c1940a886c6275`. Fonte do teste SHA256
+`e9d0aca1d27c41dac49e8e191202d2ccea03e081d597b47e5c9c146cf5e08b5e`,
+809 fontes/POM conferidos sem drift durante a campanha. Ambiente PostgreSQL14.22,
+Java21.0.10, Maven3.9.15, macOS26.6.2 arm64, heap máximo256MiB. Receita focal:
+
+```sh
+mvn -B -Dpraxis.bulk.capacity=true -Dtest=BulkAuthorizedProposalResultsCapacityPostgresTest -DfailIfNoTests=true -DargLine=-Xmx256m test
+```
+
+A prova chama a composição canônica autorizada, não apenas o reader de storage:
+50 páginas encadeadas de200,10.000 identidades sem duplicação/omissão, cursores
+reais com janela fixa, tamanhos199/200 aceitos e201 rejeitado antes da transação.
+Cada request reautoriza todos os10.000 alvos com grants reais PostgreSQL, na conexão
+operacional Spring já vinculada ao snapshot REPEATABLE READ READ ONLY. O grant
+global continua ALLOWED enquanto owner revoga o último alvo fora da página;
+leitura inicial e continuação negam integralmente, sem página/cursor/efeitos.
+Runtime tem SELECT nos grants e não INSERT/UPDATE/DELETE. Proposta, avaliação,
+manifest, projeção e estado durável conservam-se, com zero execution/admission/receipt.
+
+A campanha de64,659s registrou55 autorizações completas; as50 páginas medidas
+somaram48.227,597ms, com maior request1.423,648ms e budget nativo3.000ms intacto.
+Proposta450.396bytes, avaliação2.600.695bytes, diagnostics5.830.000bytes,
+maior página pública134.161bytes. Heap antes/depois69.234.960/51.990.328bytes,
+soma dos picos de pools217.250.840bytes, máximo268.435.456bytes;
+269 coletas/542ms de GC. Medições incluem o harness e BitSet do oráculo;
+soma de picos não é pico simultâneo/RSS, nem demonstra O(page) ou SLA.
+
+A integração foi validada separadamente contra main privada
+`86c2f9a865b74259d0e9ee621010f88230f01288`, com19 migrations: adaptação do teste
+restrita à expectativa fixa17→19, SHA256
+`7a815916137b863d9a1d2997e3c2a1bce16c79027a8aa358a59f6e8370b4fd69`.
+Campanha distinta2/2, sem falhas/erros/skips,71,143s;840 fontes/POM e ZIP exatos.
+Mesmos55 checks/50 páginas/10.000 alvos; maior leitura1.450,580ms,
+total53.890,045ms. Heap antes/depois76.021.760/60.716.800bytes,
+soma picos215.482.368bytes,301coletas/565ms deGC. Launcher e postmaster
+próprios encerrados. A evidência da fonte rc.154 continua preservada e não é
+substituída por esta prova da árvore privada; nenhuma nova versão foi publicada.
+
+Essa caracterização cobre a composição autorizada neste harness. Não prova
+HTTP200, autorização corporativa universal, cold-start/concorrência/pool de
+produção, outras identidades, RS3/RS4, C0/restore ou backend completo. Não altera
+núcleo/POM/contratos públicos nem exige instalar bytes sob coordenada publicada.
+Sem override ou adoção nova do host neste corte; SDK source tag e artefato público
+não são confundidos. Teste opt-in: suite sem a propriedade não conta como execução.
+
 ## G3c-a — resumo autorizado da execução e tombstone
 
 A composição server-side `BulkAuthorizedExecutionReader` recebe infraestrutura,
