@@ -1608,6 +1608,14 @@ class BulkDurableMigrationPostgresTest {
     }
 
     /** Explicit host grants for a newly configured runtime role after a completed HEAD migration. */
+    private static void grantCapacityOccupancyRuntimeAccessForFreshRole(JdbcTemplate sql, String role) {
+        String quoted = '"' + role.replace("\"", "\"\"") + '"';
+        sql.execute("grant select on praxis_bulk.praxis_bulk_capacity_slot, "
+                + "praxis_bulk.praxis_bulk_capacity_occupation to " + quoted);
+        sql.execute("grant execute on function praxis_bulk.lock_capacity_marker(), "
+                + "praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to " + quoted);
+    }
+
     private static void grantAtomicRuntimeAccessForFreshRole(JdbcTemplate sql, String role) {
         for (String table : atomicRuntimeTables())
             sql.execute("grant select, insert on praxis_bulk." + table + " to " + role);
@@ -1679,34 +1687,41 @@ class BulkDurableMigrationPostgresTest {
         }
     }
 
+    /** Genuine historical DDL, transferred to the documented LOGIN/INHERIT/CREATEROLE owner. */
+    private static DriverManagerDataSource createDedicatedV7SchemaOwner(EmbeddedPostgres postgres,
+                                                                       DataSource admin) {
+        var sql = new JdbcTemplate(admin);
+        Flyway.configure().dataSource(admin).locations("classpath:db/praxis-bulk-migrations")
+                .schemas("praxis_bulk").defaultSchema("praxis_bulk")
+                .table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true)
+                .target("7").load().migrate();
+        sql.execute("create role bulk_schema_owner login createrole");
+        sql.execute("""
+                do $$ declare item record; begin
+                  for item in select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                       where n.nspname='praxis_bulk' and c.relkind in ('r','p')
+                       and c.relowner=(select oid from pg_roles where rolname='postgres') loop
+                    execute format('alter table praxis_bulk.%I owner to bulk_schema_owner',item.relname);
+                  end loop;
+                  for item in select p.oid::regprocedure as signature from pg_proc p
+                       join pg_namespace n on n.oid=p.pronamespace where n.nspname='praxis_bulk'
+                       and p.proowner=(select oid from pg_roles where rolname='postgres') loop
+                    execute format('alter function %s owner to bulk_schema_owner',item.signature);
+                  end loop;
+                  alter schema praxis_bulk owner to bulk_schema_owner;
+                end $$
+                """);
+        return new DriverManagerDataSource(postgres.getJdbcUrl("bulk_schema_owner", "postgres"),
+                "bulk_schema_owner", "");
+    }
+
     @Test
     void v10MigrationRunsAsDedicatedNonSuperuserOwner() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start()) {
             var admin = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(admin);
-            Flyway.configure().dataSource(admin).locations("classpath:db/praxis-bulk-migrations")
-                    .schemas("praxis_bulk").defaultSchema("praxis_bulk")
-                    .table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true)
-                    .target("7").load().migrate();
-            sql.execute("create role bulk_schema_owner login createrole");
-            sql.execute("""
-                    do $$ declare item record; begin
-                      for item in select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
-                           where n.nspname='praxis_bulk' and c.relkind in ('r','p')
-                           and c.relowner=(select oid from pg_roles where rolname='postgres') loop
-                        execute format('alter table praxis_bulk.%I owner to bulk_schema_owner',item.relname);
-                      end loop;
-                      for item in select p.oid::regprocedure as signature from pg_proc p
-                           join pg_namespace n on n.oid=p.pronamespace where n.nspname='praxis_bulk'
-                           and p.proowner=(select oid from pg_roles where rolname='postgres') loop
-                        execute format('alter function %s owner to bulk_schema_owner',item.signature);
-                      end loop;
-                      alter schema praxis_bulk owner to bulk_schema_owner;
-                    end $$
-                    """);
-            var owner = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_schema_owner", "postgres"),
-                    "bulk_schema_owner", "");
+            var owner = createDedicatedV7SchemaOwner(postgres, admin);
             String guardAclBefore = sql.queryForObject("select proacl::text from pg_proc where oid="
                     + "'praxis_bulk.guard_terminal_execution()'::regprocedure", String.class);
             assertThat(new JdbcTemplate(owner).queryForObject(
@@ -1738,6 +1753,19 @@ class BulkDurableMigrationPostgresTest {
                     java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles))
                     .isZero();
             BulkExecutionMigrator.validate(owner,roles);
+            assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap",
+                    String.class)).isEqualTo("COMPLETE");
+            assertNoCapacityOwnerCapability(sql, "bulk_schema_owner");
+            assertNoCapacityOwnerCapability(sql, "bulk_runtime_test");
+            var completeSnapshot = occupancyBootstrapAuthoritySnapshot(sql);
+            assertThat(BulkExecutionMigrator.migrate(owner,
+                    java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID), roles)).isZero();
+            assertThat(occupancyBootstrapAuthoritySnapshot(sql)).isEqualTo(completeSnapshot);
+            try (var runtime = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_runtime_test", "postgres"),
+                    "bulk_runtime_test", "").getConnection(); var statement = runtime.createStatement()) {
+                assertThatThrownBy(() -> statement.execute("set role praxis_bulk_capacity_owner"))
+                        .isInstanceOf(SQLException.class).extracting("SQLState").isEqualTo("42501");
+            }
             assertThat(sql.queryForObject("""
                     select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
                     """,Boolean.class)).isTrue();
@@ -1760,6 +1788,180 @@ class BulkDurableMigrationPostgresTest {
                      where c.oid='praxis_bulk.praxis_bulk_target_manifest'::regclass
                     """,String.class)).isEqualTo("bulk_schema_owner");
         }
+    }
+
+    @Test
+    void v19OccupancyBootstrapRollsBackOwnerMembershipAclAndPhaseOnSqlFailure() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start()) {
+            var admin = postgres.getPostgresDatabase();
+            var observer = new JdbcTemplate(admin);
+            var owner = createDedicatedV7SchemaOwner(postgres, admin);
+            BulkPostgresTestSupport.grantRuntimeRole(admin, "bulk_runtime_test");
+            // DDL-only PENDING fixture: this proves the V19 owner bootstrap transaction,
+            // not serving readiness or a one-connection pool for public migration.
+            Flyway.configure().dataSource(owner).locations("classpath:db/praxis-bulk-migrations")
+                    .schemas("praxis_bulk").defaultSchema("praxis_bulk")
+                    .table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true)
+                    .load().migrate();
+            var roles = new BulkExecutionRoleConfiguration("bulk_schema_owner",
+                    java.util.Set.of("bulk_runtime_test"), java.util.Set.of(), java.util.Set.of());
+            var pending = occupancyBootstrapAuthoritySnapshot(observer);
+            assertThat(observer.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap",
+                    String.class)).isEqualTo("PENDING");
+            try (var pool = new com.zaxxer.hikari.HikariDataSource()) {
+                pool.setDataSource(owner);
+                pool.setMaximumPoolSize(1);
+                pool.setMinimumIdle(1);
+                pool.setConnectionTimeout(1000);
+                java.util.Map<String, Object> before;
+                try (var connection = pool.getConnection()) {
+                    before = bootstrapOwnerSession(connection);
+                    assertThat(connection.getAutoCommit()).isTrue();
+                }
+                var transaction = new TransactionTemplate(new DataSourceTransactionManager(pool));
+                transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+                transaction.setTimeout(10);
+                var ownerSql = new JdbcTemplate(pool);
+                assertThatThrownBy(() -> transaction.execute(status -> ownerSql.execute(
+                        (org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+                            try (var statement = connection.createStatement()) {
+                                statement.execute("set local search_path to pg_catalog");
+                            }
+                            BulkCapacityOccupancyCatalog.bootstrap(connection, roles);
+                            assertThat(bootstrapOwnerSession(connection).get("current_user"))
+                                    .isEqualTo("bulk_schema_owner");
+                            assertThat(ownerSql.queryForObject(
+                                    "select phase from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap",
+                                    String.class)).isEqualTo("COMPLETE");
+                            assertNoCapacityOwnerCapability(ownerSql, "bulk_schema_owner");
+                            assertThat(ownerSql.queryForObject("select has_function_privilege('bulk_runtime_test', "
+                                    + "'praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint)','EXECUTE')",
+                                    Boolean.class)).isTrue();
+                            // Genuine SQL abort after grants/completion: the existing owner TX
+                            // must roll back all effects, without any commit fault or proxy.
+                            try (var statement = connection.createStatement()) {
+                                statement.execute("select 1/0");
+                            }
+                            return null;
+                        }))).isInstanceOf(org.springframework.dao.DataAccessException.class)
+                        .hasRootCauseInstanceOf(SQLException.class)
+                        .satisfies(error -> assertThat(((SQLException) error.getCause()).getSQLState())
+                                .isEqualTo("22012"));
+                try (var connection = pool.getConnection()) {
+                    assertThat(connection.getAutoCommit()).isTrue();
+                    assertThat(bootstrapOwnerSession(connection)).isEqualTo(before);
+                }
+                assertThat(occupancyBootstrapAuthoritySnapshot(observer)).isEqualTo(pending);
+                assertNoCapacityOwnerCapability(observer, "bulk_schema_owner");
+                assertNoCapacityOwnerCapability(observer, "bulk_runtime_test");
+                assertThat(pool.getHikariPoolMXBean().getActiveConnections()).isZero();
+                assertThat(pool.getHikariPoolMXBean().getThreadsAwaitingConnection()).isZero();
+            }
+        }
+    }
+
+    @Test
+    void v19OccupancyBootstrapPreservesExplicitSessionRoleAcrossCommitAndCompleteReplay() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start()) {
+            var admin = postgres.getPostgresDatabase();
+            var observer = new JdbcTemplate(admin);
+            var owner = createDedicatedV7SchemaOwner(postgres, admin);
+            BulkPostgresTestSupport.grantRuntimeRole(admin, "bulk_runtime_test");
+            Flyway.configure().dataSource(owner).locations("classpath:db/praxis-bulk-migrations")
+                    .schemas("praxis_bulk").defaultSchema("praxis_bulk")
+                    .table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true)
+                    .load().migrate();
+            var roles = new BulkExecutionRoleConfiguration("bulk_schema_owner",
+                    java.util.Set.of("bulk_runtime_test"), java.util.Set.of(), java.util.Set.of());
+            try (var pool = new com.zaxxer.hikari.HikariDataSource()) {
+                // Same owner login; an explicit session role must survive local role
+                // restoration on commit. This is bootstrap-only, not public migrate.
+                pool.setDataSource(owner);
+                pool.setMaximumPoolSize(1);
+                pool.setMinimumIdle(1);
+                pool.setConnectionTimeout(1000);
+                pool.setConnectionInitSql("set role bulk_schema_owner");
+                java.util.Map<String, Object> before;
+                try (var connection = pool.getConnection()) {
+                    before = bootstrapOwnerSession(connection);
+                    assertThat(before.get("role")).isEqualTo("bulk_schema_owner");
+                }
+                var transaction = new TransactionTemplate(new DataSourceTransactionManager(pool));
+                transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+                transaction.setTimeout(10);
+                var ownerSql = new JdbcTemplate(pool);
+                for (int attempt = 0; attempt < 2; attempt++) {
+                    var beforeReplay = attempt == 0 ? null : occupancyBootstrapAuthoritySnapshot(observer);
+                    transaction.execute(status -> ownerSql.execute(
+                            (org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+                                try (var statement = connection.createStatement()) {
+                                    statement.execute("set local search_path to pg_catalog");
+                                }
+                                BulkCapacityOccupancyCatalog.bootstrap(connection, roles);
+                                assertThat(bootstrapOwnerSession(connection).get("role"))
+                                        .isEqualTo("bulk_schema_owner");
+                                return null;
+                            }));
+                    try (var connection = pool.getConnection()) {
+                        assertThat(connection.getAutoCommit()).isTrue();
+                        assertThat(bootstrapOwnerSession(connection)).isEqualTo(before);
+                    }
+                    assertThat(observer.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap",
+                            String.class)).isEqualTo("COMPLETE");
+                    assertNoCapacityOwnerCapability(observer, "bulk_schema_owner");
+                    assertNoCapacityOwnerCapability(observer, "bulk_runtime_test");
+                    if (beforeReplay != null) {
+                        assertThat(occupancyBootstrapAuthoritySnapshot(observer)).isEqualTo(beforeReplay);
+                    }
+                }
+            }
+        }
+    }
+
+    private static java.util.Map<String, Object> bootstrapOwnerSession(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                "select current_user,session_user,current_setting('role'),current_setting('search_path'),pg_backend_pid()")) {
+            assertThat(rows.next()).isTrue();
+            var result = java.util.Map.<String, Object>of("current_user", rows.getString(1),
+                    "session_user", rows.getString(2), "role", rows.getString(3),
+                    "search_path", rows.getString(4), "pid", rows.getInt(5));
+            assertThat(rows.next()).isFalse();
+            return result;
+        }
+    }
+
+    private static void assertNoCapacityOwnerCapability(JdbcTemplate sql, String role) {
+        assertThat(sql.queryForObject("select pg_has_role(?, 'praxis_bulk_capacity_owner', 'MEMBER')",
+                Boolean.class, role)).isFalse();
+        assertThat(sql.queryForObject("""
+                select count(*) from pg_auth_members m join pg_roles r
+                  on r.oid=m.roleid or r.oid=m.member where r.rolname='praxis_bulk_capacity_owner'
+                """, Integer.class)).isZero();
+    }
+
+    private static java.util.Map<String, Object> occupancyBootstrapAuthoritySnapshot(JdbcTemplate sql) {
+        return java.util.Map.of(
+                "phase", sql.queryForList("select * from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap"),
+                "tables", sql.queryForList("""
+                        select c.relname,c.relowner,c.relacl::text as acl from pg_class c
+                        join pg_namespace n on n.oid=c.relnamespace where n.nspname='praxis_bulk'
+                          and c.relname in ('praxis_bulk_capacity_slot','praxis_bulk_capacity_occupation',
+                                           'praxis_bulk_capacity_occupancy_bootstrap') order by c.relname
+                        """),
+                "functions", sql.queryForList("""
+                        select p.oid,p.proowner,p.proacl::text as acl from pg_proc p
+                        where p.oid in ('praxis_bulk.lock_capacity_marker()'::regprocedure,
+                          'praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint)'::regprocedure)
+                        order by p.oid
+                        """),
+                "memberships", sql.queryForList("""
+                        select m.* from pg_auth_members m join pg_roles r
+                          on r.oid=m.roleid or r.oid=m.member where r.rolname='praxis_bulk_capacity_owner'
+                        order by m.roleid,m.member,m.grantor
+                        """),
+                "history", sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank"));
     }
 
     @Test
@@ -2233,6 +2435,7 @@ class BulkDurableMigrationPostgresTest {
             sql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             sql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
             grantAtomicRuntimeAccessForFreshRole(sql, "bulk_runtime");
+            grantCapacityOccupancyRuntimeAccessForFreshRole(sql, "bulk_runtime");
             sql.execute("grant select on praxis_bulk.praxis_bulk_capacity_marker, "
                     + "praxis_bulk.praxis_bulk_capacity_installation to bulk_runtime");
             var configured = new BulkExecutionRoleConfiguration("postgres",
@@ -2311,6 +2514,7 @@ class BulkDurableMigrationPostgresTest {
             sql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to bulk_runtime");
             sql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to bulk_runtime");
             grantAtomicRuntimeAccessForFreshRole(sql, "bulk_runtime");
+            grantCapacityOccupancyRuntimeAccessForFreshRole(sql, "bulk_runtime");
             sql.execute("grant select on praxis_bulk.praxis_bulk_capacity_marker, "
                     + "praxis_bulk.praxis_bulk_capacity_installation to bulk_runtime");
             sql.execute("grant execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) to bulk_control");

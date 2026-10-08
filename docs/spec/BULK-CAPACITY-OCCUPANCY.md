@@ -1,9 +1,10 @@
 # Protected local capacity occupancy — B5b.1b.B candidate
 
-This is an internal Metadata source candidate. It is **not available in Metadata
-`8.0.0-rc.154`** and has not been integrated or published. The current evidence covers
-29 distinct B cases by composition of focused PostgreSQL campaigns; the B acceptance
-matrix remains incomplete. No public ASYNC profile, READY admission, HTTP202 endpoint,
+The protected kernel is integrated in Metadata source, including the C0-04 local
+administration increment (PR250). It is **not available in Metadata
+`8.0.0-rc.154`**; publication and public host adoption remain pending. The historical
+B evidence covers 29 distinct cases by composition of focused PostgreSQL campaigns;
+the B acceptance matrix remains incomplete. No public ASYNC profile, READY admission, HTTP202 endpoint,
 worker, host adoption or complete backend acceptance follows from this kernel.
 
 The canonical implementation is in Metadata, not the host. The protected kernel extends
@@ -90,6 +91,33 @@ V19 PENDING provisioning, exact runtime grants and completion CAS share the owne
 transaction. COMPLETE only validates. Removed or extra grants, grant options, changed
 owners/membership, function bodies/search paths, triggers or constraints must not cause
 silent repair. Migration history or a captured live definition cannot legitimize drift.
+
+During genuine PENDING provisioning, the schema owner grants the slot/history reads
+under its own authority. The two capacity functions belong to `praxis_bulk_capacity_owner`;
+the owner transaction temporarily grants membership to the schema owner and uses
+`SET LOCAL ROLE praxis_bulk_capacity_owner` exclusively for their bounded EXECUTE grants. It
+restores the original local role, revokes membership, validates the final catalog
+and ACLs, and only then publishes COMPLETE. No permanent membership or grant option remains. SQL/runtime
+failure propagates to the owning transaction rollback; no cleanup SQL is attempted
+inside an aborted transaction, and no session-wide RESET ROLE is used.
+
+The corrective focal campaign at source `ac11bcfc745162ffeacefd3fe81ba361534c66a4`
+passed 14 outer cases, including a fresh committed-JAR consumer. Its nested consumer
+case is recorded separately. Two pooled DDL-only bootstrap cases prove rollback of
+ACL/membership/phase after a subsequent SQL failure and restoration of an explicit
+session role across commit and COMPLETE replay. They do not prove serving traffic,
+public migration on a one-connection pool, or failure while the temporary role is active.
+COMPLETE remains validation-only and never heals grants.
+
+The announced non-superuser OWNER proof is PostgreSQL 14 with LOGIN, INHERIT and
+CREATEROLE, without SUPERUSER or BYPASSRLS. PostgreSQL 16 role-creation membership
+semantics create a separate compatibility risk against the strict membership catalog;
+this is a documented SQL/specification finding, not a reproduced OWNER-16 runtime
+proof. A superuser PostgreSQL 16 HTTP fixture cannot certify that profile. No
+NOINHERIT or cross-version OWNER guarantee follows from these corrective tests.
+See [capacity authority](BULK-CAPACITY-AUTHORITY.md),
+[PostgreSQL 16 role attributes](https://www.postgresql.org/docs/16/role-attributes.html)
+and [GRANT](https://www.postgresql.org/docs/16/sql-grant.html).
 
 Full owner installation validation attests columns, source-owned constraint definitions,
 function bodies/attributes/ACLs, trigger topology/order, roles and stored row relationships.
