@@ -51,6 +51,7 @@ import org.praxisplatform.uischema.rest.response.RestApiResponseTimeSeriesStatsR
 import org.praxisplatform.uischema.rest.response.RestApiResponseComparisonStatsResponse;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
 import org.praxisplatform.uischema.service.base.VersionedCreateUpdateResourceService;
+import org.praxisplatform.uischema.stats.StatsCapability;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
@@ -279,7 +280,11 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     /** Ponte Java usada pelo registry canônico; não publica um endpoint adicional. */
     public final ResourceStructuralCapabilities getStructuralCapabilities() {
-        ResourceStructuralCapabilities capabilities = getService().getStructuralCapabilities();
+        BaseResourceQueryService<ResponseDTO, ID, FD> service = getService();
+        if (service == null) {
+            return ResourceStructuralCapabilities.unsupported();
+        }
+        ResourceStructuralCapabilities capabilities = service.getStructuralCapabilities();
         return capabilities == null ? ResourceStructuralCapabilities.unsupported() : capabilities;
     }
 
@@ -410,6 +415,10 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         Link capabilitiesLink = linkToCollectionCapabilitiesIfAvailable();
         if (capabilitiesLink != null) {
             links.add(capabilitiesLink);
+        }
+        Link statsLink = linkToCollectionStatsIfAvailable();
+        if (statsLink != null) {
+            links.add(statsLink);
         }
         return links;
     }
@@ -691,6 +700,19 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
         }
+    }
+
+    @GetMapping("/stats/capabilities")
+    @Operation(summary = "Descobrir capabilities estatisticas da colecao")
+    public ResponseEntity<StatsCapability> getStatsCapabilities() {
+        if (capabilityService == null) {
+            throw new IllegalStateException("CapabilityService is not configured for contextual discovery.");
+        }
+        CapabilitySnapshot snapshot = capabilityService.collectionCapabilities(getResourceKey(), getBasePath());
+        return withVersion(
+                ResponseEntity.ok(),
+                snapshot.stats()
+        );
     }
 
     @PostMapping("/export")
@@ -1512,6 +1534,17 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return null;
         }
         return Link.of(resourceDiscoveryPath("capabilities"), "capabilities");
+    }
+
+    protected Link linkToCollectionStatsIfAvailable() {
+        if (!StringUtils.hasText(getResourceKeyOrNull()) || capabilityService == null) {
+            return null;
+        }
+        ResourceStructuralCapabilities caps = getStructuralCapabilities();
+        if (caps != null && caps.stats() != null && !caps.stats().fields().isEmpty()) {
+            return Link.of(resourcePath("stats", "capabilities"), "stats");
+        }
+        return null;
     }
 
     protected Link linkToItemCapabilitiesIfAvailable(ID id) {

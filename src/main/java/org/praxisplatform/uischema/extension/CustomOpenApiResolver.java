@@ -8,6 +8,8 @@ import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
+import org.praxisplatform.uischema.annotation.MicroVisualization;
+import org.praxisplatform.uischema.annotation.MicroVisualizationKind;
 import org.praxisplatform.uischema.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
@@ -201,6 +203,7 @@ public class CustomOpenApiResolver extends ModelResolver {
 
         if (annotations != null) {
             applyDomainGovernance(property, annotations);
+            applyMicroVisualization(property, annotations);
         }
         return validatorUpdated;
     }
@@ -2124,6 +2127,80 @@ public class CustomOpenApiResolver extends ModelResolver {
                 "source", "java.annotation",
                 "confidence", governance.confidence()
         ));
+    }
+
+    private void applyMicroVisualization(Schema<?> property, Annotation[] annotations) {
+        MicroVisualization microViz = ResolverUtils.getAnnotation(MicroVisualization.class, annotations);
+        if (microViz == null) {
+            return;
+        }
+
+        Map<String, Object> uiExtension = getUIExtensionMap(property);
+        if (property.getName() != null) {
+            OpenApiUiUtils.populateUiName(uiExtension, property.getName());
+            OpenApiUiUtils.populateUiLabel(uiExtension, property.getTitle(), property.getName());
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> presentation = (Map<String, Object>) uiExtension.computeIfAbsent("presentation", k -> new LinkedHashMap<>());
+        presentation.put("presenter", "microVisualization");
+
+        Map<String, Object> visualization = new LinkedHashMap<>();
+        visualization.put("kind", microViz.kind().wireValue());
+
+        String surface = asTrimmedString(microViz.surface());
+        if (surface != null) {
+            visualization.put("surface", surface);
+        }
+        String size = asTrimmedString(microViz.size());
+        if (size != null) {
+            visualization.put("size", size);
+        }
+        if (!Double.isNaN(microViz.value())) {
+            visualization.put("value", microViz.value());
+        }
+        String valueExpr = asTrimmedString(microViz.valueExpr());
+        if (valueExpr != null) {
+            visualization.put("valueExpr", valueExpr);
+        }
+        if (!Double.isNaN(microViz.target())) {
+            visualization.put("target", microViz.target());
+        }
+        String targetExpr = asTrimmedString(microViz.targetExpr());
+        if (targetExpr != null) {
+            visualization.put("targetExpr", targetExpr);
+        }
+        if (!Double.isNaN(microViz.total())) {
+            visualization.put("total", microViz.total());
+        }
+        String totalExpr = asTrimmedString(microViz.totalExpr());
+        if (totalExpr != null) {
+            visualization.put("totalExpr", totalExpr);
+        }
+        if (!Double.isNaN(microViz.baseline())) {
+            visualization.put("baseline", microViz.baseline());
+        }
+        String baselineExpr = asTrimmedString(microViz.baselineExpr());
+        if (baselineExpr != null) {
+            visualization.put("baselineExpr", baselineExpr);
+        }
+        String tone = asTrimmedString(microViz.tone());
+        if (tone != null) {
+            visualization.put("tone", tone);
+        }
+        String fallbackText = asTrimmedString(microViz.fallbackText());
+        if (fallbackText != null) {
+            visualization.put("fallbackText", fallbackText);
+        }
+        if (microViz.compactValue()) {
+            visualization.put("compactValue", true);
+        }
+        String valueSuffix = asTrimmedString(microViz.valueSuffix());
+        if (valueSuffix != null) {
+            visualization.put("valueSuffix", valueSuffix);
+        }
+
+        presentation.put("visualization", visualization);
     }
 
     @SuppressWarnings("unchecked")

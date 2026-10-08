@@ -59,6 +59,35 @@ class AbstractReadOnlyResourceControllerLinksTest {
     }
 
     @Test
+    void getStatsCapabilitiesReturnsResourceStatsCapability() throws Exception {
+        ReadOnlyService service = mock(ReadOnlyService.class);
+        ReadOnlyController controller = controllerWith(service);
+        CapabilityService capService = mock(CapabilityService.class);
+        org.praxisplatform.uischema.stats.StatsFieldCapability fieldCap =
+                new org.praxisplatform.uischema.stats.StatsFieldCapability(
+                        "status", "Status", false, List.of("count"), List.of("group-by"),
+                        true, false, false, false, false
+                );
+        org.praxisplatform.uischema.stats.StatsCapability statsCap =
+                new org.praxisplatform.uischema.stats.StatsCapability(List.of(fieldCap));
+        org.praxisplatform.uischema.capability.CapabilitySnapshot snapshot =
+                new org.praxisplatform.uischema.capability.CapabilitySnapshot(
+                        "test.ro", "/ro", "test.ro", null,
+                        java.util.Map.of(), java.util.Map.of(), List.of(), List.of(),
+                        statsCap
+                );
+        when(capService.collectionCapabilities("test.ro", "/ro")).thenReturn(snapshot);
+        ReflectionTestUtils.setField(controller, "capabilityService", capService);
+
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(get("/ro/stats/capabilities"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fields[0].field").value("status"))
+                .andExpect(jsonPath("$.fields[0].groupByEligible").value(true));
+    }
+
+    @Test
     void writeOperationsAreNotExposedByTheReadOnlyBase() throws Exception {
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controllerWith(mock(ReadOnlyService.class))).build();
 
@@ -97,6 +126,29 @@ class AbstractReadOnlyResourceControllerLinksTest {
         ReflectionTestUtils.setField(controller, "capabilityService", mock(CapabilityService.class));
 
         assertEquals(List.of("surfaces", "capabilities"), controller.exposeCollectionDiscoveryRels());
+    }
+
+    @Test
+    void readOnlyCollectionDiscoveryLinksExposeStatsWhenResourceSupportsStats() {
+        ReadOnlyController controller = new ReadOnlyController();
+        ReadOnlyService service = mock(ReadOnlyService.class);
+        controller.service = service;
+        org.praxisplatform.uischema.stats.StatsFieldCapability fieldCap =
+                new org.praxisplatform.uischema.stats.StatsFieldCapability(
+                        "status", "Status", false, List.of("count"), List.of("group-by"),
+                        true, false, false, false, false
+                );
+        org.praxisplatform.uischema.capability.ResourceStructuralCapabilities structural =
+                new org.praxisplatform.uischema.capability.ResourceStructuralCapabilities(
+                        true, true, true, false, false, false, false,
+                        new org.praxisplatform.uischema.stats.StatsCapability(List.of(fieldCap)),
+                        null
+                );
+        when(service.getStructuralCapabilities()).thenReturn(structural);
+        ReflectionTestUtils.setField(controller, "surfaceCatalogService", mock(SurfaceCatalogService.class));
+        ReflectionTestUtils.setField(controller, "capabilityService", mock(CapabilityService.class));
+
+        assertEquals(List.of("surfaces", "capabilities", "stats"), controller.exposeCollectionDiscoveryRels());
     }
 
     @Test

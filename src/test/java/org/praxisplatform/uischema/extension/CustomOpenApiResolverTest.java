@@ -15,6 +15,8 @@ import org.praxisplatform.uischema.annotation.DomainClassification;
 import org.praxisplatform.uischema.annotation.DomainDataCategory;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.annotation.DomainGovernanceKind;
+import org.praxisplatform.uischema.annotation.MicroVisualization;
+import org.praxisplatform.uischema.annotation.MicroVisualizationKind;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 
@@ -737,6 +739,72 @@ class CustomOpenApiResolverTest {
         assertEquals("toggle_off", emMissaoXui.get(FieldConfigProperties.ICON_FALSE.getValue()));
         assertEquals("success", emMissaoXui.get(FieldConfigProperties.TONE_TRUE.getValue()));
         assertEquals("neutral", emMissaoXui.get(FieldConfigProperties.TONE_FALSE.getValue()));
+    }
+
+    private static class MicroVisualizationDummy {
+        @MicroVisualization(
+                kind = MicroVisualizationKind.BULLET,
+                target = 90.0,
+                total = 100.0,
+                tone = "success",
+                compactValue = true,
+                valueSuffix = "%",
+                fallbackText = "Meta 90%"
+        )
+        public Double taxaAtingimento;
+
+        @MicroVisualization(
+                kind = MicroVisualizationKind.RADIAL,
+                targetExpr = "row.metaScore",
+                valueExpr = "row.scoreAtual",
+                tone = "info"
+        )
+        public Double score;
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldSerializeDeclarativeMicroVisualizationAnnotation() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        io.swagger.v3.core.converter.ModelConverters converters = new io.swagger.v3.core.converter.ModelConverters();
+        converters.addConverter(resolver);
+
+        io.swagger.v3.core.converter.ResolvedSchema resolved = converters.readAllAsResolvedSchema(MicroVisualizationDummy.class);
+
+        assertNotNull(resolved);
+        assertNotNull(resolved.referencedSchemas);
+        Schema<?> dummySchema = resolved.referencedSchemas.get("MicroVisualizationDummy");
+        assertNotNull(dummySchema);
+
+        Schema<?> bulletSchema = (Schema<?>) dummySchema.getProperties().get("taxaAtingimento");
+        assertNotNull(bulletSchema);
+        Map<String, Object> bulletXui = getXui(bulletSchema);
+        Map<String, Object> bulletPresentation = (Map<String, Object>) bulletXui.get("presentation");
+        assertNotNull(bulletPresentation);
+        assertEquals("microVisualization", bulletPresentation.get("presenter"));
+        Map<String, Object> bulletViz = (Map<String, Object>) bulletPresentation.get("visualization");
+        assertNotNull(bulletViz);
+        assertEquals("bullet", bulletViz.get("kind"));
+        assertEquals("table-cell", bulletViz.get("surface"));
+        assertEquals(90.0, (Double) bulletViz.get("target"), 0.001);
+        assertEquals(100.0, (Double) bulletViz.get("total"), 0.001);
+        assertEquals("success", bulletViz.get("tone"));
+        assertEquals(true, bulletViz.get("compactValue"));
+        assertEquals("%", bulletViz.get("valueSuffix"));
+        assertEquals("Meta 90%", bulletViz.get("fallbackText"));
+
+        Schema<?> radialSchema = (Schema<?>) dummySchema.getProperties().get("score");
+        assertNotNull(radialSchema);
+        Map<String, Object> radialXui = getXui(radialSchema);
+        Map<String, Object> radialPresentation = (Map<String, Object>) radialXui.get("presentation");
+        assertNotNull(radialPresentation);
+        assertEquals("microVisualization", radialPresentation.get("presenter"));
+        Map<String, Object> radialViz = (Map<String, Object>) radialPresentation.get("visualization");
+        assertNotNull(radialViz);
+        assertEquals("radial", radialViz.get("kind"));
+        assertEquals("row.metaScore", radialViz.get("targetExpr"));
+        assertEquals("row.scoreAtual", radialViz.get("valueExpr"));
+        assertEquals("info", radialViz.get("tone"));
     }
 
     @SuppressWarnings("unchecked")
