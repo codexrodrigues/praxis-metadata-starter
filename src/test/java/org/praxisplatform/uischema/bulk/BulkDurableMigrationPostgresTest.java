@@ -3818,21 +3818,40 @@ class BulkDurableMigrationPostgresTest {
             var sql = new JdbcTemplate(dataSource);
             assertThat(migrate(dataSource)).isEqualTo(20);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
-            var execution = insertExecution(dataSource, sql, "RUNNING", 0, false);
-            sql.update("""
+            var roles = BulkPostgresTestSupport.testRoleConfiguration();
+            var execution = insertCurrentRunningExecution(postgres, dataSource, sql, roles);
+            BulkExecutionMigrator.validate(dataSource, roles);
+            var historyBefore = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank");
+            assertThat(sql.update("""
                     update praxis_bulk.praxis_bulk_execution
                     set status='STOPPED', terminal_reason_code='CANCELLED_BY_USER',
                         cancel_requested_at=clock_timestamp(), terminal_at=clock_timestamp(),
                         updated_at=clock_timestamp()
                     where execution_id=?
-                    """, execution.id());
+                    """, execution.id())).isEqualTo(1);
             assertThat(sql.queryForObject("""
                     select created_at <= cancel_requested_at
                        and cancel_requested_at <= terminal_at
                        and terminal_at <= updated_at
                     from praxis_bulk.praxis_bulk_execution where execution_id=?
                     """, Boolean.class, execution.id())).isTrue();
-            BulkExecutionMigrator.validate(dataSource);
+            assertThat(sql.queryForMap("select status, terminal_reason_code from "
+                    + "praxis_bulk.praxis_bulk_execution where execution_id=?", execution.id()))
+                    .containsEntry("status", "STOPPED")
+                    .containsEntry("terminal_reason_code", "CANCELLED_BY_USER");
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation "
+                    + "where execution_id=? and kind='EXECUTION_ACTIVE' and state='RELEASED' "
+                    + "and release_reason='TERMINAL_RECONCILED' and released_at is not null",
+                    Integer.class, execution.id())).isEqualTo(1);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation "
+                    + "where proposal_id=? and kind='PROPOSAL_PENDING' and state='CONSUMED'",
+                    Integer.class, execution.proposalId())).isEqualTo(1);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation",
+                    Integer.class)).isEqualTo(2);
+            BulkExecutionMigrator.validate(dataSource, roles);
+            assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank")).isEqualTo(historyBefore);
         }
     }
 
