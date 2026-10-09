@@ -17,7 +17,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class InterruptedPrefix14SqlTest {
     @Test
     void migrationCreatesCommittedPrefix14WithoutPublication() throws Exception {
-        assertThat(System.getProperty("java.version")).isEqualTo("21.0.10");
+        // The parent separately attests the child report against its actual JDK version.
+        assertThat(Runtime.version().feature()).isEqualTo(21);
         var jar = Path.of(System.getProperty("historical.jar")).toRealPath();
         var codeSource = Path.of(BulkExecutionMigrator.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath();
         assertThat(codeSource).isEqualTo(jar);

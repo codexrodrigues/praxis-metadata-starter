@@ -212,6 +212,7 @@ class BulkHistoricalInterruptedPrefix14PostgresTest {
                 }
             }
             if (interrupted) Thread.currentThread().interrupt();
+            preservePrefix14ChildEvidence(project, workRoot, fixture, started, process.pid());
         }
         var report = fixture.resolve("target/surefire-reports/TEST-org.praxisplatform.consumer.InterruptedPrefix14SqlTest.xml");
         assertThat(Files.getLastModifiedTime(report).toMillis()).isBetween(started, System.currentTimeMillis());
@@ -249,6 +250,32 @@ class BulkHistoricalInterruptedPrefix14PostgresTest {
                 .isEqualTo("d5a16be5bab1db40ac6801ae60c233092c7f60b57c276f6d471f1695f48d2dcf");
         assertThat(receipts.getProperty("construction"))
                 .isEqualTo("PUBLIC146_NATIVE13_THEN_PUBLIC149_SQL_INTERRUPTED14");
+    }
+
+    /** Preserve diagnostics before JUnit removes @TempDir, including nonzero child outcomes. */
+    private static void preservePrefix14ChildEvidence(Path project, Path work, Path fixture,
+            long started, long pid) throws java.io.IOException {
+        Path retained = project.resolve("target/historical-child-custody/prefix14-" + started + "-" + pid);
+        Files.createDirectories(retained);
+        var observations = new Properties();
+        observations.setProperty("pid", Long.toString(pid));
+        observations.setProperty("startedMillis", Long.toString(started));
+        var sources = new LinkedHashMap<String, Path>();
+        for (String name : List.of("historical-child-maven.log", "child-command.txt",
+                "child-pid.properties", "child-exit.properties", "child-cleanup.properties")) {
+            sources.put(name, work.resolve(name));
+        }
+        sources.put("child-surefire.xml", fixture.resolve(
+                "target/surefire-reports/TEST-org.praxisplatform.consumer.InterruptedPrefix14SqlTest.xml"));
+        for (var source : sources.entrySet()) {
+            boolean present = Files.isRegularFile(source.getValue());
+            observations.setProperty(source.getKey() + ".present", Boolean.toString(present));
+            if (present) Files.copy(source.getValue(), retained.resolve(source.getKey()));
+        }
+        try (var output = Files.newOutputStream(retained.resolve("custody.properties"))) {
+            observations.store(output, "Actual child diagnostics; missing XML is not a passing test");
+        }
+        System.err.println("Prefix14 child diagnostics retained under target/historical-child-custody");
     }
 
     private static Set<String> namespaceBindingAclEntries(JdbcTemplate sql) {
