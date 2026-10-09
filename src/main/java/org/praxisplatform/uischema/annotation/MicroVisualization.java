@@ -100,4 +100,14 @@ public @interface MicroVisualization {
      * Sufixo do valor (ex: "%", " pts", " h").
      */
     String valueSuffix() default "";
+
+    /**
+     * Expressao dinamica computada para obtencao do tom semantico (JsonLogic ou formula com prefixo "=").
+     */
+    String toneExpr() default "";
+
+    /**
+     * Conjunto ordenado de limiares / faixas semanticas declarativas para resolucao automatica de tom e bullets.
+     */
+    Threshold[] thresholds() default {};
 }

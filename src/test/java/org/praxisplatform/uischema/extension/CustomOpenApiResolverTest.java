@@ -17,10 +17,12 @@ import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.annotation.DomainGovernanceKind;
 import org.praxisplatform.uischema.annotation.MicroVisualization;
 import org.praxisplatform.uischema.annotation.MicroVisualizationKind;
+import org.praxisplatform.uischema.annotation.Threshold;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 
 import java.lang.annotation.Annotation;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -808,6 +810,7 @@ class CustomOpenApiResolverTest {
         assertEquals("info", radialViz.get("tone"));
     }
 
+<<<<<<< HEAD
     private static class EffectiveMicroVisualizationDummy {
         @MicroVisualization(kind = MicroVisualizationKind.BULLET, target = 90, fallbackText = "Base")
         @UISchema(preset = UISchemaPreset.MONETARY_AMOUNT, label = "Limite", extraProperties = {
@@ -859,6 +862,41 @@ class CustomOpenApiResolverTest {
         @UISchema(extraProperties = @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
                 name = "presentation.visualization", value = "false"))
         public Double wrongShape;
+=======
+    private static class ThresholdVisualizationDummy {
+        @MicroVisualization(
+                kind = MicroVisualizationKind.RADIAL,
+                total = 100.0,
+                toneExpr = "= row.taxaAtingimento >= 80 ? 'success' : 'danger'",
+                thresholds = {
+                        @Threshold(min = 80.0, tone = "success", label = "Alto Desempenho"),
+                        @Threshold(min = 50.0, max = 79.9, tone = "warning", label = "Moderado"),
+                        @Threshold(max = 49.9, tone = "danger", label = "Critico")
+                },
+                fallbackText = "Atingimento"
+        )
+        public Double taxaAtingimento;
+
+        @MicroVisualization(
+                kind = MicroVisualizationKind.BULLET,
+                value = 45.0,
+                thresholds = {
+                        @Threshold(value = 30.0, tone = "danger"),
+                        @Threshold(value = 70.0, tone = "warning"),
+                        @Threshold(value = 100.0, tone = "success")
+                }
+        )
+        public Double kpiBullet;
+
+        @MicroVisualization(
+                kind = MicroVisualizationKind.DELTA,
+                thresholds = {
+                        @Threshold(equalsValue = "CRITICAL", tone = "danger"),
+                        @Threshold(equalsValue = "OK", tone = "success")
+                }
+        )
+        public String statusAlerta;
+>>>>>>> 3e25a1f0ae (feat(metadata): add declarative thresholds and toneExpr to @MicroVisualization (issue #45))
     }
 
     @Test
@@ -934,6 +972,77 @@ class CustomOpenApiResolverTest {
         Schema<?> schema = resolved.referencedSchemas.get(type.getSimpleName());
         assertNotNull(schema);
         return schema;
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldSerializeDeclarativeThresholdsAndToneExprInMicroVisualization() throws Exception {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        io.swagger.v3.core.converter.ModelConverters converters = new io.swagger.v3.core.converter.ModelConverters();
+        converters.addConverter(resolver);
+
+        io.swagger.v3.core.converter.ResolvedSchema resolved = converters.readAllAsResolvedSchema(ThresholdVisualizationDummy.class);
+
+        assertNotNull(resolved);
+        assertNotNull(resolved.referencedSchemas);
+        Schema<?> dummySchema = resolved.referencedSchemas.get("ThresholdVisualizationDummy");
+        assertNotNull(dummySchema);
+
+        // 1. Radial com toneExpr e faixas continuas (min/max)
+        Schema<?> taxaSchema = (Schema<?>) dummySchema.getProperties().get("taxaAtingimento");
+        assertNotNull(taxaSchema);
+        Map<String, Object> taxaXui = getXui(taxaSchema);
+        Map<String, Object> taxaPres = (Map<String, Object>) taxaXui.get("presentation");
+        assertEquals("microVisualization", taxaPres.get("presenter"));
+        Map<String, Object> taxaViz = (Map<String, Object>) taxaPres.get("visualization");
+        assertEquals("radial", taxaViz.get("kind"));
+        assertEquals("= row.taxaAtingimento >= 80 ? 'success' : 'danger'", taxaViz.get("toneExpr"));
+
+        List<Map<String, Object>> taxaThresholds = (List<Map<String, Object>>) taxaViz.get("thresholds");
+        assertNotNull(taxaThresholds);
+        assertEquals(3, taxaThresholds.size());
+        assertEquals(80.0, (Double) taxaThresholds.get(0).get("min"), 0.001);
+        assertEquals("success", taxaThresholds.get(0).get("tone"));
+        assertEquals("Alto Desempenho", taxaThresholds.get(0).get("label"));
+        assertNull(taxaThresholds.get(0).get("max"));
+
+        assertEquals(50.0, (Double) taxaThresholds.get(1).get("min"), 0.001);
+        assertEquals(79.9, (Double) taxaThresholds.get(1).get("max"), 0.001);
+        assertEquals("warning", taxaThresholds.get(1).get("tone"));
+        assertEquals("Moderado", taxaThresholds.get(1).get("label"));
+
+        assertEquals(49.9, (Double) taxaThresholds.get(2).get("max"), 0.001);
+        assertEquals("danger", taxaThresholds.get(2).get("tone"));
+        assertEquals("Critico", taxaThresholds.get(2).get("label"));
+        assertNull(taxaThresholds.get(2).get("min"));
+
+        // 2. Bullet com limiares de valor progressivo (value)
+        Schema<?> bulletSchema = (Schema<?>) dummySchema.getProperties().get("kpiBullet");
+        assertNotNull(bulletSchema);
+        Map<String, Object> bulletViz = (Map<String, Object>) ((Map<String, Object>) getXui(bulletSchema).get("presentation")).get("visualization");
+        assertEquals("bullet", bulletViz.get("kind"));
+
+        List<Map<String, Object>> bulletThresholds = (List<Map<String, Object>>) bulletViz.get("thresholds");
+        assertEquals(3, bulletThresholds.size());
+        assertEquals(30.0, (Double) bulletThresholds.get(0).get("value"), 0.001);
+        assertEquals("danger", bulletThresholds.get(0).get("tone"));
+        assertEquals(70.0, (Double) bulletThresholds.get(1).get("value"), 0.001);
+        assertEquals("warning", bulletThresholds.get(1).get("tone"));
+        assertEquals(100.0, (Double) bulletThresholds.get(2).get("value"), 0.001);
+        assertEquals("success", bulletThresholds.get(2).get("tone"));
+
+        // 3. Correspondencia exata (equalsValue)
+        Schema<?> deltaSchema = (Schema<?>) dummySchema.getProperties().get("statusAlerta");
+        assertNotNull(deltaSchema);
+        Map<String, Object> deltaViz = (Map<String, Object>) ((Map<String, Object>) getXui(deltaSchema).get("presentation")).get("visualization");
+        assertEquals("delta", deltaViz.get("kind"));
+
+        List<Map<String, Object>> deltaThresholds = (List<Map<String, Object>>) deltaViz.get("thresholds");
+        assertEquals(2, deltaThresholds.size());
+        assertEquals("CRITICAL", deltaThresholds.get(0).get("equals"));
+        assertEquals("danger", deltaThresholds.get(0).get("tone"));
+        assertEquals("OK", deltaThresholds.get(1).get("equals"));
+        assertEquals("success", deltaThresholds.get(1).get("tone"));
     }
 
     @SuppressWarnings("unchecked")

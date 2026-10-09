@@ -10,6 +10,7 @@ import io.swagger.v3.oas.models.media.StringSchema;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.annotation.MicroVisualization;
 import org.praxisplatform.uischema.annotation.MicroVisualizationKind;
+import org.praxisplatform.uischema.annotation.Threshold;
 import org.praxisplatform.uischema.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
@@ -2197,6 +2198,44 @@ public class CustomOpenApiResolver extends ModelResolver {
         String tone = asTrimmedString(microViz.tone());
         if (tone != null) {
             visualization.put("tone", tone);
+        }
+        String toneExpr = asTrimmedString(microViz.toneExpr());
+        if (toneExpr != null) {
+            visualization.put("toneExpr", toneExpr);
+        }
+        Threshold[] thresholds = microViz.thresholds();
+        if (thresholds != null && thresholds.length > 0) {
+            List<Map<String, Object>> thresholdList = new ArrayList<>();
+            for (Threshold t : thresholds) {
+                Map<String, Object> tMap = new LinkedHashMap<>();
+                if (!Double.isNaN(t.min())) {
+                    tMap.put("min", t.min());
+                }
+                if (!Double.isNaN(t.max())) {
+                    tMap.put("max", t.max());
+                }
+                if (!Double.isNaN(t.value())) {
+                    tMap.put("value", t.value());
+                }
+                String eq = asTrimmedString(t.equalsValue());
+                if (eq != null) {
+                    tMap.put("equals", parseNestedExtraPropertyValue(eq));
+                }
+                String thresholdTone = asTrimmedString(t.tone());
+                if (thresholdTone != null) {
+                    tMap.put("tone", thresholdTone);
+                }
+                String label = asTrimmedString(t.label());
+                if (label != null) {
+                    tMap.put("label", label);
+                }
+                if (!tMap.isEmpty()) {
+                    thresholdList.add(tMap);
+                }
+            }
+            if (!thresholdList.isEmpty()) {
+                visualization.put("thresholds", thresholdList);
+            }
         }
         String fallbackText = asTrimmedString(microViz.fallbackText());
         if (fallbackText != null) {
