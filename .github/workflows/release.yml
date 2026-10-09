@@ -214,17 +214,17 @@ jobs:
     name: Publish to Maven Central
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    # Allow 30 minutes for upload and the nominal 40-minute availability window,
-    # plus 20 minutes for build/setup/cleanup; this is not a Central publication SLA.
+    # Build, publication and public-byte availability share one actual job budget.
+    # The uploader reserves 180 seconds for final evidence; no propagation SLA.
     timeout-minutes: 90
     permissions:
       contents: write
     env:
-      CENTRAL_TOKEN_USER: ${{ secrets.CENTRAL_TOKEN_USER }}
-      CENTRAL_TOKEN_PASS: ${{ secrets.CENTRAL_TOKEN_PASS }}
       MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
       GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
     steps:
+      - name: Record bounded release start
+        run: echo "PRAXIS_RELEASE_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@v7.0.0
         with:
@@ -243,9 +243,6 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-          server-id: central
-          server-username: CENTRAL_TOKEN_USER
-          server-password: CENTRAL_TOKEN_PASS
       - name: Public contract hygiene gate
         run: scripts/check-public-contract-gate.sh
       - name: Import GPG private key (sanitize + import)
@@ -302,60 +299,37 @@ jobs:
           [[ "$(./mvnw -q help:evaluate -Dexpression=project.version -DforceStdout)" == "$VERSION" ]] || { echo "::error::POM and tag differ."; exit 1; }
         env:
           VERSION: ${{ steps.ver.outputs.resolved }}
-      - name: Build, test, sign and publish the tagged release
+      - name: Offline release packaging contract tests
+        run: python3 -m unittest discover -s tools/release -p 'test_*.py' -v
+      - name: Build, test and sign the tagged release
         run: |
-          V='${{ steps.ver.outputs.resolved }}'
-          echo "Publishing praxis-metadata-starter ${V} to Sonatype Central Portal."
-          echo "The plugin waits until upload is accepted; the next step performs explicit Maven Central availability checks."
-          ./mvnw -B -P release -Dgpg.skip=false -Dgpg.keyname="${GPG_KEY_ID}" -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -DautoPublish=true -DwaitUntil=uploaded -DwaitMaxTime=1800 -T 1C \
-            clean verify org.sonatype.central:central-publishing-maven-plugin:publish
-          {
-            echo "### Central Publish Submitted"
-            echo "- Version: \`${V}\`"
-            echo "- Plugin wait: \`uploaded\` for up to 1800 seconds"
-            echo "- Next: Maven Central availability probe"
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: Verify Maven Central availability
-        shell: bash
+          ./mvnw -B -P release -Dgpg.skip=false -Dgpg.keyname="${GPG_KEY_ID}" -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" -T 1C clean verify
+      - name: Construct versioned bundle and validate its signed contents
+        env:
+          RELEASE_VERSION: ${{ steps.ver.outputs.resolved }}
         run: |
-          set -euo pipefail
-          V='${{ steps.ver.outputs.resolved }}'
-          GROUP_PATH="io/github/codexrodrigues"
-          ARTIFACT="praxis-metadata-starter"
-          POM_URL="https://repo1.maven.org/maven2/${GROUP_PATH}/${ARTIFACT}/${V}/${ARTIFACT}-${V}.pom"
-          # Central propagation is usually fast, but recent releases took just over
-          # 20 minutes after an accepted upload. Keep this as a release-only gate.
-          ATTEMPTS=80
-          DELAY_SECONDS=30
-          MAX_WAIT_MINUTES=$((ATTEMPTS * DELAY_SECONDS / 60))
-
-          echo "Checking Maven Central availability for ${ARTIFACT}:${V} for up to ${MAX_WAIT_MINUTES} minutes."
-          echo "POM URL: ${POM_URL}"
-          for attempt in $(seq 1 "${ATTEMPTS}"); do
-            status="$(curl -L -sS -o /tmp/central-pom.xml -w '%{http_code}' "${POM_URL}" || true)"
-            timestamp="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-            if [ "${status}" = "200" ]; then
-              echo "[${timestamp}] Maven Central is serving ${ARTIFACT}:${V} (attempt ${attempt}/${ATTEMPTS})."
-              ./mvnw -B -q dependency:get -Dartifact="io.github.codexrodrigues:${ARTIFACT}:${V}" -Dtransitive=false
-              {
-                echo "### Maven Central Availability"
-                echo "- Version: \`${V}\`"
-                echo "- POM URL: ${POM_URL}"
-                echo "- Status: consumable by Maven Central"
-                echo "- Wait window: ${MAX_WAIT_MINUTES} minutes"
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-
-            echo "[${timestamp}] Maven Central not ready yet for ${ARTIFACT}:${V}; HTTP ${status} (attempt ${attempt}/${ATTEMPTS})."
-            if [ "${attempt}" -lt "${ATTEMPTS}" ]; then
-              sleep "${DELAY_SECONDS}"
-            fi
-          done
-
-          echo "::error::Maven Central did not serve ${ARTIFACT}:${V} after ${MAX_WAIT_MINUTES} minutes."
-          echo "::error::The Central Portal publish may still be processing, but consumers should not be updated until the artifact resolves."
-          exit 1
+          python3 tools/release/central_bundle.py build --bundle target/central-publication/central-bundle.zip --receipt target/central-publication/builder.json --group io.github.codexrodrigues --artifact praxis-metadata-starter --version "$RELEASE_VERSION" --signer "$GPG_KEY_ID"
+          python3 tools/release/central_bundle.py validate --bundle target/central-publication/central-bundle.zip --receipt target/central-publication/validation.json --group io.github.codexrodrigues --artifact praxis-metadata-starter --version "$RELEASE_VERSION" --signer "$GPG_KEY_ID"
+      - name: Preserve validated bundle before upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: central-validated-bundle-${{ github.run_id }}
+          path: target/central-publication/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish exact validated bytes and verify public POM JAR checksums
+        env:
+          CENTRAL_TOKEN_USER: ${{ secrets.CENTRAL_TOKEN_USER }}
+          CENTRAL_TOKEN_PASS: ${{ secrets.CENTRAL_TOKEN_PASS }}
+        run: python3 tools/release/publish_central.py --bundle target/central-publication/central-bundle.zip --validation target/central-publication/validation.json --record target/central-publication/deployment.json
+      - name: Preserve publication custody on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: central-publication-custody-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/central-publication/
+          if-no-files-found: ignore
+          retention-days: 14
   documentation:
     needs:
       - release

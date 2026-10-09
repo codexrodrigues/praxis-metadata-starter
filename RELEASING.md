@@ -68,34 +68,22 @@ Checklist minima para esse caso:
    o POM e envia commit/tag atomicamente; nao cria tag sobre POM divergente.
 4) Acompanhar o workflow “Release Java Starter (praxis-metadata-starter)”
 - O workflow resolve a versão a partir da tag (`v` é removido → `1.0.0-rc.6`).
-- Passos: conferir ancestralidade em main e versao persistida → importar GPG → testes/assinatura com `clean verify` → publicar via Central Plugin na mesma sessao Maven.
-- O passo `Publish to Central` aguarda até o upload ser aceito pelo Central
-  Portal. Em seguida, o passo `Verify Maven Central availability` tenta resolver
-  o POM em `repo1.maven.org` e executa `mvn dependency:get` para confirmar que a
-  versão já pode ser consumida por hosts como o `praxis-api-quickstart`.
-- Atualize consumidores apenas depois que `Verify Maven Central availability`
-  terminar com sucesso. Se essa etapa falhar por propagação lenta, a publicação
-  pode ter sido enviada ao Central Portal, mas ainda não deve ser tratada como
-  disponível para consumo.
+- Passos: conferir ancestralidade e versão persistida → hygiene público → importar GPG → testes e assinatura com `./mvnw -P release ... clean verify` → construir/validar o ZIP → preservar o arquivo → upload único pela API oficial e verificação dos bytes públicos.
+- O wrapper Maven 3.9.6, a suíte completa e o gate `check-public-contract-gate.sh` permanecem obrigatórios. Não repetir o build para construir o bundle.
+- O publicador exige `PUBLISHED` para o GAV esperado e compara POM/JAR públicos e SHA-512 com o ZIP validado em `repo.maven.apache.org`; HTTP 200 ou uma instalação local não bastam.
+- Consumidores só são atualizados após essa prova; o host ainda deve executar seu próprio `verify` com dependências públicas sem override.
 
 5) Verificar artefatos assinados no job:
 - `target/praxis-metadata-starter-1.0.0-rc.6.jar(.asc)`
 - `*-sources.jar(.asc)` e `*-javadoc.jar(.asc)`
 
-6) Acompanhar aprovação no Sonatype Central Portal
-- O Central Publishing geralmente finaliza em minutos.
-- Quando a publicação/propagação demorar, use o log periódico do passo
-  `Verify Maven Central availability` para distinguir fila/propagação de uma
-  versão já consumível pelo Maven Central público.
-
-O job tem teto de 90 minutos: 30 para o limite configurado de upload, uma janela
-nominal de 40 para disponibilidade e 20 de margem para build/preparação/limpeza.
-É um limite externo, não uma garantia por fase ou de publicação do Sonatype;
-`curl` e `dependency:get` não têm timeout individual nesse fluxo. Upload aceito ou
-estado `PUBLISHING` não comprovam disponibilidade pública. Cancelar o job não
-cancela automaticamente um deployment já aceito: preserve e acompanhe o mesmo
-deployment ID, confira a disponibilidade e repita somente a verificação quando
-necessário. Não refaça upload, tag ou release por reflexo diante da demora.
+6) Acompanhar a publicação e preservar sua custódia
+- `central_bundle.py` seleciona oito entradas primárias reais: POM flattened, JAR principal/sources/javadoc e quatro assinaturas ASC. O ZIP contém essas entradas e seus quatro checksums (40 arquivos) no único diretório versionado Maven, sem metadata de repositório ou POM artificial no nível artifactId.
+- A validação separada rejeita caminhos extras/duplicados/unsafe, GAV incorreto no POM/JAR, checksums incorretos e assinaturas que não sejam válidas para a chave esperada. GPG real é obrigatório no job oficial; fixtures offline não provam criptografia.
+- O artifact `central-validated-bundle-RUN_ID` preserva o ZIP e os recibos antes do upload. `publish_central.py` envia os mesmos bytes/hash uma única vez, sem redirect autenticado; grava e sincroniza o UUID antes de consultar o status. Credenciais ficam somente no passo de upload, nunca nos recibos.
+- O job mantém 90 minutos, medidos desde o primeiro passo. Publicação e disponibilidade compartilham o tempo restante, reservando 180 segundos para o artifact final. Há recusa antes do upload se restarem menos de 120 segundos úteis; a operação completa open/read usa timer POSIX no main thread do próprio Python (máximo60s ou saldo menor), restaura o handler e recusa timer preexistente; o retorno é rechecado contra a deadline. Esse guard complementa o socket timeout; cada chamada é limitada a 60 segundos ou ao saldo menor e cada espera a 15 segundos ou ao saldo menor. Não existem janelas independentes de 30+40 minutos nem garantia de propagação do Central.
+- `central-publication-custody-RUN_ID-ATTEMPT` preserva o resultado inclusive em falha. Resultado desconhecido, rejeição, bytes públicos divergentes ou orçamento esgotado impedem declarar adoção; conservar deployment/ZIP/tag e reconciliar a mesma tentativa, sem reupload ou mover tags. Um rerun não libera novo upload.
+- Metadata rc.156 falhou antes de publicar por asserts históricos de JDK corrigidos no PR277. A rejeição do bundle Config rc.160 não prova defeito idêntico no Metadata. Esta mudança estabelece custódia explícita neste ciclo próprio; não reescreve os recibos históricos.
 
 ## Fluxo (Versão Final)
 - Mesmo dispatch, com versao estavel sem sufixo RC; nao criar tag manual como atalho.
@@ -109,13 +97,11 @@ necessário. Não refaça upload, tag ou release por reflexo diante da demora.
 ## Troubleshooting
 - GPG key id não resolvido:
   - Garanta que `GPG_PRIVATE_KEY` está sem BOM/CRLF. O workflow já sanitiza; ver logs da etapa “Import GPG private key”.
-- Falha na publicação (no goal `publish`):
-  - Verifique `CENTRAL_TOKEN_USER/PASS` e se o server `central` foi injetado pelo `actions/setup-java` (logs).
-- `Verify Maven Central availability` falhou:
-  - O artefato não respondeu HTTP 200 em `repo1.maven.org` dentro da janela do
-    workflow. Não atualize consumidores ainda.
-  - Confira o Central Portal e reexecute apenas a verificação quando houver sinal
-    de publicação concluída; se a versão continuar ausente, trate como falha de
-    release.
+- Falha no upload/status:
+  - Verifique a etapa oficial e o recibo sanitizado `deployment.json`, preservando UUID e ZIP. Tokens só são injetados no passo de upload, não como server Maven global.
+  - Upload de resultado desconhecido requer reconciliação; não repetir a release para descobrir o resultado.
+- Disponibilidade pública falhou:
+  - POM/JAR ausentes, diferentes do bundle ou sem SHA-512 correspondente não autorizam atualizar o consumidor. Preservar a publicação já confirmada e seu UUID.
+  - Orçamento esgotado não cancela automaticamente um deployment; verificar a mesma coordenada quando houver evidência de propagação, sem novo upload. Esta prova não substitui `verify`/HTTP protegido do host nem migrations/deploy.
 - Assinaturas ausentes:
   - Confirme execução com `-P release -Dgpg.skip=false`; o job usa isso por padrão.
