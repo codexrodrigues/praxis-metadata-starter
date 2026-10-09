@@ -418,9 +418,13 @@ class BulkEvaluationStorePostgresTest {
                 select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_preview','insert')
                 """,Boolean.class)).isFalse();
         grantPublicationReadToExistingRuntimeRoles();
+        var historyBeforeRetry = historyThroughV19();
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
+                + "where version='20'",Integer.class)).isZero();
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
-                BulkPostgresTestSupport.testRoleConfiguration())).isZero();
+                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(1);
+        assertV20OnceAndZeroWorkReplay(BulkPostgresTestSupport.testRoleConfiguration(),historyBeforeRetry);
         assertThat(sql.queryForObject("""
                 select phase from praxis_bulk.praxis_bulk_preview_bootstrap where bootstrap_version=9
                 """,String.class)).isEqualTo("COMPLETE");
@@ -774,8 +778,12 @@ class BulkEvaluationStorePostgresTest {
         sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
                 BulkEvaluationStorageCodec.encode(second),second.proposal().id());
         sql.execute("alter table praxis_bulk.praxis_bulk_evaluation enable trigger user");
+        var historyBeforeRetry = historyThroughV19();
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
+                + "where version='20'",Integer.class)).isZero();
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
-                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID))).isZero();
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID))).isEqualTo(1);
+        assertV20OnceAndZeroWorkReplay(BulkExecutionRoleConfiguration.none("postgres"),historyBeforeRetry);
         assertThat(count("praxis_bulk_target_manifest")).isEqualTo(first.targets().size()+second.targets().size());
         assertThat(count("praxis_bulk_target_preview")).isZero();
         assertThat(sql.queryForList("""
@@ -849,8 +857,12 @@ class BulkEvaluationStorePostgresTest {
         sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
                 BulkEvaluationStorageCodec.encode(value),value.proposal().id());
         sql.execute("alter table praxis_bulk.praxis_bulk_evaluation enable trigger user");
+        var historyBeforeRetry = historyThroughV19();
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
+                + "where version='20'",Integer.class)).isZero();
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
-                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isZero();
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isEqualTo(1);
+        assertV20OnceAndZeroWorkReplay(BulkPostgresTestSupport.testRoleConfiguration(),historyBeforeRetry);
         assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
                 .isEqualTo("COMPLETE");
         assertThat(count("praxis_bulk_target_manifest")).isEqualTo(value.targets().size());
@@ -864,6 +876,21 @@ class BulkEvaluationStorePostgresTest {
         assertThat(sql.queryForObject("""
                 select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','insert')
                 """,Boolean.class)).isFalse();
+    }
+    private List<java.util.Map<String,Object>> historyThroughV19() {
+        return sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                + "where version is null or version::integer<=19 order by installed_rank");
+    }
+    private void assertV20OnceAndZeroWorkReplay(BulkExecutionRoleConfiguration roles,
+            List<java.util.Map<String,Object>> before) {
+        assertThat(historyThroughV19()).isEqualTo(before);
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
+                + "where version='20' and success",Integer.class)).isEqualTo(1);
+        var completeHistory = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
+        assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isZero();
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank"))
+                .isEqualTo(completeHistory);
     }
     @Test void wrongNoRoleUpgradeCannotCompleteAndCorrectRoleRetryRecovers() {
         migrateToV7();
@@ -882,8 +909,12 @@ class BulkEvaluationStorePostgresTest {
                 """,Boolean.class)).isFalse();
         grantPublicationReadToExistingRuntimeRoles();
         var roles=BulkPostgresTestSupport.testRoleConfiguration();
+        var historyBeforeRetry = historyThroughV19();
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
+                + "where version='20'",Integer.class)).isZero();
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
-                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isZero();
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isEqualTo(1);
+        assertV20OnceAndZeroWorkReplay(BulkPostgresTestSupport.testRoleConfiguration(),historyBeforeRetry);
         assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
                 .isEqualTo("COMPLETE");
         assertThat(count("praxis_bulk_target_manifest")).isEqualTo(value.targets().size());
