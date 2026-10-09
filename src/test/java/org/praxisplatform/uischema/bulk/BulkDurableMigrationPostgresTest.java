@@ -613,10 +613,17 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            var original = v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
+            var original = pendingV15RuntimeFixtureWithoutBootstrapGrants(owner, sql, "bulk_v16_runtime");
             assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(CONTEXT.namespaceId(),
                     BulkPostgresTestSupport.DEPLOYMENT_ID), original)).isEqualTo(5);
-            // This is explicit test fixture provisioning of a second old-protocol role, not a migrator repair.
+            BulkExecutionMigrator.validate(owner, original);
+            assertAtomicBootstrapPhase(sql, "COMPLETE");
+            assertThat(sql.queryForObject("select max(version::integer) from "
+                    + "praxis_bulk.praxis_bulk_schema_history where success and version is not null",
+                    Integer.class)).isEqualTo(20);
+            var historyBefore = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank");
+            // Explicit owner provisioning adds the second role; a completed bootstrap must not repair its revoked reads.
             BulkPostgresTestSupport.grantRuntimeRole(owner, "bulk_v18_future_runtime");
             sql.execute("revoke select on praxis_bulk.praxis_bulk_capacity_marker, "
                     + "praxis_bulk.praxis_bulk_capacity_installation from bulk_v18_future_runtime");
@@ -625,13 +632,16 @@ class BulkDurableMigrationPostgresTest {
                     java.util.Set.of(), java.util.Set.of());
             assertThatThrownBy(() -> BulkExecutionMigrator.migrate(owner,
                     java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID), changed))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("V18 runtime capacity grant changed:");
             assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_read_bootstrap",
                     String.class)).isEqualTo("COMPLETE");
             assertThat(sql.queryForObject("select has_table_privilege('bulk_v18_future_runtime', "
                     + "'praxis_bulk.praxis_bulk_capacity_marker', 'SELECT')", Boolean.class)).isFalse();
             assertThat(sql.queryForObject("select has_table_privilege('bulk_v18_future_runtime', "
                     + "'praxis_bulk.praxis_bulk_capacity_installation', 'SELECT')", Boolean.class)).isFalse();
+            assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank")).isEqualTo(historyBefore);
         }
     }
 
@@ -1451,9 +1461,16 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            var roles = v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
+            var roles = pendingV15RuntimeFixtureWithoutBootstrapGrants(owner, sql, "bulk_v16_runtime");
             assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(CONTEXT.namespaceId(),
                     BulkPostgresTestSupport.DEPLOYMENT_ID), roles)).isEqualTo(5);
+            BulkExecutionMigrator.validate(owner, roles);
+            assertAtomicBootstrapPhase(sql, "COMPLETE");
+            assertThat(sql.queryForObject("select max(version::integer) from "
+                    + "praxis_bulk.praxis_bulk_schema_history where success and version is not null",
+                    Integer.class)).isEqualTo(20);
+            var historyBefore = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank");
             // Deliberate owner catalog corruption: the named, validated CHECK now permits >400 effects.
             sql.execute("alter table praxis_bulk.praxis_bulk_atomic_receipt "
                     + "drop constraint praxis_bulk_atomic_receipt_effect_count_check");
@@ -1469,12 +1486,15 @@ class BulkDurableMigrationPostgresTest {
                     .hasMessageContaining("V16 atomic constraint definition differs");
             assertThatThrownBy(() -> BulkExecutionMigrator.migrate(owner,
                     java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID), roles))
-                    .isInstanceOf(IllegalStateException.class);
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("V16 atomic constraint definition differs");
             assertThat(sql.queryForObject("select pg_get_constraintdef(oid) from pg_constraint "
                     + "where conrelid='praxis_bulk.praxis_bulk_atomic_receipt'::regclass "
                     + "and conname='praxis_bulk_atomic_receipt_effect_count_check'", String.class))
                     .isEqualTo(definition);
             assertAtomicBootstrapPhase(sql, "COMPLETE");
+            assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank")).isEqualTo(historyBefore);
         }
     }
 
@@ -1484,7 +1504,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
+            pendingV15RuntimeFixtureWithoutBootstrapGrants(owner, sql, "bulk_v16_runtime");
             BulkPostgresTestSupport.grantControlRole(owner, "bulk_v16_control");
             sql.execute("create role bulk_v16_retention login");
             sql.execute("grant praxis_bulk_retention_executor to bulk_v16_retention");
@@ -1492,6 +1512,13 @@ class BulkDurableMigrationPostgresTest {
                     java.util.Set.of("bulk_v16_retention"), java.util.Set.of("bulk_v16_control"));
             assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(CONTEXT.namespaceId(),
                     BulkPostgresTestSupport.DEPLOYMENT_ID), roles)).isEqualTo(5);
+            BulkExecutionMigrator.validate(owner, roles);
+            assertAtomicBootstrapPhase(sql, "COMPLETE");
+            assertThat(sql.queryForObject("select max(version::integer) from "
+                    + "praxis_bulk.praxis_bulk_schema_history where success and version is not null",
+                    Integer.class)).isEqualTo(20);
+            var historyBefore = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank");
             for (String role : List.of("bulk_v16_runtime", "bulk_v16_retention", "bulk_v16_control")) {
                 for (String privilege : List.of("select", "update(phase)")) {
                     // Only the isolated owner deliberately corrupts a completed marker ACL.
@@ -1501,11 +1528,14 @@ class BulkDurableMigrationPostgresTest {
                             .hasMessageContaining("V16 bootstrap marker must remain owner-only");
                     assertThatThrownBy(() -> BulkExecutionMigrator.migrate(owner,
                             java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID), roles))
-                            .isInstanceOf(IllegalStateException.class);
+                            .isInstanceOf(IllegalStateException.class)
+                            .hasMessageContaining("V16 bootstrap marker must remain owner-only");
                     assertThat(sql.queryForObject("select has_column_privilege(?, "
                             + "'praxis_bulk.praxis_bulk_atomic_bootstrap','phase',?)", Boolean.class,
                             role, privilege.equals("select") ? "SELECT" : "UPDATE")).isTrue();
                     assertAtomicBootstrapPhase(sql, "COMPLETE");
+                    assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                            + "order by installed_rank")).isEqualTo(historyBefore);
                     sql.execute("revoke " + privilege + " on praxis_bulk.praxis_bulk_atomic_bootstrap from " + role);
                     BulkExecutionMigrator.validate(owner, roles);
                 }
