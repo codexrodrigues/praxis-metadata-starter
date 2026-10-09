@@ -3310,7 +3310,8 @@ class BulkDurableMigrationPostgresTest {
             var sql = new JdbcTemplate(dataSource);
             assertThat(migrate(dataSource)).isEqualTo(20);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
-            var fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
+            var roles = BulkPostgresTestSupport.testRoleConfiguration();
+            var fixture = insertCurrentRunningExecution(postgres, dataSource, sql, roles);
             UUID attemptId = UUID.randomUUID();
             prepareUnit(sql, fixture.id(), attemptId, 0, fixture.digest0());
             sql.update("""
@@ -3325,29 +3326,29 @@ class BulkDurableMigrationPostgresTest {
                         active_target_digest=?, active_attempt_epoch=1
                     where execution_id=?
                     """, attemptId, fixture.digest0(), fixture.id());
-            BulkExecutionMigrator.validate(dataSource);
+            BulkExecutionMigrator.validate(dataSource, roles);
 
             sql.update("update praxis_bulk.praxis_bulk_execution set active_attempt_id=? where execution_id=?",
                     UUID.randomUUID(), fixture.id());
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, roles))
                     .isInstanceOf(IllegalStateException.class);
             sql.update("update praxis_bulk.praxis_bulk_execution set active_attempt_id=? where execution_id=?",
                     attemptId, fixture.id());
             sql.update("update praxis_bulk.praxis_bulk_execution set active_target_digest=? where execution_id=?",
                     fixture.digest1(), fixture.id());
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, roles))
                     .isInstanceOf(IllegalStateException.class);
             sql.update("update praxis_bulk.praxis_bulk_execution set active_target_digest=? where execution_id=?",
                     fixture.digest0(), fixture.id());
             sql.update("update praxis_bulk.praxis_bulk_execution set owner_epoch=2, active_attempt_epoch=2 "
                     + "where execution_id=?", fixture.id());
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, roles))
                     .isInstanceOf(IllegalStateException.class);
 
             sql.execute("drop schema praxis_bulk cascade");
             assertThat(migrate(dataSource)).isEqualTo(20);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
-            fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
+            fixture = insertCurrentRunningExecution(postgres, dataSource, sql, roles);
             attemptId = UUID.randomUUID();
             insertAdmission(sql, fixture.id(), attemptId, 0, fixture.digest0(),
                     "CONFLICT", "TARGET_VERSION_CONFLICT");
@@ -3357,7 +3358,7 @@ class BulkDurableMigrationPostgresTest {
                         active_target_digest=?, active_attempt_epoch=1
                     where execution_id=?
                     """, attemptId, fixture.digest0(), fixture.id());
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, roles))
                     .isInstanceOf(IllegalStateException.class);
         }
     }
@@ -3370,7 +3371,8 @@ class BulkDurableMigrationPostgresTest {
             var sql = new JdbcTemplate(dataSource);
             assertThat(migrate(dataSource)).isEqualTo(20);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
-            UUID executionId = insertExecution(dataSource, sql, "RUNNING", 0, false).id();
+            var roles = BulkPostgresTestSupport.testRoleConfiguration();
+            UUID executionId = insertCurrentRunningExecution(postgres, dataSource, sql, roles).id();
             sql.update("""
                     update praxis_bulk.praxis_bulk_execution
                     set status='UNIT_IN_FLIGHT', active_attempt_id=?, active_attempt_ordinal=0,
@@ -3416,8 +3418,116 @@ class BulkDurableMigrationPostgresTest {
                     update praxis_bulk.praxis_bulk_execution
                     set terminal_reason_code='RECOVERY_STOPPED' where execution_id=?
                     """, executionId)).isInstanceOf(RuntimeException.class);
-            BulkExecutionMigrator.validate(dataSource);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation "
+                    + "where execution_id=? and kind='EXECUTION_ACTIVE' and state='RELEASED' "
+                    + "and release_reason='TERMINAL_RECONCILED' and released_at is not null",
+                    Integer.class, executionId)).isEqualTo(1);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation "
+                    + "where kind='PROPOSAL_PENDING' and state='CONSUMED'", Integer.class)).isEqualTo(1);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation", Integer.class))
+                    .isEqualTo(2);
+            BulkExecutionMigrator.validate(dataSource, roles);
         }
+    }
+
+    /** Current fixture: commit protected evaluation, then let the kernel allocate its execution. */
+    private static ExecutionFixture insertCurrentRunningExecution(EmbeddedPostgres postgres,
+            DataSource owner, JdbcTemplate sql, BulkExecutionRoleConfiguration roles) {
+        BulkPostgresTestSupport.grantRuntimeRole(owner, "bulk_runtime_test");
+        BulkPostgresTestSupport.grantRuntimeRole(owner, "durable_runtime");
+        assertThat(sql.queryForObject("select state from praxis_bulk.praxis_bulk_openapi_publication",
+                String.class)).isEqualTo("PUBLISHED");
+        assertThat(sql.queryForObject("select state from praxis_bulk.praxis_bulk_operation_control "
+                + "where namespace_id=? and operation_id=?", String.class,
+                CONTEXT.namespaceId(), CONTEXT.operationRef().operationId())).isEqualTo("READY");
+        Instant created = Instant.now().minusSeconds(5);
+        var reader = new BulkProtocolReader<>(BulkIdentityCodecs.strings());
+        var request = reader.<com.fasterxml.jackson.databind.JsonNode, com.fasterxml.jackson.databind.JsonNode>readCommand(
+                """
+                {"executionMode":"SYNC","selection":{"mode":"EXPLICIT","targets":[
+                  {"id":"1","expectedVersion":"v1"},{"id":"2","expectedVersion":"v2"}]},
+                  "parameters":{"reason":"migration-fixture"}}
+                """.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                com.fasterxml.jackson.databind.JsonNode::deepCopy,
+                com.fasterxml.jackson.databind.JsonNode::deepCopy);
+        var snapshot = BulkIntentSnapshot.command(CONTEXT, BulkIdentityCodecs.strings(), request,
+                com.fasterxml.jackson.databind.JsonNode::deepCopy,
+                com.fasterxml.jackson.databind.JsonNode::deepCopy);
+        var proposal = new BulkStoredProposal(UUID.randomUUID(), created, created.plusSeconds(600), snapshot,
+                BulkSnapshotStorageCodecTest.CONTROL_EXPECTATION);
+        var empty = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+        var evaluation = new BulkEvaluationSnapshot(proposal, created.plusSeconds(1), List.of(
+                new BulkTargetEvidence<>(new BulkTarget<>("1", "v1"), "observed-v1", empty, empty,
+                        BulkTargetEligibility.executable()),
+                new BulkTargetEvidence<>(new BulkTarget<>("2", "v2"), "observed-v2", empty, empty,
+                        BulkTargetEligibility.executable())),
+                new BulkEvaluationGovernance("test-evaluator-r1", "test-grants-r1", List.of(
+                        new BulkPolicyObservation("tenant", "test", "approval_policy", "resource-action-approval",
+                                "resource:approve", "NEVER_APPLIED", "test-policy-r1", created.plusMillis(500)))));
+        var runtime = BulkPostgresTestSupport.runtimeDataSource(postgres);
+        var manager = new DataSourceTransactionManager(runtime);
+        var transactions = new TransactionTemplate(manager);
+        var infrastructure = new BulkExecutionInfrastructure(runtime, manager, CONTEXT.namespaceId(),
+                BulkPostgresTestSupport.DEPLOYMENT_ID, roles);
+        var store = new JdbcBulkProposalStore(infrastructure);
+        transactions.executeWithoutResult(status -> store.insertEvaluated(evaluation,
+                BulkEvaluationSnapshotTest.preview(evaluation)));
+        String recoveredInput = transactions.execute(status -> store.find(CONTEXT, proposal.id()).orElseThrow()
+                .snapshot().fingerprint());
+        String recoveredEvaluation = transactions.execute(status -> store.findEvaluation(CONTEXT, proposal.id()).orElseThrow()
+                .fingerprint());
+        assertThat(recoveredInput).isEqualTo(snapshot.fingerprint());
+        assertThat(recoveredEvaluation).isEqualTo(evaluation.fingerprint());
+        assertThat(sql.queryForObject("select payload from praxis_bulk.praxis_bulk_proposal where proposal_id=?",
+                byte[].class, proposal.id())).isEqualTo(BulkSnapshotStorageCodec.encode(snapshot));
+        assertThat(sql.queryForObject("select payload from praxis_bulk.praxis_bulk_evaluation where proposal_id=?",
+                byte[].class, proposal.id())).isEqualTo(BulkEvaluationStorageCodec.encode(evaluation));
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_target_preview "
+                + "where proposal_id=? and evaluation_fingerprint=?", Integer.class,
+                proposal.id(), evaluation.fingerprint())).isEqualTo(2);
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation", Integer.class))
+                .isEqualTo(1);
+        assertNativeAllocation(sql, "PROPOSAL_PENDING", proposal.id(), "PENDING", proposal.id(), null);
+        var reservation = new JdbcBulkDurableExecution(infrastructure).reserve(CONTEXT, proposal.id(),
+                "current-fixture-" + proposal.id(), "owner", "structural-r1", Instant.now().plusSeconds(30));
+        assertThat(reservation.replayed()).isFalse();
+        assertThat(reservation.proposalId()).isEqualTo(proposal.id());
+        assertThat(reservation.status()).isEqualTo(BulkDurableExecutionStatus.RUNNING);
+        assertThat(reservation.nextOrdinal()).isZero();
+        assertThat(reservation.targetCount()).isEqualTo(2);
+        assertThat(reservation.control().ownerId()).isEqualTo("owner");
+        assertThat(reservation.control().epoch()).isEqualTo(1);
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation", Integer.class))
+                .isEqualTo(2);
+        assertNativeAllocation(sql, "PROPOSAL_PENDING", proposal.id(), "CONSUMED", proposal.id(), null);
+        assertNativeAllocation(sql, "EXECUTION_ACTIVE", reservation.executionId(), "ACTIVE", null,
+                reservation.executionId());
+        for (String table : List.of("item_receipt", "admission"))
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_" + table,
+                    Integer.class)).isZero();
+        BulkExecutionMigrator.validate(owner, roles);
+        return new ExecutionFixture(reservation.executionId(), proposal.id(),
+                BulkExecutionMigrator.evidenceTargetDigest(evaluation, 0),
+                BulkExecutionMigrator.evidenceTargetDigest(evaluation, 1));
+    }
+
+    private static void assertNativeAllocation(JdbcTemplate sql, String kind, UUID identity,
+            String state, UUID proposalId, UUID executionId) {
+        UUID allocationId = UUID.nameUUIDFromBytes(("praxis.bulk.allocation/1:" + kind + ":" + identity)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var row = sql.queryForMap("select * from praxis_bulk.praxis_bulk_allocation where allocation_id=?",
+                allocationId);
+        assertThat(row).containsEntry("allocation_id", allocationId).containsEntry("kind", kind)
+                .containsEntry("state", state).containsEntry("proposal_id", proposalId)
+                .containsEntry("execution_id", executionId).containsEntry("namespace_id", CONTEXT.namespaceId())
+                .containsEntry("deployment_id", BulkPostgresTestSupport.DEPLOYMENT_ID)
+                .containsEntry("subject_scope_digest_version", BulkScopeDigests.VERSION)
+                .containsEntry("subject_scope_digest", BulkScopeDigests.subjectQuotaDigest(
+                        BulkPostgresTestSupport.DEPLOYMENT_ID, CONTEXT.subjectId()))
+                .containsEntry("authorization_scope_digest_version", BulkScopeDigests.VERSION)
+                .containsEntry("authorization_scope_digest", BulkScopeDigests.authorizationScopeDigest(
+                        CONTEXT.namespaceId(), CONTEXT.subjectId(), CONTEXT.resourceKey(),
+                        CONTEXT.operationRef().operationId()));
     }
 
     private static void migrateToV3(javax.sql.DataSource dataSource) {
