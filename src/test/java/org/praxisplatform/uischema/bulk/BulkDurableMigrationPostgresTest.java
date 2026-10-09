@@ -537,9 +537,16 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            var roles = v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
+            var roles = pendingV15RuntimeFixtureWithoutBootstrapGrants(owner, sql, "bulk_v16_runtime");
             assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(CONTEXT.namespaceId(),
                     BulkPostgresTestSupport.DEPLOYMENT_ID), roles)).isEqualTo(5);
+            assertThat(sql.queryForObject("select max(version::integer) from "
+                    + "praxis_bulk.praxis_bulk_schema_history where success and version is not null",
+                    Integer.class)).isEqualTo(20);
+            assertAtomicBootstrapPhase(sql, "COMPLETE");
+            BulkExecutionMigrator.validate(owner, roles);
+            var historyBefore = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank");
             for (String table : List.of("praxis_bulk_schema_history", "praxis_bulk_capacity_read_bootstrap"))
                 assertThat(sql.queryForObject("select has_table_privilege('bulk_v16_runtime', ?, 'SELECT')",
                         Boolean.class, "praxis_bulk." + table)).isFalse();
@@ -548,14 +555,31 @@ class BulkDurableMigrationPostgresTest {
             var restrictedSql = new JdbcTemplate(runtimeSource);
             assertThatThrownBy(() -> restrictedSql.queryForObject(
                     "select count(*) from praxis_bulk.praxis_bulk_schema_history", Integer.class))
-                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class)
+                    .satisfies(failure -> {
+                        var cause = ((org.springframework.dao.DataAccessException) failure).getMostSpecificCause();
+                        assertThat(cause).isInstanceOf(org.postgresql.util.PSQLException.class);
+                        assertThat(((org.postgresql.util.PSQLException) cause).getSQLState()).isEqualTo("42501");
+                        assertThat(cause.getMessage()).contains("permission denied for table praxis_bulk_schema_history");
+                    });
             assertThatThrownBy(() -> restrictedSql.queryForObject(
                     "select count(*) from praxis_bulk.praxis_bulk_capacity_read_bootstrap", Integer.class))
-                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class)
+                    .satisfies(failure -> {
+                        var cause = ((org.springframework.dao.DataAccessException) failure).getMostSpecificCause();
+                        assertThat(cause).isInstanceOf(org.postgresql.util.PSQLException.class);
+                        assertThat(((org.postgresql.util.PSQLException) cause).getSQLState()).isEqualTo("42501");
+                        assertThat(cause.getMessage()).contains("permission denied for table praxis_bulk_capacity_read_bootstrap");
+                    });
             var manager = new DataSourceTransactionManager(runtimeSource);
             var runtime = new BulkExecutionInfrastructure(runtimeSource, manager, CONTEXT.namespaceId(),
                     BulkPostgresTestSupport.DEPLOYMENT_ID, roles);
             Integer markerCount = runtime.withConsistentRead(connection -> {
+                try (var identity = connection.createStatement(); var caller = identity.executeQuery("select current_user")) {
+                    assertThat(caller.next()).isTrue();
+                    assertThat(caller.getString(1)).isEqualTo("bulk_v16_runtime");
+                    assertThat(caller.next()).isFalse();
+                }
                 try (var statement = connection.createStatement(); var rows = statement.executeQuery(
                         "select count(*) from praxis_bulk.praxis_bulk_capacity_marker")) {
                     assertThat(rows.next()).isTrue();
@@ -564,6 +588,11 @@ class BulkDurableMigrationPostgresTest {
             });
             assertThat(markerCount).isZero();
             Integer installationCount = new TransactionTemplate(manager).execute(status -> runtime.withConnection(connection -> {
+                try (var identity = connection.createStatement(); var caller = identity.executeQuery("select current_user")) {
+                    assertThat(caller.next()).isTrue();
+                    assertThat(caller.getString(1)).isEqualTo("bulk_v16_runtime");
+                    assertThat(caller.next()).isFalse();
+                }
                 try (var statement = connection.createStatement(); var rows = statement.executeQuery(
                         "select count(*) from praxis_bulk.praxis_bulk_capacity_installation")) {
                     assertThat(rows.next()).isTrue();
@@ -572,6 +601,8 @@ class BulkDurableMigrationPostgresTest {
             }));
             assertThat(installationCount).isZero();
             BulkExecutionMigrator.validate(owner, roles);
+            assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "order by installed_rank")).isEqualTo(historyBefore);
         }
     }
 
