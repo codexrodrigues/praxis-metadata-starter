@@ -3525,18 +3525,24 @@ public final class BulkExecutionMigrator {
                 "assert_preview_integrity_complete()");
         var actual = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
+                with scoped_functions as materialized (
+                    select p.* from pg_proc p
+                    where p.pronamespace=(select oid from pg_namespace where nspname=?)
+                      and p.proname=any(?::text[])
+                )
                 select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
                        p.proname, l.lanname, p.prorettype::regtype::text, p.prosecdef,
                        p.provolatile, p.prokind, p.proleakproof, p.proparallel,
                        p.proconfig = array['search_path=pg_catalog, pg_temp']::text[],
                        owner.rolname, p.prosrc
-                from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                from scoped_functions p
                 join pg_language l on l.oid=p.prolang join pg_roles owner on owner.oid=p.proowner
-                where n.nspname=? and (p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')')
+                where (p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')')
                       = any (?::text[])
                 """)) {
             statement.setString(1, SCHEMA);
-            statement.setArray(2, connection.createArrayOf("text", keys.toArray()));
+            statement.setArray(2, connection.createArrayOf("text", functionNames(keys)));
+            statement.setArray(3, connection.createArrayOf("text", keys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
                     String key = rows.getString(1);
@@ -4239,6 +4245,12 @@ public final class BulkExecutionMigrator {
         return body;
     }
 
+    private static String[] functionNames(Set<String> signatures) {
+        // Names bound the catalog work; the outer query still requires exact canonical signatures.
+        return signatures.stream().map(signature -> signature.substring(0, signature.indexOf('(')))
+                .distinct().toArray(String[]::new);
+    }
+
     private static void validateV5FunctionPrivileges(Connection connection,
             BulkExecutionRoleConfiguration roles) throws SQLException {
         validateV5FunctionPrivileges(connection, roles, Map.of());
@@ -4270,13 +4282,18 @@ public final class BulkExecutionMigrator {
                 "transition_openapi_publication(p_namespace_id text, p_deployment_id text, p_expected_generation bigint, p_target_state text, p_document_digest text)|" + role + "|EXECUTE"));
         var actual = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
+                with scoped_functions as materialized (
+                    select p.* from pg_proc p
+                    where p.pronamespace=(select oid from pg_namespace where nspname=?)
+                      and p.proname=any(?::text[])
+                )
                 select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
                        coalesce(grantee.rolname, 'PUBLIC'), acl.privilege_type, acl.is_grantable,
                        acl.grantee = p.proowner
-                from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                from scoped_functions p
                 cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
                 left join pg_roles grantee on grantee.oid=acl.grantee
-                where n.nspname=? and (p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')')
+                where (p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')')
                       = any (?::text[])
                 """)) {
             statement.setString(1, SCHEMA);
@@ -4291,7 +4308,8 @@ public final class BulkExecutionMigrator {
             functionKeys.addAll(V14_FUNCTIONS);
             functionKeys.addAll(V16_FUNCTIONS);
             if (isV18Installed(connection)) functionKeys.addAll(V18_FUNCTIONS);
-            statement.setArray(2, connection.createArrayOf("text", functionKeys.toArray()));
+            statement.setArray(2, connection.createArrayOf("text", functionNames(functionKeys)));
+            statement.setArray(3, connection.createArrayOf("text", functionKeys.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
                     if (rows.getBoolean(5)) continue;
