@@ -472,14 +472,14 @@ class BulkCapacityLocalAdministrationPostgresTest {
     }
 
     private static JdbcBulkCapacityLocalAdministration administration(BulkCapacityOccupancyPostgresFixture local,
-            JdbcBulkCapacityInstallation.ExpectedBinding binding, javax.sql.DataSource source) {
+            BulkCapacityBinding binding, javax.sql.DataSource source) {
         return new JdbcBulkCapacityLocalAdministration(binding, source, new DataSourceTransactionManager(source),
                 "postgres", local.runtime.roleConfiguration(), Duration.ofSeconds(20), Duration.ofSeconds(3));
     }
 
-    private static JdbcBulkCapacityInstallation.ExpectedBinding mismatch(
-            JdbcBulkCapacityInstallation.ExpectedBinding b, int i) {
-        return new JdbcBulkCapacityInstallation.ExpectedBinding(i == 0 ? b.deploymentId() + "-wrong" : b.deploymentId(),
+    private static BulkCapacityBinding mismatch(
+            BulkCapacityBinding b, int i) {
+        return new BulkCapacityBinding(i == 0 ? b.deploymentId() + "-wrong" : b.deploymentId(),
                 i == 1 ? b.tenantId() + "-wrong" : b.tenantId(), i == 2 ? b.environment() + "-wrong" : b.environment(),
                 i == 3 ? b.bindingId() + "-wrong" : b.bindingId(), i == 4 ? b.generation() + 1 : b.generation(),
                 i == 5 ? UUID.randomUUID() : b.databaseId(), i == 6 ? UUID.randomUUID() : b.attestationId(),

@@ -55,7 +55,7 @@ public final class BulkCapacityInstallationProcess {
             var runtime = new BulkExecutionInfrastructure(runtimeSource,
                     new DataSourceTransactionManager(runtimeSource), required(values, "namespace"),
                     required(values, "deployment"), localRoles);
-            var expected = new JdbcBulkCapacityInstallation.ExpectedBinding(
+            var expected = new BulkCapacityBinding(
                     required(values, "deployment"), required(values, "tenant"),
                     required(values, "environment"), required(values, "binding"),
                     number(values, "bindingGeneration"), uuid(values, "databaseId"),

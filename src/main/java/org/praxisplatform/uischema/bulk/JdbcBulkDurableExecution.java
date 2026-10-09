@@ -38,7 +38,7 @@ public final class JdbcBulkDurableExecution {
     private static final Duration UNIT_BUDGET = Duration.ofSeconds(5);
     private final BulkExecutionInfrastructure infrastructure;
     private final BulkOperationLifecycle lifecycle;
-    private final JdbcBulkCapacityInstallation.ExpectedBinding capacityBinding;
+    private final BulkCapacityBinding capacityBinding;
 
     public JdbcBulkDurableExecution(BulkExecutionInfrastructure infrastructure) {
         this(infrastructure, null);
@@ -49,7 +49,7 @@ public final class JdbcBulkDurableExecution {
     }
 
     JdbcBulkDurableExecution(BulkExecutionInfrastructure infrastructure, BulkOperationLifecycle lifecycle,
-            JdbcBulkCapacityInstallation.ExpectedBinding capacityBinding) {
+            BulkCapacityBinding capacityBinding) {
         this.infrastructure = Objects.requireNonNull(infrastructure, "infrastructure");
         this.lifecycle = lifecycle;
         this.capacityBinding = capacityBinding;
@@ -58,7 +58,7 @@ public final class JdbcBulkDurableExecution {
     /** Protected selector position; hints never authorize ownership or mutation. */
     record WorkerQueueHint(UUID executionId, Instant createdAt) { }
 
-    JdbcBulkCapacityInstallation.ExpectedBinding workerBindingIdentity() {
+    BulkCapacityBinding workerBindingIdentity() {
         return Objects.requireNonNull(capacityBinding, "Explicit capacity binding is required");
     }
 

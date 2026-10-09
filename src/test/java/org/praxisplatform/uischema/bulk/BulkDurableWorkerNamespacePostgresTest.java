@@ -142,8 +142,8 @@ class BulkDurableWorkerNamespacePostgresTest {
     private static BulkDurableWorker worker(JdbcBulkDurableExecution kernel, BulkFingerprintContext context,
             java.util.function.Function<BulkExecutionUnit, BulkUnitMutationResult> mutation) {
         return new BulkDurableWorker(List.of(new BulkDurableWorker.Binding(kernel, List.of(
-                new BulkDurableWorker.Handler(context.resourceKey(), context.operationRef(),
-                        unit -> BulkUnitAdmission.admit(), mutation::apply)))));
+                new BulkDurableWorker.Handler(context.resourceKey(), context.operationRef(), () -> new BulkDurableWorkerComposition.UnitCallbacks(
+                        unit -> BulkUnitAdmission.admit(), mutation::apply, () -> { }))))));
     }
 
     private static BulkCapacityOccupancyPostgresFixture.PhysicalUnit writeDomainB(

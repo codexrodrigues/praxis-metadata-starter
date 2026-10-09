@@ -568,7 +568,7 @@ class BulkCapacityExternalQuarantinePostgresTest {
                         Set.of(required(p, "runtimeRoles").split(",")), Set.of(), Set.of());
                 var context = context(p, "async");
                 var control = control(p, "async");
-                var expected = new JdbcBulkCapacityInstallation.ExpectedBinding(required(p, "deployment"),
+                var expected = new BulkCapacityBinding(required(p, "deployment"),
                         required(p, "tenant"), required(p, "environment"), required(p, "binding"), number(p, "generation"),
                         uuid(p, "databaseId"), uuid(p, "attestationId"), uuid(p, "authorityId"), number(p, "authorityEpoch"));
                 var originSource = source(required(p, "originUrl"), RUNTIME, required(p, "runtimePassword"));
@@ -641,7 +641,7 @@ class BulkCapacityExternalQuarantinePostgresTest {
         }
 
         private static JdbcBulkDurableExecution kernel(DataSource source, BulkFingerprintContext context,
-                BulkExecutionRoleConfiguration roles, JdbcBulkCapacityInstallation.ExpectedBinding expected) {
+                BulkExecutionRoleConfiguration roles, BulkCapacityBinding expected) {
             var infrastructure = new BulkExecutionInfrastructure(source, new DataSourceTransactionManager(source),
                     context.namespaceId(), expected.deploymentId(), roles);
             return new JdbcBulkDurableExecution(infrastructure, null, expected);

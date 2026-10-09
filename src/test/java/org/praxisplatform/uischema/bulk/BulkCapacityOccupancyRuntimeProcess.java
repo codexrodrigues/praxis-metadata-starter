@@ -59,7 +59,7 @@ public final class BulkCapacityOccupancyRuntimeProcess {
                     required(values, "resource"), new CanonicalOperationRef(required(values, "operationGroup"),
                     required(values, "operation"), required(values, "operationPath"), required(values, "operationMethod")),
                     required(values, "revision"), ActionCollectionAtomicity.PER_ITEM);
-            var expected = new JdbcBulkCapacityInstallation.ExpectedBinding(required(values, "deployment"),
+            var expected = new BulkCapacityBinding(required(values, "deployment"),
                     required(values, "tenant"), required(values, "environment"), required(values, "binding"),
                     number(values, "bindingGeneration"), uuid(values, "databaseId"), uuid(values, "attestationId"),
                     uuid(values, "authorityId"), number(values, "authorityEpoch"));

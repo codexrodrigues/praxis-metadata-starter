@@ -63,9 +63,9 @@ class BulkDurableWorkerHandlerIdentityPostgresTest {
                         fixture.context.namespaceId(), BulkCapacityOccupancyPostgresFixture.DEPLOYMENT,
                         BulkPostgresTestSupport.testRoleConfiguration());
                 var kernel = new JdbcBulkDurableExecution(runtime, null, fixture.expected);
-                var wrong = new BulkDurableWorker.Handler(mismatch.resource(), mismatch.operation(),
+                var wrong = new BulkDurableWorker.Handler(mismatch.resource(), mismatch.operation(), () -> new BulkDurableWorkerComposition.UnitCallbacks(
                         unit -> { wrongCallbacks.incrementAndGet(); return BulkUnitAdmission.admit(); },
-                        unit -> { wrongCallbacks.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+                        unit -> { wrongCallbacks.incrementAndGet(); return BulkUnitMutationResult.confirmed(); }, () -> { }));
                 var worker = new BulkDurableWorker(List.of(new BulkDurableWorker.Binding(kernel, List.of(wrong))));
                 try {
                     worker.start();

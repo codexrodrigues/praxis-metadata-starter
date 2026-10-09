@@ -16,23 +16,8 @@ final class JdbcBulkCapacityInstallation {
     private static final String MARKER = "praxis_bulk.praxis_bulk_capacity_marker";
     private static final String INSTALLATION = "praxis_bulk.praxis_bulk_capacity_installation";
 
-    record ExpectedBinding(String deploymentId, String tenantId, String environment, String bindingId,
-                           long generation, UUID databaseId, UUID attestationId,
-                           UUID authorityId, long authorityEpoch) {
-        ExpectedBinding {
-            deploymentId = BulkCapacityAuthorityMigrator.canonical(deploymentId);
-            tenantId = BulkCapacityAuthorityMigrator.canonical(tenantId);
-            environment = BulkCapacityAuthorityMigrator.canonical(environment);
-            bindingId = BulkCapacityAuthorityMigrator.canonical(bindingId);
-            Objects.requireNonNull(databaseId, "databaseId");
-            Objects.requireNonNull(attestationId, "attestationId");
-            Objects.requireNonNull(authorityId, "authorityId");
-            if (generation <= 0 || authorityEpoch <= 0)
-                throw new IllegalArgumentException("Capacity binding generation and epoch must be positive");
-        }
-    }
 
-    private final ExpectedBinding expected;
+    private final BulkCapacityBinding expected;
     private final DataSource owner;
     private final String ownerLogin;
     private final JdbcBulkCapacityLocalAdministration administration;
@@ -40,7 +25,7 @@ final class JdbcBulkCapacityInstallation {
     private final BulkCapacityAuthorityInfrastructure provisioner;
     private final JdbcBulkCapacityIssuer.CapacityReader reader;
 
-    JdbcBulkCapacityInstallation(ExpectedBinding expected, DataSource owner,
+    JdbcBulkCapacityInstallation(BulkCapacityBinding expected, DataSource owner,
             DataSourceTransactionManager ownerManager, String expectedOwnerLogin,
             BulkExecutionInfrastructure runtime, BulkCapacityAuthorityInfrastructure provisioner,
             JdbcBulkCapacityIssuer.CapacityReader reader,

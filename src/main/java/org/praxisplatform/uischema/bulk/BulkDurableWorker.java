@@ -25,15 +25,14 @@ final class BulkDurableWorker implements SmartLifecycle {
     static final int PHASE = Integer.MAX_VALUE - 1024;
 
     record Handler(String resourceKey, CanonicalOperationRef operation,
-            BulkUnitAdmissionCallback admission, BulkUnitMutationCallback mutation) {
+            java.util.function.Supplier<BulkDurableWorkerComposition.UnitCallbacks> callbacks) {
         Handler {
             BulkContractChecks.text(resourceKey, "resourceKey");
             Objects.requireNonNull(operation, "operation");
             BulkContractChecks.text(operation.operationId(), "operationId");
             BulkContractChecks.text(operation.path(), "operation path");
             BulkContractChecks.text(operation.method(), "operation method");
-            Objects.requireNonNull(admission, "admission");
-            Objects.requireNonNull(mutation, "mutation");
+            Objects.requireNonNull(callbacks, "callbacks");
         }
         boolean matches(BulkFingerprintContext scope) {
             return resourceKey.equals(scope.resourceKey()) && operation.equals(scope.operationRef());
@@ -239,12 +238,32 @@ final class BulkDurableWorker implements SmartLifecycle {
 
     private void advanceOne(State state, String startedOwner) {
         int ordinal = state.owned.nextOrdinal();
-        var result = state.binding.kernel().executeUnit(state.owned.control(), ordinal,
-                state.handler.admission(), state.handler.mutation());
+        var result = executeOne(state.binding.kernel(), state.owned.control(), ordinal, state.handler);
         if (!result.replayed() && result.status() == BulkDurableExecutionStatus.RUNNING
                 && result.durableResultPresent() && result.execution().nextOrdinal() == ordinal + 1) {
             state.owned = new BulkExecutionReservation(result.execution(), false);
         } else reconcile(state, startedOwner);
+    }
+    /** Same attempt-scoped dispatch used by the worker; never a host-facing execution API. */
+    static BulkUnitExecutionResult executeOne(JdbcBulkDurableExecution kernel, BulkExecutionControl control,
+            int ordinal, Handler handler) {
+        var pair = new java.util.concurrent.atomic.AtomicReference<BulkDurableWorkerComposition.UnitCallbacks>();
+        try {
+            return kernel.executeUnit(control, ordinal,
+                    unit -> {
+                        var callbacks = Objects.requireNonNull(handler.callbacks().get(), "unit callbacks");
+                        if (!pair.compareAndSet(null, callbacks))
+                            throw new IllegalStateException("Unit callbacks already allocated");
+                        return callbacks.admission().admit(unit);
+                    },
+                    unit -> Objects.requireNonNull(pair.get(), "admitted unit callbacks").mutation().apply(unit));
+        } finally {
+            var callbacks = pair.getAndSet(null);
+            if (callbacks != null) {
+                try { callbacks.cleanup().run(); }
+                catch (RuntimeException | Error error) { LOG.warn("Bulk worker local cleanup failed"); }
+            }
+        }
     }
     private void reconcile(State state, String startedOwner) {
         if (state.owned == null) return;

@@ -19,7 +19,7 @@ final class JdbcBulkCapacityOccupancy {
     }
 
     static void requireBinding(Connection connection, BulkExecutionInfrastructure infrastructure,
-            JdbcBulkCapacityInstallation.ExpectedBinding expected, boolean active) throws SQLException {
+            BulkCapacityBinding expected, boolean active) throws SQLException {
         if (expected == null || !expected.deploymentId().equals(infrastructure.deploymentId()))
             throw new BulkDurableExecutionException(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         try (var statement = connection.prepareStatement("""
@@ -57,7 +57,7 @@ final class JdbcBulkCapacityOccupancy {
     }
 
     static void requireActive(Connection connection, BulkExecutionInfrastructure infrastructure,
-            JdbcBulkCapacityInstallation.ExpectedBinding expected, UUID executionId, long epoch) throws SQLException {
+            BulkCapacityBinding expected, UUID executionId, long epoch) throws SQLException {
         requireBinding(connection, infrastructure, expected, true);
         try (var statement = connection.prepareStatement("""
                 select 1 from praxis_bulk.praxis_bulk_capacity_slot s

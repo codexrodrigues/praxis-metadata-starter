@@ -126,7 +126,7 @@ public final class BulkCapacityLocalAdministrationMain {
         JsonNode binding = root.get("binding");
         exact(binding, "deploymentId", "tenantId", "environment", "bindingId", "generation",
                 "databaseId", "attestationId", "authorityId", "authorityEpoch");
-        var expected = new JdbcBulkCapacityInstallation.ExpectedBinding(text(binding, "deploymentId"),
+        var expected = new BulkCapacityBinding(text(binding, "deploymentId"),
                 text(binding, "tenantId"), text(binding, "environment"), text(binding, "bindingId"),
                 positiveLong(binding, "generation"), uuid(binding, "databaseId"),
                 uuid(binding, "attestationId"), uuid(binding, "authorityId"),
@@ -178,7 +178,7 @@ public final class BulkCapacityLocalAdministrationMain {
     // Package-local for source-owned tests; never serialize this credential-bearing record.
     record Configuration(String url, String username, String password,
                          BulkExecutionRoleConfiguration roles,
-                         JdbcBulkCapacityInstallation.ExpectedBinding binding) {
+                         BulkCapacityBinding binding) {
         @Override public String toString() { return "Local administration configuration [private]"; }
     }
 

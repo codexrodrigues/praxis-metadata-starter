@@ -881,3 +881,5 @@ Para onboarding, modelagem e validacao, siga os entry points documentados neste 
 ## Política de CI e publicação
 
 Validação local durante desenvolvimento; Actions apenas no fechamento necessário de versões. Consulte [ACTIONS-RELEASE-POLICY.md](ACTIONS-RELEASE-POLICY.md) para gatilhos, gates e recuperação.
+
+- [Composição explícita do worker — candidato B5b.3](docs/technical/BULK-WORKER-EXPLICIT-COMPOSITION.md): vínculo canônico e callbacks por unidade; provas focais e consumidor JAR privado executados, revisão/integração e publicação pendentes, sem ingresso HTTP ASYNC.

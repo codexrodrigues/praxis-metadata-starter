@@ -239,7 +239,7 @@ class BulkCapacityAuthorityRollbackPostgresTest {
         }
     }
 
-    private record Backup(JdbcBulkCapacityInstallation.ExpectedBinding expected, BulkFingerprintContext context,
+    private record Backup(BulkCapacityBinding expected, BulkFingerprintContext context,
             BulkExecutionControl control, BulkCapacityAuthorityMigrator.Identity identity,
             JdbcBulkCapacityIssuer.Request pending, JdbcBulkCapacityIssuer.Issue pendingIssue,
             JdbcBulkCapacityIssuer.IssuedToken installed, Map<String, List<String>> rows,
@@ -391,14 +391,14 @@ class BulkCapacityAuthorityRollbackPostgresTest {
                 "binding", observer.queryForList("select to_jsonb(t)::text from praxis_bulk_capacity.capacity_binding t order by 1", String.class));
     }
 
-    private static Properties intentConfiguration(Proof proof, JdbcBulkCapacityInstallation.ExpectedBinding expected) throws Exception {
+    private static Properties intentConfiguration(Proof proof, BulkCapacityBinding expected) throws Exception {
         var p = new Properties(); p.setProperty("bindingJson", JSON.writeValueAsString(binding(expected)));
         p.setProperty("journalDirectory", proof.directory.toString());
         p.setProperty("mode", "CAS_INTENT"); p.setProperty("barrier", "NONE"); p.setProperty("expectedSequence", "0");
         return p;
     }
 
-    private static void assertIntent(Proof proof, JdbcBulkCapacityInstallation.ExpectedBinding expected) throws Exception {
+    private static void assertIntent(Proof proof, BulkCapacityBinding expected) throws Exception {
         var envelope = JSON.readTree(Files.readAllBytes(proof.directory.resolve("provisioning.json")));
         var payload = envelope.path("payload");
         require(payload.path("state").asText().equals("INTENT") && payload.path("sequence").asLong() == 1);
@@ -612,14 +612,14 @@ class BulkCapacityAuthorityRollbackPostgresTest {
         }
     }
     private static String codeSource(Class<?> type) { return type.getProtectionDomain().getCodeSource().getLocation().toExternalForm(); }
-    private static ObjectNode binding(JdbcBulkCapacityInstallation.ExpectedBinding e) {
+    private static ObjectNode binding(BulkCapacityBinding e) {
         return JSON.createObjectNode().put("deployment", e.deploymentId()).put("tenant", e.tenantId()).put("environment", e.environment())
                 .put("binding", e.bindingId()).put("generation", e.generation()).put("databaseId", e.databaseId().toString())
                 .put("attestationId", e.attestationId().toString()).put("authorityId", e.authorityId().toString()).put("authorityEpoch", e.authorityEpoch());
     }
 
     private static Properties runtimeConfiguration(Proof proof, EmbeddedPostgres origin, EmbeddedPostgres clone,
-            JdbcBulkCapacityInstallation.ExpectedBinding e, BulkFingerprintContext c, BulkExecutionControl control) throws Exception {
+            BulkCapacityBinding e, BulkFingerprintContext c, BulkExecutionControl control) throws Exception {
         var p = new Properties(); p.setProperty("originUrl", origin.getJdbcUrl(RUNTIME, ORIGIN));
         p.setProperty("copyUrl", clone.getJdbcUrl(RUNTIME, ORIGIN)); p.setProperty("runtimePassword", proof.passwords.get(RUNTIME));
         p.setProperty("runtimeRoles", String.join(",", BulkPostgresTestSupport.testRoleConfiguration().runtimeGranteeRoles()));

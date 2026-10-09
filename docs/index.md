@@ -110,3 +110,5 @@ Quando houver duvida sobre a superficie publicada:
 - [Estado do worker durável B5b.2](technical/BULK-DURABLE-WORKER-B5B2-STATUS.html): candidato privado com primeira bateria aceita; matriz de fila, composição pública e fechamento do backend ainda pendentes.
 
 - [Migração owner e cutover do worker durável — candidato privado B5b.2](technical/BULK-DURABLE-WORKER-OWNER-UPGRADE.html).
+
+- [Composição explícita do worker — candidato B5b.3](technical/BULK-WORKER-EXPLICIT-COMPOSITION.html): vínculo canônico e callbacks por unidade; provas focais e consumidor JAR privado executados, revisão/integração e publicação pendentes, sem ingresso HTTP ASYNC.
