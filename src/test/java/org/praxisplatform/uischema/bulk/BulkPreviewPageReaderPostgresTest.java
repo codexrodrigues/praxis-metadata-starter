@@ -282,28 +282,36 @@ class BulkPreviewPageReaderPostgresTest {
                 BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class);
     }
 
-    @Test void upgradesV11AndRetriesWrongRoleBootstrapWithoutHealingCompletedDrift() {
+    /** Current-owner recovery proof; this does not certify a historical V11/pre14 upgrade. */
+    @Test void retriesNativeOwnerInterruptionWithoutHealingCompletedReaderDrift() {
         sql.execute("drop schema praxis_bulk cascade");
-        Flyway.configure().dataSource(owner).locations("classpath:db/praxis-bulk-migrations")
-                .schemas("praxis_bulk").defaultSchema("praxis_bulk")
-                .table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true)
-                .target("11").load().migrate();
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(9);
-        sql.execute("update praxis_bulk.praxis_bulk_preview_reader_bootstrap set phase='PENDING'");
-        sql.execute("revoke execute on function praxis_bulk.assert_preview_integrity_complete() "
-                + "from bulk_runtime_test, durable_runtime");
+        var deployments = Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID);
+        var noRolesFault = new FailReaderAfterCasDataSource(postgres.getJdbcUrl("postgres", "postgres"), false);
+        assertReaderInterruption(noRolesFault, () -> BulkExecutionMigrator.migrate(noRolesFault, deployments));
+        assertPendingReaderRecovery();
+        readerRecoveryData().forEach((table, rows) -> {
+            if (!table.endsWith("_bootstrap")) assertThat(rows).as("native rollback rows: %s", table).isEmpty();
+        });
+        var history = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
+        assertReaderMigrationHistory(history, 19);
+        grantReaderRecoveryBaseRights();
+        var pendingData = readerRecoveryData();
+        var baseCatalog = readerRecoveryCatalog();
+        var grantsFault = new FailReaderAfterCasDataSource(postgres.getJdbcUrl("postgres", "postgres"), true);
+        assertReaderInterruption(grantsFault, () -> BulkExecutionMigrator.migrate(grantsFault,
+                deployments, BulkPostgresTestSupport.testRoleConfiguration()));
+        assertPendingReaderRecovery();
+        assertThat(readerRecoveryCatalog()).isEqualTo(baseCatalog);
+        assertThat(readerRecoveryData()).isEqualTo(pendingData);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank"))
+                .isEqualTo(history);
         var incompleteRoles = new BulkExecutionRoleConfiguration("postgres", java.util.Set.of("bulk_runtime_test"),
                 java.util.Set.of(), java.util.Set.of());
-        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(owner,
-                Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID), incompleteRoles))
-                .isInstanceOf(IllegalStateException.class);
-        assertThat(sql.queryForObject("""
-                select phase from praxis_bulk.praxis_bulk_preview_reader_bootstrap
-                """, String.class)).isEqualTo("PENDING");
-        assertThat(sql.queryForObject("""
-                select has_function_privilege('bulk_runtime_test',
-                    'praxis_bulk.assert_preview_integrity_complete()', 'EXECUTE')
-                """, Boolean.class)).isFalse();
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(owner, deployments, incompleteRoles))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("governed lifecycle function grants differ");
+        assertPendingReaderRecovery();
+        assertThat(readerRecoveryCatalog()).isEqualTo(baseCatalog);
+        assertThat(readerRecoveryData()).isEqualTo(pendingData);
         String function = "praxis_bulk.assert_preview_integrity_complete()";
         String originalDefinition = sql.queryForObject("select pg_get_functiondef(?::regprocedure)",
                 String.class, function);
@@ -312,39 +320,259 @@ class BulkPreviewPageReaderPostgresTest {
                 returns boolean language plpgsql stable security definer
                 set search_path = pg_catalog, pg_temp as $$ begin return true; end $$
                 """);
-        assertThatThrownBy(() -> BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId()))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("body differs");
-        assertThat(sql.queryForObject("""
-                select phase from praxis_bulk.praxis_bulk_preview_reader_bootstrap
-                """, String.class)).isEqualTo("PENDING");
-        assertThat(sql.queryForObject("""
-                select has_function_privilege('bulk_runtime_test',
-                    'praxis_bulk.assert_preview_integrity_complete()', 'EXECUTE')
-                """, Boolean.class)).isFalse();
+        var corruptBody = readerRecoveryCatalog();
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(owner, deployments,
+                BulkPostgresTestSupport.testRoleConfiguration()))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("governed lifecycle function body differs from V12 expectation: assert_preview_integrity_complete()");
+        assertPendingReaderRecovery();
+        assertThat(readerRecoveryData()).isEqualTo(pendingData);
+        assertThat(readerRecoveryCatalog()).isEqualTo(corruptBody);
         sql.execute(originalDefinition);
         sql.execute("create role preview_wrong_reader_owner nologin");
         sql.execute("alter function " + function + " owner to preview_wrong_reader_owner");
-        assertThatThrownBy(() -> BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId()))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("unexpected owner");
-        assertThat(sql.queryForObject("""
-                select phase from praxis_bulk.praxis_bulk_preview_reader_bootstrap
-                """, String.class)).isEqualTo("PENDING");
-        assertThat(sql.queryForObject("""
-                select has_function_privilege('bulk_runtime_test',
-                    'praxis_bulk.assert_preview_integrity_complete()', 'EXECUTE')
-                """, Boolean.class)).isFalse();
+        var corruptOwner = readerRecoveryCatalog();
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(owner, deployments,
+                BulkPostgresTestSupport.testRoleConfiguration()))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("preview bootstrap guard has unexpected owner: assert_preview_integrity_complete()");
+        assertPendingReaderRecovery();
+        assertThat(readerRecoveryData()).isEqualTo(pendingData);
+        assertThat(readerRecoveryCatalog()).isEqualTo(corruptOwner);
         sql.execute("alter function " + function + " owner to postgres");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isZero();
-        assertThat(sql.queryForObject("""
-                select phase from praxis_bulk.praxis_bulk_preview_reader_bootstrap
-                """, String.class)).isEqualTo("COMPLETE");
-        sql.execute("revoke execute on function praxis_bulk.assert_preview_integrity_complete() from bulk_runtime_test");
-        assertThatThrownBy(() -> BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId()))
-                .isInstanceOf(IllegalStateException.class);
-        assertThat(sql.queryForObject("""
-                select has_function_privilege('bulk_runtime_test',
-                    'praxis_bulk.assert_preview_integrity_complete()', 'EXECUTE')
-                """, Boolean.class)).isFalse();
+        assertThat(readerRecoveryData()).isEqualTo(pendingData);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank"))
+                .isEqualTo(history);
+        assertThat(BulkExecutionMigrator.migrate(owner, deployments,
+                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(1);
+        BulkExecutionMigrator.validate(owner, BulkPostgresTestSupport.testRoleConfiguration());
+        var completeData = readerRecoveryData();
+        var completeCatalog = readerRecoveryCatalog();
+        var completeHistory = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
+        assertReaderMigrationHistory(completeHistory, 20);
+        assertThat(readerBootstrapPhases()).containsOnly("COMPLETE").hasSize(7);
+        assertThat(BulkExecutionMigrator.migrate(owner, deployments,
+                BulkPostgresTestSupport.testRoleConfiguration())).isZero();
+        assertThat(readerRecoveryCatalog()).isEqualTo(completeCatalog);
+        assertThat(readerRecoveryData()).isEqualTo(completeData);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank"))
+                .isEqualTo(completeHistory);
+        sql.execute("revoke execute on function " + function + " from bulk_runtime_test");
+        var revokedCatalog = readerRecoveryCatalog();
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(owner, deployments,
+                BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("governed lifecycle function grants differ");
+        assertThat(readerRecoveryCatalog()).isEqualTo(revokedCatalog);
+        assertThat(readerRecoveryData()).isEqualTo(completeData);
+        assertThat(readerBootstrapPhases()).containsOnly("COMPLETE").hasSize(7);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank"))
+                .isEqualTo(completeHistory);
+        assertThat(sql.queryForObject("select has_function_privilege('bulk_runtime_test', ?,'EXECUTE')",
+                Boolean.class, function)).isFalse();
+    }
+
+    /** Preserve all history rows, including Flyway's unversioned schema creation entry. */
+    private void assertReaderMigrationHistory(List<Map<String, Object>> history, int lastVersion) {
+        assertThat(history).hasSize(lastVersion + 1);
+        var schema = history.stream().filter(row -> row.get("version") == null).toList();
+        assertThat(schema).hasSize(1);
+        assertThat(schema.getFirst().get("type")).isEqualTo("SCHEMA");
+        assertThat(schema.getFirst().get("installed_rank")).isEqualTo(0);
+        assertThat(schema.getFirst().get("success")).isEqualTo(true);
+        assertThat(schema.getFirst().get("description")).isEqualTo("<< Flyway Schema Creation >>");
+        assertThat(schema.getFirst().get("script")).isEqualTo("\"praxis_bulk\"");
+        assertThat(schema.getFirst().get("checksum")).isNull();
+        var versioned = history.stream().filter(row -> row.get("version") != null).toList();
+        assertThat(versioned.stream().map(row -> row.get("version")).toList())
+                .containsExactlyElementsOf(java.util.stream.IntStream.rangeClosed(1, lastVersion)
+                        .mapToObj(Integer::toString).toList());
+        versioned.forEach(row -> {
+            assertThat(row.get("type")).isEqualTo("SQL");
+            assertThat(row.get("success")).isEqualTo(true);
+            assertThat(row.get("checksum")).isNotNull();
+        });
+    }
+
+    private List<String> readerBootstrapPhases() {
+        var phases = new ArrayList<String>();
+        for (String marker : List.of("manifest", "preview", "preview_integrity", "preview_reader",
+                "atomic", "capacity_read", "capacity_occupancy"))
+            phases.add(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_" + marker + "_bootstrap", String.class));
+        return phases;
+    }
+
+    private void assertPendingReaderRecovery() {
+        assertThat(readerBootstrapPhases()).containsOnly("PENDING").hasSize(7);
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_namespace_binding", Integer.class)).isZero();
+        try (var connection = owner.getConnection()) {
+            assertControlledReaderRights(connection, false);
+        } catch (java.sql.SQLException failure) { throw new IllegalStateException(failure); }
+    }
+
+    private Map<String, List<String>> readerRecoveryData() {
+        var rows = new java.util.LinkedHashMap<String, List<String>>();
+        for (String table : List.of("namespace_binding", "deployment_bucket", "subject_bucket", "openapi_publication",
+                "operation_control", "allocation", "proposal", "evaluation", "target_manifest", "preview_state",
+                "target_preview", "preview_item_integrity", "manifest_bootstrap", "preview_bootstrap",
+                "preview_integrity_bootstrap", "preview_reader_bootstrap", "atomic_bootstrap",
+                "capacity_read_bootstrap", "capacity_occupancy_bootstrap"))
+            rows.put(table, sql.queryForList("select to_jsonb(t)::text from praxis_bulk.praxis_bulk_"
+                    + table + " t order by to_jsonb(t)::text", String.class));
+        return rows;
+    }
+
+    /** Exact bounded extension rights. Capacity phases have not run at the V12 interruption. */
+    private static void assertControlledReaderRights(java.sql.Connection connection, boolean beforeReaderCommit)
+            throws java.sql.SQLException {
+        var tables = new java.util.LinkedHashMap<String, List<String>>();
+        for (String table : List.of("target_manifest", "preview_state", "target_preview", "preview_item_integrity",
+                "atomic_receipt", "atomic_item_result", "atomic_effect_ref", "atomic_rejection"))
+            tables.put(table, List.of("SELECT", "INSERT"));
+        for (String table : List.of("capacity_marker", "capacity_installation", "capacity_slot", "capacity_occupation"))
+            tables.put(table, List.of("SELECT"));
+        for (String table : List.of("manifest", "preview", "preview_integrity", "preview_reader", "atomic",
+                "capacity_read", "capacity_occupancy"))
+            tables.put(table + "_bootstrap", List.of("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"));
+        for (String role : List.of("bulk_runtime_test", "durable_runtime")) {
+            for (var table : tables.entrySet()) for (String right : table.getValue()) {
+                boolean expected = beforeReaderCommit && !table.getKey().startsWith("capacity_")
+                        && !table.getKey().endsWith("_bootstrap");
+                try (var check = connection.prepareStatement("select has_table_privilege(?, ?, ?)")) {
+                    check.setString(1, role); check.setString(2, "praxis_bulk.praxis_bulk_" + table.getKey()); check.setString(3, right);
+                    try (var result = check.executeQuery()) {
+                        if (!result.next() || result.getBoolean(1) != expected)
+                            throw new java.sql.SQLException("controlled right differs: " + role + " " + table.getKey() + " " + right, "XX001");
+                    }
+                }
+            }
+            for (String function : List.of("assert_preview_integrity_complete()", "atomic_evidence_complete(uuid,integer)",
+                    "lock_capacity_marker()", "claim_capacity_execution(uuid,text,text,uuid,bigint)")) {
+                boolean expected = beforeReaderCommit && (function.startsWith("assert_") || function.startsWith("atomic_"));
+                try (var check = connection.prepareStatement("select has_function_privilege(?, ?, 'EXECUTE')")) {
+                    check.setString(1, role); check.setString(2, "praxis_bulk." + function);
+                    try (var result = check.executeQuery()) {
+                        if (!result.next() || result.getBoolean(1) != expected)
+                            throw new java.sql.SQLException("controlled function right differs: " + role + " " + function, "XX001");
+                    }
+                }
+            }
+        }
+    }
+
+    /** V7 base allowlist plus the host V14 lock; governed extensions belong to the initializer. */
+    private void grantReaderRecoveryBaseRights() {
+        var rights = Map.ofEntries(
+                Map.entry("namespace_binding", "select, update(deployment_id)"),
+                Map.entry("deployment_bucket", "select, update(deployment_id)"),
+                Map.entry("subject_bucket", "select, insert, update(deployment_id)"),
+                Map.entry("proposal", "select, insert, update(proposal_id)"),
+                Map.entry("evaluation", "select, insert"), Map.entry("execution", "select, insert, update"),
+                Map.entry("item_receipt", "select, insert"), Map.entry("admission", "select, insert"),
+                Map.entry("allocation", "select, insert, update(state,released_at,release_reason)"),
+                Map.entry("tombstone", "select"));
+        for (String role : List.of("bulk_runtime_test", "durable_runtime")) {
+            sql.execute("grant usage on schema praxis_bulk to " + role);
+            rights.forEach((table, privilege) -> sql.execute("grant " + privilege
+                    + " on praxis_bulk.praxis_bulk_" + table + " to " + role));
+            sql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text),"
+                    + "praxis_bulk.lock_openapi_publication(text,text) to " + role);
+        }
+    }
+
+    /** Scalar catalog snapshots retain PUBLIC, grant options, column ACLs and role membership. */
+    private Map<String, Object> readerRecoveryCatalog() {
+        return Map.of(
+                "tables", sql.queryForList("select c.oid,c.relname,c.relowner,c.relacl::text from pg_class c "
+                        + "join pg_namespace n on n.oid=c.relnamespace where n.nspname='praxis_bulk' order by c.oid"),
+                "columns", sql.queryForList("select a.attrelid,a.attnum,a.attacl::text from pg_attribute a "
+                        + "join pg_class c on c.oid=a.attrelid join pg_namespace n on n.oid=c.relnamespace "
+                        + "where n.nspname='praxis_bulk' and a.attnum>0 order by a.attrelid,a.attnum"),
+                "functions", sql.queryForList("select p.oid,p.proowner,p.proacl::text,pg_get_functiondef(p.oid) "
+                        + "from pg_proc p join pg_namespace n on n.oid=p.pronamespace "
+                        + "where n.nspname='praxis_bulk' order by p.oid"),
+                "schema", sql.queryForList("select oid,nspowner,nspacl::text from pg_namespace where nspname='praxis_bulk'"),
+                "roles", sql.queryForList("select oid,rolname,rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolbypassrls "
+                        + "from pg_roles order by oid"),
+                "membership", sql.queryForList("select * from pg_auth_members order by roleid,member"));
+    }
+
+    private void assertReaderInterruption(FailReaderAfterCasDataSource fault, Runnable migrate) {
+        assertThatThrownBy(migrate::run).isInstanceOf(IllegalStateException.class)
+                .hasRootCauseInstanceOf(java.sql.SQLException.class)
+                .satisfies(error -> {
+                    Throwable cause = error;
+                    while (cause.getCause() != null) cause = cause.getCause();
+                    assertThat(((java.sql.SQLException) cause).getSQLState()).isEqualTo("XX000");
+                    assertThat(cause).hasMessage("test-only interruption after native V12 reader CAS");
+                });
+        assertThat(fault.failed.get()).isTrue();
+        assertThat(fault.pid).isPositive();
+        assertThat(fault.affectedRows).isEqualTo(1);
+    }
+
+    /** The real Statement executes first. SQLException forces the production rollback path. */
+    private static final class FailReaderAfterCasDataSource
+            extends org.springframework.jdbc.datasource.DriverManagerDataSource {
+        private final boolean expectedGrants;
+        private final java.util.concurrent.atomic.AtomicBoolean failed = new java.util.concurrent.atomic.AtomicBoolean();
+        private int pid;
+        private int affectedRows;
+        FailReaderAfterCasDataSource(String url, boolean expectedGrants) {
+            super(url, "postgres", "");
+            this.expectedGrants = expectedGrants;
+        }
+        @Override public java.sql.Connection getConnection() throws java.sql.SQLException {
+            var physical = super.getConnection();
+            return (java.sql.Connection) java.lang.reflect.Proxy.newProxyInstance(
+                    java.sql.Connection.class.getClassLoader(), new Class<?>[] {java.sql.Connection.class},
+                    (proxy, method, args) -> {
+                        try {
+                            Object result = method.invoke(physical, args);
+                            if (method.getName().equals("createStatement") && result instanceof java.sql.Statement statement)
+                                return java.lang.reflect.Proxy.newProxyInstance(java.sql.Statement.class.getClassLoader(),
+                                        new Class<?>[] {java.sql.Statement.class}, (sp, sm, sa) -> {
+                                            try {
+                                                Object value = sm.invoke(statement, sa);
+                                                if (sm.getName().equals("executeUpdate") && sa != null && sa.length > 0
+                                                        && sa[0] instanceof String query && query.strip().equals("""
+                                                        update praxis_bulk.praxis_bulk_preview_reader_bootstrap set phase='COMPLETE'
+                                                        where bootstrap_version=12 and phase='PENDING'
+                                                        """.strip()) && failed.compareAndSet(false, true)) {
+                                                    affectedRows = (Integer) value;
+                                                    if (affectedRows != 1 || physical.getAutoCommit())
+                                                        throw new java.sql.SQLException("reader fault did not observe transactional CAS", "XX001");
+                                                    try (var check = physical.createStatement(); var rows = check.executeQuery("""
+                                                            select pg_backend_pid(), phase,
+                                                            has_function_privilege('bulk_runtime_test','praxis_bulk.assert_preview_integrity_complete()','EXECUTE'),
+                                                            has_function_privilege('durable_runtime','praxis_bulk.assert_preview_integrity_complete()','EXECUTE'),
+                                                            has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','INSERT'),
+                                                            has_table_privilege('durable_runtime','praxis_bulk.praxis_bulk_target_manifest','INSERT')
+                                                            from praxis_bulk.praxis_bulk_preview_reader_bootstrap
+                                                            """)) {
+                                                        if (!rows.next()) throw new java.sql.SQLException("reader CAS row absent", "XX001");
+                                                        pid = rows.getInt(1);
+                                                        if (!"COMPLETE".equals(rows.getString(2)))
+                                                            throw new java.sql.SQLException("reader CAS phase not observed", "XX001");
+                                                        for (int column = 3; column <= 6; column++)
+                                                            if (rows.getBoolean(column) != expectedGrants)
+                                                                throw new java.sql.SQLException("native reader/manifest grants not observed", "XX001");
+                                                    }
+                                                    assertControlledReaderRights(physical, expectedGrants);
+                                                    try (var check = physical.createStatement(); var rows = check.executeQuery("""
+                                                            select (select count(*) from praxis_bulk.praxis_bulk_namespace_binding),
+                                                                   (select count(*) from praxis_bulk.praxis_bulk_deployment_bucket),
+                                                                   (select count(*) from praxis_bulk.praxis_bulk_openapi_publication where state='UNCOMPOSED')
+                                                            """)) {
+                                                        if (!rows.next() || rows.getInt(1) != 1 || rows.getInt(2) != 1 || rows.getInt(3) != 1)
+                                                            throw new java.sql.SQLException("native lifecycle rows not observed before rollback", "XX001");
+                                                    }
+                                                    throw new java.sql.SQLException("test-only interruption after native V12 reader CAS", "XX000");
+                                                }
+                                                return value;
+                                            } catch (java.lang.reflect.InvocationTargetException failure) { throw failure.getCause(); }
+                                        });
+                            return result;
+                        } catch (java.lang.reflect.InvocationTargetException failure) { throw failure.getCause(); }
+                    });
+        }
     }
 
     @Test void v12FunctionAclOwnerBodySearchPathAndMembershipDriftFailLiveRead() {
