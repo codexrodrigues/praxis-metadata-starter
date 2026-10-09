@@ -177,6 +177,10 @@ public class CustomOpenApiResolver extends ModelResolver {
     protected boolean applyBeanValidatorAnnotations(Schema property, Annotation[] annotations, Schema parent, boolean applyNotNullAnnotations) {
         boolean validatorUpdated = super.applyBeanValidatorAnnotations(property, annotations, parent, applyNotNullAnnotations);
 
+        if (annotations != null && ResolverUtils.getAnnotation(UISchema.class, annotations) == null) {
+            applyMicroVisualization(property, annotations);
+        }
+
         if (annotations != null && ResolverUtils.getAnnotation(UISchema.class, annotations) != null) {
             // NOVA ORDEM DE PRECEDÊNCIA (do menor para o maior):
             // 1. Valores padrão da anotação @UISchema (base)
@@ -203,7 +207,7 @@ public class CustomOpenApiResolver extends ModelResolver {
 
         if (annotations != null) {
             applyDomainGovernance(property, annotations);
-            applyMicroVisualization(property, annotations);
+            validateEffectiveMicroVisualization(property, annotations);
         }
         return validatorUpdated;
     }
@@ -247,6 +251,9 @@ public class CustomOpenApiResolver extends ModelResolver {
         // === ETAPA 2.5: Preset canônico de apresentação ===
         // Acelera metadata repetitiva sem gerar descrição de domínio.
         applyUISchemaPreset(annotation, uiExtension);
+
+        // Annotation base follows presets; explicit extraProperties remain final.
+        applyMicroVisualization(property, annotations);
 
         // === ETAPA 3: Valores EXPLÍCITOS da anotação @UISchema ===
         // Sobrescreve detecção automática com valores explicitamente definidos
@@ -2146,6 +2153,9 @@ public class CustomOpenApiResolver extends ModelResolver {
         presentation.put("presenter", "microVisualization");
 
         Map<String, Object> visualization = new LinkedHashMap<>();
+        if (presentation.get("visualization") instanceof Map<?, ?> existing) {
+            existing.forEach((key, value) -> visualization.put(String.valueOf(key), value));
+        }
         visualization.put("kind", microViz.kind().wireValue());
 
         String surface = asTrimmedString(microViz.surface());
@@ -2201,6 +2211,30 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
 
         presentation.put("visualization", visualization);
+    }
+
+    private void validateEffectiveMicroVisualization(Schema<?> property, Annotation[] annotations) {
+        if (ResolverUtils.getAnnotation(MicroVisualization.class, annotations) == null) {
+            return;
+        }
+        String path = "x-ui.presentation" + (property.getName() == null ? "" : " for field " + property.getName());
+        Object rawPresentation = getUIExtensionMap(property).get("presentation");
+        if (!(rawPresentation instanceof Map<?, ?> presentation)) {
+            throw new IllegalArgumentException(path + " must be an object.");
+        }
+        Object presenter = presentation.get("presenter");
+        if (!(presenter instanceof String text) || text.isBlank()) {
+            throw new IllegalArgumentException(path + ".presenter must be a nonblank string.");
+        }
+        if (!"microVisualization".equals(text.trim())) {
+            return;
+        }
+        if (!(presentation.get("visualization") instanceof Map<?, ?> visualization)) {
+            throw new IllegalArgumentException(path + ".visualization must be an object.");
+        }
+        if (!(visualization.get("fallbackText") instanceof String fallback) || fallback.isBlank()) {
+            throw new IllegalArgumentException(path + ".visualization.fallbackText must be a nonblank string.");
+        }
     }
 
     @SuppressWarnings("unchecked")

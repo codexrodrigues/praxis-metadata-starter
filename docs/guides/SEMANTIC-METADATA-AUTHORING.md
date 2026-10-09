@@ -55,3 +55,38 @@ O reviewer aponta:
 
 O reviewer nao gera descricoes. Ele apenas mostra onde a autoria humana ainda precisa decidir
 significado, limites, relacoes, impacto e governanca.
+
+## MicroVisualization e precedência efetiva
+
+`@MicroVisualization` publica a base de `x-ui.presentation` após os presets de
+`@UISchema`. Overrides explícitos em `@UISchema.extraProperties` são aplicados por
+último. Prefira paths de folhas, como `presentation.visualization.tone`, para
+substituir somente uma propriedade e preservar `kind`, `target` e demais dados.
+Um override do objeto completo substitui esse objeto; não representa um merge de
+folhas. Metadados de controle, label, validação e options continuam independentes.
+
+Em campos anotados com `@MicroVisualization`, quando o presenter efetivo é
+`microVisualization`,
+`presentation.visualization.fallbackText` deve ser uma string não vazia, com texto
+do domínio legível para acessibilidade e indisponibilidade do gráfico. Pode vir
+de `@MicroVisualization(fallbackText = "...")` ou de `extraProperties`; a validação
+ocorre após os overrides. Valor ausente, vazio ou de outro tipo impede publicar
+esse schema. Um presenter alternativo explícito, como `chip`, pode substituir a
+microvisualização e não exige seu fallback. O starter não inventa texto de negócio.
+
+```java
+@MicroVisualization(kind = MicroVisualizationKind.BULLET, target = 90,
+        valueExpr = "row.percentualAtendimento",
+        fallbackText = "Meta de atendimento: 90%")
+@UISchema(extraProperties = @ExtensionProperty(
+        name = "presentation.visualization.tone", value = "warning"))
+private Double percentualAtendimento;
+```
+
+Neste exemplo, `row.percentualAtendimento` e `target = 90` usam a mesma escala
+percentual de 0 a 100. `valueExpr` fornece o valor da linha; sem valor estático ou
+expressão, o renderer não recebe o valor do bullet e usa o fallback.
+
+O Angular consome esse contrato efetivo; não deve corrigir schemas inválidos com
+texto ou regras locais. A prova do resolver não substitui validação HTTP do host
+ou implantação do artefato público.

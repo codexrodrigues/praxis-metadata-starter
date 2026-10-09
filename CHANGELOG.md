@@ -4,6 +4,17 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
 
+### Resolução efetiva de MicroVisualization e discovery estatístico
+
+- Corrige a precedência da base `@MicroVisualization`: presets antes da anotação,
+  overrides de `@UISchema.extraProperties` por último, preservando co-anotações e options.
+- Nos campos anotados cujo presenter efetivo é `microVisualization`, exige fallback
+  textual não vazio após os overrides; presenter alternativo explícito continua permitido.
+- Documenta `GET /{resource}/stats/capabilities` e `_links.stats` como discovery do
+  snapshot contextual, sem inferir autorização ou endpoint GET de agregação.
+- Trinta e cinco testes focais do converter passaram; publicação e adoção pública
+  permanecem pendentes e não decorrem desta entrada Unreleased.
+
 ### B5b.3 — composição explícita candidata
 
 - [Composição explícita do worker — candidato B5b.3](docs/technical/BULK-WORKER-EXPLICIT-COMPOSITION.md): vínculo canônico e callbacks por unidade; provas focais e consumidor JAR privado executados, revisão/integração e publicação pendentes, sem ingresso HTTP ASYNC.
