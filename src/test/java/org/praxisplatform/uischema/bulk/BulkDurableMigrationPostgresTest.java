@@ -1663,115 +1663,286 @@ class BulkDurableMigrationPostgresTest {
     }
 
     @Test
-    void v16CutoverDrainsHistoricalReadyAndCannotReserveItsProtocolOneProposal() throws Exception {
+    void v16CutoverDrainsHistoricalReadyAndCannotReserveItsProtocolOneProposal(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path temporaryDirectory) throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            var roles = v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
-            initializeHistoricalV15WithPublishedSdk(owner, roles);
-            for (var marker : java.util.Map.of("manifest", 8, "preview", 9,
-                    "preview_integrity", 11, "preview_reader", 12).entrySet())
-                assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_"
-                        + marker.getKey() + "_bootstrap where bootstrap_version=?", String.class, marker.getValue()))
-                        .as("historical V%s bootstrap completed by the published SDK", marker.getValue())
-                        .isEqualTo("COMPLETE");
-            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
-                    + "where success and version is not null", Integer.class)).isEqualTo(15);
-            assertThat(sql.queryForObject("select version from praxis_bulk.praxis_bulk_schema_history "
-                    + "where version is not null order by installed_rank desc limit 1", String.class)).isEqualTo("15");
+            var evidence = writeHistoricalProposalInIsolatedConsumer(postgres, temporaryDirectory);
+            var roles = new BulkExecutionRoleConfiguration("postgres", java.util.Set.of("bulk_consumer_runtime"),
+                    java.util.Set.of(), java.util.Set.of("bulk_consumer_control"));
+            var context = new BulkFingerprintContext(evidence.getProperty("namespace"), evidence.getProperty("subject"),
+                    evidence.getProperty("resource"), new CanonicalOperationRef(evidence.getProperty("operation.group"),
+                    evidence.getProperty("operation.id"), evidence.getProperty("operation.path"),
+                    evidence.getProperty("operation.method")), evidence.getProperty("schema.revision"),
+                    ActionCollectionAtomicity.PER_ITEM);
+            String deployment = evidence.getProperty("deployment");
+            UUID proposalId = UUID.fromString(evidence.getProperty("proposal.id"));
+            long controlGeneration = Long.parseLong(evidence.getProperty("control.generation"));
+            var historyBefore = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "where version is not null order by installed_rank");
+            assertThat(historyBefore).hasSize(15);
+            assertThat(historyBefore.get(14)).containsEntry("version", "15");
+            for (var marker : java.util.Map.of("manifest", 8, "preview", 9, "preview_integrity", 11,
+                    "preview_reader", 12).entrySet())
+                assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_" + marker.getKey()
+                        + "_bootstrap where bootstrap_version=?", String.class, marker.getValue())).isEqualTo("COMPLETE");
             assertThat(sql.queryForObject("select to_regclass('praxis_bulk.praxis_bulk_atomic_receipt') is null",
                     Boolean.class)).isTrue();
-            // The historical migrator initializes deny-only controls; this helper composes the fixture tuple by CAS.
-            BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
-            var expectedControl = BulkSnapshotStorageCodecTest.CONTROL_EXPECTATION;
-            assertThat(sql.queryForObject("""
-                    select count(*) from praxis_bulk.praxis_bulk_namespace_binding b
-                    join praxis_bulk.praxis_bulk_openapi_publication p on p.deployment_id=b.deployment_id
-                    join praxis_bulk.praxis_bulk_operation_control c on c.namespace_id=b.namespace_id
-                    where b.namespace_id=? and b.deployment_id=? and c.operation_id=?
-                      and p.state='PUBLISHED' and p.generation=2 and p.document_digest=?
-                      and c.state='READY' and c.generation=? and c.descriptor_fingerprint=?
-                      and c.structural_revision=? and c.publication_generation=p.generation
-                      and c.publication_document_digest=p.document_digest
-                    """, Integer.class, CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID,
-                    CONTEXT.operationRef().operationId(), "sha256:" + "0".repeat(64), expectedControl.generation(),
-                    expectedControl.descriptorFingerprint(), expectedControl.structuralRevision()))
-                    .as("before the V15 write: published fixture CAS and the exact proposal control tuple")
-                    .isEqualTo(1);
-            var fixture = insertProposalAndOptionalExecution(owner, sql, "RUNNING", 0, false,
-                    Instant.now().minusSeconds(5), FINGERPRINT, false);
-            assertThat(fixture.id()).isNull();
-            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_execution", Integer.class))
-                    .isZero();
-            assertThat(sql.queryForObject("select version from praxis_bulk.praxis_bulk_schema_history "
-                    + "where version is not null order by installed_rank desc limit 1", String.class)).isEqualTo("15");
+            var beforeControl = sql.queryForMap("select state,generation,descriptor_fingerprint,structural_revision,"
+                    + "publication_generation,publication_document_digest from praxis_bulk.praxis_bulk_operation_control "
+                    + "where namespace_id=? and operation_id=?", context.namespaceId(), context.operationRef().operationId());
+            var beforePublication = sql.queryForMap("select state,generation,document_digest from "
+                    + "praxis_bulk.praxis_bulk_openapi_publication where deployment_id=?", deployment);
+            assertThat(beforeControl).containsEntry("state", "READY").containsEntry("generation", controlGeneration)
+                    .containsEntry("descriptor_fingerprint", evidence.getProperty("control.fingerprint"))
+                    .containsEntry("structural_revision", evidence.getProperty("control.revision"))
+                    .containsEntry("publication_generation", beforePublication.get("generation"))
+                    .containsEntry("publication_document_digest", beforePublication.get("document_digest"));
+            assertThat(beforePublication).containsEntry("state", "PUBLISHED");
             byte[] proposalBytes = sql.queryForObject("select payload from praxis_bulk.praxis_bulk_proposal "
-                    + "where proposal_id=?", byte[].class, fixture.proposalId());
-            assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(CONTEXT.namespaceId(),
-                    BulkPostgresTestSupport.DEPLOYMENT_ID), roles)).isEqualTo(5);
-            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal "
-                    + "where proposal_id=? and atomicity='PER_ITEM' and protocol_version=1 "
-                    + "and control_generation=1 and control_structural_revision='structural-r1'",
-                    Integer.class, fixture.proposalId())).isEqualTo(1);
-            assertThat(sql.queryForObject("select payload from praxis_bulk.praxis_bulk_proposal "
-                    + "where proposal_id=?", byte[].class, fixture.proposalId())).containsExactly(proposalBytes);
-            // A real cutover drains serving authority; this proves stale-input denial, not an isolated SDK protocol gate.
-            assertThat(sql.queryForMap("""
-                    select state,generation,descriptor_fingerprint,structural_revision,
-                           publication_generation,publication_document_digest
-                    from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?
-                    """, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId()))
-                    .containsEntry("state", "SUSPENDED").containsEntry("generation", 2L)
-                    .containsEntry("descriptor_fingerprint", null).containsEntry("structural_revision", null)
-                    .containsEntry("publication_generation", null).containsEntry("publication_document_digest", null);
-            assertThat(sql.queryForMap("""
-                    select state,generation,document_digest from praxis_bulk.praxis_bulk_openapi_publication
-                    where deployment_id=?
-                    """, BulkPostgresTestSupport.DEPLOYMENT_ID))
-                    .containsEntry("state", "SUSPENDED").containsEntry("generation", 3L)
-                    .containsEntry("document_digest", null);
-            assertThat(sql.queryForObject("""
-                    select count(*) from praxis_bulk.praxis_bulk_proposal p
-                    join praxis_bulk.praxis_bulk_operation_control c using(namespace_id,operation_id)
-                    where p.proposal_id=? and p.control_generation is distinct from c.generation
-                      and p.control_descriptor_fingerprint is distinct from c.descriptor_fingerprint
-                      and p.control_structural_revision is distinct from c.structural_revision
-                    """, Integer.class, fixture.proposalId())).isEqualTo(1);
+                    + "where proposal_id=?", byte[].class, proposalId);
+            assertThat(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(proposalBytes))).isEqualTo(evidence.getProperty("proposal.payload.sha256"));
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal where proposal_id=? "
+                    + "and namespace_id=? and subject_id=? and resource_key=? and operation_id=? "
+                    + "and fingerprint=? "
+                    + "and control_generation=? and control_descriptor_fingerprint=? and control_structural_revision=?",
+                    Integer.class, proposalId, context.namespaceId(), context.subjectId(), context.resourceKey(),
+                    context.operationRef().operationId(), evidence.getProperty("proposal.fingerprint"), controlGeneration,
+                    evidence.getProperty("control.fingerprint"), evidence.getProperty("control.revision"))).isEqualTo(1);
+            byte[] evaluationBytes = sql.queryForObject("select payload from praxis_bulk.praxis_bulk_evaluation "
+                    + "where proposal_id=?", byte[].class, proposalId);
+            assertThat(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(evaluationBytes))).isEqualTo(evidence.getProperty("evaluation.payload.sha256"));
+            var companionRowsBefore = historicalEvaluationRows(sql, proposalId);
+            companionRowsBefore.values().forEach(rows -> assertThat(rows).hasSize(1));
+            // V15 has no physical atomicity/protocol columns; V16 derives PER_ITEM/protocol1 from these retained bytes.
+            assertThat(sql.queryForObject("select count(*) from information_schema.columns where table_schema='praxis_bulk' "
+                    + "and table_name='praxis_bulk_proposal' and column_name in ('atomicity','protocol_version')", Integer.class))
+                    .isZero();
+            var protectedInput = new com.fasterxml.jackson.databind.ObjectMapper().readTree(proposalBytes);
+            assertThat(protectedInput.path("atomicity").asText()).isEqualTo("PER_ITEM");
+            assertThat(protectedInput.path("intent").path("executionMode").asText()).isEqualTo("SYNC");
+            assertThat(protectedInput.path("intent").path("selection").path("mode").asText()).isEqualTo("EXPLICIT");
             var allocationsBefore = sql.queryForList("select * from praxis_bulk.praxis_bulk_allocation "
                     + "order by kind,proposal_id,execution_id");
-            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation "
-                    + "where kind='PROPOSAL_PENDING' and state='PENDING' and proposal_id=?",
-                    Integer.class, fixture.proposalId())).isEqualTo(1);
-            var runtime = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_v16_runtime", "postgres"),
-                    "bulk_v16_runtime", "");
+            assertThat(allocationsBefore).hasSize(1);
+            assertThat(allocationsBefore.get(0)).containsEntry("kind", "PROPOSAL_PENDING")
+                    .containsEntry("state", "PENDING").containsEntry("proposal_id", proposalId)
+                    .containsEntry("namespace_id", context.namespaceId()).containsEntry("deployment_id", deployment)
+                    .containsEntry("subject_scope_digest_version", 1)
+                    .containsEntry("subject_scope_digest", BulkScopeDigests.subjectQuotaDigest(deployment, context.subjectId()))
+                    .containsEntry("authorization_scope_digest_version", 1)
+                    .containsEntry("authorization_scope_digest", BulkScopeDigests.authorizationScopeDigest(
+                            context.namespaceId(), context.subjectId(), context.resourceKey(), context.operationRef().operationId()))
+                    .containsEntry("execution_id", null).containsEntry("released_at", null).containsEntry("release_reason", null);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_execution", Integer.class)).isZero();
+            // The historical subprocess is finished; no application/runtime transaction spans owner maintenance.
+            assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(context.namespaceId(), deployment), roles))
+                    .isEqualTo(5);
+            assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "where version::integer<=15 order by installed_rank")).isEqualTo(historyBefore);
+            assertThat(sql.queryForObject("select payload from praxis_bulk.praxis_bulk_proposal where proposal_id=?",
+                    byte[].class, proposalId)).containsExactly(proposalBytes);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal where proposal_id=? "
+                    + "and atomicity='PER_ITEM' and protocol_version=1 and control_generation=? "
+                    + "and control_descriptor_fingerprint=? and control_structural_revision=?", Integer.class,
+                    proposalId, controlGeneration, evidence.getProperty("control.fingerprint"),
+                    evidence.getProperty("control.revision"))).isEqualTo(1);
+            assertThat(sql.queryForMap("select state,generation,descriptor_fingerprint,structural_revision,"
+                    + "publication_generation,publication_document_digest from praxis_bulk.praxis_bulk_operation_control "
+                    + "where namespace_id=? and operation_id=?", context.namespaceId(), context.operationRef().operationId()))
+                    .containsEntry("state", "SUSPENDED").containsEntry("generation", controlGeneration + 1)
+                    .containsEntry("descriptor_fingerprint", null).containsEntry("structural_revision", null)
+                    .containsEntry("publication_generation", null).containsEntry("publication_document_digest", null);
+            assertThat(sql.queryForMap("select state,generation,document_digest from "
+                    + "praxis_bulk.praxis_bulk_openapi_publication where deployment_id=?", deployment))
+                    .containsEntry("state", "SUSPENDED")
+                    .containsEntry("generation", ((Number) beforePublication.get("generation")).longValue() + 1)
+                    .containsEntry("document_digest", null);
+            assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_allocation "
+                    + "order by kind,proposal_id,execution_id")).isEqualTo(allocationsBefore);
+            var runtime = new DriverManagerDataSource(postgres.getJdbcUrl("bulk_consumer_runtime", "postgres"),
+                    "bulk_consumer_runtime", "");
             var kernel = new JdbcBulkDurableExecution(new BulkExecutionInfrastructure(runtime,
-                    new DataSourceTransactionManager(runtime), CONTEXT.namespaceId(),
-                    BulkPostgresTestSupport.DEPLOYMENT_ID, roles));
+                    new DataSourceTransactionManager(runtime), context.namespaceId(), deployment, roles));
+            assertThat(historicalEvaluationRows(sql, proposalId)).isEqualTo(companionRowsBefore);
+            assertThat(sql.queryForObject("select payload from praxis_bulk.praxis_bulk_evaluation where proposal_id=?",
+                    byte[].class, proposalId)).containsExactly(evaluationBytes);
+            var currentStore = new JdbcBulkProposalStore(new BulkExecutionInfrastructure(runtime,
+                    new DataSourceTransactionManager(runtime), context.namespaceId(), deployment, roles));
+            new org.springframework.transaction.support.TransactionTemplate(new DataSourceTransactionManager(runtime))
+                    .executeWithoutResult(tx -> {
+                        var retained = currentStore.findEvaluation(context, proposalId).orElseThrow();
+                        assertThat(retained.fingerprint()).isEqualTo(evidence.getProperty("evaluation.fingerprint"));
+                        assertThat(retained.proposal().snapshot().fingerprint()).isEqualTo(evidence.getProperty("proposal.fingerprint"));
+                        assertThat(retained.targets()).hasSize(1);
+                        assertThat(retained.targets().get(0).target().id()).isEqualTo("historical-item");
+                        assertThat(retained.targets().get(0).target().expectedVersion()).isEqualTo("v1");
+                        assertThat(retained.targets().get(0).observedVersion()).isEqualTo("v1");
+                    });
             var callbacks = new AtomicInteger();
             var reservations = new AtomicInteger();
+            // A real cutover drains authority: stale-input denial, not an isolated protocol-only admission proof.
             assertProtocolOneFreshCallbackDenied(() -> {
-                var reservation = kernel.reserve(CONTEXT, fixture.proposalId(), "protocol-one-fresh-reserve",
-                        "new-owner", "structural-r1", Instant.now().plusSeconds(30));
+                var reservation = kernel.reserve(context, proposalId, "protocol-one-fresh-reserve", "new-owner",
+                        evidence.getProperty("control.revision"), Instant.now().plusSeconds(30));
                 reservations.incrementAndGet();
                 kernel.executeUnit(reservation.control(), 0, unit -> {
-                    callbacks.incrementAndGet();
-                    throw new AssertionError("protocol one proposal cannot start admission");
+                    callbacks.incrementAndGet(); throw new AssertionError("old proposal cannot start admission");
                 }, unit -> {
-                    callbacks.incrementAndGet();
-                    throw new AssertionError("protocol one proposal cannot start mutation");
+                    callbacks.incrementAndGet(); throw new AssertionError("old proposal cannot start mutation");
                 });
             });
-            assertThat(reservations).hasValue(0);
-            assertThat(callbacks).hasValue(0);
-            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_execution", Integer.class))
-                    .isZero();
+            assertThat(reservations).hasValue(0); assertThat(callbacks).hasValue(0);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_execution", Integer.class)).isZero();
             assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation "
                     + "where kind='EXECUTION_ACTIVE'", Integer.class)).isZero();
             assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_allocation "
                     + "order by kind,proposal_id,execution_id")).isEqualTo(allocationsBefore);
             BulkExecutionMigrator.validate(owner, roles);
+            var currentHistory = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
+            assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(context.namespaceId(), deployment), roles)).isZero();
+            assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank"))
+                    .isEqualTo(currentHistory);
         }
+    }
+
+    private static java.util.Map<String, java.util.List<java.util.Map<String, Object>>> historicalEvaluationRows(
+            JdbcTemplate sql, java.util.UUID proposalId) {
+        // All columns retained, with bytea rendered explicitly as scalar hex for content equality.
+        return java.util.Map.of(
+                "evaluation", sql.queryForList("select (to_jsonb(t)-'payload')::text as tuple, encode(payload,'hex') as payload "
+                        + "from praxis_bulk.praxis_bulk_evaluation t where proposal_id=?", proposalId),
+                "manifest", sql.queryForList("select (to_jsonb(t)-'wire_identity'-'expected_version')::text as tuple, "
+                        + "encode(wire_identity,'hex') as wire_identity, encode(expected_version,'hex') as expected_version "
+                        + "from praxis_bulk.praxis_bulk_target_manifest t where proposal_id=? order by ordinal", proposalId),
+                "previewState", sql.queryForList("select (to_jsonb(t)-'public_allowlist')::text as tuple, "
+                        + "encode(public_allowlist,'hex') as public_allowlist from praxis_bulk.praxis_bulk_preview_state t "
+                        + "where proposal_id=?", proposalId),
+                "previewIntegrity", sql.queryForList("select to_jsonb(t)::text as tuple "
+                        + "from praxis_bulk.praxis_bulk_preview_item_integrity t where proposal_id=? order by ordinal", proposalId),
+                "previewTargets", sql.queryForList("select (to_jsonb(t)-'diagnostics')::text as tuple, encode(diagnostics,'hex') as diagnostics "
+                        + "from praxis_bulk.praxis_bulk_target_preview t where proposal_id=? order by ordinal", proposalId));
+    }
+
+    private static java.util.Properties writeHistoricalProposalInIsolatedConsumer(EmbeddedPostgres postgres,
+            java.nio.file.Path temporaryDirectory)
+            throws Exception {
+        var project = java.nio.file.Path.of(System.getProperty("basedir", System.getProperty("user.dir"))).toRealPath();
+        var work = historicalTestDirectory("praxis.historical.work", temporaryDirectory.resolve("work"));
+        var repository = historicalTestDirectory("praxis.historical.repository", temporaryDirectory.resolve("repository"));
+        try (var entries = java.nio.file.Files.list(repository)) {
+            assertThat(entries.findAny()).as("historical Maven repository initially empty").isEmpty();
+        }
+        try (var entries = java.nio.file.Files.list(work)) {
+            assertThat(entries.findAny()).as("historical work directory initially empty").isEmpty();
+        }
+        assertThat(work).as("historical work and repository must be distinct").isNotEqualTo(repository);
+        var configuredSettings = System.getProperty("praxis.historical.settings");
+        java.nio.file.Path settings;
+        if (configuredSettings == null || configuredSettings.isBlank()) {
+            settings = temporaryDirectory.resolve("central-only-settings.xml");
+            java.nio.file.Files.writeString(settings, historicalCentralOnlySettings());
+        } else settings = java.nio.file.Path.of(configuredSettings).toRealPath();
+        assertThat(java.nio.file.Files.isRegularFile(settings)).as("historical Maven settings file").isTrue();
+        var fixture = work.resolve("project");
+        java.nio.file.Files.createDirectory(fixture);
+        var source = project.resolve("src/test/fixtures/bulk-historical-sdk-cutover");
+        try (var files = java.nio.file.Files.walk(source)) {
+            for (var path : files.sorted().toList()) {
+                var destination = fixture.resolve(source.relativize(path));
+                if (java.nio.file.Files.isDirectory(path)) java.nio.file.Files.createDirectories(destination);
+                else java.nio.file.Files.copy(path, destination);
+            }
+        }
+        var evidence = work.resolve("native-writer-evidence.properties");
+        var jar = repository.resolve("io/github/codexrodrigues/praxis-metadata-starter/8.0.0-rc.149/"
+                + "praxis-metadata-starter-8.0.0-rc.149.jar");
+        var command = java.util.List.of("sh", project.resolve("mvnw").toString(), "-B", "-ntp", "-s",
+                settings.toString(), "-f", fixture.resolve("pom.xml").toString(),
+                "-Dmaven.repo.local=" + repository, "-Dhistorical.jar=" + jar,
+                "-Dhistorical.jdbc.url=" + postgres.getJdbcUrl("postgres", "postgres"),
+                "-Dhistorical.jdbc.runtime.url=" + postgres.getJdbcUrl("bulk_consumer_runtime", "postgres"),
+                "-Dhistorical.jdbc.control.url=" + postgres.getJdbcUrl("bulk_consumer_control", "postgres"),
+                "-Dhistorical.evidence.file=" + evidence, "-Dcandidate.source.root=" + project,
+                "-Dtest=ArtifactConsumerHttpTest#writesNativeHistoricalProposalForCutover", "test");
+        var log = work.resolve("historical-child-maven.log");
+        var builder = new ProcessBuilder(command).directory(project.toFile()).redirectErrorStream(true)
+                .redirectOutput(log.toFile());
+        builder.environment().put("MAVEN_SKIP_RC", "true"); builder.environment().remove("MAVEN_ARGS");
+        java.nio.file.Files.writeString(work.resolve("child-command.txt"), String.join("\n", command) + "\n");
+        long started = System.currentTimeMillis();
+        var process = builder.start();
+        boolean restoreInterrupted = false;
+        boolean timedOut = false;
+        try {
+            java.nio.file.Files.writeString(work.resolve("child-pid.properties"), "pid=" + process.pid()
+                    + "\nstartedMillis=" + started + "\n");
+            boolean finished = process.waitFor(20, TimeUnit.MINUTES);
+            timedOut = !finished;
+            if (!finished) throw new AssertionError("Historical child exceeded existing 20-minute budget; " + log);
+            int exit = process.exitValue();
+            java.nio.file.Files.writeString(work.resolve("child-exit.properties"), "pid=" + process.pid()
+                    + "\nstartedMillis=" + started + "\nfinishedMillis=" + System.currentTimeMillis()
+                    + "\nactualExit=" + exit + "\n");
+            assertThat(exit).as("historical child actual exit; log %s", log).isZero();
+        } catch (InterruptedException interrupted) {
+            restoreInterrupted = true;
+            throw interrupted;
+        } finally {
+            // Cleanup only the child owned by this invocation, including errors after launch and interruption.
+            if (process.isAlive()) {
+                process.descendants().forEach(ProcessHandle::destroyForcibly);
+                process.destroyForcibly();
+                try { process.waitFor(10, TimeUnit.SECONDS); }
+                catch (InterruptedException interrupted) { restoreInterrupted = true; }
+                try {
+                    java.nio.file.Files.writeString(work.resolve("child-cleanup.properties"), "pid=" + process.pid()
+                            + "\ntimedOut=" + timedOut + "\ninterrupted=" + restoreInterrupted
+                            + "\naliveAfterCleanup=" + process.isAlive()
+                            + (process.isAlive() ? "" : "\nobservedExitAfterCleanup=" + process.exitValue()) + "\n");
+                } catch (java.io.IOException cleanupReceiptFailure) {
+                    // Receipt write failure must not prevent process cleanup or interrupt restoration.
+                    System.err.println("Historical child cleanup receipt could not be written: " + cleanupReceiptFailure);
+                }
+            }
+            if (restoreInterrupted) Thread.currentThread().interrupt();
+        }
+        assertThat(java.nio.file.Files.isRegularFile(evidence)).isTrue();
+        var properties = new java.util.Properties();
+        try (var input = java.nio.file.Files.newInputStream(evidence)) { properties.load(input); }
+        assertThat(properties.getProperty("historical.jar.sha256"))
+                .isEqualTo("a0bd4137726acdced16fb1c193a8db7e6c6c1e26b23a4ba9294ccb8da5ddb2cc");
+        assertThat(java.nio.file.Path.of(properties.getProperty("historical.codeSource")).toRealPath())
+                .isEqualTo(jar.toRealPath());
+        return properties;
+    }
+
+    private static java.nio.file.Path historicalTestDirectory(String name, java.nio.file.Path defaultDirectory)
+            throws java.io.IOException {
+        var configured = System.getProperty(name);
+        if (configured == null || configured.isBlank()) return java.nio.file.Files.createDirectory(defaultDirectory).toRealPath();
+        return java.nio.file.Path.of(configured).toRealPath();
+    }
+
+    private static String historicalCentralOnlySettings() {
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+                          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+                  <mirrors>
+                    <mirror>
+                      <id>central-only</id>
+                      <mirrorOf>*</mirrorOf>
+                      <url>https://repo.maven.apache.org/maven2</url>
+                    </mirror>
+                  </mirrors>
+                </settings>
+                """;
     }
 
     private static void assertProtocolOneSqlGuard(org.springframework.dao.DataAccessException error) {
@@ -1784,51 +1955,6 @@ class BulkDurableMigrationPostgresTest {
     private static void assertProtocolOneFreshCallbackDenied(Runnable callback) {
         assertThatThrownBy(callback::run).isInstanceOfSatisfying(BulkDurableExecutionException.class,
                 error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_EXECUTABLE));
-    }
-
-    /**
-     * Executes only the published V15 SDK's public migrate/validate APIs. Its classes and Flyway
-     * resources are isolated from this candidate's class directories and metadata JARs; ordinary
-     * dependency JARs remain available. This proves historical bootstrap without editing markers
-     * or disabling guards, and does not attribute fixture READY or HTTP publication to the old SDK.
-     */
-    private static void initializeHistoricalV15WithPublishedSdk(DataSource owner,
-            BulkExecutionRoleConfiguration roles) throws Exception {
-        var jar = java.nio.file.Path.of(System.getProperty("basedir", System.getProperty("user.dir")),
-                "target", "historical-bulk-sdk", "metadata-v15-rc149.jar").toRealPath();
-        var thread = Thread.currentThread();
-        var originalLoader = thread.getContextClassLoader();
-        try (var historical = isolatedPublishedSdk(jar,
-                "a0bd4137726acdced16fb1c193a8db7e6c6c1e26b23a4ba9294ccb8da5ddb2cc")) {
-            thread.setContextClassLoader(historical);
-            try {
-                var migrator = Class.forName("org.praxisplatform.uischema.bulk.BulkExecutionMigrator", true, historical);
-                var roleType = Class.forName("org.praxisplatform.uischema.bulk.BulkExecutionRoleConfiguration", true,
-                        historical);
-                for (var type : List.of(migrator, roleType))
-                    assertThat(java.nio.file.Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
-                            .toRealPath()).as("historical public API CodeSource").isEqualTo(jar);
-                assertThat(historical.getResource("db/praxis-bulk-migrations/V16__bulk_atomic_set_execution.sql"))
-                        .as("the historical Flyway resource set excludes the candidate V16").isNull();
-                assertThat(historical.getResource("db/praxis-bulk-migrations/V17__bulk_pending_quota_snapshot_fence.sql"))
-                        .as("the historical rc149 Flyway resource set excludes V17").isNull();
-                Object historicalRoles = roleType.getConstructor(String.class, java.util.Set.class,
-                        java.util.Set.class, java.util.Set.class).newInstance(roles.expectedSchemaOwnerRole(),
-                        roles.runtimeGranteeRoles(), roles.retentionExecutorMembers(), roles.controlPlaneGranteeRoles());
-                Object applied = migrator.getMethod("migrate", DataSource.class, java.util.Map.class, roleType)
-                        .invoke(null, owner, java.util.Map.of(CONTEXT.namespaceId(),
-                                BulkPostgresTestSupport.DEPLOYMENT_ID), historicalRoles);
-                assertThat(applied).isEqualTo(0);
-                migrator.getMethod("validate", DataSource.class, roleType).invoke(null, owner, historicalRoles);
-            } catch (InvocationTargetException wrapped) {
-                Throwable cause = wrapped.getCause();
-                if (cause instanceof Exception failure) throw failure;
-                if (cause instanceof Error failure) throw failure;
-                throw new IllegalStateException("Historical public SDK invocation failed", cause);
-            } finally {
-                thread.setContextClassLoader(originalLoader);
-            }
-        }
     }
 
     private static java.net.URLClassLoader isolatedPublishedSdk(java.nio.file.Path jar, String sha256)
