@@ -24,6 +24,17 @@ entre Commons Compress e Commons Lang. Antes de ajustar dependências, conferir
 `mvn dependency:tree`; preservar o alinhamento também no classpath de runtime e
 na adoção do host, sem corrigir somente o classpath dos testes.
 
+O ciclo Maven prepara os SDKs históricos usados pelas provas de migração em
+`generate-test-resources`, pelo `download-maven-plugin` com URL de Maven Central,
+SHA-256 fixado, `alwaysVerifyChecksum=true` e `failOnError=true`. A prova V19 usa
+`target/historical-bulk-sdk/metadata-v19-rc155.jar`; o teste resolve esse caminho
+por padrão e ainda valida hash, CodeSource e migrations do SDK nativo.
+Não é necessário fornecer `praxis.bulk.historical.rc155.jar` no release workflow.
+Uma property explícita continua disponível para provas históricas controladas,
+sem desativar a validação de bytes. JAR ausente/divergente ou download falho
+bloqueiam o gate: não excluir testes, instalar a coordenada pública atual como
+fixture, ou encaminhar `target/classes` para substituir o SDK histórico.
+
 2) Para qualquer mudanca de contrato publico, executar o gate corporativo antes
    da tag:
 ```

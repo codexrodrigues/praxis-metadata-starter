@@ -195,8 +195,10 @@ class BulkWorkerQueueIndexPostgresTest {
     }
 
     private static Path historicalJar() {
-        String configured = System.getProperty("praxis.bulk.historical.rc155.jar");
-        assertThat(configured).as("explicit genuine Central rc155 artifact for historical schema").isNotBlank();
+        String configured = System.getProperty("praxis.bulk.historical.rc155.jar",
+                Path.of(System.getProperty("user.dir"), "target", "historical-bulk-sdk",
+                        "metadata-v19-rc155.jar").toString());
+        assertThat(configured).as("genuine Central rc155 artifact prepared by generate-test-resources").isNotBlank();
         return Path.of(configured);
     }
 
