@@ -575,6 +575,42 @@ class BulkPreviewPageReaderPostgresTest {
         }
     }
 
+    @Test void sameNamedForeignFunctionsAndOverloadsCannotReplaceCanonicalLiveAttestation() {
+        var value=evaluation(proposal());
+        UUID id=persist(value,preview(value));
+        var controls=sql.queryForList("select * from praxis_bulk.praxis_bulk_operation_control order by namespace_id,operation_id");
+        sql.execute("create schema praxis_bulk_attestation_decoy");
+        try {
+            sql.execute("""
+                    create function praxis_bulk_attestation_decoy.assert_preview_integrity_complete()
+                    returns boolean language plpgsql stable as $$
+                    begin raise exception 'foreign attestation decoy must not execute'; end $$
+                    """);
+            sql.execute("""
+                    create function praxis_bulk.assert_preview_integrity_complete(integer)
+                    returns boolean language plpgsql stable as $$
+                    begin raise exception 'overloaded attestation decoy must not execute'; end $$
+                    """);
+            assertThat(page(id,-1,1,10).kind()).isEqualTo(BulkPreviewPageReader.Kind.COMPLETE);
+            Boolean allowed=infrastructure.withConsistentRead(connection -> Boolean.TRUE);
+            assertThat(allowed).isTrue();
+            sql.execute("drop function praxis_bulk.assert_preview_integrity_complete()");
+            var callback=new java.util.concurrent.atomic.AtomicBoolean();
+            assertThatThrownBy(() -> infrastructure.withConsistentRead(connection -> {
+                callback.set(true);return null;
+            })).isInstanceOf(IllegalStateException.class).hasMessage("governed lifecycle functions are missing");
+            assertThat(callback).isFalse();
+            assertThatThrownBy(() -> page(id,-1,1,10))
+                    .isInstanceOfSatisfying(BulkProposalStorageException.class,
+                            error -> assertThat(error.reason()).isEqualTo(BulkProposalStorageException.Reason.UNAVAILABLE));
+            assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_operation_control order by namespace_id,operation_id"))
+                    .isEqualTo(controls);
+        } finally {
+            sql.execute("drop function if exists praxis_bulk.assert_preview_integrity_complete(integer)");
+            sql.execute("drop schema praxis_bulk_attestation_decoy cascade");
+        }
+    }
+
     @Test void v12FunctionAclOwnerBodySearchPathAndMembershipDriftFailLiveRead() {
         var value = evaluation(proposal());
         UUID id = persist(value, preview(value));
