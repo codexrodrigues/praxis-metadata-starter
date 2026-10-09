@@ -84,12 +84,21 @@ class BulkOpenApiPublicationPostgresTest {
             Flyway.configure().dataSource(source).locations("classpath:db/praxis-bulk-migrations")
                     .schemas("praxis_bulk").defaultSchema("praxis_bulk").table("praxis_bulk_schema_history")
                     .baselineOnMigrate(false).cleanDisabled(true).target("13").load().migrate();
+            // This synthetic V13 namespace must already have its durable deployment bucket.
+            admin.update("insert into praxis_bulk.praxis_bulk_deployment_bucket(deployment_id) values (?)", DEPLOYMENT);
             admin.update("insert into praxis_bulk.praxis_bulk_namespace_binding values (?, ?, clock_timestamp())", NS, DEPLOYMENT);
             BulkPostgresTestSupport.ready(source, NS, A);
             var checksum = admin.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='13'", Integer.class);
+            var originalHistory = admin.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
+            var originalBinding = admin.queryForList("select * from praxis_bulk.praxis_bulk_namespace_binding");
+            var originalBucket = admin.queryForList("select * from praxis_bulk.praxis_bulk_deployment_bucket");
             assertThat(BulkExecutionMigrator.migrate(source, Map.of(NS, DEPLOYMENT))).isEqualTo(7);
             assertThat(admin.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='13'", Integer.class))
                     .isEqualTo(checksum);
+            assertThat(admin.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                    + "where version is null or version::integer<=13 order by installed_rank")).isEqualTo(originalHistory);
+            assertThat(admin.queryForList("select * from praxis_bulk.praxis_bulk_namespace_binding")).isEqualTo(originalBinding);
+            assertThat(admin.queryForList("select * from praxis_bulk.praxis_bulk_deployment_bucket")).isEqualTo(originalBucket);
             assertThat(admin.queryForMap("select state,generation,document_digest from praxis_bulk.praxis_bulk_openapi_publication"))
                     .containsEntry("state", "UNCOMPOSED").containsEntry("generation", 0L).containsEntry("document_digest", null);
             assertThatThrownBy(() -> tx(source, c -> JdbcBulkOpenApiPublication.transition(c, NS, DEPLOYMENT, 0,
@@ -404,8 +413,16 @@ class BulkOpenApiPublicationPostgresTest {
                     .baselineOnMigrate(false).cleanDisabled(true).target("13").load();
             flyway.migrate();
             admin.execute("alter role praxis_bulk_control_owner login");
+            var originalHistory = admin.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
+            var originalSchemaAcl = admin.queryForObject("select nspacl::text from pg_namespace where nspname='praxis_bulk'", String.class);
             assertThatThrownBy(() -> BulkExecutionMigrator.migrate(source, Map.of(NS, DEPLOYMENT)))
-                    .isInstanceOf(RuntimeException.class).hasStackTraceContaining("bulk control-owner topology is unsafe before publication migration");
+                    .isInstanceOf(org.flywaydb.core.api.FlywayException.class)
+                    .hasMessageContaining("beforeEachMigrate")
+                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                    .hasRootCauseMessage("Publication predecessor dedicated role identity differs");
+            assertThat(admin.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank")).isEqualTo(originalHistory);
+            assertThat(admin.queryForObject("select nspacl::text from pg_namespace where nspname='praxis_bulk'", String.class)).isEqualTo(originalSchemaAcl);
+            assertThat(admin.queryForObject("select rolcanlogin from pg_roles where rolname='praxis_bulk_control_owner'", Boolean.class)).isTrue();
             assertThat(admin.queryForObject("select to_regclass('praxis_bulk.praxis_bulk_openapi_publication') is null", Boolean.class)).isTrue();
             assertThat(admin.queryForObject("select count(*) from pg_auth_members m join pg_roles r on r.oid=m.roleid "
                     + "join pg_roles member on member.oid=m.member where r.rolname='praxis_bulk_control_owner' "
