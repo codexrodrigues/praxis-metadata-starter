@@ -42,7 +42,10 @@ não cria uma autorização QUERY alternativa. O host não recebe API de claims,
 SQL de kernel ou instaladores por este contrato.
 
 Provas executadas em 08/10/2026: 18 testes PostgreSQL na fonte V2 e três testes
-estruturais na V3, com prova de artefato revisada e aceita independentemente; integração, publicação e adoção permanecem pendentes.
+estruturais na V3, com prova de artefato revisada e aceita independentemente.
+A integração da composição em fonte foi concluída pelo [PR254](https://github.com/codexrodrigues/praxis-metadata-starter/pull/254),
+commit `8c679ce6a564b6fa0406fe466a5cca49bea04152`. Publicação da versão e adoção
+no host permanecem pendentes; integração em fonte não comprova disponibilidade pública.
 A primeira campanha retornou exit1 por duas fixtures que mockavam classe final;
 a correção test-only teve rerun focal3/0falhas. Não foi executado verify integral.
 O consumidor foi compilado independentemente e executado contra o JAR privado
